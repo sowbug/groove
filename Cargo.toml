@@ -1,0 +1,12 @@
+[package]
+name = "groove"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.12"
+clap = { version = "3.1", default-features = false, features = ["std"] }
+cpal = "0.13.5"
+hound = "3.4"
+ringbuf = "0.2"
+rand = "0.6.1"
