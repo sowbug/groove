@@ -38,7 +38,7 @@ pub struct Quietener {
 }
 impl Quietener {
     pub fn new(source: Rc<RefCell<dyn DeviceTrait>>) -> Quietener {
-        Quietener { source: source }
+        Quietener { source }
     }
 }
 // TODO(miket): idea: ticks are called only if the entity was asked for its sample, as a power optimization

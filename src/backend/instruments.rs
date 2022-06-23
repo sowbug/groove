@@ -20,7 +20,7 @@ pub struct Oscillator {
 impl Oscillator {
     pub fn new(waveform: Waveform) -> Oscillator {
         Oscillator {
-            waveform: waveform,
+            waveform,
             current_sample: 0.,
             frequency: 0.,
         }

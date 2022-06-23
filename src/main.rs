@@ -4,20 +4,17 @@ extern crate cpal;
 mod backend;
 
 use crate::backend::orchestrator::Orchestrator;
-use crate::cpal::traits::DeviceTrait;
+
 use backend::{
     devices::DeviceTrait as GrooveDeviceTrait,
     effects::Quietener,
     instruments::{Oscillator, Sequencer, Waveform},
 };
 use clap::Parser;
-use cpal::{
-    traits::{HostTrait, StreamTrait},
-    StreamConfig,
-};
-use midly::{live::LiveEvent, MetaMessage, MidiMessage, TrackEventKind};
+
+use midly::{MidiMessage, TrackEventKind};
 use std::cell::RefCell;
-use std::fs::read;
+
 use std::rc::Rc;
 
 // TODO: Controller?
@@ -109,7 +106,7 @@ fn main() -> anyhow::Result<()> {
     let sequencer: Rc<RefCell<_>> = Rc::new(RefCell::new(Sequencer::new()));
 
     let data = std::fs::read("jingle_bells.mid").unwrap();
-    let mut smf = midly::Smf::parse(&data).unwrap();
+    let smf = midly::Smf::parse(&data).unwrap();
 
     // Use the information
     println!("midi file has {} tracks!", smf.tracks.len());
@@ -121,7 +118,7 @@ fn main() -> anyhow::Result<()> {
         let mut track_time_ticks: u32 = 0; // Each track's relative time references start over at zero
         for t in track.iter() {
             match t.kind {
-                TrackEventKind::Midi { channel, message } => {
+                TrackEventKind::Midi { channel: _, message } => {
                     let delta = t.delta;
                     track_time_ticks += delta.as_int();
                     match message {
@@ -140,7 +137,7 @@ fn main() -> anyhow::Result<()> {
                                 // println!("note {} ON at time {}", key, time);
                             }
                         }
-                        MidiMessage::NoteOff { key, vel } => {
+                        MidiMessage::NoteOff { key, vel: _ } => {
                             println!("note {} OFF at time {}", key, track_time_ticks);
                             sequencer.borrow_mut().add_note_off(
                                 key.as_int(),
@@ -154,22 +151,22 @@ fn main() -> anyhow::Result<()> {
                 }
                 TrackEventKind::Meta(meta_message) => match meta_message {
                     midly::MetaMessage::TimeSignature(
-                        (numerator),
-                        (denominator_exp),
-                        (cc),
-                        (bb),
+                        _numerator,
+                        _denominator_exp,
+                        cc,
+                        _bb,
                     ) => {
                         ticks_per_click = cc as f32;
                         println!("ticks per click {}", ticks_per_click);
                     }
-                    midly::MetaMessage::Tempo((tempo)) => {
+                    midly::MetaMessage::Tempo(tempo) => {
                         println!("microseconds per beat: {}", tempo);
                         // TODO: handle time signatures
                         bpm = 60.0 * 4.0 / (1000000.0 / (tempo.as_int() as f32));
                         seconds_per_tick = 1. / (ticks_per_click * 4. * 2.);
                         println!("BPM: {}. seconds per tick: {}", bpm, seconds_per_tick);
                     }
-                    midly::MetaMessage::TrackNumber((track_opt)) => {
+                    midly::MetaMessage::TrackNumber(track_opt) => {
                         if track_opt.is_none() {
                             continue;
                         }
@@ -202,10 +199,10 @@ fn main() -> anyhow::Result<()> {
 
     sequencer
         .borrow_mut()
-        .connect_midi_sink(square_oscillator.clone());
+        .connect_midi_sink(square_oscillator);
     sequencer
         .borrow_mut()
-        .connect_midi_sink(sine_oscillator.clone());
+        .connect_midi_sink(sine_oscillator);
 
     if should_write_output {
         orchestrator.perform_to_file(&output_filename)
