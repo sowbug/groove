@@ -48,11 +48,12 @@ impl DeviceTrait for Oscillator {
         }
     }
     fn handle_midi_message(&mut self, note: u8) {
-        self.frequency = match note {
-            60 => 261.63,
-            66 => 392.00,
-            _ => 0.,
-        }
+        // self.frequency = match note {
+        //     60 => 261.63,
+        //     66 => 392.00,
+        //     _ => 0.,
+        // }
+        self.frequency = 2.0_f32.powf((note as f32 - 69.0) / 12.0) * 440.0;
     }
     fn get_audio_sample(&self) -> f32 {
         self.current_sample
