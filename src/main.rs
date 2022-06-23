@@ -8,8 +8,7 @@ use crate::backend::orchestrator::Orchestrator;
 use backend::{
     devices::DeviceTrait,
     effects::Quietener,
-    instruments::{Oscillator, Waveform},
-    midi::Sequencer,
+    instruments::{Oscillator, Waveform, Sequencer},
 };
 use cpal::{
     traits::{HostTrait, StreamTrait},

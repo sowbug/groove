@@ -1,9 +1,10 @@
-use crate::backend::clock::Clock;
-use crate::backend::midi;
-use crate::backend::midi::MIDIReceiverTrait;
-use std::f32::consts::PI;
-
+use super::clock::Clock;
 use super::devices::DeviceTrait;
+use super::midi::{MidiMessage, MidiMessageType};
+use crate::backend::midi;
+use std::cell::RefCell;
+use std::f32::consts::PI;
+use std::rc::Rc;
 pub enum Waveform {
     Sine,
     Square,
@@ -51,43 +52,64 @@ impl DeviceTrait for Oscillator {
             self.current_sample = 0.
         }
     }
-    fn handle_midi_message(&mut self, note: u8) {
-        self.frequency = match note {
-            0 => 0.,
-            _ => 2.0_f32.powf((note as f32 - 69.0) / 12.0) * 440.0,
-        };    }
+    fn handle_midi_message(&mut self, message: &MidiMessage) {
+        match message.status {
+            midi::MidiMessageType::NoteOn => {
+                self.frequency = message.to_frequency();
+            }
+            midi::MidiMessageType::NoteOff => {
+                self.frequency = 0.;
+            }
+        }
+    }
+
     fn get_audio_sample(&self) -> f32 {
         self.current_sample
     }
 }
 
-pub struct old_Oscillator {
-    frequency: f32,
+pub struct Sequencer {
+    sinks: Vec<Rc<RefCell<dyn DeviceTrait>>>,
 }
 
-impl old_Oscillator {
-    pub fn new() -> old_Oscillator {
-        old_Oscillator { frequency: 0. }
-    }
-
-    pub fn get_sample(&self, clock: &Clock) -> f32 {
-        (clock.sample_clock * self.frequency * 2.0 * std::f32::consts::PI / clock.sample_rate).sin()
+impl Sequencer {
+    pub fn new() -> Sequencer {
+        Sequencer { sinks: Vec::new() }
     }
 }
 
-impl MIDIReceiverTrait for old_Oscillator {
-    fn handle_midi(&mut self, midi_message: midi::MIDIMessage) -> bool {
-        match midi_message.status {
-            midi::MIDIMessageType::NoteOn => {
-                self.frequency = midi_message.to_frequency();
-                ()
-            }
-            midi::MIDIMessageType::NoteOff => {
-                println!("note off");
-                self.frequency = 0.;
-                ()
-            }
-        }
+impl DeviceTrait for Sequencer {
+    fn sources_midi(&self) -> bool {
         true
+    }
+
+    fn tick(&mut self, clock: &Clock) {
+        let note = if clock.real_clock < 0.25 {
+            0
+        } else if clock.real_clock < 0.50 {
+            60
+        } else if clock.real_clock < 0.75 {
+            66
+        } else {
+            0
+        };
+
+        let message_type = match note {
+            0 => MidiMessageType::NoteOff,
+            _ => MidiMessageType::NoteOn,
+        };
+        let message = MidiMessage {
+            status: message_type,
+            channel: 0,
+            data1: note,
+            data2: 0,
+        };
+        for i in self.sinks.clone() {
+            i.borrow_mut().handle_midi_message(&message);
+        }
+    }
+
+    fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
+        self.sinks.push(device);
     }
 }

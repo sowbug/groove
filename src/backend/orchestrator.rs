@@ -2,11 +2,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::backend::clock::Clock;
-use crate::backend::clock::ClockWatcherTrait;
 use crate::backend::devices::DeviceTrait;
-use crate::backend::instruments::old_Oscillator;
 use crate::backend::effects::Mixer;
-use crate::backend::sequencer::old_Sequencer;
 
 pub struct Orchestrator {
     // https://en.wikipedia.org/wiki/Time_signature

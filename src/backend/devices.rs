@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::clock::Clock;
+use super::midi::MidiMessage;
 
 // Composition of AudioSource and AudioSink and a bunch of other stuff.
 // See https://users.rust-lang.org/t/dyn-multiple-traits-in-a-type-alias/21051
@@ -19,11 +20,11 @@ pub trait DeviceTrait {
         false
     }
 
-    fn tick(&mut self, clock: &Clock) {}
+    fn tick(&mut self, _clock: &Clock) {}
     fn get_audio_sample(&self) -> f32 {
         0.
     }
     fn add_audio_source(&mut self, _audio_instrument: Rc<RefCell<dyn DeviceTrait>>) {}
     fn connect_midi_sink(&mut self, _audio_instrument: Rc<RefCell<dyn DeviceTrait>>) {}
-    fn handle_midi_message(&mut self, _note: u8) {}
+    fn handle_midi_message(&mut self, _message: &MidiMessage) {}
 }
