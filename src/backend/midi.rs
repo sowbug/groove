@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::collections::VecDeque;
 use std::rc::Rc;
 pub enum MIDIMessageType {
     NoteOn = 0x1001,
@@ -28,6 +27,7 @@ pub trait MIDIReceiverTrait {
     fn handle_midi(&mut self, midi_message: MIDIMessage) -> bool;
 }
 
+use super::clock::Clock;
 use super::devices::DeviceTrait;
 
 pub struct Sequencer {
@@ -45,12 +45,12 @@ impl DeviceTrait for Sequencer {
         true
     }
 
-    fn tick(&mut self, time: f32) {
-        let note = if time < 0.25 {
+    fn tick(&mut self, clock: &Clock) {
+        let note = if clock.real_clock < 0.25 {
             0
-        } else if time < 0.50 {
+        } else if clock.real_clock < 0.50 {
             60
-        } else if time < 0.75 {
+        } else if clock.real_clock < 0.75 {
             66
         } else {
             0

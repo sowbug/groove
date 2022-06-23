@@ -31,12 +31,16 @@ impl DeviceTrait for Oscillator {
     fn sources_audio(&self) -> bool {
         true
     }
-    fn tick(&mut self, time: f32) {
+    fn tick(&mut self, clock: &Clock) {
         if self.frequency > 0. {
             self.current_sample = match self.waveform {
-                Waveform::Sine => (time * self.frequency * 2.0 * PI).sin(),
+                Waveform::Sine => {
+                    (clock.sample_clock / clock.sample_rate * self.frequency * 2.0 * PI).sin()
+                }
                 Waveform::Square => {
-                    if ((time * self.frequency * 2.0 * PI).sin()) < 0. {
+                    if ((clock.sample_clock / clock.sample_rate * self.frequency * 2.0 * PI).sin())
+                        < 0.
+                    {
                         -1.
                     } else {
                         1. // TODO(miket): this is lazy and wrong

@@ -53,19 +53,22 @@ impl Orchestrator {
         let mut writer = hound::WavWriter::create("sine.wav", spec).unwrap();
         let amplitude = i16::MAX as f32;
 
-        for t in 0..spec.sample_rate {
+        let mut clock = Clock::new(spec.sample_rate as f32);
+        while clock.real_clock < 1.0 {
             for d in self.devices.clone() {
                 if d.borrow().sources_midi() {
-                    d.borrow_mut().tick(t as f32 / spec.sample_rate as f32);
+                    d.borrow_mut().tick(&clock);
                 }
             }
             for d in self.devices.clone() {
                 if d.borrow().sources_audio() {
-                    d.borrow_mut().tick(t as f32 / spec.sample_rate as f32);
+                    d.borrow_mut().tick(&clock);
                 }
             }
             let sample = self.master_mixer.borrow().get_audio_sample();
             writer.write_sample((sample * amplitude) as i16).unwrap();
+            
+            clock.tick();
         }
     }
 

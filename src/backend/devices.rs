@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use super::clock::Clock;
+
 // Composition of AudioSource and AudioSink and a bunch of other stuff.
 // See https://users.rust-lang.org/t/dyn-multiple-traits-in-a-type-alias/21051
 pub trait DeviceTrait {
@@ -17,7 +19,7 @@ pub trait DeviceTrait {
         false
     }
 
-    fn tick(&mut self, _time: f32) {}
+    fn tick(&mut self, clock: &Clock) {}
     fn get_audio_sample(&self) -> f32 {
         0.
     }
