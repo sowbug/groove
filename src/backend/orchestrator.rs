@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-
 use crate::backend::clock::Clock;
 use crate::backend::devices::DeviceTrait;
 use crate::backend::effects::Mixer;
@@ -26,11 +25,6 @@ impl Orchestrator {
             devices: Vec::new(),
         }
     }
-
-    // pub fn tmp_add_some_notes(&mut self) {
-    //     self.sequencer.add_note(60, 0.25, 0.2);
-    //     self.sequencer.add_note(66, 0.50, 0.2);
-    // }
 
     pub fn add_device(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
         self.devices.push(device);
@@ -61,7 +55,7 @@ impl Orchestrator {
         let mut writer = hound::WavWriter::create(output_filename, spec).unwrap();
         let amplitude = i16::MAX as f32;
 
-        while self.clock.real_clock < 1.0 {
+        while self.clock.real_clock < 20.0 {
             let sample = self.tick();
             writer.write_sample((sample * amplitude) as i16).unwrap();
         }

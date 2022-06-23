@@ -3,6 +3,7 @@ use super::devices::DeviceTrait;
 use super::midi::{MidiMessage, MidiMessageType};
 use crate::backend::midi;
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::f32::consts::PI;
 use std::rc::Rc;
 pub enum Waveform {
@@ -68,13 +69,28 @@ impl DeviceTrait for Oscillator {
     }
 }
 
+pub struct Note {
+    which: u8,
+    when: f32,
+}
 pub struct Sequencer {
     sinks: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    note_events: VecDeque<Note>,
 }
 
 impl Sequencer {
     pub fn new() -> Sequencer {
-        Sequencer { sinks: Vec::new() }
+        Sequencer {
+            sinks: Vec::new(),
+            note_events: VecDeque::new(),
+        }
+    }
+
+    pub fn add_note_on(&mut self, which: u8, when: f32) {
+        self.note_events.push_back(Note { which, when });
+    }
+    pub fn add_note_off(&mut self, which: u8, when: f32) {
+        self.note_events.push_back(Note { which, when });
     }
 }
 
@@ -84,28 +100,22 @@ impl DeviceTrait for Sequencer {
     }
 
     fn tick(&mut self, clock: &Clock) {
-        let note = if clock.real_clock < 0.25 {
-            0
-        } else if clock.real_clock < 0.50 {
-            60
-        } else if clock.real_clock < 0.75 {
-            66
+        let note = self.note_events.pop_front().unwrap();
+        if clock.real_clock >= note.when {
+            let midi_message = MidiMessage {
+                status: MidiMessageType::NoteOn,
+                channel: 0,
+                data1: note.which,
+                data2: 0,
+            };
+            println!("I'm sending a note {} at {}", clock.real_clock, note.which);
+            for i in self.sinks.clone() {
+                i.borrow_mut().handle_midi_message(&midi_message);
+            }
         } else {
-            0
-        };
-
-        let message_type = match note {
-            0 => MidiMessageType::NoteOff,
-            _ => MidiMessageType::NoteOn,
-        };
-        let message = MidiMessage {
-            status: message_type,
-            channel: 0,
-            data1: note,
-            data2: 0,
-        };
-        for i in self.sinks.clone() {
-            i.borrow_mut().handle_midi_message(&message);
+            // TODO(miket): I had to always pop always and then sometimes re-push because
+            // I can't figure out how to get around the borrow checker if I use just a front().
+            self.note_events.push_front(note);
         }
     }
 

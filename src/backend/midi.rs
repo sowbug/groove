@@ -1,6 +1,6 @@
 pub enum MidiMessageType {
     NoteOn = 0x1001,
-    NoteOff = 0x1000,
+    _NoteOff = 0x1000,
 }
 pub struct MidiMessage {
     // status and channel are normally packed into one byte, but for ease of use

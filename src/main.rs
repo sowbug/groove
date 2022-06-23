@@ -15,7 +15,9 @@ use cpal::{
     traits::{HostTrait, StreamTrait},
     StreamConfig,
 };
+use midly::{live::LiveEvent, MetaMessage, MidiMessage, TrackEventKind};
 use std::cell::RefCell;
+use std::fs::read;
 use std::rc::Rc;
 
 // TODO: Controller?
@@ -104,9 +106,87 @@ fn main() -> anyhow::Result<()> {
         Rc::new(RefCell::new(Quietener::new(square_oscillator.clone())));
     orchestrator.add_device(quietener.clone());
 
-    let midi_instrument: Rc<RefCell<_>> = Rc::new(RefCell::new(Sequencer::new()));
+    let sequencer: Rc<RefCell<_>> = Rc::new(RefCell::new(Sequencer::new()));
 
-    orchestrator.add_device(midi_instrument.clone());
+    let data = std::fs::read("jingle_bells.mid").unwrap();
+    let mut smf = midly::Smf::parse(&data).unwrap();
+
+    // Use the information
+    println!("midi file has {} tracks!", smf.tracks.len());
+
+    let mut bpm: f32 = 0.;
+    let mut ticks_per_click: f32 = 0.;
+    let mut seconds_per_tick: f32 = 0.;
+    for track in smf.tracks.iter() {
+        //println!("track thingie {:?}", track);
+        let mut time: u32 = 0;
+        for t in track.iter() {
+            match t.kind {
+                TrackEventKind::Midi { channel, message } => {
+                    let delta = t.delta;
+                    time += delta.as_int();
+                    match message {
+                        MidiMessage::NoteOn { key, vel } => {
+                            if vel == 0 {
+                                sequencer
+                                    .borrow_mut()
+                                    .add_note_off(key.as_int(), time as f32 * seconds_per_tick);
+                                // println!("note {} DE FACTO OFF at time {}", key, time);
+                            } else {
+                                sequencer
+                                    .borrow_mut()
+                                    .add_note_on(key.as_int(), time as f32 * seconds_per_tick);
+                                // println!("note {} ON at time {}", key, time);
+                            }
+                        }
+                        MidiMessage::NoteOff { key, vel } => {
+                            println!("note {} OFF at time {}", key, time);
+                            sequencer
+                                .borrow_mut()
+                                .add_note_off(key.as_int(), time as f32 * seconds_per_tick);
+                        }
+                        _ => {
+                            // println!("skipping {:?}", message);
+                        }
+                    }
+                }
+                TrackEventKind::Meta(meta_message) => match meta_message {
+                    midly::MetaMessage::TimeSignature(
+                        (numerator),
+                        (denominator_exp),
+                        (cc),
+                        (bb),
+                    ) => {
+                        ticks_per_click = cc as f32;
+                        println!("ticks per click {}", ticks_per_click);
+                    }
+                    midly::MetaMessage::Tempo((tempo)) => {
+                        println!("microseconds per beat: {}", tempo);
+                        // TODO: handle time signatures
+                        bpm = 60.0 * 4.0 / (1000000.0 / (tempo.as_int() as f32));
+                        seconds_per_tick = 1. / (ticks_per_click * 4. * 2.);
+                        println!("BPM: {}. seconds per tick: {}", bpm, seconds_per_tick);
+                    }
+                    midly::MetaMessage::TrackNumber((track_opt)) => {
+                        if track_opt.is_none() {
+                            continue;
+                        }
+                        let track_number = track_opt.unwrap();
+                        if track_number > 2 {
+                            continue;
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {
+                    //        println!("skipping {:?}", t.kind);
+                }
+            }
+            //println!("track event {:?}", t.kind);
+        }
+    }
+
+    orchestrator.add_device(sequencer.clone());
 
     quietener
         .borrow_mut()
@@ -118,17 +198,17 @@ fn main() -> anyhow::Result<()> {
         mixer.add_audio_source(sine_oscillator.clone());
     }
 
-    midi_instrument
+    sequencer
         .borrow_mut()
         .connect_midi_sink(square_oscillator.clone());
-    midi_instrument
+    sequencer
         .borrow_mut()
         .connect_midi_sink(sine_oscillator.clone());
 
     if should_write_output {
         orchestrator.perform_to_file(&output_filename)
     } else {
-        Ok(())  // TODO
-        //perform_to_output_device(orchestrator)
+        Ok(()) // TODO
+               //perform_to_output_device(orchestrator)
     }
 }
