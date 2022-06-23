@@ -1,9 +1,8 @@
-use crate::clock::Clock;
-use crate::clock::ClockWatcherTrait;
-use crate::instruments::Oscillator;
-use crate::midi::MIDIMessage;
-use crate::midi::MIDIMessageType;
-use crate::midi::MIDIReceiverTrait;
+use crate::backend::clock::Clock;
+use crate::backend::clock::ClockWatcherTrait;
+use crate::backend::instruments::old_Oscillator;
+use crate::backend::midi;
+use crate::backend::midi::MIDIReceiverTrait;
 use std::collections::VecDeque;
 
 pub struct Note {
@@ -11,16 +10,15 @@ pub struct Note {
     which: u8,
 }
 
-pub struct Sequencer {
-    pub oscillator: Oscillator,
-    //midi_messages: Vec<MIDIMessage>,
+pub struct old_Sequencer {
+    oscillator: old_Oscillator,
     notes: VecDeque<Note>,
 }
 
-impl Sequencer {
-    pub fn new() -> Sequencer {
-        Sequencer {
-            oscillator: Oscillator::new(),
+impl old_Sequencer {
+    pub fn new() -> old_Sequencer {
+        old_Sequencer {
+            oscillator: old_Oscillator::new(),
             notes: VecDeque::new(),
         }
     }
@@ -30,15 +28,19 @@ impl Sequencer {
             which: which,
         });
     }
+
+    pub fn attach(&self, oscillator: old_Oscillator) {
+       // self.oscillator = oscillator;
+    }
 }
 
-impl ClockWatcherTrait for Sequencer {
+impl ClockWatcherTrait for old_Sequencer {
     fn handle_time_slice(&mut self, clock: &Clock) -> bool {
         if !self.notes.is_empty() {
             let note = self.notes.pop_front().unwrap();
             if clock.real_clock >= note.when {
-                let midi_message = MIDIMessage {
-                    status: MIDIMessageType::NoteOn,
+                let midi_message = midi::MIDIMessage {
+                    status: midi::MIDIMessageType::NoteOn,
                     channel: 0,
                     data1: note.which,
                     data2: 0,
