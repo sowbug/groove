@@ -1,26 +1,34 @@
+extern crate anyhow;
+extern crate cpal;
+
 mod backend;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::backend::orchestrator::Orchestrator;
-
+use crate::cpal::traits::DeviceTrait;
 use backend::{
-    devices::DeviceTrait,
+    devices::DeviceTrait as GrooveDeviceTrait,
     effects::Quietener,
-    instruments::{Oscillator, Waveform, Sequencer},
+    instruments::{Oscillator, Sequencer, Waveform},
 };
+use clap::Parser;
 use cpal::{
     traits::{HostTrait, StreamTrait},
     StreamConfig,
 };
+use std::cell::RefCell;
+use std::rc::Rc;
 
 // TODO: Controller?
 
-// fn old_main() -> anyhow::Result<()> {
-//     let mut orchestrator: Orchestrator = Orchestrator::new();
-//     orchestrator.tmp_add_some_notes();
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Output filename
+    #[clap(short, long, value_parser)]
+    out: Option<String>,
+}
 
+// fn perform_to_output_device(orchestrator: Orchestrator) -> anyhow::Result<()> {
 //     let host = cpal::default_host();
 //     let device = host
 //         .default_output_device()
@@ -72,7 +80,18 @@ use cpal::{
 // }
 
 fn main() -> anyhow::Result<()> {
-    let mut orchestrator = Orchestrator::new();
+    let args = Args::parse();
+
+    let output_filename = args.out.unwrap_or_default();
+    let should_write_output = if output_filename.is_empty() {
+        println!("will output to speaker");
+        false
+    } else {
+        println!("will output to {}", output_filename);
+        true
+    };
+
+    let mut orchestrator = Orchestrator::new(44100); // TODO: get this from cpal
 
     let square_oscillator: Rc<RefCell<_>> =
         Rc::new(RefCell::new(Oscillator::new(Waveform::Square)));
@@ -106,6 +125,10 @@ fn main() -> anyhow::Result<()> {
         .borrow_mut()
         .connect_midi_sink(sine_oscillator.clone());
 
-    orchestrator.play();
-    Ok(())
+    if should_write_output {
+        orchestrator.perform_to_file(&output_filename)
+    } else {
+        Ok(())  // TODO
+        //perform_to_output_device(orchestrator)
+    }
 }
