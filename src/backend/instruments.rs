@@ -58,7 +58,7 @@ impl DeviceTrait for Oscillator {
             midi::MidiMessageType::NoteOn => {
                 self.frequency = message.to_frequency();
             }
-            midi::MidiMessageType::NoteOff => {
+            midi::MidiMessageType::_NoteOff => {
                 self.frequency = 0.;
             }
         }
