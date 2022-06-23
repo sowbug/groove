@@ -118,32 +118,34 @@ fn main() -> anyhow::Result<()> {
     let mut ticks_per_click: f32 = 0.;
     let mut seconds_per_tick: f32 = 0.;
     for track in smf.tracks.iter() {
-        //println!("track thingie {:?}", track);
-        let mut time: u32 = 0;
+        let mut track_time_ticks: u32 = 0; // Each track's relative time references start over at zero
         for t in track.iter() {
             match t.kind {
                 TrackEventKind::Midi { channel, message } => {
                     let delta = t.delta;
-                    time += delta.as_int();
+                    track_time_ticks += delta.as_int();
                     match message {
                         MidiMessage::NoteOn { key, vel } => {
                             if vel == 0 {
-                                sequencer
-                                    .borrow_mut()
-                                    .add_note_off(key.as_int(), time as f32 * seconds_per_tick);
+                                sequencer.borrow_mut().add_note_off(
+                                    key.as_int(),
+                                    track_time_ticks as f32 * seconds_per_tick,
+                                );
                                 // println!("note {} DE FACTO OFF at time {}", key, time);
                             } else {
-                                sequencer
-                                    .borrow_mut()
-                                    .add_note_on(key.as_int(), time as f32 * seconds_per_tick);
+                                sequencer.borrow_mut().add_note_on(
+                                    key.as_int(),
+                                    track_time_ticks as f32 * seconds_per_tick,
+                                );
                                 // println!("note {} ON at time {}", key, time);
                             }
                         }
                         MidiMessage::NoteOff { key, vel } => {
-                            println!("note {} OFF at time {}", key, time);
-                            sequencer
-                                .borrow_mut()
-                                .add_note_off(key.as_int(), time as f32 * seconds_per_tick);
+                            println!("note {} OFF at time {}", key, track_time_ticks);
+                            sequencer.borrow_mut().add_note_off(
+                                key.as_int(),
+                                track_time_ticks as f32 * seconds_per_tick,
+                            );
                         }
                         _ => {
                             // println!("skipping {:?}", message);
