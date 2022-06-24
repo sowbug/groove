@@ -1,0 +1,26 @@
+__ticks __seconds ch event__________ data____
+      0    0.0000 -- SMF Header      Format=1, Tracks=2, Division=120
+      0    0.0000 -- Track           Start: 1
+      0    0.0000 -- Time Signature  4, 2, 24, 8
+      0    0.0000 -- Key Signature   0, 0
+      0    0.0000 -- Tempo           500000
+      0    0.0000 -- Meta Event      End Of Track
+      0    0.0000 -- Track           End: 1
+      0    0.0000 -- Track           Start: 2
+      0    0.0000  0 Program Change  0
+      0    0.0000  0 Note On         72, 127
+    119    0.4956  0 Note On         74, 100
+    119    0.4956  0 Note Off        72, 0
+    238    0.9919  0 Note On         76, 120
+    239    0.9956  0 Note Off        74, 0
+    358    1.4919  0 Note Off        76, 0
+    417    1.7375  0 Note On         72, 100
+    479    1.9956  0 Note On         76, 100
+    482    2.0081  0 Note Off        72, 0
+    598    2.4919  0 Note Off        76, 0
+    600    2.5000  0 Note On         72, 100
+    720    3.0000  0 Note Off        72, 0
+    724    3.0169  0 Note On         76, 100
+    844    3.5169  0 Note Off        76, 0
+    844    3.5169 -- Meta Event      End Of Track
+    844    3.5169 -- Track           End: 2
