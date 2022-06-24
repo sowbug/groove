@@ -14,7 +14,3 @@ impl Clock {
         self.real_clock += 1. / self.sample_rate;
     }
 }
-
-pub trait ClockWatcherTrait {
-    fn handle_time_slice(&mut self, clock: &Clock) -> bool;
-}
