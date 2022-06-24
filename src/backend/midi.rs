@@ -28,13 +28,9 @@ impl MidiMessage {
 pub struct MidiReader {}
 
 impl MidiReader {
-    pub fn load_sequencer(data: &Vec<u8>, sequencer: Rc<RefCell<Sequencer>>) {
-        let smf = midly::Smf::parse(&data).unwrap();
+    pub fn load_sequencer(data: &[u8], sequencer: Rc<RefCell<Sequencer>>) {
+        let smf = midly::Smf::parse(data).unwrap();
 
-        // Use the information
-        println!("midi file has {} tracks!", smf.tracks.len());
-
-        let mut bpm: f32 = 0.;
         let mut ticks_per_click: f32 = 0.;
         let mut seconds_per_tick: f32 = 0.;
         for track in smf.tracks.iter() {
@@ -88,7 +84,7 @@ impl MidiReader {
                         midly::MetaMessage::Tempo(tempo) => {
                             println!("microseconds per beat: {}", tempo);
                             // TODO: handle time signatures
-                            bpm = 60.0 * 4.0 / (1000000.0 / (tempo.as_int() as f32));
+                            let bpm = 60.0 * 4.0 / (1000000.0 / (tempo.as_int() as f32));
                             seconds_per_tick = 1. / (ticks_per_click * 4. * 2.);
                             println!("BPM: {}. seconds per tick: {}", bpm, seconds_per_tick);
                         }

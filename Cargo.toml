@@ -7,6 +7,7 @@ edition = "2021"
 anyhow = "1.0.12"
 clap = { version = "3.2.6", features = ["derive"] }
 cpal = "0.13.5"
+crossbeam = "0.8"
 hound = "3.4"
 midly = "0.5.2"
 ringbuf = "0.2"

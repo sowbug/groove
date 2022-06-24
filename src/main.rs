@@ -8,9 +8,15 @@ use crate::backend::orchestrator::Orchestrator;
 use backend::{
     devices::DeviceTrait,
     effects::Quietener,
-    instruments::{Oscillator, Sequencer, Waveform}, midi::MidiReader,
+    instruments::{Oscillator, Sequencer, Waveform},
+    midi::MidiReader,
 };
 use clap::Parser;
+use cpal::{
+    traits::{DeviceTrait as CpalDeviceTrait, HostTrait, StreamTrait},
+    SampleRate, StreamConfig,
+};
+use crossbeam::deque::{Stealer, Worker};
 
 use std::{cell::RefCell};
 
@@ -26,56 +32,95 @@ struct Args {
     out: Option<String>,
 }
 
-// fn perform_to_output_device(orchestrator: Orchestrator) -> anyhow::Result<()> {
-//     let host = cpal::default_host();
-//     let device = host
-//         .default_output_device()
-//         .expect("no output device available");
+pub fn get_sample_from_queue<T: cpal::Sample>(
+    stealer: &Stealer<f32>,
+    data: &mut [T],
+    _info: &cpal::OutputCallbackInfo,
+) {
+    for next_sample in data.iter_mut() {
+        let sample_option = stealer.steal();
+        let sample: f32 = if sample_option.is_success() {
+            sample_option.success().unwrap_or_default()
+        } else {
+            0.
+        };
+        *next_sample = cpal::Sample::from(&sample);
+    }
+}
 
-//     let mut supported_configs_range = device
-//         .supported_output_configs()
-//         .expect("error while querying configs");
-//     let supported_config = supported_configs_range
-//         .next()
-//         .expect("no supported config?!")
-//         .with_max_sample_rate();
+fn send_performance_to_output_device(sample_rate: u32, worker: &Worker<f32>) -> anyhow::Result<()> {
+    let host = cpal::default_host();
+    let device = host
+        .default_output_device()
+        .expect("no output device available");
 
-//     let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
-//     let sample_format = supported_config.sample_format();
-//     let config: StreamConfig = supported_config.into();
+    let mut supported_configs_range = device
+        .supported_output_configs()
+        .expect("error while querying configs");
+    let supported_config = supported_configs_range
+        .next()
+        .expect("no supported config?!")
+        .with_sample_rate(SampleRate(sample_rate));
 
-//     orchestrator.clock.sample_rate = config.sample_rate.0 as f32;
-//     orchestrator.clock.sample_clock = 0f32;
+    let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
+    let sample_format = supported_config.sample_format();
+    let config: StreamConfig = supported_config.into();
 
-//     let stream = match sample_format {
-//         cpal::SampleFormat::F32 => device.build_output_stream(
-//             &config,
-//             move |data, output_callback_info| {
-//                 orchestrator.write_sample_data::<f32>(data, output_callback_info)
-//             },
-//             err_fn,
-//         ),
-//         cpal::SampleFormat::I16 => device.build_output_stream(
-//             &config,
-//             move |data, output_callback_info| {
-//                 orchestrator.write_sample_data::<i16>(data, output_callback_info)
-//             },
-//             err_fn,
-//         ),
-//         cpal::SampleFormat::U16 => device.build_output_stream(
-//             &config,
-//             move |data, output_callback_info| {
-//                 orchestrator.write_sample_data::<u16>(data, output_callback_info)
-//             },
-//             err_fn,
-//         ),
-//     }
-//     .unwrap();
+    let stealer = worker.stealer();
 
-//     stream.play()?;
-//     std::thread::sleep(std::time::Duration::from_millis(3000));
-//     Ok(())
-// }
+    let stream = match sample_format {
+        cpal::SampleFormat::F32 => device.build_output_stream(
+            &config,
+            move |data, output_callback_info| {
+                get_sample_from_queue::<f32>(&stealer, data, output_callback_info)
+            },
+            err_fn,
+        ),
+        cpal::SampleFormat::I16 => device.build_output_stream(
+            &config,
+            move |data, output_callback_info| {
+                get_sample_from_queue::<i16>(&stealer, data, output_callback_info)
+            },
+            err_fn,
+        ),
+        cpal::SampleFormat::U16 => device.build_output_stream(
+            &config,
+            move |data, output_callback_info| {
+                get_sample_from_queue::<u16>(&stealer, data, output_callback_info)
+            },
+            err_fn,
+        ),
+    }
+    .unwrap();
+
+    stream.play()?;
+    while !worker.is_empty() {
+        // TODO(miket): learn how thread sync primitives work in Rust
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    Ok(())
+}
+
+pub fn send_performance_to_file(
+    sample_rate: u32,
+    output_filename: &str,
+    worker: &Worker<f32>,
+) -> anyhow::Result<()> {
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer = hound::WavWriter::create(output_filename, spec).unwrap();
+    let amplitude = i16::MAX as f32;
+
+    while !worker.is_empty() {
+        let sample = worker.pop().unwrap_or_default();
+        writer.write_sample((sample * amplitude) as i16).unwrap();
+    }
+    Ok(())
+}
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
@@ -89,7 +134,8 @@ fn main() -> anyhow::Result<()> {
         true
     };
 
-    let mut orchestrator = Orchestrator::new(44100); // TODO: get this from cpal
+    // TODO: get this from cpal. Today cpal gets it from this hardcoded value.
+    let mut orchestrator = Orchestrator::new(44100);
 
     let square_oscillator: Rc<RefCell<_>> =
         Rc::new(RefCell::new(Oscillator::new(Waveform::Square)));
@@ -119,17 +165,17 @@ fn main() -> anyhow::Result<()> {
         mixer.add_audio_source(sine_oscillator.clone());
     }
 
-    sequencer
-        .borrow_mut()
-        .connect_midi_sink(square_oscillator);
-    sequencer
-        .borrow_mut()
-        .connect_midi_sink(sine_oscillator);
+    sequencer.borrow_mut().connect_midi_sink(square_oscillator);
+    sequencer.borrow_mut().connect_midi_sink(sine_oscillator);
+
+    let worker = Worker::<f32>::new_fifo();
+    let sample_rate = orchestrator.clock.sample_rate as u32;
+    let result = orchestrator.perform_to_queue(&worker);
+    if result.is_err() { return result; }
 
     if should_write_output {
-        orchestrator.perform_to_file(&output_filename)
+        send_performance_to_file(sample_rate, &output_filename, &worker)
     } else {
-        Ok(()) // TODO
-               //perform_to_output_device(orchestrator)
+        send_performance_to_output_device(sample_rate, &worker)
     }
 }

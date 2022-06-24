@@ -1,5 +1,7 @@
+use crossbeam::deque::Worker;
 use std::cell::RefCell;
 use std::rc::Rc;
+
 use crate::backend::clock::Clock;
 use crate::backend::devices::DeviceTrait;
 use crate::backend::effects::Mixer;
@@ -45,31 +47,11 @@ impl Orchestrator {
         self.master_mixer.borrow().get_audio_sample()
     }
 
-    pub fn perform_to_file(&mut self, output_filename: &str) -> anyhow::Result<()> {
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: 44100,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        let mut writer = hound::WavWriter::create(output_filename, spec).unwrap();
-        let amplitude = i16::MAX as f32;
-
+    pub fn perform_to_queue(&mut self, worker: &Worker<f32>) -> anyhow::Result<()> {
         while self.clock.real_clock < 20.0 {
             let sample = self.tick();
-            writer.write_sample((sample * amplitude) as i16).unwrap();
+            worker.push(sample);
         }
         Ok(())
-    }
-
-    pub fn write_sample_data<T: cpal::Sample>(
-        &mut self,
-        data: &mut [T],
-        _info: &cpal::OutputCallbackInfo,
-    ) {
-        for next_sample in data.iter_mut() {
-            let one_sample = self.tick();
-            *next_sample = cpal::Sample::from(&one_sample);
-        }
     }
 }
