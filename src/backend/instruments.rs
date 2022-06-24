@@ -9,6 +9,8 @@ use std::rc::Rc;
 pub enum Waveform {
     Sine,
     Square,
+    Triangle,
+    Sawtooth,
 }
 
 pub struct Oscillator {
@@ -35,19 +37,19 @@ impl DeviceTrait for Oscillator {
     }
     fn tick(&mut self, clock: &Clock) {
         if self.frequency > 0. {
+            let phase_normalized = (clock.sample_clock / clock.sample_rate * self.frequency) % 1.0;
             self.current_sample = match self.waveform {
-                Waveform::Sine => {
-                    (clock.sample_clock / clock.sample_rate * self.frequency * 2.0 * PI).sin()
+                // https://en.wikipedia.org/wiki/Sine_wave
+                // https://en.wikipedia.org/wiki/Square_wave
+                // https://en.wikipedia.org/wiki/Triangle_wave
+                // https://en.wikipedia.org/wiki/Sawtooth_wave
+                Waveform::Sine => (phase_normalized * 2.0 * PI).sin(),
+                Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
+                Waveform::Triangle => {
+                    4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
                 }
-                Waveform::Square => {
-                    if ((clock.sample_clock / clock.sample_rate * self.frequency * 2.0 * PI).sin())
-                        < 0.
-                    {
-                        -1.
-                    } else {
-                        1. // TODO(miket): this is lazy and wrong
-                    }
-                }
+
+                Waveform::Sawtooth => 2.0 * (phase_normalized - (0.5 + phase_normalized).floor()),
             }
         } else {
             self.current_sample = 0.
@@ -100,6 +102,9 @@ impl DeviceTrait for Sequencer {
     }
 
     fn tick(&mut self, clock: &Clock) {
+        if self.note_events.is_empty() {
+            return;
+        }
         let note = self.note_events.pop_front().unwrap();
         if clock.real_clock >= note.when {
             let midi_message = MidiMessage {
@@ -108,7 +113,6 @@ impl DeviceTrait for Sequencer {
                 data1: note.which,
                 data2: 0,
             };
-            println!("I'm sending a note {} at {}", clock.real_clock, note.which);
             for i in self.sinks.clone() {
                 i.borrow_mut().handle_midi_message(&midi_message);
             }

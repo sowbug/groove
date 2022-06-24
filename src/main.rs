@@ -18,7 +18,7 @@ use cpal::{
 };
 use crossbeam::deque::{Stealer, Worker};
 
-use std::{cell::RefCell};
+use std::cell::RefCell;
 
 use std::rc::Rc;
 
@@ -137,41 +137,58 @@ fn main() -> anyhow::Result<()> {
     // TODO: get this from cpal. Today cpal gets it from this hardcoded value.
     let mut orchestrator = Orchestrator::new(44100);
 
+    let sine_oscillator: Rc<RefCell<_>> = Rc::new(RefCell::new(Oscillator::new(Waveform::Sine)));
+    orchestrator.add_device(sine_oscillator.clone());
+
     let square_oscillator: Rc<RefCell<_>> =
         Rc::new(RefCell::new(Oscillator::new(Waveform::Square)));
     orchestrator.add_device(square_oscillator.clone());
 
-    let sine_oscillator: Rc<RefCell<_>> = Rc::new(RefCell::new(Oscillator::new(Waveform::Sine)));
-    orchestrator.add_device(sine_oscillator.clone());
+    let triangle_oscillator: Rc<RefCell<_>> =
+        Rc::new(RefCell::new(Oscillator::new(Waveform::Triangle)));
+    orchestrator.add_device(triangle_oscillator.clone());
 
-    let quietener: Rc<RefCell<_>> =
-        Rc::new(RefCell::new(Quietener::new(square_oscillator.clone())));
-    orchestrator.add_device(quietener.clone());
+    let sawtooth_oscillator: Rc<RefCell<_>> =
+        Rc::new(RefCell::new(Oscillator::new(Waveform::Sawtooth)));
+    orchestrator.add_device(sawtooth_oscillator.clone());
+
+    // let quietener: Rc<RefCell<_>> =
+    //     Rc::new(RefCell::new(Quietener::new(square_oscillator.clone())));
+    // orchestrator.add_device(quietener.clone());
+    // quietener
+    //     .borrow_mut()
+    //     .add_audio_source(square_oscillator.clone());
 
     let sequencer: Rc<RefCell<_>> = Rc::new(RefCell::new(Sequencer::new()));
 
-    let data = std::fs::read("jingle_bells.mid").unwrap();
+    let data = std::fs::read("sound_of_music.mid").unwrap();
     MidiReader::load_sequencer(&data, sequencer.clone());
 
     orchestrator.add_device(sequencer.clone());
-
-    quietener
-        .borrow_mut()
-        .add_audio_source(square_oscillator.clone());
-
     {
         let mut mixer = orchestrator.master_mixer.borrow_mut();
-        mixer.add_audio_source(quietener);
+        // mixer.add_audio_source(quietener);
         mixer.add_audio_source(sine_oscillator.clone());
+        mixer.add_audio_source(square_oscillator.clone());
+        mixer.add_audio_source(triangle_oscillator.clone());
+        mixer.add_audio_source(sawtooth_oscillator.clone());
     }
 
-    sequencer.borrow_mut().connect_midi_sink(square_oscillator);
     sequencer.borrow_mut().connect_midi_sink(sine_oscillator);
+    sequencer.borrow_mut().connect_midi_sink(square_oscillator);
+    sequencer
+        .borrow_mut()
+        .connect_midi_sink(triangle_oscillator);
+    sequencer
+        .borrow_mut()
+        .connect_midi_sink(sawtooth_oscillator);
 
     let worker = Worker::<f32>::new_fifo();
     let sample_rate = orchestrator.clock.sample_rate as u32;
     let result = orchestrator.perform_to_queue(&worker);
-    if result.is_err() { return result; }
+    if result.is_err() {
+        return result;
+    }
 
     if should_write_output {
         send_performance_to_file(sample_rate, &output_filename, &worker)
