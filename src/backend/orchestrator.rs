@@ -48,6 +48,7 @@ impl Orchestrator {
     }
 
     pub fn perform_to_queue(&mut self, worker: &Worker<f32>) -> anyhow::Result<()> {
+        // TODO(miket): what's the best way for everyone to signal that they're done?
         while self.clock.real_clock < 20.0 {
             let sample = self.tick();
             worker.push(sample);
