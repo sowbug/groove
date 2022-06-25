@@ -32,26 +32,29 @@ impl Orchestrator {
         self.devices.push(device);
     }
 
-    fn tick(&mut self) -> f32 {
+    fn tick(&mut self) -> (f32, bool) {
+        let mut done = true;
         for d in self.devices.clone() {
             if d.borrow().sources_midi() {
-                d.borrow_mut().tick(&self.clock);
+                done = d.borrow_mut().tick(&self.clock) && done;
             }
         }
         for d in self.devices.clone() {
             if d.borrow().sources_audio() {
-                d.borrow_mut().tick(&self.clock);
+                done = d.borrow_mut().tick(&self.clock) && done;
             }
         }
         self.clock.tick();
-        self.master_mixer.borrow().get_audio_sample()
+        (self.master_mixer.borrow().get_audio_sample(), done)
     }
 
     pub fn perform_to_queue(&mut self, worker: &Worker<f32>) -> anyhow::Result<()> {
-        // TODO(miket): what's the best way for everyone to signal that they're done?
-        while self.clock.real_clock < 20.0 {
-            let sample = self.tick();
+        loop {
+            let (sample, done) = self.tick();
             worker.push(sample);
+            if done {
+                break;
+            }
         }
         Ok(())
     }

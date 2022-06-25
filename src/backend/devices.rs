@@ -20,7 +20,13 @@ pub trait DeviceTrait {
         false
     }
 
-    fn tick(&mut self, _clock: &Clock) {}
+    // Returns whether this device has completed all it has to do.
+    // A typical audio effect or instrument will always return true,
+    // because it doesn't know when it's done, but false would suggest
+    // that it does need to keep doing work.
+    //
+    // More often used for MIDI instruments.
+    fn tick(&mut self, _clock: &Clock) -> bool { true }
     fn get_audio_sample(&self) -> f32 {
         0.
     }

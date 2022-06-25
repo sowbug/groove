@@ -35,7 +35,7 @@ impl DeviceTrait for Oscillator {
     fn sources_audio(&self) -> bool {
         true
     }
-    fn tick(&mut self, clock: &Clock) {
+    fn tick(&mut self, clock: &Clock) -> bool {
         if self.frequency > 0. {
             let phase_normalized = (clock.sample_clock / clock.sample_rate * self.frequency) % 1.0;
             self.current_sample = match self.waveform {
@@ -54,6 +54,7 @@ impl DeviceTrait for Oscillator {
         } else {
             self.current_sample = 0.
         }
+        true
     }
     fn handle_midi_message(&mut self, message: &MidiMessage) {
         match message.status {
@@ -101,9 +102,9 @@ impl DeviceTrait for Sequencer {
         true
     }
 
-    fn tick(&mut self, clock: &Clock) {
+    fn tick(&mut self, clock: &Clock) -> bool {
         if self.note_events.is_empty() {
-            return;
+            return true;
         }
         let note = self.note_events.pop_front().unwrap();
         if clock.real_clock >= note.when {
@@ -121,6 +122,7 @@ impl DeviceTrait for Sequencer {
             // I can't figure out how to get around the borrow checker if I use just a front().
             self.note_events.push_front(note);
         }
+        false
     }
 
     fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {

@@ -18,7 +18,10 @@ use cpal::{
 };
 use crossbeam::deque::{Stealer, Worker};
 
-use std::cell::RefCell;
+use std::{
+    cell::RefCell,
+    sync::{Arc, Condvar, Mutex},
+};
 
 use std::rc::Rc;
 
@@ -34,14 +37,24 @@ struct Args {
 
 pub fn get_sample_from_queue<T: cpal::Sample>(
     stealer: &Stealer<f32>,
+    sync_pair: &Arc<(Mutex<bool>, Condvar)>,
     data: &mut [T],
     _info: &cpal::OutputCallbackInfo,
 ) {
+    let lock = &(*sync_pair).0;
+    let cvar = &(*sync_pair).1;
+    let mut finished = lock.lock().unwrap();
+
     for next_sample in data.iter_mut() {
         let sample_option = stealer.steal();
         let sample: f32 = if sample_option.is_success() {
             sample_option.success().unwrap_or_default()
         } else {
+            // TODO(miket): this isn't great, because we don't know whether
+            // the steal failure was because of a spurious error (buffer underrun)
+            // or complete processing.
+            *finished = true;
+            cvar.notify_one();
             0.
         };
         *next_sample = cpal::Sample::from(&sample);
@@ -68,35 +81,42 @@ fn send_performance_to_output_device(sample_rate: u32, worker: &Worker<f32>) -> 
 
     let stealer = worker.stealer();
 
+    let sync_pair = Arc::new((Mutex::new(false), Condvar::new()));
+    let sync_pair_clone = Arc::clone(&sync_pair);
     let stream = match sample_format {
         cpal::SampleFormat::F32 => device.build_output_stream(
             &config,
             move |data, output_callback_info| {
-                get_sample_from_queue::<f32>(&stealer, data, output_callback_info)
+                get_sample_from_queue::<f32>(&stealer, &sync_pair_clone, data, output_callback_info)
             },
             err_fn,
         ),
         cpal::SampleFormat::I16 => device.build_output_stream(
             &config,
             move |data, output_callback_info| {
-                get_sample_from_queue::<i16>(&stealer, data, output_callback_info)
+                get_sample_from_queue::<i16>(&stealer, &sync_pair_clone, data, output_callback_info)
             },
             err_fn,
         ),
         cpal::SampleFormat::U16 => device.build_output_stream(
             &config,
             move |data, output_callback_info| {
-                get_sample_from_queue::<u16>(&stealer, data, output_callback_info)
+                get_sample_from_queue::<u16>(&stealer, &sync_pair_clone, data, output_callback_info)
             },
             err_fn,
         ),
     }
     .unwrap();
 
+    println!("starting to play to speaker");
     stream.play()?;
-    while !worker.is_empty() {
-        // TODO(miket): learn how thread sync primitives work in Rust
-        std::thread::sleep(std::time::Duration::from_millis(100));
+
+    // See https://doc.rust-lang.org/stable/std/sync/struct.Condvar.html for origin of this
+    // code.
+    let &(ref lock, ref cvar) = &*sync_pair;
+    let mut finished = lock.lock().unwrap();
+    while !*finished {
+        finished = cvar.wait(finished).unwrap();
     }
     Ok(())
 }
@@ -185,11 +205,14 @@ fn main() -> anyhow::Result<()> {
 
     let worker = Worker::<f32>::new_fifo();
     let sample_rate = orchestrator.clock.sample_rate as u32;
+    println!("performing...");
     let result = orchestrator.perform_to_queue(&worker);
+    println!("performed.");
     if result.is_err() {
         return result;
     }
 
+    println!("sending...");
     if should_write_output {
         send_performance_to_file(sample_rate, &output_filename, &worker)
     } else {
