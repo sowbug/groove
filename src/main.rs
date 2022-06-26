@@ -181,7 +181,7 @@ fn main() -> anyhow::Result<()> {
 
     let sequencer: Rc<RefCell<_>> = Rc::new(RefCell::new(Sequencer::new()));
 
-    let data = std::fs::read("sound_of_music.mid").unwrap();
+    let data = std::fs::read("midi_samples/major-scale.mid").unwrap();
     MidiReader::load_sequencer(&data, sequencer.clone());
 
     orchestrator.add_device(sequencer.clone());
