@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
 use std::rc::Rc;
+
 pub enum Waveform {
     Sine,
     Square,
@@ -13,6 +14,11 @@ pub enum Waveform {
     Sawtooth,
 }
 
+impl Default for Waveform {
+    fn default() -> Self { Waveform::Sine }
+}
+
+#[derive(Default)]
 pub struct Oscillator {
     waveform: Waveform,
     current_sample: f32,
@@ -23,9 +29,11 @@ impl Oscillator {
     pub fn new(waveform: Waveform) -> Oscillator {
         Oscillator {
             waveform,
-            current_sample: 0.,
-            frequency: 0.,
+            ..Default::default()
         }
+    }
+    pub fn set_frequency(&mut self, frequency: f32) {
+        self.frequency = frequency;
     }
 }
 impl DeviceTrait for Oscillator {

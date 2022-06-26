@@ -205,9 +205,7 @@ fn main() -> anyhow::Result<()> {
 
     let worker = Worker::<f32>::new_fifo();
     let sample_rate = orchestrator.clock.sample_rate as u32;
-    println!("performing...");
     let result = orchestrator.perform_to_queue(&worker);
-    println!("performed.");
     if result.is_err() {
         return result;
     }

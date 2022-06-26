@@ -47,6 +47,8 @@ impl MidiReader {
                 _ => 0,
             },
             tempo: 0,
+
+            // https://en.wikipedia.org/wiki/Time_signature
             time_signature_numerator: 0,
             time_signature_denominator_exp: 0,
         };
@@ -127,7 +129,8 @@ impl MidiReader {
 
                             let ticks_per_quarter_note: f32 = meta_info.ppq as f32;
                             let seconds_per_quarter_note: f32 = meta_info.tempo as f32 / 1000000.0;
-                            let ticks_per_second = ticks_per_quarter_note / seconds_per_quarter_note;
+                            let ticks_per_second =
+                                ticks_per_quarter_note / seconds_per_quarter_note;
 
                             let bpm: f32 = (60.0 * 1000000.0) / (meta_info.tempo as f32);
 

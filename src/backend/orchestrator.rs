@@ -7,10 +7,6 @@ use crate::backend::devices::DeviceTrait;
 use crate::backend::effects::Mixer;
 
 pub struct Orchestrator {
-    // https://en.wikipedia.org/wiki/Time_signature
-    _time_signature_top: u32,
-    _time_signature_bottom: u32,
-
     pub clock: Clock,
 
     pub master_mixer: Rc<RefCell<Mixer>>, // TODO(miket): should be private
@@ -20,8 +16,6 @@ pub struct Orchestrator {
 impl Orchestrator {
     pub fn new(sample_rate: u32) -> Orchestrator {
         Orchestrator {
-            _time_signature_top: 4,
-            _time_signature_bottom: 4,
             clock: Clock::new(sample_rate as f32),
             master_mixer: Rc::new(RefCell::new(Mixer::new())),
             devices: Vec::new(),
