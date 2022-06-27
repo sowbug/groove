@@ -48,18 +48,17 @@ impl DeviceTrait for Oscillator {
     }
     fn tick(&mut self, clock: &Clock) -> bool {
         if self.frequency > 0. {
-            let phase_normalized = self.frequency * (clock.real_clock as f32);
+            let phase_normalized = self.frequency * (clock.seconds as f32);
             self.current_sample = match self.waveform {
                 // https://en.wikipedia.org/wiki/Sine_wave
-                // https://en.wikipedia.org/wiki/Square_wave
-                // https://en.wikipedia.org/wiki/Triangle_wave
-                // https://en.wikipedia.org/wiki/Sawtooth_wave
                 Waveform::Sine => (phase_normalized * 2.0 * PI).sin(),
+                // https://en.wikipedia.org/wiki/Square_wave
                 Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
+                // https://en.wikipedia.org/wiki/Triangle_wave
                 Waveform::Triangle => {
                     4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
                 }
-
+                // https://en.wikipedia.org/wiki/Sawtooth_wave
                 Waveform::Sawtooth => 2.0 * (phase_normalized - (0.5 + phase_normalized).floor()),
             }
         } else {
@@ -153,19 +152,16 @@ impl DeviceTrait for Sequencer {
         if self.midi_messages.is_empty() {
             return true;
         }
-        let (when, midi_message) = self.midi_messages.pop_front().unwrap();
+        let (when, midi_message) = self.midi_messages.front().unwrap();
 
         // TODO(miket): I'm getting a bad feeling about the usize and f32 conversions.
         let elapsed_midi_ticks: usize =
-            ((clock.real_clock * self.midi_ticks_per_second as f32) as u32) as usize;
-        if elapsed_midi_ticks >= when {
+            ((clock.seconds * self.midi_ticks_per_second as f32) as u32) as usize;
+        if elapsed_midi_ticks >= *when {
             for i in self.sinks.clone() {
                 i.borrow_mut().handle_midi_message(&midi_message);
             }
-        } else {
-            // TODO(miket): I had to always pop always and then sometimes re-push because
-            // I can't figure out how to get around the borrow checker if I use just a front().
-            self.midi_messages.push_front((when, midi_message));
+            self.midi_messages.pop_front();
         }
         false
     }

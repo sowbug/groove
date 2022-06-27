@@ -1,10 +1,8 @@
 #[derive(Default)]
 pub struct Clock {
-    pub sample_count: u32,
-    pub sample_clock: u32,
-    pub sample_rate: u32,
-
-    pub real_clock: f32,
+    pub sample_rate: u32,   // Samples per second; granularity of this clock.
+    pub samples: u32,       // Samples since this clock was created.
+    pub seconds: f32,       // Seconds elapsed since this clock was created.
 }
 
 impl Clock {
@@ -15,8 +13,7 @@ impl Clock {
         }
     }
     pub fn tick(&mut self) {
-        self.sample_count += 1;
-        self.sample_clock = (self.sample_clock + 1) % self.sample_rate;
-        self.real_clock = self.sample_count as f32 / self.sample_rate as f32;
+        self.samples += 1;
+        self.seconds = self.samples as f32 / self.sample_rate as f32;
     }
 }
