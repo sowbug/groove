@@ -184,7 +184,6 @@ fn main() -> anyhow::Result<()> {
     let data = std::fs::read("midi_samples/major-scale.mid").unwrap();
     MidiReader::load_sequencer(&data, sequencer.clone());
 
-    orchestrator.add_device(sequencer.clone());
     {
         let mut mixer = orchestrator.master_mixer.borrow_mut();
         // mixer.add_audio_source(quietener);
@@ -194,23 +193,28 @@ fn main() -> anyhow::Result<()> {
         mixer.add_audio_source(sawtooth_oscillator.clone());
     }
 
-    sequencer.borrow_mut().connect_midi_sink(sine_oscillator);
-    sequencer.borrow_mut().connect_midi_sink(square_oscillator);
     sequencer
         .borrow_mut()
-        .connect_midi_sink(triangle_oscillator);
-    sequencer
-        .borrow_mut()
-        .connect_midi_sink(sawtooth_oscillator);
+        .connect_midi_sink(sine_oscillator.clone());
+     sequencer
+         .borrow_mut()
+         .connect_midi_sink(square_oscillator.clone());
+     sequencer
+         .borrow_mut()
+         .connect_midi_sink(triangle_oscillator.clone());
+     sequencer
+         .borrow_mut()
+         .connect_midi_sink(sawtooth_oscillator.clone());
 
     let worker = Worker::<f32>::new_fifo();
-    let sample_rate = orchestrator.clock.sample_rate as u32;
+    orchestrator.add_device(sequencer.clone());
     let result = orchestrator.perform_to_queue(&worker);
     if result.is_err() {
         return result;
     }
 
     println!("sending...");
+    let sample_rate = orchestrator.clock.sample_rate as u32;
     if should_write_output {
         send_performance_to_file(sample_rate, &output_filename, &worker)
     } else {

@@ -3,10 +3,13 @@ use std::{cell::RefCell, rc::Rc};
 use super::instruments::Sequencer;
 use midly::{MidiMessage as MidlyMidiMessage, TrackEventKind};
 
+
+#[derive(Debug)]
 pub enum MidiMessageType {
     NoteOn = 0x1001,
     NoteOff = 0x1000,
 }
+#[derive(Debug)]
 pub struct MidiMessage {
     // status and channel are normally packed into one byte, but for ease of use
     // we're unpacking here.

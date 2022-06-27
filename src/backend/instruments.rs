@@ -7,6 +7,7 @@ use std::collections::VecDeque;
 use std::f32::consts::PI;
 use std::rc::Rc;
 
+#[derive(Eq, PartialEq)]
 pub enum Waveform {
     Sine,
     Square,
@@ -15,7 +16,9 @@ pub enum Waveform {
 }
 
 impl Default for Waveform {
-    fn default() -> Self { Waveform::Sine }
+    fn default() -> Self {
+        Waveform::Sine
+    }
 }
 
 #[derive(Default)]
@@ -45,7 +48,7 @@ impl DeviceTrait for Oscillator {
     }
     fn tick(&mut self, clock: &Clock) -> bool {
         if self.frequency > 0. {
-            let phase_normalized = (clock.sample_clock / clock.sample_rate * self.frequency) % 1.0;
+            let phase_normalized = self.frequency * (clock.real_clock as f32);
             self.current_sample = match self.waveform {
                 // https://en.wikipedia.org/wiki/Sine_wave
                 // https://en.wikipedia.org/wiki/Square_wave
