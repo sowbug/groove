@@ -3,7 +3,6 @@ use std::{cell::RefCell, rc::Rc};
 use super::instruments::Sequencer;
 use midly::{MidiMessage as MidlyMidiMessage, TrackEventKind};
 
-
 #[derive(Debug)]
 pub enum MidiMessageType {
     NoteOn = 0x1001,
@@ -21,10 +20,39 @@ pub struct MidiMessage {
 
 impl MidiMessage {
     pub fn to_frequency(&self) -> f32 {
-        match self.data1 {
-            0 => 0.,
-            _ => 2.0_f32.powf((self.data1 as f32 - 69.0) / 12.0) * 440.0,
+        2.0_f32.powf((self.data1 as f32 - 69.0) / 12.0) * 440.0
+    }
+
+    pub fn new_note_on(note: u8, vel: u8) -> MidiMessage {
+        MidiMessage {
+            status: MidiMessageType::NoteOn,
+            channel: 0,
+            data1: note,
+            data2: vel,
         }
+    }
+
+    pub fn new_note_off(note: u8, vel: u8) -> MidiMessage {
+        MidiMessage {
+            status: MidiMessageType::NoteOff,
+            channel: 0,
+            data1: note,
+            data2: vel,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_approx_eq::assert_approx_eq;
+
+    use super::*;
+
+    #[test]
+    fn test_note_to_frequency() {
+        assert_approx_eq!(MidiMessage::new_note_on(60, 0).to_frequency(), 261.625549);
+        assert_approx_eq!(MidiMessage::new_note_on(0, 0).to_frequency(), 8.175798);
+        assert_approx_eq!(MidiMessage::new_note_on(127, 0).to_frequency(), 12543.855);
     }
 }
 
