@@ -3,7 +3,7 @@ extern crate cpal;
 
 mod backend;
 
-use crate::backend::{instruments::Envelope, orchestrator::Orchestrator};
+use crate::backend::{instruments::{Envelope, Voice, SimpleSynth}, orchestrator::Orchestrator};
 
 use backend::{
     devices::DeviceTrait,
@@ -157,15 +157,8 @@ fn main() -> anyhow::Result<()> {
     // TODO: get this from cpal. Today cpal gets it from this hardcoded value.
     let mut orchestrator = Orchestrator::new(44100);
 
-    let sine_oscillator: Rc<RefCell<_>> = Rc::new(RefCell::new(Oscillator::new(Waveform::Sine)));
-    let sine_envelope: Rc<RefCell<_>> = Rc::new(RefCell::new(Envelope::new(
-        sine_oscillator.clone(),
-        0.1,
-        0.1,
-        0.5,
-        0.2,
-    )));
-    orchestrator.add_device(sine_envelope.clone());
+    let simple_synth = Rc::new(RefCell::new(SimpleSynth::new()));
+    orchestrator.add_device(simple_synth.clone());
 
     // let square_oscillator: Rc<RefCell<_>> =
     //     Rc::new(RefCell::new(Oscillator::new(Waveform::Square)));
@@ -188,13 +181,13 @@ fn main() -> anyhow::Result<()> {
 
     let sequencer: Rc<RefCell<_>> = Rc::new(RefCell::new(Sequencer::new()));
 
-    let data = std::fs::read("midi_samples/major-scale-spaced-notes.mid").unwrap();
+    let data = std::fs::read("midi_samples/major-scale.mid").unwrap();
     MidiReader::load_sequencer(&data, sequencer.clone());
 
     {
         let mut mixer = orchestrator.master_mixer.borrow_mut();
         // mixer.add_audio_source(quietener);
-        mixer.add_audio_source(sine_envelope.clone());
+        mixer.add_audio_source(simple_synth.clone());
         // mixer.add_audio_source(square_oscillator.clone());
         // mixer.add_audio_source(triangle_oscillator.clone());
         // mixer.add_audio_source(sawtooth_oscillator.clone());
@@ -202,7 +195,7 @@ fn main() -> anyhow::Result<()> {
 
     sequencer
         .borrow_mut()
-        .connect_midi_sink(sine_envelope.clone());
+        .connect_midi_sink(simple_synth.clone());
     // sequencer
     //     .borrow_mut()
     //     .connect_midi_sink(square_oscillator.clone());

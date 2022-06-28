@@ -3,7 +3,7 @@ use super::devices::DeviceTrait;
 use super::midi::{MidiMessage, MidiMessageType};
 use crate::backend::midi;
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::collections::{VecDeque, HashMap};
 use std::f32::consts::PI;
 use std::rc::Rc;
 
@@ -181,7 +181,7 @@ enum EnvelopeState {
     Release,
 }
 pub struct Envelope {
-    child_device: Rc<RefCell<dyn DeviceTrait>>,
+    child_device: Oscillator,
     amplitude: f32,
     amplitude_delta: f32,
     amplitude_target: f32,
@@ -195,13 +195,13 @@ pub struct Envelope {
 
 impl<'a> Envelope {
     pub fn new(
-        child_device: Rc<RefCell<dyn DeviceTrait>>,
+        child_device: Oscillator,
         attack: f32,
         decay: f32,
         sustain: f32,
         release: f32,
     ) -> Envelope {
-        if !child_device.borrow().sources_audio() {
+        if !child_device.sources_audio() {
             panic!("Envelope created with non-audio-producing child device");
         }
         Envelope {
@@ -262,6 +262,13 @@ impl<'a> Envelope {
             || (self.amplitude_delta < 0. && self.amplitude < self.amplitude_target)
             || (self.amplitude_delta > 0. && self.amplitude > self.amplitude_target)
     }
+
+    fn is_active(&self) -> bool {
+        match self.state {
+            EnvelopeState::Idle => false,
+            _ => true,
+        }
+    }
 }
 
 impl<'a> DeviceTrait for Envelope {
@@ -291,16 +298,16 @@ impl<'a> DeviceTrait for Envelope {
             }
         }
         // TODO(miket): introduce notion of weak ref so that we can make sure nobody has two parents
-        self.child_device.borrow_mut().tick(clock);
+        self.child_device.tick(clock);
 
         match self.state {
-             EnvelopeState::Idle => true,
-             _ => false,
+            EnvelopeState::Idle => true,
+            _ => false,
         }
     }
 
     fn get_audio_sample(&self) -> f32 {
-        self.child_device.borrow().get_audio_sample() * self.amplitude
+        self.child_device.get_audio_sample() * self.amplitude
     }
 
     fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
@@ -312,6 +319,116 @@ impl<'a> DeviceTrait for Envelope {
                 self.to_release(clock);
             }
         }
-        self.child_device.borrow_mut().handle_midi_message(message, clock);
+        self.child_device.handle_midi_message(message, clock);
+    }
+}
+
+pub struct Voice {
+    //    sound_source: Oscillator,
+    envelope: Envelope,
+}
+
+impl Voice {
+    pub fn new() -> Voice {
+        let sound_source = Oscillator::new(Waveform::Sine);
+        let envelope = Envelope::new(sound_source, 0.1, 0.1, 0.5, 0.2);
+        Voice {
+            //            sound_source,
+            envelope,
+        }
+    }
+    fn is_active(&self) -> bool {
+        self.envelope.is_active()
+    }
+}
+
+impl DeviceTrait for Voice {
+    fn sources_audio(&self) -> bool {
+        true
+    }
+    fn sinks_midi(&self) -> bool {
+        true
+    }
+    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+        self.envelope.handle_midi_message(message, clock);
+    }
+    fn tick(&mut self, clock: &Clock) -> bool {
+        self.envelope.tick(clock)
+    }
+    fn get_audio_sample(&self) -> f32 {
+        self.envelope.get_audio_sample()
+    }
+}
+pub struct SimpleSynth {
+    voices: Vec<Voice>,
+    note_to_voice: HashMap<u8, usize>,
+}
+
+impl SimpleSynth {
+    pub fn new() -> SimpleSynth {
+        let mut synth = SimpleSynth {
+            voices: Vec::new(),
+            note_to_voice: HashMap::<u8, usize>::new(),
+        };
+        for i in 0..8 {
+            synth.voices.push(Voice::new());
+        }
+        synth
+    }
+    fn next_available_voice(&self) -> usize {
+        for i in 0..self.voices.len() {
+            if !self.voices[i].is_active() {
+                return i;
+            }
+        }
+        // TODO: voice stealing
+        0
+    }
+}
+
+impl DeviceTrait for SimpleSynth {
+    fn sources_audio(&self) -> bool {
+        true
+    }
+    fn sinks_midi(&self) -> bool {
+        true
+    }
+    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+        match message.status {
+            MidiMessageType::NoteOn => {
+                let index = self.next_available_voice();
+                self.voices[index].handle_midi_message(message, clock);
+                self.note_to_voice.insert(message.data1, index);        
+            }
+            MidiMessageType::NoteOff => {
+                let note = message.data1;
+                let index: usize = *self.note_to_voice.get(&note).unwrap();
+                self.voices[index].handle_midi_message(message, clock);
+                self.note_to_voice.remove(&note);
+            }
+        }
+    }
+    fn tick(&mut self, clock: &Clock) -> bool {
+        let mut is_everyone_done = true;
+        for voice in self.voices.iter_mut() {
+            is_everyone_done = voice.tick(clock) && is_everyone_done;
+        }
+        is_everyone_done
+    }
+    fn get_audio_sample(&self) -> f32 {
+        let mut active_voice_count = 0;
+        let mut total_sample = 0.;
+        for voice in self.voices.iter() {
+            if voice.is_active() {
+                active_voice_count += 1;
+                total_sample += voice.get_audio_sample();
+            }
+        }
+        // TODO: something's wrong with the mix.
+        if active_voice_count > 0 {
+            total_sample / active_voice_count as f32
+        } else {
+            total_sample // TODO: maybe this is just a mixer
+        }
     }
 }
