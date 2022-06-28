@@ -3,7 +3,7 @@ extern crate cpal;
 
 mod backend;
 
-use crate::backend::orchestrator::Orchestrator;
+use crate::backend::{instruments::Envelope, orchestrator::Orchestrator};
 
 use backend::{
     devices::DeviceTrait,
@@ -158,19 +158,26 @@ fn main() -> anyhow::Result<()> {
     let mut orchestrator = Orchestrator::new(44100);
 
     let sine_oscillator: Rc<RefCell<_>> = Rc::new(RefCell::new(Oscillator::new(Waveform::Sine)));
-    orchestrator.add_device(sine_oscillator.clone());
+    let sine_envelope: Rc<RefCell<_>> = Rc::new(RefCell::new(Envelope::new(
+        sine_oscillator.clone(),
+        0.1,
+        0.1,
+        0.5,
+        0.2,
+    )));
+    orchestrator.add_device(sine_envelope.clone());
 
-    let square_oscillator: Rc<RefCell<_>> =
-        Rc::new(RefCell::new(Oscillator::new(Waveform::Square)));
-    orchestrator.add_device(square_oscillator.clone());
+    // let square_oscillator: Rc<RefCell<_>> =
+    //     Rc::new(RefCell::new(Oscillator::new(Waveform::Square)));
+    // orchestrator.add_device(square_oscillator.clone());
 
-    let triangle_oscillator: Rc<RefCell<_>> =
-        Rc::new(RefCell::new(Oscillator::new(Waveform::Triangle)));
-    orchestrator.add_device(triangle_oscillator.clone());
+    // let triangle_oscillator: Rc<RefCell<_>> =
+    //     Rc::new(RefCell::new(Oscillator::new(Waveform::Triangle)));
+    // orchestrator.add_device(triangle_oscillator.clone());
 
-    let sawtooth_oscillator: Rc<RefCell<_>> =
-        Rc::new(RefCell::new(Oscillator::new(Waveform::Sawtooth)));
-    orchestrator.add_device(sawtooth_oscillator.clone());
+    // let sawtooth_oscillator: Rc<RefCell<_>> =
+    //     Rc::new(RefCell::new(Oscillator::new(Waveform::Sawtooth)));
+    // orchestrator.add_device(sawtooth_oscillator.clone());
 
     // let quietener: Rc<RefCell<_>> =
     //     Rc::new(RefCell::new(Quietener::new(square_oscillator.clone())));
@@ -181,30 +188,30 @@ fn main() -> anyhow::Result<()> {
 
     let sequencer: Rc<RefCell<_>> = Rc::new(RefCell::new(Sequencer::new()));
 
-    let data = std::fs::read("midi_samples/major-scale.mid").unwrap();
+    let data = std::fs::read("midi_samples/major-scale-spaced-notes.mid").unwrap();
     MidiReader::load_sequencer(&data, sequencer.clone());
 
     {
         let mut mixer = orchestrator.master_mixer.borrow_mut();
         // mixer.add_audio_source(quietener);
-        mixer.add_audio_source(sine_oscillator.clone());
-        mixer.add_audio_source(square_oscillator.clone());
-        mixer.add_audio_source(triangle_oscillator.clone());
-        mixer.add_audio_source(sawtooth_oscillator.clone());
+        mixer.add_audio_source(sine_envelope.clone());
+        // mixer.add_audio_source(square_oscillator.clone());
+        // mixer.add_audio_source(triangle_oscillator.clone());
+        // mixer.add_audio_source(sawtooth_oscillator.clone());
     }
 
     sequencer
         .borrow_mut()
-        .connect_midi_sink(sine_oscillator.clone());
-     sequencer
-         .borrow_mut()
-         .connect_midi_sink(square_oscillator.clone());
-     sequencer
-         .borrow_mut()
-         .connect_midi_sink(triangle_oscillator.clone());
-     sequencer
-         .borrow_mut()
-         .connect_midi_sink(sawtooth_oscillator.clone());
+        .connect_midi_sink(sine_envelope.clone());
+    // sequencer
+    //     .borrow_mut()
+    //     .connect_midi_sink(square_oscillator.clone());
+    // sequencer
+    //     .borrow_mut()
+    //     .connect_midi_sink(triangle_oscillator.clone());
+    // sequencer
+    //     .borrow_mut()
+    //     .connect_midi_sink(sawtooth_oscillator.clone());
 
     let worker = Worker::<f32>::new_fifo();
     orchestrator.add_device(sequencer.clone());

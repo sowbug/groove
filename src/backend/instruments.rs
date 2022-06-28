@@ -66,13 +66,15 @@ impl DeviceTrait for Oscillator {
         }
         true
     }
-    fn handle_midi_message(&mut self, message: &MidiMessage) {
+    fn handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
         match message.status {
             midi::MidiMessageType::NoteOn => {
                 self.frequency = message.to_frequency();
             }
             midi::MidiMessageType::NoteOff => {
-                self.frequency = 0.;
+                // TODO(miket): now that oscillators are in envelopes, they generally turn on but don't turn off.
+                // these might not end up being full DeviceTrait devices, but rather owned/managed by synths.
+                //self.frequency = 0.;
             }
         }
     }
@@ -159,7 +161,7 @@ impl DeviceTrait for Sequencer {
             ((clock.seconds * self.midi_ticks_per_second as f32) as u32) as usize;
         if elapsed_midi_ticks >= *when {
             for i in self.sinks.clone() {
-                i.borrow_mut().handle_midi_message(&midi_message);
+                i.borrow_mut().handle_midi_message(&midi_message, clock);
             }
             self.midi_messages.pop_front();
         }
@@ -168,5 +170,148 @@ impl DeviceTrait for Sequencer {
 
     fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
         self.sinks.push(device);
+    }
+}
+
+enum EnvelopeState {
+    Idle,
+    Attack,
+    Decay,
+    Sustain,
+    Release,
+}
+pub struct Envelope {
+    child_device: Rc<RefCell<dyn DeviceTrait>>,
+    amplitude: f32,
+    amplitude_delta: f32,
+    amplitude_target: f32,
+    attack: f32,  // seconds
+    decay: f32,   // seconds
+    sustain: f32, // amplitude
+    release: f32, // seconds
+
+    state: EnvelopeState,
+}
+
+impl<'a> Envelope {
+    pub fn new(
+        child_device: Rc<RefCell<dyn DeviceTrait>>,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32,
+    ) -> Envelope {
+        if !child_device.borrow().sources_audio() {
+            panic!("Envelope created with non-audio-producing child device");
+        }
+        Envelope {
+            child_device,
+            amplitude: 0.,
+            amplitude_delta: 0.,
+            amplitude_target: 0.,
+            attack,
+            decay,
+            sustain,
+            release,
+            state: EnvelopeState::Idle,
+        }
+    }
+
+    fn update_amplitude_delta(&mut self, target: f32, state_duration: f32, clock: &Clock) {
+        self.amplitude_target = target;
+        if state_duration > 0. {
+            self.amplitude_delta = (self.amplitude_target - self.amplitude)
+                / (state_duration * clock.sample_rate as f32);
+        } else {
+            self.amplitude_delta = self.amplitude_target - self.amplitude;
+        }
+    }
+
+    fn to_attack(&mut self, clock: &Clock) {
+        self.state = EnvelopeState::Attack;
+        self.amplitude = 0.;
+        self.update_amplitude_delta(1.0, self.attack, clock);
+    }
+
+    fn to_decay(&mut self, clock: &Clock) {
+        self.state = EnvelopeState::Decay;
+        self.amplitude = 1.;
+        self.update_amplitude_delta(self.sustain, self.decay, clock);
+    }
+
+    fn to_sustain(&mut self, _clock: &Clock) {
+        self.state = EnvelopeState::Sustain;
+        self.amplitude = self.sustain;
+        self.amplitude_target = self.sustain;
+        self.amplitude_delta = 0.;
+    }
+
+    fn to_release(&mut self, clock: &Clock) {
+        self.state = EnvelopeState::Release;
+        self.update_amplitude_delta(0., self.release, clock);
+    }
+
+    fn to_idle(&mut self, _clock: &Clock) {
+        self.state = EnvelopeState::Idle;
+        self.amplitude = 0.;
+        self.amplitude_delta = 0.;
+    }
+
+    fn has_amplitude_reached_target(&self) -> bool {
+        (self.amplitude == self.amplitude_target)
+            || (self.amplitude_delta < 0. && self.amplitude < self.amplitude_target)
+            || (self.amplitude_delta > 0. && self.amplitude > self.amplitude_target)
+    }
+}
+
+impl<'a> DeviceTrait for Envelope {
+    fn sources_midi(&self) -> bool {
+        true
+    }
+
+    fn tick(&mut self, clock: &Clock) -> bool {
+        self.amplitude += self.amplitude_delta;
+        if self.has_amplitude_reached_target() {
+            match self.state {
+                EnvelopeState::Idle => {
+                    // Nothing to do but wait for note on
+                }
+                EnvelopeState::Attack => {
+                    self.to_decay(clock);
+                }
+                EnvelopeState::Decay => {
+                    self.to_sustain(clock);
+                }
+                EnvelopeState::Sustain => {
+                    // Nothing to do but wait for note off
+                }
+                EnvelopeState::Release => {
+                    self.to_idle(clock);
+                }
+            }
+        }
+        // TODO(miket): introduce notion of weak ref so that we can make sure nobody has two parents
+        self.child_device.borrow_mut().tick(clock);
+
+        match self.state {
+             EnvelopeState::Idle => true,
+             _ => false,
+        }
+    }
+
+    fn get_audio_sample(&self) -> f32 {
+        self.child_device.borrow().get_audio_sample() * self.amplitude
+    }
+
+    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+        match message.status {
+            MidiMessageType::NoteOn => {
+                self.to_attack(clock);
+            }
+            MidiMessageType::NoteOff => {
+                self.to_release(clock);
+            }
+        }
+        self.child_device.borrow_mut().handle_midi_message(message, clock);
     }
 }

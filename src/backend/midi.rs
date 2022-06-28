@@ -103,7 +103,7 @@ impl MidiReader {
                         }
                     }
                     TrackEventKind::Meta(meta_message) => match meta_message {
-                        midly::MetaMessage::TimeSignature(numerator, denominator_exp, cc, _bb) => {
+                        midly::MetaMessage::TimeSignature(numerator, denominator_exp, _cc, _bb) => {
                             meta_info.time_signature_numerator = numerator;
                             meta_info.time_signature_denominator_exp = denominator_exp;
                             //meta_info.ppq = cc; WHA???

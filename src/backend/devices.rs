@@ -32,5 +32,5 @@ pub trait DeviceTrait {
     }
     fn add_audio_source(&mut self, _audio_instrument: Rc<RefCell<dyn DeviceTrait>>) {}
     fn connect_midi_sink(&mut self, _audio_instrument: Rc<RefCell<dyn DeviceTrait>>) {}
-    fn handle_midi_message(&mut self, _message: &MidiMessage) {}
+    fn handle_midi_message(&mut self, _message: &MidiMessage, _clock: &Clock) {}
 }
