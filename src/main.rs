@@ -173,7 +173,7 @@ impl ClDaw {
         if midi_in.is_some() {
             let sequencer = Rc::new(RefCell::new(Sequencer::new()));
 
-            let data = std::fs::read("midi_samples/major-scale.mid").unwrap();
+            let data = std::fs::read(midi_in.unwrap()).unwrap();
             MidiReader::load_sequencer(&data, sequencer.clone());
 
             sequencer
