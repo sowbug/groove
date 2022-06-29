@@ -2,9 +2,9 @@ extern crate anyhow;
 extern crate cpal;
 
 mod backend;
+mod effects;
 
 use crate::backend::{instruments::SimpleSynth, orchestrator::Orchestrator};
-
 use backend::{devices::DeviceTrait, instruments::Sequencer, midi::MidiReader};
 use clap::Parser;
 use cpal::{
@@ -12,13 +12,11 @@ use cpal::{
     SampleRate, StreamConfig,
 };
 use crossbeam::deque::{Stealer, Worker};
-
+use std::rc::Rc;
 use std::{
     cell::RefCell,
     sync::{Arc, Condvar, Mutex},
 };
-
-use std::rc::Rc;
 
 struct ClDaw {
     orchestrator: Orchestrator,
@@ -176,9 +174,7 @@ impl ClDaw {
             let data = std::fs::read(midi_in.unwrap()).unwrap();
             MidiReader::load_sequencer(&data, sequencer.clone());
 
-            sequencer
-                .borrow_mut()
-                .connect_midi_sink(simple_synth);
+            sequencer.borrow_mut().connect_midi_sink(simple_synth);
 
             self.orchestrator.add_device(sequencer);
         }

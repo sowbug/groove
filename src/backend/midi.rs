@@ -1,7 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
-
 use super::instruments::Sequencer;
 use midly::{MidiMessage as MidlyMidiMessage, TrackEventKind};
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
 pub enum MidiMessageType {

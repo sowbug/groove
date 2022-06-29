@@ -1,8 +1,7 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use super::clock::Clock;
 use super::midi::MidiMessage;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 // Composition of AudioSource and AudioSink and a bunch of other stuff.
 // See https://users.rust-lang.org/t/dyn-multiple-traits-in-a-type-alias/21051
@@ -26,7 +25,9 @@ pub trait DeviceTrait {
     // that it does need to keep doing work.
     //
     // More often used for MIDI instruments.
-    fn tick(&mut self, _clock: &Clock) -> bool { true }
+    fn tick(&mut self, _clock: &Clock) -> bool {
+        true
+    }
     fn get_audio_sample(&self) -> f32 {
         0.
     }
