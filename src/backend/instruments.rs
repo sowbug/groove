@@ -327,7 +327,7 @@ pub struct Voice {
 impl Voice {
     pub fn new() -> Voice {
         let sound_source = Oscillator::new(Waveform::Sine);
-        let envelope = Envelope::new(sound_source, 0.1, 0.1, 0.5, 0.2);
+        let envelope = Envelope::new(sound_source, 0.1, 0.1, 0.5, 0.3);
         Voice {
             //            sound_source,
             envelope,
@@ -412,19 +412,16 @@ impl DeviceTrait for SimpleSynth {
         is_everyone_done
     }
     fn get_audio_sample(&self) -> f32 {
-        let mut active_voice_count = 0;
         let mut total_sample = 0.;
         for voice in self.voices.iter() {
             if voice.is_active() {
-                active_voice_count += 1;
                 total_sample += voice.get_audio_sample();
             }
         }
-        // TODO: something's wrong with the mix.
-        if active_voice_count > 0 {
-            total_sample / active_voice_count as f32
-        } else {
-            total_sample // TODO: maybe this is just a mixer
-        }
+        // See https://www.kvraudio.com/forum/viewtopic.php?t=529789 for one discussion of
+        // how to handle polyphonic note mixing (TLDR: just sum them and deal with > 1.0 in
+        // a later limiter). If we do nothing then we get hard clipping for free (see
+        // https://manual.audacityteam.org/man/limiter.html for terminology).
+        total_sample
     }
 }
