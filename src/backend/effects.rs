@@ -1,4 +1,4 @@
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc};
 
 use super::devices::DeviceTrait;
 
@@ -33,16 +33,17 @@ impl DeviceTrait for Mixer {
     }
 }
 
-pub struct Quietener {
+pub struct Gain {
     source: Rc<RefCell<dyn DeviceTrait>>,
+    amount: f32,
 }
-impl Quietener {
-    pub fn new(source: Rc<RefCell<dyn DeviceTrait>>) -> Quietener {
-        Quietener { source }
+impl Gain {
+    pub fn new(source: Rc<RefCell<dyn DeviceTrait>>, amount: f32) -> Gain {
+        Gain { source, amount }
     }
 }
 // TODO(miket): idea: ticks are called only if the entity was asked for its sample, as a power optimization
-impl DeviceTrait for Quietener {
+impl DeviceTrait for Gain {
     fn sources_audio(&self) -> bool {
         true
     }
@@ -53,7 +54,7 @@ impl DeviceTrait for Quietener {
         self.source = source;
     }
     fn get_audio_sample(&self) -> f32 {
-        self.source.borrow().get_audio_sample() * 0.8
+        (self.source.borrow().get_audio_sample() * self.amount).clamp(0., 1.)
     }
 }
 

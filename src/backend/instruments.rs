@@ -3,7 +3,7 @@ use super::devices::DeviceTrait;
 use super::midi::{MidiMessage, MidiMessageType};
 use crate::backend::midi;
 use std::cell::RefCell;
-use std::collections::{VecDeque, HashMap};
+use std::collections::{HashMap, VecDeque};
 use std::f32::consts::PI;
 use std::rc::Rc;
 
@@ -28,6 +28,8 @@ pub struct Oscillator {
     frequency: f32,
 }
 
+// TODO: these oscillators are pure in a logical sense, but they alias badly in the real world
+// of discrete sampling. Investigate replacing with smoothed waveforms.
 impl Oscillator {
     pub fn new(waveform: Waveform) -> Oscillator {
         Oscillator {
@@ -161,7 +163,7 @@ impl DeviceTrait for Sequencer {
             ((clock.seconds * self.midi_ticks_per_second as f32) as u32) as usize;
         if elapsed_midi_ticks >= *when {
             for i in self.sinks.clone() {
-                i.borrow_mut().handle_midi_message(&midi_message, clock);
+                i.borrow_mut().handle_midi_message(midi_message, clock);
             }
             self.midi_messages.pop_front();
         }
@@ -227,31 +229,31 @@ impl<'a> Envelope {
         }
     }
 
-    fn to_attack(&mut self, clock: &Clock) {
+    fn change_to_attack_state(&mut self, clock: &Clock) {
         self.state = EnvelopeState::Attack;
         self.amplitude = 0.;
         self.update_amplitude_delta(1.0, self.attack, clock);
     }
 
-    fn to_decay(&mut self, clock: &Clock) {
+    fn change_to_decay_state(&mut self, clock: &Clock) {
         self.state = EnvelopeState::Decay;
         self.amplitude = 1.;
         self.update_amplitude_delta(self.sustain, self.decay, clock);
     }
 
-    fn to_sustain(&mut self, _clock: &Clock) {
+    fn change_to_sustain_state(&mut self, _clock: &Clock) {
         self.state = EnvelopeState::Sustain;
         self.amplitude = self.sustain;
         self.amplitude_target = self.sustain;
         self.amplitude_delta = 0.;
     }
 
-    fn to_release(&mut self, clock: &Clock) {
+    fn change_to_release_state(&mut self, clock: &Clock) {
         self.state = EnvelopeState::Release;
         self.update_amplitude_delta(0., self.release, clock);
     }
 
-    fn to_idle(&mut self, _clock: &Clock) {
+    fn change_to_idle_state(&mut self, _clock: &Clock) {
         self.state = EnvelopeState::Idle;
         self.amplitude = 0.;
         self.amplitude_delta = 0.;
@@ -264,10 +266,7 @@ impl<'a> Envelope {
     }
 
     fn is_active(&self) -> bool {
-        match self.state {
-            EnvelopeState::Idle => false,
-            _ => true,
-        }
+        !matches!(self.state, EnvelopeState::Idle)
     }
 }
 
@@ -284,26 +283,23 @@ impl<'a> DeviceTrait for Envelope {
                     // Nothing to do but wait for note on
                 }
                 EnvelopeState::Attack => {
-                    self.to_decay(clock);
+                    self.change_to_decay_state(clock);
                 }
                 EnvelopeState::Decay => {
-                    self.to_sustain(clock);
+                    self.change_to_sustain_state(clock);
                 }
                 EnvelopeState::Sustain => {
                     // Nothing to do but wait for note off
                 }
                 EnvelopeState::Release => {
-                    self.to_idle(clock);
+                    self.change_to_idle_state(clock);
                 }
             }
         }
         // TODO(miket): introduce notion of weak ref so that we can make sure nobody has two parents
         self.child_device.tick(clock);
 
-        match self.state {
-            EnvelopeState::Idle => true,
-            _ => false,
-        }
+        matches!(self.state, EnvelopeState::Idle)
     }
 
     fn get_audio_sample(&self) -> f32 {
@@ -313,10 +309,10 @@ impl<'a> DeviceTrait for Envelope {
     fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
         match message.status {
             MidiMessageType::NoteOn => {
-                self.to_attack(clock);
+                self.change_to_attack_state(clock);
             }
             MidiMessageType::NoteOff => {
-                self.to_release(clock);
+                self.change_to_release_state(clock);
             }
         }
         self.child_device.handle_midi_message(message, clock);
@@ -370,7 +366,7 @@ impl SimpleSynth {
             voices: Vec::new(),
             note_to_voice: HashMap::<u8, usize>::new(),
         };
-        for i in 0..8 {
+        for _ in 0..8 {
             synth.voices.push(Voice::new());
         }
         synth
@@ -398,7 +394,7 @@ impl DeviceTrait for SimpleSynth {
             MidiMessageType::NoteOn => {
                 let index = self.next_available_voice();
                 self.voices[index].handle_midi_message(message, clock);
-                self.note_to_voice.insert(message.data1, index);        
+                self.note_to_voice.insert(message.data1, index);
             }
             MidiMessageType::NoteOff => {
                 let note = message.data1;
