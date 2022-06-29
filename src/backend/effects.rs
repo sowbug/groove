@@ -42,7 +42,6 @@ impl Gain {
         Gain { source, amount }
     }
 }
-// TODO(miket): idea: ticks are called only if the entity was asked for its sample, as a power optimization
 impl DeviceTrait for Gain {
     fn sources_audio(&self) -> bool {
         true
@@ -54,7 +53,7 @@ impl DeviceTrait for Gain {
         self.source = source;
     }
     fn get_audio_sample(&self) -> f32 {
-        (self.source.borrow().get_audio_sample() * self.amount).clamp(0., 1.)
+        self.source.borrow().get_audio_sample() * self.amount
     }
 }
 
