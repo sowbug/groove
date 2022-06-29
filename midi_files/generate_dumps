@@ -1,0 +1,5 @@
+#!/bin/bash
+
+for i in *.mid; do
+  drumstick-dumpsmf $i > $i.txt
+done
