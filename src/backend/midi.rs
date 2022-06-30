@@ -168,9 +168,9 @@ impl MidiReader {
                             //                            let ticks_per_second: usize = (bpm * meta_info.tempo) / 60000;
                             println!("MIDI ticks per second: {}", ticks_per_second);
                             println!("BPM: {}", bpm);
-                            sequencer
-                                .borrow_mut()
-                                .set_time_signature(time_signature.0, time_signature.1);
+                            // sequencer
+                            //     .borrow_mut()
+                            //     .set_time_signature(time_signature.0, time_signature.1);
                             sequencer
                                 .borrow_mut()
                                 .set_midi_ticks_per_second(ticks_per_second as usize);

@@ -86,21 +86,7 @@ impl DeviceTrait for Oscillator {
     }
 }
 
-pub struct TimeSignature {
-    numerator: usize,
-    denominator: usize,
-}
-
-impl TimeSignature {
-    pub fn new(numerator: usize, denominator: usize) -> TimeSignature {
-        TimeSignature {
-            numerator,
-            denominator,
-        }
-    }
-}
 pub struct Sequencer {
-    time_signature: TimeSignature,
     midi_ticks_per_second: usize,
     sinks: Vec<Rc<RefCell<dyn DeviceTrait>>>,
     midi_messages: VecDeque<(usize, MidiMessage)>,
@@ -109,16 +95,15 @@ pub struct Sequencer {
 impl Sequencer {
     pub fn new() -> Sequencer {
         Sequencer {
-            time_signature: TimeSignature::new(4, 4),
             midi_ticks_per_second: 0,
             sinks: Vec::new(),
             midi_messages: VecDeque::new(),
         }
     }
 
-    pub fn set_time_signature(&mut self, numerator: usize, denominator: usize) {
-        self.time_signature = TimeSignature::new(numerator, denominator);
-    }
+    // pub fn set_time_signature(&mut self, numerator: usize, denominator: usize) {
+    //     self.time_signature = TimeSignature::new(numerator, denominator);
+    // }
 
     pub fn set_midi_ticks_per_second(&mut self, tps: usize) {
         self.midi_ticks_per_second = tps;
@@ -223,7 +208,7 @@ impl<'a> Envelope {
         self.amplitude_target = target;
         if state_duration > 0. {
             self.amplitude_delta = (self.amplitude_target - self.amplitude)
-                / (state_duration * clock.sample_rate as f32);
+                / (state_duration * clock.sample_rate() as f32);
         } else {
             self.amplitude_delta = self.amplitude_target - self.amplitude;
         }

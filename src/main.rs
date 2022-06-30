@@ -185,7 +185,7 @@ impl ClDaw {
             return result;
         }
 
-        let sample_rate = self.orchestrator.clock.sample_rate as u32;
+        let sample_rate = self.orchestrator.clock.sample_rate() as u32;
         if let Some(output_filename) = wav_out {
             self.send_performance_to_file(sample_rate, &output_filename, &worker)
         } else {
