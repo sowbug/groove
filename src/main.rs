@@ -4,7 +4,10 @@ extern crate cpal;
 mod backend;
 mod effects;
 
-use crate::backend::{instruments::SimpleSynth, orchestrator::Orchestrator};
+use crate::backend::{
+    instruments::{SimpleSynth, Waveform},
+    orchestrator::Orchestrator,
+};
 use backend::{devices::DeviceTrait, instruments::Sequencer, midi::MidiReader};
 use clap::Parser;
 use cpal::{
@@ -12,11 +15,11 @@ use cpal::{
     SampleRate, StreamConfig,
 };
 use crossbeam::deque::{Stealer, Worker};
-use std::rc::Rc;
 use std::{
     cell::RefCell,
     sync::{Arc, Condvar, Mutex},
 };
+use std::{ops::Rem, rc::Rc};
 
 struct ClDaw {
     orchestrator: Orchestrator,
@@ -160,31 +163,45 @@ impl ClDaw {
         midi_in: Option<String>,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
-        let simple_synth = Rc::new(RefCell::new(SimpleSynth::new()));
-        self.orchestrator.add_device(simple_synth.clone());
-
-        self.orchestrator
-            .master_mixer
-            .borrow_mut()
-            .add_audio_source(simple_synth.clone());
-
         if midi_in.is_some() {
             let sequencer = Rc::new(RefCell::new(Sequencer::new()));
+            self.orchestrator.add_device(sequencer.clone());
 
             let data = std::fs::read(midi_in.unwrap()).unwrap();
             MidiReader::load_sequencer(&data, sequencer.clone());
 
-            sequencer.borrow_mut().connect_midi_sink(simple_synth);
+            // TODO: for now, we'll create one synth per MIDI channel. Later
+            // I guess we'll analyze the sequencer content and figure out which are needed.
+            for channel in 0..16 {
+                let waveform = match channel.rem(4) {
+                    0 => Waveform::Sine,
+                    1 => Waveform::Square,
+                    2 => Waveform::Triangle,
+                    3 => Waveform::Sawtooth,
+                    4_u32..=u32::MAX => todo!(), // TODO: is this a problem with the compiler's smarts?
+                };
+                let simple_synth = Rc::new(RefCell::new(SimpleSynth::new(waveform)));
+                self.orchestrator.add_device(simple_synth.clone());
 
-            self.orchestrator.add_device(sequencer);
+                self.orchestrator
+                    .master_mixer
+                    .borrow_mut()
+                    .add_audio_source(simple_synth.clone());
+
+                sequencer
+                    .borrow_mut()
+                    .connect_midi_sink_for_channel(simple_synth, channel);
+            }
         }
 
+        println!("Performing to queue");
         let worker = Worker::<f32>::new_fifo();
         let result = self.orchestrator.perform_to_queue(&worker);
         if result.is_err() {
             return result;
         }
 
+        println!("Rendering queue");
         let sample_rate = self.orchestrator.clock.sample_rate() as u32;
         if let Some(output_filename) = wav_out {
             self.send_performance_to_file(sample_rate, &output_filename, &worker)

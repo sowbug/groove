@@ -6,7 +6,7 @@ pub struct Clock {
     // Mutable after creation.
     pub time_signature_numerator: u32,
     time_signature_denominator: u32,
-    beats_per_minute: f32,
+    pub beats_per_minute: f32,
 
     // Updated on each tick().
     pub samples: u32, // Samples since clock creation.
