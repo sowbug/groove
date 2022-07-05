@@ -112,9 +112,6 @@ impl MidiReader {
             track_number += 1;
             let mut track_time_ticks: u32 = 0; // The relative time references start over at zero with each track.
 
-            if track_number >= 4 {
-                continue;
-            }
             for t in track.iter() {
                 match t.kind {
                     TrackEventKind::Midi { channel, message } => {
