@@ -180,7 +180,7 @@ impl ClDaw {
                     3 => Waveform::Sawtooth,
                     4_u32..=u32::MAX => todo!(), // TODO: is this a problem with the compiler's smarts?
                 };
-                let simple_synth = Rc::new(RefCell::new(SimpleSynth::new(waveform)));
+                let simple_synth = Rc::new(RefCell::new(SimpleSynth::new(waveform, channel)));
                 self.orchestrator.add_device(simple_synth.clone());
 
                 self.orchestrator
@@ -188,7 +188,7 @@ impl ClDaw {
                     .borrow_mut()
                     .add_audio_source(simple_synth.clone());
 
-                sequencer
+                    sequencer
                     .borrow_mut()
                     .connect_midi_sink_for_channel(simple_synth, channel);
             }

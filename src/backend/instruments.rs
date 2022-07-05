@@ -386,14 +386,16 @@ impl DeviceTrait for Voice {
 pub struct SimpleSynth {
     voices: Vec<Voice>,
     note_to_voice: HashMap<u8, usize>,
+    channel: u32,
 }
 
 impl SimpleSynth {
-    pub fn new(waveform: Waveform) -> SimpleSynth {
+    pub fn new(waveform: Waveform, channel: u32) -> SimpleSynth {
         const VOICE_COUNT: usize = 32;
         let mut synth = SimpleSynth {
             voices: Vec::new(),
             note_to_voice: HashMap::<u8, usize>::new(),
+            channel,
         };
         for _ in 0..VOICE_COUNT {
             synth.voices.push(Voice::new(waveform));
@@ -419,6 +421,10 @@ impl DeviceTrait for SimpleSynth {
         true
     }
     fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+        if message.channel as u32 != self.channel {
+            // TODO: temp, eventually put responsibility on sender to filter
+            return;
+        }
         match message.status {
             MidiMessageType::NoteOn => {
                 let index = self.next_available_voice();
