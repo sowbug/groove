@@ -4,7 +4,7 @@ pub struct Clock {
     samples_per_second: u32, // Samples per second; granularity of a tick().
 
     // Mutable after creation.
-    time_signature_numerator: u32,
+    pub time_signature_numerator: u32,
     time_signature_denominator: u32,
     beats_per_minute: f32,
 
@@ -40,12 +40,12 @@ impl Clock {
 }
 
 pub struct TimeSignature {
-    numerator: usize,
-    denominator: usize,
+    numerator: u32,
+    denominator: u32,
 }
 
 impl TimeSignature {
-    pub fn new(numerator: usize, denominator: usize) -> TimeSignature {
+    pub fn new(numerator: u32, denominator: u32) -> TimeSignature {
         TimeSignature {
             numerator,
             denominator,
