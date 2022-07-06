@@ -53,10 +53,17 @@ impl TimeSignature {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    impl Clock {
+        pub const TEST_SAMPLE_RATE: u32 = 256;
+        pub const TEST_BPM: f32 = 99.;
+        pub fn new_test() -> Clock {
+            Clock::new(Clock::TEST_SAMPLE_RATE, 4, 4, Clock::TEST_BPM)
+        }
+    }
 
     #[test]
     fn test_clock_mainline() {
