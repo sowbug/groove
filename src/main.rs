@@ -3,10 +3,11 @@ extern crate cpal;
 
 mod backend;
 mod effects;
+mod primitives;
 
-use crate::backend::{
-    instruments::{SimpleSynth, Waveform},
-    orchestrator::Orchestrator,
+use crate::{
+    backend::{instruments::SimpleSynth, orchestrator::Orchestrator},
+    primitives::oscillators::Waveform,
 };
 use backend::{devices::DeviceTrait, instruments::Sequencer, midi::MidiReader};
 use clap::Parser;
@@ -188,7 +189,7 @@ impl ClDaw {
                     .borrow_mut()
                     .add_audio_source(simple_synth.clone());
 
-                    sequencer
+                sequencer
                     .borrow_mut()
                     .connect_midi_sink_for_channel(simple_synth, channel);
             }
