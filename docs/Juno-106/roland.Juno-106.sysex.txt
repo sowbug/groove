@@ -1,0 +1,126 @@
+From peterc@dub.comm.mot.com Thu Sep  8 10:03:02 1994
+Date: Thu, 8 Sep 94 10:37:19 BST
+From: Peter Cassidy <peterc@dub.comm.mot.com>
+To: Analogue Synth List <analogue@magnus.acs.ohio-state.edu>
+Subject: Juno 106 Sysex
+
+Hi all,
+
+        Since a few people are asking, here's the Juno 106 Sysex details :
+(Thanks to Charles Savoie (chuckies@cs.mcgill.ca) on r.m.m.s !!)
+
+------------------------------------------------------------------------------  
+
+The Juno-106 format for a SysEx patch download is (computer to
+Juno, or Juno to Juno, byte values in hex:)
+
+F0   <-- begin sysex
+41   <-- Roland ID
+30   <-- Message Type
+0n   <-- n = Midi channel - 1  (0-F)
+xx   <-- Patch Number 0-127, not used by receiving Juno
+[sixteen bytes as follows all values go from 0-127:]
+LFO rate, LFO delay, DCO LFO, DCO PWM, Noise, VCF Freq, VCF Res,
+VCF Env, VCF LFO, VCF KYBD, VCA Level, A, D, S, R, Sub Osc.
+
+[seventeenth byte:]
+        bit 0:  16' on/off \
+        bit 1:  8'  on/off  in theory these 3 bits are mutual-excl.
+        bit 2:  4'  on/off /
+        bit 3:  Pulse on/off (1=on)
+        bit 4:  Tri   on/off (1=on)
+        bit 5:  0 => Chorus on
+        bit 6:  0 => Chorus level 2 (if on), 1=>level 1
+
+[eighteenth byte:]
+        bit 0:  0=>DCO PWM=LFO, otherwise =MAN
+        bit 1:  0=>VCA ENV, otherwise GATE
+        bit 2:  0=>VCF Polarity +, otherwise -
+        bit 4+3: 00 => HPF=3, 01 => HPF=2, 10 => HPF=1, 11 => HPF=0 
+
+[last byte, EoX:]
+F7
+
+--------------------------------------------------------------------------------
+
+---
+Pete
+------------------------------------------------------------------------------
+|   Peter Cassidy - Motorola BV Ireland - TSE   |  SH101-EX800-CUBASE-ESQ-1  |
+| peterc@dub.comm.mot.com * My opinions only !! |     SYNTHEX-R70-MKS100     |
+------------------------------------------------------------------------------
+Article 16567 of rec.music.makers.synth:
+Path: lmpsbbs!mothost!binford!pitstop.mcd.mot.com!asuvax!cs.utexas.edu!uunet!newsflash.concordia.ca!sifon!homer.cs.mcgill.ca!chuckies
+From: chuckies@cs.mcgill.ca (Charles J Savoie)
+Newsgroups: rec.music.makers.synth
+Subject: Re: Roland Juno-106 / MKS-7 patch/sysex info?
+Date: 12 Jan 1994 05:49:36 GMT
+Organization: SOCS, McGill University, Montreal, Canada
+Lines: 61
+Message-ID: <2h031g$ldp@homer.cs.mcgill.ca>
+References: <9400117583.AA758315135@beluga.adoc.xerox.com>
+NNTP-Posting-Host: binkley
+
+
+In article <9400117583.AA758315135@beluga.adoc.xerox.com>,
+ <cooper@adoc.xerox.com> wrote:
+->
+->The MKS-7 allows patches to be downloaded to it via sysex, but the documentation
+->doesn't say anything about the patch format itself. I've been told that the
+->format is the same as for the Juno-106, but I don't have any information on that
+->either. Can anyone help me out here?
+
+The Juno-106 format for a SysEx patch download is (computer to
+Juno, or Juno to Juno, byte values in hex:)
+
+F0   <-- begin sysex
+41   <-- Roland ID
+30   <-- Message Type
+0n   <-- n = Midi channel - 1  (0-F)
+xx   <-- Patch Number 0-127, not used by receiving Juno
+[sixteen bytes as follows all values go from 0-127:]
+LFO rate, LFO delay, DCO LFO, DCO PWM, Noise, VCF Freq, VCF Res,
+VCF Env, VCF LFO, VCF KYBD, VCA Level, A, D, S, R, Sub Osc.
+
+[seventeenth byte:]
+	bit 0:  16' on/off \
+	bit 1:  8'  on/off  in theory these 3 bits are mutual-excl.
+	bit 2:  4'  on/off /
+	bit 3:  Pulse on/off (1=on)
+	bit 4:  Tri   on/off (1=on)
+	bit 5:  0 => Chorus on
+	bit 6:  0 => Chorus level 2 (if on), 1=>level 1
+
+[eighteenth byte:]
+	bit 0:  0=>DCO PWM=LFO, otherwise =MAN
+	bit 1:  0=>VCA ENV, otherwise GATE
+	bit 2:  0=>VCF Polarity +, otherwise -
+	bit 4+3: 00 => HPF=3, 01 => HPF=2, 10 => HPF=1, 11 => HPF=0 
+
+[last byte, EoX:]
+F7
+
+I hope that helps.
+
+->Also, does anyone know of a patch editor/librarian for either of these synths,
+->for a PC? Are there any collections of patches anywhere?
+
+I don't know of any for the PC, but there does exist an
+*excellent* one (can you tell I wrote it?) for the Atari ST.  My
+program is shareware and comes with 128 custom *named* patches,
+and I give out another 128 named patches when the program is
+registered.  (Good deal, 256 patches for $10!)  It also has a
+software Sample & Hold generator on-board which works for almost
+any synth and can be toggled remotely via MIDI or synched to a
+drum machine (v1.2); an idea which no doubt will be copied by some 
+major company soon but remember, *I thought of it first!*  :-)
+
+If you don't have an ST but still would like the patches, email me
+anyway and maybe we can work something out.
+
+Charles
+-- 
+-- Why, with all the problems of the world,
+   do we worry about the colour of margarine? --
+
+

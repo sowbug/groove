@@ -1,0 +1,98 @@
+The following files are contained in MKS50SYX.ZIP
+All are SysEx data files. Use a generic SysEx loader for your computer.
+"t" denotes TONE data (sounds)
+"p" denotes PATCH data (names)
+
+mks50_t1.syx  64 TONES (MKS-50, Alpha Juno-1, Alpha Juno-2 users)
+mks50_t2.syx       "          "                 "              "
+mks50_t3.syx       "          "                 "              "
+mks50_t4.syx       "          "                 "              "
+mks50_t5.syx       "          "                 "              "
+mks50_t6.syx       "          "                 "              "
+mks50_p1.syx  64 PATCHES (Names for corresponding tone data file(MKS-50 users only)
+mks50_p2.syx       "          "          "              "            "        "
+mks50_p3.syx       "          "          "              "            "        "
+mks50_p4.syx       "          "          "              "            "        "
+mks50_p5.syx       "          "          "              "            "        "
+mks50_p6.syx       "          "          "              "            "        "
+
+To load these sounds you need the following;
+
+) MKS-50, Juno-1 or Juno-2 connected to your computer
+) A generic System Exclusive loader program (Several are available on the Web)
+
+---------------------------------------
+MKS-50 MIDI Bulk*Load Procedure (TONES)
+---------------------------------------
+1) Set the MKS-50 into the following mode:
+                  ----
+MIDI CHANNEL =  1     |
+MIDI OMNI    = ON     |
+MIDI PROG.CG = ON     |
+PCH ASG MODE = ON     |------> Accessed Via The TUNE/MIDI Button on MKS-50
+TX C.M. APR  = ON     |
+TX PATCH APR = ON     |
+TX TONE APR  = ON     |
+MEM. PROTECT = OFF    |
+                  ----
+MIDI EXCL    = ON      ------> Accessed Via The PARAM Button in Patch Mode
+
+1) Run your generic SysEx loader program on your computer and load one
+   of the tone files listed above i.e....  mks50_t1.syx
+
+2) Press the DATA TRANSFER button on the MKS-50
+
+3) Press the PARAM button until  Bulk*Load [T-a]  appears in the LCD window
+   (NOTE: This is different from Bulk Load [T-a] without the asterisk!!!!!)
+
+4) Press the WRITE button on the MKS-50 and  Bulk*Load -Run-  should appear
+   in the LCD window.
+
+5) Choose TRANSMIT or SEND on your computer SysEx program and the MKS-50
+   should start to receive MIDI data. To send MIDI data to bank B, make
+   sure the LCD window reads  Bulk*Load [T-b]
+
+-----------------------------------------
+MKS-50 MIDI Bulk*Load Procedure (PATCHES)
+-----------------------------------------
+Same procedure as above except substitute these;
+1) Run your generic SysEx loader program on your computer and load one
+   of the tone files listed above i.e....  mks50_p1.syx
+2) ---same---
+3) Press the PARAM button until  Bulk*Load [P-A]  appears in the LCD window
+   (NOTE: This is different from Bulk Load [P-A] without the asterisk!!!!!)
+
+4) Press the WRITE button on the MKS-50 and  Bulk*Load -Run-  should appear
+   in the LCD window.
+5) ---same---
+
+-----------------------------------------------
+JUNO-1, JUNO-2 MIDI Bulk*Load Procedure (TONES)
+-----------------------------------------------
+1) The Alpha Juno-1/2 should be set to MIDI Channel 1
+
+2) Set SysEx ON (I don't know if this is an option? I have an MKS-50)
+
+3) The BULK DUMP data transfer methods used are slightly different from the
+   instructions listed on page 40 of the Alpha Juno-1/2 Owner's Manual.
+   You must press the WRITE key at the same time as the DATA TRANSFER and
+   BULK SAVE keys are pressed. This key sequence is an undocumented
+   feature and sends MIDI information out of the MIDI port in one continuous
+   stream instead of waiting for a response from another MIDI device connected
+   to the Alpha Juno-1/2. The method of BULK SAVE data transfer used in this
+   manner should read in the Alpha Juno-1/2 display window as;
+   Bulk Save MIDI.o                       <==== Correct
+   as opposed to the normal display of;
+   Bulk Save MIDI..                       <==== Incorrect
+
+  * The easiest way I have found to use these three keys at the same time
+  * is to first press the DATA TRANSFER key and then, while still pressing
+  * DATA TRANSFER, press the WRITE key and while still pressing these two
+  * keys, press the BULK DUMP key.
+
+To reverse the process, press the BULK LOAD key. Remember, this will replace
+all internal tones of the Alpha Juno-1/2 so when you want to load new tones,
+Make Sure You Have A Back-up Of Your Internal Tones Before You Continue!
+
+Note: Patch data files (mks50_p#.syx) will not work on a Juno-1 or Juno-2 but 
+tone data files (mks50_t#.syx) should work fine on a Juno-1 or Juno-2.
