@@ -188,6 +188,11 @@ impl SimpleSynth {
         // TODO: voice stealing
         0
     }
+    
+    pub fn temp_set_oscillator_frequency(&mut self, value: f32) {
+        self.voices[0].envelope.child_device.set_frequency(value);
+    }
+
 }
 
 impl DeviceTrait for SimpleSynth {

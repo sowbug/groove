@@ -14,7 +14,7 @@ enum EnvelopeState {
     Release,
 }
 pub struct Envelope {
-    child_device: Oscillator,
+    pub child_device: Oscillator,
     amplitude: f32,
     amplitude_delta: f32,
     amplitude_target: f32,

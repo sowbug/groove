@@ -7,7 +7,7 @@ mod primitives;
 
 use crate::{
     backend::{instruments::SimpleSynth, orchestrator::Orchestrator},
-    primitives::oscillators::Waveform,
+    primitives::{lfos::Lfo, oscillators::Waveform},
 };
 use backend::{devices::DeviceTrait, instruments::Sequencer, midi::MidiReader};
 use clap::Parser;
@@ -171,6 +171,9 @@ impl ClDaw {
             let data = std::fs::read(midi_in.unwrap()).unwrap();
             MidiReader::load_sequencer(&data, sequencer.clone());
 
+            let lfo = Rc::new(RefCell::new(Lfo::new(3.0)));
+            self.orchestrator.add_device(lfo.clone());
+
             // TODO: for now, we'll create one synth per MIDI channel. Later
             // I guess we'll analyze the sequencer content and figure out which are needed.
             for channel in 0..16 {
@@ -183,6 +186,16 @@ impl ClDaw {
                 };
                 let simple_synth = Rc::new(RefCell::new(SimpleSynth::new(waveform, channel)));
                 self.orchestrator.add_device(simple_synth.clone());
+
+                if channel == 0 {
+                    let s2: Rc<RefCell<SimpleSynth>> = simple_synth.clone();
+                    let target = move |value: f32| -> () {
+                        let frequency = 440f32;
+                        s2.borrow_mut()
+                            .temp_set_oscillator_frequency(frequency + frequency * value * 0.25);
+                    };
+                    lfo.borrow_mut().connect_automation_sink(target);
+                }
 
                 self.orchestrator
                     .master_mixer
