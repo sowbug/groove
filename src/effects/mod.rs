@@ -1,10 +1,11 @@
+pub mod filter;
 pub mod gain;
 pub mod limiter;
 pub mod mixer;
 
 #[cfg(test)]
 mod tests {
-    use crate::{backend::devices::DeviceTrait};
+    use crate::backend::devices::DeviceTrait;
 
     pub struct TestAlwaysTooLoudDevice {}
     impl DeviceTrait for TestAlwaysTooLoudDevice {

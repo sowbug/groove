@@ -25,13 +25,13 @@ pub trait DeviceTrait {
     // that it does need to keep doing work.
     //
     // More often used for MIDI instruments.
-    fn tick(&mut self, _clock: &Clock) -> bool {
+    fn tick(&mut self, clock: &Clock) -> bool {
         true
     }
     fn get_audio_sample(&self) -> f32 {
         0.
     }
-    fn add_audio_source(&mut self, _audio_instrument: Rc<RefCell<dyn DeviceTrait>>) {}
-    fn connect_midi_sink(&mut self, _audio_instrument: Rc<RefCell<dyn DeviceTrait>>) {}
-    fn handle_midi_message(&mut self, _message: &MidiMessage, _clock: &Clock) {}
+    fn add_audio_source(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {}
+    fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {}
+    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
 }

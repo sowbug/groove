@@ -1,6 +1,7 @@
 use crate::backend::devices::DeviceTrait;
 
 //https://stackoverflow.com/questions/27831944/how-do-i-store-a-closure-in-a-struct-in-rust
+#[derive(Default)]
 pub struct Lfo {
     frequency: f32,
     current_value: f32,

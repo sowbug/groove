@@ -6,7 +6,7 @@ use crate::backend::{
     midi::{self, MidiMessage},
 };
 
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum Waveform {
     Sine,
     Square,
@@ -20,7 +20,7 @@ impl Default for Waveform {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Oscillator {
     waveform: Waveform,
     current_sample: f32,

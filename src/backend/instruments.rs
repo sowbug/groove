@@ -1,7 +1,9 @@
 use super::clock::Clock;
 use super::devices::DeviceTrait;
 use super::midi::{MidiMessage, MidiMessageType, OrderedMidiMessage};
+use crate::effects::filter::AudioFilter;
 use crate::primitives::envelopes::Envelope;
+use crate::primitives::lfos::Lfo;
 use crate::primitives::oscillators::{Oscillator, Waveform};
 use sorted_vec::SortedVec;
 use std::cell::RefCell;
@@ -188,7 +190,7 @@ impl SimpleSynth {
         // TODO: voice stealing
         0
     }
-    
+
     pub fn temp_set_oscillator_frequency(&mut self, value: f32) {
         self.voices[0].envelope.child_device.set_frequency(value);
     }
@@ -243,6 +245,43 @@ impl DeviceTrait for SimpleSynth {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct CelloSynth {
+    // From Welsh's Synthesizer Cookbook, page 53
+    osc1: Oscillator,
+    osc2: Oscillator,
+    amp_envelope: Envelope,
+    amp_lfo: Lfo,
+    filter1: AudioFilter,
+    filter2: AudioFilter,
+}
+
+impl CelloSynth {
+    pub fn new() -> Self {
+        let osc1 = Oscillator::new(Waveform::Square);
+        Self {
+            osc1,
+            osc2: Oscillator::new(Waveform::Square),
+            amp_envelope: Envelope::new(osc1, 0.06, 0, 1.0, 0.3),
+            amp_lfo: Lfo::new(7.5),
+            filter1: AudioFilter::new(),
+            filter2: AudioFilter::new(),
+        }
+    }
+}
+
+impl DeviceTrait for CelloSynth {
+    fn sources_audio(&self) -> bool {
+        true
+    }
+    fn sinks_midi(&self) -> bool {
+        true
+    }
+    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
+    fn get_audio_sample(&self) -> f32 {
+        0.
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

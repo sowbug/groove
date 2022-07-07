@@ -6,6 +6,7 @@ use crate::backend::{
 
 use super::oscillators::Oscillator;
 
+#[derive(Debug)]
 enum EnvelopeState {
     Idle,
     Attack,
@@ -13,6 +14,14 @@ enum EnvelopeState {
     Sustain,
     Release,
 }
+
+impl Default for EnvelopeState {
+    fn default() -> Self {
+        EnvelopeState::Idle
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct Envelope {
     pub child_device: Oscillator,
     amplitude: f32,
