@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::backend::{
     clock::Clock,
     devices::DeviceTrait,
@@ -7,7 +9,7 @@ use crate::backend::{
 use super::oscillators::Oscillator;
 
 #[derive(Debug)]
-enum EnvelopeState {
+pub enum EnvelopeState {  // TODO: hide this again once CelloSynth2 proto is complete
     Idle,
     Attack,
     Decay,
@@ -21,9 +23,8 @@ impl Default for EnvelopeState {
     }
 }
 
-#[derive(Debug, Default)]
 pub struct Envelope {
-    pub child_device: Oscillator,
+    pub child_device: Rc<RefCell<dyn DeviceTrait>>,
     amplitude: f32,
     amplitude_delta: f32,
     amplitude_target: f32,
@@ -37,13 +38,13 @@ pub struct Envelope {
 
 impl<'a> Envelope {
     pub fn new(
-        child_device: Oscillator,
+        child_device: Rc<RefCell<dyn DeviceTrait>>,
         attack: f32,
         decay: f32,
         sustain: f32,
         release: f32,
     ) -> Envelope {
-        if !child_device.sources_audio() {
+        if !child_device.borrow().sources_audio() {
             panic!("Envelope created with non-audio-producing child device");
         }
         Envelope {
@@ -137,13 +138,13 @@ impl<'a> DeviceTrait for Envelope {
             }
         }
         // TODO(miket): introduce notion of weak ref so that we can make sure nobody has two parents
-        self.child_device.tick(clock);
+        self.child_device.borrow_mut().tick(clock);
 
         matches!(self.state, EnvelopeState::Idle)
     }
 
     fn get_audio_sample(&self) -> f32 {
-        self.child_device.get_audio_sample() * self.amplitude
+        self.child_device.borrow().get_audio_sample() * self.amplitude
     }
 
     fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
@@ -155,6 +156,6 @@ impl<'a> DeviceTrait for Envelope {
                 self.change_to_release_state(clock);
             }
         }
-        self.child_device.handle_midi_message(message, clock);
+        self.child_device.borrow_mut().handle_midi_message(message, clock);
     }
 }

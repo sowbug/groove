@@ -6,7 +6,10 @@ mod effects;
 mod primitives;
 
 use crate::{
-    backend::{instruments::SimpleSynth, orchestrator::Orchestrator},
+    backend::{
+        instruments::{CelloSynth2, SimpleSynth},
+        orchestrator::Orchestrator,
+    },
     primitives::{lfos::Lfo, oscillators::Waveform},
 };
 use backend::{devices::DeviceTrait, instruments::Sequencer, midi::MidiReader};
@@ -174,38 +177,51 @@ impl ClDaw {
             let lfo = Rc::new(RefCell::new(Lfo::new(3.0)));
             self.orchestrator.add_device(lfo.clone());
 
-            // TODO: for now, we'll create one synth per MIDI channel. Later
-            // I guess we'll analyze the sequencer content and figure out which are needed.
-            for channel in 0..16 {
-                let waveform = match channel.rem(4) {
-                    0 => Waveform::Sine,
-                    1 => Waveform::Square,
-                    2 => Waveform::Triangle,
-                    3 => Waveform::Sawtooth,
-                    4_u32..=u32::MAX => todo!(), // TODO: is this a problem with the compiler's smarts?
-                };
-                let simple_synth = Rc::new(RefCell::new(SimpleSynth::new(waveform, channel)));
-                self.orchestrator.add_device(simple_synth.clone());
+            //             // TODO: for now, we'll create one synth per MIDI channel. Later
+            //             // I guess we'll analyze the sequencer content and figure out which are needed.
+            //             for channel in 0..16 {
+            //                 let waveform = match channel.rem(4) {
+            //                     0 => Waveform::Sine,
+            //                     1 => Waveform::Square,
+            //                     2 => Waveform::Triangle,
+            //                     3 => Waveform::Sawtooth,
+            //                     4_u32..=u32::MAX => todo!(), // TODO: is this a problem with the compiler's smarts?
+            //                 };
+            // //                let simple_synth = Rc::new(RefCell::new(SimpleSynth::new(waveform, channel)));
+            //                 let simple_synth = Rc::new(RefCell::new(CelloSynth2::new()));
+            //                 self.orchestrator.add_device(simple_synth.clone());
 
-                if channel == 0 {
-                    let s2: Rc<RefCell<SimpleSynth>> = simple_synth.clone();
-                    let target = move |value: f32| -> () {
-                        let frequency = 440f32;
-                        s2.borrow_mut()
-                            .temp_set_oscillator_frequency(frequency + frequency * value * 0.25);
-                    };
-                    lfo.borrow_mut().connect_automation_sink(target);
-                }
+            //                 // if channel == 0 {
+            //                 //     let s2 = simple_synth.clone();
+            //                 //     let target = move |value: f32| -> () {
+            //                 //         let frequency = 440f32;
+            //                 //         s2.borrow_mut()
+            //                 //             .temp_set_oscillator_frequency(frequency + frequency * value * 0.25);
+            //                 //     };
+            //                 //     lfo.borrow_mut().connect_automation_sink(target);
+            //                 // }
 
-                self.orchestrator
-                    .master_mixer
-                    .borrow_mut()
-                    .add_audio_source(simple_synth.clone());
+            //                 self.orchestrator
+            //                     .master_mixer
+            //                     .borrow_mut()
+            //                     .add_audio_source(simple_synth.clone());
 
-                sequencer
-                    .borrow_mut()
-                    .connect_midi_sink_for_channel(simple_synth, channel);
-            }
+            //                 sequencer
+            //                     .borrow_mut()
+            //                     .connect_midi_sink_for_channel(simple_synth, channel);
+            //             }
+
+            let simple_synth = Rc::new(RefCell::new(CelloSynth2::new()));
+            self.orchestrator.add_device(simple_synth.clone());
+
+            self.orchestrator
+                .master_mixer
+                .borrow_mut()
+                .add_audio_source(simple_synth.clone());
+
+            sequencer
+                .borrow_mut()
+                .connect_midi_sink_for_channel(simple_synth, 0);
         }
 
         println!("Performing to queue");
