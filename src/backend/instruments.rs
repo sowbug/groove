@@ -478,9 +478,13 @@ impl MiniEnvelope {
     }
 }
 
+enum MiniFilterType {
+    LowPass,
+    HighPass,
+    BandPass,
+}
 #[derive(Default)]
 struct MiniFilter {
-    are_coefficients_calculated: bool,
     ai0: f32,
     ai1: f32,
     ai2: f32,
@@ -493,11 +497,21 @@ struct MiniFilter {
 }
 
 impl MiniFilter {
-    pub fn new(cutoff: f32, sample_rate: f32) -> Self {
+    pub fn new(filter_type: MiniFilterType, cutoff: f32, sample_rate: u32) -> Self {
         let mut result = Self {
             ..Default::default()
         };
-        result.calc_filter_coefficients(cutoff, sample_rate);
+        match filter_type {
+            MiniFilterType::LowPass => {
+                result.calc_low_pass_filter_coefficients(cutoff, sample_rate);
+            }
+            MiniFilterType::HighPass => {
+                result.calc_high_pass_filter_coefficients(cutoff, sample_rate);
+            }
+            MiniFilterType::BandPass => {
+                result.calc_band_pass_filter_coefficients(cutoff, sample_rate);
+            }
+        }
         result
     }
 
@@ -513,8 +527,9 @@ impl MiniFilter {
         result
     }
 
-    fn calc_filter_coefficients(&mut self, cutoff: f32, sample_rate: f32) {
-        let c = 1. / ((PI / sample_rate) * cutoff).tan();
+    // Thanks to _BasicSynth_ by Daniel R. Mitchell for all this magic.
+    fn calc_low_pass_filter_coefficients(&mut self, cutoff: f32, sample_rate: u32) {
+        let c = 1. / ((PI / sample_rate as f32) * cutoff).tan();
         let c_squared = c.powi(2);
         let c_sqr2 = c * 2.0_f32.sqrt();
         let d = c_squared + c_sqr2 + 1.;
@@ -523,6 +538,28 @@ impl MiniFilter {
         self.ai2 = self.ai0;
         self.ao1 = (2. * (1. - c_squared)) / d;
         self.ao2 = (c_squared - c_sqr2 + 1.) / d;
+    }
+
+    fn calc_high_pass_filter_coefficients(&mut self, cutoff: f32, sample_rate: u32) {
+        let c = ((PI / sample_rate as f32) * cutoff).tan();
+        let c_squared = c.powi(2);
+        let c_sqr2 = c * 2.0_f32.sqrt();
+        let d = c_squared + c_sqr2 + 1.;
+        self.ai0 = 1. / d;
+        self.ai1 = -(self.ai0 * 2.0);
+        self.ai2 = self.ai0;
+        self.ao1 = (2. * (c_squared - 1.)) / d;
+        self.ao2 = (c_squared - c_sqr2 + 1.) / d;
+    }
+
+    fn calc_band_pass_filter_coefficients(&mut self, cutoff: f32, sample_rate: u32) {
+        let c = 1. / ((PI / sample_rate as f32) * cutoff).tan();
+        let d = 1. + c;
+        self.ai0 = 1. / d;
+        self.ai1 = 0.;
+        self.ai2 = -self.ai0;
+        self.ao1 = (-c * 2.0 * (2.0 * PI * cutoff / sample_rate as f32).cos()) / d;
+        self.ao2 = (c - 1.0) / d;
     }
 }
 
@@ -568,8 +605,8 @@ impl CelloSynth2 {
                 Self::FILTER_ENV_SUSTAIN_PERCENTAGE,
                 Self::FILTER_ENV_RELEASE_SECONDS,
             ),
-            filter_1: MiniFilter::new(40., 44100.),
-            filter_2: MiniFilter::new(40., 44100.),
+            filter_1: MiniFilter::new(MiniFilterType::LowPass, 40., 44100),
+            filter_2: MiniFilter::new(MiniFilterType::LowPass, 40., 44100),
             ..Default::default()
         }
     }
@@ -689,8 +726,8 @@ impl AngelsSynth {
                 Self::AMP_ENV_SUSTAIN_PERCENTAGE,
                 Self::AMP_ENV_RELEASE_SECONDS,
             ),
-            filter_1: MiniFilter::new(900., 44100.),
-            filter_2: MiniFilter::new(900., 44100.),
+            filter_1: MiniFilter::new(MiniFilterType::LowPass, 900., 44100),
+            filter_2: MiniFilter::new(MiniFilterType::LowPass, 900., 44100),
             ..Default::default()
         }
     }
@@ -990,6 +1027,41 @@ mod tests {
                 assert_eq!(envelope.amplitude, 0.0);
                 break;
             }
+            clock.tick();
+        }
+    }
+
+    #[test]
+    fn test_mini_filter() {
+        let mut clock = Clock::new(44100, 4, 4, 128.);
+        let mut osc = Oscillator::new(Waveform::Noise);
+        let mut lpf = MiniFilter::new(MiniFilterType::LowPass, 1000., clock.sample_rate());
+        let mut hpf = MiniFilter::new(MiniFilterType::HighPass, 1000., clock.sample_rate());
+        let mut bpf = MiniFilter::new(MiniFilterType::BandPass, 1000., clock.sample_rate());
+
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: clock.sample_rate(),
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        const AMPLITUDE: f32 = i16::MAX as f32;
+        let mut writer_osc = hound::WavWriter::create("noise.wav", spec).unwrap();
+        let mut writer_lpf = hound::WavWriter::create("noise_lpf_1KHz.wav", spec).unwrap();
+        let mut writer_hpf = hound::WavWriter::create("noise_hpf_1KHz.wav", spec).unwrap();
+        let mut writer_bpf = hound::WavWriter::create("noise_bpf_1KHz.wav", spec).unwrap();
+
+        while clock.seconds < 2.0 {
+            osc.tick(&clock);
+
+            let sample_osc = osc.get_audio_sample();
+            let sample_lpf = lpf.filter(sample_osc);
+            let sample_hpf = hpf.filter(sample_osc);
+            let sample_bpf = bpf.filter(sample_osc);
+            let _result = writer_osc.write_sample((sample_osc * AMPLITUDE) as i16);
+            let _result1 = writer_lpf.write_sample((sample_lpf * AMPLITUDE) as i16);
+            let _result2 = writer_hpf.write_sample((sample_hpf * AMPLITUDE) as i16);
+            let _result3 = writer_bpf.write_sample((sample_bpf * AMPLITUDE) as i16);
             clock.tick();
         }
     }
