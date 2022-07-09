@@ -7,7 +7,7 @@ mod primitives;
 
 use crate::{
     backend::{
-        instruments::{CelloSynth2, SimpleSynth},
+        instruments::{CelloSynth2, SimpleSynth, AngelsSynth},
         orchestrator::Orchestrator,
     },
     primitives::{lfos::Lfo, oscillators::Waveform},
@@ -167,6 +167,14 @@ impl ClDaw {
         midi_in: Option<String>,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
+        let simple_synth = Rc::new(RefCell::new(AngelsSynth::new()));
+        self.orchestrator.add_device(simple_synth.clone());
+
+        self.orchestrator
+            .master_mixer
+            .borrow_mut()
+            .add_audio_source(simple_synth.clone());
+
         if midi_in.is_some() {
             let sequencer = Rc::new(RefCell::new(Sequencer::new()));
             self.orchestrator.add_device(sequencer.clone());
@@ -210,14 +218,6 @@ impl ClDaw {
             //                     .borrow_mut()
             //                     .connect_midi_sink_for_channel(simple_synth, channel);
             //             }
-
-            let simple_synth = Rc::new(RefCell::new(CelloSynth2::new()));
-            self.orchestrator.add_device(simple_synth.clone());
-
-            self.orchestrator
-                .master_mixer
-                .borrow_mut()
-                .add_audio_source(simple_synth.clone());
 
             sequencer
                 .borrow_mut()

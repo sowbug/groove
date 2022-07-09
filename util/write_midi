@@ -41,6 +41,11 @@ for i, pitch in enumerate(degrees):
 write_midi_file(f, "major-scale-spaced-notes.mid")
 
 f = new_midi_file()
+for i, pitch in enumerate([60, 60, 60, 60]):
+    f.addNote(track, channel, pitch, i, 0.8, volume)
+write_midi_file(f, "major-scale-spaced-identical-notes.mid")
+
+f = new_midi_file()
 for ch in range(0, 4):
     for i, pitch in enumerate([60, 62, 64, 65, 67, 69, 71, 72]):
         f.addNote(track, ch, pitch + ch * 12, i + ch * 2, 1.0, volume)

@@ -369,7 +369,10 @@ impl MiniEnvelope {
         if seconds == 0. {
             return 0.;
         }
-        (target - current) / (seconds * ticks_per_second)
+        // The floor() is necessary because a tick is the lowest level of
+        // granularity. Any rate must be in terms of integer-sized time
+        // slices.
+        (target - current) / ((seconds * ticks_per_second).floor())
     }
 
     fn switch_to_attack(&mut self, clock: &Clock) {
@@ -393,6 +396,7 @@ impl MiniEnvelope {
             self.switch_to_sustain(clock);
         } else {
             self.state = EnvelopeState::Decay;
+            self.amplitude = 1.;
             self.target = self.sustain_percentage;
             self.delta = MiniEnvelope::delta_for_transition(
                 self.amplitude,
@@ -405,6 +409,7 @@ impl MiniEnvelope {
 
     fn switch_to_sustain(&mut self, clock: &Clock) {
         self.state = EnvelopeState::Sustain;
+        self.amplitude = self.sustain_percentage;
         self.target = self.sustain_percentage; // irrelevant
         self.delta = 0.;
     }
@@ -447,9 +452,7 @@ impl MiniEnvelope {
     }
 
     fn tick(&mut self, clock: &Clock) {
-        if self.delta != 0.0 && self.target != self.amplitude {
-            self.amplitude += self.delta;
-        }
+        self.amplitude += self.delta;
         match self.state {
             EnvelopeState::Idle => {}
             EnvelopeState::Attack => {
@@ -546,7 +549,6 @@ impl CelloSynth2 {
     const FILTER_ENV_ATTACK_SECONDS: f32 = 0.06;
     const FILTER_ENV_DECAY_SECONDS: f32 = 0.0;
     const FILTER_ENV_SUSTAIN_PERCENTAGE: f32 = 1.;
-
     const FILTER_ENV_RELEASE_SECONDS: f32 = 0.3;
 
     const LFO_FREQUENCY: f32 = 7.5;
@@ -607,11 +609,17 @@ impl DeviceTrait for CelloSynth2 {
 
         let phase_normalized_pitch = self.frequency * (clock.seconds as f32);
 
+        const OSC_1_PULSE_WIDTH: f32 = 0.1;
         let osc1 = {
             if self.is_playing {
-                // (phase_normalized_pitch * 2.0 * PI).sin().signum()  // TODO: implement pulse-width modulation
-                2.0 * (phase_normalized_pitch - (0.5 + phase_normalized_pitch).floor())
-                // Welsh's says sawtooth is acceptable substitution
+                if phase_normalized_pitch - phase_normalized_pitch.floor() > OSC_1_PULSE_WIDTH {
+                    -1.0
+                } else {
+                    1.0
+                }
+            //     (phase_normalized_pitch * 2.0 * PI).sin().signum()  // TODO: implement pulse-width modulation
+            //2.0 * (phase_normalized_pitch - (0.5 + phase_normalized_pitch).floor())
+            // Welsh's says sawtooth is acceptable substitution
             } else {
                 0.
             }
@@ -628,8 +636,10 @@ impl DeviceTrait for CelloSynth2 {
 
         let osc_mix = (osc1 + osc2) / 2.;
 
-        let filter_1_weight = 0.1 * self.filter_envelope.value();
-        let filter_2_weight = 0.1 * self.filter_envelope.value();
+        const LPF_1_WEIGHT: f32 = 0.1;
+        const LPF_2_WEIGHT: f32 = 0.1;
+        let filter_1_weight = LPF_1_WEIGHT * self.filter_envelope.value();
+        let filter_2_weight = LPF_2_WEIGHT * self.filter_envelope.value();
         let filter1 =
             self.filter_1.filter(osc_mix) * filter_1_weight + osc_mix * (1.0 - filter_1_weight);
         let filter2 =
@@ -639,6 +649,114 @@ impl DeviceTrait for CelloSynth2 {
         let amplitude = self.amp_envelope.value()
             * filter_mix
             * (1. + lfo * Self::LFO_DEPTH - Self::LFO_DEPTH / 2.0);
+
+        self.current_value = amplitude;
+
+        // TODO temp
+        self.amp_envelope.is_idle()
+    }
+    fn get_audio_sample(&self) -> f32 {
+        self.current_value
+    }
+}
+
+#[derive(Default)]
+pub struct AngelsSynth {
+    is_playing: bool,
+    frequency: f32,
+    current_value: f32,
+
+    amp_envelope: MiniEnvelope,
+
+    filter_1: MiniFilter,
+    filter_2: MiniFilter,
+}
+
+impl AngelsSynth {
+    const AMP_ENV_ATTACK_SECONDS: f32 = 0.32;
+    const AMP_ENV_DECAY_SECONDS: f32 = 0.0;
+    const AMP_ENV_SUSTAIN_PERCENTAGE: f32 = 1.;
+    const AMP_ENV_RELEASE_SECONDS: f32 = 0.93;
+
+    const LFO_FREQUENCY: f32 = 2.4;
+    const LFO_DEPTH: f32 = 0.0002;
+
+    pub fn new() -> Self {
+        Self {
+            amp_envelope: MiniEnvelope::new(
+                Self::AMP_ENV_ATTACK_SECONDS,
+                Self::AMP_ENV_DECAY_SECONDS,
+                Self::AMP_ENV_SUSTAIN_PERCENTAGE,
+                Self::AMP_ENV_RELEASE_SECONDS,
+            ),
+            filter_1: MiniFilter::new(900., 44100.),
+            filter_2: MiniFilter::new(900., 44100.),
+            ..Default::default()
+        }
+    }
+}
+
+impl DeviceTrait for AngelsSynth {
+    fn sources_audio(&self) -> bool {
+        true
+    }
+    fn sinks_midi(&self) -> bool {
+        true
+    }
+
+    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+        self.amp_envelope.handle_midi_message(message, clock);
+        match message.status {
+            MidiMessageType::NoteOn => {
+                self.is_playing = true;
+                self.frequency = message.to_frequency();
+            }
+            MidiMessageType::NoteOff => {}
+        }
+
+        if self.amp_envelope.is_idle() {
+            self.is_playing = false;
+        }
+    }
+
+    fn tick(&mut self, clock: &Clock) -> bool {
+        self.amp_envelope.tick(clock);
+
+        if self.amp_envelope.is_idle() {
+            self.is_playing = false;
+        }
+
+        let phase_normalized_lfo = Self::LFO_FREQUENCY * (clock.seconds as f32);
+        // let lfo =
+        //     4.0 * (phase_normalized_lfo - (0.75 + phase_normalized_lfo).floor() + 0.25).abs() - 1.0;
+        let lfo = (phase_normalized_lfo * 2.0 * PI).sin();
+
+        let freq_lfo = self.frequency * (1. + lfo * Self::LFO_DEPTH);
+        //            let freq_lfo = self.frequency;
+        let phase_normalized_pitch = freq_lfo * (clock.seconds as f32);
+
+        let osc1 = {
+            if self.is_playing {
+                2.0 * (phase_normalized_pitch - (0.5 + phase_normalized_pitch).floor())
+            // Welsh's says sawtooth is acceptable substitution
+            } else {
+                0.
+            }
+        };
+
+        let osc_mix = osc1;
+
+        const LPF_1_WEIGHT: f32 = 0.55;
+        const LPF_2_WEIGHT: f32 = 0.55;
+        let filter_1_weight = LPF_1_WEIGHT * 1.0;
+        let filter_2_weight = LPF_2_WEIGHT * 1.0;
+        let filter1 =
+            self.filter_1.filter(osc_mix) * filter_1_weight + osc_mix * (1.0 - filter_1_weight);
+        let filter2 =
+            self.filter_2.filter(osc_mix) * filter_2_weight + osc_mix * (1.0 - filter_2_weight);
+        let filter_mix = (filter1 + filter2) / 2.;
+
+        let amplitude = { self.amp_envelope.value() * filter_mix };
 
         self.current_value = amplitude;
 
@@ -827,6 +945,52 @@ mod tests {
             assert!(!dp_2.is_playing);
             assert_eq!(dp_2.midi_messages_received, 4);
             assert_eq!(dp_2.midi_messages_handled, 2);
+        }
+    }
+
+    #[test]
+    fn test_mini_envelope() {
+        let mut envelope = MiniEnvelope::new(0.1, 0.2, 0.8, 0.3);
+        let mut clock = Clock::new_test();
+
+        let midi_on = MidiMessage {
+            channel: 0,
+            status: MidiMessageType::NoteOn,
+            data1: 60,
+            data2: 0,
+        };
+        let midi_off = MidiMessage {
+            channel: 0,
+            status: MidiMessageType::NoteOff,
+            data1: 60,
+            data2: 0,
+        };
+        assert_eq!(envelope.amplitude, 0.);
+
+        let mut last_recognized_time_point = -1.;
+        loop {
+            envelope.tick(&clock);
+            if clock.seconds >= 0.0 && last_recognized_time_point < 0.0 {
+                last_recognized_time_point = 0.0;
+                assert!(matches!(envelope.state, EnvelopeState::Idle));
+                envelope.handle_midi_message(&midi_on, &clock);
+            } else if matches!(envelope.state, EnvelopeState::Decay)
+                && last_recognized_time_point < 0.1
+            {
+                last_recognized_time_point = 0.1;
+                assert_eq!(envelope.amplitude, 1.0);
+            } else if clock.seconds >= 0.1 + 0.2 && last_recognized_time_point < 0.1 + 0.2 {
+                last_recognized_time_point = 0.1 + 0.2;
+                assert_eq!(envelope.amplitude, 0.8);
+                envelope.handle_midi_message(&midi_off, &clock);
+            } else if clock.seconds >= 0.1 + 0.2 + 0.3
+                && last_recognized_time_point < 0.1 + 0.2 + 0.3
+            {
+                last_recognized_time_point = 0.1 + 0.2 + 0.3;
+                assert_eq!(envelope.amplitude, 0.0);
+                break;
+            }
+            clock.tick();
         }
     }
 }
