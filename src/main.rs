@@ -146,6 +146,7 @@ impl ClDaw {
         output_filename: &str,
         worker: &Worker<f32>,
     ) -> anyhow::Result<()> {
+        const AMPLITUDE: f32 = i16::MAX as f32;
         let spec = hound::WavSpec {
             channels: 1,
             sample_rate,
@@ -153,11 +154,10 @@ impl ClDaw {
             sample_format: hound::SampleFormat::Int,
         };
         let mut writer = hound::WavWriter::create(output_filename, spec).unwrap();
-        let amplitude = i16::MAX as f32;
 
         while !worker.is_empty() {
             let sample = worker.pop().unwrap_or_default();
-            writer.write_sample((sample * amplitude) as i16).unwrap();
+            writer.write_sample((sample * AMPLITUDE) as i16).unwrap();
         }
         Ok(())
     }
