@@ -14,8 +14,9 @@ impl MiniLimiter {
 
 #[cfg(test)]
 mod tests {
+    use crate::primitives::tests::TestAlwaysTooLoudDevice;
+
     use super::*;
-    use crate::effects::tests::TestAlwaysTooLoudDevice;
 
     #[test]
     fn test_limiter_mainline() {

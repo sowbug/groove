@@ -1,3 +1,4 @@
+use super::clock::Clock;
 use crate::backend::devices::DeviceTrait;
 
 //https://stackoverflow.com/questions/27831944/how-do-i-store-a-closure-in-a-struct-in-rust
@@ -16,7 +17,7 @@ impl DeviceTrait for Lfo {
         true
     }
 
-    fn tick(&mut self, clock: &crate::backend::clock::Clock) -> bool {
+    fn tick(&mut self, clock: &Clock) -> bool {
         let phase_normalized = self.frequency * (clock.seconds as f32);
         self.current_value = 2.0 * (phase_normalized - (0.5 + phase_normalized).floor());
         match &mut self.target {
@@ -54,7 +55,6 @@ mod tests {
     use more_asserts::assert_gt;
 
     use crate::{
-        backend::clock::Clock,
         primitives::{self, oscillators::Oscillator},
     };
 

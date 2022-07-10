@@ -195,8 +195,7 @@ impl MiniFilter {
 #[cfg(test)]
 mod tests {
     use crate::{
-        backend::{clock::Clock, devices::DeviceTrait},
-        primitives::oscillators::{Oscillator, Waveform},
+        primitives::{oscillators::{Oscillator, Waveform}, clock::Clock}, backend::devices::DeviceTrait,
     };
 
     use super::*;

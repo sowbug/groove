@@ -1,9 +1,8 @@
+use crate::backend::devices::DeviceTrait;
+use crate::primitives::clock::Clock;
 use crossbeam::deque::Worker;
 use std::cell::RefCell;
 use std::rc::Rc;
-
-use crate::backend::clock::Clock;
-use crate::backend::devices::DeviceTrait;
 
 use super::devices::Mixer;
 

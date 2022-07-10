@@ -1,10 +1,11 @@
 use std::f32::consts::PI;
 
 use crate::backend::{
-    clock::Clock,
     devices::DeviceTrait,
     midi::{self, MidiMessage},
 };
+
+use super::clock::Clock;
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum Waveform {

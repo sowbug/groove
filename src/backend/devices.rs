@@ -1,9 +1,8 @@
-use crate::effects::gain::MiniGain;
-use crate::effects::limiter::MiniLimiter;
-use crate::effects::mixer::MiniMixer;
-
-use super::clock::Clock;
 use super::midi::MidiMessage;
+use crate::primitives::clock::Clock;
+use crate::primitives::gain::MiniGain;
+use crate::primitives::limiter::MiniLimiter;
+use crate::primitives::mixer::MiniMixer;
 use std::cell::RefCell;
 use std::rc::Rc;
 

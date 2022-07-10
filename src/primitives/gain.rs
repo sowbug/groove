@@ -15,8 +15,9 @@ impl MiniGain {
 
 #[cfg(test)]
 mod tests {
+    use crate::primitives::tests::TestAlwaysLoudDevice;
+
     use super::*;
-    use crate::effects::tests::TestAlwaysLoudDevice;
 
     #[test]
     fn test_gain_mainline() {

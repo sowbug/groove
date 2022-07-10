@@ -1,10 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::backend::{
-    clock::Clock,
     devices::DeviceTrait,
     midi::{MidiMessage, MidiMessageType},
 };
+
+use super::clock::Clock;
 
 #[derive(Debug)]
 pub enum EnvelopeState {

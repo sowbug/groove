@@ -1,8 +1,8 @@
-use super::clock::Clock;
 use super::devices::DeviceTrait;
 use super::midi::{MidiMessage, MidiMessageType, OrderedMidiMessage};
-use crate::effects::filter::{MiniFilter, MiniFilterType};
+use crate::primitives::clock::Clock;
 use crate::primitives::envelopes::{Envelope, MiniEnvelope};
+use crate::primitives::filter::{MiniFilter, MiniFilterType};
 use crate::primitives::oscillators::{Oscillator, Waveform};
 use sorted_vec::SortedVec;
 use std::cell::RefCell;

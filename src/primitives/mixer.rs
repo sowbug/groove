@@ -19,7 +19,7 @@ impl MiniMixer {
 
 #[cfg(test)]
 mod tests {
-    use crate::effects::tests::*;
+    use crate::primitives::tests::{TestAlwaysLoudDevice, TestAlwaysSilentDevice};
 
     use super::*;
 
