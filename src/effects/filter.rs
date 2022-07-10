@@ -107,7 +107,7 @@ impl MiniFilter {
         resonance: f32,
     ) -> (f32, f32) {
         let theta_c = 2.0 * PI * cutoff / (sample_rate as f32);
-        let delta = 1.0 / resonance.max(0.707);
+        let delta = 1.0 / resonance.max(1.0 / 2.0f32.sqrt());
         let beta_n = 1.0 - ((delta / 2.0) * theta_c.sin());
         let beta_d = 1.0 + ((delta / 2.0) * theta_c.sin());
         let beta = 0.5 * (beta_n / beta_d);
