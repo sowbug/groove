@@ -7,7 +7,7 @@ mod primitives;
 
 use crate::{
     backend::{
-        instruments::{CelloSynth2, SimpleSynth, AngelsSynth},
+        instruments::{AngelsSynth, CelloSynth2, SimpleSynth},
         orchestrator::Orchestrator,
     },
     primitives::{lfos::Lfo, oscillators::Waveform},
@@ -21,9 +21,9 @@ use cpal::{
 use crossbeam::deque::{Stealer, Worker};
 use std::{
     cell::RefCell,
+    rc::Rc,
     sync::{Arc, Condvar, Mutex},
 };
-use std::{ops::Rem, rc::Rc};
 
 struct ClDaw {
     orchestrator: Orchestrator,
