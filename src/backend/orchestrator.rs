@@ -4,7 +4,8 @@ use std::rc::Rc;
 
 use crate::backend::clock::Clock;
 use crate::backend::devices::DeviceTrait;
-use crate::effects::mixer::Mixer;
+
+use super::devices::Mixer;
 
 pub struct Orchestrator {
     pub clock: Clock,

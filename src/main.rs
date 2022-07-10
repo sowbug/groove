@@ -6,11 +6,8 @@ mod effects;
 mod primitives;
 
 use crate::{
-    backend::{
-        instruments::{AngelsSynth, CelloSynth2, SimpleSynth},
-        orchestrator::Orchestrator,
-    },
-    primitives::{lfos::Lfo, oscillators::Waveform},
+    backend::{instruments::CelloSynth2, orchestrator::Orchestrator},
+    primitives::lfos::Lfo,
 };
 use backend::{devices::DeviceTrait, instruments::Sequencer, midi::MidiReader};
 use clap::Parser;

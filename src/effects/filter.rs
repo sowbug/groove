@@ -1,7 +1,4 @@
 use std::f32::consts::PI;
-use std::{cell::RefCell, rc::Rc};
-
-use crate::backend::devices::DeviceTrait;
 
 pub enum MiniFilterType {
     FirstOrderLowPass,
@@ -198,7 +195,7 @@ impl MiniFilter {
 #[cfg(test)]
 mod tests {
     use crate::{
-        backend::clock::Clock,
+        backend::{clock::Clock, devices::DeviceTrait},
         primitives::oscillators::{Oscillator, Waveform},
     };
 

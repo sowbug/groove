@@ -1,35 +1,19 @@
-use std::{cell::RefCell, rc::Rc};
+#[derive(Default)]
+pub struct MiniMixer {}
 
-use crate::backend::devices::DeviceTrait;
-
-pub struct Mixer {
-    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
-}
-
-impl Mixer {
+impl MiniMixer {
     pub fn new() -> Self {
-        Self {
-            sources: Vec::new(),
+        Self {}
+    }
+
+    pub fn process(&self, samples: Vec<f32>) -> f32 {
+        if samples.len() > 0 {
+            // https://stackoverflow.com/questions/41017140/why-cant-rust-infer-the-resulting-type-of-iteratorsum
+            let sum: f32 = samples.iter().sum();
+            sum / samples.len() as f32
+        } else {
+            0.
         }
-    }
-}
-impl DeviceTrait for Mixer {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-    fn sinks_audio(&self) -> bool {
-        true
-    }
-    fn add_audio_source(&mut self, audio_instrument: Rc<RefCell<dyn DeviceTrait>>) {
-        self.sources.push(audio_instrument);
-    }
-    fn get_audio_sample(&self) -> f32 {
-        let mut sample: f32 = 0.;
-        for i in self.sources.clone() {
-            let weight: f32 = 1. / self.sources.len() as f32;
-            sample += i.borrow().get_audio_sample() * weight;
-        }
-        sample
     }
 }
 
@@ -41,17 +25,23 @@ mod tests {
 
     #[test]
     fn test_mixer_mainline() {
-        let mut mixer = Mixer::new();
+        let mixer = MiniMixer::new();
 
-        // Nothing
-        assert_eq!(mixer.get_audio_sample(), 0.);
+        // Nothing/empty
+        assert_eq!(mixer.process(Vec::new()), 0.);
 
         // One always-loud
-        mixer.add_audio_source(Rc::new(RefCell::new(TestAlwaysLoudDevice {})));
-        assert_eq!(mixer.get_audio_sample(), 1.);
-
+        {
+            let sources = vec![TestAlwaysLoudDevice::new().get_audio_sample()];
+            assert_eq!(mixer.process(sources), 1.);
+        }
         // One always-loud and one always-quiet
-        mixer.add_audio_source(Rc::new(RefCell::new(TestAlwaysSilentDevice {})));
-        assert_eq!(mixer.get_audio_sample(), 0.5);
+        {
+            let sources = vec![
+                TestAlwaysLoudDevice::new().get_audio_sample(),
+                TestAlwaysSilentDevice::new().get_audio_sample(),
+            ];
+            assert_eq!(mixer.process(sources), 0.5);
+        }
     }
 }

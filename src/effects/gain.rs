@@ -1,27 +1,15 @@
-use crate::backend::devices::DeviceTrait;
-use std::{cell::RefCell, rc::Rc};
-
-pub struct Gain {
-    source: Rc<RefCell<dyn DeviceTrait>>,
+#[derive(Default)]
+pub struct MiniGain {
     amount: f32,
 }
-impl Gain {
-    pub fn new(source: Rc<RefCell<dyn DeviceTrait>>, amount: f32) -> Self {
-        Self { source, amount }
+
+impl MiniGain {
+    pub fn new(amount: f32) -> Self {
+        Self { amount }
     }
-}
-impl DeviceTrait for Gain {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-    fn sinks_audio(&self) -> bool {
-        true
-    }
-    fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
-        self.source = source;
-    }
-    fn get_audio_sample(&self) -> f32 {
-        self.source.borrow().get_audio_sample() * self.amount
+
+    pub fn process(&self, input: f32) -> f32 {
+        self.amount * input
     }
 }
 
@@ -32,8 +20,8 @@ mod tests {
 
     #[test]
     fn test_gain_mainline() {
-        let loud = Rc::new(RefCell::new(TestAlwaysLoudDevice {}));
-        let gain = Gain::new(loud, 1.1);
-        assert_eq!(gain.get_audio_sample(), 1.1);
+        let loud = TestAlwaysLoudDevice::new();
+        let gain = MiniGain::new(1.1);
+        assert_eq!(gain.process(loud.get_audio_sample()), 1.1);
     }
 }

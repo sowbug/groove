@@ -1,3 +1,7 @@
+use crate::effects::gain::MiniGain;
+use crate::effects::limiter::MiniLimiter;
+use crate::effects::mixer::MiniMixer;
+
 use super::clock::Clock;
 use super::midi::MidiMessage;
 use std::cell::RefCell;
@@ -34,4 +38,92 @@ pub trait DeviceTrait {
     fn add_audio_source(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {}
     fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {}
     fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
+}
+
+pub struct Gain {
+    source: Rc<RefCell<dyn DeviceTrait>>,
+    mini_gain: MiniGain,
+}
+impl Gain {
+    pub fn new(source: Rc<RefCell<dyn DeviceTrait>>, amount: f32) -> Self {
+        Self {
+            source,
+            mini_gain: MiniGain::new(amount),
+        }
+    }
+}
+impl DeviceTrait for Gain {
+    fn sources_audio(&self) -> bool {
+        true
+    }
+    fn sinks_audio(&self) -> bool {
+        true
+    }
+    fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
+        self.source = source;
+    }
+    fn get_audio_sample(&self) -> f32 {
+        self.mini_gain
+            .process(self.source.borrow().get_audio_sample())
+    }
+}
+
+pub struct Limiter {
+    source: Rc<RefCell<dyn DeviceTrait>>,
+    mini_limiter: MiniLimiter,
+}
+impl Limiter {
+    pub fn new(source: Rc<RefCell<dyn DeviceTrait>>, min: f32, max: f32) -> Self {
+        Self {
+            source,
+            mini_limiter: MiniLimiter::new(min, max),
+        }
+    }
+}
+impl DeviceTrait for Limiter {
+    fn sources_audio(&self) -> bool {
+        true
+    }
+    fn sinks_audio(&self) -> bool {
+        true
+    }
+    fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
+        self.source = source;
+    }
+    fn get_audio_sample(&self) -> f32 {
+        self.mini_limiter
+            .process(self.source.borrow().get_audio_sample())
+    }
+}
+
+pub struct Mixer {
+    mini_mixer: MiniMixer,
+    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+}
+
+impl Mixer {
+    pub fn new() -> Self {
+        Self {
+            mini_mixer: MiniMixer::new(),
+            sources: Vec::new(),
+        }
+    }
+}
+impl DeviceTrait for Mixer {
+    fn sources_audio(&self) -> bool {
+        true
+    }
+    fn sinks_audio(&self) -> bool {
+        true
+    }
+    fn add_audio_source(&mut self, audio_instrument: Rc<RefCell<dyn DeviceTrait>>) {
+        self.sources.push(audio_instrument);
+    }
+    fn get_audio_sample(&self) -> f32 {
+        let mut samples = Vec::new();
+        for source in self.sources.iter() {
+            samples.push(source.borrow().get_audio_sample());
+        }
+        self.mini_mixer.process(samples)
+    }
 }
