@@ -35,31 +35,6 @@ impl Sequencer {
     pub fn add_message(&mut self, message: OrderedMidiMessage) {
         self.midi_messages.insert(message);
     }
-    pub fn add_note_on(&mut self, when: u32, channel: u8, which: u8) {
-        let midi_message = OrderedMidiMessage {
-            when,
-            message: MidiMessage {
-                status: MidiMessageType::NoteOn,
-                channel: channel,
-                data1: which,
-                data2: 0,
-            },
-        };
-        self.midi_messages.insert(midi_message);
-    }
-    pub fn add_note_off(&mut self, when: u32, channel: u8, which: u8) {
-        let midi_message = OrderedMidiMessage {
-            when,
-            message: MidiMessage {
-                status: MidiMessageType::NoteOff,
-                channel: channel,
-                data1: which,
-                data2: 0,
-            },
-        };
-        self.midi_messages.insert(midi_message);
-    }
-
     pub fn connect_midi_sink_for_channel(
         &mut self,
         device: Rc<RefCell<dyn DeviceTrait>>,
@@ -127,12 +102,18 @@ impl DeviceTrait for Sequencer {
 
 #[cfg(test)]
 mod tests {
-    use std::{rc::Rc, cell::RefCell};
+    use std::{cell::RefCell, rc::Rc};
 
-    use crate::{primitives::clock::Clock, devices::{traits::DeviceTrait, tests::NullDevice}};
+    use crate::{
+        devices::{
+            midi::{MidiMessage, OrderedMidiMessage},
+            tests::NullDevice,
+            traits::DeviceTrait,
+        },
+        primitives::clock::Clock,
+    };
 
     use super::Sequencer;
-
 
     fn advance_one_beat(clock: &mut Clock, sequencer: &mut Sequencer) {
         let old_time = clock.seconds;
@@ -157,8 +138,14 @@ mod tests {
         let device = Rc::new(RefCell::new(NullDevice::new()));
         assert!(!device.borrow().is_playing);
 
-        sequencer.add_note_on(sequencer.tick_for_beat(&clock, 0), 0, 60);
-        sequencer.add_note_off(sequencer.tick_for_beat(&clock, 1), 0, 60);
+        sequencer.add_message(OrderedMidiMessage {
+            when: sequencer.tick_for_beat(&clock, 0),
+            message: MidiMessage::new_note_on(0, 60, 0),
+        });
+        sequencer.add_message(OrderedMidiMessage {
+            when: sequencer.tick_for_beat(&clock, 1),
+            message: MidiMessage::new_note_off(0, 60, 0),
+        });
 
         sequencer.connect_midi_sink_for_channel(device.clone(), 0);
 
@@ -197,10 +184,22 @@ mod tests {
         device_2.borrow_mut().set_channel(1);
         sequencer.connect_midi_sink_for_channel(device_2.clone(), 1);
 
-        sequencer.add_note_on(sequencer.tick_for_beat(&clock, 0), 0, 60);
-        sequencer.add_note_on(sequencer.tick_for_beat(&clock, 1), 1, 60);
-        sequencer.add_note_off(sequencer.tick_for_beat(&clock, 2), 0, 60);
-        sequencer.add_note_off(sequencer.tick_for_beat(&clock, 3), 1, 60);
+        sequencer.add_message(OrderedMidiMessage {
+            when: sequencer.tick_for_beat(&clock, 0),
+            message: MidiMessage::new_note_on(0, 60, 0),
+        });
+        sequencer.add_message(OrderedMidiMessage {
+            when: sequencer.tick_for_beat(&clock, 1),
+            message: MidiMessage::new_note_on(1, 60, 0),
+        });
+        sequencer.add_message(OrderedMidiMessage {
+            when: sequencer.tick_for_beat(&clock, 2),
+            message: MidiMessage::new_note_off(0, 60, 0),
+        });
+        sequencer.add_message(OrderedMidiMessage {
+            when: sequencer.tick_for_beat(&clock, 3),
+            message: MidiMessage::new_note_off(1, 60, 0),
+        });
 
         // TODO: this tick() doesn't match the Clock tick() in the sense that the clock is in the right state
         // right after init (without tick()), but the sequencer isn't (needs tick()). Maybe they shouldn't both

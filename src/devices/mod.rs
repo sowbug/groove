@@ -53,6 +53,9 @@ mod tests {
                     self.is_playing = false;
                     self.midi_messages_handled += 1;
                 }
+                MidiMessageType::ProgramChange => {
+                    self.midi_messages_handled += 1;
+                }
             }
         }
     }

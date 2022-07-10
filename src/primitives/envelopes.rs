@@ -105,7 +105,7 @@ impl MiniEnvelope {
         }
     }
 
-    fn switch_to_sustain(&mut self, time_seconds: f32) {
+    fn switch_to_sustain(&mut self, _time_seconds: f32) {
         self.state = EnvelopeState::Sustain;
         self.amplitude = self.sustain_percentage;
         self.target = self.sustain_percentage; // irrelevant
@@ -127,7 +127,7 @@ impl MiniEnvelope {
         }
     }
 
-    fn switch_to_idle(&mut self, time_seconds: f32) {
+    fn switch_to_idle(&mut self, _time_seconds: f32) {
         self.state = EnvelopeState::Idle;
         self.amplitude = 0.;
         self.target = 0.; // irrelevant
@@ -146,6 +146,7 @@ impl MiniEnvelope {
                     // Already in idle state. Shouldn't happen.
                 }
             }
+            MidiMessageType::ProgramChange => {}
         }
     }
 

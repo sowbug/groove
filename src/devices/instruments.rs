@@ -100,6 +100,9 @@ impl DeviceTrait for SimpleSynth {
                 self.voices[index].handle_midi_message(message, clock);
                 self.note_to_voice.remove(&note);
             }
+            MidiMessageType::ProgramChange => {
+                panic!("asdfsdf");
+            }
         }
     }
     fn tick(&mut self, clock: &Clock) -> bool {
@@ -223,6 +226,7 @@ impl DeviceTrait for CelloSynth2 {
                 self.osc_2.set_frequency(frequency);
             }
             MidiMessageType::NoteOff => {}
+            MidiMessageType::ProgramChange => {}
         }
 
         if self.amp_envelope.is_idle() {
@@ -322,6 +326,7 @@ impl DeviceTrait for AngelsSynth {
                 self.frequency = message.to_frequency();
             }
             MidiMessageType::NoteOff => {}
+            MidiMessageType::ProgramChange => {}
         }
 
         if self.amp_envelope.is_idle() {
