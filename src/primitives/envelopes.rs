@@ -43,11 +43,11 @@ impl<'a> Envelope {
         decay: f32,
         sustain: f32,
         release: f32,
-    ) -> Envelope {
+    ) -> Self {
         if !child_device.borrow().sources_audio() {
             panic!("Envelope created with non-audio-producing child device");
         }
-        Envelope {
+        Self {
             child_device,
             amplitude: 0.,
             amplitude_delta: 0.,

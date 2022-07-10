@@ -34,8 +34,8 @@ pub struct Oscillator {
 // TODO: these oscillators are pure in a logical sense, but they alias badly in the real world
 // of discrete sampling. Investigate replacing with smoothed waveforms.
 impl Oscillator {
-    pub fn new(waveform: Waveform) -> Oscillator {
-        Oscillator {
+    pub fn new(waveform: Waveform) -> Self {
+        Self {
             waveform,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,

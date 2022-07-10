@@ -7,8 +7,8 @@ pub struct Mixer {
 }
 
 impl Mixer {
-    pub fn new() -> Mixer {
-        Mixer {
+    pub fn new() -> Self {
+        Self {
             sources: Vec::new(),
         }
     }

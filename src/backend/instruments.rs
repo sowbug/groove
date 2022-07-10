@@ -19,8 +19,8 @@ pub struct Sequencer {
 }
 
 impl Sequencer {
-    pub fn new() -> Sequencer {
-        let result = Sequencer {
+    pub fn new() -> Self {
+        let result = Self {
             midi_ticks_per_second: 960,
             sinks: Vec::new(),
             midi_messages: SortedVec::new(),
@@ -134,10 +134,10 @@ pub struct Voice {
 }
 
 impl Voice {
-    pub fn new(waveform: Waveform) -> Voice {
+    pub fn new(waveform: Waveform) -> Self {
         let sound_source = Rc::new(RefCell::new(Oscillator::new(waveform)));
         let envelope = Envelope::new(sound_source, 0.1, 0.1, 0.5, 0.3);
-        Voice {
+        Self {
             //            sound_source,
             envelope,
         }
@@ -171,9 +171,9 @@ pub struct SimpleSynth {
 }
 
 impl SimpleSynth {
-    pub fn new(waveform: Waveform, channel: u32) -> SimpleSynth {
+    pub fn new(waveform: Waveform, channel: u32) -> Self {
         const VOICE_COUNT: usize = 32;
-        let mut synth = SimpleSynth {
+        let mut synth = Self {
             voices: Vec::new(),
             note_to_voice: HashMap::<u8, usize>::new(),
             channel,
@@ -246,83 +246,12 @@ impl DeviceTrait for SimpleSynth {
     }
 }
 
-pub struct CelloSynth {
-    // From Welsh's Synthesizer Cookbook, page 53
-    //
-    // Osc1: PW 10%, mix 100%
-    // Osc2: Square, mix 100%, track on, sync off
-    // noise off
-    // LFO: route -> amplitude, sine, 7.5hz/moderate, depth 5%
-    // glide off unison off voices multi
-    // LP filter
-    //   24db cutoff 40hz 10%, resonance 0%, envelope 90%
-    //   12db cutoff 40hz 10%
-    //   ADSR 0s, 3.29s, 78%, max
-    // Amp envelope
-    //   ADSR 0.06x, max, 100%, 0.30s
-    //
-    // alternate: osc 1 sawtooth
-    osc1: Rc<RefCell<Oscillator>>,
-    osc2: Rc<RefCell<Oscillator>>,
-    amp_envelope: Rc<RefCell<Envelope>>,
-    amp_lfo: Rc<RefCell<Lfo>>,
-    filter1: Rc<RefCell<AudioFilter>>,
-    filter2: Rc<RefCell<AudioFilter>>,
-}
-
-impl CelloSynth {
-    pub fn new() -> Self {
-        let osc1 = Rc::new(RefCell::new(Oscillator::new(Waveform::Sawtooth)));
-        let osc2 = Rc::new(RefCell::new(Oscillator::new(Waveform::Square)));
-        let prefilter_mixer = Rc::new(RefCell::new(Mixer::new()));
-        prefilter_mixer.borrow_mut().add_audio_source(osc1.clone());
-        prefilter_mixer.borrow_mut().add_audio_source(osc2.clone());
-
-        let filter1 = Rc::new(RefCell::new(AudioFilter::new(prefilter_mixer.clone(), 0.1)));
-        let filter2 = Rc::new(RefCell::new(AudioFilter::new(prefilter_mixer, 0.1)));
-
-        let postfilter_mixer = Rc::new(RefCell::new(Mixer::new()));
-        postfilter_mixer
-            .borrow_mut()
-            .add_audio_source(filter1.clone());
-        postfilter_mixer
-            .borrow_mut()
-            .add_audio_source(filter2.clone());
-
         // TODO: this is an automation thing.
         // maybe LFOs and envelopes shouldn't have audio output, but only value outputs.
         // Then they don't have to get into the business of understanding the rest of DeviceTraits,
         // and can be reused for more things.
-        let filter_envelope = Envelope::new(filter1.clone(), 0., 3.29, 0.78, 0.);
-        Self {
-            osc1,
-            osc2,
-            amp_envelope: Rc::new(RefCell::new(Envelope::new(
-                postfilter_mixer,
-                0.06,
-                0.,
-                1.0,
-                0.3,
-            ))),
-            amp_lfo: Rc::new(RefCell::new(Lfo::new(7.5))),
-            filter1,
-            filter2,
-        }
-    }
-}
-
-impl DeviceTrait for CelloSynth {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-    fn sinks_midi(&self) -> bool {
-        true
-    }
-    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
-    fn get_audio_sample(&self) -> f32 {
-        0.
-    }
-}
+        //
+        // (this was in CelloSynth)
 #[derive(Default)]
 struct MiniEnvelope {
     attack_seconds: f32,
@@ -924,8 +853,8 @@ mod tests {
     }
 
     impl NullDevice {
-        fn new() -> NullDevice {
-            NullDevice {
+        fn new() -> Self {
+            Self {
                 ..Default::default()
             }
         }

@@ -6,8 +6,8 @@ pub struct Gain {
     amount: f32,
 }
 impl Gain {
-    pub fn new(source: Rc<RefCell<dyn DeviceTrait>>, amount: f32) -> Gain {
-        Gain { source, amount }
+    pub fn new(source: Rc<RefCell<dyn DeviceTrait>>, amount: f32) -> Self {
+        Self { source, amount }
     }
 }
 impl DeviceTrait for Gain {

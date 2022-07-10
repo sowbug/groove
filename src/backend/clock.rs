@@ -20,8 +20,8 @@ impl Clock {
         time_signature_numerator: u32,
         time_signature_denominator: u32,
         beats_per_minute: f32,
-    ) -> Clock {
-        Clock {
+    ) -> Self {
+        Self {
             samples_per_second,
             time_signature_numerator,
             time_signature_denominator,
@@ -45,8 +45,8 @@ pub struct TimeSignature {
 }
 
 impl TimeSignature {
-    pub fn new(numerator: u32, denominator: u32) -> TimeSignature {
-        TimeSignature {
+    pub fn new(numerator: u32, denominator: u32) -> Self {
+        Self {
             numerator,
             denominator,
         }
@@ -60,8 +60,8 @@ mod tests {
     impl Clock {
         pub const TEST_SAMPLE_RATE: u32 = 256;
         pub const TEST_BPM: f32 = 99.;
-        pub fn new_test() -> Clock {
-            Clock::new(Clock::TEST_SAMPLE_RATE, 4, 4, Clock::TEST_BPM)
+        pub fn new_test() -> Self {
+            Self::new(Clock::TEST_SAMPLE_RATE, 4, 4, Clock::TEST_BPM)
         }
     }
 

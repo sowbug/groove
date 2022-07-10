@@ -32,8 +32,8 @@ impl DeviceTrait for Lfo {
 }
 
 impl Lfo {
-    pub fn new(frequency: f32) -> Lfo {
-        Lfo {
+    pub fn new(frequency: f32) -> Self {
+        Self {
             frequency,
             current_value: 0.,
             target: Option::None,
@@ -61,8 +61,8 @@ mod tests {
     use super::*;
 
     impl Lfo {
-        fn new_test_1hz() -> Lfo {
-            Lfo::new(1.)
+        fn new_test_1hz() -> Self {
+            Self::new(1.)
         }
     }
 

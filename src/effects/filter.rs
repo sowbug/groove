@@ -32,8 +32,8 @@ impl DeviceTrait for AudioFilter {
     }
 }
 impl AudioFilter {
-    pub(crate) fn new(source: Rc<RefCell<dyn DeviceTrait>>, amount: f32) -> AudioFilter {
-        AudioFilter {
+    pub(crate) fn new(source: Rc<RefCell<dyn DeviceTrait>>, amount: f32) -> Self {
+        Self {
             source,
             amount,
             last_sample: 0.,

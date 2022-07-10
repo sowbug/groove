@@ -30,8 +30,8 @@ struct ClDaw {
 }
 
 impl ClDaw {
-    pub fn new(sample_rate: u32) -> ClDaw {
-        ClDaw {
+    pub fn new(sample_rate: u32) -> Self {
+        Self {
             orchestrator: Orchestrator::new(sample_rate),
         }
     }

@@ -14,8 +14,8 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    pub fn new(sample_rate: u32) -> Orchestrator {
-        Orchestrator {
+    pub fn new(sample_rate: u32) -> Self {
+        Self {
             clock: Clock::new(sample_rate, 4, 4, 128.0),
             master_mixer: Rc::new(RefCell::new(Mixer::new())),
             devices: Vec::new(),

@@ -7,8 +7,8 @@ pub struct Limiter {
     max: f32,
 }
 impl Limiter {
-    pub fn new(source: Rc<RefCell<dyn DeviceTrait>>, min: f32, max: f32) -> Limiter {
-        Limiter { source, min, max }
+    pub fn new(source: Rc<RefCell<dyn DeviceTrait>>, min: f32, max: f32) -> Self {
+        Self { source, min, max }
     }
 }
 impl DeviceTrait for Limiter {
