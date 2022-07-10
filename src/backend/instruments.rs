@@ -456,12 +456,12 @@ impl MiniEnvelope {
         match self.state {
             EnvelopeState::Idle => {}
             EnvelopeState::Attack => {
-                if (self.has_value_reached_target()) {
+                if self.has_value_reached_target() {
                     self.switch_to_decay(clock);
                 }
             }
             EnvelopeState::Decay => {
-                if (self.has_value_reached_target()) {
+                if self.has_value_reached_target() {
                     self.switch_to_sustain(clock);
                 }
             }
@@ -469,7 +469,7 @@ impl MiniEnvelope {
                 // Just wait
             }
             EnvelopeState::Release => {
-                if (self.has_value_reached_target()) {
+                if self.has_value_reached_target() {
                     self.switch_to_idle(clock);
                 }
             }
@@ -479,87 +479,196 @@ impl MiniEnvelope {
 }
 
 enum MiniFilterType {
-    LowPass,
-    HighPass,
-    BandPass,
+    FirstOrderLowPass,
+    FirstOrderHighPass,
+    SecondOrderLowPass,
+    SecondOrderHighPass,
+    SecondOrderBandPass,
+    SecondOrderBandStop,
+    SecondOrderButterworthLowPass,
+    SecondOrderButterworthHighPass,
+    SecondOrderButterworthBandPass,
+    SecondOrderButterworthBandStop,
 }
 #[derive(Default)]
 struct MiniFilter {
-    ai0: f32,
-    ai1: f32,
-    ai2: f32,
-    ao1: f32,
-    ao2: f32,
-    sample_minus_one: f32,
-    sample_minus_two: f32,
-    out_minus_one: f32,
-    out_minus_two: f32,
+    a0: f32,
+    a1: f32,
+    a2: f32,
+    b1: f32,
+    b2: f32,
+    c0: f32,
+    d0: f32,
+    sample_m1: f32, // "sample minus two" or x(n-2)
+    sample_m2: f32,
+    output_m1: f32,
+    output_m2: f32,
 }
 
 impl MiniFilter {
-    pub fn new(filter_type: MiniFilterType, cutoff: f32, sample_rate: u32) -> Self {
-        let mut result = Self {
-            ..Default::default()
+    pub fn new(filter_type: MiniFilterType, sample_rate: u32, cutoff: f32, resonance: f32) -> Self {
+        let (a0, a1, a2, b1, b2, c0, d0) = match filter_type {
+            MiniFilterType::FirstOrderLowPass => {
+                Self::first_order_low_pass_coefficients(sample_rate, cutoff)
+            }
+            MiniFilterType::FirstOrderHighPass => {
+                Self::first_order_high_pass_coefficients(sample_rate, cutoff)
+            }
+            MiniFilterType::SecondOrderLowPass => {
+                Self::second_order_low_pass_coefficients(sample_rate, cutoff, resonance)
+            }
+            MiniFilterType::SecondOrderHighPass => {
+                Self::second_order_high_pass_coefficients(sample_rate, cutoff, resonance)
+            }
+            MiniFilterType::SecondOrderBandPass => {
+                Self::second_order_band_pass_coefficients(sample_rate, cutoff, resonance)
+            }
+            MiniFilterType::SecondOrderBandStop => {
+                Self::second_order_band_stop_coefficients(sample_rate, cutoff, resonance)
+            }
+            _ => {
+                panic!("do it!");
+            }
         };
-        match filter_type {
-            MiniFilterType::LowPass => {
-                result.calc_low_pass_filter_coefficients(cutoff, sample_rate);
-            }
-            MiniFilterType::HighPass => {
-                result.calc_high_pass_filter_coefficients(cutoff, sample_rate);
-            }
-            MiniFilterType::BandPass => {
-                result.calc_band_pass_filter_coefficients(cutoff, sample_rate);
-            }
+        Self {
+            a0,
+            a1,
+            a2,
+            b1,
+            b2,
+            c0,
+            d0,
+            ..Default::default()
         }
-        result
     }
 
     fn filter(&mut self, sample: f32) -> f32 {
-        let result =
-            self.ai0 * sample + self.ai1 * self.sample_minus_one + self.ai2 * self.sample_minus_two
-                - self.ao1 * self.out_minus_one
-                - self.ao2 * self.out_minus_two;
-        self.sample_minus_two = self.sample_minus_one;
-        self.sample_minus_one = sample;
-        self.out_minus_two = self.out_minus_one;
-        self.out_minus_one = result;
+        let result = self.d0 * sample
+            + self.c0
+                * (self.a0 * sample + self.a1 * self.sample_m1 + self.a2 * self.sample_m2
+                    - self.b1 * self.output_m1
+                    - self.b2 * self.output_m2);
+
+        // Scroll everything forward in time.
+        self.sample_m2 = self.sample_m1;
+        self.sample_m1 = sample;
+        self.output_m2 = self.output_m1;
+        self.output_m1 = result;
         result
     }
 
-    // Thanks to _BasicSynth_ by Daniel R. Mitchell for all this magic.
-    fn calc_low_pass_filter_coefficients(&mut self, cutoff: f32, sample_rate: u32) {
-        let c = 1. / ((PI / sample_rate as f32) * cutoff).tan();
-        let c_squared = c.powi(2);
-        let c_sqr2 = c * 2.0_f32.sqrt();
-        let d = c_squared + c_sqr2 + 1.;
-        self.ai0 = 1. / d;
-        self.ai1 = self.ai0 * 2.;
-        self.ai2 = self.ai0;
-        self.ao1 = (2. * (1. - c_squared)) / d;
-        self.ao2 = (c_squared - c_sqr2 + 1.) / d;
+    fn first_order_low_pass_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+    ) -> (f32, f32, f32, f32, f32, f32, f32) {
+        let theta_c = 2.0 * PI * cutoff / (sample_rate as f32);
+        let gamma = theta_c.cos() / (1.0 + theta_c.sin());
+        let alpha = (1.0 - gamma) / 2.0;
+
+        (alpha, alpha, 0.0, -gamma, 0.0, 1.0, 0.0)
     }
 
-    fn calc_high_pass_filter_coefficients(&mut self, cutoff: f32, sample_rate: u32) {
-        let c = ((PI / sample_rate as f32) * cutoff).tan();
-        let c_squared = c.powi(2);
-        let c_sqr2 = c * 2.0_f32.sqrt();
-        let d = c_squared + c_sqr2 + 1.;
-        self.ai0 = 1. / d;
-        self.ai1 = -(self.ai0 * 2.0);
-        self.ai2 = self.ai0;
-        self.ao1 = (2. * (c_squared - 1.)) / d;
-        self.ao2 = (c_squared - c_sqr2 + 1.) / d;
+    fn first_order_high_pass_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+    ) -> (f32, f32, f32, f32, f32, f32, f32) {
+        let theta_c = 2.0 * PI * cutoff / (sample_rate as f32);
+        let gamma = theta_c.cos() / (1.0 + theta_c.sin());
+        let alpha = (1.0 + gamma) / 2.0;
+        (alpha, -alpha, 0.0, -gamma, 0.0, 1.0, 0.0)
     }
 
-    fn calc_band_pass_filter_coefficients(&mut self, cutoff: f32, sample_rate: u32) {
-        let c = 1. / ((PI / sample_rate as f32) * cutoff).tan();
-        let d = 1. + c;
-        self.ai0 = 1. / d;
-        self.ai1 = 0.;
-        self.ai2 = -self.ai0;
-        self.ao1 = (-c * 2.0 * (2.0 * PI * cutoff / sample_rate as f32).cos()) / d;
-        self.ao2 = (c - 1.0) / d;
+    fn common_second_order_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+        resonance: f32,
+    ) -> (f32, f32) {
+        let theta_c = 2.0 * PI * cutoff / (sample_rate as f32);
+        let delta = 1.0 / resonance;
+        let beta_n = 1.0 - ((delta / 2.0) * theta_c.sin());
+        let beta_d = 1.0 + ((delta / 2.0) * theta_c.sin());
+        let beta = 0.5 * (beta_n / beta_d);
+        let gamma = (0.5 + beta) * (theta_c.cos());
+        (beta, gamma)
+    }
+
+    // See Will C. Pirkle's _Designing Audio Effects In C++_ for coefficient sources.
+    fn second_order_low_pass_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+        resonance: f32,
+    ) -> (f32, f32, f32, f32, f32, f32, f32) {
+        let (beta, gamma) = Self::common_second_order_coefficients(sample_rate, cutoff, resonance);
+        let alpha_n = 0.5 + beta - gamma;
+
+        (
+            alpha_n / 2.0,
+            alpha_n,
+            alpha_n / 2.0,
+            -2.0 * gamma,
+            2.0 * beta,
+            1.0,
+            0.0,
+        )
+    }
+
+    fn second_order_high_pass_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+        resonance: f32,
+    ) -> (f32, f32, f32, f32, f32, f32, f32) {
+        let (beta, gamma) = Self::common_second_order_coefficients(sample_rate, cutoff, resonance);
+        let alpha_n = 0.5 + beta + gamma;
+
+        (
+            alpha_n / 2.0,
+            -alpha_n,
+            alpha_n / 2.0,
+            -2.0 * gamma,
+            2.0 * beta,
+            1.0,
+            0.0,
+        )
+    }
+    fn second_order_band_pass_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+        resonance: f32,
+    ) -> (f32, f32, f32, f32, f32, f32, f32) {
+        let kappa = (PI * cutoff / sample_rate as f32).tan();
+        let kappa_sq = kappa.powi(2);
+        let delta = kappa_sq * resonance + kappa + resonance;
+
+        (
+            kappa / delta,
+            0.0,
+            -kappa / delta,
+            (2.0 * resonance * (kappa_sq - 1.0)) / delta,
+            (kappa_sq * resonance - kappa + resonance) / delta,
+            1.0,
+            0.0,
+        )
+    }
+    fn second_order_band_stop_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+        resonance: f32,
+    ) -> (f32, f32, f32, f32, f32, f32, f32) {
+        let kappa = (PI * cutoff / sample_rate as f32).tan();
+        let kappa_sq = kappa.powi(2);
+        let delta = kappa_sq * resonance + kappa + resonance;
+
+        let alpha_a = (resonance * (kappa_sq + 1.0)) / delta;
+        let alpha_b = (2.0 * resonance * (kappa_sq - 1.0)) / delta;
+        (
+            alpha_a,
+            alpha_b,
+            alpha_a,
+            alpha_b,
+            (kappa_sq * resonance - kappa + resonance) / delta,
+            1.0,
+            0.0,
+        )
     }
 }
 
@@ -605,8 +714,8 @@ impl CelloSynth2 {
                 Self::FILTER_ENV_SUSTAIN_PERCENTAGE,
                 Self::FILTER_ENV_RELEASE_SECONDS,
             ),
-            filter_1: MiniFilter::new(MiniFilterType::LowPass, 40., 44100),
-            filter_2: MiniFilter::new(MiniFilterType::LowPass, 40., 44100),
+            filter_1: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 40., 20.),
+            filter_2: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 40., 20.),
             ..Default::default()
         }
     }
@@ -726,8 +835,8 @@ impl AngelsSynth {
                 Self::AMP_ENV_SUSTAIN_PERCENTAGE,
                 Self::AMP_ENV_RELEASE_SECONDS,
             ),
-            filter_1: MiniFilter::new(MiniFilterType::LowPass, 900., 44100),
-            filter_2: MiniFilter::new(MiniFilterType::LowPass, 900., 44100),
+            filter_1: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 900., 0.7),
+            filter_2: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 900., 0.7),
             ..Default::default()
         }
     }
@@ -1031,13 +1140,9 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_mini_filter() {
+    fn write_filter_sample(filter: &mut MiniFilter, filename: &str) {
         let mut clock = Clock::new(44100, 4, 4, 128.);
         let mut osc = Oscillator::new(Waveform::Noise);
-        let mut lpf = MiniFilter::new(MiniFilterType::LowPass, 1000., clock.sample_rate());
-        let mut hpf = MiniFilter::new(MiniFilterType::HighPass, 1000., clock.sample_rate());
-        let mut bpf = MiniFilter::new(MiniFilterType::BandPass, 1000., clock.sample_rate());
 
         let spec = hound::WavSpec {
             channels: 1,
@@ -1046,23 +1151,34 @@ mod tests {
             sample_format: hound::SampleFormat::Int,
         };
         const AMPLITUDE: f32 = i16::MAX as f32;
-        let mut writer_osc = hound::WavWriter::create("noise.wav", spec).unwrap();
-        let mut writer_lpf = hound::WavWriter::create("noise_lpf_1KHz.wav", spec).unwrap();
-        let mut writer_hpf = hound::WavWriter::create("noise_hpf_1KHz.wav", spec).unwrap();
-        let mut writer_bpf = hound::WavWriter::create("noise_bpf_1KHz.wav", spec).unwrap();
+        let mut filter_writer = hound::WavWriter::create(filename, spec).unwrap();
 
         while clock.seconds < 2.0 {
             osc.tick(&clock);
 
             let sample_osc = osc.get_audio_sample();
-            let sample_lpf = lpf.filter(sample_osc);
-            let sample_hpf = hpf.filter(sample_osc);
-            let sample_bpf = bpf.filter(sample_osc);
-            let _result = writer_osc.write_sample((sample_osc * AMPLITUDE) as i16);
-            let _result1 = writer_lpf.write_sample((sample_lpf * AMPLITUDE) as i16);
-            let _result2 = writer_hpf.write_sample((sample_hpf * AMPLITUDE) as i16);
-            let _result3 = writer_bpf.write_sample((sample_bpf * AMPLITUDE) as i16);
+            let sample_filter = filter.filter(sample_osc);
+            let _ = filter_writer.write_sample((sample_filter * AMPLITUDE) as i16);
             clock.tick();
         }
+    }
+
+    #[test]
+    fn test_mini_filter() {
+        const SAMPLE_RATE: u32 = 44100;
+
+        let mut filter = MiniFilter::new(MiniFilterType::FirstOrderLowPass, SAMPLE_RATE, 1000., 0.);
+        write_filter_sample(&mut filter, "noise_1st_lpf_1KHz.wav");
+        let mut filter =
+            MiniFilter::new(MiniFilterType::FirstOrderHighPass, SAMPLE_RATE, 1000., 0.);
+        write_filter_sample(&mut filter, "noise_1st_hpf_1KHz.wav");
+        filter = MiniFilter::new(MiniFilterType::SecondOrderLowPass, SAMPLE_RATE, 1000., 20.);
+        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz.wav");
+        filter = MiniFilter::new(MiniFilterType::SecondOrderHighPass, SAMPLE_RATE, 1000., 20.);
+        write_filter_sample(&mut filter, "noise_2nd_hpf_1KHz.wav");
+        filter = MiniFilter::new(MiniFilterType::SecondOrderBandPass, SAMPLE_RATE, 1000., 10.);
+        write_filter_sample(&mut filter, "noise_2nd_bpf_1KHz.wav");
+        filter = MiniFilter::new(MiniFilterType::SecondOrderBandStop, SAMPLE_RATE, 1000., 20.);
+        write_filter_sample(&mut filter, "noise_2nd_bsf_1KHz.wav");
     }
 }
