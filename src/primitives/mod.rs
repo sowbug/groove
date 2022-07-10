@@ -2,7 +2,6 @@ pub mod clock;
 pub mod envelopes;
 pub mod filter;
 pub mod gain;
-pub mod lfos;
 pub mod limiter;
 pub mod mixer;
 pub mod oscillators;

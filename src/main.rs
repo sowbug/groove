@@ -1,21 +1,17 @@
 extern crate anyhow;
 extern crate cpal;
 
-mod backend;
-mod effects;
+mod devices;
 mod primitives;
 
-use crate::{
-    backend::{instruments::CelloSynth2, orchestrator::Orchestrator},
-    primitives::lfos::Lfo,
-};
-use backend::{devices::DeviceTrait, instruments::Sequencer, midi::MidiReader};
+use crate::devices::{instruments::CelloSynth2, orchestrator::Orchestrator, sequencer::Sequencer};
 use clap::Parser;
 use cpal::{
     traits::{DeviceTrait as CpalDeviceTrait, HostTrait, StreamTrait},
     SampleRate, StreamConfig,
 };
 use crossbeam::deque::{Stealer, Worker};
+use devices::midi::MidiReader;
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -164,13 +160,13 @@ impl ClDaw {
         midi_in: Option<String>,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
-        let simple_synth = Rc::new(RefCell::new(CelloSynth2::new()));
+        let simple_synth = Rc::new(RefCell::new(CelloSynth2::new(
+            self.orchestrator.clock.sample_rate(),
+        )));
         self.orchestrator.add_device(simple_synth.clone());
 
         self.orchestrator
-            .master_mixer
-            .borrow_mut()
-            .add_audio_source(simple_synth.clone());
+            .add_master_mixer_source(simple_synth.clone());
 
         if midi_in.is_some() {
             let sequencer = Rc::new(RefCell::new(Sequencer::new()));
@@ -179,8 +175,8 @@ impl ClDaw {
             let data = std::fs::read(midi_in.unwrap()).unwrap();
             MidiReader::load_sequencer(&data, sequencer.clone());
 
-            let lfo = Rc::new(RefCell::new(Lfo::new(3.0)));
-            self.orchestrator.add_device(lfo.clone());
+            // let lfo = Rc::new(RefCell::new(Lfo::new(3.0)));
+            // self.orchestrator.add_device(lfo.clone());
 
             //             // TODO: for now, we'll create one synth per MIDI channel. Later
             //             // I guess we'll analyze the sequencer content and figure out which are needed.

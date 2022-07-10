@@ -1,14 +1,8 @@
 use std::f32::consts::PI;
 
-use crate::backend::{
-    devices::DeviceTrait,
-    midi::{self, MidiMessage},
-};
-
-use super::clock::Clock;
-
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum Waveform {
+    None,
     Sine,
     Square,
     Triangle,
@@ -23,48 +17,51 @@ impl Default for Waveform {
 }
 
 #[derive(Default, Debug)]
-pub struct Oscillator {
+pub struct MiniOscillator {
     waveform: Waveform,
-    current_sample: f32,
+    duty_cycle: f32,
     frequency: f32,
 
     noise_x1: u32,
     noise_x2: u32,
 }
 
-// TODO: these oscillators are pure in a logical sense, but they alias badly in the real world
-// of discrete sampling. Investigate replacing with smoothed waveforms.
-impl Oscillator {
-    pub fn new(waveform: Waveform) -> Self {
+impl MiniOscillator {
+    pub fn new(waveform: Waveform, frequency: f32) -> Self {
         Self {
             waveform,
+            duty_cycle: 0.5,
+            ..Default::default()
+        }
+    }
+    pub fn new_pwm_square(duty_cycle: f32, frequency: f32) -> Self {
+        Self {
+            waveform: Waveform::Square,
+            duty_cycle,
+            ..Default::default()
+        }
+    }
+    pub fn new_noise() -> Self {
+        Self {
+            waveform: Waveform::Noise,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
             ..Default::default()
         }
     }
-    pub fn get_frequency(&self) -> f32 {
-        self.frequency
-    }
-    pub fn set_frequency(&mut self, frequency: f32) {
-        self.frequency = frequency;
-    }
-}
 
-impl DeviceTrait for Oscillator {
-    fn sinks_midi(&self) -> bool {
-        true
-    }
-    fn sources_audio(&self) -> bool {
-        true
-    }
-    fn tick(&mut self, clock: &Clock) -> bool {
-        let phase_normalized = self.frequency * (clock.seconds as f32);
-        self.current_sample = match self.waveform {
+    pub fn process(&mut self, time_seconds: f32) -> f32 {
+        let phase_normalized = self.frequency * time_seconds;
+        match self.waveform {
+            Waveform::None => 0.0,
             // https://en.wikipedia.org/wiki/Sine_wave
             Waveform::Sine => (phase_normalized * 2.0 * PI).sin(),
             // https://en.wikipedia.org/wiki/Square_wave
-            Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
+            //Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
+            Waveform::Square => {
+                // TODO: make sure this is right. I eyeballed it when implementing PWM waves.
+                (self.duty_cycle - (phase_normalized - phase_normalized.floor())).signum()
+            }
             // https://en.wikipedia.org/wiki/Triangle_wave
             Waveform::Triangle => {
                 4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
@@ -78,23 +75,10 @@ impl DeviceTrait for Oscillator {
                 (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);
                 tmp
             }
-        };
-        true
-    }
-    fn handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
-        match message.status {
-            midi::MidiMessageType::NoteOn => {
-                self.frequency = message.to_frequency();
-            }
-            midi::MidiMessageType::NoteOff => {
-                // TODO(miket): now that oscillators are in envelopes, they generally turn on but don't turn off.
-                // these might not end up being full DeviceTrait devices, but rather owned/managed by synths.
-                //self.frequency = 0.;
-            }
         }
     }
 
-    fn get_audio_sample(&self) -> f32 {
-        self.current_sample
+    pub(crate) fn set_frequency(&mut self, frequency: f32) {
+        self.frequency = frequency;
     }
 }

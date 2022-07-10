@@ -194,15 +194,13 @@ impl MiniFilter {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        primitives::{oscillators::{Oscillator, Waveform}, clock::Clock}, backend::devices::DeviceTrait,
-    };
+    use crate::primitives::{clock::Clock, oscillators::MiniOscillator};
 
     use super::*;
 
     fn write_filter_sample(filter: &mut MiniFilter, filename: &str) {
         let mut clock = Clock::new(44100, 4, 4, 128.);
-        let mut osc = Oscillator::new(Waveform::Noise);
+        let mut osc = MiniOscillator::new_noise();
 
         let spec = hound::WavSpec {
             channels: 1,
@@ -214,9 +212,7 @@ mod tests {
         let mut filter_writer = hound::WavWriter::create(filename, spec).unwrap();
 
         while clock.seconds < 2.0 {
-            osc.tick(&clock);
-
-            let sample_osc = osc.get_audio_sample();
+            let sample_osc = osc.process(clock.seconds);
             let sample_filter = filter.filter(sample_osc);
             let _ = filter_writer.write_sample((sample_filter * AMPLITUDE) as i16);
             clock.tick();

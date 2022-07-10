@@ -2,7 +2,6 @@ use super::midi::MidiMessage;
 use crate::primitives::clock::Clock;
 use crate::primitives::gain::MiniGain;
 use crate::primitives::limiter::MiniLimiter;
-use crate::primitives::mixer::MiniMixer;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -92,37 +91,5 @@ impl DeviceTrait for Limiter {
     fn get_audio_sample(&self) -> f32 {
         self.mini_limiter
             .process(self.source.borrow().get_audio_sample())
-    }
-}
-
-pub struct Mixer {
-    mini_mixer: MiniMixer,
-    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
-}
-
-impl Mixer {
-    pub fn new() -> Self {
-        Self {
-            mini_mixer: MiniMixer::new(),
-            sources: Vec::new(),
-        }
-    }
-}
-impl DeviceTrait for Mixer {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-    fn sinks_audio(&self) -> bool {
-        true
-    }
-    fn add_audio_source(&mut self, audio_instrument: Rc<RefCell<dyn DeviceTrait>>) {
-        self.sources.push(audio_instrument);
-    }
-    fn get_audio_sample(&self) -> f32 {
-        let mut samples = Vec::new();
-        for source in self.sources.iter() {
-            samples.push(source.borrow().get_audio_sample());
-        }
-        self.mini_mixer.process(samples)
     }
 }

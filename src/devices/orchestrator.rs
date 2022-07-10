@@ -1,15 +1,15 @@
-use crate::backend::devices::DeviceTrait;
+use crate::devices::traits::DeviceTrait;
 use crate::primitives::clock::Clock;
 use crossbeam::deque::Worker;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use super::devices::Mixer;
+use super::mixer::Mixer;
 
 pub struct Orchestrator {
     pub clock: Clock,
 
-    pub master_mixer: Rc<RefCell<Mixer>>, // TODO(miket): should be private
+    master_mixer: Rc<RefCell<Mixer>>,
     devices: Vec<Rc<RefCell<dyn DeviceTrait>>>,
 }
 
@@ -51,5 +51,9 @@ impl Orchestrator {
             }
         }
         Ok(())
+    }
+
+    pub(crate) fn add_master_mixer_source(&self, device: Rc<RefCell<dyn DeviceTrait>>) {
+        self.master_mixer.borrow_mut().add_audio_source(device);
     }
 }
