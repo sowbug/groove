@@ -9,6 +9,7 @@ use crate::primitives::oscillators::{Oscillator, Waveform};
 use sorted_vec::SortedVec;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::f32::consts::PI;
 use std::rc::Rc;
 
 pub struct Sequencer {
@@ -485,10 +486,11 @@ enum MiniFilterType {
     SecondOrderHighPass,
     SecondOrderBandPass,
     SecondOrderBandStop,
-    SecondOrderButterworthLowPass,
-    SecondOrderButterworthHighPass,
-    SecondOrderButterworthBandPass,
-    SecondOrderButterworthBandStop,
+    // Not sure Butterworth filters are worth implementing. Pirkle says they're very similar to second-order.
+    // SecondOrderButterworthLowPass,
+    // SecondOrderButterworthHighPass,
+    // SecondOrderButterworthBandPass,
+    // SecondOrderButterworthBandStop,
 }
 #[derive(Default)]
 struct MiniFilter {
@@ -525,9 +527,6 @@ impl MiniFilter {
             }
             MiniFilterType::SecondOrderBandStop => {
                 Self::second_order_band_stop_coefficients(sample_rate, cutoff, resonance)
-            }
-            _ => {
-                panic!("do it!");
             }
         };
         Self {
@@ -584,7 +583,7 @@ impl MiniFilter {
         resonance: f32,
     ) -> (f32, f32) {
         let theta_c = 2.0 * PI * cutoff / (sample_rate as f32);
-        let delta = 1.0 / resonance;
+        let delta = 1.0 / resonance.max(0.707);
         let beta_n = 1.0 - ((delta / 2.0) * theta_c.sin());
         let beta_d = 1.0 + ((delta / 2.0) * theta_c.sin());
         let beta = 0.5 * (beta_n / beta_d);
@@ -672,7 +671,22 @@ impl MiniFilter {
     }
 }
 
-use std::f32::consts::PI;
+// From Welsh's Synthesizer Cookbook, page 53
+//
+// Osc1: PW 10%, mix 100%
+// Osc2: Square, mix 100%, track on, sync off
+// noise off
+// LFO: route -> amplitude, sine, 7.5hz/moderate, depth 5%
+// glide off unison off voices multi
+// LP filter
+//   24db cutoff 40hz 10%, resonance 0%, envelope 90%
+//   12db cutoff 40hz 10%
+//   ADSR 0s, 3.29s, 78%, max
+// Amp envelope
+//   ADSR 0.06s, max, 100%, 0.30s
+//
+// alternate: osc 1 sawtooth
+
 #[derive(Default)]
 pub struct CelloSynth2 {
     is_playing: bool,
@@ -692,10 +706,10 @@ impl CelloSynth2 {
     const AMP_ENV_SUSTAIN_PERCENTAGE: f32 = 1.;
     const AMP_ENV_RELEASE_SECONDS: f32 = 0.3;
 
-    const FILTER_ENV_ATTACK_SECONDS: f32 = 0.06;
-    const FILTER_ENV_DECAY_SECONDS: f32 = 0.0;
-    const FILTER_ENV_SUSTAIN_PERCENTAGE: f32 = 1.;
-    const FILTER_ENV_RELEASE_SECONDS: f32 = 0.3;
+    const FILTER_ENV_ATTACK_SECONDS: f32 = 0.0;
+    const FILTER_ENV_DECAY_SECONDS: f32 = 3.29;
+    const FILTER_ENV_SUSTAIN_PERCENTAGE: f32 = 0.78;
+    const FILTER_ENV_RELEASE_SECONDS: f32 = 0.0;
 
     const LFO_FREQUENCY: f32 = 7.5;
     const LFO_DEPTH: f32 = 0.05;
@@ -714,8 +728,8 @@ impl CelloSynth2 {
                 Self::FILTER_ENV_SUSTAIN_PERCENTAGE,
                 Self::FILTER_ENV_RELEASE_SECONDS,
             ),
-            filter_1: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 40., 20.),
-            filter_2: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 40., 20.),
+            filter_1: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 40., 0.),
+            filter_2: MiniFilter::new(MiniFilterType::FirstOrderLowPass, 44100, 40., 0.),
             ..Default::default()
         }
     }
@@ -756,27 +770,16 @@ impl DeviceTrait for CelloSynth2 {
         let phase_normalized_pitch = self.frequency * (clock.seconds as f32);
 
         const OSC_1_PULSE_WIDTH: f32 = 0.1;
-        let osc1 = {
-            if self.is_playing {
-                if phase_normalized_pitch - phase_normalized_pitch.floor() > OSC_1_PULSE_WIDTH {
-                    -1.0
-                } else {
-                    1.0
-                }
+        let osc1 = 
             //     (phase_normalized_pitch * 2.0 * PI).sin().signum()  // TODO: implement pulse-width modulation
             //2.0 * (phase_normalized_pitch - (0.5 + phase_normalized_pitch).floor())
             // Welsh's says sawtooth is acceptable substitution
+            if phase_normalized_pitch - phase_normalized_pitch.floor() > OSC_1_PULSE_WIDTH {
+                -1.0
             } else {
-                0.
-            }
-        };
-        let osc2 = {
-            if self.is_playing {
-                (phase_normalized_pitch * 2.0 * PI).sin().signum()
-            } else {
-                0.
-            }
-        };
+                1.0
+            };
+        let osc2 = (phase_normalized_pitch * 2.0 * PI).sin().signum();
         let phase_normalized_lfo = Self::LFO_FREQUENCY * (clock.seconds as f32);
         let lfo = (phase_normalized_lfo * 2.0 * PI).sin();
 
@@ -836,7 +839,7 @@ impl AngelsSynth {
                 Self::AMP_ENV_RELEASE_SECONDS,
             ),
             filter_1: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 900., 0.7),
-            filter_2: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 900., 0.7),
+            filter_2: MiniFilter::new(MiniFilterType::FirstOrderLowPass, 44100, 900., 0.7),
             ..Default::default()
         }
     }
@@ -873,21 +876,14 @@ impl DeviceTrait for AngelsSynth {
         }
 
         let phase_normalized_lfo = Self::LFO_FREQUENCY * (clock.seconds as f32);
-        // let lfo =
-        //     4.0 * (phase_normalized_lfo - (0.75 + phase_normalized_lfo).floor() + 0.25).abs() - 1.0;
-        let lfo = (phase_normalized_lfo * 2.0 * PI).sin();
-
+let lfo =
+             4.0 * (phase_normalized_lfo - (0.75 + phase_normalized_lfo).floor() + 0.25).abs() - 1.0;
+        
         let freq_lfo = self.frequency * (1. + lfo * Self::LFO_DEPTH);
-        //            let freq_lfo = self.frequency;
         let phase_normalized_pitch = freq_lfo * (clock.seconds as f32);
 
         let osc1 = {
-            if self.is_playing {
                 2.0 * (phase_normalized_pitch - (0.5 + phase_normalized_pitch).floor())
-            // Welsh's says sawtooth is acceptable substitution
-            } else {
-                0.
-            }
         };
 
         let osc_mix = osc1;
@@ -909,6 +905,7 @@ impl DeviceTrait for AngelsSynth {
         // TODO temp
         self.amp_envelope.is_idle()
     }
+
     fn get_audio_sample(&self) -> f32 {
         self.current_value
     }
