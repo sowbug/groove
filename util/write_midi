@@ -50,3 +50,11 @@ for ch in range(0, 4):
     for i, pitch in enumerate([60, 62, 64, 65, 67, 69, 71, 72]):
         f.addNote(track, ch, pitch + ch * 12, i + ch * 2, 1.0, volume)
 write_midi_file(f, "multi-channel.mid")
+
+f = new_midi_file()
+f.addNote(track, channel, 60, 0, 6, volume)
+write_midi_file(f, "middle-c-for-six-seconds.mid")
+
+f = new_midi_file()
+f.addNote(track, channel, 69, 0, 6, volume)
+write_midi_file(f, "middle-a-for-six-seconds.mid")
