@@ -1,7 +1,14 @@
 use crate::devices::midi::{MidiMessage, MidiMessageType};
 
+pub struct MiniEnvelopePreset {
+    pub attack_seconds: f32,
+    pub decay_seconds: f32,
+    pub sustain_percentage: f32,
+    pub release_seconds: f32,
+}
+
 #[derive(Debug)]
-pub enum EnvelopeState {
+enum EnvelopeState {
     // TODO: hide this again once CelloSynth2 proto is complete
     Idle,
     Attack,
@@ -32,19 +39,13 @@ pub struct MiniEnvelope {
 }
 
 impl MiniEnvelope {
-    pub fn new(
-        sample_rate: u32,
-        attack_seconds: f32,
-        decay_seconds: f32,
-        sustain_percentage: f32,
-        release_seconds: f32,
-    ) -> Self {
+    pub fn new(sample_rate: u32, preset: MiniEnvelopePreset) -> Self {
         Self {
             sample_rate: sample_rate as f32,
-            attack_seconds,
-            decay_seconds,
-            sustain_percentage,
-            release_seconds,
+            attack_seconds: preset.attack_seconds,
+            decay_seconds: preset.decay_seconds,
+            sustain_percentage: preset.sustain_percentage,
+            release_seconds: preset.release_seconds,
             ..Default::default()
         }
     }
@@ -208,7 +209,15 @@ mod tests {
     #[test]
     fn test_mini_envelope() {
         let mut clock = Clock::new_test();
-        let mut envelope = MiniEnvelope::new(clock.sample_rate(), 0.1, 0.2, 0.8, 0.3);
+        let mut envelope = MiniEnvelope::new(
+            clock.sample_rate(),
+            MiniEnvelopePreset {
+                attack_seconds: 0.1,
+                decay_seconds: 0.2,
+                sustain_percentage: 0.8,
+                release_seconds: 0.3,
+            },
+        );
 
         let midi_on = MidiMessage {
             channel: 0,

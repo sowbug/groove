@@ -1,12 +1,12 @@
 use std::f32::consts::PI;
 
 pub enum MiniFilterType {
-    FirstOrderLowPass,
-    FirstOrderHighPass,
-    SecondOrderLowPass,
-    SecondOrderHighPass,
-    SecondOrderBandPass,
-    SecondOrderBandStop,
+    FirstOrderLowPass(f32),
+    FirstOrderHighPass(f32),
+    SecondOrderLowPass(f32, f32),
+    SecondOrderHighPass(f32, f32),
+    SecondOrderBandPass(f32, f32),
+    SecondOrderBandStop(f32, f32),
     // Not sure Butterworth filters are worth implementing. Pirkle says they're very similar to second-order.
     // SecondOrderButterworthLowPass,
     // SecondOrderButterworthHighPass,
@@ -29,25 +29,25 @@ pub struct MiniFilter {
 }
 
 impl MiniFilter {
-    pub fn new(filter_type: MiniFilterType, sample_rate: u32, cutoff: f32, resonance: f32) -> Self {
+    pub fn new(sample_rate: u32, filter_type: MiniFilterType) -> Self {
         let (a0, a1, a2, b1, b2, c0, d0) = match filter_type {
-            MiniFilterType::FirstOrderLowPass => {
+            MiniFilterType::FirstOrderLowPass(cutoff) => {
                 Self::first_order_low_pass_coefficients(sample_rate, cutoff)
             }
-            MiniFilterType::FirstOrderHighPass => {
+            MiniFilterType::FirstOrderHighPass(cutoff) => {
                 Self::first_order_high_pass_coefficients(sample_rate, cutoff)
             }
-            MiniFilterType::SecondOrderLowPass => {
-                Self::second_order_low_pass_coefficients(sample_rate, cutoff, resonance)
+            MiniFilterType::SecondOrderLowPass(cutoff, q) => {
+                Self::second_order_low_pass_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilterType::SecondOrderHighPass => {
-                Self::second_order_high_pass_coefficients(sample_rate, cutoff, resonance)
+            MiniFilterType::SecondOrderHighPass(cutoff, q) => {
+                Self::second_order_high_pass_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilterType::SecondOrderBandPass => {
-                Self::second_order_band_pass_coefficients(sample_rate, cutoff, resonance)
+            MiniFilterType::SecondOrderBandPass(cutoff, q) => {
+                Self::second_order_band_pass_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilterType::SecondOrderBandStop => {
-                Self::second_order_band_stop_coefficients(sample_rate, cutoff, resonance)
+            MiniFilterType::SecondOrderBandStop(cutoff, q) => {
+                Self::second_order_band_stop_coefficients(sample_rate, cutoff, q)
             }
         };
         Self {
@@ -98,13 +98,9 @@ impl MiniFilter {
         (alpha, -alpha, 0.0, -gamma, 0.0, 1.0, 0.0)
     }
 
-    fn common_second_order_coefficients(
-        sample_rate: u32,
-        cutoff: f32,
-        resonance: f32,
-    ) -> (f32, f32) {
+    fn common_second_order_coefficients(sample_rate: u32, cutoff: f32, q: f32) -> (f32, f32) {
         let theta_c = 2.0 * PI * cutoff / (sample_rate as f32);
-        let delta = 1.0 / resonance.max(1.0 / 2.0f32.sqrt());
+        let delta = 1.0 / q.max(1.0 / 2.0f32.sqrt());
         let beta_n = 1.0 - ((delta / 2.0) * theta_c.sin());
         let beta_d = 1.0 + ((delta / 2.0) * theta_c.sin());
         let beta = 0.5 * (beta_n / beta_d);
@@ -116,9 +112,9 @@ impl MiniFilter {
     fn second_order_low_pass_coefficients(
         sample_rate: u32,
         cutoff: f32,
-        resonance: f32,
+        q: f32,
     ) -> (f32, f32, f32, f32, f32, f32, f32) {
-        let (beta, gamma) = Self::common_second_order_coefficients(sample_rate, cutoff, resonance);
+        let (beta, gamma) = Self::common_second_order_coefficients(sample_rate, cutoff, q);
         let alpha_n = 0.5 + beta - gamma;
 
         (
@@ -135,9 +131,9 @@ impl MiniFilter {
     fn second_order_high_pass_coefficients(
         sample_rate: u32,
         cutoff: f32,
-        resonance: f32,
+        q: f32,
     ) -> (f32, f32, f32, f32, f32, f32, f32) {
-        let (beta, gamma) = Self::common_second_order_coefficients(sample_rate, cutoff, resonance);
+        let (beta, gamma) = Self::common_second_order_coefficients(sample_rate, cutoff, q);
         let alpha_n = 0.5 + beta + gamma;
 
         (
@@ -153,18 +149,18 @@ impl MiniFilter {
     fn second_order_band_pass_coefficients(
         sample_rate: u32,
         cutoff: f32,
-        resonance: f32,
+        q: f32,
     ) -> (f32, f32, f32, f32, f32, f32, f32) {
         let kappa = (PI * cutoff / sample_rate as f32).tan();
         let kappa_sq = kappa.powi(2);
-        let delta = kappa_sq * resonance + kappa + resonance;
+        let delta = kappa_sq * q + kappa + q;
 
         (
             kappa / delta,
             0.0,
             -kappa / delta,
-            (2.0 * resonance * (kappa_sq - 1.0)) / delta,
-            (kappa_sq * resonance - kappa + resonance) / delta,
+            (2.0 * q * (kappa_sq - 1.0)) / delta,
+            (kappa_sq * q - kappa + q) / delta,
             1.0,
             0.0,
         )
@@ -172,20 +168,20 @@ impl MiniFilter {
     fn second_order_band_stop_coefficients(
         sample_rate: u32,
         cutoff: f32,
-        resonance: f32,
+        q: f32,
     ) -> (f32, f32, f32, f32, f32, f32, f32) {
         let kappa = (PI * cutoff / sample_rate as f32).tan();
         let kappa_sq = kappa.powi(2);
-        let delta = kappa_sq * resonance + kappa + resonance;
+        let delta = kappa_sq * q + kappa + q;
 
-        let alpha_a = (resonance * (kappa_sq + 1.0)) / delta;
-        let alpha_b = (2.0 * resonance * (kappa_sq - 1.0)) / delta;
+        let alpha_a = (q * (kappa_sq + 1.0)) / delta;
+        let alpha_b = (2.0 * q * (kappa_sq - 1.0)) / delta;
         (
             alpha_a,
             alpha_b,
             alpha_a,
             alpha_b,
-            (kappa_sq * resonance - kappa + resonance) / delta,
+            (kappa_sq * q - kappa + q) / delta,
             1.0,
             0.0,
         )
@@ -200,7 +196,7 @@ mod tests {
 
     fn write_filter_sample(filter: &mut MiniFilter, filename: &str) {
         let mut clock = Clock::new(44100, 4, 4, 128.);
-        let mut osc = MiniOscillator::new_noise();
+        let mut osc = MiniOscillator::new(crate::primitives::oscillators::Waveform::Noise);
 
         let spec = hound::WavSpec {
             channels: 1,
@@ -223,18 +219,17 @@ mod tests {
     fn test_mini_filter() {
         const SAMPLE_RATE: u32 = 44100;
 
-        let mut filter = MiniFilter::new(MiniFilterType::FirstOrderLowPass, SAMPLE_RATE, 1000., 0.);
+        let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FirstOrderLowPass(1000.));
         write_filter_sample(&mut filter, "noise_1st_lpf_1KHz.wav");
-        let mut filter =
-            MiniFilter::new(MiniFilterType::FirstOrderHighPass, SAMPLE_RATE, 1000., 0.);
+        let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FirstOrderHighPass(1000.));
         write_filter_sample(&mut filter, "noise_1st_hpf_1KHz.wav");
-        filter = MiniFilter::new(MiniFilterType::SecondOrderLowPass, SAMPLE_RATE, 1000., 20.);
+        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 20.));
         write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz.wav");
-        filter = MiniFilter::new(MiniFilterType::SecondOrderHighPass, SAMPLE_RATE, 1000., 20.);
+        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderHighPass(1000., 20.));
         write_filter_sample(&mut filter, "noise_2nd_hpf_1KHz.wav");
-        filter = MiniFilter::new(MiniFilterType::SecondOrderBandPass, SAMPLE_RATE, 1000., 10.);
+        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderBandPass(1000., 10.));
         write_filter_sample(&mut filter, "noise_2nd_bpf_1KHz.wav");
-        filter = MiniFilter::new(MiniFilterType::SecondOrderBandStop, SAMPLE_RATE, 1000., 20.);
+        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderBandStop(1000., 20.));
         write_filter_sample(&mut filter, "noise_2nd_bsf_1KHz.wav");
     }
 }

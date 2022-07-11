@@ -160,7 +160,7 @@ impl ClDaw {
         midi_in: Option<String>,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
-        let simple_synth = Rc::new(RefCell::new(CelloSynth2::new(
+        let simple_synth = Rc::new(RefCell::new(CelloSynth2::new_cello(
             self.orchestrator.clock.sample_rate(),
         )));
         self.orchestrator.add_device(simple_synth.clone());

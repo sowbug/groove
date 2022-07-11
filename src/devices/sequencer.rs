@@ -5,7 +5,7 @@ use sorted_vec::SortedVec;
 use crate::primitives::clock::Clock;
 
 use super::{
-    midi::{MidiMessage, MidiMessageType, OrderedMidiMessage},
+    midi::{MidiMessageType, OrderedMidiMessage},
     traits::DeviceTrait,
 };
 
@@ -40,17 +40,22 @@ impl Sequencer {
         device: Rc<RefCell<dyn DeviceTrait>>,
         channel: u32,
     ) {
+        self.sinks.push(device);
+
         // https://users.rust-lang.org/t/lots-of-references-when-using-hashmap/68754
         // discusses why we have to do strange &u32 keys.
-        self.sinks.push(device);
         // let sink_vec = self.channels_to_sink_vecs.get_mut(&channel).unwrap();
         // sink_vec.push(device);
     }
 
     fn dispatch_midi_message(&self, midi_message: &OrderedMidiMessage, clock: &Clock) {
-        for sink in self.sinks.clone() {
-            sink.borrow_mut()
-                .handle_midi_message(&midi_message.message, clock);
+        if matches!(midi_message.message.status, MidiMessageType::ProgramChange) {
+            // switch synths here I guess TODO
+        } else {
+            for sink in self.sinks.clone() {
+                sink.borrow_mut()
+                    .handle_midi_message(&midi_message.message, clock);
+            }
         }
         // for (channel, sink_vec) in self.channels_to_sink_vecs.iter() {
         //     if *channel == midi_message.message.channel as u32 {

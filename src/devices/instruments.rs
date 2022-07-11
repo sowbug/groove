@@ -1,12 +1,11 @@
 use super::midi::{MidiMessage, MidiMessageType};
 use super::traits::DeviceTrait;
 use crate::primitives::clock::Clock;
-use crate::primitives::envelopes::{MiniEnvelope};
+use crate::primitives::envelopes::{MiniEnvelope, MiniEnvelopePreset};
 use crate::primitives::filter::{MiniFilter, MiniFilterType};
-use crate::primitives::oscillators::{MiniOscillator, Waveform};
+use crate::primitives::oscillators::{LfoPreset, MiniOscillator, Waveform};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::f32::consts::PI;
 use std::rc::Rc;
 
 pub struct Voice {
@@ -15,8 +14,16 @@ pub struct Voice {
 
 impl Voice {
     pub fn new(waveform: Waveform) -> Self {
-        let sound_source = Rc::new(RefCell::new(MiniOscillator::new(waveform, 0.0)));
-        let envelope = MiniEnvelope::new(44100 /*TODO*/, 0.1, 0.1, 0.5, 0.3);
+        let sound_source = Rc::new(RefCell::new(MiniOscillator::new(waveform)));
+        let envelope = MiniEnvelope::new(
+            44100, /*TODO*/
+            MiniEnvelopePreset {
+                attack_seconds: 0.1,
+                decay_seconds: 0.1,
+                sustain_percentage: 0.5,
+                release_seconds: 0.3,
+            },
+        );
         Self { envelope }
     }
     fn is_active(&self) -> bool {
@@ -149,6 +156,20 @@ impl DeviceTrait for SimpleSynth {
 //
 // alternate: osc 1 sawtooth
 
+pub struct SimpleSynthPreset {
+    oscillator_1_type: Waveform,
+    oscillator_2_type: Waveform,
+    amp_envelope_preset: MiniEnvelopePreset,
+
+    lfo_preset: LfoPreset,
+
+    filter_1_type: MiniFilterType,
+    filter_2_type: MiniFilterType,
+    filter_1_weight: f32,
+    filter_2_weight: f32,
+    filter_envelope_preset: MiniEnvelopePreset,
+}
+
 #[derive(Default)]
 pub struct CelloSynth2 {
     is_playing: bool,
@@ -156,50 +177,82 @@ pub struct CelloSynth2 {
 
     osc_1: MiniOscillator,
     osc_2: MiniOscillator,
-
     amp_envelope: MiniEnvelope,
-    filter_envelope: MiniEnvelope,
+
+    lfo: MiniOscillator,
+    lfo_depth: f32,
 
     filter_1: MiniFilter,
     filter_2: MiniFilter,
+    filter_1_weight: f32,
+    filter_2_weight: f32,
+    filter_envelope: MiniEnvelope,
 }
 
 impl CelloSynth2 {
-    const OSC_1_PULSE_WIDTH: f32 = 0.1;
+    pub fn new_cello(sample_rate: u32) -> Self {
+        const OSC_1_PULSE_WIDTH: f32 = 0.1;
 
-    const AMP_ENV_ATTACK_SECONDS: f32 = 0.06;
-    const AMP_ENV_DECAY_SECONDS: f32 = 0.0;
-    const AMP_ENV_SUSTAIN_PERCENTAGE: f32 = 1.;
-    const AMP_ENV_RELEASE_SECONDS: f32 = 0.3;
+        const AMP_ENV_ATTACK_SECONDS: f32 = 0.06;
+        const AMP_ENV_DECAY_SECONDS: f32 = 0.0;
+        const AMP_ENV_SUSTAIN_PERCENTAGE: f32 = 1.;
+        const AMP_ENV_RELEASE_SECONDS: f32 = 0.3;
 
-    const FILTER_ENV_ATTACK_SECONDS: f32 = 0.0;
-    const FILTER_ENV_DECAY_SECONDS: f32 = 3.29;
-    const FILTER_ENV_SUSTAIN_PERCENTAGE: f32 = 0.78;
-    const FILTER_ENV_RELEASE_SECONDS: f32 = 0.0;
+        const LFO_FREQUENCY: f32 = 7.5;
+        const LFO_DEPTH: f32 = 0.05;
 
-    const LFO_FREQUENCY: f32 = 7.5;
-    const LFO_DEPTH: f32 = 0.05;
+        const LPF_1_WEIGHT: f32 = 0.1;
+        const LPF_2_WEIGHT: f32 = 0.1;
+        const FILTER_ENV_ATTACK_SECONDS: f32 = 0.0;
+        const FILTER_ENV_DECAY_SECONDS: f32 = 3.29;
+        const FILTER_ENV_SUSTAIN_PERCENTAGE: f32 = 0.78;
+        const FILTER_ENV_RELEASE_SECONDS: f32 = 0.0;
 
-    pub fn new(sample_rate: u32) -> Self {
+        Self::new(
+            sample_rate,
+            SimpleSynthPreset {
+                oscillator_1_type: Waveform::Square(OSC_1_PULSE_WIDTH),
+                oscillator_2_type: Waveform::Square(0.5),
+                amp_envelope_preset: MiniEnvelopePreset {
+                    attack_seconds: AMP_ENV_ATTACK_SECONDS,
+                    decay_seconds: AMP_ENV_DECAY_SECONDS,
+                    sustain_percentage: AMP_ENV_SUSTAIN_PERCENTAGE,
+                    release_seconds: AMP_ENV_RELEASE_SECONDS,
+                },
+                lfo_preset: LfoPreset {
+                    waveform: Waveform::Sine,
+                    frequency: LFO_FREQUENCY,
+                    depth: LFO_DEPTH,
+                },
+                filter_1_type: MiniFilterType::SecondOrderLowPass(40., 0.),
+                filter_2_type: MiniFilterType::FirstOrderLowPass(40.),
+                filter_1_weight: LPF_1_WEIGHT,
+                filter_2_weight: LPF_2_WEIGHT,
+                filter_envelope_preset: MiniEnvelopePreset {
+                    attack_seconds: FILTER_ENV_ATTACK_SECONDS,
+                    decay_seconds: FILTER_ENV_DECAY_SECONDS,
+                    sustain_percentage: FILTER_ENV_SUSTAIN_PERCENTAGE,
+                    release_seconds: FILTER_ENV_RELEASE_SECONDS,
+                },
+            },
+        )
+    }
+
+    pub fn new(sample_rate: u32, preset: SimpleSynthPreset) -> Self {
         Self {
-            osc_1: MiniOscillator::new_pwm_square(Self::OSC_1_PULSE_WIDTH, 0.),
-            osc_2: MiniOscillator::new(Waveform::Square, 0.),
-            amp_envelope: MiniEnvelope::new(
-                sample_rate,
-                Self::AMP_ENV_ATTACK_SECONDS,
-                Self::AMP_ENV_DECAY_SECONDS,
-                Self::AMP_ENV_SUSTAIN_PERCENTAGE,
-                Self::AMP_ENV_RELEASE_SECONDS,
-            ),
-            filter_envelope: MiniEnvelope::new(
-                sample_rate,
-                Self::FILTER_ENV_ATTACK_SECONDS,
-                Self::FILTER_ENV_DECAY_SECONDS,
-                Self::FILTER_ENV_SUSTAIN_PERCENTAGE,
-                Self::FILTER_ENV_RELEASE_SECONDS,
-            ),
-            filter_1: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 40., 0.),
-            filter_2: MiniFilter::new(MiniFilterType::FirstOrderLowPass, 44100, 40., 0.),
+            osc_1: MiniOscillator::new(preset.oscillator_1_type),
+            osc_2: MiniOscillator::new(preset.oscillator_2_type),
+            amp_envelope: MiniEnvelope::new(sample_rate, preset.amp_envelope_preset),
+
+            lfo: MiniOscillator::new_lfo(&preset.lfo_preset),
+            lfo_depth: preset.lfo_preset.depth,
+
+            filter_1: MiniFilter::new(44100, preset.filter_1_type),
+            filter_2: MiniFilter::new(44100, preset.filter_2_type),
+            filter_1_weight: preset.filter_1_weight,
+            filter_2_weight: preset.filter_2_weight,
+            filter_envelope: MiniEnvelope::new(sample_rate, preset.filter_envelope_preset),
+
             ..Default::default()
         }
     }
@@ -242,24 +295,26 @@ impl DeviceTrait for CelloSynth2 {
             self.is_playing = false;
         }
 
-        let osc_mix = (self.osc_1.process(clock.seconds) + self.osc_2.process(clock.seconds)) / 2.;
+        let osc_mix = (self.osc_1.process(clock.seconds) + self.osc_2.process(clock.seconds))
+            / if !matches!(self.osc_2.waveform, Waveform::None) {
+                2.0
+            } else {
+                1.0
+            };
 
-        let phase_normalized_lfo = Self::LFO_FREQUENCY * (clock.seconds as f32);
-        let lfo = (phase_normalized_lfo * 2.0 * PI).sin();
+        let lfo = self.lfo.process(clock.seconds);
 
-        const LPF_1_WEIGHT: f32 = 0.1;
-        const LPF_2_WEIGHT: f32 = 0.1;
-        let filter_1_weight = LPF_1_WEIGHT * self.filter_envelope.value();
-        let filter_2_weight = LPF_2_WEIGHT * self.filter_envelope.value();
-        let filter1 =
-            self.filter_1.filter(osc_mix) * filter_1_weight + osc_mix * (1.0 - filter_1_weight);
-        let filter2 =
-            self.filter_2.filter(osc_mix) * filter_2_weight + osc_mix * (1.0 - filter_2_weight);
+        let filter_1_full_weight = self.filter_1_weight * self.filter_envelope.value();
+        let filter_2_full_weight = self.filter_2_weight * self.filter_envelope.value();
+        let filter1 = self.filter_1.filter(osc_mix) * filter_1_full_weight
+            + osc_mix * (1.0 - filter_1_full_weight);
+        let filter2 = self.filter_2.filter(osc_mix) * filter_2_full_weight
+            + osc_mix * (1.0 - filter_2_full_weight);
         let filter_mix = (filter1 + filter2) / 2.;
 
         let amplitude = self.amp_envelope.value()
             * filter_mix
-            * (1. + lfo * Self::LFO_DEPTH - Self::LFO_DEPTH / 2.0);
+            * (1. + lfo * self.lfo_depth - self.lfo_depth / 2.0);
 
         self.current_value = amplitude;
 
@@ -297,13 +352,15 @@ impl AngelsSynth {
         Self {
             amp_envelope: MiniEnvelope::new(
                 sample_rate,
-                Self::AMP_ENV_ATTACK_SECONDS,
-                Self::AMP_ENV_DECAY_SECONDS,
-                Self::AMP_ENV_SUSTAIN_PERCENTAGE,
-                Self::AMP_ENV_RELEASE_SECONDS,
+                MiniEnvelopePreset {
+                    attack_seconds: Self::AMP_ENV_ATTACK_SECONDS,
+                    decay_seconds: Self::AMP_ENV_DECAY_SECONDS,
+                    sustain_percentage: Self::AMP_ENV_SUSTAIN_PERCENTAGE,
+                    release_seconds: Self::AMP_ENV_RELEASE_SECONDS,
+                },
             ),
-            filter_1: MiniFilter::new(MiniFilterType::SecondOrderLowPass, 44100, 900., 0.7),
-            filter_2: MiniFilter::new(MiniFilterType::FirstOrderLowPass, 44100, 900., 0.7),
+            filter_1: MiniFilter::new(44100, MiniFilterType::SecondOrderLowPass(900., 0.7)),
+            filter_2: MiniFilter::new(44100, MiniFilterType::FirstOrderLowPass(900.)),
             ..Default::default()
         }
     }

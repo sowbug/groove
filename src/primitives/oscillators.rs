@@ -1,10 +1,10 @@
 use std::f32::consts::PI;
 
-#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Waveform {
     None,
     Sine,
-    Square,
+    Square(f32),
     Triangle,
     Sawtooth,
     Noise,
@@ -16,10 +16,15 @@ impl Default for Waveform {
     }
 }
 
+pub struct LfoPreset {
+    pub waveform: Waveform,
+    pub frequency: f32,
+    pub depth: f32,
+}
+
 #[derive(Default, Debug)]
 pub struct MiniOscillator {
-    waveform: Waveform,
-    duty_cycle: f32,
+    pub waveform: Waveform,
     frequency: f32,
 
     noise_x1: u32,
@@ -27,23 +32,19 @@ pub struct MiniOscillator {
 }
 
 impl MiniOscillator {
-    pub fn new(waveform: Waveform, frequency: f32) -> Self {
+    pub fn new(waveform: Waveform) -> Self {
         Self {
             waveform,
-            duty_cycle: 0.5,
+            noise_x1: 0x70f4f854,
+            noise_x2: 0xe1e9f0a7,
             ..Default::default()
         }
     }
-    pub fn new_pwm_square(duty_cycle: f32, frequency: f32) -> Self {
+
+    pub fn new_lfo(lfo_preset: &LfoPreset) -> Self {
         Self {
-            waveform: Waveform::Square,
-            duty_cycle,
-            ..Default::default()
-        }
-    }
-    pub fn new_noise() -> Self {
-        Self {
-            waveform: Waveform::Noise,
+            waveform: lfo_preset.waveform,
+            frequency: lfo_preset.frequency,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
             ..Default::default()
@@ -58,9 +59,9 @@ impl MiniOscillator {
             Waveform::Sine => (phase_normalized * 2.0 * PI).sin(),
             // https://en.wikipedia.org/wiki/Square_wave
             //Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
-            Waveform::Square => {
+            Waveform::Square(duty_cycle) => {
                 // TODO: make sure this is right. I eyeballed it when implementing PWM waves.
-                (self.duty_cycle - (phase_normalized - phase_normalized.floor())).signum()
+                (duty_cycle - (phase_normalized - phase_normalized.floor())).signum()
             }
             // https://en.wikipedia.org/wiki/Triangle_wave
             Waveform::Triangle => {

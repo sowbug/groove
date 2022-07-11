@@ -36,7 +36,7 @@ mod tests {
         fn sinks_midi(&self) -> bool {
             true
         }
-        fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+        fn handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
             self.midi_messages_received += 1;
 
             // TODO: be more efficient about this -- don't dispatch in the first place!
