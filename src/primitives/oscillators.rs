@@ -1,5 +1,21 @@
 use std::f32::consts::PI;
 
+pub struct OscillatorPreset {
+    pub waveform: Waveform,
+    pub tune: f32,
+    pub mix: f32,
+}
+
+impl Default for OscillatorPreset {
+    fn default() -> Self {
+        Self {
+            waveform: Waveform::None,
+            tune: 1.0,
+            mix: 1.0,
+        }
+    }
+}
+
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Waveform {
     None,
@@ -16,7 +32,21 @@ impl Default for Waveform {
     }
 }
 
+pub enum LfoRouting {
+    None,
+    Amplitude,
+    Pitch,
+}
+
+impl Default for LfoRouting {
+    fn default() -> Self {
+        LfoRouting::None
+    }
+}
+
+#[derive(Default)]
 pub struct LfoPreset {
+    pub routing: LfoRouting,
     pub waveform: Waveform,
     pub frequency: f32,
     pub depth: f32,
@@ -26,6 +56,8 @@ pub struct LfoPreset {
 pub struct MiniOscillator {
     pub waveform: Waveform,
     frequency: f32,
+    frequency_modulation: f32,
+    frequency_tune: f32,
 
     noise_x1: u32,
     noise_x2: u32,
@@ -37,6 +69,17 @@ impl MiniOscillator {
             waveform,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
+            frequency_tune: 1.0,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_from_preset(preset: &OscillatorPreset) -> Self {
+        Self {
+            waveform: preset.waveform,
+            frequency_tune: preset.tune,
+            noise_x1: 0x70f4f854,
+            noise_x2: 0xe1e9f0a7,
             ..Default::default()
         }
     }
@@ -45,6 +88,7 @@ impl MiniOscillator {
         Self {
             waveform: lfo_preset.waveform,
             frequency: lfo_preset.frequency,
+            frequency_tune: 1.0,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
             ..Default::default()
@@ -52,7 +96,8 @@ impl MiniOscillator {
     }
 
     pub fn process(&mut self, time_seconds: f32) -> f32 {
-        let phase_normalized = self.frequency * time_seconds;
+        let phase_normalized =
+            self.frequency * self.frequency_tune * (1.0 + self.frequency_modulation) * time_seconds;
         match self.waveform {
             Waveform::None => 0.0,
             // https://en.wikipedia.org/wiki/Sine_wave
@@ -81,5 +126,9 @@ impl MiniOscillator {
 
     pub(crate) fn set_frequency(&mut self, frequency: f32) {
         self.frequency = frequency;
+    }
+
+    pub(crate) fn set_frequency_modulation(&mut self, frequency_modulation: f32) {
+        self.frequency_modulation = frequency_modulation;
     }
 }
