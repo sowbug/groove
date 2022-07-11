@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 
 pub enum MiniFilterType {
+    None,
     FirstOrderLowPass(f32),
     FirstOrderHighPass(f32),
     SecondOrderLowPass(f32, f32),
@@ -31,6 +32,7 @@ pub struct MiniFilter {
 impl MiniFilter {
     pub fn new(sample_rate: u32, filter_type: MiniFilterType) -> Self {
         let (a0, a1, a2, b1, b2, c0, d0) = match filter_type {
+            MiniFilterType::None => (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0),
             MiniFilterType::FirstOrderLowPass(cutoff) => {
                 Self::first_order_low_pass_coefficients(sample_rate, cutoff)
             }
@@ -109,6 +111,8 @@ impl MiniFilter {
     }
 
     // See Will C. Pirkle's _Designing Audio Effects In C++_ for coefficient sources.
+    //
+    // In my testing, this behaves identically when (noise, 500Hz, q=0.707) to Audacity's 12db LPF.
     fn second_order_low_pass_coefficients(
         sample_rate: u32,
         cutoff: f32,
@@ -219,12 +223,36 @@ mod tests {
     fn test_mini_filter() {
         const SAMPLE_RATE: u32 = 44100;
 
+        let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::None);
+        write_filter_sample(&mut filter, "noise.wav");
+        let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FirstOrderLowPass(500.));
+        write_filter_sample(&mut filter, "noise_1st_lpf_500Hz.wav");
+        let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FirstOrderHighPass(500.));
+        write_filter_sample(&mut filter, "noise_1st_hpf_500KHz.wav");
         let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FirstOrderLowPass(1000.));
         write_filter_sample(&mut filter, "noise_1st_lpf_1KHz.wav");
         let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FirstOrderHighPass(1000.));
         write_filter_sample(&mut filter, "noise_1st_hpf_1KHz.wav");
+        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 0.));
+        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q0.wav");
+        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(500., 0.707));
+        write_filter_sample(&mut filter, "noise_2nd_lpf_500Hz_q0.707.wav");
+        filter = MiniFilter::new(
+            SAMPLE_RATE,
+            MiniFilterType::SecondOrderLowPass(1000., 0.707),
+        );
+        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q0.707.wav");
+        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 0.9));
+        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q0.9.wav");
+        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 10.));
+        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q10.wav");
         filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 20.));
-        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz.wav");
+        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q20.wav");
+        filter = MiniFilter::new(
+            SAMPLE_RATE,
+            MiniFilterType::SecondOrderLowPass(1000., 20000.),
+        );
+        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q20000.wav");
         filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderHighPass(1000., 20.));
         write_filter_sample(&mut filter, "noise_2nd_hpf_1KHz.wav");
         filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderBandPass(1000., 10.));
