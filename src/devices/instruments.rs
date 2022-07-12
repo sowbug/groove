@@ -3,7 +3,9 @@ use super::traits::DeviceTrait;
 use crate::primitives::clock::Clock;
 use crate::primitives::envelopes::{MiniEnvelope, MiniEnvelopePreset};
 use crate::primitives::filter::{MiniFilter, MiniFilterType};
-use crate::primitives::oscillators::{LfoPreset, MiniOscillator, Waveform};
+use crate::primitives::oscillators::{
+    LfoPreset, LfoRouting, MiniOscillator, OscillatorPreset, Waveform,
+};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -157,17 +159,24 @@ impl DeviceTrait for SimpleSynth {
 // alternate: osc 1 sawtooth
 
 pub struct SimpleSynthPreset {
-    oscillator_1_type: Waveform,
-    oscillator_2_type: Waveform,
+    oscillator_1_preset: OscillatorPreset,
+    oscillator_2_preset: OscillatorPreset,
+    // TODO: osc 2 track/sync
     amp_envelope_preset: MiniEnvelopePreset,
 
     lfo_preset: LfoPreset,
 
-    filter_1_type: MiniFilterType,
-    filter_2_type: MiniFilterType,
-    filter_1_weight: f32,
-    filter_2_weight: f32,
+    // TODO: glide, time, unison, voices
+
+    // There is meant to be only one filter, but the Welsh book
+    // provides alternate settings depending on the kind of filter
+    // your synthesizer has.
+    filter_24db_type: MiniFilterType,
+    filter_12db_type: MiniFilterType,
+    filter_24db_weight: f32,
+    filter_12db_weight: f32,
     filter_envelope_preset: MiniEnvelopePreset,
+    filter_envelope_weight: f32,
 }
 
 #[derive(Default)]
@@ -177,81 +186,159 @@ pub struct CelloSynth2 {
 
     osc_1: MiniOscillator,
     osc_2: MiniOscillator,
+    osc_1_mix: f32,
+    osc_2_mix: f32,
     amp_envelope: MiniEnvelope,
 
     lfo: MiniOscillator,
+    lfo_routing: LfoRouting,
     lfo_depth: f32,
 
-    filter_1: MiniFilter,
-    filter_2: MiniFilter,
-    filter_1_weight: f32,
-    filter_2_weight: f32,
+    filter: MiniFilter,
+    filter_weight: f32,
     filter_envelope: MiniEnvelope,
+    filter_envelope_weight: f32,
 }
 
 impl CelloSynth2 {
-    pub fn new_cello(sample_rate: u32) -> Self {
-        const OSC_1_PULSE_WIDTH: f32 = 0.1;
-
-        const AMP_ENV_ATTACK_SECONDS: f32 = 0.06;
-        const AMP_ENV_DECAY_SECONDS: f32 = 0.0;
-        const AMP_ENV_SUSTAIN_PERCENTAGE: f32 = 1.;
-        const AMP_ENV_RELEASE_SECONDS: f32 = 0.3;
-
-        const LFO_FREQUENCY: f32 = 7.5;
-        const LFO_DEPTH: f32 = 0.05;
-
-        const LPF_1_WEIGHT: f32 = 0.1;
-        const LPF_2_WEIGHT: f32 = 0.1;
-        const FILTER_ENV_ATTACK_SECONDS: f32 = 0.0;
-        const FILTER_ENV_DECAY_SECONDS: f32 = 3.29;
-        const FILTER_ENV_SUSTAIN_PERCENTAGE: f32 = 0.78;
-        const FILTER_ENV_RELEASE_SECONDS: f32 = 0.0;
-
+    pub fn new_calibration(sample_rate: u32) -> Self {
         Self::new(
             sample_rate,
             SimpleSynthPreset {
-                oscillator_1_type: Waveform::Square(OSC_1_PULSE_WIDTH),
-                oscillator_2_type: Waveform::Square(0.5),
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Sawtooth,
+                    tune: 1.0,
+                    mix: 1.0,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::None,
+                    tune: 4.0, // Two octaves
+                    mix: 1.0,
+                },
                 amp_envelope_preset: MiniEnvelopePreset {
-                    attack_seconds: AMP_ENV_ATTACK_SECONDS,
-                    decay_seconds: AMP_ENV_DECAY_SECONDS,
-                    sustain_percentage: AMP_ENV_SUSTAIN_PERCENTAGE,
-                    release_seconds: AMP_ENV_RELEASE_SECONDS,
+                    attack_seconds: 0.00,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.0,
                 },
                 lfo_preset: LfoPreset {
-                    waveform: Waveform::Sine,
-                    frequency: LFO_FREQUENCY,
-                    depth: LFO_DEPTH,
+                    routing: LfoRouting::Amplitude,
+                    waveform: Waveform::Square(0.5),
+                    frequency: 5.0,
+                    depth: 1.0,
+                    ..Default::default()
                 },
-                filter_1_type: MiniFilterType::SecondOrderLowPass(40., 0.),
-                filter_2_type: MiniFilterType::FirstOrderLowPass(40.),
-                filter_1_weight: LPF_1_WEIGHT,
-                filter_2_weight: LPF_2_WEIGHT,
+                filter_24db_type: MiniFilterType::FourthOrderLowPass(440.),
+                filter_12db_type: MiniFilterType::SecondOrderLowPass(440., 0.),
+                filter_24db_weight: 0.1,
+                filter_12db_weight: 0.0,
                 filter_envelope_preset: MiniEnvelopePreset {
-                    attack_seconds: FILTER_ENV_ATTACK_SECONDS,
-                    decay_seconds: FILTER_ENV_DECAY_SECONDS,
-                    sustain_percentage: FILTER_ENV_SUSTAIN_PERCENTAGE,
-                    release_seconds: FILTER_ENV_RELEASE_SECONDS,
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.0,
                 },
+                filter_envelope_weight: 1.0,
+            },
+        )
+    }
+
+    pub fn new_cello(sample_rate: u32) -> Self {
+        Self::new(
+            sample_rate,
+            SimpleSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Square(0.1),
+                    tune: 1.0,
+                    mix: 1.0,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Square(0.5),
+                    tune: 1.0,
+                    mix: 1.0,
+                },
+                amp_envelope_preset: MiniEnvelopePreset {
+                    attack_seconds: 0.06,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.3,
+                },
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::Amplitude,
+                    waveform: Waveform::Sine,
+                    frequency: 7.5,
+                    depth: 0.05,
+                },
+                filter_24db_type: MiniFilterType::FourthOrderLowPass(300.),
+                filter_12db_type: MiniFilterType::SecondOrderLowPass(40., 0.),
+                filter_24db_weight: 0.9,
+                filter_12db_weight: 0.1,
+                filter_envelope_preset: MiniEnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 3.29,
+                    sustain_percentage: 0.78,
+                    release_seconds: 0.0,
+                },
+                filter_envelope_weight: 0.9,
+            },
+        )
+    }
+
+    pub fn new_angels(sample_rate: u32) -> Self {
+        Self::new(
+            sample_rate,
+            SimpleSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Sawtooth,
+                    ..Default::default()
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::None,
+                    ..Default::default()
+                },
+                amp_envelope_preset: MiniEnvelopePreset {
+                    attack_seconds: 0.32,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.93,
+                },
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::None,
+                    waveform: Waveform::Triangle,
+                    frequency: 2.4,
+                    depth: 0.0000119, // TODO 20 cents
+                },
+                filter_24db_type: MiniFilterType::FourthOrderLowPass(900.), // TODO: map Q to %
+                filter_12db_type: MiniFilterType::SecondOrderLowPass(900., 1.0),
+                filter_24db_weight: 0.85,
+                filter_12db_weight: 0.25,
+                filter_envelope_preset: MiniEnvelopePreset {
+                    attack_seconds: 0.,
+                    decay_seconds: 0.,
+                    sustain_percentage: 0.,
+                    release_seconds: 0.,
+                },
+                filter_envelope_weight: 0.0,
             },
         )
     }
 
     pub fn new(sample_rate: u32, preset: SimpleSynthPreset) -> Self {
         Self {
-            osc_1: MiniOscillator::new(preset.oscillator_1_type),
-            osc_2: MiniOscillator::new(preset.oscillator_2_type),
+            osc_1: MiniOscillator::new_from_preset(&preset.oscillator_1_preset),
+            osc_2: MiniOscillator::new_from_preset(&preset.oscillator_2_preset),
+            osc_1_mix: preset.oscillator_1_preset.mix,
+            osc_2_mix: preset.oscillator_2_preset.mix,
             amp_envelope: MiniEnvelope::new(sample_rate, preset.amp_envelope_preset),
 
             lfo: MiniOscillator::new_lfo(&preset.lfo_preset),
+            lfo_routing: preset.lfo_preset.routing,
             lfo_depth: preset.lfo_preset.depth,
 
-            filter_1: MiniFilter::new(44100, preset.filter_1_type),
-            filter_2: MiniFilter::new(44100, preset.filter_2_type),
-            filter_1_weight: preset.filter_1_weight,
-            filter_2_weight: preset.filter_2_weight,
+            filter: MiniFilter::new(44100, preset.filter_24db_type),
+            filter_weight: preset.filter_24db_weight,
             filter_envelope: MiniEnvelope::new(sample_rate, preset.filter_envelope_preset),
+            filter_envelope_weight: preset.filter_envelope_weight,
 
             ..Default::default()
         }
@@ -295,133 +382,36 @@ impl DeviceTrait for CelloSynth2 {
             self.is_playing = false;
         }
 
-        let osc_mix = (self.osc_1.process(clock.seconds) + self.osc_2.process(clock.seconds))
+        let lfo = self.lfo.process(clock.seconds) * self.lfo_depth;
+        if matches!(self.lfo_routing, LfoRouting::Pitch) {
+            // Frequency assumes LFO [-1, 1]
+            self.osc_1.set_frequency_modulation(lfo);
+            self.osc_2.set_frequency_modulation(lfo);
+        }
+
+        let osc_1 = self.osc_1.process(clock.seconds);
+        let osc_2 = self.osc_2.process(clock.seconds);
+        let osc_mix = (osc_1 * self.osc_1_mix + osc_2 * self.osc_2_mix)
             / if !matches!(self.osc_2.waveform, Waveform::None) {
                 2.0
             } else {
                 1.0
             };
 
-        let lfo = self.lfo.process(clock.seconds);
+        self.current_value = {
+            let filter_full_weight = self.filter_weight;
+            let filter = self.filter.filter(osc_mix)
+                * (1.0 + self.filter_envelope.value() * self.filter_envelope_weight);
+            let filter_mix = filter * filter_full_weight + osc_mix * (1.0 - filter_full_weight);
 
-        let filter_1_full_weight = self.filter_1_weight * self.filter_envelope.value();
-        let filter_2_full_weight = self.filter_2_weight * self.filter_envelope.value();
-        let filter1 = self.filter_1.filter(osc_mix) * filter_1_full_weight
-            + osc_mix * (1.0 - filter_1_full_weight);
-        let filter2 = self.filter_2.filter(osc_mix) * filter_2_full_weight
-            + osc_mix * (1.0 - filter_2_full_weight);
-        let filter_mix = (filter1 + filter2) / 2.;
-
-        let amplitude = self.amp_envelope.value()
-            * filter_mix
-            * (1. + lfo * self.lfo_depth - self.lfo_depth / 2.0);
-
-        self.current_value = amplitude;
-
-        // TODO temp
-        self.amp_envelope.is_idle()
-    }
-
-    fn get_audio_sample(&self) -> f32 {
-        self.current_value
-    }
-}
-
-#[derive(Default)]
-pub struct AngelsSynth {
-    is_playing: bool,
-    frequency: f32,
-    current_value: f32,
-
-    amp_envelope: MiniEnvelope,
-
-    filter_1: MiniFilter,
-    filter_2: MiniFilter,
-}
-
-impl AngelsSynth {
-    const AMP_ENV_ATTACK_SECONDS: f32 = 0.32;
-    const AMP_ENV_DECAY_SECONDS: f32 = 0.0;
-    const AMP_ENV_SUSTAIN_PERCENTAGE: f32 = 1.;
-    const AMP_ENV_RELEASE_SECONDS: f32 = 0.93;
-
-    const LFO_FREQUENCY: f32 = 2.4;
-    const LFO_DEPTH: f32 = 0.0002;
-
-    pub fn new(sample_rate: u32) -> Self {
-        Self {
-            amp_envelope: MiniEnvelope::new(
-                sample_rate,
-                MiniEnvelopePreset {
-                    attack_seconds: Self::AMP_ENV_ATTACK_SECONDS,
-                    decay_seconds: Self::AMP_ENV_DECAY_SECONDS,
-                    sustain_percentage: Self::AMP_ENV_SUSTAIN_PERCENTAGE,
-                    release_seconds: Self::AMP_ENV_RELEASE_SECONDS,
-                },
-            ),
-            filter_1: MiniFilter::new(44100, MiniFilterType::SecondOrderLowPass(900., 0.7)),
-            filter_2: MiniFilter::new(44100, MiniFilterType::FirstOrderLowPass(900.)),
-            ..Default::default()
-        }
-    }
-}
-
-impl DeviceTrait for AngelsSynth {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-    fn sinks_midi(&self) -> bool {
-        true
-    }
-
-    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
-        self.amp_envelope
-            .handle_midi_message(message, clock.seconds);
-        match message.status {
-            MidiMessageType::NoteOn => {
-                self.is_playing = true;
-                self.frequency = message.to_frequency();
-            }
-            MidiMessageType::NoteOff => {}
-            MidiMessageType::ProgramChange => {}
-        }
-
-        if self.amp_envelope.is_idle() {
-            self.is_playing = false;
-        }
-    }
-
-    fn tick(&mut self, clock: &Clock) -> bool {
-        self.amp_envelope.tick(clock.seconds);
-
-        if self.amp_envelope.is_idle() {
-            self.is_playing = false;
-        }
-
-        let phase_normalized_lfo = Self::LFO_FREQUENCY * (clock.seconds as f32);
-        let lfo =
-            4.0 * (phase_normalized_lfo - (0.75 + phase_normalized_lfo).floor() + 0.25).abs() - 1.0;
-
-        let freq_lfo = self.frequency * (1. + lfo * Self::LFO_DEPTH);
-        let phase_normalized_pitch = freq_lfo * (clock.seconds as f32);
-
-        let osc1 = { 2.0 * (phase_normalized_pitch - (0.5 + phase_normalized_pitch).floor()) };
-
-        let osc_mix = osc1;
-
-        const LPF_1_WEIGHT: f32 = 0.55;
-        const LPF_2_WEIGHT: f32 = 0.55;
-        let filter_1_weight = LPF_1_WEIGHT * 1.0;
-        let filter_2_weight = LPF_2_WEIGHT * 1.0;
-        let filter1 =
-            self.filter_1.filter(osc_mix) * filter_1_weight + osc_mix * (1.0 - filter_1_weight);
-        let filter2 =
-            self.filter_2.filter(osc_mix) * filter_2_weight + osc_mix * (1.0 - filter_2_weight);
-        let filter_mix = (filter1 + filter2) / 2.;
-
-        let amplitude = { self.amp_envelope.value() * filter_mix };
-
-        self.current_value = amplitude;
+            let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
+                // Amplitude assumes LFO [0, 1]
+                lfo / 2.0 + 0.5
+            } else {
+                1.0
+            };
+            self.amp_envelope.value() * filter_mix * lfo_amplitude_modulation
+        };
 
         // TODO temp
         self.amp_envelope.is_idle()
