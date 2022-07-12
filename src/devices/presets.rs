@@ -4,8 +4,9 @@ use crate::primitives::{
     oscillators::{LfoPreset, LfoRouting, OscillatorPreset, Waveform},
 };
 
-use super::{instruments::{MiniSynthPreset}, synthesizers::SuperSynth};
+use super::{instruments::{SuperSynthPreset}, synthesizers::SuperSynth};
 
+#[allow(dead_code)]
 pub enum GeneralMidiProgram {
     AcousticGrand = 0,
     BrightAcoustic = 1,
@@ -31,17 +32,17 @@ pub enum GeneralMidiProgram {
     Accordion = 21,
     Harmonica = 22,
     TangoAccordion = 23,
-    AcousticGuitar_Nylon = 24,
-    AcousticGuitar_Steel = 25,
-    ElectricGuitar_Jazz = 26,
-    ElectricGuitar_Clean = 27,
-    ElectricGuitar_Muted = 28,
+    AcousticGuitarNylon = 24,
+    AcousticGuitarSteel = 25,
+    ElectricGuitarJazz = 26,
+    ElectricGuitarClean = 27,
+    ElectricGuitarMuted = 28,
     OverdrivenGuitar = 29,
     DistortionGuitar = 30,
     GuitarHarmonics = 31,
     AcousticBass = 32,
-    ElectricBass_Finger = 33,
-    ElectricBass_Pick = 34,
+    ElectricBassFinger = 33,
+    ElectricBassPick = 34,
     FretlessBass = 35,
     SlapBass1 = 36,
     SlapBass2 = 37,
@@ -87,30 +88,30 @@ pub enum GeneralMidiProgram {
     Shakuhachi = 77,
     Whistle = 78,
     Ocarina = 79,
-    Lead1_Square = 80,
-    Lead2_Sawtooth = 81,
-    Lead3_Calliope = 82,
-    Lead4_Chiff = 83,
-    Lead5_Charang = 84,
-    Lead6_Voice = 85,
-    Lead7_Fifths = 86,
-    Lead8_BassLead = 87,
-    Pad1_NewAge = 88,
-    Pad2_Warm = 89,
-    Pad3_Polysynth = 90,
-    Pad4_Choir = 91,
-    Pad5_Bowed = 92,
-    Pad6_Metallic = 93,
-    Pad7_Halo = 94,
-    Pad8_Sweep = 95,
-    Fx1_Rain = 96,
-    Fx2_Soundtrack = 97,
-    Fx3_Crystal = 98,
-    Fx4_Atmosphere = 99,
-    Fx5_Brightness = 100,
-    Fx6_Goblins = 101,
-    Fx7_Echoes = 102,
-    Fx8_SciFi = 103,
+    Lead1Square = 80,
+    Lead2Sawtooth = 81,
+    Lead3Calliope = 82,
+    Lead4Chiff = 83,
+    Lead5Charang = 84,
+    Lead6Voice = 85,
+    Lead7Fifths = 86,
+    Lead8BassLead = 87,
+    Pad1NewAge = 88,
+    Pad2Warm = 89,
+    Pad3Polysynth = 90,
+    Pad4Choir = 91,
+    Pad5Bowed = 92,
+    Pad6Metallic = 93,
+    Pad7Halo = 94,
+    Pad8Sweep = 95,
+    Fx1Rain = 96,
+    Fx2Soundtrack = 97,
+    Fx3Crystal = 98,
+    Fx4Atmosphere = 99,
+    Fx5Brightness = 100,
+    Fx6Goblins = 101,
+    Fx7Echoes = 102,
+    Fx8SciFi = 103,
     Sitar = 104,
     Banjo = 105,
     Shamisen = 106,
@@ -236,23 +237,23 @@ impl SuperSynth {
                 // 24
                 panic!();
             }
-            GeneralMidiProgram::AcousticGuitar_Nylon => {
+            GeneralMidiProgram::AcousticGuitarNylon => {
                 // 25
                 panic!();
             }
-            GeneralMidiProgram::AcousticGuitar_Steel => {
+            GeneralMidiProgram::AcousticGuitarSteel => {
                 // 26
                 panic!();
             }
-            GeneralMidiProgram::ElectricGuitar_Jazz => {
+            GeneralMidiProgram::ElectricGuitarJazz => {
                 // 27
                 panic!();
             }
-            GeneralMidiProgram::ElectricGuitar_Clean => {
+            GeneralMidiProgram::ElectricGuitarClean => {
                 // 28
                 panic!();
             }
-            GeneralMidiProgram::ElectricGuitar_Muted => {
+            GeneralMidiProgram::ElectricGuitarMuted => {
                 // 29
                 panic!();
             }
@@ -272,11 +273,11 @@ impl SuperSynth {
                 // 33
                 panic!();
             }
-            GeneralMidiProgram::ElectricBass_Finger => {
+            GeneralMidiProgram::ElectricBassFinger => {
                 // 34
                 panic!();
             }
-            GeneralMidiProgram::ElectricBass_Pick => {
+            GeneralMidiProgram::ElectricBassPick => {
                 // 35
                 panic!();
             }
@@ -310,7 +311,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Cello => {
                 // 43
-                MiniSynthPreset {
+                SuperSynthPreset {
                     oscillator_1_preset: OscillatorPreset {
                         waveform: Waveform::Square(0.1),
                         tune: 1.0,
@@ -384,11 +385,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::ChoirAahs => {
                 // 53
-                panic!();
-            }
-            GeneralMidiProgram::ChoirAahs => {
-                // 53
-                MiniSynthPreset {
+                SuperSynthPreset {
                     oscillator_1_preset: OscillatorPreset {
                         waveform: Waveform::Sawtooth,
                         ..Default::default()
@@ -531,99 +528,99 @@ impl SuperSynth {
                 // 80
                 panic!();
             }
-            GeneralMidiProgram::Lead1_Square => {
+            GeneralMidiProgram::Lead1Square => {
                 // 81
                 panic!();
             }
-            GeneralMidiProgram::Lead2_Sawtooth => {
+            GeneralMidiProgram::Lead2Sawtooth => {
                 // 82
                 panic!();
             }
-            GeneralMidiProgram::Lead3_Calliope => {
+            GeneralMidiProgram::Lead3Calliope => {
                 // 83
                 panic!();
             }
-            GeneralMidiProgram::Lead4_Chiff => {
+            GeneralMidiProgram::Lead4Chiff => {
                 // 84
                 panic!();
             }
-            GeneralMidiProgram::Lead5_Charang => {
+            GeneralMidiProgram::Lead5Charang => {
                 // 85
                 panic!();
             }
-            GeneralMidiProgram::Lead6_Voice => {
+            GeneralMidiProgram::Lead6Voice => {
                 // 86
                 panic!();
             }
-            GeneralMidiProgram::Lead7_Fifths => {
+            GeneralMidiProgram::Lead7Fifths => {
                 // 87
                 panic!();
             }
-            GeneralMidiProgram::Lead8_BassLead => {
+            GeneralMidiProgram::Lead8BassLead => {
                 // 88
                 panic!();
             }
-            GeneralMidiProgram::Pad1_NewAge => {
+            GeneralMidiProgram::Pad1NewAge => {
                 // 89
                 panic!();
             }
-            GeneralMidiProgram::Pad2_Warm => {
+            GeneralMidiProgram::Pad2Warm => {
                 // 90
                 panic!();
             }
-            GeneralMidiProgram::Pad3_Polysynth => {
+            GeneralMidiProgram::Pad3Polysynth => {
                 // 91
                 panic!();
             }
-            GeneralMidiProgram::Pad4_Choir => {
+            GeneralMidiProgram::Pad4Choir => {
                 // 92
                 panic!();
             }
-            GeneralMidiProgram::Pad5_Bowed => {
+            GeneralMidiProgram::Pad5Bowed => {
                 // 93
                 panic!();
             }
-            GeneralMidiProgram::Pad6_Metallic => {
+            GeneralMidiProgram::Pad6Metallic => {
                 // 94
                 panic!();
             }
-            GeneralMidiProgram::Pad7_Halo => {
+            GeneralMidiProgram::Pad7Halo => {
                 // 95
                 panic!();
             }
-            GeneralMidiProgram::Pad8_Sweep => {
+            GeneralMidiProgram::Pad8Sweep => {
                 // 96
                 panic!();
             }
-            GeneralMidiProgram::Fx1_Rain => {
+            GeneralMidiProgram::Fx1Rain => {
                 // 97
                 panic!();
             }
-            GeneralMidiProgram::Fx2_Soundtrack => {
+            GeneralMidiProgram::Fx2Soundtrack => {
                 // 98
                 panic!();
             }
-            GeneralMidiProgram::Fx3_Crystal => {
+            GeneralMidiProgram::Fx3Crystal => {
                 // 99
                 panic!();
             }
-            GeneralMidiProgram::Fx4_Atmosphere => {
+            GeneralMidiProgram::Fx4Atmosphere => {
                 // 100
                 panic!();
             }
-            GeneralMidiProgram::Fx5_Brightness => {
+            GeneralMidiProgram::Fx5Brightness => {
                 // 101
                 panic!();
             }
-            GeneralMidiProgram::Fx6_Goblins => {
+            GeneralMidiProgram::Fx6Goblins => {
                 // 102
                 panic!();
             }
-            GeneralMidiProgram::Fx7_Echoes => {
+            GeneralMidiProgram::Fx7Echoes => {
                 // 103
                 panic!();
             }
-            GeneralMidiProgram::Fx8_SciFi => {
+            GeneralMidiProgram::Fx8SciFi => {
                 // 104
                 panic!();
             }

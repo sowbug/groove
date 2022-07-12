@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 // Composition of AudioSource and AudioSink and a bunch of other stuff.
 // See https://users.rust-lang.org/t/dyn-multiple-traits-in-a-type-alias/21051
+#[allow(unused_variables)]
 pub trait DeviceTrait {
     fn sources_midi(&self) -> bool {
         false

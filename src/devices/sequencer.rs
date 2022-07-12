@@ -38,7 +38,7 @@ impl Sequencer {
     pub fn connect_midi_sink_for_channel(
         &mut self,
         device: Rc<RefCell<dyn DeviceTrait>>,
-        channel: u32,
+        _channel: u32,
     ) {
         self.sinks.push(device);
 

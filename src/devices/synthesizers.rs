@@ -4,25 +4,25 @@ use crate::{
 };
 
 use super::{
-    instruments::{MiniSynthPreset, MiniVoice},
+    instruments::{SuperSynthPreset, SuperVoice},
     traits::DeviceTrait,
 };
 
 #[derive(Default)]
 pub struct SuperSynth {
     sample_rate: u32,
-    preset: MiniSynthPreset,
-    voice: MiniVoice,
+    preset: SuperSynthPreset,
+    voice: SuperVoice,
     current_value: f32, // TODO: this needs to scale up for voices
                         // TODO let's start with just one    voices: Vec<MiniVoice>,
 }
 
 impl SuperSynth {
-    pub fn new(sample_rate: u32, preset: MiniSynthPreset) -> Self {
+    pub fn new(sample_rate: u32, preset: SuperSynthPreset) -> Self {
         Self {
             sample_rate,
             preset,
-            voice: MiniVoice::new(sample_rate, &preset),
+            voice: SuperVoice::new(sample_rate, &preset),
             ..Default::default()
         }
     }

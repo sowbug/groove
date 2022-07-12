@@ -390,7 +390,7 @@ mod tests {
     #[test]
     fn test_mini_filter() {
         const SAMPLE_RATE: u32 = 44100;
-        let MIN_Q: f32 = 1.0 / 2.0f32.sqrt();
+        let min_q: f32 = 1.0 / 2.0f32.sqrt();
 
         let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::None);
         write_filter_sample(&mut filter, "noise.wav");
@@ -404,7 +404,7 @@ mod tests {
         write_filter_sample(&mut filter, "noise_1st_hpf_1KHz.wav");
         filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 0.));
         write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q0.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(500., MIN_Q));
+        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(500., min_q));
         write_filter_sample(&mut filter, "noise_2nd_lpf_500Hz_min_q.wav");
         filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FourthOrderLowPass(500.));
         write_filter_sample(&mut filter, "noise_4th_lpf_500Hz.wav");
@@ -412,7 +412,7 @@ mod tests {
         write_filter_sample(&mut filter, "noise_4th_hpf_500Hz.wav");
         filter = MiniFilter::new(
             SAMPLE_RATE,
-            MiniFilterType::SecondOrderLowPass(1000., MIN_Q),
+            MiniFilterType::SecondOrderLowPass(1000., min_q),
         );
         write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_min_q.wav");
         filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 0.9));

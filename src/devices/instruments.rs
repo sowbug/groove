@@ -9,7 +9,7 @@ use crate::primitives::oscillators::{
 use super::traits::DeviceTrait;
 
 #[derive(Default, Clone, Copy)]
-pub struct MiniSynthPreset {
+pub struct SuperSynthPreset {
     pub oscillator_1_preset: OscillatorPreset,
     pub oscillator_2_preset: OscillatorPreset,
     // TODO: osc 2 track/sync
@@ -31,7 +31,7 @@ pub struct MiniSynthPreset {
 }
 
 #[derive(Default)]
-pub struct MiniVoice {
+pub struct SuperVoice {
     osc_1: MiniOscillator,
     osc_2: MiniOscillator,
     osc_1_mix: f32,
@@ -48,8 +48,8 @@ pub struct MiniVoice {
     filter_envelope_weight: f32,
 }
 
-impl MiniVoice {
-    pub fn new(sample_rate: u32, preset: &MiniSynthPreset) -> Self {
+impl SuperVoice {
+    pub fn new(sample_rate: u32, preset: &SuperSynthPreset) -> Self {
         Self {
             osc_1: MiniOscillator::new_from_preset(&preset.oscillator_1_preset),
             osc_2: MiniOscillator::new_from_preset(&preset.oscillator_2_preset),
@@ -115,7 +115,7 @@ impl MiniVoice {
     }
 }
 
-impl DeviceTrait for MiniVoice {
+impl DeviceTrait for SuperVoice {
     fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
         self.amp_envelope
             .handle_midi_message(message, clock.seconds);
@@ -136,8 +136,4 @@ impl DeviceTrait for MiniVoice {
             //        self.is_playing = false;
         }
     }
-}
-
-pub struct Voice {
-    envelope: MiniEnvelope,
 }

@@ -1,10 +1,9 @@
 use midly::{MidiMessage as MidlyMidiMessage, TrackEventKind};
-use std::{cell::RefCell, cmp::Ordering, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
-use crate::common::{OrderedMidiMessage, MidiMessage};
+use crate::common::{MidiMessage, OrderedMidiMessage};
 
 use super::sequencer::Sequencer;
-
 
 pub struct MidiReader {}
 
@@ -130,7 +129,6 @@ impl MidiReader {
                     }
                     TrackEventKind::Escape(_data) => { // TODO
                     }
-                    _ => {}
                 }
             }
         }
