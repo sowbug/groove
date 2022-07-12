@@ -7,7 +7,28 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug 'groove' and play to speaker",
+      "name": "Unit tests",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--",
+          "--show-output",
+          "--bin=groove",
+          "--package=groove",
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Speaker: major scale",
       "cargo": {
         "args": [
           "build",
@@ -28,7 +49,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug 'groove' and write to file",
+      "name": "File: major scale",
       "cargo": {
         "args": [
           "build",
@@ -51,28 +72,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in executable 'groove'",
-      "cargo": {
-        "args": [
-          "test",
-          "--no-run",
-          "--",
-          "--show-output",
-          "--bin=groove",
-          "--package=groove",
-        ],
-        "filter": {
-          "name": "groove",
-          "kind": "bin"
-        }
-      },
-      "args": [],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
-      "name": "groove: Everybody Dance Now to speaker",
+      "name": "Speaker: Gonna Make You Sweat",
       "cargo": {
         "args": [
           "build",
@@ -93,7 +93,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "groove: Everybody Dance Now to file",
+      "name": "File: Gonna Make You Sweat",
       "cargo": {
         "args": [
           "build",
@@ -116,7 +116,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "groove: multi-channel",
+      "name": "File: Multi-channel",
       "cargo": {
         "args": [
           "build",
