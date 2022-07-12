@@ -360,6 +360,249 @@ impl MiniFilter {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum MiniFilter2Type {
+    None,
+    LowPass(u32, f32),
+    HighPass(u32, f32),
+    BandPass(u32, f32),
+    BandStop(u32, f32),
+    AllPass(u32, f32),
+    PeakingEq(u32, f32, f32),
+    LowShelf(u32, f32, f32),
+    HighShelf(u32, f32, f32),
+}
+
+impl Default for MiniFilter2Type {
+    fn default() -> Self {
+        MiniFilter2Type::None
+    }
+}
+
+#[derive(Default)]
+pub struct MiniFilter2 {
+    sample_rate: u32,
+    a0: f64,
+    a1: f64,
+    a2: f64,
+    b0: f64,
+    b1: f64,
+    b2: f64,
+    sample_m1: f64, // "sample minus two" or x(n-2)
+    sample_m2: f64,
+    output_m1: f64,
+    output_m2: f64,
+}
+
+impl MiniFilter2 {
+    pub fn new(filter_type: MiniFilter2Type) -> Self {
+        let (sample_rate, a0, a1, a2, b0, b1, b2) = match filter_type {
+            MiniFilter2Type::None => (0u32, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            MiniFilter2Type::LowPass(sample_rate, cutoff) => {
+                Self::rbj_low_pass_coefficients(sample_rate, cutoff)
+            }
+            MiniFilter2Type::HighPass(sample_rate, cutoff) => {
+                Self::rbj_high_pass_coefficients(sample_rate, cutoff)
+            }
+            MiniFilter2Type::BandPass(sample_rate, cutoff) => {
+                Self::rbj_band_pass_coefficients(sample_rate, cutoff)
+            }
+            MiniFilter2Type::BandStop(sample_rate, cutoff) => {
+                Self::rbj_band_stop_coefficients(sample_rate, cutoff)
+            }
+            MiniFilter2Type::AllPass(sample_rate, cutoff) => {
+                Self::rbj_all_pass_coefficients(sample_rate, cutoff)
+            }
+            MiniFilter2Type::PeakingEq(sample_rate, cutoff, db_gain) => {
+                Self::rbj_peaking_eq_coefficients(sample_rate, cutoff, db_gain)
+            }
+            MiniFilter2Type::LowShelf(sample_rate, cutoff, db_gain) => {
+                Self::rbj_low_shelf_coefficients(sample_rate, cutoff, db_gain)
+            }
+            MiniFilter2Type::HighShelf(sample_rate, cutoff, db_gain) => {
+                Self::rbj_high_shelf_coefficients(sample_rate, cutoff, db_gain)
+            }
+        };
+        Self {
+            sample_rate,
+            a0,
+            a1,
+            a2,
+            b0,
+            b1,
+            b2,
+            ..Default::default()
+        }
+    }
+
+    pub fn filter(&mut self, sample: f32) -> f32 {
+        let s64 = sample as f64;
+        let r = ((self.b0 / self.a0) * s64
+            + (self.b1 / self.a0) * self.sample_m1
+            + (self.b2 / self.a0) * self.sample_m2
+            - (self.a1 / self.a0) * self.output_m1
+            - (self.a2 / self.a0) * self.output_m2);
+
+        // Scroll everything forward in time.
+        self.sample_m2 = self.sample_m1;
+        self.sample_m1 = s64;
+
+        self.output_m2 = self.output_m1;
+        self.output_m1 = r;
+        r as f32
+    }
+
+    fn rbj_intermediates(sample_rate: u32, cutoff: f32) -> (f64, f64, f64, f64) {
+        let Q = 1.0f64 / 2.0f64.sqrt();
+        let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
+        let w0cos = w0.cos();
+        let w0sin = w0.sin();
+        let alpha = w0sin / (2.0f64 * Q);
+        (w0, w0cos, w0sin, alpha)
+    }
+
+    fn rbj_low_pass_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+    ) -> (u32, f64, f64, f64, f64, f64, f64) {
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+
+        (
+            sample_rate,
+            1.0f64 + alpha,
+            -2.0f64 * w0cos,
+            1.0f64 - alpha,
+            (1.0f64 - w0cos) / 2.0f64,
+            (1.0f64 - w0cos),
+            (1.0f64 - w0cos) / 2.0f64,
+        )
+    }
+
+    fn rbj_high_pass_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+    ) -> (u32, f64, f64, f64, f64, f64, f64) {
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+
+        (
+            sample_rate,
+            1.0f64 + alpha,
+            -2.0f64 * w0cos,
+            1.0f64 - alpha,
+            (1.0f64 + w0cos) / 2.0f64,
+            -(1.0f64 + w0cos),
+            (1.0f64 + w0cos) / 2.0f64,
+        )
+    }
+
+    fn rbj_band_pass_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+    ) -> (u32, f64, f64, f64, f64, f64, f64) {
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        (
+            sample_rate,
+            1.0f64 + alpha,
+            -2.0f64 * w0cos,
+            1.0f64 - alpha,
+            alpha,
+            0.0,
+            -alpha,
+        )
+    }
+
+    fn rbj_band_stop_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+    ) -> (u32, f64, f64, f64, f64, f64, f64) {
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+
+        (
+            sample_rate,
+            1.0f64 + alpha,
+            -2.0f64 * w0cos,
+            1.0f64 - alpha,
+            1.0f64,
+            -2.0f64 * w0cos,
+            1.0f64,
+        )
+    }
+
+    fn rbj_all_pass_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+    ) -> (u32, f64, f64, f64, f64, f64, f64) {
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        (
+            sample_rate,
+            1.0f64 + alpha,
+            -2.0f64 * w0cos,
+            1.0f64 - alpha,
+            1.0f64 - alpha,
+            -2.0f64 * w0cos,
+            1.0f64 + alpha,
+        )
+    }
+
+    fn rbj_peaking_eq_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+        db_gain: f32,
+    ) -> (u32, f64, f64, f64, f64, f64, f64) {
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
+
+        (
+            sample_rate,
+            1.0f64 + alpha / a,
+            -2.0f64 * w0cos,
+            1.0f64 - alpha / a,
+            1.0f64 + alpha * a,
+            -2.0f64 * w0cos,
+            1.0f64 - alpha * a,
+        )
+    }
+
+    fn rbj_low_shelf_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+        db_gain: f32,
+    ) -> (u32, f64, f64, f64, f64, f64, f64) {
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
+
+        (
+            sample_rate,
+            (a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
+            -2.0 * ((a - 1.0) + (a + 1.0) * w0cos),
+            (a + 1.0) + (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha,
+            a * ((a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha),
+            2.0 * a * ((a - 1.0) - (a + 1.0) * w0cos),
+            a * ((a + 1.0) - (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha),
+        )
+    }
+
+    fn rbj_high_shelf_coefficients(
+        sample_rate: u32,
+        cutoff: f32,
+        db_gain: f32,
+    ) -> (u32, f64, f64, f64, f64, f64, f64) {
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
+
+        // b2 =    A*( (A+1) + (A-1)*cos(w0) - 2*sqrt(A)*alpha )
+        (
+            sample_rate,
+            (a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
+            2.0 * ((a - 1.0) - (a + 1.0) * w0cos),
+            (a + 1.0) - (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha,
+            a * ((a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha),
+            -2.0 * a * ((a - 1.0) + (a + 1.0) * w0cos),
+            a * ((a + 1.0) + (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::primitives::{clock::Clock, oscillators::MiniOscillator};
@@ -432,5 +675,63 @@ mod tests {
         write_filter_sample(&mut filter, "noise_2nd_bpf_1KHz.wav");
         filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderBandStop(1000., 20.));
         write_filter_sample(&mut filter, "noise_2nd_bsf_1KHz.wav");
+    }
+
+    fn write_filter2_sample(filter: &mut MiniFilter2, filename: &str) {
+        let mut clock = Clock::new(44100, 4, 4, 128.);
+        let mut osc = MiniOscillator::new(crate::primitives::oscillators::Waveform::Noise);
+
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: clock.sample_rate(),
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        const AMPLITUDE: f32 = i16::MAX as f32;
+        let mut filter_writer = hound::WavWriter::create(filename, spec).unwrap();
+
+        while clock.seconds < 2.0 {
+            let sample_osc = osc.process(clock.seconds);
+            let sample_filter = filter.filter(sample_osc);
+            let _ = filter_writer.write_sample((sample_filter * AMPLITUDE) as i16);
+            clock.tick();
+        }
+    }
+
+    #[test]
+    fn test_mini_filter2() {
+        const SAMPLE_RATE: u32 = 44100;
+        write_filter2_sample(
+            &mut MiniFilter2::new(MiniFilter2Type::LowPass(SAMPLE_RATE, 1000.)),
+            "rbj_noise_lpf_1KHz.wav",
+        );
+        write_filter2_sample(
+            &mut MiniFilter2::new(MiniFilter2Type::HighPass(SAMPLE_RATE, 1000.)),
+            "rbj_noise_hpf_1KHz.wav",
+        );
+        write_filter2_sample(
+            &mut MiniFilter2::new(MiniFilter2Type::BandPass(SAMPLE_RATE, 1000.)),
+            "rbj_noise_bpf_1KHz.wav",
+        );
+        write_filter2_sample(
+            &mut MiniFilter2::new(MiniFilter2Type::BandStop(SAMPLE_RATE, 1000.)),
+            "rbj_noise_bsf_1KHz.wav",
+        );
+        write_filter2_sample(
+            &mut MiniFilter2::new(MiniFilter2Type::AllPass(SAMPLE_RATE, 1000.)),
+            "rbj_noise_apf_1KHz.wav",
+        );
+        write_filter2_sample(
+            &mut MiniFilter2::new(MiniFilter2Type::PeakingEq(SAMPLE_RATE, 1000., 6.0)),
+            "rbj_noise_peaking_eq_6db_1KHz.wav",
+        );
+        write_filter2_sample(
+            &mut MiniFilter2::new(MiniFilter2Type::LowShelf(SAMPLE_RATE, 1000., 6.0)),
+            "rbj_noise_low_shelf_6db_1KHz.wav",
+        );
+        write_filter2_sample(
+            &mut MiniFilter2::new(MiniFilter2Type::HighShelf(SAMPLE_RATE, 1000., 6.0)),
+            "rbj_noise_high_shelf_6db_1KHz.wav",
+        );
     }
 }
