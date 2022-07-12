@@ -1,0 +1,140 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug 'groove' and play to speaker",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--midi-in",
+        "midi_files/major-scale-spaced-notes.mid"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug 'groove' and write to file",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--midi-in",
+        "midi_files/major-scale-spaced-notes.mid",
+        "--wav-out",
+        "major-scale-cello.wav"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'groove'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--",
+          "--show-output",
+          "--bin=groove",
+          "--package=groove",
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "groove: Everybody Dance Now to speaker",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--midi-in",
+        "midi_files/d-gonnamakeyousweat.mid"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "groove: Everybody Dance Now to file",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--midi-in",
+        "midi_files/d-gonnamakeyousweat.mid",
+        "--wav-out",
+        "Gonna_Make_You_Sweat.wav"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "groove: multi-channel",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--midi-in",
+        "midi_files/multi-channel.mid",
+        "--wav-out",
+        "multi-channel.wav"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+  ]
+}
