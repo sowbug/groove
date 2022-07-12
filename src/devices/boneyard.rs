@@ -337,3 +337,105 @@ impl DeviceTrait for Oscillator_ {
         self.current_sample
     }
 }
+
+pub fn new_cello(sample_rate: u32) -> Self {
+    Self::new(
+        sample_rate,
+        SimpleSynthPreset {
+            oscillator_1_preset: OscillatorPreset {
+                waveform: Waveform::Square(0.1),
+                tune: 1.0,
+                mix: 1.0,
+            },
+            oscillator_2_preset: OscillatorPreset {
+                waveform: Waveform::Square(0.5),
+                tune: 1.0,
+                mix: 1.0,
+            },
+            amp_envelope_preset: MiniEnvelopePreset {
+                attack_seconds: 0.06,
+                decay_seconds: 0.0,
+                sustain_percentage: 1.0,
+                release_seconds: 0.3,
+            },
+            lfo_preset: LfoPreset {
+                routing: LfoRouting::Amplitude,
+                waveform: Waveform::Sine,
+                frequency: 7.5,
+                depth: 0.05,
+            },
+            filter_24db_type: MiniFilterType::FourthOrderLowPass(300.),
+            filter_12db_type: MiniFilterType::SecondOrderLowPass(40., 0.),
+            filter_24db_weight: 0.9,
+            filter_12db_weight: 0.1,
+            filter_envelope_preset: MiniEnvelopePreset {
+                attack_seconds: 0.0,
+                decay_seconds: 3.29,
+                sustain_percentage: 0.78,
+                release_seconds: 0.0,
+            },
+            filter_envelope_weight: 0.9,
+        },
+    )
+}
+
+pub fn new_angels(sample_rate: u32) -> Self {
+    Self::new(
+        sample_rate,
+        SimpleSynthPreset {
+            oscillator_1_preset: OscillatorPreset {
+                waveform: Waveform::Sawtooth,
+                ..Default::default()
+            },
+            oscillator_2_preset: OscillatorPreset {
+                waveform: Waveform::None,
+                ..Default::default()
+            },
+            amp_envelope_preset: MiniEnvelopePreset {
+                attack_seconds: 0.32,
+                decay_seconds: 0.0,
+                sustain_percentage: 1.0,
+                release_seconds: 0.93,
+            },
+            lfo_preset: LfoPreset {
+                routing: LfoRouting::None,
+                waveform: Waveform::Triangle,
+                frequency: 2.4,
+                depth: 0.0000119, // TODO 20 cents
+            },
+            filter_24db_type: MiniFilterType::FourthOrderLowPass(900.), // TODO: map Q to %
+            filter_12db_type: MiniFilterType::SecondOrderLowPass(900., 1.0),
+            filter_24db_weight: 0.85,
+            filter_12db_weight: 0.25,
+            filter_envelope_preset: MiniEnvelopePreset {
+                attack_seconds: 0.,
+                decay_seconds: 0.,
+                sustain_percentage: 0.,
+                release_seconds: 0.,
+            },
+            filter_envelope_weight: 0.0,
+        },
+    )
+}
+
+// TODO: this is an automation thing.
+// maybe LFOs and envelopes shouldn't have audio output, but only value outputs.
+// Then they don't have to get into the business of understanding the rest of DeviceTraits,
+// and can be reused for more things.
+//
+// (this was in CelloSynth)
+// From Welsh's Synthesizer Cookbook, page 53
+//
+// Osc1: PW 10%, mix 100%
+// Osc2: Square, mix 100%, track on, sync off
+// noise off
+// LFO: route -> amplitude, sine, 7.5hz/moderate, depth 5%
+// glide off unison off voices multi
+// LP filter
+//   24db cutoff 40hz 10%, resonance 0%, envelope 90%
+//   12db cutoff 40hz 10%
+//   ADSR 0s, 3.29s, 78%, max
+// Amp envelope
+//   ADSR 0.06s, max, 100%, 0.30s
+//
+// alternate: osc 1 sawtooth
