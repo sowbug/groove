@@ -1,10 +1,10 @@
 use crate::primitives::{
     envelopes::MiniEnvelopePreset,
-    filter::MiniFilterType,
+    filter::{MiniFilter2, MiniFilter2Type, MiniFilterType},
     oscillators::{LfoPreset, LfoRouting, OscillatorPreset, Waveform},
 };
 
-use super::{instruments::{SuperSynthPreset}, synthesizers::SuperSynth};
+use super::{instruments::SuperSynthPreset, synthesizers::SuperSynth};
 
 #[allow(dead_code)]
 pub enum GeneralMidiProgram {
@@ -334,8 +334,16 @@ impl SuperSynth {
                         frequency: 7.5,
                         depth: 0.05,
                     },
-                    filter_24db_type: MiniFilterType::FourthOrderLowPass(300.),
-                    filter_12db_type: MiniFilterType::SecondOrderLowPass(40., 0.),
+                    filter_24db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        40.0,
+                        MiniFilter2::MIN_Q,
+                    ),
+                    filter_12db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        40.,
+                        MiniFilter2::MIN_Q,
+                    ),
                     filter_24db_weight: 0.9,
                     filter_12db_weight: 0.1,
                     filter_envelope_preset: MiniEnvelopePreset {
@@ -406,8 +414,16 @@ impl SuperSynth {
                         frequency: 2.4,
                         depth: 0.0000119, // TODO 20 cents
                     },
-                    filter_24db_type: MiniFilterType::FourthOrderLowPass(900.), // TODO: map Q to %
-                    filter_12db_type: MiniFilterType::SecondOrderLowPass(900., 1.0),
+                    filter_24db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        900.,
+                        MiniFilter2::MIN_Q,
+                    ), // TODO: map Q to %
+                    filter_12db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        900.,
+                        MiniFilter2::MIN_Q,
+                    ),
                     filter_24db_weight: 0.85,
                     filter_12db_weight: 0.25,
                     filter_envelope_preset: MiniEnvelopePreset {

@@ -1,7 +1,7 @@
 use crate::common::{MidiMessage, MidiMessageType};
 use crate::primitives::clock::Clock;
 use crate::primitives::envelopes::{MiniEnvelope, MiniEnvelopePreset};
-use crate::primitives::filter::{MiniFilter, MiniFilterType};
+use crate::primitives::filter::{MiniFilter2, MiniFilter2Type};
 use crate::primitives::oscillators::{
     LfoPreset, LfoRouting, MiniOscillator, OscillatorPreset, Waveform,
 };
@@ -22,8 +22,8 @@ pub struct SuperSynthPreset {
     // There is meant to be only one filter, but the Welsh book
     // provides alternate settings depending on the kind of filter
     // your synthesizer has.
-    pub filter_24db_type: MiniFilterType,
-    pub filter_12db_type: MiniFilterType,
+    pub filter_24db_type: MiniFilter2Type,
+    pub filter_12db_type: MiniFilter2Type,
     pub filter_24db_weight: f32,
     pub filter_12db_weight: f32,
     pub filter_envelope_preset: MiniEnvelopePreset,
@@ -42,7 +42,7 @@ pub struct SuperVoice {
     lfo_routing: LfoRouting,
     lfo_depth: f32,
 
-    filter: MiniFilter,
+    filter: MiniFilter2,
     filter_weight: f32,
     filter_envelope: MiniEnvelope,
     filter_envelope_weight: f32,
@@ -61,7 +61,7 @@ impl SuperVoice {
             lfo_routing: preset.lfo_preset.routing,
             lfo_depth: preset.lfo_preset.depth,
 
-            filter: MiniFilter::new(44100, preset.filter_24db_type),
+            filter: MiniFilter2::new(preset.filter_24db_type),
             filter_weight: preset.filter_24db_weight,
             filter_envelope: MiniEnvelope::new(sample_rate, &preset.filter_envelope_preset),
             filter_envelope_weight: preset.filter_envelope_weight,

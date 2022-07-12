@@ -363,11 +363,11 @@ impl MiniFilter {
 #[derive(Clone, Copy)]
 pub enum MiniFilter2Type {
     None,
-    LowPass(u32, f32),
-    HighPass(u32, f32),
-    BandPass(u32, f32),
-    BandStop(u32, f32),
-    AllPass(u32, f32),
+    LowPass(u32, f32, f32),
+    HighPass(u32, f32, f32),
+    BandPass(u32, f32, f32),
+    BandStop(u32, f32, f32),
+    AllPass(u32, f32, f32),
     PeakingEq(u32, f32, f32),
     LowShelf(u32, f32, f32),
     HighShelf(u32, f32, f32),
@@ -395,23 +395,26 @@ pub struct MiniFilter2 {
 }
 
 impl MiniFilter2 {
+    // 1 / square root of 2
+    pub const MIN_Q: f32 = 0.707106781f32;
+
     pub fn new(filter_type: MiniFilter2Type) -> Self {
         let (sample_rate, a0, a1, a2, b0, b1, b2) = match filter_type {
             MiniFilter2Type::None => (0u32, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-            MiniFilter2Type::LowPass(sample_rate, cutoff) => {
-                Self::rbj_low_pass_coefficients(sample_rate, cutoff)
+            MiniFilter2Type::LowPass(sample_rate, cutoff, q) => {
+                Self::rbj_low_pass_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilter2Type::HighPass(sample_rate, cutoff) => {
-                Self::rbj_high_pass_coefficients(sample_rate, cutoff)
+            MiniFilter2Type::HighPass(sample_rate, cutoff, q) => {
+                Self::rbj_high_pass_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilter2Type::BandPass(sample_rate, cutoff) => {
-                Self::rbj_band_pass_coefficients(sample_rate, cutoff)
+            MiniFilter2Type::BandPass(sample_rate, cutoff, q) => {
+                Self::rbj_band_pass_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilter2Type::BandStop(sample_rate, cutoff) => {
-                Self::rbj_band_stop_coefficients(sample_rate, cutoff)
+            MiniFilter2Type::BandStop(sample_rate, cutoff, q) => {
+                Self::rbj_band_stop_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilter2Type::AllPass(sample_rate, cutoff) => {
-                Self::rbj_all_pass_coefficients(sample_rate, cutoff)
+            MiniFilter2Type::AllPass(sample_rate, cutoff, q) => {
+                Self::rbj_all_pass_coefficients(sample_rate, cutoff, q)
             }
             MiniFilter2Type::PeakingEq(sample_rate, cutoff, db_gain) => {
                 Self::rbj_peaking_eq_coefficients(sample_rate, cutoff, db_gain)
@@ -452,59 +455,71 @@ impl MiniFilter2 {
         r as f32
     }
 
-    fn rbj_intermediates(sample_rate: u32, cutoff: f32) -> (f64, f64, f64, f64) {
-        let Q = 1.0f64 / 2.0f64.sqrt();
+    fn rbj_intermediates_q(sample_rate: u32, cutoff: f32, q: f32) -> (f64, f64, f64, f64) {
+        //        let Q = 1.0 / 2.0f64.sqrt();
         let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
         let w0cos = w0.cos();
         let w0sin = w0.sin();
-        let alpha = w0sin / (2.0f64 * Q);
+        let alpha = w0sin / (2.0f64 * q as f64);
         (w0, w0cos, w0sin, alpha)
     }
 
     fn rbj_low_pass_coefficients(
         sample_rate: u32,
         cutoff: f32,
+        q: f32,
     ) -> (u32, f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates_q(sample_rate, cutoff, q);
 
         (
             sample_rate,
-            1.0f64 + alpha,
+            1.0 + alpha,
             -2.0f64 * w0cos,
-            1.0f64 - alpha,
-            (1.0f64 - w0cos) / 2.0f64,
-            (1.0f64 - w0cos),
-            (1.0f64 - w0cos) / 2.0f64,
+            1.0 - alpha,
+            (1.0 - w0cos) / 2.0f64,
+            (1.0 - w0cos),
+            (1.0 - w0cos) / 2.0f64,
         )
     }
 
     fn rbj_high_pass_coefficients(
         sample_rate: u32,
         cutoff: f32,
+        q: f32,
     ) -> (u32, f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates_q(sample_rate, cutoff, q);
 
         (
             sample_rate,
-            1.0f64 + alpha,
+            1.0 + alpha,
             -2.0f64 * w0cos,
-            1.0f64 - alpha,
-            (1.0f64 + w0cos) / 2.0f64,
-            -(1.0f64 + w0cos),
-            (1.0f64 + w0cos) / 2.0f64,
+            1.0 - alpha,
+            (1.0 + w0cos) / 2.0f64,
+            -(1.0 + w0cos),
+            (1.0 + w0cos) / 2.0f64,
         )
+    }
+
+    fn rbj_intermediates_bandwidth(sample_rate: u32, cutoff: f32, bw: f32) -> (f64, f64, f64, f64) {
+        let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
+        let w0cos = w0.cos();
+        let w0sin = w0.sin();
+        let alpha = w0sin * (2.0f64.ln() / 2.0 * bw as f64 * w0 / w0.sin()).sinh();
+        (w0, w0cos, w0sin, alpha)
     }
 
     fn rbj_band_pass_coefficients(
         sample_rate: u32,
         cutoff: f32,
+        bandwidth: f32,
     ) -> (u32, f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        let (w0, w0cos, w0sin, alpha) =
+            MiniFilter2::rbj_intermediates_bandwidth(sample_rate, cutoff, bandwidth);
         (
             sample_rate,
-            1.0f64 + alpha,
+            1.0 + alpha,
             -2.0f64 * w0cos,
-            1.0f64 - alpha,
+            1.0 - alpha,
             alpha,
             0.0,
             -alpha,
@@ -514,33 +529,36 @@ impl MiniFilter2 {
     fn rbj_band_stop_coefficients(
         sample_rate: u32,
         cutoff: f32,
+        bandwidth: f32,
     ) -> (u32, f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        let (w0, w0cos, w0sin, alpha) =
+            MiniFilter2::rbj_intermediates_bandwidth(sample_rate, cutoff, bandwidth);
 
         (
             sample_rate,
-            1.0f64 + alpha,
+            1.0 + alpha,
             -2.0f64 * w0cos,
-            1.0f64 - alpha,
-            1.0f64,
+            1.0 - alpha,
+            1.0,
             -2.0f64 * w0cos,
-            1.0f64,
+            1.0,
         )
     }
 
     fn rbj_all_pass_coefficients(
         sample_rate: u32,
         cutoff: f32,
+        q: f32,
     ) -> (u32, f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates_q(sample_rate, cutoff, q);
         (
             sample_rate,
-            1.0f64 + alpha,
+            1.0 + alpha,
             -2.0f64 * w0cos,
-            1.0f64 - alpha,
-            1.0f64 - alpha,
+            1.0 - alpha,
+            1.0 - alpha,
             -2.0f64 * w0cos,
-            1.0f64 + alpha,
+            1.0 + alpha,
         )
     }
 
@@ -549,18 +567,32 @@ impl MiniFilter2 {
         cutoff: f32,
         db_gain: f32,
     ) -> (u32, f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
+        let (w0, w0cos, w0sin, alpha) =
+            MiniFilter2::rbj_intermediates_q(sample_rate, cutoff, 1.0 / 2.0f32.sqrt());
         let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
 
         (
             sample_rate,
-            1.0f64 + alpha / a,
+            1.0 + alpha / a,
             -2.0f64 * w0cos,
-            1.0f64 - alpha / a,
-            1.0f64 + alpha * a,
+            1.0 - alpha / a,
+            1.0 + alpha * a,
             -2.0f64 * w0cos,
-            1.0f64 - alpha * a,
+            1.0 - alpha * a,
         )
+    }
+
+    fn rbj_intermediates_shelving(
+        sample_rate: u32,
+        cutoff: f32,
+        a: f64,
+        s: f32,
+    ) -> (f64, f64, f64, f64) {
+        let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
+        let w0cos = w0.cos();
+        let w0sin = w0.sin();
+        let alpha = w0sin / 2.0 * ((a + 1.0 / a) * (1.0 / s as f64 - 1.0) + 2.0).sqrt();
+        (w0, w0cos, w0sin, alpha)
     }
 
     fn rbj_low_shelf_coefficients(
@@ -568,8 +600,9 @@ impl MiniFilter2 {
         cutoff: f32,
         db_gain: f32,
     ) -> (u32, f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
         let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
+        let (_w0, w0cos, _w0sin, alpha) =
+            MiniFilter2::rbj_intermediates_shelving(sample_rate, cutoff, a, 1.0);
 
         (
             sample_rate,
@@ -587,10 +620,10 @@ impl MiniFilter2 {
         cutoff: f32,
         db_gain: f32,
     ) -> (u32, f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates(sample_rate, cutoff);
         let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
+        let (_w0, w0cos, _w0sin, alpha) =
+            MiniFilter2::rbj_intermediates_shelving(sample_rate, cutoff, a, 1.0);
 
-        // b2 =    A*( (A+1) + (A-1)*cos(w0) - 2*sqrt(A)*alpha )
         (
             sample_rate,
             (a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
@@ -701,37 +734,49 @@ mod tests {
     #[test]
     fn test_mini_filter2() {
         const SAMPLE_RATE: u32 = 44100;
+        let min_q = 1.0 / 2.0f32.sqrt();
+        const Q_10: f32 = 10.0;
+        const ONE_OCTAVE: f32 = 1.0;
+        const SIX_DB: f32 = 6.0;
         write_filter2_sample(
-            &mut MiniFilter2::new(MiniFilter2Type::LowPass(SAMPLE_RATE, 1000.)),
-            "rbj_noise_lpf_1KHz.wav",
+            &mut MiniFilter2::new(MiniFilter2Type::LowPass(SAMPLE_RATE, 1000., min_q)),
+            "rbj_noise_lpf_1KHz_min_q.wav",
         );
         write_filter2_sample(
-            &mut MiniFilter2::new(MiniFilter2Type::HighPass(SAMPLE_RATE, 1000.)),
-            "rbj_noise_hpf_1KHz.wav",
+            &mut MiniFilter2::new(MiniFilter2Type::LowPass(SAMPLE_RATE, 1000., Q_10)),
+            "rbj_noise_lpf_1KHz_q10.wav",
         );
         write_filter2_sample(
-            &mut MiniFilter2::new(MiniFilter2Type::BandPass(SAMPLE_RATE, 1000.)),
-            "rbj_noise_bpf_1KHz.wav",
+            &mut MiniFilter2::new(MiniFilter2Type::HighPass(SAMPLE_RATE, 1000., min_q)),
+            "rbj_noise_hpf_1KHz_min_q.wav",
         );
         write_filter2_sample(
-            &mut MiniFilter2::new(MiniFilter2Type::BandStop(SAMPLE_RATE, 1000.)),
-            "rbj_noise_bsf_1KHz.wav",
+            &mut MiniFilter2::new(MiniFilter2Type::HighPass(SAMPLE_RATE, 1000., Q_10)),
+            "rbj_noise_hpf_1KHz_q10.wav",
         );
         write_filter2_sample(
-            &mut MiniFilter2::new(MiniFilter2Type::AllPass(SAMPLE_RATE, 1000.)),
-            "rbj_noise_apf_1KHz.wav",
+            &mut MiniFilter2::new(MiniFilter2Type::BandPass(SAMPLE_RATE, 1000., ONE_OCTAVE)),
+            "rbj_noise_bpf_1KHz_bw1.wav",
         );
         write_filter2_sample(
-            &mut MiniFilter2::new(MiniFilter2Type::PeakingEq(SAMPLE_RATE, 1000., 6.0)),
-            "rbj_noise_peaking_eq_6db_1KHz.wav",
+            &mut MiniFilter2::new(MiniFilter2Type::BandStop(SAMPLE_RATE, 1000., ONE_OCTAVE)),
+            "rbj_noise_bsf_1KHz_bw1.wav",
         );
         write_filter2_sample(
-            &mut MiniFilter2::new(MiniFilter2Type::LowShelf(SAMPLE_RATE, 1000., 6.0)),
-            "rbj_noise_low_shelf_6db_1KHz.wav",
+            &mut MiniFilter2::new(MiniFilter2Type::AllPass(SAMPLE_RATE, 1000., min_q)),
+            "rbj_noise_apf_1KHz_min_q.wav",
         );
         write_filter2_sample(
-            &mut MiniFilter2::new(MiniFilter2Type::HighShelf(SAMPLE_RATE, 1000., 6.0)),
-            "rbj_noise_high_shelf_6db_1KHz.wav",
+            &mut MiniFilter2::new(MiniFilter2Type::PeakingEq(SAMPLE_RATE, 1000., SIX_DB)),
+            "rbj_noise_peaking_eq_1KHz_6db.wav",
+        );
+        write_filter2_sample(
+            &mut MiniFilter2::new(MiniFilter2Type::LowShelf(SAMPLE_RATE, 1000., SIX_DB)),
+            "rbj_noise_low_shelf_1KHz_6db.wav",
+        );
+        write_filter2_sample(
+            &mut MiniFilter2::new(MiniFilter2Type::HighShelf(SAMPLE_RATE, 1000., SIX_DB)),
+            "rbj_noise_high_shelf_1KHz_6db.wav",
         );
     }
 }
