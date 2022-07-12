@@ -1,4 +1,4 @@
-use super::midi::MidiMessage;
+use crate::common::MidiMessage;
 use crate::primitives::clock::Clock;
 use crate::primitives::gain::MiniGain;
 use crate::primitives::limiter::MiniLimiter;

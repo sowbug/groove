@@ -1,5 +1,6 @@
-use crate::devices::midi::{MidiMessage, MidiMessageType};
+use crate::common::{MidiMessage, MidiMessageType};
 
+#[derive(Default, Clone, Copy)]
 pub struct MiniEnvelopePreset {
     pub attack_seconds: f32,
     pub decay_seconds: f32,
@@ -39,7 +40,7 @@ pub struct MiniEnvelope {
 }
 
 impl MiniEnvelope {
-    pub fn new(sample_rate: u32, preset: MiniEnvelopePreset) -> Self {
+    pub fn new(sample_rate: u32, preset: &MiniEnvelopePreset) -> Self {
         Self {
             sample_rate: sample_rate as f32,
             attack_seconds: preset.attack_seconds,
@@ -211,7 +212,7 @@ mod tests {
         let mut clock = Clock::new_test();
         let mut envelope = MiniEnvelope::new(
             clock.sample_rate(),
-            MiniEnvelopePreset {
+            &MiniEnvelopePreset {
                 attack_seconds: 0.1,
                 decay_seconds: 0.2,
                 sustain_percentage: 0.8,

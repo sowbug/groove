@@ -1,13 +1,12 @@
 extern crate anyhow;
 extern crate cpal;
 
+mod common;
 mod devices;
 mod primitives;
 
 use crate::devices::{
-    instruments::{CelloSynth2, GeneralMidiProgram},
-    orchestrator::Orchestrator,
-    sequencer::Sequencer,
+    orchestrator::Orchestrator, presets::GeneralMidiProgram, sequencer::Sequencer, synthesizers::SuperSynth,
 };
 use clap::Parser;
 use cpal::{
@@ -164,7 +163,7 @@ impl ClDaw {
         midi_in: Option<String>,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
-        let simple_synth = Rc::new(RefCell::new(CelloSynth2::new_for_general_midi(
+        let simple_synth = Rc::new(RefCell::new(SuperSynth::new_for_general_midi(
             self.orchestrator.clock.sample_rate(),
             GeneralMidiProgram::Cello,
         )));

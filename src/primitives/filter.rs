@@ -1,5 +1,6 @@
 use std::f64::consts::PI;
 
+#[derive(Clone, Copy)]
 pub enum MiniFilterType {
     None,
     FirstOrderLowPass(f32),
@@ -16,6 +17,13 @@ pub enum MiniFilterType {
     // SecondOrderButterworthBandPass,
     // SecondOrderButterworthBandStop,
 }
+
+impl Default for MiniFilterType {
+    fn default() -> Self {
+        MiniFilterType::None
+    }
+}
+
 #[derive(Default)]
 pub struct MiniFilter {
     order: u8,

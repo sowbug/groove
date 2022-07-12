@@ -1,19 +1,18 @@
 pub mod instruments;
 pub mod midi;
-pub mod mixer;
+mod mixer;
 pub mod orchestrator;
+pub mod presets;
 pub mod sequencer;
+pub mod synthesizers;
 mod traits;
 
 #[cfg(test)]
 mod tests {
-    use crate::primitives::clock::Clock;
+    use crate::{primitives::clock::Clock, common::{MidiMessage, MidiMessageType}};
 
-    use super::{
-        midi::{MidiMessage, MidiMessageType},
-        traits::DeviceTrait,
-    };
-
+    use super::traits::DeviceTrait;
+    
     #[derive(Default)]
     pub struct NullDevice {
         pub is_playing: bool,

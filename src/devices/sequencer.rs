@@ -2,12 +2,12 @@ use std::{cell::RefCell, rc::Rc};
 
 use sorted_vec::SortedVec;
 
-use crate::primitives::clock::Clock;
-
-use super::{
-    midi::{MidiMessageType, OrderedMidiMessage},
-    traits::DeviceTrait,
+use crate::{
+    common::{MidiMessageType, OrderedMidiMessage},
+    primitives::clock::Clock,
 };
+
+use super::traits::DeviceTrait;
 
 pub struct Sequencer {
     midi_ticks_per_second: u32,
@@ -110,11 +110,8 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     use crate::{
-        devices::{
-            midi::{MidiMessage, OrderedMidiMessage},
-            tests::NullDevice,
-            traits::DeviceTrait,
-        },
+        common::{MidiMessage, OrderedMidiMessage},
+        devices::{tests::NullDevice, traits::DeviceTrait},
         primitives::clock::Clock,
     };
 
