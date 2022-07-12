@@ -74,10 +74,6 @@ impl SuperVoice {
         self.amp_envelope.tick(time_seconds);
         self.filter_envelope.tick(time_seconds);
 
-        // if self.amp_envelope.is_idle() {
-        //     self.is_playing = false;
-        // }
-
         let lfo = self.lfo.process(time_seconds) * self.lfo_depth;
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
             // Frequency assumes LFO [-1, 1]
@@ -87,18 +83,19 @@ impl SuperVoice {
 
         let osc_1 = self.osc_1.process(time_seconds);
         let osc_2 = self.osc_2.process(time_seconds);
-        let osc_mix = (osc_1 * self.osc_1_mix + osc_2 * self.osc_2_mix)
-            / if !matches!(self.osc_2.waveform, Waveform::None) {
-                2.0
-            } else {
-                1.0
-            };
+        let osc_count = if !matches!(self.osc_2.waveform, Waveform::None) {
+            2.0
+        } else {
+            1.0
+        };
+        let osc_mix = (osc_1 * self.osc_1_mix + osc_2 * self.osc_2_mix) / osc_count;
 
         {
-            let filter_full_weight = self.filter_weight;
-            let filter = self.filter.filter(osc_mix)
-                * (1.0 + self.filter_envelope.value() * self.filter_envelope_weight);
-            let filter_mix = filter * filter_full_weight + osc_mix * (1.0 - filter_full_weight);
+            let filter = self.filter.filter(osc_mix);
+            let filter_shaped =
+                filter * (1.0 + self.filter_envelope.value() * self.filter_envelope_weight);
+            let dry_wet_mix =
+                filter_shaped * self.filter_weight + osc_mix * (1.0 - self.filter_weight);
 
             let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
                 // Amplitude assumes LFO [0, 1]
@@ -106,7 +103,7 @@ impl SuperVoice {
             } else {
                 1.0
             };
-            self.amp_envelope.value() * filter_mix * lfo_amplitude_modulation
+            self.amp_envelope.value() * lfo_amplitude_modulation * dry_wet_mix
         }
     }
 

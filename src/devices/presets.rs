@@ -1,6 +1,6 @@
 use crate::primitives::{
     envelopes::MiniEnvelopePreset,
-    filter::{MiniFilter2, MiniFilter2Type, MiniFilterType},
+    filter::{MiniFilter2, MiniFilter2Type},
     oscillators::{LfoPreset, LfoRouting, OscillatorPreset, Waveform},
 };
 
@@ -344,7 +344,7 @@ impl SuperSynth {
                         40.,
                         MiniFilter2::MIN_Q,
                     ),
-                    filter_24db_weight: 0.9,
+                    filter_24db_weight: 0.1,
                     filter_12db_weight: 0.1,
                     filter_envelope_preset: MiniEnvelopePreset {
                         attack_seconds: 0.0,

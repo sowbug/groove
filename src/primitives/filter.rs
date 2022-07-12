@@ -440,11 +440,11 @@ impl MiniFilter2 {
 
     pub fn filter(&mut self, sample: f32) -> f32 {
         let s64 = sample as f64;
-        let r = ((self.b0 / self.a0) * s64
+        let r = (self.b0 / self.a0) * s64
             + (self.b1 / self.a0) * self.sample_m1
             + (self.b2 / self.a0) * self.sample_m2
             - (self.a1 / self.a0) * self.output_m1
-            - (self.a2 / self.a0) * self.output_m2);
+            - (self.a2 / self.a0) * self.output_m2;
 
         // Scroll everything forward in time.
         self.sample_m2 = self.sample_m1;
