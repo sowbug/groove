@@ -155,15 +155,15 @@ impl SuperSynth {
         match program {
             GeneralMidiProgram::AcousticGrand => {
                 // 1
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Piano)
             }
             GeneralMidiProgram::BrightAcoustic => {
                 // 2
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Piano) // TODO dup
             }
             GeneralMidiProgram::ElectricGrand => {
                 // 3
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::ElectricPiano)
             }
             GeneralMidiProgram::HonkyTonk => {
                 // 4
@@ -171,27 +171,27 @@ impl SuperSynth {
             }
             GeneralMidiProgram::ElectricPiano1 => {
                 // 5
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::ElectricPiano) // TODO dup
             }
             GeneralMidiProgram::ElectricPiano2 => {
                 // 6
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::ElectricPiano) // TODO dup
             }
             GeneralMidiProgram::Harpsichord => {
                 // 7
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Harpsichord)
             }
             GeneralMidiProgram::Clav => {
                 // 8
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Clavichord)
             }
             GeneralMidiProgram::Celesta => {
                 // 9
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Celeste)
             }
             GeneralMidiProgram::Glockenspiel => {
                 // 10
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Glockenspiel)
             }
             GeneralMidiProgram::MusicBox => {
                 // 11
@@ -203,47 +203,47 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Marimba => {
                 // 13
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Marimba)
             }
             GeneralMidiProgram::Xylophone => {
                 // 14
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Xylophone)
             }
             GeneralMidiProgram::TubularBells => {
                 // 15
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Bell)
             }
             GeneralMidiProgram::Dulcimer => {
                 // 16
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Dulcimer)
             }
             GeneralMidiProgram::DrawbarOrgan => {
                 // 17
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Organ) // TODO dup
             }
             GeneralMidiProgram::PercussiveOrgan => {
                 // 18
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Organ) // TODO dup
             }
             GeneralMidiProgram::RockOrgan => {
                 // 19
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Organ) // TODO dup
             }
             GeneralMidiProgram::ChurchOrgan => {
                 // 20
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Organ) // TODO dup
             }
             GeneralMidiProgram::ReedOrgan => {
                 // 21
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Organ) // TODO dup
             }
             GeneralMidiProgram::Accordion => {
                 // 22
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Accordion)
             }
             GeneralMidiProgram::Harmonica => {
                 // 23
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Harmonica)
             }
             GeneralMidiProgram::TangoAccordion => {
                 // 24
@@ -251,39 +251,39 @@ impl SuperSynth {
             }
             GeneralMidiProgram::AcousticGuitarNylon => {
                 // 25
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::GuitarAcoustic)
             }
             GeneralMidiProgram::AcousticGuitarSteel => {
                 // 26
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::GuitarAcoustic) // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarJazz => {
                 // 27
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarClean => {
                 // 28
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarMuted => {
                 // 29
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::OverdrivenGuitar => {
                 // 30
-                WelshSynthPreset::by_name(crate::preset::welsh::WelshPresetName::ElectricPiano)
+                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::DistortionGuitar => {
                 // 31
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::GuitarHarmonics => {
                 // 32
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::AcousticBass => {
                 // 33
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::DoubleBass)
             }
             GeneralMidiProgram::ElectricBassFinger => {
                 // 34
@@ -315,11 +315,11 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Violin => {
                 // 41
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Violin)
             }
             GeneralMidiProgram::Viola => {
                 // 42
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Viola)
             }
             GeneralMidiProgram::Cello => {
                 // 43
@@ -327,7 +327,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Contrabass => {
                 // 44
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Contrabassoon)
             }
             GeneralMidiProgram::TremoloStrings => {
                 // 45
@@ -339,11 +339,11 @@ impl SuperSynth {
             }
             GeneralMidiProgram::OrchestralHarp => {
                 // 47
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Harp)
             }
             GeneralMidiProgram::Timpani => {
                 // 48
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Timpani)
             }
             GeneralMidiProgram::StringEnsemble1 => {
                 // 49
@@ -368,11 +368,11 @@ impl SuperSynth {
 
             GeneralMidiProgram::VoiceOohs => {
                 // 54
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Choir)
             }
             GeneralMidiProgram::SynthVoice => {
                 // 55
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::VocalFemale)
             }
             GeneralMidiProgram::OrchestraHit => {
                 // 56
@@ -380,7 +380,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Trumpet => {
                 // 57
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Trumpet)
             }
             GeneralMidiProgram::Trombone => {
                 // 58
@@ -388,7 +388,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Tuba => {
                 // 59
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Tuba)
             }
             GeneralMidiProgram::MutedTrumpet => {
                 // 60
@@ -400,19 +400,19 @@ impl SuperSynth {
             }
             GeneralMidiProgram::BrassSection => {
                 // 62
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::BrassSection)
             }
             GeneralMidiProgram::Synthbrass1 => {
                 // 63
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::BrassSection) // TODO dup
             }
             GeneralMidiProgram::Synthbrass2 => {
                 // 64
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::BrassSection) // TODO dup
             }
             GeneralMidiProgram::SopranoSax => {
                 // 65
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Saxophone) // TODO dup
             }
             GeneralMidiProgram::AltoSax => {
                 // 66
@@ -420,35 +420,35 @@ impl SuperSynth {
             }
             GeneralMidiProgram::TenorSax => {
                 // 67
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Saxophone) // TODO dup
             }
             GeneralMidiProgram::BaritoneSax => {
                 // 68
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Saxophone) // TODO dup
             }
             GeneralMidiProgram::Oboe => {
                 // 69
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Oboe)
             }
             GeneralMidiProgram::EnglishHorn => {
                 // 70
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::EnglishHorn)
             }
             GeneralMidiProgram::Bassoon => {
                 // 71
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Bassoon)
             }
             GeneralMidiProgram::Clarinet => {
                 // 72
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Clarinet)
             }
             GeneralMidiProgram::Piccolo => {
                 // 73
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Piccolo)
             }
             GeneralMidiProgram::Flute => {
                 // 74
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Flute)
             }
             GeneralMidiProgram::Recorder => {
                 // 75
@@ -508,7 +508,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Pad1NewAge => {
                 // 89
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::NewAgeLead) // TODO pad or lead?
             }
             GeneralMidiProgram::Pad2Warm => {
                 // 90
@@ -572,11 +572,11 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Sitar => {
                 // 105
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Sitar)
             }
             GeneralMidiProgram::Banjo => {
                 // 106
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Banjo)
             }
             GeneralMidiProgram::Shamisen => {
                 // 107
@@ -592,7 +592,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Bagpipe => {
                 // 110
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Bagpipes)
             }
             GeneralMidiProgram::Fiddle => {
                 // 111
@@ -644,7 +644,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Seashore => {
                 // 123
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::OceanWavesWithFoghorn)
             }
             GeneralMidiProgram::BirdTweet => {
                 // 124
