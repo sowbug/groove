@@ -146,7 +146,10 @@ impl SuperSynth {
         )
     }
 
-    pub fn get_general_midi_preset(sample_rate: u32, program: GeneralMidiProgram) -> SuperSynthPreset {
+    pub fn get_general_midi_preset(
+        sample_rate: u32,
+        program: GeneralMidiProgram,
+    ) -> SuperSynthPreset {
         match program {
             GeneralMidiProgram::AcousticGrand => {
                 // 1
@@ -266,7 +269,49 @@ impl SuperSynth {
             }
             GeneralMidiProgram::OverdrivenGuitar => {
                 // 30
-                panic!();
+                SuperSynthPreset {
+                    oscillator_1_preset: OscillatorPreset {
+                        waveform: Waveform::Square(0.2),
+                        tune: 1.0,
+                        mix: 0.65,
+                    },
+                    oscillator_2_preset: OscillatorPreset {
+                        waveform: Waveform::Square(0.15),
+                        tune: 1.01, // TODO "+10semi"
+                        mix: 1.0,   // TODO track/sync on
+                    },
+                    amp_envelope_preset: MiniEnvelopePreset {
+                        attack_seconds: 0.0,
+                        decay_seconds: 1.7,
+                        sustain_percentage: 0.0,
+                        release_seconds: 1.7,
+                    },
+                    lfo_preset: LfoPreset {
+                        routing: LfoRouting::None,
+                        waveform: Waveform::None,
+                        frequency: 0.0,
+                        depth: 0.0,
+                    },
+                    filter_24db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        20.0,
+                        MiniFilter2::MIN_Q,
+                    ),
+                    filter_12db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        40.,
+                        MiniFilter2::MIN_Q,
+                    ),
+                    filter_24db_weight: 0.35, // TODO: this is wrong. 1.0 completely smothers it
+                    filter_12db_weight: 1.0,
+                    filter_envelope_preset: MiniEnvelopePreset {
+                        attack_seconds: 0.0,
+                        decay_seconds: 0.0,
+                        sustain_percentage: 1.0,
+                        release_seconds: 0.0,
+                    },
+                    filter_envelope_weight: 1.0, // TODO: filter weights are all wrong
+                }
             }
             GeneralMidiProgram::DistortionGuitar => {
                 // 31
@@ -461,7 +506,49 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Trombone => {
                 // 58
-                panic!();
+                SuperSynthPreset {
+                    oscillator_1_preset: OscillatorPreset {
+                        waveform: Waveform::Sawtooth,
+                        tune: 1.0,
+                        mix: 1.0,
+                    },
+                    oscillator_2_preset: OscillatorPreset {
+                        waveform: Waveform::Triangle,
+                        tune: 2.0,  // TODO one octave?
+                        mix: 1.0,  // TODO track on/sync off
+                    },
+                    amp_envelope_preset: MiniEnvelopePreset {
+                        attack_seconds: 0.06,
+                        decay_seconds: 0.0,
+                        sustain_percentage: 1.0,
+                        release_seconds: 0.50,
+                    },
+                    lfo_preset: LfoPreset {
+                        routing: LfoRouting::Amplitude,
+                        waveform: Waveform::Triangle,
+                        frequency: 5.0,
+                        depth: 0.05,
+                    },
+                    filter_24db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        900.0,
+                        MiniFilter2::MIN_Q,
+                    ),
+                    filter_12db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        40.,
+                        MiniFilter2::MIN_Q,
+                    ),
+                    filter_24db_weight: 0.55,
+                    filter_12db_weight: 1.0,
+                    filter_envelope_preset: MiniEnvelopePreset {
+                        attack_seconds: 0.11,
+                        decay_seconds: 0.0,
+                        sustain_percentage: 1.0,
+                        release_seconds: 0.18,
+                    },
+                    filter_envelope_weight: 0.30,
+                }
             }
             GeneralMidiProgram::Tuba => {
                 // 59
@@ -473,7 +560,49 @@ impl SuperSynth {
             }
             GeneralMidiProgram::FrenchHorn => {
                 // 61
-                panic!();
+                SuperSynthPreset {
+                    oscillator_1_preset: OscillatorPreset {
+                        waveform: Waveform::Square(0.1),
+                        tune: 1.0,
+                        mix: 1.0,
+                    },
+                    oscillator_2_preset: OscillatorPreset {
+                        waveform: Waveform::None,
+                        tune: 1.0,
+                        mix: 1.0,
+                    },
+                    amp_envelope_preset: MiniEnvelopePreset {
+                        attack_seconds: 0.0,
+                        decay_seconds: 3.9,
+                        sustain_percentage: 0.96,
+                        release_seconds: 0.93,
+                    },
+                    lfo_preset: LfoPreset {
+                        routing: LfoRouting::None,
+                        waveform: Waveform::None,
+                        frequency: 0.0,
+                        depth: 0.0,
+                    },
+                    filter_24db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        40.0,
+                        MiniFilter2::MIN_Q,
+                    ),
+                    filter_12db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        40.,
+                        MiniFilter2::MIN_Q,
+                    ),
+                    filter_24db_weight: 0.1,
+                    filter_12db_weight: 1.0,
+                    filter_envelope_preset: MiniEnvelopePreset {
+                        attack_seconds: 0.05,
+                        decay_seconds: 5.76,
+                        sustain_percentage: 0.94,
+                        release_seconds: 0.39,
+                    },
+                    filter_envelope_weight: 0.45, // TODO: filter weights are all wrong
+                }
             }
             GeneralMidiProgram::BrassSection => {
                 // 62
@@ -493,7 +622,49 @@ impl SuperSynth {
             }
             GeneralMidiProgram::AltoSax => {
                 // 66
-                panic!();
+                SuperSynthPreset {
+                    oscillator_1_preset: OscillatorPreset {
+                        waveform: Waveform::Square(0.3),
+                        tune: 1.0,
+                        mix: 1.0,
+                    },
+                    oscillator_2_preset: OscillatorPreset {
+                        waveform: Waveform::Square(0.45),
+                        tune: 1.01, // TODO +8 semi
+                        mix: 0.75,  // TODO track/sync on
+                    },
+                    amp_envelope_preset: MiniEnvelopePreset {
+                        attack_seconds: 0.0,
+                        decay_seconds: 3.9,
+                        sustain_percentage: 0.96,
+                        release_seconds: 0.93,
+                    },
+                    lfo_preset: LfoPreset {
+                        routing: LfoRouting::Pitch, // TODO osc1/osc2 is an option
+                        waveform: Waveform::Sine,
+                        frequency: 7.5,
+                        depth: 0.00001, // 10 cents (shallow)
+                    },
+                    filter_24db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        40.0,
+                        MiniFilter2::MIN_Q,
+                    ),
+                    filter_12db_type: MiniFilter2Type::LowPass(
+                        sample_rate,
+                        40.,
+                        MiniFilter2::MIN_Q,
+                    ),
+                    filter_24db_weight: 0.1,
+                    filter_12db_weight: 1.0,
+                    filter_envelope_preset: MiniEnvelopePreset {
+                        attack_seconds: 0.14,
+                        decay_seconds: 0.37,
+                        sustain_percentage: 0.78,
+                        release_seconds: 0.0,
+                    },
+                    filter_envelope_weight: 0.90, // TODO: filter weights are all wrong
+                }
             }
             GeneralMidiProgram::TenorSax => {
                 // 67
