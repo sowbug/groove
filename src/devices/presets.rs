@@ -140,7 +140,14 @@ pub enum GeneralMidiProgram {
 
 impl SuperSynth {
     pub fn new_for_general_midi(sample_rate: u32, program: GeneralMidiProgram) -> Self {
-        let preset = match program {
+        Self::new(
+            sample_rate,
+            Self::get_general_midi_preset(sample_rate, program),
+        )
+    }
+
+    pub fn get_general_midi_preset(sample_rate: u32, program: GeneralMidiProgram) -> SuperSynthPreset {
+        match program {
             GeneralMidiProgram::AcousticGrand => {
                 // 1
                 panic!();
@@ -736,7 +743,6 @@ impl SuperSynth {
                 // 128
                 panic!();
             }
-        };
-        Self::new(sample_rate, preset)
+        }
     }
 }
