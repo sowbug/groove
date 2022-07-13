@@ -173,9 +173,52 @@ pub struct WelshSynthPreset {
 impl WelshSynthPreset {
     pub fn by_name(name: WelshPresetName) -> Self {
         match name {
-            WelshPresetName::Banjo => {
-                panic!()
-            }
+            WelshPresetName::Banjo => Self {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Square(0.2),
+                    tune: 1.0,
+                    mix: 1.0,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Square(0.1),
+                    tune: 1.0,
+                    mix: 1.0,
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: true,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::Amplitude,
+                    waveform: Waveform::Triangle,
+                    frequency: 10.0,
+                    depth: LfoPreset::percent(5.0),
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::MultiLimit(5),
+                filter_type_24db: FilterPreset {
+                    cutoff: 2900.0,
+                    weight: 0.72,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 1500.0,
+                    weight: 0.63,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 0.75,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.19,
+                    sustain_percentage: 0.0,
+                    release_seconds: 0.19,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.67,
+                    sustain_percentage: 0.0,
+                    release_seconds: 0.67,
+                },
+            },
             WelshPresetName::Cello => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Square(0.1),
