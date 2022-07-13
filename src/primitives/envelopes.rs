@@ -1,3 +1,5 @@
+use std::f32::MAX;
+
 use crate::common::{MidiMessage, MidiMessageType};
 
 #[derive(Default, Clone, Copy)]
@@ -37,6 +39,7 @@ pub struct MiniEnvelope {
     amplitude: f32,
     delta: f32,
     target: f32,
+    target_seconds: f32,
 }
 
 impl MiniEnvelope {
@@ -47,6 +50,7 @@ impl MiniEnvelope {
             decay_seconds: preset.decay_seconds,
             sustain_percentage: preset.sustain_percentage,
             release_seconds: preset.release_seconds,
+            target_seconds: MAX,
             ..Default::default()
         }
     }
@@ -59,20 +63,31 @@ impl MiniEnvelope {
         self.amplitude
     }
 
-    fn has_value_reached_target(&self) -> bool {
-        self.amplitude == self.target
-            || (self.delta > 0. && self.amplitude > self.target)
-            || (self.delta < 0. && self.amplitude < self.target)
+    fn has_value_reached_target(&self, current_time_seconds: f32) -> bool {
+        self.target_seconds <= current_time_seconds
+        // || ulps_eq!(self.amplitude, self.target, max_ulps = 6)
+        // || (self.delta > 0. && self.amplitude > self.target)
+        // || (self.delta < 0. && self.amplitude < self.target)
     }
 
-    fn delta_for_transition(current: f32, target: f32, seconds: f32, ticks_per_second: f32) -> f32 {
-        if seconds == 0. {
-            return 0.;
+    fn update_transition_target(
+        &mut self,
+        time_seconds: f32,
+        current_value: f32,
+        target_value: f32,
+        duration_seconds: f32,
+    ) {
+        if duration_seconds == 0. {
+            self.delta = 0.;
+            self.target_seconds = time_seconds;
+            return;
         }
         // The floor() is necessary because a tick is the lowest level of
         // granularity. Any rate must be in terms of integer-sized time
         // slices.
-        (target - current) / ((seconds * ticks_per_second).floor())
+        self.delta =
+            (target_value - current_value) / ((duration_seconds * self.sample_rate).floor());
+        self.target_seconds = time_seconds + duration_seconds;
     }
 
     fn switch_to_attack(&mut self, time_seconds: f32) {
@@ -82,11 +97,11 @@ impl MiniEnvelope {
             self.state = EnvelopeState::Attack;
             self.amplitude = 0.;
             self.target = 1.;
-            self.delta = MiniEnvelope::delta_for_transition(
+            self.update_transition_target(
+                time_seconds,
                 self.amplitude,
                 self.target,
                 self.attack_seconds,
-                self.sample_rate,
             );
         }
     }
@@ -98,11 +113,11 @@ impl MiniEnvelope {
             self.state = EnvelopeState::Decay;
             self.amplitude = 1.;
             self.target = self.sustain_percentage;
-            self.delta = MiniEnvelope::delta_for_transition(
+            self.update_transition_target(
+                time_seconds,
                 self.amplitude,
                 self.target,
                 self.decay_seconds,
-                self.sample_rate,
             );
         }
     }
@@ -120,11 +135,11 @@ impl MiniEnvelope {
         } else {
             self.state = EnvelopeState::Release;
             self.target = 0.;
-            self.delta = MiniEnvelope::delta_for_transition(
+            self.update_transition_target(
+                time_seconds,
                 self.amplitude,
                 self.target,
                 self.release_seconds,
-                self.sample_rate,
             );
         }
     }
@@ -157,12 +172,12 @@ impl MiniEnvelope {
         match self.state {
             EnvelopeState::Idle => {}
             EnvelopeState::Attack => {
-                if self.has_value_reached_target() {
+                if self.has_value_reached_target(time_seconds) {
                     self.switch_to_decay(time_seconds);
                 }
             }
             EnvelopeState::Decay => {
-                if self.has_value_reached_target() {
+                if self.has_value_reached_target(time_seconds) {
                     self.switch_to_sustain(time_seconds);
                 }
             }
@@ -170,7 +185,7 @@ impl MiniEnvelope {
                 // Just wait
             }
             EnvelopeState::Release => {
-                if self.has_value_reached_target() {
+                if self.has_value_reached_target(time_seconds) {
                     self.switch_to_idle(time_seconds);
                 }
             }
@@ -257,6 +272,80 @@ mod tests {
                 assert_eq!(envelope.amplitude, 0.0);
                 break;
             }
+            clock.tick();
+        }
+    }
+
+    #[test]
+    fn test_envelope_eventually_ends() {
+        let mut clock = Clock::new(44100, 4, 4, 128.0);
+        let mut envelope = MiniEnvelope::new(
+            clock.sample_rate(),
+            &MiniEnvelopePreset {
+                attack_seconds: 0.1,
+                decay_seconds: 0.2,
+                sustain_percentage: 0.8,
+                release_seconds: 10.0,
+            },
+        );
+
+        let midi_on = MidiMessage {
+            channel: 0,
+            status: MidiMessageType::NoteOn,
+            data1: 60,
+            data2: 0,
+        };
+        let midi_off = MidiMessage {
+            channel: 0,
+            status: MidiMessageType::NoteOff,
+            data1: 60,
+            data2: 0,
+        };
+
+        const SAMPLES_PER_SECOND: u32 = 44100;
+        const TIME_ZERO: u32 = 0;
+        const TIME_EXPECT_ATTACK: u32 = 0; // because we check after firing keydown in same spin of event loop
+        const DURATION_ATTACK: u32 = 1 * SAMPLES_PER_SECOND / 10;
+        const TIME_EXPECT_ATTACK_END: u32 = TIME_EXPECT_ATTACK + DURATION_ATTACK - 1;
+        const TIME_EXPECT_DECAY: u32 = TIME_EXPECT_ATTACK + DURATION_ATTACK;
+        const DURATION_DECAY: u32 = 2 * SAMPLES_PER_SECOND / 10;
+        const TIME_EXPECT_DECAY_END: u32 = TIME_EXPECT_ATTACK + DURATION_DECAY - 1;
+        const TIME_EXPECT_SUSTAIN: u32 = TIME_EXPECT_DECAY + DURATION_DECAY;
+        const TIME_EXPECT_RELEASE: u32 = TIME_EXPECT_SUSTAIN;
+        const DURATION_RELEASE: u32 = 10 * SAMPLES_PER_SECOND;
+        const TIME_EXPECT_RELEASE_END: u32 = TIME_EXPECT_RELEASE + DURATION_RELEASE - 1;
+        const TIME_EXPECT_IDLE: u32 = TIME_EXPECT_RELEASE + DURATION_RELEASE;
+        loop {
+            envelope.tick(clock.seconds);
+            match clock.samples {
+                TIME_ZERO => {
+                    assert!(matches!(envelope.state, EnvelopeState::Idle));
+                    envelope.handle_midi_message(&midi_on, clock.seconds);
+                    assert!(matches!(envelope.state, EnvelopeState::Attack));
+                }
+                TIME_EXPECT_ATTACK_END => {
+                    assert!(matches!(envelope.state, EnvelopeState::Attack));
+                }
+                TIME_EXPECT_DECAY => {
+                    assert!(matches!(envelope.state, EnvelopeState::Decay));
+                }
+                TIME_EXPECT_DECAY_END => {
+                    assert!(matches!(envelope.state, EnvelopeState::Decay));
+                }
+                TIME_EXPECT_SUSTAIN => {
+                    assert!(matches!(envelope.state, EnvelopeState::Sustain));
+                    envelope.handle_midi_message(&midi_off, clock.seconds);
+                    assert!(matches!(envelope.state, EnvelopeState::Release));
+                }
+                TIME_EXPECT_RELEASE_END => {
+                    assert!(matches!(envelope.state, EnvelopeState::Release));
+                }
+                TIME_EXPECT_IDLE => {
+                    assert!(matches!(envelope.state, EnvelopeState::Idle));
+                    break;
+                }
+                _ => {}
+            };
             clock.tick();
         }
     }
