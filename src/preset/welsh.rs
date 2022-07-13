@@ -358,9 +358,53 @@ impl WelshSynthPreset {
                 },
             },
 
-            WelshPresetName::GuitarAcoustic => {
-                panic!()
-            }
+            WelshPresetName::GuitarAcoustic => Self {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::None,
+                    tune: 0.0,
+                    mix: 1.0,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Square(0.10),
+                    tune: OscillatorPreset::semis_and_cents(10.0, 0.0),
+                    mix: 0.9,
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: true,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::None,
+                    waveform: Waveform::None,
+                    frequency: 0.0,
+                    depth: 0.0,
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Multi,
+                filter_type_24db: FilterPreset {
+                    cutoff: 3.1,
+                    weight: 0.73,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 2.0,
+                    weight: 0.67,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 0.70,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.35,
+                    sustain_percentage: 0.0,
+                    release_seconds: 0.29,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 1.7,
+                    sustain_percentage: 0.0,
+                    release_seconds: 1.7,
+                },
+            },
+
             WelshPresetName::GuitarElectric => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Square(0.2),
