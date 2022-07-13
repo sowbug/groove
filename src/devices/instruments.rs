@@ -120,17 +120,12 @@ impl DeviceTrait for SuperVoice {
             .handle_midi_message(message, clock.seconds);
         match message.status {
             MidiMessageType::NoteOn => {
-                //          self.is_playing = true;
                 let frequency = message.to_frequency();
                 self.osc_1.set_frequency(frequency);
                 self.osc_2.set_frequency(frequency);
             }
             MidiMessageType::NoteOff => {}
             MidiMessageType::ProgramChange => {}
-        }
-
-        if self.amp_envelope.is_idle() {
-            //        self.is_playing = false;
         }
     }
 }
