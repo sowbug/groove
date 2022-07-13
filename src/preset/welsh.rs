@@ -74,7 +74,7 @@ pub enum WelshPresetName {
     SideStick,
     SnareDrum,
     Tambourine,
-    WheelsofSteel,
+    WheelsOfSteel,
     // -------------------- Leads
     BrassSection,
     Mellow70sLead,
@@ -712,7 +712,7 @@ impl WelshSynthPreset {
             WelshPresetName::Tambourine => {
                 panic!()
             }
-            WelshPresetName::WheelsofSteel => {
+            WelshPresetName::WheelsOfSteel => {
                 panic!()
             }
             // -------------------- Leads

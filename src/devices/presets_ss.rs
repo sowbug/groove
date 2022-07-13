@@ -142,16 +142,10 @@ pub enum GeneralMidiProgram {
 
 impl SuperSynth {
     pub fn new_for_general_midi(sample_rate: u32, program: GeneralMidiProgram) -> Self {
-        Self::new(
-            sample_rate,
-            Self::get_general_midi_preset(sample_rate, program),
-        )
+        Self::new(sample_rate, Self::get_general_midi_preset(program))
     }
 
-    pub fn get_general_midi_preset(
-        sample_rate: u32,
-        program: GeneralMidiProgram,
-    ) -> WelshSynthPreset {
+    pub fn get_general_midi_preset(program: GeneralMidiProgram) -> WelshSynthPreset {
         match program {
             GeneralMidiProgram::AcousticGrand => {
                 // 1
@@ -287,31 +281,32 @@ impl SuperSynth {
             }
             GeneralMidiProgram::ElectricBassFinger => {
                 // 34
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::StandupBass)
             }
             GeneralMidiProgram::ElectricBassPick => {
                 // 35
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::AcidBass)
+
             }
             GeneralMidiProgram::FretlessBass => {
                 // 36
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::DetroitBass) // TODO same?
             }
             GeneralMidiProgram::SlapBass1 => {
                 // 37
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::FunkBass)
             }
             GeneralMidiProgram::SlapBass2 => {
                 // 38
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::FunkBass)
             }
             GeneralMidiProgram::SynthBass1 => {
                 // 39
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::DigitalBass)
             }
             GeneralMidiProgram::SynthBass2 => {
                 // 40
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::DigitalBass)
             }
             GeneralMidiProgram::Violin => {
                 // 41
@@ -351,7 +346,8 @@ impl SuperSynth {
             }
             GeneralMidiProgram::StringEnsemble2 => {
                 // 50
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::StringsPwm) // TODO same?
+
             }
             GeneralMidiProgram::Synthstrings1 => {
                 // 51
@@ -476,7 +472,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Lead1Square => {
                 // 81
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::MonoSolo) // TODO: same?
             }
             GeneralMidiProgram::Lead2Sawtooth => {
                 // 82
@@ -612,7 +608,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::SteelDrums => {
                 // 115
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::WheelsOfSteel) // TODO same?
             }
             GeneralMidiProgram::Woodblock => {
                 // 116
@@ -620,7 +616,8 @@ impl SuperSynth {
             }
             GeneralMidiProgram::TaikoDrum => {
                 // 117
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::Timpani) // TODO substitute.....
+
             }
             GeneralMidiProgram::MelodicTom => {
                 // 118
@@ -628,7 +625,8 @@ impl SuperSynth {
             }
             GeneralMidiProgram::SynthDrum => {
                 // 119
-                panic!();
+                WelshSynthPreset::by_name(WelshPresetName::SnareDrum)
+
             }
             GeneralMidiProgram::ReverseCymbal => {
                 // 120

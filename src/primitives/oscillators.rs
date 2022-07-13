@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::preset::{OscillatorPreset, LfoPreset};
+use crate::preset::{LfoPreset, OscillatorPreset};
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Waveform {
@@ -82,6 +82,9 @@ impl MiniOscillator {
             Waveform::Sawtooth => 2.0 * (phase_normalized - (0.5 + phase_normalized).floor()),
             // https://www.musicdsp.org/en/latest/Synthesis/216-fast-whitenoise-generator.html
             Waveform::Noise => {
+                // TODO: this is stateful, so random access will sound different from sequential, as will different sample rates.
+                // It also makes this method require mut. Is there a noise algorithm that can modulate on time_seconds? (It's a
+                // complicated question, potentially.)
                 self.noise_x1 ^= self.noise_x2;
                 let tmp = 2.0 * (self.noise_x2 as f32 - (u32::MAX as f32 / 2.0)) / u32::MAX as f32;
                 (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);

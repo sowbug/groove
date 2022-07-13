@@ -84,7 +84,7 @@ impl DeviceTrait for SuperSynth {
                         panic!("no patch");
                     }
                 };
-                self.preset = SuperSynth::get_general_midi_preset(self.sample_rate, program);
+                self.preset = SuperSynth::get_general_midi_preset(program);
                 // start changing to new voices
             }
         }
