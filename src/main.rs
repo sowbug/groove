@@ -6,7 +6,8 @@ mod devices;
 mod primitives;
 
 use crate::devices::{
-    orchestrator::Orchestrator, presets::GeneralMidiProgram, sequencer::Sequencer, synthesizers::SuperSynth,
+    orchestrator::Orchestrator, presets::GeneralMidiProgram, sequencer::Sequencer,
+    synthesizers::SuperSynth,
 };
 use clap::Parser;
 use cpal::{
@@ -163,14 +164,13 @@ impl ClDaw {
         midi_in: Option<String>,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
-        let simple_synth = Rc::new(RefCell::new(SuperSynth::new_for_general_midi(
+        let synth = Rc::new(RefCell::new(SuperSynth::new_for_general_midi(
             self.orchestrator.clock.sample_rate(),
             GeneralMidiProgram::Cello,
         )));
-        self.orchestrator.add_device(simple_synth.clone());
+        self.orchestrator.add_device(synth.clone());
 
-        self.orchestrator
-            .add_master_mixer_source(simple_synth.clone());
+        self.orchestrator.add_master_mixer_source(synth.clone());
 
         if midi_in.is_some() {
             let sequencer = Rc::new(RefCell::new(Sequencer::new()));
@@ -216,9 +216,10 @@ impl ClDaw {
             //                     .connect_midi_sink_for_channel(simple_synth, channel);
             //             }
 
+            // TODO -- aha, I knew I'd written something to start to handle this
             sequencer
                 .borrow_mut()
-                .connect_midi_sink_for_channel(simple_synth, 0);
+                .connect_midi_sink_for_channel(synth, 0);
         }
 
         println!("Performing to queue");
