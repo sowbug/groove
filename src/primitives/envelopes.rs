@@ -1,14 +1,6 @@
 use std::{f32::MAX, fmt::Debug};
 
-use crate::common::{MidiMessage, MidiMessageType};
-
-#[derive(Default, Debug, Clone, Copy)]
-pub struct MiniEnvelopePreset {
-    pub attack_seconds: f32,
-    pub decay_seconds: f32,
-    pub sustain_percentage: f32,
-    pub release_seconds: f32,
-}
+use crate::{common::{MidiMessage, MidiMessageType}, preset::EnvelopePreset};
 
 #[derive(Debug)]
 enum EnvelopeState {
@@ -42,7 +34,7 @@ pub struct MiniEnvelope {
 }
 
 impl MiniEnvelope {
-    pub fn new(sample_rate: u32, preset: &MiniEnvelopePreset) -> Self {
+    pub fn new(sample_rate: u32, preset: &EnvelopePreset) -> Self {
         Self {
             sample_rate: sample_rate as f32,
             attack_seconds: preset.attack_seconds,
@@ -195,7 +187,7 @@ impl MiniEnvelope {
 
 #[cfg(test)]
 mod tests {
-    use crate::primitives::clock::Clock;
+    use crate::{primitives::clock::Clock, preset::EnvelopePreset};
 
     use super::*;
 
@@ -226,7 +218,7 @@ mod tests {
         let mut clock = Clock::new_test();
         let mut envelope = MiniEnvelope::new(
             clock.sample_rate(),
-            &MiniEnvelopePreset {
+            &EnvelopePreset {
                 attack_seconds: 0.1,
                 decay_seconds: 0.2,
                 sustain_percentage: 0.8,
@@ -280,7 +272,7 @@ mod tests {
         let mut clock = Clock::new(44100, 4, 4, 128.0);
         let mut envelope = MiniEnvelope::new(
             clock.sample_rate(),
-            &MiniEnvelopePreset {
+            &EnvelopePreset {
                 attack_seconds: 0.1,
                 decay_seconds: 0.2,
                 sustain_percentage: 0.8,

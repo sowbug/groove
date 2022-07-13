@@ -2,26 +2,25 @@ use std::collections::HashMap;
 
 use crate::{
     common::{MidiMessage, MidiMessageType},
-    primitives::clock::Clock,
+    primitives::clock::Clock, preset::welsh::WelshSynthPreset,
 };
 
 use super::{
-    instruments::{SuperSynthPreset, SuperVoice},
-    presets::GeneralMidiProgram,
-    traits::DeviceTrait,
+    instruments::{SuperVoice},
+    traits::DeviceTrait, presets_ss::GeneralMidiProgram,
 };
 
 #[derive(Default)]
 pub struct SuperSynth {
     sample_rate: u32,
-    preset: SuperSynthPreset,
+    preset: WelshSynthPreset,
     voices: Vec<SuperVoice>,
     note_to_voice: HashMap<u8, usize>,
     current_value: f32,
 }
 
 impl SuperSynth {
-    pub fn new(sample_rate: u32, preset: SuperSynthPreset) -> Self {
+    pub fn new(sample_rate: u32, preset: WelshSynthPreset) -> Self {
         Self {
             sample_rate,
             preset,

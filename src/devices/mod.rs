@@ -2,10 +2,10 @@ pub mod instruments;
 pub mod midi;
 mod mixer;
 pub mod orchestrator;
-pub mod presets;
+pub mod presets_ss;
 pub mod sequencer;
 pub mod synthesizers;
-mod traits;
+pub mod traits;  // TODO; make non-pub again so DeviceTrait doesn't leak out of this crate
 
 #[cfg(test)]
 mod tests {

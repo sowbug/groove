@@ -1,7 +1,9 @@
-use crate::primitives::{
-    envelopes::MiniEnvelopePreset,
-    filter::{MiniFilter2, MiniFilter2Type},
-    oscillators::{LfoPreset, LfoRouting, OscillatorPreset, Waveform},
+use crate::{
+    preset::welsh::{WelshPresetName, WelshSynthPreset},
+    primitives::{
+        filter::{MiniFilter2, MiniFilter2Type},
+        oscillators::Waveform,
+    },
 };
 
 use super::{instruments::SuperSynthPreset, synthesizers::SuperSynth};
@@ -149,7 +151,7 @@ impl SuperSynth {
     pub fn get_general_midi_preset(
         sample_rate: u32,
         program: GeneralMidiProgram,
-    ) -> SuperSynthPreset {
+    ) -> WelshSynthPreset {
         match program {
             GeneralMidiProgram::AcousticGrand => {
                 // 1
@@ -269,49 +271,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::OverdrivenGuitar => {
                 // 30
-                SuperSynthPreset {
-                    oscillator_1_preset: OscillatorPreset {
-                        waveform: Waveform::Square(0.2),
-                        tune: 1.0,
-                        mix: 0.65,
-                    },
-                    oscillator_2_preset: OscillatorPreset {
-                        waveform: Waveform::Square(0.15),
-                        tune: 1.01, // TODO "+10semi"
-                        mix: 1.0,   // TODO track/sync on
-                    },
-                    amp_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.0,
-                        decay_seconds: 1.7,
-                        sustain_percentage: 0.0,
-                        release_seconds: 1.7,
-                    },
-                    lfo_preset: LfoPreset {
-                        routing: LfoRouting::None,
-                        waveform: Waveform::None,
-                        frequency: 0.0,
-                        depth: 0.0,
-                    },
-                    filter_24db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        20.0,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_12db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        40.,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_24db_weight: 0.35, // TODO: this is wrong. 1.0 completely smothers it
-                    filter_12db_weight: 1.0,
-                    filter_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.0,
-                        decay_seconds: 0.0,
-                        sustain_percentage: 1.0,
-                        release_seconds: 0.0,
-                    },
-                    filter_envelope_weight: 1.0, // TODO: filter weights are all wrong
-                }
+                WelshSynthPreset::by_name(crate::preset::welsh::WelshPresetName::ElectricPiano)
             }
             GeneralMidiProgram::DistortionGuitar => {
                 // 31
@@ -363,49 +323,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Cello => {
                 // 43
-                SuperSynthPreset {
-                    oscillator_1_preset: OscillatorPreset {
-                        waveform: Waveform::Square(0.1),
-                        tune: 1.0,
-                        mix: 1.0,
-                    },
-                    oscillator_2_preset: OscillatorPreset {
-                        waveform: Waveform::Square(0.5),
-                        tune: 1.0,
-                        mix: 1.0,
-                    },
-                    amp_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.06,
-                        decay_seconds: 0.0,
-                        sustain_percentage: 1.0,
-                        release_seconds: 0.3,
-                    },
-                    lfo_preset: LfoPreset {
-                        routing: LfoRouting::Amplitude,
-                        waveform: Waveform::Sine,
-                        frequency: 7.5,
-                        depth: 0.05,
-                    },
-                    filter_24db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        40.0,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_12db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        40.,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_24db_weight: 0.1,
-                    filter_12db_weight: 0.1,
-                    filter_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.0,
-                        decay_seconds: 3.29,
-                        sustain_percentage: 0.78,
-                        release_seconds: 0.0,
-                    },
-                    filter_envelope_weight: 0.9,
-                }
+                WelshSynthPreset::by_name(crate::preset::welsh::WelshPresetName::Cello)
             }
             GeneralMidiProgram::Contrabass => {
                 // 44
@@ -445,47 +363,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::ChoirAahs => {
                 // 53
-                SuperSynthPreset {
-                    oscillator_1_preset: OscillatorPreset {
-                        waveform: Waveform::Sawtooth,
-                        ..Default::default()
-                    },
-                    oscillator_2_preset: OscillatorPreset {
-                        waveform: Waveform::None,
-                        ..Default::default()
-                    },
-                    amp_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.32,
-                        decay_seconds: 0.0,
-                        sustain_percentage: 1.0,
-                        release_seconds: 0.93,
-                    },
-                    lfo_preset: LfoPreset {
-                        routing: LfoRouting::None,
-                        waveform: Waveform::Triangle,
-                        frequency: 2.4,
-                        depth: 0.0000119, // TODO 20 cents
-                    },
-                    filter_24db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        900.,
-                        MiniFilter2::MIN_Q,
-                    ), // TODO: map Q to %
-                    filter_12db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        900.,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_24db_weight: 0.85,
-                    filter_12db_weight: 0.25,
-                    filter_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.,
-                        decay_seconds: 0.,
-                        sustain_percentage: 0.,
-                        release_seconds: 0.,
-                    },
-                    filter_envelope_weight: 0.0,
-                }
+                WelshSynthPreset::by_name(WelshPresetName::Angels)
             }
 
             GeneralMidiProgram::VoiceOohs => {
@@ -506,49 +384,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::Trombone => {
                 // 58
-                SuperSynthPreset {
-                    oscillator_1_preset: OscillatorPreset {
-                        waveform: Waveform::Sawtooth,
-                        tune: 1.0,
-                        mix: 1.0,
-                    },
-                    oscillator_2_preset: OscillatorPreset {
-                        waveform: Waveform::Triangle,
-                        tune: 2.0,  // TODO one octave?
-                        mix: 1.0,  // TODO track on/sync off
-                    },
-                    amp_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.06,
-                        decay_seconds: 0.0,
-                        sustain_percentage: 1.0,
-                        release_seconds: 0.50,
-                    },
-                    lfo_preset: LfoPreset {
-                        routing: LfoRouting::Amplitude,
-                        waveform: Waveform::Triangle,
-                        frequency: 5.0,
-                        depth: 0.05,
-                    },
-                    filter_24db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        900.0,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_12db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        40.,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_24db_weight: 0.55,
-                    filter_12db_weight: 1.0,
-                    filter_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.11,
-                        decay_seconds: 0.0,
-                        sustain_percentage: 1.0,
-                        release_seconds: 0.18,
-                    },
-                    filter_envelope_weight: 0.30,
-                }
+                WelshSynthPreset::by_name(WelshPresetName::Trombone)
             }
             GeneralMidiProgram::Tuba => {
                 // 59
@@ -560,49 +396,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::FrenchHorn => {
                 // 61
-                SuperSynthPreset {
-                    oscillator_1_preset: OscillatorPreset {
-                        waveform: Waveform::Square(0.1),
-                        tune: 1.0,
-                        mix: 1.0,
-                    },
-                    oscillator_2_preset: OscillatorPreset {
-                        waveform: Waveform::None,
-                        tune: 1.0,
-                        mix: 1.0,
-                    },
-                    amp_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.0,
-                        decay_seconds: 3.9,
-                        sustain_percentage: 0.96,
-                        release_seconds: 0.93,
-                    },
-                    lfo_preset: LfoPreset {
-                        routing: LfoRouting::None,
-                        waveform: Waveform::None,
-                        frequency: 0.0,
-                        depth: 0.0,
-                    },
-                    filter_24db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        40.0,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_12db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        40.,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_24db_weight: 0.1,
-                    filter_12db_weight: 1.0,
-                    filter_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.05,
-                        decay_seconds: 5.76,
-                        sustain_percentage: 0.94,
-                        release_seconds: 0.39,
-                    },
-                    filter_envelope_weight: 0.45, // TODO: filter weights are all wrong
-                }
+                WelshSynthPreset::by_name(WelshPresetName::FrenchHorn)
             }
             GeneralMidiProgram::BrassSection => {
                 // 62
@@ -622,49 +416,7 @@ impl SuperSynth {
             }
             GeneralMidiProgram::AltoSax => {
                 // 66
-                SuperSynthPreset {
-                    oscillator_1_preset: OscillatorPreset {
-                        waveform: Waveform::Square(0.3),
-                        tune: 1.0,
-                        mix: 1.0,
-                    },
-                    oscillator_2_preset: OscillatorPreset {
-                        waveform: Waveform::Square(0.45),
-                        tune: 1.01, // TODO +8 semi
-                        mix: 0.75,  // TODO track/sync on
-                    },
-                    amp_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.0,
-                        decay_seconds: 3.9,
-                        sustain_percentage: 0.96,
-                        release_seconds: 0.93,
-                    },
-                    lfo_preset: LfoPreset {
-                        routing: LfoRouting::Pitch, // TODO osc1/osc2 is an option
-                        waveform: Waveform::Sine,
-                        frequency: 7.5,
-                        depth: 0.00001, // 10 cents (shallow)
-                    },
-                    filter_24db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        40.0,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_12db_type: MiniFilter2Type::LowPass(
-                        sample_rate,
-                        40.,
-                        MiniFilter2::MIN_Q,
-                    ),
-                    filter_24db_weight: 0.1,
-                    filter_12db_weight: 1.0,
-                    filter_envelope_preset: MiniEnvelopePreset {
-                        attack_seconds: 0.14,
-                        decay_seconds: 0.37,
-                        sustain_percentage: 0.78,
-                        release_seconds: 0.0,
-                    },
-                    filter_envelope_weight: 0.90, // TODO: filter weights are all wrong
-                }
+                WelshSynthPreset::by_name(WelshPresetName::Saxophone)
             }
             GeneralMidiProgram::TenorSax => {
                 // 67

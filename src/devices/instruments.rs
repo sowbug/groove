@@ -1,10 +1,10 @@
 use crate::common::{MidiMessage, MidiMessageType};
+use crate::preset::welsh::WelshSynthPreset;
+use crate::preset::{EnvelopePreset, LfoPreset, LfoRouting, OscillatorPreset};
 use crate::primitives::clock::Clock;
-use crate::primitives::envelopes::{MiniEnvelope, MiniEnvelopePreset};
+use crate::primitives::envelopes::MiniEnvelope;
 use crate::primitives::filter::{MiniFilter2, MiniFilter2Type};
-use crate::primitives::oscillators::{
-    LfoPreset, LfoRouting, MiniOscillator, OscillatorPreset, Waveform,
-};
+use crate::primitives::oscillators::{MiniOscillator, Waveform};
 
 use super::traits::DeviceTrait;
 
@@ -13,7 +13,7 @@ pub struct SuperSynthPreset {
     pub oscillator_1_preset: OscillatorPreset,
     pub oscillator_2_preset: OscillatorPreset,
     // TODO: osc 2 track/sync
-    pub amp_envelope_preset: MiniEnvelopePreset,
+    pub amp_envelope_preset: EnvelopePreset,
 
     pub lfo_preset: LfoPreset,
 
@@ -26,7 +26,7 @@ pub struct SuperSynthPreset {
     pub filter_12db_type: MiniFilter2Type,
     pub filter_24db_weight: f32,
     pub filter_12db_weight: f32,
-    pub filter_envelope_preset: MiniEnvelopePreset,
+    pub filter_envelope_preset: EnvelopePreset,
     pub filter_envelope_weight: f32,
 }
 
@@ -49,7 +49,7 @@ pub struct SuperVoice {
 }
 
 impl SuperVoice {
-    pub fn new(sample_rate: u32, preset: &SuperSynthPreset) -> Self {
+    pub fn new(sample_rate: u32, preset: &WelshSynthPreset) -> Self {
         Self {
             osc_1: MiniOscillator::new_from_preset(&preset.oscillator_1_preset),
             osc_2: MiniOscillator::new_from_preset(&preset.oscillator_2_preset),
@@ -61,8 +61,12 @@ impl SuperVoice {
             lfo_routing: preset.lfo_preset.routing,
             lfo_depth: preset.lfo_preset.depth,
 
-            filter: MiniFilter2::new(preset.filter_24db_type),
-            filter_weight: preset.filter_24db_weight,
+            filter: MiniFilter2::new(MiniFilter2Type::LowPass(
+                sample_rate,
+                preset.filter_type_12db.cutoff,
+                1.0 / 2.0f32.sqrt(),
+            )),
+            filter_weight: preset.filter_type_12db.weight,
             filter_envelope: MiniEnvelope::new(sample_rate, &preset.filter_envelope_preset),
             filter_envelope_weight: preset.filter_envelope_weight,
 

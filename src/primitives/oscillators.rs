@@ -1,21 +1,6 @@
 use std::f32::consts::PI;
 
-#[derive(Debug, Clone, Copy)]
-pub struct OscillatorPreset {
-    pub waveform: Waveform,
-    pub tune: f32,
-    pub mix: f32,
-}
-
-impl Default for OscillatorPreset {
-    fn default() -> Self {
-        Self {
-            waveform: Waveform::None,
-            tune: 1.0,
-            mix: 1.0,
-        }
-    }
-}
+use crate::preset::{OscillatorPreset, LfoPreset};
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Waveform {
@@ -31,27 +16,6 @@ impl Default for Waveform {
     fn default() -> Self {
         Waveform::Sine
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum LfoRouting {
-    None,
-    Amplitude,
-    Pitch,
-}
-
-impl Default for LfoRouting {
-    fn default() -> Self {
-        LfoRouting::None
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct LfoPreset {
-    pub routing: LfoRouting,
-    pub waveform: Waveform,
-    pub frequency: f32,
-    pub depth: f32,
 }
 
 #[derive(Default, Debug)]

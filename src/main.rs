@@ -3,10 +3,11 @@ extern crate cpal;
 
 mod common;
 mod devices;
+mod preset;
 mod primitives;
 
 use crate::devices::{
-    orchestrator::Orchestrator, presets::GeneralMidiProgram, sequencer::Sequencer,
+    orchestrator::Orchestrator, presets_ss::GeneralMidiProgram, sequencer::Sequencer,
     synthesizers::SuperSynth,
 };
 use clap::Parser;
