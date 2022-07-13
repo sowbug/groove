@@ -1,4 +1,4 @@
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct MiniMixer {}
 
 impl MiniMixer {

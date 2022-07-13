@@ -1,8 +1,8 @@
-use std::f32::MAX;
+use std::{f32::MAX, fmt::Debug};
 
 use crate::common::{MidiMessage, MidiMessageType};
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct MiniEnvelopePreset {
     pub attack_seconds: f32,
     pub decay_seconds: f32,
@@ -12,7 +12,6 @@ pub struct MiniEnvelopePreset {
 
 #[derive(Debug)]
 enum EnvelopeState {
-    // TODO: hide this again once CelloSynth2 proto is complete
     Idle,
     Attack,
     Decay,
@@ -26,7 +25,7 @@ impl Default for EnvelopeState {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct MiniEnvelope {
     sample_rate: f32,
 
@@ -194,33 +193,33 @@ impl MiniEnvelope {
     }
 }
 
-// TODO: this idea will work better if/when Envelope is a trait.
-#[derive(Default)]
-pub struct AlwaysLoudEnvelope {}
-
-impl AlwaysLoudEnvelope {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    pub fn is_idle(&self) -> bool {
-        false
-    }
-
-    pub fn tick(&self, _time_seconds: f32) {}
-
-    pub fn handle_midi_message(&mut self, _message: &MidiMessage, _time_seconds: f32) {}
-
-    pub fn value(&self) -> f32 {
-        1.
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::primitives::clock::Clock;
 
     use super::*;
+
+    // TODO: this idea will work better if/when Envelope is a trait.
+    #[derive(Default)]
+    pub struct AlwaysLoudEnvelope {}
+
+    impl AlwaysLoudEnvelope {
+        pub fn new() -> Self {
+            Self {}
+        }
+
+        pub fn is_idle(&self) -> bool {
+            false
+        }
+
+        pub fn tick(&self, _time_seconds: f32) {}
+
+        pub fn handle_midi_message(&mut self, _message: &MidiMessage, _time_seconds: f32) {}
+
+        pub fn value(&self) -> f32 {
+            1.
+        }
+    }
 
     #[test]
     fn test_mini_envelope() {

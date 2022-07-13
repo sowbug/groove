@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct OscillatorPreset {
     pub waveform: Waveform,
     pub tune: f32,
@@ -33,7 +33,7 @@ impl Default for Waveform {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum LfoRouting {
     None,
     Amplitude,
@@ -46,7 +46,7 @@ impl Default for LfoRouting {
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct LfoPreset {
     pub routing: LfoRouting,
     pub waveform: Waveform,

@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use super::mixer::Mixer;
 
+#[derive(Default)]
 pub struct Orchestrator {
     pub clock: Clock,
 

@@ -22,6 +22,7 @@ use std::{
     sync::{Arc, Condvar, Mutex},
 };
 
+#[derive(Default)]
 struct ClDaw {
     orchestrator: Orchestrator,
 }

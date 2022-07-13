@@ -360,7 +360,7 @@ impl MiniFilter {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum MiniFilter2Type {
     None,
     LowPass(u32, f32, f32),
@@ -379,9 +379,8 @@ impl Default for MiniFilter2Type {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct MiniFilter2 {
-    sample_rate: u32,
     a0: f64,
     a1: f64,
     a2: f64,
@@ -427,7 +426,6 @@ impl MiniFilter2 {
             }
         };
         Self {
-            sample_rate,
             a0,
             a1,
             a2,

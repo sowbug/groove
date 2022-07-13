@@ -8,7 +8,7 @@ use crate::primitives::oscillators::{
 
 use super::traits::DeviceTrait;
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct SuperSynthPreset {
     pub oscillator_1_preset: OscillatorPreset,
     pub oscillator_2_preset: OscillatorPreset,
