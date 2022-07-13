@@ -266,20 +266,20 @@ impl WelshSynthPreset {
                 },
             },
             WelshPresetName::DoubleBass => Self {
-                oscillator_1_preset: OscillatorPreset { 
-                    waveform: Waveform::Square(0.45), 
-                    tune: -0.1, 
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Square(0.45),
+                    tune: -0.1,
                     mix: 1.0,
                 },
-                oscillator_2_preset: OscillatorPreset { 
-                    waveform:Waveform::Square(0.0), 
-                    tune: 0.0, 
-                    mix: 0.6, 
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Square(0.0),
+                    tune: 0.0,
+                    mix: 0.6,
                 },
                 oscillator_2_sync: false,
                 oscillator_2_track: true,
                 noise: 0.0,
-                lfo_preset: LfoPreset { 
+                lfo_preset: LfoPreset {
                     routing: LfoRouting::Pitch,
                     waveform: Waveform::Triangle,
                     frequency: 5.0,
@@ -292,25 +292,72 @@ impl WelshSynthPreset {
                     cutoff: 1.6,
                     weight: 0.63,
                 },
-                filter_type_12db: FilterPreset { 
-                    cutoff: 750.0, 
-                    weight: 0.52, 
+                filter_type_12db: FilterPreset {
+                    cutoff: 750.0,
+                    weight: 0.52,
                 },
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.0,
-                filter_envelope_preset: EnvelopePreset { attack_seconds: 0.0, 
-                    decay_seconds: 0.0, 
-                    sustain_percentage: 0.0, 
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 0.0,
                     release_seconds: 0.0,
                 },
-                amp_envelope_preset: EnvelopePreset { attack_seconds: 0.35, decay_seconds: 0.0,
-                    sustain_percentage: 1.0, release_seconds: 0.19 }
-
-
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.35,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.19,
+                },
             },
-            WelshPresetName::Dulcimer => {
-                panic!()
-            }
+            WelshPresetName::Dulcimer => Self {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::None,
+                    tune: -7.0,
+                    mix: -7.6,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::None,
+                    tune: 0.0,
+                    mix: 0.0,
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::Amplitude,
+                    waveform: Waveform::Triangle,
+                    frequency: 1.5,
+                    depth: 0.22,
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Multi,
+                filter_type_24db: FilterPreset {
+                    cutoff: 600.0,
+                    weight: 0.49,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 200.0,
+                    weight: 0.33,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 0.50,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 1.69,
+                    sustain_percentage: 0.0,
+                    release_seconds: 1.78,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 4.0,
+                    sustain_percentage: 0.0,
+                    release_seconds: 4.0,
+                },
+            },
+
             WelshPresetName::GuitarAcoustic => {
                 panic!()
             }
