@@ -14,7 +14,7 @@ pub enum Waveform {
 
 impl Default for Waveform {
     fn default() -> Self {
-        Waveform::Sine
+        Waveform::None
     }
 }
 

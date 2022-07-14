@@ -163,7 +163,7 @@ pub struct WelshSynthPreset {
     // your synthesizer has.
     pub filter_type_24db: FilterPreset,
     pub filter_type_12db: FilterPreset,
-    pub filter_resonance: f32,
+    pub filter_resonance: f32,  // This should be an appropriate interpretation of a linear 0..1
     pub filter_envelope_weight: f32,
     pub filter_envelope_preset: EnvelopePreset,
 
@@ -176,13 +176,11 @@ impl WelshSynthPreset {
             WelshPresetName::Banjo => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Square(0.2),
-                    tune: 1.0,
-                    mix: 1.0,
+                    ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
                     waveform: Waveform::Square(0.1),
-                    tune: 1.0,
-                    mix: 1.0,
+                    ..Default::default()
                 },
                 oscillator_2_track: true,
                 oscillator_2_sync: true,
@@ -593,7 +591,7 @@ impl WelshSynthPreset {
                         routing: LfoRouting::Pitch, // TODO osc1/osc2 is an option
                         waveform: Waveform::Sine,
                         frequency: 7.5,
-                        depth: LfoPreset::cents(10.0),
+                        depth: LfoPreset::semis_and_cents(0.0, 10.0),
                     },
                     filter_type_24db: FilterPreset {
                         cutoff: 40.0,
@@ -710,7 +708,7 @@ impl WelshSynthPreset {
                     routing: LfoRouting::Pitch,
                     waveform: Waveform::Triangle,
                     frequency: 2.4,
-                    depth: LfoPreset::cents(20.0),
+                    depth: LfoPreset::semis_and_cents(0.0, 20.0),
                 },
                 glide: GlidePreset::Off,
                 has_unison: false,
@@ -918,9 +916,30 @@ impl WelshSynthPreset {
             WelshPresetName::Toad => {
                 panic!()
             }
-            WelshPresetName::Wind => {
-                panic!()
-            }
+            WelshPresetName::Wind => Self {
+                noise: 1.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::Amplitude,
+                    waveform: Waveform::Noise,
+                    frequency: 0.7,
+                    depth: 0.4,
+                },
+                filter_type_24db: FilterPreset {
+                    cutoff: 780.0,
+                    weight: 0.53,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 780.0,
+                    weight: 0.53,
+                },
+                filter_resonance: 0.75,
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.4,
+                    release_seconds: 2.7,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
 
             _ => {
                 panic!();

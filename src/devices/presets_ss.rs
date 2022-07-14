@@ -1,12 +1,6 @@
-use crate::{
-    preset::welsh::{WelshPresetName, WelshSynthPreset},
-    primitives::{
-        filter::{MiniFilter2, MiniFilter2Type},
-        oscillators::Waveform,
-    },
-};
+use crate::preset::welsh::{WelshPresetName, WelshSynthPreset};
 
-use super::{instruments::SuperSynthPreset, synthesizers::SuperSynth};
+use super::synthesizers::SuperSynth;
 
 #[allow(dead_code)]
 pub enum GeneralMidiProgram {
@@ -286,7 +280,6 @@ impl SuperSynth {
             GeneralMidiProgram::ElectricBassPick => {
                 // 35
                 WelshSynthPreset::by_name(WelshPresetName::AcidBass)
-
             }
             GeneralMidiProgram::FretlessBass => {
                 // 36
@@ -347,7 +340,6 @@ impl SuperSynth {
             GeneralMidiProgram::StringEnsemble2 => {
                 // 50
                 WelshSynthPreset::by_name(WelshPresetName::StringsPwm) // TODO same?
-
             }
             GeneralMidiProgram::Synthstrings1 => {
                 // 51
@@ -617,7 +609,6 @@ impl SuperSynth {
             GeneralMidiProgram::TaikoDrum => {
                 // 117
                 WelshSynthPreset::by_name(WelshPresetName::Timpani) // TODO substitute.....
-
             }
             GeneralMidiProgram::MelodicTom => {
                 // 118
@@ -626,7 +617,6 @@ impl SuperSynth {
             GeneralMidiProgram::SynthDrum => {
                 // 119
                 WelshSynthPreset::by_name(WelshPresetName::SnareDrum)
-
             }
             GeneralMidiProgram::ReverseCymbal => {
                 // 120

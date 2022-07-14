@@ -2,7 +2,7 @@ use crate::primitives::oscillators::Waveform;
 
 pub mod welsh;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct OscillatorPreset {
     pub waveform: Waveform,
     pub tune: f32,
@@ -13,28 +13,30 @@ impl OscillatorPreset {
     pub fn octaves(num: f32) -> f32 {
         return 1.0 + num;
     }
+
     pub fn semis_and_cents(semitones: f32, cents: f32) -> f32 {
         // https://en.wikipedia.org/wiki/Cent_(music)
         2.0f32.powf((semitones * 100.0 + cents) / 1200.0)
     }
 }
 
-impl Default for OscillatorPreset {
-    fn default() -> Self {
-        Self {
-            waveform: Waveform::None,
-            tune: 1.0,
-            mix: 1.0,
-        }
-    }
-}
-
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct EnvelopePreset {
     pub attack_seconds: f32,
     pub decay_seconds: f32,
     pub sustain_percentage: f32,
     pub release_seconds: f32,
+}
+
+impl Default for EnvelopePreset {
+    fn default() -> Self {
+        Self {
+            attack_seconds: 0.0,
+            decay_seconds: 0.0,
+            sustain_percentage: 1.0,
+            release_seconds: 0.0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -63,11 +65,16 @@ impl LfoPreset {
         num / 100.0
     }
 
-    pub(crate) fn cents(arg: f64) -> f32 {
-        todo!()
+    pub fn semis_and_cents(semitones: f32, cents: f32) -> f32 {
+        // https://en.wikipedia.org/wiki/Cent_(music)
+        2.0f32.powf((semitones * 100.0 + cents) / 1200.0)
     }
 }
 
+// TODO: for Welsh presets, it's understood that they're all low-pass filters.
+// Thus we can use defaults cutoff 0.0 and weight 0.0 as a hack for a passthrough.
+// Eventually we'll want this preset to be richer, and then we'll need an explicit
+// notion of a None filter type. 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct FilterPreset {
     pub cutoff: f32,
@@ -100,6 +107,7 @@ mod tests {
             self.midi_channel = channel;
         }
     }
+
     impl DeviceTrait for NullDevice {
         fn sinks_midi(&self) -> bool {
             true
