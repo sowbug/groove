@@ -97,6 +97,7 @@ impl DeviceTrait for SuperSynth {
             self.current_value += voice.process(clock.seconds);
             done = done && !voice.is_playing();
         }
+        self.current_value /= self.voices.len() as f32;
         done
     }
 
