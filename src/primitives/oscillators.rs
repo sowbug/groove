@@ -6,7 +6,8 @@ use crate::preset::{LfoPreset, OscillatorPreset};
 pub enum Waveform {
     None,
     Sine,
-    Square(f32),
+    Square,
+    PulseWidth(f32),
     Triangle,
     Sawtooth,
     Noise,
@@ -38,6 +39,7 @@ impl MiniOscillator {
             frequency_tune: 1.0,
             ..Default::default()
         }
+        // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5 is Square.
     }
 
     pub fn new_from_preset(preset: &OscillatorPreset) -> Self {
@@ -70,8 +72,8 @@ impl MiniOscillator {
             Waveform::Sine => (phase_normalized * 2.0 * PI).sin(),
             // https://en.wikipedia.org/wiki/Square_wave
             //Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
-            Waveform::Square(duty_cycle) => {
-                // TODO: make sure this is right. I eyeballed it when implementing PWM waves.
+            Waveform::Square => (0.5 - (phase_normalized - phase_normalized.floor())).signum(),
+            Waveform::PulseWidth(duty_cycle) => {
                 (duty_cycle - (phase_normalized - phase_normalized.floor())).signum()
             }
             // https://en.wikipedia.org/wiki/Triangle_wave

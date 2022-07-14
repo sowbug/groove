@@ -1,31 +1,32 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use sorted_vec::SortedVec;
 
-use crate::{
-    common::{MidiMessageType, OrderedMidiMessage},
-    primitives::clock::Clock,
-};
+use crate::{common::OrderedMidiMessage, primitives::clock::Clock};
 
 use super::traits::DeviceTrait;
 
 pub struct Sequencer {
     midi_ticks_per_second: u32,
-    sinks: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    channels_to_sink_vecs: HashMap<u8, Vec<Rc<RefCell<dyn DeviceTrait>>>>,
     midi_messages: SortedVec<OrderedMidiMessage>,
 }
 
 impl Sequencer {
     pub fn new() -> Self {
-        let result = Self {
+        let mut result = Self {
             midi_ticks_per_second: 960,
-            sinks: Vec::new(),
+            channels_to_sink_vecs: HashMap::new(),
             midi_messages: SortedVec::new(),
         };
-        // for channel in 0..16 {
-        //     result.channels_to_sink_vecs.insert(channel, Vec::new());
-        // }
+        for channel in 0..Self::connected_channel_count() {
+            result.channels_to_sink_vecs.insert(channel, Vec::new());
+        }
         result
+    }
+
+    pub fn connected_channel_count() -> u8 {
+        16
     }
 
     pub fn set_midi_ticks_per_second(&mut self, tps: u32) {
@@ -35,37 +36,27 @@ impl Sequencer {
     pub fn add_message(&mut self, message: OrderedMidiMessage) {
         self.midi_messages.insert(message);
     }
+
     pub fn connect_midi_sink_for_channel(
         &mut self,
         device: Rc<RefCell<dyn DeviceTrait>>,
-        _channel: u32,
+        channel: u8,
     ) {
-        self.sinks.push(device);
-
         // https://users.rust-lang.org/t/lots-of-references-when-using-hashmap/68754
-        // discusses why we have to do strange &u32 keys.
-        // let sink_vec = self.channels_to_sink_vecs.get_mut(&channel).unwrap();
-        // sink_vec.push(device);
+        // discusses why we have to do strange &u keys.
+        let sink_vec = self.channels_to_sink_vecs.get_mut(&channel).unwrap();
+        sink_vec.push(device);
     }
 
     fn dispatch_midi_message(&self, midi_message: &OrderedMidiMessage, clock: &Clock) {
-        if matches!(midi_message.message.status, MidiMessageType::ProgramChange) {
-            // switch synths here I guess TODO
-        } else {
-            for sink in self.sinks.clone() {
-                sink.borrow_mut()
-                    .handle_midi_message(&midi_message.message, clock);
-            }
+        let sinks = self
+            .channels_to_sink_vecs
+            .get(&midi_message.message.channel)
+            .unwrap();
+        for sink in sinks.clone() {
+            sink.borrow_mut()
+                .handle_midi_message(&midi_message.message, clock);
         }
-        // for (channel, sink_vec) in self.channels_to_sink_vecs.iter() {
-        //     if *channel == midi_message.message.channel as u32 {
-        //         for one_sink in sink_vec {
-        //             one_sink
-        //                 .borrow_mut()
-        //                 .handle_midi_message(&midi_message.message, clock);
-        //         }
-        //     }
-        // }
     }
 
     pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: u32) -> u32 {

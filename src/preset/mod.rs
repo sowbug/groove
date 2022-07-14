@@ -44,6 +44,7 @@ pub enum LfoRouting {
     None,
     Amplitude,
     Pitch,
+    PulseWidth,
 }
 
 impl Default for LfoRouting {

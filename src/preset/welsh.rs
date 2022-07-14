@@ -163,7 +163,7 @@ pub struct WelshSynthPreset {
     // your synthesizer has.
     pub filter_type_24db: FilterPreset,
     pub filter_type_12db: FilterPreset,
-    pub filter_resonance: f32,  // This should be an appropriate interpretation of a linear 0..1
+    pub filter_resonance: f32, // This should be an appropriate interpretation of a linear 0..1
     pub filter_envelope_weight: f32,
     pub filter_envelope_preset: EnvelopePreset,
 
@@ -175,11 +175,11 @@ impl WelshSynthPreset {
         match name {
             WelshPresetName::Banjo => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Square(0.2),
+                    waveform: Waveform::PulseWidth(0.2),
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square(0.1),
+                    waveform: Waveform::PulseWidth(0.1),
                     ..Default::default()
                 },
                 oscillator_2_track: true,
@@ -219,12 +219,12 @@ impl WelshSynthPreset {
             },
             WelshPresetName::Cello => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Square(0.1),
+                    waveform: Waveform::PulseWidth(0.1),
                     tune: 1.0,
                     mix: 1.0,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square(0.5),
+                    waveform: Waveform::Square,
                     tune: 1.0,
                     mix: 1.0,
                 },
@@ -265,12 +265,12 @@ impl WelshSynthPreset {
             },
             WelshPresetName::DoubleBass => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Square(0.45),
-                    tune: -0.1,
+                    waveform: Waveform::PulseWidth(0.45),
+                    tune: OscillatorPreset::octaves(-0.1),
                     mix: 1.0,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square(0.0),
+                    waveform: Waveform::Square,
                     tune: 0.0,
                     mix: 0.6,
                 },
@@ -281,7 +281,7 @@ impl WelshSynthPreset {
                     routing: LfoRouting::Pitch,
                     waveform: Waveform::Triangle,
                     frequency: 5.0,
-                    depth: 0.11,
+                    depth: LfoPreset::semis_and_cents(0.0, 11.0),
                 },
                 glide: GlidePreset::Off,
                 has_unison: false,
@@ -363,7 +363,7 @@ impl WelshSynthPreset {
                     mix: 1.0,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square(0.10),
+                    waveform: Waveform::PulseWidth(0.10),
                     tune: OscillatorPreset::semis_and_cents(10.0, 0.0),
                     mix: 0.9,
                 },
@@ -405,12 +405,12 @@ impl WelshSynthPreset {
 
             WelshPresetName::GuitarElectric => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Square(0.2),
+                    waveform: Waveform::PulseWidth(0.2),
                     tune: 1.0,
                     mix: 0.65,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square(0.15),
+                    waveform: Waveform::PulseWidth(0.15),
                     tune: OscillatorPreset::semis_and_cents(10.0, 0.0),
                     mix: 1.0,
                 },
@@ -473,9 +473,52 @@ impl WelshSynthPreset {
             WelshPresetName::Sitar => {
                 panic!()
             }
-            WelshPresetName::StandupBass => {
-                panic!()
-            }
+            WelshPresetName::StandupBass => WelshSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::PulseWidth(0.25),
+                    tune: OscillatorPreset::octaves(-1.0),
+                    mix: 1.0,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Triangle,
+                    tune: OscillatorPreset::octaves(-1.0),
+                    mix: 1.0,
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::Amplitude,
+                    waveform: Waveform::Triangle,
+                    frequency: 15.0,
+                    depth: 0.1,
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Multi,
+                filter_type_24db: FilterPreset {
+                    cutoff: 40.,
+                    weight: 0.1,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 40.,
+                    weight: 0.1,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 0.75,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 2.33,
+                    sustain_percentage: 0.6,
+                    release_seconds: 2.33,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 1.28,
+                    sustain_percentage: 0.0,
+                    release_seconds: 1.38,
+                },
+            },
             WelshPresetName::Viola => {
                 panic!()
             }
@@ -519,7 +562,7 @@ impl WelshSynthPreset {
             // -------------------- Brass
             WelshPresetName::FrenchHorn => WelshSynthPreset {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Square(0.1),
+                    waveform: Waveform::PulseWidth(0.1),
                     tune: 1.0,
                     mix: 1.0,
                 },
@@ -572,12 +615,12 @@ impl WelshSynthPreset {
             WelshPresetName::Saxophone => {
                 WelshSynthPreset {
                     oscillator_1_preset: OscillatorPreset {
-                        waveform: Waveform::Square(0.3),
+                        waveform: Waveform::PulseWidth(0.3),
                         tune: 1.0,
                         mix: 1.0,
                     },
                     oscillator_2_preset: OscillatorPreset {
-                        waveform: Waveform::Square(0.45),
+                        waveform: Waveform::PulseWidth(0.45),
                         tune: OscillatorPreset::semis_and_cents(8.0, 0.0),
                         mix: 0.75,
                     },
@@ -666,9 +709,53 @@ impl WelshSynthPreset {
             WelshPresetName::Trumpet => {
                 panic!()
             }
-            WelshPresetName::Tuba => {
-                panic!()
-            }
+            WelshPresetName::Tuba => WelshSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Sawtooth,
+                    tune: 1.0,
+                    mix: 0.85,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Sawtooth,
+                    tune: OscillatorPreset::octaves(-1.0),
+                    mix: 1.0,
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::Amplitude,
+                    waveform: Waveform::Triangle,
+                    frequency: 2400.0,
+                    depth: 0.05,
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Multi,
+                filter_type_24db: FilterPreset {
+                    cutoff: 40.0,
+                    weight: 0.1,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 40.0,
+                    weight: 0.1,
+                },
+
+                filter_resonance: 0.0,
+                filter_envelope_weight: 0.6,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.7,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.11,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.03,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.11,
+                },
+            },
             // -------------------- Keyboards
             WelshPresetName::Accordion => {
                 panic!()
@@ -685,12 +772,90 @@ impl WelshSynthPreset {
             WelshPresetName::Harpsichord => {
                 panic!()
             }
-            WelshPresetName::Organ => {
-                panic!()
-            }
-            WelshPresetName::Piano => {
-                panic!()
-            }
+            WelshPresetName::Organ => WelshSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Triangle,
+                    ..Default::default()
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Triangle,
+                    tune: OscillatorPreset::octaves(-2.0),
+                    ..Default::default()
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::None,
+                    ..Default::default()
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Multi,
+                filter_type_24db: FilterPreset {
+                    cutoff: 20000.0,
+                    weight: 1.0,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 20000.0,
+                    weight: 1.0,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 0.0,
+                filter_envelope_preset: EnvelopePreset {
+                    ..Default::default()
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.6,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.4,
+                },
+            },
+            WelshPresetName::Piano => WelshSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Sawtooth,
+                    mix: 0.75,
+                    ..Default::default()
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::PulseWidth(0.15),
+                    tune: OscillatorPreset::semis_and_cents(12.0 + 2.0, 0.0),
+                    ..Default::default()
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: true,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::None,
+                    ..Default::default()
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Multi,
+                filter_type_24db: FilterPreset {
+                    cutoff: 40.0,
+                    weight: 0.10,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 40.0,
+                    weight: 0.10,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 0.75,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.,
+                    decay_seconds: 5.22,
+                    sustain_percentage: 0.,
+                    release_seconds: 0.,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.67,
+                    sustain_percentage: 0.25,
+                    release_seconds: 0.50,
+                },
+            },
             // -------------------- Vocals
             WelshPresetName::Angels => WelshSynthPreset {
                 oscillator_1_preset: OscillatorPreset {
@@ -752,9 +917,51 @@ impl WelshSynthPreset {
             WelshPresetName::Bell => {
                 panic!()
             }
-            WelshPresetName::Bongos => {
-                panic!()
-            }
+            WelshPresetName::Bongos => WelshSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Triangle,
+                    ..Default::default()
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Square,
+                    tune: OscillatorPreset::semis_and_cents(5.0, 0.0),
+                    mix: 0.65,
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::Amplitude,
+                    waveform: Waveform::Triangle,
+                    frequency: 7.5,
+                    depth: 0.05,
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Multi,
+                filter_type_24db: FilterPreset {
+                    cutoff: 20000.0,
+                    weight: 1.0,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 20000.0,
+                    weight: 1.0,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 0.0,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 0.0,
+                    release_seconds: 0.0,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 1.3,
+                    sustain_percentage: 0.0,
+                    release_seconds: 3.3,
+                },
+            },
             WelshPresetName::Conga => {
                 panic!()
             }
@@ -789,12 +996,73 @@ impl WelshSynthPreset {
             WelshPresetName::CowbellAnalog => {
                 panic!()
             }
-            WelshPresetName::Cymbal => {
-                panic!()
-            }
-            WelshPresetName::SideStick => {
-                panic!()
-            }
+            WelshPresetName::Cymbal => WelshSynthPreset {
+                noise: 1.0,
+                polyphony: PolyphonyPreset::Mono,
+                filter_type_24db: FilterPreset {
+                    cutoff: 9400.0,
+                    weight: 0.89,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 9400.0,
+                    weight: 0.89,
+                },
+                filter_resonance: 0.6,
+                filter_envelope_weight: 0.7,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.14,
+                    sustain_percentage: 0.0,
+                    release_seconds: 1.8,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 1.1,
+                    sustain_percentage: 0.0,
+                    release_seconds: 1.0,
+                },
+                ..Default::default()
+            },
+            WelshPresetName::SideStick => Self {
+                oscillator_1_preset: OscillatorPreset {
+                    ..Default::default()
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    ..Default::default()
+                },
+                oscillator_2_track: false,
+                oscillator_2_sync: false,
+                noise: 1.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::None,
+                    ..Default::default()
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Mono,
+                filter_type_24db: FilterPreset {
+                    cutoff: 2700.0,
+                    weight: 0.71,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 2700.0,
+                    weight: 0.71,
+                },
+                filter_resonance: 1.0,
+                filter_envelope_weight: 0.85,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 1.19,
+                    sustain_percentage: 0.0,
+                    release_seconds: 0.0,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.09,
+                    sustain_percentage: 0.0,
+                    release_seconds: 0.0,
+                },
+            },
             WelshPresetName::SnareDrum => {
                 panic!()
             }
@@ -805,9 +1073,52 @@ impl WelshSynthPreset {
                 panic!()
             }
             // -------------------- Leads
-            WelshPresetName::BrassSection => {
-                panic!()
-            }
+            WelshPresetName::BrassSection => WelshSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Square,
+                    tune: OscillatorPreset::semis_and_cents(0.0, -0.1),
+                    mix: 1.0,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::PulseWidth(0.2),
+                    tune: OscillatorPreset::semis_and_cents(12.0, 10.0),
+                    mix: 1.0,
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::PulseWidth,
+                    waveform: Waveform::Triangle,
+                    frequency: 5.5,
+                    depth: 0.45,
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Multi,
+                filter_type_24db: FilterPreset {
+                    cutoff: 40.0,
+                    weight: 0.1,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 40.0,
+                    weight: 0.1,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 1.0,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.03,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.6,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.35,
+                },
+            },
             WelshPresetName::Mellow70sLead => {
                 panic!()
             }
@@ -823,16 +1134,135 @@ impl WelshSynthPreset {
             WelshPresetName::ScreamingSync => {
                 panic!()
             }
-            WelshPresetName::StringsPwm => {
-                panic!()
-            }
-            WelshPresetName::Trance5th => {
-                panic!()
-            }
-            // -------------------- Bass
-            WelshPresetName::AcidBass => {
-                panic!()
-            }
+            WelshPresetName::StringsPwm => WelshSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Square,
+                    tune: OscillatorPreset::semis_and_cents(0.0, -10.0),
+                    mix: 1.0,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Square,
+                    tune: OscillatorPreset::semis_and_cents(0.0, 10.0),
+                    mix: 1.0,
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::PulseWidth,
+                    waveform: Waveform::Sine,
+                    frequency: 2.0,
+                    depth: 0.47,
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Multi,
+                filter_type_24db: FilterPreset {
+                    cutoff: 2000.0,
+                    weight: 0.67,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 2000.0,
+                    weight: 0.67,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 1.0,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.09,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.0,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.11,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.35,
+                },
+            },
+            WelshPresetName::Trance5th => WelshSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Square,
+                    ..Default::default()
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Square,
+                    tune: OscillatorPreset::semis_and_cents(7.0, 0.0),
+                    ..Default::default()
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::PulseWidth,
+                    waveform: Waveform::Triangle, // TODO: this should be two different waveforms, one for each osc
+                    frequency: 6.0,
+                    depth: 0.8,
+                },
+                glide: GlidePreset::Off,
+                has_unison: true,
+                polyphony: PolyphonyPreset::Mono,
+                filter_type_24db: FilterPreset {
+                    cutoff: 20000.0,
+                    weight: 1.0,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 20000.0,
+                    weight: 1.0,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 0.0,
+                filter_envelope_preset: EnvelopePreset {
+                    ..Default::default()
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    ..Default::default()
+                },
+            }, // -------------------- Bass
+            WelshPresetName::AcidBass => WelshSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::PulseWidth(0.25),
+                    tune: OscillatorPreset::semis_and_cents(0.0, 10.),
+                    mix: 0.7,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Square,
+                    tune: OscillatorPreset::semis_and_cents(-24.0, -10.),
+                    mix: 1.0,
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::None,
+                    ..Default::default()
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Mono,
+                filter_type_24db: FilterPreset {
+                    cutoff: 450.0,
+                    weight: 0.45,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 330.0,
+                    weight: 0.40,
+                },
+                filter_resonance: 0.6,
+                filter_envelope_weight: 0.0,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 0.0,
+                    release_seconds: 0.0,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.45,
+                    sustain_percentage: 0.15,
+                    release_seconds: 0.25,
+                },
+            },
             WelshPresetName::BassOfTheTimeLords => {
                 panic!()
             }
@@ -842,9 +1272,50 @@ impl WelshSynthPreset {
             WelshPresetName::DeutscheBass => {
                 panic!()
             }
-            WelshPresetName::DigitalBass => {
-                panic!()
-            }
+            WelshPresetName::DigitalBass => WelshSynthPreset {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Square,
+                    tune: OscillatorPreset::octaves(-1.0),
+                    mix: 0.85,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::Sawtooth,
+                    tune: OscillatorPreset::octaves(-2.0),
+                    mix: 1.0,
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::None,
+                    ..Default::default()
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Mono,
+                filter_type_24db: FilterPreset {
+                    cutoff: 122.0,
+                    weight: 0.26,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 75.0,
+                    weight: 0.19,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 1.0,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.15,
+                    sustain_percentage: 0.0,
+                    release_seconds: 0.0,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.0,
+                    sustain_percentage: 1.0,
+                    release_seconds: 1.0,
+                },
+            },
             WelshPresetName::FunkBass => {
                 panic!()
             }

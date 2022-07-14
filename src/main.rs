@@ -1,14 +1,17 @@
 extern crate anyhow;
 extern crate cpal;
 
+#[macro_use]
+extern crate num_derive;
+
 mod common;
 mod devices;
 mod preset;
 mod primitives;
 
-use crate::devices::{
-    orchestrator::Orchestrator, presets_ss::GeneralMidiProgram, sequencer::Sequencer,
-    synthesizers::SuperSynth,
+use crate::{
+    devices::{orchestrator::Orchestrator, sequencer::Sequencer, synthesizers::SuperSynth},
+    preset::welsh::WelshSynthPreset,
 };
 use clap::Parser;
 use cpal::{
@@ -166,14 +169,6 @@ impl ClDaw {
         midi_in: Option<String>,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
-        let synth = Rc::new(RefCell::new(SuperSynth::new_for_general_midi(
-            self.orchestrator.clock.sample_rate(),
-            GeneralMidiProgram::Cello,
-        )));
-        self.orchestrator.add_device(synth.clone());
-
-        self.orchestrator.add_master_mixer_source(synth.clone());
-
         if midi_in.is_some() {
             let sequencer = Rc::new(RefCell::new(Sequencer::new()));
             self.orchestrator.add_device(sequencer.clone());
@@ -181,47 +176,18 @@ impl ClDaw {
             let data = std::fs::read(midi_in.unwrap()).unwrap();
             MidiReader::load_sequencer(&data, sequencer.clone());
 
-            // let lfo = Rc::new(RefCell::new(Lfo::new(3.0)));
-            // self.orchestrator.add_device(lfo.clone());
+            for channel_number in 0..Sequencer::connected_channel_count() {
+                let synth = Rc::new(RefCell::new(SuperSynth::new(
+                    self.orchestrator.clock.sample_rate(),
+                    WelshSynthPreset::by_name(preset::welsh::WelshPresetName::Piano),
+                )));
+                self.orchestrator.add_device(synth.clone());
+                self.orchestrator.add_master_mixer_source(synth.clone());
 
-            //             // TODO: for now, we'll create one synth per MIDI channel. Later
-            //             // I guess we'll analyze the sequencer content and figure out which are needed.
-            //             for channel in 0..16 {
-            //                 let waveform = match channel.rem(4) {
-            //                     0 => Waveform::Sine,
-            //                     1 => Waveform::Square,
-            //                     2 => Waveform::Triangle,
-            //                     3 => Waveform::Sawtooth,
-            //                     4_u32..=u32::MAX => todo!(), // TODO: is this a problem with the compiler's smarts?
-            //                 };
-            // //                let simple_synth = Rc::new(RefCell::new(SimpleSynth::new(waveform, channel)));
-            //                 let simple_synth = Rc::new(RefCell::new(CelloSynth2::new()));
-            //                 self.orchestrator.add_device(simple_synth.clone());
-
-            //                 // if channel == 0 {
-            //                 //     let s2 = simple_synth.clone();
-            //                 //     let target = move |value: f32| -> () {
-            //                 //         let frequency = 440f32;
-            //                 //         s2.borrow_mut()
-            //                 //             .temp_set_oscillator_frequency(frequency + frequency * value * 0.25);
-            //                 //     };
-            //                 //     lfo.borrow_mut().connect_automation_sink(target);
-            //                 // }
-
-            //                 self.orchestrator
-            //                     .master_mixer
-            //                     .borrow_mut()
-            //                     .add_audio_source(simple_synth.clone());
-
-            //                 sequencer
-            //                     .borrow_mut()
-            //                     .connect_midi_sink_for_channel(simple_synth, channel);
-            //             }
-
-            // TODO -- aha, I knew I'd written something to start to handle this
-            sequencer
-                .borrow_mut()
-                .connect_midi_sink_for_channel(synth, 0);
+                sequencer
+                    .borrow_mut()
+                    .connect_midi_sink_for_channel(synth, channel_number);
+            }
         }
 
         println!("Performing to queue");
