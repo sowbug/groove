@@ -473,7 +473,7 @@ impl WelshSynthPreset {
             WelshPresetName::Sitar => {
                 panic!()
             }
-            WelshPresetName::StandupBass => WelshSynthPreset {
+            WelshPresetName::StandupBass => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::PulseWidth(0.25),
                     tune: OscillatorPreset::octaves(-1.0),
@@ -560,7 +560,7 @@ impl WelshSynthPreset {
                 panic!()
             }
             // -------------------- Brass
-            WelshPresetName::FrenchHorn => WelshSynthPreset {
+            WelshPresetName::FrenchHorn => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::PulseWidth(0.1),
                     tune: 1.0,
@@ -709,7 +709,7 @@ impl WelshSynthPreset {
             WelshPresetName::Trumpet => {
                 panic!()
             }
-            WelshPresetName::Tuba => WelshSynthPreset {
+            WelshPresetName::Tuba => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Sawtooth,
                     tune: 1.0,
@@ -772,7 +772,7 @@ impl WelshSynthPreset {
             WelshPresetName::Harpsichord => {
                 panic!()
             }
-            WelshPresetName::Organ => WelshSynthPreset {
+            WelshPresetName::Organ => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Triangle,
                     ..Default::default()
@@ -812,7 +812,7 @@ impl WelshSynthPreset {
                     release_seconds: 0.4,
                 },
             },
-            WelshPresetName::Piano => WelshSynthPreset {
+            WelshPresetName::Piano => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Sawtooth,
                     mix: 0.75,
@@ -857,7 +857,7 @@ impl WelshSynthPreset {
                 },
             },
             // -------------------- Vocals
-            WelshPresetName::Angels => WelshSynthPreset {
+            WelshPresetName::Angels => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Sawtooth,
                     ..Default::default()
@@ -917,7 +917,7 @@ impl WelshSynthPreset {
             WelshPresetName::Bell => {
                 panic!()
             }
-            WelshPresetName::Bongos => WelshSynthPreset {
+            WelshPresetName::Bongos => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Triangle,
                     ..Default::default()
@@ -996,7 +996,7 @@ impl WelshSynthPreset {
             WelshPresetName::CowbellAnalog => {
                 panic!()
             }
-            WelshPresetName::Cymbal => WelshSynthPreset {
+            WelshPresetName::Cymbal => Self {
                 noise: 1.0,
                 polyphony: PolyphonyPreset::Mono,
                 filter_type_24db: FilterPreset {
@@ -1073,7 +1073,7 @@ impl WelshSynthPreset {
                 panic!()
             }
             // -------------------- Leads
-            WelshPresetName::BrassSection => WelshSynthPreset {
+            WelshPresetName::BrassSection => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Square,
                     tune: OscillatorPreset::semis_and_cents(0.0, -0.1),
@@ -1134,7 +1134,7 @@ impl WelshSynthPreset {
             WelshPresetName::ScreamingSync => {
                 panic!()
             }
-            WelshPresetName::StringsPwm => WelshSynthPreset {
+            WelshPresetName::StringsPwm => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Square,
                     tune: OscillatorPreset::semis_and_cents(0.0, -10.0),
@@ -1180,7 +1180,7 @@ impl WelshSynthPreset {
                     release_seconds: 0.35,
                 },
             },
-            WelshPresetName::Trance5th => WelshSynthPreset {
+            WelshPresetName::Trance5th => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Square,
                     ..Default::default()
@@ -1219,7 +1219,7 @@ impl WelshSynthPreset {
                     ..Default::default()
                 },
             }, // -------------------- Bass
-            WelshPresetName::AcidBass => WelshSynthPreset {
+            WelshPresetName::AcidBass => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::PulseWidth(0.25),
                     tune: OscillatorPreset::semis_and_cents(0.0, 10.),
@@ -1272,7 +1272,7 @@ impl WelshSynthPreset {
             WelshPresetName::DeutscheBass => {
                 panic!()
             }
-            WelshPresetName::DigitalBass => WelshSynthPreset {
+            WelshPresetName::DigitalBass => Self {
                 oscillator_1_preset: OscillatorPreset {
                     waveform: Waveform::Square,
                     tune: OscillatorPreset::octaves(-1.0),
