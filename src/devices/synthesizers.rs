@@ -47,7 +47,7 @@ impl SuperSynth {
     }
 }
 
-impl<'a> DeviceTrait for SuperSynth {
+impl DeviceTrait for SuperSynth {
     fn sources_audio(&self) -> bool {
         true
     }
@@ -116,7 +116,8 @@ impl<'a> DeviceTrait for SuperSynth {
                 let note = message.data1;
                 let voice = self.voice_for_note(note);
                 voice.borrow_mut().handle_midi_message(message, clock);
-                self.note_to_voice.remove(&note);
+                //self.note_to_voice.remove(&note);
+                // TODO: this is incorrect because it kills voices before release is complete
             }
             MidiMessageType::ProgramChange => {
                 self.preset = SuperSynth::get_general_midi_preset(
@@ -133,7 +134,9 @@ impl<'a> DeviceTrait for SuperSynth {
             self.current_value += voice.borrow_mut().process(clock.seconds);
             done = done && !voice.borrow().is_playing();
         }
-        self.current_value /= self.note_to_voice.len() as f32;
+        if !self.note_to_voice.is_empty() {
+            self.current_value /= self.note_to_voice.len() as f32;
+        }
         done
     }
 
