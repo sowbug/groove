@@ -13,14 +13,15 @@ impl Default for OscillatorPreset {
     fn default() -> Self {
         Self {
             waveform: Waveform::None,
-            tune: 1.0,
-            mix: 1.0,
+            tune: OscillatorPreset::NATURAL_TUNING,
+            mix: OscillatorPreset::FULL_MIX,
         }
     }
 }
 
 impl OscillatorPreset {
-    pub const NaturalTuning: f32 = 1.0;
+    pub const NATURAL_TUNING: f32 = 1.0;  // tune field
+    pub const FULL_MIX: f32 = 1.0; // mix field
 
     pub fn octaves(num: f32) -> f32 {
         return Self::semis_and_cents(num * 12.0, 0.0);
@@ -153,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_oscillator_tuning_helpers() {
-        assert_eq!(OscillatorPreset::NaturalTuning, 1.0);
+        assert_eq!(OscillatorPreset::NATURAL_TUNING, 1.0);
         
         assert_eq!(OscillatorPreset::octaves(0.0), 1.0);
         assert_eq!(OscillatorPreset::octaves(1.0), 2.0);

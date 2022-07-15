@@ -22,10 +22,10 @@ impl Default for Waveform {
 #[derive(Default, Debug)]
 pub struct MiniOscillator {
     pub waveform: Waveform,
-    frequency: f32,             // Hertz. Any positive number. 440 = A4
-    frequency_tune: f32,        // Any number. Zero is no change. 1.0 doubles the frequency. -1.0 halves it.
-                                // Designed for pitch correction at construction time.
-    frequency_modulation: f32,  // Like frequency_tune. Designed for LFO.
+    frequency: f32,      // Hertz. Any positive number. 440 = A4
+    frequency_tune: f32, // Any number. Zero is no change. 1.0 doubles the frequency. -1.0 halves it.
+    // Designed for pitch correction at construction time.
+    frequency_modulation: f32, // Like frequency_tune. Designed for LFO.
 
     noise_x1: u32,
     noise_x2: u32,
@@ -63,9 +63,7 @@ impl MiniOscillator {
     }
 
     pub(crate) fn adjusted_frequency(&self) -> f32 {
-        self.frequency
-        * (self.frequency_tune)
-        * (2.0f32.powf(self.frequency_modulation))
+        self.frequency * (self.frequency_tune) * (2.0f32.powf(self.frequency_modulation))
     }
 
     pub fn process(&mut self, time_seconds: f32) -> f32 {
@@ -149,41 +147,62 @@ mod tests {
 
     #[test]
     fn test_oscillator_basic_waveforms() {
-        let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::NaturalTuning, 60);
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60));
+        let mut oscillator =
+            create_oscillator(Waveform::Sine, OscillatorPreset::NATURAL_TUNING, 60);
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60)
+        );
         write_sound(&mut oscillator, "oscillator_sine_c3.wav");
 
-        let mut oscillator = create_oscillator(Waveform::Square, OscillatorPreset::NaturalTuning, 60);
+        let mut oscillator =
+            create_oscillator(Waveform::Square, OscillatorPreset::NATURAL_TUNING, 60);
         write_sound(&mut oscillator, "oscillator_square_c3.wav");
 
-        let mut oscillator = create_oscillator(Waveform::PulseWidth(0.1), OscillatorPreset::NaturalTuning, 60);
+        let mut oscillator = create_oscillator(
+            Waveform::PulseWidth(0.1),
+            OscillatorPreset::NATURAL_TUNING,
+            60,
+        );
         write_sound(&mut oscillator, "oscillator_pulse_width_10_percent_c3.wav");
 
-        let mut oscillator = create_oscillator(Waveform::Triangle, OscillatorPreset::NaturalTuning, 60);
+        let mut oscillator =
+            create_oscillator(Waveform::Triangle, OscillatorPreset::NATURAL_TUNING, 60);
         write_sound(&mut oscillator, "oscillator_triangle_c3.wav");
 
-        let mut oscillator = create_oscillator(Waveform::Sawtooth, OscillatorPreset::NaturalTuning, 60);
+        let mut oscillator =
+            create_oscillator(Waveform::Sawtooth, OscillatorPreset::NATURAL_TUNING, 60);
         write_sound(&mut oscillator, "oscillator_sawtooth_c3.wav");
 
-        let mut oscillator = create_oscillator(Waveform::Noise, OscillatorPreset::NaturalTuning, 0);
+        let mut oscillator =
+            create_oscillator(Waveform::Noise, OscillatorPreset::NATURAL_TUNING, 0);
         write_sound(&mut oscillator, "oscillator_noise.wav");
 
-        let mut oscillator = create_oscillator(Waveform::None, OscillatorPreset::NaturalTuning, 0);
+        let mut oscillator = create_oscillator(Waveform::None, OscillatorPreset::NATURAL_TUNING, 0);
         write_sound(&mut oscillator, "oscillator_none.wav");
     }
 
     #[test]
     fn test_oscillator_tuned() {
         let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(0.0), 60);
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60));
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60)
+        );
         write_sound(&mut oscillator, "oscillator_sine_c3_plus_zero_octave.wav");
 
         let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(1.0), 60);
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) * 2.0);
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60) * 2.0
+        );
         write_sound(&mut oscillator, "oscillator_sine_c3_plus_1_octave.wav");
 
         let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(-1.0), 60);
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) / 2.0);
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60) / 2.0
+        );
         write_sound(&mut oscillator, "oscillator_sine_c3_minus_1_octave.wav");
 
         let mut oscillator = create_oscillator(
@@ -191,7 +210,10 @@ mod tests {
             OscillatorPreset::semis_and_cents(12.0, 0.0),
             60,
         );
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) * 2.0);
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60) * 2.0
+        );
         write_sound(&mut oscillator, "oscillator_sine_c3_plus_12_semitone.wav");
 
         let mut oscillator = create_oscillator(
@@ -199,21 +221,39 @@ mod tests {
             OscillatorPreset::semis_and_cents(0.0, -1200.0),
             60,
         );
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) / 2.0);
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60) / 2.0
+        );
         write_sound(&mut oscillator, "oscillator_sine_c3_minus_1200_cents.wav");
     }
 
     #[test]
     fn test_oscillator_modulated() {
         let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(0.0), 60);
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60));
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60)
+        );
         oscillator.set_frequency_modulation(0.0);
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60));
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60)
+        );
         oscillator.set_frequency_modulation(1.0);
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) * 2.0);
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60) * 2.0
+        );
         oscillator.set_frequency_modulation(-1.0);
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) / 2.0);
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60) / 2.0
+        );
         oscillator.set_frequency_modulation(0.5);
-        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) * 2.0f32.sqrt());
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            MidiMessage::note_to_frequency(60) * 2.0f32.sqrt()
+        );
     }
 }
