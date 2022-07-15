@@ -53,7 +53,7 @@ impl Sequencer {
             .channels_to_sink_vecs
             .get(&midi_message.message.channel)
             .unwrap();
-        for sink in sinks.clone() {
+        for sink in sinks {
             sink.borrow_mut()
                 .handle_midi_message(&midi_message.message, clock);
         }
@@ -209,7 +209,7 @@ mod tests {
 
             let dp_2 = device_2.borrow();
             assert!(!dp_2.is_playing);
-            assert_eq!(dp_2.midi_messages_received, 1); // TODO: this should be 0 to indicate the sequencer is directing messages only to the listening devices.
+            assert_eq!(dp_2.midi_messages_received, 0);
             assert_eq!(dp_2.midi_messages_handled, 0);
         }
 
@@ -219,12 +219,12 @@ mod tests {
         {
             let dp = device_1.borrow();
             assert!(dp.is_playing);
-            assert_eq!(dp.midi_messages_received, 2);
+            assert_eq!(dp.midi_messages_received, 1);
             assert_eq!(dp.midi_messages_handled, 1);
 
             let dp_2 = device_2.borrow();
             assert!(dp_2.is_playing);
-            assert_eq!(dp_2.midi_messages_received, 2);
+            assert_eq!(dp_2.midi_messages_received, 1);
             assert_eq!(dp_2.midi_messages_handled, 1);
         }
 
@@ -234,12 +234,12 @@ mod tests {
         {
             let dp = device_1.borrow();
             assert!(!dp.is_playing);
-            assert_eq!(dp.midi_messages_received, 3);
+            assert_eq!(dp.midi_messages_received, 2);
             assert_eq!(dp.midi_messages_handled, 2);
 
             let dp_2 = device_2.borrow();
             assert!(dp_2.is_playing);
-            assert_eq!(dp_2.midi_messages_received, 3);
+            assert_eq!(dp_2.midi_messages_received, 1);
             assert_eq!(dp_2.midi_messages_handled, 1);
         }
 
@@ -249,12 +249,12 @@ mod tests {
         {
             let dp = device_1.borrow();
             assert!(!dp.is_playing);
-            assert_eq!(dp.midi_messages_received, 4);
+            assert_eq!(dp.midi_messages_received, 2);
             assert_eq!(dp.midi_messages_handled, 2);
 
             let dp_2 = device_2.borrow();
             assert!(!dp_2.is_playing);
-            assert_eq!(dp_2.midi_messages_received, 4);
+            assert_eq!(dp_2.midi_messages_received, 2);
             assert_eq!(dp_2.midi_messages_handled, 2);
         }
     }
