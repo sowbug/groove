@@ -87,12 +87,11 @@ impl SuperVoice {
 
         let osc_1 = self.osc_1.process(time_seconds);
         let osc_2 = self.osc_2.process(time_seconds);
-        let osc_count = if !matches!(self.osc_2.waveform, Waveform::None) {
-            2.0
-        } else {
-            1.0
-        };
-        let osc_mix = (osc_1 * self.osc_1_mix + osc_2 * self.osc_2_mix) / osc_count;
+        let mut osc_denom = self.osc_1_mix + self.osc_2_mix;
+        if osc_denom == 0.0 {
+            osc_denom = 1.0;
+        }
+        let osc_mix = (osc_1 * self.osc_1_mix + osc_2 * self.osc_2_mix) / osc_denom;
 
         {
             let filter = self.filter.filter(osc_mix);

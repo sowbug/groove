@@ -17,8 +17,12 @@ pub struct MidiMessage {
 }
 
 impl MidiMessage {
+    pub fn note_to_frequency(note: u8) -> f32 {
+        2.0_f32.powf((note as f32 - 69.0) / 12.0) * 440.0
+    }
+
     pub fn to_frequency(&self) -> f32 {
-        2.0_f32.powf((self.data1 as f32 - 69.0) / 12.0) * 440.0
+        Self::note_to_frequency(self.data1)
     }
 
     pub(crate) fn new_note_on(channel: u8, note: u8, vel: u8) -> Self {

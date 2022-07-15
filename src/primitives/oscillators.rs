@@ -22,9 +22,10 @@ impl Default for Waveform {
 #[derive(Default, Debug)]
 pub struct MiniOscillator {
     pub waveform: Waveform,
-    frequency: f32,
-    frequency_modulation: f32,
-    frequency_tune: f32,
+    frequency: f32,             // Hertz. Any positive number. 440 = A4
+    frequency_tune: f32,        // Any number. Zero is no change. 1.0 doubles the frequency. -1.0 halves it.
+                                // Designed for pitch correction at construction time.
+    frequency_modulation: f32,  // Like frequency_tune. Designed for LFO.
 
     noise_x1: u32,
     noise_x2: u32,
@@ -36,7 +37,6 @@ impl MiniOscillator {
             waveform,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
-            frequency_tune: 1.0,
             ..Default::default()
         }
         // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5 is Square.
@@ -56,16 +56,20 @@ impl MiniOscillator {
         Self {
             waveform: lfo_preset.waveform,
             frequency: lfo_preset.frequency,
-            frequency_tune: 1.0,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
             ..Default::default()
         }
     }
 
+    pub(crate) fn adjusted_frequency(&self) -> f32 {
+        self.frequency
+        * (self.frequency_tune)
+        * (2.0f32.powf(self.frequency_modulation))
+    }
+
     pub fn process(&mut self, time_seconds: f32) -> f32 {
-        let phase_normalized =
-            self.frequency * self.frequency_tune * (1.0 + self.frequency_modulation) * time_seconds;
+        let phase_normalized = self.adjusted_frequency() * time_seconds;
         match self.waveform {
             Waveform::None => 0.0,
             // https://en.wikipedia.org/wiki/Sine_wave
@@ -101,5 +105,115 @@ impl MiniOscillator {
 
     pub(crate) fn set_frequency_modulation(&mut self, frequency_modulation: f32) {
         self.frequency_modulation = frequency_modulation;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_approx_eq::assert_approx_eq;
+
+    use crate::{common::MidiMessage, preset::OscillatorPreset, primitives::clock::Clock};
+
+    use super::{MiniOscillator, Waveform};
+
+    const SAMPLE_RATE: u32 = 44100;
+
+    fn write_sound(oscillator: &mut MiniOscillator, filename: &str) {
+        let mut clock = Clock::new(SAMPLE_RATE, 4, 4, 128.);
+
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: clock.sample_rate(),
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        const AMPLITUDE: f32 = i16::MAX as f32;
+        let mut filter_writer = hound::WavWriter::create(filename, spec).unwrap();
+
+        while clock.seconds < 1.0 {
+            let sample = oscillator.process(clock.seconds);
+            let _ = filter_writer.write_sample((sample * AMPLITUDE) as i16);
+            clock.tick();
+        }
+    }
+
+    fn create_oscillator(waveform: Waveform, tune: f32, note: u8) -> MiniOscillator {
+        let mut oscillator = MiniOscillator::new_from_preset(&OscillatorPreset {
+            waveform,
+            tune,
+            ..Default::default()
+        });
+        oscillator.set_frequency(MidiMessage::note_to_frequency(note));
+        oscillator
+    }
+
+    #[test]
+    fn test_oscillator_basic_waveforms() {
+        let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::NaturalTuning, 60);
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60));
+        write_sound(&mut oscillator, "oscillator_sine_c3.wav");
+
+        let mut oscillator = create_oscillator(Waveform::Square, OscillatorPreset::NaturalTuning, 60);
+        write_sound(&mut oscillator, "oscillator_square_c3.wav");
+
+        let mut oscillator = create_oscillator(Waveform::PulseWidth(0.1), OscillatorPreset::NaturalTuning, 60);
+        write_sound(&mut oscillator, "oscillator_pulse_width_10_percent_c3.wav");
+
+        let mut oscillator = create_oscillator(Waveform::Triangle, OscillatorPreset::NaturalTuning, 60);
+        write_sound(&mut oscillator, "oscillator_triangle_c3.wav");
+
+        let mut oscillator = create_oscillator(Waveform::Sawtooth, OscillatorPreset::NaturalTuning, 60);
+        write_sound(&mut oscillator, "oscillator_sawtooth_c3.wav");
+
+        let mut oscillator = create_oscillator(Waveform::Noise, OscillatorPreset::NaturalTuning, 0);
+        write_sound(&mut oscillator, "oscillator_noise.wav");
+
+        let mut oscillator = create_oscillator(Waveform::None, OscillatorPreset::NaturalTuning, 0);
+        write_sound(&mut oscillator, "oscillator_none.wav");
+    }
+
+    #[test]
+    fn test_oscillator_tuned() {
+        let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(0.0), 60);
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60));
+        write_sound(&mut oscillator, "oscillator_sine_c3_plus_zero_octave.wav");
+
+        let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(1.0), 60);
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) * 2.0);
+        write_sound(&mut oscillator, "oscillator_sine_c3_plus_1_octave.wav");
+
+        let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(-1.0), 60);
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) / 2.0);
+        write_sound(&mut oscillator, "oscillator_sine_c3_minus_1_octave.wav");
+
+        let mut oscillator = create_oscillator(
+            Waveform::Sine,
+            OscillatorPreset::semis_and_cents(12.0, 0.0),
+            60,
+        );
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) * 2.0);
+        write_sound(&mut oscillator, "oscillator_sine_c3_plus_12_semitone.wav");
+
+        let mut oscillator = create_oscillator(
+            Waveform::Sine,
+            OscillatorPreset::semis_and_cents(0.0, -1200.0),
+            60,
+        );
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) / 2.0);
+        write_sound(&mut oscillator, "oscillator_sine_c3_minus_1200_cents.wav");
+    }
+
+    #[test]
+    fn test_oscillator_modulated() {
+        let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(0.0), 60);
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60));
+        oscillator.set_frequency_modulation(0.0);
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60));
+        oscillator.set_frequency_modulation(1.0);
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) * 2.0);
+        oscillator.set_frequency_modulation(-1.0);
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) / 2.0);
+        oscillator.set_frequency_modulation(0.5);
+        assert_eq!(oscillator.adjusted_frequency(), MidiMessage::note_to_frequency(60) * 2.0f32.sqrt());
     }
 }

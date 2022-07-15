@@ -2,16 +2,28 @@ use crate::primitives::oscillators::Waveform;
 
 pub mod welsh;
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct OscillatorPreset {
     pub waveform: Waveform,
     pub tune: f32,
     pub mix: f32,
 }
 
+impl Default for OscillatorPreset {
+    fn default() -> Self {
+        Self {
+            waveform: Waveform::None,
+            tune: 1.0,
+            mix: 1.0,
+        }
+    }
+}
+
 impl OscillatorPreset {
+    pub const NaturalTuning: f32 = 1.0;
+
     pub fn octaves(num: f32) -> f32 {
-        return 1.0 + num;
+        return Self::semis_and_cents(num * 12.0, 0.0);
     }
 
     pub fn semis_and_cents(semitones: f32, cents: f32) -> f32 {
@@ -75,7 +87,7 @@ impl LfoPreset {
 // TODO: for Welsh presets, it's understood that they're all low-pass filters.
 // Thus we can use defaults cutoff 0.0 and weight 0.0 as a hack for a passthrough.
 // Eventually we'll want this preset to be richer, and then we'll need an explicit
-// notion of a None filter type. 
+// notion of a None filter type.
 #[derive(Default, Debug, Clone, Copy)]
 pub struct FilterPreset {
     pub cutoff: f32,
@@ -89,6 +101,8 @@ mod tests {
         devices::traits::DeviceTrait,
         primitives::clock::Clock,
     };
+
+    use super::OscillatorPreset;
 
     #[derive(Default)]
     pub struct NullDevice {
@@ -135,5 +149,25 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_oscillator_tuning_helpers() {
+        assert_eq!(OscillatorPreset::NaturalTuning, 1.0);
+        
+        assert_eq!(OscillatorPreset::octaves(0.0), 1.0);
+        assert_eq!(OscillatorPreset::octaves(1.0), 2.0);
+        assert_eq!(OscillatorPreset::octaves(-1.0), 0.5);
+        assert_eq!(OscillatorPreset::octaves(2.0), 4.0);
+        assert_eq!(OscillatorPreset::octaves(-2.0), 0.25);
+
+        assert_eq!(OscillatorPreset::semis_and_cents(0.0, 0.0), 1.0);
+        assert_eq!(OscillatorPreset::semis_and_cents(12.0, 0.0), 2.0);
+        // https://en.wikipedia.org/wiki/Cent_(music)
+        assert_eq!(OscillatorPreset::semis_and_cents(0.0, -100.0), 2.0f32.powf(-100.0/1200.0));
+
+        assert_eq!(OscillatorPreset::octaves(0.5), OscillatorPreset::semis_and_cents(6.0, 0.0));
+        assert_eq!(OscillatorPreset::octaves(1.0), OscillatorPreset::semis_and_cents(0.0, 1200.0));
+        assert_eq!(OscillatorPreset::semis_and_cents(1.0,0.0), OscillatorPreset::semis_and_cents(0.0, 100.0));
     }
 }
