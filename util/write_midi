@@ -6,6 +6,9 @@ from midiutil import MIDIFile
 
 DIR = "midi_files"
 
+CELLO = 42
+PIANO = 0
+
 degrees  = [60, 62, 64, 65, 67, 69, 71, 72]  # MIDI note number
 track    = 0
 channel  = 0
@@ -36,13 +39,13 @@ for i, pitch in enumerate(degrees):
 write_midi_file(f, "major-scale-overlapping.mid")
 
 f = new_midi_file()
-f.addProgramChange(track, channel, 0, 0) # acoustic grand piano
+f.addProgramChange(track, channel, 0, PIANO)
 for i, pitch in enumerate(degrees):
     f.addNote(track, channel, pitch, i, 0.8, volume)
 write_midi_file(f, "major-scale-spaced-notes.mid")
 
 f = new_midi_file()
-f.addProgramChange(track, channel, 0, 0) # acoustic grand piano
+f.addProgramChange(track, channel, 0, PIANO)
 for i, pitch in enumerate([60, 60, 60, 60]):
     f.addNote(track, channel, pitch, i, 0.8, volume)
 write_midi_file(f, "major-scale-spaced-identical-notes.mid")
