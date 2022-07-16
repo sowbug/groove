@@ -180,7 +180,8 @@ impl WelshSynthPreset {
                 },
                 oscillator_2_preset: OscillatorPreset {
                     waveform: Waveform::PulseWidth(0.1),
-                    ..Default::default()
+                    tune: OscillatorPreset::semis_and_cents(5.0, 0.0),
+                    mix: 0.80,
                 },
                 oscillator_2_track: true,
                 oscillator_2_sync: true,
@@ -189,7 +190,7 @@ impl WelshSynthPreset {
                     routing: LfoRouting::Amplitude,
                     waveform: Waveform::Triangle,
                     frequency: 10.0,
-                    depth: LfoPreset::percent(5.0),
+                    depth: LfoPreset::percent(10.0),
                 },
                 glide: GlidePreset::Off,
                 has_unison: false,
@@ -252,11 +253,11 @@ impl WelshSynthPreset {
                     attack_seconds: 0.0,
                     decay_seconds: 3.29,
                     sustain_percentage: 0.78,
-                    release_seconds: 0.0,
+                    release_seconds: EnvelopePreset::MAX,
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.06,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.3,
                 },
@@ -272,8 +273,8 @@ impl WelshSynthPreset {
                     mix: 0.6,
                     ..Default::default()
                 },
-                oscillator_2_sync: false,
                 oscillator_2_track: true,
+                oscillator_2_sync: false,
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Pitch,
@@ -285,7 +286,7 @@ impl WelshSynthPreset {
                 has_unison: false,
                 polyphony: PolyphonyPreset::Multi,
                 filter_type_24db: FilterPreset {
-                    cutoff: 1.6,
+                    cutoff: 1600.0,
                     weight: 0.63,
                 },
                 filter_type_12db: FilterPreset {
@@ -295,26 +296,23 @@ impl WelshSynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.0,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.0,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.0,
+                    ..Default::default()
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.35,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.19,
                 },
             },
             WelshPresetName::Dulcimer => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::None,
+                    waveform: Waveform::PulseWidth(0.25),
                     tune: OscillatorPreset::semis_and_cents(-7.0, 0.0),
                     mix: 0.80,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::None,
+                    waveform: Waveform::PulseWidth(0.05),
                     ..Default::default()
                 },
                 oscillator_2_track: true,
@@ -355,7 +353,7 @@ impl WelshSynthPreset {
 
             WelshPresetName::GuitarAcoustic => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::None,
+                    waveform: Waveform::PulseWidth(0.25),
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
@@ -368,19 +366,17 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::None,
-                    waveform: Waveform::None,
-                    frequency: 0.0,
-                    depth: 0.0,
+                    ..Default::default()
                 },
                 glide: GlidePreset::Off,
                 has_unison: false,
                 polyphony: PolyphonyPreset::Multi,
                 filter_type_24db: FilterPreset {
-                    cutoff: 3.1,
+                    cutoff: 3100.0,
                     weight: 0.73,
                 },
                 filter_type_12db: FilterPreset {
-                    cutoff: 2.0,
+                    cutoff: 2000.0,
                     weight: 0.67,
                 },
                 filter_resonance: 0.0,
@@ -414,29 +410,23 @@ impl WelshSynthPreset {
                 oscillator_2_sync: true,
                 noise: 0.0,
                 lfo_preset: LfoPreset {
-                    routing: LfoRouting::None,
-                    waveform: Waveform::None,
-                    frequency: 0.0,
-                    depth: 0.0,
+                    ..Default::default()
                 },
                 glide: GlidePreset::Off,
                 has_unison: false,
                 polyphony: PolyphonyPreset::Multi,
                 filter_type_24db: FilterPreset {
-                    cutoff: 20.0,
+                    cutoff: 20000.0,
                     weight: 1.0,
                 },
                 filter_type_12db: FilterPreset {
-                    cutoff: 20.0,
+                    cutoff: 20000.0,
                     weight: 1.0,
                 },
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.0,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.0,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.0,
+                    ..Default::default()
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.0,
@@ -584,7 +574,7 @@ impl WelshSynthPreset {
                     cutoff: 40.0,
                     weight: 0.1,
                 },
-                filter_resonance: 0.2,
+                filter_resonance: 0.20,
                 filter_envelope_weight: 0.45,
                 filter_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.05,
@@ -619,15 +609,15 @@ impl WelshSynthPreset {
                     oscillator_2_track: true,
                     oscillator_2_sync: true,
                     noise: 0.0,
-                    glide: GlidePreset::Off,
-                    has_unison: false,
-                    polyphony: PolyphonyPreset::Multi,
                     lfo_preset: LfoPreset {
                         routing: LfoRouting::Pitch, // TODO osc1/osc2 is an option
                         waveform: Waveform::Sine,
                         frequency: 7.5,
                         depth: LfoPreset::semis_and_cents(0.0, 10.0),
                     },
+                    glide: GlidePreset::Off,
+                    has_unison: false,
+                    polyphony: PolyphonyPreset::Multi,
                     filter_type_24db: FilterPreset {
                         cutoff: 40.0,
                         weight: 0.10,
@@ -642,11 +632,11 @@ impl WelshSynthPreset {
                         attack_seconds: 0.14,
                         decay_seconds: 0.37,
                         sustain_percentage: 0.78,
-                        release_seconds: 0.0,
+                        release_seconds: EnvelopePreset::MAX,
                     },
                     amp_envelope_preset: EnvelopePreset {
                         attack_seconds: 0.0,
-                        decay_seconds: 0.0,
+                        decay_seconds: EnvelopePreset::MAX,
                         sustain_percentage: 1.0,
                         release_seconds: 0.3,
                     },
@@ -686,13 +676,13 @@ impl WelshSynthPreset {
                 filter_envelope_weight: 0.3,
                 filter_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.11,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.18,
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.06,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.50,
                 },
@@ -717,7 +707,7 @@ impl WelshSynthPreset {
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Amplitude,
                     waveform: Waveform::Triangle,
-                    frequency: 2400.0,
+                    frequency: 2.4,
                     depth: 0.05,
                 },
                 glide: GlidePreset::Off,
@@ -736,13 +726,13 @@ impl WelshSynthPreset {
                 filter_envelope_weight: 0.6,
                 filter_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.7,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.11,
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.03,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.11,
                 },
@@ -798,7 +788,7 @@ impl WelshSynthPreset {
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.6,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.4,
                 },
@@ -838,7 +828,7 @@ impl WelshSynthPreset {
                     attack_seconds: 0.0,
                     decay_seconds: 5.22,
                     sustain_percentage: 0.0,
-                    release_seconds: 0.0,
+                    release_seconds: EnvelopePreset::MAX,
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.0,
@@ -886,7 +876,7 @@ impl WelshSynthPreset {
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.32,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.93,
                 },
@@ -1011,8 +1001,6 @@ impl WelshSynthPreset {
                 ..Default::default()
             },
             WelshPresetName::SideStick => Self {
-                oscillator_2_track: false,
-                oscillator_2_sync: false,
                 noise: 1.0,
                 polyphony: PolyphonyPreset::Mono,
                 filter_type_24db: FilterPreset {
@@ -1084,13 +1072,13 @@ impl WelshSynthPreset {
                 filter_envelope_weight: 1.0,
                 filter_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.03,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.6,
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.0,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.35,
                 },
@@ -1145,13 +1133,13 @@ impl WelshSynthPreset {
                 filter_envelope_weight: 1.0,
                 filter_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.09,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
-                    release_seconds: 0.0,
+                    release_seconds: EnvelopePreset::MAX,
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.11,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 0.35,
                 },
@@ -1192,6 +1180,7 @@ impl WelshSynthPreset {
                     ..Default::default()
                 },
                 amp_envelope_preset: EnvelopePreset {
+                    decay_seconds: EnvelopePreset::MAX,
                     ..Default::default()
                 },
             }, // -------------------- Bass
@@ -1235,7 +1224,7 @@ impl WelshSynthPreset {
                     attack_seconds: 0.0,
                     decay_seconds: 0.45,
                     sustain_percentage: 0.15,
-                    release_seconds: 0.25,
+                    release_seconds: 0.26,
                 },
             },
             WelshPresetName::BassOfTheTimeLords => {
@@ -1286,7 +1275,7 @@ impl WelshSynthPreset {
                 },
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.0,
-                    decay_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
                     sustain_percentage: 1.0,
                     release_seconds: 1.0,
                 },
@@ -1381,6 +1370,7 @@ impl WelshSynthPreset {
                 filter_resonance: 0.75,
                 amp_envelope_preset: EnvelopePreset {
                     attack_seconds: 0.4,
+                    decay_seconds: EnvelopePreset::MAX,
                     release_seconds: 2.7,
                     ..Default::default()
                 },
