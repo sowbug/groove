@@ -19,16 +19,34 @@ impl Default for Waveform {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct MiniOscillator {
     pub waveform: Waveform,
-    frequency: f32,      // Hertz. Any positive number. 440 = A4
-    frequency_tune: f32, // Any number. Zero is no change. 1.0 doubles the frequency. -1.0 halves it.
-    // Designed for pitch correction at construction time.
-    frequency_modulation: f32, // Like frequency_tune. Designed for LFO.
+
+    // Hertz. Any positive number. 440 = A4
+    frequency: f32,
+
+    // 1.0 is no change. 2.0 doubles the frequency. 0.5 halves it. Designed for pitch correction at construction time.
+    frequency_tune: f32,
+
+    // [-1, 1] is typical range, with -1 halving the frequency, and 1 doubling it. Designed for LFO and frequent changes.
+    frequency_modulation: f32,
 
     noise_x1: u32,
     noise_x2: u32,
+}
+
+impl Default for MiniOscillator {
+    fn default() -> Self {
+        Self {
+            waveform: Waveform::None,
+            frequency: 0.0,
+            frequency_tune: 1.0,
+            frequency_modulation: 0.0,
+            noise_x1: 0x70f4f854,
+            noise_x2: 0xe1e9f0a7,
+        }
+    }
 }
 
 impl MiniOscillator {
