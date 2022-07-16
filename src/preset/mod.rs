@@ -24,12 +24,14 @@ impl OscillatorPreset {
     pub const FULL_MIX: f32 = 1.0; // mix field
 
     pub fn octaves(num: f32) -> f32 {
-        return Self::semis_and_cents(num * 12.0, 0.0);
+        1.0
+//        Self::semis_and_cents(num * 12.0, 0.0)
     }
 
     pub fn semis_and_cents(semitones: f32, cents: f32) -> f32 {
+        1.0
         // https://en.wikipedia.org/wiki/Cent_(music)
-        2.0f32.powf((semitones * 100.0 + cents) / 1200.0)
+//        2.0f32.powf((semitones * 100.0 + cents) / 1200.0)
     }
 }
 
@@ -50,6 +52,10 @@ impl Default for EnvelopePreset {
             release_seconds: 0.0,
         }
     }
+}
+
+impl EnvelopePreset {
+    pub const MAX: f32 = -1.0;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -92,7 +98,7 @@ impl LfoPreset {
 #[derive(Default, Debug, Clone, Copy)]
 pub struct FilterPreset {
     pub cutoff: f32,
-    pub weight: f32,
+    pub weight: f32,  // TODO: this is unused because it's just another way to say cutoff
 }
 
 #[cfg(test)]

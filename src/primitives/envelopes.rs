@@ -34,6 +34,8 @@ pub struct MiniEnvelope {
 }
 
 impl MiniEnvelope {
+    pub const MAX: f32 = -1.0;
+
     pub fn new(sample_rate: u32, preset: &EnvelopePreset) -> Self {
         Self {
             sample_rate: sample_rate as f32,
@@ -71,6 +73,11 @@ impl MiniEnvelope {
         if duration_seconds == 0. {
             self.delta = 0.;
             self.target_seconds = time_seconds;
+            return;
+        }
+        if duration_seconds == MiniEnvelope::MAX {
+            self.delta = 0.;
+            self.target_seconds = f32::MAX;
             return;
         }
         // The floor() is necessary because a tick is the lowest level of

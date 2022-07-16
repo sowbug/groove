@@ -108,8 +108,6 @@ impl MiniOscillator {
 
 #[cfg(test)]
 mod tests {
-    use assert_approx_eq::assert_approx_eq;
-
     use crate::{common::MidiMessage, preset::OscillatorPreset, primitives::clock::Clock};
 
     use super::{MiniOscillator, Waveform};
@@ -126,11 +124,11 @@ mod tests {
             sample_format: hound::SampleFormat::Int,
         };
         const AMPLITUDE: f32 = i16::MAX as f32;
-        let mut filter_writer = hound::WavWriter::create(filename, spec).unwrap();
+        let mut writer = hound::WavWriter::create(filename, spec).unwrap();
 
         while clock.seconds < 1.0 {
             let sample = oscillator.process(clock.seconds);
-            let _ = filter_writer.write_sample((sample * AMPLITUDE) as i16);
+            let _ = writer.write_sample((sample * AMPLITUDE) as i16);
             clock.tick();
         }
     }
