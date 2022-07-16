@@ -62,26 +62,14 @@ impl SuperVoice {
             filter: MiniFilter2::new(MiniFilter2Type::LowPass(
                 sample_rate,
                 preset.filter_type_12db.cutoff,
-                1.0 / 2.0f32.sqrt(),
+                1.0 / 2.0f32.sqrt(), // TODO: resonance
             )),
-            filter_cutoff_start: SuperVoice::frequency_to_percent(preset.filter_type_12db.cutoff),
+            filter_cutoff_start: MiniFilter2::frequency_to_percent(preset.filter_type_12db.cutoff),
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: MiniEnvelope::new(sample_rate, &preset.filter_envelope_preset),
 
             ..Default::default()
         }
-    }
-
-    // https://docs.google.com/spreadsheets/d/1uQylh2h77-fuJ6OM0vjF7yjRXflLFP0yQEnv5wbaP2c/edit#gid=0
-    // =LOGEST(Sheet1!B2:B23, Sheet1!A2:A23,true, false)
-    // Column A is 24db filter percentages from all the patches
-    // Column B is envelope-filter percentages from all the patches
-    fn percent_to_frequency(percentage: f32) -> f32 {
-        1017.878603 * 20.02481336f32.powf(percentage)
-    }
-
-    fn frequency_to_percent(frequency: f32) -> f32 {
-        (frequency / 20.02481336).log(1017.878603)
     }
 
     pub(crate) fn process(&mut self, time_seconds: f32) -> f32 {
@@ -104,7 +92,7 @@ impl SuperVoice {
         self.filter_envelope.tick(time_seconds);
         let new_cutoff_percentage = (self.filter_cutoff_start
             + (self.filter_cutoff_end - self.filter_cutoff_start) * self.filter_envelope.value());
-        let new_cutoff = Self::percent_to_frequency(new_cutoff_percentage);
+        let new_cutoff = MiniFilter2::percent_to_frequency(new_cutoff_percentage);
         self.filter.set_cutoff(new_cutoff);
         let filtered_mix = self.filter.filter(osc_mix);
 
@@ -319,7 +307,7 @@ mod tests {
                 attack_seconds: 0.5,
                 decay_seconds: EnvelopePreset::MAX,
                 sustain_percentage: 1.0,
-                release_seconds:EnvelopePreset::MAX,
+                release_seconds: EnvelopePreset::MAX,
             },
         }
     }
@@ -353,7 +341,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_basic_cello_patch() {
         let message_on = MidiMessage {
@@ -382,6 +369,4 @@ mod tests {
             "voice_cello_c3.wav",
         );
     }
-
-
 }

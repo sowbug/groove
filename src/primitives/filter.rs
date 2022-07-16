@@ -400,6 +400,21 @@ impl MiniFilter2 {
     // 1 / square root of 2
     pub const MIN_Q: f32 = 0.707106781f32;
 
+    pub const FREQUENCY_TO_LINEAR_BASE: f32 = 800.0;
+    pub const FREQUENCY_TO_LINEAR_COEFFICIENT: f32 = 25.0;
+
+    // https://docs.google.com/spreadsheets/d/1uQylh2h77-fuJ6OM0vjF7yjRXflLFP0yQEnv5wbaP2c/edit#gid=0
+    // =LOGEST(Sheet1!B2:B23, Sheet1!A2:A23,true, false)
+    // Column A is 24db filter percentages from all the patches
+    // Column B is envelope-filter percentages from all the patches
+    pub fn percent_to_frequency(percentage: f32) -> f32 {
+        Self::FREQUENCY_TO_LINEAR_BASE * Self::FREQUENCY_TO_LINEAR_COEFFICIENT.powf(percentage)
+    }
+
+    pub fn frequency_to_percent(frequency: f32) -> f32 {
+        (frequency / Self::FREQUENCY_TO_LINEAR_COEFFICIENT).log(Self::FREQUENCY_TO_LINEAR_BASE)
+    }
+
     pub fn new(filter_type: MiniFilter2Type) -> Self {
         let mut l_sample_rate: u32 = 0;
         let mut l_cutoff: f32 = 0.0;
