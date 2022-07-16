@@ -439,6 +439,7 @@ impl WelshSynthPreset {
                 panic!()
             }
             WelshPresetName::HurdyGurdy => {
+                // note: this will require constant pitch for oscillator 2
                 panic!()
             }
             WelshPresetName::Kora => {
@@ -554,7 +555,7 @@ impl WelshSynthPreset {
                 oscillator_2_preset: OscillatorPreset {
                     ..Default::default()
                 },
-                oscillator_2_track: false,
+                oscillator_2_track: true,
                 oscillator_2_sync: false,
                 noise: 0.0,
                 lfo_preset: LfoPreset {
@@ -846,7 +847,7 @@ impl WelshSynthPreset {
                 oscillator_2_preset: OscillatorPreset {
                     ..Default::default()
                 },
-                oscillator_2_track: false,
+                oscillator_2_track: true,
                 oscillator_2_sync: false,
                 noise: 0.0,
                 lfo_preset: LfoPreset {
