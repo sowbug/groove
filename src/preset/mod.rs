@@ -20,18 +20,16 @@ impl Default for OscillatorPreset {
 }
 
 impl OscillatorPreset {
-    pub const NATURAL_TUNING: f32 = 1.0;  // tune field
+    pub const NATURAL_TUNING: f32 = 1.0; // tune field
     pub const FULL_MIX: f32 = 1.0; // mix field
 
     pub fn octaves(num: f32) -> f32 {
-        1.0
-//        Self::semis_and_cents(num * 12.0, 0.0)
+        Self::semis_and_cents(num * 12.0, 0.0)
     }
 
     pub fn semis_and_cents(semitones: f32, cents: f32) -> f32 {
-        1.0
         // https://en.wikipedia.org/wiki/Cent_(music)
-//        2.0f32.powf((semitones * 100.0 + cents) / 1200.0)
+        2.0f32.powf((semitones * 100.0 + cents) / 1200.0)
     }
 }
 
@@ -98,11 +96,13 @@ impl LfoPreset {
 #[derive(Default, Debug, Clone, Copy)]
 pub struct FilterPreset {
     pub cutoff: f32,
-    pub weight: f32,  // TODO: this is unused because it's just another way to say cutoff
+    pub weight: f32, // TODO: this is unused because it's just another way to say cutoff
 }
 
 #[cfg(test)]
 mod tests {
+    use assert_approx_eq::assert_approx_eq;
+
     use crate::{
         common::{MidiMessage, MidiMessageType},
         devices::traits::DeviceTrait,
@@ -161,7 +161,8 @@ mod tests {
     #[test]
     fn test_oscillator_tuning_helpers() {
         assert_eq!(OscillatorPreset::NATURAL_TUNING, 1.0);
-        
+
+        // tune
         assert_eq!(OscillatorPreset::octaves(0.0), 1.0);
         assert_eq!(OscillatorPreset::octaves(1.0), 2.0);
         assert_eq!(OscillatorPreset::octaves(-1.0), 0.5);
@@ -170,11 +171,23 @@ mod tests {
 
         assert_eq!(OscillatorPreset::semis_and_cents(0.0, 0.0), 1.0);
         assert_eq!(OscillatorPreset::semis_and_cents(12.0, 0.0), 2.0);
-        // https://en.wikipedia.org/wiki/Cent_(music)
-        assert_eq!(OscillatorPreset::semis_and_cents(0.0, -100.0), 2.0f32.powf(-100.0/1200.0));
+        assert_approx_eq!(OscillatorPreset::semis_and_cents(5.0, 0.0), 1.334839557); // 349.2282÷261.6256, F4÷C4
+        assert_eq!(
+            OscillatorPreset::semis_and_cents(0.0, -100.0),
+            2.0f32.powf(-100.0 / 1200.0)
+        );
 
-        assert_eq!(OscillatorPreset::octaves(0.5), OscillatorPreset::semis_and_cents(6.0, 0.0));
-        assert_eq!(OscillatorPreset::octaves(1.0), OscillatorPreset::semis_and_cents(0.0, 1200.0));
-        assert_eq!(OscillatorPreset::semis_and_cents(1.0,0.0), OscillatorPreset::semis_and_cents(0.0, 100.0));
+        assert_eq!(
+            OscillatorPreset::octaves(0.5),
+            OscillatorPreset::semis_and_cents(6.0, 0.0)
+        );
+        assert_eq!(
+            OscillatorPreset::octaves(1.0),
+            OscillatorPreset::semis_and_cents(0.0, 1200.0)
+        );
+        assert_eq!(
+            OscillatorPreset::semis_and_cents(1.0, 0.0),
+            OscillatorPreset::semis_and_cents(0.0, 100.0)
+        );
     }
 }
