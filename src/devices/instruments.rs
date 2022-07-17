@@ -70,8 +70,13 @@ impl SuperVoice {
             r.osc_mix.push(preset.oscillator_1_preset.mix);
         }
         if !matches!(preset.oscillator_2_preset.waveform, WaveformType::None) {
-            r.oscillators
-                .push(MiniOscillator::new_from_preset(&preset.oscillator_2_preset));
+            let mut o = MiniOscillator::new_from_preset(&preset.oscillator_2_preset);
+            if !preset.oscillator_2_track {
+                o.set_fixed_frequency(MidiMessage::note_to_frequency(
+                    preset.oscillator_2_preset.tune as u8,
+                ));
+            }
+            r.oscillators.push(o);
             r.osc_mix.push(preset.oscillator_2_preset.mix);
         }
         if preset.noise > 0.0 {
@@ -130,9 +135,10 @@ impl DeviceTrait for SuperVoice {
             MidiMessageType::NoteOn => {
                 let frequency = message.to_frequency();
                 for o in self.oscillators.iter_mut() {
-                    if !matches!(o.waveform, WaveformType::Noise) {
-                        o.set_frequency(frequency);
+                    if matches!(o.waveform, WaveformType::Noise) {
+                        continue;
                     }
+                    o.set_frequency(frequency);
                 }
             }
             MidiMessageType::NoteOff => {}

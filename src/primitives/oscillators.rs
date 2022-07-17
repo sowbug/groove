@@ -1,6 +1,9 @@
 use std::f32::consts::PI;
 
-use crate::{preset::{LfoPreset, OscillatorPreset}, common::WaveformType};
+use crate::{
+    common::WaveformType,
+    preset::{LfoPreset, OscillatorPreset},
+};
 
 #[derive(Debug)]
 pub struct MiniOscillator {
@@ -8,6 +11,9 @@ pub struct MiniOscillator {
 
     // Hertz. Any positive number. 440 = A4
     frequency: f32,
+
+    // if not zero, then ignores the `frequency` field and this one instead.
+    fixed_frequency: f32,
 
     // 1.0 is no change. 2.0 doubles the frequency. 0.5 halves it. Designed for pitch correction at construction time.
     frequency_tune: f32,
@@ -24,6 +30,7 @@ impl Default for MiniOscillator {
         Self {
             waveform: WaveformType::None,
             frequency: 0.0,
+            fixed_frequency: 0.0,
             frequency_tune: 1.0,
             frequency_modulation: 0.0,
             noise_x1: 0x70f4f854,
@@ -64,7 +71,11 @@ impl MiniOscillator {
     }
 
     pub(crate) fn adjusted_frequency(&self) -> f32 {
-        self.frequency * (self.frequency_tune) * (2.0f32.powf(self.frequency_modulation))
+        if self.fixed_frequency == 0.0 {
+            self.frequency * (self.frequency_tune) * (2.0f32.powf(self.frequency_modulation))
+        } else {
+            self.fixed_frequency * (2.0f32.powf(self.frequency_modulation))
+        }
     }
 
     pub fn process(&mut self, time_seconds: f32) -> f32 {
@@ -100,6 +111,10 @@ impl MiniOscillator {
 
     pub(crate) fn set_frequency(&mut self, frequency: f32) {
         self.frequency = frequency;
+    }
+
+    pub(crate) fn set_fixed_frequency(&mut self, frequency: f32) {
+        self.fixed_frequency = frequency;
     }
 
     pub(crate) fn set_frequency_modulation(&mut self, frequency_modulation: f32) {
@@ -177,27 +192,31 @@ mod tests {
             create_oscillator(WaveformType::Noise, OscillatorPreset::NATURAL_TUNING, 0);
         write_sound(&mut oscillator, "oscillator_noise.wav");
 
-        let mut oscillator = create_oscillator(WaveformType::None, OscillatorPreset::NATURAL_TUNING, 0);
+        let mut oscillator =
+            create_oscillator(WaveformType::None, OscillatorPreset::NATURAL_TUNING, 0);
         write_sound(&mut oscillator, "oscillator_none.wav");
     }
 
     #[test]
     fn test_oscillator_tuned() {
-        let mut oscillator = create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(0.0), 60);
+        let mut oscillator =
+            create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(0.0), 60);
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(60)
         );
         write_sound(&mut oscillator, "oscillator_sine_c3_plus_zero_octave.wav");
 
-        let mut oscillator = create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(1.0), 60);
+        let mut oscillator =
+            create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(1.0), 60);
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(60) * 2.0
         );
         write_sound(&mut oscillator, "oscillator_sine_c3_plus_1_octave.wav");
 
-        let mut oscillator = create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(-1.0), 60);
+        let mut oscillator =
+            create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(-1.0), 60);
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(60) / 2.0
@@ -229,7 +248,8 @@ mod tests {
 
     #[test]
     fn test_oscillator_modulated() {
-        let mut oscillator = create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(0.0), 60);
+        let mut oscillator =
+            create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(0.0), 60);
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(60)

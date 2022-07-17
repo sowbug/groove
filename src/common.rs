@@ -17,6 +17,14 @@ impl Default for WaveformType {
     }
 }
 
+pub enum MidiNote {
+    A0 = 21,
+    D3 = 50,
+    C4 = 60,
+    A4 = 69,
+    G9 = 127,
+}
+
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum MidiMessageType {
     NoteOn = 0b1001,

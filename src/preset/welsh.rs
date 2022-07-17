@@ -1,8 +1,8 @@
 use strum_macros::{EnumIter, IntoStaticStr};
 
-use crate::common::WaveformType;
+use crate::common::{MidiNote, WaveformType};
 
-use super::{EnvelopePreset, LfoPreset, LfoRouting, OscillatorPreset, FilterPreset};
+use super::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset};
 
 #[derive(EnumIter, IntoStaticStr)]
 pub enum WelshPresetName {
@@ -441,10 +441,50 @@ impl WelshSynthPreset {
             WelshPresetName::Harp => {
                 panic!()
             }
-            WelshPresetName::HurdyGurdy => {
-                // note: this will require constant pitch for oscillator 2
-                panic!()
-            }
+            WelshPresetName::HurdyGurdy => Self {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: WaveformType::PulseWidth(0.15),
+                    tune: OscillatorPreset::NATURAL_TUNING,
+                    mix: 0.90,
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: WaveformType::Square,
+                    tune: (MidiNote::D3 as u8) as f32,
+                    mix: OscillatorPreset::FULL_MIX,
+                },
+                oscillator_2_track: false,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::None,
+                    ..Default::default()
+                },
+                glide: GlidePreset::On(0.04),
+                has_unison: false,
+                polyphony: PolyphonyPreset::Mono,
+                filter_type_24db: FilterPreset {
+                    cutoff: 40.0,
+                    weight: 0.10,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 40.0,
+                    weight: 0.10,
+                },
+                filter_resonance: 0.0,
+                filter_envelope_weight: 1.0,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.04,
+                    decay_seconds: EnvelopePreset::MAX,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.23,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: EnvelopePreset::MAX,
+                    sustain_percentage: 1.0,
+                    release_seconds: 0.85,
+                },
+            },
             WelshPresetName::Kora => {
                 panic!()
             }
