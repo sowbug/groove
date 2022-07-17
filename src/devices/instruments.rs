@@ -87,6 +87,7 @@ impl SuperVoice {
     }
 
     pub(crate) fn process(&mut self, time_seconds: f32) -> f32 {
+        // LFO
         let lfo = self.lfo.process(time_seconds) * self.lfo_depth;
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
             let lfo_for_pitch = lfo / 10000.0;
@@ -97,13 +98,19 @@ impl SuperVoice {
             }
         }
 
-        let mut osc_sum = 0.0f32;
-        if self.oscillators.len() > 0 {
-            for o in self.oscillators.iter_mut() {
-                osc_sum += o.process(time_seconds);
-            }
-            osc_sum /= self.oscillators.len() as f32;
-        }
+        // Oscillators
+        let osc_sum = if self.oscillators.is_empty() {
+            0.0
+        } else {
+            let t: f32 = self
+                .oscillators
+                .iter_mut()
+                .map(|o| o.process(time_seconds))
+                .sum();
+            t / self.oscillators.len() as f32
+        };
+
+        // Filters
         self.filter_envelope.tick(time_seconds);
         let new_cutoff_percentage = (self.filter_cutoff_start
             + (self.filter_cutoff_end - self.filter_cutoff_start) * self.filter_envelope.value());
@@ -111,14 +118,19 @@ impl SuperVoice {
         self.filter.set_cutoff(new_cutoff);
         let filtered_mix = self.filter.filter(osc_sum);
 
+        // LFO amplitude modulation
         let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
             // LFO ranges from [-1, 1], so convert to something that can silence or double the volume.
             lfo + 1.0
         } else {
             1.0
         };
+
+        // Envelope
         self.amp_envelope.tick(time_seconds);
-        self.amp_envelope.value() * lfo_amplitude_modulation * filtered_mix
+
+        // Final
+        filtered_mix * self.amp_envelope.value() * lfo_amplitude_modulation
     }
 
     pub(crate) fn is_playing(&self) -> bool {
