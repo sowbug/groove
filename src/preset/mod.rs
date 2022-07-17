@@ -1,10 +1,10 @@
-use crate::primitives::oscillators::Waveform;
+use crate::common::WaveformType;
 
 pub mod welsh;
 
 #[derive(Debug, Clone, Copy)]
 pub struct OscillatorPreset {
-    pub waveform: Waveform,
+    pub waveform: WaveformType,
     pub tune: f32,
     pub mix: f32,
 }
@@ -12,7 +12,7 @@ pub struct OscillatorPreset {
 impl Default for OscillatorPreset {
     fn default() -> Self {
         Self {
-            waveform: Waveform::None,
+            waveform: WaveformType::None,
             tune: OscillatorPreset::NATURAL_TUNING,
             mix: OscillatorPreset::FULL_MIX,
         }
@@ -73,7 +73,7 @@ impl Default for LfoRouting {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LfoPreset {
     pub routing: LfoRouting,
-    pub waveform: Waveform,
+    pub waveform: WaveformType,
     pub frequency: f32,
     pub depth: f32,
 }

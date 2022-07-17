@@ -1,27 +1,10 @@
 use std::f32::consts::PI;
 
-use crate::preset::{LfoPreset, OscillatorPreset};
-
-#[derive(PartialEq, Copy, Clone, Debug)]
-pub enum Waveform {
-    None,
-    Sine,
-    Square,
-    PulseWidth(f32),
-    Triangle,
-    Sawtooth,
-    Noise,
-}
-
-impl Default for Waveform {
-    fn default() -> Self {
-        Waveform::None
-    }
-}
+use crate::{preset::{LfoPreset, OscillatorPreset}, common::WaveformType};
 
 #[derive(Debug)]
 pub struct MiniOscillator {
-    pub waveform: Waveform,
+    pub waveform: WaveformType,
 
     // Hertz. Any positive number. 440 = A4
     frequency: f32,
@@ -39,7 +22,7 @@ pub struct MiniOscillator {
 impl Default for MiniOscillator {
     fn default() -> Self {
         Self {
-            waveform: Waveform::None,
+            waveform: WaveformType::None,
             frequency: 0.0,
             frequency_tune: 1.0,
             frequency_modulation: 0.0,
@@ -50,7 +33,7 @@ impl Default for MiniOscillator {
 }
 
 impl MiniOscillator {
-    pub fn new(waveform: Waveform) -> Self {
+    pub fn new(waveform: WaveformType) -> Self {
         Self {
             waveform,
             noise_x1: 0x70f4f854,
@@ -87,23 +70,23 @@ impl MiniOscillator {
     pub fn process(&mut self, time_seconds: f32) -> f32 {
         let phase_normalized = self.adjusted_frequency() * time_seconds;
         match self.waveform {
-            Waveform::None => 0.0,
+            WaveformType::None => 0.0,
             // https://en.wikipedia.org/wiki/Sine_wave
-            Waveform::Sine => (phase_normalized * 2.0 * PI).sin(),
+            WaveformType::Sine => (phase_normalized * 2.0 * PI).sin(),
             // https://en.wikipedia.org/wiki/Square_wave
             //Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
-            Waveform::Square => (0.5 - (phase_normalized - phase_normalized.floor())).signum(),
-            Waveform::PulseWidth(duty_cycle) => {
+            WaveformType::Square => (0.5 - (phase_normalized - phase_normalized.floor())).signum(),
+            WaveformType::PulseWidth(duty_cycle) => {
                 (duty_cycle - (phase_normalized - phase_normalized.floor())).signum()
             }
             // https://en.wikipedia.org/wiki/Triangle_wave
-            Waveform::Triangle => {
+            WaveformType::Triangle => {
                 4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
             }
             // https://en.wikipedia.org/wiki/Sawtooth_wave
-            Waveform::Sawtooth => 2.0 * (phase_normalized - (0.5 + phase_normalized).floor()),
+            WaveformType::Sawtooth => 2.0 * (phase_normalized - (0.5 + phase_normalized).floor()),
             // https://www.musicdsp.org/en/latest/Synthesis/216-fast-whitenoise-generator.html
-            Waveform::Noise => {
+            WaveformType::Noise => {
                 // TODO: this is stateful, so random access will sound different from sequential, as will different sample rates.
                 // It also makes this method require mut. Is there a noise algorithm that can modulate on time_seconds? (It's a
                 // complicated question, potentially.)
@@ -128,7 +111,7 @@ impl MiniOscillator {
 mod tests {
     use crate::{common::MidiMessage, preset::OscillatorPreset, primitives::clock::Clock};
 
-    use super::{MiniOscillator, Waveform};
+    use super::{MiniOscillator, WaveformType};
 
     const SAMPLE_RATE: u32 = 44100;
 
@@ -151,7 +134,7 @@ mod tests {
         }
     }
 
-    fn create_oscillator(waveform: Waveform, tune: f32, note: u8) -> MiniOscillator {
+    fn create_oscillator(waveform: WaveformType, tune: f32, note: u8) -> MiniOscillator {
         let mut oscillator = MiniOscillator::new_from_preset(&OscillatorPreset {
             waveform,
             tune,
@@ -164,7 +147,7 @@ mod tests {
     #[test]
     fn test_oscillator_basic_waveforms() {
         let mut oscillator =
-            create_oscillator(Waveform::Sine, OscillatorPreset::NATURAL_TUNING, 60);
+            create_oscillator(WaveformType::Sine, OscillatorPreset::NATURAL_TUNING, 60);
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(60)
@@ -172,49 +155,49 @@ mod tests {
         write_sound(&mut oscillator, "oscillator_sine_c3.wav");
 
         let mut oscillator =
-            create_oscillator(Waveform::Square, OscillatorPreset::NATURAL_TUNING, 60);
+            create_oscillator(WaveformType::Square, OscillatorPreset::NATURAL_TUNING, 60);
         write_sound(&mut oscillator, "oscillator_square_c3.wav");
 
         let mut oscillator = create_oscillator(
-            Waveform::PulseWidth(0.1),
+            WaveformType::PulseWidth(0.1),
             OscillatorPreset::NATURAL_TUNING,
             60,
         );
         write_sound(&mut oscillator, "oscillator_pulse_width_10_percent_c3.wav");
 
         let mut oscillator =
-            create_oscillator(Waveform::Triangle, OscillatorPreset::NATURAL_TUNING, 60);
+            create_oscillator(WaveformType::Triangle, OscillatorPreset::NATURAL_TUNING, 60);
         write_sound(&mut oscillator, "oscillator_triangle_c3.wav");
 
         let mut oscillator =
-            create_oscillator(Waveform::Sawtooth, OscillatorPreset::NATURAL_TUNING, 60);
+            create_oscillator(WaveformType::Sawtooth, OscillatorPreset::NATURAL_TUNING, 60);
         write_sound(&mut oscillator, "oscillator_sawtooth_c3.wav");
 
         let mut oscillator =
-            create_oscillator(Waveform::Noise, OscillatorPreset::NATURAL_TUNING, 0);
+            create_oscillator(WaveformType::Noise, OscillatorPreset::NATURAL_TUNING, 0);
         write_sound(&mut oscillator, "oscillator_noise.wav");
 
-        let mut oscillator = create_oscillator(Waveform::None, OscillatorPreset::NATURAL_TUNING, 0);
+        let mut oscillator = create_oscillator(WaveformType::None, OscillatorPreset::NATURAL_TUNING, 0);
         write_sound(&mut oscillator, "oscillator_none.wav");
     }
 
     #[test]
     fn test_oscillator_tuned() {
-        let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(0.0), 60);
+        let mut oscillator = create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(0.0), 60);
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(60)
         );
         write_sound(&mut oscillator, "oscillator_sine_c3_plus_zero_octave.wav");
 
-        let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(1.0), 60);
+        let mut oscillator = create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(1.0), 60);
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(60) * 2.0
         );
         write_sound(&mut oscillator, "oscillator_sine_c3_plus_1_octave.wav");
 
-        let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(-1.0), 60);
+        let mut oscillator = create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(-1.0), 60);
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(60) / 2.0
@@ -222,7 +205,7 @@ mod tests {
         write_sound(&mut oscillator, "oscillator_sine_c3_minus_1_octave.wav");
 
         let mut oscillator = create_oscillator(
-            Waveform::Sine,
+            WaveformType::Sine,
             OscillatorPreset::semis_and_cents(12.0, 0.0),
             60,
         );
@@ -233,7 +216,7 @@ mod tests {
         write_sound(&mut oscillator, "oscillator_sine_c3_plus_12_semitone.wav");
 
         let mut oscillator = create_oscillator(
-            Waveform::Sine,
+            WaveformType::Sine,
             OscillatorPreset::semis_and_cents(0.0, -1200.0),
             60,
         );
@@ -246,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_oscillator_modulated() {
-        let mut oscillator = create_oscillator(Waveform::Sine, OscillatorPreset::octaves(0.0), 60);
+        let mut oscillator = create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(0.0), 60);
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(60)

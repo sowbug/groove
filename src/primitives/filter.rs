@@ -679,11 +679,11 @@ impl MiniFilter2 {
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::MidiMessage,
+        common::{MidiMessage, WaveformType},
         preset::OscillatorPreset,
         primitives::{
             clock::Clock,
-            oscillators::{MiniOscillator, Waveform},
+            oscillators::{MiniOscillator},
         },
     };
 
@@ -691,7 +691,7 @@ mod tests {
 
     fn write_filter_sample(filter: &mut MiniFilter, filename: &str) {
         let mut clock = Clock::new(44100, 4, 4, 128.);
-        let mut osc = MiniOscillator::new(crate::primitives::oscillators::Waveform::Noise);
+        let mut osc = MiniOscillator::new(WaveformType::Noise);
 
         let spec = hound::WavSpec {
             channels: 1,
@@ -792,7 +792,7 @@ mod tests {
     }
 
     fn write_filter2_sample_static(filter: &mut MiniFilter2, duration: f32, filename: &str) {
-        let mut osc = MiniOscillator::new(crate::primitives::oscillators::Waveform::Noise);
+        let mut osc = MiniOscillator::new(WaveformType::Noise);
         write_filter2_sample(
             &mut osc,
             filter,
@@ -872,7 +872,7 @@ mod tests {
         const SIX_DB: f32 = 6.0;
 
         let mut osc = MiniOscillator::new_from_preset(&OscillatorPreset {
-            waveform: Waveform::Sawtooth,
+            waveform: WaveformType::Sawtooth,
             ..Default::default()
         });
         osc.set_frequency(MidiMessage::note_to_frequency(60));

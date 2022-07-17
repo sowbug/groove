@@ -1,5 +1,22 @@
 use std::cmp::Ordering;
 
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum WaveformType {
+    None,
+    Sine,
+    Square,
+    PulseWidth(f32),
+    Triangle,
+    Sawtooth,
+    Noise,
+}
+
+impl Default for WaveformType {
+    fn default() -> Self {
+        WaveformType::None
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum MidiMessageType {
     NoteOn = 0b1001,

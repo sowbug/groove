@@ -1,10 +1,10 @@
-use crate::common::{MidiMessage, MidiMessageType};
+use crate::common::{MidiMessage, MidiMessageType, WaveformType};
 use crate::preset::welsh::WelshSynthPreset;
-use crate::preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset};
+use crate::preset::{EnvelopePreset, LfoPreset, LfoRouting, OscillatorPreset};
 use crate::primitives::clock::Clock;
 use crate::primitives::envelopes::MiniEnvelope;
 use crate::primitives::filter::{MiniFilter2, MiniFilter2Type};
-use crate::primitives::oscillators::{MiniOscillator, Waveform};
+use crate::primitives::oscillators::MiniOscillator;
 
 use super::traits::DeviceTrait;
 
@@ -64,18 +64,18 @@ impl SuperVoice {
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: MiniEnvelope::new(sample_rate, &preset.filter_envelope_preset),
         };
-        if !matches!(preset.oscillator_1_preset.waveform, Waveform::None) {
+        if !matches!(preset.oscillator_1_preset.waveform, WaveformType::None) {
             r.oscillators
                 .push(MiniOscillator::new_from_preset(&preset.oscillator_1_preset));
             r.osc_mix.push(preset.oscillator_1_preset.mix);
         }
-        if !matches!(preset.oscillator_2_preset.waveform, Waveform::None) {
+        if !matches!(preset.oscillator_2_preset.waveform, WaveformType::None) {
             r.oscillators
                 .push(MiniOscillator::new_from_preset(&preset.oscillator_2_preset));
             r.osc_mix.push(preset.oscillator_2_preset.mix);
         }
         if preset.noise > 0.0 {
-            r.oscillators.push(MiniOscillator::new(Waveform::Noise));
+            r.oscillators.push(MiniOscillator::new(WaveformType::Noise));
             r.osc_mix.push(preset.noise);
         }
         r
@@ -130,7 +130,7 @@ impl DeviceTrait for SuperVoice {
             MidiMessageType::NoteOn => {
                 let frequency = message.to_frequency();
                 for o in self.oscillators.iter_mut() {
-                    if !matches!(o.waveform, Waveform::Noise) {
+                    if !matches!(o.waveform, WaveformType::Noise) {
                         o.set_frequency(frequency);
                     }
                 }
@@ -144,13 +144,13 @@ impl DeviceTrait for SuperVoice {
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::MidiMessage,
+        common::{MidiMessage, WaveformType},
         devices::traits::DeviceTrait,
         preset::{
             welsh::{GlidePreset, PolyphonyPreset, WelshSynthPreset},
             EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset,
         },
-        primitives::{clock::Clock, oscillators::Waveform},
+        primitives::clock::Clock,
     };
 
     use super::SuperVoice;
@@ -189,7 +189,7 @@ mod tests {
     fn angels_patch() -> WelshSynthPreset {
         WelshSynthPreset {
             oscillator_1_preset: OscillatorPreset {
-                waveform: Waveform::Sawtooth,
+                waveform: WaveformType::Sawtooth,
                 ..Default::default()
             },
             oscillator_2_preset: OscillatorPreset {
@@ -200,7 +200,7 @@ mod tests {
             noise: 0.0,
             lfo_preset: LfoPreset {
                 routing: LfoRouting::Pitch,
-                waveform: Waveform::Triangle,
+                waveform: WaveformType::Triangle,
                 frequency: 2.4,
                 depth: LfoPreset::semis_and_cents(0.0, 20.0),
             },
@@ -235,11 +235,11 @@ mod tests {
     fn cello_patch() -> WelshSynthPreset {
         WelshSynthPreset {
             oscillator_1_preset: OscillatorPreset {
-                waveform: Waveform::PulseWidth(0.1),
+                waveform: WaveformType::PulseWidth(0.1),
                 ..Default::default()
             },
             oscillator_2_preset: OscillatorPreset {
-                waveform: Waveform::Square,
+                waveform: WaveformType::Square,
                 ..Default::default()
             },
             oscillator_2_track: true,
@@ -247,7 +247,7 @@ mod tests {
             noise: 0.0,
             lfo_preset: LfoPreset {
                 routing: LfoRouting::Amplitude,
-                waveform: Waveform::Sine,
+                waveform: WaveformType::Sine,
                 frequency: 7.5,
                 depth: LfoPreset::percent(5.0),
             },
@@ -282,11 +282,11 @@ mod tests {
     fn test_patch() -> WelshSynthPreset {
         WelshSynthPreset {
             oscillator_1_preset: OscillatorPreset {
-                waveform: Waveform::Sawtooth,
+                waveform: WaveformType::Sawtooth,
                 ..Default::default()
             },
             oscillator_2_preset: OscillatorPreset {
-                waveform: Waveform::None,
+                waveform: WaveformType::None,
                 ..Default::default()
             },
             oscillator_2_track: true,

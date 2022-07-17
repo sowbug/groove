@@ -1,5 +1,6 @@
-use crate::primitives::oscillators::Waveform;
 use strum_macros::{EnumIter, IntoStaticStr};
+
+use crate::common::WaveformType;
 
 use super::{EnvelopePreset, LfoPreset, LfoRouting, OscillatorPreset, FilterPreset};
 
@@ -177,11 +178,11 @@ impl WelshSynthPreset {
         match name {
             WelshPresetName::Banjo => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.2),
+                    waveform: WaveformType::PulseWidth(0.2),
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.1),
+                    waveform: WaveformType::PulseWidth(0.1),
                     tune: OscillatorPreset::semis_and_cents(5.0, 0.0),
                     mix: 0.80,
                 },
@@ -190,7 +191,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Amplitude,
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     frequency: 10.0,
                     depth: LfoPreset::percent(10.0),
                 },
@@ -222,11 +223,11 @@ impl WelshSynthPreset {
             },
             WelshPresetName::Cello => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.1),
+                    waveform: WaveformType::PulseWidth(0.1),
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     ..Default::default()
                 },
                 oscillator_2_track: true,
@@ -234,7 +235,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Amplitude,
-                    waveform: Waveform::Sine,
+                    waveform: WaveformType::Sine,
                     frequency: 7.5,
                     depth: LfoPreset::percent(5.0),
                 },
@@ -266,12 +267,12 @@ impl WelshSynthPreset {
             },
             WelshPresetName::DoubleBass => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.45),
+                    waveform: WaveformType::PulseWidth(0.45),
                     tune: OscillatorPreset::octaves(-1.0),
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     mix: 0.6,
                     ..Default::default()
                 },
@@ -280,7 +281,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Pitch,
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     frequency: 5.0,
                     depth: LfoPreset::semis_and_cents(0.0, 11.0),
                 },
@@ -309,12 +310,12 @@ impl WelshSynthPreset {
             },
             WelshPresetName::Dulcimer => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.25),
+                    waveform: WaveformType::PulseWidth(0.25),
                     tune: OscillatorPreset::semis_and_cents(-7.0, 0.0),
                     mix: 0.80,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.05),
+                    waveform: WaveformType::PulseWidth(0.05),
                     ..Default::default()
                 },
                 oscillator_2_track: true,
@@ -322,7 +323,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Amplitude,
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     frequency: 1.5,
                     depth: 0.22,
                 },
@@ -355,11 +356,11 @@ impl WelshSynthPreset {
 
             WelshPresetName::GuitarAcoustic => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.25),
+                    waveform: WaveformType::PulseWidth(0.25),
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.10),
+                    waveform: WaveformType::PulseWidth(0.10),
                     tune: OscillatorPreset::semis_and_cents(10.0, 0.0),
                     mix: 0.9,
                 },
@@ -399,12 +400,12 @@ impl WelshSynthPreset {
 
             WelshPresetName::GuitarElectric => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.2),
+                    waveform: WaveformType::PulseWidth(0.2),
                     tune: OscillatorPreset::NATURAL_TUNING,
                     mix: 0.65,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.15),
+                    waveform: WaveformType::PulseWidth(0.15),
                     tune: OscillatorPreset::semis_and_cents(10.0, 0.0),
                     mix: OscillatorPreset::FULL_MIX,
                 },
@@ -464,12 +465,12 @@ impl WelshSynthPreset {
             }
             WelshPresetName::StandupBass => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.25),
+                    waveform: WaveformType::PulseWidth(0.25),
                     tune: OscillatorPreset::octaves(-1.0),
                     mix: OscillatorPreset::FULL_MIX,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     tune: OscillatorPreset::octaves(-1.0),
                     mix: OscillatorPreset::FULL_MIX,
                 },
@@ -478,7 +479,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Amplitude,
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     frequency: 15.0,
                     depth: 0.1,
                 },
@@ -551,7 +552,7 @@ impl WelshSynthPreset {
             // -------------------- Brass
             WelshPresetName::FrenchHorn => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.1),
+                    waveform: WaveformType::PulseWidth(0.1),
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
@@ -562,7 +563,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::None,
-                    waveform: Waveform::None,
+                    waveform: WaveformType::None,
                     frequency: 0.0,
                     depth: 0.0,
                 },
@@ -601,11 +602,11 @@ impl WelshSynthPreset {
             WelshPresetName::Saxophone => {
                 WelshSynthPreset {
                     oscillator_1_preset: OscillatorPreset {
-                        waveform: Waveform::PulseWidth(0.3),
+                        waveform: WaveformType::PulseWidth(0.3),
                         ..Default::default()
                     },
                     oscillator_2_preset: OscillatorPreset {
-                        waveform: Waveform::PulseWidth(0.45),
+                        waveform: WaveformType::PulseWidth(0.45),
                         tune: OscillatorPreset::semis_and_cents(8.0, 0.0),
                         mix: 0.75,
                     },
@@ -614,7 +615,7 @@ impl WelshSynthPreset {
                     noise: 0.0,
                     lfo_preset: LfoPreset {
                         routing: LfoRouting::Pitch, // TODO osc1/osc2 is an option
-                        waveform: Waveform::Sine,
+                        waveform: WaveformType::Sine,
                         frequency: 7.5,
                         depth: LfoPreset::semis_and_cents(0.0, 10.0),
                     },
@@ -647,11 +648,11 @@ impl WelshSynthPreset {
             }
             WelshPresetName::Trombone => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Sawtooth,
+                    waveform: WaveformType::Sawtooth,
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     tune: OscillatorPreset::octaves(1.0),
                     mix: OscillatorPreset::FULL_MIX,
                 },
@@ -660,7 +661,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Amplitude,
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     frequency: 5.0,
                     depth: LfoPreset::percent(5.0),
                 },
@@ -695,12 +696,12 @@ impl WelshSynthPreset {
             }
             WelshPresetName::Tuba => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Sawtooth,
+                    waveform: WaveformType::Sawtooth,
                     tune: OscillatorPreset::NATURAL_TUNING,
                     mix: 0.85,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Sawtooth,
+                    waveform: WaveformType::Sawtooth,
                     tune: OscillatorPreset::octaves(-1.0),
                     mix: OscillatorPreset::FULL_MIX,
                 },
@@ -709,7 +710,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Amplitude,
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     frequency: 2.4,
                     depth: 0.05,
                 },
@@ -758,11 +759,11 @@ impl WelshSynthPreset {
             }
             WelshPresetName::Organ => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     tune: OscillatorPreset::octaves(-2.0),
                     ..Default::default()
                 },
@@ -798,12 +799,12 @@ impl WelshSynthPreset {
             },
             WelshPresetName::Piano => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Sawtooth,
+                    waveform: WaveformType::Sawtooth,
                     mix: 0.75,
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.15),
+                    waveform: WaveformType::PulseWidth(0.15),
                     tune: OscillatorPreset::semis_and_cents(12.0 + 2.0, 0.0),
                     ..Default::default()
                 },
@@ -843,7 +844,7 @@ impl WelshSynthPreset {
             // -------------------- Vocals
             WelshPresetName::Angels => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Sawtooth,
+                    waveform: WaveformType::Sawtooth,
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
@@ -854,7 +855,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Pitch,
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     frequency: 2.4,
                     depth: LfoPreset::semis_and_cents(0.0, 20.0),
                 },
@@ -902,11 +903,11 @@ impl WelshSynthPreset {
             }
             WelshPresetName::Bongos => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     tune: OscillatorPreset::NATURAL_TUNING,
                     mix: 0.65,
                 },
@@ -972,11 +973,11 @@ impl WelshSynthPreset {
             }
             WelshPresetName::Cowbell => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.35),
+                    waveform: WaveformType::PulseWidth(0.35),
                     tune: OscillatorPreset::semis_and_cents(12.0 + 2.0, 0.0),
                     ..Default::default()
                 },
@@ -1015,11 +1016,11 @@ impl WelshSynthPreset {
             },
             WelshPresetName::CowbellAnalog => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.1),
+                    waveform: WaveformType::PulseWidth(0.1),
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.35),
+                    waveform: WaveformType::PulseWidth(0.35),
                     tune: OscillatorPreset::semis_and_cents(5.0, 0.0),
                     ..Default::default()
                 },
@@ -1122,12 +1123,12 @@ impl WelshSynthPreset {
             // -------------------- Leads
             WelshPresetName::BrassSection => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     tune: OscillatorPreset::semis_and_cents(0.0, -10.0),
                     mix: OscillatorPreset::FULL_MIX,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.2),
+                    waveform: WaveformType::PulseWidth(0.2),
                     tune: OscillatorPreset::semis_and_cents(12.0, 10.0),
                     mix: OscillatorPreset::FULL_MIX,
                 },
@@ -1136,7 +1137,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::PulseWidth,
-                    waveform: Waveform::Triangle,
+                    waveform: WaveformType::Triangle,
                     frequency: 5.5,
                     depth: 0.45,
                 },
@@ -1183,12 +1184,12 @@ impl WelshSynthPreset {
             }
             WelshPresetName::StringsPwm => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     tune: OscillatorPreset::semis_and_cents(0.0, -10.0),
                     mix: OscillatorPreset::FULL_MIX,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     tune: OscillatorPreset::semis_and_cents(0.0, 10.0),
                     mix: OscillatorPreset::FULL_MIX,
                 },
@@ -1197,7 +1198,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::PulseWidth,
-                    waveform: Waveform::Sine,
+                    waveform: WaveformType::Sine,
                     frequency: 2.0,
                     depth: 0.47,
                 },
@@ -1229,11 +1230,11 @@ impl WelshSynthPreset {
             },
             WelshPresetName::Trance5th => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     ..Default::default()
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     tune: OscillatorPreset::semis_and_cents(7.0, 0.0),
                     ..Default::default()
                 },
@@ -1242,7 +1243,7 @@ impl WelshSynthPreset {
                 noise: 0.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::PulseWidth,
-                    waveform: Waveform::Triangle, // TODO: this should be two different waveforms, one for each osc
+                    waveform: WaveformType::Triangle, // TODO: this should be two different waveforms, one for each osc
                     frequency: 6.0,
                     depth: 0.8,
                 },
@@ -1269,12 +1270,12 @@ impl WelshSynthPreset {
             }, // -------------------- Bass
             WelshPresetName::AcidBass => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::PulseWidth(0.25),
+                    waveform: WaveformType::PulseWidth(0.25),
                     tune: OscillatorPreset::semis_and_cents(0.0, 10.),
                     mix: 0.7,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     tune: OscillatorPreset::semis_and_cents(-24.0, -10.),
                     mix: OscillatorPreset::FULL_MIX,
                 },
@@ -1321,12 +1322,12 @@ impl WelshSynthPreset {
             }
             WelshPresetName::DigitalBass => Self {
                 oscillator_1_preset: OscillatorPreset {
-                    waveform: Waveform::Square,
+                    waveform: WaveformType::Square,
                     tune: OscillatorPreset::octaves(-1.0),
                     mix: 0.85,
                 },
                 oscillator_2_preset: OscillatorPreset {
-                    waveform: Waveform::Sawtooth,
+                    waveform: WaveformType::Sawtooth,
                     tune: OscillatorPreset::octaves(-2.0),
                     mix: OscillatorPreset::FULL_MIX,
                 },
@@ -1438,7 +1439,7 @@ impl WelshSynthPreset {
                 noise: 1.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Amplitude,
-                    waveform: Waveform::Noise,
+                    waveform: WaveformType::Noise,
                     frequency: 0.7, // what does it mean for noise to have a frequency?
                     depth: 0.4,
                 },
