@@ -87,12 +87,13 @@ impl SuperVoice {
     }
 
     pub(crate) fn process(&mut self, time_seconds: f32) -> f32 {
-        // TODO: divide by 10,000 until we figure out how pitch depth is supposed to go
-        let lfo = self.lfo.process(time_seconds) * self.lfo_depth / 10000.0;
+        let lfo = self.lfo.process(time_seconds) * self.lfo_depth;
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
+            let lfo_for_pitch = lfo / 10000.0;
+            // TODO: divide by 10,000 until we figure out how pitch depth is supposed to go
             // TODO: this could leave a side effect if we reuse voices and forget to clean up.
             for o in self.oscillators.iter_mut() {
-                o.set_frequency_modulation(lfo);
+                o.set_frequency_modulation(lfo_for_pitch);
             }
         }
 
