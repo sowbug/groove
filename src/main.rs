@@ -11,7 +11,7 @@ mod primitives;
 
 use crate::{
     devices::{orchestrator::Orchestrator, sequencer::Sequencer, synthesizers::SuperSynth},
-    preset::welsh::WelshSynthPreset,
+    preset::welsh::{WelshSynthPreset, WelshPresetName},
 };
 use clap::Parser;
 use cpal::{
@@ -179,7 +179,7 @@ impl ClDaw {
             for channel_number in 0..Sequencer::connected_channel_count() {
                 let synth = Rc::new(RefCell::new(SuperSynth::new(
                     self.orchestrator.clock.sample_rate(),
-                    WelshSynthPreset::by_name(preset::welsh::WelshPresetName::Piano),
+                    WelshSynthPreset::by_name(&WelshPresetName::Piano),
                 )));
                 self.orchestrator.add_device(synth.clone());
                 self.orchestrator.add_master_mixer_source(synth.clone());

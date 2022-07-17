@@ -1,10 +1,10 @@
 use crate::common::{MidiMessage, MidiMessageType};
 use crate::preset::welsh::WelshSynthPreset;
-use crate::preset::{EnvelopePreset, LfoPreset, LfoRouting, OscillatorPreset};
+use crate::preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset};
 use crate::primitives::clock::Clock;
 use crate::primitives::envelopes::MiniEnvelope;
 use crate::primitives::filter::{MiniFilter2, MiniFilter2Type};
-use crate::primitives::oscillators::MiniOscillator;
+use crate::primitives::oscillators::{MiniOscillator, Waveform};
 
 use super::traits::DeviceTrait;
 
@@ -30,10 +30,8 @@ pub struct SuperSynthPreset {
 
 #[derive(Default)]
 pub struct SuperVoice {
-    osc_1: MiniOscillator,
-    osc_2: MiniOscillator,
-    osc_1_mix: f32,
-    osc_2_mix: f32,
+    oscillators: Vec<MiniOscillator>,
+    osc_mix: Vec<f32>,
     amp_envelope: MiniEnvelope,
 
     lfo: MiniOscillator,
@@ -48,11 +46,9 @@ pub struct SuperVoice {
 
 impl SuperVoice {
     pub fn new(sample_rate: u32, preset: &WelshSynthPreset) -> Self {
-        Self {
-            osc_1: MiniOscillator::new_from_preset(&preset.oscillator_1_preset),
-            osc_2: MiniOscillator::new_from_preset(&preset.oscillator_2_preset),
-            osc_1_mix: preset.oscillator_1_preset.mix,
-            osc_2_mix: preset.oscillator_2_preset.mix,
+        let mut r = Self {
+            oscillators: Vec::new(),
+            osc_mix: Vec::new(),
             amp_envelope: MiniEnvelope::new(sample_rate, &preset.amp_envelope_preset),
 
             lfo: MiniOscillator::new_lfo(&preset.lfo_preset),
@@ -67,34 +63,47 @@ impl SuperVoice {
             filter_cutoff_start: MiniFilter2::frequency_to_percent(preset.filter_type_12db.cutoff),
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: MiniEnvelope::new(sample_rate, &preset.filter_envelope_preset),
-
-            ..Default::default()
+        };
+        if !matches!(preset.oscillator_1_preset.waveform, Waveform::None) {
+            r.oscillators
+                .push(MiniOscillator::new_from_preset(&preset.oscillator_1_preset));
+            r.osc_mix.push(preset.oscillator_1_preset.mix);
         }
+        if !matches!(preset.oscillator_2_preset.waveform, Waveform::None) {
+            r.oscillators
+                .push(MiniOscillator::new_from_preset(&preset.oscillator_2_preset));
+            r.osc_mix.push(preset.oscillator_2_preset.mix);
+        }
+        if preset.noise > 0.0 {
+            r.oscillators.push(MiniOscillator::new(Waveform::Noise));
+            r.osc_mix.push(preset.noise);
+        }
+        r
     }
 
     pub(crate) fn process(&mut self, time_seconds: f32) -> f32 {
-        let lfo = self.lfo.process(time_seconds) * self.lfo_depth;
+        // TODO: divide by 10,000 until we figure out how pitch depth is supposed to go
+        let lfo = self.lfo.process(time_seconds) * self.lfo_depth / 10000.0;
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
             // TODO: this could leave a side effect if we reuse voices and forget to clean up.
-            self.osc_1.set_frequency_modulation(lfo);
-            self.osc_2.set_frequency_modulation(lfo);
+            for o in self.oscillators.iter_mut() {
+                o.set_frequency_modulation(lfo);
+            }
         }
 
-        // TODO: figure out how to usefully work MiniMixer into this part.
-        let osc_1 = self.osc_1.process(time_seconds);
-        let osc_2 = self.osc_2.process(time_seconds);
-        let mut osc_denom = self.osc_1_mix + self.osc_2_mix;
-        if osc_denom == 0.0 {
-            osc_denom = 1.0;
+        let mut osc_sum = 0.0f32;
+        if self.oscillators.len() > 0 {
+            for o in self.oscillators.iter_mut() {
+                osc_sum += o.process(time_seconds);
+            }
+            osc_sum /= self.oscillators.len() as f32;
         }
-        let osc_mix = (osc_1 * self.osc_1_mix + osc_2 * self.osc_2_mix) / osc_denom;
-
         self.filter_envelope.tick(time_seconds);
         let new_cutoff_percentage = (self.filter_cutoff_start
             + (self.filter_cutoff_end - self.filter_cutoff_start) * self.filter_envelope.value());
         let new_cutoff = MiniFilter2::percent_to_frequency(new_cutoff_percentage);
         self.filter.set_cutoff(new_cutoff);
-        let filtered_mix = self.filter.filter(osc_mix);
+        let filtered_mix = self.filter.filter(osc_sum);
 
         let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
             // LFO ranges from [-1, 1], so convert to something that can silence or double the volume.
@@ -120,8 +129,11 @@ impl DeviceTrait for SuperVoice {
         match message.status {
             MidiMessageType::NoteOn => {
                 let frequency = message.to_frequency();
-                self.osc_1.set_frequency(frequency);
-                self.osc_2.set_frequency(frequency);
+                for o in self.oscillators.iter_mut() {
+                    if !matches!(o.waveform, Waveform::Noise) {
+                        o.set_frequency(frequency);
+                    }
+                }
             }
             MidiMessageType::NoteOff => {}
             MidiMessageType::ProgramChange => {}

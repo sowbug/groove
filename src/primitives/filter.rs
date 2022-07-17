@@ -774,7 +774,7 @@ mod tests {
             sample_format: hound::SampleFormat::Int,
         };
         const AMPLITUDE: f32 = i16::MAX as f32;
-        let mut filter_writer = hound::WavWriter::create(filename, spec).unwrap();
+        let mut writer = hound::WavWriter::create(filename, spec).unwrap();
 
         let time_start = clock.seconds;
         while clock.seconds < duration {
@@ -786,7 +786,7 @@ mod tests {
                 );
             }
             let sample_filter = filter.filter(sample_osc);
-            let _ = filter_writer.write_sample((sample_filter * AMPLITUDE) as i16);
+            let _ = writer.write_sample((sample_filter * AMPLITUDE) as i16);
             clock.tick();
         }
     }

@@ -142,29 +142,29 @@ impl SuperSynth {
 
     pub fn get_general_midi_preset(program: GeneralMidiProgram) -> WelshSynthPreset {
         match program {
-            GeneralMidiProgram::AcousticGrand => WelshSynthPreset::by_name(WelshPresetName::Piano),
+            GeneralMidiProgram::AcousticGrand => WelshSynthPreset::by_name(&WelshPresetName::Piano),
             GeneralMidiProgram::BrightAcoustic => {
-                WelshSynthPreset::by_name(WelshPresetName::Piano) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::Piano) // TODO dup
             }
             GeneralMidiProgram::ElectricGrand => {
-                WelshSynthPreset::by_name(WelshPresetName::ElectricPiano)
+                WelshSynthPreset::by_name(&WelshPresetName::ElectricPiano)
             }
             GeneralMidiProgram::HonkyTonk => {
                 panic!();
             }
             GeneralMidiProgram::ElectricPiano1 => {
-                WelshSynthPreset::by_name(WelshPresetName::ElectricPiano) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::ElectricPiano) // TODO dup
             }
             GeneralMidiProgram::ElectricPiano2 => {
-                WelshSynthPreset::by_name(WelshPresetName::ElectricPiano) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::ElectricPiano) // TODO dup
             }
             GeneralMidiProgram::Harpsichord => {
-                WelshSynthPreset::by_name(WelshPresetName::Harpsichord)
+                WelshSynthPreset::by_name(&WelshPresetName::Harpsichord)
             }
-            GeneralMidiProgram::Clav => WelshSynthPreset::by_name(WelshPresetName::Clavichord),
-            GeneralMidiProgram::Celesta => WelshSynthPreset::by_name(WelshPresetName::Celeste),
+            GeneralMidiProgram::Clav => WelshSynthPreset::by_name(&WelshPresetName::Clavichord),
+            GeneralMidiProgram::Celesta => WelshSynthPreset::by_name(&WelshPresetName::Celeste),
             GeneralMidiProgram::Glockenspiel => {
-                WelshSynthPreset::by_name(WelshPresetName::Glockenspiel)
+                WelshSynthPreset::by_name(&WelshPresetName::Glockenspiel)
             }
             GeneralMidiProgram::MusicBox => {
                 panic!();
@@ -172,81 +172,81 @@ impl SuperSynth {
             GeneralMidiProgram::Vibraphone => {
                 panic!();
             }
-            GeneralMidiProgram::Marimba => WelshSynthPreset::by_name(WelshPresetName::Marimba),
-            GeneralMidiProgram::Xylophone => WelshSynthPreset::by_name(WelshPresetName::Xylophone),
-            GeneralMidiProgram::TubularBells => WelshSynthPreset::by_name(WelshPresetName::Bell),
-            GeneralMidiProgram::Dulcimer => WelshSynthPreset::by_name(WelshPresetName::Dulcimer),
+            GeneralMidiProgram::Marimba => WelshSynthPreset::by_name(&WelshPresetName::Marimba),
+            GeneralMidiProgram::Xylophone => WelshSynthPreset::by_name(&WelshPresetName::Xylophone),
+            GeneralMidiProgram::TubularBells => WelshSynthPreset::by_name(&WelshPresetName::Bell),
+            GeneralMidiProgram::Dulcimer => WelshSynthPreset::by_name(&WelshPresetName::Dulcimer),
             GeneralMidiProgram::DrawbarOrgan => {
-                WelshSynthPreset::by_name(WelshPresetName::Organ) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::Organ) // TODO dup
             }
             GeneralMidiProgram::PercussiveOrgan => {
-                WelshSynthPreset::by_name(WelshPresetName::Organ) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::Organ) // TODO dup
             }
             GeneralMidiProgram::RockOrgan => {
-                WelshSynthPreset::by_name(WelshPresetName::Organ) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::Organ) // TODO dup
             }
             GeneralMidiProgram::ChurchOrgan => {
-                WelshSynthPreset::by_name(WelshPresetName::Organ) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::Organ) // TODO dup
             }
             GeneralMidiProgram::ReedOrgan => {
-                WelshSynthPreset::by_name(WelshPresetName::Organ) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::Organ) // TODO dup
             }
-            GeneralMidiProgram::Accordion => WelshSynthPreset::by_name(WelshPresetName::Accordion),
-            GeneralMidiProgram::Harmonica => WelshSynthPreset::by_name(WelshPresetName::Harmonica),
+            GeneralMidiProgram::Accordion => WelshSynthPreset::by_name(&WelshPresetName::Accordion),
+            GeneralMidiProgram::Harmonica => WelshSynthPreset::by_name(&WelshPresetName::Harmonica),
             GeneralMidiProgram::TangoAccordion => {
                 panic!();
             }
             GeneralMidiProgram::AcousticGuitarNylon => {
-                WelshSynthPreset::by_name(WelshPresetName::GuitarAcoustic)
+                WelshSynthPreset::by_name(&WelshPresetName::GuitarAcoustic)
             }
             GeneralMidiProgram::AcousticGuitarSteel => {
-                WelshSynthPreset::by_name(WelshPresetName::GuitarAcoustic) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::GuitarAcoustic) // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarJazz => {
-                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarClean => {
-                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarMuted => {
-                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::OverdrivenGuitar => {
-                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::DistortionGuitar => {
-                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::GuitarHarmonics => {
-                WelshSynthPreset::by_name(WelshPresetName::GuitarElectric) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::GuitarElectric) // TODO dup
             }
             GeneralMidiProgram::AcousticBass => {
-                WelshSynthPreset::by_name(WelshPresetName::DoubleBass)
+                WelshSynthPreset::by_name(&WelshPresetName::DoubleBass)
             }
             GeneralMidiProgram::ElectricBassFinger => {
-                WelshSynthPreset::by_name(WelshPresetName::StandupBass)
+                WelshSynthPreset::by_name(&WelshPresetName::StandupBass)
             }
             GeneralMidiProgram::ElectricBassPick => {
-                WelshSynthPreset::by_name(WelshPresetName::AcidBass)
+                WelshSynthPreset::by_name(&WelshPresetName::AcidBass)
             }
             GeneralMidiProgram::FretlessBass => {
-                WelshSynthPreset::by_name(WelshPresetName::DetroitBass) // TODO same?
+                WelshSynthPreset::by_name(&WelshPresetName::DetroitBass) // TODO same?
             }
-            GeneralMidiProgram::SlapBass1 => WelshSynthPreset::by_name(WelshPresetName::FunkBass),
-            GeneralMidiProgram::SlapBass2 => WelshSynthPreset::by_name(WelshPresetName::FunkBass),
+            GeneralMidiProgram::SlapBass1 => WelshSynthPreset::by_name(&WelshPresetName::FunkBass),
+            GeneralMidiProgram::SlapBass2 => WelshSynthPreset::by_name(&WelshPresetName::FunkBass),
             GeneralMidiProgram::SynthBass1 => {
-                WelshSynthPreset::by_name(WelshPresetName::DigitalBass)
+                WelshSynthPreset::by_name(&WelshPresetName::DigitalBass)
             }
             GeneralMidiProgram::SynthBass2 => {
-                WelshSynthPreset::by_name(WelshPresetName::DigitalBass)
+                WelshSynthPreset::by_name(&WelshPresetName::DigitalBass)
             }
-            GeneralMidiProgram::Violin => WelshSynthPreset::by_name(WelshPresetName::Violin),
-            GeneralMidiProgram::Viola => WelshSynthPreset::by_name(WelshPresetName::Viola),
+            GeneralMidiProgram::Violin => WelshSynthPreset::by_name(&WelshPresetName::Violin),
+            GeneralMidiProgram::Viola => WelshSynthPreset::by_name(&WelshPresetName::Viola),
             GeneralMidiProgram::Cello => {
-                WelshSynthPreset::by_name(crate::preset::welsh::WelshPresetName::Cello)
+                WelshSynthPreset::by_name(&WelshPresetName::Cello)
             }
             GeneralMidiProgram::Contrabass => {
-                WelshSynthPreset::by_name(WelshPresetName::Contrabassoon)
+                WelshSynthPreset::by_name(&WelshPresetName::Contrabassoon)
             }
             GeneralMidiProgram::TremoloStrings => {
                 panic!();
@@ -254,69 +254,69 @@ impl SuperSynth {
             GeneralMidiProgram::PizzicatoStrings => {
                 panic!();
             }
-            GeneralMidiProgram::OrchestralHarp => WelshSynthPreset::by_name(WelshPresetName::Harp),
-            GeneralMidiProgram::Timpani => WelshSynthPreset::by_name(WelshPresetName::Timpani),
+            GeneralMidiProgram::OrchestralHarp => WelshSynthPreset::by_name(&WelshPresetName::Harp),
+            GeneralMidiProgram::Timpani => WelshSynthPreset::by_name(&WelshPresetName::Timpani),
             GeneralMidiProgram::StringEnsemble1 => {
                 panic!();
             }
             GeneralMidiProgram::StringEnsemble2 => {
-                WelshSynthPreset::by_name(WelshPresetName::StringsPwm) // TODO same?
+                WelshSynthPreset::by_name(&WelshPresetName::StringsPwm) // TODO same?
             }
             GeneralMidiProgram::Synthstrings1 => {
-                WelshSynthPreset::by_name(WelshPresetName::StringsPwm)
+                WelshSynthPreset::by_name(&WelshPresetName::StringsPwm)
             } // TODO same?
 
             GeneralMidiProgram::Synthstrings2 => {
                 panic!();
             }
-            GeneralMidiProgram::ChoirAahs => WelshSynthPreset::by_name(WelshPresetName::Angels),
+            GeneralMidiProgram::ChoirAahs => WelshSynthPreset::by_name(&WelshPresetName::Angels),
 
-            GeneralMidiProgram::VoiceOohs => WelshSynthPreset::by_name(WelshPresetName::Choir),
+            GeneralMidiProgram::VoiceOohs => WelshSynthPreset::by_name(&WelshPresetName::Choir),
             GeneralMidiProgram::SynthVoice => {
-                WelshSynthPreset::by_name(WelshPresetName::VocalFemale)
+                WelshSynthPreset::by_name(&WelshPresetName::VocalFemale)
             }
 
             GeneralMidiProgram::OrchestraHit => {
                 panic!();
             }
-            GeneralMidiProgram::Trumpet => WelshSynthPreset::by_name(WelshPresetName::Trumpet),
-            GeneralMidiProgram::Trombone => WelshSynthPreset::by_name(WelshPresetName::Trombone),
-            GeneralMidiProgram::Tuba => WelshSynthPreset::by_name(WelshPresetName::Tuba),
+            GeneralMidiProgram::Trumpet => WelshSynthPreset::by_name(&WelshPresetName::Trumpet),
+            GeneralMidiProgram::Trombone => WelshSynthPreset::by_name(&WelshPresetName::Trombone),
+            GeneralMidiProgram::Tuba => WelshSynthPreset::by_name(&WelshPresetName::Tuba),
             GeneralMidiProgram::MutedTrumpet => {
                 panic!();
             }
             GeneralMidiProgram::FrenchHorn => {
-                WelshSynthPreset::by_name(WelshPresetName::FrenchHorn)
+                WelshSynthPreset::by_name(&WelshPresetName::FrenchHorn)
             }
 
             GeneralMidiProgram::BrassSection => {
-                WelshSynthPreset::by_name(WelshPresetName::BrassSection)
+                WelshSynthPreset::by_name(&WelshPresetName::BrassSection)
             }
 
             GeneralMidiProgram::Synthbrass1 => {
-                WelshSynthPreset::by_name(WelshPresetName::BrassSection) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::BrassSection) // TODO dup
             }
             GeneralMidiProgram::Synthbrass2 => {
-                WelshSynthPreset::by_name(WelshPresetName::BrassSection) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::BrassSection) // TODO dup
             }
             GeneralMidiProgram::SopranoSax => {
-                WelshSynthPreset::by_name(WelshPresetName::Saxophone) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::Saxophone) // TODO dup
             }
-            GeneralMidiProgram::AltoSax => WelshSynthPreset::by_name(WelshPresetName::Saxophone),
+            GeneralMidiProgram::AltoSax => WelshSynthPreset::by_name(&WelshPresetName::Saxophone),
             GeneralMidiProgram::TenorSax => {
-                WelshSynthPreset::by_name(WelshPresetName::Saxophone) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::Saxophone) // TODO dup
             }
             GeneralMidiProgram::BaritoneSax => {
-                WelshSynthPreset::by_name(WelshPresetName::Saxophone) // TODO dup
+                WelshSynthPreset::by_name(&WelshPresetName::Saxophone) // TODO dup
             }
-            GeneralMidiProgram::Oboe => WelshSynthPreset::by_name(WelshPresetName::Oboe),
+            GeneralMidiProgram::Oboe => WelshSynthPreset::by_name(&WelshPresetName::Oboe),
             GeneralMidiProgram::EnglishHorn => {
-                WelshSynthPreset::by_name(WelshPresetName::EnglishHorn)
+                WelshSynthPreset::by_name(&WelshPresetName::EnglishHorn)
             }
-            GeneralMidiProgram::Bassoon => WelshSynthPreset::by_name(WelshPresetName::Bassoon),
-            GeneralMidiProgram::Clarinet => WelshSynthPreset::by_name(WelshPresetName::Clarinet),
-            GeneralMidiProgram::Piccolo => WelshSynthPreset::by_name(WelshPresetName::Piccolo),
-            GeneralMidiProgram::Flute => WelshSynthPreset::by_name(WelshPresetName::Flute),
+            GeneralMidiProgram::Bassoon => WelshSynthPreset::by_name(&WelshPresetName::Bassoon),
+            GeneralMidiProgram::Clarinet => WelshSynthPreset::by_name(&WelshPresetName::Clarinet),
+            GeneralMidiProgram::Piccolo => WelshSynthPreset::by_name(&WelshPresetName::Piccolo),
+            GeneralMidiProgram::Flute => WelshSynthPreset::by_name(&WelshPresetName::Flute),
             GeneralMidiProgram::Recorder => {
                 panic!();
             }
@@ -336,10 +336,10 @@ impl SuperSynth {
                 panic!();
             }
             GeneralMidiProgram::Lead1Square => {
-                WelshSynthPreset::by_name(WelshPresetName::MonoSolo) // TODO: same?
+                WelshSynthPreset::by_name(&WelshPresetName::MonoSolo) // TODO: same?
             }
             GeneralMidiProgram::Lead2Sawtooth => {
-                WelshSynthPreset::by_name(WelshPresetName::Trance5th) // TODO: same?
+                WelshSynthPreset::by_name(&WelshPresetName::Trance5th) // TODO: same?
             }
             GeneralMidiProgram::Lead3Calliope => {
                 panic!();
@@ -360,7 +360,7 @@ impl SuperSynth {
                 panic!();
             }
             GeneralMidiProgram::Pad1NewAge => {
-                WelshSynthPreset::by_name(WelshPresetName::NewAgeLead) // TODO pad or lead?
+                WelshSynthPreset::by_name(&WelshPresetName::NewAgeLead) // TODO pad or lead?
             }
             GeneralMidiProgram::Pad2Warm => {
                 panic!();
@@ -407,8 +407,8 @@ impl SuperSynth {
             GeneralMidiProgram::Fx8SciFi => {
                 panic!();
             }
-            GeneralMidiProgram::Sitar => WelshSynthPreset::by_name(WelshPresetName::Sitar),
-            GeneralMidiProgram::Banjo => WelshSynthPreset::by_name(WelshPresetName::Banjo),
+            GeneralMidiProgram::Sitar => WelshSynthPreset::by_name(&WelshPresetName::Sitar),
+            GeneralMidiProgram::Banjo => WelshSynthPreset::by_name(&WelshPresetName::Banjo),
             GeneralMidiProgram::Shamisen => {
                 panic!();
             }
@@ -418,7 +418,7 @@ impl SuperSynth {
             GeneralMidiProgram::Kalimba => {
                 panic!();
             }
-            GeneralMidiProgram::Bagpipe => WelshSynthPreset::by_name(WelshPresetName::Bagpipes),
+            GeneralMidiProgram::Bagpipe => WelshSynthPreset::by_name(&WelshPresetName::Bagpipes),
             GeneralMidiProgram::Fiddle => {
                 panic!();
             }
@@ -432,16 +432,16 @@ impl SuperSynth {
                 panic!();
             }
             GeneralMidiProgram::SteelDrums => {
-                WelshSynthPreset::by_name(WelshPresetName::WheelsOfSteel) // TODO same?
+                WelshSynthPreset::by_name(&WelshPresetName::WheelsOfSteel) // TODO same?
             }
-            GeneralMidiProgram::Woodblock => WelshSynthPreset::by_name(WelshPresetName::SideStick),
+            GeneralMidiProgram::Woodblock => WelshSynthPreset::by_name(&WelshPresetName::SideStick),
             GeneralMidiProgram::TaikoDrum => {
                 // XXXXXXXXXXXXX TMP
-                WelshSynthPreset::by_name(WelshPresetName::Cello) // TODO substitute.....
+                WelshSynthPreset::by_name(&WelshPresetName::Cello) // TODO substitute.....
             }
-            GeneralMidiProgram::MelodicTom => WelshSynthPreset::by_name(WelshPresetName::Bongos),
-            GeneralMidiProgram::SynthDrum => WelshSynthPreset::by_name(WelshPresetName::SnareDrum),
-            GeneralMidiProgram::ReverseCymbal => WelshSynthPreset::by_name(WelshPresetName::Cymbal),
+            GeneralMidiProgram::MelodicTom => WelshSynthPreset::by_name(&WelshPresetName::Bongos),
+            GeneralMidiProgram::SynthDrum => WelshSynthPreset::by_name(&WelshPresetName::SnareDrum),
+            GeneralMidiProgram::ReverseCymbal => WelshSynthPreset::by_name(&WelshPresetName::Cymbal),
             GeneralMidiProgram::GuitarFretNoise => {
                 panic!();
             }
@@ -449,7 +449,7 @@ impl SuperSynth {
                 panic!();
             }
             GeneralMidiProgram::Seashore => {
-                WelshSynthPreset::by_name(WelshPresetName::OceanWavesWithFoghorn)
+                WelshSynthPreset::by_name(&WelshPresetName::OceanWavesWithFoghorn)
             }
             GeneralMidiProgram::BirdTweet => {
                 panic!();

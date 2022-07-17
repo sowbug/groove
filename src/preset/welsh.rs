@@ -1,7 +1,9 @@
 use crate::primitives::oscillators::Waveform;
+use strum_macros::{EnumIter, IntoStaticStr};
 
-use super::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset};
+use super::{EnvelopePreset, LfoPreset, LfoRouting, OscillatorPreset, FilterPreset};
 
+#[derive(EnumIter, IntoStaticStr)]
 pub enum WelshPresetName {
     // -------------------- Strings
     Banjo,
@@ -171,7 +173,7 @@ pub struct WelshSynthPreset {
 }
 
 impl WelshSynthPreset {
-    pub fn by_name(name: WelshPresetName) -> Self {
+    pub fn by_name(name: &WelshPresetName) -> Self {
         match name {
             WelshPresetName::Banjo => Self {
                 oscillator_1_preset: OscillatorPreset {
@@ -1460,6 +1462,83 @@ impl WelshSynthPreset {
 
             _ => {
                 panic!();
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::panic;
+
+    use crate::{
+        common::{MidiMessage, MidiMessageType},
+        devices::{instruments::SuperVoice, traits::DeviceTrait},
+        primitives::clock::Clock,
+    };
+
+    use super::WelshPresetName;
+    use strum::IntoEnumIterator;
+
+    fn write_voice(voice: &mut SuperVoice, duration: f32, filename: &str) {
+        let mut clock = Clock::new(44100, 4, 4, 128.);
+
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: clock.sample_rate(),
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        const AMPLITUDE: f32 = i16::MAX as f32;
+        let mut writer = hound::WavWriter::create(filename, spec).unwrap();
+
+        let midi_on = MidiMessage {
+            channel: 0,
+            status: MidiMessageType::NoteOn,
+            data1: 60,
+            data2: 0,
+        };
+        let midi_off = MidiMessage {
+            channel: 0,
+            status: MidiMessageType::NoteOff,
+            data1: 60,
+            data2: 0,
+        };
+
+        let mut last_recognized_time_point = -1.;
+        let time_start = clock.seconds;
+        let time_note_off = duration / 2.0;
+        while clock.seconds < duration {
+            if clock.seconds >= 0.0 && last_recognized_time_point < 0.0 {
+                last_recognized_time_point = clock.seconds;
+                voice.handle_midi_message(&midi_on, &clock);
+            } else {
+                if clock.seconds >= time_note_off && last_recognized_time_point < time_note_off {
+                    last_recognized_time_point = clock.seconds;
+                    voice.handle_midi_message(&midi_off, &clock);
+                }
+            }
+
+            let sample = voice.process(clock.seconds);
+            let _ = writer.write_sample((sample * AMPLITUDE) as i16);
+            clock.tick();
+        }
+    }
+
+    #[test]
+    fn test_presets() {
+        let clock = Clock::new(44100, 4, 4, 128.0);
+        for preset in WelshPresetName::iter() {
+            let result = panic::catch_unwind(|| {
+                SuperVoice::new(
+                    clock.sample_rate(),
+                    &super::WelshSynthPreset::by_name(&preset),
+                )
+            });
+            if result.is_ok() {
+                let mut voice = result.unwrap();
+                let preset_name: &str = preset.into();
+                write_voice(&mut voice, 2.0, &format!("voice_{}.wav", preset_name));
             }
         }
     }
