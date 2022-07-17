@@ -968,9 +968,49 @@ impl WelshSynthPreset {
             WelshPresetName::Claves => {
                 panic!()
             }
-            WelshPresetName::Cowbell => {
-                panic!()
-            }
+            WelshPresetName::Cowbell => Self {
+                oscillator_1_preset: OscillatorPreset {
+                    waveform: Waveform::Square,
+                    ..Default::default()
+                },
+                oscillator_2_preset: OscillatorPreset {
+                    waveform: Waveform::PulseWidth(0.35),
+                    tune: OscillatorPreset::semis_and_cents(12.0 + 2.0, 0.0),
+                    ..Default::default()
+                },
+                oscillator_2_track: true,
+                oscillator_2_sync: false,
+                noise: 0.0,
+                lfo_preset: LfoPreset {
+                    routing: LfoRouting::None,
+                    ..Default::default()
+                },
+                glide: GlidePreset::Off,
+                has_unison: false,
+                polyphony: PolyphonyPreset::Mono,
+                filter_type_24db: FilterPreset {
+                    cutoff: 8800.0,
+                    weight: 0.88,
+                },
+                filter_type_12db: FilterPreset {
+                    cutoff: 8800.0,
+                    weight: 0.88,
+                },
+                filter_resonance: 0.55,
+                filter_envelope_weight: 0.65,
+                filter_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.02,
+                    sustain_percentage: 0.65,
+                    release_seconds: EnvelopePreset::MAX,
+                },
+                amp_envelope_preset: EnvelopePreset {
+                    attack_seconds: 0.0,
+                    decay_seconds: 0.15,
+                    sustain_percentage: 0.0,
+                    release_seconds: 0.15,
+                },
+            },
             WelshPresetName::CowbellAnalog => {
                 panic!()
             }
