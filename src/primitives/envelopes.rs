@@ -1,6 +1,9 @@
 use std::{f32::MAX, fmt::Debug};
 
-use crate::{common::{MidiMessage, MidiMessageType}, preset::EnvelopePreset};
+use crate::{
+    common::{MidiMessage, MidiMessageType},
+    preset::EnvelopePreset,
+};
 
 #[derive(Debug)]
 enum EnvelopeState {
@@ -194,7 +197,7 @@ impl MiniEnvelope {
 
 #[cfg(test)]
 mod tests {
-    use crate::{primitives::clock::Clock, preset::EnvelopePreset};
+    use crate::{preset::EnvelopePreset, primitives::clock::Clock};
 
     use super::*;
 
@@ -233,18 +236,8 @@ mod tests {
             },
         );
 
-        let midi_on = MidiMessage {
-            channel: 0,
-            status: MidiMessageType::NoteOn,
-            data1: 60,
-            data2: 0,
-        };
-        let midi_off = MidiMessage {
-            channel: 0,
-            status: MidiMessageType::NoteOff,
-            data1: 60,
-            data2: 0,
-        };
+        let midi_on = MidiMessage::note_on_c4();
+        let midi_off = MidiMessage::note_off_c4();
         assert_eq!(envelope.amplitude, 0.);
 
         let mut last_recognized_time_point = -1.;
@@ -287,18 +280,8 @@ mod tests {
             },
         );
 
-        let midi_on = MidiMessage {
-            channel: 0,
-            status: MidiMessageType::NoteOn,
-            data1: 60,
-            data2: 0,
-        };
-        let midi_off = MidiMessage {
-            channel: 0,
-            status: MidiMessageType::NoteOff,
-            data1: 60,
-            data2: 0,
-        };
+        let midi_on = MidiMessage::note_on_c4();
+        let midi_off = MidiMessage::note_off_c4();
 
         const SAMPLES_PER_SECOND: u32 = 44100;
         const TIME_ZERO: u32 = 0;

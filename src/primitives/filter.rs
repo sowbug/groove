@@ -679,12 +679,9 @@ impl MiniFilter2 {
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::{MidiMessage, WaveformType},
+        common::{MidiMessage, MidiNote, WaveformType},
         preset::OscillatorPreset,
-        primitives::{
-            clock::Clock,
-            oscillators::{MiniOscillator},
-        },
+        primitives::{clock::Clock, oscillators::MiniOscillator},
     };
 
     use super::*;
@@ -867,15 +864,12 @@ mod tests {
     fn test_dynamic_cutoff() {
         const SAMPLE_RATE: u32 = 44100;
         let min_q = 1.0 / 2.0f32.sqrt();
-        const Q_10: f32 = 10.0;
-        const ONE_OCTAVE: f32 = 1.0;
-        const SIX_DB: f32 = 6.0;
 
         let mut osc = MiniOscillator::new_from_preset(&OscillatorPreset {
             waveform: WaveformType::Sawtooth,
             ..Default::default()
         });
-        osc.set_frequency(MidiMessage::note_to_frequency(60));
+        osc.set_frequency(MidiMessage::note_to_frequency(MidiNote::C4 as u8));
         write_filter2_sample(
             &mut osc,
             &mut MiniFilter2::new(MiniFilter2Type::LowPass(SAMPLE_RATE, 1000., min_q)),

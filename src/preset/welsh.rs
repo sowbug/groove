@@ -1533,18 +1533,8 @@ mod tests {
         const AMPLITUDE: f32 = i16::MAX as f32;
         let mut writer = hound::WavWriter::create(filename, spec).unwrap();
 
-        let midi_on = MidiMessage {
-            channel: 0,
-            status: MidiMessageType::NoteOn,
-            data1: 60,
-            data2: 0,
-        };
-        let midi_off = MidiMessage {
-            channel: 0,
-            status: MidiMessageType::NoteOff,
-            data1: 60,
-            data2: 0,
-        };
+        let midi_on = MidiMessage::note_on_c4();
+        let midi_off = MidiMessage::note_off_c4();
 
         let mut last_recognized_time_point = -1.;
         let time_start = clock.seconds;

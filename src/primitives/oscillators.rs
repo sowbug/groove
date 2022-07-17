@@ -124,7 +124,11 @@ impl MiniOscillator {
 
 #[cfg(test)]
 mod tests {
-    use crate::{common::MidiMessage, preset::OscillatorPreset, primitives::clock::Clock};
+    use crate::{
+        common::{MidiMessage, MidiNote},
+        preset::OscillatorPreset,
+        primitives::clock::Clock,
+    };
 
     use super::{MiniOscillator, WaveformType};
 
@@ -149,130 +153,160 @@ mod tests {
         }
     }
 
-    fn create_oscillator(waveform: WaveformType, tune: f32, note: u8) -> MiniOscillator {
+    fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> MiniOscillator {
         let mut oscillator = MiniOscillator::new_from_preset(&OscillatorPreset {
             waveform,
             tune,
             ..Default::default()
         });
-        oscillator.set_frequency(MidiMessage::note_to_frequency(note));
+        oscillator.set_frequency(MidiMessage::note_to_frequency(note as u8));
         oscillator
     }
 
     #[test]
     fn test_oscillator_basic_waveforms() {
-        let mut oscillator =
-            create_oscillator(WaveformType::Sine, OscillatorPreset::NATURAL_TUNING, 60);
+        let mut oscillator = create_oscillator(
+            WaveformType::Sine,
+            OscillatorPreset::NATURAL_TUNING,
+            MidiNote::C4,
+        );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60)
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8)
         );
         write_sound(&mut oscillator, "oscillator_sine_c3.wav");
 
-        let mut oscillator =
-            create_oscillator(WaveformType::Square, OscillatorPreset::NATURAL_TUNING, 60);
+        let mut oscillator = create_oscillator(
+            WaveformType::Square,
+            OscillatorPreset::NATURAL_TUNING,
+            MidiNote::C4,
+        );
         write_sound(&mut oscillator, "oscillator_square_c3.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::PulseWidth(0.1),
             OscillatorPreset::NATURAL_TUNING,
-            60,
+            MidiNote::C4,
         );
         write_sound(&mut oscillator, "oscillator_pulse_width_10_percent_c3.wav");
 
-        let mut oscillator =
-            create_oscillator(WaveformType::Triangle, OscillatorPreset::NATURAL_TUNING, 60);
+        let mut oscillator = create_oscillator(
+            WaveformType::Triangle,
+            OscillatorPreset::NATURAL_TUNING,
+            MidiNote::C4,
+        );
         write_sound(&mut oscillator, "oscillator_triangle_c3.wav");
 
-        let mut oscillator =
-            create_oscillator(WaveformType::Sawtooth, OscillatorPreset::NATURAL_TUNING, 60);
+        let mut oscillator = create_oscillator(
+            WaveformType::Sawtooth,
+            OscillatorPreset::NATURAL_TUNING,
+            MidiNote::C4,
+        );
         write_sound(&mut oscillator, "oscillator_sawtooth_c3.wav");
 
-        let mut oscillator =
-            create_oscillator(WaveformType::Noise, OscillatorPreset::NATURAL_TUNING, 0);
+        let mut oscillator = create_oscillator(
+            WaveformType::Noise,
+            OscillatorPreset::NATURAL_TUNING,
+            MidiNote::None,
+        );
         write_sound(&mut oscillator, "oscillator_noise.wav");
 
-        let mut oscillator =
-            create_oscillator(WaveformType::None, OscillatorPreset::NATURAL_TUNING, 0);
+        let mut oscillator = create_oscillator(
+            WaveformType::None,
+            OscillatorPreset::NATURAL_TUNING,
+            MidiNote::None,
+        );
         write_sound(&mut oscillator, "oscillator_none.wav");
     }
 
     #[test]
     fn test_oscillator_tuned() {
-        let mut oscillator =
-            create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(0.0), 60);
+        let mut oscillator = create_oscillator(
+            WaveformType::Sine,
+            OscillatorPreset::octaves(0.0),
+            MidiNote::C4,
+        );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60)
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8)
         );
-        write_sound(&mut oscillator, "oscillator_sine_c3_plus_zero_octave.wav");
+        write_sound(&mut oscillator, "oscillator_sine_c4_plus_zero_octave.wav");
 
-        let mut oscillator =
-            create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(1.0), 60);
+        let mut oscillator = create_oscillator(
+            WaveformType::Sine,
+            OscillatorPreset::octaves(1.0),
+            MidiNote::C4,
+        );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60) * 2.0
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8) * 2.0
         );
-        write_sound(&mut oscillator, "oscillator_sine_c3_plus_1_octave.wav");
+        write_sound(&mut oscillator, "oscillator_sine_c4_plus_1_octave.wav");
 
-        let mut oscillator =
-            create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(-1.0), 60);
+        let mut oscillator = create_oscillator(
+            WaveformType::Sine,
+            OscillatorPreset::octaves(-1.0),
+            MidiNote::C4,
+        );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60) / 2.0
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8) / 2.0
         );
-        write_sound(&mut oscillator, "oscillator_sine_c3_minus_1_octave.wav");
+        write_sound(&mut oscillator, "oscillator_sine_c4_minus_1_octave.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
             OscillatorPreset::semis_and_cents(12.0, 0.0),
-            60,
+            MidiNote::C4,
         );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60) * 2.0
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8) * 2.0
         );
-        write_sound(&mut oscillator, "oscillator_sine_c3_plus_12_semitone.wav");
+        write_sound(&mut oscillator, "oscillator_sine_c4_plus_12_semitone.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
             OscillatorPreset::semis_and_cents(0.0, -1200.0),
-            60,
+            MidiNote::C4,
         );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60) / 2.0
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8) / 2.0
         );
-        write_sound(&mut oscillator, "oscillator_sine_c3_minus_1200_cents.wav");
+        write_sound(&mut oscillator, "oscillator_sine_c4_minus_1200_cents.wav");
     }
 
     #[test]
     fn test_oscillator_modulated() {
-        let mut oscillator =
-            create_oscillator(WaveformType::Sine, OscillatorPreset::octaves(0.0), 60);
+        let mut oscillator = create_oscillator(
+            WaveformType::Sine,
+            OscillatorPreset::octaves(0.0),
+            MidiNote::C4,
+        );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60)
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8)
         );
         oscillator.set_frequency_modulation(0.0);
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60)
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8)
         );
         oscillator.set_frequency_modulation(1.0);
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60) * 2.0
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8) * 2.0
         );
         oscillator.set_frequency_modulation(-1.0);
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60) / 2.0
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8) / 2.0
         );
         oscillator.set_frequency_modulation(0.5);
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(60) * 2.0f32.sqrt()
+            MidiMessage::note_to_frequency(MidiNote::C4 as u8) * 2.0f32.sqrt()
         );
     }
 }

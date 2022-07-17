@@ -101,7 +101,7 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     use crate::{
-        common::{MidiMessage, OrderedMidiMessage},
+        common::{MidiMessage, MidiNote, OrderedMidiMessage},
         devices::{tests::NullDevice, traits::DeviceTrait},
         primitives::clock::Clock,
     };
@@ -133,11 +133,11 @@ mod tests {
 
         sequencer.add_message(OrderedMidiMessage {
             when: sequencer.tick_for_beat(&clock, 0),
-            message: MidiMessage::new_note_on(0, 60, 0),
+            message: MidiMessage::note_on_c4(),
         });
         sequencer.add_message(OrderedMidiMessage {
             when: sequencer.tick_for_beat(&clock, 1),
-            message: MidiMessage::new_note_off(0, 60, 0),
+            message: MidiMessage::note_off_c4(),
         });
 
         sequencer.connect_midi_sink_for_channel(device.clone(), 0);
@@ -187,11 +187,11 @@ mod tests {
         });
         sequencer.add_message(OrderedMidiMessage {
             when: sequencer.tick_for_beat(&clock, 2),
-            message: MidiMessage::new_note_off(0, 60, 0),
+            message: MidiMessage::new_note_off(0, MidiNote::C4 as u8, 0),
         });
         sequencer.add_message(OrderedMidiMessage {
             when: sequencer.tick_for_beat(&clock, 3),
-            message: MidiMessage::new_note_off(1, 60, 0),
+            message: MidiMessage::new_note_off(1, MidiNote::C4 as u8, 0),
         });
 
         // TODO: this tick() doesn't match the Clock tick() in the sense that the clock is in the right state

@@ -18,6 +18,7 @@ impl Default for WaveformType {
 }
 
 pub enum MidiNote {
+    None = 0,
     A0 = 21,
     D3 = 50,
     C4 = 60,
@@ -108,15 +109,25 @@ mod tests {
 
     use super::*;
 
+    impl MidiMessage {
+        pub fn note_on_c4() -> MidiMessage {
+            MidiMessage::new_note_on(0, MidiNote::C4 as u8, 0)
+        }
+
+        pub fn note_off_c4() -> MidiMessage {
+            MidiMessage::new_note_off(0, MidiNote::C4 as u8, 0)
+        }
+    }
+
     #[test]
     fn test_note_to_frequency() {
         assert_approx_eq!(
-            MidiMessage::new_note_on(0, 60, 0).to_frequency(),
+            MidiMessage::new_note_on(0, MidiNote::C4 as u8, 0).to_frequency(),
             261.625549
         );
         assert_approx_eq!(MidiMessage::new_note_on(0, 0, 0).to_frequency(), 8.175798);
         assert_approx_eq!(
-            MidiMessage::new_note_on(0, 127, 0).to_frequency(),
+            MidiMessage::new_note_on(0, MidiNote::G9 as u8, 0).to_frequency(),
             12543.855
         );
     }

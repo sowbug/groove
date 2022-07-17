@@ -345,19 +345,8 @@ mod tests {
 
     #[test]
     fn test_basic_synth_patch() {
-        let message_on = MidiMessage {
-            status: crate::common::MidiMessageType::NoteOn,
-            channel: 0,
-            data1: 60,
-            data2: 0,
-        };
-
-        let message_off = MidiMessage {
-            status: crate::common::MidiMessageType::NoteOff,
-            channel: 0,
-            data1: 60,
-            data2: 0,
-        };
+        let message_on = MidiMessage::note_on_c4();
+        let message_off = MidiMessage::note_off_c4();
 
         let mut clock = Clock::new(SAMPLE_RATE, 4, 4, 128.);
         let mut voice = SuperVoice::new(SAMPLE_RATE, &test_patch());
@@ -368,25 +357,14 @@ mod tests {
             5.0,
             &message_off,
             5.0,
-            "voice_test_c3.wav",
+            "voice_test_c4.wav",
         );
     }
 
     #[test]
     fn test_basic_cello_patch() {
-        let message_on = MidiMessage {
-            status: crate::common::MidiMessageType::NoteOn,
-            channel: 0,
-            data1: 60,
-            data2: 0,
-        };
-
-        let message_off = MidiMessage {
-            status: crate::common::MidiMessageType::NoteOff,
-            channel: 0,
-            data1: 60,
-            data2: 0,
-        };
+        let message_on = MidiMessage::note_on_c4();
+        let message_off = MidiMessage::note_off_c4();
 
         let mut clock = Clock::new(SAMPLE_RATE, 4, 4, 128.);
         let mut voice = SuperVoice::new(SAMPLE_RATE, &cello_patch());
@@ -397,7 +375,7 @@ mod tests {
             5.0,
             &message_off,
             1.0,
-            "voice_cello_c3.wav",
+            "voice_cello_c4.wav",
         );
     }
 }
