@@ -47,6 +47,10 @@ impl MidiMessage {
         2.0_f32.powf((note as f32 - 69.0) / 12.0) * 440.0
     }
 
+    pub fn note_type_to_frequency(midi_note: MidiNote) -> f32 {
+        2.0_f32.powf((midi_note as u8 as f32 - 69.0) / 12.0) * 440.0
+    }
+
     pub fn to_frequency(&self) -> f32 {
         Self::note_to_frequency(self.data1)
     }

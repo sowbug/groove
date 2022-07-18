@@ -142,7 +142,7 @@ mod tests {
             tune,
             ..Default::default()
         });
-        oscillator.set_frequency(MidiMessage::note_to_frequency(note as u8));
+        oscillator.set_frequency(MidiMessage::note_type_to_frequency(note));
         oscillator
     }
 
@@ -155,7 +155,7 @@ mod tests {
         );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8)
+            MidiMessage::note_type_to_frequency(MidiNote::C4)
         );
         write_source_to_file(&mut oscillator, "oscillator_sine_c3.wav");
 
@@ -211,7 +211,7 @@ mod tests {
         );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8)
+            MidiMessage::note_type_to_frequency(MidiNote::C4)
         );
         write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_zero_octave.wav");
 
@@ -222,7 +222,7 @@ mod tests {
         );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8) * 2.0
+            MidiMessage::note_type_to_frequency(MidiNote::C4) * 2.0
         );
         write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_1_octave.wav");
 
@@ -233,7 +233,7 @@ mod tests {
         );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8) / 2.0
+            MidiMessage::note_type_to_frequency(MidiNote::C4) / 2.0
         );
         write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1_octave.wav");
 
@@ -244,7 +244,7 @@ mod tests {
         );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8) * 2.0
+            MidiMessage::note_type_to_frequency(MidiNote::C4) * 2.0
         );
         write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_12_semitone.wav");
 
@@ -255,7 +255,7 @@ mod tests {
         );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8) / 2.0
+            MidiMessage::note_type_to_frequency(MidiNote::C4) / 2.0
         );
         write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1200_cents.wav");
     }
@@ -269,27 +269,27 @@ mod tests {
         );
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8)
+            MidiMessage::note_type_to_frequency(MidiNote::C4)
         );
         oscillator.set_frequency_modulation(0.0);
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8)
+            MidiMessage::note_type_to_frequency(MidiNote::C4)
         );
         oscillator.set_frequency_modulation(1.0);
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8) * 2.0
+            MidiMessage::note_type_to_frequency(MidiNote::C4) * 2.0
         );
         oscillator.set_frequency_modulation(-1.0);
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8) / 2.0
+            MidiMessage::note_type_to_frequency(MidiNote::C4) / 2.0
         );
         oscillator.set_frequency_modulation(0.5);
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiMessage::note_to_frequency(MidiNote::C4 as u8) * 2.0f32.sqrt()
+            MidiMessage::note_type_to_frequency(MidiNote::C4) * 2.0f32.sqrt()
         );
     }
 }
