@@ -1,5 +1,7 @@
 use std::f64::consts::PI;
 
+use super::EffectTrait;
+
 #[derive(Clone, Copy)]
 pub enum MiniFilterType {
     None,
@@ -92,73 +94,6 @@ impl MiniFilter {
             d0,
             ..Default::default()
         }
-    }
-
-    pub fn filter(&mut self, sample: f32) -> f32 {
-        let s64 = sample as f64;
-        let r = match self.order {
-            0 => 0.,
-            1 => {
-                let result = self.d0 * s64
-                    + self.c0
-                        * (self.a0 * s64 + self.a1 * self.sample_m1 + self.a2 * self.sample_m2
-                            - self.b1 * self.output_m1
-                            - self.b2 * self.output_m2);
-
-                // Scroll everything forward in time.
-                self.sample_m2 = self.sample_m1;
-                self.sample_m1 = s64;
-                self.output_m2 = self.output_m1;
-                self.output_m1 = result;
-                result
-            }
-            2 => {
-                let result = self.d0 * s64
-                    + self.c0
-                        * (self.a0 * s64 + self.a1 * self.sample_m1 + self.a2 * self.sample_m2
-                            - self.b1 * self.output_m1
-                            - self.b2 * self.output_m2);
-
-                // Scroll everything forward in time.
-                self.sample_m2 = self.sample_m1;
-                self.sample_m1 = s64;
-                self.output_m2 = self.output_m1;
-                self.output_m1 = result;
-                result
-            }
-            3 => {
-                panic!("no such order");
-            }
-            4 => {
-                let result = self.d0 * s64
-                    + self.c0
-                        * (self.a0 * s64
-                            + self.a1 * self.sample_m1
-                            + self.a2 * self.sample_m2
-                            + self.a3 * self.sample_m3
-                            + self.a4 * self.sample_m4
-                            - self.b1 * self.output_m1
-                            - self.b2 * self.output_m2
-                            - self.b3 * self.output_m3
-                            - self.b4 * self.output_m4);
-
-                // Scroll everything forward in time.
-                self.sample_m4 = self.sample_m3;
-                self.sample_m3 = self.sample_m2;
-                self.sample_m2 = self.sample_m1;
-                self.sample_m1 = s64;
-
-                self.output_m4 = self.output_m3;
-                self.output_m3 = self.output_m2;
-                self.output_m2 = self.output_m1;
-                self.output_m1 = result;
-                result
-            }
-            _ => {
-                panic!("impossible");
-            }
-        };
-        r as f32
     }
 
     fn first_order_low_pass_coefficients(
@@ -360,6 +295,75 @@ impl MiniFilter {
     }
 }
 
+impl EffectTrait for MiniFilter {
+    fn process(&mut self, input: f32, _time_seconds: f32) -> f32 {
+        let s64 = input as f64;
+        let r = match self.order {
+            0 => 0.,
+            1 => {
+                let result = self.d0 * s64
+                    + self.c0
+                        * (self.a0 * s64 + self.a1 * self.sample_m1 + self.a2 * self.sample_m2
+                            - self.b1 * self.output_m1
+                            - self.b2 * self.output_m2);
+
+                // Scroll everything forward in time.
+                self.sample_m2 = self.sample_m1;
+                self.sample_m1 = s64;
+                self.output_m2 = self.output_m1;
+                self.output_m1 = result;
+                result
+            }
+            2 => {
+                let result = self.d0 * s64
+                    + self.c0
+                        * (self.a0 * s64 + self.a1 * self.sample_m1 + self.a2 * self.sample_m2
+                            - self.b1 * self.output_m1
+                            - self.b2 * self.output_m2);
+
+                // Scroll everything forward in time.
+                self.sample_m2 = self.sample_m1;
+                self.sample_m1 = s64;
+                self.output_m2 = self.output_m1;
+                self.output_m1 = result;
+                result
+            }
+            3 => {
+                panic!("no such order");
+            }
+            4 => {
+                let result = self.d0 * s64
+                    + self.c0
+                        * (self.a0 * s64
+                            + self.a1 * self.sample_m1
+                            + self.a2 * self.sample_m2
+                            + self.a3 * self.sample_m3
+                            + self.a4 * self.sample_m4
+                            - self.b1 * self.output_m1
+                            - self.b2 * self.output_m2
+                            - self.b3 * self.output_m3
+                            - self.b4 * self.output_m4);
+
+                // Scroll everything forward in time.
+                self.sample_m4 = self.sample_m3;
+                self.sample_m3 = self.sample_m2;
+                self.sample_m2 = self.sample_m1;
+                self.sample_m1 = s64;
+
+                self.output_m4 = self.output_m3;
+                self.output_m3 = self.output_m2;
+                self.output_m2 = self.output_m1;
+                self.output_m1 = result;
+                result
+            }
+            _ => {
+                panic!("impossible");
+            }
+        };
+        r as f32
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum MiniFilter2Type {
     None,
@@ -484,23 +488,6 @@ impl MiniFilter2 {
             }
             _ => {}
         }
-    }
-
-    pub fn filter(&mut self, sample: f32) -> f32 {
-        let s64 = sample as f64;
-        let r = (self.b0 / self.a0) * s64
-            + (self.b1 / self.a0) * self.sample_m1
-            + (self.b2 / self.a0) * self.sample_m2
-            - (self.a1 / self.a0) * self.output_m1
-            - (self.a2 / self.a0) * self.output_m2;
-
-        // Scroll everything forward in time.
-        self.sample_m2 = self.sample_m1;
-        self.sample_m1 = s64;
-
-        self.output_m2 = self.output_m1;
-        self.output_m1 = r;
-        r as f32
     }
 
     fn rbj_intermediates_q(sample_rate: u32, cutoff: f32, q: f32) -> (f64, f64, f64, f64) {
@@ -676,128 +663,239 @@ impl MiniFilter2 {
     }
 }
 
+impl EffectTrait for MiniFilter2 {
+    fn process(&mut self, input: f32, _time_seconds: f32) -> f32 {
+        let s64 = input as f64;
+        let r = (self.b0 / self.a0) * s64
+            + (self.b1 / self.a0) * self.sample_m1
+            + (self.b2 / self.a0) * self.sample_m2
+            - (self.a1 / self.a0) * self.output_m1
+            - (self.a2 / self.a0) * self.output_m2;
+
+        // Scroll everything forward in time.
+        self.sample_m2 = self.sample_m1;
+        self.sample_m1 = s64;
+
+        self.output_m2 = self.output_m1;
+        self.output_m1 = r;
+        r as f32
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::{cell::RefCell, rc::Rc};
+
     use crate::{
         common::{MidiMessage, MidiNote, WaveformType},
         preset::OscillatorPreset,
-        primitives::{clock::Clock, oscillators::MiniOscillator},
+        primitives::{oscillators::MiniOscillator, tests::write_effect_to_file, ControllerTrait},
     };
 
     use super::*;
-
-    fn write_filter_sample(filter: &mut MiniFilter, filename: &str) {
-        let mut clock = Clock::new(44100, 4, 4, 128.);
-        let mut osc = MiniOscillator::new(WaveformType::Noise);
-
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: clock.sample_rate(),
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        const AMPLITUDE: f32 = i16::MAX as f32;
-        let mut filter_writer = hound::WavWriter::create(filename, spec).unwrap();
-
-        while clock.seconds < 2.0 {
-            let sample_osc = osc.process(clock.seconds);
-            let sample_filter = filter.filter(sample_osc);
-            let _ = filter_writer.write_sample((sample_filter * AMPLITUDE) as i16);
-            clock.tick();
-        }
-    }
 
     #[test]
     fn test_mini_filter() {
         const SAMPLE_RATE: u32 = 44100;
         let min_q: f32 = 1.0 / 2.0f32.sqrt();
 
-        let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::None);
-        write_filter_sample(&mut filter, "noise.wav");
-        let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FirstOrderLowPass(500.));
-        write_filter_sample(&mut filter, "noise_1st_lpf_500Hz.wav");
-        let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FirstOrderHighPass(500.));
-        write_filter_sample(&mut filter, "noise_1st_hpf_500KHz.wav");
-        let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FirstOrderLowPass(1000.));
-        write_filter_sample(&mut filter, "noise_1st_lpf_1KHz.wav");
-        let mut filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FirstOrderHighPass(1000.));
-        write_filter_sample(&mut filter, "noise_1st_hpf_1KHz.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 0.));
-        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q0.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(500., min_q));
-        write_filter_sample(&mut filter, "noise_2nd_lpf_500Hz_min_q.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FourthOrderLowPass(500.));
-        write_filter_sample(&mut filter, "noise_4th_lpf_500Hz.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::FourthOrderHighPass(500.));
-        write_filter_sample(&mut filter, "noise_4th_hpf_500Hz.wav");
-        filter = MiniFilter::new(
-            SAMPLE_RATE,
-            MiniFilterType::SecondOrderLowPass(1000., min_q),
+        let mut osc = MiniOscillator::new(WaveformType::Noise);
+
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::None,
+            ))),
+            &mut None,
+            "noise.wav",
         );
-        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_min_q.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 0.9));
-        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q0.9.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 10.));
-        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q10.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderLowPass(1000., 20.));
-        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q20.wav");
-        filter = MiniFilter::new(
-            SAMPLE_RATE,
-            MiniFilterType::SecondOrderLowPass(1000., 20000.),
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::FirstOrderLowPass(500.),
+            ))),
+            &mut None,
+            "noise_1st_lpf_500Hz.wav",
         );
-        write_filter_sample(&mut filter, "noise_2nd_lpf_1KHz_q20000.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderHighPass(1000., 20.));
-        write_filter_sample(&mut filter, "noise_2nd_hpf_1KHz.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderBandPass(1000., 10.));
-        write_filter_sample(&mut filter, "noise_2nd_bpf_1KHz.wav");
-        filter = MiniFilter::new(SAMPLE_RATE, MiniFilterType::SecondOrderBandStop(1000., 20.));
-        write_filter_sample(&mut filter, "noise_2nd_bsf_1KHz.wav");
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::FirstOrderHighPass(500.),
+            ))),
+            &mut None,
+            "noise_1st_hpf_500KHz.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::FirstOrderLowPass(1000.),
+            ))),
+            &mut None,
+            "noise_1st_lpf_1KHz.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::FirstOrderHighPass(1000.),
+            ))),
+            &mut None,
+            "noise_1st_hpf_1KHz.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::SecondOrderLowPass(1000., 0.),
+            ))),
+            &mut None,
+            "noise_2nd_lpf_1KHz_q0.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::SecondOrderLowPass(500., min_q),
+            ))),
+            &mut None,
+            "noise_2nd_lpf_500Hz_min_q.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::FourthOrderLowPass(500.),
+            ))),
+            &mut None,
+            "noise_4th_lpf_500Hz.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::FourthOrderHighPass(500.),
+            ))),
+            &mut None,
+            "noise_4th_hpf_500Hz.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::SecondOrderLowPass(1000., min_q),
+            ))),
+            &mut None,
+            "noise_2nd_lpf_1KHz_min_q.wav",
+        );
+
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::SecondOrderLowPass(1000., 0.9),
+            ))),
+            &mut None,
+            "noise_2nd_lpf_1KHz_q0.9.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::SecondOrderLowPass(1000., 10.),
+            ))),
+            &mut None,
+            "noise_2nd_lpf_1KHz_q10.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::SecondOrderLowPass(1000., 20.),
+            ))),
+            &mut None,
+            "noise_2nd_lpf_1KHz_q20.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::SecondOrderLowPass(1000., 20000.),
+            ))),
+            &mut None,
+            "noise_2nd_lpf_1KHz_q20000.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::SecondOrderHighPass(1000., 20.),
+            ))),
+            &mut None,
+            "noise_2nd_hpf_1KHz.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::SecondOrderBandPass(1000., 10.),
+            ))),
+            &mut None,
+            "noise_2nd_bpf_1KHz.wav",
+        );
+        write_effect_to_file(
+            &mut osc,
+            Rc::new(RefCell::new(MiniFilter::new(
+                SAMPLE_RATE,
+                MiniFilterType::SecondOrderBandStop(1000., 20.),
+            ))),
+            &mut None,
+            "noise_2nd_bsf_1KHz.wav",
+        );
     }
 
-    fn write_filter2_sample(
-        oscillator: &mut MiniOscillator,
-        filter: &mut MiniFilter2,
-        duration: f32,
+    struct TestFilterController {
+        target: Rc<RefCell<MiniFilter2>>,
         cutoff_start: f32,
         cutoff_end: f32,
-        filename: &str,
-    ) {
-        let mut clock = Clock::new(44100, 4, 4, 128.);
+        duration: f32,
 
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: clock.sample_rate(),
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        const AMPLITUDE: f32 = i16::MAX as f32;
-        let mut writer = hound::WavWriter::create(filename, spec).unwrap();
+        time_start: f32,
+    }
 
-        let time_start = clock.seconds;
-        while clock.seconds < duration {
-            let sample_osc = oscillator.process(clock.seconds);
-            if cutoff_end != cutoff_start {
-                filter.set_cutoff(
-                    cutoff_start
-                        + ((clock.seconds - time_start) / duration) * (cutoff_end - cutoff_start),
-                );
+    impl TestFilterController {
+        pub fn new(
+            target: Rc<RefCell<MiniFilter2>>,
+            cutoff_start: f32,
+            cutoff_end: f32,
+            duration: f32,
+        ) -> Self {
+            Self {
+                target,
+                cutoff_start,
+                cutoff_end,
+                duration,
+                time_start: -1.0f32,
             }
-            let sample_filter = filter.filter(sample_osc);
-            let _ = writer.write_sample((sample_filter * AMPLITUDE) as i16);
-            clock.tick();
         }
     }
 
-    fn write_filter2_sample_static(filter: &mut MiniFilter2, duration: f32, filename: &str) {
-        let mut osc = MiniOscillator::new(WaveformType::Noise);
-        write_filter2_sample(
-            &mut osc,
-            filter,
-            duration,
-            filter.cutoff,
-            filter.cutoff,
-            filename,
-        );
+    impl<'a> ControllerTrait for TestFilterController {
+        fn process(&mut self, time_seconds: f32) {
+            if self.time_start < 0.0 {
+                self.time_start = time_seconds;
+            }
+            if self.cutoff_end != self.cutoff_start {
+                self.target.borrow_mut().set_cutoff(
+                    self.cutoff_start
+                        + ((time_seconds - self.time_start) / self.duration)
+                            * (self.cutoff_end - self.cutoff_start),
+                );
+            }
+        }
     }
 
     #[test]
@@ -807,55 +905,107 @@ mod tests {
         const Q_10: f32 = 10.0;
         const ONE_OCTAVE: f32 = 1.0;
         const SIX_DB: f32 = 6.0;
-        const DURATION: f32 = 2.0;
-        write_filter2_sample_static(
-            &mut MiniFilter2::new(MiniFilter2Type::LowPass(SAMPLE_RATE, 1000., min_q)),
-            DURATION,
+
+        let mut source = MiniOscillator::new(WaveformType::Noise);
+
+        write_effect_to_file(
+            &mut source,
+            Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::LowPass(
+                SAMPLE_RATE,
+                1000.,
+                min_q,
+            )))),
+            &mut None,
             "rbj_noise_lpf_1KHz_min_q.wav",
         );
-        write_filter2_sample_static(
-            &mut MiniFilter2::new(MiniFilter2Type::LowPass(SAMPLE_RATE, 1000., Q_10)),
-            DURATION,
+        write_effect_to_file(
+            &mut source,
+            Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::LowPass(
+                SAMPLE_RATE,
+                1000.,
+                Q_10,
+            )))),
+            &mut None,
             "rbj_noise_lpf_1KHz_q10.wav",
         );
-        write_filter2_sample_static(
-            &mut MiniFilter2::new(MiniFilter2Type::HighPass(SAMPLE_RATE, 1000., min_q)),
-            DURATION,
+        write_effect_to_file(
+            &mut source,
+            Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::HighPass(
+                SAMPLE_RATE,
+                1000.,
+                min_q,
+            )))),
+            &mut None,
             "rbj_noise_hpf_1KHz_min_q.wav",
         );
-        write_filter2_sample_static(
-            &mut MiniFilter2::new(MiniFilter2Type::HighPass(SAMPLE_RATE, 1000., Q_10)),
-            DURATION,
+        write_effect_to_file(
+            &mut source,
+            Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::HighPass(
+                SAMPLE_RATE,
+                1000.,
+                Q_10,
+            )))),
+            &mut None,
             "rbj_noise_hpf_1KHz_q10.wav",
         );
-        write_filter2_sample_static(
-            &mut MiniFilter2::new(MiniFilter2Type::BandPass(SAMPLE_RATE, 1000., ONE_OCTAVE)),
-            DURATION,
+        write_effect_to_file(
+            &mut source,
+            Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::BandPass(
+                SAMPLE_RATE,
+                1000.,
+                ONE_OCTAVE,
+            )))),
+            &mut None,
             "rbj_noise_bpf_1KHz_bw1.wav",
         );
-        write_filter2_sample_static(
-            &mut MiniFilter2::new(MiniFilter2Type::BandStop(SAMPLE_RATE, 1000., ONE_OCTAVE)),
-            DURATION,
+        write_effect_to_file(
+            &mut source,
+            Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::BandStop(
+                SAMPLE_RATE,
+                1000.,
+                ONE_OCTAVE,
+            )))),
+            &mut None,
             "rbj_noise_bsf_1KHz_bw1.wav",
         );
-        write_filter2_sample_static(
-            &mut MiniFilter2::new(MiniFilter2Type::AllPass(SAMPLE_RATE, 1000., min_q)),
-            DURATION,
+        write_effect_to_file(
+            &mut source,
+            Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::AllPass(
+                SAMPLE_RATE,
+                1000.,
+                min_q,
+            )))),
+            &mut None,
             "rbj_noise_apf_1KHz_min_q.wav",
         );
-        write_filter2_sample_static(
-            &mut MiniFilter2::new(MiniFilter2Type::PeakingEq(SAMPLE_RATE, 1000., SIX_DB)),
-            DURATION,
+        write_effect_to_file(
+            &mut source,
+            Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::PeakingEq(
+                SAMPLE_RATE,
+                1000.,
+                SIX_DB,
+            )))),
+            &mut None,
             "rbj_noise_peaking_eq_1KHz_6db.wav",
         );
-        write_filter2_sample_static(
-            &mut MiniFilter2::new(MiniFilter2Type::LowShelf(SAMPLE_RATE, 1000., SIX_DB)),
-            DURATION,
+        write_effect_to_file(
+            &mut source,
+            Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::LowShelf(
+                SAMPLE_RATE,
+                1000.,
+                SIX_DB,
+            )))),
+            &mut None,
             "rbj_noise_low_shelf_1KHz_6db.wav",
         );
-        write_filter2_sample_static(
-            &mut MiniFilter2::new(MiniFilter2Type::HighShelf(SAMPLE_RATE, 1000., SIX_DB)),
-            DURATION,
+        write_effect_to_file(
+            &mut source,
+            Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::HighShelf(
+                SAMPLE_RATE,
+                1000.,
+                SIX_DB,
+            )))),
+            &mut None,
             "rbj_noise_high_shelf_1KHz_6db.wav",
         );
     }
@@ -865,17 +1015,22 @@ mod tests {
         const SAMPLE_RATE: u32 = 44100;
         let min_q = 1.0 / 2.0f32.sqrt();
 
-        let mut osc = MiniOscillator::new_from_preset(&OscillatorPreset {
+        let mut source = MiniOscillator::new_from_preset(&OscillatorPreset {
             waveform: WaveformType::Sawtooth,
             ..Default::default()
         });
-        osc.set_frequency(MidiMessage::note_to_frequency(MidiNote::C4 as u8));
-        write_filter2_sample(
-            &mut osc,
-            &mut MiniFilter2::new(MiniFilter2Type::LowPass(SAMPLE_RATE, 1000., min_q)),
-            5.0,
-            40.0,
-            8000.0,
+        source.set_frequency(MidiMessage::note_to_frequency(MidiNote::C4 as u8));
+
+        let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::LowPass(
+            SAMPLE_RATE,
+            1000.,
+            min_q,
+        ))));
+        let mut controller = TestFilterController::new(effect.clone(), 40.0, 8000.0, 2.0);
+        write_effect_to_file(
+            &mut source,
+            effect.clone(),
+            &mut Some(&mut controller),
             "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q.wav",
         );
     }

@@ -12,6 +12,7 @@ use crate::{
         envelopes::MiniEnvelope,
         filter::{MiniFilter2, MiniFilter2Type},
         oscillators::MiniOscillator,
+        AudioSourceTrait, EffectTrait,
     },
 };
 
@@ -1910,7 +1911,7 @@ impl Voice {
             + (self.filter_cutoff_end - self.filter_cutoff_start) * self.filter_envelope.value());
         let new_cutoff = MiniFilter2::percent_to_frequency(new_cutoff_percentage);
         self.filter.set_cutoff(new_cutoff);
-        let filtered_mix = self.filter.filter(osc_sum);
+        let filtered_mix = self.filter.process(osc_sum, time_seconds);
 
         // LFO amplitude modulation
         let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {

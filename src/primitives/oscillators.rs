@@ -5,6 +5,8 @@ use crate::{
     preset::{LfoPreset, OscillatorPreset},
 };
 
+use super::AudioSourceTrait;
+
 #[derive(Debug)]
 pub struct MiniOscillator {
     pub waveform: WaveformType,
@@ -78,7 +80,21 @@ impl MiniOscillator {
         }
     }
 
-    pub fn process(&mut self, time_seconds: f32) -> f32 {
+    pub(crate) fn set_frequency(&mut self, frequency: f32) {
+        self.frequency = frequency;
+    }
+
+    pub(crate) fn set_fixed_frequency(&mut self, frequency: f32) {
+        self.fixed_frequency = frequency;
+    }
+
+    pub(crate) fn set_frequency_modulation(&mut self, frequency_modulation: f32) {
+        self.frequency_modulation = frequency_modulation;
+    }
+}
+
+impl AudioSourceTrait for MiniOscillator {
+    fn process(&mut self, time_seconds: f32) -> f32 {
         let phase_normalized = self.adjusted_frequency() * time_seconds;
         match self.waveform {
             WaveformType::None => 0.0,
@@ -108,18 +124,6 @@ impl MiniOscillator {
             }
         }
     }
-
-    pub(crate) fn set_frequency(&mut self, frequency: f32) {
-        self.frequency = frequency;
-    }
-
-    pub(crate) fn set_fixed_frequency(&mut self, frequency: f32) {
-        self.fixed_frequency = frequency;
-    }
-
-    pub(crate) fn set_frequency_modulation(&mut self, frequency_modulation: f32) {
-        self.frequency_modulation = frequency_modulation;
-    }
 }
 
 #[cfg(test)]
@@ -127,31 +131,10 @@ mod tests {
     use crate::{
         common::{MidiMessage, MidiNote},
         preset::OscillatorPreset,
-        primitives::clock::Clock,
+        primitives::tests::write_source_to_file,
     };
 
     use super::{MiniOscillator, WaveformType};
-
-    const SAMPLE_RATE: u32 = 44100;
-
-    fn write_sound(oscillator: &mut MiniOscillator, filename: &str) {
-        let mut clock = Clock::new(SAMPLE_RATE, 4, 4, 128.);
-
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: clock.sample_rate(),
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        const AMPLITUDE: f32 = i16::MAX as f32;
-        let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-
-        while clock.seconds < 1.0 {
-            let sample = oscillator.process(clock.seconds);
-            let _ = writer.write_sample((sample * AMPLITUDE) as i16);
-            clock.tick();
-        }
-    }
 
     fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> MiniOscillator {
         let mut oscillator = MiniOscillator::new_from_preset(&OscillatorPreset {
@@ -174,49 +157,49 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(MidiNote::C4 as u8)
         );
-        write_sound(&mut oscillator, "oscillator_sine_c3.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c3.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::Square,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
         );
-        write_sound(&mut oscillator, "oscillator_square_c3.wav");
+        write_source_to_file(&mut oscillator, "oscillator_square_c3.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::PulseWidth(0.1),
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
         );
-        write_sound(&mut oscillator, "oscillator_pulse_width_10_percent_c3.wav");
+        write_source_to_file(&mut oscillator, "oscillator_pulse_width_10_percent_c3.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::Triangle,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
         );
-        write_sound(&mut oscillator, "oscillator_triangle_c3.wav");
+        write_source_to_file(&mut oscillator, "oscillator_triangle_c3.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sawtooth,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
         );
-        write_sound(&mut oscillator, "oscillator_sawtooth_c3.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sawtooth_c3.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::Noise,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::None,
         );
-        write_sound(&mut oscillator, "oscillator_noise.wav");
+        write_source_to_file(&mut oscillator, "oscillator_noise.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::None,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::None,
         );
-        write_sound(&mut oscillator, "oscillator_none.wav");
+        write_source_to_file(&mut oscillator, "oscillator_none.wav");
     }
 
     #[test]
@@ -230,7 +213,7 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(MidiNote::C4 as u8)
         );
-        write_sound(&mut oscillator, "oscillator_sine_c4_plus_zero_octave.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_zero_octave.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
@@ -241,7 +224,7 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(MidiNote::C4 as u8) * 2.0
         );
-        write_sound(&mut oscillator, "oscillator_sine_c4_plus_1_octave.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_1_octave.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
@@ -252,7 +235,7 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(MidiNote::C4 as u8) / 2.0
         );
-        write_sound(&mut oscillator, "oscillator_sine_c4_minus_1_octave.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1_octave.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
@@ -263,7 +246,7 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(MidiNote::C4 as u8) * 2.0
         );
-        write_sound(&mut oscillator, "oscillator_sine_c4_plus_12_semitone.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_12_semitone.wav");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
@@ -274,7 +257,7 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_to_frequency(MidiNote::C4 as u8) / 2.0
         );
-        write_sound(&mut oscillator, "oscillator_sine_c4_minus_1200_cents.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1200_cents.wav");
     }
 
     #[test]
