@@ -5,6 +5,7 @@ pub mod gain;
 pub mod limiter;
 pub mod mixer;
 pub mod oscillators;
+pub mod bitcrusher;
 
 #[allow(unused_variables)]
 pub trait AudioSourceTrait {
