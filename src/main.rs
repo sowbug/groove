@@ -1,4 +1,5 @@
-extern crate anyhow;
+use anyhow::Result;
+//extern crate anyhow;
 extern crate cpal;
 
 #[macro_use]
@@ -11,7 +12,10 @@ mod preset;
 mod primitives;
 mod synthesizers;
 
-use crate::devices::{orchestrator::Orchestrator, sequencer::Sequencer};
+use crate::{
+    devices::{orchestrator::Orchestrator, sequencer::Sequencer, traits::DeviceTrait},
+    synthesizers::sampler::Sampler,
+};
 use clap::Parser;
 use cpal::{
     traits::{DeviceTrait as CpalDeviceTrait, HostTrait, StreamTrait},
@@ -177,10 +181,14 @@ impl ClDaw {
             MidiReader::load_sequencer(&data, sequencer.clone());
 
             for channel_number in 0..Sequencer::connected_channel_count() {
-                let synth = Rc::new(RefCell::new(Synth::new(
-                    self.orchestrator.clock.sample_rate(),
-                    SynthPreset::by_name(&PresetName::Piano),
-                )));
+                let synth: Rc<RefCell<dyn DeviceTrait>> = if channel_number == 9 {
+                    Rc::new(RefCell::new(Sampler::new_from_file("samples/test.wav")))
+                } else {
+                    Rc::new(RefCell::new(Synth::new(
+                        self.orchestrator.clock.sample_rate(),
+                        SynthPreset::by_name(&PresetName::Piano),
+                    )))
+                };
                 self.orchestrator.add_device(synth.clone());
                 self.orchestrator.add_master_mixer_source(synth.clone());
 
