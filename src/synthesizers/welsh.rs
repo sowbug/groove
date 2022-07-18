@@ -1520,10 +1520,6 @@ impl SynthPreset {
 }
 
 impl Synth {
-    pub fn new_for_general_midi(sample_rate: u32, program: GeneralMidiProgram) -> Self {
-        Self::new(sample_rate, Self::get_general_midi_preset(program))
-    }
-
     pub fn get_general_midi_preset(program: GeneralMidiProgram) -> SynthPreset {
         match program {
             GeneralMidiProgram::AcousticGrand => SynthPreset::by_name(&PresetName::Piano),
@@ -1825,26 +1821,6 @@ impl Synth {
         }
     }
 }
-
-// #[derive(Default, Debug, Clone, Copy)]
-// pub struct SuperSynthPreset {
-//     pub oscillator_1_preset: OscillatorPreset,
-//     pub oscillator_2_preset: OscillatorPreset,
-//     // TODO: osc 2 track/sync
-//     pub amp_envelope_preset: EnvelopePreset,
-
-//     pub lfo_preset: LfoPreset,
-
-//     // TODO: glide, time, unison, voices
-
-//     // There is meant to be only one filter, but the Welsh book
-//     // provides alternate settings depending on the kind of filter
-//     // your synthesizer has.
-//     pub filter_24db_type: MiniFilter2Type,
-//     pub filter_12db_type: MiniFilter2Type,
-//     pub filter_envelope_preset: EnvelopePreset,
-//     pub filter_envelope_weight: f32,
-// }
 
 #[derive(Default)]
 pub struct Voice {
