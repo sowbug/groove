@@ -1,7 +1,3 @@
-use anyhow::Result;
-//extern crate anyhow;
-extern crate cpal;
-
 #[macro_use]
 extern crate num_derive;
 
@@ -14,7 +10,6 @@ mod synthesizers;
 
 use crate::{
     devices::{orchestrator::Orchestrator, sequencer::Sequencer, traits::DeviceTrait},
-    synthesizers::sampler::Sampler,
     synthesizers::drumkit_sampler::Sampler as DrumKitSampler,
 };
 use clap::Parser;
