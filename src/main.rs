@@ -6,13 +6,12 @@ extern crate num_derive;
 
 mod common;
 mod devices;
+mod general_midi;
 mod preset;
 mod primitives;
+mod synthesizers;
 
-use crate::{
-    devices::{orchestrator::Orchestrator, sequencer::Sequencer, synthesizers::SuperSynth},
-    preset::welsh::{WelshSynthPreset, WelshPresetName},
-};
+use crate::devices::{orchestrator::Orchestrator, sequencer::Sequencer};
 use clap::Parser;
 use cpal::{
     traits::{DeviceTrait as CpalDeviceTrait, HostTrait, StreamTrait},
@@ -25,6 +24,7 @@ use std::{
     rc::Rc,
     sync::{Arc, Condvar, Mutex},
 };
+use synthesizers::welsh::*;
 
 #[derive(Default)]
 struct ClDaw {
@@ -177,9 +177,9 @@ impl ClDaw {
             MidiReader::load_sequencer(&data, sequencer.clone());
 
             for channel_number in 0..Sequencer::connected_channel_count() {
-                let synth = Rc::new(RefCell::new(SuperSynth::new(
+                let synth = Rc::new(RefCell::new(Synth::new(
                     self.orchestrator.clock.sample_rate(),
-                    WelshSynthPreset::by_name(&WelshPresetName::Piano),
+                    SynthPreset::by_name(&PresetName::Piano),
                 )));
                 self.orchestrator.add_device(synth.clone());
                 self.orchestrator.add_master_mixer_source(synth.clone());

@@ -1,7 +1,5 @@
 use crate::common::WaveformType;
 
-pub mod welsh;
-
 #[derive(Debug, Clone, Copy)]
 pub struct OscillatorPreset {
     pub waveform: WaveformType,

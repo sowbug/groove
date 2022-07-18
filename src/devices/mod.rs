@@ -1,18 +1,19 @@
-pub mod instruments;
+mod effects;
 pub mod midi;
 mod mixer;
 pub mod orchestrator;
-pub mod presets_ss;
 pub mod sequencer;
-pub mod synthesizers;
-pub mod traits;  // TODO; make non-pub again so DeviceTrait doesn't leak out of this crate
+pub mod traits; // TODO; make non-pub again so DeviceTrait doesn't leak out of this crate
 
 #[cfg(test)]
 mod tests {
-    use crate::{primitives::clock::Clock, common::{MidiMessage, MidiMessageType}};
+    use crate::{
+        common::{MidiMessage, MidiMessageType},
+        primitives::clock::Clock,
+    };
 
     use super::traits::DeviceTrait;
-    
+
     #[derive(Default)]
     pub struct NullDevice {
         pub is_playing: bool,
