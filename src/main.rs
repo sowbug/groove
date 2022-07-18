@@ -15,6 +15,7 @@ mod synthesizers;
 use crate::{
     devices::{orchestrator::Orchestrator, sequencer::Sequencer, traits::DeviceTrait},
     synthesizers::sampler::Sampler,
+    synthesizers::drumkit_sampler::Sampler as DrumKitSampler,
 };
 use clap::Parser;
 use cpal::{
@@ -182,7 +183,7 @@ impl ClDaw {
 
             for channel_number in 0..Sequencer::connected_channel_count() {
                 let synth: Rc<RefCell<dyn DeviceTrait>> = if channel_number == 9 {
-                    Rc::new(RefCell::new(Sampler::new_from_file("samples/test.wav")))
+                    Rc::new(RefCell::new(DrumKitSampler::new_from_files()))
                 } else {
                     Rc::new(RefCell::new(Synth::new(
                         self.orchestrator.clock.sample_rate(),
