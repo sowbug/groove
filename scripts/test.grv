@@ -4,5 +4,5 @@ o.add_synth(s);
 let seq = new_sequencer();
 o.add_sequencer(seq);
 seq.load_file("midi_files/major-scale-spaced-notes.mid");
-seq.connect_synth(s);
+seq.connect_synth(s, 0);
 o.play();

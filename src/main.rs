@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate num_derive;
 
+#[macro_use]
+extern crate anyhow;
+
 mod common;
 mod devices;
 mod general_midi;

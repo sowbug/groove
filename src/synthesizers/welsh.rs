@@ -1955,7 +1955,7 @@ impl DeviceTrait for Voice {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Synth {
     sample_rate: u32,
     preset: SynthPreset,

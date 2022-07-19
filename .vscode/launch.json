@@ -28,7 +28,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Speaker: test script",
+      "name": "Test script",
       "cargo": {
         "args": [
           "build",

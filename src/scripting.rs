@@ -1,6 +1,6 @@
 use crossbeam::deque::Worker;
-use rhai::Engine;
-use std::{cell::RefCell, rc::Rc};
+use rhai::{Engine, EvalAltResult};
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use crate::{
     devices::{midi::MidiReader, orchestrator::Orchestrator, sequencer::Sequencer},
@@ -21,110 +21,112 @@ impl ScriptEngine {
     }
 
     pub(crate) fn execute_file(&self, filename: &str) -> Result<(), anyhow::Error> {
-        let script = std::fs::read_to_string(filename).unwrap();
-        self.execute(script.as_str())
-    }
-
-    pub(crate) fn execute(&self, script: &str) -> Result<(), anyhow::Error> {
-        let result = self.engine.run(script);
+        let mut path = PathBuf::new();
+        path.set_file_name(filename);
+        let result = self.engine.run_file(path);
         if result.is_ok() {
             Ok(())
         } else {
-            let err = result.err().unwrap();
-            match err.unwrap_inner() {
-                rhai::EvalAltResult::ErrorArithmetic(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorArrayBounds(a, b, c) => {
-                    panic!("{:?} {:?} {:?}", a, b, c);
-                }
-                rhai::EvalAltResult::ErrorAssignmentToConstant(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorBitFieldBounds(a, b, c) => {
-                    panic!("{:?} {:?} {:?}", a, b, c);
-                }
-                rhai::EvalAltResult::ErrorCustomSyntax(a, b, c) => {
-                    panic!("{:?} {:?} {:?}", a, b, c);
-                }
-                rhai::EvalAltResult::ErrorDataRace(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorDataTooLarge(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorDotExpr(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorFor(a) => {
-                    panic!("{:?}", a);
-                }
-                rhai::EvalAltResult::ErrorForbiddenVariable(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorFunctionNotFound(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorInFunctionCall(a, b, c, d) => {
-                    panic!("{:?} {:?} {:?} {:?}", a, b, c, d);
-                }
-                rhai::EvalAltResult::ErrorInModule(a, b, c) => {
-                    panic!("{:?} {:?} {:?}", a, b, c);
-                }
-                rhai::EvalAltResult::ErrorIndexNotFound(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorIndexingType(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorMismatchDataType(a, b, c) => {
-                    panic!("{:?} {:?} {:?}", a, b, c);
-                }
-                rhai::EvalAltResult::ErrorMismatchOutputType(a, b, c) => {
-                    panic!("{:?} {:?} {:?}", a, b, c);
-                }
-                rhai::EvalAltResult::ErrorModuleNotFound(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorParsing(a, b) => {
-                    panic!("{:?} {:?}", a, b)
-                }
-                rhai::EvalAltResult::ErrorPropertyNotFound(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorRuntime(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorStackOverflow(a) => {
-                    panic!("{:?}", a);
-                }
-                rhai::EvalAltResult::ErrorStringBounds(a, b, c) => {
-                    panic!("{:?} {:?} {:?}", a, b, c);
-                }
-                rhai::EvalAltResult::ErrorSystem(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorTerminated(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorTooManyModules(a) => {
-                    panic!("{:?}", a);
-                }
-                rhai::EvalAltResult::ErrorTooManyOperations(a) => {
-                    panic!("{:?}", a);
-                }
-                rhai::EvalAltResult::ErrorUnboundThis(a) => {
-                    panic!("{:?}", a);
-                }
-                rhai::EvalAltResult::ErrorVariableExists(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                rhai::EvalAltResult::ErrorVariableNotFound(a, b) => {
-                    panic!("{:?} {:?}", a, b);
-                }
-                _ => {
-                    panic!();
-                }
+            Self::unpack_error(result);
+            Err(anyhow!("oops"))
+        }
+    }
+
+    fn unpack_error(result: Result<(), Box<EvalAltResult>>) {
+        let err = result.err().unwrap();
+        match err.unwrap_inner() {
+            rhai::EvalAltResult::ErrorArithmetic(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorArrayBounds(a, b, c) => {
+                panic!("{:?} {:?} {:?}", a, b, c);
+            }
+            rhai::EvalAltResult::ErrorAssignmentToConstant(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorBitFieldBounds(a, b, c) => {
+                panic!("{:?} {:?} {:?}", a, b, c);
+            }
+            rhai::EvalAltResult::ErrorCustomSyntax(a, b, c) => {
+                panic!("{:?} {:?} {:?}", a, b, c);
+            }
+            rhai::EvalAltResult::ErrorDataRace(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorDataTooLarge(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorDotExpr(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorFor(a) => {
+                panic!("{:?}", a);
+            }
+            rhai::EvalAltResult::ErrorForbiddenVariable(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorFunctionNotFound(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorInFunctionCall(a, b, c, d) => {
+                panic!("{:?} {:?} {:?} {:?}", a, b, c, d);
+            }
+            rhai::EvalAltResult::ErrorInModule(a, b, c) => {
+                panic!("{:?} {:?} {:?}", a, b, c);
+            }
+            rhai::EvalAltResult::ErrorIndexNotFound(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorIndexingType(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorMismatchDataType(a, b, c) => {
+                panic!("{:?} {:?} {:?}", a, b, c);
+            }
+            rhai::EvalAltResult::ErrorMismatchOutputType(a, b, c) => {
+                panic!("{:?} {:?} {:?}", a, b, c);
+            }
+            rhai::EvalAltResult::ErrorModuleNotFound(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorParsing(a, b) => {
+                panic!("{:?} {:?}", a, b)
+            }
+            rhai::EvalAltResult::ErrorPropertyNotFound(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorRuntime(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorStackOverflow(a) => {
+                panic!("{:?}", a);
+            }
+            rhai::EvalAltResult::ErrorStringBounds(a, b, c) => {
+                panic!("{:?} {:?} {:?}", a, b, c);
+            }
+            rhai::EvalAltResult::ErrorSystem(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorTerminated(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorTooManyModules(a) => {
+                panic!("{:?}", a);
+            }
+            rhai::EvalAltResult::ErrorTooManyOperations(a) => {
+                panic!("{:?}", a);
+            }
+            rhai::EvalAltResult::ErrorUnboundThis(a) => {
+                panic!("{:?}", a);
+            }
+            rhai::EvalAltResult::ErrorVariableExists(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            rhai::EvalAltResult::ErrorVariableNotFound(a, b) => {
+                panic!("{:?} {:?}", a, b);
+            }
+            _ => {
+                panic!();
             }
         }
     }
@@ -175,10 +177,14 @@ impl ScriptEngine {
         MidiReader::load_sequencer(&data, sequencer.clone());
     }
 
-    fn connect_synth(sequencer: Rc<RefCell<Sequencer>>, device: Rc<RefCell<welsh::Synth>>) {
+    fn connect_synth(
+        sequencer: Rc<RefCell<Sequencer>>,
+        device: Rc<RefCell<welsh::Synth>>,
+        channel: i64,
+    ) {
         sequencer
             .borrow_mut()
-            .connect_midi_sink_for_channel(device, 0);
+            .connect_midi_sink_for_channel(device, channel as u8);
     }
 
     fn play(orchestrator: &mut Orchestrator) {
@@ -192,10 +198,16 @@ impl ScriptEngine {
         }
     }
 
+    fn new_orchestrator() -> Orchestrator {
+        Orchestrator::new_44100()
+    }
+
     fn register_methods(&mut self) {
+        let o = Orchestrator::new_44100();
         self.engine
             .register_type_with_name::<Orchestrator>("Orchestrator")
-            .register_fn("new_orchestrator", Orchestrator::new_44100)
+            .register_type_with_name::<welsh::Synth>("Synth")
+            .register_fn("new_orchestrator", Self::new_orchestrator)
             .register_fn("new_synth", Self::new_synth)
             .register_fn("add_synth", Self::add_synth)
             .register_fn("new_sequencer", Self::new_sequencer)
