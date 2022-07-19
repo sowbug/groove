@@ -92,7 +92,7 @@ mod tests {
             &mut osc,
             fx,
             &mut Some(&mut controller),
-            "effect_bitcrusher.wav",
+            "effect_bitcrusher",
         );
     }
 }

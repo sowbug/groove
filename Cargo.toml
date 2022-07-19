@@ -7,6 +7,7 @@ edition = "2021"
 anyhow = "1.0.12"
 assert_approx_eq = "1.1.0"
 clap = { version = "3.2.6", features = ["derive"] }
+convert_case = "0.1.0"
 cpal = "0.13.5"
 crossbeam = "0.8"
 hound = "3.4"

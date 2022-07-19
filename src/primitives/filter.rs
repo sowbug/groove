@@ -708,7 +708,7 @@ mod tests {
                 MiniFilterType::None,
             ))),
             &mut None,
-            "noise.wav",
+            "noise",
         );
         write_effect_to_file(
             &mut osc,
@@ -717,7 +717,7 @@ mod tests {
                 MiniFilterType::FirstOrderLowPass(500.),
             ))),
             &mut None,
-            "noise_1st_lpf_500Hz.wav",
+            "noise_1st_lpf_500Hz",
         );
         write_effect_to_file(
             &mut osc,
@@ -726,7 +726,7 @@ mod tests {
                 MiniFilterType::FirstOrderHighPass(500.),
             ))),
             &mut None,
-            "noise_1st_hpf_500KHz.wav",
+            "noise_1st_hpf_500KHz",
         );
         write_effect_to_file(
             &mut osc,
@@ -735,7 +735,7 @@ mod tests {
                 MiniFilterType::FirstOrderLowPass(1000.),
             ))),
             &mut None,
-            "noise_1st_lpf_1KHz.wav",
+            "noise_1st_lpf_1KHz",
         );
         write_effect_to_file(
             &mut osc,
@@ -744,7 +744,7 @@ mod tests {
                 MiniFilterType::FirstOrderHighPass(1000.),
             ))),
             &mut None,
-            "noise_1st_hpf_1KHz.wav",
+            "noise_1st_hpf_1KHz",
         );
         write_effect_to_file(
             &mut osc,
@@ -753,7 +753,7 @@ mod tests {
                 MiniFilterType::SecondOrderLowPass(1000., 0.),
             ))),
             &mut None,
-            "noise_2nd_lpf_1KHz_q0.wav",
+            "noise_2nd_lpf_1KHz_q0",
         );
         write_effect_to_file(
             &mut osc,
@@ -762,7 +762,7 @@ mod tests {
                 MiniFilterType::SecondOrderLowPass(500., min_q),
             ))),
             &mut None,
-            "noise_2nd_lpf_500Hz_min_q.wav",
+            "noise_2nd_lpf_500Hz_min_q",
         );
         write_effect_to_file(
             &mut osc,
@@ -771,7 +771,7 @@ mod tests {
                 MiniFilterType::FourthOrderLowPass(500.),
             ))),
             &mut None,
-            "noise_4th_lpf_500Hz.wav",
+            "noise_4th_lpf_500Hz",
         );
         write_effect_to_file(
             &mut osc,
@@ -780,7 +780,7 @@ mod tests {
                 MiniFilterType::FourthOrderHighPass(500.),
             ))),
             &mut None,
-            "noise_4th_hpf_500Hz.wav",
+            "noise_4th_hpf_500Hz",
         );
         write_effect_to_file(
             &mut osc,
@@ -789,7 +789,7 @@ mod tests {
                 MiniFilterType::SecondOrderLowPass(1000., min_q),
             ))),
             &mut None,
-            "noise_2nd_lpf_1KHz_min_q.wav",
+            "noise_2nd_lpf_1KHz_min_q",
         );
 
         write_effect_to_file(
@@ -799,7 +799,7 @@ mod tests {
                 MiniFilterType::SecondOrderLowPass(1000., 0.9),
             ))),
             &mut None,
-            "noise_2nd_lpf_1KHz_q0.9.wav",
+            "noise_2nd_lpf_1KHz_q0.9",
         );
         write_effect_to_file(
             &mut osc,
@@ -808,7 +808,7 @@ mod tests {
                 MiniFilterType::SecondOrderLowPass(1000., 10.),
             ))),
             &mut None,
-            "noise_2nd_lpf_1KHz_q10.wav",
+            "noise_2nd_lpf_1KHz_q10",
         );
         write_effect_to_file(
             &mut osc,
@@ -817,7 +817,7 @@ mod tests {
                 MiniFilterType::SecondOrderLowPass(1000., 20.),
             ))),
             &mut None,
-            "noise_2nd_lpf_1KHz_q20.wav",
+            "noise_2nd_lpf_1KHz_q20",
         );
         write_effect_to_file(
             &mut osc,
@@ -826,7 +826,7 @@ mod tests {
                 MiniFilterType::SecondOrderLowPass(1000., 20000.),
             ))),
             &mut None,
-            "noise_2nd_lpf_1KHz_q20000.wav",
+            "noise_2nd_lpf_1KHz_q20000",
         );
         write_effect_to_file(
             &mut osc,
@@ -835,7 +835,7 @@ mod tests {
                 MiniFilterType::SecondOrderHighPass(1000., 20.),
             ))),
             &mut None,
-            "noise_2nd_hpf_1KHz.wav",
+            "noise_2nd_hpf_1KHz",
         );
         write_effect_to_file(
             &mut osc,
@@ -844,7 +844,7 @@ mod tests {
                 MiniFilterType::SecondOrderBandPass(1000., 10.),
             ))),
             &mut None,
-            "noise_2nd_bpf_1KHz.wav",
+            "noise_2nd_bpf_1KHz",
         );
         write_effect_to_file(
             &mut osc,
@@ -853,7 +853,7 @@ mod tests {
                 MiniFilterType::SecondOrderBandStop(1000., 20.),
             ))),
             &mut None,
-            "noise_2nd_bsf_1KHz.wav",
+            "noise_2nd_bsf_1KHz",
         );
     }
 
@@ -916,7 +916,7 @@ mod tests {
                 min_q,
             )))),
             &mut None,
-            "rbj_noise_lpf_1KHz_min_q.wav",
+            "rbj_noise_lpf_1KHz_min_q",
         );
         write_effect_to_file(
             &mut source,
@@ -926,7 +926,7 @@ mod tests {
                 Q_10,
             )))),
             &mut None,
-            "rbj_noise_lpf_1KHz_q10.wav",
+            "rbj_noise_lpf_1KHz_q10",
         );
         write_effect_to_file(
             &mut source,
@@ -936,7 +936,7 @@ mod tests {
                 min_q,
             )))),
             &mut None,
-            "rbj_noise_hpf_1KHz_min_q.wav",
+            "rbj_noise_hpf_1KHz_min_q",
         );
         write_effect_to_file(
             &mut source,
@@ -946,7 +946,7 @@ mod tests {
                 Q_10,
             )))),
             &mut None,
-            "rbj_noise_hpf_1KHz_q10.wav",
+            "rbj_noise_hpf_1KHz_q10",
         );
         write_effect_to_file(
             &mut source,
@@ -956,7 +956,7 @@ mod tests {
                 ONE_OCTAVE,
             )))),
             &mut None,
-            "rbj_noise_bpf_1KHz_bw1.wav",
+            "rbj_noise_bpf_1KHz_bw1",
         );
         write_effect_to_file(
             &mut source,
@@ -966,7 +966,7 @@ mod tests {
                 ONE_OCTAVE,
             )))),
             &mut None,
-            "rbj_noise_bsf_1KHz_bw1.wav",
+            "rbj_noise_bsf_1KHz_bw1",
         );
         write_effect_to_file(
             &mut source,
@@ -976,7 +976,7 @@ mod tests {
                 min_q,
             )))),
             &mut None,
-            "rbj_noise_apf_1KHz_min_q.wav",
+            "rbj_noise_apf_1KHz_min_q",
         );
         write_effect_to_file(
             &mut source,
@@ -986,7 +986,7 @@ mod tests {
                 SIX_DB,
             )))),
             &mut None,
-            "rbj_noise_peaking_eq_1KHz_6db.wav",
+            "rbj_noise_peaking_eq_1KHz_6db",
         );
         write_effect_to_file(
             &mut source,
@@ -996,7 +996,7 @@ mod tests {
                 SIX_DB,
             )))),
             &mut None,
-            "rbj_noise_low_shelf_1KHz_6db.wav",
+            "rbj_noise_low_shelf_1KHz_6db",
         );
         write_effect_to_file(
             &mut source,
@@ -1006,7 +1006,7 @@ mod tests {
                 SIX_DB,
             )))),
             &mut None,
-            "rbj_noise_high_shelf_1KHz_6db.wav",
+            "rbj_noise_high_shelf_1KHz_6db",
         );
     }
 
@@ -1031,7 +1031,7 @@ mod tests {
             &mut source,
             effect.clone(),
             &mut Some(&mut controller),
-            "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q.wav",
+            "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q",
         );
     }
 }

@@ -2041,7 +2041,11 @@ mod tests {
     use super::*;
     use std::panic;
 
-    use crate::{common::MidiMessage, devices::traits::DeviceTrait, primitives::clock::Clock};
+    use crate::{
+        common::MidiMessage,
+        devices::traits::DeviceTrait,
+        primitives::{clock::Clock, tests::canonicalize_filename},
+    };
 
     use super::PresetName;
     use strum::IntoEnumIterator;
@@ -2055,7 +2059,8 @@ mod tests {
 
     const SAMPLE_RATE: u32 = 44100;
 
-    fn write_voice(voice: &mut Voice, duration: f32, filename: &str) {
+    // TODO: refactor out to common test utilities
+    fn write_voice(voice: &mut Voice, duration: f32, basename: &str) {
         let mut clock = Clock::new(44100, 4, 4, 128.);
 
         let spec = hound::WavSpec {
@@ -2065,7 +2070,7 @@ mod tests {
             sample_format: hound::SampleFormat::Int,
         };
         const AMPLITUDE: f32 = i16::MAX as f32;
-        let mut writer = hound::WavWriter::create(filename, spec).unwrap();
+        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         let midi_on = MidiMessage::note_on_c4();
         let midi_off = MidiMessage::note_off_c4();
@@ -2099,18 +2104,19 @@ mod tests {
             if result.is_ok() {
                 let mut voice = result.unwrap();
                 let preset_name: &str = preset.into();
-                write_voice(&mut voice, 2.0, &format!("voice_{}.wav", preset_name));
+                write_voice(&mut voice, 2.0, &format!("voice_{}", preset_name));
             }
         }
     }
 
+    // TODO: get rid of this
     fn write_sound(
         source: &mut Voice,
         clock: &mut Clock,
         duration: f32,
         message: &MidiMessage,
         when: f32,
-        filename: &str,
+        basename: &str,
     ) {
         let spec = hound::WavSpec {
             channels: 1,
@@ -2119,7 +2125,7 @@ mod tests {
             sample_format: hound::SampleFormat::Int,
         };
         const AMPLITUDE: f32 = i16::MAX as f32;
-        let mut writer = hound::WavWriter::create(filename, spec).unwrap();
+        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         let mut is_message_sent = false;
         while clock.seconds < duration {
@@ -2285,7 +2291,7 @@ mod tests {
             5.0,
             &message_off,
             5.0,
-            "voice_test_c4.wav",
+            "voice_basic_test_c4",
         );
     }
 
@@ -2303,7 +2309,7 @@ mod tests {
             5.0,
             &message_off,
             1.0,
-            "voice_cello_c4.wav",
+            "voice_cello_c4",
         );
     }
 }

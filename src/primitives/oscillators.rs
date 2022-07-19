@@ -157,49 +157,49 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_type_to_frequency(MidiNote::C4)
         );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c3.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::Square,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
         );
-        write_source_to_file(&mut oscillator, "oscillator_square_c3.wav");
+        write_source_to_file(&mut oscillator, "oscillator_square_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::PulseWidth(0.1),
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
         );
-        write_source_to_file(&mut oscillator, "oscillator_pulse_width_10_percent_c3.wav");
+        write_source_to_file(&mut oscillator, "oscillator_pulse_width_10_percent_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::Triangle,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
         );
-        write_source_to_file(&mut oscillator, "oscillator_triangle_c3.wav");
+        write_source_to_file(&mut oscillator, "oscillator_triangle_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sawtooth,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
         );
-        write_source_to_file(&mut oscillator, "oscillator_sawtooth_c3.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sawtooth_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::Noise,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::None,
         );
-        write_source_to_file(&mut oscillator, "oscillator_noise.wav");
+        write_source_to_file(&mut oscillator, "oscillator_noise");
 
         let mut oscillator = create_oscillator(
             WaveformType::None,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::None,
         );
-        write_source_to_file(&mut oscillator, "oscillator_none.wav");
+        write_source_to_file(&mut oscillator, "oscillator_none");
     }
 
     #[test]
@@ -213,7 +213,7 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_type_to_frequency(MidiNote::C4)
         );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_zero_octave.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_zero_octave");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
@@ -224,7 +224,7 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_type_to_frequency(MidiNote::C4) * 2.0
         );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_1_octave.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_1_octave");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
@@ -235,7 +235,7 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_type_to_frequency(MidiNote::C4) / 2.0
         );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1_octave.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1_octave");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
@@ -246,7 +246,7 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_type_to_frequency(MidiNote::C4) * 2.0
         );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_12_semitone.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_12_semitone");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
@@ -257,7 +257,7 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiMessage::note_type_to_frequency(MidiNote::C4) / 2.0
         );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1200_cents.wav");
+        write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1200_cents");
     }
 
     #[test]

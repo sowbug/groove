@@ -1,3 +1,4 @@
+pub mod bitcrusher;
 pub mod clock;
 pub mod envelopes;
 pub mod filter;
@@ -5,7 +6,6 @@ pub mod gain;
 pub mod limiter;
 pub mod mixer;
 pub mod oscillators;
-pub mod bitcrusher;
 
 #[allow(unused_variables)]
 pub trait AudioSourceTrait {
@@ -28,13 +28,25 @@ pub trait ControllerTrait {
 
 #[cfg(test)]
 pub mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::{cell::RefCell, fs, rc::Rc};
+
+    use convert_case::{Case, Casing};
 
     use crate::primitives::clock::Clock;
 
-    use super::{AudioSourceTrait, EffectTrait, ControllerTrait};
+    use super::{AudioSourceTrait, ControllerTrait, EffectTrait};
 
-    pub(crate) fn write_source_to_file(source: &mut dyn AudioSourceTrait, filename: &str) {
+    pub fn canonicalize_filename(filename: &str) -> String {
+        const OUT_DIR: &str = "out";
+        let result = fs::create_dir_all(OUT_DIR);
+        if result.is_err() {
+            panic!();
+        }
+        let snake_filename = filename.to_case(Case::Snake);
+        format!("{}/{}.wav", OUT_DIR, snake_filename)
+    }
+
+    pub(crate) fn write_source_to_file(source: &mut dyn AudioSourceTrait, basename: &str) {
         let mut clock = Clock::new(44100, 4, 4, 128.);
 
         let spec = hound::WavSpec {
@@ -44,7 +56,7 @@ pub mod tests {
             sample_format: hound::SampleFormat::Int,
         };
         const AMPLITUDE: f32 = i16::MAX as f32;
-        let mut writer = hound::WavWriter::create(filename, spec).unwrap();
+        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         while clock.seconds < 2.0 {
             let source_sample = source.process(clock.seconds);
@@ -57,7 +69,7 @@ pub mod tests {
         source: &mut dyn AudioSourceTrait,
         effect: Rc<RefCell<dyn EffectTrait>>,
         opt_controller: &mut Option<&mut dyn ControllerTrait>,
-        filename: &str,
+        basename: &str,
     ) {
         let mut clock = Clock::new(44100, 4, 4, 128.);
 
@@ -68,8 +80,7 @@ pub mod tests {
             sample_format: hound::SampleFormat::Int,
         };
         const AMPLITUDE: f32 = i16::MAX as f32;
-        let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-
+        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         while clock.seconds < 2.0 {
             if opt_controller.is_some() {
