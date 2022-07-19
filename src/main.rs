@@ -220,7 +220,7 @@ struct Args {
 
     /// Script to execute
     #[clap(short, long, value_parser)]
-    script: Option<String>,
+    script_in: Option<String>,
 
     /// Output filename
     #[clap(short, long, value_parser)]
@@ -230,8 +230,8 @@ struct Args {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    if args.script.is_some() {
-        ScriptEngine::new().execute(&args.script.unwrap())
+    if args.script_in.is_some() {
+        ScriptEngine::new().execute_file(&args.script_in.unwrap())
     } else {
         let mut command_line_daw = ClDaw::new(44100);
 

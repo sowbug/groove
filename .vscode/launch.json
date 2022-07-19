@@ -41,8 +41,8 @@
         }
       },
       "args": [
-        "--script",
-        "let o = new_orchestrator();let s = new_synth(); o.add_synth(s); o.play();"
+        "--script-in",
+        "scripts/test.grv"
       ],
       "cwd": "${workspaceFolder}"
     },
