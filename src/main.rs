@@ -6,6 +6,7 @@ mod devices;
 mod general_midi;
 mod preset;
 mod primitives;
+mod scripting;
 mod synthesizers;
 
 use crate::{
@@ -19,6 +20,7 @@ use cpal::{
 };
 use crossbeam::deque::{Stealer, Worker};
 use devices::midi::MidiReader;
+use scripting::ScriptEngine;
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -65,7 +67,6 @@ impl ClDaw {
     }
 
     fn send_performance_to_output_device(
-        &self,
         sample_rate: u32,
         worker: &Worker<f32>,
     ) -> anyhow::Result<()> {
@@ -143,7 +144,6 @@ impl ClDaw {
     }
 
     fn send_performance_to_file(
-        &self,
         sample_rate: u32,
         output_filename: &str,
         worker: &Worker<f32>,
@@ -204,9 +204,9 @@ impl ClDaw {
         println!("Rendering queue");
         let sample_rate = self.orchestrator.clock.sample_rate() as u32;
         if let Some(output_filename) = wav_out {
-            self.send_performance_to_file(sample_rate, &output_filename, &worker)
+            ClDaw::send_performance_to_file(sample_rate, &output_filename, &worker)
         } else {
-            self.send_performance_to_output_device(sample_rate, &worker)
+            ClDaw::send_performance_to_output_device(sample_rate, &worker)
         }
     }
 }
@@ -217,6 +217,11 @@ struct Args {
     /// MIDI filename
     #[clap(short, long, value_parser)]
     midi_in: Option<String>,
+
+    /// Script to execute
+    #[clap(short, long, value_parser)]
+    script: Option<String>,
+
     /// Output filename
     #[clap(short, long, value_parser)]
     wav_out: Option<String>,
@@ -225,7 +230,11 @@ struct Args {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    let mut command_line_daw = ClDaw::new(44100);
+    if args.script.is_some() {
+        ScriptEngine::new().execute(&args.script.unwrap())
+    } else {
+        let mut command_line_daw = ClDaw::new(44100);
 
-    command_line_daw.perform(args.midi_in, args.wav_out)
+        command_line_daw.perform(args.midi_in, args.wav_out)
+    }
 }

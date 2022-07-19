@@ -1,4 +1,4 @@
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Clock {
     // Immutable after creation.
     samples_per_second: u32, // Samples per second; granularity of a tick().

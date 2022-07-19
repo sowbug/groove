@@ -7,7 +7,7 @@ use crate::{
 
 use super::AudioSourceTrait;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MiniOscillator {
     pub waveform: WaveformType,
 

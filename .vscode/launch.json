@@ -28,6 +28,27 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "Speaker: test script",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--script",
+        "let o = new_orchestrator();let s = new_synth(); o.add_synth(s); o.play();"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Speaker: major scale",
       "cargo": {
         "args": [

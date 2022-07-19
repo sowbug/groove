@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use super::mixer::Mixer;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Orchestrator {
     pub clock: Clock,
 
@@ -21,6 +21,10 @@ impl Orchestrator {
             master_mixer: Rc::new(RefCell::new(Mixer::new())),
             devices: Vec::new(),
         }
+    }
+
+    pub fn new_44100() -> Self {
+        Self::new(44100)
     }
 
     pub fn add_device(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
