@@ -1,13 +1,119 @@
-use midly::{MidiMessage as MidlyMidiMessage, TrackEventKind};
-use std::{cell::RefCell, rc::Rc};
+use midir::{Ignore, MidiInput};
+use midly::{live::LiveEvent, MidiMessage as MidlyMidiMessage, TrackEventKind};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, Condvar, Mutex},
+};
 
-use crate::common::{MidiMessage, OrderedMidiMessage};
+use crate::{
+    common::{MidiMessage, OrderedMidiMessage},
+    primitives::clock::Clock,
+};
 
-use super::sequencer::Sequencer;
+use super::{sequencer::Sequencer, traits::DeviceTrait};
 
-pub struct MidiReader {}
+pub struct MidiControllerReader {
+    sinks: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+}
 
-impl MidiReader {
+impl MidiControllerReader {
+    pub fn new() -> Self {
+        println!("Hi");
+        Self { sinks: Vec::new() }
+    }
+
+    pub fn connect(&mut self) {
+        let mut midi_in = match MidiInput::new(std::any::type_name::<Self>()) {
+            Ok(t) => t,
+            Err(e) => {
+                panic!("{:?}", e)
+            }
+        };
+        midi_in.ignore(Ignore::None);
+        let in_ports = midi_in.ports();
+        let in_port = match in_ports.len() {
+            0 => panic!("no input port found"),
+            1 => {
+                println!(
+                    "Choosing the only available input port: {}",
+                    midi_in.port_name(&in_ports[0]).unwrap()
+                );
+                &in_ports[0]
+            }
+            _ => {
+                println!("\nAvailable input ports:");
+                for (i, p) in in_ports.iter().enumerate() {
+                    println!("{}: {}", i, midi_in.port_name(p).unwrap());
+                }
+                print!("Choosing second...");
+                in_ports
+                    .get(1)
+                    .ok_or("invalid input port selected")
+                    .unwrap()
+            }
+        };
+        let pair = Arc::new((Mutex::new(false), Condvar::new()));
+        let pair2 = Arc::clone(&pair);
+        let conn = midi_in.connect(
+            in_port,
+            "hoo hah",
+            move |timestamp, message, _| {
+                println!("{}: {:?} (len = {})", timestamp, message, message.len());
+                let event = LiveEvent::parse(message).unwrap();
+                match event {
+                    LiveEvent::Midi { channel, message } => match message {
+                        MidlyMidiMessage::NoteOn { key, vel } => {
+                            println!("hit note {} on channel {}", key, channel);
+                            // self.handle_midi_message(
+                            //     &MidiMessage::new_note_on(0, u8::from(key), u8::from(vel)),
+                            //     &Clock::new(44100, 4, 4, 128.0),
+                            // );
+                            if key == 60 {
+                                let (lock, cvar) = &*pair2;
+                                let mut started = lock.lock().unwrap();
+                                *started = true;
+                                // We notify the condvar that the value has changed.
+                                cvar.notify_one();
+                            }
+                        }
+                        _ => {
+                            println!("midi message other");
+                        }
+                    },
+                    _ => {
+                        println!("other message other");
+                    }
+                }
+            },
+            (),
+        );
+        let (lock, cvar) = &*pair;
+        let mut started = lock.lock().unwrap();
+        while !*started {
+            started = cvar.wait(started).unwrap();
+        }
+        //                std::thread::sleep(std::time::Duration::from_millis(5000));
+    }
+}
+
+impl DeviceTrait for MidiControllerReader {
+    fn sources_midi(&self) -> bool {
+        true
+    }
+    fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
+        self.sinks.push(device);
+    }
+    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
+
+    fn tick(&mut self, clock: &Clock) -> bool {
+        false
+    }
+}
+
+pub struct MidiSmfReader {}
+
+impl MidiSmfReader {
     pub fn load_sequencer(data: &[u8], sequencer: Rc<RefCell<Sequencer>>) {
         let parse_result = midly::Smf::parse(data).unwrap();
 

@@ -13,7 +13,10 @@ mod scripting;
 mod synthesizers;
 
 use crate::{
-    devices::{orchestrator::Orchestrator, sequencer::Sequencer, traits::DeviceTrait},
+    devices::{
+        midi::MidiControllerReader, orchestrator::Orchestrator, sequencer::Sequencer,
+        traits::DeviceTrait,
+    },
     synthesizers::drumkit_sampler::Sampler as DrumKitSampler,
 };
 use clap::Parser;
@@ -22,7 +25,7 @@ use cpal::{
     SampleRate, StreamConfig,
 };
 use crossbeam::deque::{Stealer, Worker};
-use devices::midi::MidiReader;
+use devices::midi::MidiSmfReader;
 use scripting::ScriptEngine;
 use std::{
     cell::RefCell,
@@ -170,6 +173,7 @@ impl ClDaw {
     pub fn perform(
         &mut self,
         midi_in: Option<String>,
+        use_midi_controller: bool,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
         if midi_in.is_some() {
@@ -177,7 +181,7 @@ impl ClDaw {
             self.orchestrator.add_device(sequencer.clone());
 
             let data = std::fs::read(midi_in.unwrap()).unwrap();
-            MidiReader::load_sequencer(&data, sequencer.clone());
+            MidiSmfReader::load_sequencer(&data, sequencer.clone());
 
             for channel_number in 0..Sequencer::connected_channel_count() {
                 let synth: Rc<RefCell<dyn DeviceTrait>> = if channel_number == 9 {
@@ -196,7 +200,19 @@ impl ClDaw {
                     .connect_midi_sink_for_channel(synth, channel_number);
             }
         }
-
+        if use_midi_controller {
+            panic!("sorry, this is horribly broken.");
+            let synth = Rc::new(RefCell::new(Synth::new(
+                self.orchestrator.clock.sample_rate(),
+                SynthPreset::by_name(&PresetName::Piano),
+            )));
+            self.orchestrator.add_device(synth.clone());
+            self.orchestrator.add_master_mixer_source(synth.clone());
+            let midi_input = Rc::new(RefCell::new(MidiControllerReader::new()));
+            midi_input.borrow_mut().connect_midi_sink(synth.clone());
+            self.orchestrator.add_device(midi_input.clone());
+            midi_input.borrow_mut().connect();
+        }
         println!("Performing to queue");
         let worker = Worker::<f32>::new_fifo();
         let result = self.orchestrator.perform_to_queue(&worker);
@@ -225,10 +241,19 @@ struct Args {
     #[clap(short, long, value_parser)]
     script_in: Option<String>,
 
+    /// Whether to use an external MIDI controller
+    #[clap(short, long, parse(from_flag))]
+    use_midi_controller: bool,
+
     /// Output filename
     #[clap(short, long, value_parser)]
     wav_out: Option<String>,
 }
+
+extern crate midir;
+
+use std::error::Error;
+use std::io::{stdin, stdout, Write};
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
@@ -238,6 +263,10 @@ fn main() -> anyhow::Result<()> {
     } else {
         let mut command_line_daw = ClDaw::new(44100);
 
-        command_line_daw.perform(args.midi_in, args.wav_out)
+        command_line_daw.perform(
+            args.midi_in,
+            args.use_midi_controller,
+            args.wav_out,
+        )
     }
 }

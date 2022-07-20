@@ -49,6 +49,26 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "Speaker: MIDI controller",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--use-midi-controller"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Speaker: major scale",
       "cargo": {
         "args": [

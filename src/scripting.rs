@@ -5,7 +5,7 @@ use std::{cell::RefCell, path::PathBuf, rc::Rc};
 use crate::{
     devices::{
         effects::{Bitcrusher, Limiter},
-        midi::MidiReader,
+        midi::MidiSmfReader,
         orchestrator::Orchestrator,
         sequencer::Sequencer,
         traits::DeviceTrait,
@@ -191,7 +191,7 @@ impl ScriptEngine {
 
     fn load_file(sequencer: Rc<RefCell<Sequencer>>, filename: &str) {
         let data = std::fs::read(filename).unwrap();
-        MidiReader::load_sequencer(&data, sequencer.clone());
+        MidiSmfReader::load_sequencer(&data, sequencer.clone());
     }
 
     fn play(orchestrator: &mut Orchestrator) {
