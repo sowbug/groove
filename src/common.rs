@@ -17,6 +17,7 @@ impl Default for WaveformType {
     }
 }
 
+#[allow(dead_code)]
 pub enum MidiNote {
     None = 0,
     A0 = 21,
