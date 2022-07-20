@@ -104,18 +104,30 @@ impl Sampler {
 
     pub fn new_from_files() -> Self {
         let mut r = Self::new();
-        let samples: [(GeneralMidiPercussionProgram, &str); 8] = [
-            (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A 707"),
-            (GeneralMidiPercussionProgram::ElectricBassDrum, "BD B 707"),
-            (GeneralMidiPercussionProgram::AcousticSnare, "SD A 707"),
-            (GeneralMidiPercussionProgram::ElectricSnare, "SD B 707"),
-            (GeneralMidiPercussionProgram::PedalHiHat, "CH 707"),
-            (GeneralMidiPercussionProgram::OpenHiHat, "OH 707"),
-            (GeneralMidiPercussionProgram::CrashCymbal2, "Crash 707"),
-            (GeneralMidiPercussionProgram::HighAgogo, "Tom Hi 707"),
+        let samples: [(GeneralMidiPercussionProgram, &str); 20] = [
+            (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
+            (GeneralMidiPercussionProgram::ElectricBassDrum, "BD B"),
+            (GeneralMidiPercussionProgram::PedalHiHat, "CH"),
+            (GeneralMidiPercussionProgram::HandClap, "Clap"),
+            (GeneralMidiPercussionProgram::RideBell, "Cowbell"),
+            (GeneralMidiPercussionProgram::CrashCymbal1, "Crash"),
+            (GeneralMidiPercussionProgram::CrashCymbal2, "Crash"),
+            (GeneralMidiPercussionProgram::OpenHiHat, "OH"),
+            (GeneralMidiPercussionProgram::RideCymbal1, "Ride"),
+            (GeneralMidiPercussionProgram::RideCymbal2, "Ride"),
+            (GeneralMidiPercussionProgram::SideStick, "Rimshot"),
+            (GeneralMidiPercussionProgram::AcousticSnare, "SD A"),
+            (GeneralMidiPercussionProgram::ElectricSnare, "SD B"),
+            (GeneralMidiPercussionProgram::Tambourine, "Tambourine"),
+            (GeneralMidiPercussionProgram::LowTom, "Tom Lo"),
+            (GeneralMidiPercussionProgram::LowMidTom, "Tom Lo"),
+            (GeneralMidiPercussionProgram::HiMidTom, "Tom Mid"),
+            (GeneralMidiPercussionProgram::HighTom, "Tom Hi"),
+            (GeneralMidiPercussionProgram::HighAgogo, "Tom Hi"),
+            (GeneralMidiPercussionProgram::LowAgogo, "Tom Lo"),
         ];
         for (program, filename) in samples {
-            r.add_sample_for_note(program as u8, format!("samples/707/{}.wav", filename).as_str());
+            r.add_sample_for_note(program as u8, format!("samples/707/{} 707.wav", filename).as_str());
         }
         r
     }
