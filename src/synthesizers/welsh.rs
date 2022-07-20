@@ -1907,8 +1907,8 @@ impl Voice {
 
         // Filters
         self.filter_envelope.tick(time_seconds);
-        let new_cutoff_percentage = (self.filter_cutoff_start
-            + (self.filter_cutoff_end - self.filter_cutoff_start) * self.filter_envelope.value());
+        let new_cutoff_percentage = self.filter_cutoff_start
+            + (self.filter_cutoff_end - self.filter_cutoff_start) * self.filter_envelope.value();
         let new_cutoff = MiniFilter2::percent_to_frequency(new_cutoff_percentage);
         self.filter.set_cutoff(new_cutoff);
         let filtered_mix = self.filter.process(osc_sum, time_seconds);
@@ -2129,7 +2129,7 @@ mod tests {
 
         let mut is_message_sent = false;
         while clock.seconds < duration {
-            if (when <= clock.seconds && !is_message_sent) {
+            if when <= clock.seconds && !is_message_sent {
                 is_message_sent = true;
                 source.handle_midi_message(message, clock);
             }
