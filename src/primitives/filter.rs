@@ -420,74 +420,120 @@ impl MiniFilter2 {
     }
 
     pub fn new(filter_type: MiniFilter2Type) -> Self {
-        let mut l_sample_rate: u32 = 0;
-        let mut l_cutoff: f32 = 0.0;
-        let (a0, a1, a2, b0, b1, b2) = match filter_type {
+        let mut r = Self {
+            ..Default::default()
+        };
+        r.recalculate_coefficients(filter_type);
+        r
+    }
+
+    fn recalculate_coefficients(&mut self, new_filter_type: MiniFilter2Type) {
+        (self.a0, self.a1, self.a2, self.b0, self.b1, self.b2) = match new_filter_type {
             MiniFilter2Type::None => (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
             MiniFilter2Type::LowPass(sample_rate, cutoff, q) => {
-                l_sample_rate = sample_rate;
-                l_cutoff = cutoff;
+                self.sample_rate = sample_rate;
+                self.cutoff = cutoff;
                 Self::rbj_low_pass_coefficients(sample_rate, cutoff, q)
             }
             MiniFilter2Type::HighPass(sample_rate, cutoff, q) => {
-                l_sample_rate = sample_rate;
-                l_cutoff = cutoff;
+                self.sample_rate = sample_rate;
+                self.cutoff = cutoff;
                 Self::rbj_high_pass_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilter2Type::BandPass(sample_rate, cutoff, q) => {
-                l_sample_rate = sample_rate;
-                l_cutoff = cutoff;
-                Self::rbj_band_pass_coefficients(sample_rate, cutoff, q)
+            MiniFilter2Type::BandPass(sample_rate, cutoff, bandwidth) => {
+                self.sample_rate = sample_rate;
+                self.cutoff = cutoff;
+                Self::rbj_band_pass_coefficients(sample_rate, cutoff, bandwidth)
             }
-            MiniFilter2Type::BandStop(sample_rate, cutoff, q) => {
-                l_sample_rate = sample_rate;
-                l_cutoff = cutoff;
-                Self::rbj_band_stop_coefficients(sample_rate, cutoff, q)
+            MiniFilter2Type::BandStop(sample_rate, cutoff, bandwidth) => {
+                self.sample_rate = sample_rate;
+                self.cutoff = cutoff;
+                Self::rbj_band_stop_coefficients(sample_rate, cutoff, bandwidth)
             }
             MiniFilter2Type::AllPass(sample_rate, cutoff, q) => {
-                l_sample_rate = sample_rate;
-                l_cutoff = cutoff;
+                self.sample_rate = sample_rate;
+                self.cutoff = cutoff;
                 Self::rbj_all_pass_coefficients(sample_rate, cutoff, q)
             }
             MiniFilter2Type::PeakingEq(sample_rate, cutoff, db_gain) => {
-                l_sample_rate = sample_rate;
-                l_cutoff = cutoff;
+                self.sample_rate = sample_rate;
+                self.cutoff = cutoff;
                 Self::rbj_peaking_eq_coefficients(sample_rate, cutoff, db_gain)
             }
             MiniFilter2Type::LowShelf(sample_rate, cutoff, db_gain) => {
-                l_sample_rate = sample_rate;
-                l_cutoff = cutoff;
+                self.sample_rate = sample_rate;
+                self.cutoff = cutoff;
                 Self::rbj_low_shelf_coefficients(sample_rate, cutoff, db_gain)
             }
             MiniFilter2Type::HighShelf(sample_rate, cutoff, db_gain) => {
-                l_sample_rate = sample_rate;
-                l_cutoff = cutoff;
+                self.sample_rate = sample_rate;
+                self.cutoff = cutoff;
                 Self::rbj_high_shelf_coefficients(sample_rate, cutoff, db_gain)
             }
         };
-        Self {
-            filter_type,
-            cutoff: l_cutoff,
-            sample_rate: l_sample_rate,
-            a0,
-            a1,
-            a2,
-            b0,
-            b1,
-            b2,
-            ..Default::default()
-        }
+        self.filter_type = new_filter_type;
     }
 
-    pub fn set_cutoff(&mut self, cutoff: f32) {
-        self.cutoff = cutoff;
-        match self.filter_type {
-            MiniFilter2Type::LowPass(sample_rate, original_cutoff, q) => {
-                (self.a0, self.a1, self.a2, self.b0, self.b1, self.b2) =
-                    Self::rbj_low_pass_coefficients(sample_rate, cutoff, q);
+    pub fn set_cutoff(&mut self, new_cutoff: f32) {
+        let new_filter_type = match self.filter_type {
+            MiniFilter2Type::None => MiniFilter2Type::None,
+            MiniFilter2Type::LowPass(sample_rate, _cutoff, q) => {
+                MiniFilter2Type::LowPass(sample_rate, new_cutoff, q)
             }
-            _ => {}
-        }
+            MiniFilter2Type::HighPass(sample_rate, _cutoff, q) => {
+                MiniFilter2Type::LowPass(sample_rate, new_cutoff, q)
+            }
+            MiniFilter2Type::BandPass(sample_rate, _cutoff, bandwidth) => {
+                MiniFilter2Type::BandPass(sample_rate, new_cutoff, bandwidth)
+            }
+            MiniFilter2Type::BandStop(sample_rate, _cutoff, bandwidth) => {
+                MiniFilter2Type::BandStop(sample_rate, new_cutoff, bandwidth)
+            }
+            MiniFilter2Type::AllPass(sample_rate, _cutoff, q) => {
+                MiniFilter2Type::AllPass(sample_rate, new_cutoff, q)
+            }
+            MiniFilter2Type::PeakingEq(sample_rate, _cutoff, db_gain) => {
+                MiniFilter2Type::PeakingEq(sample_rate, new_cutoff, db_gain)
+            }
+            MiniFilter2Type::LowShelf(sample_rate, _cutoff, db_gain) => {
+                MiniFilter2Type::LowShelf(sample_rate, new_cutoff, db_gain)
+            }
+            MiniFilter2Type::HighShelf(sample_rate, _cutoff, db_gain) => {
+                MiniFilter2Type::HighShelf(sample_rate, new_cutoff, db_gain)
+            }
+        };
+        self.recalculate_coefficients(new_filter_type)
+    }
+
+    pub fn set_q(&mut self, new_val: f32) {
+        let new_filter_type = match self.filter_type {
+            MiniFilter2Type::None => MiniFilter2Type::None,
+            MiniFilter2Type::LowPass(sample_rate, cutoff, _q) => {
+                MiniFilter2Type::LowPass(sample_rate, cutoff, new_val)
+            }
+            MiniFilter2Type::HighPass(sample_rate, cutoff, _q) => {
+                MiniFilter2Type::LowPass(sample_rate, cutoff, new_val)
+            }
+            MiniFilter2Type::BandPass(sample_rate, cutoff, _bandwidth) => {
+                MiniFilter2Type::BandPass(sample_rate, cutoff, new_val)
+            }
+            MiniFilter2Type::BandStop(sample_rate, cutoff, _bandwidth) => {
+                MiniFilter2Type::BandStop(sample_rate, cutoff, new_val)
+            }
+            MiniFilter2Type::AllPass(sample_rate, cutoff, _q) => {
+                MiniFilter2Type::AllPass(sample_rate, cutoff, new_val)
+            }
+            MiniFilter2Type::PeakingEq(sample_rate, cutoff, _db_gain) => {
+                MiniFilter2Type::PeakingEq(sample_rate, cutoff, new_val)
+            }
+            MiniFilter2Type::LowShelf(sample_rate, cutoff, _db_gain) => {
+                MiniFilter2Type::LowShelf(sample_rate, cutoff, new_val)
+            }
+            MiniFilter2Type::HighShelf(sample_rate, cutoff, _db_gain) => {
+                MiniFilter2Type::HighShelf(sample_rate, cutoff, new_val)
+            }
+        };
+        self.recalculate_coefficients(new_filter_type)
     }
 
     fn rbj_intermediates_q(sample_rate: u32, cutoff: f32, q: f32) -> (f64, f64, f64, f64) {
@@ -857,42 +903,83 @@ mod tests {
         );
     }
 
-    struct TestFilterController {
+    struct TestFilterCutoffController {
         target: Rc<RefCell<MiniFilter2>>,
-        cutoff_start: f32,
-        cutoff_end: f32,
+        param_start: f32,
+        param_end: f32,
         duration: f32,
 
         time_start: f32,
     }
 
-    impl TestFilterController {
+    impl TestFilterCutoffController {
         pub fn new(
             target: Rc<RefCell<MiniFilter2>>,
-            cutoff_start: f32,
-            cutoff_end: f32,
+            param_start: f32,
+            param_end: f32,
             duration: f32,
         ) -> Self {
             Self {
                 target,
-                cutoff_start,
-                cutoff_end,
+                param_start,
+                param_end,
                 duration,
                 time_start: -1.0f32,
             }
         }
     }
 
-    impl<'a> ControllerTrait for TestFilterController {
+    impl<'a> ControllerTrait for TestFilterCutoffController {
         fn process(&mut self, time_seconds: f32) {
             if self.time_start < 0.0 {
                 self.time_start = time_seconds;
             }
-            if self.cutoff_end != self.cutoff_start {
+            if self.param_end != self.param_start {
                 self.target.borrow_mut().set_cutoff(
-                    self.cutoff_start
+                    self.param_start
                         + ((time_seconds - self.time_start) / self.duration)
-                            * (self.cutoff_end - self.cutoff_start),
+                            * (self.param_end - self.param_start),
+                );
+            }
+        }
+    }
+
+    struct TestFilterQController {
+        target: Rc<RefCell<MiniFilter2>>,
+        param_start: f32,
+        param_end: f32,
+        duration: f32,
+
+        time_start: f32,
+    }
+
+    impl TestFilterQController {
+        pub fn new(
+            target: Rc<RefCell<MiniFilter2>>,
+            param_start: f32,
+            param_end: f32,
+            duration: f32,
+        ) -> Self {
+            Self {
+                target,
+                param_start,
+                param_end,
+                duration,
+                time_start: -1.0f32,
+            }
+        }
+    }
+
+    impl<'a> ControllerTrait for TestFilterQController {
+        fn process(&mut self, time_seconds: f32) {
+            if self.time_start < 0.0 {
+                self.time_start = time_seconds;
+            }
+            if self.param_end != self.param_start {
+                self.target.borrow_mut().set_q(
+                    self.param_start
+                        + ((time_seconds - self.time_start) / self.duration)
+                            * (self.param_end - self.param_start),
                 );
             }
         }
@@ -1021,17 +1108,76 @@ mod tests {
         });
         source.set_frequency(MidiMessage::note_to_frequency(MidiNote::C4 as u8));
 
-        let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::LowPass(
-            SAMPLE_RATE,
-            1000.,
-            min_q,
-        ))));
-        let mut controller = TestFilterController::new(effect.clone(), 40.0, 8000.0, 2.0);
-        write_effect_to_file(
-            &mut source,
-            effect.clone(),
-            &mut Some(&mut controller),
-            "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q",
-        );
+        {
+            let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::LowPass(
+                SAMPLE_RATE,
+                1000.,
+                min_q,
+            ))));
+            let mut controller = TestFilterCutoffController::new(effect.clone(), 40.0, 8000.0, 2.0);
+            write_effect_to_file(
+                &mut source,
+                effect.clone(),
+                &mut Some(&mut controller),
+                "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q",
+            );
+        }
+        {
+            let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::LowPass(
+                SAMPLE_RATE,
+                1000.,
+                min_q,
+            ))));
+            let mut controller =
+                TestFilterQController::new(effect.clone(), min_q, min_q * 20.0, 2.0);
+            write_effect_to_file(
+                &mut source,
+                effect.clone(),
+                &mut Some(&mut controller),
+                "rbj_sawtooth_middle_c_lpf_1KHz_dynamic_min_q_20",
+            );
+        }
+        {
+            let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::HighPass(
+                SAMPLE_RATE,
+                1000.,
+                min_q,
+            ))));
+            let mut controller = TestFilterCutoffController::new(effect.clone(), 8000.0, 40.0, 2.0);
+            write_effect_to_file(
+                &mut source,
+                effect.clone(),
+                &mut Some(&mut controller),
+                "rbj_sawtooth_middle_c_hpf_dynamic_8KHz_40Hz_min_q",
+            );
+        }
+        {
+            let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::BandPass(
+                SAMPLE_RATE,
+                1000.,
+                min_q,
+            ))));
+            let mut controller = TestFilterCutoffController::new(effect.clone(), 40.0, 8000.0, 2.0);
+            write_effect_to_file(
+                &mut source,
+                effect.clone(),
+                &mut Some(&mut controller),
+                "rbj_sawtooth_middle_c_bpf_dynamic_40Hz_8KHz_min_q",
+            );
+        }
+        {
+            let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::BandStop(
+                SAMPLE_RATE,
+                1000.,
+                min_q,
+            ))));
+            let mut controller = TestFilterCutoffController::new(effect.clone(), 40.0, 1500.0, 2.0);
+            write_effect_to_file(
+                &mut source,
+                effect.clone(),
+                &mut Some(&mut controller),
+                "rbj_sawtooth_middle_c_bsf_dynamic_40Hz_1.5KHz_min_q",
+            );
+        }
     }
 }
