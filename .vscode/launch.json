@@ -28,7 +28,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Test script",
+      "name": "Run script file",
       "cargo": {
         "args": [
           "build",
