@@ -1,11 +1,11 @@
 use super::EffectTrait;
 
 #[derive(Default)]
-pub struct BitCrusher {
+pub struct Bitcrusher {
     bits_to_crush: u8,
 }
 
-impl BitCrusher {
+impl Bitcrusher {
     pub fn new(bits_to_crush: u8) -> Self {
         Self {
             bits_to_crush,
@@ -18,7 +18,7 @@ impl BitCrusher {
     }
 }
 
-impl EffectTrait for BitCrusher {
+impl EffectTrait for Bitcrusher {
     fn process(&mut self, input: f32, _time_seconds: f32) -> f32 {
         let input_i16 = (input * (i16::MAX as f32)) as i16;
         let squished = input_i16 >> self.bits_to_crush;
@@ -41,7 +41,7 @@ mod tests {
     use super::*;
 
     struct TestController {
-        target: Rc<RefCell<BitCrusher>>,
+        target: Rc<RefCell<Bitcrusher>>,
         start: u8,
         end: u8,
         duration: f32,
@@ -50,7 +50,7 @@ mod tests {
     }
 
     impl TestController {
-        pub fn new(target: Rc<RefCell<BitCrusher>>, start: u8, end: u8, duration: f32) -> Self {
+        pub fn new(target: Rc<RefCell<Bitcrusher>>, start: u8, end: u8, duration: f32) -> Self {
             Self {
                 target,
                 start,
@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn test_bitcrusher_basic() {
-        let mut fx = BitCrusher::new(8);
+        let mut fx = Bitcrusher::new(8);
         assert_eq!(fx.process(PI - 3.0, 0.0), 0.14062929);
     }
 
@@ -86,7 +86,7 @@ mod tests {
     fn write_bitcrusher_sample() {
         let mut osc = MiniOscillator::new(WaveformType::Sine);
         osc.set_frequency(MidiMessage::note_type_to_frequency(MidiNote::C4));
-        let fx = Rc::new(RefCell::new(BitCrusher::new(8)));
+        let fx = Rc::new(RefCell::new(Bitcrusher::new(8)));
         let mut controller = TestController::new(fx.clone(), 0, 16, 2.0);
         write_effect_to_file(
             &mut osc,

@@ -1,4 +1,4 @@
-mod effects;
+pub mod effects;
 pub mod midi;
 mod mixer;
 pub mod orchestrator;

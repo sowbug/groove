@@ -3,7 +3,13 @@ use rhai::{Engine, EvalAltResult};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use crate::{
-    devices::{midi::MidiReader, orchestrator::Orchestrator, sequencer::Sequencer},
+    devices::{
+        effects::{Bitcrusher, Limiter},
+        midi::MidiReader,
+        orchestrator::Orchestrator,
+        sequencer::Sequencer,
+        traits::DeviceTrait,
+    },
     synthesizers::welsh,
 };
 
@@ -66,7 +72,10 @@ impl ScriptEngine {
                 panic!("{:?} {:?}", a, b);
             }
             rhai::EvalAltResult::ErrorFunctionNotFound(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!(
+                    "rhai::EvalAltResult::ErrorFunctionNotFound({:?}, {:?})",
+                    a, b
+                );
             }
             rhai::EvalAltResult::ErrorInFunctionCall(a, b, c, d) => {
                 panic!("{:?} {:?} {:?} {:?}", a, b, c, d);
@@ -163,7 +172,15 @@ impl ScriptEngine {
         Rc::new(RefCell::new(Sequencer::new()))
     }
 
-    fn add_synth(orchestrator: &mut Orchestrator, device: Rc<RefCell<welsh::Synth>>) {
+    fn new_bitcrusher() -> Rc<RefCell<Bitcrusher>> {
+        Rc::new(RefCell::new(Bitcrusher::new()))
+    }
+
+    fn new_limiter() -> Rc<RefCell<Limiter>> {
+        Rc::new(RefCell::new(Limiter::new(None, 0.0, 1.0)))
+    }
+
+    fn patch_to_master(orchestrator: &mut Orchestrator, device: Rc<RefCell<welsh::Synth>>) {
         orchestrator.add_device(device.clone());
         orchestrator.add_master_mixer_source(device.clone());
     }
@@ -175,16 +192,6 @@ impl ScriptEngine {
     fn load_file(sequencer: Rc<RefCell<Sequencer>>, filename: &str) {
         let data = std::fs::read(filename).unwrap();
         MidiReader::load_sequencer(&data, sequencer.clone());
-    }
-
-    fn connect_synth(
-        sequencer: Rc<RefCell<Sequencer>>,
-        device: Rc<RefCell<welsh::Synth>>,
-        channel: i64,
-    ) {
-        sequencer
-            .borrow_mut()
-            .connect_midi_sink_for_channel(device, channel as u8);
     }
 
     fn play(orchestrator: &mut Orchestrator) {
@@ -202,6 +209,35 @@ impl ScriptEngine {
         Orchestrator::new_44100()
     }
 
+    fn patch_to_audio_sink(
+        upstream: Rc<RefCell<dyn DeviceTrait>>,
+        downstream: Rc<RefCell<dyn DeviceTrait>>,
+    ) {
+        if !upstream.borrow().sources_audio() {
+            panic!("attempt to patch to upstream device that does not source audio");
+        }
+        if !downstream.borrow().sinks_audio() {
+            panic!("attempt to patch to downstream device that does not sink audio");
+        }
+        downstream.borrow_mut().add_audio_source(upstream);
+    }
+
+    fn patch_to_midi_source(
+        downstream: Rc<RefCell<welsh::Synth>>,
+        upstream: Rc<RefCell<Sequencer>>,
+        channel: i64,
+    ) {
+        if !upstream.borrow().sources_midi() {
+            panic!("attempt to patch to upstream device that does not source MIDI");
+        }
+        if !downstream.borrow().sinks_midi() {
+            panic!("attempt to patch to downstream device that does not sink MIDI");
+        }
+        upstream
+            .borrow_mut()
+            .connect_midi_sink_for_channel(downstream, channel as u8);
+    }
+
     fn register_methods(&mut self) {
         let o = Orchestrator::new_44100();
         self.engine
@@ -209,11 +245,13 @@ impl ScriptEngine {
             .register_type_with_name::<welsh::Synth>("Synth")
             .register_fn("new_orchestrator", Self::new_orchestrator)
             .register_fn("new_synth", Self::new_synth)
-            .register_fn("add_synth", Self::add_synth)
+            .register_fn("new_bitcrusher", Self::new_bitcrusher)
+            .register_fn("patch_to_master", Self::patch_to_master)
             .register_fn("new_sequencer", Self::new_sequencer)
             .register_fn("add_sequencer", Self::add_sequencer)
             .register_fn("load_file", Self::load_file)
-            .register_fn("connect_synth", Self::connect_synth)
+            .register_fn("patch_to_audio_sink", Self::patch_to_audio_sink)
+            .register_fn("patch_to_midi_source", Self::patch_to_midi_source)
             .register_fn("play", Self::play);
     }
 }
