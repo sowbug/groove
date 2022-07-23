@@ -7,7 +7,7 @@ use super::traits::DeviceTrait;
 #[derive(Default)]
 pub struct Mixer {
     mini_mixer: MiniMixer,
-    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    sources: Vec<(Rc<RefCell<dyn DeviceTrait>>, f32)>,
 }
 
 impl Mixer {
@@ -26,12 +26,12 @@ impl DeviceTrait for Mixer {
         true
     }
     fn add_audio_source(&mut self, audio_instrument: Rc<RefCell<dyn DeviceTrait>>) {
-        self.sources.push(audio_instrument);
+        self.sources.push((audio_instrument, 1.0));
     }
     fn get_audio_sample(&self) -> f32 {
         let mut samples = Vec::new();
-        for source in self.sources.iter() {
-            samples.push(source.borrow().get_audio_sample());
+        for (source, relative_gain) in self.sources.clone() {
+            samples.push((source.borrow().get_audio_sample(), relative_gain));
         }
         self.mini_mixer.process(samples)
     }

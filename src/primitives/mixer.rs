@@ -6,11 +6,21 @@ impl MiniMixer {
         Self {}
     }
 
-    pub fn process(&self, samples: Vec<f32>) -> f32 {
+    // (sample value, gain)
+    pub fn process(&self, samples: Vec<(f32, f32)>) -> f32 {
         if samples.len() > 0 {
             // https://stackoverflow.com/questions/41017140/why-cant-rust-infer-the-resulting-type-of-iteratorsum
-            let sum: f32 = samples.iter().sum();
-            sum / samples.len() as f32
+            // this was from old code that used iter().sum()
+
+            // Weighted sum
+            // TODO: learn how to do this with custom implementation of std:iter:sum
+            let mut sum = 0.0f32;
+            let mut divisor = 0.0f32;
+            for (v, g) in samples {
+                sum += v * g;
+                divisor += g;
+            }
+            sum / divisor as f32
         } else {
             0.
         }
@@ -32,16 +42,16 @@ mod tests {
 
         // One always-loud
         {
-            let sources = vec![TestAlwaysLoudDevice::new().get_audio_sample()];
+            let sources = vec![(TestAlwaysLoudDevice::new().get_audio_sample(), 42.0)];
             assert_eq!(mixer.process(sources), 1.);
         }
         // One always-loud and one always-quiet
         {
             let sources = vec![
-                TestAlwaysLoudDevice::new().get_audio_sample(),
-                TestAlwaysSilentDevice::new().get_audio_sample(),
+                (TestAlwaysLoudDevice::new().get_audio_sample(), 0.7),
+                (TestAlwaysSilentDevice::new().get_audio_sample(), 0.3),
             ];
-            assert_eq!(mixer.process(sources), 0.5);
+            assert_eq!(mixer.process(sources), 0.7); // (0.7 * 1.0 + 0.3 * 0.0) / (0.7 + 0.3)
         }
     }
 }
