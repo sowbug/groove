@@ -19,7 +19,6 @@ pub struct MidiControllerReader {
 
 impl MidiControllerReader {
     pub fn new() -> Self {
-        println!("Hi");
         Self { sinks: Vec::new() }
     }
 
