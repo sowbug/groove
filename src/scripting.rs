@@ -206,7 +206,7 @@ impl ScriptEngine {
     }
 
     fn new_orchestrator() -> Orchestrator {
-        Orchestrator::new_44100()
+        Orchestrator::new_defaults()
     }
 
     fn patch_to_audio_sink(
@@ -239,7 +239,7 @@ impl ScriptEngine {
     }
 
     fn register_methods(&mut self) {
-        let o = Orchestrator::new_44100();
+        let o = Orchestrator::new_defaults();
         self.engine
             .register_type_with_name::<Orchestrator>("Orchestrator")
             .register_type_with_name::<welsh::Synth>("Synth")

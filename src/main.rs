@@ -36,15 +36,13 @@ use synthesizers::welsh::*;
 
 #[derive(Default)]
 struct ClDaw {
-    sample_rate: u32,
     orchestrator: Orchestrator,
 }
 
 impl ClDaw {
-    pub fn new(sample_rate: u32) -> Self {
+    pub fn new() -> Self {
         Self {
-            sample_rate,
-            orchestrator: Orchestrator::new(sample_rate),
+            orchestrator: Orchestrator::new_defaults(),
         }
     }
 
@@ -86,7 +84,7 @@ impl ClDaw {
         let supported_config = supported_configs_range
             .next()
             .expect("no supported config?!")
-            .with_sample_rate(SampleRate(self.sample_rate));
+            .with_sample_rate(SampleRate(self.orchestrator.settings().clock.sample_rate()));
 
         let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
         let sample_format = supported_config.sample_format();
@@ -156,7 +154,7 @@ impl ClDaw {
         const AMPLITUDE: f32 = i16::MAX as f32;
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: self.sample_rate,
+            sample_rate: self.orchestrator.settings().clock.sample_rate(),
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -187,7 +185,7 @@ impl ClDaw {
                     Rc::new(RefCell::new(DrumKitSampler::new_from_files()))
                 } else {
                     Rc::new(RefCell::new(Synth::new(
-                        self.sample_rate,
+                        self.orchestrator.settings().clock.sample_rate(),
                         SynthPreset::by_name(&PresetName::Piano),
                     )))
                 };
@@ -202,7 +200,7 @@ impl ClDaw {
         if use_midi_controller {
             panic!("sorry, this is horribly broken.");
             let synth = Rc::new(RefCell::new(Synth::new(
-                self.sample_rate,
+                self.orchestrator.settings().clock.sample_rate(),
                 SynthPreset::by_name(&PresetName::Piano),
             )));
             self.orchestrator.add_device(synth.clone());
@@ -250,16 +248,13 @@ struct Args {
 
 extern crate midir;
 
-use std::error::Error;
-use std::io::{stdin, stdout, Write};
-
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     if args.script_in.is_some() {
         ScriptEngine::new().execute_file(&args.script_in.unwrap())
     } else {
-        let mut command_line_daw = ClDaw::new(44100);
+        let mut command_line_daw = ClDaw::new();
 
         command_line_daw.perform(args.midi_in, args.use_midi_controller, args.wav_out)
     }
