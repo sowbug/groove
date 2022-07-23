@@ -1,55 +1,80 @@
-#[derive(Default, Debug, Clone)]
-pub struct Clock {
-    // Immutable after creation.
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ClockSettings {
+    #[serde(rename = "sample_rate")]
     samples_per_second: u32, // Samples per second; granularity of a tick().
 
-    // Mutable after creation.
-    pub time_signature_numerator: u32,
-    time_signature_denominator: u32,
-    pub beats_per_minute: f32,
+    #[serde(rename = "bpm")]
+    beats_per_minute: f32,
 
-    // Updated on each tick().
+    #[serde(rename = "time_signature")]
+    time_signature: (u32, u32),
+}
+
+impl ClockSettings {
+    pub(crate) fn new(
+        samples_per_second: u32,
+        beats_per_minute: f32,
+        time_signature: (u32, u32),
+    ) -> Self {
+        Self {
+            samples_per_second,
+            beats_per_minute,
+            time_signature,
+        }
+    }
+
+    pub(crate) fn new_defaults() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        self.samples_per_second
+    }
+
+    pub(crate) fn bpm(&self) -> f32 {
+        self.beats_per_minute
+    }
+}
+
+impl Default for ClockSettings {
+    fn default() -> Self {
+        Self {
+            samples_per_second: 44100,
+            beats_per_minute: 128.0,
+            time_signature: (4, 4),
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct Clock {
+    settings: ClockSettings,
+
     pub samples: u32, // Samples since clock creation.
     pub seconds: f32, // Seconds elapsed since clock creation.
     pub beats: u32,   // Beats elapsed since clock creation.
 }
 
 impl Clock {
-    pub fn new(
-        samples_per_second: u32,
-        time_signature_numerator: u32,
-        time_signature_denominator: u32,
-        beats_per_minute: f32,
-    ) -> Self {
+    pub fn new(settings: ClockSettings) -> Self {
         Self {
-            samples_per_second,
-            time_signature_numerator,
-            time_signature_denominator,
-            beats_per_minute,
+            settings,
             ..Default::default()
         }
     }
-    pub fn sample_rate(&self) -> u32 {
-        self.samples_per_second
+
+    pub fn settings(&self) -> &ClockSettings {
+        &self.settings
     }
+
     pub fn tick(&mut self) {
         self.samples += 1;
-        self.seconds = self.samples as f32 / self.samples_per_second as f32;
-        self.beats = ((self.seconds / 60.0) * self.beats_per_minute).floor() as u32;
-    }
-}
-
-pub struct TimeSignature {
-    numerator: u32,
-    denominator: u32,
-}
-
-impl TimeSignature {
-    pub fn new(numerator: u32, denominator: u32) -> Self {
-        Self {
-            numerator,
-            denominator,
-        }
+        self.seconds = self.samples as f32 / self.settings.samples_per_second as f32;
+        self.beats = ((self.seconds / 60.0) * self.settings.beats_per_minute).floor() as u32;
     }
 }
 
@@ -57,11 +82,15 @@ impl TimeSignature {
 mod tests {
     use super::*;
 
-    impl Clock {
-        pub const TEST_SAMPLE_RATE: u32 = 256;
-        pub const TEST_BPM: f32 = 99.;
+    impl ClockSettings {
+        const TEST_SAMPLE_RATE: u32 = 256;
+        const TEST_BPM: f32 = 99.;
         pub fn new_test() -> Self {
-            Self::new(Clock::TEST_SAMPLE_RATE, 4, 4, Clock::TEST_BPM)
+            Self::new(
+                ClockSettings::TEST_SAMPLE_RATE,
+                ClockSettings::TEST_BPM,
+                (4, 4),
+            )
         }
     }
 
@@ -72,15 +101,16 @@ mod tests {
         const QUARTER_NOTE_OF_TICKS: u32 = ((SAMPLE_RATE * 60) as f32 / BPM) as u32;
         const SECONDS_PER_BEAT: f32 = 60.0 / BPM;
 
-        let mut clock = Clock::new(SAMPLE_RATE, 4, 4, 128.);
+        let clock_settings = ClockSettings {
+            samples_per_second: SAMPLE_RATE,
+            beats_per_minute: BPM,
+            time_signature: (4, 4),
+        };
+        let mut clock = Clock::new(clock_settings);
 
         // init state
-        assert_eq!(clock.samples_per_second, SAMPLE_RATE);
         assert_eq!(clock.samples, 0);
         assert_eq!(clock.seconds, 0.0);
-        assert_eq!(clock.time_signature_numerator, 4);
-        assert_eq!(clock.time_signature_denominator, 4);
-        assert_eq!(clock.beats_per_minute, 128.0);
 
         // Check after one tick.
         clock.tick();

@@ -36,12 +36,14 @@ use synthesizers::welsh::*;
 
 #[derive(Default)]
 struct ClDaw {
+    sample_rate: u32,
     orchestrator: Orchestrator,
 }
 
 impl ClDaw {
     pub fn new(sample_rate: u32) -> Self {
         Self {
+            sample_rate,
             orchestrator: Orchestrator::new(sample_rate),
         }
     }
@@ -72,10 +74,7 @@ impl ClDaw {
         }
     }
 
-    fn send_performance_to_output_device(
-        sample_rate: u32,
-        worker: &Worker<f32>,
-    ) -> anyhow::Result<()> {
+    fn send_performance_to_output_device(&self, worker: &Worker<f32>) -> anyhow::Result<()> {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
@@ -87,7 +86,7 @@ impl ClDaw {
         let supported_config = supported_configs_range
             .next()
             .expect("no supported config?!")
-            .with_sample_rate(SampleRate(sample_rate));
+            .with_sample_rate(SampleRate(self.sample_rate));
 
         let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
         let sample_format = supported_config.sample_format();
@@ -150,14 +149,14 @@ impl ClDaw {
     }
 
     fn send_performance_to_file(
-        sample_rate: u32,
+        &self,
         output_filename: &str,
         worker: &Worker<f32>,
     ) -> anyhow::Result<()> {
         const AMPLITUDE: f32 = i16::MAX as f32;
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate,
+            sample_rate: self.sample_rate,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -188,7 +187,7 @@ impl ClDaw {
                     Rc::new(RefCell::new(DrumKitSampler::new_from_files()))
                 } else {
                     Rc::new(RefCell::new(Synth::new(
-                        self.orchestrator.clock.sample_rate(),
+                        self.sample_rate,
                         SynthPreset::by_name(&PresetName::Piano),
                     )))
                 };
@@ -203,7 +202,7 @@ impl ClDaw {
         if use_midi_controller {
             panic!("sorry, this is horribly broken.");
             let synth = Rc::new(RefCell::new(Synth::new(
-                self.orchestrator.clock.sample_rate(),
+                self.sample_rate,
                 SynthPreset::by_name(&PresetName::Piano),
             )));
             self.orchestrator.add_device(synth.clone());
@@ -221,11 +220,10 @@ impl ClDaw {
         }
 
         println!("Rendering queue");
-        let sample_rate = self.orchestrator.clock.sample_rate() as u32;
         if let Some(output_filename) = wav_out {
-            ClDaw::send_performance_to_file(sample_rate, &output_filename, &worker)
+            self.send_performance_to_file(&output_filename, &worker)
         } else {
-            ClDaw::send_performance_to_output_device(sample_rate, &worker)
+            self.send_performance_to_output_device(&worker)
         }
     }
 }
@@ -263,10 +261,6 @@ fn main() -> anyhow::Result<()> {
     } else {
         let mut command_line_daw = ClDaw::new(44100);
 
-        command_line_daw.perform(
-            args.midi_in,
-            args.use_midi_controller,
-            args.wav_out,
-        )
+        command_line_daw.perform(args.midi_in, args.use_midi_controller, args.wav_out)
     }
 }

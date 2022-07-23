@@ -32,7 +32,7 @@ pub mod tests {
 
     use convert_case::{Case, Casing};
 
-    use crate::primitives::clock::Clock;
+    use crate::primitives::clock::{Clock, ClockSettings};
 
     use super::{AudioSourceTrait, ControllerTrait, EffectTrait};
 
@@ -47,11 +47,12 @@ pub mod tests {
     }
 
     pub(crate) fn write_source_to_file(source: &mut dyn AudioSourceTrait, basename: &str) {
-        let mut clock = Clock::new(44100, 4, 4, 128.);
+        let clock_settings = ClockSettings::new_defaults();
+        let mut clock = Clock::new(clock_settings);
 
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: clock.sample_rate(),
+            sample_rate: clock.settings().sample_rate(),
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -71,11 +72,11 @@ pub mod tests {
         opt_controller: &mut Option<&mut dyn ControllerTrait>,
         basename: &str,
     ) {
-        let mut clock = Clock::new(44100, 4, 4, 128.);
+        let mut clock = Clock::new(ClockSettings::new_defaults());
 
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: clock.sample_rate(),
+            sample_rate: clock.settings().sample_rate(),
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };

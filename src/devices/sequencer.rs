@@ -58,11 +58,6 @@ impl Sequencer {
                 .handle_midi_message(&midi_message.message, clock);
         }
     }
-
-    pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: u32) -> u32 {
-        let tpb = self.midi_ticks_per_second as f32 / (clock.beats_per_minute / 60.0);
-        (tpb * beat as f32) as u32
-    }
 }
 
 impl DeviceTrait for Sequencer {
@@ -103,10 +98,17 @@ mod tests {
     use crate::{
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
         devices::{tests::NullDevice, traits::DeviceTrait},
-        primitives::clock::Clock,
+        primitives::clock::{Clock, ClockSettings},
     };
 
     use super::Sequencer;
+
+    impl Sequencer {
+        pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: u32) -> u32 {
+            let tpb = self.midi_ticks_per_second as f32 / (clock.settings().bpm() / 60.0);
+            (tpb * beat as f32) as u32
+        }
+    }
 
     fn advance_one_beat(clock: &mut Clock, sequencer: &mut Sequencer) {
         let old_time = clock.seconds;
@@ -122,8 +124,7 @@ mod tests {
 
     #[test]
     fn test_sequencer() {
-        const SAMPLES_PER_SECOND: u32 = 256;
-        let mut clock = Clock::new(SAMPLES_PER_SECOND, 4, 4, 128.);
+        let mut clock = Clock::new(ClockSettings::new_defaults());
         let mut sequencer = Sequencer::new();
         assert!(sequencer.sources_midi());
         assert!(!sequencer.sources_audio());
@@ -161,8 +162,7 @@ mod tests {
 
     #[test]
     fn test_sequencer_multichannel() {
-        const SAMPLES_PER_SECOND: u32 = 256;
-        let mut clock = Clock::new(SAMPLES_PER_SECOND, 4, 4, 128.);
+        let mut clock = Clock::new(ClockSettings::new_defaults());
         let mut sequencer = Sequencer::new();
         assert!(sequencer.sources_midi());
         assert!(!sequencer.sources_audio());

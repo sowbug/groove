@@ -1,5 +1,5 @@
 use crate::devices::traits::DeviceTrait;
-use crate::primitives::clock::Clock;
+use crate::primitives::clock::{Clock, ClockSettings};
 use crossbeam::deque::Worker;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -17,7 +17,7 @@ pub struct Orchestrator {
 impl Orchestrator {
     pub fn new(sample_rate: u32) -> Self {
         Self {
-            clock: Clock::new(sample_rate, 4, 4, 128.0),
+            clock: Clock::new(ClockSettings::new(sample_rate, 128.0, (4, 4))),
             master_mixer: Rc::new(RefCell::new(Mixer::new())),
             devices: Vec::new(),
         }
