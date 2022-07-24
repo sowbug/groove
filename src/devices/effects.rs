@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::primitives::{self, gain::MiniGain, limiter::MiniLimiter};
+use crate::primitives::{self, gain::MiniGain, limiter::MiniLimiter, EffectTrait};
 
 use super::traits::DeviceTrait;
 pub struct Limiter {
@@ -9,10 +9,16 @@ pub struct Limiter {
 }
 
 impl Limiter {
-    pub fn new(source: Option<Rc<RefCell<dyn DeviceTrait>>>, min: f32, max: f32) -> Self {
+    pub fn new_with_params(min: f32, max: f32) -> Self {
         Self {
-            source,
+            source: None,
             effect: MiniLimiter::new(min, max),
+        }
+    }
+    pub fn new() -> Self {
+        Self {
+            source: None,
+            effect: MiniLimiter::new(0.0, 1.0),
         }
     }
 }
@@ -27,27 +33,34 @@ impl DeviceTrait for Limiter {
     fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
         self.source = Some(source);
     }
-    fn get_audio_sample(&self) -> f32 {
+    fn get_audio_sample(&mut self) -> f32 {
         if self.source.is_some() {
-            // self.effect
-            //     .process(self.source.unwrap().borrow().get_audio_sample())
-            0.0
+            let source_ref = self.source.as_ref().unwrap();
+            self.effect
+                .process(source_ref.borrow_mut().get_audio_sample())
         } else {
             0.0
         }
     }
 }
 
+#[derive(Default)]
 pub struct Gain {
-    source: Rc<RefCell<dyn DeviceTrait>>,
+    source: Option<Rc<RefCell<dyn DeviceTrait>>>,
     effect: MiniGain,
 }
 
 impl Gain {
-    pub fn new(source: Rc<RefCell<dyn DeviceTrait>>, amount: f32) -> Self {
+    pub fn new_with_params(amount: f32) -> Self {
         Self {
-            source,
-            effect: MiniGain::new(amount),
+            source: None,
+            effect: MiniGain::new(amount), // TODO: consider new_with_params() convention
+        }
+    }
+    pub fn new() -> Self {
+        Self {
+            source: None,
+            effect: MiniGain::new(1.0), // TODO: what's a neutral gain?
         }
     }
 }
@@ -60,10 +73,16 @@ impl DeviceTrait for Gain {
         true
     }
     fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
-        self.source = source;
+        self.source = Some(source);
     }
-    fn get_audio_sample(&self) -> f32 {
-        self.effect.process(self.source.borrow().get_audio_sample())
+    fn get_audio_sample(&mut self) -> f32 {
+        if self.source.is_some() {
+            let source_ref = self.source.as_ref().unwrap();
+            self.effect
+                .process(source_ref.borrow_mut().get_audio_sample())
+        } else {
+            0.0
+        }
     }
 }
 
@@ -74,6 +93,13 @@ pub struct Bitcrusher {
 }
 
 impl Bitcrusher {
+    pub fn new_with_params(bits_to_crush: u8) -> Self {
+        Self {
+            source: None,
+            effect: primitives::bitcrusher::Bitcrusher::new(bits_to_crush),
+            time_seconds: 0.0,
+        }
+    }
     pub fn new() -> Self {
         Self {
             source: None,
@@ -101,13 +127,13 @@ impl DeviceTrait for Bitcrusher {
         true
     }
 
-    fn get_audio_sample(&self) -> f32 {
+    fn get_audio_sample(&mut self) -> f32 {
         if self.source.is_some() {
-            // self.effect.process(
-            //     self.source.unwrap().borrow().get_audio_sample(),
-            //     self.time_seconds,
-            0.0
-            //)
+            let source_ref = self.source.as_ref().unwrap();
+            self.effect.process(
+                source_ref.borrow_mut().get_audio_sample(),
+                self.time_seconds,
+            )
         } else {
             0.0
         }

@@ -177,7 +177,7 @@ impl ScriptEngine {
     }
 
     fn new_limiter() -> Rc<RefCell<Limiter>> {
-        Rc::new(RefCell::new(Limiter::new(None, 0.0, 1.0)))
+        Rc::new(RefCell::new(Limiter::new()))
     }
 
     fn patch_to_master(orchestrator: &mut Orchestrator, device: Rc<RefCell<welsh::Synth>>) {

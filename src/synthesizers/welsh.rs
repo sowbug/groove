@@ -2031,7 +2031,7 @@ impl DeviceTrait for Synth {
         done
     }
 
-    fn get_audio_sample(&self) -> f32 {
+    fn get_audio_sample(&mut self) -> f32 {
         self.current_value
     }
 }

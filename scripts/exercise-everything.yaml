@@ -7,19 +7,29 @@ clock:
     - 4
 devices:
   - instrument:
-      id: piano
+      id: piano-1
       type: welsh
       midi-input-channel: 0
   - instrument:
-      id: drum
+      id: drum-1
       type: drumkit
       midi-input-channel: 10
   - sequencer: sequencer
+  - effect:
+      gain:
+        - gain-1
+        - 0.5
+  - effect:
+      bitcrusher:
+        - bitcrusher-1
+        - 14
 patch-cables:
-  - - piano
-    - main_mixer
-  - - drum
-    - main_mixer
+  - - piano-1
+    - bitcrusher-1
+    - gain-1
+    - main-mixer
+  - - drum-1
+    - main-mixer
 notes:
   - when: 0
     message:

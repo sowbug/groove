@@ -60,7 +60,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts/test.yaml"
+        "scripts/exercise-everything.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },

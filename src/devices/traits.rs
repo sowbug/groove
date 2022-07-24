@@ -29,7 +29,7 @@ pub trait DeviceTrait {
     fn tick(&mut self, clock: &Clock) -> bool {
         true
     }
-    fn get_audio_sample(&self) -> f32 {
+    fn get_audio_sample(&mut self) -> f32 {
         0.
     }
     fn add_audio_source(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {}

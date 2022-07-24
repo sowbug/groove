@@ -8,6 +8,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use super::effects::{Bitcrusher, Gain, Limiter};
 use super::mixer::Mixer;
 use super::sequencer::Sequencer;
 
@@ -64,7 +65,7 @@ impl Orchestrator {
             }
         }
         self.clock.tick();
-        (self.master_mixer.borrow().get_audio_sample(), done)
+        (self.master_mixer.borrow_mut().get_audio_sample(), done)
     }
 
     pub fn perform_to_queue(&mut self, worker: &Worker<f32>) -> anyhow::Result<()> {
@@ -84,7 +85,7 @@ impl Orchestrator {
 
     pub fn set_up_from_settings(&mut self) {
         self.id_to_instrument
-            .insert(String::from("main_mixer"), self.master_mixer.clone());
+            .insert(String::from("main-mixer"), self.master_mixer.clone());
 
         // First set up sequencers.
         for instrument in self.settings.devices.clone() {
@@ -97,11 +98,45 @@ impl Orchestrator {
                 _ => {}
             }
         }
+
+        // Then set up effects.
+        for device_settings in self.settings.devices.clone() {
+            match device_settings {
+                DeviceSettings::Effect(effect_settings) => {
+                    match effect_settings {
+                        // This has more repetition than we'd expect because of
+                        // https://stackoverflow.com/questions/26378842/how-do-i-overcome-match-arms-with-incompatible-types-for-structs-implementing-sa
+                        //
+                        // Match arms have to return the same types, and returning a Rc<RefCell<dyn some trait>> doesn't count
+                        // as the same type.
+                        EffectSettings::Limiter(device_id, min, max) => {
+                            let device = Rc::new(RefCell::new(Limiter::new_with_params(min, max)));
+                            self.id_to_instrument.insert(device_id, device.clone());
+                            self.add_device(device.clone());
+                        }
+                        EffectSettings::Gain(device_id, amount) => {
+                            let device = Rc::new(RefCell::new(Gain::new_with_params(amount)));
+                            self.id_to_instrument.insert(device_id, device.clone());
+                            self.add_device(device.clone());
+                        }
+                        EffectSettings::Bitcrusher(device_id, bits_to_crush) => {
+                            let device =
+                                Rc::new(RefCell::new(Bitcrusher::new_with_params(bits_to_crush)));
+                            self.id_to_instrument.insert(device_id, device.clone());
+                            self.add_device(device.clone());
+                        }
+                    };
+                }
+                // this is OK because we are looking only for effects, and want to ignore other instruments.
+                _ => {}
+            }
+        }
+
         // Then set up instruments, attaching to sequencers as they're set up.
         for device in self.settings.devices.clone() {
             match device {
                 DeviceSettings::Instrument(instrument_settings) => {
-                    let instrument = self.instrument_from_type(instrument_settings.instrument_type);
+                    let instrument = self.instrument_from_type(instrument_settings.device_type);
                     self.id_to_instrument
                         .insert(instrument_settings.id, instrument.clone());
                     self.add_device(instrument.clone());
@@ -119,44 +154,59 @@ impl Orchestrator {
 
         // TODO: this is a temp hack while I figure out how to map tracks to specific sequencers
         if !self.settings.notes.is_empty() {
-            let sequencer_device = self.get_sequencer_by_id(String::from("sequencer"));
+            let sequencer_device = self.get_sequencer_by_id(&String::from("sequencer"));
             for note in self.settings.notes.clone() {
                 sequencer_device.borrow_mut().add_message(note);
             }
         }
     }
 
-    fn instrument_from_type(
-        &self,
-        instrument_type: InstrumentType,
-    ) -> Rc<RefCell<dyn DeviceTrait>> {
-        match instrument_type {
+    fn instrument_from_type(&self, device_type: InstrumentType) -> Rc<RefCell<dyn DeviceTrait>> {
+        match device_type {
             InstrumentType::Welsh => Rc::new(RefCell::new(welsh::Synth::new(
                 self.settings.clock.sample_rate(),
                 welsh::SynthPreset::by_name(&welsh::PresetName::Piano),
             ))),
-            InstrumentType::Drumkit => {
-                Rc::new(RefCell::new(drumkit_sampler::Sampler::new()))
-            }
+            InstrumentType::Drumkit => Rc::new(RefCell::new(drumkit_sampler::Sampler::new())),
         }
         // TODO: maybe create a MIDI bus struct, depending on how far I want to lean into MIDI
     }
 
-    fn plug_in_patch_cables(&self) {
-        for (output_id, input_id) in self.settings.patch_cables.clone() {
-            let output = self.get_device_by_id(output_id);
-            let input = self.get_device_by_id(input_id);
-
-            input.borrow_mut().add_audio_source(output);
+    fn effect_from_type(&self, device_type: EffectType) -> Rc<RefCell<dyn DeviceTrait>> {
+        match device_type {
+            EffectType::Gain => Rc::new(RefCell::new(Gain::new())),
+            EffectType::Limiter => Rc::new(RefCell::new(Limiter::new())),
+            EffectType::Bitcrusher => Rc::new(RefCell::new(Bitcrusher::new())),
         }
     }
 
-    fn get_device_by_id(&self, id: String) -> Rc<RefCell<dyn DeviceTrait>> {
-        (*self.id_to_instrument.get(&id).unwrap()).clone()
+    fn plug_in_patch_cables(&self) {
+        for patch_cable in self.settings.patch_cables.clone() {
+            if patch_cable.len() < 2 {
+                dbg!("ignoring patch cable of length < 2");
+                continue;
+            }
+            let mut last_device_id: Option<DeviceId> = None;
+            for device_id in patch_cable {
+                if last_device_id.is_some() {
+                    let output = self.get_device_by_id(&last_device_id.unwrap());
+                    let input = self.get_device_by_id(&device_id);
+                    input.borrow_mut().add_audio_source(output);
+                }
+                last_device_id = Some(device_id);
+            }
+        }
     }
 
-    fn get_sequencer_by_id(&self, id: String) -> Rc<RefCell<Sequencer>> {
-        (*self.id_to_sequencer.get(&id).unwrap()).clone()
+    fn get_device_by_id(&self, id: &String) -> Rc<RefCell<dyn DeviceTrait>> {
+        if !self.id_to_instrument.contains_key(id) {
+            panic!("yo {}", id);
+        }
+        (*self.id_to_instrument.get(id).unwrap()).clone()
+    }
+
+    fn get_sequencer_by_id(&self, id: &String) -> Rc<RefCell<Sequencer>> {
+        (*self.id_to_sequencer.get(id).unwrap()).clone()
     }
 }
 
@@ -169,15 +219,41 @@ pub enum InstrumentType {
     Drumkit,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub enum EffectType {
+    Gain,
+    Limiter,
+    Bitcrusher,
+}
+
 type MidiChannel = u8;
+
+type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct InstrumentSettings {
     id: DeviceId,
-    #[serde(rename="type")]
-    instrument_type: InstrumentType,
+    #[serde(rename = "type")]
+    device_type: InstrumentType,
     midi_input_channel: MidiChannel,
+}
+
+// #[derive(Serialize, Deserialize, Clone)]
+// #[serde(rename_all = "kebab-case")]
+// pub struct EffectSettings {
+//     id: DeviceId,
+//     #[serde(rename = "type")]
+//     device_type: EffectType,
+// }
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub enum EffectSettings {
+    Gain(DeviceId, f32),         // amount
+    Limiter(DeviceId, f32, f32), // min, max
+    Bitcrusher(DeviceId, u8),    // bits to crush (0-16)
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -185,6 +261,7 @@ pub struct InstrumentSettings {
 pub enum DeviceSettings {
     Instrument(InstrumentSettings),
     Sequencer(DeviceId),
+    Effect(EffectSettings),
 }
 
 #[derive(Serialize, Deserialize, Default, Clone)]
@@ -193,7 +270,7 @@ pub struct OrchestratorSettings {
     pub clock: ClockSettings,
 
     pub devices: Vec<DeviceSettings>,
-    pub patch_cables: Vec<(DeviceId, DeviceId)>, // (output, input)
+    pub patch_cables: Vec<PatchCable>,
     pub notes: Vec<OrderedMidiMessage>,
 }
 
@@ -211,23 +288,23 @@ impl OrchestratorSettings {
         r.devices
             .push(DeviceSettings::Instrument(InstrumentSettings {
                 id: String::from("piano"),
-                instrument_type: InstrumentType::Welsh,
+                device_type: InstrumentType::Welsh,
                 midi_input_channel: 0,
             }));
 
         r.devices
             .push(DeviceSettings::Instrument(InstrumentSettings {
                 id: String::from("drum"),
-                instrument_type: InstrumentType::Drumkit,
+                device_type: InstrumentType::Drumkit,
                 midi_input_channel: 10,
             }));
 
         r.devices
             .push(DeviceSettings::Sequencer(String::from("sequencer")));
         r.patch_cables
-            .push((String::from("piano"), String::from("main_mixer")));
+            .push(Self::new_patch_cable(vec!["piano", "main-mixer"]));
         r.patch_cables
-            .push((String::from("drum"), String::from("main_mixer")));
+            .push(Self::new_patch_cable(vec!["drumkit", "main-mixer"]));
 
         let mut i: u32 = 0;
         for note in vec![60, 64, 67, 72, 67, 64, 60] {
@@ -246,5 +323,17 @@ impl OrchestratorSettings {
 
     pub fn new_from_yaml(yaml: &str) -> Self {
         serde_yaml::from_str(yaml).unwrap()
+    }
+
+    fn new_patch_cable(devices_to_connect: Vec<&str>) -> PatchCable {
+        if devices_to_connect.len() < 2 {
+            panic!("need vector of at least two devices to create PatchCable");
+        }
+        let mut patch_cable: Vec<DeviceId> = Vec::new();
+
+        for device in devices_to_connect {
+            patch_cable.push(String::from(device));
+        }
+        patch_cable
     }
 }

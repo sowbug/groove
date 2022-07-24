@@ -61,7 +61,7 @@ impl DeviceTrait for Voice {
         }
     }
 
-    fn get_audio_sample(&self) -> f32 {
+    fn get_audio_sample(&mut self) -> f32 {
         if self.is_playing {
             let sample: f32 = *self
                 .samples
@@ -165,11 +165,18 @@ impl DeviceTrait for Sampler {
         }
     }
 
-    fn get_audio_sample(&self) -> f32 {
-        self.note_to_voice
-            .values()
-            .map(|v| v.get_audio_sample())
-            .sum()
+    fn get_audio_sample(&mut self) -> f32 {
+        let mut sum = 0.0f32;
+        for v in self.note_to_voice.values_mut() {
+            sum += v.get_audio_sample();
+        }
+        sum
+        // couldn't use this because map gives us a non-mut
+        //
+        // self.note_to_voice
+        //     .values()
+        //     .map(|v| v.get_audio_sample())
+        //     .sum()
     }
 
     fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {

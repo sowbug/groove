@@ -56,7 +56,7 @@ impl DeviceTrait for Sampler {
         }
     }
 
-    fn get_audio_sample(&self) -> f32 {
+    fn get_audio_sample(&mut self) -> f32 {
         if self.is_playing {
             let sample: f32 = *self
                 .samples
