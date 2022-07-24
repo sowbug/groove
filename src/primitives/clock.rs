@@ -1,14 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct ClockSettings {
-    #[serde(rename = "sample_rate")]
+    #[serde(rename = "sample-rate")]
     samples_per_second: u32, // Samples per second; granularity of a tick().
 
     #[serde(rename = "bpm")]
     beats_per_minute: f32,
 
-    #[serde(rename = "time_signature")]
+    #[serde(rename = "time-signature")]
     time_signature: (u32, u32),
 }
 

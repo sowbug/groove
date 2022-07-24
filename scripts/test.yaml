@@ -1,0 +1,107 @@
+---
+clock:
+  sample-rate: 44100
+  bpm: 128.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+      id: piano
+      type: welsh
+      midi-input-channel: 0
+  - instrument:
+      id: drum
+      type: drumkit
+      midi-input-channel: 10
+  - sequencer: sequencer
+patch-cables:
+  - - piano
+    - main_mixer
+  - - drum
+    - main_mixer
+notes:
+  - when: 0
+    message:
+      status: NoteOn
+      channel: 0
+      data1: 60
+      data2: 100
+  - when: 960
+    message:
+      status: NoteOff
+      channel: 0
+      data1: 60
+      data2: 100
+  - when: 1920
+    message:
+      status: NoteOn
+      channel: 0
+      data1: 64
+      data2: 100
+  - when: 2880
+    message:
+      status: NoteOff
+      channel: 0
+      data1: 64
+      data2: 100
+  - when: 3840
+    message:
+      status: NoteOn
+      channel: 0
+      data1: 67
+      data2: 100
+  - when: 4800
+    message:
+      status: NoteOff
+      channel: 0
+      data1: 67
+      data2: 100
+  - when: 5760
+    message:
+      status: NoteOn
+      channel: 0
+      data1: 72
+      data2: 100
+  - when: 6720
+    message:
+      status: NoteOff
+      channel: 0
+      data1: 72
+      data2: 100
+  - when: 7680
+    message:
+      status: NoteOn
+      channel: 0
+      data1: 67
+      data2: 100
+  - when: 8640
+    message:
+      status: NoteOff
+      channel: 0
+      data1: 67
+      data2: 100
+  - when: 9600
+    message:
+      status: NoteOn
+      channel: 0
+      data1: 64
+      data2: 100
+  - when: 10560
+    message:
+      status: NoteOff
+      channel: 0
+      data1: 64
+      data2: 100
+  - when: 11520
+    message:
+      status: NoteOn
+      channel: 0
+      data1: 60
+      data2: 100
+  - when: 12480
+    message:
+      status: NoteOff
+      channel: 0
+      data1: 60
+      data2: 100

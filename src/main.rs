@@ -42,7 +42,9 @@ struct ClDaw {
 impl ClDaw {
     pub fn new() -> Self {
         Self {
-            orchestrator: Orchestrator::new(OrchestratorSettings::new_dev()),
+            // TODO: temp hack while I build out OrchestratorSettings
+            // orchestrator: Orchestrator::new(OrchestratorSettings::new_dev()),
+            orchestrator: Orchestrator::new(OrchestratorSettings::new_defaults()),
         }
     }
 
@@ -170,10 +172,18 @@ impl ClDaw {
     pub fn perform(
         &mut self,
         midi_in: Option<String>,
+        yaml_in: Option<String>,
         use_midi_controller: bool,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
-        println!("it is \n{}", serde_yaml::to_string(&self.orchestrator.settings()).unwrap());
+        if yaml_in.is_some() {
+            let yaml = std::fs::read_to_string(yaml_in.unwrap()).unwrap();
+            let settings = OrchestratorSettings::new_from_yaml(yaml.as_str());
+            self.orchestrator = Orchestrator::new(settings);
+            let generated_yaml = serde_yaml::to_string(&self.orchestrator.settings()).unwrap();
+            println!("it is \n{}", generated_yaml);
+            assert_eq!(yaml, generated_yaml); // this isn't actually testing anything useful, but it makes me feel good. TODO remove
+        }
 
         if midi_in.is_some() {
             let sequencer = Rc::new(RefCell::new(Sequencer::new()));
@@ -239,6 +249,10 @@ struct Args {
     #[clap(short, long, value_parser)]
     script_in: Option<String>,
 
+    /// YAML to execute
+    #[clap(short, long, value_parser)]
+    yaml_in: Option<String>,
+
     /// Whether to use an external MIDI controller
     #[clap(short, long, parse(from_flag))]
     use_midi_controller: bool,
@@ -258,6 +272,11 @@ fn main() -> anyhow::Result<()> {
     } else {
         let mut command_line_daw = ClDaw::new();
 
-        command_line_daw.perform(args.midi_in, args.use_midi_controller, args.wav_out)
+        command_line_daw.perform(
+            args.midi_in,
+            args.yaml_in,
+            args.use_midi_controller,
+            args.wav_out,
+        )
     }
 }

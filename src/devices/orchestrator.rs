@@ -117,7 +117,8 @@ impl Orchestrator {
         }
         self.plug_in_patch_cables();
 
-        {
+        // TODO: this is a temp hack while I figure out how to map tracks to specific sequencers
+        if !self.settings.notes.is_empty() {
             let sequencer_device = self.get_sequencer_by_id(String::from("sequencer"));
             for note in self.settings.notes.clone() {
                 sequencer_device.borrow_mut().add_message(note);
@@ -130,11 +131,11 @@ impl Orchestrator {
         instrument_type: InstrumentType,
     ) -> Rc<RefCell<dyn DeviceTrait>> {
         match instrument_type {
-            InstrumentType::WelshSynth => Rc::new(RefCell::new(welsh::Synth::new(
+            InstrumentType::Welsh => Rc::new(RefCell::new(welsh::Synth::new(
                 self.settings.clock.sample_rate(),
                 welsh::SynthPreset::by_name(&welsh::PresetName::Piano),
             ))),
-            InstrumentType::DrumKitSampler => {
+            InstrumentType::Drumkit => {
                 Rc::new(RefCell::new(drumkit_sampler::Sampler::new()))
             }
         }
@@ -162,27 +163,32 @@ impl Orchestrator {
 type DeviceId = String;
 
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub enum InstrumentType {
-    WelshSynth,
-    DrumKitSampler,
+    Welsh,
+    Drumkit,
 }
 
 type MidiChannel = u8;
 
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct InstrumentSettings {
     id: DeviceId,
+    #[serde(rename="type")]
     instrument_type: InstrumentType,
     midi_input_channel: MidiChannel,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub enum DeviceSettings {
     Instrument(InstrumentSettings),
     Sequencer(DeviceId),
 }
 
 #[derive(Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct OrchestratorSettings {
     pub clock: ClockSettings,
 
@@ -205,14 +211,14 @@ impl OrchestratorSettings {
         r.devices
             .push(DeviceSettings::Instrument(InstrumentSettings {
                 id: String::from("piano"),
-                instrument_type: InstrumentType::WelshSynth,
+                instrument_type: InstrumentType::Welsh,
                 midi_input_channel: 0,
             }));
 
         r.devices
             .push(DeviceSettings::Instrument(InstrumentSettings {
                 id: String::from("drum"),
-                instrument_type: InstrumentType::DrumKitSampler,
+                instrument_type: InstrumentType::Drumkit,
                 midi_input_channel: 10,
             }));
 
@@ -236,5 +242,9 @@ impl OrchestratorSettings {
             i += 1;
         }
         r
+    }
+
+    pub fn new_from_yaml(yaml: &str) -> Self {
+        serde_yaml::from_str(yaml).unwrap()
     }
 }

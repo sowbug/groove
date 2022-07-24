@@ -28,6 +28,45 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "Speaker: perform",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "YAML to speaker",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--yaml-in",
+        "scripts/test.yaml"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Run script file",
       "cargo": {
         "args": [
