@@ -25,7 +25,7 @@ use cpal::{
     SampleRate, StreamConfig,
 };
 use crossbeam::deque::{Stealer, Worker};
-use devices::midi::MidiSmfReader;
+use devices::{midi::MidiSmfReader, orchestrator::OrchestratorSettings};
 use scripting::ScriptEngine;
 use std::{
     cell::RefCell,
@@ -42,7 +42,7 @@ struct ClDaw {
 impl ClDaw {
     pub fn new() -> Self {
         Self {
-            orchestrator: Orchestrator::new_defaults(),
+            orchestrator: Orchestrator::new(OrchestratorSettings::new_dev()),
         }
     }
 
@@ -173,6 +173,8 @@ impl ClDaw {
         use_midi_controller: bool,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
+        println!("it is \n{}", serde_yaml::to_string(&self.orchestrator.settings()).unwrap());
+
         if midi_in.is_some() {
             let sequencer = Rc::new(RefCell::new(Sequencer::new()));
             self.orchestrator.add_device(sequencer.clone());

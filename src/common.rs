@@ -1,5 +1,7 @@
 use std::cmp::Ordering;
 
+use serde::{Serialize, Deserialize};
+
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum WaveformType {
     None,
@@ -27,13 +29,13 @@ pub enum MidiNote {
     G9 = 127,
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize)]
 pub enum MidiMessageType {
     NoteOn = 0b1001,
     NoteOff = 0b1000,
     ProgramChange = 0b1100,
 }
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Clone, Serialize, Deserialize)]
 pub struct MidiMessage {
     // status and channel are normally packed into one byte, but for ease of use
     // we're unpacking here.
@@ -84,7 +86,7 @@ impl MidiMessage {
     }
 }
 
-#[derive(Eq, Debug)]
+#[derive(Eq, Debug, Clone, Serialize, Deserialize)]
 pub struct OrderedMidiMessage {
     pub when: u32,
     pub message: MidiMessage,
