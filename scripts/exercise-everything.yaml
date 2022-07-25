@@ -7,13 +7,15 @@ clock:
     - 4
 devices:
   - instrument:
-      id: piano-1
-      type: welsh
-      midi-input-channel: 0
+      welsh:
+        id: piano-1
+        midi-input-channel: 0
+        preset: piano
   - instrument:
-      id: drum-1
-      type: drumkit
-      midi-input-channel: 10
+      drumkit:
+        id: drum-1
+        midi-input-channel: 10
+        preset: "707"
   - sequencer: sequencer
   - effect:
       gain:

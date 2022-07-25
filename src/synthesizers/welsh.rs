@@ -1,4 +1,5 @@
 use num_traits::FromPrimitive;
+use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use strum_macros::{EnumIter, IntoStaticStr};
 
@@ -16,7 +17,8 @@ use crate::{
     },
 };
 
-#[derive(EnumIter, IntoStaticStr)]
+#[derive(EnumIter, IntoStaticStr, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub enum PresetName {
     // -------------------- Strings
     Banjo,
