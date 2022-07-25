@@ -125,7 +125,7 @@ impl MiniFilter {
 
     fn common_second_order_coefficients(sample_rate: u32, cutoff: f32, q: f32) -> (f64, f64) {
         let theta_c = 2.0 * PI * cutoff as f64 / (sample_rate as f64);
-        let delta = 1.0 / (q as f64).max(1.0 / 2.0f64.sqrt());
+        let delta = 1.0 / (q as f64).max(std::f64::consts::FRAC_1_SQRT_2);
         let beta_n = 1.0 - ((delta / 2.0) * theta_c.sin());
         let beta_d = 1.0 + ((delta / 2.0) * theta_c.sin());
         let beta = 0.5 * (beta_n / beta_d);
@@ -172,9 +172,8 @@ impl MiniFilter {
         let kappa2 = kappa * kappa;
         let kappa3 = kappa2 * kappa;
         let kappa4 = kappa2 * kappa2;
-        let sqrt2 = 2.0f64.sqrt();
-        let sq_tmp1 = sqrt2 * omega3 * kappa;
-        let sq_tmp2 = sqrt2 * omega * kappa3;
+        let sq_tmp1 = std::f64::consts::SQRT_2 * omega3 * kappa;
+        let sq_tmp2 = std::f64::consts::SQRT_2 * omega * kappa3;
         let a_tmp = 4.0 * omega2 * kappa2 + 2.0 * sq_tmp1 + kappa4 + 2.0 * sq_tmp2 + omega4;
 
         let a0 = omega4 / a_tmp;
@@ -202,9 +201,8 @@ impl MiniFilter {
         let kappa2 = kappa * kappa;
         let kappa3 = kappa2 * kappa;
         let kappa4 = kappa2 * kappa2;
-        let sqrt2 = 2.0f64.sqrt();
-        let sq_tmp1 = sqrt2 * omega3 * kappa;
-        let sq_tmp2 = sqrt2 * omega * kappa3;
+        let sq_tmp1 = std::f64::consts::SQRT_2 * omega3 * kappa;
+        let sq_tmp2 = std::f64::consts::SQRT_2 * omega * kappa3;
         let a_tmp = 4.0 * omega2 * kappa2 + 2.0 * sq_tmp1 + kappa4 + 2.0 * sq_tmp2 + omega4;
 
         let a0 = kappa4 / a_tmp;
@@ -406,9 +404,6 @@ pub struct MiniFilter2 {
 #[allow(dead_code)]
 #[allow(unused_variables)]
 impl MiniFilter2 {
-    // 1 / square root of 2
-    pub const MIN_Q: f32 = 0.707106781f32;
-
     pub const FREQUENCY_TO_LINEAR_BASE: f32 = 800.0;
     pub const FREQUENCY_TO_LINEAR_COEFFICIENT: f32 = 25.0;
 
@@ -542,7 +537,6 @@ impl MiniFilter2 {
     }
 
     fn rbj_intermediates_q(sample_rate: u32, cutoff: f32, q: f32) -> (f64, f64, f64, f64) {
-        //        let Q = 1.0 / 2.0f64.sqrt();
         let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
         let w0cos = w0.cos();
         let w0sin = w0.sin();
@@ -649,7 +643,7 @@ impl MiniFilter2 {
         db_gain: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
         let (w0, w0cos, w0sin, alpha) =
-            MiniFilter2::rbj_intermediates_q(sample_rate, cutoff, 1.0 / 2.0f32.sqrt());
+            MiniFilter2::rbj_intermediates_q(sample_rate, cutoff, std::f32::consts::FRAC_1_SQRT_2);
         let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
 
         (
@@ -748,7 +742,6 @@ mod tests {
     #[test]
     fn test_mini_filter() {
         const SAMPLE_RATE: u32 = 44100;
-        let min_q: f32 = 1.0 / 2.0f32.sqrt();
 
         let mut osc = MiniOscillator::new(WaveformType::Noise);
 
@@ -810,7 +803,7 @@ mod tests {
             &mut osc,
             Rc::new(RefCell::new(MiniFilter::new(
                 SAMPLE_RATE,
-                MiniFilterType::SecondOrderLowPass(500., min_q),
+                MiniFilterType::SecondOrderLowPass(500., std::f32::consts::FRAC_1_SQRT_2),
             ))),
             &mut None,
             "noise_2nd_lpf_500Hz_min_q",
@@ -837,7 +830,7 @@ mod tests {
             &mut osc,
             Rc::new(RefCell::new(MiniFilter::new(
                 SAMPLE_RATE,
-                MiniFilterType::SecondOrderLowPass(1000., min_q),
+                MiniFilterType::SecondOrderLowPass(1000., std::f32::consts::FRAC_1_SQRT_2),
             ))),
             &mut None,
             "noise_2nd_lpf_1KHz_min_q",
@@ -1105,7 +1098,6 @@ mod tests {
     #[test]
     fn test_dynamic_cutoff() {
         const SAMPLE_RATE: u32 = 44100;
-        let min_q = 1.0 / 2.0f32.sqrt();
 
         let mut source = MiniOscillator::new_from_preset(&OscillatorPreset {
             waveform: WaveformType::Sawtooth,
@@ -1117,7 +1109,7 @@ mod tests {
             let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::LowPass(
                 SAMPLE_RATE,
                 1000.,
-                min_q,
+                std::f32::consts::FRAC_1_SQRT_2,
             ))));
             let mut controller = TestFilterCutoffController::new(effect.clone(), 40.0, 8000.0, 2.0);
             write_effect_to_file(
@@ -1131,10 +1123,14 @@ mod tests {
             let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::LowPass(
                 SAMPLE_RATE,
                 1000.,
-                min_q,
+                std::f32::consts::FRAC_1_SQRT_2,
             ))));
-            let mut controller =
-                TestFilterQController::new(effect.clone(), min_q, min_q * 20.0, 2.0);
+            let mut controller = TestFilterQController::new(
+                effect.clone(),
+                std::f32::consts::FRAC_1_SQRT_2,
+                std::f32::consts::FRAC_1_SQRT_2 * 20.0,
+                2.0,
+            );
             write_effect_to_file(
                 &mut source,
                 effect.clone(),
@@ -1146,7 +1142,7 @@ mod tests {
             let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::HighPass(
                 SAMPLE_RATE,
                 1000.,
-                min_q,
+                std::f32::consts::FRAC_1_SQRT_2,
             ))));
             let mut controller = TestFilterCutoffController::new(effect.clone(), 8000.0, 40.0, 2.0);
             write_effect_to_file(
@@ -1160,7 +1156,7 @@ mod tests {
             let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::BandPass(
                 SAMPLE_RATE,
                 1000.,
-                min_q,
+                std::f32::consts::FRAC_1_SQRT_2,
             ))));
             let mut controller = TestFilterCutoffController::new(effect.clone(), 40.0, 8000.0, 2.0);
             write_effect_to_file(
@@ -1174,7 +1170,7 @@ mod tests {
             let effect = Rc::new(RefCell::new(MiniFilter2::new(MiniFilter2Type::BandStop(
                 SAMPLE_RATE,
                 1000.,
-                min_q,
+                std::f32::consts::FRAC_1_SQRT_2,
             ))));
             let mut controller = TestFilterCutoffController::new(effect.clone(), 40.0, 1500.0, 2.0);
             write_effect_to_file(

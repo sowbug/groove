@@ -7,10 +7,7 @@ pub struct Bitcrusher {
 
 impl Bitcrusher {
     pub fn new(bits_to_crush: u8) -> Self {
-        Self {
-            bits_to_crush,
-            ..Default::default()
-        }
+        Self { bits_to_crush }
     }
 
     #[allow(dead_code)]
@@ -24,8 +21,7 @@ impl EffectTrait for Bitcrusher {
         let input_i16 = (input * (i16::MAX as f32)) as i16;
         let squished = input_i16 >> self.bits_to_crush;
         let expanded = squished << self.bits_to_crush;
-        let to_f32 = expanded as f32 / (i16::MAX as f32);
-        to_f32 
+        expanded as f32 / (i16::MAX as f32)
     }
 }
 

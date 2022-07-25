@@ -183,16 +183,16 @@ impl ScriptEngine {
 
     fn patch_to_master(orchestrator: &mut Orchestrator, device: Rc<RefCell<welsh::Synth>>) {
         orchestrator.add_device(device.clone());
-        orchestrator.add_master_mixer_source(device.clone());
+        orchestrator.add_master_mixer_source(device);
     }
 
     fn add_sequencer(orchestrator: &mut Orchestrator, device: Rc<RefCell<Sequencer>>) {
-        orchestrator.add_device(device.clone());
+        orchestrator.add_device(device);
     }
 
     fn load_file(sequencer: Rc<RefCell<Sequencer>>, filename: &str) {
         let data = std::fs::read(filename).unwrap();
-        MidiSmfReader::load_sequencer(&data, sequencer.clone());
+        MidiSmfReader::load_sequencer(&data, sequencer);
     }
 
     fn play(orchestrator: &mut Orchestrator) {

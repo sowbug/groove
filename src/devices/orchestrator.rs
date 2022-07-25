@@ -151,34 +151,30 @@ impl Orchestrator {
     fn create_effects(&mut self) {
         // Then set up effects.
         for device in self.settings.devices.clone() {
-            match device {
-                DeviceSettings::Effect(effect_settings) => {
-                    match effect_settings {
-                        // This has more repetition than we'd expect because of
-                        // https://stackoverflow.com/questions/26378842/how-do-i-overcome-match-arms-with-incompatible-types-for-structs-implementing-sa
-                        //
-                        // Match arms have to return the same types, and returning a Rc<RefCell<dyn some trait>> doesn't count
-                        // as the same type.
-                        EffectSettings::Limiter { id, min, max } => {
-                            let device = Rc::new(RefCell::new(Limiter::new_with_params(min, max)));
-                            self.id_to_instrument.insert(id, device.clone());
-                            self.add_device(device.clone());
-                        }
-                        EffectSettings::Gain { id, amount } => {
-                            let device = Rc::new(RefCell::new(Gain::new_with_params(amount)));
-                            self.id_to_instrument.insert(id, device.clone());
-                            self.add_device(device.clone());
-                        }
-                        EffectSettings::Bitcrusher { id, bits_to_crush } => {
-                            let device =
-                                Rc::new(RefCell::new(Bitcrusher::new_with_params(bits_to_crush)));
-                            self.id_to_instrument.insert(id, device.clone());
-                            self.add_device(device.clone());
-                        }
-                    };
-                }
-                // this is OK because we are looking only for effects, and want to ignore other instruments.
-                _ => {}
+            if let DeviceSettings::Effect(effect_settings) = device {
+                match effect_settings {
+                    // This has more repetition than we'd expect because of
+                    // https://stackoverflow.com/questions/26378842/how-do-i-overcome-match-arms-with-incompatible-types-for-structs-implementing-sa
+                    //
+                    // Match arms have to return the same types, and returning a Rc<RefCell<dyn some trait>> doesn't count
+                    // as the same type.
+                    EffectSettings::Limiter { id, min, max } => {
+                        let device = Rc::new(RefCell::new(Limiter::new_with_params(min, max)));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
+                    EffectSettings::Gain { id, amount } => {
+                        let device = Rc::new(RefCell::new(Gain::new_with_params(amount)));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
+                    EffectSettings::Bitcrusher { id, bits_to_crush } => {
+                        let device =
+                            Rc::new(RefCell::new(Bitcrusher::new_with_params(bits_to_crush)));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
+                };
             }
         }
     }
@@ -186,13 +182,10 @@ impl Orchestrator {
     fn create_sequencers(&mut self) {
         // First set up sequencers.
         for device in self.settings.devices.clone() {
-            match device {
-                DeviceSettings::Sequencer(id) => {
-                    let sequencer = Rc::new(RefCell::new(Sequencer::new()));
-                    self.id_to_sequencer.insert(id, sequencer.clone());
-                    self.add_device(sequencer.clone());
-                }
-                _ => {}
+            if let DeviceSettings::Sequencer(id) = device {
+                let sequencer = Rc::new(RefCell::new(Sequencer::new()));
+                self.id_to_sequencer.insert(id, sequencer.clone());
+                self.add_device(sequencer.clone());
             }
         }
     }
@@ -210,8 +203,8 @@ impl Orchestrator {
             }
             let mut last_device_id: Option<DeviceId> = None;
             for device_id in patch_cable {
-                if last_device_id.is_some() {
-                    let output = self.get_device_by_id(&last_device_id.unwrap());
+                if let Some(ldi) = last_device_id {
+                    let output = self.get_device_by_id(&ldi);
                     let input = self.get_device_by_id(&device_id);
                     input.borrow_mut().add_audio_source(output);
                 }

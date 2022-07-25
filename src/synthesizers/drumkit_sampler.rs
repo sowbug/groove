@@ -91,7 +91,6 @@ impl Sampler {
     pub fn new() -> Self {
         Self {
             note_to_voice: HashMap::new(),
-            ..Default::default()
         }
     }
 

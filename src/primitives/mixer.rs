@@ -8,7 +8,7 @@ impl MiniMixer {
 
     // (sample value, gain)
     pub fn process(&self, samples: Vec<(f32, f32)>) -> f32 {
-        if samples.len() > 0 {
+        if !samples.is_empty() {
             // https://stackoverflow.com/questions/41017140/why-cant-rust-infer-the-resulting-type-of-iteratorsum
             // this was from old code that used iter().sum()
 
