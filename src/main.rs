@@ -10,6 +10,7 @@ mod general_midi;
 mod preset;
 mod primitives;
 mod scripting;
+mod settings;
 mod synthesizers;
 
 use crate::{
@@ -25,8 +26,9 @@ use cpal::{
     SampleRate, StreamConfig,
 };
 use crossbeam::deque::{Stealer, Worker};
-use devices::{midi::MidiSmfReader, orchestrator::OrchestratorSettings};
+use devices::midi::MidiSmfReader;
 use scripting::ScriptEngine;
+use settings::OrchestratorSettings;
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -181,8 +183,10 @@ impl ClDaw {
             let settings = OrchestratorSettings::new_from_yaml(yaml.as_str());
             self.orchestrator = Orchestrator::new(settings);
             let generated_yaml = serde_yaml::to_string(&self.orchestrator.settings()).unwrap();
-            println!("it is \n{}", generated_yaml);
-            assert_eq!(yaml, generated_yaml); // this isn't actually testing anything useful, but it makes me feel good. TODO remove
+            println!("before:\n{}\n\nafter:\n{}", yaml, generated_yaml);
+            if yaml != generated_yaml {
+                println!("DIFFERENT! Maybe look into why");
+            }
         }
 
         if midi_in.is_some() {

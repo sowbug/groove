@@ -1,10 +1,9 @@
-use crate::common::OrderedMidiMessage;
+use crate::common::DeviceId;
 use crate::devices::traits::DeviceTrait;
-use crate::primitives::clock::{Clock, ClockSettings};
-use crate::synthesizers::welsh::PresetName;
+use crate::primitives::clock::Clock;
+use crate::settings::{DeviceSettings, EffectSettings, InstrumentSettings, OrchestratorSettings};
 use crate::synthesizers::{drumkit_sampler, welsh};
 use crossbeam::deque::Worker;
-use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -21,6 +20,7 @@ pub struct Orchestrator {
     id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn DeviceTrait>>>,
     id_to_sequencer: HashMap<DeviceId, Rc<RefCell<Sequencer>>>,
     master_mixer: Rc<RefCell<Mixer>>,
+    id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
 
     // legacy
     devices: Vec<Rc<RefCell<dyn DeviceTrait>>>,
@@ -34,6 +34,7 @@ impl Orchestrator {
             id_to_instrument: HashMap::new(),
             id_to_sequencer: HashMap::new(),
             master_mixer: Rc::new(RefCell::new(Mixer::new())),
+            id_to_pattern: HashMap::new(),
             devices: Vec::new(),
         };
         r.set_up_from_settings();
@@ -84,22 +85,69 @@ impl Orchestrator {
         self.master_mixer.borrow_mut().add_audio_source(device);
     }
 
-    pub fn set_up_from_settings(&mut self) {
-        self.id_to_instrument
-            .insert(String::from("main-mixer"), self.master_mixer.clone());
+    // TODO: this is a temp hack while I figure out how to map tracks to specific sequencers
+    fn get_hack_sequencer(&self) -> Rc<RefCell<Sequencer>> {
+        self.get_sequencer_by_id(&String::from("sequencer"))
+    }
 
-        // First set up sequencers.
+    pub fn set_up_from_settings(&mut self) {
+        self.create_required_entities();
+        self.create_sequencers();
+        self.create_effects();
+        self.create_instruments();
+        self.plug_in_patch_cables();
+        self.create_tracks();
+    }
+
+    fn create_instruments(&mut self) {
+        // Then set up instruments, attaching to sequencers as they're set up.
         for device in self.settings.devices.clone() {
             match device {
-                DeviceSettings::Sequencer(id) => {
-                    let sequencer = Rc::new(RefCell::new(Sequencer::new()));
-                    self.id_to_sequencer.insert(id, sequencer.clone());
-                    self.add_device(sequencer.clone());
+                DeviceSettings::Instrument(settings) => match settings {
+                    InstrumentSettings::Welsh {
+                        id,
+                        midi_input_channel,
+                        preset_name: preset,
+                    } => {
+                        let instrument = Rc::new(RefCell::new(welsh::Synth::new(
+                            self.settings.clock.sample_rate(),
+                            welsh::SynthPreset::by_name(&welsh::PresetName::Piano),
+                        )));
+                        self.id_to_instrument.insert(id, instrument.clone());
+                        self.add_device(instrument.clone());
+                        for sequencer in self.id_to_sequencer.values_mut() {
+                            sequencer.borrow_mut().connect_midi_sink_for_channel(
+                                instrument.clone(),
+                                midi_input_channel,
+                            );
+                        }
+                    }
+                    InstrumentSettings::Drumkit {
+                        id,
+                        midi_input_channel,
+                        preset_name: preset,
+                    } => {
+                        let instrument =
+                            Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files()));
+                        self.id_to_instrument.insert(id, instrument.clone());
+                        self.add_device(instrument.clone());
+                        for sequencer in self.id_to_sequencer.values_mut() {
+                            sequencer.borrow_mut().connect_midi_sink_for_channel(
+                                instrument.clone(),
+                                midi_input_channel,
+                            );
+                        }
+                    }
+                },
+                DeviceSettings::Sequencer(_settings) => { // skip
                 }
-                _ => {}
+                DeviceSettings::Effect(_settings) => { // skip
+                }
             }
         }
+    }
 
+    fn create_effects(&mut self) {
         // Then set up effects.
         for device in self.settings.devices.clone() {
             match device {
@@ -132,61 +180,25 @@ impl Orchestrator {
                 _ => {}
             }
         }
+    }
 
-        // Then set up instruments, attaching to sequencers as they're set up.
+    fn create_sequencers(&mut self) {
+        // First set up sequencers.
         for device in self.settings.devices.clone() {
             match device {
-                DeviceSettings::Instrument(settings) => match settings {
-                    InstrumentSettings::Welsh {
-                        id,
-                        midi_input_channel,
-                        preset,
-                    } => {
-                        let instrument = Rc::new(RefCell::new(welsh::Synth::new(
-                            self.settings.clock.sample_rate(),
-                            welsh::SynthPreset::by_name(&welsh::PresetName::Piano),
-                        )));
-                        self.id_to_instrument.insert(id, instrument.clone());
-                        self.add_device(instrument.clone());
-                        for sequencer in self.id_to_sequencer.values_mut() {
-                            sequencer.borrow_mut().connect_midi_sink_for_channel(
-                                instrument.clone(),
-                                midi_input_channel,
-                            );
-                        }
-                    }
-                    InstrumentSettings::Drumkit {
-                        id,
-                        midi_input_channel,
-                        preset,
-                    } => {
-                        let instrument =
-                            Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files()));
-                        self.id_to_instrument.insert(id, instrument.clone());
-                        self.add_device(instrument.clone());
-                        for sequencer in self.id_to_sequencer.values_mut() {
-                            sequencer.borrow_mut().connect_midi_sink_for_channel(
-                                instrument.clone(),
-                                midi_input_channel,
-                            );
-                        }
-                    }
-                },
-                DeviceSettings::Sequencer(_settings) => { // skip
+                DeviceSettings::Sequencer(id) => {
+                    let sequencer = Rc::new(RefCell::new(Sequencer::new()));
+                    self.id_to_sequencer.insert(id, sequencer.clone());
+                    self.add_device(sequencer.clone());
                 }
-                DeviceSettings::Effect(_settings) => { // skip
-                }
+                _ => {}
             }
         }
-        self.plug_in_patch_cables();
+    }
 
-        // TODO: this is a temp hack while I figure out how to map tracks to specific sequencers
-        if !self.settings.notes.is_empty() {
-            let sequencer_device = self.get_sequencer_by_id(&String::from("sequencer"));
-            for note in self.settings.notes.clone() {
-                sequencer_device.borrow_mut().add_message(note);
-            }
-        }
+    fn create_required_entities(&mut self) {
+        self.id_to_instrument
+            .insert(String::from("main-mixer"), self.master_mixer.clone());
     }
 
     fn plug_in_patch_cables(&self) {
@@ -211,151 +223,63 @@ impl Orchestrator {
         if !self.id_to_instrument.contains_key(id) {
             panic!("yo {}", id);
         }
-        (*self.id_to_instrument.get(id).unwrap()).clone()
+        (self.id_to_instrument.get(id).unwrap()).clone()
     }
 
     fn get_sequencer_by_id(&self, id: &String) -> Rc<RefCell<Sequencer>> {
-        (*self.id_to_sequencer.get(id).unwrap()).clone()
+        (self.id_to_sequencer.get(id).unwrap()).clone()
     }
-}
 
-type DeviceId = String;
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub enum InstrumentType {
-    Welsh,
-    Drumkit,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub enum EffectType {
-    Gain,
-    Limiter,
-    Bitcrusher,
-}
-
-type MidiChannel = u8;
-
-type PatchCable = Vec<DeviceId>; // first is source, last is sink
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub enum InstrumentSettings {
-    #[serde(rename_all = "kebab-case")]
-    Welsh {
-        id: DeviceId,
-        midi_input_channel: MidiChannel,
-        preset: PresetName,
-    },
-    #[serde(rename_all = "kebab-case")]
-    Drumkit {
-        id: DeviceId,
-        midi_input_channel: MidiChannel,
-
-        preset: String,
-    },
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub enum EffectSettings {
-    Gain { id: DeviceId, amount: f32 },
-    Limiter { id: DeviceId, min: f32, max: f32 },
-    Bitcrusher { id: DeviceId, bits_to_crush: u8 },
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub enum DeviceSettings {
-    Instrument(InstrumentSettings),
-    Sequencer(DeviceId),
-    Effect(EffectSettings),
-}
-
-#[derive(Serialize, Deserialize, Default, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub struct OrchestratorSettings {
-    pub clock: ClockSettings,
-
-    pub devices: Vec<DeviceSettings>,
-    pub patch_cables: Vec<PatchCable>,
-    pub notes: Vec<OrderedMidiMessage>,
-}
-
-impl OrchestratorSettings {
-    pub fn new_defaults() -> Self {
-        Self {
-            ..Default::default()
+    fn create_tracks(&mut self) {
+        if self.settings.tracks.is_empty() {
+            return;
         }
-    }
 
-    pub fn new_from_yaml(yaml: &str) -> Self {
-        serde_yaml::from_str(yaml).unwrap()
-    }
-
-    fn new_patch_cable(devices_to_connect: Vec<&str>) -> PatchCable {
-        if devices_to_connect.len() < 2 {
-            panic!("need vector of at least two devices to create PatchCable");
+        for pattern in self.settings.patterns.clone() {
+            self.id_to_pattern.insert(
+                pattern.id.clone(),
+                Rc::new(RefCell::new(Pattern::from_settings(&pattern))),
+            );
         }
-        let mut patch_cable: Vec<DeviceId> = Vec::new();
-
-        for device in devices_to_connect {
-            patch_cable.push(String::from(device));
-        }
-        patch_cable
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        common::{MidiMessage, OrderedMidiMessage},
-        synthesizers::welsh::PresetName,
-    };
-
-    use super::{DeviceSettings, InstrumentSettings, OrchestratorSettings};
-
-    impl OrchestratorSettings {
-        pub fn new_dev() -> Self {
-            let mut r = Self {
-                ..Default::default()
-            };
-            r.devices
-                .push(DeviceSettings::Instrument(InstrumentSettings::Welsh {
-                    id: String::from("piano-1"),
-                    midi_input_channel: 0,
-                    preset: PresetName::Piano,
-                }));
-
-            r.devices
-                .push(DeviceSettings::Instrument(InstrumentSettings::Drumkit {
-                    id: String::from("drum-1"),
-                    midi_input_channel: 10,
-                    preset: String::from("707"), // TODO, for now all 707
-                }));
-
-            r.devices
-                .push(DeviceSettings::Sequencer(String::from("sequencer")));
-            r.patch_cables
-                .push(Self::new_patch_cable(vec!["piano", "main-mixer"]));
-            r.patch_cables
-                .push(Self::new_patch_cable(vec!["drumkit", "main-mixer"]));
-
-            let mut i: u32 = 0;
-            for note in vec![60, 64, 67, 72, 67, 64, 60] {
-                r.notes.push(OrderedMidiMessage {
-                    when: i * 960 * 2,
-                    message: MidiMessage::new_note_on(0, note as u8, 100),
-                });
-                r.notes.push(OrderedMidiMessage {
-                    when: i * 960 * 2 + 960,
-                    message: MidiMessage::new_note_off(0, note as u8, 100),
-                });
-                i += 1;
+        let sequencer = self.get_hack_sequencer();
+        for track in self.settings.tracks.clone() {
+            let channel = track.midi_channel;
+            let mut insertion_point = 0u32; // TODO: which unit?
+            for pattern_id in track.pattern_ids {
+                let pattern = self.get_pattern_by_id(&pattern_id);
+                sequencer.borrow_mut().insert_pattern(
+                    pattern.clone(),
+                    channel,
+                    &mut insertion_point,
+                );
             }
-            r
         }
+    }
+
+    fn get_pattern_by_id(&self, pattern_id: &str) -> Rc<RefCell<Pattern>> {
+        (self.id_to_pattern.get(pattern_id).unwrap()).clone()
+    }
+}
+
+#[derive(Clone)]
+pub struct Pattern {
+    pub division: u8,
+    pub notes: Vec<Vec<u8>>,
+}
+
+impl Pattern {
+    pub(crate) fn from_settings(settings: &crate::settings::PatternSettings) -> Self {
+        let mut r = Self {
+            division: settings.division,
+            notes: Vec::new(),
+        };
+        for note_sequence in settings.notes.clone() {
+            let mut note_vec = Vec::new();
+            for note in note_sequence.clone() {
+                note_vec.push(note);
+            }
+            r.notes.push(note_vec);
+        }
+        r
     }
 }

@@ -2,9 +2,12 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use sorted_vec::SortedVec;
 
-use crate::{common::OrderedMidiMessage, primitives::clock::Clock};
+use crate::{
+    common::{MidiMessage, OrderedMidiMessage},
+    primitives::clock::Clock,
+};
 
-use super::traits::DeviceTrait;
+use super::{orchestrator::Pattern, traits::DeviceTrait};
 
 pub struct Sequencer {
     midi_ticks_per_second: u32,
@@ -56,6 +59,35 @@ impl Sequencer {
         for sink in sinks {
             sink.borrow_mut()
                 .handle_midi_message(&midi_message.message, clock);
+        }
+    }
+
+    fn insert_short_note(&mut self, channel: u8, note: u8, when: &mut u32) {
+        if note != 0 {
+            self.add_message(OrderedMidiMessage {
+                when: *when,
+                message: MidiMessage::new_note_on(channel, note, 100),
+            });
+            self.add_message(OrderedMidiMessage {
+                when: *when + 960 / 4, // TODO
+                message: MidiMessage::new_note_off(channel, note, 100),
+            });
+        }
+    }
+
+    pub fn insert_pattern(
+        &mut self,
+        pattern: Rc<RefCell<Pattern>>,
+        channel: u8,
+        insertion_point: &mut u32,
+    ) {
+        let start_insertion_point: u32 = *insertion_point;
+        for note_sequence in pattern.borrow().notes.clone() {
+            *insertion_point = start_insertion_point;
+            for note in note_sequence {
+                self.insert_short_note(channel, note, insertion_point);
+                *insertion_point += 960 / 4;
+            }
         }
     }
 }

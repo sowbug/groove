@@ -9,12 +9,12 @@ devices:
   - instrument:
       welsh:
         id: piano-1
-        midi-input-channel: 0
+        midi-in: 0
         preset: piano
   - instrument:
       drumkit:
         id: drum-1
-        midi-input-channel: 10
+        midi-in: 10
         preset: "707"
   - sequencer: sequencer
   - effect:
@@ -32,100 +32,20 @@ patch-cables:
     - main-mixer
   - - drum-1
     - main-mixer
-notes:
-  - when: 0
-    message:
-      status: NoteOn
-      channel: 0
-      data1: 60
-      data2: 100
-  - when: 960
-    message:
-      status: NoteOff
-      channel: 0
-      data1: 60
-      data2: 100
-  - when: 480
-    message:
-      status: NoteOn
-      channel: 10
-      data1: 38
-      data2: 100
-  - when: 1200
-    message:
-      status: NoteOff
-      channel: 10
-      data1: 38
-      data2: 100
-  - when: 1920
-    message:
-      status: NoteOn
-      channel: 0
-      data1: 64
-      data2: 100
-  - when: 2880
-    message:
-      status: NoteOff
-      channel: 0
-      data1: 64
-      data2: 100
-  - when: 3840
-    message:
-      status: NoteOn
-      channel: 0
-      data1: 67
-      data2: 100
-  - when: 4800
-    message:
-      status: NoteOff
-      channel: 0
-      data1: 67
-      data2: 100
-  - when: 5760
-    message:
-      status: NoteOn
-      channel: 0
-      data1: 72
-      data2: 100
-  - when: 6720
-    message:
-      status: NoteOff
-      channel: 0
-      data1: 72
-      data2: 100
-  - when: 7680
-    message:
-      status: NoteOn
-      channel: 0
-      data1: 67
-      data2: 100
-  - when: 8640
-    message:
-      status: NoteOff
-      channel: 0
-      data1: 67
-      data2: 100
-  - when: 9600
-    message:
-      status: NoteOn
-      channel: 0
-      data1: 64
-      data2: 100
-  - when: 10560
-    message:
-      status: NoteOff
-      channel: 0
-      data1: 64
-      data2: 100
-  - when: 11520
-    message:
-      status: NoteOn
-      channel: 0
-      data1: 60
-      data2: 100
-  - when: 12480
-    message:
-      status: NoteOff
-      channel: 0
-      data1: 60
-      data2: 100
+patterns:
+  - id: basic-1
+    division: 8
+    notes:
+      - [60, 64, 67, 72, 67, 64, 60,  0]
+  - id: four-on-the-floor
+    division: 8
+    notes:
+      - [ 0,  0, 38,  0,  0,  0, 38,  0]
+      - [35,  0, 35,  0, 35,  0, 35,  0]
+tracks:
+  - id: track-1
+    midi-channel: 0
+    patterns: [basic-1]
+  - id: track-10
+    midi-channel: 10
+    patterns: [four-on-the-floor]

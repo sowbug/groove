@@ -1,6 +1,8 @@
 use std::cmp::Ordering;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+
+pub type DeviceId = String;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum WaveformType {
