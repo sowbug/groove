@@ -63,7 +63,7 @@ impl MidiControllerReader {
                 match event {
                     LiveEvent::Midi { channel, message } => match message {
                         #[allow(unused_variables)]
-                        MidlyMidiMessage::NoteOn { key, vel} => {
+                        MidlyMidiMessage::NoteOn { key, vel } => {
                             println!("hit note {} on channel {}", key, channel);
                             // self.handle_midi_message(
                             //     &MidiMessage::new_note_on(0, u8::from(key), u8::from(vel)),

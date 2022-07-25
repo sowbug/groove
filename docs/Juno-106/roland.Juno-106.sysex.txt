@@ -122,5 +122,3 @@ Charles
 -- 
 -- Why, with all the problems of the world,
    do we worry about the colour of margarine? --
-
-

@@ -150,6 +150,7 @@ impl Orchestrator {
 
     fn create_effects(&mut self) {
         // Then set up effects.
+
         for device in self.settings.devices.clone() {
             if let DeviceSettings::Effect(effect_settings) = device {
                 match effect_settings {
