@@ -17,12 +17,12 @@ devices:
   - sequencer: sequencer
   - effect:
       gain:
-        - gain-1
-        - 0.5
+        id: gain-1
+        amount: 0.5
   - effect:
       bitcrusher:
-        - bitcrusher-1
-        - 14
+        id: bitcrusher-1
+        bits_to_crush: 14
 patch-cables:
   - - piano-1
     - bitcrusher-1

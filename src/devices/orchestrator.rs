@@ -109,20 +109,20 @@ impl Orchestrator {
                         //
                         // Match arms have to return the same types, and returning a Rc<RefCell<dyn some trait>> doesn't count
                         // as the same type.
-                        EffectSettings::Limiter(device_id, min, max) => {
+                        EffectSettings::Limiter { id, min, max } => {
                             let device = Rc::new(RefCell::new(Limiter::new_with_params(min, max)));
-                            self.id_to_instrument.insert(device_id, device.clone());
+                            self.id_to_instrument.insert(id, device.clone());
                             self.add_device(device.clone());
                         }
-                        EffectSettings::Gain(device_id, amount) => {
+                        EffectSettings::Gain { id, amount } => {
                             let device = Rc::new(RefCell::new(Gain::new_with_params(amount)));
-                            self.id_to_instrument.insert(device_id, device.clone());
+                            self.id_to_instrument.insert(id, device.clone());
                             self.add_device(device.clone());
                         }
-                        EffectSettings::Bitcrusher(device_id, bits_to_crush) => {
+                        EffectSettings::Bitcrusher { id, bits_to_crush } => {
                             let device =
                                 Rc::new(RefCell::new(Bitcrusher::new_with_params(bits_to_crush)));
-                            self.id_to_instrument.insert(device_id, device.clone());
+                            self.id_to_instrument.insert(id, device.clone());
                             self.add_device(device.clone());
                         }
                     };
@@ -251,9 +251,9 @@ pub struct InstrumentSettings {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectSettings {
-    Gain(DeviceId, f32),         // amount
-    Limiter(DeviceId, f32, f32), // min, max
-    Bitcrusher(DeviceId, u8),    // bits to crush (0-16)
+    Gain { id: DeviceId, amount: f32 },
+    Limiter { id: DeviceId, min: f32, max: f32 },
+    Bitcrusher { id: DeviceId, bits_to_crush: u8 },
 }
 
 #[derive(Serialize, Deserialize, Clone)]
