@@ -1,4 +1,4 @@
-use crate::common::{MidiMessage, OrderedMidiMessage};
+use crate::common::OrderedMidiMessage;
 use crate::devices::traits::DeviceTrait;
 use crate::primitives::clock::{Clock, ClockSettings};
 use crate::synthesizers::welsh::PresetName;
@@ -160,7 +160,8 @@ impl Orchestrator {
                         midi_input_channel,
                         preset,
                     } => {
-                        let instrument = Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files()));
+                        let instrument =
+                            Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files()));
                         self.id_to_instrument.insert(id, instrument.clone());
                         self.add_device(instrument.clone());
                         for sequencer in self.id_to_sequencer.values_mut() {
@@ -290,46 +291,6 @@ impl OrchestratorSettings {
         }
     }
 
-    pub fn new_dev() -> Self {
-        let mut r = Self {
-            ..Default::default()
-        };
-        r.devices
-            .push(DeviceSettings::Instrument(InstrumentSettings::Welsh {
-                id: String::from("piano-1"),
-                midi_input_channel: 0,
-                preset: PresetName::Piano,
-            }));
-
-        r.devices
-            .push(DeviceSettings::Instrument(InstrumentSettings::Drumkit {
-                id: String::from("drum-1"),
-                midi_input_channel: 10,
-                preset: String::from("707"), // TODO, for now all 707
-            }));
-
-        r.devices
-            .push(DeviceSettings::Sequencer(String::from("sequencer")));
-        r.patch_cables
-            .push(Self::new_patch_cable(vec!["piano", "main-mixer"]));
-        r.patch_cables
-            .push(Self::new_patch_cable(vec!["drumkit", "main-mixer"]));
-
-        let mut i: u32 = 0;
-        for note in vec![60, 64, 67, 72, 67, 64, 60] {
-            r.notes.push(OrderedMidiMessage {
-                when: i * 960 * 2,
-                message: MidiMessage::new_note_on(0, note as u8, 100),
-            });
-            r.notes.push(OrderedMidiMessage {
-                when: i * 960 * 2 + 960,
-                message: MidiMessage::new_note_off(0, note as u8, 100),
-            });
-            i += 1;
-        }
-        r
-    }
-
     pub fn new_from_yaml(yaml: &str) -> Self {
         serde_yaml::from_str(yaml).unwrap()
     }
@@ -344,5 +305,57 @@ impl OrchestratorSettings {
             patch_cable.push(String::from(device));
         }
         patch_cable
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        common::{MidiMessage, OrderedMidiMessage},
+        synthesizers::welsh::PresetName,
+    };
+
+    use super::{DeviceSettings, InstrumentSettings, OrchestratorSettings};
+
+    impl OrchestratorSettings {
+        pub fn new_dev() -> Self {
+            let mut r = Self {
+                ..Default::default()
+            };
+            r.devices
+                .push(DeviceSettings::Instrument(InstrumentSettings::Welsh {
+                    id: String::from("piano-1"),
+                    midi_input_channel: 0,
+                    preset: PresetName::Piano,
+                }));
+
+            r.devices
+                .push(DeviceSettings::Instrument(InstrumentSettings::Drumkit {
+                    id: String::from("drum-1"),
+                    midi_input_channel: 10,
+                    preset: String::from("707"), // TODO, for now all 707
+                }));
+
+            r.devices
+                .push(DeviceSettings::Sequencer(String::from("sequencer")));
+            r.patch_cables
+                .push(Self::new_patch_cable(vec!["piano", "main-mixer"]));
+            r.patch_cables
+                .push(Self::new_patch_cable(vec!["drumkit", "main-mixer"]));
+
+            let mut i: u32 = 0;
+            for note in vec![60, 64, 67, 72, 67, 64, 60] {
+                r.notes.push(OrderedMidiMessage {
+                    when: i * 960 * 2,
+                    message: MidiMessage::new_note_on(0, note as u8, 100),
+                });
+                r.notes.push(OrderedMidiMessage {
+                    when: i * 960 * 2 + 960,
+                    message: MidiMessage::new_note_off(0, note as u8, 100),
+                });
+                i += 1;
+            }
+            r
+        }
     }
 }
