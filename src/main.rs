@@ -178,8 +178,8 @@ impl ClDaw {
         use_midi_controller: bool,
         wav_out: Option<String>,
     ) -> anyhow::Result<()> {
-        if yaml_in.is_some() {
-            let yaml = std::fs::read_to_string(yaml_in.unwrap()).unwrap();
+        if let Some(yaml_in_filename) = yaml_in {
+            let yaml = std::fs::read_to_string(yaml_in_filename).unwrap();
             let settings = OrchestratorSettings::new_from_yaml(yaml.as_str());
             self.orchestrator = Orchestrator::new(settings);
             let generated_yaml = serde_yaml::to_string(&self.orchestrator.settings()).unwrap();
@@ -189,11 +189,11 @@ impl ClDaw {
             }
         }
 
-        if midi_in.is_some() {
+        if let Some(midi_in_filename) = midi_in {
             let sequencer = Rc::new(RefCell::new(Sequencer::new()));
             self.orchestrator.add_device(sequencer.clone());
 
-            let data = std::fs::read(midi_in.unwrap()).unwrap();
+            let data = std::fs::read(midi_in_filename).unwrap();
             MidiSmfReader::load_sequencer(&data, sequencer.clone());
 
             for channel_number in 0..Sequencer::connected_channel_count() {
@@ -213,6 +213,7 @@ impl ClDaw {
                     .connect_midi_sink_for_channel(synth, channel_number);
             }
         }
+        #[allow(unreachable_code)]
         if use_midi_controller {
             panic!("sorry, this is horribly broken.");
             let synth = Rc::new(RefCell::new(Synth::new(

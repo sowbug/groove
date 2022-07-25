@@ -52,6 +52,7 @@ impl MidiMessage {
         2.0_f32.powf((note as f32 - 69.0) / 12.0) * 440.0
     }
 
+    #[allow(dead_code)]
     pub fn note_type_to_frequency(midi_note: MidiNote) -> f32 {
         2.0_f32.powf((midi_note as u8 as f32 - 69.0) / 12.0) * 440.0
     }
@@ -81,7 +82,7 @@ impl MidiMessage {
     pub(crate) fn new_program_change(channel: u8, program: u8) -> Self {
         MidiMessage {
             status: MidiMessageType::ProgramChange,
-            channel: channel,
+            channel,
             data1: program,
             data2: 0,
         }

@@ -100,6 +100,7 @@ impl OrchestratorSettings {
         serde_yaml::from_str(yaml).unwrap()
     }
 
+    #[allow(dead_code)]
     fn new_patch_cable(devices_to_connect: Vec<&str>) -> PatchCable {
         if devices_to_connect.len() < 2 {
             panic!("need vector of at least two devices to create PatchCable");
@@ -120,6 +121,7 @@ mod tests {
     use super::{DeviceSettings, InstrumentSettings, OrchestratorSettings};
 
     impl OrchestratorSettings {
+        #[allow(dead_code)]
         pub fn new_dev() -> Self {
             let mut r = Self {
                 ..Default::default()

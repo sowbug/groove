@@ -1,15 +1,15 @@
-use anyhow::Result;
 use hound;
 
 use crate::{common::MidiMessageType, devices::traits::DeviceTrait};
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct Sampler {
     samples: Vec<f32>,
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
-    root_frequency: f32,
+    root_frequency: f32, // TODO: make not dead
 }
 
 impl Sampler {
@@ -20,6 +20,7 @@ impl Sampler {
         }
     }
 
+    #[allow(dead_code)]
     pub fn new_from_file(filename: &str) -> Self {
         let mut reader = hound::WavReader::open(filename).unwrap();
         let mut r = Self::new(reader.duration() as usize);
@@ -67,7 +68,7 @@ impl DeviceTrait for Sampler {
             0.0
         }
     }
-    
+
     fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {
         self.sample_pointer = clock.samples as usize - self.sample_clock_start;
         if self.sample_pointer >= self.samples.len() {
@@ -84,6 +85,6 @@ mod tests {
 
     #[test]
     fn test_loading() {
-        let synth = Sampler::new_from_file("samples/test.wav");
+        let _ = Sampler::new_from_file("samples/test.wav");
     }
 }

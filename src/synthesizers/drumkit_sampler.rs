@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use hound;
 
 use crate::{
-    common::{MidiMessageType},
-    devices::traits::DeviceTrait,
+    common::MidiMessageType, devices::traits::DeviceTrait,
     general_midi::GeneralMidiPercussionProgram,
 };
 
@@ -127,7 +126,13 @@ impl Sampler {
             (GeneralMidiPercussionProgram::LowAgogo, "Tom Lo"),
         ];
         for (program, filename) in samples {
-            r.add_sample_for_note(program as u8, format!("samples/707/{} 707.wav", filename).as_str());
+            let result = r.add_sample_for_note(
+                program as u8,
+                format!("samples/707/{} 707.wav", filename).as_str(),
+            );
+            if result.is_err() {
+                panic!("failed to load a sample: {}", filename);
+            }
         }
         r
     }
@@ -149,16 +154,14 @@ impl DeviceTrait for Sampler {
         match message.status {
             MidiMessageType::NoteOn => {
                 let note: u8 = message.data1;
-                let voice = self.note_to_voice.get_mut(&note);
-                if voice.is_some() {
-                    voice.unwrap().handle_midi_message(message, clock);
+                if let Some(voice) = self.note_to_voice.get_mut(&note) {
+                    voice.handle_midi_message(message, clock);
                 }
             }
             MidiMessageType::NoteOff => {
                 let note: u8 = message.data1;
-                let voice = self.note_to_voice.get_mut(&note);
-                if voice.is_some() {
-                    voice.unwrap().handle_midi_message(message, clock);
+                if let Some(voice) = self.note_to_voice.get_mut(&note) {
+                    voice.handle_midi_message(message, clock);
                 }
             }
             MidiMessageType::ProgramChange => {}
@@ -193,6 +196,6 @@ mod tests {
 
     #[test]
     fn test_loading() {
-        let synth = Sampler::new_from_files();
+        let _ = Sampler::new_from_files();
     }
 }

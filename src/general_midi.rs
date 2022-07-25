@@ -131,6 +131,7 @@ pub enum GeneralMidiProgram {
     Gunshot = 127,
 }
 
+#[allow(dead_code)]
 pub enum GeneralMidiPercussionProgram {
     AcousticBassDrum = 35,
     ElectricBassDrum = 36,

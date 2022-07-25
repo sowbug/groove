@@ -13,6 +13,7 @@ impl Bitcrusher {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_bits_to_crush(&mut self, n: u8) {
         self.bits_to_crush = n;
     }

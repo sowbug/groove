@@ -118,11 +118,13 @@ mod tests {
     }
 
     impl NullDevice {
+        #[allow(dead_code)]
         pub fn new() -> Self {
             Self {
                 ..Default::default()
             }
         }
+        #[allow(dead_code)]
         pub fn set_channel(&mut self, channel: u8) {
             self.midi_channel = channel;
         }

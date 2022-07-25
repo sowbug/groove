@@ -15,6 +15,8 @@ impl Limiter {
             effect: MiniLimiter::new(min, max),
         }
     }
+
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             source: None,
@@ -57,6 +59,8 @@ impl Gain {
             effect: MiniGain::new(amount), // TODO: consider new_with_params() convention
         }
     }
+
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             source: None,

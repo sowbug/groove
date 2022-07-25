@@ -176,6 +176,7 @@ impl ScriptEngine {
         Rc::new(RefCell::new(Bitcrusher::new()))
     }
 
+    #[allow(dead_code)]
     fn new_limiter() -> Rc<RefCell<Limiter>> {
         Rc::new(RefCell::new(Limiter::new()))
     }
@@ -239,7 +240,6 @@ impl ScriptEngine {
     }
 
     fn register_methods(&mut self) {
-        let o = Orchestrator::new_defaults();
         self.engine
             .register_type_with_name::<Orchestrator>("Orchestrator")
             .register_type_with_name::<welsh::Synth>("Synth")

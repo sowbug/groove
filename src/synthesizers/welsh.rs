@@ -1514,10 +1514,6 @@ impl SynthPreset {
                 },
                 ..Default::default()
             },
-
-            _ => {
-                panic!();
-            }
         }
     }
 }
@@ -1978,9 +1974,8 @@ impl Synth {
 
     fn voice_for_note(&mut self, note: u8) -> Rc<RefCell<Voice>> {
         let opt = self.note_to_voice.get(&note);
-        if opt.is_some() {
-            let voice = opt.unwrap().clone();
-            voice
+        if let Some(voice) = opt {
+            voice.clone()
         } else {
             let voice = Rc::new(RefCell::new(Voice::new(self.sample_rate, &self.preset)));
             self.note_to_voice.insert(note, voice.clone());
@@ -2147,6 +2142,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     fn angels_patch() -> SynthPreset {
         SynthPreset {
             oscillator_1_preset: OscillatorPreset {

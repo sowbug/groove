@@ -7,7 +7,6 @@ use crossbeam::deque::Worker;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::str::FromStr;
 
 use super::effects::{Bitcrusher, Gain, Limiter};
 use super::mixer::Mixer;
@@ -127,7 +126,7 @@ impl Orchestrator {
                     InstrumentSettings::Drumkit {
                         id,
                         midi_input_channel,
-                        preset_name: preset,
+                        preset_name: _preset,
                     } => {
                         let instrument =
                             Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files()));

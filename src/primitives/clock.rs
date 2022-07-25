@@ -14,6 +14,7 @@ pub struct ClockSettings {
 }
 
 impl ClockSettings {
+    #[allow(dead_code)]
     pub(crate) fn new(
         samples_per_second: u32,
         beats_per_minute: f32,
@@ -26,6 +27,7 @@ impl ClockSettings {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn new_defaults() -> Self {
         Self {
             ..Default::default()
@@ -36,6 +38,7 @@ impl ClockSettings {
         self.samples_per_second
     }
 
+    #[allow(dead_code)]
     pub(crate) fn bpm(&self) -> f32 {
         self.beats_per_minute
     }
@@ -68,6 +71,7 @@ impl Clock {
         }
     }
 
+    #[allow(dead_code)]
     pub fn settings(&self) -> &ClockSettings {
         &self.settings
     }

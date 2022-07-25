@@ -190,7 +190,6 @@ impl MiniEnvelope {
                     self.switch_to_idle(time_seconds);
                 }
             }
-            _ => {}
         }
     }
 }
@@ -208,6 +207,7 @@ mod tests {
     #[derive(Default)]
     pub struct AlwaysLoudEnvelope {}
 
+    #[allow(dead_code)]
     impl AlwaysLoudEnvelope {
         pub fn new() -> Self {
             Self {}
@@ -227,6 +227,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(unused_assignments)]
     fn test_mini_envelope() {
         let mut clock = Clock::new(ClockSettings::new_test());
         let mut envelope = MiniEnvelope::new(

@@ -3,6 +3,7 @@ use std::f64::consts::PI;
 use super::EffectTrait;
 
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 pub enum MiniFilterType {
     None,
     FirstOrderLowPass(f32),
@@ -50,6 +51,7 @@ pub struct MiniFilter {
     output_m4: f64,
 }
 
+#[allow(dead_code)]
 impl MiniFilter {
     pub fn new(sample_rate: u32, filter_type: MiniFilterType) -> Self {
         let (order, a0, a1, a2, a3, a4, b1, b2, b3, b4, c0, d0) = match filter_type {
@@ -365,6 +367,7 @@ impl EffectTrait for MiniFilter {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum MiniFilter2Type {
     None,
     LowPass(u32, f32, f32),
@@ -400,6 +403,8 @@ pub struct MiniFilter2 {
     output_m2: f64,
 }
 
+#[allow(dead_code)]
+#[allow(unused_variables)]
 impl MiniFilter2 {
     // 1 / square root of 2
     pub const MIN_Q: f32 = 0.707106781f32;

@@ -54,7 +54,7 @@ impl MidiControllerReader {
         };
         let pair = Arc::new((Mutex::new(false), Condvar::new()));
         let pair2 = Arc::clone(&pair);
-        let conn = midi_in.connect(
+        let _ = midi_in.connect(
             in_port,
             "hoo hah",
             move |timestamp, message, _| {
@@ -62,7 +62,8 @@ impl MidiControllerReader {
                 let event = LiveEvent::parse(message).unwrap();
                 match event {
                     LiveEvent::Midi { channel, message } => match message {
-                        MidlyMidiMessage::NoteOn { key, vel } => {
+                        #[allow(unused_variables)]
+                        MidlyMidiMessage::NoteOn { key, vel} => {
                             println!("hit note {} on channel {}", key, channel);
                             // self.handle_midi_message(
                             //     &MidiMessage::new_note_on(0, u8::from(key), u8::from(vel)),
@@ -96,6 +97,7 @@ impl MidiControllerReader {
     }
 }
 
+#[allow(unused_variables)]
 impl DeviceTrait for MidiControllerReader {
     fn sources_midi(&self) -> bool {
         true
