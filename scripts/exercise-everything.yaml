@@ -45,6 +45,18 @@ notes:
       channel: 0
       data1: 60
       data2: 100
+  - when: 480
+    message:
+      status: NoteOn
+      channel: 10
+      data1: 38
+      data2: 100
+  - when: 1200
+    message:
+      status: NoteOff
+      channel: 10
+      data1: 38
+      data2: 100
   - when: 1920
     message:
       status: NoteOn

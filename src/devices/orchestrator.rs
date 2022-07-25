@@ -160,7 +160,7 @@ impl Orchestrator {
                         midi_input_channel,
                         preset,
                     } => {
-                        let instrument = Rc::new(RefCell::new(drumkit_sampler::Sampler::new()));
+                        let instrument = Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files()));
                         self.id_to_instrument.insert(id, instrument.clone());
                         self.add_device(instrument.clone());
                         for sequencer in self.id_to_sequencer.values_mut() {
@@ -305,7 +305,7 @@ impl OrchestratorSettings {
             .push(DeviceSettings::Instrument(InstrumentSettings::Drumkit {
                 id: String::from("drum-1"),
                 midi_input_channel: 10,
-                preset: String::from("707"), // TODO
+                preset: String::from("707"), // TODO, for now all 707
             }));
 
         r.devices
