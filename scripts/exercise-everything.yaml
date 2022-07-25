@@ -12,6 +12,11 @@ devices:
         midi-in: 0
         preset: piano
   - instrument:
+      welsh:
+        id: bassline
+        midi-in: 1
+        preset: digital-bass
+  - instrument:
       drumkit:
         id: drum-1
         midi-in: 10
@@ -20,23 +25,24 @@ devices:
   - effect:
       gain:
         id: gain-1
-        amount: 0.5
+        amount: 0.80
   - effect:
       bitcrusher:
         id: bitcrusher-1
         bits_to_crush: 14
 patch-cables:
-  - - piano-1
-    - bitcrusher-1
-    - gain-1
-    - main-mixer
-  - - drum-1
-    - main-mixer
+  - [piano-1, bitcrusher-1, main-mixer]
+  - [bassline, gain-1, main-mixer]
+  - [drum-1, main-mixer]
 patterns:
   - id: basic-1
     division: 8
     notes:
       - [60, 64, 67, 72, 67, 64, 60,  0]
+  - id: bass
+    division: 8
+    notes:
+      - [67, 60, 67, 60, 67, 60, 67, 60]
   - id: four-on-the-floor
     division: 8
     notes:
@@ -46,6 +52,9 @@ tracks:
   - id: track-1
     midi-channel: 0
     patterns: [basic-1]
+  - id: bass-1
+    midi-channel: 1
+    patterns: [bass]
   - id: track-10
     midi-channel: 10
     patterns: [four-on-the-floor]

@@ -7,6 +7,7 @@ use crossbeam::deque::Worker;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::str::FromStr;
 
 use super::effects::{Bitcrusher, Gain, Limiter};
 use super::mixer::Mixer;
@@ -17,9 +18,10 @@ pub struct Orchestrator {
     settings: OrchestratorSettings,
 
     pub clock: Clock,
+    master_mixer: Rc<RefCell<Mixer>>,
+
     id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn DeviceTrait>>>,
     id_to_sequencer: HashMap<DeviceId, Rc<RefCell<Sequencer>>>,
-    master_mixer: Rc<RefCell<Mixer>>,
     id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
 
     // legacy
@@ -31,9 +33,9 @@ impl Orchestrator {
         let mut r = Self {
             settings: settings.clone(),
             clock: Clock::new(settings.clock),
+            master_mixer: Rc::new(RefCell::new(Mixer::new())),
             id_to_instrument: HashMap::new(),
             id_to_sequencer: HashMap::new(),
-            master_mixer: Rc::new(RefCell::new(Mixer::new())),
             id_to_pattern: HashMap::new(),
             devices: Vec::new(),
         };
@@ -107,11 +109,11 @@ impl Orchestrator {
                     InstrumentSettings::Welsh {
                         id,
                         midi_input_channel,
-                        preset_name: preset,
+                        preset_name,
                     } => {
                         let instrument = Rc::new(RefCell::new(welsh::Synth::new(
                             self.settings.clock.sample_rate(),
-                            welsh::SynthPreset::by_name(&welsh::PresetName::Piano),
+                            welsh::SynthPreset::by_name(&preset_name),
                         )));
                         self.id_to_instrument.insert(id, instrument.clone());
                         self.add_device(instrument.clone());
