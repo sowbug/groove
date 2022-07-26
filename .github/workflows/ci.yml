@@ -11,6 +11,8 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - name: Install alsa-sys dependency
+        run: sudo apt -y install libasound2-dev
       - uses: actions-rs/cargo@v1
         with:
           command: build
