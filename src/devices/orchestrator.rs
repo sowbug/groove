@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use super::effects::{Bitcrusher, Gain, Limiter};
 use super::mixer::Mixer;
-use super::sequencer::Sequencer;
+use super::sequencer::{Pattern, Sequencer};
 
 #[derive(Default, Clone)]
 pub struct Orchestrator {
@@ -253,28 +253,5 @@ impl Orchestrator {
 
     fn get_pattern_by_id(&self, pattern_id: &str) -> Rc<RefCell<Pattern>> {
         (self.id_to_pattern.get(pattern_id).unwrap()).clone()
-    }
-}
-
-#[derive(Clone)]
-pub struct Pattern {
-    pub division: u8,
-    pub notes: Vec<Vec<u8>>,
-}
-
-impl Pattern {
-    pub(crate) fn from_settings(settings: &crate::settings::PatternSettings) -> Self {
-        let mut r = Self {
-            division: settings.division,
-            notes: Vec::new(),
-        };
-        for note_sequence in settings.notes.clone() {
-            let mut note_vec = Vec::new();
-            for note in note_sequence.clone() {
-                note_vec.push(note);
-            }
-            r.notes.push(note_vec);
-        }
-        r
     }
 }

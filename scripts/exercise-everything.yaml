@@ -36,15 +36,15 @@ patch-cables:
   - [drum-1, main-mixer]
 patterns:
   - id: basic-1
-    division: 8
+    beat-value: eighth-note
     notes:
       - [60, 64, 67, 72, 67, 64, 60,  0]
   - id: bass
-    division: 8
+    beat-value: eighth-note
     notes:
       - [67, 60, 67, 60, 67, 60, 67, 60]
   - id: four-on-the-floor
-    division: 8
+    beat-value: eighth-note
     notes:
       - [ 0,  0, 38,  0,  0,  0, 38,  0]
       - [35,  0, 35,  0, 35,  0, 35,  0]

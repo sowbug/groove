@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use sorted_vec::SortedVec;
@@ -7,7 +8,7 @@ use crate::{
     primitives::clock::Clock,
 };
 
-use super::{orchestrator::Pattern, traits::DeviceTrait};
+use super::traits::DeviceTrait;
 
 pub struct Sequencer {
     midi_ticks_per_second: u32,
@@ -123,6 +124,44 @@ impl DeviceTrait for Sequencer {
     // }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub enum BeatValue {
+    WholeNote,
+    HalfNote,
+    QuarterNote,
+    EighthNote,
+    SixteenthNote,
+    ThirtySecondNote,
+    SixtyFourthNote,
+    OneHundredTwentyEighthNote,
+    TwoHundredFiftySixthNote,
+    FiveHundredTwelfthNote,
+}
+
+#[derive(Clone)]
+pub struct Pattern {
+    pub beat_value: BeatValue,
+    pub notes: Vec<Vec<u8>>,
+}
+
+impl Pattern {
+    pub(crate) fn from_settings(settings: &crate::settings::PatternSettings) -> Self {
+        let mut r = Self {
+            beat_value: settings.beat_value.clone(),
+            notes: Vec::new(),
+        };
+        for note_sequence in settings.notes.clone() {
+            let mut note_vec = Vec::new();
+            for note in note_sequence.clone() {
+                note_vec.push(note);
+            }
+            r.notes.push(note_vec);
+        }
+        r
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{cell::RefCell, rc::Rc};
@@ -131,9 +170,10 @@ mod tests {
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
         devices::{tests::NullDevice, traits::DeviceTrait},
         primitives::clock::{Clock, ClockSettings},
+        settings::PatternSettings,
     };
 
-    use super::Sequencer;
+    use super::{BeatValue, Pattern, Sequencer};
 
     impl Sequencer {
         pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: u32) -> u32 {
@@ -289,5 +329,27 @@ mod tests {
             assert_eq!(dp_2.midi_messages_received, 2);
             assert_eq!(dp_2.midi_messages_handled, 2);
         }
+    }
+
+    #[test]
+    fn test_pattern() {
+        let mut sequencer = Sequencer::new();
+        let pattern_settings = PatternSettings {
+            id: String::from("test-pattern"),
+            beat_value: BeatValue::EighthNote,
+            notes: vec![vec![1, 2, 3, 4, 5]],
+        };
+
+        // TODO: is there any way to avoid Rc/RefCell leaking into this class's API boundary?
+        let pattern = Rc::new(RefCell::new(Pattern::from_settings(&pattern_settings)));
+
+        const EXPECTED_NOTE_COUNT: usize = 5;
+        assert_eq!(pattern.borrow().notes.len(), 1);
+        assert_eq!(pattern.borrow().notes[0].len(), EXPECTED_NOTE_COUNT);
+
+        let mut insertion_point: u32 = 0;
+        sequencer.insert_pattern(pattern, 0, &mut insertion_point);
+
+        assert_eq!(sequencer.midi_messages.len(), EXPECTED_NOTE_COUNT * 2); // one on, one off
     }
 }

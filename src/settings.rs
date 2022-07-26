@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{common::DeviceId, primitives::clock::ClockSettings, synthesizers::welsh::PresetName};
+use crate::{common::DeviceId, primitives::clock::ClockSettings, synthesizers::welsh::PresetName, devices::sequencer::BeatValue};
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
@@ -62,7 +62,7 @@ pub enum DeviceSettings {
 #[serde(rename_all = "kebab-case")]
 pub struct PatternSettings {
     pub id: DeviceId,
-    pub division: u8,
+    pub beat_value: BeatValue,
     pub notes: Vec<Vec<u8>>,
 }
 
