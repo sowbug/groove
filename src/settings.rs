@@ -1,20 +1,15 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{common::DeviceId, primitives::clock::ClockSettings, synthesizers::welsh::PresetName, devices::sequencer::BeatValue};
+use crate::{
+    common::DeviceId, devices::sequencer::BeatValue, primitives::clock::ClockSettings,
+    synthesizers::welsh::PresetName,
+};
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub enum InstrumentType {
     Welsh,
     Drumkit,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub enum EffectType {
-    Gain,
-    Limiter,
-    Bitcrusher,
 }
 
 type MidiChannel = u8;
@@ -45,9 +40,61 @@ pub enum InstrumentSettings {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectSettings {
-    Gain { id: DeviceId, amount: f32 },
-    Limiter { id: DeviceId, min: f32, max: f32 },
-    Bitcrusher { id: DeviceId, bits_to_crush: u8 },
+    Gain {
+        id: DeviceId,
+        amount: f32,
+    },
+    Limiter {
+        id: DeviceId,
+        min: f32,
+        max: f32,
+    },
+    Bitcrusher {
+        id: DeviceId,
+        bits_to_crush: u8,
+    },
+    #[serde(rename="filter-low-pass-12db")]
+    FilterLowPass12db {
+        id: DeviceId,
+        cutoff: f32,
+        q: f32,
+    },
+    #[serde(rename="filter-high-pass-12db")]
+    FilterHighPass12db {
+        id: DeviceId,
+        cutoff: f32,
+        q: f32,
+    },
+    FilterBandPass12db {
+        id: DeviceId,
+        cutoff: f32,
+        bandwidth: f32,
+    },
+    FilterBandStop12db {
+        id: DeviceId,
+        cutoff: f32,
+        bandwidth: f32,
+    },
+    FilterAllPass12db {
+        id: DeviceId,
+        cutoff: f32,
+        q: f32,
+    },
+    FilterPeakingEq12db {
+        id: DeviceId,
+        cutoff: f32,
+        db_gain: f32,
+    },
+    FilterLowShelf12db {
+        id: DeviceId,
+        cutoff: f32,
+        db_gain: f32,
+    },
+    FilterHighShelf12db {
+        id: DeviceId,
+        cutoff: f32,
+        db_gain: f32,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone)]

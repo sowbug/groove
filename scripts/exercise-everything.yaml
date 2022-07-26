@@ -34,8 +34,13 @@ devices:
       bitcrusher:
         id: bitcrusher-1
         bits_to_crush: 14
+  - effect:
+      filter-low-pass-12db:
+        id: low-pass-1
+        cutoff: 1200.0
+        q: 1.0
 patch-cables:
-  - [piano-1, bitcrusher-1, gain-1, main-mixer]
+  - [piano-1, bitcrusher-1, low-pass-1, gain-1, main-mixer]
   - [bassline, gain-2, main-mixer]
   - [drum-1, main-mixer]
 patterns:

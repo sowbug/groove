@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::effects::{Bitcrusher, Gain, Limiter};
+use super::effects::{Bitcrusher, Filter, Gain, Limiter};
 use super::mixer::Mixer;
 use super::sequencer::{Pattern, Sequencer};
 
@@ -175,6 +175,98 @@ impl Orchestrator {
                         self.id_to_instrument.insert(id, device.clone());
                         self.add_device(device.clone());
                     }
+                    EffectSettings::FilterLowPass12db { id, cutoff, q } => {
+                        let device = Rc::new(RefCell::new(Filter::new_low_pass_12db(
+                            self.settings().clock.sample_rate(),
+                            cutoff,
+                            q,
+                        )));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
+                    EffectSettings::FilterHighPass12db { id, cutoff, q } => {
+                        let device = Rc::new(RefCell::new(Filter::new_high_pass_12db(
+                            self.settings().clock.sample_rate(),
+                            cutoff,
+                            q,
+                        )));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
+                    EffectSettings::FilterBandPass12db {
+                        id,
+                        cutoff,
+                        bandwidth,
+                    } => {
+                        let device = Rc::new(RefCell::new(Filter::new_band_pass_12db(
+                            self.settings().clock.sample_rate(),
+                            cutoff,
+                            bandwidth,
+                        )));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
+                    EffectSettings::FilterBandStop12db {
+                        id,
+                        cutoff,
+                        bandwidth,
+                    } => {
+                        let device = Rc::new(RefCell::new(Filter::new_band_stop_12db(
+                            self.settings().clock.sample_rate(),
+                            cutoff,
+                            bandwidth,
+                        )));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
+                    EffectSettings::FilterAllPass12db { id, cutoff, q } => {
+                        let device = Rc::new(RefCell::new(Filter::new_all_pass_12db(
+                            self.settings().clock.sample_rate(),
+                            cutoff,
+                            q,
+                        )));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
+                    EffectSettings::FilterPeakingEq12db {
+                        id,
+                        cutoff,
+                        db_gain,
+                    } => {
+                        let device = Rc::new(RefCell::new(Filter::new_peaking_eq_12db(
+                            self.settings().clock.sample_rate(),
+                            cutoff,
+                            db_gain,
+                        )));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
+                    EffectSettings::FilterLowShelf12db {
+                        id,
+                        cutoff,
+                        db_gain,
+                    } => {
+                        let device = Rc::new(RefCell::new(Filter::new_low_shelf_12db(
+                            self.settings().clock.sample_rate(),
+                            cutoff,
+                            db_gain,
+                        )));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
+                    EffectSettings::FilterHighShelf12db {
+                        id,
+                        cutoff,
+                        db_gain,
+                    } => {
+                        let device = Rc::new(RefCell::new(Filter::new_high_shelf_12db(
+                            self.settings().clock.sample_rate(),
+                            cutoff,
+                            db_gain,
+                        )));
+                        self.id_to_instrument.insert(id, device.clone());
+                        self.add_device(device.clone());
+                    }
                 };
             }
         }
@@ -187,7 +279,9 @@ impl Orchestrator {
                 let sequencer = Rc::new(RefCell::new(Sequencer::new()));
                 self.id_to_sequencer.insert(id, sequencer.clone());
                 self.add_device(sequencer.clone());
-                sequencer.borrow_mut().set_tempo(self.clock.settings().bpm());
+                sequencer
+                    .borrow_mut()
+                    .set_tempo(self.clock.settings().bpm());
             }
         }
     }

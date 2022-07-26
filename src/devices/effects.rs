@@ -1,8 +1,13 @@
+use super::traits::DeviceTrait;
+use crate::primitives::{
+    self,
+    filter::{MiniFilter2, MiniFilter2Type},
+    gain::MiniGain,
+    limiter::MiniLimiter,
+    EffectTrait,
+};
 use std::{cell::RefCell, rc::Rc};
 
-use crate::primitives::{self, gain::MiniGain, limiter::MiniLimiter, EffectTrait};
-
-use super::traits::DeviceTrait;
 pub struct Limiter {
     source: Option<Rc<RefCell<dyn DeviceTrait>>>,
     effect: MiniLimiter,
@@ -138,6 +143,108 @@ impl DeviceTrait for Bitcrusher {
                 source_ref.borrow_mut().get_audio_sample(),
                 self.time_seconds,
             )
+        } else {
+            0.0
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub struct Filter {
+    source: Option<Rc<RefCell<dyn DeviceTrait>>>,
+    effect: MiniFilter2,
+
+    filter_type: MiniFilter2Type,
+}
+
+impl Filter {
+    fn inner_new_filter(ft: &MiniFilter2Type) -> Self {
+        Self {
+            source: None,
+            effect: MiniFilter2::new(&ft),
+            filter_type: *ft,
+        }
+    }
+    pub fn new_low_pass_12db(sample_rate: u32, cutoff: f32, q: f32) -> Self {
+        Self::inner_new_filter(&MiniFilter2Type::LowPass {
+            sample_rate,
+            cutoff,
+            q,
+        })
+    }
+    pub fn new_high_pass_12db(sample_rate: u32, cutoff: f32, q: f32) -> Self {
+        Self::inner_new_filter(&MiniFilter2Type::HighPass {
+            sample_rate,
+            cutoff,
+            q,
+        })
+    }
+    pub fn new_band_pass_12db(sample_rate: u32, cutoff: f32, bandwidth: f32) -> Self {
+        Self::inner_new_filter(&MiniFilter2Type::BandPass {
+            sample_rate,
+            cutoff,
+            bandwidth,
+        })
+    }
+    pub fn new_band_stop_12db(sample_rate: u32, cutoff: f32, bandwidth: f32) -> Self {
+        Self::inner_new_filter(&MiniFilter2Type::BandStop {
+            sample_rate,
+            cutoff,
+            bandwidth,
+        })
+    }
+    pub fn new_all_pass_12db(sample_rate: u32, cutoff: f32, q: f32) -> Self {
+        Self::inner_new_filter(&MiniFilter2Type::AllPass {
+            sample_rate,
+            cutoff,
+            q,
+        })
+    }
+    pub fn new_peaking_eq_12db(sample_rate: u32, cutoff: f32, db_gain: f32) -> Self {
+        Self::inner_new_filter(&MiniFilter2Type::PeakingEq {
+            sample_rate,
+            cutoff,
+            db_gain,
+        })
+    }
+    pub fn new_low_shelf_12db(sample_rate: u32, cutoff: f32, db_gain: f32) -> Self {
+        Self::inner_new_filter(&MiniFilter2Type::LowShelf {
+            sample_rate,
+            cutoff,
+            db_gain,
+        })
+    }
+    pub fn new_high_shelf_12db(sample_rate: u32, cutoff: f32, db_gain: f32) -> Self {
+        Self::inner_new_filter(&MiniFilter2Type::HighShelf {
+            sample_rate,
+            cutoff,
+            db_gain,
+        })
+    }
+}
+
+impl DeviceTrait for Filter {
+    fn sources_audio(&self) -> bool {
+        true
+    }
+
+    fn sinks_audio(&self) -> bool {
+        true
+    }
+
+    fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
+        self.source = Some(source);
+    }
+
+    fn tick(&mut self, _clock: &primitives::clock::Clock) -> bool {
+        true
+    }
+
+    fn get_audio_sample(&mut self) -> f32 {
+        if self.source.is_some() {
+            let source_ref = self.source.as_ref().unwrap();
+            self.effect
+                .process(source_ref.borrow_mut().get_audio_sample(), 0.0)
         } else {
             0.0
         }

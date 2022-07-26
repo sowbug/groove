@@ -1,6 +1,6 @@
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, f32::consts::FRAC_1_SQRT_2, rc::Rc};
 use strum_macros::{EnumIter, IntoStaticStr};
 
 use crate::{
@@ -1848,11 +1848,11 @@ impl Voice {
             lfo_routing: preset.lfo_preset.routing,
             lfo_depth: preset.lfo_preset.depth,
 
-            filter: MiniFilter2::new(MiniFilter2Type::LowPass(
+            filter: MiniFilter2::new(&MiniFilter2Type::LowPass {
                 sample_rate,
-                preset.filter_type_12db.cutoff,
-                1.0 / 2.0f32.sqrt(), // TODO: resonance
-            )),
+                cutoff: preset.filter_type_12db.cutoff,
+                q: FRAC_1_SQRT_2, // TODO: resonance
+            }),
             filter_cutoff_start: MiniFilter2::frequency_to_percent(preset.filter_type_12db.cutoff),
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: MiniEnvelope::new(sample_rate, &preset.filter_envelope_preset),
