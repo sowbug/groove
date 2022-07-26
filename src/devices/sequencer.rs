@@ -12,6 +12,8 @@ use super::traits::DeviceTrait;
 
 pub struct Sequencer {
     midi_ticks_per_second: u32,
+    beats_per_minute: f32,
+
     channels_to_sink_vecs: HashMap<u8, Vec<Rc<RefCell<dyn DeviceTrait>>>>,
     midi_messages: SortedVec<OrderedMidiMessage>,
 }
@@ -20,6 +22,7 @@ impl Sequencer {
     pub fn new() -> Self {
         let mut result = Self {
             midi_ticks_per_second: 960,
+            beats_per_minute: 120.0,
             channels_to_sink_vecs: HashMap::new(),
             midi_messages: SortedVec::new(),
         };
@@ -31,6 +34,10 @@ impl Sequencer {
 
     pub fn connected_channel_count() -> u8 {
         16
+    }
+
+    pub fn set_tempo(&mut self, beats_per_minute: f32) {
+        self.beats_per_minute = beats_per_minute;
     }
 
     pub fn set_midi_ticks_per_second(&mut self, tps: u32) {
@@ -76,23 +83,40 @@ impl Sequencer {
         }
     }
 
-    // TODO: this works, but it's wrong. We aren't using BPM; we're
-    // just arbitrarily treating measures as seconds, which in 4/4 means
-    // 240 BPM.
+    // TODO: there is a lot of conversion among time systems, and we're losing precision.
+    // Pick fewer, or come up with a way for errors not to accumulate as they do with
+    // insert_pattern().
     pub fn insert_pattern(
         &mut self,
         pattern: Rc<RefCell<Pattern>>,
         channel: u8,
         insertion_point: &mut u32,
     ) {
-        let divisor = pattern.borrow().beat_value.divisor();
         let start_insertion_point: u32 = *insertion_point;
+        let divisor = pattern.borrow().beat_value.divisor();
+        let ticks_per_note =
+            (self.midi_ticks_per_second as f32) / (divisor * self.beats_per_minute / 60.0);
+
         for note_sequence in pattern.borrow().notes.clone() {
+            let pattern_len = note_sequence.len();
             *insertion_point = start_insertion_point;
-            for note in note_sequence {
-                self.insert_short_note(channel, note, insertion_point);
-                *insertion_point += (self.midi_ticks_per_second as f32 / divisor) as u32;
+            for (i, note) in note_sequence.iter().enumerate() {
+                self.insert_short_note(channel, *note, insertion_point);
+                // Suppose 120 BPM and 4/4 time
+                // 120 / 60 = 2 beats per second
+                // note is an eighth of a beat
+                // therefore there are 8 * 2 beats per second
+                // therefore 960 midi ticks = 16 beats
+                // therefore each beat advances 960/16 ticks
+                // therefore mtps / (beat_value * bpm / 60)
+                //
+                // We do all this rather than just adding the increment each time through the loop
+                // to minimize the accumulation of fractional loss. See TODO above - either pick a
+                // granularity for an integer that's so fine it doesn't matter, or else pick a universal
+                // floating-point representation of time.
+                *insertion_point = start_insertion_point + (i as f32 * ticks_per_note) as u32;
             }
+            *insertion_point = start_insertion_point + (pattern_len as f32 * ticks_per_note) as u32;
         }
     }
 }
@@ -354,8 +378,10 @@ mod tests {
     #[test]
     fn test_pattern() {
         let mut sequencer = Sequencer::new();
+        const BPM: f32 = 128.0;
+        sequencer.set_tempo(BPM);
         let note_pattern = vec![1, 2, 3, 4, 5];
-        let beat_value = BeatValue::EighthNote;
+        let beat_value = BeatValue::QuarterNote;
         let pattern_settings = PatternSettings {
             id: String::from("test-pattern"),
             beat_value: beat_value.clone(),
@@ -374,10 +400,12 @@ mod tests {
 
         assert_eq!(sequencer.midi_messages.len(), expected_note_count * 2); // one on, one off
 
+        const BPS: f32 = BPM / 60.0;
+        let ticks_per_beat = sequencer.midi_ticks_per_second as f32 / BPS;
+        let ticks_per_note = ticks_per_beat / beat_value.divisor();
         assert_eq!(
             insertion_point,
-            ((sequencer.midi_ticks_per_second as usize * note_pattern.len()) as f32
-                / beat_value.divisor()) as u32
+            (note_pattern.len() as f32 * ticks_per_note) as u32
         )
     }
 }

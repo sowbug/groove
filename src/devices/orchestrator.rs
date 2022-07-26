@@ -187,6 +187,7 @@ impl Orchestrator {
                 let sequencer = Rc::new(RefCell::new(Sequencer::new()));
                 self.id_to_sequencer.insert(id, sequencer.clone());
                 self.add_device(sequencer.clone());
+                sequencer.borrow_mut().set_tempo(self.clock.settings().bpm());
             }
         }
     }

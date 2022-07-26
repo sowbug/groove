@@ -25,29 +25,33 @@ devices:
   - effect:
       gain:
         id: gain-1
-        amount: 0.80
+        amount: 0.50
+  - effect:
+      gain:
+        id: gain-2
+        amount: 0.50
   - effect:
       bitcrusher:
         id: bitcrusher-1
         bits_to_crush: 14
 patch-cables:
-  - [piano-1, bitcrusher-1, main-mixer]
-  - [bassline, gain-1, main-mixer]
+  - [piano-1, bitcrusher-1, gain-1, main-mixer]
+  - [bassline, gain-2, main-mixer]
   - [drum-1, main-mixer]
 patterns:
   - id: basic-1
-    beat-value: eighth-note
+    beat-value: quarter-note
     notes:
-      - [60, 64, 67, 72, 67, 64, 60,  0]
+      - [60,  0, 60,  0, 60,  0, 60,  0, 67,  0, 67,  0, 67,  0,  67,  0]
   - id: bass
-    beat-value: eighth-note
+    beat-value: quarter-note
     notes:
-      - [67, 60, 67, 60, 67, 60, 67, 60]
+      - [67,  0, 60,  0, 67,  0, 60,  0, 67,  0, 60,  0, 67,  0, 60,  0]
   - id: four-on-the-floor
-    beat-value: eighth-note
+    beat-value: quarter-note
     notes:
-      - [ 0,  0, 38,  0,  0,  0, 38,  0]
-      - [35,  0, 35,  0, 35,  0, 35,  0]
+      - [ 0,  0,  0,  0, 38,  0,  0,  0,  0,  0,  0,  0, 38,  0,  0,  0]
+      - [35,  0,  0,  0, 35,  0,  0,  0, 35,  0,  0,  0, 35,  0,  0,  0]
 tracks:
   - id: track-1
     midi-channel: 0
