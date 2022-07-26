@@ -1,19 +1,24 @@
-on: [push]
+name: Rust
 
-name: CI
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build_and_test:
-    name: Groove
+  build:
+
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - name: Install alsa-sys dependency
-        run: sudo apt -y install libasound2-dev
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all-features
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: sudo apt -y install libasound2-dev
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
