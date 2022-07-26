@@ -76,18 +76,22 @@ impl Sequencer {
         }
     }
 
+    // TODO: this works, but it's wrong. We aren't using BPM; we're
+    // just arbitrarily treating measures as seconds, which in 4/4 means
+    // 240 BPM.
     pub fn insert_pattern(
         &mut self,
         pattern: Rc<RefCell<Pattern>>,
         channel: u8,
         insertion_point: &mut u32,
     ) {
+        let divisor = pattern.borrow().beat_value.divisor();
         let start_insertion_point: u32 = *insertion_point;
         for note_sequence in pattern.borrow().notes.clone() {
             *insertion_point = start_insertion_point;
             for note in note_sequence {
                 self.insert_short_note(channel, note, insertion_point);
-                *insertion_point += 960 / 4;
+                *insertion_point += (self.midi_ticks_per_second as f32 / divisor) as u32;
             }
         }
     }
@@ -139,6 +143,22 @@ pub enum BeatValue {
     FiveHundredTwelfthNote,
 }
 
+impl BeatValue {
+    pub fn divisor(&self) -> f32 {
+        match self {
+            BeatValue::WholeNote => 1.0,
+            BeatValue::HalfNote => 2.0,
+            BeatValue::QuarterNote => 4.0,
+            BeatValue::EighthNote => 8.0,
+            BeatValue::SixteenthNote => 16.0,
+            BeatValue::ThirtySecondNote => 32.0,
+            BeatValue::SixtyFourthNote => 64.0,
+            BeatValue::OneHundredTwentyEighthNote => 128.0,
+            BeatValue::TwoHundredFiftySixthNote => 256.0,
+            BeatValue::FiveHundredTwelfthNote => 512.0,
+        }
+    }
+}
 #[derive(Clone)]
 pub struct Pattern {
     pub beat_value: BeatValue,
@@ -334,22 +354,30 @@ mod tests {
     #[test]
     fn test_pattern() {
         let mut sequencer = Sequencer::new();
+        let note_pattern = vec![1, 2, 3, 4, 5];
+        let beat_value = BeatValue::EighthNote;
         let pattern_settings = PatternSettings {
             id: String::from("test-pattern"),
-            beat_value: BeatValue::EighthNote,
-            notes: vec![vec![1, 2, 3, 4, 5]],
+            beat_value: beat_value.clone(),
+            notes: vec![note_pattern.clone()],
         };
 
         // TODO: is there any way to avoid Rc/RefCell leaking into this class's API boundary?
         let pattern = Rc::new(RefCell::new(Pattern::from_settings(&pattern_settings)));
 
-        const EXPECTED_NOTE_COUNT: usize = 5;
+        let expected_note_count = note_pattern.len();
         assert_eq!(pattern.borrow().notes.len(), 1);
-        assert_eq!(pattern.borrow().notes[0].len(), EXPECTED_NOTE_COUNT);
+        assert_eq!(pattern.borrow().notes[0].len(), expected_note_count);
 
         let mut insertion_point: u32 = 0;
         sequencer.insert_pattern(pattern, 0, &mut insertion_point);
 
-        assert_eq!(sequencer.midi_messages.len(), EXPECTED_NOTE_COUNT * 2); // one on, one off
+        assert_eq!(sequencer.midi_messages.len(), expected_note_count * 2); // one on, one off
+
+        assert_eq!(
+            insertion_point,
+            ((sequencer.midi_ticks_per_second as usize * note_pattern.len()) as f32
+                / beat_value.divisor()) as u32
+        )
     }
 }
