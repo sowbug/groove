@@ -1,5 +1,55 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub enum BeatValue {
+    Whole,
+    Half,
+    Quarter,
+    Eighth,
+    Sixteenth,
+    ThirtySecond,
+    SixtyFourth,
+    OneHundredTwentyEighth,
+    TwoHundredFiftySixth,
+    FiveHundredTwelfth,
+}
+
+impl BeatValue {
+    pub fn divisor(&self) -> f32 {
+        match self {
+            BeatValue::Whole => 1.0,
+            BeatValue::Half => 2.0,
+            BeatValue::Quarter => 4.0,
+            BeatValue::Eighth => 8.0,
+            BeatValue::Sixteenth => 16.0,
+            BeatValue::ThirtySecond => 32.0,
+            BeatValue::SixtyFourth => 64.0,
+            BeatValue::OneHundredTwentyEighth => 128.0,
+            BeatValue::TwoHundredFiftySixth => 256.0,
+            BeatValue::FiveHundredTwelfth => 512.0,
+        }
+    }
+
+    pub fn from_divisor(divisor: f32) -> Self {
+        match divisor as u32 {
+            1 => BeatValue::Whole,
+            2 => BeatValue::Half,
+            4 => BeatValue::Quarter,
+            8 => BeatValue::Eighth,
+            16 => BeatValue::Sixteenth,
+            32 => BeatValue::ThirtySecond,
+            64 => BeatValue::SixtyFourth,
+            128 => BeatValue::OneHundredTwentyEighth,
+            256 => BeatValue::TwoHundredFiftySixth,
+            512 => BeatValue::FiveHundredTwelfth,
+            _ => {
+                panic!("unrecognized divisor for time signature: {}", divisor);
+            }
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "kebab-case")]
 pub struct TimeSignature {
@@ -9,7 +59,16 @@ pub struct TimeSignature {
 
 impl TimeSignature {
     pub(crate) fn new(top: u32, bottom: u32) -> TimeSignature {
+        if top == 0 {
+            panic!("Time signature top number can't be zero.");
+        }
+        BeatValue::from_divisor(bottom as f32); // this will panic if number is invalid.
         TimeSignature { top, bottom }
+    }
+
+    #[allow(dead_code)]
+    pub fn beat_value(&self) -> BeatValue {
+        BeatValue::from_divisor(self.bottom as f32)
     }
 }
 
@@ -105,6 +164,8 @@ impl Clock {
 
 #[cfg(test)]
 mod tests {
+    use std::panic;
+
     use super::*;
 
     impl ClockSettings {
@@ -165,5 +226,17 @@ mod tests {
         assert_eq!(clock.samples, SAMPLE_RATE * 60);
         assert_eq!(clock.seconds, 60.0);
         assert_eq!(clock.beats, BPM as u32);
+    }
+
+    #[test]
+    fn test_time_signature() {
+        let ts = TimeSignature::new(4, 4);
+        assert_eq!(ts.top, 4);
+        assert_eq!(ts.bottom, 4);
+
+        assert!(matches!(ts.beat_value(), BeatValue::Quarter));
+
+        assert!(panic::catch_unwind(|| { TimeSignature::new(0, 4) }).is_err());
+        assert!(panic::catch_unwind(|| { TimeSignature::new(4, 5) }).is_err());
     }
 }

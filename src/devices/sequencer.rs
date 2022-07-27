@@ -1,11 +1,10 @@
-use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use sorted_vec::SortedVec;
 
 use crate::{
     common::{MidiMessage, OrderedMidiMessage},
-    primitives::clock::{Clock, TimeSignature},
+    primitives::clock::{BeatValue, Clock, TimeSignature},
 };
 
 use super::traits::DeviceTrait;
@@ -160,57 +159,6 @@ impl DeviceTrait for Sequencer {
     // fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
     //     self.sinks[&0].push(device);
     // }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub enum BeatValue {
-    Whole,
-    Half,
-    Quarter,
-    Eighth,
-    Sixteenth,
-    ThirtySecond,
-    SixtyFourth,
-    OneHundredTwentyEighth,
-    TwoHundredFiftySixth,
-    FiveHundredTwelfth,
-}
-
-impl BeatValue {
-    pub fn divisor(&self) -> f32 {
-        match self {
-            BeatValue::Whole => 1.0,
-            BeatValue::Half => 2.0,
-            BeatValue::Quarter => 4.0,
-            BeatValue::Eighth => 8.0,
-            BeatValue::Sixteenth => 16.0,
-            BeatValue::ThirtySecond => 32.0,
-            BeatValue::SixtyFourth => 64.0,
-            BeatValue::OneHundredTwentyEighth => 128.0,
-            BeatValue::TwoHundredFiftySixth => 256.0,
-            BeatValue::FiveHundredTwelfth => 512.0,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn from_divisor(divisor: f32) -> Self {
-        match divisor as u32 {
-            1 => BeatValue::Whole,
-            2 => BeatValue::Half,
-            4 => BeatValue::Quarter,
-            8 => BeatValue::Eighth,
-            16 => BeatValue::Sixteenth,
-            32 => BeatValue::ThirtySecond,
-            64 => BeatValue::SixtyFourth,
-            128 => BeatValue::OneHundredTwentyEighth,
-            256 => BeatValue::TwoHundredFiftySixth,
-            512 => BeatValue::FiveHundredTwelfth,
-            _ => {
-                panic!("unrecognized divisor for time signature: {}", divisor);
-            }
-        }
-    }
 }
 
 #[derive(Clone)]
