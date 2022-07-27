@@ -176,11 +176,22 @@ impl Pattern {
         for note_sequence in settings.notes.clone() {
             let mut note_vec = Vec::new();
             for note in note_sequence.clone() {
-                note_vec.push(note);
+                note_vec.push(Pattern::note_to_value(note));
             }
             r.notes.push(note_vec);
         }
         r
+    }
+
+    fn note_to_value(note: String) -> u8 {
+        // TODO
+        // https://en.wikipedia.org/wiki/Scientific_pitch_notation
+        // labels, e.g., for General MIDI percussion
+        note.parse().unwrap_or_default()
+    }
+
+    fn value_to_note(value: u8) -> String {
+        value.to_string()
     }
 }
 
@@ -358,7 +369,13 @@ mod tests {
         let mut sequencer = Sequencer::new();
         const BPM: f32 = 128.0;
         sequencer.set_tempo(BPM);
-        let note_pattern = vec![1, 2, 3, 4, 5];
+        let note_pattern = vec![
+            Pattern::value_to_note(1),
+            Pattern::value_to_note(2),
+            Pattern::value_to_note(3),
+            Pattern::value_to_note(4),
+            Pattern::value_to_note(5),
+        ];
         let beat_value = Some(BeatValue::Quarter);
         let pattern_settings = PatternSettings {
             id: String::from("test-pattern"),
@@ -399,7 +416,7 @@ mod tests {
         let pattern = Rc::new(RefCell::new(Pattern::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
             beat_value: None,
-            notes: vec![vec![1]],
+            notes: vec![vec![String::from("1")]],
         })));
         let mut insertion_point: u32 = 0;
         sequencer.insert_pattern(pattern, 0, &mut insertion_point);

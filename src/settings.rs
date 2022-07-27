@@ -107,7 +107,7 @@ pub enum DeviceSettings {
 pub struct PatternSettings {
     pub id: DeviceId,
     pub beat_value: Option<BeatValue>,
-    pub notes: Vec<Vec<u8>>,
+    pub notes: Vec<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone)]
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_yaml_loads_and_parses() {
-        let yaml = std::fs::read_to_string("scripts/exercise-everything.yaml").unwrap();
+        let yaml = std::fs::read_to_string("test_data/kitchen-sink.yaml").unwrap();
         let settings = OrchestratorSettings::new_from_yaml(yaml.as_str());
         let mut orchestrator = Orchestrator::new(settings);
         let worker = Worker::<MonoSample>::new_fifo();
