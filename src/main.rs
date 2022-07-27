@@ -229,10 +229,7 @@ impl ClDaw {
         }
         println!("Performing to queue");
         let worker = Worker::<f32>::new_fifo();
-        let result = self.orchestrator.perform_to_queue(&worker);
-        if result.is_err() {
-            return result;
-        }
+        self.orchestrator.perform_to_queue(&worker)?;
 
         println!("Rendering queue");
         if let Some(output_filename) = wav_out {

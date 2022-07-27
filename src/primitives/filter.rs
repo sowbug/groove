@@ -454,7 +454,7 @@ impl MiniFilter2 {
         let mut r = Self {
             ..Default::default()
         };
-        r.recalculate_coefficients(&filter_type);
+        r.recalculate_coefficients(filter_type);
         r
     }
 

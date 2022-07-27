@@ -161,7 +161,7 @@ impl Filter {
     fn inner_new_filter(ft: &MiniFilter2Type) -> Self {
         Self {
             source: None,
-            effect: MiniFilter2::new(&ft),
+            effect: MiniFilter2::new(ft),
             filter_type: *ft,
         }
     }

@@ -155,31 +155,31 @@ impl DeviceTrait for Sequencer {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub enum BeatValue {
-    WholeNote,
-    HalfNote,
-    QuarterNote,
-    EighthNote,
-    SixteenthNote,
-    ThirtySecondNote,
-    SixtyFourthNote,
-    OneHundredTwentyEighthNote,
-    TwoHundredFiftySixthNote,
-    FiveHundredTwelfthNote,
+    Whole,
+    Half,
+    Quarter,
+    Eighth,
+    Sixteenth,
+    ThirtySecond,
+    SixtyFourth,
+    OneHundredTwentyEighth,
+    TwoHundredFiftySixth,
+    FiveHundredTwelfth,
 }
 
 impl BeatValue {
     pub fn divisor(&self) -> f32 {
         match self {
-            BeatValue::WholeNote => 1.0,
-            BeatValue::HalfNote => 2.0,
-            BeatValue::QuarterNote => 4.0,
-            BeatValue::EighthNote => 8.0,
-            BeatValue::SixteenthNote => 16.0,
-            BeatValue::ThirtySecondNote => 32.0,
-            BeatValue::SixtyFourthNote => 64.0,
-            BeatValue::OneHundredTwentyEighthNote => 128.0,
-            BeatValue::TwoHundredFiftySixthNote => 256.0,
-            BeatValue::FiveHundredTwelfthNote => 512.0,
+            BeatValue::Whole => 1.0,
+            BeatValue::Half => 2.0,
+            BeatValue::Quarter => 4.0,
+            BeatValue::Eighth => 8.0,
+            BeatValue::Sixteenth => 16.0,
+            BeatValue::ThirtySecond => 32.0,
+            BeatValue::SixtyFourth => 64.0,
+            BeatValue::OneHundredTwentyEighth => 128.0,
+            BeatValue::TwoHundredFiftySixth => 256.0,
+            BeatValue::FiveHundredTwelfth => 512.0,
         }
     }
 }
@@ -381,7 +381,7 @@ mod tests {
         const BPM: f32 = 128.0;
         sequencer.set_tempo(BPM);
         let note_pattern = vec![1, 2, 3, 4, 5];
-        let beat_value = BeatValue::QuarterNote;
+        let beat_value = BeatValue::Quarter;
         let pattern_settings = PatternSettings {
             id: String::from("test-pattern"),
             beat_value: beat_value.clone(),
