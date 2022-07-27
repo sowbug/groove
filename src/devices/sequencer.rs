@@ -5,7 +5,7 @@ use sorted_vec::SortedVec;
 
 use crate::{
     common::{MidiMessage, OrderedMidiMessage},
-    primitives::clock::Clock,
+    primitives::clock::{Clock, TimeSignature},
 };
 
 use super::traits::DeviceTrait;
@@ -13,6 +13,7 @@ use super::traits::DeviceTrait;
 pub struct Sequencer {
     midi_ticks_per_second: u32,
     beats_per_minute: f32,
+    time_signature: TimeSignature,
 
     channels_to_sink_vecs: HashMap<u8, Vec<Rc<RefCell<dyn DeviceTrait>>>>,
     midi_messages: SortedVec<OrderedMidiMessage>,
@@ -23,6 +24,7 @@ impl Sequencer {
         let mut result = Self {
             midi_ticks_per_second: 960,
             beats_per_minute: 120.0,
+            time_signature: TimeSignature::new(4, 4),
             channels_to_sink_vecs: HashMap::new(),
             midi_messages: SortedVec::new(),
         };
@@ -38,6 +40,10 @@ impl Sequencer {
 
     pub fn set_tempo(&mut self, beats_per_minute: f32) {
         self.beats_per_minute = beats_per_minute;
+    }
+
+    pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
+        self.time_signature = time_signature;
     }
 
     pub fn set_midi_ticks_per_second(&mut self, tps: u32) {
@@ -93,7 +99,11 @@ impl Sequencer {
         insertion_point: &mut u32,
     ) {
         let start_insertion_point: u32 = *insertion_point;
-        let divisor = pattern.borrow().beat_value.divisor();
+        let divisor = if let Some(bv) = &pattern.borrow().beat_value {
+            bv.divisor()
+        } else {
+            self.time_signature.bottom as f32
+        };
         let ticks_per_note =
             (self.midi_ticks_per_second as f32) / (divisor * self.beats_per_minute / 60.0);
 
@@ -136,7 +146,7 @@ impl DeviceTrait for Sequencer {
 
             // TODO(miket): should Clock manage elapsed_midi_ticks?
             if elapsed_midi_ticks >= midi_message.when {
-                dbg!("dispatching {:?}", midi_message);
+                dbg!(midi_message);
                 self.dispatch_midi_message(midi_message, clock);
                 self.midi_messages.remove_index(0);
             } else {
@@ -182,10 +192,30 @@ impl BeatValue {
             BeatValue::FiveHundredTwelfth => 512.0,
         }
     }
+
+    #[allow(dead_code)]
+    pub fn from_divisor(divisor: f32) -> Self {
+        match divisor as u32 {
+            1 => BeatValue::Whole,
+            2 => BeatValue::Half,
+            4 => BeatValue::Quarter,
+            8 => BeatValue::Eighth,
+            16 => BeatValue::Sixteenth,
+            32 => BeatValue::ThirtySecond,
+            64 => BeatValue::SixtyFourth,
+            128 => BeatValue::OneHundredTwentyEighth,
+            256 => BeatValue::TwoHundredFiftySixth,
+            512 => BeatValue::FiveHundredTwelfth,
+            _ => {
+                panic!("unrecognized divisor for time signature: {}", divisor);
+            }
+        }
+    }
 }
+
 #[derive(Clone)]
 pub struct Pattern {
-    pub beat_value: BeatValue,
+    pub beat_value: Option<BeatValue>,
     pub notes: Vec<Vec<u8>>,
 }
 
@@ -213,7 +243,7 @@ mod tests {
     use crate::{
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
         devices::{tests::NullDevice, traits::DeviceTrait},
-        primitives::clock::{Clock, ClockSettings},
+        primitives::clock::{Clock, ClockSettings, TimeSignature},
         settings::PatternSettings,
     };
 
@@ -381,7 +411,7 @@ mod tests {
         const BPM: f32 = 128.0;
         sequencer.set_tempo(BPM);
         let note_pattern = vec![1, 2, 3, 4, 5];
-        let beat_value = BeatValue::Quarter;
+        let beat_value = Some(BeatValue::Quarter);
         let pattern_settings = PatternSettings {
             id: String::from("test-pattern"),
             beat_value: beat_value.clone(),
@@ -402,10 +432,33 @@ mod tests {
 
         const BPS: f32 = BPM / 60.0;
         let ticks_per_beat = sequencer.midi_ticks_per_second as f32 / BPS;
-        let ticks_per_note = ticks_per_beat / beat_value.divisor();
+        let ticks_per_note = ticks_per_beat / beat_value.unwrap().divisor();
         assert_eq!(
             insertion_point,
             (note_pattern.len() as f32 * ticks_per_note) as u32
-        )
+        );
+    }
+
+    #[test]
+    fn test_pattern_inherit_time_signature() {
+        let mut sequencer = Sequencer::new();
+        const BPM: f32 = 128.0;
+        sequencer.set_tempo(BPM);
+        sequencer.set_time_signature(TimeSignature {
+            top: 2,
+            bottom: 128,
+        });
+        let pattern = Rc::new(RefCell::new(Pattern::from_settings(&PatternSettings {
+            id: String::from("test-pattern-inherit"),
+            beat_value: None,
+            notes: vec![vec![1]],
+        })));
+        let mut insertion_point: u32 = 0;
+        sequencer.insert_pattern(pattern, 0, &mut insertion_point);
+
+        const BPS: f32 = BPM / 60.0;
+        let ticks_per_beat = sequencer.midi_ticks_per_second as f32 / BPS;
+        let ticks_per_note = ticks_per_beat / sequencer.time_signature.bottom as f32;
+        assert_eq!(insertion_point, ticks_per_note as u32);
     }
 }

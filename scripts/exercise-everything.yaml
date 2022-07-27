@@ -45,15 +45,14 @@ patch-cables:
   - [drum-1, main-mixer]
 patterns:
   - id: basic-1
-    beat-value: quarter-note
     notes:
       - [60,  0, 60,  0, 60,  0, 60,  0, 67,  0, 67,  0, 67,  0,  67,  0]
   - id: bass
-    beat-value: quarter-note
+    beat-value: quarter
     notes:
       - [67,  0, 60,  0, 67,  0, 60,  0, 67,  0, 60,  0, 67,  0, 60,  0]
   - id: four-on-the-floor
-    beat-value: quarter-note
+    beat-value: quarter
     notes:
       - [ 0,  0,  0,  0, 38,  0,  0,  0,  0,  0,  0,  0, 38,  0,  0,  0]
       - [35,  0,  0,  0, 35,  0,  0,  0, 35,  0,  0,  0, 35,  0,  0,  0]

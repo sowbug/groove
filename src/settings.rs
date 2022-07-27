@@ -53,13 +53,13 @@ pub enum EffectSettings {
         id: DeviceId,
         bits_to_crush: u8,
     },
-    #[serde(rename="filter-low-pass-12db")]
+    #[serde(rename = "filter-low-pass-12db")]
     FilterLowPass12db {
         id: DeviceId,
         cutoff: f32,
         q: f32,
     },
-    #[serde(rename="filter-high-pass-12db")]
+    #[serde(rename = "filter-high-pass-12db")]
     FilterHighPass12db {
         id: DeviceId,
         cutoff: f32,
@@ -109,7 +109,7 @@ pub enum DeviceSettings {
 #[serde(rename_all = "kebab-case")]
 pub struct PatternSettings {
     pub id: DeviceId,
-    pub beat_value: BeatValue,
+    pub beat_value: Option<BeatValue>,
     pub notes: Vec<Vec<u8>>,
 }
 
@@ -163,7 +163,9 @@ impl OrchestratorSettings {
 
 #[cfg(test)]
 mod tests {
-    use crate::synthesizers::welsh::PresetName;
+    use crossbeam::deque::Worker;
+
+    use crate::{devices::orchestrator::Orchestrator, synthesizers::welsh::PresetName};
 
     use super::{DeviceSettings, InstrumentSettings, OrchestratorSettings};
 
@@ -196,5 +198,14 @@ mod tests {
 
             r
         }
+    }
+
+    #[test]
+    fn test_yaml_loads_and_parses() {
+        let yaml = std::fs::read_to_string("scripts/exercise-everything.yaml").unwrap();
+        let settings = OrchestratorSettings::new_from_yaml(yaml.as_str());
+        let mut orchestrator = Orchestrator::new(settings);
+        let worker = Worker::<f32>::new_fifo();
+        assert!(orchestrator.perform_to_queue(&worker).is_ok());
     }
 }

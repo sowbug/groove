@@ -282,6 +282,9 @@ impl Orchestrator {
                 sequencer
                     .borrow_mut()
                     .set_tempo(self.clock.settings().bpm());
+                sequencer
+                    .borrow_mut()
+                    .set_time_signature(self.clock.settings().time_signature());
             }
         }
     }

@@ -1,5 +1,18 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[serde(rename_all = "kebab-case")]
+pub struct TimeSignature {
+    pub top: u32,
+    pub bottom: u32,
+}
+
+impl TimeSignature {
+    pub(crate) fn new(top: u32, bottom: u32) -> TimeSignature {
+        TimeSignature { top, bottom }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct ClockSettings {
@@ -10,7 +23,7 @@ pub struct ClockSettings {
     beats_per_minute: f32,
 
     #[serde(rename = "time-signature")]
-    time_signature: (u32, u32),
+    time_signature: TimeSignature,
 }
 
 impl ClockSettings {
@@ -23,7 +36,10 @@ impl ClockSettings {
         Self {
             samples_per_second,
             beats_per_minute,
-            time_signature,
+            time_signature: TimeSignature {
+                top: time_signature.0,
+                bottom: time_signature.1,
+            },
         }
     }
 
@@ -38,6 +54,10 @@ impl ClockSettings {
         self.samples_per_second
     }
 
+    pub fn time_signature(&self) -> TimeSignature {
+        self.time_signature
+    }
+
     #[allow(dead_code)]
     pub(crate) fn bpm(&self) -> f32 {
         self.beats_per_minute
@@ -49,7 +69,7 @@ impl Default for ClockSettings {
         Self {
             samples_per_second: 44100,
             beats_per_minute: 128.0,
-            time_signature: (4, 4),
+            time_signature: TimeSignature { top: 4, bottom: 4 },
         }
     }
 }
@@ -109,7 +129,7 @@ mod tests {
         let clock_settings = ClockSettings {
             samples_per_second: SAMPLE_RATE,
             beats_per_minute: BPM,
-            time_signature: (4, 4),
+            time_signature: TimeSignature { top: 4, bottom: 4 },
         };
         let mut clock = Clock::new(clock_settings);
 
