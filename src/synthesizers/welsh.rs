@@ -4,7 +4,7 @@ use std::{cell::RefCell, collections::HashMap, f32::consts::FRAC_1_SQRT_2, rc::R
 use strum_macros::{EnumIter, IntoStaticStr};
 
 use crate::{
-    common::{MidiMessage, MidiMessageType, MidiNote, WaveformType},
+    common::{MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
     devices::traits::DeviceTrait,
     general_midi::GeneralMidiProgram,
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
@@ -1879,15 +1879,15 @@ impl Voice {
         r
     }
 
-    pub(crate) fn process(&mut self, time_seconds: f32) -> f32 {
+    pub(crate) fn process(&mut self, time_seconds: f32) -> MonoSample {
         // LFO
-        let lfo = self.lfo.process(time_seconds) * self.lfo_depth;
+        let lfo = self.lfo.process(time_seconds) * self.lfo_depth as MonoSample;
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
             let lfo_for_pitch = lfo / 10000.0;
             // TODO: divide by 10,000 until we figure out how pitch depth is supposed to go
             // TODO: this could leave a side effect if we reuse voices and forget to clean up.
             for o in self.oscillators.iter_mut() {
-                o.set_frequency_modulation(lfo_for_pitch);
+                o.set_frequency_modulation(lfo_for_pitch as f32);
             }
         }
 
@@ -1895,12 +1895,12 @@ impl Voice {
         let osc_sum = if self.oscillators.is_empty() {
             0.0
         } else {
-            let t: f32 = self
+            let t: MonoSample = self
                 .oscillators
                 .iter_mut()
                 .map(|o| o.process(time_seconds))
                 .sum();
-            t / self.oscillators.len() as f32
+            t / self.oscillators.len() as MonoSample
         };
 
         // Filters
@@ -1923,7 +1923,7 @@ impl Voice {
         self.amp_envelope.tick(time_seconds);
 
         // Final
-        filtered_mix * self.amp_envelope.value() * lfo_amplitude_modulation
+        filtered_mix * self.amp_envelope.value() as MonoSample * lfo_amplitude_modulation
     }
 
     pub(crate) fn is_playing(&self) -> bool {
@@ -1958,7 +1958,7 @@ pub struct Synth {
     sample_rate: u32,
     preset: SynthPreset,
     note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
-    current_value: f32,
+    current_value: MonoSample,
 }
 
 impl Synth {
@@ -2023,12 +2023,12 @@ impl DeviceTrait for Synth {
             done = done && !voice.borrow().is_playing();
         }
         if !self.note_to_voice.is_empty() {
-            self.current_value /= self.note_to_voice.len() as f32;
+            self.current_value /= self.note_to_voice.len() as MonoSample;
         }
         done
     }
 
-    fn get_audio_sample(&mut self) -> f32 {
+    fn get_audio_sample(&mut self) -> MonoSample {
         self.current_value
     }
 }
@@ -2069,7 +2069,7 @@ mod tests {
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
-        const AMPLITUDE: f32 = i16::MAX as f32;
+        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         let midi_on = MidiMessage::note_on_c4();
@@ -2127,7 +2127,7 @@ mod tests {
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
-        const AMPLITUDE: f32 = i16::MAX as f32;
+        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         let mut is_message_sent = false;

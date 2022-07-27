@@ -1,4 +1,4 @@
-use crate::common::DeviceId;
+use crate::common::{DeviceId, MonoSample};
 use crate::devices::traits::DeviceTrait;
 use crate::primitives::clock::Clock;
 use crate::settings::{DeviceSettings, EffectSettings, InstrumentSettings, OrchestratorSettings};
@@ -55,7 +55,7 @@ impl Orchestrator {
         self.devices.push(device);
     }
 
-    fn tick(&mut self) -> (f32, bool) {
+    fn tick(&mut self) -> (MonoSample, bool) {
         let mut done = true;
         for d in self.devices.clone() {
             if d.borrow().sources_midi() {
@@ -71,7 +71,7 @@ impl Orchestrator {
         (self.master_mixer.borrow_mut().get_audio_sample(), done)
     }
 
-    pub fn perform_to_queue(&mut self, worker: &Worker<f32>) -> anyhow::Result<()> {
+    pub fn perform_to_queue(&mut self, worker: &Worker<MonoSample>) -> anyhow::Result<()> {
         loop {
             let (sample, done) = self.tick();
             worker.push(sample);
@@ -160,7 +160,10 @@ impl Orchestrator {
                     // Match arms have to return the same types, and returning a Rc<RefCell<dyn some trait>> doesn't count
                     // as the same type.
                     EffectSettings::Limiter { id, min, max } => {
-                        let device = Rc::new(RefCell::new(Limiter::new_with_params(min, max)));
+                        let device = Rc::new(RefCell::new(Limiter::new_with_params(
+                            min as MonoSample,
+                            max as MonoSample,
+                        )));
                         self.id_to_instrument.insert(id, device.clone());
                         self.add_device(device.clone());
                     }

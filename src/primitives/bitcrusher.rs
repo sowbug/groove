@@ -1,3 +1,5 @@
+use crate::common::MonoSample;
+
 use super::EffectTrait;
 
 #[derive(Default)]
@@ -17,11 +19,11 @@ impl Bitcrusher {
 }
 
 impl EffectTrait for Bitcrusher {
-    fn process(&mut self, input: f32, _time_seconds: f32) -> f32 {
-        let input_i16 = (input * (i16::MAX as f32)) as i16;
+    fn process(&mut self, input: MonoSample, _time_seconds: f32) -> MonoSample {
+        let input_i16 = (input * (i16::MAX as MonoSample)) as i16;
         let squished = input_i16 >> self.bits_to_crush;
         let expanded = squished << self.bits_to_crush;
-        expanded as f32 / (i16::MAX as f32)
+        expanded as MonoSample / (i16::MAX as MonoSample)
     }
 }
 

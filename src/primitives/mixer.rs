@@ -1,3 +1,5 @@
+use crate::common::MonoSample;
+
 #[derive(Debug, Default)]
 pub struct MiniMixer {}
 
@@ -7,20 +9,20 @@ impl MiniMixer {
     }
 
     // (sample value, gain)
-    pub fn process(&self, samples: Vec<(f32, f32)>) -> f32 {
+    pub fn process(&self, samples: Vec<(MonoSample, f32)>) -> MonoSample {
         if !samples.is_empty() {
             // https://stackoverflow.com/questions/41017140/why-cant-rust-infer-the-resulting-type-of-iteratorsum
             // this was from old code that used iter().sum()
 
             // Weighted sum
             // TODO: learn how to do this with custom implementation of std:iter:sum
-            let mut sum = 0.0f32;
-            let mut divisor = 0.0f32;
+            let mut sum = 0.0;
+            let mut divisor = 0.0;
             for (v, g) in samples {
-                sum += v * g;
+                sum += v * (g as MonoSample);
                 divisor += g;
             }
-            sum / divisor as f32
+            sum / divisor as MonoSample
         } else {
             0.
         }

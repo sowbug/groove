@@ -1,11 +1,11 @@
 use hound;
 
-use crate::{common::MidiMessageType, devices::traits::DeviceTrait};
+use crate::{common::{MidiMessageType, MonoSample}, devices::traits::DeviceTrait};
 
 #[derive(Default)]
 #[allow(dead_code)]
 pub struct Sampler {
-    samples: Vec<f32>,
+    samples: Vec<MonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
@@ -25,7 +25,7 @@ impl Sampler {
         let mut reader = hound::WavReader::open(filename).unwrap();
         let mut r = Self::new(reader.duration() as usize);
         for sample in reader.samples::<i16>() {
-            r.samples.push(sample.unwrap() as f32 / i16::MAX as f32);
+            r.samples.push(sample.unwrap() as MonoSample / i16::MAX as MonoSample);
         }
         r
     }
@@ -57,12 +57,12 @@ impl DeviceTrait for Sampler {
         }
     }
 
-    fn get_audio_sample(&mut self) -> f32 {
+    fn get_audio_sample(&mut self) -> MonoSample {
         if self.is_playing {
-            let sample: f32 = *self
+            let sample = *self
                 .samples
                 .get(self.sample_pointer as usize)
-                .unwrap_or(&0.0f32);
+                .unwrap_or(&0.0);
             sample
         } else {
             0.0

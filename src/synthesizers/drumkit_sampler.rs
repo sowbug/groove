@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use hound;
 
 use crate::{
-    common::MidiMessageType, devices::traits::DeviceTrait,
+    common::{MidiMessageType, MonoSample}, devices::traits::DeviceTrait,
     general_midi::GeneralMidiPercussionProgram,
 };
 
 #[derive(Default)]
 struct Voice {
-    samples: Vec<f32>,
+    samples: Vec<MonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
@@ -26,9 +26,9 @@ impl Voice {
     pub fn new_from_file(filename: &str) -> Self {
         let mut reader = hound::WavReader::open(filename).unwrap();
         let mut r = Self::new(reader.duration() as usize);
-        let i24_max: f32 = 2.0f32.powi(24 - 1);
+        let i24_max: MonoSample = 2.0f32.powi(24 - 1);
         for sample in reader.samples::<i32>() {
-            r.samples.push(sample.unwrap() as f32 / i24_max);
+            r.samples.push(sample.unwrap() as MonoSample / i24_max);
         }
         r
     }
@@ -60,12 +60,12 @@ impl DeviceTrait for Voice {
         }
     }
 
-    fn get_audio_sample(&mut self) -> f32 {
+    fn get_audio_sample(&mut self) -> MonoSample {
         if self.is_playing {
-            let sample: f32 = *self
+            let sample = *self
                 .samples
                 .get(self.sample_pointer as usize)
-                .unwrap_or(&0.0f32);
+                .unwrap_or(&0.0);
             sample
         } else {
             0.0
@@ -167,8 +167,8 @@ impl DeviceTrait for Sampler {
         }
     }
 
-    fn get_audio_sample(&mut self) -> f32 {
-        let mut sum = 0.0f32;
+    fn get_audio_sample(&mut self) -> MonoSample {
+        let mut sum = 0.0;
         for v in self.note_to_voice.values_mut() {
             sum += v.get_audio_sample();
         }

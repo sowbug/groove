@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
+pub type MonoSample = f32;
 pub type DeviceId = String;
 
 #[derive(PartialEq, Copy, Clone, Debug)]

@@ -10,7 +10,7 @@ use crate::{
         sequencer::Sequencer,
         traits::DeviceTrait,
     },
-    synthesizers::welsh,
+    synthesizers::welsh, common::MonoSample,
 };
 
 pub struct ScriptEngine {
@@ -143,9 +143,9 @@ impl ScriptEngine {
     fn send_performance_to_file(
         sample_rate: u32,
         output_filename: &str,
-        worker: &Worker<f32>,
+        worker: &Worker<MonoSample>,
     ) -> anyhow::Result<()> {
-        const AMPLITUDE: f32 = i16::MAX as f32;
+        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let spec = hound::WavSpec {
             channels: 1,
             sample_rate,
@@ -196,7 +196,7 @@ impl ScriptEngine {
     }
 
     fn play(orchestrator: &mut Orchestrator) {
-        let worker = Worker::<f32>::new_fifo();
+        let worker = Worker::<MonoSample>::new_fifo();
         let result = orchestrator.perform_to_queue(&worker);
         if result.is_err() {
             panic!("oh no");

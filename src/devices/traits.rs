@@ -1,4 +1,4 @@
-use crate::common::MidiMessage;
+use crate::common::{MidiMessage, MonoSample};
 use crate::primitives::clock::Clock;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -29,7 +29,7 @@ pub trait DeviceTrait {
     fn tick(&mut self, clock: &Clock) -> bool {
         true
     }
-    fn get_audio_sample(&mut self) -> f32 {
+    fn get_audio_sample(&mut self) -> MonoSample {
         0.
     }
     fn add_audio_source(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {}

@@ -165,7 +165,7 @@ impl OrchestratorSettings {
 mod tests {
     use crossbeam::deque::Worker;
 
-    use crate::{devices::orchestrator::Orchestrator, synthesizers::welsh::PresetName};
+    use crate::{devices::orchestrator::Orchestrator, synthesizers::welsh::PresetName, common::MonoSample};
 
     use super::{DeviceSettings, InstrumentSettings, OrchestratorSettings};
 
@@ -205,7 +205,7 @@ mod tests {
         let yaml = std::fs::read_to_string("scripts/exercise-everything.yaml").unwrap();
         let settings = OrchestratorSettings::new_from_yaml(yaml.as_str());
         let mut orchestrator = Orchestrator::new(settings);
-        let worker = Worker::<f32>::new_fifo();
+        let worker = Worker::<MonoSample>::new_fifo();
         assert!(orchestrator.perform_to_queue(&worker).is_ok());
     }
 }

@@ -1,5 +1,7 @@
 use std::f64::consts::PI;
 
+use crate::common::MonoSample;
+
 use super::EffectTrait;
 
 #[derive(Clone, Copy)]
@@ -296,7 +298,7 @@ impl MiniFilter {
 }
 
 impl EffectTrait for MiniFilter {
-    fn process(&mut self, input: f32, _time_seconds: f32) -> f32 {
+    fn process(&mut self, input: MonoSample, _time_seconds: f32) -> MonoSample {
         let s64 = input as f64;
         let r = match self.order {
             0 => 0.,
@@ -360,7 +362,7 @@ impl EffectTrait for MiniFilter {
                 panic!("impossible");
             }
         };
-        r as f32
+        r as MonoSample
     }
 }
 
@@ -868,7 +870,7 @@ impl MiniFilter2 {
 }
 
 impl EffectTrait for MiniFilter2 {
-    fn process(&mut self, input: f32, _time_seconds: f32) -> f32 {
+    fn process(&mut self, input: MonoSample, _time_seconds: f32) -> MonoSample {
         let s64 = input as f64;
         let r = (self.b0 / self.a0) * s64
             + (self.b1 / self.a0) * self.sample_m1
@@ -882,7 +884,7 @@ impl EffectTrait for MiniFilter2 {
 
         self.output_m2 = self.output_m1;
         self.output_m1 = r;
-        r as f32
+        r as MonoSample
     }
 }
 

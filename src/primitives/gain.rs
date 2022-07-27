@@ -1,3 +1,5 @@
+use crate::common::MonoSample;
+
 #[derive(Default)]
 pub struct MiniGain {
     amount: f32,
@@ -8,8 +10,8 @@ impl MiniGain {
         Self { amount }
     }
 
-    pub fn process(&self, input: f32) -> f32 {
-        self.amount * input
+    pub fn process(&self, input: MonoSample) -> MonoSample {
+        self.amount as MonoSample * input
     }
 }
 

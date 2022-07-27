@@ -18,7 +18,7 @@ use crate::{
         midi::MidiControllerReader, orchestrator::Orchestrator, sequencer::Sequencer,
         traits::DeviceTrait,
     },
-    synthesizers::drumkit_sampler::Sampler as DrumKitSampler,
+    synthesizers::drumkit_sampler::Sampler as DrumKitSampler, common::MonoSample,
 };
 use clap::Parser;
 use cpal::{
@@ -51,7 +51,7 @@ impl ClDaw {
     }
 
     fn get_sample_from_queue<T: cpal::Sample>(
-        stealer: &Stealer<f32>,
+        stealer: &Stealer<MonoSample>,
         sync_pair: &Arc<(Mutex<bool>, Condvar)>,
         data: &mut [T],
         _info: &cpal::OutputCallbackInfo,
@@ -62,7 +62,7 @@ impl ClDaw {
 
         for next_sample in data.iter_mut() {
             let sample_option = stealer.steal();
-            let sample: f32 = if sample_option.is_success() {
+            let sample: MonoSample = if sample_option.is_success() {
                 sample_option.success().unwrap_or_default()
             } else {
                 // TODO(miket): this isn't great, because we don't know whether
@@ -72,11 +72,13 @@ impl ClDaw {
                 cvar.notify_one();
                 0.
             };
-            *next_sample = cpal::Sample::from(&sample);
+            // This is where MonoSample becomes an f32.
+            let sample_crossover: f32 = sample as f32;
+            *next_sample = cpal::Sample::from(&sample_crossover);
         }
     }
 
-    fn send_performance_to_output_device(&self, worker: &Worker<f32>) -> anyhow::Result<()> {
+    fn send_performance_to_output_device(&self, worker: &Worker<MonoSample>) -> anyhow::Result<()> {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
@@ -153,9 +155,9 @@ impl ClDaw {
     fn send_performance_to_file(
         &self,
         output_filename: &str,
-        worker: &Worker<f32>,
+        worker: &Worker<MonoSample>,
     ) -> anyhow::Result<()> {
-        const AMPLITUDE: f32 = i16::MAX as f32;
+        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let spec = hound::WavSpec {
             channels: 1,
             sample_rate: self.orchestrator.settings().clock.sample_rate(),
@@ -228,7 +230,7 @@ impl ClDaw {
             midi_input.borrow_mut().connect();
         }
         println!("Performing to queue");
-        let worker = Worker::<f32>::new_fifo();
+        let worker = Worker::<MonoSample>::new_fifo();
         self.orchestrator.perform_to_queue(&worker)?;
 
         println!("Rendering queue");

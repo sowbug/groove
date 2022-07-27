@@ -1,3 +1,5 @@
+use crate::common::MonoSample;
+
 pub mod bitcrusher;
 pub mod clock;
 pub mod envelopes;
@@ -9,14 +11,14 @@ pub mod oscillators;
 
 #[allow(unused_variables)]
 pub trait AudioSourceTrait {
-    fn process(&mut self, time_seconds: f32) -> f32 {
+    fn process(&mut self, time_seconds: f32) -> MonoSample {
         0.0
     }
 }
 
 #[allow(unused_variables)]
 pub trait EffectTrait {
-    fn process(&mut self, input: f32, time_seconds: f32) -> f32 {
+    fn process(&mut self, input: MonoSample, time_seconds: f32) -> MonoSample {
         input
     }
 }
@@ -32,7 +34,7 @@ pub mod tests {
 
     use convert_case::{Case, Casing};
 
-    use crate::primitives::clock::{Clock, ClockSettings};
+    use crate::{primitives::clock::{Clock, ClockSettings}, common::MonoSample};
 
     use super::{AudioSourceTrait, ControllerTrait, EffectTrait};
 
@@ -56,7 +58,7 @@ pub mod tests {
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
-        const AMPLITUDE: f32 = i16::MAX as f32;
+        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         while clock.seconds < 2.0 {
@@ -80,7 +82,7 @@ pub mod tests {
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
-        const AMPLITUDE: f32 = i16::MAX as f32;
+        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         while clock.seconds < 2.0 {
@@ -99,7 +101,7 @@ pub mod tests {
         pub fn new() -> Self {
             Self {}
         }
-        pub fn get_audio_sample(&self) -> f32 {
+        pub fn get_audio_sample(&self) -> MonoSample {
             1.1
         }
     }
@@ -109,7 +111,7 @@ pub mod tests {
         pub fn new() -> Self {
             Self {}
         }
-        pub fn get_audio_sample(&self) -> f32 {
+        pub fn get_audio_sample(&self) -> MonoSample {
             1.
         }
     }
@@ -119,7 +121,7 @@ pub mod tests {
         pub fn new() -> Self {
             Self {}
         }
-        pub fn get_audio_sample(&self) -> f32 {
+        pub fn get_audio_sample(&self) -> MonoSample {
             0.
         }
     }

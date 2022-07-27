@@ -1,11 +1,11 @@
 use super::traits::DeviceTrait;
-use crate::primitives::{
+use crate::{primitives::{
     self,
     filter::{MiniFilter2, MiniFilter2Type},
     gain::MiniGain,
     limiter::MiniLimiter,
     EffectTrait,
-};
+}, common::MonoSample};
 use std::{cell::RefCell, rc::Rc};
 
 pub struct Limiter {
@@ -14,7 +14,7 @@ pub struct Limiter {
 }
 
 impl Limiter {
-    pub fn new_with_params(min: f32, max: f32) -> Self {
+    pub fn new_with_params(min: MonoSample, max: MonoSample) -> Self {
         Self {
             source: None,
             effect: MiniLimiter::new(min, max),
@@ -40,7 +40,7 @@ impl DeviceTrait for Limiter {
     fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
         self.source = Some(source);
     }
-    fn get_audio_sample(&mut self) -> f32 {
+    fn get_audio_sample(&mut self) -> MonoSample {
         if self.source.is_some() {
             let source_ref = self.source.as_ref().unwrap();
             self.effect
@@ -84,7 +84,7 @@ impl DeviceTrait for Gain {
     fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
         self.source = Some(source);
     }
-    fn get_audio_sample(&mut self) -> f32 {
+    fn get_audio_sample(&mut self) -> MonoSample {
         if self.source.is_some() {
             let source_ref = self.source.as_ref().unwrap();
             self.effect
@@ -136,7 +136,7 @@ impl DeviceTrait for Bitcrusher {
         true
     }
 
-    fn get_audio_sample(&mut self) -> f32 {
+    fn get_audio_sample(&mut self) -> MonoSample {
         if self.source.is_some() {
             let source_ref = self.source.as_ref().unwrap();
             self.effect.process(
@@ -240,7 +240,7 @@ impl DeviceTrait for Filter {
         true
     }
 
-    fn get_audio_sample(&mut self) -> f32 {
+    fn get_audio_sample(&mut self) -> MonoSample {
         if self.source.is_some() {
             let source_ref = self.source.as_ref().unwrap();
             self.effect
