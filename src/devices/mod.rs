@@ -8,7 +8,7 @@ pub mod traits; // TODO; make non-pub again so DeviceTrait doesn't leak out of t
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::{MidiMessage, MidiMessageType},
+        common::{MidiMessage, MidiMessageType, MonoSample},
         primitives::clock::Clock,
     };
 
@@ -57,6 +57,26 @@ mod tests {
                     self.midi_messages_handled += 1;
                 }
             }
+        }
+    }
+
+    pub struct SingleLevelDevice {
+        level: MonoSample,
+    }
+
+    impl SingleLevelDevice {
+        pub fn new(level: MonoSample) -> Self {
+            Self { level }
+        }
+    }
+
+    impl DeviceTrait for SingleLevelDevice {
+        fn sources_audio(&self) -> bool {
+            true
+        }
+
+        fn get_audio_sample(&mut self) -> MonoSample {
+            self.level
         }
     }
 }

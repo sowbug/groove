@@ -190,6 +190,7 @@ impl Pattern {
         note.parse().unwrap_or_default()
     }
 
+    #[allow(dead_code)]
     fn value_to_note(value: u8) -> String {
         value.to_string()
     }

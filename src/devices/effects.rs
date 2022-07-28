@@ -1,32 +1,39 @@
 use super::traits::DeviceTrait;
-use crate::{primitives::{
-    self,
-    filter::{MiniFilter2, MiniFilter2Type},
-    gain::MiniGain,
-    limiter::MiniLimiter,
-    EffectTrait,
-}, common::MonoSample};
+use crate::{
+    common::MonoSample,
+    primitives::{
+        self,
+        filter::{MiniFilter2, MiniFilter2Type},
+        gain::MiniGain,
+        limiter::MiniLimiter,
+        EffectTrait,
+    },
+};
 use std::{cell::RefCell, rc::Rc};
 
+fn add_sources(sources: &Vec<Rc<RefCell<dyn DeviceTrait>>>) -> MonoSample {
+    sources
+        .iter()
+        .map(|s| s.borrow_mut().get_audio_sample())
+        .sum()
+}
+
 pub struct Limiter {
-    source: Option<Rc<RefCell<dyn DeviceTrait>>>,
+    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
     effect: MiniLimiter,
 }
 
 impl Limiter {
     pub fn new_with_params(min: MonoSample, max: MonoSample) -> Self {
         Self {
-            source: None,
+            sources: Vec::new(),
             effect: MiniLimiter::new(min, max),
         }
     }
 
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self {
-            source: None,
-            effect: MiniLimiter::new(0.0, 1.0),
-        }
+        Self::new_with_params(0.0, 1.0)
     }
 }
 
@@ -38,39 +45,30 @@ impl DeviceTrait for Limiter {
         true
     }
     fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
-        self.source = Some(source);
+        self.sources.push(source);
     }
     fn get_audio_sample(&mut self) -> MonoSample {
-        if self.source.is_some() {
-            let source_ref = self.source.as_ref().unwrap();
-            self.effect
-                .process(source_ref.borrow_mut().get_audio_sample())
-        } else {
-            0.0
-        }
+        self.effect.process(add_sources(&self.sources))
     }
 }
 
 #[derive(Default)]
 pub struct Gain {
-    source: Option<Rc<RefCell<dyn DeviceTrait>>>,
+    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
     effect: MiniGain,
 }
 
 impl Gain {
     pub fn new_with_params(amount: f32) -> Self {
         Self {
-            source: None,
+            sources: Vec::new(),
             effect: MiniGain::new(amount), // TODO: consider new_with_params() convention
         }
     }
 
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self {
-            source: None,
-            effect: MiniGain::new(1.0), // TODO: what's a neutral gain?
-        }
+        Self::new_with_params(1.0)
     }
 }
 
@@ -82,21 +80,15 @@ impl DeviceTrait for Gain {
         true
     }
     fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
-        self.source = Some(source);
+        self.sources.push(source);
     }
     fn get_audio_sample(&mut self) -> MonoSample {
-        if self.source.is_some() {
-            let source_ref = self.source.as_ref().unwrap();
-            self.effect
-                .process(source_ref.borrow_mut().get_audio_sample())
-        } else {
-            0.0
-        }
+        self.effect.process(add_sources(&self.sources))
     }
 }
 
 pub struct Bitcrusher {
-    source: Option<Rc<RefCell<dyn DeviceTrait>>>,
+    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
     effect: primitives::bitcrusher::Bitcrusher,
     time_seconds: f32,
 }
@@ -104,17 +96,13 @@ pub struct Bitcrusher {
 impl Bitcrusher {
     pub fn new_with_params(bits_to_crush: u8) -> Self {
         Self {
-            source: None,
+            sources: Vec::new(),
             effect: primitives::bitcrusher::Bitcrusher::new(bits_to_crush),
             time_seconds: 0.0,
         }
     }
     pub fn new() -> Self {
-        Self {
-            source: None,
-            effect: primitives::bitcrusher::Bitcrusher::new(8),
-            time_seconds: 0.0,
-        }
+        Self::new_with_params(8)
     }
 }
 
@@ -128,7 +116,7 @@ impl DeviceTrait for Bitcrusher {
     }
 
     fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
-        self.source = Some(source);
+        self.sources.push(source);
     }
 
     fn tick(&mut self, clock: &primitives::clock::Clock) -> bool {
@@ -137,21 +125,14 @@ impl DeviceTrait for Bitcrusher {
     }
 
     fn get_audio_sample(&mut self) -> MonoSample {
-        if self.source.is_some() {
-            let source_ref = self.source.as_ref().unwrap();
-            self.effect.process(
-                source_ref.borrow_mut().get_audio_sample(),
-                self.time_seconds,
-            )
-        } else {
-            0.0
-        }
+        self.effect
+            .process(add_sources(&self.sources), self.time_seconds)
     }
 }
 
 #[allow(dead_code)]
 pub struct Filter {
-    source: Option<Rc<RefCell<dyn DeviceTrait>>>,
+    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
     effect: MiniFilter2,
 
     filter_type: MiniFilter2Type,
@@ -160,7 +141,7 @@ pub struct Filter {
 impl Filter {
     fn inner_new_filter(ft: &MiniFilter2Type) -> Self {
         Self {
-            source: None,
+            sources: Vec::new(),
             effect: MiniFilter2::new(ft),
             filter_type: *ft,
         }
@@ -233,20 +214,58 @@ impl DeviceTrait for Filter {
     }
 
     fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
-        self.source = Some(source);
-    }
-
-    fn tick(&mut self, _clock: &primitives::clock::Clock) -> bool {
-        true
+        self.sources.push(source);
     }
 
     fn get_audio_sample(&mut self) -> MonoSample {
-        if self.source.is_some() {
-            let source_ref = self.source.as_ref().unwrap();
-            self.effect
-                .process(source_ref.borrow_mut().get_audio_sample(), 0.0)
-        } else {
-            0.0
+        self.effect.process(add_sources(&self.sources), -1.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_approx_eq::assert_approx_eq;
+
+    use crate::{
+        common::MonoSample,
+        devices::{tests::SingleLevelDevice, traits::DeviceTrait},
+    };
+
+    use super::Limiter;
+    use std::{cell::RefCell, rc::Rc};
+
+    #[test]
+    fn test_limiter() {
+        const MIN: MonoSample = -0.75;
+        const MAX: MonoSample = -MIN;
+        {
+            let mut limiter = Limiter::new_with_params(MIN, MAX);
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.5))));
+            assert_eq!(limiter.get_audio_sample(), 0.5);
+        }
+        {
+            let mut limiter = Limiter::new_with_params(MIN, MAX);
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(-0.8))));
+            assert_eq!(limiter.get_audio_sample(), MIN);
+        }
+        {
+            let mut limiter = Limiter::new_with_params(MIN, MAX);
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.8))));
+            assert_eq!(limiter.get_audio_sample(), MAX);
+        }
+
+        // multiple sources
+        {
+            let mut limiter = Limiter::new_with_params(MIN, MAX);
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.2))));
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.6))));
+            assert_eq!(limiter.get_audio_sample(), MAX);
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(-1.0))));
+            assert_approx_eq!(limiter.get_audio_sample(), -0.2);
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(-1.0))));
+            assert_eq!(limiter.get_audio_sample(), MIN);
         }
     }
+
+    // TODO: test multiple sources for all effects. follow lead of limiter
 }
