@@ -102,9 +102,10 @@ impl Sampler {
 
     pub fn new_from_files() -> Self {
         let mut r = Self::new();
-        let samples: [(GeneralMidiPercussionProgram, &str); 20] = [
+        let samples: [(GeneralMidiPercussionProgram, &str); 21] = [
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
             (GeneralMidiPercussionProgram::ElectricBassDrum, "BD B"),
+            (GeneralMidiPercussionProgram::ClosedHiHat, "CH"),
             (GeneralMidiPercussionProgram::PedalHiHat, "CH"),
             (GeneralMidiPercussionProgram::HandClap, "Clap"),
             (GeneralMidiPercussionProgram::RideBell, "Cowbell"),

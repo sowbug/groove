@@ -75,14 +75,15 @@ impl Sequencer {
         }
     }
 
-    fn insert_short_note(&mut self, channel: u8, note: u8, when: &mut u32) {
+    fn insert_short_note(&mut self, channel: u8, note: u8, when: &mut u32, duration: u32) {
+        dbg!("inserting", note, *when);
         if note != 0 {
             self.add_message(OrderedMidiMessage {
                 when: *when,
                 message: MidiMessage::new_note_on(channel, note, 100),
             });
             self.add_message(OrderedMidiMessage {
-                when: *when + 960 / 4, // TODO
+                when: *when + duration,
                 message: MidiMessage::new_note_off(channel, note, 100),
             });
         }
@@ -110,7 +111,13 @@ impl Sequencer {
             let pattern_len = note_sequence.len();
             *insertion_point = start_insertion_point;
             for (i, note) in note_sequence.iter().enumerate() {
-                self.insert_short_note(channel, *note, insertion_point);
+                *insertion_point = start_insertion_point + (i as f32 * ticks_per_note) as u32;
+                self.insert_short_note(
+                    channel,
+                    *note,
+                    insertion_point,
+                    (self.midi_ticks_per_second as f32 / divisor) as u32,
+                );
                 // Suppose 120 BPM and 4/4 time
                 // 120 / 60 = 2 beats per second
                 // note is an eighth of a beat
@@ -123,7 +130,6 @@ impl Sequencer {
                 // to minimize the accumulation of fractional loss. See TODO above - either pick a
                 // granularity for an integer that's so fine it doesn't matter, or else pick a universal
                 // floating-point representation of time.
-                *insertion_point = start_insertion_point + (i as f32 * ticks_per_note) as u32;
             }
             *insertion_point = start_insertion_point + (pattern_len as f32 * ticks_per_note) as u32;
         }

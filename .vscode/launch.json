@@ -67,6 +67,29 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "YAML to file",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--yaml-in",
+        "scripts/everything.yaml",
+        "--wav-out",
+        "everything.wav"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Run script file",
       "cargo": {
         "args": [
