@@ -29,7 +29,7 @@ devices:
   - effect:
       bitcrusher:
         id: bitcrusher-1
-        bits_to_crush: 14
+        bits-to-crush: 14
   - effect:
       filter-low-pass-12db:
         id: low-pass-1
@@ -43,6 +43,10 @@ patterns:
   - id: basic-1
     notes:
       - [60, 00, 60, 00, 60, 00, 60, 00, 67, 00, 67, 00, 67, 00, 67, 00]
+  - id: basic-2
+    notes:
+      - [72, 00, 72, 00, 72, 00, 72, 00, 64, 00, 64, 00, 64, 00, 64, 00]
+      - [60, 00, 60, 00, 60, 00, 60, 00, 67, 00, 67, 00, 67, 00, 67, 00]
   - id: bass
     beat-value: quarter
     notes:
@@ -55,10 +59,10 @@ patterns:
 tracks:
   - id: track-1
     midi-channel: 0
-    patterns: [basic-1]
+    patterns: [basic-1, basic-2]
   - id: bass-1
     midi-channel: 1
-    patterns: [bass]
+    patterns: [bass, bass]
   - id: track-10
     midi-channel: 10
-    patterns: [four-on-the-floor]
+    patterns: [four-on-the-floor, four-on-the-floor]

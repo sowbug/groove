@@ -33,12 +33,47 @@ devices:
   - effect:
       bitcrusher:
         id: bitcrusher-1
-        bits_to_crush: 14
+        bits-to-crush: 14
   - effect:
       filter-low-pass-12db:
         id: low-pass-1
         cutoff: 1200.0
         q: 1.0
+  - effect:
+      filter-high-pass-12db:
+        id: high-pass-1
+        cutoff: 1200.0
+        q: 1.0
+  - effect:
+      filter-band-pass-12db:
+        id: band-pass-1
+        cutoff: 1200.0
+        bandwidth: 1.0
+  - effect:
+      filter-band-stop-12db:
+        id: band-stop-1
+        cutoff: 1200.0
+        bandwidth: 1.0
+  - effect:
+      filter-all-pass-12db:
+        id: all-pass-1
+        cutoff: 1200.0
+        q: 1.0
+  - effect:
+      filter-peaking-eq-12db:
+        id: peaking-eq-1
+        cutoff: 1200.0
+        db-gain: 1.0
+  - effect:
+      filter-low-shelf-12db:
+        id: low-shelf-1
+        cutoff: 1200.0
+        db-gain: 1.0
+  - effect:
+      filter-high-shelf-12db:
+        id: high-shelf-1
+        cutoff: 1200.0
+        db-gain: 1.0
 patch-cables:
   - [piano-1, bitcrusher-1, low-pass-1, gain-1, main-mixer]
   - [bassline, gain-2, main-mixer]
