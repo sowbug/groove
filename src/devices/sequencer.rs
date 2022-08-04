@@ -99,6 +99,8 @@ impl Sequencer {
         insertion_point: &mut u32,
     ) {
         let start_insertion_point: u32 = *insertion_point;
+
+        // TODO: TimeSignature should be doing this work for us
         let divisor = if let Some(bv) = &pattern.borrow().beat_value {
             bv.divisor()
         } else {
