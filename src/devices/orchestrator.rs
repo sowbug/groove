@@ -1,13 +1,12 @@
 use crate::common::{DeviceId, MonoSample};
 use crate::devices::traits::DeviceTrait;
-use crate::primitives::clock::Clock;
-use crate::settings::{
-    AutomationTrackSettings, DeviceSettings, EffectSettings, InstrumentSettings,
-    OrchestratorSettings,
-};
+use crate::primitives::clock::{Clock, TimeSignature};
+use crate::settings::{DeviceSettings, EffectSettings, InstrumentSettings, OrchestratorSettings};
 use crate::synthesizers::{drumkit_sampler, welsh};
 use crossbeam::deque::Worker;
+use sorted_vec::SortedVec;
 use std::cell::RefCell;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -383,14 +382,19 @@ impl Orchestrator {
                 .id_to_instrument
                 .get(&track_settings.target.id)
                 .unwrap();
-            let mut automation_track = Rc::new(RefCell::new(AutomationTrack::new(
+            let automation_track = Rc::new(RefCell::new(AutomationTrack::new(
                 target.clone(),
                 track_settings.target.param,
             )));
+            let mut insertion_point = 0u32; // TODO: this is probably wrong
             for pattern_id in track_settings.pattern_ids {
                 let pattern_opt = self.id_to_automation_pattern.get(&pattern_id);
                 if let Some(pattern) = pattern_opt {
-                    automation_track.borrow_mut().add_pattern(pattern.clone());
+                    automation_track.borrow_mut().add_pattern(
+                        pattern.clone(),
+                        &mut insertion_point,
+                        &self.clock,
+                    );
                 }
             }
             self.add_device(automation_track.clone());
@@ -407,56 +411,39 @@ struct AutomationTrack {
     target_instrument: Rc<RefCell<dyn DeviceTrait>>,
     target_param_name: String,
 
+    automation_events: SortedVec<OrderedAutomationEvent>,
+
     // for DeviceTrait
     needs_tick: bool,
 }
 
 impl AutomationTrack {
-    pub fn new(
-        target: Rc<RefCell<dyn DeviceTrait>>,
-        target_param_name: String,
-    ) -> Self {
+    pub fn new(target: Rc<RefCell<dyn DeviceTrait>>, target_param_name: String) -> Self {
         Self {
             patterns: Vec::new(),
             target_instrument: target,
             target_param_name,
+            automation_events: SortedVec::new(),
             needs_tick: true,
         }
     }
 
-    pub fn add_pattern(&mut self, pattern: Rc<RefCell<AutomationPattern>>) {
-        self.patterns.push(pattern);
-
-
-
-
-
-
-
-
-
-
-
-
-        
-
-
-        /// FOR TOMORROW ///
-        /// 
-        /// Each time a pattern is added, expand it to a list of flattened events that are easy to handle as they come up.
-        /// 
-        /// 
-        /// 
-        /// 
-
-
-
-
-
-
-
-
-
+    pub fn add_pattern(
+        &mut self,
+        pattern: Rc<RefCell<AutomationPattern>>,
+        insertion_point: &mut u32,
+        clock: &Clock,
+    ) {
+        self.patterns.push(pattern.clone()); // TODO: is this necessary if we're flattening right away?
+        let beat_value = (clock.settings().sample_rate() as f32 / (clock.settings().bpm() / 60.0)) as u32;
+        // TODO: beat_value accumulates integer error
+        for point in pattern.borrow().points.clone() {
+            *insertion_point += beat_value;
+            self.automation_events.insert(OrderedAutomationEvent {
+                when: *insertion_point,
+                target_param_value: point as u32,
+            });
+        }
     }
 }
 
@@ -476,6 +463,8 @@ impl DeviceTrait for AutomationTrack {
     fn tick(&mut self, clock: &Clock) -> bool {
         self.needs_tick = false;
 
+        // TODO: handle self.automation_events
+        
         // TODO: be smarter about whether we're all done
         true
     }
@@ -497,3 +486,17 @@ impl AutomationPattern {
         }
     }
 }
+
+#[derive(PartialEq, PartialOrd, Clone)]
+pub struct OrderedAutomationEvent {
+    when: u32,
+    target_param_value: u32,
+}
+
+impl Ord for OrderedAutomationEvent {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.when.cmp(&other.when)
+    }
+}
+
+impl Eq for OrderedAutomationEvent {}
