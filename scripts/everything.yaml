@@ -67,3 +67,14 @@ tracks:
   - id: track-10
     midi-channel: 10
     patterns: [four-on-the-floor, four-on-the-floor]
+automation-patterns:
+  - id: auto-1
+    beat-value: whole
+    points: [0.0, -1.0, -1.0, 1.0]
+automation-tracks:
+  - id: auto-track-1
+    target:
+      id: low-pass-1
+      param: cutoff
+    start-measure: 2
+    patterns: [auto-1]

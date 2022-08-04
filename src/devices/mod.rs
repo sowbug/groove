@@ -1,3 +1,4 @@
+mod automation;
 pub mod effects;
 pub mod midi;
 mod mixer;

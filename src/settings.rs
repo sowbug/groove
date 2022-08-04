@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{common::DeviceId, primitives::clock::{ClockSettings, BeatValue}, synthesizers::welsh::PresetName};
+use crate::{
+    common::DeviceId,
+    primitives::clock::{BeatValue, ClockSettings},
+    synthesizers::welsh::PresetName,
+};
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
@@ -114,6 +118,31 @@ pub enum DeviceSettings {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
+pub struct AutomationPatternSettings {
+    pub id: DeviceId,
+    pub beat_value: Option<BeatValue>,
+    pub points: Vec<f32>,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct AutomationTargetSettings {
+    pub id: DeviceId,
+    pub param: String,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct AutomationTrackSettings {
+    pub id: DeviceId,
+    pub target: AutomationTargetSettings,
+
+    #[serde(rename = "patterns")]
+    pub pattern_ids: Vec<DeviceId>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct PatternSettings {
     pub id: DeviceId,
     pub beat_value: Option<BeatValue>,
@@ -141,6 +170,10 @@ pub struct OrchestratorSettings {
     pub patterns: Vec<PatternSettings>,
     #[serde(default)]
     pub tracks: Vec<TrackSettings>,
+    #[serde(default)]
+    pub automation_patterns: Vec<AutomationPatternSettings>,
+    #[serde(default)]
+    pub automation_tracks: Vec<AutomationTrackSettings>,
 }
 
 impl OrchestratorSettings {
@@ -172,7 +205,9 @@ impl OrchestratorSettings {
 mod tests {
     use crossbeam::deque::Worker;
 
-    use crate::{devices::orchestrator::Orchestrator, synthesizers::welsh::PresetName, common::MonoSample};
+    use crate::{
+        common::MonoSample, devices::orchestrator::Orchestrator, synthesizers::welsh::PresetName,
+    };
 
     use super::{DeviceSettings, InstrumentSettings, OrchestratorSettings};
 

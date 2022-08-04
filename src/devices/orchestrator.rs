@@ -1,7 +1,10 @@
 use crate::common::{DeviceId, MonoSample};
 use crate::devices::traits::DeviceTrait;
 use crate::primitives::clock::Clock;
-use crate::settings::{DeviceSettings, EffectSettings, InstrumentSettings, OrchestratorSettings};
+use crate::settings::{
+    AutomationTrackSettings, DeviceSettings, EffectSettings, InstrumentSettings,
+    OrchestratorSettings,
+};
 use crate::synthesizers::{drumkit_sampler, welsh};
 use crossbeam::deque::Worker;
 use std::cell::RefCell;
@@ -22,6 +25,7 @@ pub struct Orchestrator {
     id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn DeviceTrait>>>,
     id_to_sequencer: HashMap<DeviceId, Rc<RefCell<Sequencer>>>,
     id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
+    id_to_automation_pattern: HashMap<DeviceId, Rc<RefCell<AutomationPattern>>>,
 
     // legacy
     devices: Vec<Rc<RefCell<dyn DeviceTrait>>>,
@@ -36,6 +40,8 @@ impl Orchestrator {
             id_to_instrument: HashMap::new(),
             id_to_sequencer: HashMap::new(),
             id_to_pattern: HashMap::new(),
+            id_to_automation_pattern: HashMap::new(),
+
             devices: Vec::new(),
         };
         r.set_up_from_settings();
@@ -58,16 +64,24 @@ impl Orchestrator {
     fn tick(&mut self) -> (MonoSample, bool) {
         let mut done = true;
         for d in self.devices.clone() {
-            if d.borrow().sources_midi() {
+            if d.borrow().sources_automation() && d.borrow().needs_tick() {
                 done = d.borrow_mut().tick(&self.clock) && done;
             }
         }
         for d in self.devices.clone() {
-            if d.borrow().sources_audio() {
+            if d.borrow().sources_midi() && d.borrow().needs_tick() {
+                done = d.borrow_mut().tick(&self.clock) && done;
+            }
+        }
+        for d in self.devices.clone() {
+            if d.borrow().sources_audio() && d.borrow().needs_tick() {
                 done = d.borrow_mut().tick(&self.clock) && done;
             }
         }
         self.clock.tick();
+        for d in self.devices.clone() {
+            d.borrow_mut().reset_needs_tick();
+        }
         (self.master_mixer.borrow_mut().get_audio_sample(), done)
     }
 
@@ -98,6 +112,7 @@ impl Orchestrator {
         self.create_instruments();
         self.plug_in_patch_cables();
         self.create_tracks();
+        self.create_automations();
     }
 
     fn create_instruments(&mut self) {
@@ -352,7 +367,133 @@ impl Orchestrator {
         }
     }
 
+    fn create_automations(&mut self) {
+        if self.settings.automation_tracks.is_empty() {
+            return;
+        }
+
+        for pattern in self.settings.automation_patterns.clone() {
+            self.id_to_automation_pattern.insert(
+                pattern.id.clone(),
+                Rc::new(RefCell::new(AutomationPattern::from_settings(&pattern))),
+            );
+        }
+        for track_settings in self.settings.automation_tracks.clone() {
+            let target = self
+                .id_to_instrument
+                .get(&track_settings.target.id)
+                .unwrap();
+            let mut automation_track = Rc::new(RefCell::new(AutomationTrack::new(
+                target.clone(),
+                track_settings.target.param,
+            )));
+            for pattern_id in track_settings.pattern_ids {
+                let pattern_opt = self.id_to_automation_pattern.get(&pattern_id);
+                if let Some(pattern) = pattern_opt {
+                    automation_track.borrow_mut().add_pattern(pattern.clone());
+                }
+            }
+            self.add_device(automation_track.clone());
+        }
+    }
+
     fn get_pattern_by_id(&self, pattern_id: &str) -> Rc<RefCell<Pattern>> {
         (self.id_to_pattern.get(pattern_id).unwrap()).clone()
+    }
+}
+
+struct AutomationTrack {
+    patterns: Vec<Rc<RefCell<AutomationPattern>>>,
+    target_instrument: Rc<RefCell<dyn DeviceTrait>>,
+    target_param_name: String,
+
+    // for DeviceTrait
+    needs_tick: bool,
+}
+
+impl AutomationTrack {
+    pub fn new(
+        target: Rc<RefCell<dyn DeviceTrait>>,
+        target_param_name: String,
+    ) -> Self {
+        Self {
+            patterns: Vec::new(),
+            target_instrument: target,
+            target_param_name,
+            needs_tick: true,
+        }
+    }
+
+    pub fn add_pattern(&mut self, pattern: Rc<RefCell<AutomationPattern>>) {
+        self.patterns.push(pattern);
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+        /// FOR TOMORROW ///
+        /// 
+        /// Each time a pattern is added, expand it to a list of flattened events that are easy to handle as they come up.
+        /// 
+        /// 
+        /// 
+        /// 
+
+
+
+
+
+
+
+
+
+    }
+}
+
+impl DeviceTrait for AutomationTrack {
+    fn sources_automation(&self) -> bool {
+        true
+    }
+
+    fn needs_tick(&self) -> bool {
+        self.needs_tick
+    }
+
+    fn reset_needs_tick(&mut self) {
+        self.needs_tick = true;
+    }
+
+    fn tick(&mut self, clock: &Clock) -> bool {
+        self.needs_tick = false;
+
+        // TODO: be smarter about whether we're all done
+        true
+    }
+}
+
+use crate::primitives::clock::BeatValue;
+
+#[derive(Clone)]
+pub struct AutomationPattern {
+    pub beat_value: Option<BeatValue>,
+    pub points: Vec<f32>,
+}
+
+impl AutomationPattern {
+    pub(crate) fn from_settings(settings: &crate::settings::AutomationPatternSettings) -> Self {
+        Self {
+            beat_value: settings.beat_value.clone(),
+            points: settings.points.clone(),
+        }
     }
 }

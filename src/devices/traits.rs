@@ -19,6 +19,13 @@ pub trait DeviceTrait {
     fn sinks_audio(&self) -> bool {
         false
     }
+    fn sources_automation(&self) -> bool {
+        false
+    }
+    fn needs_tick(&self) -> bool {
+        true  // TODO: this should switch to false when everyone has been retrofitted
+    }
+    fn reset_needs_tick(&mut self) {}
 
     // Returns whether this device has completed all it has to do.
     // A typical audio effect or instrument will always return true,

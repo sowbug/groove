@@ -76,7 +76,7 @@ impl Sequencer {
     }
 
     fn insert_short_note(&mut self, channel: u8, note: u8, when: &mut u32, duration: u32) {
-        dbg!("inserting", note, *when);
+        dbg!(note, *when);
         if note != 0 {
             self.add_message(OrderedMidiMessage {
                 when: *when,
@@ -153,6 +153,10 @@ impl DeviceTrait for Sequencer {
             if elapsed_midi_ticks >= midi_message.when {
                 dbg!(midi_message);
                 self.dispatch_midi_message(midi_message, clock);
+
+                // TODO: this is violating a (future) rule that we can always randomly access
+                // anything in the song. It's actually more than that, because it's destroying
+                // information that would be needed to add that ability later.
                 self.midi_messages.remove_index(0);
             } else {
                 break;
