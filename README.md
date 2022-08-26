@@ -35,3 +35,12 @@ The text on the left is the truth. It's what you save when you save your project
 - Plugin support (VST, [CLAP](https://u-he.com/community/clap/)). I think it's possible to carry out the vision even if components of a project are closed-source. If a plugin's persistent state is a set of values that can be represented in a config file, then it should fit in.
 - Assistance with song composition. Suggesting pleasant chord progressions, identifying the current scale and highlighting the full set of consonant notes, a [hyperspace](https://en.wikipedia.org/wiki/Asteroids_(video_game)) button to suggest new directions, etc.
 - A review of other DAW features, then playing catchup.
+
+## Other projects/resources of interest
+
+- [MiniDexed](https://github.com/probonopd/MiniDexed)
+- [minisynth](https://github.com/rsta2/minisynth)
+- [Dirtywave M8](https://dirtywave.com/)
+- [BasicSynth](https://basicsynth.com/)
+- [Welsh's Synthesizer Cookbook](https://synthesizer-cookbook.com/)
+- [SynthLab](https://www.willpirkle.com/synthlab-landing/)
