@@ -145,6 +145,8 @@ impl DeviceTrait for Sequencer {
 
     fn tick(&mut self, clock: &Clock) -> bool {
         if self.midi_messages.is_empty() {
+            // This is different from falling through the loop below because
+            // it signals that we're done.
             return true;
         }
         let elapsed_midi_ticks = (clock.seconds * self.midi_ticks_per_second as f32) as u32;

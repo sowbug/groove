@@ -220,6 +220,12 @@ impl DeviceTrait for Filter {
     fn get_audio_sample(&mut self) -> MonoSample {
         self.effect.process(add_sources(&self.sources), -1.0)
     }
+
+    fn handle_automation(&mut self, param_name: &String, param_value: f32) {
+        let unscaled_cutoff = MiniFilter2::percent_to_frequency(param_value * 2.0 - 1.0);
+        dbg!(param_name, param_value, unscaled_cutoff);
+        self.effect.set_cutoff(unscaled_cutoff);
+    }
 }
 
 #[cfg(test)]

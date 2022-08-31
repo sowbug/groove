@@ -434,15 +434,15 @@ impl AutomationTrack {
         insertion_point: &mut u32,
         clock: &Clock,
     ) {
-        self.patterns.push(pattern.clone()); // TODO: is this necessary if we're flattening right away?
-        let beat_value = (clock.settings().sample_rate() as f32 / (clock.settings().bpm() / 60.0)) as u32;
+        // self.patterns.push(pattern.clone()); // TODO: is this necessary if we're flattening right away?
+        let start_beat_value = *insertion_point;
         // TODO: beat_value accumulates integer error
         for point in pattern.borrow().points.clone() {
-            *insertion_point += beat_value;
             self.automation_events.insert(OrderedAutomationEvent {
                 when: *insertion_point,
-                target_param_value: point as u32,
+                target_param_value: point,
             });
+            *insertion_point += 1;
         }
     }
 }
@@ -463,10 +463,29 @@ impl DeviceTrait for AutomationTrack {
     fn tick(&mut self, clock: &Clock) -> bool {
         self.needs_tick = false;
 
-        // TODO: handle self.automation_events
-        
-        // TODO: be smarter about whether we're all done
-        true
+        if self.automation_events.is_empty() {
+            // This is different from falling through the loop below because
+            // it signals that we're done.
+            return true;
+        }
+        while !self.automation_events.is_empty() {
+            let event = self.automation_events.first().unwrap();
+
+            if clock.beats >= event.when {
+                dbg!(event);
+
+                // TODO: act on the automation thing
+                self.target_instrument
+                    .borrow_mut()
+                    .handle_automation(&self.target_param_name, event.target_param_value);
+
+                // TODO: same issue as the similar code in Sequencer::tick().
+                self.automation_events.remove_index(0);
+            } else {
+                break;
+            }
+        }
+        false
     }
 }
 
@@ -487,10 +506,10 @@ impl AutomationPattern {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Clone)]
+#[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub struct OrderedAutomationEvent {
     when: u32,
-    target_param_value: u32,
+    target_param_value: f32,
 }
 
 impl Ord for OrderedAutomationEvent {
