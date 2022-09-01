@@ -44,3 +44,10 @@ The text on the left is the truth. It's what you save when you save your project
 - [BasicSynth](https://basicsynth.com/)
 - [Welsh's Synthesizer Cookbook](https://synthesizer-cookbook.com/)
 - [SynthLab](https://www.willpirkle.com/synthlab-landing/)
+
+## Installation for development
+
+I use VSCode for development.
+
+- `curl https://sh.rustup.rs -sSf | sh`
+- `apt install pkg-config libasound2-dev`
