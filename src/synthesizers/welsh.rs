@@ -1838,7 +1838,7 @@ pub struct Voice {
 }
 
 impl Voice {
-    pub fn new(sample_rate: u32, preset: &SynthPreset) -> Self {
+    pub fn new(sample_rate: usize, preset: &SynthPreset) -> Self {
         let mut r = Self {
             oscillators: Vec::new(),
             osc_mix: Vec::new(),
@@ -1955,14 +1955,14 @@ impl DeviceTrait for Voice {
 
 #[derive(Default, Clone)]
 pub struct Synth {
-    sample_rate: u32,
+    sample_rate: usize,
     preset: SynthPreset,
     note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
     current_value: MonoSample,
 }
 
 impl Synth {
-    pub fn new(sample_rate: u32, preset: SynthPreset) -> Self {
+    pub fn new(sample_rate: usize, preset: SynthPreset) -> Self {
         Self {
             sample_rate,
             preset,
@@ -2057,7 +2057,7 @@ mod tests {
 
     use super::Voice;
 
-    const SAMPLE_RATE: u32 = 44100;
+    const SAMPLE_RATE: usize = 44100;
 
     // TODO: refactor out to common test utilities
     fn write_voice(voice: &mut Voice, duration: f32, basename: &str) {
@@ -2065,7 +2065,7 @@ mod tests {
 
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: clock.settings().sample_rate(),
+            sample_rate: clock.settings().sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -2123,7 +2123,7 @@ mod tests {
     ) {
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: clock.settings().sample_rate(),
+            sample_rate: clock.settings().sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };

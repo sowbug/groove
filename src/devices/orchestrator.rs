@@ -386,7 +386,7 @@ impl Orchestrator {
                 target.clone(),
                 track_settings.target.param,
             )));
-            let mut insertion_point = 0u32; // TODO: this is probably wrong
+            let mut insertion_point = 0; // TODO: this is probably wrong
             for pattern_id in track_settings.pattern_ids {
                 let pattern_opt = self.id_to_automation_pattern.get(&pattern_id);
                 if let Some(pattern) = pattern_opt {
@@ -429,7 +429,7 @@ impl AutomationTrack {
     pub fn add_pattern(
         &mut self,
         pattern: Rc<RefCell<AutomationPattern>>,
-        insertion_point: &mut u32,
+        insertion_point: &mut usize,
         clock: &Clock,
     ) {
         let start_beat_value = *insertion_point;
@@ -505,7 +505,7 @@ impl AutomationPattern {
 
 #[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub struct OrderedAutomationEvent {
-    when: u32,
+    when: usize,
     target_param_value: f32,
 }
 
@@ -533,7 +533,7 @@ mod tests {
         let target = Rc::new(RefCell::new(NullDevice::new()));
         let target_param_name = String::from("value");
         let mut track = AutomationTrack::new(target.clone(), target_param_name);
-        let mut insertion_point = 0u32;
+        let mut insertion_point = 0;
         let mut clock = Clock::new(ClockSettings::new_test());
         track.add_pattern(pattern.clone(), &mut insertion_point, &clock);
 
@@ -546,7 +546,7 @@ mod tests {
         loop {
             let mut done = true;
             done = track.tick(&clock) && done;
-            if clock.beats == current_pattern_point as u32 {
+            if clock.beats == current_pattern_point {
                 let point = pattern.borrow().points[current_pattern_point];
                 assert_eq!(target.borrow().value, point);
                 current_pattern_point += 1;

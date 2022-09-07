@@ -54,7 +54,7 @@ pub mod tests {
 
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: clock.settings().sample_rate(),
+            sample_rate: clock.settings().sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -78,7 +78,7 @@ pub mod tests {
 
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: clock.settings().sample_rate(),
+            sample_rate: clock.settings().sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };

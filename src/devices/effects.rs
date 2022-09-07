@@ -146,56 +146,56 @@ impl Filter {
             filter_type: *ft,
         }
     }
-    pub fn new_low_pass_12db(sample_rate: u32, cutoff: f32, q: f32) -> Self {
+    pub fn new_low_pass_12db(sample_rate: usize, cutoff: f32, q: f32) -> Self {
         Self::inner_new_filter(&MiniFilter2Type::LowPass {
             sample_rate,
             cutoff,
             q,
         })
     }
-    pub fn new_high_pass_12db(sample_rate: u32, cutoff: f32, q: f32) -> Self {
+    pub fn new_high_pass_12db(sample_rate: usize, cutoff: f32, q: f32) -> Self {
         Self::inner_new_filter(&MiniFilter2Type::HighPass {
             sample_rate,
             cutoff,
             q,
         })
     }
-    pub fn new_band_pass_12db(sample_rate: u32, cutoff: f32, bandwidth: f32) -> Self {
+    pub fn new_band_pass_12db(sample_rate: usize, cutoff: f32, bandwidth: f32) -> Self {
         Self::inner_new_filter(&MiniFilter2Type::BandPass {
             sample_rate,
             cutoff,
             bandwidth,
         })
     }
-    pub fn new_band_stop_12db(sample_rate: u32, cutoff: f32, bandwidth: f32) -> Self {
+    pub fn new_band_stop_12db(sample_rate: usize, cutoff: f32, bandwidth: f32) -> Self {
         Self::inner_new_filter(&MiniFilter2Type::BandStop {
             sample_rate,
             cutoff,
             bandwidth,
         })
     }
-    pub fn new_all_pass_12db(sample_rate: u32, cutoff: f32, q: f32) -> Self {
+    pub fn new_all_pass_12db(sample_rate: usize, cutoff: f32, q: f32) -> Self {
         Self::inner_new_filter(&MiniFilter2Type::AllPass {
             sample_rate,
             cutoff,
             q,
         })
     }
-    pub fn new_peaking_eq_12db(sample_rate: u32, cutoff: f32, db_gain: f32) -> Self {
+    pub fn new_peaking_eq_12db(sample_rate: usize, cutoff: f32, db_gain: f32) -> Self {
         Self::inner_new_filter(&MiniFilter2Type::PeakingEq {
             sample_rate,
             cutoff,
             db_gain,
         })
     }
-    pub fn new_low_shelf_12db(sample_rate: u32, cutoff: f32, db_gain: f32) -> Self {
+    pub fn new_low_shelf_12db(sample_rate: usize, cutoff: f32, db_gain: f32) -> Self {
         Self::inner_new_filter(&MiniFilter2Type::LowShelf {
             sample_rate,
             cutoff,
             db_gain,
         })
     }
-    pub fn new_high_shelf_12db(sample_rate: u32, cutoff: f32, db_gain: f32) -> Self {
+    pub fn new_high_shelf_12db(sample_rate: usize, cutoff: f32, db_gain: f32) -> Self {
         Self::inner_new_filter(&MiniFilter2Type::HighShelf {
             sample_rate,
             cutoff,

@@ -39,7 +39,7 @@ pub struct MiniEnvelope {
 impl MiniEnvelope {
     pub const MAX: f32 = -1.0;
 
-    pub fn new(sample_rate: u32, preset: &EnvelopePreset) -> Self {
+    pub fn new(sample_rate: usize, preset: &EnvelopePreset) -> Self {
         Self {
             sample_rate: sample_rate as f32,
             attack_seconds: preset.attack_seconds,
@@ -288,19 +288,19 @@ mod tests {
         let midi_on = MidiMessage::note_on_c4();
         let midi_off = MidiMessage::note_off_c4();
 
-        const SAMPLES_PER_SECOND: u32 = 44100;
-        const TIME_ZERO: u32 = 0;
-        const TIME_EXPECT_ATTACK: u32 = 0; // because we check after firing keydown in same spin of event loop
-        const DURATION_ATTACK: u32 = 1 * SAMPLES_PER_SECOND / 10;
-        const TIME_EXPECT_ATTACK_END: u32 = TIME_EXPECT_ATTACK + DURATION_ATTACK - 1;
-        const TIME_EXPECT_DECAY: u32 = TIME_EXPECT_ATTACK + DURATION_ATTACK;
-        const DURATION_DECAY: u32 = 2 * SAMPLES_PER_SECOND / 10;
-        const TIME_EXPECT_DECAY_END: u32 = TIME_EXPECT_ATTACK + DURATION_DECAY - 1;
-        const TIME_EXPECT_SUSTAIN: u32 = TIME_EXPECT_DECAY + DURATION_DECAY;
-        const TIME_EXPECT_RELEASE: u32 = TIME_EXPECT_SUSTAIN;
-        const DURATION_RELEASE: u32 = 10 * SAMPLES_PER_SECOND;
-        const TIME_EXPECT_RELEASE_END: u32 = TIME_EXPECT_RELEASE + DURATION_RELEASE - 1;
-        const TIME_EXPECT_IDLE: u32 = TIME_EXPECT_RELEASE + DURATION_RELEASE;
+        const SAMPLES_PER_SECOND: usize = 44100;
+        const TIME_ZERO: usize = 0;
+        const TIME_EXPECT_ATTACK: usize = 0; // because we check after firing keydown in same spin of event loop
+        const DURATION_ATTACK: usize = 1 * SAMPLES_PER_SECOND / 10;
+        const TIME_EXPECT_ATTACK_END: usize = TIME_EXPECT_ATTACK + DURATION_ATTACK - 1;
+        const TIME_EXPECT_DECAY: usize = TIME_EXPECT_ATTACK + DURATION_ATTACK;
+        const DURATION_DECAY: usize = 2 * SAMPLES_PER_SECOND / 10;
+        const TIME_EXPECT_DECAY_END: usize = TIME_EXPECT_ATTACK + DURATION_DECAY - 1;
+        const TIME_EXPECT_SUSTAIN: usize = TIME_EXPECT_DECAY + DURATION_DECAY;
+        const TIME_EXPECT_RELEASE: usize = TIME_EXPECT_SUSTAIN;
+        const DURATION_RELEASE: usize = 10 * SAMPLES_PER_SECOND;
+        const TIME_EXPECT_RELEASE_END: usize = TIME_EXPECT_RELEASE + DURATION_RELEASE - 1;
+        const TIME_EXPECT_IDLE: usize = TIME_EXPECT_RELEASE + DURATION_RELEASE;
         loop {
             envelope.tick(clock.seconds);
             match clock.samples {

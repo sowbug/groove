@@ -76,7 +76,7 @@ impl TimeSignature {
 #[serde(rename_all = "kebab-case")]
 pub struct ClockSettings {
     #[serde(rename = "sample-rate")]
-    samples_per_second: u32, // Samples per second; granularity of a tick().
+    samples_per_second: usize, // Samples per second; granularity of a tick().
 
     #[serde(rename = "bpm")]
     beats_per_minute: f32,
@@ -88,7 +88,7 @@ pub struct ClockSettings {
 impl ClockSettings {
     #[allow(dead_code)]
     pub(crate) fn new(
-        samples_per_second: u32,
+        samples_per_second: usize,
         beats_per_minute: f32,
         time_signature: (u32, u32),
     ) -> Self {
@@ -109,7 +109,7 @@ impl ClockSettings {
         }
     }
 
-    pub fn sample_rate(&self) -> u32 {
+    pub fn sample_rate(&self) -> usize {
         self.samples_per_second
     }
 
@@ -137,9 +137,9 @@ impl Default for ClockSettings {
 pub struct Clock {
     settings: ClockSettings,
 
-    pub samples: u32, // Samples since clock creation.
+    pub samples: usize, // Samples since clock creation.
     pub seconds: f32, // Seconds elapsed since clock creation.
-    pub beats: u32,   // Beats elapsed since clock creation.
+    pub beats: usize,   // Beats elapsed since clock creation.
 }
 
 impl Clock {
@@ -158,7 +158,7 @@ impl Clock {
     pub fn tick(&mut self) {
         self.samples += 1;
         self.seconds = self.samples as f32 / self.settings.samples_per_second as f32;
-        self.beats = ((self.seconds / 60.0) * self.settings.beats_per_minute).floor() as u32;
+        self.beats = ((self.seconds / 60.0) * self.settings.beats_per_minute).floor() as usize;
     }
 }
 
@@ -169,7 +169,7 @@ mod tests {
     use super::*;
 
     impl ClockSettings {
-        const TEST_SAMPLE_RATE: u32 = 256;
+        const TEST_SAMPLE_RATE: usize = 256;
         const TEST_BPM: f32 = 99.;
         pub fn new_test() -> Self {
             Self::new(
@@ -182,9 +182,9 @@ mod tests {
 
     #[test]
     fn test_clock_mainline() {
-        const SAMPLE_RATE: u32 = 256;
+        const SAMPLE_RATE: usize = 256;
         const BPM: f32 = 128.0;
-        const QUARTER_NOTE_OF_TICKS: u32 = ((SAMPLE_RATE * 60) as f32 / BPM) as u32;
+        const QUARTER_NOTE_OF_TICKS: usize = ((SAMPLE_RATE * 60) as f32 / BPM) as usize;
         const SECONDS_PER_BEAT: f32 = 60.0 / BPM;
 
         let clock_settings = ClockSettings {
@@ -220,12 +220,12 @@ mod tests {
         assert_eq!(clock.beats, 1);
 
         // One full minute.
-        for _ in 0..QUARTER_NOTE_OF_TICKS * (BPM - 1.0) as u32 {
+        for _ in 0..QUARTER_NOTE_OF_TICKS * (BPM - 1.0) as usize {
             clock.tick();
         }
         assert_eq!(clock.samples, SAMPLE_RATE * 60);
         assert_eq!(clock.seconds, 60.0);
-        assert_eq!(clock.beats, BPM as u32);
+        assert_eq!(clock.beats, BPM as usize);
     }
 
     #[test]

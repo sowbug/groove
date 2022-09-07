@@ -55,7 +55,7 @@ pub struct MiniFilter {
 
 #[allow(dead_code)]
 impl MiniFilter {
-    pub fn new(sample_rate: u32, filter_type: MiniFilterType) -> Self {
+    pub fn new(sample_rate: usize, filter_type: MiniFilterType) -> Self {
         let (order, a0, a1, a2, a3, a4, b1, b2, b3, b4, c0, d0) = match filter_type {
             MiniFilterType::None => (2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0),
             MiniFilterType::FirstOrderLowPass(cutoff) => {
@@ -101,7 +101,7 @@ impl MiniFilter {
     }
 
     fn first_order_low_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
     ) -> (u8, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
         let theta_c = 2.0f64 * PI * cutoff as f64 / (sample_rate as f64);
@@ -114,7 +114,7 @@ impl MiniFilter {
     }
 
     fn first_order_high_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
     ) -> (u8, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
         let theta_c = 2.0 * PI * cutoff as f64 / (sample_rate as f64);
@@ -125,7 +125,7 @@ impl MiniFilter {
         )
     }
 
-    fn common_second_order_coefficients(sample_rate: u32, cutoff: f32, q: f32) -> (f64, f64) {
+    fn common_second_order_coefficients(sample_rate: usize, cutoff: f32, q: f32) -> (f64, f64) {
         let theta_c = 2.0 * PI * cutoff as f64 / (sample_rate as f64);
         let delta = 1.0 / (q as f64).max(std::f64::consts::FRAC_1_SQRT_2);
         let beta_n = 1.0 - ((delta / 2.0) * theta_c.sin());
@@ -139,7 +139,7 @@ impl MiniFilter {
     //
     // In my testing, this behaves identically when (noise, 500Hz, q=0.707) to Audacity's 12db LPF.
     fn second_order_low_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         q: f32,
     ) -> (u8, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
@@ -163,7 +163,7 @@ impl MiniFilter {
     }
 
     fn fourth_order_linkwitz_riley_low_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
     ) -> (u8, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
         let omega = 2.0 * PI * cutoff as f64;
@@ -192,7 +192,7 @@ impl MiniFilter {
     }
 
     fn fourth_order_linkwitz_riley_high_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
     ) -> (u8, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
         let omega = 2.0 * PI * cutoff as f64;
@@ -221,7 +221,7 @@ impl MiniFilter {
     }
 
     fn second_order_high_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         q: f32,
     ) -> (u8, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
@@ -244,7 +244,7 @@ impl MiniFilter {
         )
     }
     fn second_order_band_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         q: f32,
     ) -> (u8, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
@@ -269,7 +269,7 @@ impl MiniFilter {
         )
     }
     fn second_order_band_stop_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         q: f32,
     ) -> (u8, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
@@ -370,42 +370,42 @@ impl EffectTrait for MiniFilter {
 pub enum MiniFilter2Type {
     None,
     LowPass {
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         q: f32,
     },
     HighPass {
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         q: f32,
     },
     BandPass {
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         bandwidth: f32,
     },
     BandStop {
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         bandwidth: f32,
     },
     AllPass {
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         q: f32,
     },
     PeakingEq {
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         db_gain: f32,
     },
     LowShelf {
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         db_gain: f32,
     },
     HighShelf {
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         db_gain: f32,
     },
@@ -420,7 +420,7 @@ impl Default for MiniFilter2Type {
 #[derive(Debug, Default)]
 pub struct MiniFilter2 {
     filter_type: MiniFilter2Type,
-    sample_rate: u32,
+    sample_rate: usize,
     cutoff: f32,
     a0: f64,
     a1: f64,
@@ -697,7 +697,7 @@ impl MiniFilter2 {
         self.recalculate_coefficients(&new_filter_type)
     }
 
-    fn rbj_intermediates_q(sample_rate: u32, cutoff: f32, q: f32) -> (f64, f64, f64, f64) {
+    fn rbj_intermediates_q(sample_rate: usize, cutoff: f32, q: f32) -> (f64, f64, f64, f64) {
         let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
         let w0cos = w0.cos();
         let w0sin = w0.sin();
@@ -706,7 +706,7 @@ impl MiniFilter2 {
     }
 
     fn rbj_low_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         q: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
@@ -723,7 +723,7 @@ impl MiniFilter2 {
     }
 
     fn rbj_high_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         q: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
@@ -739,7 +739,7 @@ impl MiniFilter2 {
         )
     }
 
-    fn rbj_intermediates_bandwidth(sample_rate: u32, cutoff: f32, bw: f32) -> (f64, f64, f64, f64) {
+    fn rbj_intermediates_bandwidth(sample_rate: usize, cutoff: f32, bw: f32) -> (f64, f64, f64, f64) {
         let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
         let w0cos = w0.cos();
         let w0sin = w0.sin();
@@ -748,7 +748,7 @@ impl MiniFilter2 {
     }
 
     fn rbj_band_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         bandwidth: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
@@ -765,7 +765,7 @@ impl MiniFilter2 {
     }
 
     fn rbj_band_stop_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         bandwidth: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
@@ -783,7 +783,7 @@ impl MiniFilter2 {
     }
 
     fn rbj_all_pass_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         q: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
@@ -799,7 +799,7 @@ impl MiniFilter2 {
     }
 
     fn rbj_peaking_eq_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         db_gain: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
@@ -818,7 +818,7 @@ impl MiniFilter2 {
     }
 
     fn rbj_intermediates_shelving(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         a: f64,
         s: f32,
@@ -831,7 +831,7 @@ impl MiniFilter2 {
     }
 
     fn rbj_low_shelf_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         db_gain: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
@@ -850,7 +850,7 @@ impl MiniFilter2 {
     }
 
     fn rbj_high_shelf_coefficients(
-        sample_rate: u32,
+        sample_rate: usize,
         cutoff: f32,
         db_gain: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
@@ -899,11 +899,10 @@ mod tests {
     };
 
     use super::*;
+    const SAMPLE_RATE: usize = 44100;
 
     #[test]
     fn test_mini_filter() {
-        const SAMPLE_RATE: u32 = 44100;
-
         let mut osc = MiniOscillator::new(WaveformType::Noise);
 
         write_effect_to_file(
@@ -1146,7 +1145,6 @@ mod tests {
 
     #[test]
     fn test_mini_filter2() {
-        const SAMPLE_RATE: u32 = 44100;
         const Q_10: f32 = 10.0;
         const ONE_OCTAVE: f32 = 1.0;
         const SIX_DB: f32 = 6.0;
@@ -1261,8 +1259,6 @@ mod tests {
 
     #[test]
     fn test_dynamic_cutoff() {
-        const SAMPLE_RATE: u32 = 44100;
-
         let mut source = MiniOscillator::new_from_preset(&OscillatorPreset {
             waveform: WaveformType::Sawtooth,
             ..Default::default()

@@ -90,7 +90,7 @@ impl ClDaw {
         let supported_config = supported_configs_range
             .next()
             .expect("no supported config?!")
-            .with_sample_rate(SampleRate(self.orchestrator.settings().clock.sample_rate()));
+            .with_sample_rate(SampleRate(self.orchestrator.settings().clock.sample_rate() as u32));
 
         let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
         let sample_format = supported_config.sample_format();
@@ -160,7 +160,7 @@ impl ClDaw {
         const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: self.orchestrator.settings().clock.sample_rate(),
+            sample_rate: self.orchestrator.settings().clock.sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
