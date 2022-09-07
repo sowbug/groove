@@ -21,6 +21,7 @@ mod tests {
         midi_channel: u8,
         pub midi_messages_received: usize,
         pub midi_messages_handled: usize,
+        pub value: f32,
     }
 
     impl NullDevice {
@@ -31,6 +32,9 @@ mod tests {
         }
         pub fn set_channel(&mut self, channel: u8) {
             self.midi_channel = channel;
+        }
+        pub fn set_value(&mut self, value: f32) {
+            self.value = value;
         }
     }
     impl DeviceTrait for NullDevice {
@@ -58,6 +62,9 @@ mod tests {
                     self.midi_messages_handled += 1;
                 }
             }
+        }
+        fn handle_automation(&mut self, _param_name: &String, param_value: f32) {
+            self.set_value(param_value);
         }
     }
 
