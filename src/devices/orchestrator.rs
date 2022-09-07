@@ -407,7 +407,6 @@ impl Orchestrator {
 }
 
 struct AutomationTrack {
-    patterns: Vec<Rc<RefCell<AutomationPattern>>>,
     target_instrument: Rc<RefCell<dyn DeviceTrait>>,
     target_param_name: String,
 
@@ -420,7 +419,6 @@ struct AutomationTrack {
 impl AutomationTrack {
     pub fn new(target: Rc<RefCell<dyn DeviceTrait>>, target_param_name: String) -> Self {
         Self {
-            patterns: Vec::new(),
             target_instrument: target,
             target_param_name,
             automation_events: SortedVec::new(),
@@ -434,7 +432,6 @@ impl AutomationTrack {
         insertion_point: &mut u32,
         clock: &Clock,
     ) {
-        // self.patterns.push(pattern.clone()); // TODO: is this necessary if we're flattening right away?
         let start_beat_value = *insertion_point;
         // TODO: beat_value accumulates integer error
         for point in pattern.borrow().points.clone() {
@@ -519,3 +516,46 @@ impl Ord for OrderedAutomationEvent {
 }
 
 impl Eq for OrderedAutomationEvent {}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::{devices::tests::NullDevice, primitives::clock::ClockSettings};
+
+    use super::*;
+
+    #[test]
+    fn test_stairstep_automation() {
+        let pattern = Rc::new(RefCell::new(AutomationPattern {
+            beat_value: Some(BeatValue::Quarter),
+            points: vec![0.0, 0.1, 0.2, 0.3],
+        }));
+        let target = Rc::new(RefCell::new(NullDevice::new()));
+        let target_param_name = String::from("value");
+        let mut track = AutomationTrack::new(target.clone(), target_param_name);
+        let mut insertion_point = 0u32;
+        let mut clock = Clock::new(ClockSettings::new_test());
+        track.add_pattern(pattern.clone(), &mut insertion_point, &clock);
+
+        // TODO: I want a way at this point to tell how long the clock needs
+        // to run by asking the pattern, or maybe the track, what its length
+        // is in some useful unit.
+
+        assert_eq!(target.borrow().value, 0.0f32);
+        let mut current_pattern_point: usize = 0;
+        loop {
+            let mut done = true;
+            done = track.tick(&clock) && done;
+            if clock.beats == current_pattern_point as u32 {
+                let point = pattern.borrow().points[current_pattern_point];
+                assert_eq!(target.borrow().value, point);
+                current_pattern_point += 1;
+            }
+            clock.tick();
+            if done {
+                break;
+            }
+        }
+        assert_eq!(target.borrow().value, 0.3f32);
+    }
+}
