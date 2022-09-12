@@ -230,15 +230,12 @@ mod tests {
         }
     }
 
-    fn advance_one_beat(clock: &mut Clock, sequencer: &mut Sequencer) {
-        let old_time = clock.seconds;
-        let beat = clock.beats;
-        while clock.beats == beat {
+    fn advance_to_next_beat(clock: &mut Clock, sequencer: &mut Sequencer) {
+        let next_beat = clock.beats.floor() + 1.0;
+        while clock.beats < next_beat {
             clock.tick();
             sequencer.tick(&clock);
         }
-        dbg!("Beat clock is now {} {}", beat, clock.beats);
-        dbg!("Time clock is now {} {}", old_time, clock.seconds);
         let _d = true;
     }
 
@@ -271,7 +268,7 @@ mod tests {
             assert_eq!(dp.midi_messages_handled, 1);
         }
 
-        advance_one_beat(&mut clock, &mut sequencer);
+        advance_to_next_beat(&mut clock, &mut sequencer);
         {
             let dp = device.borrow();
             assert!(!dp.is_playing);
@@ -333,8 +330,8 @@ mod tests {
             assert_eq!(dp_2.midi_messages_handled, 0);
         }
 
-        advance_one_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats, 1.0);
+        advance_to_next_beat(&mut clock, &mut sequencer);
+        assert_eq!(clock.beats.floor(), 1.0);  // TODO: these floor() calls are a smell
         assert_eq!(sequencer.midi_messages.len(), 2);
         {
             let dp = device_1.borrow();
@@ -348,8 +345,8 @@ mod tests {
             assert_eq!(dp_2.midi_messages_handled, 1);
         }
 
-        advance_one_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats, 2.0);
+        advance_to_next_beat(&mut clock, &mut sequencer);
+        assert_eq!(clock.beats.floor(), 2.0);
         assert_eq!(sequencer.midi_messages.len(), 1);
         {
             let dp = device_1.borrow();
@@ -363,8 +360,8 @@ mod tests {
             assert_eq!(dp_2.midi_messages_handled, 1);
         }
 
-        advance_one_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats, 3.0);
+        advance_to_next_beat(&mut clock, &mut sequencer);
+        assert_eq!(clock.beats.floor(), 3.0);
         assert_eq!(sequencer.midi_messages.len(), 0);
         {
             let dp = device_1.borrow();
