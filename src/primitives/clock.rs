@@ -166,6 +166,8 @@ impl Clock {
 mod tests {
     use std::panic;
 
+    use more_asserts::assert_lt;
+
     use super::*;
 
     impl ClockSettings {
@@ -213,7 +215,7 @@ mod tests {
         }
         assert_eq!(clock.samples, QUARTER_NOTE_OF_TICKS - 1);
         assert!(clock.seconds < SECONDS_PER_BEAT as f32);
-        assert_eq!(clock.beats, 2.0 * ONE_SAMPLE_OF_SECONDS);
+        assert_lt!(clock.beats, 1.0);
 
         // Now right on the quarter note.
         clock.tick();
