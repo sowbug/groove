@@ -139,7 +139,7 @@ pub struct Clock {
 
     pub samples: usize, // Samples since clock creation.
     pub seconds: f32, // Seconds elapsed since clock creation.
-    pub beats: usize,   // Beats elapsed since clock creation.
+    pub beats: f32,   // Beats elapsed since clock creation.
 }
 
 impl Clock {
@@ -158,7 +158,7 @@ impl Clock {
     pub fn tick(&mut self) {
         self.samples += 1;
         self.seconds = self.samples as f32 / self.settings.samples_per_second as f32;
-        self.beats = ((self.seconds / 60.0) * self.settings.beats_per_minute).floor() as usize;
+        self.beats = (self.settings.beats_per_minute / 60.0) * self.seconds;
     }
 }
 
@@ -186,6 +186,7 @@ mod tests {
         const BPM: f32 = 128.0;
         const QUARTER_NOTE_OF_TICKS: usize = ((SAMPLE_RATE * 60) as f32 / BPM) as usize;
         const SECONDS_PER_BEAT: f32 = 60.0 / BPM;
+        const ONE_SAMPLE_OF_SECONDS: f32 = 1.0 / SAMPLE_RATE as f32;
 
         let clock_settings = ClockSettings {
             samples_per_second: SAMPLE_RATE,
@@ -197,12 +198,13 @@ mod tests {
         // init state
         assert_eq!(clock.samples, 0);
         assert_eq!(clock.seconds, 0.0);
+        assert_eq!(clock.beats, 0.0);
 
         // Check after one tick.
         clock.tick();
         assert_eq!(clock.samples, 1);
-        assert_eq!(clock.seconds, 1.0 / SAMPLE_RATE as f32);
-        assert_eq!(clock.beats, 0);
+        assert_eq!(clock.seconds, ONE_SAMPLE_OF_SECONDS);
+        assert_eq!(clock.beats, (BPM / 60.0) * ONE_SAMPLE_OF_SECONDS);
 
         // Check around a full quarter note of ticks.
         // minus one because we already did one tick(), then minus another to test edge
@@ -211,13 +213,13 @@ mod tests {
         }
         assert_eq!(clock.samples, QUARTER_NOTE_OF_TICKS - 1);
         assert!(clock.seconds < SECONDS_PER_BEAT as f32);
-        assert_eq!(clock.beats, 0);
+        assert_eq!(clock.beats, 2.0 * ONE_SAMPLE_OF_SECONDS);
 
         // Now right on the quarter note.
         clock.tick();
         assert_eq!(clock.samples, QUARTER_NOTE_OF_TICKS);
         assert_eq!(clock.seconds, SECONDS_PER_BEAT as f32);
-        assert_eq!(clock.beats, 1);
+        assert_eq!(clock.beats, 1.0);
 
         // One full minute.
         for _ in 0..QUARTER_NOTE_OF_TICKS * (BPM - 1.0) as usize {
@@ -225,7 +227,7 @@ mod tests {
         }
         assert_eq!(clock.samples, SAMPLE_RATE * 60);
         assert_eq!(clock.seconds, 60.0);
-        assert_eq!(clock.beats, BPM as usize);
+        assert_eq!(clock.beats, BPM);
     }
 
     #[test]

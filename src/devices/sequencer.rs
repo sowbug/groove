@@ -319,7 +319,7 @@ mod tests {
         // be called tick().
         assert_eq!(sequencer.midi_messages.len(), 4);
         sequencer.tick(&clock);
-        assert_eq!(clock.beats, 0);
+        assert_eq!(clock.beats, 0.0);
         assert_eq!(sequencer.midi_messages.len(), 3);
         {
             let dp_1 = device_1.borrow();
@@ -334,7 +334,7 @@ mod tests {
         }
 
         advance_one_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats, 1);
+        assert_eq!(clock.beats, 1.0);
         assert_eq!(sequencer.midi_messages.len(), 2);
         {
             let dp = device_1.borrow();
@@ -349,7 +349,7 @@ mod tests {
         }
 
         advance_one_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats, 2);
+        assert_eq!(clock.beats, 2.0);
         assert_eq!(sequencer.midi_messages.len(), 1);
         {
             let dp = device_1.borrow();
@@ -364,7 +364,7 @@ mod tests {
         }
 
         advance_one_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats, 3);
+        assert_eq!(clock.beats, 3.0);
         assert_eq!(sequencer.midi_messages.len(), 0);
         {
             let dp = device_1.borrow();

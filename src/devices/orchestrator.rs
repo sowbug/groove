@@ -386,7 +386,7 @@ impl Orchestrator {
                 target.clone(),
                 track_settings.target.param,
             )));
-            let mut insertion_point = 0; // TODO: this is probably wrong
+            let mut insertion_point = 0.0; // TODO: this is probably wrong
             for pattern_id in track_settings.pattern_ids {
                 let pattern_opt = self.id_to_automation_pattern.get(&pattern_id);
                 if let Some(pattern) = pattern_opt {
@@ -429,7 +429,7 @@ impl AutomationTrack {
     pub fn add_pattern(
         &mut self,
         pattern: Rc<RefCell<AutomationPattern>>,
-        insertion_point: &mut usize,
+        insertion_point: &mut f32,
         clock: &Clock,
     ) {
         let start_beat_value = *insertion_point;
@@ -439,7 +439,7 @@ impl AutomationTrack {
                 when: *insertion_point,
                 target_param_value: point,
             });
-            *insertion_point += 1;
+            *insertion_point += 1.0;
         }
     }
 }
@@ -505,13 +505,19 @@ impl AutomationPattern {
 
 #[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub struct OrderedAutomationEvent {
-    when: usize,
+    when: f32,
     target_param_value: f32,
 }
 
 impl Ord for OrderedAutomationEvent {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.when.cmp(&other.when)
+        if self.when > other.when {
+            return Ordering::Greater;
+        }
+        if self.when < other.when {
+            return Ordering::Less;
+        }
+        return Ordering::Equal;
     }
 }
 
@@ -533,7 +539,7 @@ mod tests {
         let target = Rc::new(RefCell::new(NullDevice::new()));
         let target_param_name = String::from("value");
         let mut track = AutomationTrack::new(target.clone(), target_param_name);
-        let mut insertion_point = 0;
+        let mut insertion_point = 0.0;
         let mut clock = Clock::new(ClockSettings::new_test());
         track.add_pattern(pattern.clone(), &mut insertion_point, &clock);
 
@@ -546,7 +552,7 @@ mod tests {
         loop {
             let mut done = true;
             done = track.tick(&clock) && done;
-            if clock.beats == current_pattern_point {
+            if clock.beats as usize == current_pattern_point {
                 let point = pattern.borrow().points[current_pattern_point];
                 assert_eq!(target.borrow().value, point);
                 current_pattern_point += 1;
