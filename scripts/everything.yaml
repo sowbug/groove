@@ -70,6 +70,7 @@ tracks:
 automation-patterns:
   - id: auto-1
     beat-value: whole
+    interpolation: none
     points: [0.0, 0.1, 0.5, 0.99]
 automation-tracks:
   - id: auto-track-1
