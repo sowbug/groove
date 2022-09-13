@@ -198,7 +198,7 @@ impl MiniEnvelope {
 mod tests {
     use crate::{
         preset::EnvelopePreset,
-        primitives::clock::{Clock, ClockSettings},
+        primitives::clock::{Clock}, settings::ClockSettings,
     };
 
     use super::*;

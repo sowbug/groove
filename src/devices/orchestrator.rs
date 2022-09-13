@@ -1,7 +1,11 @@
 use crate::common::{DeviceId, MonoSample};
 use crate::devices::traits::DeviceTrait;
-use crate::primitives::clock::{Clock, TimeSignature};
-use crate::settings::{DeviceSettings, EffectSettings, InstrumentSettings, OrchestratorSettings};
+use crate::primitives::clock::Clock;
+use crate::settings::automation::{AutomationPatternSettings, InterpolationType};
+use crate::settings::effects::EffectSettings;
+use crate::settings::song::SongSettings;
+use crate::settings::{DeviceSettings, InstrumentSettings};
+
 use crate::synthesizers::{drumkit_sampler, welsh};
 use crossbeam::deque::Worker;
 use sorted_vec::SortedVec;
@@ -16,7 +20,7 @@ use super::sequencer::{Pattern, Sequencer};
 
 #[derive(Default, Clone)]
 pub struct Orchestrator {
-    settings: OrchestratorSettings,
+    settings: SongSettings,
 
     pub clock: Clock,
     master_mixer: Rc<RefCell<Mixer>>,
@@ -31,7 +35,7 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    pub fn new(settings: OrchestratorSettings) -> Self {
+    pub fn new(settings: SongSettings) -> Self {
         let mut r = Self {
             settings: settings.clone(),
             clock: Clock::new(settings.clock),
@@ -48,11 +52,11 @@ impl Orchestrator {
     }
 
     pub fn new_defaults() -> Self {
-        let settings = OrchestratorSettings::new_defaults();
+        let settings = SongSettings::new_defaults();
         Self::new(settings)
     }
 
-    pub fn settings(&self) -> &OrchestratorSettings {
+    pub fn settings(&self) -> &SongSettings {
         &self.settings
     }
 
@@ -491,13 +495,15 @@ use crate::primitives::clock::BeatValue;
 #[derive(Clone)]
 pub struct AutomationPattern {
     pub beat_value: Option<BeatValue>,
+    pub interpolation: Option<InterpolationType>,
     pub points: Vec<f32>,
 }
 
 impl AutomationPattern {
-    pub(crate) fn from_settings(settings: &crate::settings::AutomationPatternSettings) -> Self {
+    pub(crate) fn from_settings(settings: &AutomationPatternSettings) -> Self {
         Self {
             beat_value: settings.beat_value.clone(),
+            interpolation: settings.interpolation.clone(),
             points: settings.points.clone(),
         }
     }
@@ -526,7 +532,8 @@ impl Eq for OrderedAutomationEvent {}
 #[cfg(test)]
 mod tests {
 
-    use crate::{devices::tests::NullDevice, primitives::clock::ClockSettings};
+    use crate::settings::automation::InterpolationType;
+    use crate::{devices::tests::NullDevice, settings::ClockSettings};
 
     use super::*;
 
@@ -534,6 +541,7 @@ mod tests {
     fn test_stairstep_automation() {
         let pattern = Rc::new(RefCell::new(AutomationPattern {
             beat_value: Some(BeatValue::Quarter),
+            interpolation: Some(InterpolationType::Stairstep),
             points: vec![0.0, 0.1, 0.2, 0.3],
         }));
         let target = Rc::new(RefCell::new(NullDevice::new()));

@@ -28,7 +28,7 @@ use cpal::{
 use crossbeam::deque::{Stealer, Worker};
 use devices::midi::MidiSmfReader;
 use scripting::ScriptEngine;
-use settings::OrchestratorSettings;
+use settings::song::SongSettings;
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -46,7 +46,7 @@ impl ClDaw {
         Self {
             // TODO: temp hack while I build out OrchestratorSettings
             // orchestrator: Orchestrator::new(OrchestratorSettings::new_dev()),
-            orchestrator: Orchestrator::new(OrchestratorSettings::new_defaults()),
+            orchestrator: Orchestrator::new(SongSettings::new_defaults()),
         }
     }
 
@@ -182,7 +182,7 @@ impl ClDaw {
     ) -> anyhow::Result<()> {
         if let Some(yaml_in_filename) = yaml_in {
             let yaml = std::fs::read_to_string(yaml_in_filename).unwrap();
-            let settings = OrchestratorSettings::new_from_yaml(yaml.as_str());
+            let settings = SongSettings::new_from_yaml(yaml.as_str());
             self.orchestrator = Orchestrator::new(settings);
             let generated_yaml = serde_yaml::to_string(&self.orchestrator.settings()).unwrap();
             println!("before:\n{}\n\nafter:\n{}", yaml, generated_yaml);

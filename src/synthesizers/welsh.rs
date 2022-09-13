@@ -2042,9 +2042,9 @@ mod tests {
         common::MidiMessage,
         devices::traits::DeviceTrait,
         primitives::{
-            clock::{Clock, ClockSettings},
+            clock::{Clock},
             tests::canonicalize_filename,
-        },
+        }, settings::ClockSettings,
     };
 
     use super::PresetName;

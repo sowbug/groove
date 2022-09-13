@@ -217,8 +217,8 @@ mod tests {
     use crate::{
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
         devices::{tests::NullDevice, traits::DeviceTrait},
-        primitives::clock::{Clock, ClockSettings, TimeSignature},
-        settings::PatternSettings,
+        primitives::clock::{Clock, TimeSignature},
+        settings::{ClockSettings, PatternSettings},
     };
 
     use super::{BeatValue, Pattern, Sequencer};
@@ -331,7 +331,7 @@ mod tests {
         }
 
         advance_to_next_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats.floor(), 1.0);  // TODO: these floor() calls are a smell
+        assert_eq!(clock.beats.floor(), 1.0); // TODO: these floor() calls are a smell
         assert_eq!(sequencer.midi_messages.len(), 2);
         {
             let dp = device_1.borrow();

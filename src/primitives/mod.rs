@@ -34,7 +34,7 @@ pub mod tests {
 
     use convert_case::{Case, Casing};
 
-    use crate::{primitives::clock::{Clock, ClockSettings}, common::MonoSample};
+    use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
     use super::{AudioSourceTrait, ControllerTrait, EffectTrait};
 

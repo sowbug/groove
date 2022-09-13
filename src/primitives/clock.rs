@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::settings::ClockSettings;
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub enum BeatValue {
@@ -53,6 +55,30 @@ impl BeatValue {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "kebab-case")]
 pub struct TimeSignature {
+    // The top number of a time signature tells how many beats are in a
+    // measure. The bottom number tells what value of a beat. For example,
+    // if the bottom number is 4, then a beat is a quarter-note. And if
+    // the top number is 4, then you should expect to see four beats in a
+    // measure.
+    //
+    // If your song is playing at 120 beats per minute, and it's 4/4,
+    // then a measure's worth of the song should complete in two seconds.
+    // That's because each beat takes a half-second (120 beats/minute,
+    // 60 seconds/minute -> 120/60 beats/second = 60/120 seconds/beat),
+    // and a measure takes four beats (4 beats/measure * 1/2 seconds/beat
+    // = 4/2 seconds/measure).
+    //
+    // The relevance in this project is...
+    //
+    // - BPM tells how fast a beat should last in time
+    // - bottom number tells what the default denomination is of a slot
+    // in a pattern
+    // - top number tells how many slots should be in a pattern. But
+    //   we might not want to enforce this, as it seems redundant... if
+    //   you want a 5/4 pattern, it seems like you can just go ahead and
+    //   include 5 slots in it. The only relevance seems to be whether
+    //   we'd round a 5-slot pattern in a 4/4 song to the next even measure,
+    //   or just tack the next pattern directly onto the sixth beat.
     pub top: u32,
     pub bottom: u32,
 }
@@ -71,75 +97,13 @@ impl TimeSignature {
         BeatValue::from_divisor(self.bottom as f32)
     }
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub struct ClockSettings {
-    #[serde(rename = "sample-rate")]
-    samples_per_second: usize, // Samples per second; granularity of a tick().
-
-    #[serde(rename = "bpm")]
-    beats_per_minute: f32,
-
-    #[serde(rename = "time-signature")]
-    time_signature: TimeSignature,
-}
-
-impl ClockSettings {
-    #[allow(dead_code)]
-    pub(crate) fn new(
-        samples_per_second: usize,
-        beats_per_minute: f32,
-        time_signature: (u32, u32),
-    ) -> Self {
-        Self {
-            samples_per_second,
-            beats_per_minute,
-            time_signature: TimeSignature {
-                top: time_signature.0,
-                bottom: time_signature.1,
-            },
-        }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn new_defaults() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
-    pub fn sample_rate(&self) -> usize {
-        self.samples_per_second
-    }
-
-    pub fn time_signature(&self) -> TimeSignature {
-        self.time_signature
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn bpm(&self) -> f32 {
-        self.beats_per_minute
-    }
-}
-
-impl Default for ClockSettings {
-    fn default() -> Self {
-        Self {
-            samples_per_second: 44100,
-            beats_per_minute: 128.0,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
-        }
-    }
-}
-
 #[derive(Default, Debug, Clone)]
 pub struct Clock {
     settings: ClockSettings,
 
     pub samples: usize, // Samples since clock creation.
-    pub seconds: f32, // Seconds elapsed since clock creation.
-    pub beats: f32,   // Beats elapsed since clock creation.
+    pub seconds: f32,   // Seconds elapsed since clock creation.
+    pub beats: f32,     // Beats elapsed since clock creation.
 }
 
 impl Clock {
@@ -157,8 +121,8 @@ impl Clock {
 
     pub fn tick(&mut self) {
         self.samples += 1;
-        self.seconds = self.samples as f32 / self.settings.samples_per_second as f32;
-        self.beats = (self.settings.beats_per_minute / 60.0) * self.seconds;
+        self.seconds = self.samples as f32 / self.settings.sample_rate() as f32;
+        self.beats = (self.settings.bpm() / 60.0) * self.seconds;
     }
 }
 
@@ -190,11 +154,7 @@ mod tests {
         const SECONDS_PER_BEAT: f32 = 60.0 / BPM;
         const ONE_SAMPLE_OF_SECONDS: f32 = 1.0 / SAMPLE_RATE as f32;
 
-        let clock_settings = ClockSettings {
-            samples_per_second: SAMPLE_RATE,
-            beats_per_minute: BPM,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
-        };
+        let clock_settings = ClockSettings::new(SAMPLE_RATE, BPM, (4, 4));
         let mut clock = Clock::new(clock_settings);
 
         // init state
