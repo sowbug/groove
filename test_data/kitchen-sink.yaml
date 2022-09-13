@@ -101,3 +101,17 @@ tracks:
   - id: track-10
     midi-channel: 10
     patterns: [four-on-the-floor]
+automation-patterns:
+  - id: i-have-no-interpolation-or-beat-value
+    points: [0.0, 0.1, 0.5, 0.99]
+  - id: auto-1
+    beat-value: whole
+    interpolation: stairstep
+    points: [0.0, 0.1, 0.5, 0.99]
+automation-tracks:
+  - id: auto-track-1
+    target:
+      id: low-pass-1
+      param: cutoff
+    start-measure: 2
+    patterns: [auto-1]

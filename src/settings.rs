@@ -118,9 +118,18 @@ pub enum DeviceSettings {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
+pub enum InterpolationType {
+    Stairstep,
+    Linear,
+    Logarithmic
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct AutomationPatternSettings {
     pub id: DeviceId,
     pub beat_value: Option<BeatValue>,
+    pub interpolation: Option<InterpolationType>,
     pub points: Vec<f32>,
 }
 
