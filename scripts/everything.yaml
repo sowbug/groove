@@ -41,18 +41,20 @@ patch-cables:
   - [drum-1, main-mixer]
 patterns:
   - id: basic-1
+    note-value: sixteenth
     notes:
       - [60, 00, 60, 00, 60, 00, 60, 00, 67, 00, 67, 00, 67, 00, 67, 00]
   - id: basic-2
+    note-value: sixteenth
     notes:
       - [72, 00, 72, 00, 72, 00, 72, 00, 64, 00, 64, 00, 64, 00, 64, 00]
       - [60, 00, 60, 00, 60, 00, 60, 00, 67, 00, 67, 00, 67, 00, 67, 00]
   - id: bass
-    beat-value: quarter
+    note-value: sixteenth
     notes:
       - [67, 00, 60, 00, 67, 00, 60, 00, 67, 00, 60, 00, 67, 00, 60, 00]
   - id: four-on-the-floor
-    beat-value: quarter
+    note-value: sixteenth
     notes:
       - [00, 00, 00, 00, 38, 00, 00, 00, 00, 00, 00, 00, 38, 00, 00, 00]
       - [35, 00, 00, 00, 35, 00, 00, 00, 35, 00, 00, 00, 35, 00, 00, 00]
@@ -69,7 +71,9 @@ tracks:
     patterns: [four-on-the-floor, four-on-the-floor]
 automation-patterns:
   - id: auto-1
-    beat-value: whole
+    time-signature:
+      - 4
+      - 1
     interpolation: stairstep
     points: [0.0, 0.1, 0.5, 0.99]
 automation-tracks:

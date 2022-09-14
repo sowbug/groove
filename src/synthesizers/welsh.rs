@@ -1956,6 +1956,7 @@ impl DeviceTrait for Voice {
 #[derive(Default, Clone)]
 pub struct Synth {
     sample_rate: usize,
+    midi_channel: u8,
     preset: SynthPreset,
     note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
     current_value: MonoSample,
@@ -1982,6 +1983,10 @@ impl Synth {
             voice
         }
     }
+
+    pub fn set_midi_channel(&mut self, channel: u8) {
+        self.midi_channel = channel;
+    }
 }
 
 impl DeviceTrait for Synth {
@@ -1994,6 +1999,10 @@ impl DeviceTrait for Synth {
     }
 
     fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+        if message.channel != self.midi_channel {
+            // TODO: move this up higher so more devices get it for free
+            return;
+        }
         match message.status {
             MidiMessageType::NoteOn => {
                 let note = message.data1;
@@ -2041,10 +2050,8 @@ mod tests {
     use crate::{
         common::MidiMessage,
         devices::traits::DeviceTrait,
-        primitives::{
-            clock::{Clock},
-            tests::canonicalize_filename,
-        }, settings::ClockSettings,
+        primitives::{clock::Clock, tests::canonicalize_filename},
+        settings::ClockSettings,
     };
 
     use super::PresetName;
@@ -2061,7 +2068,7 @@ mod tests {
 
     // TODO: refactor out to common test utilities
     fn write_voice(voice: &mut Voice, duration: f32, basename: &str) {
-        let mut clock = Clock::new(ClockSettings::new_defaults());
+        let mut clock = Clock::new(&ClockSettings::new_defaults());
 
         let spec = hound::WavSpec {
             channels: 1,
@@ -2096,7 +2103,7 @@ mod tests {
 
     #[test]
     fn test_presets() {
-        let clock = Clock::new(ClockSettings::new_defaults());
+        let clock = Clock::new(&ClockSettings::new_defaults());
         for preset in PresetName::iter() {
             let result = panic::catch_unwind(|| {
                 Voice::new(
@@ -2286,8 +2293,7 @@ mod tests {
         let message_on = MidiMessage::note_on_c4();
         let message_off = MidiMessage::note_off_c4();
 
-        let clock_settings = ClockSettings::new_defaults();
-        let mut clock = Clock::new(clock_settings);
+        let mut clock = Clock::new(&ClockSettings::new_defaults());
         let mut voice = Voice::new(SAMPLE_RATE, &test_patch());
         voice.handle_midi_message(&message_on, &clock);
         write_sound(
@@ -2305,8 +2311,7 @@ mod tests {
         let message_on = MidiMessage::note_on_c4();
         let message_off = MidiMessage::note_off_c4();
 
-        let clock_settings = ClockSettings::new_defaults();
-        let mut clock = Clock::new(clock_settings);
+        let mut clock = Clock::new(&ClockSettings::new_defaults());
         let mut voice = Voice::new(SAMPLE_RATE, &cello_patch());
         voice.handle_midi_message(&message_on, &clock);
         write_sound(

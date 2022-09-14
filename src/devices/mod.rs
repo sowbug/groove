@@ -3,6 +3,7 @@ pub mod effects;
 pub mod midi;
 mod mixer;
 pub mod orchestrator;
+pub mod pattern_sequencer;
 pub mod sequencer;
 pub mod traits; // TODO; make non-pub again so DeviceTrait doesn't leak out of this crate
 

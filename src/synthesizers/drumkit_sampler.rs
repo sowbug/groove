@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use hound;
 
 use crate::{
-    common::{MidiMessageType, MonoSample}, devices::traits::DeviceTrait,
+    common::{MidiMessageType, MonoSample},
+    devices::traits::DeviceTrait,
     general_midi::GeneralMidiPercussionProgram,
 };
 
@@ -84,12 +85,14 @@ impl DeviceTrait for Voice {
 
 #[derive(Default)]
 pub struct Sampler {
+    midi_channel: u8,
     note_to_voice: HashMap<u8, Voice>,
 }
 
 impl Sampler {
     pub fn new() -> Self {
         Self {
+            midi_channel: 0,
             note_to_voice: HashMap::new(),
         }
     }
@@ -136,6 +139,10 @@ impl Sampler {
         }
         r
     }
+
+    pub fn set_midi_channel(&mut self, channel: u8) {
+        self.midi_channel = channel;
+    }
 }
 
 impl DeviceTrait for Sampler {
@@ -151,6 +158,10 @@ impl DeviceTrait for Sampler {
         message: &crate::common::MidiMessage,
         clock: &crate::primitives::clock::Clock,
     ) {
+        if message.channel != self.midi_channel {
+            // TODO: move this up higher so more devices get it for free
+            return;
+        }
         match message.status {
             MidiMessageType::NoteOn => {
                 let note: u8 = message.data1;

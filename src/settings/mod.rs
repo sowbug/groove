@@ -54,7 +54,7 @@ pub enum DeviceSettings {
 #[serde(rename_all = "kebab-case")]
 pub struct PatternSettings {
     pub id: DeviceId,
-    pub beat_value: Option<BeatValue>,
+    pub note_value: Option<BeatValue>,
     pub notes: Vec<Vec<String>>,
 }
 
@@ -109,6 +109,7 @@ impl ClockSettings {
         self.samples_per_second
     }
 
+    #[allow(dead_code)]
     pub fn time_signature(&self) -> TimeSignature {
         self.time_signature
     }

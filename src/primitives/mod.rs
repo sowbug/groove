@@ -49,8 +49,7 @@ pub mod tests {
     }
 
     pub(crate) fn write_source_to_file(source: &mut dyn AudioSourceTrait, basename: &str) {
-        let clock_settings = ClockSettings::new_defaults();
-        let mut clock = Clock::new(clock_settings);
+        let mut clock = Clock::new(&ClockSettings::new_defaults());
 
         let spec = hound::WavSpec {
             channels: 1,
@@ -74,7 +73,7 @@ pub mod tests {
         opt_controller: &mut Option<&mut dyn ControllerTrait>,
         basename: &str,
     ) {
-        let mut clock = Clock::new(ClockSettings::new_defaults());
+        let mut clock = Clock::new(&ClockSettings::new_defaults());
 
         let spec = hound::WavSpec {
             channels: 1,

@@ -3,8 +3,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use sorted_vec::SortedVec;
 
 use crate::{
-    common::{MidiMessage, OrderedMidiMessage},
-    primitives::clock::{BeatValue, Clock, TimeSignature},
+    common::OrderedMidiMessage,
+    primitives::clock::{Clock, TimeSignature},
 };
 
 use super::traits::DeviceTrait;
@@ -37,10 +37,12 @@ impl Sequencer {
         16
     }
 
+    #[allow(dead_code)]
     pub fn set_tempo(&mut self, beats_per_minute: f32) {
         self.beats_per_minute = beats_per_minute;
     }
 
+    #[allow(dead_code)]
     pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
         self.time_signature = time_signature;
     }
@@ -72,68 +74,6 @@ impl Sequencer {
         for sink in sinks {
             sink.borrow_mut()
                 .handle_midi_message(&midi_message.message, clock);
-        }
-    }
-
-    fn insert_short_note(&mut self, channel: u8, note: u8, when: &mut u32, duration: u32) {
-        dbg!(note, *when);
-        if note != 0 {
-            self.add_message(OrderedMidiMessage {
-                when: *when,
-                message: MidiMessage::new_note_on(channel, note, 100),
-            });
-            self.add_message(OrderedMidiMessage {
-                when: *when + duration,
-                message: MidiMessage::new_note_off(channel, note, 100),
-            });
-        }
-    }
-
-    // TODO: there is a lot of conversion among time systems, and we're losing precision.
-    // Pick fewer, or come up with a way for errors not to accumulate as they do with
-    // insert_pattern().
-    pub fn insert_pattern(
-        &mut self,
-        pattern: Rc<RefCell<Pattern>>,
-        channel: u8,
-        insertion_point: &mut u32,
-    ) {
-        let start_insertion_point: u32 = *insertion_point;
-
-        // TODO: TimeSignature should be doing this work for us
-        let divisor = if let Some(bv) = &pattern.borrow().beat_value {
-            bv.divisor()
-        } else {
-            self.time_signature.bottom as f32
-        };
-        let ticks_per_note =
-            (self.midi_ticks_per_second as f32) / (divisor * self.beats_per_minute / 60.0);
-
-        for note_sequence in pattern.borrow().notes.clone() {
-            let pattern_len = note_sequence.len();
-            *insertion_point = start_insertion_point;
-            for (i, note) in note_sequence.iter().enumerate() {
-                *insertion_point = start_insertion_point + (i as f32 * ticks_per_note) as u32;
-                self.insert_short_note(
-                    channel,
-                    *note,
-                    insertion_point,
-                    (self.midi_ticks_per_second as f32 / divisor) as u32,
-                );
-                // Suppose 120 BPM and 4/4 time
-                // 120 / 60 = 2 beats per second
-                // note is an eighth of a beat
-                // therefore there are 8 * 2 beats per second
-                // therefore 960 midi ticks = 16 beats
-                // therefore each beat advances 960/16 ticks
-                // therefore mtps / (beat_value * bpm / 60)
-                //
-                // We do all this rather than just adding the increment each time through the loop
-                // to minimize the accumulation of fractional loss. See TODO above - either pick a
-                // granularity for an integer that's so fine it doesn't matter, or else pick a universal
-                // floating-point representation of time.
-            }
-            *insertion_point = start_insertion_point + (pattern_len as f32 * ticks_per_note) as u32;
         }
     }
 }
@@ -175,41 +115,6 @@ impl DeviceTrait for Sequencer {
     // }
 }
 
-#[derive(Clone)]
-pub struct Pattern {
-    pub beat_value: Option<BeatValue>,
-    pub notes: Vec<Vec<u8>>,
-}
-
-impl Pattern {
-    pub(crate) fn from_settings(settings: &crate::settings::PatternSettings) -> Self {
-        let mut r = Self {
-            beat_value: settings.beat_value.clone(),
-            notes: Vec::new(),
-        };
-        for note_sequence in settings.notes.clone() {
-            let mut note_vec = Vec::new();
-            for note in note_sequence.clone() {
-                note_vec.push(Pattern::note_to_value(note));
-            }
-            r.notes.push(note_vec);
-        }
-        r
-    }
-
-    fn note_to_value(note: String) -> u8 {
-        // TODO
-        // https://en.wikipedia.org/wiki/Scientific_pitch_notation
-        // labels, e.g., for General MIDI percussion
-        note.parse().unwrap_or_default()
-    }
-
-    #[allow(dead_code)]
-    fn value_to_note(value: u8) -> String {
-        value.to_string()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::{cell::RefCell, rc::Rc};
@@ -217,11 +122,11 @@ mod tests {
     use crate::{
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
         devices::{tests::NullDevice, traits::DeviceTrait},
-        primitives::clock::{Clock, TimeSignature},
-        settings::{ClockSettings, PatternSettings},
+        primitives::clock::Clock,
+        settings::ClockSettings,
     };
 
-    use super::{BeatValue, Pattern, Sequencer};
+    use super::Sequencer;
 
     impl Sequencer {
         pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: u32) -> u32 {
@@ -241,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_sequencer() {
-        let mut clock = Clock::new(ClockSettings::new_defaults());
+        let mut clock = Clock::new(&ClockSettings::new_defaults());
         let mut sequencer = Sequencer::new();
         assert!(sequencer.sources_midi());
         assert!(!sequencer.sources_audio());
@@ -279,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_sequencer_multichannel() {
-        let mut clock = Clock::new(ClockSettings::new_defaults());
+        let mut clock = Clock::new(&ClockSettings::new_defaults());
         let mut sequencer = Sequencer::new();
         assert!(sequencer.sources_midi());
         assert!(!sequencer.sources_audio());
@@ -374,68 +279,5 @@ mod tests {
             assert_eq!(dp_2.midi_messages_received, 2);
             assert_eq!(dp_2.midi_messages_handled, 2);
         }
-    }
-
-    #[test]
-    fn test_pattern() {
-        let mut sequencer = Sequencer::new();
-        const BPM: f32 = 128.0;
-        sequencer.set_tempo(BPM);
-        let note_pattern = vec![
-            Pattern::value_to_note(1),
-            Pattern::value_to_note(2),
-            Pattern::value_to_note(3),
-            Pattern::value_to_note(4),
-            Pattern::value_to_note(5),
-        ];
-        let beat_value = Some(BeatValue::Quarter);
-        let pattern_settings = PatternSettings {
-            id: String::from("test-pattern"),
-            beat_value: beat_value.clone(),
-            notes: vec![note_pattern.clone()],
-        };
-
-        // TODO: is there any way to avoid Rc/RefCell leaking into this class's API boundary?
-        let pattern = Rc::new(RefCell::new(Pattern::from_settings(&pattern_settings)));
-
-        let expected_note_count = note_pattern.len();
-        assert_eq!(pattern.borrow().notes.len(), 1);
-        assert_eq!(pattern.borrow().notes[0].len(), expected_note_count);
-
-        let mut insertion_point: u32 = 0;
-        sequencer.insert_pattern(pattern, 0, &mut insertion_point);
-
-        assert_eq!(sequencer.midi_messages.len(), expected_note_count * 2); // one on, one off
-
-        const BPS: f32 = BPM / 60.0;
-        let ticks_per_beat = sequencer.midi_ticks_per_second as f32 / BPS;
-        let ticks_per_note = ticks_per_beat / beat_value.unwrap().divisor();
-        assert_eq!(
-            insertion_point,
-            (note_pattern.len() as f32 * ticks_per_note) as u32
-        );
-    }
-
-    #[test]
-    fn test_pattern_inherit_time_signature() {
-        let mut sequencer = Sequencer::new();
-        const BPM: f32 = 128.0;
-        sequencer.set_tempo(BPM);
-        sequencer.set_time_signature(TimeSignature {
-            top: 2,
-            bottom: 128,
-        });
-        let pattern = Rc::new(RefCell::new(Pattern::from_settings(&PatternSettings {
-            id: String::from("test-pattern-inherit"),
-            beat_value: None,
-            notes: vec![vec![String::from("1")]],
-        })));
-        let mut insertion_point: u32 = 0;
-        sequencer.insert_pattern(pattern, 0, &mut insertion_point);
-
-        const BPS: f32 = BPM / 60.0;
-        let ticks_per_beat = sequencer.midi_ticks_per_second as f32 / BPS;
-        let ticks_per_note = ticks_per_beat / sequencer.time_signature.bottom as f32;
-        assert_eq!(insertion_point, ticks_per_note as u32);
     }
 }

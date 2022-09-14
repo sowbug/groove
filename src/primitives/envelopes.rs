@@ -196,10 +196,7 @@ impl MiniEnvelope {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        preset::EnvelopePreset,
-        primitives::clock::{Clock}, settings::ClockSettings,
-    };
+    use crate::{preset::EnvelopePreset, primitives::clock::Clock, settings::ClockSettings};
 
     use super::*;
 
@@ -229,7 +226,7 @@ mod tests {
     #[test]
     #[allow(unused_assignments)]
     fn test_mini_envelope() {
-        let mut clock = Clock::new(ClockSettings::new_test());
+        let mut clock = Clock::new_test();
         let mut envelope = MiniEnvelope::new(
             clock.settings().sample_rate(),
             &EnvelopePreset {
@@ -273,8 +270,7 @@ mod tests {
 
     #[test]
     fn test_envelope_eventually_ends() {
-        let clock_settings = ClockSettings::new_defaults();
-        let mut clock = Clock::new(clock_settings);
+        let mut clock = Clock::new(&ClockSettings::new_defaults());
         let mut envelope = MiniEnvelope::new(
             clock.settings().sample_rate(),
             &EnvelopePreset {

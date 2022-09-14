@@ -56,10 +56,17 @@ impl BeatValue {
 #[serde(rename_all = "kebab-case")]
 pub struct TimeSignature {
     // The top number of a time signature tells how many beats are in a
-    // measure. The bottom number tells what value of a beat. For example,
+    // measure. The bottom number tells the value of a beat. For example,
     // if the bottom number is 4, then a beat is a quarter-note. And if
     // the top number is 4, then you should expect to see four beats in a
-    // measure.
+    // measure, or four quarter-notes in a measure.
+    //
+    // If your song is playing at 60 beats per minute, and it's 4/4,
+    // then a measure's worth of the song should complete in four seconds.
+    // That's because each beat takes a second (60 beats/minute,
+    // 60 seconds/minute -> 60/60 beats/second = 60/60 seconds/beat),
+    // and a measure takes four beats (4 beats/measure * 1 second/beat
+    // = 4/1 seconds/measure).
     //
     // If your song is playing at 120 beats per minute, and it's 4/4,
     // then a measure's worth of the song should complete in two seconds.
@@ -84,7 +91,7 @@ pub struct TimeSignature {
 }
 
 impl TimeSignature {
-    pub(crate) fn new(top: u32, bottom: u32) -> TimeSignature {
+    pub(crate) fn new(top: u32, bottom: u32) -> Self {
         if top == 0 {
             panic!("Time signature top number can't be zero.");
         }
@@ -95,6 +102,11 @@ impl TimeSignature {
     #[allow(dead_code)]
     pub fn beat_value(&self) -> BeatValue {
         BeatValue::from_divisor(self.bottom as f32)
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn new_defaults() -> Self {
+        Self::new(4, 4)
     }
 }
 #[derive(Default, Debug, Clone)]
@@ -107,9 +119,9 @@ pub struct Clock {
 }
 
 impl Clock {
-    pub fn new(settings: ClockSettings) -> Self {
+    pub fn new(settings: &ClockSettings) -> Self {
         Self {
-            settings,
+            settings: settings.clone(),
             ..Default::default()
         }
     }
@@ -146,6 +158,12 @@ mod tests {
         }
     }
 
+    impl Clock {
+        pub fn new_test() -> Self {
+            Self::new(&ClockSettings::new_test())
+        }
+    }
+
     #[test]
     fn test_clock_mainline() {
         const SAMPLE_RATE: usize = 256;
@@ -155,7 +173,7 @@ mod tests {
         const ONE_SAMPLE_OF_SECONDS: f32 = 1.0 / SAMPLE_RATE as f32;
 
         let clock_settings = ClockSettings::new(SAMPLE_RATE, BPM, (4, 4));
-        let mut clock = Clock::new(clock_settings);
+        let mut clock = Clock::new(&clock_settings);
 
         // init state
         assert_eq!(clock.samples, 0);
