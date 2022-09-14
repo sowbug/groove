@@ -52,7 +52,7 @@ impl PatternSequencer {
                     channel,
                     *note,
                     beat_cursor_start + i as f32 * note_value_beats,
-                    note_value_beats * 1.75, // TODO: hack because we don't have duration
+                    note_value_beats * 2.0, // TODO: hack because we don't have duration
                 );
             }
         }
