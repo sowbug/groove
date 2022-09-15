@@ -67,6 +67,27 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "YAML kitchen sink to speaker",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--yaml-in",
+        "test_data/kitchen-sink.yaml"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "YAML to file",
       "cargo": {
         "args": [
