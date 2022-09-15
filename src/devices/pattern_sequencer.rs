@@ -41,7 +41,13 @@ impl PatternSequencer {
         } else {
             self.time_signature.beat_value()
         };
-        let note_value_beats =
+
+        // If the time signature is 4/4 and the pattern is also quarter-notes, then the
+        // multiplier is 1.0 because no correction is needed.
+        //
+        // If it's 4/4 and eighth notes, for example, the multiplier is 0.5, because
+        // each pattern note represents only a half-beat.
+        let pattern_multiplier =
             self.time_signature.beat_value().divisor() / pattern_note_value.divisor();
 
         let mut max_pattern_len = 0;
@@ -51,19 +57,22 @@ impl PatternSequencer {
                 self.insert_short_note(
                     channel,
                     *note,
-                    beat_cursor_start + i as f32 * note_value_beats,
-                    note_value_beats * 2.0, // TODO: hack because we don't have duration
+                    beat_cursor_start + i as f32 * pattern_multiplier,
+                    0.49, // TODO: hack because we don't have duration
                 );
             }
         }
 
         // Round up to full measure
-        let rounded_max_pattern_len = ((max_pattern_len as f32 / self.time_signature.top as f32)
-            .ceil()
-            * self.time_signature.top as f32) as usize;
-        beat_cursor_start + rounded_max_pattern_len as f32 * (note_value_beats)
+        let rounded_max_pattern_len =
+            ((max_pattern_len as f32 * pattern_multiplier / self.time_signature.top as f32).ceil()
+                * self.time_signature.top as f32) as usize;
+        beat_cursor_start + rounded_max_pattern_len as f32
     }
 
+    // TODO: if there is an existing note-off message already scheduled for this note that happens
+    // after this note-on event, then we should delete that event; otherwise, this note will get
+    // released early (and then released again, which does nothing). That's probably not what we want.
     fn insert_short_note(&mut self, channel: u8, note: u8, when_beats: f32, duration_beats: f32) {
         if note != 0 {
             self.sequenced_notes.insert(OrderedNote {
@@ -117,7 +126,10 @@ impl DeviceTrait for PatternSequencer {
             let note = self.sequenced_notes.first().unwrap();
 
             if clock.beats >= note.when_beats {
-                dbg!(note);
+                println!(
+                    "{},{},{},{}",
+                    note.when_beats, clock.samples, clock.seconds, clock.beats
+                );
                 self.dispatch_note(note, clock);
 
                 // TODO: this is violating a (future) rule that we can always randomly access
@@ -234,20 +246,29 @@ mod tests {
 
     #[test]
     fn test_multi_pattern_track() {
-        let time_signature = TimeSignature::new_defaults();
+        let time_signature = TimeSignature::new(7, 8);
         let mut sequencer = PatternSequencer::new(&time_signature);
 
+        // since these patterns are denominated in a quarter notes, but the time signature
+        // calls for eighth notes, they last twice as long as they seem.
+        //
+        // four quarter-notes in 7/8 time = 8 beats = 2 measures
         let note_pattern_1 = vec![
             Pattern::value_to_note(1),
             Pattern::value_to_note(2),
             Pattern::value_to_note(3),
             Pattern::value_to_note(4),
         ];
+        // eight quarter-notes in 7/8 time = 16 beats = 3 measures
         let note_pattern_2 = vec![
             Pattern::value_to_note(11),
             Pattern::value_to_note(12),
             Pattern::value_to_note(13),
             Pattern::value_to_note(14),
+            Pattern::value_to_note(15),
+            Pattern::value_to_note(16),
+            Pattern::value_to_note(17),
+            Pattern::value_to_note(18),
         ];
         let pattern_settings = PatternSettings {
             id: String::from("test-pattern"),
@@ -255,7 +276,6 @@ mod tests {
             notes: vec![note_pattern_1.clone(), note_pattern_2.clone()],
         };
 
-        // TODO: is there any way to avoid Rc/RefCell leaking into this class's API boundary?
         let pattern = Rc::new(RefCell::new(Pattern::from_settings(&pattern_settings)));
 
         let expected_note_count = note_pattern_1.len() + note_pattern_2.len();
@@ -265,7 +285,9 @@ mod tests {
 
         let mut beat_cursor = 0f32;
         beat_cursor = sequencer.insert_pattern(pattern, 0, beat_cursor);
-        assert_eq!(beat_cursor, (1 * time_signature.top) as f32);
+
+        // expect max of (2, 3) measures
+        assert_eq!(beat_cursor, (3 * time_signature.top) as f32);
         assert_eq!(sequencer.sequenced_notes.len(), expected_note_count * 2); // one on, one off
     }
 
