@@ -476,8 +476,6 @@ impl DeviceTrait for AutomationTrack {
             let event = self.automation_events.first().unwrap();
 
             if clock.beats >= event.when {
-                dbg!(event);
-
                 // TODO: act on the automation thing
                 self.target_instrument
                     .borrow_mut()
@@ -497,7 +495,7 @@ use crate::primitives::clock::BeatValue;
 
 #[derive(Clone)]
 pub struct AutomationPattern {
-    pub beat_value: Option<BeatValue>,
+    pub note_value: Option<BeatValue>,
     pub interpolation: Option<InterpolationType>,
     pub points: Vec<f32>,
 }
@@ -505,7 +503,7 @@ pub struct AutomationPattern {
 impl AutomationPattern {
     pub(crate) fn from_settings(settings: &AutomationPatternSettings) -> Self {
         Self {
-            beat_value: settings.beat_value.clone(),
+            note_value: settings.note_value.clone(),
             interpolation: settings.interpolation.clone(),
             points: settings.points.clone(),
         }
@@ -543,7 +541,7 @@ mod tests {
     #[test]
     fn test_stairstep_automation() {
         let pattern = Rc::new(RefCell::new(AutomationPattern {
-            beat_value: Some(BeatValue::Quarter),
+            note_value: Some(BeatValue::Quarter),
             interpolation: Some(InterpolationType::Stairstep),
             points: vec![0.0, 0.1, 0.2, 0.3],
         }));

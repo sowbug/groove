@@ -14,7 +14,7 @@ pub enum InterpolationType {
 #[serde(rename_all = "kebab-case")]
 pub struct AutomationPatternSettings {
     pub id: DeviceId,
-    pub beat_value: Option<BeatValue>,
+    pub note_value: Option<BeatValue>,
     pub interpolation: Option<InterpolationType>,
     pub points: Vec<f32>,
 }

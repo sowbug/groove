@@ -71,7 +71,7 @@ tracks:
     patterns: [four-on-the-floor, four-on-the-floor]
 automation-patterns:
   - id: auto-1
-    beat-value: whole
+    note-value: whole
     interpolation: stairstep
     points: [0.0, 0.1, 0.5, 0.99]
 automation-tracks:
