@@ -95,7 +95,6 @@ impl DeviceTrait for Sequencer {
 
             // TODO(miket): should Clock manage elapsed_midi_ticks?
             if elapsed_midi_ticks >= midi_message.when {
-                dbg!(midi_message);
                 self.dispatch_midi_message(midi_message, clock);
 
                 // TODO: this is violating a (future) rule that we can always randomly access
