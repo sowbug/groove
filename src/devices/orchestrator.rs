@@ -12,6 +12,7 @@ use sorted_vec::SortedVec;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::io::{self, Write};
 use std::rc::Rc;
 
 use super::effects::{Bitcrusher, Filter, Gain, Limiter};
@@ -92,6 +93,8 @@ impl Orchestrator {
                 //TODODODODODODO sequencer.borrow_mut().set_tempo(clock.settings().bpm());
             }
         }
+        let progress_indicator_quantum: usize = clock.settings().sample_rate() / 2;
+        let mut next_progress_indicator: usize = progress_indicator_quantum;
         loop {
             let (sample, done) = self.tick(&mut clock);
             worker.push(sample);
@@ -99,10 +102,16 @@ impl Orchestrator {
             for d in self.devices.clone() {
                 d.borrow_mut().reset_needs_tick();
             }
+            if next_progress_indicator <= clock.samples {
+                print!(".");
+                io::stdout().flush().unwrap();
+                next_progress_indicator += progress_indicator_quantum;
+            }
             if done {
                 break;
             }
         }
+        println!("");
         Ok(())
     }
 

@@ -229,7 +229,7 @@ impl ClDaw {
             self.orchestrator.add_device(midi_input.clone());
             midi_input.borrow_mut().connect();
         }
-        println!("Performing to queue");
+        print!("Performing to queue ");
         let worker = Worker::<MonoSample>::new_fifo();
         self.orchestrator.perform_to_queue(&worker)?;
 
