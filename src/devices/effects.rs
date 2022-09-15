@@ -222,8 +222,12 @@ impl DeviceTrait for Filter {
     }
 
     fn handle_automation(&mut self, param_name: &String, param_value: f32) {
-        let unscaled_cutoff = MiniFilter2::percent_to_frequency(param_value * 2.0 - 1.0);
-        self.effect.set_cutoff(unscaled_cutoff);
+        if param_name == "cutoff" {
+            let unscaled_cutoff = MiniFilter2::percent_to_frequency(param_value * 2.0 - 1.0);
+            self.effect.set_cutoff(unscaled_cutoff);
+        } else {
+            panic!("unrecognized automation param name {}", param_name);
+        }
     }
 }
 
