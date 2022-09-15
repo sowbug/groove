@@ -116,20 +116,11 @@ impl DeviceTrait for PatternSequencer {
         if self.sequenced_notes.is_empty() {
             return true;
         }
-        if clock.beats > self.sequenced_notes.last().unwrap().when_beats {
-            // This is different from falling through the loop below because
-            // it signals that we're done.
-            return true;
-        }
 
         while !self.sequenced_notes.is_empty() {
             let note = self.sequenced_notes.first().unwrap();
 
             if clock.beats >= note.when_beats {
-                println!(
-                    "{},{},{},{}",
-                    note.when_beats, clock.samples, clock.seconds, clock.beats
-                );
                 self.dispatch_note(note, clock);
 
                 // TODO: this is violating a (future) rule that we can always randomly access
