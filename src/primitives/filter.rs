@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 
 use crate::common::MonoSample;
 
-use super::EffectTrait;
+use super::EffectTrait__;
 
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
@@ -297,7 +297,7 @@ impl MiniFilter {
     }
 }
 
-impl EffectTrait for MiniFilter {
+impl EffectTrait__ for MiniFilter {
     fn process(&mut self, input: MonoSample, _time_seconds: f32) -> MonoSample {
         let s64 = input as f64;
         let r = match self.order {
@@ -869,7 +869,7 @@ impl MiniFilter2 {
     }
 }
 
-impl EffectTrait for MiniFilter2 {
+impl EffectTrait__ for MiniFilter2 {
     fn process(&mut self, input: MonoSample, _time_seconds: f32) -> MonoSample {
         let s64 = input as f64;
         let r = (self.b0 / self.a0) * s64
@@ -895,7 +895,7 @@ mod tests {
     use crate::{
         common::{MidiMessage, MidiNote, WaveformType},
         preset::OscillatorPreset,
-        primitives::{oscillators::MiniOscillator, tests::write_effect_to_file, ControllerTrait},
+        primitives::{oscillators::MiniOscillator, tests::write_effect_to_file, ControllerTrait__},
     };
 
     use super::*;
@@ -1087,7 +1087,7 @@ mod tests {
         }
     }
 
-    impl<'a> ControllerTrait for TestFilterCutoffController {
+    impl<'a> ControllerTrait__ for TestFilterCutoffController {
         fn process(&mut self, time_seconds: f32) {
             if self.time_start < 0.0 {
                 self.time_start = time_seconds;
@@ -1128,7 +1128,7 @@ mod tests {
         }
     }
 
-    impl<'a> ControllerTrait for TestFilterQController {
+    impl<'a> ControllerTrait__ for TestFilterQController {
         fn process(&mut self, time_seconds: f32) {
             if self.time_start < 0.0 {
                 self.time_start = time_seconds;

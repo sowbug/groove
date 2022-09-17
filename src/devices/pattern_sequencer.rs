@@ -11,12 +11,12 @@ use crate::{
     primitives::clock::{BeatValue, Clock, TimeSignature},
 };
 
-use super::traits::DeviceTrait;
+use super::traits::{MidiSink, MidiSource, TimeSlice};
 
 pub struct PatternSequencer {
     time_signature: TimeSignature,
 
-    sinks: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    sinks: Vec<Rc<RefCell<dyn MidiSink>>>,
     sequenced_notes: SortedVec<OrderedNote>,
 }
 
@@ -103,11 +103,7 @@ impl PatternSequencer {
     }
 }
 
-impl DeviceTrait for PatternSequencer {
-    fn sources_midi(&self) -> bool {
-        true
-    }
-
+impl TimeSlice for PatternSequencer {
     fn tick(&mut self, clock: &Clock) -> bool {
         // TODO: make this random-access by keeping sequenced_notes in place and scanning to find
         // next items to process. We will probably need some way to tell that the caller seeked.
@@ -133,8 +129,10 @@ impl DeviceTrait for PatternSequencer {
         }
         false
     }
+}
 
-    fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
+impl MidiSource for PatternSequencer {
+    fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn MidiSink>>) {
         self.sinks.push(device);
     }
 }

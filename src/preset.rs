@@ -103,7 +103,7 @@ mod tests {
 
     use crate::{
         common::{MidiMessage, MidiMessageType},
-        devices::traits::DeviceTrait,
+        devices::traits::MidiSink,
         primitives::clock::Clock,
     };
 
@@ -130,10 +130,7 @@ mod tests {
         }
     }
 
-    impl DeviceTrait for NullDevice {
-        fn sinks_midi(&self) -> bool {
-            true
-        }
+    impl MidiSink for NullDevice {
         fn handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
             self.midi_messages_received += 1;
 

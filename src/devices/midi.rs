@@ -11,10 +11,13 @@ use crate::{
     primitives::clock::Clock,
 };
 
-use super::{sequencer::Sequencer, traits::DeviceTrait};
+use super::{
+    sequencer::Sequencer,
+    traits::{MidiSink, MidiSource, TimeSlice},
+};
 
 pub struct MidiControllerReader {
-    sinks: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    sinks: Vec<Rc<RefCell<dyn MidiSink>>>,
 }
 
 impl MidiControllerReader {
@@ -98,15 +101,19 @@ impl MidiControllerReader {
 }
 
 #[allow(unused_variables)]
-impl DeviceTrait for MidiControllerReader {
-    fn sources_midi(&self) -> bool {
-        true
-    }
-    fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
+impl MidiSource for MidiControllerReader {
+    fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn MidiSink>>) {
         self.sinks.push(device);
     }
-    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
+}
 
+#[allow(unused_variables)]
+impl MidiSink for MidiControllerReader {
+    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
+}
+
+#[allow(unused_variables)]
+impl TimeSlice for MidiControllerReader {
     fn tick(&mut self, clock: &Clock) -> bool {
         false
     }

@@ -5,7 +5,7 @@ use crate::{
     preset::{LfoPreset, OscillatorPreset},
 };
 
-use super::AudioSourceTrait;
+use super::AudioSourceTrait__;
 
 #[derive(Debug, Clone)]
 pub struct MiniOscillator {
@@ -93,7 +93,7 @@ impl MiniOscillator {
     }
 }
 
-impl AudioSourceTrait for MiniOscillator {
+impl AudioSourceTrait__ for MiniOscillator {
     fn process(&mut self, time_seconds: f32) -> MonoSample {
         let phase_normalized = (self.adjusted_frequency() * time_seconds) as MonoSample;
         match self.waveform {

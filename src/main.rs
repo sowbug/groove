@@ -1,3 +1,6 @@
+#![feature(trait_upcasting)]
+#![allow(incomplete_features)]
+
 #[macro_use]
 extern crate num_derive;
 
@@ -14,12 +17,14 @@ mod settings;
 mod synthesizers;
 
 use crate::{
+    common::MonoSample,
     devices::{
         midi::MidiControllerReader, orchestrator::Orchestrator, sequencer::Sequencer,
-        traits::DeviceTrait,
+        traits::InstrumentTrait,
     },
-    synthesizers::drumkit_sampler::Sampler as DrumKitSampler, common::MonoSample,
+    synthesizers::drumkit_sampler::Sampler as DrumKitSampler,
 };
+use anyhow::Ok;
 use clap::Parser;
 use cpal::{
     traits::{DeviceTrait as CpalDeviceTrait, HostTrait, StreamTrait},
@@ -27,7 +32,7 @@ use cpal::{
 };
 use crossbeam::deque::{Stealer, Worker};
 use devices::midi::MidiSmfReader;
-use scripting::ScriptEngine;
+//use scripting::ScriptEngine;
 use settings::song::SongSettings;
 use std::{
     cell::RefCell,
@@ -90,7 +95,9 @@ impl ClDaw {
         let supported_config = supported_configs_range
             .next()
             .expect("no supported config?!")
-            .with_sample_rate(SampleRate(self.orchestrator.settings().clock.sample_rate() as u32));
+            .with_sample_rate(SampleRate(
+                self.orchestrator.settings().clock.sample_rate() as u32
+            ));
 
         let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
         let sample_format = supported_config.sample_format();
@@ -193,13 +200,13 @@ impl ClDaw {
 
         if let Some(midi_in_filename) = midi_in {
             let sequencer = Rc::new(RefCell::new(Sequencer::new()));
-            self.orchestrator.add_device(sequencer.clone());
+            self.orchestrator.add_sequencer(sequencer.clone());
 
             let data = std::fs::read(midi_in_filename).unwrap();
             MidiSmfReader::load_sequencer(&data, sequencer.clone());
 
             for channel_number in 0..Sequencer::connected_channel_count() {
-                let synth: Rc<RefCell<dyn DeviceTrait>> = if channel_number == 9 {
+                let synth: Rc<RefCell<dyn InstrumentTrait>> = if channel_number == 9 {
                     Rc::new(RefCell::new(DrumKitSampler::new_from_files()))
                 } else {
                     Rc::new(RefCell::new(Synth::new(
@@ -207,7 +214,7 @@ impl ClDaw {
                         SynthPreset::by_name(&PresetName::Piano),
                     )))
                 };
-                self.orchestrator.add_device(synth.clone());
+                self.orchestrator.add_instrument(synth.clone());
                 self.orchestrator.add_master_mixer_source(synth.clone());
 
                 sequencer
@@ -218,16 +225,16 @@ impl ClDaw {
         #[allow(unreachable_code)]
         if use_midi_controller {
             panic!("sorry, this is horribly broken.");
-            let synth = Rc::new(RefCell::new(Synth::new(
-                self.orchestrator.settings().clock.sample_rate(),
-                SynthPreset::by_name(&PresetName::Piano),
-            )));
-            self.orchestrator.add_device(synth.clone());
-            self.orchestrator.add_master_mixer_source(synth.clone());
-            let midi_input = Rc::new(RefCell::new(MidiControllerReader::new()));
-            midi_input.borrow_mut().connect_midi_sink(synth.clone());
-            self.orchestrator.add_device(midi_input.clone());
-            midi_input.borrow_mut().connect();
+            // let synth = Rc::new(RefCell::new(Synth::new(
+            //     self.orchestrator.settings().clock.sample_rate(),
+            //     SynthPreset::by_name(&PresetName::Piano),
+            // )));
+            // self.orchestrator.add_instrument(synth.clone());
+            // self.orchestrator.add_master_mixer_source(synth.clone());
+            // let midi_input = Rc::new(RefCell::new(MidiControllerReader::new()));
+            // midi_input.borrow_mut().connect_midi_sink(synth.clone());
+            // self.orchestrator.add_device(midi_input.clone());
+            // midi_input.borrow_mut().connect();
         }
         print!("Performing to queue ");
         let worker = Worker::<MonoSample>::new_fifo();
@@ -272,7 +279,8 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     if args.script_in.is_some() {
-        ScriptEngine::new().execute_file(&args.script_in.unwrap())
+        //      ScriptEngine::new().execute_file(&args.script_in.unwrap())
+        Ok(())
     } else {
         let mut command_line_daw = ClDaw::new();
 

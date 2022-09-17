@@ -1,6 +1,6 @@
 use crate::common::MonoSample;
 
-use super::EffectTrait;
+use super::EffectTrait__;
 
 #[derive(Default)]
 pub struct Bitcrusher {
@@ -18,7 +18,7 @@ impl Bitcrusher {
     }
 }
 
-impl EffectTrait for Bitcrusher {
+impl EffectTrait__ for Bitcrusher {
     fn process(&mut self, input: MonoSample, _time_seconds: f32) -> MonoSample {
         let input_i16 = (input * (i16::MAX as MonoSample)) as i16;
         let squished = input_i16 >> self.bits_to_crush;
@@ -34,7 +34,7 @@ mod tests {
 
     use crate::{
         common::{MidiMessage, MidiNote, WaveformType},
-        primitives::{oscillators::MiniOscillator, tests::write_effect_to_file, ControllerTrait},
+        primitives::{oscillators::MiniOscillator, tests::write_effect_to_file, ControllerTrait__},
     };
 
     use super::*;
@@ -60,7 +60,7 @@ mod tests {
         }
     }
 
-    impl<'a> ControllerTrait for TestController {
+    impl<'a> ControllerTrait__ for TestController {
         fn process(&mut self, time_seconds: f32) {
             if self.time_start < 0.0 {
                 self.time_start = time_seconds;

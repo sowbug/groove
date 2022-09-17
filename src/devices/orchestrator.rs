@@ -1,23 +1,24 @@
 use crate::common::{DeviceId, MonoSample};
-use crate::devices::traits::DeviceTrait;
 use crate::primitives::clock::Clock;
-use crate::settings::automation::{AutomationPatternSettings, InterpolationType};
 use crate::settings::effects::EffectSettings;
 use crate::settings::song::SongSettings;
 use crate::settings::{DeviceSettings, InstrumentSettings};
 
 use crate::synthesizers::{drumkit_sampler, welsh};
 use crossbeam::deque::Worker;
-use sorted_vec::SortedVec;
 use std::cell::RefCell;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::rc::Rc;
 
+use super::automation::{AutomationPattern, AutomationTrack};
 use super::effects::{Bitcrusher, Filter, Gain, Limiter};
 use super::mixer::Mixer;
 use super::pattern_sequencer::{Pattern, PatternSequencer};
+use super::traits::{
+    AudioSink, AudioSource, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait, MidiSink,
+    MidiSource, SequencerTrait,
+};
 
 #[derive(Default, Clone)]
 pub struct Orchestrator {
@@ -25,13 +26,18 @@ pub struct Orchestrator {
 
     master_mixer: Rc<RefCell<Mixer>>,
 
-    id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn DeviceTrait>>>,
+    id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn InstrumentTrait>>>,
     id_to_sequencer: HashMap<DeviceId, Rc<RefCell<PatternSequencer>>>,
     id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
     id_to_automation_pattern: HashMap<DeviceId, Rc<RefCell<AutomationPattern>>>,
+    id_to_effect: HashMap<DeviceId, Rc<RefCell<dyn EffectTrait>>>,
 
+    automators: Vec<Rc<RefCell<dyn AutomatorTrait>>>,
+    sequencers: Vec<Rc<RefCell<dyn SequencerTrait>>>,
+    instruments: Vec<Rc<RefCell<dyn InstrumentTrait>>>,
+    effects: Vec<Rc<RefCell<dyn EffectTrait>>>,
     // legacy
-    devices: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    //    devices: Vec<Rc<RefCell<dyn DeviceTrait>>>,
 }
 
 impl Orchestrator {
@@ -43,8 +49,13 @@ impl Orchestrator {
             id_to_sequencer: HashMap::new(),
             id_to_pattern: HashMap::new(),
             id_to_automation_pattern: HashMap::new(),
+            id_to_effect: HashMap::new(),
 
-            devices: Vec::new(),
+            automators: Vec::new(),
+            sequencers: Vec::new(),
+            instruments: Vec::new(),
+            effects: Vec::new(),
+            //          devices: Vec::new(),
         };
         r.prepare_from_settings();
         r
@@ -59,49 +70,76 @@ impl Orchestrator {
         &self.settings
     }
 
-    pub fn add_device(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
-        self.devices.push(device);
+    // pub fn add_device(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
+    //     self.devices.push(device);
+    // }
+
+    pub fn add_sequencer(&mut self, device: Rc<RefCell<dyn SequencerTrait>>) {
+        self.sequencers.push(device);
+    }
+
+    pub fn add_instrument(&mut self, device: Rc<RefCell<dyn InstrumentTrait>>) {
+        self.instruments.push(device);
+    }
+
+    pub fn add_automator(&mut self, device: Rc<RefCell<dyn AutomatorTrait>>) {
+        self.automators.push(device);
+    }
+
+    pub fn add_effect(&mut self, device: Rc<RefCell<dyn EffectTrait>>) {
+        self.effects.push(device);
     }
 
     fn tick(&mut self, clock: &mut Clock) -> (MonoSample, bool) {
         let mut done = true;
-        for d in self.devices.clone() {
-            if d.borrow().sources_automation() && d.borrow().needs_tick() {
+        for d in self.automators.clone() {
+            if d.borrow().needs_tick() {
                 done = d.borrow_mut().tick(clock) && done;
             }
         }
-        for d in self.devices.clone() {
-            if d.borrow().sources_midi() && d.borrow().needs_tick() {
+        for d in self.sequencers.clone() {
+            if d.borrow().needs_tick() {
                 done = d.borrow_mut().tick(clock) && done;
             }
         }
-        for d in self.devices.clone() {
-            if d.borrow().sources_audio() && d.borrow().needs_tick() {
+        for d in self.instruments.clone() {
+            if d.borrow().needs_tick() {
+                done = d.borrow_mut().tick(clock) && done;
+            }
+        }
+        for d in self.effects.clone() {
+            if d.borrow().needs_tick() {
                 done = d.borrow_mut().tick(clock) && done;
             }
         }
         (self.master_mixer.borrow_mut().get_audio_sample(), done)
     }
 
+    fn reset_all_needs_tick(&mut self) {
+        for d in self.automators.clone() {
+            d.borrow_mut().reset_needs_tick();
+        }
+        for d in self.sequencers.clone() {
+            d.borrow_mut().reset_needs_tick();
+        }
+        for d in self.instruments.clone() {
+            d.borrow_mut().reset_needs_tick();
+        }
+        for d in self.effects.clone() {
+            d.borrow_mut().reset_needs_tick();
+        }
+    }
+
     pub fn perform_to_queue(&mut self, worker: &Worker<MonoSample>) -> anyhow::Result<()> {
         let mut clock = Clock::new(&self.settings.clock);
 
-        // Now is the time to tell the sequencers how much time a beat is.
-        // TODO: how did they get set up without knowing the time signature?
-        for (_id, sequencer) in self.id_to_instrument.clone() {
-            if sequencer.borrow().sources_midi() {
-                //TODODODODODODO sequencer.borrow_mut().set_tempo(clock.settings().bpm());
-            }
-        }
         let progress_indicator_quantum: usize = clock.settings().sample_rate() / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
         loop {
             let (sample, done) = self.tick(&mut clock);
             worker.push(sample);
             clock.tick();
-            for d in self.devices.clone() {
-                d.borrow_mut().reset_needs_tick();
-            }
+            self.reset_all_needs_tick();
             if next_progress_indicator <= clock.samples {
                 print!(".");
                 io::stdout().flush().unwrap();
@@ -115,7 +153,7 @@ impl Orchestrator {
         Ok(())
     }
 
-    pub(crate) fn add_master_mixer_source(&self, device: Rc<RefCell<dyn DeviceTrait>>) {
+    pub(crate) fn add_master_mixer_source(&self, device: Rc<RefCell<dyn AudioSource>>) {
         self.master_mixer.borrow_mut().add_audio_source(device);
     }
 
@@ -134,20 +172,23 @@ impl Orchestrator {
         self.create_automations();
     }
 
-    fn add_instrument(&mut self, id: String, instrument: Rc<RefCell<dyn DeviceTrait>>) {
+    fn add_instrument_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn InstrumentTrait>>) {
         self.id_to_instrument.insert(id, instrument.clone());
-        self.add_device(instrument.clone());
+        self.add_instrument(instrument.clone());
 
-        if instrument.borrow().sinks_midi() {
-            for source_device in self.id_to_sequencer.values() {
-                // TODO: for "elegance" we're connecting everything to everything.
-                // it's the receiver's job to filter out on MIDI channel.
-                // this is inefficient, but maybe it won't matter.
-                source_device
-                    .borrow_mut()
-                    .connect_midi_sink(instrument.clone());
-            }
+        for source_device in self.id_to_sequencer.values() {
+            // TODO: for "elegance" we're connecting everything to everything.
+            // it's the receiver's job to filter out on MIDI channel.
+            // this is inefficient, but maybe it won't matter.
+            source_device
+                .borrow_mut()
+                .connect_midi_sink(instrument.clone());
         }
+    }
+
+    fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn EffectTrait>>) {
+        self.id_to_effect.insert(id, instrument.clone());
+        self.add_effect(instrument.clone());
     }
 
     fn create_instruments(&mut self) {
@@ -165,7 +206,7 @@ impl Orchestrator {
                             welsh::SynthPreset::by_name(&preset_name),
                         )));
                         instrument.borrow_mut().set_midi_channel(midi_input_channel);
-                        self.add_instrument(id, instrument);
+                        self.add_instrument_by_id(id, instrument);
                     }
                     InstrumentSettings::Drumkit {
                         id,
@@ -175,7 +216,7 @@ impl Orchestrator {
                         let instrument =
                             Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files()));
                         instrument.borrow_mut().set_midi_channel(midi_input_channel);
-                        self.add_instrument(id, instrument);
+                        self.add_instrument_by_id(id, instrument);
                     }
                 },
                 DeviceSettings::Sequencer(_settings) => { // skip
@@ -202,16 +243,16 @@ impl Orchestrator {
                             min as MonoSample,
                             max as MonoSample,
                         )));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                     EffectSettings::Gain { id, amount } => {
                         let device = Rc::new(RefCell::new(Gain::new_with_params(amount)));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                     EffectSettings::Bitcrusher { id, bits_to_crush } => {
                         let device =
                             Rc::new(RefCell::new(Bitcrusher::new_with_params(bits_to_crush)));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterLowPass12db { id, cutoff, q } => {
                         let device = Rc::new(RefCell::new(Filter::new_low_pass_12db(
@@ -219,7 +260,7 @@ impl Orchestrator {
                             cutoff,
                             q,
                         )));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterHighPass12db { id, cutoff, q } => {
                         let device = Rc::new(RefCell::new(Filter::new_high_pass_12db(
@@ -227,7 +268,7 @@ impl Orchestrator {
                             cutoff,
                             q,
                         )));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterBandPass12db {
                         id,
@@ -239,7 +280,7 @@ impl Orchestrator {
                             cutoff,
                             bandwidth,
                         )));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterBandStop12db {
                         id,
@@ -251,7 +292,7 @@ impl Orchestrator {
                             cutoff,
                             bandwidth,
                         )));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterAllPass12db { id, cutoff, q } => {
                         let device = Rc::new(RefCell::new(Filter::new_all_pass_12db(
@@ -259,7 +300,7 @@ impl Orchestrator {
                             cutoff,
                             q,
                         )));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterPeakingEq12db {
                         id,
@@ -271,7 +312,7 @@ impl Orchestrator {
                             cutoff,
                             db_gain,
                         )));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterLowShelf12db {
                         id,
@@ -283,7 +324,7 @@ impl Orchestrator {
                             cutoff,
                             db_gain,
                         )));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterHighShelf12db {
                         id,
@@ -295,7 +336,7 @@ impl Orchestrator {
                             cutoff,
                             db_gain,
                         )));
-                        self.add_instrument(id, device);
+                        self.add_effect_by_id(id, device);
                     }
                 };
             }
@@ -310,17 +351,13 @@ impl Orchestrator {
                     &self.settings().clock.time_signature(),
                 )));
                 self.id_to_sequencer.insert(id, sequencer.clone());
-                self.add_device(sequencer.clone());
-                // sequencer
-                // .borrow_mut()
-                // .set_tempo(self.settings().clock.bpm());
+                self.add_sequencer(sequencer.clone());
             }
         }
     }
 
     fn create_required_entities(&mut self) {
-        self.id_to_instrument
-            .insert(String::from("main-mixer"), self.master_mixer.clone());
+        self.add_effect_by_id(String::from("main-mixer"), self.master_mixer.clone());
     }
 
     fn plug_in_patch_cables(&self) {
@@ -332,8 +369,8 @@ impl Orchestrator {
             let mut last_device_id: Option<DeviceId> = None;
             for device_id in patch_cable {
                 if let Some(ldi) = last_device_id {
-                    let output = self.get_device_by_id(&ldi);
-                    let input = self.get_device_by_id(&device_id);
+                    let output: Rc<RefCell<dyn AudioSource>> = self.get_audio_source_by_id(&ldi);
+                    let input: Rc<RefCell<dyn AudioSink>> = self.get_audio_sink_by_id(&device_id);
                     input.borrow_mut().add_audio_source(output);
                 }
                 last_device_id = Some(device_id);
@@ -341,15 +378,41 @@ impl Orchestrator {
         }
     }
 
-    fn get_device_by_id(&self, id: &String) -> Rc<RefCell<dyn DeviceTrait>> {
-        if !self.id_to_instrument.contains_key(id) {
-            panic!("yo {}", id);
+    fn get_instrument_by_id(&self, id: &String) -> Rc<RefCell<dyn InstrumentTrait>> {
+        if self.id_to_instrument.contains_key(id) {
+            return (self.id_to_instrument.get(id).unwrap()).clone();
         }
-        (self.id_to_instrument.get(id).unwrap()).clone()
+        panic!("yo {}", id);
+    }
+
+    fn get_audio_source_by_id(&self, id: &String) -> Rc<RefCell<dyn AudioSource>> {
+        if self.id_to_instrument.contains_key(id) {
+            return (self.id_to_instrument.get(id).unwrap()).clone();
+        } else if self.id_to_effect.contains_key(id) {
+            return (self.id_to_effect.get(id).unwrap()).clone();
+        }
+        panic!("yo {}", id);
+    }
+
+    fn get_audio_sink_by_id(&self, id: &String) -> Rc<RefCell<dyn AudioSink>> {
+        if self.id_to_effect.contains_key(id) {
+            return (self.id_to_effect.get(id).unwrap()).clone();
+        }
+        panic!("yo {}", id);
     }
 
     fn get_sequencer_by_id(&self, id: &String) -> Rc<RefCell<PatternSequencer>> {
-        (self.id_to_sequencer.get(id).unwrap()).clone()
+        if self.id_to_sequencer.contains_key(id) {
+            return (self.id_to_sequencer.get(id).unwrap()).clone();
+        }
+        panic!("yo {}", id);
+    }
+
+    fn get_automation_sink_by_id(&self, id: &String) -> Rc<RefCell<dyn AutomationSink>> {
+        if self.id_to_effect.contains_key(id) {
+            return (self.id_to_effect.get(id).unwrap()).clone();
+        }
+        panic!("yo {}", id);
     }
 
     fn create_tracks(&mut self) {
@@ -398,10 +461,7 @@ impl Orchestrator {
             );
         }
         for track_settings in self.settings.automation_tracks.clone() {
-            let target = self
-                .id_to_instrument
-                .get(&track_settings.target.id)
-                .unwrap();
+            let target = self.get_automation_sink_by_id(&track_settings.target.id);
             let automation_track = Rc::new(RefCell::new(AutomationTrack::new(
                 target.clone(),
                 track_settings.target.param,
@@ -415,171 +475,11 @@ impl Orchestrator {
                         .add_pattern(pattern.clone(), &mut insertion_point);
                 }
             }
-            self.add_device(automation_track.clone());
+            self.add_automator(automation_track.clone());
         }
     }
 
     fn get_pattern_by_id(&self, pattern_id: &str) -> Rc<RefCell<Pattern>> {
         (self.id_to_pattern.get(pattern_id).unwrap()).clone()
-    }
-}
-
-struct AutomationTrack {
-    target_instrument: Rc<RefCell<dyn DeviceTrait>>,
-    target_param_name: String,
-
-    automation_events: SortedVec<OrderedAutomationEvent>,
-
-    // for DeviceTrait
-    needs_tick: bool,
-}
-
-impl AutomationTrack {
-    pub fn new(target: Rc<RefCell<dyn DeviceTrait>>, target_param_name: String) -> Self {
-        Self {
-            target_instrument: target,
-            target_param_name,
-            automation_events: SortedVec::new(),
-            needs_tick: true,
-        }
-    }
-
-    pub fn add_pattern(
-        &mut self,
-        pattern: Rc<RefCell<AutomationPattern>>,
-        insertion_point: &mut f32,
-    ) {
-        // TODO: beat_value accumulates integer error
-        for point in pattern.borrow().points.clone() {
-            self.automation_events.insert(OrderedAutomationEvent {
-                when: *insertion_point,
-                target_param_value: point,
-            });
-            *insertion_point += 1.0;
-        }
-    }
-}
-
-impl DeviceTrait for AutomationTrack {
-    fn sources_automation(&self) -> bool {
-        true
-    }
-
-    fn needs_tick(&self) -> bool {
-        self.needs_tick
-    }
-
-    fn reset_needs_tick(&mut self) {
-        self.needs_tick = true;
-    }
-
-    fn tick(&mut self, clock: &Clock) -> bool {
-        self.needs_tick = false;
-
-        if self.automation_events.is_empty() {
-            // This is different from falling through the loop below because
-            // it signals that we're done.
-            return true;
-        }
-        while !self.automation_events.is_empty() {
-            let event = self.automation_events.first().unwrap();
-
-            if clock.beats >= event.when {
-                // TODO: act on the automation thing
-                self.target_instrument
-                    .borrow_mut()
-                    .handle_automation(&self.target_param_name, event.target_param_value);
-
-                // TODO: same issue as the similar code in Sequencer::tick().
-                self.automation_events.remove_index(0);
-            } else {
-                break;
-            }
-        }
-        false
-    }
-}
-
-use crate::primitives::clock::BeatValue;
-
-#[derive(Clone)]
-pub struct AutomationPattern {
-    pub note_value: Option<BeatValue>,
-    pub interpolation: Option<InterpolationType>,
-    pub points: Vec<f32>,
-}
-
-impl AutomationPattern {
-    pub(crate) fn from_settings(settings: &AutomationPatternSettings) -> Self {
-        Self {
-            note_value: settings.note_value.clone(),
-            interpolation: settings.interpolation.clone(),
-            points: settings.points.clone(),
-        }
-    }
-}
-
-#[derive(PartialEq, PartialOrd, Clone, Debug)]
-pub struct OrderedAutomationEvent {
-    when: f32,
-    target_param_value: f32,
-}
-
-impl Ord for OrderedAutomationEvent {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.when > other.when {
-            return Ordering::Greater;
-        }
-        if self.when < other.when {
-            return Ordering::Less;
-        }
-        return Ordering::Equal;
-    }
-}
-
-impl Eq for OrderedAutomationEvent {}
-
-#[cfg(test)]
-mod tests {
-
-    use crate::devices::tests::NullDevice;
-    use crate::settings::automation::InterpolationType;
-
-    use super::*;
-
-    #[test]
-    fn test_stairstep_automation() {
-        let pattern = Rc::new(RefCell::new(AutomationPattern {
-            note_value: Some(BeatValue::Quarter),
-            interpolation: Some(InterpolationType::Stairstep),
-            points: vec![0.0, 0.1, 0.2, 0.3],
-        }));
-        let target = Rc::new(RefCell::new(NullDevice::new()));
-        let target_param_name = String::from("value");
-        let mut track = AutomationTrack::new(target.clone(), target_param_name);
-        let mut insertion_point = 0.0;
-        track.add_pattern(pattern.clone(), &mut insertion_point);
-
-        // TODO: I want a way at this point to tell how long the clock needs
-        // to run by asking the pattern, or maybe the track, what its length
-        // is in some useful unit.
-
-        assert_eq!(target.borrow().value, 0.0f32);
-        let mut clock = Clock::new_test();
-        let mut current_pattern_point: usize = 0;
-        loop {
-            let mut done = true;
-            done = track.tick(&clock) && done;
-            if clock.beats as usize == current_pattern_point {
-                let point = pattern.borrow().points[current_pattern_point];
-                assert_eq!(target.borrow().value, point);
-                current_pattern_point += 1;
-            }
-            clock.tick();
-            if done {
-                break;
-            }
-        }
-        assert_eq!(target.borrow().value, 0.3f32);
     }
 }

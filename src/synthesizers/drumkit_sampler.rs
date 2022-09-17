@@ -4,7 +4,7 @@ use hound;
 
 use crate::{
     common::{MidiMessageType, MonoSample},
-    devices::traits::DeviceTrait,
+    devices::traits::{AudioSource, MidiSink, TimeSlice, AutomationSink},
     general_midi::GeneralMidiPercussionProgram,
 };
 
@@ -35,14 +35,7 @@ impl Voice {
     }
 }
 
-impl DeviceTrait for Voice {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-    fn sinks_midi(&self) -> bool {
-        true
-    }
-
+impl MidiSink for Voice {
     fn handle_midi_message(
         &mut self,
         message: &crate::common::MidiMessage,
@@ -60,7 +53,8 @@ impl DeviceTrait for Voice {
             MidiMessageType::ProgramChange => {}
         }
     }
-
+}
+impl AudioSource for Voice {
     fn get_audio_sample(&mut self) -> MonoSample {
         if self.is_playing {
             let sample = *self
@@ -72,7 +66,8 @@ impl DeviceTrait for Voice {
             0.0
         }
     }
-
+}
+impl TimeSlice for Voice {
     fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {
         self.sample_pointer = clock.samples as usize - self.sample_clock_start;
         if self.sample_pointer >= self.samples.len() {
@@ -145,14 +140,7 @@ impl Sampler {
     }
 }
 
-impl DeviceTrait for Sampler {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-    fn sinks_midi(&self) -> bool {
-        true
-    }
-
+impl MidiSink for Sampler {
     fn handle_midi_message(
         &mut self,
         message: &crate::common::MidiMessage,
@@ -178,7 +166,9 @@ impl DeviceTrait for Sampler {
             MidiMessageType::ProgramChange => {}
         }
     }
+}
 
+impl AudioSource for Sampler {
     fn get_audio_sample(&mut self) -> MonoSample {
         let mut sum = 0.0;
         for v in self.note_to_voice.values_mut() {
@@ -192,7 +182,15 @@ impl DeviceTrait for Sampler {
         //     .map(|v| v.get_audio_sample())
         //     .sum()
     }
+}
 
+impl AutomationSink for Sampler {
+    fn handle_automation(&mut self, param_name: &String, param_value: f32) {
+        // TODO
+    }
+}
+
+impl TimeSlice for Sampler {
     fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {
         for voice in self.note_to_voice.values_mut() {
             voice.tick(clock);

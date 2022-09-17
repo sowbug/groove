@@ -7,14 +7,14 @@ use crate::{
     primitives::clock::{Clock, TimeSignature},
 };
 
-use super::traits::DeviceTrait;
+use super::traits::{MidiSink, MidiSource, TimeSlice};
 
 pub struct Sequencer {
     midi_ticks_per_second: u32,
     beats_per_minute: f32,
     time_signature: TimeSignature,
 
-    channels_to_sink_vecs: HashMap<u8, Vec<Rc<RefCell<dyn DeviceTrait>>>>,
+    channels_to_sink_vecs: HashMap<u8, Vec<Rc<RefCell<dyn MidiSink>>>>,
     midi_messages: SortedVec<OrderedMidiMessage>,
 }
 
@@ -57,7 +57,7 @@ impl Sequencer {
 
     pub fn connect_midi_sink_for_channel(
         &mut self,
-        device: Rc<RefCell<dyn DeviceTrait>>,
+        device: Rc<RefCell<dyn MidiSink>>,
         channel: u8,
     ) {
         // https://users.rust-lang.org/t/lots-of-references-when-using-hashmap/68754
@@ -78,11 +78,14 @@ impl Sequencer {
     }
 }
 
-impl DeviceTrait for Sequencer {
-    fn sources_midi(&self) -> bool {
-        true
-    }
+impl MidiSource for Sequencer {
+    // TODO: should this always require a channel? Or does the channel-less version mean sink all events?
+    // fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
+    //     self.sinks[&0].push(device);
+    // }
+}
 
+impl TimeSlice for Sequencer {
     fn tick(&mut self, clock: &Clock) -> bool {
         if self.midi_messages.is_empty() {
             // This is different from falling through the loop below because
@@ -107,11 +110,6 @@ impl DeviceTrait for Sequencer {
         }
         false
     }
-
-    // TODO: should this always require a channel? Or does the channel-less version mean sink all events?
-    // fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
-    //     self.sinks[&0].push(device);
-    // }
 }
 
 #[cfg(test)]
@@ -120,7 +118,7 @@ mod tests {
 
     use crate::{
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
-        devices::{tests::NullDevice, traits::DeviceTrait},
+        devices::{tests::NullDevice, traits::TimeSlice},
         primitives::clock::Clock,
         settings::ClockSettings,
     };
@@ -147,8 +145,6 @@ mod tests {
     fn test_sequencer() {
         let mut clock = Clock::new(&ClockSettings::new_defaults());
         let mut sequencer = Sequencer::new();
-        assert!(sequencer.sources_midi());
-        assert!(!sequencer.sources_audio());
 
         let device = Rc::new(RefCell::new(NullDevice::new()));
         assert!(!device.borrow().is_playing);
@@ -185,8 +181,6 @@ mod tests {
     fn test_sequencer_multichannel() {
         let mut clock = Clock::new(&ClockSettings::new_defaults());
         let mut sequencer = Sequencer::new();
-        assert!(sequencer.sources_midi());
-        assert!(!sequencer.sources_audio());
 
         let device_1 = Rc::new(RefCell::new(NullDevice::new()));
         assert!(!device_1.borrow().is_playing);

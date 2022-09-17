@@ -1,4 +1,4 @@
-use super::traits::DeviceTrait;
+use super::traits::{AudioSink, AudioSource, AutomationSink, TimeSlice};
 use crate::{
     common::MonoSample,
     primitives::{
@@ -6,12 +6,12 @@ use crate::{
         filter::{MiniFilter2, MiniFilter2Type},
         gain::MiniGain,
         limiter::MiniLimiter,
-        EffectTrait,
+        EffectTrait__,
     },
 };
 use std::{cell::RefCell, rc::Rc};
 
-fn add_sources(sources: &Vec<Rc<RefCell<dyn DeviceTrait>>>) -> MonoSample {
+fn add_sources(sources: &Vec<Rc<RefCell<dyn AudioSource>>>) -> MonoSample {
     sources
         .iter()
         .map(|s| s.borrow_mut().get_audio_sample())
@@ -19,7 +19,7 @@ fn add_sources(sources: &Vec<Rc<RefCell<dyn DeviceTrait>>>) -> MonoSample {
 }
 
 pub struct Limiter {
-    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    sources: Vec<Rc<RefCell<dyn AudioSource>>>,
     effect: MiniLimiter,
 }
 
@@ -37,24 +37,28 @@ impl Limiter {
     }
 }
 
-impl DeviceTrait for Limiter {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-    fn sinks_audio(&self) -> bool {
-        true
-    }
-    fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
+impl AudioSink for Limiter {
+    fn add_audio_source(&mut self, source: Rc<RefCell<dyn AudioSource>>) {
         self.sources.push(source);
     }
+}
+impl AudioSource for Limiter {
     fn get_audio_sample(&mut self) -> MonoSample {
         self.effect.process(add_sources(&self.sources))
     }
 }
 
+impl AutomationSink for Limiter {
+    fn handle_automation(&mut self, param_name: &String, param_value: f32) {
+        panic!("unrecognized automation param name {}", param_name);
+    }
+}
+
+impl TimeSlice for Limiter {}
+
 #[derive(Default)]
 pub struct Gain {
-    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    sources: Vec<Rc<RefCell<dyn AudioSource>>>,
     effect: MiniGain,
 }
 
@@ -72,23 +76,28 @@ impl Gain {
     }
 }
 
-impl DeviceTrait for Gain {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-    fn sinks_audio(&self) -> bool {
-        true
-    }
-    fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
+impl AudioSink for Gain {
+    fn add_audio_source(&mut self, source: Rc<RefCell<dyn AudioSource>>) {
         self.sources.push(source);
     }
+}
+
+impl AudioSource for Gain {
     fn get_audio_sample(&mut self) -> MonoSample {
         self.effect.process(add_sources(&self.sources))
     }
 }
 
+impl AutomationSink for Gain {
+    fn handle_automation(&mut self, param_name: &String, param_value: f32) {
+        panic!("unrecognized automation param name {}", param_name);
+    }
+}
+
+impl TimeSlice for Gain {}
+
 pub struct Bitcrusher {
-    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    sources: Vec<Rc<RefCell<dyn AudioSource>>>,
     effect: primitives::bitcrusher::Bitcrusher,
     time_seconds: f32,
 }
@@ -106,33 +115,35 @@ impl Bitcrusher {
     }
 }
 
-impl DeviceTrait for Bitcrusher {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-
-    fn sinks_audio(&self) -> bool {
-        true
-    }
-
-    fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
+impl AudioSink for Bitcrusher {
+    fn add_audio_source(&mut self, source: Rc<RefCell<dyn AudioSource>>) {
         self.sources.push(source);
     }
+}
 
+impl TimeSlice for Bitcrusher {
     fn tick(&mut self, clock: &primitives::clock::Clock) -> bool {
         self.time_seconds = clock.seconds;
         true
     }
+}
 
+impl AudioSource for Bitcrusher {
     fn get_audio_sample(&mut self) -> MonoSample {
         self.effect
             .process(add_sources(&self.sources), self.time_seconds)
     }
 }
 
+impl AutomationSink for Bitcrusher {
+    fn handle_automation(&mut self, param_name: &String, param_value: f32) {
+        panic!("unrecognized automation param name {}", param_name);
+    }
+}
+
 #[allow(dead_code)]
 pub struct Filter {
-    sources: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    sources: Vec<Rc<RefCell<dyn AudioSource>>>,
     effect: MiniFilter2,
 
     filter_type: MiniFilter2Type,
@@ -204,23 +215,19 @@ impl Filter {
     }
 }
 
-impl DeviceTrait for Filter {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-
-    fn sinks_audio(&self) -> bool {
-        true
-    }
-
-    fn add_audio_source(&mut self, source: Rc<RefCell<dyn DeviceTrait>>) {
+impl AudioSink for Filter {
+    fn add_audio_source(&mut self, source: Rc<RefCell<dyn AudioSource>>) {
         self.sources.push(source);
     }
+}
 
+impl AudioSource for Filter {
     fn get_audio_sample(&mut self) -> MonoSample {
         self.effect.process(add_sources(&self.sources), -1.0)
     }
+}
 
+impl AutomationSink for Filter {
     fn handle_automation(&mut self, param_name: &String, param_value: f32) {
         if param_name == "cutoff" {
             let unscaled_cutoff = MiniFilter2::percent_to_frequency(param_value * 2.0 - 1.0);
@@ -231,13 +238,18 @@ impl DeviceTrait for Filter {
     }
 }
 
+impl TimeSlice for Filter {}
+
 #[cfg(test)]
 mod tests {
     use assert_approx_eq::assert_approx_eq;
 
     use crate::{
         common::MonoSample,
-        devices::{tests::SingleLevelDevice, traits::DeviceTrait},
+        devices::{
+            tests::SingleLevelDevice,
+            traits::{AudioSink, AudioSource},
+        },
     };
 
     use super::Limiter;

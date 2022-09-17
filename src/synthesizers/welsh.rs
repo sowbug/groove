@@ -5,15 +5,14 @@ use strum_macros::{EnumIter, IntoStaticStr};
 
 use crate::{
     common::{MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
-    devices::traits::DeviceTrait,
+    devices::traits::{AudioSource, MidiSink, TimeSlice, AutomationSink},
     general_midi::GeneralMidiProgram,
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
     primitives::{
         clock::Clock,
         envelopes::MiniEnvelope,
         filter::{MiniFilter2, MiniFilter2Type},
-        oscillators::MiniOscillator,
-        AudioSourceTrait, EffectTrait,
+        oscillators::MiniOscillator, EffectTrait__, AudioSourceTrait__,
     },
 };
 
@@ -1931,7 +1930,7 @@ impl Voice {
     }
 }
 
-impl DeviceTrait for Voice {
+impl MidiSink for Voice {
     fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
         self.amp_envelope
             .handle_midi_message(message, clock.seconds);
@@ -1989,15 +1988,7 @@ impl Synth {
     }
 }
 
-impl DeviceTrait for Synth {
-    fn sources_audio(&self) -> bool {
-        true
-    }
-
-    fn sinks_midi(&self) -> bool {
-        true
-    }
-
+impl MidiSink for Synth {
     fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
         if message.channel != self.midi_channel {
             // TODO: move this up higher so more devices get it for free
@@ -2023,7 +2014,9 @@ impl DeviceTrait for Synth {
             }
         }
     }
+}
 
+impl TimeSlice for Synth {
     fn tick(&mut self, clock: &Clock) -> bool {
         let mut done = true;
         self.current_value = 0.0;
@@ -2036,9 +2029,17 @@ impl DeviceTrait for Synth {
         }
         done
     }
+}
 
+impl AudioSource for Synth {
     fn get_audio_sample(&mut self) -> MonoSample {
         self.current_value
+    }
+}
+
+impl AutomationSink for Synth {
+    fn handle_automation(&mut self, param_name: &String, param_value: f32) {
+        panic!("todo")
     }
 }
 
@@ -2049,7 +2050,6 @@ mod tests {
 
     use crate::{
         common::MidiMessage,
-        devices::traits::DeviceTrait,
         primitives::{clock::Clock, tests::canonicalize_filename},
         settings::ClockSettings,
     };

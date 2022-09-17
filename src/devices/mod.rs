@@ -14,7 +14,7 @@ mod tests {
         primitives::clock::Clock,
     };
 
-    use super::traits::DeviceTrait;
+    use super::traits::{AudioSource, AutomationSink, MidiSink};
 
     #[derive(Default)]
     pub struct NullDevice {
@@ -38,10 +38,7 @@ mod tests {
             self.value = value;
         }
     }
-    impl DeviceTrait for NullDevice {
-        fn sinks_midi(&self) -> bool {
-            true
-        }
+    impl MidiSink for NullDevice {
         fn handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
             self.midi_messages_received += 1;
 
@@ -64,6 +61,8 @@ mod tests {
                 }
             }
         }
+    }
+    impl AutomationSink for NullDevice {
         fn handle_automation(&mut self, _param_name: &String, param_value: f32) {
             self.set_value(param_value);
         }
@@ -79,11 +78,7 @@ mod tests {
         }
     }
 
-    impl DeviceTrait for SingleLevelDevice {
-        fn sources_audio(&self) -> bool {
-            true
-        }
-
+    impl AudioSource for SingleLevelDevice {
         fn get_audio_sample(&mut self) -> MonoSample {
             self.level
         }

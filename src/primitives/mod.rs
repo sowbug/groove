@@ -10,21 +10,21 @@ pub mod mixer;
 pub mod oscillators;
 
 #[allow(unused_variables)]
-pub trait AudioSourceTrait {
+pub trait AudioSourceTrait__ {
     fn process(&mut self, time_seconds: f32) -> MonoSample {
         0.0
     }
 }
 
 #[allow(unused_variables)]
-pub trait EffectTrait {
+pub trait EffectTrait__ {
     fn process(&mut self, input: MonoSample, time_seconds: f32) -> MonoSample {
         input
     }
 }
 
 #[allow(unused_variables)]
-pub trait ControllerTrait {
+pub trait ControllerTrait__ {
     fn process(&mut self, time_seconds: f32) {}
 }
 
@@ -36,7 +36,7 @@ pub mod tests {
 
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
-    use super::{AudioSourceTrait, ControllerTrait, EffectTrait};
+    use super::{AudioSourceTrait__, ControllerTrait__, EffectTrait__};
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -48,7 +48,7 @@ pub mod tests {
         format!("{}/{}.wav", OUT_DIR, snake_filename)
     }
 
-    pub(crate) fn write_source_to_file(source: &mut dyn AudioSourceTrait, basename: &str) {
+    pub(crate) fn write_source_to_file(source: &mut dyn AudioSourceTrait__, basename: &str) {
         let mut clock = Clock::new(&ClockSettings::new_defaults());
 
         let spec = hound::WavSpec {
@@ -68,9 +68,9 @@ pub mod tests {
     }
 
     pub(crate) fn write_effect_to_file(
-        source: &mut dyn AudioSourceTrait,
-        effect: Rc<RefCell<dyn EffectTrait>>,
-        opt_controller: &mut Option<&mut dyn ControllerTrait>,
+        source: &mut dyn AudioSourceTrait__,
+        effect: Rc<RefCell<dyn EffectTrait__>>,
+        opt_controller: &mut Option<&mut dyn ControllerTrait__>,
         basename: &str,
     ) {
         let mut clock = Clock::new(&ClockSettings::new_defaults());
