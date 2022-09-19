@@ -9,6 +9,7 @@ use crate::{
 
 use super::traits::{MidiSink, MidiSource, TimeSlice};
 
+#[derive(Default)]
 pub struct Sequencer {
     midi_ticks_per_second: u32,
     beats_per_minute: f32,

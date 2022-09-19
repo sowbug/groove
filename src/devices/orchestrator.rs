@@ -15,9 +15,10 @@ use super::automation::{AutomationPattern, AutomationTrack};
 use super::effects::{Bitcrusher, Filter, Gain, Limiter};
 use super::mixer::Mixer;
 use super::pattern_sequencer::{Pattern, PatternSequencer};
+use super::sequencer::Sequencer;
 use super::traits::{
-    AudioSink, AudioSource, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait, MidiSink,
-    MidiSource, SequencerTrait,
+    AudioSink, AudioSource, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait,
+    MidiSource, TimeSlice,
 };
 
 #[derive(Default, Clone)]
@@ -25,19 +26,15 @@ pub struct Orchestrator {
     settings: SongSettings,
 
     master_mixer: Rc<RefCell<Mixer>>,
+    midi_sequencer: Rc<RefCell<Sequencer>>,
+    pattern_sequencer: Rc<RefCell<PatternSequencer>>,
 
+    id_to_automator: HashMap<DeviceId, Rc<RefCell<dyn AutomatorTrait>>>,
     id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn InstrumentTrait>>>,
-    id_to_sequencer: HashMap<DeviceId, Rc<RefCell<PatternSequencer>>>,
-    id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
-    id_to_automation_pattern: HashMap<DeviceId, Rc<RefCell<AutomationPattern>>>,
     id_to_effect: HashMap<DeviceId, Rc<RefCell<dyn EffectTrait>>>,
 
-    automators: Vec<Rc<RefCell<dyn AutomatorTrait>>>,
-    sequencers: Vec<Rc<RefCell<dyn SequencerTrait>>>,
-    instruments: Vec<Rc<RefCell<dyn InstrumentTrait>>>,
-    effects: Vec<Rc<RefCell<dyn EffectTrait>>>,
-    // legacy
-    //    devices: Vec<Rc<RefCell<dyn DeviceTrait>>>,
+    id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
+    id_to_automation_pattern: HashMap<DeviceId, Rc<RefCell<AutomationPattern>>>,
 }
 
 impl Orchestrator {
@@ -45,22 +42,22 @@ impl Orchestrator {
         let mut r = Self {
             settings: settings.clone(),
             master_mixer: Rc::new(RefCell::new(Mixer::new())),
+            midi_sequencer: Rc::new(RefCell::new(Sequencer::new())),
+            pattern_sequencer: Rc::new(RefCell::new(PatternSequencer::new(
+                &settings.clock.time_signature(),
+            ))),
+            id_to_automator: HashMap::new(),
             id_to_instrument: HashMap::new(),
-            id_to_sequencer: HashMap::new(),
-            id_to_pattern: HashMap::new(),
-            id_to_automation_pattern: HashMap::new(),
             id_to_effect: HashMap::new(),
 
-            automators: Vec::new(),
-            sequencers: Vec::new(),
-            instruments: Vec::new(),
-            effects: Vec::new(),
-            //          devices: Vec::new(),
+            id_to_pattern: HashMap::new(),
+            id_to_automation_pattern: HashMap::new(),
         };
         r.prepare_from_settings();
         r
     }
 
+    #[allow(dead_code)]
     pub fn new_defaults() -> Self {
         let settings = SongSettings::new_defaults();
         Self::new(settings)
@@ -70,44 +67,25 @@ impl Orchestrator {
         &self.settings
     }
 
-    // pub fn add_device(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
-    //     self.devices.push(device);
-    // }
-
-    pub fn add_sequencer(&mut self, device: Rc<RefCell<dyn SequencerTrait>>) {
-        self.sequencers.push(device);
-    }
-
-    pub fn add_instrument(&mut self, device: Rc<RefCell<dyn InstrumentTrait>>) {
-        self.instruments.push(device);
-    }
-
-    pub fn add_automator(&mut self, device: Rc<RefCell<dyn AutomatorTrait>>) {
-        self.automators.push(device);
-    }
-
-    pub fn add_effect(&mut self, device: Rc<RefCell<dyn EffectTrait>>) {
-        self.effects.push(device);
-    }
-
     fn tick(&mut self, clock: &mut Clock) -> (MonoSample, bool) {
         let mut done = true;
-        for d in self.automators.clone() {
+        for d in self.id_to_automator.values() {
             if d.borrow().needs_tick() {
                 done = d.borrow_mut().tick(clock) && done;
             }
         }
-        for d in self.sequencers.clone() {
+        if self.midi_sequencer.borrow().needs_tick() {
+            done = self.midi_sequencer.borrow_mut().tick(clock) && done;
+        }
+        if self.pattern_sequencer.borrow().needs_tick() {
+            done = self.pattern_sequencer.borrow_mut().tick(clock) && done;
+        }
+        for d in self.id_to_instrument.values() {
             if d.borrow().needs_tick() {
                 done = d.borrow_mut().tick(clock) && done;
             }
         }
-        for d in self.instruments.clone() {
-            if d.borrow().needs_tick() {
-                done = d.borrow_mut().tick(clock) && done;
-            }
-        }
-        for d in self.effects.clone() {
+        for d in self.id_to_effect.values() {
             if d.borrow().needs_tick() {
                 done = d.borrow_mut().tick(clock) && done;
             }
@@ -116,16 +94,15 @@ impl Orchestrator {
     }
 
     fn reset_all_needs_tick(&mut self) {
-        for d in self.automators.clone() {
+        for d in self.id_to_automator.values() {
             d.borrow_mut().reset_needs_tick();
         }
-        for d in self.sequencers.clone() {
+        self.midi_sequencer.borrow_mut().reset_needs_tick();
+        self.pattern_sequencer.borrow_mut().reset_needs_tick();
+        for d in self.id_to_instrument.values() {
             d.borrow_mut().reset_needs_tick();
         }
-        for d in self.instruments.clone() {
-            d.borrow_mut().reset_needs_tick();
-        }
-        for d in self.effects.clone() {
+        for d in self.id_to_effect.values() {
             d.borrow_mut().reset_needs_tick();
         }
     }
@@ -157,38 +134,40 @@ impl Orchestrator {
         self.master_mixer.borrow_mut().add_audio_source(device);
     }
 
-    // TODO: this is a temp hack while I figure out how to map tracks to specific sequencers
-    fn get_hack_sequencer(&self) -> Rc<RefCell<PatternSequencer>> {
-        self.get_sequencer_by_id(&String::from("sequencer"))
-    }
-
     pub fn prepare_from_settings(&mut self) {
         self.create_required_entities();
-        self.create_sequencers();
         self.create_effects();
         self.create_instruments();
+        self.connect_instruments_to_sequencers();
         self.plug_in_patch_cables();
         self.create_tracks();
         self.create_automations();
     }
 
-    fn add_instrument_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn InstrumentTrait>>) {
-        self.id_to_instrument.insert(id, instrument.clone());
-        self.add_instrument(instrument.clone());
-
-        for source_device in self.id_to_sequencer.values() {
-            // TODO: for "elegance" we're connecting everything to everything.
-            // it's the receiver's job to filter out on MIDI channel.
-            // this is inefficient, but maybe it won't matter.
-            source_device
+    // TODO: for "elegance" we're connecting everything to everything.
+    // it's the receiver's job to filter out on MIDI channel.
+    // this is inefficient, but maybe it won't matter.
+    fn connect_instruments_to_sequencers(&mut self) {
+        for instrument in self.id_to_instrument.values() {
+            self.midi_sequencer
+                .borrow_mut()
+                .connect_midi_sink(instrument.clone());
+            self.pattern_sequencer
                 .borrow_mut()
                 .connect_midi_sink(instrument.clone());
         }
     }
 
+    fn add_instrument_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn InstrumentTrait>>) {
+        self.id_to_instrument.insert(id, instrument.clone());
+    }
+
     fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn EffectTrait>>) {
         self.id_to_effect.insert(id, instrument.clone());
-        self.add_effect(instrument.clone());
+    }
+
+    fn add_automator_by_id(&mut self, id: String, automator: Rc<RefCell<dyn AutomatorTrait>>) {
+        self.id_to_automator.insert(id, automator.clone());
     }
 
     fn create_instruments(&mut self) {
@@ -219,8 +198,6 @@ impl Orchestrator {
                         self.add_instrument_by_id(id, instrument);
                     }
                 },
-                DeviceSettings::Sequencer(_settings) => { // skip
-                }
                 DeviceSettings::Effect(_settings) => { // skip
                 }
             }
@@ -343,19 +320,6 @@ impl Orchestrator {
         }
     }
 
-    fn create_sequencers(&mut self) {
-        // First set up sequencers.
-        for device in self.settings.devices.clone() {
-            if let DeviceSettings::Sequencer(id) = device {
-                let sequencer = Rc::new(RefCell::new(PatternSequencer::new(
-                    &self.settings().clock.time_signature(),
-                )));
-                self.id_to_sequencer.insert(id, sequencer.clone());
-                self.add_sequencer(sequencer.clone());
-            }
-        }
-    }
-
     fn create_required_entities(&mut self) {
         self.add_effect_by_id(String::from("main-mixer"), self.master_mixer.clone());
     }
@@ -378,6 +342,7 @@ impl Orchestrator {
         }
     }
 
+    #[allow(dead_code)]
     fn get_instrument_by_id(&self, id: &String) -> Rc<RefCell<dyn InstrumentTrait>> {
         if self.id_to_instrument.contains_key(id) {
             return (self.id_to_instrument.get(id).unwrap()).clone();
@@ -397,13 +362,6 @@ impl Orchestrator {
     fn get_audio_sink_by_id(&self, id: &String) -> Rc<RefCell<dyn AudioSink>> {
         if self.id_to_effect.contains_key(id) {
             return (self.id_to_effect.get(id).unwrap()).clone();
-        }
-        panic!("yo {}", id);
-    }
-
-    fn get_sequencer_by_id(&self, id: &String) -> Rc<RefCell<PatternSequencer>> {
-        if self.id_to_sequencer.contains_key(id) {
-            return (self.id_to_sequencer.get(id).unwrap()).clone();
         }
         panic!("yo {}", id);
     }
@@ -430,10 +388,7 @@ impl Orchestrator {
         // own to override the track's, but that's unwieldy compared to a single signature
         // change as part of the overall track sequence. Maybe a pattern can be either
         // a pattern or a TS change...
-        let sequencer = self.get_hack_sequencer();
-        // sequencer
-        //     .borrow_mut()
-        //     .set_time_signature(self.settings.clock.time_signature());
+        //
         // TODO - should PatternSequencers be able to change their base time signature? Probably
 
         for track in self.settings.tracks.clone() {
@@ -441,10 +396,11 @@ impl Orchestrator {
             let mut beat_cursor = 0.0;
             for pattern_id in track.pattern_ids {
                 let pattern = self.get_pattern_by_id(&pattern_id);
-                beat_cursor =
-                    sequencer
-                        .borrow_mut()
-                        .insert_pattern(pattern.clone(), channel, beat_cursor);
+                beat_cursor = self.pattern_sequencer.borrow_mut().insert_pattern(
+                    pattern.clone(),
+                    channel,
+                    beat_cursor,
+                );
             }
         }
     }
@@ -475,11 +431,15 @@ impl Orchestrator {
                         .add_pattern(pattern.clone(), &mut insertion_point);
                 }
             }
-            self.add_automator(automation_track.clone());
+            self.add_automator_by_id(track_settings.id, automation_track.clone());
         }
     }
 
     fn get_pattern_by_id(&self, pattern_id: &str) -> Rc<RefCell<Pattern>> {
         (self.id_to_pattern.get(pattern_id).unwrap()).clone()
+    }
+
+    pub(crate) fn midi_sequencer(&self) -> Rc<RefCell<Sequencer>> {
+        self.midi_sequencer.clone()
     }
 }

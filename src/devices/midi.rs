@@ -21,10 +21,12 @@ pub struct MidiControllerReader {
 }
 
 impl MidiControllerReader {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self { sinks: Vec::new() }
     }
 
+    #[allow(dead_code)]
     pub fn connect(&mut self) {
         let mut midi_in = match MidiInput::new(std::any::type_name::<Self>()) {
             Ok(t) => t,

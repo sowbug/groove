@@ -82,8 +82,6 @@ mod tests {
                     preset_name: String::from("707"), // TODO, for now all 707
                 }));
 
-            r.devices
-                .push(DeviceSettings::Sequencer(String::from("sequencer")));
             r.patch_cables
                 .push(Self::new_patch_cable(vec!["piano", "main-mixer"]));
             r.patch_cables

@@ -3,8 +3,6 @@
 
 #[macro_use]
 extern crate num_derive;
-
-#[macro_use]
 extern crate anyhow;
 
 mod common;
@@ -18,10 +16,7 @@ mod synthesizers;
 
 use crate::{
     common::MonoSample,
-    devices::{
-        midi::MidiControllerReader, orchestrator::Orchestrator, sequencer::Sequencer,
-        traits::InstrumentTrait,
-    },
+    devices::{orchestrator::Orchestrator, sequencer::Sequencer, traits::InstrumentTrait},
     synthesizers::drumkit_sampler::Sampler as DrumKitSampler,
 };
 use anyhow::Ok;
@@ -199,11 +194,8 @@ impl ClDaw {
         }
 
         if let Some(midi_in_filename) = midi_in {
-            let sequencer = Rc::new(RefCell::new(Sequencer::new()));
-            self.orchestrator.add_sequencer(sequencer.clone());
-
             let data = std::fs::read(midi_in_filename).unwrap();
-            MidiSmfReader::load_sequencer(&data, sequencer.clone());
+            MidiSmfReader::load_sequencer(&data, self.orchestrator.midi_sequencer());
 
             for channel_number in 0..Sequencer::connected_channel_count() {
                 let synth: Rc<RefCell<dyn InstrumentTrait>> = if channel_number == 9 {
@@ -214,10 +206,12 @@ impl ClDaw {
                         SynthPreset::by_name(&PresetName::Piano),
                     )))
                 };
-                self.orchestrator.add_instrument(synth.clone());
+                // TODO: midi is broken for now because we don't have any concept of instrument ID
+                // self.orchestrator.add_instrument(synth.clone());
                 self.orchestrator.add_master_mixer_source(synth.clone());
 
-                sequencer
+                self.orchestrator
+                    .midi_sequencer()
                     .borrow_mut()
                     .connect_midi_sink_for_channel(synth, channel_number);
             }

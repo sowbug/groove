@@ -46,7 +46,6 @@ pub enum InstrumentSettings {
 #[serde(rename_all = "kebab-case")]
 pub enum DeviceSettings {
     Instrument(InstrumentSettings),
-    Sequencer(DeviceId),
     Effect(EffectSettings),
 }
 

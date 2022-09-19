@@ -16,16 +16,19 @@ pub trait TimeSlice {
     // that it does need to keep doing work.
     //
     // More often used for MIDI instruments.
+    #[allow(unused_variables)]
     fn tick(&mut self, clock: &Clock) -> bool {
         true
     }
 }
 
 pub trait MidiSource {
+    #[allow(unused_variables)]
     fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn MidiSink>>) {}
 }
 
 pub trait MidiSink {
+    #[allow(unused_variables)]
     fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
 }
 
@@ -36,10 +39,12 @@ pub trait AudioSource {
 }
 
 pub trait AudioSink {
+    #[allow(unused_variables)]
     fn add_audio_source(&mut self, device: Rc<RefCell<dyn AudioSource>>) {}
 }
 
 pub trait AutomationSink {
+    #[allow(unused_variables)]
     fn handle_automation(&mut self, param_name: &String, param_value: f32) {}
 }
 
@@ -54,22 +59,3 @@ impl<T: MidiSink + AudioSource + AutomationSink + TimeSlice> InstrumentTrait for
 
 pub trait EffectTrait: AudioSource + AudioSink + AutomationSink + TimeSlice {}
 impl<T: AudioSource + AudioSink + AutomationSink + TimeSlice> EffectTrait for T {}
-
-// // Composition of AudioSource and AudioSink and a bunch of other stuff.
-// // See https://users.rust-lang.org/t/dyn-multiple-traits-in-a-type-alias/21051
-// #[allow(unused_variables)]
-// pub trait DeviceTrait {
-//     fn sources_midi(&self) -> bool {
-//         false
-//     }
-//     fn sinks_midi(&self) -> bool {
-//         false
-//     }
-//     fn sources_audio(&self) -> bool {
-//         false
-//     }
-//     fn sinks_audio(&self) -> bool {
-//         false
-//     }
-
-// }

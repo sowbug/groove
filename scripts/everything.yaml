@@ -21,7 +21,6 @@ devices:
         id: drum-1
         midi-in: 10
         preset: "707"
-  - sequencer: sequencer
   - effect:
       gain:
         id: gain-1

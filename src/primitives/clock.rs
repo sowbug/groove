@@ -90,6 +90,12 @@ pub struct TimeSignature {
     pub bottom: u32,
 }
 
+impl Default for TimeSignature {
+    fn default() -> Self {
+        Self { top: 4, bottom: 4 }
+    }
+}
+
 impl TimeSignature {
     pub(crate) fn new(top: u32, bottom: u32) -> Self {
         if top == 0 {

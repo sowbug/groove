@@ -13,6 +13,7 @@ use crate::{
 
 use super::traits::{MidiSink, MidiSource, TimeSlice};
 
+#[derive(Default)]
 pub struct PatternSequencer {
     time_signature: TimeSignature,
 

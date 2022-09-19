@@ -2038,6 +2038,7 @@ impl AudioSource for Synth {
 }
 
 impl AutomationSink for Synth {
+    #[allow(unused_variables)]
     fn handle_automation(&mut self, param_name: &String, param_value: f32) {
         panic!("todo")
     }

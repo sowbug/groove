@@ -185,6 +185,7 @@ impl AudioSource for Sampler {
 }
 
 impl AutomationSink for Sampler {
+    #[allow(unused_variables)]
     fn handle_automation(&mut self, param_name: &String, param_value: f32) {
         // TODO
     }

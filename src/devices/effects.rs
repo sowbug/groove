@@ -48,6 +48,7 @@ impl AudioSource for Limiter {
     }
 }
 
+#[allow(unused_variables)]
 impl AutomationSink for Limiter {
     fn handle_automation(&mut self, param_name: &String, param_value: f32) {
         panic!("unrecognized automation param name {}", param_name);
@@ -88,6 +89,7 @@ impl AudioSource for Gain {
     }
 }
 
+#[allow(unused_variables)]
 impl AutomationSink for Gain {
     fn handle_automation(&mut self, param_name: &String, param_value: f32) {
         panic!("unrecognized automation param name {}", param_name);
@@ -110,6 +112,8 @@ impl Bitcrusher {
             time_seconds: 0.0,
         }
     }
+
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::new_with_params(8)
     }
@@ -136,6 +140,7 @@ impl AudioSource for Bitcrusher {
 }
 
 impl AutomationSink for Bitcrusher {
+    #[allow(unused_variables)]
     fn handle_automation(&mut self, param_name: &String, param_value: f32) {
         panic!("unrecognized automation param name {}", param_name);
     }

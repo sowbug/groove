@@ -1,5 +1,4 @@
 use crate::primitives::clock::Clock;
-use crate::synthesizers::welsh;
 
 use std::rc::Rc;
 use std::{cell::RefCell, cmp::Ordering};
@@ -17,10 +16,6 @@ pub struct AutomationTrack {
 impl AutomationTrack {
     pub fn new(target: Rc<RefCell<dyn AutomationSink>>, target_param_name: String) -> Self {
         Self {
-            // target_instrument: Rc::new(RefCell::new(welsh::Synth::new(
-            //     234,
-            //     welsh::SynthPreset::by_name(&welsh::PresetName::Piano),
-            // ))), //target,
             target_instrument: target,
             target_param_name,
             automation_events: SortedVec::new(),
