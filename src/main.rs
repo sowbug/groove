@@ -1,24 +1,22 @@
 #![feature(trait_upcasting)]
 #![allow(incomplete_features)]
 
-#[macro_use]
 extern crate num_derive;
 extern crate anyhow;
 
-mod common;
-mod devices;
-mod general_midi;
-mod preset;
-mod primitives;
-mod scripting;
-mod settings;
-mod synthesizers;
-
-use crate::{
+use libgroove::{
     common::MonoSample,
-    devices::{orchestrator::Orchestrator, sequencer::Sequencer, traits::InstrumentTrait},
-    synthesizers::drumkit_sampler::Sampler as DrumKitSampler,
+    devices::{
+        midi::MidiSmfReader, orchestrator::Orchestrator, sequencer::Sequencer,
+        traits::InstrumentTrait,
+    },
+    settings::song::SongSettings,
+    synthesizers::{
+        drumkit_sampler::Sampler,
+        welsh::{PresetName, Synth, SynthPreset},
+    },
 };
+
 use anyhow::Ok;
 use clap::Parser;
 use cpal::{
@@ -26,15 +24,11 @@ use cpal::{
     SampleRate, StreamConfig,
 };
 use crossbeam::deque::{Stealer, Worker};
-use devices::midi::MidiSmfReader;
-//use scripting::ScriptEngine;
-use settings::song::SongSettings;
 use std::{
     cell::RefCell,
     rc::Rc,
     sync::{Arc, Condvar, Mutex},
 };
-use synthesizers::welsh::*;
 
 #[derive(Default)]
 struct ClDaw {
@@ -199,7 +193,7 @@ impl ClDaw {
 
             for channel_number in 0..Sequencer::connected_channel_count() {
                 let synth: Rc<RefCell<dyn InstrumentTrait>> = if channel_number == 9 {
-                    Rc::new(RefCell::new(DrumKitSampler::new_from_files()))
+                    Rc::new(RefCell::new(Sampler::new_from_files()))
                 } else {
                     Rc::new(RefCell::new(Synth::new(
                         self.orchestrator.settings().clock.sample_rate(),

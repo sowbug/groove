@@ -14,12 +14,12 @@
           "--no-run",
           "--",
           "--show-output",
-          "--bin=groove",
+          "--bin=libgroove",
           "--package=groove",
         ],
         "filter": {
-          "name": "groove",
-          "kind": "bin"
+          "name": "libgroove",
+          "kind": "lib"
         }
       },
       "args": [],

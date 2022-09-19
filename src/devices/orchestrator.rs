@@ -21,6 +21,7 @@ use super::traits::{
     MidiSource, TimeSlice,
 };
 
+/// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
 #[derive(Default, Clone)]
 pub struct Orchestrator {
     settings: SongSettings,
@@ -130,7 +131,7 @@ impl Orchestrator {
         Ok(())
     }
 
-    pub(crate) fn add_master_mixer_source(&self, device: Rc<RefCell<dyn AudioSource>>) {
+    pub fn add_master_mixer_source(&self, device: Rc<RefCell<dyn AudioSource>>) {
         self.master_mixer.borrow_mut().add_audio_source(device);
     }
 
@@ -439,7 +440,7 @@ impl Orchestrator {
         (self.id_to_pattern.get(pattern_id).unwrap()).clone()
     }
 
-    pub(crate) fn midi_sequencer(&self) -> Rc<RefCell<Sequencer>> {
+    pub fn midi_sequencer(&self) -> Rc<RefCell<Sequencer>> {
         self.midi_sequencer.clone()
     }
 }

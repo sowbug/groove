@@ -1,6 +1,7 @@
 [package]
 name = "groove"
 version = "0.1.0"
+authors = [ "Mike Tsao <mike@sowbug.com>" ]
 edition = "2021"
 
 [dependencies]
@@ -22,3 +23,11 @@ serde_yaml = "0.8"
 sorted-vec = "0.8.0"
 strum = "0.24.1"
 strum_macros = "0.24.2"
+
+[[bin]]
+name = "groove"
+path = "src/main.rs"
+
+[lib]
+name = "libgroove"
+path = "src/lib.rs"
