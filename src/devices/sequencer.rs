@@ -20,17 +20,13 @@ pub struct MidiSequencer {
 
 impl MidiSequencer {
     pub fn new() -> Self {
-        let mut result = Self {
+        Self {
             midi_ticks_per_second: 960,
             beats_per_minute: 120.0,
             time_signature: TimeSignature::new(4, 4),
             channels_to_sink_vecs: HashMap::new(),
             midi_messages: SortedVec::new(),
-        };
-        for channel in 0..Self::connected_channel_count() {
-            result.channels_to_sink_vecs.insert(channel, Vec::new());
         }
-        result
     }
 
     pub fn connected_channel_count() -> u8 {
@@ -60,10 +56,10 @@ impl MidiSequencer {
         device: Rc<RefCell<dyn MidiSink>>,
         channel: MidiChannel,
     ) {
-        // https://users.rust-lang.org/t/lots-of-references-when-using-hashmap/68754
-        // discusses why we have to do strange &u keys.
-        let sink_vec = self.channels_to_sink_vecs.get_mut(&channel).unwrap();
-        sink_vec.push(device);
+        self.channels_to_sink_vecs
+            .entry(channel)
+            .or_default()
+            .push(device);
     }
 
     fn dispatch_midi_message(&self, midi_message: &OrderedMidiMessage, clock: &Clock) {
@@ -113,7 +109,10 @@ mod tests {
 
     use crate::{
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
-        devices::{tests::NullDevice, traits::{TimeSlice, MidiSink}},
+        devices::{
+            tests::NullDevice,
+            traits::{MidiSink, TimeSlice},
+        },
         primitives::clock::Clock,
         settings::ClockSettings,
     };
