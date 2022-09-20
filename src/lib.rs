@@ -1,10 +1,6 @@
 #![feature(trait_upcasting)]
 #![allow(incomplete_features)]
 
-#[macro_use]
-extern crate num_derive;
-extern crate anyhow;
-
 pub mod common;
 pub mod devices;
 pub mod general_midi;

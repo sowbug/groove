@@ -1,9 +1,6 @@
 #![feature(trait_upcasting)]
 #![allow(incomplete_features)]
 
-extern crate num_derive;
-extern crate anyhow;
-
 use libgroove::{
     common::MonoSample,
     devices::{
@@ -260,8 +257,6 @@ struct Args {
     #[clap(short, long, value_parser)]
     wav_out: Option<String>,
 }
-
-extern crate midir;
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();

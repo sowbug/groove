@@ -5,14 +5,15 @@ use strum_macros::{EnumIter, IntoStaticStr};
 
 use crate::{
     common::{MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
-    devices::traits::{AudioSource, MidiSink, TimeSlice, AutomationSink},
+    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlice},
     general_midi::GeneralMidiProgram,
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
     primitives::{
         clock::Clock,
         envelopes::MiniEnvelope,
         filter::{MiniFilter2, MiniFilter2Type},
-        oscillators::MiniOscillator, EffectTrait__, AudioSourceTrait__,
+        oscillators::MiniOscillator,
+        AudioSourceTrait__, EffectTrait__,
     },
 };
 
@@ -2009,8 +2010,9 @@ impl MidiSink for Synth {
                 self.note_to_voice.remove(&note);
             }
             MidiMessageType::ProgramChange => {
-                self.preset =
-                    Synth::get_general_midi_preset(FromPrimitive::from_u8(message.data1).unwrap());
+                self.preset = Synth::get_general_midi_preset(
+                    GeneralMidiProgram::from_u8(message.data1).unwrap(),
+                );
             }
         }
     }

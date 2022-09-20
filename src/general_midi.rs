@@ -1,5 +1,7 @@
-#[derive(FromPrimitive)]
+use enum_primitive_derive::Primitive;
+
 #[allow(dead_code)]
+#[derive(Primitive)]
 pub enum GeneralMidiProgram {
     AcousticGrand = 0,
     BrightAcoustic = 1,
