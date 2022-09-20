@@ -14,7 +14,10 @@ pub struct MidiSequencer {
     midi_ticks_per_second: u32,
     beats_per_minute: f32,
     time_signature: TimeSignature,
+
+    // TODO: if this gets too unwieldy, consider https://crates.io/crates/multimap
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>>,
+
     midi_messages: SortedVec<OrderedMidiMessage>,
 }
 
