@@ -8,6 +8,8 @@ pub enum InterpolationType {
     Stairstep,
     Linear,
     Logarithmic,
+    Trigger, // TODO: this might mean Automators are also AutomationSinks
+             // and maybe MidiSinks.
 }
 
 #[derive(Serialize, Deserialize, Clone)]
