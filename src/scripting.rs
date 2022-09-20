@@ -5,12 +5,12 @@ mod nothing {
     use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
     use crate::{
-        common::MonoSample,
+        common::{MidiChannel, MonoSample},
         devices::{
             effects::{Bitcrusher, Limiter},
             midi::MidiSmfReader,
             orchestrator::Orchestrator,
-            sequencer::Sequencer,
+            sequencer::MidiSequencer,
             traits::{AudioSink, AudioSource, SequencerTrait},
         },
         synthesizers::welsh,
@@ -227,7 +227,7 @@ mod nothing {
         ) {
             upstream
                 .borrow_mut()
-                .connect_midi_sink_for_channel(downstream, channel as u8);
+                .connect_midi_sink_for_channel(downstream, channel as MidiChannel);
         }
 
         fn register_methods(&mut self) {

@@ -2,13 +2,14 @@
 use hound;
 
 use crate::{
-    common::{MidiMessageType, MonoSample},
+    common::{MidiChannel, MidiMessageType, MonoSample},
     devices::traits::{AudioSource, MidiSink, TimeSlice},
 };
 
 #[derive(Default)]
 #[allow(dead_code)]
 pub struct Sampler {
+    midi_channel: MidiChannel,
     samples: Vec<MonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
@@ -17,17 +18,18 @@ pub struct Sampler {
 }
 
 impl Sampler {
-    pub fn new(buffer_size: usize) -> Self {
+    pub fn new(midi_channel: MidiChannel, buffer_size: usize) -> Self {
         Self {
+            midi_channel,
             samples: Vec::with_capacity(buffer_size),
             ..Default::default()
         }
     }
 
     #[allow(dead_code)]
-    pub fn new_from_file(filename: &str) -> Self {
+    pub fn new_from_file(midi_channel: MidiChannel, filename: &str) -> Self {
         let mut reader = hound::WavReader::open(filename).unwrap();
-        let mut r = Self::new(reader.duration() as usize);
+        let mut r = Self::new(midi_channel, reader.duration() as usize);
         for sample in reader.samples::<i16>() {
             r.samples
                 .push(sample.unwrap() as MonoSample / i16::MAX as MonoSample);
@@ -37,7 +39,15 @@ impl Sampler {
 }
 
 impl MidiSink for Sampler {
-    fn handle_midi_message(
+    fn midi_channel(&self) -> crate::common::MidiChannel {
+        self.midi_channel
+    }
+
+    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
+        self.midi_channel = midi_channel;
+    }
+
+    fn __handle_midi_message(
         &mut self,
         message: &crate::common::MidiMessage,
         clock: &crate::primitives::clock::Clock,
@@ -81,10 +91,12 @@ impl TimeSlice for Sampler {
 
 #[cfg(test)]
 mod tests {
+    use crate::common::MIDI_CHANNEL_RECEIVE_NONE;
+
     use super::*;
 
     #[test]
     fn test_loading() {
-        let _ = Sampler::new_from_file("samples/test.wav");
+        let _ = Sampler::new_from_file(MIDI_CHANNEL_RECEIVE_NONE, "samples/test.wav");
     }
 }

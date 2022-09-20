@@ -3,14 +3,14 @@ pub mod effects;
 pub mod midi;
 mod mixer;
 pub mod orchestrator;
-pub mod pattern_sequencer;
+pub mod patterns;
 pub mod sequencer;
 pub mod traits; // TODO; make non-pub again so DeviceTrait doesn't leak out of this crate
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::{MidiMessage, MidiMessageType, MonoSample},
+        common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample},
         primitives::clock::Clock,
     };
 
@@ -19,7 +19,7 @@ mod tests {
     #[derive(Default)]
     pub struct NullDevice {
         pub is_playing: bool,
-        midi_channel: u8,
+        midi_channel: MidiChannel,
         pub midi_messages_received: usize,
         pub midi_messages_handled: usize,
         pub value: f32,
@@ -31,21 +31,21 @@ mod tests {
                 ..Default::default()
             }
         }
-        pub fn set_channel(&mut self, channel: u8) {
-            self.midi_channel = channel;
-        }
         pub fn set_value(&mut self, value: f32) {
             self.value = value;
         }
     }
     impl MidiSink for NullDevice {
-        fn handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
-            self.midi_messages_received += 1;
+        fn midi_channel(&self) -> MidiChannel {
+            self.midi_channel
+        }
 
-            // TODO: be more efficient about this -- don't dispatch in the first place!
-            if message.channel != self.midi_channel {
-                return;
-            }
+        fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
+            self.midi_channel = midi_channel;
+        }
+
+        fn __handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
+            self.midi_messages_received += 1;
 
             match message.status {
                 MidiMessageType::NoteOn => {

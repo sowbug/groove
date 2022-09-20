@@ -14,8 +14,8 @@ use std::rc::Rc;
 use super::automation::{AutomationPattern, AutomationTrack};
 use super::effects::{Bitcrusher, Filter, Gain, Limiter};
 use super::mixer::Mixer;
-use super::pattern_sequencer::{Pattern, PatternSequencer};
-use super::sequencer::Sequencer;
+use super::patterns::{Pattern, PatternSequencer};
+use super::sequencer::MidiSequencer;
 use super::traits::{
     AudioSink, AudioSource, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait,
     MidiSource, TimeSlice,
@@ -27,7 +27,7 @@ pub struct Orchestrator {
     settings: SongSettings,
 
     master_mixer: Rc<RefCell<Mixer>>,
-    midi_sequencer: Rc<RefCell<Sequencer>>,
+    midi_sequencer: Rc<RefCell<MidiSequencer>>,
     pattern_sequencer: Rc<RefCell<PatternSequencer>>,
 
     id_to_automator: HashMap<DeviceId, Rc<RefCell<dyn AutomatorTrait>>>,
@@ -43,7 +43,7 @@ impl Orchestrator {
         let mut r = Self {
             settings: settings.clone(),
             master_mixer: Rc::new(RefCell::new(Mixer::new())),
-            midi_sequencer: Rc::new(RefCell::new(Sequencer::new())),
+            midi_sequencer: Rc::new(RefCell::new(MidiSequencer::new())),
             pattern_sequencer: Rc::new(RefCell::new(PatternSequencer::new(
                 &settings.clock.time_signature(),
             ))),
@@ -54,14 +54,14 @@ impl Orchestrator {
             id_to_pattern: HashMap::new(),
             id_to_automation_pattern: HashMap::new(),
         };
+        r.add_effect_by_id(String::from("main-mixer"), r.master_mixer.clone());
+
         r.prepare_from_settings();
         r
     }
 
-    #[allow(dead_code)]
     pub fn new_defaults() -> Self {
-        let settings = SongSettings::new_defaults();
-        Self::new(settings)
+        Self::new(SongSettings::new_defaults())
     }
 
     pub fn settings(&self) -> &SongSettings {
@@ -135,32 +135,29 @@ impl Orchestrator {
         self.master_mixer.borrow_mut().add_audio_source(device);
     }
 
-    pub fn prepare_from_settings(&mut self) {
-        self.create_required_entities();
-        self.create_effects();
-        self.create_instruments();
-        self.connect_instruments_to_sequencers();
-        self.plug_in_patch_cables();
-        self.create_tracks();
-        self.create_automations();
+    fn prepare_from_settings(&mut self) {
+        self.create_effects_from_settings();
+        self.create_instruments_from_settings();
+        self.create_patch_cables_from_settings();
+        self.create_tracks_from_settings();
+        self.create_automations_from_settings();
     }
 
     // TODO: for "elegance" we're connecting everything to everything.
     // it's the receiver's job to filter out on MIDI channel.
     // this is inefficient, but maybe it won't matter.
-    fn connect_instruments_to_sequencers(&mut self) {
-        for instrument in self.id_to_instrument.values() {
-            self.midi_sequencer
-                .borrow_mut()
-                .connect_midi_sink(instrument.clone());
-            self.pattern_sequencer
-                .borrow_mut()
-                .connect_midi_sink(instrument.clone());
-        }
-    }
-
-    fn add_instrument_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn InstrumentTrait>>) {
+    pub fn add_instrument_by_id(
+        &mut self,
+        id: String,
+        instrument: Rc<RefCell<dyn InstrumentTrait>>,
+    ) {
         self.id_to_instrument.insert(id, instrument.clone());
+        self.midi_sequencer
+            .borrow_mut()
+            .connect_midi_sink(instrument.clone());
+        self.pattern_sequencer
+            .borrow_mut()
+            .connect_midi_sink(instrument.clone());
     }
 
     fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn EffectTrait>>) {
@@ -171,7 +168,7 @@ impl Orchestrator {
         self.id_to_automator.insert(id, automator.clone());
     }
 
-    fn create_instruments(&mut self) {
+    fn create_instruments_from_settings(&mut self) {
         // Then set up instruments, attaching to sequencers as they're set up.
         for device in self.settings.devices.clone() {
             match device {
@@ -182,10 +179,10 @@ impl Orchestrator {
                         preset_name,
                     } => {
                         let instrument = Rc::new(RefCell::new(welsh::Synth::new(
+                            midi_input_channel,
                             self.settings.clock.sample_rate(),
                             welsh::SynthPreset::by_name(&preset_name),
                         )));
-                        instrument.borrow_mut().set_midi_channel(midi_input_channel);
                         self.add_instrument_by_id(id, instrument);
                     }
                     InstrumentSettings::Drumkit {
@@ -194,8 +191,7 @@ impl Orchestrator {
                         preset_name: _preset,
                     } => {
                         let instrument =
-                            Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files()));
-                        instrument.borrow_mut().set_midi_channel(midi_input_channel);
+                            Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files(midi_input_channel)));
                         self.add_instrument_by_id(id, instrument);
                     }
                 },
@@ -205,9 +201,7 @@ impl Orchestrator {
         }
     }
 
-    fn create_effects(&mut self) {
-        // Then set up effects.
-
+    fn create_effects_from_settings(&mut self) {
         for device in self.settings.devices.clone() {
             if let DeviceSettings::Effect(effect_settings) = device {
                 match effect_settings {
@@ -321,11 +315,7 @@ impl Orchestrator {
         }
     }
 
-    fn create_required_entities(&mut self) {
-        self.add_effect_by_id(String::from("main-mixer"), self.master_mixer.clone());
-    }
-
-    fn plug_in_patch_cables(&self) {
+    fn create_patch_cables_from_settings(&self) {
         for patch_cable in self.settings.patch_cables.clone() {
             if patch_cable.len() < 2 {
                 dbg!("ignoring patch cable of length < 2");
@@ -374,7 +364,7 @@ impl Orchestrator {
         panic!("yo {}", id);
     }
 
-    fn create_tracks(&mut self) {
+    fn create_tracks_from_settings(&mut self) {
         if self.settings.tracks.is_empty() {
             return;
         }
@@ -394,19 +384,17 @@ impl Orchestrator {
 
         for track in self.settings.tracks.clone() {
             let channel = track.midi_channel;
-            let mut beat_cursor = 0.0;
+            self.pattern_sequencer.borrow_mut().reset_cursor();
             for pattern_id in track.pattern_ids {
                 let pattern = self.get_pattern_by_id(&pattern_id);
-                beat_cursor = self.pattern_sequencer.borrow_mut().insert_pattern(
-                    pattern.clone(),
-                    channel,
-                    beat_cursor,
-                );
+                self.pattern_sequencer
+                    .borrow_mut()
+                    .insert_pattern(pattern.clone(), channel);
             }
         }
     }
 
-    fn create_automations(&mut self) {
+    fn create_automations_from_settings(&mut self) {
         if self.settings.automation_tracks.is_empty() {
             return;
         }
@@ -440,7 +428,7 @@ impl Orchestrator {
         (self.id_to_pattern.get(pattern_id).unwrap()).clone()
     }
 
-    pub fn midi_sequencer(&self) -> Rc<RefCell<Sequencer>> {
+    pub fn midi_sequencer(&self) -> Rc<RefCell<MidiSequencer>> {
         self.midi_sequencer.clone()
     }
 }

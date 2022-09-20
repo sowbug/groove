@@ -7,12 +7,12 @@ use std::{
 };
 
 use crate::{
-    common::{MidiMessage, OrderedMidiMessage},
+    common::{MidiChannel, MidiMessage, OrderedMidiMessage, MIDI_CHANNEL_RECEIVE_NONE},
     primitives::clock::Clock,
 };
 
 use super::{
-    sequencer::Sequencer,
+    sequencer::MidiSequencer,
     traits::{MidiSink, MidiSource, TimeSlice},
 };
 
@@ -111,7 +111,11 @@ impl MidiSource for MidiControllerReader {
 
 #[allow(unused_variables)]
 impl MidiSink for MidiControllerReader {
-    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
+    fn midi_channel(&self) -> self::MidiChannel {
+        MIDI_CHANNEL_RECEIVE_NONE
+    }
+    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {}
+    fn __handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
 }
 
 #[allow(unused_variables)]
@@ -124,7 +128,7 @@ impl TimeSlice for MidiControllerReader {
 pub struct MidiSmfReader {}
 
 impl MidiSmfReader {
-    pub fn load_sequencer(data: &[u8], sequencer: Rc<RefCell<Sequencer>>) {
+    pub fn load_sequencer(data: &[u8], sequencer: Rc<RefCell<MidiSequencer>>) {
         let parse_result = midly::Smf::parse(data).unwrap();
 
         struct MetaInfo {

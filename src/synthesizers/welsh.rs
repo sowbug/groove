@@ -4,7 +4,7 @@ use std::{cell::RefCell, collections::HashMap, f32::consts::FRAC_1_SQRT_2, rc::R
 use strum_macros::{EnumIter, IntoStaticStr};
 
 use crate::{
-    common::{MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
+    common::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
     devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlice},
     general_midi::GeneralMidiProgram,
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
@@ -1823,6 +1823,7 @@ impl Synth {
 
 #[derive(Default)]
 pub struct Voice {
+    midi_channel: MidiChannel,
     oscillators: Vec<MiniOscillator>,
     osc_mix: Vec<f32>,
     amp_envelope: MiniEnvelope,
@@ -1838,8 +1839,9 @@ pub struct Voice {
 }
 
 impl Voice {
-    pub fn new(sample_rate: usize, preset: &SynthPreset) -> Self {
+    pub fn new(midi_channel: MidiChannel, sample_rate: usize, preset: &SynthPreset) -> Self {
         let mut r = Self {
+            midi_channel,
             oscillators: Vec::new(),
             osc_mix: Vec::new(),
             amp_envelope: MiniEnvelope::new(sample_rate, &preset.amp_envelope_preset),
@@ -1932,7 +1934,15 @@ impl Voice {
 }
 
 impl MidiSink for Voice {
-    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+    fn midi_channel(&self) -> crate::common::MidiChannel {
+        self.midi_channel
+    }
+
+    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
+        self.midi_channel = midi_channel;
+    }
+
+    fn __handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
         self.amp_envelope
             .handle_midi_message(message, clock.seconds);
         self.filter_envelope
@@ -1955,16 +1965,17 @@ impl MidiSink for Voice {
 
 #[derive(Default, Clone)]
 pub struct Synth {
+    midi_channel: MidiChannel,
     sample_rate: usize,
-    midi_channel: u8,
     preset: SynthPreset,
     note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
     current_value: MonoSample,
 }
 
 impl Synth {
-    pub fn new(sample_rate: usize, preset: SynthPreset) -> Self {
+    pub fn new(midi_channel: MidiChannel, sample_rate: usize, preset: SynthPreset) -> Self {
         Self {
+            midi_channel,
             sample_rate,
             preset,
             //voices: Vec::new(),
@@ -1978,23 +1989,27 @@ impl Synth {
         if let Some(voice) = opt {
             voice.clone()
         } else {
-            let voice = Rc::new(RefCell::new(Voice::new(self.sample_rate, &self.preset)));
+            let voice = Rc::new(RefCell::new(Voice::new(
+                self.midi_channel(),
+                self.sample_rate,
+                &self.preset,
+            )));
             self.note_to_voice.insert(note, voice.clone());
             voice
         }
     }
-
-    pub fn set_midi_channel(&mut self, channel: u8) {
-        self.midi_channel = channel;
-    }
 }
 
 impl MidiSink for Synth {
-    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
-        if message.channel != self.midi_channel {
-            // TODO: move this up higher so more devices get it for free
-            return;
-        }
+    fn midi_channel(&self) -> crate::common::MidiChannel {
+        self.midi_channel
+    }
+
+    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
+        self.midi_channel = midi_channel;
+    }
+
+    fn __handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
         match message.status {
             MidiMessageType::NoteOn => {
                 let note = message.data1;
@@ -2052,7 +2067,7 @@ mod tests {
     use std::panic;
 
     use crate::{
-        common::MidiMessage,
+        common::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
         primitives::{clock::Clock, tests::canonicalize_filename},
         settings::ClockSettings,
     };
@@ -2110,6 +2125,7 @@ mod tests {
         for preset in PresetName::iter() {
             let result = panic::catch_unwind(|| {
                 Voice::new(
+                    MIDI_CHANNEL_RECEIVE_ALL,
                     clock.settings().sample_rate(),
                     &super::SynthPreset::by_name(&preset),
                 )
@@ -2297,7 +2313,7 @@ mod tests {
         let message_off = MidiMessage::note_off_c4();
 
         let mut clock = Clock::new(&ClockSettings::new_defaults());
-        let mut voice = Voice::new(SAMPLE_RATE, &test_patch());
+        let mut voice = Voice::new(MIDI_CHANNEL_RECEIVE_ALL, SAMPLE_RATE, &test_patch());
         voice.handle_midi_message(&message_on, &clock);
         write_sound(
             &mut voice,
@@ -2315,7 +2331,7 @@ mod tests {
         let message_off = MidiMessage::note_off_c4();
 
         let mut clock = Clock::new(&ClockSettings::new_defaults());
-        let mut voice = Voice::new(SAMPLE_RATE, &cello_patch());
+        let mut voice = Voice::new(MIDI_CHANNEL_RECEIVE_ALL, SAMPLE_RATE, &cello_patch());
         voice.handle_midi_message(&message_on, &clock);
         write_sound(
             &mut voice,

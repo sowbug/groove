@@ -32,6 +32,10 @@ pub enum MidiNote {
     G9 = 127,
 }
 
+pub type MidiChannel = u8;
+pub const MIDI_CHANNEL_RECEIVE_NONE: MidiChannel = 254;
+pub const MIDI_CHANNEL_RECEIVE_ALL: MidiChannel = 255;
+
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize)]
 pub enum MidiMessageType {
     NoteOn = 0b1001,
@@ -43,7 +47,7 @@ pub struct MidiMessage {
     // status and channel are normally packed into one byte, but for ease of use
     // we're unpacking here.
     pub status: MidiMessageType,
-    pub channel: u8,
+    pub channel: MidiChannel,
     pub data1: u8,
     pub data2: u8,
 }
@@ -62,7 +66,7 @@ impl MidiMessage {
         Self::note_to_frequency(self.data1)
     }
 
-    pub(crate) fn new_note_on(channel: u8, note: u8, vel: u8) -> Self {
+    pub(crate) fn new_note_on(channel: MidiChannel, note: u8, vel: u8) -> Self {
         MidiMessage {
             status: MidiMessageType::NoteOn,
             channel,
@@ -71,7 +75,7 @@ impl MidiMessage {
         }
     }
 
-    pub(crate) fn new_note_off(channel: u8, note: u8, vel: u8) -> Self {
+    pub(crate) fn new_note_off(channel: MidiChannel, note: u8, vel: u8) -> Self {
         MidiMessage {
             status: MidiMessageType::NoteOff,
             channel,
@@ -80,7 +84,7 @@ impl MidiMessage {
         }
     }
 
-    pub(crate) fn new_program_change(channel: u8, program: u8) -> Self {
+    pub(crate) fn new_program_change(channel: MidiChannel, program: u8) -> Self {
         MidiMessage {
             status: MidiMessageType::ProgramChange,
             channel,

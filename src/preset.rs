@@ -102,7 +102,7 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
 
     use crate::{
-        common::{MidiMessage, MidiMessageType},
+        common::{MidiChannel, MidiMessage, MidiMessageType},
         devices::traits::MidiSink,
         primitives::clock::Clock,
     };
@@ -112,7 +112,7 @@ mod tests {
     #[derive(Default)]
     pub struct NullDevice {
         pub is_playing: bool,
-        midi_channel: u8,
+        midi_channel: MidiChannel,
         pub midi_messages_received: usize,
         pub midi_messages_handled: usize,
     }
@@ -124,20 +124,19 @@ mod tests {
                 ..Default::default()
             }
         }
-        #[allow(dead_code)]
-        pub fn set_channel(&mut self, channel: u8) {
-            self.midi_channel = channel;
-        }
     }
 
     impl MidiSink for NullDevice {
-        fn handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
-            self.midi_messages_received += 1;
+        fn midi_channel(&self) -> crate::common::MidiChannel {
+            self.midi_channel
+        }
 
-            // TODO: be more efficient about this -- don't dispatch in the first place!
-            if message.channel != self.midi_channel {
-                return;
-            }
+        fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
+            self.midi_channel = midi_channel;
+        }
+
+        fn __handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
+            self.midi_messages_received += 1;
 
             match message.status {
                 MidiMessageType::NoteOn => {

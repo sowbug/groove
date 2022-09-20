@@ -4,7 +4,7 @@
 use libgroove::{
     common::MonoSample,
     devices::{
-        midi::MidiSmfReader, orchestrator::Orchestrator, sequencer::Sequencer,
+        midi::MidiSmfReader, orchestrator::Orchestrator, sequencer::MidiSequencer,
         traits::InstrumentTrait,
     },
     settings::song::SongSettings,
@@ -35,10 +35,48 @@ struct ClDaw {
 impl ClDaw {
     pub fn new() -> Self {
         Self {
-            // TODO: temp hack while I build out OrchestratorSettings
-            // orchestrator: Orchestrator::new(OrchestratorSettings::new_dev()),
-            orchestrator: Orchestrator::new(SongSettings::new_defaults()),
+            orchestrator: Orchestrator::new_defaults(),
         }
+    }
+
+    pub fn new_from_yaml_file(filename: String) -> Self {
+        let yaml = std::fs::read_to_string(filename).unwrap();
+        let settings = SongSettings::new_from_yaml(yaml.as_str());
+        Self {
+            orchestrator: Orchestrator::new(settings),
+        }
+    }
+
+    pub fn new_from_midi_file(filename: String) -> Self {
+        let data = std::fs::read(filename).unwrap();
+        let mut result = Self {
+            orchestrator: Orchestrator::new_defaults(),
+        };
+        MidiSmfReader::load_sequencer(&data, result.orchestrator.midi_sequencer());
+
+        for channel_number in 0..MidiSequencer::connected_channel_count() {
+            let synth: Rc<RefCell<dyn InstrumentTrait>> = if channel_number == 9 {
+                Rc::new(RefCell::new(Sampler::new_from_files(channel_number)))
+            } else {
+                Rc::new(RefCell::new(Synth::new(
+                    channel_number,
+                    result.orchestrator.settings().clock.sample_rate(),
+                    SynthPreset::by_name(&PresetName::Piano),
+                )))
+            };
+            // We make up IDs here, as we know that MIDI won't be referencing them.
+            result
+                .orchestrator
+                .add_instrument_by_id(format!("instrument-{}", channel_number), synth.clone());
+            result.orchestrator.add_master_mixer_source(synth.clone());
+
+            result
+                .orchestrator
+                .midi_sequencer()
+                .borrow_mut()
+                .connect_midi_sink_for_channel(synth, channel_number);
+        }
+        result
     }
 
     fn get_sample_from_queue<T: cpal::Sample>(
@@ -166,61 +204,7 @@ impl ClDaw {
         Ok(())
     }
 
-    pub fn perform(
-        &mut self,
-        midi_in: Option<String>,
-        yaml_in: Option<String>,
-        use_midi_controller: bool,
-        wav_out: Option<String>,
-    ) -> anyhow::Result<()> {
-        if let Some(yaml_in_filename) = yaml_in {
-            let yaml = std::fs::read_to_string(yaml_in_filename).unwrap();
-            let settings = SongSettings::new_from_yaml(yaml.as_str());
-            self.orchestrator = Orchestrator::new(settings);
-            let generated_yaml = serde_yaml::to_string(&self.orchestrator.settings()).unwrap();
-            println!("before:\n{}\n\nafter:\n{}", yaml, generated_yaml);
-            if yaml != generated_yaml {
-                println!("DIFFERENT! Maybe look into why");
-            }
-        }
-
-        if let Some(midi_in_filename) = midi_in {
-            let data = std::fs::read(midi_in_filename).unwrap();
-            MidiSmfReader::load_sequencer(&data, self.orchestrator.midi_sequencer());
-
-            for channel_number in 0..Sequencer::connected_channel_count() {
-                let synth: Rc<RefCell<dyn InstrumentTrait>> = if channel_number == 9 {
-                    Rc::new(RefCell::new(Sampler::new_from_files()))
-                } else {
-                    Rc::new(RefCell::new(Synth::new(
-                        self.orchestrator.settings().clock.sample_rate(),
-                        SynthPreset::by_name(&PresetName::Piano),
-                    )))
-                };
-                // TODO: midi is broken for now because we don't have any concept of instrument ID
-                // self.orchestrator.add_instrument(synth.clone());
-                self.orchestrator.add_master_mixer_source(synth.clone());
-
-                self.orchestrator
-                    .midi_sequencer()
-                    .borrow_mut()
-                    .connect_midi_sink_for_channel(synth, channel_number);
-            }
-        }
-        #[allow(unreachable_code)]
-        if use_midi_controller {
-            panic!("sorry, this is horribly broken.");
-            // let synth = Rc::new(RefCell::new(Synth::new(
-            //     self.orchestrator.settings().clock.sample_rate(),
-            //     SynthPreset::by_name(&PresetName::Piano),
-            // )));
-            // self.orchestrator.add_instrument(synth.clone());
-            // self.orchestrator.add_master_mixer_source(synth.clone());
-            // let midi_input = Rc::new(RefCell::new(MidiControllerReader::new()));
-            // midi_input.borrow_mut().connect_midi_sink(synth.clone());
-            // self.orchestrator.add_device(midi_input.clone());
-            // midi_input.borrow_mut().connect();
-        }
+    pub fn perform(&mut self, wav_out: Option<String>) -> anyhow::Result<()> {
         print!("Performing to queue ");
         let worker = Worker::<MonoSample>::new_fifo();
         self.orchestrator.perform_to_queue(&worker)?;
@@ -265,13 +249,14 @@ fn main() -> anyhow::Result<()> {
         //      ScriptEngine::new().execute_file(&args.script_in.unwrap())
         Ok(())
     } else {
-        let mut command_line_daw = ClDaw::new();
+        let mut command_line_daw = if args.midi_in.is_some() {
+            ClDaw::new_from_midi_file(args.midi_in.unwrap())
+        } else if args.yaml_in.is_some() {
+            ClDaw::new_from_yaml_file(args.yaml_in.unwrap())
+        } else {
+            ClDaw::new()
+        };
 
-        command_line_daw.perform(
-            args.midi_in,
-            args.yaml_in,
-            args.use_midi_controller,
-            args.wav_out,
-        )
+        command_line_daw.perform(args.wav_out)
     }
 }

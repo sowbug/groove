@@ -7,7 +7,7 @@ use std::{
 use sorted_vec::SortedVec;
 
 use crate::{
-    common::MidiMessage,
+    common::{MidiChannel, MidiMessage},
     primitives::clock::{BeatValue, Clock, TimeSignature},
 };
 
@@ -16,27 +16,26 @@ use super::traits::{MidiSink, MidiSource, TimeSlice};
 #[derive(Default)]
 pub struct PatternSequencer {
     time_signature: TimeSignature,
+    cursor_beats: f32, // TODO: this should be a fixed-precision type
 
     sinks: Vec<Rc<RefCell<dyn MidiSink>>>,
     sequenced_notes: SortedVec<OrderedNote>,
 }
 
 impl PatternSequencer {
+    const CURSOR_BEGIN: f32 = 0.0;
+
     pub fn new(time_signature: &TimeSignature) -> Self {
         let result = Self {
             time_signature: time_signature.clone(),
+            cursor_beats: Self::CURSOR_BEGIN,
             sinks: Vec::new(),
             sequenced_notes: SortedVec::new(),
         };
         result
     }
 
-    pub fn insert_pattern(
-        &mut self,
-        pattern: Rc<RefCell<Pattern>>,
-        channel: u8,
-        beat_cursor_start: f32, // TODO: this should be a fixed-precision type
-    ) -> f32 {
+    pub fn insert_pattern(&mut self, pattern: Rc<RefCell<Pattern>>, channel: u8) {
         let pattern_note_value = if pattern.borrow().note_value.is_some() {
             pattern.borrow().note_value.as_ref().unwrap().clone()
         } else {
@@ -58,23 +57,29 @@ impl PatternSequencer {
                 self.insert_short_note(
                     channel,
                     *note,
-                    beat_cursor_start + i as f32 * pattern_multiplier,
+                    self.cursor_beats + i as f32 * pattern_multiplier,
                     0.49, // TODO: hack because we don't have duration
                 );
             }
         }
 
-        // Round up to full measure
+        // Round up to full measure and advance cursor
         let rounded_max_pattern_len =
             ((max_pattern_len as f32 * pattern_multiplier / self.time_signature.top as f32).ceil()
                 * self.time_signature.top as f32) as usize;
-        beat_cursor_start + rounded_max_pattern_len as f32
+        self.cursor_beats += rounded_max_pattern_len as f32;
     }
 
     // TODO: if there is an existing note-off message already scheduled for this note that happens
     // after this note-on event, then we should delete that event; otherwise, this note will get
     // released early (and then released again, which does nothing). That's probably not what we want.
-    fn insert_short_note(&mut self, channel: u8, note: u8, when_beats: f32, duration_beats: f32) {
+    fn insert_short_note(
+        &mut self,
+        channel: MidiChannel,
+        note: u8,
+        when_beats: f32,
+        duration_beats: f32,
+    ) {
         if note != 0 {
             self.sequenced_notes.insert(OrderedNote {
                 when_beats,
@@ -101,6 +106,15 @@ impl PatternSequencer {
         for sink in self.sinks.clone() {
             sink.borrow_mut().handle_midi_message(&note.message, clock);
         }
+    }
+
+    pub(crate) fn reset_cursor(&mut self) {
+        self.cursor_beats = Self::CURSOR_BEGIN;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn get_cursor(&self) -> f32 {
+        self.cursor_beats
     }
 }
 
@@ -228,9 +242,13 @@ mod tests {
         assert_eq!(pattern.borrow().notes.len(), 1);
         assert_eq!(pattern.borrow().notes[0].len(), expected_note_count);
 
-        let mut beat_cursor = 0f32;
-        beat_cursor = sequencer.insert_pattern(pattern, 0, beat_cursor);
-        assert_eq!(beat_cursor, (2 * time_signature.top) as f32);
+        // We don't need to call reset_cursor(), but we do just once to make sure it's working.
+        assert_eq!(sequencer.get_cursor(), PatternSequencer::CURSOR_BEGIN);
+        sequencer.reset_cursor();
+        assert_eq!(sequencer.get_cursor(), PatternSequencer::CURSOR_BEGIN);
+
+        sequencer.insert_pattern(pattern, 0);
+        assert_eq!(sequencer.get_cursor(), (2 * time_signature.top) as f32);
         assert_eq!(sequencer.sequenced_notes.len(), expected_note_count * 2); // one on, one off
     }
 
@@ -273,11 +291,10 @@ mod tests {
         assert_eq!(pattern.borrow().notes[0].len(), note_pattern_1.len());
         assert_eq!(pattern.borrow().notes[1].len(), note_pattern_2.len());
 
-        let mut beat_cursor = 0f32;
-        beat_cursor = sequencer.insert_pattern(pattern, 0, beat_cursor);
+        sequencer.insert_pattern(pattern, 0);
 
         // expect max of (2, 3) measures
-        assert_eq!(beat_cursor, (3 * time_signature.top) as f32);
+        assert_eq!(sequencer.get_cursor(), (3 * time_signature.top) as f32);
         assert_eq!(sequencer.sequenced_notes.len(), expected_note_count * 2); // one on, one off
     }
 
@@ -290,9 +307,8 @@ mod tests {
             note_value: None,
             notes: vec![vec![String::from("1")]],
         })));
-        let mut beat_cursor: f32 = 0f32;
-        beat_cursor = sequencer.insert_pattern(pattern, 0, beat_cursor);
+        sequencer.insert_pattern(pattern, 0);
 
-        assert_eq!(beat_cursor as usize, time_signature.top as usize);
+        assert_eq!(sequencer.get_cursor(), time_signature.top as f32);
     }
 }

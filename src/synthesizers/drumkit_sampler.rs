@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use hound;
 
 use crate::{
-    common::{MidiMessageType, MonoSample},
-    devices::traits::{AudioSource, MidiSink, TimeSlice, AutomationSink},
+    common::{MidiChannel, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
+    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlice},
     general_midi::GeneralMidiPercussionProgram,
 };
 
@@ -36,7 +36,14 @@ impl Voice {
 }
 
 impl MidiSink for Voice {
-    fn handle_midi_message(
+    fn midi_channel(&self) -> crate::common::MidiChannel {
+        MIDI_CHANNEL_RECEIVE_ALL
+    }
+
+    #[allow(unused_variables)]
+    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {}
+
+    fn __handle_midi_message(
         &mut self,
         message: &crate::common::MidiMessage,
         clock: &crate::primitives::clock::Clock,
@@ -80,14 +87,14 @@ impl TimeSlice for Voice {
 
 #[derive(Default)]
 pub struct Sampler {
-    midi_channel: u8,
+    midi_channel: MidiChannel,
     note_to_voice: HashMap<u8, Voice>,
 }
 
 impl Sampler {
-    pub fn new() -> Self {
+    pub fn new(midi_channel: MidiChannel) -> Self {
         Self {
-            midi_channel: 0,
+            midi_channel,
             note_to_voice: HashMap::new(),
         }
     }
@@ -98,8 +105,8 @@ impl Sampler {
         Ok(())
     }
 
-    pub fn new_from_files() -> Self {
-        let mut r = Self::new();
+    pub fn new_from_files(midi_channel: MidiChannel) -> Self {
+        let mut r = Self::new(midi_channel);
         let samples: [(GeneralMidiPercussionProgram, &str); 21] = [
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
             (GeneralMidiPercussionProgram::ElectricBassDrum, "BD B"),
@@ -134,14 +141,18 @@ impl Sampler {
         }
         r
     }
-
-    pub fn set_midi_channel(&mut self, channel: u8) {
-        self.midi_channel = channel;
-    }
 }
 
 impl MidiSink for Sampler {
-    fn handle_midi_message(
+    fn midi_channel(&self) -> crate::common::MidiChannel {
+        self.midi_channel
+    }
+
+    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
+        self.midi_channel = midi_channel;
+    }
+
+    fn __handle_midi_message(
         &mut self,
         message: &crate::common::MidiMessage,
         clock: &crate::primitives::clock::Clock,
@@ -206,6 +217,6 @@ mod tests {
 
     #[test]
     fn test_loading() {
-        let _ = Sampler::new_from_files();
+        let _ = Sampler::new_from_files(MIDI_CHANNEL_RECEIVE_ALL);
     }
 }

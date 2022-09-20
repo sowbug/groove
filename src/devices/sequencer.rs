@@ -3,23 +3,22 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use sorted_vec::SortedVec;
 
 use crate::{
-    common::OrderedMidiMessage,
+    common::{MidiChannel, OrderedMidiMessage},
     primitives::clock::{Clock, TimeSignature},
 };
 
 use super::traits::{MidiSink, MidiSource, TimeSlice};
 
 #[derive(Default)]
-pub struct Sequencer {
+pub struct MidiSequencer {
     midi_ticks_per_second: u32,
     beats_per_minute: f32,
     time_signature: TimeSignature,
-
-    channels_to_sink_vecs: HashMap<u8, Vec<Rc<RefCell<dyn MidiSink>>>>,
+    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>>,
     midi_messages: SortedVec<OrderedMidiMessage>,
 }
 
-impl Sequencer {
+impl MidiSequencer {
     pub fn new() -> Self {
         let mut result = Self {
             midi_ticks_per_second: 960,
@@ -59,7 +58,7 @@ impl Sequencer {
     pub fn connect_midi_sink_for_channel(
         &mut self,
         device: Rc<RefCell<dyn MidiSink>>,
-        channel: u8,
+        channel: MidiChannel,
     ) {
         // https://users.rust-lang.org/t/lots-of-references-when-using-hashmap/68754
         // discusses why we have to do strange &u keys.
@@ -79,14 +78,9 @@ impl Sequencer {
     }
 }
 
-impl MidiSource for Sequencer {
-    // TODO: should this always require a channel? Or does the channel-less version mean sink all events?
-    // fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn DeviceTrait>>) {
-    //     self.sinks[&0].push(device);
-    // }
-}
+impl MidiSource for MidiSequencer {}
 
-impl TimeSlice for Sequencer {
+impl TimeSlice for MidiSequencer {
     fn tick(&mut self, clock: &Clock) -> bool {
         if self.midi_messages.is_empty() {
             // This is different from falling through the loop below because
@@ -119,21 +113,21 @@ mod tests {
 
     use crate::{
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
-        devices::{tests::NullDevice, traits::TimeSlice},
+        devices::{tests::NullDevice, traits::{TimeSlice, MidiSink}},
         primitives::clock::Clock,
         settings::ClockSettings,
     };
 
-    use super::Sequencer;
+    use super::MidiSequencer;
 
-    impl Sequencer {
+    impl MidiSequencer {
         pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: u32) -> u32 {
             let tpb = self.midi_ticks_per_second as f32 / (clock.settings().bpm() / 60.0);
             (tpb * beat as f32) as u32
         }
     }
 
-    fn advance_to_next_beat(clock: &mut Clock, sequencer: &mut Sequencer) {
+    fn advance_to_next_beat(clock: &mut Clock, sequencer: &mut MidiSequencer) {
         let next_beat = clock.beats.floor() + 1.0;
         while clock.beats < next_beat {
             clock.tick();
@@ -145,7 +139,7 @@ mod tests {
     #[test]
     fn test_sequencer() {
         let mut clock = Clock::new(&ClockSettings::new_defaults());
-        let mut sequencer = Sequencer::new();
+        let mut sequencer = MidiSequencer::new();
 
         let device = Rc::new(RefCell::new(NullDevice::new()));
         assert!(!device.borrow().is_playing);
@@ -181,16 +175,16 @@ mod tests {
     #[test]
     fn test_sequencer_multichannel() {
         let mut clock = Clock::new(&ClockSettings::new_defaults());
-        let mut sequencer = Sequencer::new();
+        let mut sequencer = MidiSequencer::new();
 
         let device_1 = Rc::new(RefCell::new(NullDevice::new()));
         assert!(!device_1.borrow().is_playing);
-        device_1.borrow_mut().set_channel(0);
+        device_1.borrow_mut().set_midi_channel(0);
         sequencer.connect_midi_sink_for_channel(device_1.clone(), 0);
 
         let device_2 = Rc::new(RefCell::new(NullDevice::new()));
         assert!(!device_2.borrow().is_playing);
-        device_2.borrow_mut().set_channel(1);
+        device_2.borrow_mut().set_midi_channel(1);
         sequencer.connect_midi_sink_for_channel(device_2.clone(), 1);
 
         sequencer.add_message(OrderedMidiMessage {

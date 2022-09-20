@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{common::MonoSample, primitives::mixer::MiniMixer};
 
-use super::traits::{AudioSink, AudioSource, TimeSlice, AutomationSink, MidiSink};
+use super::traits::{AudioSink, AudioSource, AutomationSink, TimeSlice};
 
 #[derive(Default)]
 pub struct Mixer {
@@ -36,5 +36,4 @@ impl AudioSink for Mixer {
 }
 
 impl AutomationSink for Mixer {}
-impl MidiSink for Mixer {}
 impl TimeSlice for Mixer {}

@@ -1,4 +1,6 @@
-use crate::common::{MidiMessage, MonoSample};
+use crate::common::{
+    self, MidiMessage, MonoSample, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE, MidiChannel,
+};
 use crate::primitives::clock::Clock;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -28,8 +30,24 @@ pub trait MidiSource {
 }
 
 pub trait MidiSink {
+    fn midi_channel(&self) -> common::MidiChannel {
+        MIDI_CHANNEL_RECEIVE_NONE
+    }
+
+    fn set_midi_channel(&mut self, midi_channel: MidiChannel);
+
+    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+        if self.midi_channel() == MIDI_CHANNEL_RECEIVE_NONE {
+            return;
+        }
+        if self.midi_channel() == MIDI_CHANNEL_RECEIVE_ALL || self.midi_channel() == message.channel
+        {
+            self.__handle_midi_message(message, clock);
+        }
+    }
+
     #[allow(unused_variables)]
-    fn handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {}
+    fn __handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock);
 }
 
 pub trait AudioSource {
