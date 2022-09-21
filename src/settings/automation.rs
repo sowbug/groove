@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{common::DeviceId, primitives::clock::BeatValue};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, PartialOrd, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Debug, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum InterpolationType {
     #[default]
