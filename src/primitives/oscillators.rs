@@ -14,7 +14,7 @@ pub struct MiniOscillator {
     // Hertz. Any positive number. 440 = A4
     frequency: f32,
 
-    // if not zero, then ignores the `frequency` field and this one instead.
+    // if not zero, then ignores the `frequency` field and uses this one instead.
     fixed_frequency: f32,
 
     // 1.0 is no change. 2.0 doubles the frequency. 0.5 halves it. Designed for pitch correction at construction time.
