@@ -190,8 +190,9 @@ impl Orchestrator {
                         midi_input_channel,
                         preset_name: _preset,
                     } => {
-                        let instrument =
-                            Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files(midi_input_channel)));
+                        let instrument = Rc::new(RefCell::new(
+                            drumkit_sampler::Sampler::new_from_files(midi_input_channel),
+                        ));
                         self.add_instrument_by_id(id, instrument);
                     }
                 },
@@ -411,13 +412,11 @@ impl Orchestrator {
                 target.clone(),
                 track_settings.target.param,
             )));
-            let mut insertion_point = 0.0; // TODO: this is probably wrong
+            automation_track.borrow_mut().reset_cursor();
             for pattern_id in track_settings.pattern_ids {
                 let pattern_opt = self.id_to_automation_pattern.get(&pattern_id);
                 if let Some(pattern) = pattern_opt {
-                    automation_track
-                        .borrow_mut()
-                        .add_pattern(pattern.clone(), &mut insertion_point);
+                    automation_track.borrow_mut().add_pattern(pattern.clone());
                 }
             }
             self.add_automator_by_id(track_settings.id, automation_track.clone());

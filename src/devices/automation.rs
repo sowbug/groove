@@ -6,35 +6,38 @@ use std::{cell::RefCell, cmp::Ordering};
 pub struct AutomationTrack {
     target_instrument: Rc<RefCell<dyn AutomationSink>>,
     target_param_name: String,
+    cursor_beats: f32,
 
     automation_events: SortedVec<OrderedAutomationEvent>,
 
-    // for DeviceTrait
+    // for TimeSlice
     needs_tick: bool,
 }
 
 impl AutomationTrack {
+    const CURSOR_BEGIN: f32 = 0.0;
+
     pub fn new(target: Rc<RefCell<dyn AutomationSink>>, target_param_name: String) -> Self {
         Self {
             target_instrument: target,
             target_param_name,
+            cursor_beats: Self::CURSOR_BEGIN,
             automation_events: SortedVec::new(),
             needs_tick: true,
         }
     }
 
-    pub fn add_pattern(
-        &mut self,
-        pattern: Rc<RefCell<AutomationPattern>>,
-        insertion_point: &mut f32,
-    ) {
-        // TODO: beat_value accumulates integer error
+    pub fn reset_cursor(&mut self) {
+        self.cursor_beats = Self::CURSOR_BEGIN;
+    }
+
+    pub fn add_pattern(&mut self, pattern: Rc<RefCell<AutomationPattern>>) {
         for point in pattern.borrow().points.clone() {
             self.automation_events.insert(OrderedAutomationEvent {
-                when: *insertion_point,
+                when: self.cursor_beats,
                 target_param_value: point,
             });
-            *insertion_point += 1.0;
+            self.cursor_beats += 1.0;
         }
     }
 }
@@ -138,8 +141,7 @@ mod tests {
         let target = Rc::new(RefCell::new(NullDevice::new()));
         let target_param_name = String::from("value");
         let mut track = AutomationTrack::new(target.clone(), target_param_name);
-        let mut insertion_point = 0.0;
-        track.add_pattern(pattern.clone(), &mut insertion_point);
+        track.add_pattern(pattern.clone());
 
         // TODO: I want a way at this point to tell how long the clock needs
         // to run by asking the pattern, or maybe the track, what its length
