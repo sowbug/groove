@@ -103,7 +103,7 @@ mod tests {
 
     use crate::{
         common::{MidiChannel, MidiMessage, MidiMessageType},
-        devices::traits::MidiSink,
+        devices::traits::{MidiSink, AutomationSink},
         primitives::clock::Clock,
     };
 
@@ -126,6 +126,7 @@ mod tests {
         }
     }
 
+    impl AutomationSink for NullDevice {}
     impl MidiSink for NullDevice {
         fn midi_channel(&self) -> crate::common::MidiChannel {
             self.midi_channel
@@ -135,7 +136,7 @@ mod tests {
             self.midi_channel = midi_channel;
         }
 
-        fn __handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
+        fn handle_message_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
             self.midi_messages_received += 1;
 
             match message.status {

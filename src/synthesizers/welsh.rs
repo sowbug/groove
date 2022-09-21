@@ -5,7 +5,7 @@ use strum_macros::{EnumIter, IntoStaticStr};
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
-    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlice},
+    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlicer},
     general_midi::GeneralMidiProgram,
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
     primitives::{
@@ -1933,6 +1933,7 @@ impl Voice {
     }
 }
 
+impl AutomationSink for Voice {}
 impl MidiSink for Voice {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         self.midi_channel
@@ -1942,7 +1943,7 @@ impl MidiSink for Voice {
         self.midi_channel = midi_channel;
     }
 
-    fn __handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+    fn handle_message_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
         self.amp_envelope
             .handle_midi_message(message, clock.seconds);
         self.filter_envelope
@@ -2000,6 +2001,7 @@ impl Synth {
     }
 }
 
+impl AutomationSink for Synth {}
 impl MidiSink for Synth {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         self.midi_channel
@@ -2009,17 +2011,21 @@ impl MidiSink for Synth {
         self.midi_channel = midi_channel;
     }
 
-    fn __handle_midi_message(&mut self, message: &MidiMessage, clock: &Clock) {
+    fn handle_message_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
         match message.status {
             MidiMessageType::NoteOn => {
                 let note = message.data1;
                 let voice = self.voice_for_note(note);
-                voice.borrow_mut().handle_midi_message(message, clock);
+                voice
+                    .borrow_mut()
+                    .handle_message_for_channel(clock, message);
             }
             MidiMessageType::NoteOff => {
                 let note = message.data1;
                 let voice = self.voice_for_note(note);
-                voice.borrow_mut().handle_midi_message(message, clock);
+                voice
+                    .borrow_mut()
+                    .handle_message_for_channel(clock, message);
 
                 // TODO: this is incorrect because it kills voices before release is complete
                 self.note_to_voice.remove(&note);
@@ -2033,7 +2039,7 @@ impl MidiSink for Synth {
     }
 }
 
-impl TimeSlice for Synth {
+impl TimeSlicer for Synth {
     fn tick(&mut self, clock: &Clock) -> bool {
         let mut done = true;
         self.current_value = 0.0;
@@ -2049,15 +2055,8 @@ impl TimeSlice for Synth {
 }
 
 impl AudioSource for Synth {
-    fn get_audio_sample(&mut self) -> MonoSample {
+    fn sample(&mut self) -> MonoSample {
         self.current_value
-    }
-}
-
-impl AutomationSink for Synth {
-    #[allow(unused_variables)]
-    fn handle_automation(&mut self, param_name: &String, param_value: f32) {
-        panic!("todo")
     }
 }
 
@@ -2105,11 +2104,11 @@ mod tests {
         while clock.seconds < duration {
             if clock.seconds >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds;
-                voice.handle_midi_message(&midi_on, &clock);
+                voice.handle_message_for_channel(&clock, &midi_on);
             } else {
                 if clock.seconds >= time_note_off && last_recognized_time_point < time_note_off {
                     last_recognized_time_point = clock.seconds;
-                    voice.handle_midi_message(&midi_off, &clock);
+                    voice.handle_message_for_channel(&clock, &midi_off);
                 }
             }
 
@@ -2160,7 +2159,7 @@ mod tests {
         while clock.seconds < duration {
             if when <= clock.seconds && !is_message_sent {
                 is_message_sent = true;
-                source.handle_midi_message(message, clock);
+                source.handle_message_for_channel(clock, message);
             }
             let sample = source.process(clock.seconds);
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
@@ -2314,7 +2313,7 @@ mod tests {
 
         let mut clock = Clock::new(&ClockSettings::new_defaults());
         let mut voice = Voice::new(MIDI_CHANNEL_RECEIVE_ALL, SAMPLE_RATE, &test_patch());
-        voice.handle_midi_message(&message_on, &clock);
+        voice.handle_message_for_channel(&clock, &message_on);
         write_sound(
             &mut voice,
             &mut clock,
@@ -2332,7 +2331,7 @@ mod tests {
 
         let mut clock = Clock::new(&ClockSettings::new_defaults());
         let mut voice = Voice::new(MIDI_CHANNEL_RECEIVE_ALL, SAMPLE_RATE, &cello_patch());
-        voice.handle_midi_message(&message_on, &clock);
+        voice.handle_message_for_channel(&clock, &message_on);
         write_sound(
             &mut voice,
             &mut clock,

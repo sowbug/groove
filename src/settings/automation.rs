@@ -2,9 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{common::DeviceId, primitives::clock::BeatValue};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, PartialOrd, Debug, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum InterpolationType {
+    #[default]
     Stairstep,
     Linear,
     Logarithmic,

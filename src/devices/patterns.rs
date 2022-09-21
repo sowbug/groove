@@ -11,7 +11,7 @@ use crate::{
     primitives::clock::{BeatValue, Clock, TimeSignature},
 };
 
-use super::traits::{MidiSink, MidiSource, TimeSlice};
+use super::traits::{AutomationSource, MidiSink, MidiSource, TimeSlicer};
 
 #[derive(Default)]
 pub struct PatternSequencer {
@@ -26,13 +26,12 @@ impl PatternSequencer {
     const CURSOR_BEGIN: f32 = 0.0;
 
     pub fn new(time_signature: &TimeSignature) -> Self {
-        let result = Self {
-            time_signature: time_signature.clone(),
+        Self {
+            time_signature: *time_signature,
             cursor_beats: Self::CURSOR_BEGIN,
             sinks: Vec::new(),
             sequenced_notes: SortedVec::new(),
-        };
-        result
+        }
     }
 
     pub fn insert_pattern(&mut self, pattern: Rc<RefCell<Pattern>>, channel: u8) {
@@ -104,7 +103,7 @@ impl PatternSequencer {
 
     fn dispatch_note(&self, note: &OrderedNote, clock: &Clock) {
         for sink in self.sinks.clone() {
-            sink.borrow_mut().handle_midi_message(&note.message, clock);
+            sink.borrow_mut().handle_midi_message(clock, &note.message);
         }
     }
 
@@ -118,7 +117,7 @@ impl PatternSequencer {
     }
 }
 
-impl TimeSlice for PatternSequencer {
+impl TimeSlicer for PatternSequencer {
     fn tick(&mut self, clock: &Clock) -> bool {
         // TODO: make this random-access by keeping sequenced_notes in place and scanning to find
         // next items to process. We will probably need some way to tell that the caller seeked.
@@ -146,16 +145,39 @@ impl TimeSlice for PatternSequencer {
     }
 }
 
+#[allow(unused_variables)]
+impl AutomationSource for PatternSequencer {
+    fn add_sink(&mut self, sink: Rc<RefCell<dyn super::traits::AutomationSink>>) {
+        todo!()
+    }
+    fn handle_event(&mut self, event: &dyn super::traits::ExternalEvent) {
+        todo!()
+    }
+}
+#[allow(unused_variables)]
 impl MidiSource for PatternSequencer {
-    fn connect_midi_sink(&mut self, device: Rc<RefCell<dyn MidiSink>>) {
-        self.sinks.push(device);
+    fn add_midi_sink(&mut self, sink: Rc<RefCell<dyn MidiSink>>, channel: MidiChannel) {
+        // TODO: why don't we care about the channel?
+        self.sinks.push(sink);
     }
 }
 
-#[derive(PartialEq, PartialOrd, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct OrderedNote {
     pub when_beats: f32,
     pub message: MidiMessage,
+}
+
+impl PartialOrd for OrderedNote {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.when_beats > other.when_beats {
+            return Some(Ordering::Greater);
+        }
+        if self.when_beats < other.when_beats {
+            return Some(Ordering::Less);
+        }
+        Some(Ordering::Equal)
+    }
 }
 
 impl Ord for OrderedNote {
@@ -166,7 +188,7 @@ impl Ord for OrderedNote {
         if self.when_beats < other.when_beats {
             return Ordering::Less;
         }
-        return Ordering::Equal;
+        Ordering::Equal
     }
 }
 

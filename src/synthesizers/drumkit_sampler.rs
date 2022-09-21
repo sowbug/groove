@@ -4,7 +4,7 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
-    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlice},
+    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlicer},
     general_midi::GeneralMidiPercussionProgram,
 };
 
@@ -35,6 +35,7 @@ impl Voice {
     }
 }
 
+impl AutomationSink for Voice {}
 impl MidiSink for Voice {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         MIDI_CHANNEL_RECEIVE_ALL
@@ -43,10 +44,10 @@ impl MidiSink for Voice {
     #[allow(unused_variables)]
     fn set_midi_channel(&mut self, midi_channel: MidiChannel) {}
 
-    fn __handle_midi_message(
+    fn handle_message_for_channel(
         &mut self,
-        message: &crate::common::MidiMessage,
         clock: &crate::primitives::clock::Clock,
+        message: &crate::common::MidiMessage,
     ) {
         match message.status {
             MidiMessageType::NoteOn => {
@@ -62,7 +63,7 @@ impl MidiSink for Voice {
     }
 }
 impl AudioSource for Voice {
-    fn get_audio_sample(&mut self) -> MonoSample {
+    fn sample(&mut self) -> MonoSample {
         if self.is_playing {
             let sample = *self
                 .samples
@@ -74,7 +75,7 @@ impl AudioSource for Voice {
         }
     }
 }
-impl TimeSlice for Voice {
+impl TimeSlicer for Voice {
     fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {
         self.sample_pointer = clock.samples as usize - self.sample_clock_start;
         if self.sample_pointer >= self.samples.len() {
@@ -143,6 +144,7 @@ impl Sampler {
     }
 }
 
+impl AutomationSink for Sampler {}
 impl MidiSink for Sampler {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         self.midi_channel
@@ -152,26 +154,22 @@ impl MidiSink for Sampler {
         self.midi_channel = midi_channel;
     }
 
-    fn __handle_midi_message(
+    fn handle_message_for_channel(
         &mut self,
-        message: &crate::common::MidiMessage,
         clock: &crate::primitives::clock::Clock,
+        message: &crate::common::MidiMessage,
     ) {
-        if message.channel != self.midi_channel {
-            // TODO: move this up higher so more devices get it for free
-            return;
-        }
         match message.status {
             MidiMessageType::NoteOn => {
                 let note: u8 = message.data1;
                 if let Some(voice) = self.note_to_voice.get_mut(&note) {
-                    voice.handle_midi_message(message, clock);
+                    voice.handle_message_for_channel(clock, message);
                 }
             }
             MidiMessageType::NoteOff => {
                 let note: u8 = message.data1;
                 if let Some(voice) = self.note_to_voice.get_mut(&note) {
-                    voice.handle_midi_message(message, clock);
+                    voice.handle_message_for_channel(clock, message);
                 }
             }
             MidiMessageType::ProgramChange => {}
@@ -180,10 +178,10 @@ impl MidiSink for Sampler {
 }
 
 impl AudioSource for Sampler {
-    fn get_audio_sample(&mut self) -> MonoSample {
+    fn sample(&mut self) -> MonoSample {
         let mut sum = 0.0;
         for v in self.note_to_voice.values_mut() {
-            sum += v.get_audio_sample();
+            sum += v.sample();
         }
         sum
         // couldn't use this because map gives us a non-mut
@@ -195,14 +193,7 @@ impl AudioSource for Sampler {
     }
 }
 
-impl AutomationSink for Sampler {
-    #[allow(unused_variables)]
-    fn handle_automation(&mut self, param_name: &String, param_value: f32) {
-        // TODO
-    }
-}
-
-impl TimeSlice for Sampler {
+impl TimeSlicer for Sampler {
     fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {
         for voice in self.note_to_voice.values_mut() {
             voice.tick(clock);

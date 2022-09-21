@@ -3,7 +3,7 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessageType, MonoSample},
-    devices::traits::{AudioSource, MidiSink, TimeSlice},
+    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlicer},
 };
 
 #[derive(Default)]
@@ -38,6 +38,7 @@ impl Sampler {
     }
 }
 
+impl AutomationSink for Sampler {}
 impl MidiSink for Sampler {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         self.midi_channel
@@ -47,10 +48,10 @@ impl MidiSink for Sampler {
         self.midi_channel = midi_channel;
     }
 
-    fn __handle_midi_message(
+    fn handle_message_for_channel(
         &mut self,
-        message: &crate::common::MidiMessage,
         clock: &crate::primitives::clock::Clock,
+        message: &crate::common::MidiMessage,
     ) {
         match message.status {
             MidiMessageType::NoteOn => {
@@ -65,8 +66,9 @@ impl MidiSink for Sampler {
         }
     }
 }
+
 impl AudioSource for Sampler {
-    fn get_audio_sample(&mut self) -> MonoSample {
+    fn sample(&mut self) -> MonoSample {
         if self.is_playing {
             let sample = *self
                 .samples
@@ -78,7 +80,7 @@ impl AudioSource for Sampler {
         }
     }
 }
-impl TimeSlice for Sampler {
+impl TimeSlicer for Sampler {
     fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {
         self.sample_pointer = clock.samples as usize - self.sample_clock_start;
         if self.sample_pointer >= self.samples.len() {

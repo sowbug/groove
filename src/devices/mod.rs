@@ -14,7 +14,7 @@ mod tests {
         primitives::clock::Clock,
     };
 
-    use super::traits::{AudioSource, AutomationSink, MidiSink};
+    use super::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink};
 
     #[derive(Default)]
     pub struct NullDevice {
@@ -31,8 +31,8 @@ mod tests {
                 ..Default::default()
             }
         }
-        pub fn set_value(&mut self, value: f32) {
-            self.value = value;
+        pub fn set_value(&mut self, value: &f32) {
+            self.value = *value;
         }
     }
     impl MidiSink for NullDevice {
@@ -43,8 +43,7 @@ mod tests {
         fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
             self.midi_channel = midi_channel;
         }
-
-        fn __handle_midi_message(&mut self, message: &MidiMessage, _clock: &Clock) {
+        fn handle_message_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
             self.midi_messages_received += 1;
 
             match message.status {
@@ -63,8 +62,13 @@ mod tests {
         }
     }
     impl AutomationSink for NullDevice {
-        fn handle_automation(&mut self, _param_name: &String, param_value: f32) {
-            self.set_value(param_value);
+        fn handle_message(&mut self, message: &AutomationMessage) {
+            match message {
+                AutomationMessage::UpdatePrimaryValue { value } => {
+                    self.set_value(value);
+                }
+                _ => todo!(),
+            }
         }
     }
 
@@ -79,7 +83,7 @@ mod tests {
     }
 
     impl AudioSource for SingleLevelDevice {
-        fn get_audio_sample(&mut self) -> MonoSample {
+        fn sample(&mut self) -> MonoSample {
             self.level
         }
     }

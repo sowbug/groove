@@ -7,7 +7,7 @@ use crate::{
     primitives::clock::{Clock, TimeSignature},
 };
 
-use super::traits::{MidiSink, MidiSource, TimeSlice};
+use super::traits::{AutomationSource, MidiSink, MidiSource, TimeSlicer};
 
 #[derive(Default)]
 pub struct MidiSequencer {
@@ -54,17 +54,6 @@ impl MidiSequencer {
         self.midi_messages.insert(message);
     }
 
-    pub fn connect_midi_sink_for_channel(
-        &mut self,
-        device: Rc<RefCell<dyn MidiSink>>,
-        channel: MidiChannel,
-    ) {
-        self.channels_to_sink_vecs
-            .entry(channel)
-            .or_default()
-            .push(device);
-    }
-
     fn dispatch_midi_message(&self, midi_message: &OrderedMidiMessage, clock: &Clock) {
         let sinks = self
             .channels_to_sink_vecs
@@ -72,14 +61,31 @@ impl MidiSequencer {
             .unwrap();
         for sink in sinks {
             sink.borrow_mut()
-                .handle_midi_message(&midi_message.message, clock);
+                .handle_message_for_channel(clock, &midi_message.message);
         }
     }
 }
 
-impl MidiSource for MidiSequencer {}
+#[allow(unused_variables)]
+impl AutomationSource for MidiSequencer {
+    fn add_sink(&mut self, sink: Rc<RefCell<dyn super::traits::AutomationSink>>) {
+        todo!()
+    }
+    fn handle_event(&mut self, event: &dyn super::traits::ExternalEvent) {
+        todo!()
+    }
+}
 
-impl TimeSlice for MidiSequencer {
+impl MidiSource for MidiSequencer {
+    fn add_midi_sink(&mut self, sink: Rc<RefCell<dyn MidiSink>>, channel: MidiChannel) {
+        self.channels_to_sink_vecs
+            .entry(channel)
+            .or_default()
+            .push(sink);
+    }
+}
+
+impl TimeSlicer for MidiSequencer {
     fn tick(&mut self, clock: &Clock) -> bool {
         if self.midi_messages.is_empty() {
             // This is different from falling through the loop below because
@@ -114,7 +120,7 @@ mod tests {
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
         devices::{
             tests::NullDevice,
-            traits::{MidiSink, TimeSlice},
+            traits::{MidiSink, MidiSource, TimeSlicer},
         },
         primitives::clock::Clock,
         settings::ClockSettings,
@@ -155,7 +161,7 @@ mod tests {
             message: MidiMessage::note_off_c4(),
         });
 
-        sequencer.connect_midi_sink_for_channel(device.clone(), 0);
+        sequencer.add_midi_sink(device.clone(), 0);
 
         sequencer.tick(&clock);
         {
@@ -182,12 +188,12 @@ mod tests {
         let device_1 = Rc::new(RefCell::new(NullDevice::new()));
         assert!(!device_1.borrow().is_playing);
         device_1.borrow_mut().set_midi_channel(0);
-        sequencer.connect_midi_sink_for_channel(device_1.clone(), 0);
+        sequencer.add_midi_sink(device_1.clone(), 0);
 
         let device_2 = Rc::new(RefCell::new(NullDevice::new()));
         assert!(!device_2.borrow().is_playing);
         device_2.borrow_mut().set_midi_channel(1);
-        sequencer.connect_midi_sink_for_channel(device_2.clone(), 1);
+        sequencer.add_midi_sink(device_2.clone(), 1);
 
         sequencer.add_message(OrderedMidiMessage {
             when: sequencer.tick_for_beat(&clock, 0),

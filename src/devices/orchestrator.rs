@@ -1,4 +1,4 @@
-use crate::common::{DeviceId, MonoSample};
+use crate::common::{DeviceId, MonoSample, MIDI_CHANNEL_RECEIVE_ALL};
 use crate::primitives::clock::Clock;
 use crate::settings::effects::EffectSettings;
 use crate::settings::song::SongSettings;
@@ -18,7 +18,7 @@ use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
 use super::traits::{
     AudioSink, AudioSource, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait,
-    MidiSource, TimeSlice,
+    MidiSource, TimeSlicer,
 };
 
 /// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
@@ -71,41 +71,17 @@ impl Orchestrator {
     fn tick(&mut self, clock: &mut Clock) -> (MonoSample, bool) {
         let mut done = true;
         for d in self.id_to_automator.values() {
-            if d.borrow().needs_tick() {
-                done = d.borrow_mut().tick(clock) && done;
-            }
+            done = d.borrow_mut().tick(clock) && done;
         }
-        if self.midi_sequencer.borrow().needs_tick() {
-            done = self.midi_sequencer.borrow_mut().tick(clock) && done;
-        }
-        if self.pattern_sequencer.borrow().needs_tick() {
-            done = self.pattern_sequencer.borrow_mut().tick(clock) && done;
-        }
+        done = self.midi_sequencer.borrow_mut().tick(clock) && done;
+        done = self.pattern_sequencer.borrow_mut().tick(clock) && done;
         for d in self.id_to_instrument.values() {
-            if d.borrow().needs_tick() {
-                done = d.borrow_mut().tick(clock) && done;
-            }
+            done = d.borrow_mut().tick(clock) && done;
         }
         for d in self.id_to_effect.values() {
-            if d.borrow().needs_tick() {
-                done = d.borrow_mut().tick(clock) && done;
-            }
+            done = d.borrow_mut().tick(clock) && done;
         }
-        (self.master_mixer.borrow_mut().get_audio_sample(), done)
-    }
-
-    fn reset_all_needs_tick(&mut self) {
-        for d in self.id_to_automator.values() {
-            d.borrow_mut().reset_needs_tick();
-        }
-        self.midi_sequencer.borrow_mut().reset_needs_tick();
-        self.pattern_sequencer.borrow_mut().reset_needs_tick();
-        for d in self.id_to_instrument.values() {
-            d.borrow_mut().reset_needs_tick();
-        }
-        for d in self.id_to_effect.values() {
-            d.borrow_mut().reset_needs_tick();
-        }
+        (self.master_mixer.borrow_mut().sample(), done)
     }
 
     pub fn perform_to_queue(&mut self, worker: &Worker<MonoSample>) -> anyhow::Result<()> {
@@ -117,7 +93,6 @@ impl Orchestrator {
             let (sample, done) = self.tick(&mut clock);
             worker.push(sample);
             clock.tick();
-            self.reset_all_needs_tick();
             if next_progress_indicator <= clock.samples {
                 print!(".");
                 io::stdout().flush().unwrap();
@@ -127,12 +102,12 @@ impl Orchestrator {
                 break;
             }
         }
-        println!("");
+        println!();
         Ok(())
     }
 
     pub fn add_master_mixer_source(&self, device: Rc<RefCell<dyn AudioSource>>) {
-        self.master_mixer.borrow_mut().add_audio_source(device);
+        self.master_mixer.borrow_mut().add_source(device);
     }
 
     fn prepare_from_settings(&mut self) {
@@ -143,7 +118,7 @@ impl Orchestrator {
         self.create_automations_from_settings();
     }
 
-    // TODO: for "elegance" we're connecting everything to everything.
+    // TODO: for "elegance" we're connecting everything MIDI to everything MIDI.
     // it's the receiver's job to filter out on MIDI channel.
     // this is inefficient, but maybe it won't matter.
     pub fn add_instrument_by_id(
@@ -154,10 +129,10 @@ impl Orchestrator {
         self.id_to_instrument.insert(id, instrument.clone());
         self.midi_sequencer
             .borrow_mut()
-            .connect_midi_sink(instrument.clone());
+            .add_midi_sink(instrument.clone(), MIDI_CHANNEL_RECEIVE_ALL);
         self.pattern_sequencer
             .borrow_mut()
-            .connect_midi_sink(instrument.clone());
+            .add_midi_sink(instrument.clone(), MIDI_CHANNEL_RECEIVE_ALL);
     }
 
     fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn EffectTrait>>) {
@@ -327,7 +302,7 @@ impl Orchestrator {
                 if let Some(ldi) = last_device_id {
                     let output: Rc<RefCell<dyn AudioSource>> = self.get_audio_source_by_id(&ldi);
                     let input: Rc<RefCell<dyn AudioSink>> = self.get_audio_sink_by_id(&device_id);
-                    input.borrow_mut().add_audio_source(output);
+                    input.borrow_mut().add_source(output);
                 }
                 last_device_id = Some(device_id);
             }

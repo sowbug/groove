@@ -4,8 +4,10 @@
 use libgroove::{
     common::MonoSample,
     devices::{
-        midi::MidiSmfReader, orchestrator::Orchestrator, sequencer::MidiSequencer,
-        traits::InstrumentTrait,
+        midi::MidiSmfReader,
+        orchestrator::Orchestrator,
+        sequencer::MidiSequencer,
+        traits::{InstrumentTrait, MidiSource},
     },
     settings::song::SongSettings,
     synthesizers::{
@@ -74,7 +76,7 @@ impl ClDaw {
                 .orchestrator
                 .midi_sequencer()
                 .borrow_mut()
-                .connect_midi_sink_for_channel(synth, channel_number);
+                .add_midi_sink(synth, channel_number);
         }
         result
     }
@@ -85,8 +87,8 @@ impl ClDaw {
         data: &mut [T],
         _info: &cpal::OutputCallbackInfo,
     ) {
-        let lock = &(*sync_pair).0;
-        let cvar = &(*sync_pair).1;
+        let lock = &sync_pair.0;
+        let cvar = &sync_pair.1;
         let mut finished = lock.lock().unwrap();
 
         for next_sample in data.iter_mut() {

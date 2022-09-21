@@ -117,6 +117,11 @@ impl ClockSettings {
     pub(crate) fn bpm(&self) -> f32 {
         self.beats_per_minute
     }
+
+    // TODO: Horrible precision problems
+    pub fn beats_per_sample(&self) -> f32 {
+        (self.bpm() / 60.0) / self.sample_rate() as f32
+    }
 }
 
 impl Default for ClockSettings {
