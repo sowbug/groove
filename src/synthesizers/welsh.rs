@@ -5,7 +5,7 @@ use strum_macros::{EnumIter, IntoStaticStr};
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
-    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlicer},
+    devices::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink, TimeSlicer},
     general_midi::GeneralMidiProgram,
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
     primitives::{
@@ -1933,7 +1933,11 @@ impl Voice {
     }
 }
 
-impl AutomationSink for Voice {}
+impl AutomationSink for Voice {
+    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+        todo!()
+    }
+}
 impl MidiSink for Voice {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         self.midi_channel
@@ -2001,7 +2005,11 @@ impl Synth {
     }
 }
 
-impl AutomationSink for Synth {}
+impl AutomationSink for Synth {
+    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+        todo!()
+    }
+}
 impl MidiSink for Synth {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         self.midi_channel

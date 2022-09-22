@@ -3,7 +3,7 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessageType, MonoSample},
-    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlicer},
+    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlicer, AutomationMessage},
 };
 
 #[derive(Default)]
@@ -38,7 +38,11 @@ impl Sampler {
     }
 }
 
-impl AutomationSink for Sampler {}
+impl AutomationSink for Sampler {
+    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+        todo!()
+    }
+}
 impl MidiSink for Sampler {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         self.midi_channel

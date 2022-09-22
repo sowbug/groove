@@ -3,6 +3,10 @@ use std::cmp::Ordering;
 use serde::{Deserialize, Serialize};
 
 pub type MonoSample = f32;
+pub const MONO_SAMPLE_SILENCE: MonoSample = 0.0;
+pub const MONO_SAMPLE_MAX: MonoSample = 1.0;
+pub const MONO_SAMPLE_MIN: MonoSample = -1.0;
+
 pub type DeviceId = String;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -36,13 +40,13 @@ pub type MidiChannel = u8;
 pub const MIDI_CHANNEL_RECEIVE_NONE: MidiChannel = 254;
 pub const MIDI_CHANNEL_RECEIVE_ALL: MidiChannel = 255;
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Copy)]
 pub enum MidiMessageType {
     NoteOn = 0b1001,
     NoteOff = 0b1000,
     ProgramChange = 0b1100,
 }
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Clone, Serialize, Deserialize, Copy)]
 pub struct MidiMessage {
     // status and channel are normally packed into one byte, but for ease of use
     // we're unpacking here.

@@ -3,6 +3,7 @@ use crate::{
     common::MonoSample,
     primitives::{
         self,
+        clock::Clock,
         filter::{MiniFilter2, MiniFilter2Type},
         gain::MiniGain,
         limiter::MiniLimiter,
@@ -41,18 +42,27 @@ impl Default for Limiter {
 }
 
 impl AudioSink for Limiter {
-    fn add_source(&mut self, source: Rc<RefCell<dyn AudioSource>>) {
-        self.sources.push(source);
+    fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
+        &mut self.sources
     }
 }
+
 impl AudioSource for Limiter {
     fn sample(&mut self) -> MonoSample {
         self.effect.process(add_sources(&self.sources))
     }
 }
 
-impl AutomationSink for Limiter {}
-impl TimeSlicer for Limiter {}
+impl AutomationSink for Limiter {
+    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+        todo!()
+    }
+}
+impl TimeSlicer for Limiter {
+    fn tick(&mut self, _clock: &Clock) -> bool {
+        true
+    }
+}
 
 #[derive(Default)]
 pub struct Gain {
@@ -75,8 +85,8 @@ impl Gain {
 }
 
 impl AudioSink for Gain {
-    fn add_source(&mut self, source: Rc<RefCell<dyn AudioSource>>) {
-        self.sources.push(source);
+    fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
+        &mut self.sources
     }
 }
 
@@ -86,8 +96,16 @@ impl AudioSource for Gain {
     }
 }
 
-impl AutomationSink for Gain {}
-impl TimeSlicer for Gain {}
+impl AutomationSink for Gain {
+    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+        todo!()
+    }
+}
+impl TimeSlicer for Gain {
+    fn tick(&mut self, _clock: &Clock) -> bool {
+        true
+    }
+}
 
 pub struct Bitcrusher {
     sources: Vec<Rc<RefCell<dyn AudioSource>>>,
@@ -117,13 +135,13 @@ impl Default for Bitcrusher {
 }
 
 impl AudioSink for Bitcrusher {
-    fn add_source(&mut self, source: Rc<RefCell<dyn AudioSource>>) {
-        self.sources.push(source);
+    fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
+        &mut self.sources
     }
 }
 
 impl TimeSlicer for Bitcrusher {
-    fn tick(&mut self, clock: &primitives::clock::Clock) -> bool {
+    fn tick(&mut self, clock: &Clock) -> bool {
         self.time_seconds = clock.seconds;
         true
     }
@@ -136,7 +154,11 @@ impl AudioSource for Bitcrusher {
     }
 }
 
-impl AutomationSink for Bitcrusher {}
+impl AutomationSink for Bitcrusher {
+    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+        todo!()
+    }
+}
 
 #[allow(dead_code)]
 pub struct Filter {
@@ -213,8 +235,8 @@ impl Filter {
 }
 
 impl AudioSink for Filter {
-    fn add_source(&mut self, source: Rc<RefCell<dyn AudioSource>>) {
-        self.sources.push(source);
+    fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
+        &mut self.sources
     }
 }
 
@@ -225,7 +247,7 @@ impl AudioSource for Filter {
 }
 
 impl AutomationSink for Filter {
-    fn handle_message(&mut self, message: &AutomationMessage) {
+    fn handle_automation_message(&mut self, message: &AutomationMessage) {
         match message {
             AutomationMessage::UpdatePrimaryValue { value } => {
                 let unscaled_cutoff = MiniFilter2::percent_to_frequency(value * 2.0 - 1.0);
@@ -236,7 +258,11 @@ impl AutomationSink for Filter {
     }
 }
 
-impl TimeSlicer for Filter {}
+impl TimeSlicer for Filter {
+    fn tick(&mut self, _clock: &Clock) -> bool {
+        true
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -259,29 +285,29 @@ mod tests {
         const MAX: MonoSample = -MIN;
         {
             let mut limiter = Limiter::new_with_params(MIN, MAX);
-            limiter.add_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.5))));
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.5))));
             assert_eq!(limiter.sample(), 0.5);
         }
         {
             let mut limiter = Limiter::new_with_params(MIN, MAX);
-            limiter.add_source(Rc::new(RefCell::new(SingleLevelDevice::new(-0.8))));
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(-0.8))));
             assert_eq!(limiter.sample(), MIN);
         }
         {
             let mut limiter = Limiter::new_with_params(MIN, MAX);
-            limiter.add_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.8))));
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.8))));
             assert_eq!(limiter.sample(), MAX);
         }
 
         // multiple sources
         {
             let mut limiter = Limiter::new_with_params(MIN, MAX);
-            limiter.add_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.2))));
-            limiter.add_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.6))));
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.2))));
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.6))));
             assert_eq!(limiter.sample(), MAX);
-            limiter.add_source(Rc::new(RefCell::new(SingleLevelDevice::new(-1.0))));
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(-1.0))));
             assert_approx_eq!(limiter.sample(), -0.2);
-            limiter.add_source(Rc::new(RefCell::new(SingleLevelDevice::new(-1.0))));
+            limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(-1.0))));
             assert_eq!(limiter.sample(), MIN);
         }
     }

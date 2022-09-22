@@ -7,7 +7,7 @@ use crate::{
     primitives::clock::{Clock, TimeSignature},
 };
 
-use super::traits::{AutomationSource, MidiSink, MidiSource, TimeSlicer};
+use super::traits::{MidiSink, MidiSource, TimeSlicer};
 
 #[derive(Default)]
 pub struct MidiSequencer {
@@ -66,16 +66,6 @@ impl MidiSequencer {
     }
 }
 
-#[allow(unused_variables)]
-impl AutomationSource for MidiSequencer {
-    fn add_sink(&mut self, sink: Rc<RefCell<dyn super::traits::AutomationSink>>) {
-        todo!()
-    }
-    fn handle_event(&mut self, event: &dyn super::traits::ExternalEvent) {
-        todo!()
-    }
-}
-
 impl MidiSource for MidiSequencer {
     fn add_midi_sink(&mut self, sink: Rc<RefCell<dyn MidiSink>>, channel: MidiChannel) {
         self.channels_to_sink_vecs
@@ -83,6 +73,11 @@ impl MidiSource for MidiSequencer {
             .or_default()
             .push(sink);
     }
+
+    fn midi_sinks(&mut self) -> &mut Vec<Rc<RefCell<dyn MidiSink>>> {
+        todo!()
+    }
+    
 }
 
 impl TimeSlicer for MidiSequencer {

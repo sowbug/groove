@@ -51,3 +51,7 @@ I use VSCode for development.
 
 - `curl https://sh.rustup.rs -sSf | sh`
 - `apt install pkg-config libasound2-dev`
+
+## Coding conventions (WIP, subject to change and caprice)
+
+- For structs that exist primarily because of traits, the trait implementations should come first, and then the struct-specific implementations should come after that.

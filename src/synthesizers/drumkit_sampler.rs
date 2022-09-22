@@ -4,7 +4,7 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
-    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlicer},
+    devices::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink, TimeSlicer},
     general_midi::GeneralMidiPercussionProgram,
 };
 
@@ -35,7 +35,11 @@ impl Voice {
     }
 }
 
-impl AutomationSink for Voice {}
+impl AutomationSink for Voice {
+    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+        todo!()
+    }
+}
 impl MidiSink for Voice {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         MIDI_CHANNEL_RECEIVE_ALL
@@ -144,7 +148,11 @@ impl Sampler {
     }
 }
 
-impl AutomationSink for Sampler {}
+impl AutomationSink for Sampler {
+    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+        todo!()
+    }
+}
 impl MidiSink for Sampler {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         self.midi_channel

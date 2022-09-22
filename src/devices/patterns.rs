@@ -11,7 +11,7 @@ use crate::{
     primitives::clock::{BeatValue, Clock, TimeSignature},
 };
 
-use super::traits::{AutomationSource, MidiSink, MidiSource, TimeSlicer};
+use super::traits::{MidiSink, MidiSource, TimeSlicer};
 
 #[derive(Default)]
 pub struct PatternSequencer {
@@ -101,10 +101,8 @@ impl PatternSequencer {
         }
     }
 
-    fn dispatch_note(&self, note: &OrderedNote, clock: &Clock) {
-        for sink in self.sinks.clone() {
-            sink.borrow_mut().handle_midi_message(clock, &note.message);
-        }
+    fn dispatch_note(&mut self, note: &OrderedNote, clock: &Clock) {
+        self.broadcast_midi_message(clock, &note.message);
     }
 
     pub(crate) fn reset_cursor(&mut self) {
@@ -128,10 +126,10 @@ impl TimeSlicer for PatternSequencer {
         }
 
         while !self.sequenced_notes.is_empty() {
-            let note = self.sequenced_notes.first().unwrap();
+            let note = *(self.sequenced_notes.first().unwrap());
 
             if clock.beats >= note.when_beats {
-                self.dispatch_note(note, clock);
+                self.dispatch_note(&note, clock);
 
                 // TODO: this is violating a (future) rule that we can always randomly access
                 // anything in the song. It's actually more than that, because it's destroying
@@ -145,24 +143,13 @@ impl TimeSlicer for PatternSequencer {
     }
 }
 
-#[allow(unused_variables)]
-impl AutomationSource for PatternSequencer {
-    fn add_sink(&mut self, sink: Rc<RefCell<dyn super::traits::AutomationSink>>) {
-        todo!()
-    }
-    fn handle_event(&mut self, event: &dyn super::traits::ExternalEvent) {
-        todo!()
-    }
-}
-#[allow(unused_variables)]
 impl MidiSource for PatternSequencer {
-    fn add_midi_sink(&mut self, sink: Rc<RefCell<dyn MidiSink>>, channel: MidiChannel) {
-        // TODO: why don't we care about the channel?
-        self.sinks.push(sink);
+    fn midi_sinks(&mut self) -> &mut Vec<Rc<RefCell<dyn MidiSink>>> {
+        &mut self.sinks
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub struct OrderedNote {
     pub when_beats: f32,
     pub message: MidiMessage,

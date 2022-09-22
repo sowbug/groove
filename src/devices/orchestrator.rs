@@ -107,7 +107,7 @@ impl Orchestrator {
     }
 
     pub fn add_master_mixer_source(&self, device: Rc<RefCell<dyn AudioSource>>) {
-        self.master_mixer.borrow_mut().add_source(device);
+        self.master_mixer.borrow_mut().add_audio_source(device);
     }
 
     fn prepare_from_settings(&mut self) {
@@ -302,7 +302,7 @@ impl Orchestrator {
                 if let Some(ldi) = last_device_id {
                     let output: Rc<RefCell<dyn AudioSource>> = self.get_audio_source_by_id(&ldi);
                     let input: Rc<RefCell<dyn AudioSink>> = self.get_audio_sink_by_id(&device_id);
-                    input.borrow_mut().add_source(output);
+                    input.borrow_mut().add_audio_source(output);
                 }
                 last_device_id = Some(device_id);
             }

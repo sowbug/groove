@@ -62,7 +62,7 @@ mod tests {
         }
     }
     impl AutomationSink for NullDevice {
-        fn handle_message(&mut self, message: &AutomationMessage) {
+        fn handle_automation_message(&mut self, message: &AutomationMessage) {
             match message {
                 AutomationMessage::UpdatePrimaryValue { value } => {
                     self.set_value(value);

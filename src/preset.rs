@@ -103,7 +103,7 @@ mod tests {
 
     use crate::{
         common::{MidiChannel, MidiMessage, MidiMessageType},
-        devices::traits::{MidiSink, AutomationSink},
+        devices::traits::{AutomationMessage, AutomationSink, MidiSink},
         primitives::clock::Clock,
     };
 
@@ -126,7 +126,11 @@ mod tests {
         }
     }
 
-    impl AutomationSink for NullDevice {}
+    impl AutomationSink for NullDevice {
+        fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+            todo!()
+        }
+    }
     impl MidiSink for NullDevice {
         fn midi_channel(&self) -> crate::common::MidiChannel {
             self.midi_channel
