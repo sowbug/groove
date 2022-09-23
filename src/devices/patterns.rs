@@ -129,7 +129,6 @@ impl TimeSlicer for PatternSequencer {
             let note = *(self.sequenced_notes.first().unwrap());
 
             if clock.beats >= note.when_beats {
-                dbg!(note);
                 self.dispatch_note(&note, clock);
 
                 // TODO: this is violating a (future) rule that we can always randomly access
