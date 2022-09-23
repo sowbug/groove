@@ -9,7 +9,7 @@ devices:
   - instrument:
       welsh:
         id: piano-1
-        midi-in: 0
+        midi-in: 0 # TODO: do we want MIDI so central to routing? Why not use patch cables?
         preset: piano
   - instrument:
       welsh:
