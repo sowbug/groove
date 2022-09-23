@@ -42,6 +42,9 @@
 - [ ] Make it easier to recover from source/syntax errors. For example, references to missing IDs, or IDs used in the wrong context
 - [ ] Source modules, namespaces
 - [ ] Story for collaboration
+- [ ] A converter for MIDI SMF -> native
+- [ ] Other notation formats: not everything wants to be a pattern
+- [ ] GUI: Sandbox to hear snippets of source
 
 ## Misc applications
 
