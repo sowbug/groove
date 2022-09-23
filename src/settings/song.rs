@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::common::DeviceId;
 
 use super::{
-    automation::{AutomationPatternSettings, AutomationTrackSettings},
+    automation::{AutomationSequenceSettings, AutomationTrackSettings},
     ClockSettings, DeviceSettings, PatternSettings, TrackSettings,
 };
 
@@ -21,7 +21,7 @@ pub struct SongSettings {
     #[serde(default)]
     pub tracks: Vec<TrackSettings>,
     #[serde(default)]
-    pub automation_patterns: Vec<AutomationPatternSettings>,
+    pub automation_sequences: Vec<AutomationSequenceSettings>,
     #[serde(default)]
     pub automation_tracks: Vec<AutomationTrackSettings>,
 }

@@ -2,24 +2,22 @@ use serde::{Deserialize, Serialize};
 
 use crate::{common::DeviceId, primitives::clock::BeatValue};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]
-pub enum InterpolationType {
-    #[default]
-    Stairstep,
-    Linear,
-    Logarithmic,
-    Trigger, // TODO: this might mean Automators are also AutomationSinks
-             // and maybe MidiSinks.
+pub enum AutomationStepType {
+    Flat {value: f32},
+    // Linear {start: f32, end: f32},
+    // Logarithmic {start: f32, end: f32},
+    // Trigger {id: String, value: f32}, // TODO: this might mean Automators are also AutomationSinks
+    //          // and maybe MidiSinks.
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub struct AutomationPatternSettings {
+pub struct AutomationSequenceSettings {
     pub id: DeviceId,
     pub note_value: Option<BeatValue>,
-    pub interpolation: Option<InterpolationType>,
-    pub points: Vec<f32>,
+    pub steps: Vec<AutomationStepType>,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone)]

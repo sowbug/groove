@@ -68,11 +68,18 @@ tracks:
   - id: track-10
     midi-channel: 10
     patterns: [four-on-the-floor, four-on-the-floor]
-automation-patterns:
+automation-sequences:
   - id: auto-1
     note-value: whole
-    interpolation: stairstep
-    points: [0.0, 0.1, 0.5, 0.99]
+    steps:
+      - flat:
+        - 0.0
+      - flat:
+        - 0.1
+      - flat:
+        - 0.5
+      - flat:
+        - 1.0
 automation-tracks:
   - id: auto-track-1
     target:

@@ -373,7 +373,7 @@ impl Orchestrator {
             return;
         }
 
-        for pattern in self.settings.automation_patterns.clone() {
+        for pattern in self.settings.automation_sequences.clone() {
             self.id_to_automation_pattern.insert(
                 pattern.id.clone(),
                 Rc::new(RefCell::new(AutomationPattern::from_settings(&pattern))),
@@ -392,6 +392,7 @@ impl Orchestrator {
                     automation_track.borrow_mut().add_pattern(pattern.clone());
                 }
             }
+            automation_track.borrow_mut().freeze_patterns();
             self.add_automator_by_id(track_settings.id, automation_track.clone());
         }
     }

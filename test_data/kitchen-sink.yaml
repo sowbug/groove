@@ -101,13 +101,24 @@ tracks:
   - id: track-10
     midi-channel: 10
     patterns: [four-on-the-floor]
-automation-patterns:
-  - id: i-have-no-interpolation-or-beat-value
-    points: [0.0, 0.1, 0.5, 0.99]
+automation-sequences:
+  - id: i-have-no-beat-value-and-i-am-short
+    steps:
+      - flat:
+        - 0.0
+      - flat:
+        - 1.0
   - id: auto-1
     note-value: whole
-    interpolation: stairstep
-    points: [0.0, 0.1, 0.5, 0.99]
+    steps:
+      - flat:
+        - 0.0
+      - flat:
+        - 0.1
+      - flat:
+        - 0.5
+      - flat:
+        - 1.0
 automation-tracks:
   - id: auto-track-1
     target:
