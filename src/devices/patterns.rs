@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
     cmp::{self, Ordering},
+    collections::HashMap,
     rc::Rc,
 };
 
@@ -18,7 +19,7 @@ pub struct PatternSequencer {
     time_signature: TimeSignature,
     cursor_beats: f32, // TODO: this should be a fixed-precision type
 
-    sinks: Vec<Rc<RefCell<dyn MidiSink>>>,
+    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>>,
     sequenced_notes: SortedVec<OrderedNote>,
 }
 
@@ -29,8 +30,7 @@ impl PatternSequencer {
         Self {
             time_signature: *time_signature,
             cursor_beats: Self::CURSOR_BEGIN,
-            sinks: Vec::new(),
-            sequenced_notes: SortedVec::new(),
+            ..Default::default()
         }
     }
 
@@ -129,6 +129,7 @@ impl TimeSlicer for PatternSequencer {
             let note = *(self.sequenced_notes.first().unwrap());
 
             if clock.beats >= note.when_beats {
+                dbg!(note);
                 self.dispatch_note(&note, clock);
 
                 // TODO: this is violating a (future) rule that we can always randomly access
@@ -144,8 +145,8 @@ impl TimeSlicer for PatternSequencer {
 }
 
 impl MidiSource for PatternSequencer {
-    fn midi_sinks(&mut self) -> &mut Vec<Rc<RefCell<dyn MidiSink>>> {
-        &mut self.sinks
+    fn midi_sinks(&mut self) -> &mut HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>> {
+        &mut self.channels_to_sink_vecs
     }
 }
 

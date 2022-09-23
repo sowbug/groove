@@ -3,6 +3,7 @@ use crate::common::{
 };
 use crate::primitives::clock::Clock;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Represents an aggregate that can do its work in time slices.
@@ -74,16 +75,15 @@ pub trait AutomationSink {
 /// TODO: might some MidiSinks want to see *all* MidiMessages, not just some for
 /// a single channel?
 pub trait MidiSource {
-    // TODO: we should change this to a map
-    fn midi_sinks(&mut self) -> &mut Vec<Rc<RefCell<dyn MidiSink>>>;
+    // TODO: if this gets too unwieldy, consider https://crates.io/crates/multimap
+    fn midi_sinks(&mut self) -> &mut HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>>;
 
-    #[allow(unused_variables)]
     fn add_midi_sink(&mut self, sink: Rc<RefCell<dyn MidiSink>>, channel: MidiChannel) {
-        self.midi_sinks().push(sink);
+        self.midi_sinks().entry(channel).or_default().push(sink);
     }
 
     fn broadcast_midi_message(&mut self, clock: &Clock, message: &MidiMessage) {
-        for sink in self.midi_sinks().clone() {
+        for sink in self.midi_sinks().entry(message.channel).or_default() {
             sink.borrow_mut().handle_midi_message(clock, message);
         }
     }
@@ -255,12 +255,12 @@ mod tests {
 
     #[derive(Default)]
     struct TestMidiSource {
-        sinks: Vec<Rc<RefCell<dyn MidiSink>>>,
+        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>>,
     }
 
     impl MidiSource for TestMidiSource {
-        fn midi_sinks(&mut self) -> &mut Vec<Rc<RefCell<dyn MidiSink>>> {
-            &mut self.sinks
+        fn midi_sinks(&mut self) -> &mut HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>> {
+            &mut self.channels_to_sink_vecs
         }
     }
 
@@ -354,7 +354,7 @@ mod tests {
     #[derive(Default)]
     struct TestSimpleArpeggiator {
         tempo: f32,
-        midi_sinks: Vec<Rc<RefCell<dyn MidiSink>>>,
+        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>>,
     }
 
     impl AutomationSink for TestSimpleArpeggiator {
@@ -371,8 +371,8 @@ mod tests {
     }
 
     impl MidiSource for TestSimpleArpeggiator {
-        fn midi_sinks(&mut self) -> &mut Vec<Rc<RefCell<dyn MidiSink>>> {
-            &mut self.midi_sinks
+        fn midi_sinks(&mut self) -> &mut HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>> {
+            &mut self.channels_to_sink_vecs
         }
     }
 

@@ -67,9 +67,11 @@ impl ClDaw {
                 )))
             };
             // We make up IDs here, as we know that MIDI won't be referencing them.
-            result
-                .orchestrator
-                .add_instrument_by_id(format!("instrument-{}", channel_number), synth.clone());
+            result.orchestrator.add_instrument_by_id(
+                format!("instrument-{}", channel_number),
+                synth.clone(),
+                channel_number,
+            );
             result.orchestrator.add_master_mixer_source(synth.clone());
 
             result

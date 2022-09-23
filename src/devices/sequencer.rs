@@ -26,9 +26,7 @@ impl MidiSequencer {
         Self {
             midi_ticks_per_second: 960,
             beats_per_minute: 120.0,
-            time_signature: TimeSignature::new(4, 4),
-            channels_to_sink_vecs: HashMap::new(),
-            midi_messages: SortedVec::new(),
+            ..Default::default()
         }
     }
 
@@ -67,17 +65,9 @@ impl MidiSequencer {
 }
 
 impl MidiSource for MidiSequencer {
-    fn add_midi_sink(&mut self, sink: Rc<RefCell<dyn MidiSink>>, channel: MidiChannel) {
-        self.channels_to_sink_vecs
-            .entry(channel)
-            .or_default()
-            .push(sink);
+    fn midi_sinks(&mut self) -> &mut HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>> {
+        &mut self.channels_to_sink_vecs
     }
-
-    fn midi_sinks(&mut self) -> &mut Vec<Rc<RefCell<dyn MidiSink>>> {
-        todo!()
-    }
-    
 }
 
 impl TimeSlicer for MidiSequencer {

@@ -1,4 +1,4 @@
-use crate::common::{DeviceId, MonoSample, MIDI_CHANNEL_RECEIVE_ALL};
+use crate::common::{DeviceId, MidiChannel, MonoSample};
 use crate::primitives::clock::Clock;
 use crate::settings::effects::EffectSettings;
 use crate::settings::song::SongSettings;
@@ -118,21 +118,19 @@ impl Orchestrator {
         self.create_automations_from_settings();
     }
 
-    // TODO: for "elegance" we're connecting everything MIDI to everything MIDI.
-    // it's the receiver's job to filter out on MIDI channel.
-    // this is inefficient, but maybe it won't matter.
     pub fn add_instrument_by_id(
         &mut self,
         id: String,
         instrument: Rc<RefCell<dyn InstrumentTrait>>,
+        channel: MidiChannel,
     ) {
         self.id_to_instrument.insert(id, instrument.clone());
         self.midi_sequencer
             .borrow_mut()
-            .add_midi_sink(instrument.clone(), MIDI_CHANNEL_RECEIVE_ALL);
+            .add_midi_sink(instrument.clone(), channel);
         self.pattern_sequencer
             .borrow_mut()
-            .add_midi_sink(instrument.clone(), MIDI_CHANNEL_RECEIVE_ALL);
+            .add_midi_sink(instrument.clone(), channel);
     }
 
     fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn EffectTrait>>) {
@@ -158,7 +156,7 @@ impl Orchestrator {
                             self.settings.clock.sample_rate(),
                             welsh::SynthPreset::by_name(&preset_name),
                         )));
-                        self.add_instrument_by_id(id, instrument);
+                        self.add_instrument_by_id(id, instrument, midi_input_channel);
                     }
                     InstrumentSettings::Drumkit {
                         id,
@@ -168,7 +166,7 @@ impl Orchestrator {
                         let instrument = Rc::new(RefCell::new(
                             drumkit_sampler::Sampler::new_from_files(midi_input_channel),
                         ));
-                        self.add_instrument_by_id(id, instrument);
+                        self.add_instrument_by_id(id, instrument, midi_input_channel);
                     }
                 },
                 DeviceSettings::Effect(_settings) => { // skip
