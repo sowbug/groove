@@ -136,6 +136,9 @@ impl<T: TimeSlicer> AutomatorTrait for T {}
 pub trait InstrumentTrait: MidiSink + AudioSource + AutomationSink + TimeSlicer {}
 impl<T: MidiSink + AudioSource + AutomationSink + TimeSlicer> InstrumentTrait for T {}
 
+pub trait ArpTrait: MidiSource + MidiSink + AutomationSink + TimeSlicer {}
+impl<T: MidiSource + MidiSink + AutomationSink + TimeSlicer> ArpTrait for T {}
+
 pub trait EffectTrait: AudioSource + AudioSink + AutomationSink + TimeSlicer {}
 impl<T: AudioSource + AudioSink + AutomationSink + TimeSlicer> EffectTrait for T {}
 

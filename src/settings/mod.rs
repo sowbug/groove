@@ -12,13 +12,6 @@ use crate::{
 
 use self::effects::EffectSettings;
 
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub enum InstrumentType {
-    Welsh,
-    Drumkit,
-}
-
 type MidiChannel = u8;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -39,6 +32,14 @@ pub enum InstrumentSettings {
         midi_input_channel: MidiChannel,
         #[serde(rename = "preset")]
         preset_name: String,
+    },
+    #[serde(rename_all = "kebab-case")]
+    Arpeggiator {
+        id: DeviceId,
+        #[serde(rename = "midi-in")]
+        midi_input_channel: MidiChannel,
+        #[serde(rename = "midi-out")]
+        midi_output_channel: MidiChannel,
     },
 }
 

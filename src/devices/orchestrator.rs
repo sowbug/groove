@@ -17,9 +17,10 @@ use super::mixer::Mixer;
 use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
 use super::traits::{
-    AudioSink, AudioSource, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait,
+    ArpTrait, AudioSink, AudioSource, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait,
     MidiSource, TimeSlicer,
 };
+use super::Arpeggiator;
 
 /// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
 #[derive(Default, Clone)]
@@ -33,6 +34,7 @@ pub struct Orchestrator {
     id_to_automator: HashMap<DeviceId, Rc<RefCell<dyn AutomatorTrait>>>,
     id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn InstrumentTrait>>>,
     id_to_effect: HashMap<DeviceId, Rc<RefCell<dyn EffectTrait>>>,
+    id_to_arp: HashMap<DeviceId, Rc<RefCell<dyn ArpTrait>>>, // TODO: learn Rust
 
     id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
     id_to_automation_sequence: HashMap<DeviceId, Rc<RefCell<AutomationPath>>>,
@@ -50,6 +52,7 @@ impl Orchestrator {
             id_to_automator: HashMap::new(),
             id_to_instrument: HashMap::new(),
             id_to_effect: HashMap::new(),
+            id_to_arp: HashMap::new(),
 
             id_to_pattern: HashMap::new(),
             id_to_automation_sequence: HashMap::new(),
@@ -75,6 +78,9 @@ impl Orchestrator {
         }
         done = self.midi_sequencer.borrow_mut().tick(clock) && done;
         done = self.pattern_sequencer.borrow_mut().tick(clock) && done;
+        for d in self.id_to_arp.values() {
+            done = d.borrow_mut().tick(clock) && done;
+        }
         for d in self.id_to_instrument.values() {
             done = d.borrow_mut().tick(clock) && done;
         }
@@ -131,6 +137,24 @@ impl Orchestrator {
         self.pattern_sequencer
             .borrow_mut()
             .add_midi_sink(instrument.clone(), channel);
+        for arp in self.id_to_arp.values() {
+            arp.borrow_mut().add_midi_sink(instrument.clone(), channel);
+        }
+    }
+
+    pub fn add_arp_by_id(
+        &mut self,
+        id: String,
+        arp: Rc<RefCell<dyn ArpTrait>>,
+        channel: MidiChannel,
+    ) {
+        self.id_to_arp.insert(id, arp.clone());
+        self.midi_sequencer
+            .borrow_mut()
+            .add_midi_sink(arp.clone(), channel);
+        self.pattern_sequencer
+            .borrow_mut()
+            .add_midi_sink(arp.clone(), channel);
     }
 
     fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn EffectTrait>>) {
@@ -168,6 +192,18 @@ impl Orchestrator {
                         ));
                         self.add_instrument_by_id(id, instrument, midi_input_channel);
                     }
+                    InstrumentSettings::Arpeggiator {
+                        id,
+                        midi_input_channel,
+                        midi_output_channel,
+                    } => self.add_arp_by_id(
+                        id,
+                        Rc::new(RefCell::new(Arpeggiator::new(
+                            midi_input_channel,
+                            midi_output_channel,
+                        ))),
+                        midi_input_channel,
+                    ),
                 },
                 DeviceSettings::Effect(_settings) => { // skip
                 }
