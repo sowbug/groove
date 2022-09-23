@@ -43,7 +43,7 @@ impl AutomationTrip {
             self.envelopes.insert(AutomationEnvelope {
                 start_beat: self.cursor_beats,
                 end_beat: self.cursor_beats + 1.0,
-                start_value: start_value,
+                start_value,
                 target_value: end_value,
                 current_value: start_value,
             });
@@ -55,13 +55,10 @@ impl AutomationTrip {
     pub fn freeze_trip_envelopes(&mut self) {
         self.envelopes_in_place = VecDeque::new();
         let mut i = self.envelopes.iter();
-        loop {
-            if let Some(e) = i.next() {
-                self.envelopes_in_place.push_back(*e);
-            } else {
-                break;
-            }
+        while let Some(e) = i.next() {
+            self.envelopes_in_place.push_back(*e);
         }
+        self.envelopes.clear();
     }
 }
 
@@ -87,7 +84,7 @@ impl TimeSlicer for AutomationTrip {
                         value: self.current_value,
                     });
             }
-            if envelope.tick(&clock) {
+            if envelope.tick(clock) {
                 num_to_remove += 1;
             }
         }
