@@ -7,6 +7,11 @@ pub const MONO_SAMPLE_SILENCE: MonoSample = 0.0;
 pub const MONO_SAMPLE_MAX: MonoSample = 1.0;
 pub const MONO_SAMPLE_MIN: MonoSample = -1.0;
 
+pub type StereoSample = (MonoSample, MonoSample);
+pub const STEREO_SAMPLE_SILENCE: StereoSample = (MONO_SAMPLE_SILENCE, MONO_SAMPLE_SILENCE);
+pub const STEREO_SAMPLE_MAX: StereoSample = (MONO_SAMPLE_MAX, MONO_SAMPLE_MAX);
+pub const STEREO_SAMPLE_MIN: StereoSample = (MONO_SAMPLE_MIN, MONO_SAMPLE_MIN);
+
 pub type DeviceId = String;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
