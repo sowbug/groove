@@ -54,8 +54,8 @@ impl AutomationTrip {
 
     pub fn freeze_trip_envelopes(&mut self) {
         self.envelopes_in_place = VecDeque::new();
-        let mut i = self.envelopes.iter();
-        while let Some(e) = i.next() {
+        let i = self.envelopes.iter();
+        for e in i {
             self.envelopes_in_place.push_back(*e);
         }
         self.envelopes.clear();
