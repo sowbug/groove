@@ -68,8 +68,8 @@ tracks:
   - id: track-10
     midi-channel: 10
     patterns: [four-on-the-floor, four-on-the-floor]
-automation-sequences:
-  - id: auto-1
+paths:
+  - id: path-flat-1
     note-value: whole
     steps:
       - flat:
@@ -80,10 +80,25 @@ automation-sequences:
         - 0.5
       - flat:
         - 1.0
-automation-tracks:
-  - id: auto-track-1
+  - id: path-slope-1
+    note-value: whole
+    steps:
+      - slope:
+          start: 0.0
+          end: 0.1
+      - slope:
+          start: 0.1
+          end: 0.5
+      - slope:
+          start: 0.5
+          end: 0.0
+      - slope:
+          start: 0.0
+          end: 1.0
+trips:
+  - id: trip-1
     target:
       id: low-pass-1
       param: cutoff
     start-measure: 2
-    patterns: [auto-1]
+    paths: [path-flat-1, path-slope-1]

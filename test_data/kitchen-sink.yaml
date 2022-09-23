@@ -101,7 +101,7 @@ tracks:
   - id: track-10
     midi-channel: 10
     patterns: [four-on-the-floor]
-automation-sequences:
+paths:
   - id: i-have-no-beat-value-and-i-am-short
     steps:
       - flat:
@@ -119,10 +119,10 @@ automation-sequences:
         - 0.5
       - flat:
         - 1.0
-automation-tracks:
-  - id: auto-track-1
+trips:
+  - id: trip-1
     target:
       id: low-pass-1
       param: cutoff
     start-measure: 2
-    patterns: [auto-1]
+    paths: [auto-1]

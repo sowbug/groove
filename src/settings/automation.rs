@@ -5,16 +5,25 @@ use crate::{common::DeviceId, primitives::clock::BeatValue};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub enum AutomationStepType {
-    Flat {value: f32},
-    // Linear {start: f32, end: f32},
+    Flat { value: f32 }, // stairstep
+    Slope { start: f32, end: f32 }, // linear
     // Logarithmic {start: f32, end: f32},
     // Trigger {id: String, value: f32}, // TODO: this might mean Automators are also AutomationSinks
     //          // and maybe MidiSinks.
 }
 
+impl AutomationStepType {
+    pub fn new_flat(value: f32) -> crate::settings::automation::AutomationStepType {
+        AutomationStepType::Flat { value }
+    }
+    pub fn new_slope(start: f32, end: f32) -> crate::settings::automation::AutomationStepType {
+        AutomationStepType::Slope { start, end }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub struct AutomationSequenceSettings {
+pub struct AutomationPathSettings {
     pub id: DeviceId,
     pub note_value: Option<BeatValue>,
     pub steps: Vec<AutomationStepType>,
@@ -29,10 +38,10 @@ pub struct AutomationTargetSettings {
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub struct AutomationTrackSettings {
+pub struct AutomationTripSettings {
     pub id: DeviceId,
     pub target: AutomationTargetSettings,
 
-    #[serde(rename = "patterns")]
-    pub pattern_ids: Vec<DeviceId>,
+    #[serde(rename = "paths")]
+    pub path_ids: Vec<DeviceId>,
 }

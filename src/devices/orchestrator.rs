@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::rc::Rc;
 
-use super::automation::{AutomationPattern, AutomationTrack};
+use super::automation::{AutomationPath, AutomationTrip};
 use super::effects::{Bitcrusher, Filter, Gain, Limiter};
 use super::mixer::Mixer;
 use super::patterns::{Pattern, PatternSequencer};
@@ -35,7 +35,7 @@ pub struct Orchestrator {
     id_to_effect: HashMap<DeviceId, Rc<RefCell<dyn EffectTrait>>>,
 
     id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
-    id_to_automation_pattern: HashMap<DeviceId, Rc<RefCell<AutomationPattern>>>,
+    id_to_automation_sequence: HashMap<DeviceId, Rc<RefCell<AutomationPath>>>,
 }
 
 impl Orchestrator {
@@ -52,7 +52,7 @@ impl Orchestrator {
             id_to_effect: HashMap::new(),
 
             id_to_pattern: HashMap::new(),
-            id_to_automation_pattern: HashMap::new(),
+            id_to_automation_sequence: HashMap::new(),
         };
         r.add_effect_by_id(String::from("main-mixer"), r.master_mixer.clone());
 
@@ -115,7 +115,7 @@ impl Orchestrator {
         self.create_instruments_from_settings();
         self.create_patch_cables_from_settings();
         self.create_tracks_from_settings();
-        self.create_automations_from_settings();
+        self.create_automation_tracks_from_settings();
     }
 
     pub fn add_instrument_by_id(
@@ -368,31 +368,36 @@ impl Orchestrator {
         }
     }
 
-    fn create_automations_from_settings(&mut self) {
-        if self.settings.automation_tracks.is_empty() {
+    fn create_automation_tracks_from_settings(&mut self) {
+        if self.settings.trips.is_empty() {
             return;
         }
 
-        for pattern in self.settings.automation_sequences.clone() {
-            self.id_to_automation_pattern.insert(
-                pattern.id.clone(),
-                Rc::new(RefCell::new(AutomationPattern::from_settings(&pattern))),
+        for sequence in self.settings.paths.clone() {
+            self.id_to_automation_sequence.insert(
+                sequence.id.clone(),
+                Rc::new(RefCell::new(AutomationPath::from_settings(&sequence))),
             );
         }
-        for track_settings in self.settings.automation_tracks.clone() {
+        for track_settings in self.settings.trips.clone() {
             let target = self.get_automation_sink_by_id(&track_settings.target.id);
-            let automation_track = Rc::new(RefCell::new(AutomationTrack::new(
+            let automation_track = Rc::new(RefCell::new(AutomationTrip::new(
                 target.clone(),
                 track_settings.target.param,
             )));
             automation_track.borrow_mut().reset_cursor();
-            for pattern_id in track_settings.pattern_ids {
-                let pattern_opt = self.id_to_automation_pattern.get(&pattern_id);
+            for pattern_id in track_settings.path_ids {
+                let pattern_opt = self.id_to_automation_sequence.get(&pattern_id);
                 if let Some(pattern) = pattern_opt {
-                    automation_track.borrow_mut().add_pattern(pattern.clone());
+                    automation_track.borrow_mut().add_path(pattern.clone());
+                } else {
+                    panic!(
+                        "automation track {} needs missing sequence {}",
+                        track_settings.id, pattern_id
+                    );
                 }
             }
-            automation_track.borrow_mut().freeze_patterns();
+            automation_track.borrow_mut().freeze_trip_envelopes();
             self.add_automator_by_id(track_settings.id, automation_track.clone());
         }
     }

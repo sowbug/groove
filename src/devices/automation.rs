@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 use std::{cell::RefCell, cmp::Ordering};
 
-pub struct AutomationTrack {
+pub struct AutomationTrip {
     target_instrument: Rc<RefCell<dyn AutomationSink>>,
     //    target_param_name: String,
     cursor_beats: f32,
@@ -16,7 +16,7 @@ pub struct AutomationTrack {
     envelopes_in_place: VecDeque<AutomationEnvelope>,
 }
 
-impl AutomationTrack {
+impl AutomationTrip {
     const CURSOR_BEGIN: f32 = 0.0;
 
     pub fn new(target: Rc<RefCell<dyn AutomationSink>>, _target_param_name: String) -> Self {
@@ -34,13 +34,11 @@ impl AutomationTrack {
         self.cursor_beats = Self::CURSOR_BEGIN;
     }
 
-    pub fn add_pattern(&mut self, pattern: Rc<RefCell<AutomationPattern>>) {
-        for step in pattern.borrow().steps.clone() {
-            // TODO: this will work for stairstep, but for interpolation we need to know the
-            // next value, and that might cross pattern boundaries. At a minimum, it requires
-            // us to know the next value in this for loop, which we don't know.
+    pub fn add_path(&mut self, path: Rc<RefCell<AutomationPath>>) {
+        for step in path.borrow().steps.clone() {
             let (start_value, end_value) = match step {
                 AutomationStepType::Flat { value } => (value, value),
+                AutomationStepType::Slope { start, end } => (start, end),
             };
             self.envelopes.insert(AutomationEnvelope {
                 start_beat: self.cursor_beats,
@@ -54,7 +52,7 @@ impl AutomationTrack {
         }
     }
 
-    pub fn freeze_patterns(&mut self) {
+    pub fn freeze_trip_envelopes(&mut self) {
         self.envelopes_in_place = VecDeque::new();
         let mut i = self.envelopes.iter();
         loop {
@@ -67,7 +65,7 @@ impl AutomationTrack {
     }
 }
 
-impl TimeSlicer for AutomationTrack {
+impl TimeSlicer for AutomationTrip {
     fn tick(&mut self, clock: &Clock) -> bool {
         if self.envelopes_in_place.is_empty() {
             // This is different from falling through the loop below because
@@ -155,18 +153,18 @@ impl Ord for AutomationEnvelope {
 
 impl Eq for AutomationEnvelope {}
 
-use crate::{primitives::clock::BeatValue, settings::automation::AutomationSequenceSettings};
+use crate::{primitives::clock::BeatValue, settings::automation::AutomationPathSettings};
 
 use super::traits::{AutomationMessage, AutomationSink, TimeSlicer};
 
 #[derive(Clone)]
-pub struct AutomationPattern {
+pub struct AutomationPath {
     pub note_value: Option<BeatValue>,
     pub steps: Vec<AutomationStepType>,
 }
 
-impl AutomationPattern {
-    pub(crate) fn from_settings(settings: &AutomationSequenceSettings) -> Self {
+impl AutomationPath {
+    pub(crate) fn from_settings(settings: &AutomationPathSettings) -> Self {
         Self {
             note_value: settings.note_value.clone(),
             steps: settings.steps.clone(),
@@ -177,33 +175,34 @@ impl AutomationPattern {
 #[cfg(test)]
 mod tests {
     use crate::devices::tests::NullDevice;
+    use assert_approx_eq::assert_approx_eq;
 
     use super::*;
 
     // TODO: I want a way at this point to tell how long the clock needs
-    // to run by asking the pattern, or maybe the track, what its length
+    // to run by asking the path, or maybe the trip, what its length
     // is in some useful unit.
 
     // TODO: a mini orchestrator that ticks until a certain condition is met
 
     #[test]
-    fn test_stairstep_automation() {
-        let pattern_vec = vec![
+    fn test_flat_step_automation() {
+        let step_vec = vec![
             AutomationStepType::Flat { value: 0.9 },
             AutomationStepType::Flat { value: 0.1 },
             AutomationStepType::Flat { value: 0.2 },
             AutomationStepType::Flat { value: 0.3 },
         ];
-        let pattern_len = pattern_vec.len();
-        let pattern = Rc::new(RefCell::new(AutomationPattern {
+        let step_count = step_vec.len();
+        let sequence = Rc::new(RefCell::new(AutomationPath {
             note_value: Some(BeatValue::Quarter),
-            steps: pattern_vec,
+            steps: step_vec,
         }));
         let target = Rc::new(RefCell::new(NullDevice::new()));
         let target_param_name = String::from("value");
-        let mut track = AutomationTrack::new(target.clone(), target_param_name);
-        track.add_pattern(pattern.clone());
-        track.freeze_patterns(); // TODO I hate this method
+        let mut trip = AutomationTrip::new(target.clone(), target_param_name);
+        trip.add_path(sequence.clone());
+        trip.freeze_trip_envelopes(); // TODO I hate this method
 
         assert_eq!(target.borrow().value, 0.0f32);
 
@@ -213,19 +212,19 @@ mod tests {
         loop {
             let mut done = true;
 
-            // Let AutomationTrack do its work.
-            done = track.tick(&clock) && done;
+            // Let the trip do its work.
+            done = trip.tick(&clock) && done;
 
             // Have we reached a new beat? If yes, we need to update the expected value.
             if clock.beats as usize == step_index {
-
                 // But only if we have a new step. If not, the old expected value stays.
-                if step_index < pattern_len {
-                    let step = &pattern.borrow().steps[step_index];
+                if step_index < step_count {
+                    let step = &sequence.borrow().steps[step_index];
                     match step {
                         AutomationStepType::Flat { value } => {
                             expected_value = *value;
                         }
+                        _ => panic!(),
                     }
                 }
                 step_index += 1;
@@ -238,43 +237,48 @@ mod tests {
             }
 
             clock.tick();
-
         }
         assert_eq!(target.borrow().value, 0.3);
     }
 
-    //#[test]
-    // #[allow(dead_code)]
-    // fn test_linear_automation() {
-    //     let pattern_vec = vec![0.0, 1.0, 0.5, 0.0];
-    //     let pattern_interpolated_vec = vec![0.0, 0.5, 1.0, 0.75, 0.5, 0.25, 0.0];
-    //     let pattern = Rc::new(RefCell::new(AutomationPattern {
-    //         note_value: Some(BeatValue::Quarter),
-    //         steps: pattern_vec.clone(),
-    //     }));
-    //     let target = Rc::new(RefCell::new(NullDevice::new()));
-    //     let target_param_name = String::from("value");
-    //     let mut track = AutomationTrack::new(target.clone(), target_param_name);
-    //     track.add_pattern(pattern.clone());
-    //     track.freeze_patterns();
+    #[test]
+    fn test_slope_step_automation() {
+        const SAD_FLOAT_DIFF: f32 = 1.0e-2;
+        let step_vec = vec![
+            AutomationStepType::new_slope(0.0, 1.0),
+            AutomationStepType::new_slope(1.0, 0.5),
+            AutomationStepType::new_slope(1.0, 0.0),
+            AutomationStepType::new_slope(0.0, 1.0),
+        ];
+        let interpolated_values = vec![0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
+        let path = Rc::new(RefCell::new(AutomationPath {
+            note_value: Some(BeatValue::Quarter),
+            steps: step_vec.clone(),
+        }));
+        let target = Rc::new(RefCell::new(NullDevice::new()));
+        let target_param_name = String::from("value");
+        let mut trip = AutomationTrip::new(target.clone(), target_param_name);
+        trip.add_path(path.clone());
+        trip.freeze_trip_envelopes();
 
-    //     assert_eq!(target.borrow().value, 0.0f32);
-    //     let mut clock = Clock::new_test();
-    //     let mut current_pattern_point = 0.0;
-    //     let mut expected_value = 0.0;
-    //     loop {
-    //         let mut done = true;
-    //         done = track.tick(&clock) && done;
-    //         if clock.beats >= current_pattern_point {
-    //             expected_value = pattern_interpolated_vec[(current_pattern_point * 2.0) as usize];
-    //             assert!((target.borrow().value - expected_value).abs() < 0.01f32);
-    //             current_pattern_point += 0.5;
-    //         }
-    //         clock.tick();
-    //         if done {
-    //             break;
-    //         }
-    //     }
-    //     assert!((target.borrow().value - expected_value).abs() < 0.001f32);
-    // }
+        assert_eq!(target.borrow().value, 0.0f32); // what good is this?
+
+        let mut clock = Clock::new_test();
+        let mut current_pattern_point = 0.0;
+        let mut expected_value = 0.0;
+        loop {
+            let mut done = true;
+            done = trip.tick(&clock) && done;
+            if clock.beats >= current_pattern_point {
+                expected_value = interpolated_values[(current_pattern_point * 2.0) as usize];
+                assert_approx_eq!(target.borrow().value, expected_value, SAD_FLOAT_DIFF);
+                current_pattern_point += 0.5;
+            }
+            clock.tick();
+            if done {
+                break;
+            }
+        }
+        assert_approx_eq!(target.borrow().value, expected_value, SAD_FLOAT_DIFF);
+    }
 }
