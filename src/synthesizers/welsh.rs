@@ -1,7 +1,7 @@
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::HashMap, f32::consts::FRAC_1_SQRT_2, rc::Rc};
-use strum_macros::{EnumIter, IntoStaticStr};
+use strum_macros::{Display, EnumIter};
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-#[derive(EnumIter, IntoStaticStr, Serialize, Deserialize, Clone)]
+#[derive(EnumIter, Display, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub enum PresetName {
     // -------------------- Strings
@@ -1520,304 +1520,355 @@ impl SynthPreset {
 
 impl Synth {
     pub fn get_general_midi_preset(program: GeneralMidiProgram) -> SynthPreset {
-        match program {
-            GeneralMidiProgram::AcousticGrand => SynthPreset::by_name(&PresetName::Piano),
+        let mut delegated = false;
+        let preset = match program {
+            GeneralMidiProgram::AcousticGrand => PresetName::Piano,
             GeneralMidiProgram::BrightAcoustic => {
-                SynthPreset::by_name(&PresetName::Piano) // TODO dup
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::ElectricGrand => SynthPreset::by_name(&PresetName::ElectricPiano),
+            GeneralMidiProgram::ElectricGrand => PresetName::ElectricPiano,
             GeneralMidiProgram::HonkyTonk => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::ElectricPiano1 => {
-                SynthPreset::by_name(&PresetName::ElectricPiano) // TODO dup
-            }
-            GeneralMidiProgram::ElectricPiano2 => {
-                SynthPreset::by_name(&PresetName::ElectricPiano) // TODO dup
-            }
-            GeneralMidiProgram::Harpsichord => SynthPreset::by_name(&PresetName::Harpsichord),
-            GeneralMidiProgram::Clav => SynthPreset::by_name(&PresetName::Clavichord),
-            GeneralMidiProgram::Celesta => SynthPreset::by_name(&PresetName::Celeste),
-            GeneralMidiProgram::Glockenspiel => SynthPreset::by_name(&PresetName::Glockenspiel),
+            GeneralMidiProgram::ElectricPiano1 => PresetName::ElectricPiano,
+            GeneralMidiProgram::ElectricPiano2 => PresetName::ElectricPiano,
+            GeneralMidiProgram::Harpsichord => PresetName::Harpsichord,
+            GeneralMidiProgram::Clav => PresetName::Clavichord,
+            GeneralMidiProgram::Celesta => PresetName::Celeste,
+            GeneralMidiProgram::Glockenspiel => PresetName::Glockenspiel,
             GeneralMidiProgram::MusicBox => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Vibraphone => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::Marimba => SynthPreset::by_name(&PresetName::Marimba),
-            GeneralMidiProgram::Xylophone => SynthPreset::by_name(&PresetName::Xylophone),
-            GeneralMidiProgram::TubularBells => SynthPreset::by_name(&PresetName::Bell),
-            GeneralMidiProgram::Dulcimer => SynthPreset::by_name(&PresetName::Dulcimer),
+            GeneralMidiProgram::Marimba => PresetName::Marimba,
+            GeneralMidiProgram::Xylophone => PresetName::Xylophone,
+            GeneralMidiProgram::TubularBells => PresetName::Bell,
+            GeneralMidiProgram::Dulcimer => PresetName::Dulcimer,
             GeneralMidiProgram::DrawbarOrgan => {
-                SynthPreset::by_name(&PresetName::Organ) // TODO dup
+                PresetName::Organ // TODO dup
             }
             GeneralMidiProgram::PercussiveOrgan => {
-                SynthPreset::by_name(&PresetName::Organ) // TODO dup
+                PresetName::Organ // TODO dup
             }
             GeneralMidiProgram::RockOrgan => {
-                SynthPreset::by_name(&PresetName::Organ) // TODO dup
+                PresetName::Organ // TODO dup
             }
             GeneralMidiProgram::ChurchOrgan => {
-                SynthPreset::by_name(&PresetName::Organ) // TODO dup
+                PresetName::Organ // TODO dup
             }
             GeneralMidiProgram::ReedOrgan => {
-                SynthPreset::by_name(&PresetName::Organ) // TODO dup
+                PresetName::Organ // TODO dup
             }
-            GeneralMidiProgram::Accordion => SynthPreset::by_name(&PresetName::Accordion),
-            GeneralMidiProgram::Harmonica => SynthPreset::by_name(&PresetName::Harmonica),
+            GeneralMidiProgram::Accordion => PresetName::Accordion,
+            GeneralMidiProgram::Harmonica => PresetName::Harmonica,
             GeneralMidiProgram::TangoAccordion => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::AcousticGuitarNylon => {
-                SynthPreset::by_name(&PresetName::GuitarAcoustic)
-            }
+            GeneralMidiProgram::AcousticGuitarNylon => PresetName::GuitarAcoustic,
             GeneralMidiProgram::AcousticGuitarSteel => {
-                SynthPreset::by_name(&PresetName::GuitarAcoustic) // TODO dup
+                PresetName::GuitarAcoustic // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarJazz => {
-                SynthPreset::by_name(&PresetName::GuitarElectric) // TODO dup
+                PresetName::GuitarElectric // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarClean => {
-                SynthPreset::by_name(&PresetName::GuitarElectric) // TODO dup
+                PresetName::GuitarElectric // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarMuted => {
-                SynthPreset::by_name(&PresetName::GuitarElectric) // TODO dup
+                PresetName::GuitarElectric // TODO dup
             }
             GeneralMidiProgram::OverdrivenGuitar => {
-                SynthPreset::by_name(&PresetName::GuitarElectric) // TODO dup
+                PresetName::GuitarElectric // TODO dup
             }
             GeneralMidiProgram::DistortionGuitar => {
-                SynthPreset::by_name(&PresetName::GuitarElectric) // TODO dup
+                PresetName::GuitarElectric // TODO dup
             }
             GeneralMidiProgram::GuitarHarmonics => {
-                SynthPreset::by_name(&PresetName::GuitarElectric) // TODO dup
+                PresetName::GuitarElectric // TODO dup
             }
-            GeneralMidiProgram::AcousticBass => SynthPreset::by_name(&PresetName::DoubleBass),
-            GeneralMidiProgram::ElectricBassFinger => {
-                SynthPreset::by_name(&PresetName::StandupBass)
-            }
-            GeneralMidiProgram::ElectricBassPick => SynthPreset::by_name(&PresetName::AcidBass),
+            GeneralMidiProgram::AcousticBass => PresetName::DoubleBass,
+            GeneralMidiProgram::ElectricBassFinger => PresetName::StandupBass,
+            GeneralMidiProgram::ElectricBassPick => PresetName::AcidBass,
             GeneralMidiProgram::FretlessBass => {
-                SynthPreset::by_name(&PresetName::DetroitBass) // TODO same?
+                PresetName::DetroitBass // TODO same?
             }
-            GeneralMidiProgram::SlapBass1 => SynthPreset::by_name(&PresetName::FunkBass),
-            GeneralMidiProgram::SlapBass2 => SynthPreset::by_name(&PresetName::FunkBass),
-            GeneralMidiProgram::SynthBass1 => SynthPreset::by_name(&PresetName::DigitalBass),
-            GeneralMidiProgram::SynthBass2 => SynthPreset::by_name(&PresetName::DigitalBass),
-            GeneralMidiProgram::Violin => SynthPreset::by_name(&PresetName::Violin),
-            GeneralMidiProgram::Viola => SynthPreset::by_name(&PresetName::Viola),
-            GeneralMidiProgram::Cello => SynthPreset::by_name(&PresetName::Cello),
-            GeneralMidiProgram::Contrabass => SynthPreset::by_name(&PresetName::Contrabassoon),
+            GeneralMidiProgram::SlapBass1 => PresetName::FunkBass,
+            GeneralMidiProgram::SlapBass2 => PresetName::FunkBass,
+            GeneralMidiProgram::SynthBass1 => PresetName::DigitalBass,
+            GeneralMidiProgram::SynthBass2 => PresetName::DigitalBass,
+            GeneralMidiProgram::Violin => PresetName::Violin,
+            GeneralMidiProgram::Viola => PresetName::Viola,
+            GeneralMidiProgram::Cello => PresetName::Cello,
+            GeneralMidiProgram::Contrabass => PresetName::Contrabassoon,
             GeneralMidiProgram::TremoloStrings => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::PizzicatoStrings => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::OrchestralHarp => SynthPreset::by_name(&PresetName::Harp),
-            GeneralMidiProgram::Timpani => SynthPreset::by_name(&PresetName::Timpani),
+            GeneralMidiProgram::OrchestralHarp => PresetName::Harp,
+            GeneralMidiProgram::Timpani => PresetName::Timpani,
             GeneralMidiProgram::StringEnsemble1 => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::StringEnsemble2 => {
-                SynthPreset::by_name(&PresetName::StringsPwm) // TODO same?
+                PresetName::StringsPwm // TODO same?
             }
-            GeneralMidiProgram::Synthstrings1 => SynthPreset::by_name(&PresetName::StringsPwm), // TODO same?
+            GeneralMidiProgram::Synthstrings1 => PresetName::StringsPwm, // TODO same?
 
             GeneralMidiProgram::Synthstrings2 => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::ChoirAahs => SynthPreset::by_name(&PresetName::Angels),
+            GeneralMidiProgram::ChoirAahs => PresetName::Angels,
 
-            GeneralMidiProgram::VoiceOohs => SynthPreset::by_name(&PresetName::Choir),
-            GeneralMidiProgram::SynthVoice => SynthPreset::by_name(&PresetName::VocalFemale),
+            GeneralMidiProgram::VoiceOohs => PresetName::Choir,
+            GeneralMidiProgram::SynthVoice => PresetName::VocalFemale,
 
             GeneralMidiProgram::OrchestraHit => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::Trumpet => SynthPreset::by_name(&PresetName::Trumpet),
-            GeneralMidiProgram::Trombone => SynthPreset::by_name(&PresetName::Trombone),
-            GeneralMidiProgram::Tuba => SynthPreset::by_name(&PresetName::Tuba),
+            GeneralMidiProgram::Trumpet => PresetName::Trumpet,
+            GeneralMidiProgram::Trombone => PresetName::Trombone,
+            GeneralMidiProgram::Tuba => PresetName::Tuba,
             GeneralMidiProgram::MutedTrumpet => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::FrenchHorn => SynthPreset::by_name(&PresetName::FrenchHorn),
+            GeneralMidiProgram::FrenchHorn => PresetName::FrenchHorn,
 
-            GeneralMidiProgram::BrassSection => SynthPreset::by_name(&PresetName::BrassSection),
+            GeneralMidiProgram::BrassSection => PresetName::BrassSection,
 
             GeneralMidiProgram::Synthbrass1 => {
-                SynthPreset::by_name(&PresetName::BrassSection) // TODO dup
+                PresetName::BrassSection // TODO dup
             }
             GeneralMidiProgram::Synthbrass2 => {
-                SynthPreset::by_name(&PresetName::BrassSection) // TODO dup
+                PresetName::BrassSection // TODO dup
             }
             GeneralMidiProgram::SopranoSax => {
-                SynthPreset::by_name(&PresetName::Saxophone) // TODO dup
+                PresetName::Saxophone // TODO dup
             }
-            GeneralMidiProgram::AltoSax => SynthPreset::by_name(&PresetName::Saxophone),
+            GeneralMidiProgram::AltoSax => PresetName::Saxophone,
             GeneralMidiProgram::TenorSax => {
-                SynthPreset::by_name(&PresetName::Saxophone) // TODO dup
+                PresetName::Saxophone // TODO dup
             }
             GeneralMidiProgram::BaritoneSax => {
-                SynthPreset::by_name(&PresetName::Saxophone) // TODO dup
+                PresetName::Saxophone // TODO dup
             }
-            GeneralMidiProgram::Oboe => SynthPreset::by_name(&PresetName::Oboe),
-            GeneralMidiProgram::EnglishHorn => SynthPreset::by_name(&PresetName::EnglishHorn),
-            GeneralMidiProgram::Bassoon => SynthPreset::by_name(&PresetName::Bassoon),
-            GeneralMidiProgram::Clarinet => SynthPreset::by_name(&PresetName::Clarinet),
-            GeneralMidiProgram::Piccolo => SynthPreset::by_name(&PresetName::Piccolo),
-            GeneralMidiProgram::Flute => SynthPreset::by_name(&PresetName::Flute),
+            GeneralMidiProgram::Oboe => PresetName::Oboe,
+            GeneralMidiProgram::EnglishHorn => PresetName::EnglishHorn,
+            GeneralMidiProgram::Bassoon => PresetName::Bassoon,
+            GeneralMidiProgram::Clarinet => PresetName::Clarinet,
+            GeneralMidiProgram::Piccolo => PresetName::Piccolo,
+            GeneralMidiProgram::Flute => PresetName::Flute,
             GeneralMidiProgram::Recorder => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::PanFlute => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::BlownBottle => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Shakuhachi => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Whistle => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Ocarina => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Lead1Square => {
-                SynthPreset::by_name(&PresetName::MonoSolo) // TODO: same?
+                PresetName::MonoSolo // TODO: same?
             }
             GeneralMidiProgram::Lead2Sawtooth => {
-                SynthPreset::by_name(&PresetName::Trance5th) // TODO: same?
+                PresetName::Trance5th // TODO: same?
             }
             GeneralMidiProgram::Lead3Calliope => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Lead4Chiff => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Lead5Charang => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Lead6Voice => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Lead7Fifths => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Lead8BassLead => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Pad1NewAge => {
-                SynthPreset::by_name(&PresetName::NewAgeLead) // TODO pad or lead?
+                PresetName::NewAgeLead // TODO pad or lead?
             }
             GeneralMidiProgram::Pad2Warm => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Pad3Polysynth => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Pad4Choir => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Pad5Bowed => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Pad6Metallic => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Pad7Halo => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Pad8Sweep => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Fx1Rain => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Fx2Soundtrack => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Fx3Crystal => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Fx4Atmosphere => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Fx5Brightness => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Fx6Goblins => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Fx7Echoes => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Fx8SciFi => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::Sitar => SynthPreset::by_name(&PresetName::Sitar),
-            GeneralMidiProgram::Banjo => SynthPreset::by_name(&PresetName::Banjo),
+            GeneralMidiProgram::Sitar => PresetName::Sitar,
+            GeneralMidiProgram::Banjo => PresetName::Banjo,
             GeneralMidiProgram::Shamisen => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Koto => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Kalimba => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::Bagpipe => SynthPreset::by_name(&PresetName::Bagpipes),
+            GeneralMidiProgram::Bagpipe => PresetName::Bagpipes,
             GeneralMidiProgram::Fiddle => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Shanai => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::TinkleBell => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Agogo => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::SteelDrums => {
-                SynthPreset::by_name(&PresetName::WheelsOfSteel) // TODO same?
+                PresetName::WheelsOfSteel // TODO same?
             }
-            GeneralMidiProgram::Woodblock => SynthPreset::by_name(&PresetName::SideStick),
+            GeneralMidiProgram::Woodblock => PresetName::SideStick,
             GeneralMidiProgram::TaikoDrum => {
                 // XXXXXXXXXXXXX TMP
-                SynthPreset::by_name(&PresetName::Cello) // TODO substitute.....
+                PresetName::Cello // TODO substitute.....
             }
-            GeneralMidiProgram::MelodicTom => SynthPreset::by_name(&PresetName::Bongos),
-            GeneralMidiProgram::SynthDrum => SynthPreset::by_name(&PresetName::SnareDrum),
-            GeneralMidiProgram::ReverseCymbal => SynthPreset::by_name(&PresetName::Cymbal),
+            GeneralMidiProgram::MelodicTom => PresetName::Bongos,
+            GeneralMidiProgram::SynthDrum => PresetName::SnareDrum,
+            GeneralMidiProgram::ReverseCymbal => PresetName::Cymbal,
             GeneralMidiProgram::GuitarFretNoise => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::BreathNoise => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
-            GeneralMidiProgram::Seashore => {
-                SynthPreset::by_name(&PresetName::OceanWavesWithFoghorn)
-            }
+            GeneralMidiProgram::Seashore => PresetName::OceanWavesWithFoghorn,
             GeneralMidiProgram::BirdTweet => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::TelephoneRing => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Helicopter => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Applause => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
             GeneralMidiProgram::Gunshot => {
-                panic!();
+                delegated = true;
+                PresetName::Piano
             }
+        };
+        if delegated {
+            println!(
+                "Delegated {} to {}",
+                program.to_string(),
+                preset.to_string()
+            );
         }
+        SynthPreset::by_name(&preset)
     }
 }
 
@@ -2139,7 +2190,7 @@ mod tests {
             });
             if result.is_ok() {
                 let mut voice = result.unwrap();
-                let preset_name: &str = preset.into();
+                let preset_name = preset.to_string();
                 write_voice(&mut voice, 2.0, &format!("voice_{}", preset_name));
             }
         }
