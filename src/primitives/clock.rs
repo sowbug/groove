@@ -106,16 +106,16 @@ impl TimeSignature {
     }
 
     #[allow(dead_code)]
-    /// ```
-    /// let ts = libgroove::primitives::clock::TimeSignature::new_defaults();
-    /// assert_eq!(ts.top, 4); 
-    /// assert_eq!(ts.bottom, 4);
-    /// ``` 
     pub fn beat_value(&self) -> BeatValue {
         BeatValue::from_divisor(self.bottom as f32)
     }
 
     #[allow(dead_code)]
+    /// ```
+    /// let ts = libgroove::primitives::clock::TimeSignature::new_defaults();
+    /// assert_eq!(ts.top, 4);
+    /// assert_eq!(ts.bottom, 4);
+    /// ```
     pub fn new_defaults() -> Self {
         Self::new(4, 4)
     }
@@ -127,6 +127,7 @@ pub struct Clock {
     pub samples: usize, // Samples since clock creation.
     pub seconds: f32,   // Seconds elapsed since clock creation.
     pub beats: f32,     // Beats elapsed since clock creation.
+                        // Not https://en.wikipedia.org/wiki/Swatch_Internet_Time
 }
 
 impl Clock {
