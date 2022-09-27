@@ -51,6 +51,7 @@ The text on the left is the truth. It's what you save when you save your project
 I use VSCode for development.
 
 - `curl https://sh.rustup.rs -sSf | sh`
+- `rustup default nightly` (until [trait upcasting](https://doc.rust-lang.org/beta/unstable-book/language-features/trait-upcasting.html) is stable)
 - `apt install pkg-config libasound2-dev`
 
 ## Coding conventions (WIP, subject to change and caprice)
