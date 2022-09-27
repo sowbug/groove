@@ -17,6 +17,7 @@ midir = "0.8.0"
 midly = "0.5.2"
 more-asserts = "0.1.0"
 num-traits = "0.2"
+plotters = "0.3.4"
 ringbuf = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"

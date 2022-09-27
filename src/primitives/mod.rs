@@ -33,6 +33,7 @@ pub mod tests {
     use std::{cell::RefCell, fs, rc::Rc};
 
     use convert_case::{Case, Casing};
+    use plotters::prelude::*;
 
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
@@ -51,7 +52,7 @@ pub mod tests {
     pub fn canonicalize_fft_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
         let snake_filename = filename.to_case(Case::Snake);
-        format!("{}/{}-fft.csv", OUT_DIR, snake_filename)
+        format!("{}/{}-spectrum", OUT_DIR, snake_filename)
     }
 
     pub(crate) fn write_source_to_file(source: &mut dyn AudioSourceTrait__, basename: &str) {
@@ -121,6 +122,31 @@ pub mod tests {
     use spectrum_analyzer::windows::hann_window;
     use spectrum_analyzer::{samples_fft_to_spectrum, FrequencyLimit};
 
+    use std::error::Error;
+    fn generate_chart(
+        data: &Vec<(f32, f32)>,
+        min_range: f32,
+        max_range: f32,
+        filename: &str,
+    ) -> Result<(), Box<dyn Error>> {
+        let out_filename = format!("{}.png", filename);
+        let root = BitMapBackend::new(out_filename.as_str(), (1024, 768)).into_drawing_area();
+        root.fill(&WHITE)?;
+
+        let mut chart = ChartBuilder::on(&root)
+            .margin(10)
+            .caption(filename, ("sans-serif", 40))
+            .x_label_area_size(30)
+            .y_label_area_size(30)
+            .build_cartesian_2d(LogRange(10.0f32..22050.0f32), LogRange(min_range..max_range))?;
+        chart.configure_mesh().draw()?;
+        chart.draw_series(LineSeries::new(data.iter().map(|t| (t.0, t.1)), &BLUE))?;
+
+        root.present()?;
+
+        Ok(())
+    }
+
     pub(crate) fn generate_fft_for_samples(
         clock_settings: &ClockSettings,
         samples: &Vec<f32>,
@@ -137,16 +163,24 @@ pub mod tests {
         )
         .unwrap();
 
-        let mut output_text = String::new();
-        for i in 0..spectrum_hann_window.data().len() {
-            let d = spectrum_hann_window.data()[i];
-            let s = format!("{}, {}\n", d.0, d.1);
-            output_text.push_str(s.as_str());
+        let mut min_y = f32::MAX;
+        let mut max_y = f32::MIN;
+        let mut data = Vec::<(f32, f32)>::new();
+        for hwd in spectrum_hann_window.data().iter() {
+            let mut y = hwd.1.val();
+            if y == 0.0 {
+                y = f32::EPSILON;
+            }
+            data.push((hwd.0.val(), y));
+            if y < min_y {
+                min_y = y;
+            }
+            if y > max_y {
+                max_y = y;
+            }
         }
-        match fs::write(filename, output_text) {
-            Ok(_) => (),
-            Err(e) => panic!("{:?}", e),
-        }
+
+        let _ = generate_chart(&data, min_y, max_y, filename);
     }
 
     pub struct TestAlwaysTooLoudDevice {}
