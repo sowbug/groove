@@ -125,21 +125,25 @@ pub mod tests {
     use std::error::Error;
     fn generate_chart(
         data: &Vec<(f32, f32)>,
+        min_domain: f32,
+        max_domain: f32,
         min_range: f32,
         max_range: f32,
         filename: &str,
     ) -> Result<(), Box<dyn Error>> {
         let out_filename = format!("{}.png", filename);
-        let root = BitMapBackend::new(out_filename.as_str(), (1024, 768)).into_drawing_area();
+        let root = BitMapBackend::new(out_filename.as_str(), (640, 360)).into_drawing_area();
         root.fill(&WHITE)?;
 
         let mut chart = ChartBuilder::on(&root)
-            .margin(10)
-            .caption(filename, ("sans-serif", 40))
-            .x_label_area_size(30)
-            .y_label_area_size(30)
-            .build_cartesian_2d(LogRange(10.0f32..22050.0f32), LogRange(min_range..max_range))?;
-        chart.configure_mesh().draw()?;
+            .margin(0)
+            .x_label_area_size(20)
+            .y_label_area_size(0)
+            .build_cartesian_2d(
+                IntoLogRange::log_scale(min_domain..max_domain),
+                IntoLogRange::log_scale(min_range..max_range),
+            )?;
+        chart.configure_mesh().disable_mesh().draw()?;
         chart.draw_series(LineSeries::new(data.iter().map(|t| (t.0, t.1)), &BLUE))?;
 
         root.present()?;
@@ -152,7 +156,7 @@ pub mod tests {
         samples: &Vec<f32>,
         filename: &str,
     ) {
-        const HANN_WINDOW_LENGTH: usize = 1024;
+        const HANN_WINDOW_LENGTH: usize = 2048;
         assert!(samples.len() >= HANN_WINDOW_LENGTH);
         let hann_window = hann_window(&samples[0..HANN_WINDOW_LENGTH]);
         let spectrum_hann_window = samples_fft_to_spectrum(
@@ -180,7 +184,14 @@ pub mod tests {
             }
         }
 
-        let _ = generate_chart(&data, min_y, max_y, filename);
+        let _ = generate_chart(
+            &data,
+            0.0,
+            clock_settings.sample_rate() as f32 / 2.0,
+            min_y,
+            max_y,
+            filename,
+        );
     }
 
     pub struct TestAlwaysTooLoudDevice {}
