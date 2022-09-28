@@ -518,13 +518,6 @@ impl SinksAudio for MiniFilter2 {
     }
 }
 
-impl SourcesAudio for MiniFilter2 {
-    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
-        let input = self.gather_source_audio(time_seconds);
-        self.transform_audio(input)
-    }
-}
-
 impl TransformsAudio for MiniFilter2 {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         let s64 = input_sample as f64;

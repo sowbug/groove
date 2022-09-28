@@ -9,6 +9,7 @@ use super::traits::{AudioSink, AudioSource, AutomationSink, TimeSlicer};
 
 #[derive(Default)]
 pub struct Mixer {
+    // TODO: somehow this isn't implemented in terms of primitives::mixer::Mixer
     sources: Vec<Rc<RefCell<dyn AudioSource>>>,
 }
 
@@ -29,7 +30,6 @@ impl AudioSource for Mixer {
                 .iter_mut()
                 .map(|source| source.borrow_mut().sample())
                 .sum::<f32>()
-                / self.audio_sources().len() as f32
         }
     }
 }

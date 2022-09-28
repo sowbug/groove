@@ -28,13 +28,6 @@ impl SinksAudio for Bitcrusher {
     }
 }
 
-impl SourcesAudio for Bitcrusher {
-    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
-        let input = self.gather_source_audio(time_seconds);
-        self.transform_audio(input)
-    }
-}
-
 impl TransformsAudio for Bitcrusher {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         let input_i16 = (input_sample * (i16::MAX as MonoSample)) as i16;
@@ -51,11 +44,19 @@ mod tests {
     use crate::primitives::tests::TestAlwaysSameLevelDevice;
     use std::f32::consts::PI;
 
+    const CRUSHED_PI: f32 = 0.14062929;
+
     #[test]
     fn test_bitcrusher_basic() {
         let mut fx = Bitcrusher::new(8);
-        let source = Box::new(TestAlwaysSameLevelDevice::new(PI - 3.0));
-        fx.add_audio_source(source);
-        assert_eq!(fx.source_audio(0.0), 0.14062929);
+        assert_eq!(fx.transform_audio(PI - 3.0), CRUSHED_PI);
+    }
+
+    #[test]
+    fn test_bitcrusher_multisource() {
+        let mut fx = Bitcrusher::new(8);
+        fx.add_audio_source(Box::new(TestAlwaysSameLevelDevice::new(PI - 3.0)));
+        fx.add_audio_source(Box::new(TestAlwaysSameLevelDevice::new(PI - 3.0)));
+        assert_eq!(fx.source_audio(0.0), 2.0 * CRUSHED_PI);
     }
 }

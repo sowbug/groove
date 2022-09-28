@@ -13,7 +13,7 @@ use crate::{
         envelopes::MiniEnvelope,
         filter::{MiniFilter2, MiniFilter2Type},
         oscillators::MiniOscillator,
-        SourcesAudio, TransformsAudio,
+        SourcesAudio, TransformsAudio, WatchesClock,
     },
 };
 
@@ -1862,11 +1862,7 @@ impl Synth {
             }
         };
         if delegated {
-            println!(
-                "Delegated {} to {}",
-                program.to_string(),
-                preset.to_string()
-            );
+            println!("Delegated {} to {}", program, preset);
         }
         SynthPreset::by_name(&preset)
     }
@@ -1932,53 +1928,6 @@ impl Voice {
         r
     }
 
-    pub(crate) fn process(&mut self, time_seconds: f32) -> MonoSample {
-        // LFO
-        let lfo = self.lfo.source_audio(time_seconds) * self.lfo_depth as MonoSample;
-        if matches!(self.lfo_routing, LfoRouting::Pitch) {
-            let lfo_for_pitch = lfo / 10000.0;
-            // TODO: divide by 10,000 until we figure out how pitch depth is supposed to go
-            // TODO: this could leave a side effect if we reuse voices and forget to clean up.
-            for o in self.oscillators.iter_mut() {
-                o.set_frequency_modulation(lfo_for_pitch as f32);
-            }
-        }
-
-        // Oscillators
-        let osc_sum = if self.oscillators.is_empty() {
-            0.0
-        } else {
-            let t: MonoSample = self
-                .oscillators
-                .iter_mut()
-                .map(|o| o.source_audio(time_seconds))
-                .sum();
-            t / self.oscillators.len() as MonoSample
-        };
-
-        // Filters
-        self.filter_envelope.tick(time_seconds);
-        let new_cutoff_percentage = self.filter_cutoff_start
-            + (self.filter_cutoff_end - self.filter_cutoff_start) * self.filter_envelope.value();
-        let new_cutoff = MiniFilter2::percent_to_frequency(new_cutoff_percentage);
-        self.filter.set_cutoff(new_cutoff);
-        let filtered_mix = self.filter.transform_audio(osc_sum);
-
-        // LFO amplitude modulation
-        let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
-            // LFO ranges from [-1, 1], so convert to something that can silence or double the volume.
-            lfo + 1.0
-        } else {
-            1.0
-        };
-
-        // Envelope
-        self.amp_envelope.tick(time_seconds);
-
-        // Final
-        filtered_mix * self.amp_envelope.value() as MonoSample * lfo_amplitude_modulation
-    }
-
     pub(crate) fn is_playing(&self) -> bool {
         !self.amp_envelope.is_idle()
     }
@@ -2016,6 +1965,55 @@ impl MidiSink for Voice {
             MidiMessageType::NoteOff => {}
             MidiMessageType::ProgramChange => {}
         }
+    }
+}
+impl SourcesAudio for Voice {
+    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
+        // LFO
+        let lfo = self.lfo.source_audio(time_seconds) * self.lfo_depth as MonoSample;
+        if matches!(self.lfo_routing, LfoRouting::Pitch) {
+            let lfo_for_pitch = lfo / 10000.0;
+            // TODO: divide by 10,000 until we figure out how pitch depth is supposed to go
+            // TODO: this could leave a side effect if we reuse voices and forget to clean up.
+            for o in self.oscillators.iter_mut() {
+                o.set_frequency_modulation(lfo_for_pitch as f32);
+            }
+        }
+
+        // Oscillators
+        let osc_sum = if self.oscillators.is_empty() {
+            0.0
+        } else {
+            let t: MonoSample = self
+                .oscillators
+                .iter_mut()
+                .map(|o| o.source_audio(time_seconds))
+                .sum();
+            t / self.oscillators.len() as MonoSample
+        };
+
+        // Filters
+        self.filter_envelope.is_done(time_seconds);
+        let new_cutoff_percentage = self.filter_cutoff_start
+            + (self.filter_cutoff_end - self.filter_cutoff_start)
+                * self.filter_envelope.source_audio(time_seconds);
+        let new_cutoff = MiniFilter2::percent_to_frequency(new_cutoff_percentage);
+        self.filter.set_cutoff(new_cutoff);
+        let filtered_mix = self.filter.transform_audio(osc_sum);
+
+        // LFO amplitude modulation
+        let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
+            // LFO ranges from [-1, 1], so convert to something that can silence or double the volume.
+            lfo + 1.0
+        } else {
+            1.0
+        };
+
+        // Envelope
+        self.amp_envelope.is_done(time_seconds);
+
+        // Final
+        filtered_mix * self.amp_envelope.source_audio(time_seconds) * lfo_amplitude_modulation
     }
 }
 
@@ -2103,7 +2101,7 @@ impl TimeSlicer for Synth {
         let mut done = true;
         self.current_value = 0.0;
         for (_note, voice) in self.note_to_voice.iter_mut() {
-            self.current_value += voice.borrow_mut().process(clock.seconds);
+            self.current_value += voice.borrow_mut().source_audio(clock.seconds);
             done = done && !voice.borrow().is_playing();
         }
         if !self.note_to_voice.is_empty() {
@@ -2171,7 +2169,7 @@ mod tests {
                 }
             }
 
-            let sample = voice.process(clock.seconds);
+            let sample = voice.source_audio(clock.seconds);
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
             clock.tick();
         }
@@ -2220,7 +2218,7 @@ mod tests {
                 is_message_sent = true;
                 source.handle_message_for_channel(clock, message);
             }
-            let sample = source.process(clock.seconds);
+            let sample = source.source_audio(clock.seconds);
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
             clock.tick();
         }

@@ -29,13 +29,6 @@ impl SinksAudio for MiniLimiter {
     }
 }
 
-impl SourcesAudio for MiniLimiter {
-    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
-        let input = self.gather_source_audio(time_seconds);
-        self.transform_audio(input)
-    }
-}
-
 impl TransformsAudio for MiniLimiter {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         input_sample.clamp(self.min, self.max)

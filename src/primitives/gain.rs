@@ -17,13 +17,6 @@ impl MiniGain {
     }
 }
 
-impl SourcesAudio for MiniGain {
-    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
-        let input = self.gather_source_audio(time_seconds);
-        self.transform_audio(input)
-    }
-}
-
 impl SinksAudio for MiniGain {
     fn sources(&mut self) -> &mut Vec<Box<dyn SourcesAudio>> {
         &mut self.sources

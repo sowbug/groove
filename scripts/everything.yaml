@@ -34,11 +34,11 @@ devices:
   - effect:
       gain:
         id: gain-1
-        amount: 0.50
+        amount: 0.25
   - effect:
       gain:
         id: gain-2
-        amount: 0.25
+        amount: 0.125
   - effect:
       bitcrusher:
         id: bitcrusher-1

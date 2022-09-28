@@ -1,10 +1,11 @@
 use std::{f32::MAX, fmt::Debug};
 
 use crate::{
-    common::{MidiMessage, MidiMessageType, },
+    common::{MidiMessage, MidiMessageType},
     preset::EnvelopePreset,
 };
 
+use super::{SourcesAudio, WatchesClock};
 
 #[derive(Debug, Default)]
 enum EnvelopeState {
@@ -49,10 +50,6 @@ impl MiniEnvelope {
 
     pub fn is_idle(&self) -> bool {
         matches!(self.state, EnvelopeState::Idle)
-    }
-
-    pub fn value(&self) -> f32 {
-        self.amplitude
     }
 
     fn has_value_reached_target(&self, current_time_seconds: f32) -> bool {
@@ -163,8 +160,16 @@ impl MiniEnvelope {
             MidiMessageType::ProgramChange => {}
         }
     }
+}
 
-    pub fn tick(&mut self, time_seconds: f32) {
+impl SourcesAudio for MiniEnvelope {
+    fn source_audio(&mut self, _time_seconds: f32) -> crate::common::MonoSample {
+        self.amplitude
+    }
+}
+
+impl WatchesClock for MiniEnvelope {
+    fn is_done(&mut self, time_seconds: f32) -> bool {
         self.amplitude += self.delta;
         match self.state {
             EnvelopeState::Idle => {}
@@ -187,6 +192,7 @@ impl MiniEnvelope {
                 }
             }
         }
+        false
     }
 }
 
@@ -239,7 +245,7 @@ mod tests {
 
         let mut last_recognized_time_point = -1.;
         loop {
-            envelope.tick(clock.seconds);
+            envelope.is_done(clock.seconds);
             if clock.seconds >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = 0.0;
                 assert!(matches!(envelope.state, EnvelopeState::Idle));
@@ -294,7 +300,7 @@ mod tests {
         const TIME_EXPECT_RELEASE_END: usize = TIME_EXPECT_RELEASE + DURATION_RELEASE - 1;
         const TIME_EXPECT_IDLE: usize = TIME_EXPECT_RELEASE + DURATION_RELEASE;
         loop {
-            envelope.tick(clock.seconds);
+            envelope.is_done(clock.seconds);
             match clock.samples {
                 TIME_ZERO => {
                     assert!(matches!(envelope.state, EnvelopeState::Idle));
