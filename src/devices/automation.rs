@@ -7,7 +7,6 @@ use std::{cell::RefCell, cmp::Ordering};
 
 pub struct AutomationTrip {
     target_instrument: Rc<RefCell<dyn AutomationSink>>,
-    //    target_param_name: String,
     cursor_beats: f32,
 
     current_value: f32,
@@ -22,7 +21,6 @@ impl AutomationTrip {
     pub fn new(target: Rc<RefCell<dyn AutomationSink>>, _target_param_name: String) -> Self {
         Self {
             target_instrument: target,
-            //          target_param_name,
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f32::MAX, // TODO we want to make sure we set the target's value at start
             envelopes: SortedVec::new(),
