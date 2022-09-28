@@ -38,6 +38,13 @@ pub trait AudioSource {
 pub trait AudioSink {
     fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>>;
 
+    fn gather_audio_sources(&mut self) -> MonoSample {
+        self.audio_sources()
+            .iter()
+            .map(|s| s.borrow_mut().sample())
+            .sum()
+    }
+
     fn add_audio_source(&mut self, source: Rc<RefCell<dyn AudioSource>>) {
         self.audio_sources().push(source);
     }

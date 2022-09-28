@@ -1,23 +1,19 @@
 use std::{f32::MAX, fmt::Debug};
 
 use crate::{
-    common::{MidiMessage, MidiMessageType},
+    common::{MidiMessage, MidiMessageType, },
     preset::EnvelopePreset,
 };
 
-#[derive(Debug)]
+
+#[derive(Debug, Default)]
 enum EnvelopeState {
+    #[default]
     Idle,
     Attack,
     Decay,
     Sustain,
     Release,
-}
-
-impl Default for EnvelopeState {
-    fn default() -> Self {
-        EnvelopeState::Idle
-    }
 }
 
 #[derive(Default, Debug)]

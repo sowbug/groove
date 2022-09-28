@@ -120,6 +120,7 @@ impl TimeSignature {
         Self::new(4, 4)
     }
 }
+
 #[derive(Default, Debug, Clone)]
 pub struct Clock {
     settings: ClockSettings,
@@ -138,7 +139,6 @@ impl Clock {
         }
     }
 
-    #[allow(dead_code)]
     pub fn settings(&self) -> &ClockSettings {
         &self.settings
     }
@@ -157,18 +157,6 @@ mod tests {
     use more_asserts::assert_lt;
 
     use super::*;
-
-    impl ClockSettings {
-        const TEST_SAMPLE_RATE: usize = 256;
-        const TEST_BPM: f32 = 99.;
-        pub fn new_test() -> Self {
-            Self::new(
-                ClockSettings::TEST_SAMPLE_RATE,
-                ClockSettings::TEST_BPM,
-                (4, 4),
-            )
-        }
-    }
 
     impl Clock {
         pub fn new_test() -> Self {

@@ -1,24 +1,20 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    common::MonoSample,
-    primitives::{clock::Clock, mixer::MiniMixer},
+    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    primitives::clock::Clock,
 };
 
 use super::traits::{AudioSink, AudioSource, AutomationSink, TimeSlicer};
 
 #[derive(Default)]
 pub struct Mixer {
-    mini_mixer: MiniMixer,
-    // TODO: how do we get this back in again?
-    //    sources: Vec<(Rc<RefCell<dyn AudioSource>>, f32)>,
     sources: Vec<Rc<RefCell<dyn AudioSource>>>,
 }
 
 impl Mixer {
     pub fn new() -> Self {
         Self {
-            mini_mixer: MiniMixer::new(),
             sources: Vec::new(),
         }
     }
@@ -26,14 +22,15 @@ impl Mixer {
 
 impl AudioSource for Mixer {
     fn sample(&mut self) -> MonoSample {
-        let mut samples = Vec::new();
-        // for (source, relative_gain) in self.sources.clone() {
-        //     samples.push((source.borrow_mut().sample(), relative_gain));
-        // }
-        for source in self.sources.clone() {
-            samples.push((source.borrow_mut().sample(), 1.0));
+        if self.audio_sources().is_empty() {
+            MONO_SAMPLE_SILENCE
+        } else {
+            self.audio_sources()
+                .iter_mut()
+                .map(|source| source.borrow_mut().sample())
+                .sum::<f32>()
+                / self.audio_sources().len() as f32
         }
-        self.mini_mixer.process(samples)
     }
 }
 

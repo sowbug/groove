@@ -1,4 +1,4 @@
-use crate::common::MonoSample;
+use crate::common::{MonoSample, MONO_SAMPLE_SILENCE};
 
 pub mod bitcrusher;
 pub mod clock;
@@ -9,35 +9,75 @@ pub mod limiter;
 pub mod mixer;
 pub mod oscillators;
 
-#[allow(unused_variables)]
-pub trait AudioSourceTrait__ {
-    fn process(&mut self, time_seconds: f32) -> MonoSample {
-        0.0
+pub trait SourcesAudio {
+    fn source_audio(&mut self, time_seconds: f32) -> MonoSample;
+}
+
+pub trait SinksAudio {
+    fn sources(&mut self) -> &mut Vec<Box<dyn SourcesAudio>>;
+
+    fn add_audio_source(&mut self, source: Box<dyn SourcesAudio>) {
+        self.sources().push(source);
+    }
+
+    fn gather_source_audio(&mut self, time_seconds: f32) -> MonoSample {
+        if self.sources().is_empty() {
+            return MONO_SAMPLE_SILENCE;
+        }
+        self.sources()
+            .iter_mut()
+            .map(|source| source.source_audio(time_seconds))
+            .sum::<f32>()
+            / self.sources().len() as f32
     }
 }
 
-#[allow(unused_variables)]
-pub trait EffectTrait__ {
-    fn process(&mut self, input: MonoSample, time_seconds: f32) -> MonoSample {
-        input
-    }
+pub trait TransformsAudio {
+    fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample;
 }
 
-#[allow(unused_variables)]
-pub trait ControllerTrait__ {
-    fn process(&mut self, time_seconds: f32) {}
+pub trait SourcesControl {
+    fn control_sinks(&mut self) -> &mut Vec<Box<dyn SinksControl>>;
+
+    fn add_control_sink(&mut self, sink: Box<dyn SinksControl>) {
+        self.control_sinks().push(sink);
+    }
+
+    fn control(&mut self, time_seconds: f32);
+}
+
+pub enum SinksControlParamType {
+    Primary,
+    Secondary,
+}
+pub trait SinksControl {
+    fn handle_control(
+        &mut self,
+        time_seconds: f32,
+        param_type: SinksControlParamType,
+        new_value: f32,
+    );
+}
+
+pub trait SourcesFakeMidi {
+    fn add_midi_sink(&mut self, sink: Box<dyn SinksFakeMidi>);
+}
+
+pub trait SinksFakeMidi {
+    fn handle_midi(&mut self, midi: f32, time_seconds: f32);
 }
 
 #[cfg(test)]
 pub mod tests {
-    use std::{cell::RefCell, fs, rc::Rc};
 
     use convert_case::{Case, Casing};
     use plotters::prelude::*;
+    use std::fs;
 
+    use crate::common::{MONO_SAMPLE_MAX, MONO_SAMPLE_SILENCE};
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
-    use super::{AudioSourceTrait__, ControllerTrait__, EffectTrait__};
+    use super::{SourcesAudio, SourcesControl};
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -55,12 +95,12 @@ pub mod tests {
         format!("{}/{}-spectrum", OUT_DIR, snake_filename)
     }
 
-    pub(crate) fn write_source_to_file(source: &mut dyn AudioSourceTrait__, basename: &str) {
+    pub(crate) fn write_source_to_file(source: &mut dyn SourcesAudio, basename: &str) {
         let clock_settings = ClockSettings::new_defaults();
         let mut samples = Vec::<MonoSample>::new();
         let mut clock = Clock::new(&clock_settings);
         while clock.seconds < 2.0 {
-            samples.push(source.process(clock.seconds));
+            samples.push(source.source_audio(clock.seconds));
             clock.tick();
         }
         let spec = hound::WavSpec {
@@ -82,20 +122,17 @@ pub mod tests {
     }
 
     pub(crate) fn write_effect_to_file(
-        source: &mut dyn AudioSourceTrait__,
-        effect: Rc<RefCell<dyn EffectTrait__>>,
-        opt_controller: &mut Option<&mut dyn ControllerTrait__>,
+        effect: &mut dyn SourcesAudio,
+        opt_controller: &mut dyn SourcesControl,
         basename: &str,
     ) {
         let clock_settings = ClockSettings::new_defaults();
         let mut clock = Clock::new(&clock_settings);
         let mut samples = Vec::<MonoSample>::new();
         while clock.seconds < 2.0 {
-            if opt_controller.is_some() {
-                opt_controller.as_mut().unwrap().process(clock.seconds);
-            }
-            let source_sample = source.process(clock.seconds);
-            let effect_sample = effect.borrow_mut().process(source_sample, clock.seconds);
+            opt_controller.control(clock.seconds);
+
+            let effect_sample = effect.source_audio(clock.seconds);
             samples.push(effect_sample);
             clock.tick();
         }
@@ -194,13 +231,29 @@ pub mod tests {
         );
     }
 
+    pub struct TestAlwaysSameLevelDevice {
+        level: MonoSample,
+    }
+    impl TestAlwaysSameLevelDevice {
+        pub fn new(level: MonoSample) -> Self {
+            Self { level }
+        }
+    }
+    impl SourcesAudio for TestAlwaysSameLevelDevice {
+        fn source_audio(&mut self, _time_seconds: f32) -> MonoSample {
+            self.level
+        }
+    }
+
     pub struct TestAlwaysTooLoudDevice {}
     impl TestAlwaysTooLoudDevice {
         pub fn new() -> Self {
             Self {}
         }
-        pub fn get_audio_sample(&self) -> MonoSample {
-            1.1
+    }
+    impl SourcesAudio for TestAlwaysTooLoudDevice {
+        fn source_audio(&mut self, _time_seconds: f32) -> MonoSample {
+            MONO_SAMPLE_MAX + 0.1
         }
     }
 
@@ -209,8 +262,10 @@ pub mod tests {
         pub fn new() -> Self {
             Self {}
         }
-        pub fn get_audio_sample(&self) -> MonoSample {
-            1.
+    }
+    impl SourcesAudio for TestAlwaysLoudDevice {
+        fn source_audio(&mut self, _time_seconds: f32) -> MonoSample {
+            MONO_SAMPLE_MAX
         }
     }
 
@@ -219,8 +274,10 @@ pub mod tests {
         pub fn new() -> Self {
             Self {}
         }
-        pub fn get_audio_sample(&self) -> MonoSample {
-            0.
+    }
+    impl SourcesAudio for TestAlwaysSilentDevice {
+        fn source_audio(&mut self, _time_seconds: f32) -> MonoSample {
+            MONO_SAMPLE_SILENCE
         }
     }
 }

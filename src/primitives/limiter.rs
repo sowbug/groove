@@ -1,30 +1,58 @@
 use crate::common::MonoSample;
 
+use super::{SinksAudio, SourcesAudio, TransformsAudio};
+
 #[derive(Default)]
 pub struct MiniLimiter {
+    sources: Vec<Box<dyn SourcesAudio>>,
+
     min: MonoSample,
     max: MonoSample,
 }
 impl MiniLimiter {
     pub fn new(min: MonoSample, max: MonoSample) -> Self {
-        Self { min, max }
+        Self {
+            min,
+            max,
+            ..Default::default()
+        }
     }
-    pub fn process(&self, value: MonoSample) -> MonoSample {
-        value.clamp(self.min, self.max)
+}
+
+impl SinksAudio for MiniLimiter {
+    fn sources(&mut self) -> &mut Vec<Box<dyn SourcesAudio>> {
+        &mut self.sources
+    }
+
+    fn add_audio_source(&mut self, source: Box<dyn super::SourcesAudio>) {
+        self.sources.push(source);
+    }
+}
+
+impl SourcesAudio for MiniLimiter {
+    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
+        let input = self.gather_source_audio(time_seconds);
+        self.transform_audio(input)
+    }
+}
+
+impl TransformsAudio for MiniLimiter {
+    fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
+        input_sample.clamp(self.min, self.max)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{primitives::tests::TestAlwaysTooLoudDevice, common::MonoSample};
+    use crate::{common::MonoSample, primitives::tests::TestAlwaysTooLoudDevice};
 
     use super::*;
 
     #[test]
     fn test_limiter_mainline() {
         const MAX: MonoSample = 0.9;
-        let too_loud = TestAlwaysTooLoudDevice::new();
-        let limiter = MiniLimiter::new(0.0, MAX);
-        assert_eq!(limiter.process(too_loud.get_audio_sample()), MAX);
+        let mut limiter = MiniLimiter::new(0.0, MAX);
+        limiter.add_audio_source(Box::new(TestAlwaysTooLoudDevice::new()));
+        assert_eq!(limiter.source_audio(0.0), MAX);
     }
 }

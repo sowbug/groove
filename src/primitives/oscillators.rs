@@ -1,11 +1,11 @@
 use std::f32::consts::PI;
 
 use crate::{
-    common::{WaveformType, MonoSample},
+    common::{MonoSample, WaveformType},
     preset::{LfoPreset, OscillatorPreset},
 };
 
-use super::AudioSourceTrait__;
+use super::SourcesAudio;
 
 #[derive(Debug, Clone)]
 pub struct MiniOscillator {
@@ -93,8 +93,8 @@ impl MiniOscillator {
     }
 }
 
-impl AudioSourceTrait__ for MiniOscillator {
-    fn process(&mut self, time_seconds: f32) -> MonoSample {
+impl SourcesAudio for MiniOscillator {
+    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
         let phase_normalized = (self.adjusted_frequency() * time_seconds) as MonoSample;
         match self.waveform {
             WaveformType::None => 0.0,
@@ -103,9 +103,9 @@ impl AudioSourceTrait__ for MiniOscillator {
             // https://en.wikipedia.org/wiki/Square_wave
             //Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
             WaveformType::Square => (0.5 - (phase_normalized - phase_normalized.floor())).signum(),
-            WaveformType::PulseWidth(duty_cycle) => {
-                (duty_cycle as MonoSample - (phase_normalized - phase_normalized.floor())).signum() as MonoSample
-            }
+            WaveformType::PulseWidth(duty_cycle) => (duty_cycle as MonoSample
+                - (phase_normalized - phase_normalized.floor()))
+            .signum() as MonoSample,
             // https://en.wikipedia.org/wiki/Triangle_wave
             WaveformType::Triangle => {
                 4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
@@ -118,7 +118,8 @@ impl AudioSourceTrait__ for MiniOscillator {
                 // It also makes this method require mut. Is there a noise algorithm that can modulate on time_seconds? (It's a
                 // complicated question, potentially.)
                 self.noise_x1 ^= self.noise_x2;
-                let tmp = 2.0 * (self.noise_x2 as MonoSample - (u32::MAX as MonoSample / 2.0)) / u32::MAX as MonoSample;
+                let tmp = 2.0 * (self.noise_x2 as MonoSample - (u32::MAX as MonoSample / 2.0))
+                    / u32::MAX as MonoSample;
                 (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);
                 tmp
             }

@@ -1,15 +1,19 @@
 use crate::common::MonoSample;
 
-use super::EffectTrait__;
+use super::{SinksAudio, SourcesAudio, TransformsAudio};
 
 #[derive(Default)]
 pub struct Bitcrusher {
+    sources: Vec<Box<dyn SourcesAudio>>,
     bits_to_crush: u8,
 }
 
 impl Bitcrusher {
     pub fn new(bits_to_crush: u8) -> Self {
-        Self { bits_to_crush }
+        Self {
+            bits_to_crush,
+            ..Default::default()
+        }
     }
 
     #[allow(dead_code)]
@@ -18,9 +22,22 @@ impl Bitcrusher {
     }
 }
 
-impl EffectTrait__ for Bitcrusher {
-    fn process(&mut self, input: MonoSample, _time_seconds: f32) -> MonoSample {
-        let input_i16 = (input * (i16::MAX as MonoSample)) as i16;
+impl SinksAudio for Bitcrusher {
+    fn sources(&mut self) -> &mut Vec<Box<dyn SourcesAudio>> {
+        &mut self.sources
+    }
+}
+
+impl SourcesAudio for Bitcrusher {
+    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
+        let input = self.gather_source_audio(time_seconds);
+        self.transform_audio(input)
+    }
+}
+
+impl TransformsAudio for Bitcrusher {
+    fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
+        let input_i16 = (input_sample * (i16::MAX as MonoSample)) as i16;
         let squished = input_i16 >> self.bits_to_crush;
         let expanded = squished << self.bits_to_crush;
         expanded as MonoSample / (i16::MAX as MonoSample)
@@ -30,68 +47,15 @@ impl EffectTrait__ for Bitcrusher {
 #[cfg(test)]
 mod tests {
 
-    use std::{cell::RefCell, f32::consts::PI, rc::Rc};
-
-    use crate::{
-        common::{MidiMessage, MidiNote, WaveformType},
-        primitives::{oscillators::MiniOscillator, tests::write_effect_to_file, ControllerTrait__},
-    };
-
     use super::*;
-
-    struct TestController {
-        target: Rc<RefCell<Bitcrusher>>,
-        start: u8,
-        end: u8,
-        duration: f32,
-
-        time_start: f32,
-    }
-
-    impl TestController {
-        pub fn new(target: Rc<RefCell<Bitcrusher>>, start: u8, end: u8, duration: f32) -> Self {
-            Self {
-                target,
-                start,
-                end,
-                duration,
-                time_start: -1.0f32,
-            }
-        }
-    }
-
-    impl<'a> ControllerTrait__ for TestController {
-        fn process(&mut self, time_seconds: f32) {
-            if self.time_start < 0.0 {
-                self.time_start = time_seconds;
-            }
-            if self.end != self.start {
-                self.target.borrow_mut().set_bits_to_crush(
-                    (self.start as f32
-                        + ((time_seconds - self.time_start) / self.duration)
-                            * (self.end as f32 - self.start as f32)) as u8,
-                );
-            }
-        }
-    }
+    use crate::primitives::tests::TestAlwaysSameLevelDevice;
+    use std::f32::consts::PI;
 
     #[test]
     fn test_bitcrusher_basic() {
         let mut fx = Bitcrusher::new(8);
-        assert_eq!(fx.process(PI - 3.0, 0.0), 0.14062929);
-    }
-
-    #[test]
-    fn write_bitcrusher_sample() {
-        let mut osc = MiniOscillator::new(WaveformType::Sine);
-        osc.set_frequency(MidiMessage::note_type_to_frequency(MidiNote::C4));
-        let fx = Rc::new(RefCell::new(Bitcrusher::new(8)));
-        let mut controller = TestController::new(fx.clone(), 0, 16, 2.0);
-        write_effect_to_file(
-            &mut osc,
-            fx,
-            &mut Some(&mut controller),
-            "effect_bitcrusher",
-        );
+        let source = Box::new(TestAlwaysSameLevelDevice::new(PI - 3.0));
+        fx.add_audio_source(source);
+        assert_eq!(fx.source_audio(0.0), 0.14062929);
     }
 }

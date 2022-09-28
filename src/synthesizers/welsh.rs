@@ -13,7 +13,7 @@ use crate::{
         envelopes::MiniEnvelope,
         filter::{MiniFilter2, MiniFilter2Type},
         oscillators::MiniOscillator,
-        AudioSourceTrait__, EffectTrait__,
+        SourcesAudio, TransformsAudio,
     },
 };
 
@@ -1934,7 +1934,7 @@ impl Voice {
 
     pub(crate) fn process(&mut self, time_seconds: f32) -> MonoSample {
         // LFO
-        let lfo = self.lfo.process(time_seconds) * self.lfo_depth as MonoSample;
+        let lfo = self.lfo.source_audio(time_seconds) * self.lfo_depth as MonoSample;
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
             let lfo_for_pitch = lfo / 10000.0;
             // TODO: divide by 10,000 until we figure out how pitch depth is supposed to go
@@ -1951,7 +1951,7 @@ impl Voice {
             let t: MonoSample = self
                 .oscillators
                 .iter_mut()
-                .map(|o| o.process(time_seconds))
+                .map(|o| o.source_audio(time_seconds))
                 .sum();
             t / self.oscillators.len() as MonoSample
         };
@@ -1962,7 +1962,7 @@ impl Voice {
             + (self.filter_cutoff_end - self.filter_cutoff_start) * self.filter_envelope.value();
         let new_cutoff = MiniFilter2::percent_to_frequency(new_cutoff_percentage);
         self.filter.set_cutoff(new_cutoff);
-        let filtered_mix = self.filter.process(osc_sum, time_seconds);
+        let filtered_mix = self.filter.transform_audio(osc_sum);
 
         // LFO amplitude modulation
         let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {

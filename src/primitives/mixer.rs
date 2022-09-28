@@ -1,59 +1,55 @@
 use crate::common::MonoSample;
 
-#[derive(Debug, Default)]
-pub struct MiniMixer {}
+use super::{SinksAudio, SourcesAudio};
 
-impl MiniMixer {
+#[derive(Default)]
+pub struct Mixer {
+    sources: Vec<Box<dyn SourcesAudio>>,
+}
+
+impl Mixer {
     pub fn new() -> Self {
-        Self {}
-    }
-
-    // (sample value, gain)
-    pub fn process(&self, samples: Vec<(MonoSample, f32)>) -> MonoSample {
-        if !samples.is_empty() {
-            // https://stackoverflow.com/questions/41017140/why-cant-rust-infer-the-resulting-type-of-iteratorsum
-            // this was from old code that used iter().sum()
-
-            // Weighted sum
-            // TODO: learn how to do this with custom implementation of std:iter:sum
-            let mut sum = 0.0;
-            let mut divisor = 0.0;
-            for (v, g) in samples {
-                sum += v * (g as MonoSample);
-                divisor += g;
-            }
-            sum / divisor as MonoSample
-        } else {
-            0.
+        Self {
+            ..Default::default()
         }
+    }
+}
+
+impl SourcesAudio for Mixer {
+    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
+        self.gather_source_audio(time_seconds)
+    }
+}
+
+impl SinksAudio for Mixer {
+    fn sources(&mut self) -> &mut Vec<Box<dyn SourcesAudio>> {
+        &mut self.sources
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::primitives::tests::{TestAlwaysLoudDevice, TestAlwaysSilentDevice};
+    use crate::{
+        common::MONO_SAMPLE_SILENCE,
+        primitives::tests::{TestAlwaysLoudDevice, TestAlwaysSilentDevice},
+    };
 
     use super::*;
 
     #[test]
     fn test_mixer_mainline() {
-        let mixer = MiniMixer::new();
+        const TIME_ON_CLOCK: f32 = 0.0;
+        let mut mixer = Mixer::new();
 
         // Nothing/empty
-        assert_eq!(mixer.process(Vec::new()), 0.);
+        assert_eq!(mixer.source_audio(TIME_ON_CLOCK), MONO_SAMPLE_SILENCE);
 
         // One always-loud
-        {
-            let sources = vec![(TestAlwaysLoudDevice::new().get_audio_sample(), 42.0)];
-            assert_eq!(mixer.process(sources), 1.);
-        }
+        mixer.add_audio_source(Box::new(TestAlwaysLoudDevice::new()));
+        assert_eq!(mixer.source_audio(TIME_ON_CLOCK), 1.);
+
         // One always-loud and one always-quiet
-        {
-            let sources = vec![
-                (TestAlwaysLoudDevice::new().get_audio_sample(), 0.7),
-                (TestAlwaysSilentDevice::new().get_audio_sample(), 0.3),
-            ];
-            assert_eq!(mixer.process(sources), 0.7); // (0.7 * 1.0 + 0.3 * 0.0) / (0.7 + 0.3)
-        }
+        mixer.add_audio_source(Box::new(TestAlwaysSilentDevice::new()));
+        assert_eq!(mixer.source_audio(TIME_ON_CLOCK), 0.5);
     }
 }

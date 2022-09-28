@@ -134,3 +134,16 @@ impl Default for ClockSettings {
         }
     }
 }
+
+#[cfg(test)]
+impl ClockSettings {
+    const TEST_SAMPLE_RATE: usize = 256;
+    const TEST_BPM: f32 = 99.;
+    pub fn new_test() -> Self {
+        Self::new(
+            ClockSettings::TEST_SAMPLE_RATE,
+            ClockSettings::TEST_BPM,
+            (4, 4),
+        )
+    }
+}

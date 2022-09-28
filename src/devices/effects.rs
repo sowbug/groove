@@ -7,14 +7,10 @@ use crate::{
         filter::{MiniFilter2, MiniFilter2Type},
         gain::MiniGain,
         limiter::MiniLimiter,
-        EffectTrait__,
+        TransformsAudio,
     },
 };
 use std::{cell::RefCell, rc::Rc};
-
-fn add_sources(sources: &[Rc<RefCell<dyn AudioSource>>]) -> MonoSample {
-    sources.iter().map(|s| s.borrow_mut().sample()).sum()
-}
 
 pub struct Limiter {
     sources: Vec<Rc<RefCell<dyn AudioSource>>>,
@@ -49,7 +45,8 @@ impl AudioSink for Limiter {
 
 impl AudioSource for Limiter {
     fn sample(&mut self) -> MonoSample {
-        self.effect.process(add_sources(&self.sources))
+        let input = self.gather_audio_sources();
+        self.effect.transform_audio(input)
     }
 }
 
@@ -92,7 +89,8 @@ impl AudioSink for Gain {
 
 impl AudioSource for Gain {
     fn sample(&mut self) -> MonoSample {
-        self.effect.process(add_sources(&self.sources))
+        let input = self.gather_audio_sources();
+        self.effect.transform_audio(input)
     }
 }
 
@@ -149,8 +147,8 @@ impl TimeSlicer for Bitcrusher {
 
 impl AudioSource for Bitcrusher {
     fn sample(&mut self) -> MonoSample {
-        self.effect
-            .process(add_sources(&self.sources), self.time_seconds)
+        let input = self.gather_audio_sources();
+        self.effect.transform_audio(input)
     }
 }
 
@@ -242,7 +240,8 @@ impl AudioSink for Filter {
 
 impl AudioSource for Filter {
     fn sample(&mut self) -> MonoSample {
-        self.effect.process(add_sources(&self.sources), -1.0)
+        let input = self.gather_audio_sources();
+        self.effect.transform_audio(input)
     }
 }
 
