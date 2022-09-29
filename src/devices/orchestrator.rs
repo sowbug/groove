@@ -91,7 +91,7 @@ impl Orchestrator {
     }
 
     pub fn perform_to_queue(&mut self, worker: &Worker<MonoSample>) -> anyhow::Result<()> {
-        let mut clock = Clock::new(&self.settings.clock);
+        let mut clock = Clock::new_with(&self.settings.clock);
 
         let progress_indicator_quantum: usize = clock.settings().sample_rate() / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;

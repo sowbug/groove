@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::settings::ClockSettings;
 
+use super::WatchesClock;
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub enum BeatValue {
@@ -139,7 +141,13 @@ pub struct Clock {
 }
 
 impl Clock {
-    pub fn new(settings: &ClockSettings) -> Self {
+    pub fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
+    pub fn new_with(settings: &ClockSettings) -> Self {
         Self {
             settings: settings.clone(),
             ..Default::default()
@@ -157,6 +165,41 @@ impl Clock {
     }
 }
 
+#[derive(Default)]
+pub struct WatchedClock {
+    clock: Clock,
+    watchers: Vec<Box<dyn WatchesClock>>,
+}
+
+impl WatchedClock {
+    pub fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
+    pub fn add_watcher(&mut self, watcher: Box<dyn WatchesClock>) {
+        self.watchers.push(watcher);
+    }
+
+    pub fn visit_watchers(&mut self) -> bool {
+        let mut done = true;
+        for watcher in self.watchers.iter_mut() {
+            done &= watcher.tick(self.clock.seconds);
+        }
+        done
+    }
+
+    pub fn tick(&mut self) {
+        self.clock.tick();
+    }
+
+    // TODO: this should eventually go away if we can get sources_audio() not to require a time
+    pub fn seconds(&self) -> f32 {
+        self.clock.seconds
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::panic;
@@ -167,7 +210,7 @@ mod tests {
 
     impl Clock {
         pub fn new_test() -> Self {
-            Self::new(&ClockSettings::new_test())
+            Self::new_with(&ClockSettings::new_test())
         }
     }
 
@@ -180,7 +223,7 @@ mod tests {
         const ONE_SAMPLE_OF_SECONDS: f32 = 1.0 / SAMPLE_RATE as f32;
 
         let clock_settings = ClockSettings::new(SAMPLE_RATE, BPM, (4, 4));
-        let mut clock = Clock::new(&clock_settings);
+        let mut clock = Clock::new_with(&clock_settings);
 
         // init state
         assert_eq!(clock.samples, 0);

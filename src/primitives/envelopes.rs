@@ -230,7 +230,7 @@ impl WatchesClock for MiniEnvelope {
 
 #[cfg(test)]
 mod tests {
-    use crate::{preset::EnvelopePreset, primitives::clock::Clock, settings::ClockSettings};
+    use crate::{preset::EnvelopePreset, primitives::clock::Clock};
 
     use super::*;
 
@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_envelope_eventually_ends() {
-        let mut clock = Clock::new(&ClockSettings::new_defaults());
+        let mut clock = Clock::new();
         let mut envelope = MiniEnvelope::new_with(
             clock.settings().sample_rate(),
             &EnvelopePreset {

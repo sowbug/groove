@@ -108,7 +108,6 @@ mod tests {
             traits::{MidiSink, MidiSource, TimeSlicer},
         },
         primitives::clock::Clock,
-        settings::ClockSettings,
     };
 
     use super::MidiSequencer;
@@ -131,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_sequencer() {
-        let mut clock = Clock::new(&ClockSettings::new_defaults());
+        let mut clock = Clock::new();
         let mut sequencer = MidiSequencer::new();
 
         let device = Rc::new(RefCell::new(NullDevice::new()));
@@ -167,7 +166,7 @@ mod tests {
 
     #[test]
     fn test_sequencer_multichannel() {
-        let mut clock = Clock::new(&ClockSettings::new_defaults());
+        let mut clock = Clock::new();
         let mut sequencer = MidiSequencer::new();
 
         let device_1 = Rc::new(RefCell::new(NullDevice::new()));

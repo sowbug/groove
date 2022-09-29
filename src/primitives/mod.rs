@@ -121,6 +121,7 @@ pub mod tests {
     use crate::primitives::wrapped_new;
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
+    use super::clock::WatchedClock;
     use super::envelopes::MiniEnvelope;
     use super::mixer::Mixer;
     use super::oscillators::MiniOscillator;
@@ -148,7 +149,7 @@ pub mod tests {
     pub(crate) fn write_source_to_file(source: &mut dyn SourcesAudio, basename: &str) {
         let clock_settings = ClockSettings::new_defaults();
         let mut samples = Vec::<MonoSample>::new();
-        let mut clock = Clock::new(&clock_settings);
+        let mut clock = Clock::new_with(&clock_settings);
         while clock.seconds < 2.0 {
             samples.push(source.source_audio(clock.seconds));
             clock.tick();
@@ -177,7 +178,7 @@ pub mod tests {
         basename: &str,
     ) {
         let clock_settings = ClockSettings::new_defaults();
-        let mut clock = Clock::new(&clock_settings);
+        let mut clock = Clock::new_with(&clock_settings);
         let mut samples = Vec::<MonoSample>::new();
         while clock.seconds < 2.0 {
             opt_controller.tick(clock.seconds);
@@ -346,7 +347,6 @@ pub mod tests {
 
     pub struct SimpleOrchestrator {
         main_mixer: Box<dyn IsEffect>,
-        clock_watchers: Vec<Box<dyn WatchesClock>>,
     }
 
     impl Default for SimpleOrchestrator {
@@ -359,37 +359,25 @@ pub mod tests {
         fn new() -> Self {
             Self {
                 main_mixer: Box::new(Mixer::new()),
-                clock_watchers: Vec::new(),
             }
         }
 
         // TODO: I like "new_with"
         #[allow(dead_code)]
         fn new_with(main_mixer: Box<dyn IsEffect>) -> Self {
-            Self {
-                main_mixer,
-                clock_watchers: Vec::new(),
-            }
+            Self { main_mixer }
         }
 
         fn add_audio_source(&mut self, source: Box<dyn SourcesAudio>) {
             self.main_mixer.add_audio_source(source);
         }
 
-        fn add_clock_watcher(&mut self, watcher: Box<dyn WatchesClock>) {
-            self.clock_watchers.push(watcher);
-        }
-
-        fn start(&mut self, clock: &mut Clock, samples_out: &mut Vec<f32>) {
+        fn start(&mut self, clock: &mut WatchedClock, samples_out: &mut Vec<f32>) {
             loop {
-                let mut is_done = true;
-                for watcher in self.clock_watchers.iter_mut() {
-                    is_done &= watcher.tick(clock.seconds);
-                }
-                if is_done {
+                if clock.visit_watchers() {
                     break;
                 }
-                samples_out.push(self.main_mixer.source_audio(clock.seconds));
+                samples_out.push(self.main_mixer.source_audio(clock.seconds()));
                 clock.tick();
             }
         }
@@ -496,23 +484,24 @@ pub mod tests {
             .set_frequency(MidiMessage::note_to_frequency(60));
         let synth = SimpleSynth::new_with(oscillator, envelope.clone());
 
+        let mut clock = WatchedClock::new();
+
         orchestrator.add_audio_source(Box::new(synth));
         let timer = SimpleTimer::new(2.0);
-        orchestrator.add_clock_watcher(Box::new(timer));
+        clock.add_watcher(Box::new(timer));
 
         let mut trigger_on = SimpleTrigger::new(1.0, 1.0);
         let weak_envelope_on = Rc::downgrade(&envelope);
         trigger_on.add_control_sink(weak_envelope_on);
-        orchestrator.add_clock_watcher(Box::new(trigger_on));
+        clock.add_watcher(Box::new(trigger_on));
 
         let mut trigger_off = SimpleTrigger::new(1.5, 0.0);
         let weak_envelope_off = Rc::downgrade(&envelope);
         trigger_off.add_control_sink(weak_envelope_off);
-        orchestrator.add_clock_watcher(Box::new(trigger_off));
+        clock.add_watcher(Box::new(trigger_off));
 
         let mut samples = Vec::<MonoSample>::new();
-        let clock_settings = ClockSettings::new_defaults();
-        orchestrator.start(&mut Clock::new(&clock_settings), &mut samples);
+        orchestrator.start(&mut clock, &mut samples);
         assert_eq!(samples.len(), 2 * 44100);
         assert_eq!(samples[0], 0.0); // because the envelope hasn't been triggered yet
         assert!(samples[44100] != 0.0); // envelope should be triggered at 1-second mark

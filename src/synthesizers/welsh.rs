@@ -1922,7 +1922,8 @@ impl Voice {
             r.osc_mix.push(preset.oscillator_2_preset.mix);
         }
         if preset.noise > 0.0 {
-            r.oscillators.push(MiniOscillator::new_with(WaveformType::Noise));
+            r.oscillators
+                .push(MiniOscillator::new_with(WaveformType::Noise));
             r.osc_mix.push(preset.noise);
         }
         r
@@ -2124,7 +2125,6 @@ mod tests {
     use crate::{
         common::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
         primitives::{clock::Clock, tests::canonicalize_filename},
-        settings::ClockSettings,
     };
 
     use crate::{
@@ -2139,7 +2139,7 @@ mod tests {
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]
     fn write_voice(voice: &mut Voice, duration: f32, basename: &str) {
-        let mut clock = Clock::new(&ClockSettings::new_defaults());
+        let mut clock = Clock::new();
 
         let spec = hound::WavSpec {
             channels: 1,
@@ -2366,7 +2366,7 @@ mod tests {
         let message_on = MidiMessage::note_on_c4();
         let message_off = MidiMessage::note_off_c4();
 
-        let mut clock = Clock::new(&ClockSettings::new_defaults());
+        let mut clock = Clock::new();
         let mut voice = Voice::new(MIDI_CHANNEL_RECEIVE_ALL, SAMPLE_RATE, &test_patch());
         voice.handle_message_for_channel(&clock, &message_on);
         write_sound(
@@ -2384,7 +2384,7 @@ mod tests {
         let message_on = MidiMessage::note_on_c4();
         let message_off = MidiMessage::note_off_c4();
 
-        let mut clock = Clock::new(&ClockSettings::new_defaults());
+        let mut clock = Clock::new();
         let mut voice = Voice::new(MIDI_CHANNEL_RECEIVE_ALL, SAMPLE_RATE, &cello_patch());
         voice.handle_message_for_channel(&clock, &message_on);
         write_sound(
