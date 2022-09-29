@@ -29,7 +29,15 @@ pub struct MiniOscillator {
 
 impl Default for MiniOscillator {
     fn default() -> Self {
-        Self::new()
+        Self {
+            waveform: WaveformType::None,
+            frequency: 0.0,
+            fixed_frequency: 0.0,
+            frequency_tune: 1.0,
+            frequency_modulation: 0.0,
+            noise_x1: 0x70f4f854,
+            noise_x2: 0xe1e9f0a7,
+        }
     }
 }
 
@@ -44,21 +52,13 @@ impl Wrappable for MiniOscillator {
 impl MiniOscillator {
     pub fn new() -> Self {
         Self {
-            waveform: WaveformType::None,
-            frequency: 0.0,
-            fixed_frequency: 0.0,
-            frequency_tune: 1.0,
-            frequency_modulation: 0.0,
-            noise_x1: 0x70f4f854,
-            noise_x2: 0xe1e9f0a7,
+            ..Default::default()
         }
     }
 
     pub fn new_with(waveform: WaveformType) -> Self {
         Self {
             waveform,
-            noise_x1: 0x70f4f854,
-            noise_x2: 0xe1e9f0a7,
             ..Default::default()
         }
         // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5 is Square.
@@ -68,8 +68,6 @@ impl MiniOscillator {
         Self {
             waveform: preset.waveform,
             frequency_tune: preset.tune,
-            noise_x1: 0x70f4f854,
-            noise_x2: 0xe1e9f0a7,
             ..Default::default()
         }
     }
@@ -78,8 +76,6 @@ impl MiniOscillator {
         Self {
             waveform: lfo_preset.waveform,
             frequency: lfo_preset.frequency,
-            noise_x1: 0x70f4f854,
-            noise_x2: 0xe1e9f0a7,
             ..Default::default()
         }
     }

@@ -178,6 +178,10 @@ impl WatchedClock {
         }
     }
 
+    pub fn inner_clock(&self) -> &Clock {
+        &self.clock
+    }
+
     pub fn add_watcher(&mut self, watcher: Box<dyn WatchesClock>) {
         self.watchers.push(watcher);
     }
@@ -192,11 +196,6 @@ impl WatchedClock {
 
     pub fn tick(&mut self) {
         self.clock.tick();
-    }
-
-    // TODO: this should eventually go away if we can get sources_audio() not to require a time
-    pub fn seconds(&self) -> f32 {
-        self.clock.seconds
     }
 }
 

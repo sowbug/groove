@@ -118,6 +118,7 @@ pub mod tests {
     use std::rc::{Rc, Weak};
 
     use crate::common::{MidiMessage, MONO_SAMPLE_MAX, MONO_SAMPLE_SILENCE};
+    use crate::preset::EnvelopePreset;
     use crate::primitives::wrapped_new;
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
@@ -377,7 +378,7 @@ pub mod tests {
                 if clock.visit_watchers() {
                     break;
                 }
-                samples_out.push(self.main_mixer.source_audio(clock.seconds()));
+                samples_out.push(self.main_mixer.source_audio(clock.inner_clock().seconds));
                 clock.tick();
             }
         }
@@ -389,10 +390,16 @@ pub mod tests {
     }
 
     impl SimpleSynth {
+        #[deprecated]
+        /// You really don't want to call this, because you need a sample rate
+        /// for it to do anything meaningful.
         fn new() -> Self {
             Self {
                 oscillator: wrapped_new::<MiniOscillator>(),
-                envelope: wrapped_new::<MiniEnvelope>(),
+                envelope: Rc::new(RefCell::new(MiniEnvelope::new_with(
+                    44100,
+                    &EnvelopePreset::default(),
+                ))),
             }
         }
         fn new_with(
@@ -408,6 +415,7 @@ pub mod tests {
 
     impl Default for SimpleSynth {
         fn default() -> Self {
+            #[allow(deprecated)]
             Self::new()
         }
     }
@@ -474,8 +482,12 @@ pub mod tests {
 
     #[test]
     fn test_simple_orchestrator() {
+        let mut clock = WatchedClock::new();
         let mut orchestrator = SimpleOrchestrator::new();
-        let envelope = wrapped_new::<MiniEnvelope>();
+        let envelope = Rc::new(RefCell::new(MiniEnvelope::new_with(
+            clock.inner_clock().settings().sample_rate(),
+            &EnvelopePreset::default(),
+        )));
         let oscillator = Rc::new(RefCell::new(MiniOscillator::new_with(
             crate::common::WaveformType::Sine,
         )));
@@ -483,8 +495,6 @@ pub mod tests {
             .borrow_mut()
             .set_frequency(MidiMessage::note_to_frequency(60));
         let synth = SimpleSynth::new_with(oscillator, envelope.clone());
-
-        let mut clock = WatchedClock::new();
 
         orchestrator.add_audio_source(Box::new(synth));
         let timer = SimpleTimer::new(2.0);

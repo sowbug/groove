@@ -2,13 +2,13 @@ use std::{f32::MAX, fmt::Debug};
 
 use crate::{
     common::{MidiMessage, MidiMessageType},
-    preset::EnvelopePreset,
+    preset::EnvelopePreset, 
 };
 
 use super::{
     SinksControl,
     SinksControlParamType::{self, Primary, Secondary},
-    SourcesAudio, WatchesClock, Wrappable,
+    SourcesAudio, WatchesClock,
 };
 
 #[derive(Debug, Default)]
@@ -166,14 +166,6 @@ impl MiniEnvelope {
             self.switch_to_release(time_seconds);
         } else {
             // Already in idle state. Shouldn't happen.
-        }
-    }
-}
-
-impl Wrappable for MiniEnvelope {
-    fn new() -> Self {
-        Self {
-            ..Default::default()
         }
     }
 }
