@@ -173,6 +173,31 @@ pub mod tests {
         );
     }
 
+    pub(crate) fn write_orchestration_to_file(
+        orchestrator: &mut SimpleOrchestrator,
+        clock: &mut WatchedClock,
+        basename: &str,
+    ) {
+        let mut samples = Vec::<MonoSample>::new();
+        orchestrator.start(clock, &mut samples);
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: clock.inner_clock().settings().sample_rate() as u32,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
+        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
+        for sample in samples.clone() {
+            let _ = writer.write_sample((sample * AMPLITUDE) as i16);
+        }
+        generate_fft_for_samples(
+            clock.inner_clock().settings(),
+            &samples,
+            &canonicalize_fft_filename(basename),
+        );
+    }
+
     pub(crate) fn write_effect_to_file(
         effect: &mut dyn SourcesAudio,
         opt_controller: &mut dyn IsController,
@@ -357,7 +382,7 @@ pub mod tests {
     }
 
     impl SimpleOrchestrator {
-        fn new() -> Self {
+        pub fn new() -> Self {
             Self {
                 main_mixer: Box::new(Mixer::new()),
             }
@@ -365,15 +390,15 @@ pub mod tests {
 
         // TODO: I like "new_with"
         #[allow(dead_code)]
-        fn new_with(main_mixer: Box<dyn IsEffect>) -> Self {
+        pub fn new_with(main_mixer: Box<dyn IsEffect>) -> Self {
             Self { main_mixer }
         }
 
-        fn add_audio_source(&mut self, source: Box<dyn SourcesAudio>) {
+        pub fn add_audio_source(&mut self, source: Box<dyn SourcesAudio>) {
             self.main_mixer.add_audio_source(source);
         }
 
-        fn start(&mut self, clock: &mut WatchedClock, samples_out: &mut Vec<f32>) {
+        pub fn start(&mut self, clock: &mut WatchedClock, samples_out: &mut Vec<f32>) {
             loop {
                 if clock.visit_watchers() {
                     break;
@@ -432,7 +457,7 @@ pub mod tests {
         time_to_run_seconds: f32,
     }
     impl SimpleTimer {
-        fn new(time_to_run_seconds: f32) -> Self {
+        pub fn new(time_to_run_seconds: f32) -> Self {
             Self {
                 time_to_run_seconds,
             }

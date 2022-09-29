@@ -140,7 +140,12 @@ mod tests {
     use crate::{
         common::{MidiMessage, MidiNote},
         preset::OscillatorPreset,
-        primitives::tests::write_source_to_file,
+        primitives::{
+            clock::WatchedClock,
+            tests::{
+                write_orchestration_to_file, write_source_to_file, SimpleOrchestrator, SimpleTimer,
+            },
+        },
     };
 
     use super::{MiniOscillator, WaveformType};
@@ -157,16 +162,15 @@ mod tests {
 
     #[test]
     fn test_oscillator_basic_waveforms() {
-        let mut oscillator = create_oscillator(
+        let mut orchestrator = SimpleOrchestrator::new();
+        orchestrator.add_audio_source(Box::new(create_oscillator(
             WaveformType::Sine,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
-        );
-        assert_eq!(
-            oscillator.adjusted_frequency(),
-            MidiMessage::note_type_to_frequency(MidiNote::C4)
-        );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c3");
+        )));
+        let mut clock = WatchedClock::new();
+        clock.add_watcher(Box::new(SimpleTimer::new(2.0)));
+        write_orchestration_to_file(&mut orchestrator, &mut clock, "oscillator_sine_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::Square,
