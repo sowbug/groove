@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Weak};
+
 use crate::common::{MonoSample, MONO_SAMPLE_SILENCE};
 
 pub mod bitcrusher;
@@ -38,27 +40,28 @@ pub trait SinksAudio {
 }
 
 pub trait SourcesControl {
-    fn control_sinks(&mut self) -> &mut Vec<Box<dyn SinksControl>>;
+    fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>];
+    fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>>;
 
-    fn add_control_sink(&mut self, sink: Box<dyn SinksControl>) {
-        self.control_sinks().push(sink);
+    fn add_control_sink(&mut self, sink: Weak<RefCell<dyn SinksControl>>) {
+        self.control_sinks_mut().push(sink);
     }
-
-    fn control(&mut self, time_seconds: f32);
+    fn issue_control(&mut self, time_seconds: f32, param: &SinksControlParamType) {
+        for sink in self.control_sinks_mut() {
+            if let Some(sink_up) = sink.upgrade() {
+                sink_up.borrow_mut().handle_control(time_seconds, param);
+            }
+        }
+    }
 }
 
 pub trait SinksControl {
-    fn handle_control(
-        &mut self,
-        time_seconds: f32,
-        param_type: SinksControlParamType,
-        new_value: f32,
-    );
+    fn handle_control(&mut self, time_seconds: f32, param: &SinksControlParamType);
 }
 
 pub enum SinksControlParamType {
-    Primary,
-    Secondary,
+    Primary { value: f32 },
+    Secondary { value: f32 },
 }
 
 pub trait SourcesFakeMidi {
@@ -70,7 +73,13 @@ pub trait SinksFakeMidi {
 }
 
 pub trait WatchesClock {
-    fn is_done(&mut self, time_seconds: f32) -> bool;
+    /// returns true if we had a finite amount of known work that has finished.
+    /// TODO: if we return true, then do we still expect to be called for the
+    /// result of our work during this cycle? E.g., source_audio()
+    ///
+    /// If you're not sure what you should return, you should return true.
+    /// This is because false prevents outer loops from ending.
+    fn tick(&mut self, time_seconds: f32) -> bool;
 }
 
 pub trait TransformsAudio {
@@ -78,6 +87,7 @@ pub trait TransformsAudio {
 }
 
 pub trait IsEffect: SourcesAudio + SinksAudio + TransformsAudio {}
+pub trait IsController: SourcesControl + WatchesClock {}
 
 pub trait TransformsControlToAudio /*  SinksControl + SourcesAudio */ {}
 impl<T: SinksAudio + TransformsAudio> SourcesAudio for T {
@@ -92,16 +102,21 @@ pub mod tests {
 
     use convert_case::{Case, Casing};
     use plotters::prelude::*;
+    use std::cell::RefCell;
     use std::fs;
+    use std::rc::{Rc, Weak};
 
-    use crate::common::{MONO_SAMPLE_MAX, MONO_SAMPLE_SILENCE};
+    use crate::common::{MidiMessage, MONO_SAMPLE_MAX, MONO_SAMPLE_SILENCE};
     use crate::preset::EnvelopePreset;
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
     use super::envelopes::MiniEnvelope;
     use super::mixer::Mixer;
     use super::oscillators::MiniOscillator;
-    use super::{IsEffect, SourcesAudio, SourcesControl, WatchesClock};
+    use super::{
+        IsController, IsEffect, SinksControl, SinksControlParamType, SourcesAudio, SourcesControl,
+        WatchesClock,
+    };
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -147,14 +162,14 @@ pub mod tests {
 
     pub(crate) fn write_effect_to_file(
         effect: &mut dyn SourcesAudio,
-        opt_controller: &mut dyn SourcesControl,
+        opt_controller: &mut dyn IsController,
         basename: &str,
     ) {
         let clock_settings = ClockSettings::new_defaults();
         let mut clock = Clock::new(&clock_settings);
         let mut samples = Vec::<MonoSample>::new();
         while clock.seconds < 2.0 {
-            opt_controller.control(clock.seconds);
+            opt_controller.tick(clock.seconds);
 
             let effect_sample = effect.source_audio(clock.seconds);
             samples.push(effect_sample);
@@ -323,8 +338,23 @@ pub mod tests {
         clock_watchers: Vec<Box<dyn WatchesClock>>,
     }
 
+    impl Default for SimpleOrchestrator {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl SimpleOrchestrator {
-        fn new(main_mixer: Box<dyn IsEffect>) -> Self {
+        fn new() -> Self {
+            Self {
+                main_mixer: Box::new(Mixer::new()),
+                clock_watchers: Vec::new(),
+            }
+        }
+
+        // TODO: I like "new_with"
+        #[allow(dead_code)]
+        fn new_with(main_mixer: Box<dyn IsEffect>) -> Self {
             Self {
                 main_mixer,
                 clock_watchers: Vec::new(),
@@ -339,11 +369,11 @@ pub mod tests {
             self.clock_watchers.push(watcher);
         }
 
-        fn start(&mut self, clock: &mut Clock, samples_out: &mut Vec::<f32>) {
+        fn start(&mut self, clock: &mut Clock, samples_out: &mut Vec<f32>) {
             loop {
                 let mut is_done = true;
                 for watcher in self.clock_watchers.iter_mut() {
-                    is_done &= watcher.is_done(clock.seconds);
+                    is_done &= watcher.tick(clock.seconds);
                 }
                 if is_done {
                     break;
@@ -356,11 +386,20 @@ pub mod tests {
 
     pub struct SimpleSynth {
         oscillator: Box<dyn SourcesAudio>,
-        envelope: Box<dyn SourcesAudio>,
+        envelope: Rc<RefCell<dyn SourcesAudio>>,
     }
 
     impl SimpleSynth {
-        fn new(oscillator: Box<dyn SourcesAudio>, envelope: Box<dyn SourcesAudio>) -> Self {
+        fn new() -> Self {
+            Self {
+                oscillator: Box::new(MiniOscillator::default()),
+                envelope: Rc::new(RefCell::new(MiniEnvelope::default())),
+            }
+        }
+        fn new_with(
+            oscillator: Box<dyn SourcesAudio>,
+            envelope: Rc<RefCell<dyn SourcesAudio>>,
+        ) -> Self {
             Self {
                 oscillator,
                 envelope,
@@ -368,25 +407,69 @@ pub mod tests {
         }
     }
 
-    impl SourcesAudio for SimpleSynth {
-        fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
-            self.oscillator.source_audio(time_seconds) * self.envelope.source_audio(time_seconds)
+    impl Default for SimpleSynth {
+        fn default() -> Self {
+            Self::new()
         }
     }
 
-    pub struct Timer {
+    impl SourcesAudio for SimpleSynth {
+        fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
+            self.oscillator.source_audio(time_seconds)
+                * self.envelope.borrow_mut().source_audio(time_seconds)
+        }
+    }
+
+    #[derive(Default)]
+    pub struct SimpleTimer {
         time_to_run_seconds: f32,
     }
-    impl Timer {
+    impl SimpleTimer {
         fn new(time_to_run_seconds: f32) -> Self {
             Self {
                 time_to_run_seconds,
             }
         }
     }
-    impl WatchesClock for Timer {
-        fn is_done(&mut self, time_seconds: f32) -> bool {
+    impl WatchesClock for SimpleTimer {
+        fn tick(&mut self, time_seconds: f32) -> bool {
             time_seconds >= self.time_to_run_seconds
+        }
+    }
+
+    #[derive(Default)]
+    pub struct SimpleTrigger {
+        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
+        time_to_trigger_seconds: f32,
+        value: f32,
+        has_triggered: bool,
+    }
+    impl SimpleTrigger {
+        fn new(time_to_trigger_seconds: f32, value: f32) -> Self {
+            Self {
+                time_to_trigger_seconds,
+                value,
+                ..Default::default()
+            }
+        }
+    }
+    impl WatchesClock for SimpleTrigger {
+        fn tick(&mut self, time_seconds: f32) -> bool {
+            if !self.has_triggered && time_seconds >= self.time_to_trigger_seconds {
+                self.has_triggered = true;
+                let value = self.value;
+                self.issue_control(time_seconds, &SinksControlParamType::Primary { value });
+            }
+            time_seconds >= self.time_to_trigger_seconds
+        }
+    }
+    impl SourcesControl for SimpleTrigger {
+        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+            &self.control_sinks
+        }
+
+        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+            &mut self.control_sinks
         }
     }
 
@@ -394,18 +477,37 @@ pub mod tests {
     fn test_simple_orchestrator() {
         let clock_settings = ClockSettings::new_defaults();
 
-        let mut orchestrator = SimpleOrchestrator::new(Box::new(Mixer::new()));
-        orchestrator.add_audio_source(Box::new(SimpleSynth::new(
-            Box::new(MiniOscillator::new(crate::common::WaveformType::Sine)),
-            Box::new(MiniEnvelope::new(
-                clock_settings.sample_rate(),
-                &EnvelopePreset::default(),
-            )),
+        let mut orchestrator = SimpleOrchestrator::new();
+        let envelope = Rc::new(RefCell::new(MiniEnvelope::new(
+            clock_settings.sample_rate(),
+            &EnvelopePreset::default(),
         )));
-        orchestrator.add_clock_watcher(Box::new(Timer::new(2.0)));
+        let mut oscillator = MiniOscillator::new(crate::common::WaveformType::Sine);
+        oscillator.set_frequency(MidiMessage::note_to_frequency(60));
+        let synth = SimpleSynth::new_with(Box::new(oscillator), envelope.clone());
+
+        orchestrator.add_audio_source(Box::new(synth));
+        let timer = SimpleTimer::new(2.0);
+        orchestrator.add_clock_watcher(Box::new(timer));
+
+        let mut trigger_on = SimpleTrigger::new(1.0, 1.0);
+        let weak_envelope_on = Rc::downgrade(&envelope);
+        trigger_on.add_control_sink(weak_envelope_on);
+        orchestrator.add_clock_watcher(Box::new(trigger_on));
+
+        let mut trigger_off = SimpleTrigger::new(1.5, 0.0);
+        let weak_envelope_off = Rc::downgrade(&envelope);
+        trigger_off.add_control_sink(weak_envelope_off);
+        orchestrator.add_clock_watcher(Box::new(trigger_off));
 
         let mut samples = Vec::<MonoSample>::new();
         orchestrator.start(&mut Clock::new(&clock_settings), &mut samples);
         assert_eq!(samples.len(), 2 * 44100);
+        assert_eq!(samples[0], 0.0); // because the envelope hasn't been triggered yet
+        assert!(samples[44100] != 0.0); // envelope should be triggered at 1-second mark
+
+        // envelope should be triggered at 1-second mark. We check two consecutive samples just in
+        // case the oscillator happens to cross over between negative and positive right at that moment.
+        assert!(samples[44100] != 0.0 || samples[44100 + 1] != 0.0);
     }
 }

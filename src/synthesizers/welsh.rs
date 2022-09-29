@@ -1993,7 +1993,7 @@ impl SourcesAudio for Voice {
         };
 
         // Filters
-        self.filter_envelope.is_done(time_seconds);
+        self.filter_envelope.tick(time_seconds);
         let new_cutoff_percentage = self.filter_cutoff_start
             + (self.filter_cutoff_end - self.filter_cutoff_start)
                 * self.filter_envelope.source_audio(time_seconds);
@@ -2010,7 +2010,7 @@ impl SourcesAudio for Voice {
         };
 
         // Envelope
-        self.amp_envelope.is_done(time_seconds);
+        self.amp_envelope.tick(time_seconds);
 
         // Final
         filtered_mix * self.amp_envelope.source_audio(time_seconds) * lfo_amplitude_modulation
@@ -2120,16 +2120,12 @@ impl AudioSource for Synth {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::panic;
 
     use crate::{
         common::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
         primitives::{clock::Clock, tests::canonicalize_filename},
         settings::ClockSettings,
     };
-
-    use super::PresetName;
-    use strum::IntoEnumIterator;
 
     use crate::{
         common::WaveformType,
@@ -2141,6 +2137,7 @@ mod tests {
     const SAMPLE_RATE: usize = 44100;
 
     // TODO: refactor out to common test utilities
+    #[allow(dead_code)]
     fn write_voice(voice: &mut Voice, duration: f32, basename: &str) {
         let mut clock = Clock::new(&ClockSettings::new_defaults());
 

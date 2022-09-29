@@ -538,18 +538,13 @@ impl TransformsAudio for MiniFilter2 {
 }
 
 impl SinksControl for MiniFilter2 {
-    fn handle_control(
-        &mut self,
-        _time_seconds: f32,
-        param_type: super::SinksControlParamType,
-        new_value: f32,
-    ) {
-        match param_type {
-            SinksControlParamType::Primary => {
-                self.set_cutoff(new_value);
+    fn handle_control(&mut self, _time_seconds: f32, param: &SinksControlParamType) {
+        match param {
+            SinksControlParamType::Primary { value } => {
+                self.set_cutoff(*value);
             }
-            SinksControlParamType::Secondary => {
-                self.set_q(new_value);
+            SinksControlParamType::Secondary { value } => {
+                self.set_q(*value);
             }
         }
     }
@@ -557,28 +552,31 @@ impl SinksControl for MiniFilter2 {
 
 #[cfg(test)]
 mod tests {
+    use std::{cell::RefCell, rc::Weak};
+
     use crate::{
         common::{MidiMessage, MidiNote, WaveformType},
         preset::OscillatorPreset,
         primitives::{
             oscillators::MiniOscillator,
             tests::write_effect_to_file,
-            SinksControl,
+            IsController, SinksControl,
             SinksControlParamType::{Primary, Secondary},
-            SourcesControl,
+            SourcesControl, WatchesClock,
         },
     };
 
     use super::*;
     const SAMPLE_RATE: usize = 44100;
 
+    #[derive(Copy, Clone)]
     enum TestFilterControllerParam {
         Cutoff,
         Q,
     }
 
     struct TestFilterController {
-        sinks: Vec<Box<dyn SinksControl>>,
+        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
         param: TestFilterControllerParam,
         param_start: f32,
         param_end: f32,
@@ -595,7 +593,7 @@ mod tests {
             duration: f32,
         ) -> Self {
             Self {
-                sinks: Vec::new(),
+                control_sinks: Vec::new(),
                 param,
                 param_start,
                 param_end,
@@ -605,35 +603,41 @@ mod tests {
         }
     }
 
-    impl<'a> SourcesControl for TestFilterController {
-        fn control_sinks(&mut self) -> &mut Vec<Box<dyn crate::primitives::SinksControl>> {
-            &mut self.sinks
+    impl SourcesControl for TestFilterController {
+        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+            &self.control_sinks
         }
 
-        fn control(&mut self, time_seconds: f32) {
+        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+            &mut self.control_sinks
+        }
+    }
+
+    impl WatchesClock for TestFilterController {
+        fn tick(&mut self, time_seconds: f32) -> bool {
             if self.time_start < 0.0 {
                 self.time_start = time_seconds;
             }
             if self.param_end != self.param_start {
-                for sink in self.sinks.iter_mut() {
-                    sink.handle_control(
-                        time_seconds,
-                        match self.param {
-                            TestFilterControllerParam::Cutoff => Primary,
-                            TestFilterControllerParam::Q => Secondary,
-                        },
-                        self.param_start
-                            + ((time_seconds - self.time_start) / self.duration)
-                                * (self.param_end - self.param_start),
-                    );
-                }
+                let param = self.param;
+                let value = self.param_start
+                    + ((time_seconds - self.time_start) / self.duration)
+                        * (self.param_end - self.param_start);
+                let sink_param = match param {
+                    TestFilterControllerParam::Cutoff => Primary { value },
+                    TestFilterControllerParam::Q => Secondary { value },
+                };
+                self.issue_control(time_seconds, &sink_param);
             }
+            true
         }
     }
 
+    impl IsController for TestFilterController {}
+
     #[derive(Default)]
     struct TestNullController {
-        control_sinks: Vec<Box<dyn SinksControl>>,
+        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
     }
 
     impl TestNullController {
@@ -645,15 +649,25 @@ mod tests {
     }
 
     impl SourcesControl for TestNullController {
-        fn control_sinks(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
+        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+            &self.control_sinks
+        }
+        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
             &mut self.control_sinks
         }
-        fn control(&mut self, _time_seconds: f32) {}
     }
+
+    impl WatchesClock for TestNullController {
+        fn tick(&mut self, _time_seconds: f32) -> bool {
+            true
+        }
+    }
+
+    impl IsController for TestNullController {}
 
     fn add_noise_and_write_filter_to_file(
         filter: &mut MiniFilter2,
-        controller: &mut dyn SourcesControl,
+        controller: &mut dyn IsController,
         basename: &str,
     ) {
         let source = Box::new(MiniOscillator::new(WaveformType::Noise));

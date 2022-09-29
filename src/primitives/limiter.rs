@@ -23,10 +23,6 @@ impl SinksAudio for MiniLimiter {
     fn sources(&mut self) -> &mut Vec<Box<dyn SourcesAudio>> {
         &mut self.sources
     }
-
-    fn add_audio_source(&mut self, source: Box<dyn super::SourcesAudio>) {
-        self.sources.push(source);
-    }
 }
 
 impl TransformsAudio for MiniLimiter {

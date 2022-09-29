@@ -5,7 +5,11 @@ use crate::{
     preset::EnvelopePreset,
 };
 
-use super::{SourcesAudio, WatchesClock};
+use super::{
+    SinksControl,
+    SinksControlParamType::{self, Primary, Secondary},
+    SourcesAudio, WatchesClock,
+};
 
 #[derive(Debug, Default)]
 enum EnvelopeState {
@@ -147,17 +151,21 @@ impl MiniEnvelope {
 
     pub fn handle_midi_message(&mut self, message: &MidiMessage, time_seconds: f32) {
         match message.status {
-            MidiMessageType::NoteOn => {
-                self.switch_to_attack(time_seconds);
-            }
-            MidiMessageType::NoteOff => {
-                if !matches!(self.state, EnvelopeState::Idle) {
-                    self.switch_to_release(time_seconds);
-                } else {
-                    // Already in idle state. Shouldn't happen.
-                }
-            }
+            MidiMessageType::NoteOn => self.handle_note_on(time_seconds),
+            MidiMessageType::NoteOff => self.handle_note_off(time_seconds),
             MidiMessageType::ProgramChange => {}
+        }
+    }
+
+    fn handle_note_on(&mut self, time_seconds: f32) {
+        self.switch_to_attack(time_seconds);
+    }
+
+    fn handle_note_off(&mut self, time_seconds: f32) {
+        if !matches!(self.state, EnvelopeState::Idle) {
+            self.switch_to_release(time_seconds);
+        } else {
+            // Already in idle state. Shouldn't happen.
         }
     }
 }
@@ -168,8 +176,24 @@ impl SourcesAudio for MiniEnvelope {
     }
 }
 
+impl SinksControl for MiniEnvelope {
+    fn handle_control(&mut self, time_seconds: f32, param: &SinksControlParamType) {
+        match param {
+            Primary { value } => {
+                if *value == 1.0 {
+                    self.handle_note_on(time_seconds)
+                } else {
+                    self.handle_note_off(time_seconds)
+                }
+            }
+            #[allow(unused_variables)]
+            Secondary { value } => todo!(),
+        }
+    }
+}
+
 impl WatchesClock for MiniEnvelope {
-    fn is_done(&mut self, time_seconds: f32) -> bool {
+    fn tick(&mut self, time_seconds: f32) -> bool {
         self.amplitude += self.delta;
         match self.state {
             EnvelopeState::Idle => {}
@@ -245,7 +269,7 @@ mod tests {
 
         let mut last_recognized_time_point = -1.;
         loop {
-            envelope.is_done(clock.seconds);
+            envelope.tick(clock.seconds);
             if clock.seconds >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = 0.0;
                 assert!(matches!(envelope.state, EnvelopeState::Idle));
@@ -300,7 +324,7 @@ mod tests {
         const TIME_EXPECT_RELEASE_END: usize = TIME_EXPECT_RELEASE + DURATION_RELEASE - 1;
         const TIME_EXPECT_IDLE: usize = TIME_EXPECT_RELEASE + DURATION_RELEASE;
         loop {
-            envelope.is_done(clock.seconds);
+            envelope.tick(clock.seconds);
             match clock.samples {
                 TIME_ZERO => {
                     assert!(matches!(envelope.state, EnvelopeState::Idle));
