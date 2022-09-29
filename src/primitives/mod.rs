@@ -503,8 +503,9 @@ pub mod tests {
         let mut samples = Vec::<MonoSample>::new();
         orchestrator.start(&mut clock, &mut samples);
         assert_eq!(samples.len(), 2 * 44100);
-        assert_eq!(samples[0], 0.0); // because the envelope hasn't been triggered yet
-        assert!(samples[44100] != 0.0); // envelope should be triggered at 1-second mark
+
+        // envelope hasn't been triggered yet
+        assert_eq!(samples[0], 0.0);
 
         // envelope should be triggered at 1-second mark. We check two consecutive samples just in
         // case the oscillator happens to cross over between negative and positive right at that moment.
