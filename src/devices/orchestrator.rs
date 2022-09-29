@@ -344,14 +344,14 @@ impl Orchestrator {
     }
 
     #[allow(dead_code)]
-    fn get_instrument_by_id(&self, id: &String) -> Rc<RefCell<dyn InstrumentTrait>> {
+    fn get_instrument_by_id(&self, id: &str) -> Rc<RefCell<dyn InstrumentTrait>> {
         if self.id_to_instrument.contains_key(id) {
             return (self.id_to_instrument.get(id).unwrap()).clone();
         }
         panic!("yo {}", id);
     }
 
-    fn get_audio_source_by_id(&self, id: &String) -> Rc<RefCell<dyn AudioSource>> {
+    fn get_audio_source_by_id(&self, id: &str) -> Rc<RefCell<dyn AudioSource>> {
         if self.id_to_instrument.contains_key(id) {
             return (self.id_to_instrument.get(id).unwrap()).clone();
         } else if self.id_to_effect.contains_key(id) {
@@ -360,14 +360,14 @@ impl Orchestrator {
         panic!("yo {}", id);
     }
 
-    fn get_audio_sink_by_id(&self, id: &String) -> Rc<RefCell<dyn AudioSink>> {
+    fn get_audio_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn AudioSink>> {
         if self.id_to_effect.contains_key(id) {
             return (self.id_to_effect.get(id).unwrap()).clone();
         }
         panic!("yo {}", id);
     }
 
-    fn get_automation_sink_by_id(&self, id: &String) -> Rc<RefCell<dyn AutomationSink>> {
+    fn get_automation_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn AutomationSink>> {
         if self.id_to_effect.contains_key(id) {
             return (self.id_to_effect.get(id).unwrap()).clone();
         }
