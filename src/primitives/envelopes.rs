@@ -8,7 +8,7 @@ use crate::{
 use super::{
     SinksControl,
     SinksControlParamType::{self, Primary, Secondary},
-    SourcesAudio, WatchesClock,
+    SourcesAudio, WatchesClock, Wrappable,
 };
 
 #[derive(Debug, Default)]
@@ -40,7 +40,7 @@ pub struct MiniEnvelope {
 impl MiniEnvelope {
     pub const MAX: f32 = -1.0;
 
-    pub fn new(sample_rate: usize, preset: &EnvelopePreset) -> Self {
+    pub fn new_with(sample_rate: usize, preset: &EnvelopePreset) -> Self {
         Self {
             sample_rate: sample_rate as f32,
             attack_seconds: preset.attack_seconds,
@@ -170,6 +170,14 @@ impl MiniEnvelope {
     }
 }
 
+impl Wrappable for MiniEnvelope {
+    fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+}
+
 impl SourcesAudio for MiniEnvelope {
     fn source_audio(&mut self, _time_seconds: f32) -> crate::common::MonoSample {
         self.amplitude
@@ -253,7 +261,7 @@ mod tests {
     #[allow(unused_assignments)]
     fn test_mini_envelope() {
         let mut clock = Clock::new_test();
-        let mut envelope = MiniEnvelope::new(
+        let mut envelope = MiniEnvelope::new_with(
             clock.settings().sample_rate(),
             &EnvelopePreset {
                 attack_seconds: 0.1,
@@ -297,7 +305,7 @@ mod tests {
     #[test]
     fn test_envelope_eventually_ends() {
         let mut clock = Clock::new(&ClockSettings::new_defaults());
-        let mut envelope = MiniEnvelope::new(
+        let mut envelope = MiniEnvelope::new_with(
             clock.settings().sample_rate(),
             &EnvelopePreset {
                 attack_seconds: 0.1,

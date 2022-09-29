@@ -5,7 +5,7 @@ use crate::{
     preset::{LfoPreset, OscillatorPreset},
 };
 
-use super::SourcesAudio;
+use super::{SourcesAudio, Wrappable};
 
 #[derive(Debug, Clone)]
 pub struct MiniOscillator {
@@ -29,6 +29,20 @@ pub struct MiniOscillator {
 
 impl Default for MiniOscillator {
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Wrappable for MiniOscillator {
+    fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+}
+
+impl MiniOscillator {
+    pub fn new() -> Self {
         Self {
             waveform: WaveformType::None,
             frequency: 0.0,
@@ -39,10 +53,8 @@ impl Default for MiniOscillator {
             noise_x2: 0xe1e9f0a7,
         }
     }
-}
 
-impl MiniOscillator {
-    pub fn new(waveform: WaveformType) -> Self {
+    pub fn new_with(waveform: WaveformType) -> Self {
         Self {
             waveform,
             noise_x1: 0x70f4f854,

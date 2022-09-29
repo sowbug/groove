@@ -1891,7 +1891,7 @@ impl Voice {
             midi_channel,
             oscillators: Vec::new(),
             osc_mix: Vec::new(),
-            amp_envelope: MiniEnvelope::new(sample_rate, &preset.amp_envelope_preset),
+            amp_envelope: MiniEnvelope::new_with(sample_rate, &preset.amp_envelope_preset),
 
             lfo: MiniOscillator::new_lfo(&preset.lfo_preset),
             lfo_routing: preset.lfo_preset.routing,
@@ -1904,7 +1904,7 @@ impl Voice {
             }),
             filter_cutoff_start: MiniFilter2::frequency_to_percent(preset.filter_type_12db.cutoff),
             filter_cutoff_end: preset.filter_envelope_weight,
-            filter_envelope: MiniEnvelope::new(sample_rate, &preset.filter_envelope_preset),
+            filter_envelope: MiniEnvelope::new_with(sample_rate, &preset.filter_envelope_preset),
         };
         if !matches!(preset.oscillator_1_preset.waveform, WaveformType::None) {
             r.oscillators
@@ -1922,7 +1922,7 @@ impl Voice {
             r.osc_mix.push(preset.oscillator_2_preset.mix);
         }
         if preset.noise > 0.0 {
-            r.oscillators.push(MiniOscillator::new(WaveformType::Noise));
+            r.oscillators.push(MiniOscillator::new_with(WaveformType::Noise));
             r.osc_mix.push(preset.noise);
         }
         r

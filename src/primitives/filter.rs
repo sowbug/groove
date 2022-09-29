@@ -670,7 +670,7 @@ mod tests {
         controller: &mut dyn IsController,
         basename: &str,
     ) {
-        let source = Box::new(MiniOscillator::new(WaveformType::Noise));
+        let source = Box::new(MiniOscillator::new_with(WaveformType::Noise));
         filter.add_audio_source(source);
         write_effect_to_file(filter, controller, basename);
     }

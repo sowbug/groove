@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Weak};
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 use crate::common::{MonoSample, MONO_SAMPLE_SILENCE};
 
@@ -10,6 +13,14 @@ pub mod gain;
 pub mod limiter;
 pub mod mixer;
 pub mod oscillators;
+
+pub trait Wrappable: Default {
+    fn new() -> Self;
+}
+
+pub fn wrapped_new<T: Wrappable>() -> Rc<RefCell<T>> {
+    Rc::new(RefCell::new(T::new()))
+}
 
 pub trait SourcesAudio {
     // Lots of implementers don't care about time_seconds here,
@@ -107,7 +118,7 @@ pub mod tests {
     use std::rc::{Rc, Weak};
 
     use crate::common::{MidiMessage, MONO_SAMPLE_MAX, MONO_SAMPLE_SILENCE};
-    use crate::preset::EnvelopePreset;
+    use crate::primitives::wrapped_new;
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
     use super::envelopes::MiniEnvelope;
@@ -385,19 +396,19 @@ pub mod tests {
     }
 
     pub struct SimpleSynth {
-        oscillator: Box<dyn SourcesAudio>,
+        oscillator: Rc<RefCell<dyn SourcesAudio>>,
         envelope: Rc<RefCell<dyn SourcesAudio>>,
     }
 
     impl SimpleSynth {
         fn new() -> Self {
             Self {
-                oscillator: Box::new(MiniOscillator::default()),
-                envelope: Rc::new(RefCell::new(MiniEnvelope::default())),
+                oscillator: wrapped_new::<MiniOscillator>(),
+                envelope: wrapped_new::<MiniEnvelope>(),
             }
         }
         fn new_with(
-            oscillator: Box<dyn SourcesAudio>,
+            oscillator: Rc<RefCell<dyn SourcesAudio>>,
             envelope: Rc<RefCell<dyn SourcesAudio>>,
         ) -> Self {
             Self {
@@ -415,7 +426,7 @@ pub mod tests {
 
     impl SourcesAudio for SimpleSynth {
         fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
-            self.oscillator.source_audio(time_seconds)
+            self.oscillator.borrow_mut().source_audio(time_seconds)
                 * self.envelope.borrow_mut().source_audio(time_seconds)
         }
     }
@@ -475,16 +486,15 @@ pub mod tests {
 
     #[test]
     fn test_simple_orchestrator() {
-        let clock_settings = ClockSettings::new_defaults();
-
         let mut orchestrator = SimpleOrchestrator::new();
-        let envelope = Rc::new(RefCell::new(MiniEnvelope::new(
-            clock_settings.sample_rate(),
-            &EnvelopePreset::default(),
+        let envelope = wrapped_new::<MiniEnvelope>();
+        let oscillator = Rc::new(RefCell::new(MiniOscillator::new_with(
+            crate::common::WaveformType::Sine,
         )));
-        let mut oscillator = MiniOscillator::new(crate::common::WaveformType::Sine);
-        oscillator.set_frequency(MidiMessage::note_to_frequency(60));
-        let synth = SimpleSynth::new_with(Box::new(oscillator), envelope.clone());
+        oscillator
+            .borrow_mut()
+            .set_frequency(MidiMessage::note_to_frequency(60));
+        let synth = SimpleSynth::new_with(oscillator, envelope.clone());
 
         orchestrator.add_audio_source(Box::new(synth));
         let timer = SimpleTimer::new(2.0);
@@ -501,6 +511,7 @@ pub mod tests {
         orchestrator.add_clock_watcher(Box::new(trigger_off));
 
         let mut samples = Vec::<MonoSample>::new();
+        let clock_settings = ClockSettings::new_defaults();
         orchestrator.start(&mut Clock::new(&clock_settings), &mut samples);
         assert_eq!(samples.len(), 2 * 44100);
         assert_eq!(samples[0], 0.0); // because the envelope hasn't been triggered yet

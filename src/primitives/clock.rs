@@ -90,19 +90,20 @@ pub struct TimeSignature {
     pub bottom: u32,
 }
 
-impl Default for TimeSignature {
-    fn default() -> Self {
-        Self { top: 4, bottom: 4 }
-    }
-}
-
 impl TimeSignature {
-    pub(crate) fn new(top: u32, bottom: u32) -> Self {
+    #[allow(dead_code)]
+    pub(crate) fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
+    pub(crate) fn new_with(top: u32, bottom: u32) -> Self {
         if top == 0 {
             panic!("Time signature top number can't be zero.");
         }
         BeatValue::from_divisor(bottom as f32); // this will panic if number is invalid.
-        TimeSignature { top, bottom }
+        Self { top, bottom }
     }
 
     #[allow(dead_code)]
@@ -117,7 +118,13 @@ impl TimeSignature {
     /// assert_eq!(ts.bottom, 4);
     /// ```
     pub fn new_defaults() -> Self {
-        Self::new(4, 4)
+        Self::new_with(4, 4)
+    }
+}
+
+impl Default for TimeSignature {
+    fn default() -> Self {
+        Self { top: 4, bottom: 4 }
     }
 }
 
@@ -212,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_time_signature_valid() {
-        let ts = TimeSignature::new(4, 4);
+        let ts = TimeSignature::new();
         assert_eq!(ts.top, 4);
         assert_eq!(ts.bottom, 4);
 

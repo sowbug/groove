@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn test_multi_pattern_track() {
-        let time_signature = TimeSignature::new(7, 8);
+        let time_signature = TimeSignature::new_with(7, 8);
         let mut sequencer = PatternSequencer::new(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time signature
@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_pattern_default_note_value() {
-        let time_signature = TimeSignature::new(7, 4);
+        let time_signature = TimeSignature::new_with(7, 4);
         let mut sequencer = PatternSequencer::new(&time_signature);
         let pattern = Rc::new(RefCell::new(Pattern::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
