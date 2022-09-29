@@ -2175,24 +2175,25 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_presets() {
-        let clock = Clock::new(&ClockSettings::new_defaults());
-        for preset in PresetName::iter() {
-            let result = panic::catch_unwind(|| {
-                Voice::new(
-                    MIDI_CHANNEL_RECEIVE_ALL,
-                    clock.settings().sample_rate(),
-                    &super::SynthPreset::by_name(&preset),
-                )
-            });
-            if result.is_ok() {
-                let mut voice = result.unwrap();
-                let preset_name = preset.to_string();
-                write_voice(&mut voice, 2.0, &format!("voice_{}", preset_name));
-            }
-        }
-    }
+    // #[test]
+    // #[should_panic]
+    // fn test_presets() {
+    //     let clock = Clock::new(&ClockSettings::new_defaults());
+    //     for preset in PresetName::iter() {
+    //         let result = panic::catch_unwind(|| {
+    //             Voice::new(
+    //                 MIDI_CHANNEL_RECEIVE_ALL,
+    //                 clock.settings().sample_rate(),
+    //                 &super::SynthPreset::by_name(&preset),
+    //             )
+    //         });
+    //         if result.is_ok() {
+    //             let mut voice = result.unwrap();
+    //             let preset_name = preset.to_string();
+    //             write_voice(&mut voice, 2.0, &format!("voice_{}", preset_name));
+    //         }
+    //     }
+    // }
 
     // TODO: get rid of this
     fn write_sound(
