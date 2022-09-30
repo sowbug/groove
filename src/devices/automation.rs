@@ -1,4 +1,5 @@
 use crate::primitives::clock::Clock;
+use crate::primitives::WatchesClock;
 use crate::settings::automation::AutomationStepType;
 
 use std::collections::VecDeque;
@@ -60,7 +61,7 @@ impl AutomationTrip {
     }
 }
 
-impl TimeSlicer for AutomationTrip {
+impl WatchesClock for AutomationTrip {
     fn tick(&mut self, clock: &Clock) -> bool {
         if self.envelopes_in_place.is_empty() {
             // This is different from falling through the loop below because
@@ -105,7 +106,7 @@ struct AutomationEnvelope {
     current_value: f32, // TODO: this feels more like a working value, not a struct value
 }
 
-impl TimeSlicer for AutomationEnvelope {
+impl WatchesClock for AutomationEnvelope {
     fn tick(&mut self, clock: &Clock) -> bool {
         let total_length_beats = self.end_beat - self.start_beat;
         if total_length_beats != 0.0 {
@@ -150,7 +151,7 @@ impl Eq for AutomationEnvelope {}
 
 use crate::{primitives::clock::BeatValue, settings::automation::AutomationPathSettings};
 
-use super::traits::{AutomationMessage, AutomationSink, TimeSlicer};
+use super::traits::{AutomationMessage, AutomationSink};
 
 #[derive(Clone)]
 pub struct AutomationPath {

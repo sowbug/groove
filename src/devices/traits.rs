@@ -2,30 +2,10 @@ use crate::common::{
     self, MidiChannel, MidiMessage, MonoSample, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE,
 };
 use crate::primitives::clock::Clock;
+use crate::primitives::WatchesClock;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-
-/// Represents an aggregate that can do its work in time slices.
-/// Almost everything about digital music works this way. For example,
-/// a sine wave isn't a continuous wave. Rather, it's a series of
-/// samples across time. The sine wave can always tell you its value,
-/// as long as you provide a _when_ for the moment in time that you're
-/// asking about.
-///
-/// TimeSlicer's most natural unit of time is a *sample*. Typical digital
-/// sounds are 44.1KHz, so a tick in that case would be for 1/44100th of
-/// a second.
-pub trait TimeSlicer {
-    // Returns whether this device has completed all it has to do.
-    // A typical audio effect or instrument will always return true,
-    // because it doesn't know when it's done, but false would suggest
-    // that it does need to keep doing work.
-    //
-    // More often used for MIDI instruments.
-    #[allow(unused_variables)]
-    fn tick(&mut self, clock: &Clock) -> bool;
-}
 
 /// An AudioSource can provide audio in the form of digital samples.
 pub trait AudioSource {
@@ -134,20 +114,20 @@ pub trait MidiSink {
     fn handle_message_for_channel(&mut self, clock: &Clock, message: &MidiMessage);
 }
 
-pub trait SequencerTrait: MidiSource + TimeSlicer {}
-impl<T: MidiSource + TimeSlicer> SequencerTrait for T {}
+pub trait SequencerTrait: MidiSource + WatchesClock {}
+impl<T: MidiSource + WatchesClock> SequencerTrait for T {}
 
-pub trait AutomatorTrait: TimeSlicer {}
-impl<T: TimeSlicer> AutomatorTrait for T {}
+pub trait AutomatorTrait: WatchesClock {}
+impl<T: WatchesClock> AutomatorTrait for T {}
 
-pub trait InstrumentTrait: MidiSink + AudioSource + AutomationSink + TimeSlicer {}
-impl<T: MidiSink + AudioSource + AutomationSink + TimeSlicer> InstrumentTrait for T {}
+pub trait InstrumentTrait: MidiSink + AudioSource + AutomationSink + WatchesClock {}
+impl<T: MidiSink + AudioSource + AutomationSink + WatchesClock> InstrumentTrait for T {}
 
-pub trait ArpTrait: MidiSource + MidiSink + AutomationSink + TimeSlicer {}
-impl<T: MidiSource + MidiSink + AutomationSink + TimeSlicer> ArpTrait for T {}
+pub trait ArpTrait: MidiSource + MidiSink + AutomationSink + WatchesClock {}
+impl<T: MidiSource + MidiSink + AutomationSink + WatchesClock> ArpTrait for T {}
 
-pub trait EffectTrait: AudioSource + AudioSink + AutomationSink + TimeSlicer {}
-impl<T: AudioSource + AudioSink + AutomationSink + TimeSlicer> EffectTrait for T {}
+pub trait EffectTrait: AudioSource + AudioSink + AutomationSink + WatchesClock {}
+impl<T: AudioSource + AudioSink + AutomationSink + WatchesClock> EffectTrait for T {}
 
 #[cfg(test)]
 mod tests {
@@ -161,17 +141,17 @@ mod tests {
     use super::{AutomationMessage, *};
 
     /// Keeps asking for time slices until end of specified lifetime.
-    struct TestTimeSlicer {
+    struct TestWatchesClock {
         lifetime_seconds: f32,
     }
 
-    impl TimeSlicer for TestTimeSlicer {
+    impl WatchesClock for TestWatchesClock {
         fn tick(&mut self, clock: &Clock) -> bool {
             clock.seconds >= self.lifetime_seconds
         }
     }
 
-    impl TestTimeSlicer {
+    impl TestWatchesClock {
         pub fn new(lifetime_seconds: f32) -> Self {
             Self { lifetime_seconds }
         }
@@ -386,7 +366,7 @@ mod tests {
         }
     }
 
-    impl TimeSlicer for TestSimpleArpeggiator {
+    impl WatchesClock for TestSimpleArpeggiator {
         fn tick(&mut self, clock: &Clock) -> bool {
             // We don't actually pay any attention to self.tempo, but it's easy
             // enough to see that tempo could have influenced this MIDI message.
@@ -409,7 +389,7 @@ mod tests {
     #[test]
     fn test_time_slicer() {
         let mut clock = Clock::new_test();
-        let mut time_slicer = TestTimeSlicer::new(1.0);
+        let mut time_slicer = TestWatchesClock::new(1.0);
 
         loop {
             clock.tick();

@@ -4,10 +4,13 @@ use sorted_vec::SortedVec;
 
 use crate::{
     common::{MidiChannel, OrderedMidiMessage},
-    primitives::clock::{Clock, TimeSignature},
+    primitives::{
+        clock::{Clock, TimeSignature},
+        WatchesClock,
+    },
 };
 
-use super::traits::{MidiSink, MidiSource, TimeSlicer};
+use super::traits::{MidiSink, MidiSource};
 
 #[derive(Default)]
 pub struct MidiSequencer {
@@ -70,7 +73,7 @@ impl MidiSource for MidiSequencer {
     }
 }
 
-impl TimeSlicer for MidiSequencer {
+impl WatchesClock for MidiSequencer {
     fn tick(&mut self, clock: &Clock) -> bool {
         if self.midi_messages.is_empty() {
             // This is different from falling through the loop below because
@@ -105,9 +108,9 @@ mod tests {
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
         devices::{
             tests::NullDevice,
-            traits::{MidiSink, MidiSource, TimeSlicer},
+            traits::{MidiSink, MidiSource},
         },
-        primitives::clock::Clock,
+        primitives::{clock::Clock, WatchesClock},
     };
 
     use super::MidiSequencer;

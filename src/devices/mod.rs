@@ -2,12 +2,10 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiNote},
-    primitives::clock::Clock,
+    primitives::{clock::Clock, WatchesClock},
 };
 
-use self::traits::{
-    AudioSource, AutomationMessage, AutomationSink, MidiSink, MidiSource, TimeSlicer,
-};
+use self::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink, MidiSource};
 
 mod automation;
 pub mod effects;
@@ -73,7 +71,7 @@ impl MidiSource for Arpeggiator {
     }
 }
 
-impl TimeSlicer for Arpeggiator {
+impl WatchesClock for Arpeggiator {
     fn tick(&mut self, clock: &Clock) -> bool {
         if clock.beats >= self.next_beat {
             self.next_beat += 1.0;

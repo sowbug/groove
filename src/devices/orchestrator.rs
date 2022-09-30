@@ -1,4 +1,5 @@
 use crate::common::{DeviceId, MidiChannel, MonoSample};
+use crate::primitives::WatchesClock;
 use crate::primitives::clock::Clock;
 use crate::settings::effects::EffectSettings;
 use crate::settings::song::SongSettings;
@@ -18,7 +19,7 @@ use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
 use super::traits::{
     ArpTrait, AudioSink, AudioSource, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait,
-    MidiSource, TimeSlicer,
+    MidiSource,
 };
 use super::Arpeggiator;
 

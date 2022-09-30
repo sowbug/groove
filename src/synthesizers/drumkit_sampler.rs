@@ -4,8 +4,8 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
-    devices::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink, TimeSlicer},
-    general_midi::GeneralMidiPercussionProgram,
+    devices::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink},
+    general_midi::GeneralMidiPercussionProgram, primitives::{WatchesClock, clock::Clock},
 };
 
 #[derive(Default)]
@@ -50,7 +50,7 @@ impl MidiSink for Voice {
 
     fn handle_message_for_channel(
         &mut self,
-        clock: &crate::primitives::clock::Clock,
+        clock: &Clock,
         message: &crate::common::MidiMessage,
     ) {
         match message.status {
@@ -79,8 +79,8 @@ impl AudioSource for Voice {
         }
     }
 }
-impl TimeSlicer for Voice {
-    fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {
+impl WatchesClock for Voice {
+    fn tick(&mut self, clock: &Clock) -> bool {
         self.sample_pointer = clock.samples as usize - self.sample_clock_start;
         if self.sample_pointer >= self.samples.len() {
             self.is_playing = false;
@@ -164,7 +164,7 @@ impl MidiSink for Sampler {
 
     fn handle_message_for_channel(
         &mut self,
-        clock: &crate::primitives::clock::Clock,
+        clock: &Clock,
         message: &crate::common::MidiMessage,
     ) {
         match message.status {
@@ -201,8 +201,8 @@ impl AudioSource for Sampler {
     }
 }
 
-impl TimeSlicer for Sampler {
-    fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {
+impl WatchesClock for Sampler {
+    fn tick(&mut self, clock: &Clock) -> bool {
         for voice in self.note_to_voice.values_mut() {
             voice.tick(clock);
         }

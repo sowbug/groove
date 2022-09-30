@@ -5,7 +5,7 @@ use strum_macros::{Display, EnumIter};
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
-    devices::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink, TimeSlicer},
+    devices::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink},
     general_midi::GeneralMidiProgram,
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
     primitives::{
@@ -2094,7 +2094,7 @@ impl MidiSink for Synth {
     }
 }
 
-impl TimeSlicer for Synth {
+impl WatchesClock for Synth {
     fn tick(&mut self, clock: &Clock) -> bool {
         let mut done = true;
         self.current_value = 0.0;

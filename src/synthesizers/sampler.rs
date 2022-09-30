@@ -3,7 +3,7 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessageType, MonoSample},
-    devices::traits::{AudioSource, AutomationSink, MidiSink, TimeSlicer, AutomationMessage},
+    devices::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink}, primitives::WatchesClock,
 };
 
 #[derive(Default)]
@@ -84,7 +84,7 @@ impl AudioSource for Sampler {
         }
     }
 }
-impl TimeSlicer for Sampler {
+impl WatchesClock for Sampler {
     fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {
         self.sample_pointer = clock.samples as usize - self.sample_clock_start;
         if self.sample_pointer >= self.samples.len() {

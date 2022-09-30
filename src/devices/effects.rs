@@ -1,4 +1,4 @@
-use super::traits::{AudioSink, AudioSource, AutomationMessage, AutomationSink, TimeSlicer};
+use super::traits::{AudioSink, AudioSource, AutomationMessage, AutomationSink};
 use crate::{
     common::MonoSample,
     primitives::{
@@ -7,7 +7,7 @@ use crate::{
         filter::{MiniFilter2, MiniFilter2Type},
         gain::MiniGain,
         limiter::MiniLimiter,
-        TransformsAudio,
+        TransformsAudio, WatchesClock,
     },
 };
 use std::{cell::RefCell, rc::Rc};
@@ -16,7 +16,6 @@ pub struct Limiter {
     sources: Vec<Rc<RefCell<dyn AudioSource>>>,
     effect: MiniLimiter,
 }
-
 impl Limiter {
     pub fn new_with_params(min: MonoSample, max: MonoSample) -> Self {
         Self {
@@ -30,32 +29,28 @@ impl Limiter {
         Self::new_with_params(0.0, 1.0)
     }
 }
-
 impl Default for Limiter {
     fn default() -> Self {
         Self::new()
     }
 }
-
 impl AudioSink for Limiter {
     fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
         &mut self.sources
     }
 }
-
 impl AudioSource for Limiter {
     fn sample(&mut self) -> MonoSample {
         let input = self.gather_audio_sources();
         self.effect.transform_audio(input)
     }
 }
-
 impl AutomationSink for Limiter {
     fn handle_automation_message(&mut self, _message: &AutomationMessage) {
         todo!()
     }
 }
-impl TimeSlicer for Limiter {
+impl WatchesClock for Limiter {
     fn tick(&mut self, _clock: &Clock) -> bool {
         true
     }
@@ -99,7 +94,7 @@ impl AutomationSink for Gain {
         todo!()
     }
 }
-impl TimeSlicer for Gain {
+impl WatchesClock for Gain {
     fn tick(&mut self, _clock: &Clock) -> bool {
         true
     }
@@ -138,7 +133,7 @@ impl AudioSink for Bitcrusher {
     }
 }
 
-impl TimeSlicer for Bitcrusher {
+impl WatchesClock for Bitcrusher {
     fn tick(&mut self, clock: &Clock) -> bool {
         self.time_seconds = clock.seconds;
         true
@@ -257,7 +252,7 @@ impl AutomationSink for Filter {
     }
 }
 
-impl TimeSlicer for Filter {
+impl WatchesClock for Filter {
     fn tick(&mut self, _clock: &Clock) -> bool {
         true
     }

@@ -2,10 +2,10 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     common::{MonoSample, MONO_SAMPLE_SILENCE},
-    primitives::clock::Clock,
+    primitives::{clock::Clock, WatchesClock},
 };
 
-use super::traits::{AudioSink, AudioSource, AutomationSink, TimeSlicer};
+use super::traits::{AudioSink, AudioSource, AutomationSink};
 
 #[derive(Default)]
 pub struct Mixer {
@@ -45,7 +45,7 @@ impl AutomationSink for Mixer {
         todo!()
     }
 }
-impl TimeSlicer for Mixer {
+impl WatchesClock for Mixer {
     fn tick(&mut self, _clock: &Clock) -> bool {
         true
     }

@@ -85,6 +85,17 @@ pub trait SinksFakeMidi {
     fn handle_midi(&mut self, midi: f32, clock: &Clock);
 }
 
+/// Represents an aggregate that does its work in time slices.
+/// Almost everything about digital music works this way. For example,
+/// a sine wave isn't a continuous wave. Rather, it's a series of
+/// samples across time. The sine wave can always tell you its value,
+/// as long as you provide a _when_ for the moment in time that you're
+/// asking about.
+///
+/// This trait's most natural unit of time is a *sample*. Typical digital
+/// sounds are 44.1KHz, so a tick in that case would be for 1/44100th of
+/// a second. Typically, tick() will be called repeatedly, with
+/// clock.samples increasing by one each time.
 pub trait WatchesClock {
     /// returns true if we had a finite amount of known work that has finished.
     /// TODO: if we return true, then do we still expect to be called for the

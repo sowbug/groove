@@ -9,10 +9,13 @@ use sorted_vec::SortedVec;
 
 use crate::{
     common::{MidiChannel, MidiMessage},
-    primitives::clock::{BeatValue, Clock, TimeSignature},
+    primitives::{
+        clock::{BeatValue, Clock, TimeSignature},
+        WatchesClock,
+    },
 };
 
-use super::traits::{MidiSink, MidiSource, TimeSlicer};
+use super::traits::{MidiSink, MidiSource};
 
 #[derive(Default)]
 pub struct PatternSequencer {
@@ -115,7 +118,7 @@ impl PatternSequencer {
     }
 }
 
-impl TimeSlicer for PatternSequencer {
+impl WatchesClock for PatternSequencer {
     fn tick(&mut self, clock: &Clock) -> bool {
         // TODO: make this random-access by keeping sequenced_notes in place and scanning to find
         // next items to process. We will probably need some way to tell that the caller seeked.
