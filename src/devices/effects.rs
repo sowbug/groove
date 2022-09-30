@@ -1,4 +1,4 @@
-use super::traits::{AudioSink, AudioSource, AutomationMessage, AutomationSink};
+use super::traits::{AutomationMessage, AutomationSink};
 use crate::{
     common::MonoSample,
     primitives::{
@@ -7,13 +7,13 @@ use crate::{
         filter::{MiniFilter2, MiniFilter2Type},
         gain::MiniGain,
         limiter::MiniLimiter,
-        TransformsAudio, WatchesClock,
+        SinksAudio, SourcesAudio, TransformsAudio, WatchesClock,
     },
 };
 use std::{cell::RefCell, rc::Rc};
 
 pub struct Limiter {
-    sources: Vec<Rc<RefCell<dyn AudioSource>>>,
+    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     effect: MiniLimiter,
 }
 impl Limiter {
@@ -34,14 +34,14 @@ impl Default for Limiter {
         Self::new()
     }
 }
-impl AudioSink for Limiter {
-    fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
+impl SinksAudio for Limiter {
+    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
-impl AudioSource for Limiter {
-    fn sample(&mut self) -> MonoSample {
-        let input = self.gather_audio_sources();
+impl SourcesAudio for Limiter {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let input = self.gather_source_audio(clock);
         self.effect.transform_audio(input)
     }
 }
@@ -58,7 +58,7 @@ impl WatchesClock for Limiter {
 
 #[derive(Default)]
 pub struct Gain {
-    sources: Vec<Rc<RefCell<dyn AudioSource>>>,
+    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     effect: MiniGain,
 }
 
@@ -76,15 +76,15 @@ impl Gain {
     }
 }
 
-impl AudioSink for Gain {
-    fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
+impl SinksAudio for Gain {
+    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
 
-impl AudioSource for Gain {
-    fn sample(&mut self) -> MonoSample {
-        let input = self.gather_audio_sources();
+impl SourcesAudio for Gain {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let input = self.gather_source_audio(clock);
         self.effect.transform_audio(input)
     }
 }
@@ -101,7 +101,7 @@ impl WatchesClock for Gain {
 }
 
 pub struct Bitcrusher {
-    sources: Vec<Rc<RefCell<dyn AudioSource>>>,
+    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     effect: primitives::bitcrusher::Bitcrusher,
     time_seconds: f32,
 }
@@ -127,8 +127,8 @@ impl Default for Bitcrusher {
     }
 }
 
-impl AudioSink for Bitcrusher {
-    fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
+impl SinksAudio for Bitcrusher {
+    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
@@ -140,9 +140,9 @@ impl WatchesClock for Bitcrusher {
     }
 }
 
-impl AudioSource for Bitcrusher {
-    fn sample(&mut self) -> MonoSample {
-        let input = self.gather_audio_sources();
+impl SourcesAudio for Bitcrusher {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let input = self.gather_source_audio(clock);
         self.effect.transform_audio(input)
     }
 }
@@ -155,7 +155,7 @@ impl AutomationSink for Bitcrusher {
 
 #[allow(dead_code)]
 pub struct Filter {
-    sources: Vec<Rc<RefCell<dyn AudioSource>>>,
+    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     effect: MiniFilter2,
 
     filter_type: MiniFilter2Type,
@@ -227,15 +227,15 @@ impl Filter {
     }
 }
 
-impl AudioSink for Filter {
-    fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
+impl SinksAudio for Filter {
+    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
 
-impl AudioSource for Filter {
-    fn sample(&mut self) -> MonoSample {
-        let input = self.gather_audio_sources();
+impl SourcesAudio for Filter {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let input = self.gather_source_audio(clock);
         self.effect.transform_audio(input)
     }
 }
@@ -264,10 +264,8 @@ mod tests {
 
     use crate::{
         common::MonoSample,
-        devices::{
-            tests::SingleLevelDevice,
-            traits::{AudioSink, AudioSource},
-        },
+        devices::tests::SingleLevelDevice,
+        primitives::{clock::Clock, SourcesAudio, SinksAudio},
     };
 
     use super::Limiter;
@@ -277,20 +275,21 @@ mod tests {
     fn test_limiter() {
         const MIN: MonoSample = -0.75;
         const MAX: MonoSample = -MIN;
+        let clock = Clock::new_test();
         {
             let mut limiter = Limiter::new_with_params(MIN, MAX);
             limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.5))));
-            assert_eq!(limiter.sample(), 0.5);
+            assert_eq!(limiter.source_audio(&clock), 0.5);
         }
         {
             let mut limiter = Limiter::new_with_params(MIN, MAX);
             limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(-0.8))));
-            assert_eq!(limiter.sample(), MIN);
+            assert_eq!(limiter.source_audio(&clock), MIN);
         }
         {
             let mut limiter = Limiter::new_with_params(MIN, MAX);
             limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.8))));
-            assert_eq!(limiter.sample(), MAX);
+            assert_eq!(limiter.source_audio(&clock), MAX);
         }
 
         // multiple sources
@@ -298,11 +297,11 @@ mod tests {
             let mut limiter = Limiter::new_with_params(MIN, MAX);
             limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.2))));
             limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(0.6))));
-            assert_eq!(limiter.sample(), MAX);
+            assert_eq!(limiter.source_audio(&clock), MAX);
             limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(-1.0))));
-            assert_approx_eq!(limiter.sample(), -0.2);
+            assert_approx_eq!(limiter.source_audio(&clock), -0.2);
             limiter.add_audio_source(Rc::new(RefCell::new(SingleLevelDevice::new(-1.0))));
-            assert_eq!(limiter.sample(), MIN);
+            assert_eq!(limiter.source_audio(&clock), MIN);
         }
     }
 

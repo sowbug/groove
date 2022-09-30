@@ -1,34 +1,11 @@
 use crate::common::{
-    self, MidiChannel, MidiMessage, MonoSample, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE,
+    self, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE,
 };
 use crate::primitives::clock::Clock;
-use crate::primitives::WatchesClock;
+use crate::primitives::{SinksAudio, SourcesAudio, WatchesClock};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-
-/// An AudioSource can provide audio in the form of digital samples.
-pub trait AudioSource {
-    fn sample(&mut self) -> MonoSample;
-}
-
-/// An AudioSink can do something with an AudioSource's audio samples.
-/// It is given a set of AudioSources, and when it needs to do its work,
-/// it asks them for their samples.
-pub trait AudioSink {
-    fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>>;
-
-    fn gather_audio_sources(&mut self) -> MonoSample {
-        self.audio_sources()
-            .iter()
-            .map(|s| s.borrow_mut().sample())
-            .sum()
-    }
-
-    fn add_audio_source(&mut self, source: Rc<RefCell<dyn AudioSource>>) {
-        self.audio_sources().push(source);
-    }
-}
 
 /// An AutomationSource controls AutomationSinks through AutomationMessages.
 pub trait AutomationSource {
@@ -120,14 +97,14 @@ impl<T: MidiSource + WatchesClock> SequencerTrait for T {}
 pub trait AutomatorTrait: WatchesClock {}
 impl<T: WatchesClock> AutomatorTrait for T {}
 
-pub trait InstrumentTrait: MidiSink + AudioSource + AutomationSink + WatchesClock {}
-impl<T: MidiSink + AudioSource + AutomationSink + WatchesClock> InstrumentTrait for T {}
+pub trait InstrumentTrait: MidiSink + SourcesAudio + AutomationSink + WatchesClock {}
+impl<T: MidiSink + SourcesAudio + AutomationSink + WatchesClock> InstrumentTrait for T {}
 
 pub trait ArpTrait: MidiSource + MidiSink + AutomationSink + WatchesClock {}
 impl<T: MidiSource + MidiSink + AutomationSink + WatchesClock> ArpTrait for T {}
 
-pub trait EffectTrait: AudioSource + AudioSink + AutomationSink + WatchesClock {}
-impl<T: AudioSource + AudioSink + AutomationSink + WatchesClock> EffectTrait for T {}
+pub trait EffectTrait: SourcesAudio + SinksAudio + AutomationSink + WatchesClock {}
+impl<T: SourcesAudio + SinksAudio + AutomationSink + WatchesClock> EffectTrait for T {}
 
 #[cfg(test)]
 mod tests {
@@ -160,8 +137,8 @@ mod tests {
     #[derive(Default)]
     struct TestAudioSource {}
 
-    impl AudioSource for TestAudioSource {
-        fn sample(&mut self) -> crate::common::MonoSample {
+    impl SourcesAudio for TestAudioSource {
+        fn source_audio(&mut self, _clock: &Clock) -> crate::common::MonoSample {
             0.
         }
     }
@@ -173,19 +150,17 @@ mod tests {
     }
 
     #[derive(Default)]
-    struct TestAudioSink {
-        audio_sources: Vec<Rc<RefCell<dyn AudioSource>>>,
+    struct TestSinksAudio {
+        audio_sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     }
-
-    impl AudioSink for TestAudioSink {
-        fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
+    impl SinksAudio for TestSinksAudio {
+        fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
             &mut self.audio_sources
         }
     }
-
-    impl TestAudioSink {
+    impl TestSinksAudio {
         fn new() -> Self {
-            TestAudioSink {
+            Self {
                 ..Default::default()
             }
         }
@@ -403,16 +378,16 @@ mod tests {
     #[test]
     fn test_audio_source() {
         let mut s = TestAudioSource::new();
-        assert_eq!(s.sample(), MONO_SAMPLE_SILENCE);
+        assert_eq!(s.source_audio(&Clock::new()), MONO_SAMPLE_SILENCE);
     }
 
     #[test]
     fn test_audio_sink() {
-        let mut sink = TestAudioSink::new();
+        let mut sink = TestSinksAudio::new();
         let source = Rc::new(RefCell::new(TestAudioSource::new()));
-        assert!(sink.audio_sources().is_empty());
+        assert!(sink.sources().is_empty());
         sink.add_audio_source(source);
-        assert_eq!(sink.audio_sources().len(), 1);
+        assert_eq!(sink.sources().len(), 1);
     }
 
     #[test]

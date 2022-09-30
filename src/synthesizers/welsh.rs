@@ -5,7 +5,7 @@ use strum_macros::{Display, EnumIter};
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
-    devices::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink},
+    devices::traits::{AutomationMessage, AutomationSink, MidiSink},
     general_midi::GeneralMidiProgram,
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
     primitives::{
@@ -2109,8 +2109,8 @@ impl WatchesClock for Synth {
     }
 }
 
-impl AudioSource for Synth {
-    fn sample(&mut self) -> MonoSample {
+impl SourcesAudio for Synth {
+    fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
         self.current_value
     }
 }

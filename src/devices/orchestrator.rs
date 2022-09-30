@@ -1,6 +1,6 @@
 use crate::common::{DeviceId, MidiChannel, MonoSample};
-use crate::primitives::WatchesClock;
 use crate::primitives::clock::Clock;
+use crate::primitives::{SinksAudio, SourcesAudio, WatchesClock};
 use crate::settings::effects::EffectSettings;
 use crate::settings::song::SongSettings;
 use crate::settings::{DeviceSettings, InstrumentSettings};
@@ -18,8 +18,7 @@ use super::mixer::Mixer;
 use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
 use super::traits::{
-    ArpTrait, AudioSink, AudioSource, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait,
-    MidiSource,
+    ArpTrait, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait, MidiSource,
 };
 use super::Arpeggiator;
 
@@ -88,7 +87,7 @@ impl Orchestrator {
         for d in self.id_to_effect.values() {
             done = d.borrow_mut().tick(clock) && done;
         }
-        (self.master_mixer.borrow_mut().sample(), done)
+        (self.master_mixer.borrow_mut().source_audio(&clock), done)
     }
 
     pub fn perform_to_queue(&mut self, worker: &Worker<MonoSample>) -> anyhow::Result<()> {
@@ -113,7 +112,7 @@ impl Orchestrator {
         Ok(())
     }
 
-    pub fn add_master_mixer_source(&self, device: Rc<RefCell<dyn AudioSource>>) {
+    pub fn add_master_mixer_source(&self, device: Rc<RefCell<dyn SourcesAudio>>) {
         self.master_mixer.borrow_mut().add_audio_source(device);
     }
 
@@ -335,8 +334,8 @@ impl Orchestrator {
             let mut last_device_id: Option<DeviceId> = None;
             for device_id in patch_cable {
                 if let Some(ldi) = last_device_id {
-                    let output: Rc<RefCell<dyn AudioSource>> = self.get_audio_source_by_id(&ldi);
-                    let input: Rc<RefCell<dyn AudioSink>> = self.get_audio_sink_by_id(&device_id);
+                    let output: Rc<RefCell<dyn SourcesAudio>> = self.get_audio_source_by_id(&ldi);
+                    let input: Rc<RefCell<dyn SinksAudio>> = self.get_audio_sink_by_id(&device_id);
                     input.borrow_mut().add_audio_source(output);
                 }
                 last_device_id = Some(device_id);
@@ -352,7 +351,7 @@ impl Orchestrator {
         panic!("yo {}", id);
     }
 
-    fn get_audio_source_by_id(&self, id: &str) -> Rc<RefCell<dyn AudioSource>> {
+    fn get_audio_source_by_id(&self, id: &str) -> Rc<RefCell<dyn SourcesAudio>> {
         if self.id_to_instrument.contains_key(id) {
             return (self.id_to_instrument.get(id).unwrap()).clone();
         } else if self.id_to_effect.contains_key(id) {
@@ -361,7 +360,7 @@ impl Orchestrator {
         panic!("yo {}", id);
     }
 
-    fn get_audio_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn AudioSink>> {
+    fn get_audio_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn SinksAudio>> {
         if self.id_to_effect.contains_key(id) {
             return (self.id_to_effect.get(id).unwrap()).clone();
         }

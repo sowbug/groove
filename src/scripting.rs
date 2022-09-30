@@ -11,7 +11,7 @@ mod nothing {
             midi::MidiSmfReader,
             orchestrator::Orchestrator,
             sequencer::MidiSequencer,
-            traits::{AudioSink, AudioSource, SequencerTrait},
+            traits::{AudioSink, SourcesAudio, SequencerTrait},
         },
         synthesizers::welsh,
     };

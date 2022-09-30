@@ -4,8 +4,9 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
-    devices::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink},
-    general_midi::GeneralMidiPercussionProgram, primitives::{WatchesClock, clock::Clock},
+    devices::traits::{AutomationMessage, AutomationSink, MidiSink},
+    general_midi::GeneralMidiPercussionProgram,
+    primitives::{clock::Clock, SourcesAudio, WatchesClock},
 };
 
 #[derive(Default)]
@@ -48,11 +49,7 @@ impl MidiSink for Voice {
     #[allow(unused_variables)]
     fn set_midi_channel(&mut self, midi_channel: MidiChannel) {}
 
-    fn handle_message_for_channel(
-        &mut self,
-        clock: &Clock,
-        message: &crate::common::MidiMessage,
-    ) {
+    fn handle_message_for_channel(&mut self, clock: &Clock, message: &crate::common::MidiMessage) {
         match message.status {
             MidiMessageType::NoteOn => {
                 self.sample_pointer = 0;
@@ -66,8 +63,8 @@ impl MidiSink for Voice {
         }
     }
 }
-impl AudioSource for Voice {
-    fn sample(&mut self) -> MonoSample {
+impl SourcesAudio for Voice {
+    fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
         if self.is_playing {
             let sample = *self
                 .samples
@@ -162,11 +159,7 @@ impl MidiSink for Sampler {
         self.midi_channel = midi_channel;
     }
 
-    fn handle_message_for_channel(
-        &mut self,
-        clock: &Clock,
-        message: &crate::common::MidiMessage,
-    ) {
+    fn handle_message_for_channel(&mut self, clock: &Clock, message: &crate::common::MidiMessage) {
         match message.status {
             MidiMessageType::NoteOn => {
                 let note: u8 = message.data1;
@@ -185,11 +178,11 @@ impl MidiSink for Sampler {
     }
 }
 
-impl AudioSource for Sampler {
-    fn sample(&mut self) -> MonoSample {
+impl SourcesAudio for Sampler {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {   // TODO: this looks a lot like a Mixer
         let mut sum = 0.0;
         for v in self.note_to_voice.values_mut() {
-            sum += v.sample();
+            sum += v.source_audio(clock);
         }
         sum
         // couldn't use this because map gives us a non-mut

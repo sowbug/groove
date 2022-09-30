@@ -3,7 +3,8 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessageType, MonoSample},
-    devices::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink}, primitives::WatchesClock,
+    devices::traits::{AutomationMessage, AutomationSink, MidiSink},
+    primitives::{clock::Clock, SourcesAudio, WatchesClock},
 };
 
 #[derive(Default)]
@@ -71,8 +72,8 @@ impl MidiSink for Sampler {
     }
 }
 
-impl AudioSource for Sampler {
-    fn sample(&mut self) -> MonoSample {
+impl SourcesAudio for Sampler {
+    fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
         if self.is_playing {
             let sample = *self
                 .samples

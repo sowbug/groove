@@ -1,16 +1,16 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    common::{MonoSample, MONO_SAMPLE_SILENCE},
-    primitives::{clock::Clock, WatchesClock},
+    common::MonoSample,
+    primitives::{clock::Clock, SinksAudio, SourcesAudio, WatchesClock},
 };
 
-use super::traits::{AudioSink, AudioSource, AutomationSink};
+use super::traits::AutomationSink;
 
 #[derive(Default)]
 pub struct Mixer {
     // TODO: somehow this isn't implemented in terms of primitives::mixer::Mixer
-    sources: Vec<Rc<RefCell<dyn AudioSource>>>,
+    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
 }
 
 impl Mixer {
@@ -21,21 +21,14 @@ impl Mixer {
     }
 }
 
-impl AudioSource for Mixer {
-    fn sample(&mut self) -> MonoSample {
-        if self.audio_sources().is_empty() {
-            MONO_SAMPLE_SILENCE
-        } else {
-            self.audio_sources()
-                .iter_mut()
-                .map(|source| source.borrow_mut().sample())
-                .sum::<f32>()
-        }
+impl SourcesAudio for Mixer {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        self.gather_source_audio(clock)
     }
 }
 
-impl AudioSink for Mixer {
-    fn audio_sources(&mut self) -> &mut Vec<Rc<RefCell<dyn AudioSource>>> {
+impl SinksAudio for Mixer {
+    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }

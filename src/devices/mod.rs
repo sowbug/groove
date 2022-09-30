@@ -5,7 +5,7 @@ use crate::{
     primitives::{clock::Clock, WatchesClock},
 };
 
-use self::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink, MidiSource};
+use self::traits::{AutomationMessage, AutomationSink, MidiSink, MidiSource};
 
 mod automation;
 pub mod effects;
@@ -29,12 +29,6 @@ pub struct Arpeggiator {
     is_note_playing: bool,
 
     next_beat: f32,
-}
-
-impl AudioSource for Arpeggiator {
-    fn sample(&mut self) -> crate::common::MonoSample {
-        panic!()
-    }
 }
 
 impl AutomationSink for Arpeggiator {
@@ -117,10 +111,10 @@ impl Arpeggiator {
 mod tests {
     use crate::{
         common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample},
-        primitives::clock::Clock,
+        primitives::{clock::Clock, SourcesAudio},
     };
 
-    use super::traits::{AudioSource, AutomationMessage, AutomationSink, MidiSink};
+    use super::traits::{AutomationMessage, AutomationSink, MidiSink};
 
     #[derive(Default)]
     pub struct NullDevice {
@@ -188,8 +182,8 @@ mod tests {
         }
     }
 
-    impl AudioSource for SingleLevelDevice {
-        fn sample(&mut self) -> MonoSample {
+    impl SourcesAudio for SingleLevelDevice {
+        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             self.level
         }
     }

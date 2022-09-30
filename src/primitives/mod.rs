@@ -24,6 +24,7 @@ pub fn wrapped_new<T: Wrappable>() -> Rc<RefCell<T>> {
     Rc::new(RefCell::new(T::new()))
 }
 
+/// Provides audio in the form of digital samples.
 pub trait SourcesAudio {
     // Lots of implementers don't care about clock here,
     // but some do (oscillators, LFOs), and it's a lot cleaner
@@ -34,6 +35,8 @@ pub trait SourcesAudio {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample;
 }
 
+/// Can do something with audio samples. When it needs to do its
+/// work, it asks its SourcesAudio for their samples.
 pub trait SinksAudio {
     fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>>;
 
