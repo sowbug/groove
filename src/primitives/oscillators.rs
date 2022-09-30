@@ -145,6 +145,8 @@ impl SourcesAudio for MiniOscillator {
 
 #[cfg(test)]
 mod tests {
+    use std::{cell::RefCell, rc::Rc};
+
     use crate::{
         common::{MidiMessage, MidiNote},
         preset::OscillatorPreset,
@@ -152,7 +154,8 @@ mod tests {
             clock::WatchedClock,
             tests::{
                 write_orchestration_to_file, write_source_to_file, SimpleOrchestrator, SimpleTimer,
-            }, SourcesAudio,
+            },
+            SourcesAudio,
         },
     };
 
@@ -177,13 +180,13 @@ mod tests {
     #[test]
     fn test_oscillator_basic_waveforms() {
         let mut orchestrator = SimpleOrchestrator::new();
-        orchestrator.add_audio_source(Box::new(create_oscillator(
+        orchestrator.add_audio_source(Rc::new(RefCell::new(create_oscillator(
             WaveformType::Sine,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
-        )));
+        ))));
         let mut clock = WatchedClock::new();
-        clock.add_watcher(Box::new(SimpleTimer::new(2.0)));
+        clock.add_watcher(Rc::new(RefCell::new(SimpleTimer::new(2.0))));
         write_orchestration_to_file(&mut orchestrator, &mut clock, "oscillator_sine_c3");
 
         let mut oscillator = create_oscillator(

@@ -33,9 +33,9 @@ pub trait SourcesAudio {
 }
 
 pub trait SinksAudio {
-    fn sources(&mut self) -> &mut Vec<Box<dyn SourcesAudio>>;
+    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>>;
 
-    fn add_audio_source(&mut self, source: Box<dyn SourcesAudio>) {
+    fn add_audio_source(&mut self, source: Rc<RefCell<dyn SourcesAudio>>) {
         self.sources().push(source);
     }
 
@@ -45,7 +45,7 @@ pub trait SinksAudio {
         }
         self.sources()
             .iter_mut()
-            .map(|source| source.source_audio(time_seconds))
+            .map(|source| source.borrow_mut().source_audio(time_seconds))
             .sum::<f32>()
     }
 }
@@ -76,7 +76,7 @@ pub enum SinksControlParamType {
 }
 
 pub trait SourcesFakeMidi {
-    fn add_midi_sink(&mut self, sink: Box<dyn SinksFakeMidi>);
+    fn add_midi_sink(&mut self, sink: Rc<RefCell<dyn SinksFakeMidi>>);
 }
 
 pub trait SinksFakeMidi {
@@ -395,7 +395,7 @@ pub mod tests {
             Self { main_mixer }
         }
 
-        pub fn add_audio_source(&mut self, source: Box<dyn SourcesAudio>) {
+        pub fn add_audio_source(&mut self, source: Rc<RefCell<dyn SourcesAudio>>) {
             self.main_mixer.add_audio_source(source);
         }
 
@@ -506,6 +506,37 @@ pub mod tests {
         }
     }
 
+    /// Lets a SourcesAudio act like an IsController
+    struct ContinuousControl {
+        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
+        source: Box<dyn SourcesAudio>,
+    }
+    impl ContinuousControl {
+        fn new_with(source: Box<dyn SourcesAudio>) -> Self {
+            Self {
+                control_sinks: Vec::new(),
+                source: source,
+            }
+        }
+    }
+    impl SourcesControl for ContinuousControl {
+        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+            &self.control_sinks
+        }
+
+        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+            &mut self.control_sinks
+        }
+    }
+    impl WatchesClock for ContinuousControl {
+        fn tick(&mut self, time_seconds: f32) -> bool {
+            let value = self.source.source_audio(time_seconds);
+            self.issue_control(time_seconds, &SinksControlParamType::Primary { value });
+            true
+        }
+    }
+    impl IsController for ContinuousControl {}
+
     #[test]
     fn test_simple_orchestrator() {
         let mut clock = WatchedClock::new();
@@ -520,23 +551,30 @@ pub mod tests {
         oscillator
             .borrow_mut()
             .set_frequency(MidiMessage::note_to_frequency(60));
-        let synth = SimpleSynth::new_with(oscillator, envelope.clone());
-        let mut effect = MiniGain::new();
-        effect.add_audio_source(Box::new(synth));
-        orchestrator.add_audio_source(Box::new(effect));
+        let synth = Rc::new(RefCell::new(SimpleSynth::new_with(
+            oscillator,
+            envelope.clone(),
+        )));
+        let effect = Rc::new(RefCell::new(MiniGain::new()));
+        effect.borrow_mut().add_audio_source(synth.clone());
+        orchestrator.add_audio_source(effect.clone());
+
+        let mut controller = ContinuousControl::new_with(Box::new(MiniOscillator::new()));
+        let weak_effect = Rc::downgrade(&effect);
+        controller.add_control_sink(weak_effect);
 
         let timer = SimpleTimer::new(2.0);
-        clock.add_watcher(Box::new(timer));
+        clock.add_watcher(Rc::new(RefCell::new(timer)));
 
         let mut trigger_on = SimpleTrigger::new(1.0, 1.0);
         let weak_envelope_on = Rc::downgrade(&envelope);
         trigger_on.add_control_sink(weak_envelope_on);
-        clock.add_watcher(Box::new(trigger_on));
+        clock.add_watcher(Rc::new(RefCell::new(trigger_on)));
 
         let mut trigger_off = SimpleTrigger::new(1.5, 0.0);
         let weak_envelope_off = Rc::downgrade(&envelope);
         trigger_off.add_control_sink(weak_envelope_off);
-        clock.add_watcher(Box::new(trigger_off));
+        clock.add_watcher(Rc::new(RefCell::new(trigger_off)));
 
         let mut samples = Vec::<MonoSample>::new();
         orchestrator.start(&mut clock, &mut samples);

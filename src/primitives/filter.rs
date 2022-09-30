@@ -1,4 +1,4 @@
-use std::f64::consts::PI;
+use std::{f64::consts::PI, rc::Rc, cell::RefCell};
 
 use crate::common::MonoSample;
 
@@ -57,7 +57,7 @@ impl Default for MiniFilter2Type {
 
 #[derive(Default)]
 pub struct MiniFilter2 {
-    sources: Vec<Box<dyn SourcesAudio>>,
+    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     filter_type: MiniFilter2Type,
     sample_rate: usize,
     cutoff: f32,
@@ -513,7 +513,7 @@ impl MiniFilter2 {
 }
 
 impl SinksAudio for MiniFilter2 {
-    fn sources(&mut self) -> &mut Vec<Box<dyn SourcesAudio>> {
+    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
@@ -552,7 +552,10 @@ impl SinksControl for MiniFilter2 {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Weak};
+    use std::{
+        cell::RefCell,
+        rc::{Rc, Weak},
+    };
 
     use crate::{
         common::{MidiMessage, MidiNote, WaveformType},
@@ -670,7 +673,7 @@ mod tests {
         controller: &mut dyn IsController,
         basename: &str,
     ) {
-        let source = Box::new(MiniOscillator::new_with(WaveformType::Noise));
+        let source = Rc::new(RefCell::new(MiniOscillator::new_with(WaveformType::Noise)));
         filter.add_audio_source(source);
         write_effect_to_file(filter, controller, basename);
     }

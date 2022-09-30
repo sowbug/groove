@@ -1,3 +1,5 @@
+use std::{rc::Rc, cell::RefCell};
+
 use serde::{Deserialize, Serialize};
 
 use crate::settings::ClockSettings;
@@ -168,7 +170,7 @@ impl Clock {
 #[derive(Default)]
 pub struct WatchedClock {
     clock: Clock,
-    watchers: Vec<Box<dyn WatchesClock>>,
+    watchers: Vec<Rc<RefCell<dyn WatchesClock>>>,
 }
 
 impl WatchedClock {
@@ -182,14 +184,14 @@ impl WatchedClock {
         &self.clock
     }
 
-    pub fn add_watcher(&mut self, watcher: Box<dyn WatchesClock>) {
+    pub fn add_watcher(&mut self, watcher: Rc<RefCell<dyn WatchesClock>>) {
         self.watchers.push(watcher);
     }
 
     pub fn visit_watchers(&mut self) -> bool {
         let mut done = true;
         for watcher in self.watchers.iter_mut() {
-            done &= watcher.tick(self.clock.seconds);
+            done &= watcher.borrow_mut().tick(self.clock.seconds);
         }
         done
     }

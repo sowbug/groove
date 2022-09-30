@@ -1,10 +1,12 @@
+use std::{rc::Rc, cell::RefCell};
+
 use crate::common::MonoSample;
 
 use super::{SinksAudio, SourcesAudio, TransformsAudio};
 
 #[derive(Default)]
 pub struct MiniLimiter {
-    sources: Vec<Box<dyn SourcesAudio>>,
+    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
 
     min: MonoSample,
     max: MonoSample,
@@ -20,7 +22,7 @@ impl MiniLimiter {
 }
 
 impl SinksAudio for MiniLimiter {
-    fn sources(&mut self) -> &mut Vec<Box<dyn SourcesAudio>> {
+    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
@@ -41,7 +43,7 @@ mod tests {
     fn test_limiter_mainline() {
         const MAX: MonoSample = 0.9;
         let mut limiter = MiniLimiter::new(0.0, MAX);
-        limiter.add_audio_source(Box::new(TestAlwaysTooLoudDevice::new()));
+        limiter.add_audio_source(Rc::new(RefCell::new(TestAlwaysTooLoudDevice::new())));
         assert_eq!(limiter.source_audio(0.0), MAX);
     }
 }

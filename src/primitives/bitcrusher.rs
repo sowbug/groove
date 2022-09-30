@@ -1,10 +1,12 @@
+use std::{rc::Rc, cell::RefCell};
+
 use crate::common::MonoSample;
 
 use super::{SinksAudio, SourcesAudio, TransformsAudio};
 
 #[derive(Default)]
 pub struct Bitcrusher {
-    sources: Vec<Box<dyn SourcesAudio>>,
+    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     bits_to_crush: u8,
 }
 
@@ -23,7 +25,7 @@ impl Bitcrusher {
 }
 
 impl SinksAudio for Bitcrusher {
-    fn sources(&mut self) -> &mut Vec<Box<dyn SourcesAudio>> {
+    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
@@ -55,8 +57,8 @@ mod tests {
     #[test]
     fn test_bitcrusher_multisource() {
         let mut fx = Bitcrusher::new(8);
-        fx.add_audio_source(Box::new(TestAlwaysSameLevelDevice::new(PI - 3.0)));
-        fx.add_audio_source(Box::new(TestAlwaysSameLevelDevice::new(PI - 3.0)));
+        fx.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(PI - 3.0))));
+        fx.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(PI - 3.0))));
         assert_eq!(fx.source_audio(0.0), 2.0 * CRUSHED_PI);
     }
 }
