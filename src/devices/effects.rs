@@ -68,16 +68,16 @@ pub struct Gain {
 }
 
 impl Gain {
-    pub fn new_with_params(amount: f32) -> Self {
+    pub fn new_with(amount: f32) -> Self {
         Self {
             sources: Vec::new(),
-            effect: MiniGain::new(amount), // TODO: consider new_with_params() convention
+            effect: MiniGain::new_with(amount),
         }
     }
 
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self::new_with_params(1.0)
+        Self::new_with(1.0)
     }
 }
 

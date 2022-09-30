@@ -9,7 +9,14 @@ pub struct MiniGain {
 }
 
 impl MiniGain {
-    pub fn new(amount: f32) -> Self {
+    pub fn new() -> Self {
+        Self {
+            amount: 1.0,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_with(amount: f32) -> Self {
         Self {
             amount,
             ..Default::default()
@@ -31,14 +38,21 @@ impl TransformsAudio for MiniGain {
 
 #[cfg(test)]
 mod tests {
-    use crate::primitives::tests::TestAlwaysLoudDevice;
+    use crate::primitives::tests::{TestAlwaysLoudDevice, TestAlwaysSameLevelDevice};
 
     use super::*;
 
     #[test]
     fn test_gain_mainline() {
-        let mut gain = MiniGain::new(1.1);
+        let mut gain = MiniGain::new_with(1.1);
         gain.add_audio_source(Box::new(TestAlwaysLoudDevice::new()));
         assert_eq!(gain.source_audio(0.0), 1.1);
+    }
+
+    #[test]
+    fn test_gain_pola() { // principle of least astonishment: does a default instance adhere?
+        let mut gain = MiniGain::new();
+        gain.add_audio_source(Box::new(TestAlwaysSameLevelDevice::new(0.888)));
+        assert_eq!(gain.source_audio(0.0), 0.888);
     }
 }

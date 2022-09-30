@@ -119,7 +119,8 @@ pub mod tests {
 
     use crate::common::{MidiMessage, MONO_SAMPLE_MAX, MONO_SAMPLE_SILENCE};
     use crate::preset::EnvelopePreset;
-    use crate::primitives::wrapped_new;
+    use crate::primitives::gain::MiniGain;
+    use crate::primitives::{wrapped_new, SinksAudio};
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
     use super::clock::WatchedClock;
@@ -520,8 +521,10 @@ pub mod tests {
             .borrow_mut()
             .set_frequency(MidiMessage::note_to_frequency(60));
         let synth = SimpleSynth::new_with(oscillator, envelope.clone());
+        let mut effect = MiniGain::new();
+        effect.add_audio_source(Box::new(synth));
+        orchestrator.add_audio_source(Box::new(effect));
 
-        orchestrator.add_audio_source(Box::new(synth));
         let timer = SimpleTimer::new(2.0);
         clock.add_watcher(Box::new(timer));
 

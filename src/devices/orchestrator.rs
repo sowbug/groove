@@ -228,7 +228,7 @@ impl Orchestrator {
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::Gain { id, amount } => {
-                        let device = Rc::new(RefCell::new(Gain::new_with_params(amount)));
+                        let device = Rc::new(RefCell::new(Gain::new_with(amount)));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::Bitcrusher { id, bits_to_crush } => {
