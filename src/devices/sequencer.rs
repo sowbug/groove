@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Weak};
 
 use sorted_vec::SortedVec;
 
@@ -6,11 +6,9 @@ use crate::{
     common::{MidiChannel, OrderedMidiMessage},
     primitives::{
         clock::{Clock, TimeSignature},
-        WatchesClock,
+        SinksMidi, SourcesMidi, WatchesClock,
     },
 };
-
-use super::traits::{MidiSink, MidiSource};
 
 #[derive(Default)]
 pub struct MidiSequencer {
@@ -19,7 +17,7 @@ pub struct MidiSequencer {
     time_signature: TimeSignature,
 
     // TODO: if this gets too unwieldy, consider https://crates.io/crates/multimap
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>>,
+    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
 
     midi_messages: SortedVec<OrderedMidiMessage>,
 }
@@ -56,20 +54,17 @@ impl MidiSequencer {
     }
 
     fn dispatch_midi_message(&self, midi_message: &OrderedMidiMessage, clock: &Clock) {
-        let sinks = self
-            .channels_to_sink_vecs
-            .get(&midi_message.message.channel)
-            .unwrap();
-        for sink in sinks {
-            sink.borrow_mut()
-                .handle_message_for_channel(clock, &midi_message.message);
-        }
+        self.issue_midi(clock, &midi_message.message);
     }
 }
 
-impl MidiSource for MidiSequencer {
-    fn midi_sinks(&mut self) -> &mut HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>> {
+impl SourcesMidi for MidiSequencer {
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
         &mut self.channels_to_sink_vecs
+    }
+
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+        &self.channels_to_sink_vecs
     }
 }
 
@@ -106,11 +101,8 @@ mod tests {
 
     use crate::{
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
-        devices::{
-            tests::NullDevice,
-            traits::{MidiSink, MidiSource},
-        },
-        primitives::{clock::Clock, WatchesClock},
+        devices::tests::NullDevice,
+        primitives::{clock::Clock, SinksMidi, SourcesMidi, WatchesClock},
     };
 
     use super::MidiSequencer;
@@ -148,7 +140,8 @@ mod tests {
             message: MidiMessage::note_off_c4(),
         });
 
-        sequencer.add_midi_sink(device.clone(), 0);
+        let sink = Rc::downgrade(&device);
+        sequencer.add_midi_sink(0, sink);
 
         sequencer.tick(&clock);
         {
@@ -175,12 +168,14 @@ mod tests {
         let device_1 = Rc::new(RefCell::new(NullDevice::new()));
         assert!(!device_1.borrow().is_playing);
         device_1.borrow_mut().set_midi_channel(0);
-        sequencer.add_midi_sink(device_1.clone(), 0);
+        let sink = Rc::downgrade(&device_1);
+        sequencer.add_midi_sink(0, sink);
 
         let device_2 = Rc::new(RefCell::new(NullDevice::new()));
         assert!(!device_2.borrow().is_playing);
         device_2.borrow_mut().set_midi_channel(1);
-        sequencer.add_midi_sink(device_2.clone(), 1);
+        let sink = Rc::downgrade(&device_2);
+        sequencer.add_midi_sink(1, sink);
 
         sequencer.add_message(OrderedMidiMessage {
             when: sequencer.tick_for_beat(&clock, 0),

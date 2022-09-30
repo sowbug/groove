@@ -1,6 +1,6 @@
 use crate::common::{DeviceId, MidiChannel, MonoSample};
 use crate::primitives::clock::Clock;
-use crate::primitives::{SinksAudio, SourcesAudio, WatchesClock, SinksControl};
+use crate::primitives::{SinksAudio, SinksControl, SourcesAudio, SourcesMidi, WatchesClock};
 use crate::settings::effects::EffectSettings;
 use crate::settings::song::SongSettings;
 use crate::settings::{DeviceSettings, InstrumentSettings};
@@ -17,7 +17,7 @@ use super::effects::{Bitcrusher, Filter, Gain, Limiter};
 use super::mixer::Mixer;
 use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
-use super::traits::{ArpTrait, AutomatorTrait, EffectTrait, InstrumentTrait, MidiSource};
+use super::traits::{ArpTrait, AutomatorTrait, EffectTrait, InstrumentTrait};
 use super::Arpeggiator;
 
 /// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
@@ -129,14 +129,17 @@ impl Orchestrator {
         channel: MidiChannel,
     ) {
         self.id_to_instrument.insert(id, instrument.clone());
+        let sink = Rc::downgrade(&instrument);
         self.midi_sequencer
             .borrow_mut()
-            .add_midi_sink(instrument.clone(), channel);
+            .add_midi_sink(channel, sink);
+        let sink = Rc::downgrade(&instrument);
         self.pattern_sequencer
             .borrow_mut()
-            .add_midi_sink(instrument.clone(), channel);
+            .add_midi_sink(channel, sink);
         for arp in self.id_to_arp.values() {
-            arp.borrow_mut().add_midi_sink(instrument.clone(), channel);
+            let sink = Rc::downgrade(&instrument);
+            arp.borrow_mut().add_midi_sink(channel, sink);
         }
     }
 
@@ -147,12 +150,14 @@ impl Orchestrator {
         channel: MidiChannel,
     ) {
         self.id_to_arp.insert(id, arp.clone());
+        let sink = Rc::downgrade(&arp);
         self.midi_sequencer
             .borrow_mut()
-            .add_midi_sink(arp.clone(), channel);
+            .add_midi_sink(channel, sink);
+        let sink = Rc::downgrade(&arp);
         self.pattern_sequencer
             .borrow_mut()
-            .add_midi_sink(arp.clone(), channel);
+            .add_midi_sink(channel, sink);
     }
 
     fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn EffectTrait>>) {

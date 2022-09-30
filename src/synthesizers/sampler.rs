@@ -2,9 +2,10 @@
 use hound;
 
 use crate::{
-    common::{MidiChannel, MidiMessageType, MonoSample},
-    devices::traits::MidiSink,
-    primitives::{clock::Clock, SinksControl, SinksControlParam, SourcesAudio, WatchesClock},
+    common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample},
+    primitives::{
+        clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesAudio, WatchesClock,
+    },
 };
 
 #[derive(Default)]
@@ -44,7 +45,7 @@ impl SinksControl for Sampler {
         todo!()
     }
 }
-impl MidiSink for Sampler {
+impl SinksMidi for Sampler {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         self.midi_channel
     }
@@ -53,11 +54,7 @@ impl MidiSink for Sampler {
         self.midi_channel = midi_channel;
     }
 
-    fn handle_message_for_channel(
-        &mut self,
-        clock: &crate::primitives::clock::Clock,
-        message: &crate::common::MidiMessage,
-    ) {
+    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
         match message.status {
             MidiMessageType::NoteOn => {
                 self.sample_pointer = 0;
@@ -71,7 +68,6 @@ impl MidiSink for Sampler {
         }
     }
 }
-
 impl SourcesAudio for Sampler {
     fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
         if self.is_playing {

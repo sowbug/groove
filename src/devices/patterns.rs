@@ -2,7 +2,7 @@ use std::{
     cell::RefCell,
     cmp::{self, Ordering},
     collections::HashMap,
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 
 use sorted_vec::SortedVec;
@@ -11,18 +11,16 @@ use crate::{
     common::{MidiChannel, MidiMessage},
     primitives::{
         clock::{BeatValue, Clock, TimeSignature},
-        WatchesClock,
+        SinksMidi, SourcesMidi, WatchesClock,
     },
 };
-
-use super::traits::{MidiSink, MidiSource};
 
 #[derive(Default)]
 pub struct PatternSequencer {
     time_signature: TimeSignature,
     cursor_beats: f32, // TODO: this should be a fixed-precision type
 
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>>,
+    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
     sequenced_notes: SortedVec<OrderedNote>,
 }
 
@@ -105,7 +103,7 @@ impl PatternSequencer {
     }
 
     fn dispatch_note(&mut self, note: &OrderedNote, clock: &Clock) {
-        self.broadcast_midi_message(clock, &note.message);
+        self.issue_midi(clock, &note.message);
     }
 
     pub(crate) fn reset_cursor(&mut self) {
@@ -146,10 +144,15 @@ impl WatchesClock for PatternSequencer {
     }
 }
 
-impl MidiSource for PatternSequencer {
-    fn midi_sinks(&mut self) -> &mut HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>> {
+impl SourcesMidi for PatternSequencer {
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
         &mut self.channels_to_sink_vecs
     }
+
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+        &self.channels_to_sink_vecs
+    }
+    
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

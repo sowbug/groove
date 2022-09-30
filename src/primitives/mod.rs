@@ -1,9 +1,13 @@
 use std::{
     cell::RefCell,
+    collections::HashMap,
     rc::{Rc, Weak},
 };
 
-use crate::common::{MonoSample, MONO_SAMPLE_SILENCE};
+use crate::common::{
+    MidiChannel, MidiMessage, MonoSample, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE,
+    MONO_SAMPLE_SILENCE,
+};
 
 use self::clock::Clock;
 
@@ -81,12 +85,51 @@ pub enum SinksControlParam {
     Secondary { value: f32 },
 }
 
-pub trait SourcesFakeMidi {
-    fn add_midi_sink(&mut self, sink: Rc<RefCell<dyn SinksFakeMidi>>);
+pub trait SourcesMidi {
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>;
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>;
+
+    fn add_midi_sink(&mut self, channel: MidiChannel, sink: Weak<RefCell<dyn SinksMidi>>) {
+        self.midi_sinks_mut().entry(channel).or_default().push(sink);
+    }
+    // TODO: does clock really need to be passed through here?
+    //
+    // Samplers need it to know when a sample started playback, and synths need to know it
+    // to keep track of when envelopes get triggered.
+    //
+    // They could either keep track of the tick() clock, which is inaccurate because
+    // they only know the value from the last tick() call (which would put the responsibility on
+    // them to do clock math), or we could tell everyone the current clock value at the
+    // start of the event loop, which feels architecturally nicer, but it also reduces memory
+    // locality (call everyone, then call everyone again) -- maybe not a problem.
+    //
+    // TL;DR: yeah, maybe it does really need to be here.
+    fn issue_midi(&self, clock: &Clock, message: &MidiMessage) {
+        if self.midi_sinks().contains_key(&message.channel) {
+            for sink in self.midi_sinks().get(&message.channel).unwrap() {
+                if let Some(sink_up) = sink.upgrade() {
+                    sink_up.borrow_mut().handle_midi(clock, message);
+                }
+            }
+        }
+    }
 }
 
-pub trait SinksFakeMidi {
-    fn handle_midi(&mut self, midi: f32, clock: &Clock);
+pub trait SinksMidi {
+    fn midi_channel(&self) -> MidiChannel;
+    fn set_midi_channel(&mut self, midi_channel: MidiChannel);
+
+    fn handle_midi(&mut self, clock: &Clock, message: &MidiMessage) {
+        if self.midi_channel() == MIDI_CHANNEL_RECEIVE_NONE {
+            return;
+        }
+        if self.midi_channel() == MIDI_CHANNEL_RECEIVE_ALL || self.midi_channel() == message.channel
+        {
+            // TODO: SourcesMidi is already going through trouble to respect channels. Is this redundant?
+            self.handle_midi_for_channel(clock, message);
+        }
+    }
+    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage);
 }
 
 /// Represents an aggregate that does its work in time slices.

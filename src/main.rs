@@ -4,11 +4,10 @@
 use libgroove::{
     common::MonoSample,
     devices::{
-        midi::MidiSmfReader,
-        orchestrator::Orchestrator,
-        sequencer::MidiSequencer,
-        traits::{InstrumentTrait, MidiSource},
+        midi::MidiSmfReader, orchestrator::Orchestrator, sequencer::MidiSequencer,
+        traits::InstrumentTrait,
     },
+    primitives::SourcesMidi,
     settings::song::SongSettings,
     synthesizers::{
         drumkit_sampler::Sampler,
@@ -56,29 +55,30 @@ impl ClDaw {
         };
         MidiSmfReader::load_sequencer(&data, result.orchestrator.midi_sequencer());
 
-        for channel_number in 0..MidiSequencer::connected_channel_count() {
-            let synth: Rc<RefCell<dyn InstrumentTrait>> = if channel_number == 9 {
-                Rc::new(RefCell::new(Sampler::new_from_files(channel_number)))
+        for channel in 0..MidiSequencer::connected_channel_count() {
+            let synth: Rc<RefCell<dyn InstrumentTrait>> = if channel == 9 {
+                Rc::new(RefCell::new(Sampler::new_from_files(channel)))
             } else {
                 Rc::new(RefCell::new(Synth::new(
-                    channel_number,
+                    channel,
                     result.orchestrator.settings().clock.sample_rate(),
                     SynthPreset::by_name(&PresetName::Piano),
                 )))
             };
             // We make up IDs here, as we know that MIDI won't be referencing them.
             result.orchestrator.add_instrument_by_id(
-                format!("instrument-{}", channel_number),
+                format!("instrument-{}", channel),
                 synth.clone(),
-                channel_number,
+                channel,
             );
             result.orchestrator.add_master_mixer_source(synth.clone());
 
+            let sink = Rc::downgrade(&synth);
             result
                 .orchestrator
                 .midi_sequencer()
                 .borrow_mut()
-                .add_midi_sink(synth, channel_number);
+                .add_midi_sink(channel, sink);
         }
         result
     }

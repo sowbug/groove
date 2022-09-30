@@ -103,8 +103,7 @@ mod tests {
 
     use crate::{
         common::{MidiChannel, MidiMessage, MidiMessageType},
-        devices::traits::MidiSink,
-        primitives::{clock::Clock, SinksControl, SinksControlParam},
+        primitives::{clock::Clock, SinksControl, SinksControlParam, SinksMidi},
     };
 
     use super::OscillatorPreset;
@@ -131,7 +130,7 @@ mod tests {
             todo!()
         }
     }
-    impl MidiSink for NullDevice {
+    impl SinksMidi for NullDevice {
         fn midi_channel(&self) -> crate::common::MidiChannel {
             self.midi_channel
         }
@@ -140,7 +139,7 @@ mod tests {
             self.midi_channel = midi_channel;
         }
 
-        fn handle_message_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
+        fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
             self.midi_messages_received += 1;
 
             match message.status {

@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use hound;
 
 use crate::{
-    common::{MidiChannel, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
-    devices::traits::MidiSink,
+    common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
     general_midi::GeneralMidiPercussionProgram,
-    primitives::{clock::Clock, SinksControl, SinksControlParam, SourcesAudio, WatchesClock},
+    primitives::{
+        clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesAudio, WatchesClock,
+    },
 };
 
 #[derive(Default)]
@@ -41,7 +42,7 @@ impl SinksControl for Voice {
         todo!()
     }
 }
-impl MidiSink for Voice {
+impl SinksMidi for Voice {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         MIDI_CHANNEL_RECEIVE_ALL
     }
@@ -49,7 +50,7 @@ impl MidiSink for Voice {
     #[allow(unused_variables)]
     fn set_midi_channel(&mut self, midi_channel: MidiChannel) {}
 
-    fn handle_message_for_channel(&mut self, clock: &Clock, message: &crate::common::MidiMessage) {
+    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
         match message.status {
             MidiMessageType::NoteOn => {
                 self.sample_pointer = 0;
@@ -150,7 +151,7 @@ impl SinksControl for Sampler {
         todo!()
     }
 }
-impl MidiSink for Sampler {
+impl SinksMidi for Sampler {
     fn midi_channel(&self) -> crate::common::MidiChannel {
         self.midi_channel
     }
@@ -159,18 +160,18 @@ impl MidiSink for Sampler {
         self.midi_channel = midi_channel;
     }
 
-    fn handle_message_for_channel(&mut self, clock: &Clock, message: &crate::common::MidiMessage) {
+    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
         match message.status {
             MidiMessageType::NoteOn => {
                 let note: u8 = message.data1;
                 if let Some(voice) = self.note_to_voice.get_mut(&note) {
-                    voice.handle_message_for_channel(clock, message);
+                    voice.handle_midi_for_channel(clock, message);
                 }
             }
             MidiMessageType::NoteOff => {
                 let note: u8 = message.data1;
                 if let Some(voice) = self.note_to_voice.get_mut(&note) {
-                    voice.handle_message_for_channel(clock, message);
+                    voice.handle_midi_for_channel(clock, message);
                 }
             }
             MidiMessageType::ProgramChange => {}

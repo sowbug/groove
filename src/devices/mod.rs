@@ -1,11 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Weak};
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiNote},
-    primitives::{clock::Clock, SinksControl, SinksControlParam, WatchesClock},
+    primitives::{
+        clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesMidi, WatchesClock,
+    },
 };
-
-use self::traits::{MidiSink, MidiSource};
 
 mod automation;
 pub mod effects;
@@ -20,7 +20,7 @@ pub mod traits; // TODO; make non-pub again so DeviceTrait doesn't leak out of t
 pub struct Arpeggiator {
     midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,
-    midi_sinks: HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>>,
+    midi_sinks: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
 
     is_device_playing: bool,
 
@@ -37,12 +37,12 @@ impl SinksControl for Arpeggiator {
     }
 }
 
-impl MidiSink for Arpeggiator {
+impl SinksMidi for Arpeggiator {
     fn midi_channel(&self) -> MidiChannel {
         self.midi_channel_in
     }
 
-    fn handle_message_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
+    fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
         // TODO: we'll need clock to do cool things like schedule note change on next bar... maybe
         match message.status {
             crate::common::MidiMessageType::NoteOn => {
@@ -59,9 +59,13 @@ impl MidiSink for Arpeggiator {
     }
 }
 
-impl MidiSource for Arpeggiator {
-    fn midi_sinks(&mut self) -> &mut HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>> {
+impl SourcesMidi for Arpeggiator {
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
         &mut self.midi_sinks
+    }
+
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+        &self.midi_sinks
     }
 }
 
@@ -70,7 +74,7 @@ impl WatchesClock for Arpeggiator {
         if clock.beats >= self.next_beat {
             self.next_beat += 1.0;
             if self.is_note_playing {
-                self.broadcast_midi_message(
+                self.issue_midi(
                     clock,
                     &MidiMessage::new_note_off(
                         self.midi_channel_out,
@@ -82,7 +86,7 @@ impl WatchesClock for Arpeggiator {
                 self.note_addition = if self.note_addition == 0 { 7 } else { 0 }
             }
             if self.is_device_playing {
-                self.broadcast_midi_message(
+                self.issue_midi(
                     clock,
                     &MidiMessage::new_note_on(
                         self.midi_channel_out,
@@ -115,11 +119,9 @@ mod tests {
             clock::Clock,
             SinksControl,
             SinksControlParam::{self},
-            SourcesAudio,
+            SinksMidi, SourcesAudio,
         },
     };
-
-    use super::traits::MidiSink;
 
     #[derive(Default)]
     pub struct NullDevice {
@@ -140,7 +142,7 @@ mod tests {
             self.value = value;
         }
     }
-    impl MidiSink for NullDevice {
+    impl SinksMidi for NullDevice {
         fn midi_channel(&self) -> MidiChannel {
             self.midi_channel
         }
@@ -148,7 +150,7 @@ mod tests {
         fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
             self.midi_channel = midi_channel;
         }
-        fn handle_message_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
+        fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
             self.midi_messages_received += 1;
 
             match message.status {
