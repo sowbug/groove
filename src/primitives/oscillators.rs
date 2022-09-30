@@ -9,7 +9,7 @@ use super::{SourcesAudio, Wrappable};
 
 #[derive(Debug, Clone)]
 pub struct MiniOscillator {
-    pub waveform: WaveformType,
+    waveform: WaveformType,
 
     // Hertz. Any positive number. 440 = A4
     frequency: f32,
@@ -30,8 +30,16 @@ pub struct MiniOscillator {
 impl Default for MiniOscillator {
     fn default() -> Self {
         Self {
-            waveform: WaveformType::None,
-            frequency: 0.0,
+            // See the _pola test. I kept running into non-bugs where I had a
+            // default oscillator in a chain, and wasted time debugging why the
+            // output was silent. The answer was that a default oscillator with
+            // waveform None and frequency 0.0 is indeed silent.
+            //
+            // One view is that a default oscillator should be quiet. Another view
+            // is that a quiet oscillator isn't doing its main job of helping make
+            // sound. Principle of Least Astonishment prevails.
+            waveform: WaveformType::Sine,
+            frequency: 440.0,
             fixed_frequency: 0.0,
             frequency_tune: 1.0,
             frequency_modulation: 0.0,
@@ -144,7 +152,7 @@ mod tests {
             clock::WatchedClock,
             tests::{
                 write_orchestration_to_file, write_source_to_file, SimpleOrchestrator, SimpleTimer,
-            },
+            }, SourcesAudio,
         },
     };
 
@@ -158,6 +166,12 @@ mod tests {
         });
         oscillator.set_frequency(MidiMessage::note_type_to_frequency(note));
         oscillator
+    }
+
+    #[test]
+    fn test_oscillator_pola() {
+        let mut oscillator = MiniOscillator::new();
+        assert_ne!(0.0, oscillator.source_audio(0.111111));
     }
 
     #[test]

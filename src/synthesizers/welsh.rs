@@ -1957,9 +1957,6 @@ impl MidiSink for Voice {
             MidiMessageType::NoteOn => {
                 let frequency = message.to_frequency();
                 for o in self.oscillators.iter_mut() {
-                    if matches!(o.waveform, WaveformType::Noise) {
-                        continue;
-                    }
                     o.set_frequency(frequency);
                 }
             }
