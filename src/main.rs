@@ -3,11 +3,8 @@
 
 use libgroove::{
     common::MonoSample,
-    devices::{
-        midi::MidiSmfReader, orchestrator::Orchestrator, sequencer::MidiSequencer,
-        traits::InstrumentTrait,
-    },
-    primitives::SourcesMidi,
+    devices::{midi::MidiSmfReader, orchestrator::Orchestrator, sequencer::MidiSequencer},
+    primitives::{IsMidiInstrument, SourcesMidi},
     settings::song::SongSettings,
     synthesizers::{
         drumkit_sampler::Sampler,
@@ -56,7 +53,7 @@ impl ClDaw {
         MidiSmfReader::load_sequencer(&data, result.orchestrator.midi_sequencer());
 
         for channel in 0..MidiSequencer::connected_channel_count() {
-            let synth: Rc<RefCell<dyn InstrumentTrait>> = if channel == 9 {
+            let synth: Rc<RefCell<dyn IsMidiInstrument>> = if channel == 9 {
                 Rc::new(RefCell::new(Sampler::new_from_files(channel)))
             } else {
                 Rc::new(RefCell::new(Synth::new(

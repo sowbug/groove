@@ -2,13 +2,14 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::common::MonoSample;
 
-use super::{clock::Clock, SinksAudio, SinksControl, SourcesAudio, TransformsAudio};
+use super::{clock::Clock, SinksAudio, SinksControl, SourcesAudio, TransformsAudio, IsEffect};
 
 #[derive(Default)]
 pub struct MiniGain {
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     amount: f32,
 }
+impl IsEffect for MiniGain {}
 
 impl MiniGain {
     pub fn new() -> Self {

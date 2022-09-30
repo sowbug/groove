@@ -2,13 +2,13 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::common::MonoSample;
 
-use super::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio};
+use super::{IsEffect, SinksAudio, SinksControl, SourcesAudio, TransformsAudio};
 
 #[derive(Default)]
 pub struct Mixer {
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
 }
-
+impl IsEffect for Mixer {}
 impl Mixer {
     pub fn new() -> Self {
         Self {
@@ -16,30 +16,34 @@ impl Mixer {
         }
     }
 }
-
 impl SinksAudio for Mixer {
     fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
-
 impl TransformsAudio for Mixer {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         input_sample
     }
 }
-
-impl IsEffect for Mixer {}
+impl SinksControl for Mixer {
+    fn handle_control(&mut self, _clock: &super::clock::Clock, param: &super::SinksControlParam) {
+        match param {
+            _ => {}
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
-    use std::{rc::Rc, cell::RefCell};
+    use std::{cell::RefCell, rc::Rc};
 
     use crate::{
         common::MONO_SAMPLE_SILENCE,
-        primitives::{tests::{
-            TestAlwaysLoudDevice, TestAlwaysSameLevelDevice, TestAlwaysSilentDevice,
-        }, clock::Clock},
+        primitives::{
+            clock::Clock,
+            tests::{TestAlwaysLoudDevice, TestAlwaysSameLevelDevice, TestAlwaysSilentDevice},
+        },
     };
 
     use super::*;

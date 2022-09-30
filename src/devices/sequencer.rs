@@ -101,8 +101,7 @@ mod tests {
 
     use crate::{
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
-        devices::tests::NullDevice,
-        primitives::{clock::Clock, SinksMidi, SourcesMidi, WatchesClock},
+        primitives::{clock::Clock, tests::NullDevice, SinksMidi, SourcesMidi, WatchesClock},
     };
 
     use super::MidiSequencer;

@@ -3,18 +3,16 @@ use std::{cell::RefCell, collections::HashMap, rc::Weak};
 use crate::{
     common::{MidiChannel, MidiMessage, MidiNote},
     primitives::{
-        clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesMidi, WatchesClock,
+        clock::Clock, IsMidiEffect, SinksControl, SinksControlParam, SinksMidi, SourcesMidi,
+        WatchesClock,
     },
 };
 
 mod automation;
-pub mod effects;
 pub mod midi;
-mod mixer;
 pub mod orchestrator;
 pub mod patterns;
 pub mod sequencer;
-pub mod traits; // TODO; make non-pub again so DeviceTrait doesn't leak out of this crate
 
 #[derive(Default)]
 pub struct Arpeggiator {
@@ -101,96 +99,14 @@ impl WatchesClock for Arpeggiator {
     }
 }
 
+impl IsMidiEffect for Arpeggiator {}
+
 impl Arpeggiator {
     fn new(midi_channel_in: MidiChannel, midi_channel_out: MidiChannel) -> Self {
         Self {
             midi_channel_in,
             midi_channel_out,
             ..Default::default()
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample},
-        primitives::{
-            clock::Clock,
-            SinksControl,
-            SinksControlParam::{self},
-            SinksMidi, SourcesAudio,
-        },
-    };
-
-    #[derive(Default)]
-    pub struct NullDevice {
-        pub is_playing: bool,
-        midi_channel: MidiChannel,
-        pub midi_messages_received: usize,
-        pub midi_messages_handled: usize,
-        pub value: f32,
-    }
-
-    impl NullDevice {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-        pub fn set_value(&mut self, value: f32) {
-            self.value = value;
-        }
-    }
-    impl SinksMidi for NullDevice {
-        fn midi_channel(&self) -> MidiChannel {
-            self.midi_channel
-        }
-
-        fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-            self.midi_channel = midi_channel;
-        }
-        fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
-            self.midi_messages_received += 1;
-
-            match message.status {
-                MidiMessageType::NoteOn => {
-                    self.is_playing = true;
-                    self.midi_messages_handled += 1;
-                }
-                MidiMessageType::NoteOff => {
-                    self.is_playing = false;
-                    self.midi_messages_handled += 1;
-                }
-                MidiMessageType::ProgramChange => {
-                    self.midi_messages_handled += 1;
-                }
-            }
-        }
-    }
-    impl SinksControl for NullDevice {
-        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-            match param {
-                SinksControlParam::Primary { value } => self.set_value(*value),
-                #[allow(unused_variables)]
-                SinksControlParam::Secondary { value } => todo!(),
-            }
-        }
-    }
-
-    pub struct SingleLevelDevice {
-        level: MonoSample,
-    }
-
-    impl SingleLevelDevice {
-        pub fn new(level: MonoSample) -> Self {
-            Self { level }
-        }
-    }
-
-    impl SourcesAudio for SingleLevelDevice {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            self.level
         }
     }
 }

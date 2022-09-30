@@ -169,8 +169,9 @@ impl AutomationPath {
 
 #[cfg(test)]
 mod tests {
-    use crate::devices::tests::NullDevice;
     use assert_approx_eq::assert_approx_eq;
+
+    use crate::primitives::tests::NullDevice;
 
     use super::*;
 

@@ -12,7 +12,8 @@ use crate::{
         envelopes::MiniEnvelope,
         filter::{MiniFilter2, MiniFilter2Type},
         oscillators::MiniOscillator,
-        SinksControl, SinksControlParam, SinksMidi, SourcesAudio, TransformsAudio, WatchesClock,
+        IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
+        TransformsAudio, WatchesClock,
     },
 };
 
@@ -2022,6 +2023,7 @@ pub struct Synth {
     note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
     current_value: MonoSample,
 }
+impl IsMidiInstrument for Synth {}
 
 impl Synth {
     pub fn new(midi_channel: MidiChannel, sample_rate: usize, preset: SynthPreset) -> Self {

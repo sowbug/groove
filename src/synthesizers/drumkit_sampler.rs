@@ -6,7 +6,7 @@ use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
     general_midi::GeneralMidiPercussionProgram,
     primitives::{
-        clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesAudio, WatchesClock,
+        clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesAudio, WatchesClock, IsMidiInstrument,
     },
 };
 
@@ -93,6 +93,7 @@ pub struct Sampler {
     midi_channel: MidiChannel,
     note_to_voice: HashMap<u8, Voice>,
 }
+impl IsMidiInstrument for Sampler {}
 
 impl Sampler {
     pub fn new(midi_channel: MidiChannel) -> Self {

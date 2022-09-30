@@ -1,6 +1,13 @@
 use crate::common::{DeviceId, MidiChannel, MonoSample};
+use crate::primitives::bitcrusher::Bitcrusher;
 use crate::primitives::clock::Clock;
-use crate::primitives::{SinksAudio, SinksControl, SourcesAudio, SourcesMidi, WatchesClock};
+use crate::primitives::filter::MiniFilter2;
+use crate::primitives::gain::MiniGain;
+use crate::primitives::limiter::MiniLimiter;
+use crate::primitives::mixer::Mixer;
+use crate::primitives::{
+    IsEffect, IsMidiEffect, SinksAudio, SinksControl, SourcesAudio, SourcesMidi, WatchesClock,
+};
 use crate::settings::effects::EffectSettings;
 use crate::settings::song::SongSettings;
 use crate::settings::{DeviceSettings, InstrumentSettings};
@@ -13,11 +20,8 @@ use std::io::{self, Write};
 use std::rc::Rc;
 
 use super::automation::{AutomationPath, ControlTrip};
-use super::effects::{Bitcrusher, Filter, Gain, Limiter};
-use super::mixer::Mixer;
 use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
-use super::traits::{ArpTrait, AutomatorTrait, EffectTrait, InstrumentTrait};
 use super::Arpeggiator;
 
 /// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
@@ -29,10 +33,10 @@ pub struct Orchestrator {
     midi_sequencer: Rc<RefCell<MidiSequencer>>,
     pattern_sequencer: Rc<RefCell<PatternSequencer>>,
 
-    id_to_automator: HashMap<DeviceId, Rc<RefCell<dyn AutomatorTrait>>>,
-    id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn InstrumentTrait>>>,
-    id_to_effect: HashMap<DeviceId, Rc<RefCell<dyn EffectTrait>>>,
-    id_to_arp: HashMap<DeviceId, Rc<RefCell<dyn ArpTrait>>>, // TODO: learn Rust
+    id_to_automator: HashMap<DeviceId, Rc<RefCell<dyn WatchesClock>>>,
+    id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn SourcesAudio>>>,
+    id_to_effect: HashMap<DeviceId, Rc<RefCell<dyn IsEffect>>>,
+    id_to_arp: HashMap<DeviceId, Rc<RefCell<dyn IsMidiEffect>>>,
 
     id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
     id_to_automation_sequence: HashMap<DeviceId, Rc<RefCell<AutomationPath>>>,
@@ -80,10 +84,10 @@ impl Orchestrator {
             done = d.borrow_mut().tick(clock) && done;
         }
         for d in self.id_to_instrument.values() {
-            done = d.borrow_mut().tick(clock) && done;
+            //TODO    done = d.borrow_mut().tick(clock) && done;
         }
         for d in self.id_to_effect.values() {
-            done = d.borrow_mut().tick(clock) && done;
+            //TODO    done = d.borrow_mut().tick(clock) && done;
         }
         (self.master_mixer.borrow_mut().source_audio(&clock), done)
     }
@@ -125,28 +129,32 @@ impl Orchestrator {
     pub fn add_instrument_by_id(
         &mut self,
         id: String,
-        instrument: Rc<RefCell<dyn InstrumentTrait>>,
+        instrument: Rc<RefCell<dyn SourcesAudio>>,
         channel: MidiChannel,
     ) {
         self.id_to_instrument.insert(id, instrument.clone());
-        let sink = Rc::downgrade(&instrument);
-        self.midi_sequencer
-            .borrow_mut()
-            .add_midi_sink(channel, sink);
-        let sink = Rc::downgrade(&instrument);
-        self.pattern_sequencer
-            .borrow_mut()
-            .add_midi_sink(channel, sink);
-        for arp in self.id_to_arp.values() {
-            let sink = Rc::downgrade(&instrument);
-            arp.borrow_mut().add_midi_sink(channel, sink);
-        }
+
+        // TODO: make a Midi bus, which you should have done months ago
+        // let sink = Rc::downgrade(&instrument);
+        // self.midi_sequencer
+        //     .borrow_mut()
+        //     .add_midi_sink(channel, sink);
+
+        // let sink = Rc::downgrade(&instrument);
+        // self.pattern_sequencer
+        //     .borrow_mut()
+        //     .add_midi_sink(channel, sink);
+
+        // for arp in self.id_to_arp.values() {
+        //     let sink = Rc::downgrade(&instrument);
+        //     arp.borrow_mut().add_midi_sink(channel, sink);
+        // }
     }
 
     pub fn add_arp_by_id(
         &mut self,
         id: String,
-        arp: Rc<RefCell<dyn ArpTrait>>,
+        arp: Rc<RefCell<dyn IsMidiEffect>>,
         channel: MidiChannel,
     ) {
         self.id_to_arp.insert(id, arp.clone());
@@ -160,11 +168,11 @@ impl Orchestrator {
             .add_midi_sink(channel, sink);
     }
 
-    fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn EffectTrait>>) {
+    fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn IsEffect>>) {
         self.id_to_effect.insert(id, instrument.clone());
     }
 
-    fn add_automator_by_id(&mut self, id: String, automator: Rc<RefCell<dyn AutomatorTrait>>) {
+    fn add_clock_watcher_by_id(&mut self, id: String, automator: Rc<RefCell<dyn WatchesClock>>) {
         self.id_to_automator.insert(id, automator.clone());
     }
 
@@ -224,34 +232,37 @@ impl Orchestrator {
                     // Match arms have to return the same types, and returning a Rc<RefCell<dyn some trait>> doesn't count
                     // as the same type.
                     EffectSettings::Limiter { id, min, max } => {
-                        let device = Rc::new(RefCell::new(Limiter::new_with_params(
+                        let device = Rc::new(RefCell::new(MiniLimiter::new_with(
                             min as MonoSample,
                             max as MonoSample,
                         )));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::Gain { id, amount } => {
-                        let device = Rc::new(RefCell::new(Gain::new_with(amount)));
+                        let device = Rc::new(RefCell::new(MiniGain::new_with(amount)));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::Bitcrusher { id, bits_to_crush } => {
-                        let device =
-                            Rc::new(RefCell::new(Bitcrusher::new_with_params(bits_to_crush)));
+                        let device = Rc::new(RefCell::new(Bitcrusher::new_with(bits_to_crush)));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterLowPass12db { id, cutoff, q } => {
-                        let device = Rc::new(RefCell::new(Filter::new_low_pass_12db(
-                            self.settings().clock.sample_rate(),
-                            cutoff,
-                            q,
+                        let device = Rc::new(RefCell::new(MiniFilter2::new(
+                            &crate::primitives::filter::MiniFilter2Type::LowPass {
+                                sample_rate: self.settings().clock.sample_rate(),
+                                cutoff,
+                                q,
+                            },
                         )));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterHighPass12db { id, cutoff, q } => {
-                        let device = Rc::new(RefCell::new(Filter::new_high_pass_12db(
-                            self.settings().clock.sample_rate(),
-                            cutoff,
-                            q,
+                        let device = Rc::new(RefCell::new(MiniFilter2::new(
+                            &crate::primitives::filter::MiniFilter2Type::HighPass {
+                                sample_rate: self.settings().clock.sample_rate(),
+                                cutoff,
+                                q,
+                            },
                         )));
                         self.add_effect_by_id(id, device);
                     }
@@ -260,10 +271,12 @@ impl Orchestrator {
                         cutoff,
                         bandwidth,
                     } => {
-                        let device = Rc::new(RefCell::new(Filter::new_band_pass_12db(
-                            self.settings().clock.sample_rate(),
-                            cutoff,
-                            bandwidth,
+                        let device = Rc::new(RefCell::new(MiniFilter2::new(
+                            &crate::primitives::filter::MiniFilter2Type::BandPass {
+                                sample_rate: self.settings().clock.sample_rate(),
+                                cutoff,
+                                bandwidth,
+                            },
                         )));
                         self.add_effect_by_id(id, device);
                     }
@@ -272,18 +285,22 @@ impl Orchestrator {
                         cutoff,
                         bandwidth,
                     } => {
-                        let device = Rc::new(RefCell::new(Filter::new_band_stop_12db(
-                            self.settings().clock.sample_rate(),
-                            cutoff,
-                            bandwidth,
+                        let device = Rc::new(RefCell::new(MiniFilter2::new(
+                            &crate::primitives::filter::MiniFilter2Type::BandStop {
+                                sample_rate: self.settings().clock.sample_rate(),
+                                cutoff,
+                                bandwidth,
+                            },
                         )));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterAllPass12db { id, cutoff, q } => {
-                        let device = Rc::new(RefCell::new(Filter::new_all_pass_12db(
-                            self.settings().clock.sample_rate(),
-                            cutoff,
-                            q,
+                        let device = Rc::new(RefCell::new(MiniFilter2::new(
+                            &crate::primitives::filter::MiniFilter2Type::AllPass {
+                                sample_rate: self.settings().clock.sample_rate(),
+                                cutoff,
+                                q,
+                            },
                         )));
                         self.add_effect_by_id(id, device);
                     }
@@ -292,10 +309,12 @@ impl Orchestrator {
                         cutoff,
                         db_gain,
                     } => {
-                        let device = Rc::new(RefCell::new(Filter::new_peaking_eq_12db(
-                            self.settings().clock.sample_rate(),
-                            cutoff,
-                            db_gain,
+                        let device = Rc::new(RefCell::new(MiniFilter2::new(
+                            &crate::primitives::filter::MiniFilter2Type::PeakingEq {
+                                sample_rate: self.settings().clock.sample_rate(),
+                                cutoff,
+                                db_gain,
+                            },
                         )));
                         self.add_effect_by_id(id, device);
                     }
@@ -304,10 +323,12 @@ impl Orchestrator {
                         cutoff,
                         db_gain,
                     } => {
-                        let device = Rc::new(RefCell::new(Filter::new_low_shelf_12db(
-                            self.settings().clock.sample_rate(),
-                            cutoff,
-                            db_gain,
+                        let device = Rc::new(RefCell::new(MiniFilter2::new(
+                            &crate::primitives::filter::MiniFilter2Type::LowShelf {
+                                sample_rate: self.settings().clock.sample_rate(),
+                                cutoff,
+                                db_gain,
+                            },
                         )));
                         self.add_effect_by_id(id, device);
                     }
@@ -316,10 +337,12 @@ impl Orchestrator {
                         cutoff,
                         db_gain,
                     } => {
-                        let device = Rc::new(RefCell::new(Filter::new_high_shelf_12db(
-                            self.settings().clock.sample_rate(),
-                            cutoff,
-                            db_gain,
+                        let device = Rc::new(RefCell::new(MiniFilter2::new(
+                            &crate::primitives::filter::MiniFilter2Type::HighShelf {
+                                sample_rate: self.settings().clock.sample_rate(),
+                                cutoff,
+                                db_gain,
+                            },
                         )));
                         self.add_effect_by_id(id, device);
                     }
@@ -347,7 +370,7 @@ impl Orchestrator {
     }
 
     #[allow(dead_code)]
-    fn get_instrument_by_id(&self, id: &str) -> Rc<RefCell<dyn InstrumentTrait>> {
+    fn get_instrument_by_id(&self, id: &str) -> Rc<RefCell<dyn SourcesAudio>> {
         if self.id_to_instrument.contains_key(id) {
             return (self.id_to_instrument.get(id).unwrap()).clone();
         }
@@ -370,7 +393,7 @@ impl Orchestrator {
         panic!("yo {}", id);
     }
 
-    fn get_automation_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn SinksControl>> {
+    fn get_control_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn SinksControl>> {
         if self.id_to_effect.contains_key(id) {
             return (self.id_to_effect.get(id).unwrap()).clone();
         }
@@ -419,7 +442,7 @@ impl Orchestrator {
             );
         }
         for track_settings in self.settings.trips.clone() {
-            let target = self.get_automation_sink_by_id(&track_settings.target.id);
+            let target = self.get_control_sink_by_id(&track_settings.target.id);
             let automation_track = Rc::new(RefCell::new(ControlTrip::new(
                 target.clone(),
                 track_settings.target.param,
@@ -437,7 +460,7 @@ impl Orchestrator {
                 }
             }
             automation_track.borrow_mut().freeze_trip_envelopes();
-            self.add_automator_by_id(track_settings.id, automation_track.clone());
+            self.add_clock_watcher_by_id(track_settings.id, automation_track.clone());
         }
     }
 

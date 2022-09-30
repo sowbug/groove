@@ -3,7 +3,7 @@ use std::{cell::RefCell, f64::consts::PI, rc::Rc};
 use crate::common::MonoSample;
 
 use super::{
-    clock::Clock, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
+    clock::Clock, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio, IsEffect,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -74,6 +74,7 @@ pub struct MiniFilter2 {
     output_m1: f64,
     output_m2: f64,
 }
+impl IsEffect for MiniFilter2 {}
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
