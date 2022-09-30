@@ -2,10 +2,11 @@ use std::{f32::MAX, fmt::Debug};
 
 use crate::{
     common::{MidiMessage, MidiMessageType},
-    preset::EnvelopePreset, 
+    preset::EnvelopePreset,
 };
 
 use super::{
+    clock::Clock,
     SinksControl,
     SinksControlParamType::{self, Primary, Secondary},
     SourcesAudio, WatchesClock,
@@ -171,19 +172,19 @@ impl MiniEnvelope {
 }
 
 impl SourcesAudio for MiniEnvelope {
-    fn source_audio(&mut self, _time_seconds: f32) -> crate::common::MonoSample {
+    fn source_audio(&mut self, _clock: &Clock) -> crate::common::MonoSample {
         self.amplitude
     }
 }
 
 impl SinksControl for MiniEnvelope {
-    fn handle_control(&mut self, time_seconds: f32, param: &SinksControlParamType) {
+    fn handle_control(&mut self, clock: &Clock, param: &SinksControlParamType) {
         match param {
             Primary { value } => {
                 if *value == 1.0 {
-                    self.handle_note_on(time_seconds)
+                    self.handle_note_on(clock.seconds)
                 } else {
-                    self.handle_note_off(time_seconds)
+                    self.handle_note_off(clock.seconds)
                 }
             }
             #[allow(unused_variables)]
@@ -193,26 +194,26 @@ impl SinksControl for MiniEnvelope {
 }
 
 impl WatchesClock for MiniEnvelope {
-    fn tick(&mut self, time_seconds: f32) -> bool {
+    fn tick(&mut self, clock: &Clock) -> bool {
         self.amplitude += self.delta;
         match self.state {
             EnvelopeState::Idle => {}
             EnvelopeState::Attack => {
-                if self.has_value_reached_target(time_seconds) {
-                    self.switch_to_decay(time_seconds);
+                if self.has_value_reached_target(clock.seconds) {
+                    self.switch_to_decay(clock.seconds);
                 }
             }
             EnvelopeState::Decay => {
-                if self.has_value_reached_target(time_seconds) {
-                    self.switch_to_sustain(time_seconds);
+                if self.has_value_reached_target(clock.seconds) {
+                    self.switch_to_sustain(clock.seconds);
                 }
             }
             EnvelopeState::Sustain => {
                 // Just wait
             }
             EnvelopeState::Release => {
-                if self.has_value_reached_target(time_seconds) {
-                    self.switch_to_idle(time_seconds);
+                if self.has_value_reached_target(clock.seconds) {
+                    self.switch_to_idle(clock.seconds);
                 }
             }
         }
@@ -269,7 +270,7 @@ mod tests {
 
         let mut last_recognized_time_point = -1.;
         loop {
-            envelope.tick(clock.seconds);
+            envelope.tick(&clock);
             if clock.seconds >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = 0.0;
                 assert!(matches!(envelope.state, EnvelopeState::Idle));
@@ -324,7 +325,7 @@ mod tests {
         const TIME_EXPECT_RELEASE_END: usize = TIME_EXPECT_RELEASE + DURATION_RELEASE - 1;
         const TIME_EXPECT_IDLE: usize = TIME_EXPECT_RELEASE + DURATION_RELEASE;
         loop {
-            envelope.tick(clock.seconds);
+            envelope.tick(&clock);
             match clock.samples {
                 TIME_ZERO => {
                     assert!(matches!(envelope.state, EnvelopeState::Idle));

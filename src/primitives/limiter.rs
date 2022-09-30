@@ -35,7 +35,7 @@ impl TransformsAudio for MiniLimiter {
 
 #[cfg(test)]
 mod tests {
-    use crate::{common::MonoSample, primitives::tests::TestAlwaysTooLoudDevice};
+    use crate::{common::MonoSample, primitives::{tests::TestAlwaysTooLoudDevice, clock::Clock}};
 
     use super::*;
 
@@ -44,6 +44,6 @@ mod tests {
         const MAX: MonoSample = 0.9;
         let mut limiter = MiniLimiter::new(0.0, MAX);
         limiter.add_audio_source(Rc::new(RefCell::new(TestAlwaysTooLoudDevice::new())));
-        assert_eq!(limiter.source_audio(0.0), MAX);
+        assert_eq!(limiter.source_audio(&Clock::new()), MAX);
     }
 }

@@ -191,7 +191,7 @@ impl WatchedClock {
     pub fn visit_watchers(&mut self) -> bool {
         let mut done = true;
         for watcher in self.watchers.iter_mut() {
-            done &= watcher.borrow_mut().tick(self.clock.seconds);
+            done &= watcher.borrow_mut().tick(&self.clock);
         }
         done
     }

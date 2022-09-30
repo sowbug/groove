@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::common::MonoSample;
 
-use super::{SinksAudio, SinksControl, SourcesAudio, TransformsAudio};
+use super::{clock::Clock, SinksAudio, SinksControl, SourcesAudio, TransformsAudio};
 
 #[derive(Default)]
 pub struct MiniGain {
@@ -36,7 +36,7 @@ impl TransformsAudio for MiniGain {
     }
 }
 impl SinksControl for MiniGain {
-    fn handle_control(&mut self, _time_seconds: f32, param: &super::SinksControlParamType) {
+    fn handle_control(&mut self, _clock: &Clock, param: &super::SinksControlParamType) {
         match param {
             super::SinksControlParamType::Primary { value } => self.amount = *value,
             _ => todo!(),
@@ -54,7 +54,7 @@ mod tests {
     fn test_gain_mainline() {
         let mut gain = MiniGain::new_with(1.1);
         gain.add_audio_source(Rc::new(RefCell::new(TestAlwaysLoudDevice::new())));
-        assert_eq!(gain.source_audio(0.0), 1.1);
+        assert_eq!(gain.source_audio(&Clock::new()), 1.1);
     }
 
     #[test]
@@ -62,6 +62,6 @@ mod tests {
         // principle of least astonishment: does a default instance adhere?
         let mut gain = MiniGain::new();
         gain.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(0.888))));
-        assert_eq!(gain.source_audio(0.0), 0.888);
+        assert_eq!(gain.source_audio(&Clock::new()), 0.888);
     }
 }

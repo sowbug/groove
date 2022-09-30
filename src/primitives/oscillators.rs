@@ -5,7 +5,7 @@ use crate::{
     preset::{LfoPreset, OscillatorPreset},
 };
 
-use super::{SourcesAudio, Wrappable};
+use super::{clock::Clock, SourcesAudio, Wrappable};
 
 #[derive(Debug, Clone)]
 pub struct MiniOscillator {
@@ -110,8 +110,8 @@ impl MiniOscillator {
 }
 
 impl SourcesAudio for MiniOscillator {
-    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
-        let phase_normalized = (self.adjusted_frequency() * time_seconds) as MonoSample;
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let phase_normalized = (self.adjusted_frequency() * clock.seconds) as MonoSample;
         match self.waveform {
             WaveformType::None => 0.0,
             // https://en.wikipedia.org/wiki/Sine_wave
@@ -151,7 +151,7 @@ mod tests {
         common::{MidiMessage, MidiNote},
         preset::OscillatorPreset,
         primitives::{
-            clock::WatchedClock,
+            clock::{Clock, WatchedClock},
             tests::{
                 write_orchestration_to_file, write_source_to_file, SimpleOrchestrator, SimpleTimer,
             },
@@ -174,7 +174,9 @@ mod tests {
     #[test]
     fn test_oscillator_pola() {
         let mut oscillator = MiniOscillator::new();
-        assert_ne!(0.0, oscillator.source_audio(0.111111));
+        let mut clock = Clock::new();
+        clock.tick(); // in case the oscillator happens to start at zero
+        assert_ne!(0.0, oscillator.source_audio(&clock));
     }
 
     #[test]

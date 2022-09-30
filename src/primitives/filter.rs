@@ -1,8 +1,10 @@
-use std::{f64::consts::PI, rc::Rc, cell::RefCell};
+use std::{cell::RefCell, f64::consts::PI, rc::Rc};
 
 use crate::common::MonoSample;
 
-use super::{SinksAudio, SinksControl, SinksControlParamType, SourcesAudio, TransformsAudio};
+use super::{
+    clock::Clock, SinksAudio, SinksControl, SinksControlParamType, SourcesAudio, TransformsAudio,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub enum MiniFilter2Type {
@@ -538,7 +540,7 @@ impl TransformsAudio for MiniFilter2 {
 }
 
 impl SinksControl for MiniFilter2 {
-    fn handle_control(&mut self, _time_seconds: f32, param: &SinksControlParamType) {
+    fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParamType) {
         match param {
             SinksControlParamType::Primary { value } => {
                 self.set_cutoff(*value);
@@ -561,6 +563,7 @@ mod tests {
         common::{MidiMessage, MidiNote, WaveformType},
         preset::OscillatorPreset,
         primitives::{
+            clock::Clock,
             oscillators::MiniOscillator,
             tests::write_effect_to_file,
             IsController, SinksControl,
@@ -617,20 +620,20 @@ mod tests {
     }
 
     impl WatchesClock for TestFilterController {
-        fn tick(&mut self, time_seconds: f32) -> bool {
+        fn tick(&mut self, clock: &Clock) -> bool {
             if self.time_start < 0.0 {
-                self.time_start = time_seconds;
+                self.time_start = clock.seconds;
             }
             if self.param_end != self.param_start {
                 let param = self.param;
                 let value = self.param_start
-                    + ((time_seconds - self.time_start) / self.duration)
+                    + ((clock.seconds - self.time_start) / self.duration)
                         * (self.param_end - self.param_start);
                 let sink_param = match param {
                     TestFilterControllerParam::Cutoff => Primary { value },
                     TestFilterControllerParam::Q => Secondary { value },
                 };
-                self.issue_control(time_seconds, &sink_param);
+                self.issue_control(clock, &sink_param);
             }
             true
         }
@@ -661,7 +664,7 @@ mod tests {
     }
 
     impl WatchesClock for TestNullController {
-        fn tick(&mut self, _time_seconds: f32) -> bool {
+        fn tick(&mut self, _clock: &Clock) -> bool {
             true
         }
     }

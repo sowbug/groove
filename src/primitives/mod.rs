@@ -5,6 +5,8 @@ use std::{
 
 use crate::common::{MonoSample, MONO_SAMPLE_SILENCE};
 
+use self::clock::Clock;
+
 pub mod bitcrusher;
 pub mod clock;
 pub mod envelopes;
@@ -23,13 +25,13 @@ pub fn wrapped_new<T: Wrappable>() -> Rc<RefCell<T>> {
 }
 
 pub trait SourcesAudio {
-    // Lots of implementers don't care about time_seconds here,
+    // Lots of implementers don't care about clock here,
     // but some do (oscillators, LFOs), and it's a lot cleaner
     // to pass a bit of extra information here than to either
     // create a separate optional method supplying it (which
     // everyone would have to call anyway), or define a whole
     // new trait that breaks a bunch of simple paths elsewhere.
-    fn source_audio(&mut self, time_seconds: f32) -> MonoSample;
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample;
 }
 
 pub trait SinksAudio {
@@ -39,13 +41,13 @@ pub trait SinksAudio {
         self.sources().push(source);
     }
 
-    fn gather_source_audio(&mut self, time_seconds: f32) -> MonoSample {
+    fn gather_source_audio(&mut self, clock: &Clock) -> MonoSample {
         if self.sources().is_empty() {
             return MONO_SAMPLE_SILENCE;
         }
         self.sources()
             .iter_mut()
-            .map(|source| source.borrow_mut().source_audio(time_seconds))
+            .map(|source| source.borrow_mut().source_audio(clock))
             .sum::<f32>()
     }
 }
@@ -57,17 +59,17 @@ pub trait SourcesControl {
     fn add_control_sink(&mut self, sink: Weak<RefCell<dyn SinksControl>>) {
         self.control_sinks_mut().push(sink);
     }
-    fn issue_control(&mut self, time_seconds: f32, param: &SinksControlParamType) {
+    fn issue_control(&mut self, clock: &Clock, param: &SinksControlParamType) {
         for sink in self.control_sinks_mut() {
             if let Some(sink_up) = sink.upgrade() {
-                sink_up.borrow_mut().handle_control(time_seconds, param);
+                sink_up.borrow_mut().handle_control(clock, param);
             }
         }
     }
 }
 
 pub trait SinksControl {
-    fn handle_control(&mut self, time_seconds: f32, param: &SinksControlParamType);
+    fn handle_control(&mut self, clock: &Clock, param: &SinksControlParamType);
 }
 
 pub enum SinksControlParamType {
@@ -80,7 +82,7 @@ pub trait SourcesFakeMidi {
 }
 
 pub trait SinksFakeMidi {
-    fn handle_midi(&mut self, midi: f32, time_seconds: f32);
+    fn handle_midi(&mut self, midi: f32, clock: &Clock);
 }
 
 pub trait WatchesClock {
@@ -90,7 +92,7 @@ pub trait WatchesClock {
     ///
     /// If you're not sure what you should return, you should return true.
     /// This is because false prevents outer loops from ending.
-    fn tick(&mut self, time_seconds: f32) -> bool;
+    fn tick(&mut self, clock: &Clock) -> bool;
 }
 
 pub trait TransformsAudio {
@@ -102,8 +104,8 @@ pub trait IsController: SourcesControl + WatchesClock {}
 
 pub trait TransformsControlToAudio /*  SinksControl + SourcesAudio */ {}
 impl<T: SinksAudio + TransformsAudio> SourcesAudio for T {
-    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
-        let input = self.gather_source_audio(time_seconds);
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let input = self.gather_source_audio(clock);
         self.transform_audio(input)
     }
 }
@@ -153,7 +155,7 @@ pub mod tests {
         let mut samples = Vec::<MonoSample>::new();
         let mut clock = Clock::new_with(&clock_settings);
         while clock.seconds < 2.0 {
-            samples.push(source.source_audio(clock.seconds));
+            samples.push(source.source_audio(&clock));
             clock.tick();
         }
         let spec = hound::WavSpec {
@@ -208,9 +210,9 @@ pub mod tests {
         let mut clock = Clock::new_with(&clock_settings);
         let mut samples = Vec::<MonoSample>::new();
         while clock.seconds < 2.0 {
-            opt_controller.tick(clock.seconds);
+            opt_controller.tick(&clock);
 
-            let effect_sample = effect.source_audio(clock.seconds);
+            let effect_sample = effect.source_audio(&clock);
             samples.push(effect_sample);
             clock.tick();
         }
@@ -322,7 +324,7 @@ pub mod tests {
         }
     }
     impl SourcesAudio for TestAlwaysSameLevelDevice {
-        fn source_audio(&mut self, _time_seconds: f32) -> MonoSample {
+        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             self.level
         }
     }
@@ -337,7 +339,7 @@ pub mod tests {
         }
     }
     impl SourcesAudio for TestAlwaysTooLoudDevice {
-        fn source_audio(&mut self, _time_seconds: f32) -> MonoSample {
+        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_MAX + 0.1
         }
     }
@@ -352,7 +354,7 @@ pub mod tests {
         }
     }
     impl SourcesAudio for TestAlwaysLoudDevice {
-        fn source_audio(&mut self, _time_seconds: f32) -> MonoSample {
+        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_MAX
         }
     }
@@ -367,7 +369,7 @@ pub mod tests {
         }
     }
     impl SourcesAudio for TestAlwaysSilentDevice {
-        fn source_audio(&mut self, _time_seconds: f32) -> MonoSample {
+        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_SILENCE
         }
     }
@@ -404,7 +406,7 @@ pub mod tests {
                 if clock.visit_watchers() {
                     break;
                 }
-                samples_out.push(self.main_mixer.source_audio(clock.inner_clock().seconds));
+                samples_out.push(self.main_mixer.source_audio(clock.inner_clock()));
                 clock.tick();
             }
         }
@@ -447,9 +449,9 @@ pub mod tests {
     }
 
     impl SourcesAudio for SimpleSynth {
-        fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
-            self.oscillator.borrow_mut().source_audio(time_seconds)
-                * self.envelope.borrow_mut().source_audio(time_seconds)
+        fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+            self.oscillator.borrow_mut().source_audio(clock)
+                * self.envelope.borrow_mut().source_audio(clock)
         }
     }
 
@@ -465,8 +467,8 @@ pub mod tests {
         }
     }
     impl WatchesClock for SimpleTimer {
-        fn tick(&mut self, time_seconds: f32) -> bool {
-            time_seconds >= self.time_to_run_seconds
+        fn tick(&mut self, clock: &Clock) -> bool {
+            clock.seconds >= self.time_to_run_seconds
         }
     }
 
@@ -487,13 +489,13 @@ pub mod tests {
         }
     }
     impl WatchesClock for SimpleTrigger {
-        fn tick(&mut self, time_seconds: f32) -> bool {
-            if !self.has_triggered && time_seconds >= self.time_to_trigger_seconds {
+        fn tick(&mut self, clock: &Clock) -> bool {
+            if !self.has_triggered && clock.seconds >= self.time_to_trigger_seconds {
                 self.has_triggered = true;
                 let value = self.value;
-                self.issue_control(time_seconds, &SinksControlParamType::Primary { value });
+                self.issue_control(clock, &SinksControlParamType::Primary { value });
             }
-            time_seconds >= self.time_to_trigger_seconds
+            clock.seconds >= self.time_to_trigger_seconds
         }
     }
     impl SourcesControl for SimpleTrigger {
@@ -529,9 +531,9 @@ pub mod tests {
         }
     }
     impl WatchesClock for ContinuousControl {
-        fn tick(&mut self, time_seconds: f32) -> bool {
-            let value = self.source.source_audio(time_seconds);
-            self.issue_control(time_seconds, &SinksControlParamType::Primary { value });
+        fn tick(&mut self, clock: &Clock) -> bool {
+            let value = self.source.source_audio(clock);
+            self.issue_control(clock, &SinksControlParamType::Primary { value });
             true
         }
     }

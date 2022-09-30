@@ -1,4 +1,4 @@
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::common::MonoSample;
 
@@ -43,7 +43,7 @@ impl TransformsAudio for Bitcrusher {
 mod tests {
 
     use super::*;
-    use crate::primitives::tests::TestAlwaysSameLevelDevice;
+    use crate::primitives::{clock::Clock, tests::TestAlwaysSameLevelDevice};
     use std::f32::consts::PI;
 
     const CRUSHED_PI: f32 = 0.14062929;
@@ -57,8 +57,12 @@ mod tests {
     #[test]
     fn test_bitcrusher_multisource() {
         let mut fx = Bitcrusher::new(8);
-        fx.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(PI - 3.0))));
-        fx.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(PI - 3.0))));
-        assert_eq!(fx.source_audio(0.0), 2.0 * CRUSHED_PI);
+        fx.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(
+            PI - 3.0,
+        ))));
+        fx.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(
+            PI - 3.0,
+        ))));
+        assert_eq!(fx.source_audio(&Clock::new()), 2.0 * CRUSHED_PI);
     }
 }

@@ -37,31 +37,31 @@ mod tests {
 
     use crate::{
         common::MONO_SAMPLE_SILENCE,
-        primitives::tests::{
+        primitives::{tests::{
             TestAlwaysLoudDevice, TestAlwaysSameLevelDevice, TestAlwaysSilentDevice,
-        },
+        }, clock::Clock},
     };
 
     use super::*;
 
     #[test]
     fn test_mixer_mainline() {
-        const TIME_ON_CLOCK: f32 = 0.0;
+        let clock = Clock::new();
         let mut mixer = Mixer::new();
 
         // Nothing/empty
-        assert_eq!(mixer.source_audio(TIME_ON_CLOCK), MONO_SAMPLE_SILENCE);
+        assert_eq!(mixer.source_audio(&clock), MONO_SAMPLE_SILENCE);
 
         // One always-loud
         mixer.add_audio_source(Rc::new(RefCell::new(TestAlwaysLoudDevice::new())));
-        assert_eq!(mixer.source_audio(TIME_ON_CLOCK), 1.0);
+        assert_eq!(mixer.source_audio(&clock), 1.0);
 
         // One always-loud and one always-quiet
         mixer.add_audio_source(Rc::new(RefCell::new(TestAlwaysSilentDevice::new())));
-        assert_eq!(mixer.source_audio(TIME_ON_CLOCK), 1.0 + 0.0);
+        assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0);
 
         // ... and one in the middle
         mixer.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(0.25))));
-        assert_eq!(mixer.source_audio(TIME_ON_CLOCK), 1.0 + 0.0 + 0.25);
+        assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0 + 0.25);
     }
 }

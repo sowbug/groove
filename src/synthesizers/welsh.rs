@@ -1966,9 +1966,9 @@ impl MidiSink for Voice {
     }
 }
 impl SourcesAudio for Voice {
-    fn source_audio(&mut self, time_seconds: f32) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         // LFO
-        let lfo = self.lfo.source_audio(time_seconds) * self.lfo_depth as MonoSample;
+        let lfo = self.lfo.source_audio(clock) * self.lfo_depth as MonoSample;
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
             let lfo_for_pitch = lfo / 10000.0;
             // TODO: divide by 10,000 until we figure out how pitch depth is supposed to go
@@ -1985,16 +1985,16 @@ impl SourcesAudio for Voice {
             let t: MonoSample = self
                 .oscillators
                 .iter_mut()
-                .map(|o| o.source_audio(time_seconds))
+                .map(|o| o.source_audio(clock))
                 .sum();
             t / self.oscillators.len() as MonoSample
         };
 
         // Filters
-        self.filter_envelope.tick(time_seconds);
+        self.filter_envelope.tick(clock);
         let new_cutoff_percentage = self.filter_cutoff_start
             + (self.filter_cutoff_end - self.filter_cutoff_start)
-                * self.filter_envelope.source_audio(time_seconds);
+                * self.filter_envelope.source_audio(clock);
         let new_cutoff = MiniFilter2::percent_to_frequency(new_cutoff_percentage);
         self.filter.set_cutoff(new_cutoff);
         let filtered_mix = self.filter.transform_audio(osc_sum);
@@ -2008,10 +2008,10 @@ impl SourcesAudio for Voice {
         };
 
         // Envelope
-        self.amp_envelope.tick(time_seconds);
+        self.amp_envelope.tick(clock);
 
         // Final
-        filtered_mix * self.amp_envelope.source_audio(time_seconds) * lfo_amplitude_modulation
+        filtered_mix * self.amp_envelope.source_audio(clock) * lfo_amplitude_modulation
     }
 }
 
@@ -2099,7 +2099,7 @@ impl TimeSlicer for Synth {
         let mut done = true;
         self.current_value = 0.0;
         for (_note, voice) in self.note_to_voice.iter_mut() {
-            self.current_value += voice.borrow_mut().source_audio(clock.seconds);
+            self.current_value += voice.borrow_mut().source_audio(clock);
             done = done && !voice.borrow().is_playing();
         }
         if !self.note_to_voice.is_empty() {
@@ -2163,7 +2163,7 @@ mod tests {
                 }
             }
 
-            let sample = voice.source_audio(clock.seconds);
+            let sample = voice.source_audio(&clock);
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
             clock.tick();
         }
@@ -2213,7 +2213,7 @@ mod tests {
                 is_message_sent = true;
                 source.handle_message_for_channel(clock, message);
             }
-            let sample = source.source_audio(clock.seconds);
+            let sample = source.source_audio(clock);
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
             clock.tick();
         }
