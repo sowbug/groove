@@ -103,8 +103,8 @@ mod tests {
 
     use crate::{
         common::{MidiChannel, MidiMessage, MidiMessageType},
-        devices::traits::{AutomationMessage, AutomationSink, MidiSink},
-        primitives::clock::Clock,
+        devices::traits::MidiSink,
+        primitives::{clock::Clock, SinksControl, SinksControlParam},
     };
 
     use super::OscillatorPreset;
@@ -126,8 +126,8 @@ mod tests {
         }
     }
 
-    impl AutomationSink for NullDevice {
-        fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+    impl SinksControl for NullDevice {
+        fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
             todo!()
         }
     }

@@ -36,9 +36,9 @@ impl TransformsAudio for MiniGain {
     }
 }
 impl SinksControl for MiniGain {
-    fn handle_control(&mut self, _clock: &Clock, param: &super::SinksControlParamType) {
+    fn handle_control(&mut self, _clock: &Clock, param: &super::SinksControlParam) {
         match param {
-            super::SinksControlParamType::Primary { value } => self.amount = *value,
+            super::SinksControlParam::Primary { value } => self.amount = *value,
             _ => todo!(),
         }
     }

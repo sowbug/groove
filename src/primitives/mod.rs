@@ -55,6 +55,7 @@ pub trait SinksAudio {
     }
 }
 
+/// Controls SinksControl through SinksControlParam.
 pub trait SourcesControl {
     fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>];
     fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>>;
@@ -62,7 +63,7 @@ pub trait SourcesControl {
     fn add_control_sink(&mut self, sink: Weak<RefCell<dyn SinksControl>>) {
         self.control_sinks_mut().push(sink);
     }
-    fn issue_control(&mut self, clock: &Clock, param: &SinksControlParamType) {
+    fn issue_control(&mut self, clock: &Clock, param: &SinksControlParam) {
         for sink in self.control_sinks_mut() {
             if let Some(sink_up) = sink.upgrade() {
                 sink_up.borrow_mut().handle_control(clock, param);
@@ -72,10 +73,10 @@ pub trait SourcesControl {
 }
 
 pub trait SinksControl {
-    fn handle_control(&mut self, clock: &Clock, param: &SinksControlParamType);
+    fn handle_control(&mut self, clock: &Clock, param: &SinksControlParam);
 }
 
-pub enum SinksControlParamType {
+pub enum SinksControlParam {
     Primary { value: f32 },
     Secondary { value: f32 },
 }
@@ -144,7 +145,7 @@ pub mod tests {
     use super::mixer::Mixer;
     use super::oscillators::MiniOscillator;
     use super::{
-        IsController, IsEffect, SinksControl, SinksControlParamType, SourcesAudio, SourcesControl,
+        IsController, IsEffect, SinksControl, SinksControlParam, SourcesAudio, SourcesControl,
         WatchesClock,
     };
 
@@ -507,7 +508,7 @@ pub mod tests {
             if !self.has_triggered && clock.seconds >= self.time_to_trigger_seconds {
                 self.has_triggered = true;
                 let value = self.value;
-                self.issue_control(clock, &SinksControlParamType::Primary { value });
+                self.issue_control(clock, &SinksControlParam::Primary { value });
             }
             clock.seconds >= self.time_to_trigger_seconds
         }
@@ -547,7 +548,7 @@ pub mod tests {
     impl WatchesClock for ContinuousControl {
         fn tick(&mut self, clock: &Clock) -> bool {
             let value = self.source.source_audio(clock);
-            self.issue_control(clock, &SinksControlParamType::Primary { value });
+            self.issue_control(clock, &SinksControlParam::Primary { value });
             true
         }
     }

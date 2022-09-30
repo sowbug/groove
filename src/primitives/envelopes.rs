@@ -8,7 +8,7 @@ use crate::{
 use super::{
     clock::Clock,
     SinksControl,
-    SinksControlParamType::{self, Primary, Secondary},
+    SinksControlParam::{self, Primary, Secondary},
     SourcesAudio, WatchesClock,
 };
 
@@ -178,7 +178,7 @@ impl SourcesAudio for MiniEnvelope {
 }
 
 impl SinksControl for MiniEnvelope {
-    fn handle_control(&mut self, clock: &Clock, param: &SinksControlParamType) {
+    fn handle_control(&mut self, clock: &Clock, param: &SinksControlParam) {
         match param {
             Primary { value } => {
                 if *value == 1.0 {

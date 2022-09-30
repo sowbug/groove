@@ -2,37 +2,10 @@ use crate::common::{
     self, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE,
 };
 use crate::primitives::clock::Clock;
-use crate::primitives::{SinksAudio, SourcesAudio, WatchesClock};
+use crate::primitives::{SinksAudio, SinksControl, SourcesAudio, WatchesClock};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-
-/// An AutomationSource controls AutomationSinks through AutomationMessages.
-pub trait AutomationSource {
-    fn automation_sinks(&mut self) -> &mut Vec<Rc<RefCell<dyn AutomationSink>>>;
-
-    fn add_automation_sink(&mut self, sink: Rc<RefCell<dyn AutomationSink>>) {
-        self.automation_sinks().push(sink);
-    }
-
-    fn broadcast_automation_message(&mut self, message: &AutomationMessage) {
-        for sink in self.automation_sinks().clone() {
-            sink.borrow_mut().handle_automation_message(message);
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum AutomationMessage {
-    UpdatePrimaryValue { value: f32 },
-    UpdateSecondaryValue { value: f32 },
-    UpdateNamedValue { name: String, value: f32 },
-}
-
-/// AutomationSinks agree to handle AutomationMessages.
-pub trait AutomationSink {
-    fn handle_automation_message(&mut self, message: &AutomationMessage);
-}
 
 /// A MidiSource controls MidiSinks through MidiMessages.
 ///
@@ -97,25 +70,33 @@ impl<T: MidiSource + WatchesClock> SequencerTrait for T {}
 pub trait AutomatorTrait: WatchesClock {}
 impl<T: WatchesClock> AutomatorTrait for T {}
 
-pub trait InstrumentTrait: MidiSink + SourcesAudio + AutomationSink + WatchesClock {}
-impl<T: MidiSink + SourcesAudio + AutomationSink + WatchesClock> InstrumentTrait for T {}
+pub trait InstrumentTrait: MidiSink + SourcesAudio + SinksControl + WatchesClock {}
+impl<T: MidiSink + SourcesAudio + SinksControl + WatchesClock> InstrumentTrait for T {}
 
-pub trait ArpTrait: MidiSource + MidiSink + AutomationSink + WatchesClock {}
-impl<T: MidiSource + MidiSink + AutomationSink + WatchesClock> ArpTrait for T {}
+pub trait ArpTrait: MidiSource + MidiSink + SinksControl + WatchesClock {}
+impl<T: MidiSource + MidiSink + SinksControl + WatchesClock> ArpTrait for T {}
 
-pub trait EffectTrait: SourcesAudio + SinksAudio + AutomationSink + WatchesClock {}
-impl<T: SourcesAudio + SinksAudio + AutomationSink + WatchesClock> EffectTrait for T {}
+pub trait EffectTrait: SourcesAudio + SinksAudio + SinksControl + WatchesClock {}
+impl<T: SourcesAudio + SinksAudio + SinksControl + WatchesClock> EffectTrait for T {}
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::{
+        cell::RefCell,
+        rc::{Rc, Weak},
+    };
 
     use crate::{
         common::{MidiNote, MONO_SAMPLE_SILENCE},
-        primitives::clock::Clock,
+        primitives::{
+            clock::Clock,
+            SinksControl,
+            SinksControlParam::{self, Primary, Secondary},
+            SourcesControl,
+        },
     };
 
-    use super::{AutomationMessage, *};
+    use super::*;
 
     /// Keeps asking for time slices until end of specified lifetime.
     struct TestWatchesClock {
@@ -168,12 +149,15 @@ mod tests {
 
     #[derive(Default)]
     struct TestAutomationSource {
-        sinks: Vec<Rc<RefCell<dyn AutomationSink>>>,
+        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
     }
 
-    impl AutomationSource for TestAutomationSource {
-        fn automation_sinks(&mut self) -> &mut Vec<Rc<RefCell<dyn AutomationSink>>> {
-            &mut self.sinks
+    impl SourcesControl for TestAutomationSource {
+        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+            &self.control_sinks
+        }
+        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+            &mut self.control_sinks
         }
     }
 
@@ -185,7 +169,7 @@ mod tests {
         }
 
         fn handle_test_event(&mut self, value: f32) {
-            self.broadcast_automation_message(&AutomationMessage::UpdatePrimaryValue { value });
+            self.issue_control(&Clock::new(), &Primary { value });
         }
     }
 
@@ -194,18 +178,14 @@ mod tests {
         value: f32,
     }
 
-    impl AutomationSink for TestAutomationSink {
-        fn handle_automation_message(&mut self, message: &AutomationMessage) {
-            match message {
-                AutomationMessage::UpdatePrimaryValue { value } => {
+    impl SinksControl for TestAutomationSink {
+        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
+            match param {
+                Primary { value } => {
                     self.value = *value;
                 }
                 #[allow(unused_variables)]
-                AutomationMessage::UpdateSecondaryValue { value } => {
-                    todo!()
-                }
-                #[allow(unused_variables)]
-                AutomationMessage::UpdateNamedValue { name, value } => todo!(),
+                Secondary { value } => todo!(),
             }
         }
     }
@@ -288,12 +268,15 @@ mod tests {
     // This shows how all these traits work together.
     #[derive(Default)]
     struct TestSimpleKeyboard {
-        automation_sinks: Vec<Rc<RefCell<dyn AutomationSink>>>,
+        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
     }
 
-    impl AutomationSource for TestSimpleKeyboard {
-        fn automation_sinks(&mut self) -> &mut Vec<Rc<RefCell<dyn AutomationSink>>> {
-            &mut self.automation_sinks
+    impl SourcesControl for TestSimpleKeyboard {
+        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+            &self.control_sinks
+        }
+        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+            &mut self.control_sinks
         }
     }
 
@@ -307,9 +290,7 @@ mod tests {
         fn handle_keypress(&mut self, key: u8) {
             match key {
                 1 => {
-                    self.broadcast_automation_message(&AutomationMessage::UpdatePrimaryValue {
-                        value: 0.5,
-                    });
+                    self.issue_control(&Clock::new(), &Primary { value: 0.5 });
                 }
                 _ => {}
             }
@@ -322,15 +303,12 @@ mod tests {
         channels_to_sink_vecs: HashMap<MidiChannel, Vec<Rc<RefCell<dyn MidiSink>>>>,
     }
 
-    impl AutomationSink for TestSimpleArpeggiator {
-        fn handle_automation_message(&mut self, message: &AutomationMessage) {
-            #[allow(unused_variables)]
-            match message {
-                AutomationMessage::UpdatePrimaryValue { value } => {
-                    self.tempo = *value;
-                }
-                AutomationMessage::UpdateSecondaryValue { value } => todo!(),
-                AutomationMessage::UpdateNamedValue { name, value } => todo!(),
+    impl SinksControl for TestSimpleArpeggiator {
+        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
+            match param {
+                Primary { value } => self.tempo = *value,
+                #[allow(unused_variables)]
+                Secondary { value } => todo!(),
             }
         }
     }
@@ -397,9 +375,10 @@ mod tests {
         let sink = Rc::new(RefCell::new(TestAutomationSink::new()));
 
         // Can we add a sink to the source?
-        assert!(source.automation_sinks().is_empty());
-        source.add_automation_sink(sink.clone());
-        assert!(!source.automation_sinks().is_empty());
+        assert!(source.control_sinks().is_empty());
+        let sink_weak = Rc::downgrade(&sink);
+        source.add_control_sink(sink_weak);
+        assert!(!source.control_sinks().is_empty());
 
         // Does the source propagate to its sinks?
         assert_eq!(sink.borrow().value, 0.0);
@@ -428,7 +407,8 @@ mod tests {
         let arpeggiator = Rc::new(RefCell::new(TestSimpleArpeggiator::new()));
         let instrument = Rc::new(RefCell::new(TestMidiSink::new()));
 
-        keyboard_interface.add_automation_sink(arpeggiator.clone());
+        let arpeggiator_weak = Rc::downgrade(&arpeggiator);
+        keyboard_interface.add_control_sink(arpeggiator_weak);
         arpeggiator
             .borrow_mut()
             .add_midi_sink(instrument.clone(), TestMidiSink::MIDI_CHANNEL);

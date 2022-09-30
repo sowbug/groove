@@ -4,9 +4,9 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
-    devices::traits::{AutomationMessage, AutomationSink, MidiSink},
+    devices::traits::MidiSink,
     general_midi::GeneralMidiPercussionProgram,
-    primitives::{clock::Clock, SourcesAudio, WatchesClock},
+    primitives::{clock::Clock, SinksControl, SinksControlParam, SourcesAudio, WatchesClock},
 };
 
 #[derive(Default)]
@@ -36,8 +36,8 @@ impl Voice {
     }
 }
 
-impl AutomationSink for Voice {
-    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+impl SinksControl for Voice {
+    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
         todo!()
     }
 }
@@ -145,8 +145,8 @@ impl Sampler {
     }
 }
 
-impl AutomationSink for Sampler {
-    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+impl SinksControl for Sampler {
+    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
         todo!()
     }
 }
@@ -179,7 +179,8 @@ impl MidiSink for Sampler {
 }
 
 impl SourcesAudio for Sampler {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {   // TODO: this looks a lot like a Mixer
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        // TODO: this looks a lot like a Mixer
         let mut sum = 0.0;
         for v in self.note_to_voice.values_mut() {
             sum += v.source_audio(clock);

@@ -1,4 +1,3 @@
-use super::traits::{AutomationMessage, AutomationSink};
 use crate::{
     common::MonoSample,
     primitives::{
@@ -7,7 +6,7 @@ use crate::{
         filter::{MiniFilter2, MiniFilter2Type},
         gain::MiniGain,
         limiter::MiniLimiter,
-        SinksAudio, SourcesAudio, TransformsAudio, WatchesClock,
+        SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio, WatchesClock,
     },
 };
 use std::{cell::RefCell, rc::Rc};
@@ -45,8 +44,8 @@ impl SourcesAudio for Limiter {
         self.effect.transform_audio(input)
     }
 }
-impl AutomationSink for Limiter {
-    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+impl SinksControl for Limiter {
+    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
         todo!()
     }
 }
@@ -89,8 +88,8 @@ impl SourcesAudio for Gain {
     }
 }
 
-impl AutomationSink for Gain {
-    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+impl SinksControl for Gain {
+    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
         todo!()
     }
 }
@@ -147,8 +146,8 @@ impl SourcesAudio for Bitcrusher {
     }
 }
 
-impl AutomationSink for Bitcrusher {
-    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+impl SinksControl for Bitcrusher {
+    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
         todo!()
     }
 }
@@ -240,10 +239,10 @@ impl SourcesAudio for Filter {
     }
 }
 
-impl AutomationSink for Filter {
-    fn handle_automation_message(&mut self, message: &AutomationMessage) {
-        match message {
-            AutomationMessage::UpdatePrimaryValue { value } => {
+impl SinksControl for Filter {
+    fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
+        match param {
+            SinksControlParam::Primary { value } => {
                 let unscaled_cutoff = MiniFilter2::percent_to_frequency(value * 2.0 - 1.0);
                 self.effect.set_cutoff(unscaled_cutoff);
             }
@@ -265,7 +264,7 @@ mod tests {
     use crate::{
         common::MonoSample,
         devices::tests::SingleLevelDevice,
-        primitives::{clock::Clock, SourcesAudio, SinksAudio},
+        primitives::{clock::Clock, SinksAudio, SourcesAudio},
     };
 
     use super::Limiter;

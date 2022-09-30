@@ -3,7 +3,7 @@ use std::{cell::RefCell, f64::consts::PI, rc::Rc};
 use crate::common::MonoSample;
 
 use super::{
-    clock::Clock, SinksAudio, SinksControl, SinksControlParamType, SourcesAudio, TransformsAudio,
+    clock::Clock, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -540,12 +540,12 @@ impl TransformsAudio for MiniFilter2 {
 }
 
 impl SinksControl for MiniFilter2 {
-    fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParamType) {
+    fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
         match param {
-            SinksControlParamType::Primary { value } => {
+            SinksControlParam::Primary { value } => {
                 self.set_cutoff(*value);
             }
-            SinksControlParamType::Secondary { value } => {
+            SinksControlParam::Secondary { value } => {
                 self.set_q(*value);
             }
         }
@@ -567,7 +567,7 @@ mod tests {
             oscillators::MiniOscillator,
             tests::write_effect_to_file,
             IsController, SinksControl,
-            SinksControlParamType::{Primary, Secondary},
+            SinksControlParam::{Primary, Secondary},
             SourcesControl, WatchesClock,
         },
     };

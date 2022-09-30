@@ -5,7 +5,7 @@ use strum_macros::{Display, EnumIter};
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
-    devices::traits::{AutomationMessage, AutomationSink, MidiSink},
+    devices::traits::MidiSink,
     general_midi::GeneralMidiProgram,
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
     primitives::{
@@ -13,7 +13,7 @@ use crate::{
         envelopes::MiniEnvelope,
         filter::{MiniFilter2, MiniFilter2Type},
         oscillators::MiniOscillator,
-        SourcesAudio, TransformsAudio, WatchesClock,
+        SinksControl, SinksControlParam, SourcesAudio, TransformsAudio, WatchesClock,
     },
 };
 
@@ -1934,8 +1934,8 @@ impl Voice {
     }
 }
 
-impl AutomationSink for Voice {
-    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+impl SinksControl for Voice {
+    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
         todo!()
     }
 }
@@ -2052,8 +2052,8 @@ impl Synth {
     }
 }
 
-impl AutomationSink for Synth {
-    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+impl SinksControl for Synth {
+    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
         todo!()
     }
 }

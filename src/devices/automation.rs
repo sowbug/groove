@@ -1,13 +1,13 @@
 use crate::primitives::clock::Clock;
-use crate::primitives::WatchesClock;
+use crate::primitives::{SinksControl, SinksControlParam, WatchesClock};
 use crate::settings::automation::AutomationStepType;
 
 use std::collections::VecDeque;
 use std::rc::Rc;
 use std::{cell::RefCell, cmp::Ordering};
 
-pub struct AutomationTrip {
-    target_instrument: Rc<RefCell<dyn AutomationSink>>,
+pub struct ControlTrip {
+    target_instrument: Rc<RefCell<dyn SinksControl>>,
     cursor_beats: f32,
 
     current_value: f32,
@@ -16,10 +16,10 @@ pub struct AutomationTrip {
     envelopes_in_place: VecDeque<AutomationEnvelope>,
 }
 
-impl AutomationTrip {
+impl ControlTrip {
     const CURSOR_BEGIN: f32 = 0.0;
 
-    pub fn new(target: Rc<RefCell<dyn AutomationSink>>, _target_param_name: String) -> Self {
+    pub fn new(target: Rc<RefCell<dyn SinksControl>>, _target_param_name: String) -> Self {
         Self {
             target_instrument: target,
             cursor_beats: Self::CURSOR_BEGIN,
@@ -61,7 +61,7 @@ impl AutomationTrip {
     }
 }
 
-impl WatchesClock for AutomationTrip {
+impl WatchesClock for ControlTrip {
     fn tick(&mut self, clock: &Clock) -> bool {
         if self.envelopes_in_place.is_empty() {
             // This is different from falling through the loop below because
@@ -77,11 +77,12 @@ impl WatchesClock for AutomationTrip {
             let last_value = self.current_value;
             self.current_value = envelope.current_value;
             if self.current_value != last_value {
-                self.target_instrument
-                    .borrow_mut()
-                    .handle_automation_message(&AutomationMessage::UpdatePrimaryValue {
+                self.target_instrument.borrow_mut().handle_control(
+                    clock,
+                    &SinksControlParam::Primary {
                         value: self.current_value,
-                    });
+                    },
+                );
             }
             if envelope.tick(clock) {
                 num_to_remove += 1;
@@ -151,8 +152,6 @@ impl Eq for AutomationEnvelope {}
 
 use crate::{primitives::clock::BeatValue, settings::automation::AutomationPathSettings};
 
-use super::traits::{AutomationMessage, AutomationSink};
-
 #[derive(Clone)]
 pub struct AutomationPath {
     pub note_value: Option<BeatValue>,
@@ -196,7 +195,7 @@ mod tests {
         }));
         let target = Rc::new(RefCell::new(NullDevice::new()));
         let target_param_name = String::from("value");
-        let mut trip = AutomationTrip::new(target.clone(), target_param_name);
+        let mut trip = ControlTrip::new(target.clone(), target_param_name);
         trip.add_path(sequence.clone());
         trip.freeze_trip_envelopes(); // TODO I hate this method
 
@@ -253,7 +252,7 @@ mod tests {
         }));
         let target = Rc::new(RefCell::new(NullDevice::new()));
         let target_param_name = String::from("value");
-        let mut trip = AutomationTrip::new(target.clone(), target_param_name);
+        let mut trip = ControlTrip::new(target.clone(), target_param_name);
         trip.add_path(path.clone());
         trip.freeze_trip_envelopes();
 

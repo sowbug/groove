@@ -2,10 +2,8 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     common::MonoSample,
-    primitives::{clock::Clock, SinksAudio, SourcesAudio, WatchesClock},
+    primitives::{clock::Clock, SinksAudio, SinksControl, SourcesAudio, WatchesClock, SinksControlParam},
 };
-
-use super::traits::AutomationSink;
 
 #[derive(Default)]
 pub struct Mixer {
@@ -33,8 +31,8 @@ impl SinksAudio for Mixer {
     }
 }
 
-impl AutomationSink for Mixer {
-    fn handle_automation_message(&mut self, _message: &super::traits::AutomationMessage) {
+impl SinksControl for Mixer {
+    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
         todo!()
     }
 }

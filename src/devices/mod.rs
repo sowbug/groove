@@ -2,10 +2,10 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiNote},
-    primitives::{clock::Clock, WatchesClock},
+    primitives::{clock::Clock, SinksControl, SinksControlParam, WatchesClock},
 };
 
-use self::traits::{AutomationMessage, AutomationSink, MidiSink, MidiSource};
+use self::traits::{MidiSink, MidiSource};
 
 mod automation;
 pub mod effects;
@@ -31,8 +31,8 @@ pub struct Arpeggiator {
     next_beat: f32,
 }
 
-impl AutomationSink for Arpeggiator {
-    fn handle_automation_message(&mut self, _message: &AutomationMessage) {
+impl SinksControl for Arpeggiator {
+    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
         todo!()
     }
 }
@@ -111,10 +111,15 @@ impl Arpeggiator {
 mod tests {
     use crate::{
         common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample},
-        primitives::{clock::Clock, SourcesAudio},
+        primitives::{
+            clock::Clock,
+            SinksControl,
+            SinksControlParam::{self},
+            SourcesAudio,
+        },
     };
 
-    use super::traits::{AutomationMessage, AutomationSink, MidiSink};
+    use super::traits::MidiSink;
 
     #[derive(Default)]
     pub struct NullDevice {
@@ -131,8 +136,8 @@ mod tests {
                 ..Default::default()
             }
         }
-        pub fn set_value(&mut self, value: &f32) {
-            self.value = *value;
+        pub fn set_value(&mut self, value: f32) {
+            self.value = value;
         }
     }
     impl MidiSink for NullDevice {
@@ -161,13 +166,12 @@ mod tests {
             }
         }
     }
-    impl AutomationSink for NullDevice {
-        fn handle_automation_message(&mut self, message: &AutomationMessage) {
-            match message {
-                AutomationMessage::UpdatePrimaryValue { value } => {
-                    self.set_value(value);
-                }
-                _ => todo!(),
+    impl SinksControl for NullDevice {
+        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
+            match param {
+                SinksControlParam::Primary { value } => self.set_value(*value),
+                #[allow(unused_variables)]
+                SinksControlParam::Secondary { value } => todo!(),
             }
         }
     }

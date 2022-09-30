@@ -1,6 +1,6 @@
 use crate::common::{DeviceId, MidiChannel, MonoSample};
 use crate::primitives::clock::Clock;
-use crate::primitives::{SinksAudio, SourcesAudio, WatchesClock};
+use crate::primitives::{SinksAudio, SourcesAudio, WatchesClock, SinksControl};
 use crate::settings::effects::EffectSettings;
 use crate::settings::song::SongSettings;
 use crate::settings::{DeviceSettings, InstrumentSettings};
@@ -12,14 +12,12 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::rc::Rc;
 
-use super::automation::{AutomationPath, AutomationTrip};
+use super::automation::{AutomationPath, ControlTrip};
 use super::effects::{Bitcrusher, Filter, Gain, Limiter};
 use super::mixer::Mixer;
 use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
-use super::traits::{
-    ArpTrait, AutomationSink, AutomatorTrait, EffectTrait, InstrumentTrait, MidiSource,
-};
+use super::traits::{ArpTrait, AutomatorTrait, EffectTrait, InstrumentTrait, MidiSource};
 use super::Arpeggiator;
 
 /// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
@@ -367,7 +365,7 @@ impl Orchestrator {
         panic!("yo {}", id);
     }
 
-    fn get_automation_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn AutomationSink>> {
+    fn get_automation_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn SinksControl>> {
         if self.id_to_effect.contains_key(id) {
             return (self.id_to_effect.get(id).unwrap()).clone();
         }
@@ -417,7 +415,7 @@ impl Orchestrator {
         }
         for track_settings in self.settings.trips.clone() {
             let target = self.get_automation_sink_by_id(&track_settings.target.id);
-            let automation_track = Rc::new(RefCell::new(AutomationTrip::new(
+            let automation_track = Rc::new(RefCell::new(ControlTrip::new(
                 target.clone(),
                 track_settings.target.param,
             )));
