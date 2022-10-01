@@ -59,6 +59,21 @@ pub trait SinksAudio {
     }
 }
 
+/// TransformsAudio can be thought of as SourcesAudio + SinksAudio, but it's
+/// an important third traits because it exposes the business logic that
+/// happens between the sinking and sourcing, which is useful for testing.
+pub trait TransformsAudio {
+    fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample;
+}
+
+// Convenience generic for effects
+impl<T: SinksAudio + TransformsAudio> SourcesAudio for T {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let input = self.gather_source_audio(clock);
+        self.transform_audio(input)
+    }
+}
+
 /// Controls SinksControl through SinksControlParam.
 pub trait SourcesControl {
     fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>];
@@ -92,18 +107,6 @@ pub trait SourcesMidi {
     fn add_midi_sink(&mut self, channel: MidiChannel, sink: Weak<RefCell<dyn SinksMidi>>) {
         self.midi_sinks_mut().entry(channel).or_default().push(sink);
     }
-    // TODO: does clock really need to be passed through here?
-    //
-    // Samplers need it to know when a sample started playback, and synths need to know it
-    // to keep track of when envelopes get triggered.
-    //
-    // They could either keep track of the tick() clock, which is inaccurate because
-    // they only know the value from the last tick() call (which would put the responsibility on
-    // them to do clock math), or we could tell everyone the current clock value at the
-    // start of the event loop, which feels architecturally nicer, but it also reduces memory
-    // locality (call everyone, then call everyone again) -- maybe not a problem.
-    //
-    // TL;DR: yeah, maybe it does really need to be here.
     fn issue_midi(&self, clock: &Clock, message: &MidiMessage) {
         if self.midi_sinks().contains_key(&MIDI_CHANNEL_RECEIVE_ALL) {
             for sink in self.midi_sinks().get(&MIDI_CHANNEL_RECEIVE_ALL).unwrap() {
@@ -139,17 +142,18 @@ pub trait SinksMidi {
     fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage);
 }
 
-/// Represents an aggregate that does its work in time slices.
-/// Almost everything about digital music works this way. For example,
-/// a sine wave isn't a continuous wave. Rather, it's a series of
-/// samples across time. The sine wave can always tell you its value,
-/// as long as you provide a _when_ for the moment in time that you're
-/// asking about.
+/// A WatchesClock is something that needs to be called for every time
+/// slice. This sounds like SourcesAudio; indeed SourcesAudio do not
+/// (and *cannot*) implement WatchesClock because they're already called
+/// on every time slice to provide an audio sample. A WatchesClock has no
+/// extrinsic reason to be called, so the trait exists to make sure that
+/// whatever intrinsic reason for being called is satisfied.
 ///
-/// This trait's most natural unit of time is a *sample*. Typical digital
-/// sounds are 44.1KHz, so a tick in that case would be for 1/44100th of
-/// a second. Typically, tick() will be called repeatedly, with
-/// clock.samples increasing by one each time.
+/// WatchesClock::tick() must be called exactly once for every sample, and
+/// they can assume that they won't be asked to provide anything until tick()
+/// has been called for the time slice. For example, nobody will ask an Envelope
+/// for its amplitude until it's gotten a chance to calculate its amplitude for
+/// the time slice via tick().
 pub trait WatchesClock {
     /// returns true if we had a finite amount of known work that has finished.
     /// TODO: if we return true, then do we still expect to be called for the
@@ -158,10 +162,6 @@ pub trait WatchesClock {
     /// If you're not sure what you should return, you should return true.
     /// This is because false prevents outer loops from ending.
     fn tick(&mut self, clock: &Clock) -> bool;
-}
-
-pub trait TransformsAudio {
-    fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample;
 }
 
 // WORKING ASSERTION: WatchesClock should not also SourcesAudio, because
