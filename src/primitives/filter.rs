@@ -94,7 +94,14 @@ impl MiniFilter2 {
 
     pub fn frequency_to_percent(frequency: f32) -> f32 {
         debug_assert!(frequency >= 0.0);
-        (frequency / Self::FREQUENCY_TO_LINEAR_COEFFICIENT).log(Self::FREQUENCY_TO_LINEAR_BASE)
+
+        // I was stressed out about slightly negative values, but then
+        // I decided that adjusting the log numbers to handle more edge
+        // cases wasn't going to make a practical difference. So I'm
+        // clamping to [0, 1].
+        (frequency / Self::FREQUENCY_TO_LINEAR_COEFFICIENT)
+            .log(Self::FREQUENCY_TO_LINEAR_BASE)
+            .clamp(0.0, 1.0)
     }
 
     pub fn new(filter_type: &MiniFilter2Type) -> Self {

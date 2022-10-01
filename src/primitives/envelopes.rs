@@ -208,12 +208,12 @@ impl WatchesClock for MiniEnvelope {
         }
         self.amplitude += self.delta;
 
-        // TODO: I think the delta/fudge is because of f32 precision and not a logic bug.
+        // TODO: I think the -delta part is because of f32 precision and not a logic bug.
         // If we're barreling toward zero, we might run over it slightly on the
         // last time slice before we switch states.
         //
         // Bigger TODO: why is it so hard to hit a target at the exact time?
-        debug_assert!(self.amplitude - self.delta / 1.5 >= 0.0);
+        debug_assert!(self.amplitude - self.delta >= 0.0);
         match self.state {
             EnvelopeState::Idle => {}
             EnvelopeState::Attack => {
