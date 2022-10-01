@@ -105,6 +105,13 @@ pub trait SourcesMidi {
     //
     // TL;DR: yeah, maybe it does really need to be here.
     fn issue_midi(&self, clock: &Clock, message: &MidiMessage) {
+        if self.midi_sinks().contains_key(&MIDI_CHANNEL_RECEIVE_ALL) {
+            for sink in self.midi_sinks().get(&MIDI_CHANNEL_RECEIVE_ALL).unwrap() {
+                if let Some(sink_up) = sink.upgrade() {
+                    sink_up.borrow_mut().handle_midi(clock, message);
+                }
+            }
+        }
         if self.midi_sinks().contains_key(&message.channel) {
             for sink in self.midi_sinks().get(&message.channel).unwrap() {
                 if let Some(sink_up) = sink.upgrade() {
@@ -157,6 +164,9 @@ pub trait TransformsAudio {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample;
 }
 
+// WORKING ASSERTION: WatchesClock should not also SourcesAudio, because
+// WatchesClock gets a clock tick, whereas SourcesAudio gets a sources_audio(), and
+// both are time slice-y. Be on the lookout for anything that claims to need both.
 pub trait IsMidiInstrument: SourcesAudio + SinksMidi {}
 pub trait IsEffect: SourcesAudio + SinksAudio + TransformsAudio + SinksControl {}
 pub trait IsMidiEffect: SourcesMidi + SinksMidi + WatchesClock {}

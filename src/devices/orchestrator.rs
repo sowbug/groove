@@ -1,12 +1,15 @@
-use crate::common::{DeviceId, MidiChannel, MonoSample};
+use crate::common::{
+    DeviceId, MidiChannel, MonoSample, MIDI_CHANNEL_RECEIVE_ALL, MONO_SAMPLE_SILENCE,
+};
 use crate::primitives::bitcrusher::Bitcrusher;
-use crate::primitives::clock::Clock;
+use crate::primitives::clock::WatchedClock;
 use crate::primitives::filter::MiniFilter2;
 use crate::primitives::gain::MiniGain;
 use crate::primitives::limiter::MiniLimiter;
 use crate::primitives::mixer::Mixer;
 use crate::primitives::{
-    IsEffect, IsMidiEffect, SinksAudio, SinksControl, SourcesAudio, SourcesMidi, WatchesClock,
+    IsEffect, IsMidiEffect, SinksAudio, SinksControl, SinksMidi, SourcesAudio, SourcesMidi,
+    WatchesClock,
 };
 use crate::settings::effects::EffectSettings;
 use crate::settings::song::SongSettings;
@@ -17,23 +20,26 @@ use crossbeam::deque::Worker;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{self, Write};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use super::automation::{AutomationPath, ControlTrip};
+use super::midi::MidiBus;
 use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
 use super::Arpeggiator;
 
 /// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct Orchestrator {
     settings: SongSettings,
 
-    master_mixer: Rc<RefCell<Mixer>>,
+    clock: WatchedClock,
+    main_mixer: Box<Mixer>, /////////////// // Not Box because get_effect("main-mixer") - can eliminate?
+    midi_bus: Rc<RefCell<MidiBus>>, // Not Box because we need Weaks
     midi_sequencer: Rc<RefCell<MidiSequencer>>,
     pattern_sequencer: Rc<RefCell<PatternSequencer>>,
 
-    id_to_automator: HashMap<DeviceId, Rc<RefCell<dyn WatchesClock>>>,
+    id_to_controller: HashMap<DeviceId, Rc<RefCell<dyn WatchesClock>>>,
     id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn SourcesAudio>>>,
     id_to_effect: HashMap<DeviceId, Rc<RefCell<dyn IsEffect>>>,
     id_to_arp: HashMap<DeviceId, Rc<RefCell<dyn IsMidiEffect>>>,
@@ -46,12 +52,14 @@ impl Orchestrator {
     pub fn new(settings: SongSettings) -> Self {
         let mut r = Self {
             settings: settings.clone(),
-            master_mixer: Rc::new(RefCell::new(Mixer::new())),
+            clock: WatchedClock::new_with(&settings.clock),
+            main_mixer: Box::new(Mixer::new()),
+            midi_bus: Rc::new(RefCell::new(MidiBus::new())),
             midi_sequencer: Rc::new(RefCell::new(MidiSequencer::new())),
             pattern_sequencer: Rc::new(RefCell::new(PatternSequencer::new(
                 &settings.clock.time_signature(),
             ))),
-            id_to_automator: HashMap::new(),
+            id_to_controller: HashMap::new(),
             id_to_instrument: HashMap::new(),
             id_to_effect: HashMap::new(),
             id_to_arp: HashMap::new(),
@@ -59,8 +67,17 @@ impl Orchestrator {
             id_to_pattern: HashMap::new(),
             id_to_automation_sequence: HashMap::new(),
         };
-        r.add_effect_by_id(String::from("main-mixer"), r.master_mixer.clone());
 
+        let sink = Rc::downgrade(&r.midi_bus);
+        r.pattern_sequencer
+            .borrow_mut()
+            .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
+        let sink = Rc::downgrade(&r.midi_bus);
+        r.midi_sequencer
+            .borrow_mut()
+            .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
+        r.clock.add_watcher(r.midi_sequencer.clone());
+        r.clock.add_watcher(r.pattern_sequencer.clone());
         r.prepare_from_settings();
         r
     }
@@ -73,35 +90,23 @@ impl Orchestrator {
         &self.settings
     }
 
-    fn tick(&mut self, clock: &mut Clock) -> (MonoSample, bool) {
-        let mut done = true;
-        for d in self.id_to_automator.values() {
-            done = d.borrow_mut().tick(clock) && done;
+    fn tick(&mut self) -> (MonoSample, bool) {
+        if self.clock.visit_watchers() {
+            return (MONO_SAMPLE_SILENCE, true);
         }
-        done = self.midi_sequencer.borrow_mut().tick(clock) && done;
-        done = self.pattern_sequencer.borrow_mut().tick(clock) && done;
-        for d in self.id_to_arp.values() {
-            done = d.borrow_mut().tick(clock) && done;
-        }
-        for d in self.id_to_instrument.values() {
-            //TODO    done = d.borrow_mut().tick(clock) && done;
-        }
-        for d in self.id_to_effect.values() {
-            //TODO    done = d.borrow_mut().tick(clock) && done;
-        }
-        (self.master_mixer.borrow_mut().source_audio(&clock), done)
+        let sample = self.main_mixer.source_audio(self.clock.inner_clock());
+        self.clock.tick();
+        (sample, false)
     }
 
     pub fn perform_to_queue(&mut self, worker: &Worker<MonoSample>) -> anyhow::Result<()> {
-        let mut clock = Clock::new_with(&self.settings.clock);
-
-        let progress_indicator_quantum: usize = clock.settings().sample_rate() / 2;
+        let progress_indicator_quantum: usize =
+            self.clock.inner_clock().settings().sample_rate() / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
         loop {
-            let (sample, done) = self.tick(&mut clock);
+            let (sample, done) = self.tick();
             worker.push(sample);
-            clock.tick();
-            if next_progress_indicator <= clock.samples {
+            if next_progress_indicator <= self.clock.inner_clock().samples {
                 print!(".");
                 io::stdout().flush().unwrap();
                 next_progress_indicator += progress_indicator_quantum;
@@ -114,8 +119,8 @@ impl Orchestrator {
         Ok(())
     }
 
-    pub fn add_master_mixer_source(&self, device: Rc<RefCell<dyn SourcesAudio>>) {
-        self.master_mixer.borrow_mut().add_audio_source(device);
+    pub fn add_master_mixer_source(&mut self, device: Rc<RefCell<dyn SourcesAudio>>) {
+        self.main_mixer.add_audio_source(device);
     }
 
     fn prepare_from_settings(&mut self) {
@@ -126,54 +131,49 @@ impl Orchestrator {
         self.create_automation_tracks_from_settings();
     }
 
-    pub fn add_instrument_by_id(
-        &mut self,
-        id: String,
-        instrument: Rc<RefCell<dyn SourcesAudio>>,
-        channel: MidiChannel,
-    ) {
+    pub fn add_instrument_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn SourcesAudio>>) {
         self.id_to_instrument.insert(id, instrument.clone());
-
-        // TODO: make a Midi bus, which you should have done months ago
-        // let sink = Rc::downgrade(&instrument);
-        // self.midi_sequencer
-        //     .borrow_mut()
-        //     .add_midi_sink(channel, sink);
-
-        // let sink = Rc::downgrade(&instrument);
-        // self.pattern_sequencer
-        //     .borrow_mut()
-        //     .add_midi_sink(channel, sink);
-
-        // for arp in self.id_to_arp.values() {
-        //     let sink = Rc::downgrade(&instrument);
-        //     arp.borrow_mut().add_midi_sink(channel, sink);
-        // }
     }
 
-    pub fn add_arp_by_id(
+    pub fn connect_to_downstream_midi_bus(
+        &mut self,
+        channel: MidiChannel,
+        instrument: Weak<RefCell<dyn SinksMidi>>,
+    ) {
+        self.midi_bus
+            .borrow_mut()
+            .add_midi_sink(channel, instrument);
+    }
+
+    pub fn connect_to_upstream_midi_bus(&mut self, instrument: Rc<RefCell<dyn SourcesMidi>>) {
+        let sink = Rc::downgrade(&self.midi_bus);
+        instrument
+            .borrow_mut()
+            .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
+    }
+
+    pub fn add_midi_effect_by_id(
         &mut self,
         id: String,
         arp: Rc<RefCell<dyn IsMidiEffect>>,
         channel: MidiChannel,
     ) {
+        self.clock.add_watcher(arp.clone());
         self.id_to_arp.insert(id, arp.clone());
-        let sink = Rc::downgrade(&arp);
-        self.midi_sequencer
-            .borrow_mut()
-            .add_midi_sink(channel, sink);
-        let sink = Rc::downgrade(&arp);
-        self.pattern_sequencer
-            .borrow_mut()
-            .add_midi_sink(channel, sink);
+        let instrument = Rc::downgrade(&arp);
+        self.connect_to_downstream_midi_bus(channel, instrument);
+        self.connect_to_upstream_midi_bus(arp);
     }
 
     fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn IsEffect>>) {
         self.id_to_effect.insert(id, instrument.clone());
+        // TODO: and connect to main mixer? Are other things supposed to be chained to these?
     }
 
     fn add_clock_watcher_by_id(&mut self, id: String, automator: Rc<RefCell<dyn WatchesClock>>) {
-        self.id_to_automator.insert(id, automator.clone());
+        self.id_to_controller.insert(id, automator.clone());
+        self.clock.add_watcher(automator);
+        // TODO: assert that it wasn't added twice.
     }
 
     fn create_instruments_from_settings(&mut self) {
@@ -191,7 +191,9 @@ impl Orchestrator {
                             self.settings.clock.sample_rate(),
                             welsh::SynthPreset::by_name(&preset_name),
                         )));
-                        self.add_instrument_by_id(id, instrument, midi_input_channel);
+                        let instrument_weak = Rc::downgrade(&instrument);
+                        self.connect_to_downstream_midi_bus(midi_input_channel, instrument_weak);
+                        self.add_instrument_by_id(id, instrument);
                     }
                     InstrumentSettings::Drumkit {
                         id,
@@ -201,13 +203,16 @@ impl Orchestrator {
                         let instrument = Rc::new(RefCell::new(
                             drumkit_sampler::Sampler::new_from_files(midi_input_channel),
                         ));
-                        self.add_instrument_by_id(id, instrument, midi_input_channel);
+                        let instrument_weak = Rc::downgrade(&instrument);
+                        self.connect_to_downstream_midi_bus(midi_input_channel, instrument_weak);
+                        self.add_instrument_by_id(id, instrument);
                     }
                     InstrumentSettings::Arpeggiator {
                         id,
                         midi_input_channel,
                         midi_output_channel,
-                    } => self.add_arp_by_id(
+                    } => self.add_midi_effect_by_id(
+                        // TODO
                         id,
                         Rc::new(RefCell::new(Arpeggiator::new(
                             midi_input_channel,
@@ -351,7 +356,7 @@ impl Orchestrator {
         }
     }
 
-    fn create_patch_cables_from_settings(&self) {
+    fn create_patch_cables_from_settings(&mut self) {
         for patch_cable in self.settings.patch_cables.clone() {
             if patch_cable.len() < 2 {
                 dbg!("ignoring patch cable of length < 2");
@@ -361,8 +366,13 @@ impl Orchestrator {
             for device_id in patch_cable {
                 if let Some(ldi) = last_device_id {
                     let output: Rc<RefCell<dyn SourcesAudio>> = self.get_audio_source_by_id(&ldi);
-                    let input: Rc<RefCell<dyn SinksAudio>> = self.get_audio_sink_by_id(&device_id);
-                    input.borrow_mut().add_audio_source(output);
+                    if device_id == "main-mixer" {
+                        self.add_master_mixer_source(output);
+                    } else {
+                        let input: Rc<RefCell<dyn SinksAudio>> =
+                            self.get_audio_sink_by_id(&device_id);
+                        input.borrow_mut().add_audio_source(output);
+                    }
                 }
                 last_device_id = Some(device_id);
             }
@@ -387,6 +397,9 @@ impl Orchestrator {
     }
 
     fn get_audio_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn SinksAudio>> {
+        if id == "main-mixer" {
+            panic!("special case this");
+        }
         if self.id_to_effect.contains_key(id) {
             return (self.id_to_effect.get(id).unwrap()).clone();
         }
@@ -466,9 +479,5 @@ impl Orchestrator {
 
     fn get_pattern_by_id(&self, pattern_id: &str) -> Rc<RefCell<Pattern>> {
         (self.id_to_pattern.get(pattern_id).unwrap()).clone()
-    }
-
-    pub fn midi_sequencer(&self) -> Rc<RefCell<MidiSequencer>> {
-        self.midi_sequencer.clone()
     }
 }

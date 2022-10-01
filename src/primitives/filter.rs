@@ -3,7 +3,8 @@ use std::{cell::RefCell, f64::consts::PI, rc::Rc};
 use crate::common::MonoSample;
 
 use super::{
-    clock::Clock, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio, IsEffect,
+    clock::Clock, IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio,
+    TransformsAudio,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -544,7 +545,9 @@ impl SinksControl for MiniFilter2 {
     fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
         match param {
             SinksControlParam::Primary { value } => {
-                self.set_cutoff(*value);
+                let unscaled_cutoff = Self::percent_to_frequency(value * 2.0 - 1.0);
+
+                self.set_cutoff(unscaled_cutoff);
             }
             SinksControlParam::Secondary { value } => {
                 self.set_q(*value);

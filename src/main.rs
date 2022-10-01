@@ -4,7 +4,7 @@
 use libgroove::{
     common::MonoSample,
     devices::{midi::MidiSmfReader, orchestrator::Orchestrator, sequencer::MidiSequencer},
-    primitives::{IsMidiInstrument, SourcesMidi},
+    primitives::IsMidiInstrument,
     settings::song::SongSettings,
     synthesizers::{
         drumkit_sampler::Sampler,
@@ -50,7 +50,7 @@ impl ClDaw {
         let mut result = Self {
             orchestrator: Orchestrator::new_defaults(),
         };
-        MidiSmfReader::load_sequencer(&data, result.orchestrator.midi_sequencer());
+        // BIG TODO        MidiSmfReader::load_sequencer(&data, result.orchestrator.midi_sequencer());
 
         for channel in 0..MidiSequencer::connected_channel_count() {
             let synth: Rc<RefCell<dyn IsMidiInstrument>> = if channel == 9 {
@@ -63,19 +63,14 @@ impl ClDaw {
                 )))
             };
             // We make up IDs here, as we know that MIDI won't be referencing them.
-            result.orchestrator.add_instrument_by_id(
-                format!("instrument-{}", channel),
-                synth.clone(),
-                channel,
-            );
-            result.orchestrator.add_master_mixer_source(synth.clone());
-
+            result
+                .orchestrator
+                .add_instrument_by_id(format!("instrument-{}", channel), synth.clone());
             let sink = Rc::downgrade(&synth);
             result
                 .orchestrator
-                .midi_sequencer()
-                .borrow_mut()
-                .add_midi_sink(channel, sink);
+                .connect_to_downstream_midi_bus(channel, sink);
+            result.orchestrator.add_master_mixer_source(synth);
         }
         result
     }

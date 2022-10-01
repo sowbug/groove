@@ -1,7 +1,14 @@
 use midly::{MidiMessage as MidlyMidiMessage, TrackEventKind};
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    rc::{Rc, Weak},
+};
 
-use crate::common::{MidiMessage, OrderedMidiMessage};
+use crate::{
+    common::{MidiChannel, MidiMessage, OrderedMidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
+    primitives::{SinksMidi, SourcesMidi},
+};
 
 use super::sequencer::MidiSequencer;
 
@@ -131,5 +138,42 @@ impl MidiSmfReader {
             }
         }
         println!("Done processing MIDI file");
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct MidiBus {
+    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
+}
+impl SinksMidi for MidiBus {
+    fn midi_channel(&self) -> MidiChannel {
+        MIDI_CHANNEL_RECEIVE_ALL
+    }
+
+    fn set_midi_channel(&mut self, _midi_channel: MidiChannel) {}
+
+    fn handle_midi_for_channel(
+        &mut self,
+        clock: &crate::primitives::clock::Clock,
+        message: &MidiMessage,
+    ) {
+        // send to everyone EXCEPT whoever sent it!
+        self.issue_midi(clock, message);
+    }
+}
+impl SourcesMidi for MidiBus {
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+        &self.channels_to_sink_vecs
+    }
+
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+        &mut self.channels_to_sink_vecs
+    }
+}
+impl MidiBus {
+    pub fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
     }
 }

@@ -2021,7 +2021,6 @@ pub struct Synth {
     sample_rate: usize,
     preset: SynthPreset,
     note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
-    current_value: MonoSample,
 }
 impl IsMidiInstrument for Synth {}
 
@@ -2089,24 +2088,19 @@ impl SinksMidi for Synth {
         }
     }
 }
-impl WatchesClock for Synth {
-    fn tick(&mut self, clock: &Clock) -> bool {
+
+impl SourcesAudio for Synth {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let mut done = true;
-        self.current_value = 0.0;
+        let mut current_value = 0.0;
         for (_note, voice) in self.note_to_voice.iter_mut() {
-            self.current_value += voice.borrow_mut().source_audio(clock);
+            current_value += voice.borrow_mut().source_audio(clock);
             done = done && !voice.borrow().is_playing();
         }
         if !self.note_to_voice.is_empty() {
-            self.current_value /= self.note_to_voice.len() as MonoSample;
+            current_value /= self.note_to_voice.len() as MonoSample;
         }
-        done
-    }
-}
-
-impl SourcesAudio for Synth {
-    fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-        self.current_value
+        current_value
     }
 }
 

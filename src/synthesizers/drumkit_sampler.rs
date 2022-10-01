@@ -6,7 +6,7 @@ use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
     general_midi::GeneralMidiPercussionProgram,
     primitives::{
-        clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesAudio, WatchesClock, IsMidiInstrument,
+        clock::Clock, IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
     },
 };
 
@@ -65,7 +65,13 @@ impl SinksMidi for Voice {
     }
 }
 impl SourcesAudio for Voice {
-    fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        self.sample_pointer = clock.samples as usize - self.sample_clock_start;
+        if self.sample_pointer >= self.samples.len() {
+            self.is_playing = false;
+            self.sample_pointer = 0;
+        }
+
         if self.is_playing {
             let sample = *self
                 .samples
@@ -75,16 +81,6 @@ impl SourcesAudio for Voice {
         } else {
             0.0
         }
-    }
-}
-impl WatchesClock for Voice {
-    fn tick(&mut self, clock: &Clock) -> bool {
-        self.sample_pointer = clock.samples as usize - self.sample_clock_start;
-        if self.sample_pointer >= self.samples.len() {
-            self.is_playing = false;
-            self.sample_pointer = 0;
-        }
-        true
     }
 }
 
@@ -194,15 +190,6 @@ impl SourcesAudio for Sampler {
         //     .values()
         //     .map(|v| v.get_audio_sample())
         //     .sum()
-    }
-}
-
-impl WatchesClock for Sampler {
-    fn tick(&mut self, clock: &Clock) -> bool {
-        for voice in self.note_to_voice.values_mut() {
-            voice.tick(clock);
-        }
-        true
     }
 }
 

@@ -3,9 +3,7 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample},
-    primitives::{
-        clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesAudio, WatchesClock,
-    },
+    primitives::{clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesAudio},
 };
 
 #[derive(Default)]
@@ -69,7 +67,15 @@ impl SinksMidi for Sampler {
     }
 }
 impl SourcesAudio for Sampler {
-    fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        // TODO: when we got rid of WatchesClock, we lost the concept of "done."
+        // Be on the lookout for clipped audio.
+        self.sample_pointer = clock.samples as usize - self.sample_clock_start;
+        if self.sample_pointer >= self.samples.len() {
+            self.is_playing = false;
+            self.sample_pointer = 0;
+        }
+
         if self.is_playing {
             let sample = *self
                 .samples
@@ -79,16 +85,6 @@ impl SourcesAudio for Sampler {
         } else {
             0.0
         }
-    }
-}
-impl WatchesClock for Sampler {
-    fn tick(&mut self, clock: &crate::primitives::clock::Clock) -> bool {
-        self.sample_pointer = clock.samples as usize - self.sample_clock_start;
-        if self.sample_pointer >= self.samples.len() {
-            self.is_playing = false;
-            self.sample_pointer = 0;
-        }
-        true
     }
 }
 

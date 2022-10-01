@@ -1,4 +1,4 @@
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc};
 
 use serde::{Deserialize, Serialize};
 
@@ -176,6 +176,13 @@ pub struct WatchedClock {
 impl WatchedClock {
     pub fn new() -> Self {
         Self {
+            ..Default::default()
+        }
+    }
+
+    pub(crate) fn new_with(clock_settings: &ClockSettings) -> WatchedClock {
+        WatchedClock {
+            clock: Clock::new_with(clock_settings),
             ..Default::default()
         }
     }
