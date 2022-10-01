@@ -2021,6 +2021,8 @@ pub struct Synth {
     sample_rate: usize,
     preset: SynthPreset,
     note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
+
+    debug_last_seconds: f32,
 }
 impl IsMidiInstrument for Synth {}
 
@@ -2032,6 +2034,8 @@ impl Synth {
             preset,
             //voices: Vec::new(),
             note_to_voice: HashMap::new(),
+
+            debug_last_seconds: -1.0,
             ..Default::default()
         }
     }
@@ -2091,6 +2095,12 @@ impl SinksMidi for Synth {
 
 impl SourcesAudio for Synth {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        if clock.seconds == self.debug_last_seconds {
+            panic!();
+        } else {
+            self.debug_last_seconds = clock.seconds;
+        }
+
         let mut done = true;
         let mut current_value = 0.0;
         for (_note, voice) in self.note_to_voice.iter_mut() {

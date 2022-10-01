@@ -38,6 +38,10 @@ devices:
   - effect:
       gain:
         id: gain-2
+        amount: 0.25
+  - effect:
+      gain:
+        id: gain-3
         amount: 0.125
   - effect:
       bitcrusher:
@@ -50,8 +54,8 @@ devices:
         q: 1.0
 patch-cables:
   - [piano-1, bitcrusher-1, low-pass-1, gain-1, main-mixer]
-  - [bassline, gain-1, main-mixer]
-  - [synth-1, gain-2, main-mixer]
+  - [bassline, gain-2, main-mixer]
+  - [synth-1, gain-3, main-mixer]
   - [drum-1, main-mixer]
 patterns:
   - id: basic-1

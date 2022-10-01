@@ -36,6 +36,8 @@ pub struct MiniEnvelope {
     delta: f32,
     target: f32,
     target_seconds: f32,
+
+    debug_last_seconds: f32,
 }
 
 impl MiniEnvelope {
@@ -49,6 +51,7 @@ impl MiniEnvelope {
             sustain_percentage: preset.sustain_percentage,
             release_seconds: preset.release_seconds,
             target_seconds: MAX,
+            debug_last_seconds: -1.0,
             ..Default::default()
         }
     }
@@ -195,7 +198,22 @@ impl SinksControl for MiniEnvelope {
 
 impl WatchesClock for MiniEnvelope {
     fn tick(&mut self, clock: &Clock) -> bool {
+        // TODO: upstream this check into WatchesClock
+        // so everyone gets it.
+        // Or maybe turn WatchedClock's Vec into a Set.
+        if clock.seconds == self.debug_last_seconds {
+            panic!();
+        } else {
+            self.debug_last_seconds = clock.seconds;
+        }
         self.amplitude += self.delta;
+
+        // TODO: I think the delta/fudge is because of f32 precision and not a logic bug.
+        // If we're barreling toward zero, we might run over it slightly on the
+        // last time slice before we switch states.
+        //
+        // Bigger TODO: why is it so hard to hit a target at the exact time?
+        debug_assert!(self.amplitude - self.delta / 1.5 >= 0.0);
         match self.state {
             EnvelopeState::Idle => {}
             EnvelopeState::Attack => {

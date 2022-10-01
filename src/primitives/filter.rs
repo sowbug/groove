@@ -88,10 +88,12 @@ impl MiniFilter2 {
     // Column A is 24db filter percentages from all the patches
     // Column B is envelope-filter percentages from all the patches
     pub fn percent_to_frequency(percentage: f32) -> f32 {
+        debug_assert!(percentage >= 0.0 && percentage <= 1.0);
         Self::FREQUENCY_TO_LINEAR_BASE * Self::FREQUENCY_TO_LINEAR_COEFFICIENT.powf(percentage)
     }
 
     pub fn frequency_to_percent(frequency: f32) -> f32 {
+        debug_assert!(frequency >= 0.0);
         (frequency / Self::FREQUENCY_TO_LINEAR_COEFFICIENT).log(Self::FREQUENCY_TO_LINEAR_BASE)
     }
 
@@ -545,9 +547,7 @@ impl SinksControl for MiniFilter2 {
     fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
         match param {
             SinksControlParam::Primary { value } => {
-                let unscaled_cutoff = Self::percent_to_frequency(value * 2.0 - 1.0);
-
-                self.set_cutoff(unscaled_cutoff);
+                self.set_cutoff(Self::percent_to_frequency(*value));
             }
             SinksControlParam::Secondary { value } => {
                 self.set_q(*value);
