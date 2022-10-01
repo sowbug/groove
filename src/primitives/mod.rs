@@ -172,14 +172,6 @@ pub trait IsEffect: SourcesAudio + SinksAudio + TransformsAudio + SinksControl {
 pub trait IsMidiEffect: SourcesMidi + SinksMidi + WatchesClock {}
 pub trait IsController: SourcesControl + WatchesClock {}
 
-pub trait TransformsControlToAudio /*  SinksControl + SourcesAudio */ {}
-impl<T: SinksAudio + TransformsAudio> SourcesAudio for T {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let input = self.gather_source_audio(clock);
-        self.transform_audio(input)
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
 
