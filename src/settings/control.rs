@@ -14,10 +14,10 @@ pub enum ControlStepType {
 }
 
 impl ControlStepType {
-    pub fn new_flat(value: f32) -> crate::settings::automation::ControlStepType {
+    pub fn new_flat(value: f32) -> crate::settings::control::ControlStepType {
         ControlStepType::Flat { value }
     }
-    pub fn new_slope(start: f32, end: f32) -> crate::settings::automation::ControlStepType {
+    pub fn new_slope(start: f32, end: f32) -> crate::settings::control::ControlStepType {
         ControlStepType::Slope { start, end }
     }
 }

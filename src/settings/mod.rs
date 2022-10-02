@@ -1,4 +1,4 @@
-pub mod automation;
+pub mod control;
 pub mod effects;
 pub mod song;
 

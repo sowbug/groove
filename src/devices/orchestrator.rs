@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::rc::{Rc, Weak};
 
-use super::automation::{ControlPath, ControlTrip};
+use super::control::{ControlPath, ControlTrip};
 use super::midi::MidiBus;
 use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;

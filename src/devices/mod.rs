@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-mod automation;
+mod control;
 pub mod midi;
 pub mod orchestrator;
 pub mod patterns;

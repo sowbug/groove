@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::common::DeviceId;
 
 use super::{
-    automation::{ControlPathSettings, ControlTripSettings},
+    control::{ControlPathSettings, ControlTripSettings},
     ClockSettings, DeviceSettings, PatternSettings, TrackSettings,
 };
 
