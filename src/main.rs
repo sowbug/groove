@@ -50,7 +50,7 @@ impl ClDaw {
         let mut result = Self {
             orchestrator: Orchestrator::new_defaults(),
         };
-        // BIG TODO        MidiSmfReader::load_sequencer(&data, result.orchestrator.midi_sequencer());
+        MidiSmfReader::load_sequencer(&data, result.orchestrator.midi_sequencer());
 
         for channel in 0..MidiSequencer::connected_channel_count() {
             let synth: Rc<RefCell<dyn IsMidiInstrument>> = if channel == 9 {

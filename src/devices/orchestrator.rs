@@ -480,4 +480,8 @@ impl Orchestrator {
     fn get_pattern_by_id(&self, pattern_id: &str) -> Rc<RefCell<Pattern>> {
         (self.id_to_pattern.get(pattern_id).unwrap()).clone()
     }
+
+    pub fn midi_sequencer(&self) -> Rc<RefCell<MidiSequencer>> {
+        Rc::clone(&self.midi_sequencer)
+    }
 }

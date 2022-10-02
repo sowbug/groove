@@ -19,7 +19,8 @@ pub struct ControlTrip {
 impl ControlTrip {
     const CURSOR_BEGIN: f32 = 0.0;
 
-    pub fn new(target: Rc<RefCell<dyn SinksControl>>, _target_param_name: String) -> Self {
+    #[allow(unused_variables)]
+    pub fn new(target: Rc<RefCell<dyn SinksControl>>, target_param_name: String) -> Self {
         Self {
             target_instrument: target,
             cursor_beats: Self::CURSOR_BEGIN,
