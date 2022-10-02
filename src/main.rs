@@ -63,14 +63,15 @@ impl ClDaw {
                 )))
             };
             // We make up IDs here, as we know that MIDI won't be referencing them.
+            let instrument = Rc::clone(&synth);
             result
                 .orchestrator
-                .add_instrument_by_id(format!("instrument-{}", channel), synth.clone());
+                .add_instrument_by_id(format!("instrument-{}", channel), instrument);
             let sink = Rc::downgrade(&synth);
             result
                 .orchestrator
                 .connect_to_downstream_midi_bus(channel, sink);
-            result.orchestrator.add_master_mixer_source(synth);
+            result.orchestrator.add_main_mixer_source(synth);
         }
         result
     }

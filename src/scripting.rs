@@ -185,7 +185,7 @@ mod nothing {
         }
 
         fn patch_to_master(orchestrator: &mut Orchestrator, device: Rc<RefCell<welsh::Synth>>) {
-            orchestrator.add_instrument(device.clone());
+            orchestrator.add_instrument(device);
             orchestrator.add_master_mixer_source(device);
         }
 

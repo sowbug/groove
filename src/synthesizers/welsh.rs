@@ -2043,14 +2043,14 @@ impl Synth {
     fn voice_for_note(&mut self, note: u8) -> Rc<RefCell<Voice>> {
         let opt = self.note_to_voice.get(&note);
         if let Some(voice) = opt {
-            voice.clone()
+            Rc::clone(&voice)
         } else {
             let voice = Rc::new(RefCell::new(Voice::new(
                 self.midi_channel(),
                 self.sample_rate,
                 &self.preset,
             )));
-            self.note_to_voice.insert(note, voice.clone());
+            self.note_to_voice.insert(note, Rc::clone(&voice));
             voice
         }
     }

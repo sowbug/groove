@@ -39,13 +39,13 @@ pub struct Orchestrator {
     midi_sequencer: Rc<RefCell<MidiSequencer>>,
     pattern_sequencer: Rc<RefCell<PatternSequencer>>,
 
-    id_to_controller: HashMap<DeviceId, Rc<RefCell<dyn WatchesClock>>>,
-    id_to_instrument: HashMap<DeviceId, Rc<RefCell<dyn SourcesAudio>>>,
+    id_to_clock_watcher: HashMap<DeviceId, Rc<RefCell<dyn WatchesClock>>>,
+    id_to_audio_source: HashMap<DeviceId, Rc<RefCell<dyn SourcesAudio>>>,
     id_to_effect: HashMap<DeviceId, Rc<RefCell<dyn IsEffect>>>,
-    id_to_arp: HashMap<DeviceId, Rc<RefCell<dyn IsMidiEffect>>>,
+    id_to_midi_effect: HashMap<DeviceId, Rc<RefCell<dyn IsMidiEffect>>>,
 
     id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
-    id_to_automation_sequence: HashMap<DeviceId, Rc<RefCell<ControlPath>>>,
+    id_to_control_path: HashMap<DeviceId, Rc<RefCell<ControlPath>>>,
 }
 
 impl Orchestrator {
@@ -59,13 +59,13 @@ impl Orchestrator {
             pattern_sequencer: Rc::new(RefCell::new(PatternSequencer::new(
                 &settings.clock.time_signature(),
             ))),
-            id_to_controller: HashMap::new(),
-            id_to_instrument: HashMap::new(),
+            id_to_clock_watcher: HashMap::new(),
+            id_to_audio_source: HashMap::new(),
             id_to_effect: HashMap::new(),
-            id_to_arp: HashMap::new(),
+            id_to_midi_effect: HashMap::new(),
 
             id_to_pattern: HashMap::new(),
-            id_to_automation_sequence: HashMap::new(),
+            id_to_control_path: HashMap::new(),
         };
 
         let sink = Rc::downgrade(&r.midi_bus);
@@ -76,8 +76,10 @@ impl Orchestrator {
         r.midi_sequencer
             .borrow_mut()
             .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
-        r.clock.add_watcher(r.midi_sequencer.clone());
-        r.clock.add_watcher(r.pattern_sequencer.clone());
+        let watcher = Rc::clone(&r.midi_sequencer);
+        r.clock.add_watcher(watcher);
+        let watcher = Rc::clone(&r.pattern_sequencer);
+        r.clock.add_watcher(watcher);
         r.prepare_from_settings();
         r
     }
@@ -119,7 +121,7 @@ impl Orchestrator {
         Ok(())
     }
 
-    pub fn add_master_mixer_source(&mut self, device: Rc<RefCell<dyn SourcesAudio>>) {
+    pub fn add_main_mixer_source(&mut self, device: Rc<RefCell<dyn SourcesAudio>>) {
         self.main_mixer.add_audio_source(device);
     }
 
@@ -128,11 +130,11 @@ impl Orchestrator {
         self.create_instruments_from_settings();
         self.create_patch_cables_from_settings();
         self.create_tracks_from_settings();
-        self.create_automation_tracks_from_settings();
+        self.create_control_trips_from_settings();
     }
 
     pub fn add_instrument_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn SourcesAudio>>) {
-        self.id_to_instrument.insert(id, instrument.clone());
+        self.id_to_audio_source.insert(id, instrument);
     }
 
     pub fn connect_to_downstream_midi_bus(
@@ -155,23 +157,24 @@ impl Orchestrator {
     pub fn add_midi_effect_by_id(
         &mut self,
         id: String,
-        arp: Rc<RefCell<dyn IsMidiEffect>>,
+        midi_effect: Rc<RefCell<dyn IsMidiEffect>>,
         channel: MidiChannel,
     ) {
-        self.clock.add_watcher(arp.clone());
-        self.id_to_arp.insert(id, arp.clone());
-        let instrument = Rc::downgrade(&arp);
+        let watcher = Rc::clone(&midi_effect);
+        self.clock.add_watcher(watcher);
+        self.id_to_midi_effect.insert(id, Rc::clone(&midi_effect));
+        let instrument = Rc::downgrade(&midi_effect);
+        self.connect_to_upstream_midi_bus(midi_effect);
         self.connect_to_downstream_midi_bus(channel, instrument);
-        self.connect_to_upstream_midi_bus(arp);
     }
 
     fn add_effect_by_id(&mut self, id: String, instrument: Rc<RefCell<dyn IsEffect>>) {
-        self.id_to_effect.insert(id, instrument.clone());
+        self.id_to_effect.insert(id, instrument);
         // TODO: and connect to main mixer? Are other things supposed to be chained to these?
     }
 
     fn add_clock_watcher_by_id(&mut self, id: String, automator: Rc<RefCell<dyn WatchesClock>>) {
-        self.id_to_controller.insert(id, automator.clone());
+        self.id_to_clock_watcher.insert(id, Rc::clone(&automator));
         self.clock.add_watcher(automator);
         // TODO: assert that it wasn't added twice.
     }
@@ -179,6 +182,7 @@ impl Orchestrator {
     fn create_instruments_from_settings(&mut self) {
         // Then set up instruments, attaching to sequencers as they're set up.
         for device in self.settings.devices.clone() {
+            // TODO: grrr, want this to be iter_mut()
             match device {
                 DeviceSettings::Instrument(settings) => match settings {
                     InstrumentSettings::Welsh {
@@ -367,7 +371,7 @@ impl Orchestrator {
                 if let Some(ldi) = last_device_id {
                     let output: Rc<RefCell<dyn SourcesAudio>> = self.get_audio_source_by_id(&ldi);
                     if device_id == "main-mixer" {
-                        self.add_master_mixer_source(output);
+                        self.add_main_mixer_source(output);
                     } else {
                         let input: Rc<RefCell<dyn SinksAudio>> =
                             self.get_audio_sink_by_id(&device_id);
@@ -381,17 +385,18 @@ impl Orchestrator {
 
     #[allow(dead_code)]
     fn get_instrument_by_id(&self, id: &str) -> Rc<RefCell<dyn SourcesAudio>> {
-        if self.id_to_instrument.contains_key(id) {
-            return (self.id_to_instrument.get(id).unwrap()).clone();
+        if self.id_to_audio_source.contains_key(id) {
+            return Rc::clone(self.id_to_audio_source.get(id).unwrap());
         }
         panic!("yo {}", id);
     }
 
     fn get_audio_source_by_id(&self, id: &str) -> Rc<RefCell<dyn SourcesAudio>> {
-        if self.id_to_instrument.contains_key(id) {
-            return (self.id_to_instrument.get(id).unwrap()).clone();
+        if self.id_to_audio_source.contains_key(id) {
+            return Rc::clone(self.id_to_audio_source.get(id).unwrap());
         } else if self.id_to_effect.contains_key(id) {
-            return (self.id_to_effect.get(id).unwrap()).clone();
+            let clone = Rc::clone(self.id_to_effect.get(id).unwrap());
+            return clone;
         }
         panic!("yo {}", id);
     }
@@ -401,14 +406,16 @@ impl Orchestrator {
             panic!("special case this");
         }
         if self.id_to_effect.contains_key(id) {
-            return (self.id_to_effect.get(id).unwrap()).clone();
+            let clone = Rc::clone(self.id_to_effect.get(id).unwrap());
+            return clone;
         }
         panic!("yo {}", id);
     }
 
     fn get_control_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn SinksControl>> {
         if self.id_to_effect.contains_key(id) {
-            return (self.id_to_effect.get(id).unwrap()).clone();
+            let clone = Rc::clone(self.id_to_effect.get(id).unwrap());
+            return clone;
         }
         panic!("yo {}", id);
     }
@@ -438,47 +445,48 @@ impl Orchestrator {
                 let pattern = self.get_pattern_by_id(&pattern_id);
                 self.pattern_sequencer
                     .borrow_mut()
-                    .insert_pattern(pattern.clone(), channel);
+                    .insert_pattern(pattern, channel);
             }
         }
     }
 
-    fn create_automation_tracks_from_settings(&mut self) {
+    fn create_control_trips_from_settings(&mut self) {
         if self.settings.trips.is_empty() {
             return;
         }
 
-        for sequence in self.settings.paths.clone() {
-            self.id_to_automation_sequence.insert(
-                sequence.id.clone(),
-                Rc::new(RefCell::new(ControlPath::from_settings(&sequence))),
+        for path_settings in self.settings.paths.clone() {
+            let id_copy = path_settings.id.clone();
+            self.id_to_control_path.insert(
+                id_copy,
+                Rc::new(RefCell::new(ControlPath::from_settings(&path_settings))),
             );
         }
-        for track_settings in self.settings.trips.clone() {
-            let target = self.get_control_sink_by_id(&track_settings.target.id);
-            let automation_track = Rc::new(RefCell::new(ControlTrip::new(
-                target.clone(),
-                track_settings.target.param,
+        for control_trip_settings in self.settings.trips.clone() {
+            let target = self.get_control_sink_by_id(&control_trip_settings.target.id);
+            let control_trip = Rc::new(RefCell::new(ControlTrip::new(
+                target,
+                control_trip_settings.target.param,
             )));
-            automation_track.borrow_mut().reset_cursor();
-            for pattern_id in track_settings.path_ids {
-                let pattern_opt = self.id_to_automation_sequence.get(&pattern_id);
-                if let Some(pattern) = pattern_opt {
-                    automation_track.borrow_mut().add_path(pattern.clone());
+            control_trip.borrow_mut().reset_cursor();
+            for path_id in control_trip_settings.path_ids {
+                let control_path_opt = self.id_to_control_path.get(&path_id);
+                if let Some(control_path) = control_path_opt {
+                    control_trip.borrow_mut().add_path(Rc::clone(&control_path)); // TODO: not sure this clone() is right
                 } else {
                     panic!(
                         "automation track {} needs missing sequence {}",
-                        track_settings.id, pattern_id
+                        control_trip_settings.id, path_id
                     );
                 }
             }
-            automation_track.borrow_mut().freeze_trip_envelopes();
-            self.add_clock_watcher_by_id(track_settings.id, automation_track.clone());
+            control_trip.borrow_mut().freeze_trip_envelopes();
+            self.add_clock_watcher_by_id(control_trip_settings.id, control_trip);
         }
     }
 
     fn get_pattern_by_id(&self, pattern_id: &str) -> Rc<RefCell<Pattern>> {
-        (self.id_to_pattern.get(pattern_id).unwrap()).clone()
+        Rc::clone(self.id_to_pattern.get(pattern_id).unwrap())
     }
 
     pub fn midi_sequencer(&self) -> Rc<RefCell<MidiSequencer>> {

@@ -302,7 +302,7 @@ pub mod tests {
         };
         const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
-        for sample in samples.clone() {
+        for sample in samples.iter() {
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
         }
         generate_fft_for_samples(
@@ -327,7 +327,7 @@ pub mod tests {
         };
         const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
-        for sample in samples.clone() {
+        for sample in samples.iter() {
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
         }
         generate_fft_for_samples(
@@ -361,7 +361,7 @@ pub mod tests {
         };
         const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
-        for sample in samples.clone() {
+        for sample in samples.iter() {
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
         }
         generate_fft_for_samples(
@@ -689,16 +689,18 @@ pub mod tests {
         oscillator
             .borrow_mut()
             .set_frequency(MidiMessage::note_to_frequency(60));
+        let envelope_synth_clone = Rc::clone(&envelope);
         let synth = Rc::new(RefCell::new(SimpleSynth::new_with(
             oscillator,
-            envelope.clone(),
+            envelope_synth_clone,
         )));
         let effect = Rc::new(RefCell::new(Gain::new()));
-        effect.borrow_mut().add_audio_source(synth.clone());
-        orchestrator.add_audio_source(effect.clone());
+        let source = Rc::clone(&synth);
+        effect.borrow_mut().add_audio_source(source);
+        let weak_effect = Rc::downgrade(&effect);
+        orchestrator.add_audio_source(effect);
 
         let mut controller = ContinuousControl::new_with(Box::new(Oscillator::new()));
-        let weak_effect = Rc::downgrade(&effect);
         controller.add_control_sink(weak_effect);
 
         let timer = SimpleTimer::new(2.0);
