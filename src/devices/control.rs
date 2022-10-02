@@ -197,8 +197,9 @@ mod tests {
         }));
         let target = Rc::new(RefCell::new(NullDevice::new()));
         let target_param_name = String::from("value");
-        let mut trip = ControlTrip::new(target.clone(), target_param_name);
-        trip.add_path(sequence.clone());
+        let target_weak = Rc::clone(&target);
+        let mut trip = ControlTrip::new(target_weak, target_param_name);
+        trip.add_path(Rc::clone(&sequence));
         trip.freeze_trip_envelopes(); // TODO I hate this method
 
         assert_eq!(target.borrow().value, 0.0f32);
@@ -250,15 +251,14 @@ mod tests {
         let interpolated_values = vec![0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
         let path = Rc::new(RefCell::new(ControlPath {
             note_value: Some(BeatValue::Quarter),
-            steps: step_vec.clone(),
+            steps: step_vec,
         }));
         let target = Rc::new(RefCell::new(NullDevice::new()));
         let target_param_name = String::from("value");
-        let mut trip = ControlTrip::new(target.clone(), target_param_name);
-        trip.add_path(path.clone());
+        let target_trip_clone = Rc::clone(&target);
+        let mut trip = ControlTrip::new(target_trip_clone, target_param_name);
+        trip.add_path(path);
         trip.freeze_trip_envelopes();
-
-        assert_eq!(target.borrow().value, 0.0f32); // what good is this?
 
         let mut clock = Clock::new_test();
         let mut current_pattern_point = 0.0;

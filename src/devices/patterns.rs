@@ -51,7 +51,7 @@ impl PatternSequencer {
             self.time_signature.beat_value().divisor() / pattern_note_value.divisor();
 
         let mut max_pattern_len = 0;
-        for note_sequence in pattern.borrow().notes.clone() {
+        for note_sequence in pattern.borrow().notes.iter() {
             max_pattern_len = cmp::max(max_pattern_len, note_sequence.len());
             for (i, note) in note_sequence.iter().enumerate() {
                 self.insert_short_note(
@@ -152,7 +152,6 @@ impl SourcesMidi for PatternSequencer {
     fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
         &self.channels_to_sink_vecs
     }
-    
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -199,9 +198,9 @@ impl Pattern {
             note_value: settings.note_value.clone(),
             notes: Vec::new(),
         };
-        for note_sequence in settings.notes.clone() {
+        for note_sequence in settings.notes.iter() {
             let mut note_vec = Vec::new();
-            for note in note_sequence.clone() {
+            for note in note_sequence.iter() {
                 note_vec.push(Pattern::note_to_value(note));
             }
             r.notes.push(note_vec);
@@ -209,7 +208,7 @@ impl Pattern {
         r
     }
 
-    fn note_to_value(note: String) -> u8 {
+    fn note_to_value(note: &str) -> u8 {
         // TODO
         // https://en.wikipedia.org/wiki/Scientific_pitch_notation
         // labels, e.g., for General MIDI percussion
