@@ -23,7 +23,7 @@ enum EnvelopeState {
 }
 
 #[derive(Default, Debug)]
-pub struct MiniEnvelope {
+pub struct AdsrEnvelope {
     sample_rate: f32,
 
     attack_seconds: f32,
@@ -40,7 +40,7 @@ pub struct MiniEnvelope {
     debug_last_seconds: f32,
 }
 
-impl MiniEnvelope {
+impl AdsrEnvelope {
     pub const MAX: f32 = -1.0;
 
     pub fn new_with(sample_rate: usize, preset: &EnvelopePreset) -> Self {
@@ -79,7 +79,7 @@ impl MiniEnvelope {
             self.target_seconds = time_seconds;
             return;
         }
-        if duration_seconds == MiniEnvelope::MAX {
+        if duration_seconds == AdsrEnvelope::MAX {
             self.delta = 0.;
             self.target_seconds = f32::MAX;
             return;
@@ -174,13 +174,13 @@ impl MiniEnvelope {
     }
 }
 
-impl SourcesAudio for MiniEnvelope {
+impl SourcesAudio for AdsrEnvelope {
     fn source_audio(&mut self, _clock: &Clock) -> crate::common::MonoSample {
         self.amplitude
     }
 }
 
-impl SinksControl for MiniEnvelope {
+impl SinksControl for AdsrEnvelope {
     fn handle_control(&mut self, clock: &Clock, param: &SinksControlParam) {
         match param {
             Primary { value } => {
@@ -196,7 +196,7 @@ impl SinksControl for MiniEnvelope {
     }
 }
 
-impl WatchesClock for MiniEnvelope {
+impl WatchesClock for AdsrEnvelope {
     fn tick(&mut self, clock: &Clock) -> bool {
         // TODO: upstream this check into WatchesClock
         // so everyone gets it.
@@ -272,7 +272,7 @@ mod tests {
     #[allow(unused_assignments)]
     fn test_mini_envelope() {
         let mut clock = Clock::new_test();
-        let mut envelope = MiniEnvelope::new_with(
+        let mut envelope = AdsrEnvelope::new_with(
             clock.settings().sample_rate(),
             &EnvelopePreset {
                 attack_seconds: 0.1,
@@ -316,7 +316,7 @@ mod tests {
     #[test]
     fn test_envelope_eventually_ends() {
         let mut clock = Clock::new();
-        let mut envelope = MiniEnvelope::new_with(
+        let mut envelope = AdsrEnvelope::new_with(
             clock.settings().sample_rate(),
             &EnvelopePreset {
                 attack_seconds: 0.1,

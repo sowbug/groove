@@ -3,9 +3,9 @@ use crate::common::{
 };
 use crate::primitives::bitcrusher::Bitcrusher;
 use crate::primitives::clock::WatchedClock;
-use crate::primitives::filter::MiniFilter2;
-use crate::primitives::gain::MiniGain;
-use crate::primitives::limiter::MiniLimiter;
+use crate::primitives::filter::Filter;
+use crate::primitives::gain::Gain;
+use crate::primitives::limiter::Limiter;
 use crate::primitives::mixer::Mixer;
 use crate::primitives::{
     IsEffect, IsMidiEffect, SinksAudio, SinksControl, SinksMidi, SourcesAudio, SourcesMidi,
@@ -237,14 +237,14 @@ impl Orchestrator {
                     // Match arms have to return the same types, and returning a Rc<RefCell<dyn some trait>> doesn't count
                     // as the same type.
                     EffectSettings::Limiter { id, min, max } => {
-                        let device = Rc::new(RefCell::new(MiniLimiter::new_with(
+                        let device = Rc::new(RefCell::new(Limiter::new_with(
                             min as MonoSample,
                             max as MonoSample,
                         )));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::Gain { id, amount } => {
-                        let device = Rc::new(RefCell::new(MiniGain::new_with(amount)));
+                        let device = Rc::new(RefCell::new(Gain::new_with(amount)));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::Bitcrusher { id, bits_to_crush } => {
@@ -252,8 +252,8 @@ impl Orchestrator {
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterLowPass12db { id, cutoff, q } => {
-                        let device = Rc::new(RefCell::new(MiniFilter2::new(
-                            &crate::primitives::filter::MiniFilter2Type::LowPass {
+                        let device = Rc::new(RefCell::new(Filter::new(
+                            &crate::primitives::filter::FilterType::LowPass {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 q,
@@ -262,8 +262,8 @@ impl Orchestrator {
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterHighPass12db { id, cutoff, q } => {
-                        let device = Rc::new(RefCell::new(MiniFilter2::new(
-                            &crate::primitives::filter::MiniFilter2Type::HighPass {
+                        let device = Rc::new(RefCell::new(Filter::new(
+                            &crate::primitives::filter::FilterType::HighPass {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 q,
@@ -276,8 +276,8 @@ impl Orchestrator {
                         cutoff,
                         bandwidth,
                     } => {
-                        let device = Rc::new(RefCell::new(MiniFilter2::new(
-                            &crate::primitives::filter::MiniFilter2Type::BandPass {
+                        let device = Rc::new(RefCell::new(Filter::new(
+                            &crate::primitives::filter::FilterType::BandPass {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 bandwidth,
@@ -290,8 +290,8 @@ impl Orchestrator {
                         cutoff,
                         bandwidth,
                     } => {
-                        let device = Rc::new(RefCell::new(MiniFilter2::new(
-                            &crate::primitives::filter::MiniFilter2Type::BandStop {
+                        let device = Rc::new(RefCell::new(Filter::new(
+                            &crate::primitives::filter::FilterType::BandStop {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 bandwidth,
@@ -300,8 +300,8 @@ impl Orchestrator {
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterAllPass12db { id, cutoff, q } => {
-                        let device = Rc::new(RefCell::new(MiniFilter2::new(
-                            &crate::primitives::filter::MiniFilter2Type::AllPass {
+                        let device = Rc::new(RefCell::new(Filter::new(
+                            &crate::primitives::filter::FilterType::AllPass {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 q,
@@ -314,8 +314,8 @@ impl Orchestrator {
                         cutoff,
                         db_gain,
                     } => {
-                        let device = Rc::new(RefCell::new(MiniFilter2::new(
-                            &crate::primitives::filter::MiniFilter2Type::PeakingEq {
+                        let device = Rc::new(RefCell::new(Filter::new(
+                            &crate::primitives::filter::FilterType::PeakingEq {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 db_gain,
@@ -328,8 +328,8 @@ impl Orchestrator {
                         cutoff,
                         db_gain,
                     } => {
-                        let device = Rc::new(RefCell::new(MiniFilter2::new(
-                            &crate::primitives::filter::MiniFilter2Type::LowShelf {
+                        let device = Rc::new(RefCell::new(Filter::new(
+                            &crate::primitives::filter::FilterType::LowShelf {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 db_gain,
@@ -342,8 +342,8 @@ impl Orchestrator {
                         cutoff,
                         db_gain,
                     } => {
-                        let device = Rc::new(RefCell::new(MiniFilter2::new(
-                            &crate::primitives::filter::MiniFilter2Type::HighShelf {
+                        let device = Rc::new(RefCell::new(Filter::new(
+                            &crate::primitives::filter::FilterType::HighShelf {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 db_gain,

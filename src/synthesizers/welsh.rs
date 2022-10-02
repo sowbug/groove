@@ -9,9 +9,9 @@ use crate::{
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
     primitives::{
         clock::Clock,
-        envelopes::MiniEnvelope,
-        filter::{MiniFilter2, MiniFilter2Type},
-        oscillators::MiniOscillator,
+        envelopes::AdsrEnvelope,
+        filter::{Filter, FilterType},
+        oscillators::Oscillator,
         IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
         TransformsAudio, WatchesClock,
     },
@@ -1871,18 +1871,18 @@ impl Synth {
 #[derive(Default)]
 pub struct Voice {
     midi_channel: MidiChannel,
-    oscillators: Vec<MiniOscillator>,
+    oscillators: Vec<Oscillator>,
     osc_mix: Vec<f32>,
-    amp_envelope: MiniEnvelope,
+    amp_envelope: AdsrEnvelope,
 
-    lfo: MiniOscillator,
+    lfo: Oscillator,
     lfo_routing: LfoRouting,
     lfo_depth: f32,
 
-    filter: MiniFilter2,
+    filter: Filter,
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
-    filter_envelope: MiniEnvelope,
+    filter_envelope: AdsrEnvelope,
 }
 
 impl Voice {
@@ -1891,28 +1891,28 @@ impl Voice {
             midi_channel,
             oscillators: Vec::new(),
             osc_mix: Vec::new(),
-            amp_envelope: MiniEnvelope::new_with(sample_rate, &preset.amp_envelope_preset),
+            amp_envelope: AdsrEnvelope::new_with(sample_rate, &preset.amp_envelope_preset),
 
-            lfo: MiniOscillator::new_lfo(&preset.lfo_preset),
+            lfo: Oscillator::new_lfo(&preset.lfo_preset),
             lfo_routing: preset.lfo_preset.routing,
             lfo_depth: preset.lfo_preset.depth,
 
-            filter: MiniFilter2::new(&MiniFilter2Type::LowPass {
+            filter: Filter::new(&FilterType::LowPass {
                 sample_rate,
                 cutoff: preset.filter_type_12db.cutoff,
                 q: FRAC_1_SQRT_2, // TODO: resonance
             }),
-            filter_cutoff_start: MiniFilter2::frequency_to_percent(preset.filter_type_12db.cutoff),
+            filter_cutoff_start: Filter::frequency_to_percent(preset.filter_type_12db.cutoff),
             filter_cutoff_end: preset.filter_envelope_weight,
-            filter_envelope: MiniEnvelope::new_with(sample_rate, &preset.filter_envelope_preset),
+            filter_envelope: AdsrEnvelope::new_with(sample_rate, &preset.filter_envelope_preset),
         };
         if !matches!(preset.oscillator_1_preset.waveform, WaveformType::None) {
             r.oscillators
-                .push(MiniOscillator::new_from_preset(&preset.oscillator_1_preset));
+                .push(Oscillator::new_from_preset(&preset.oscillator_1_preset));
             r.osc_mix.push(preset.oscillator_1_preset.mix);
         }
         if !matches!(preset.oscillator_2_preset.waveform, WaveformType::None) {
-            let mut o = MiniOscillator::new_from_preset(&preset.oscillator_2_preset);
+            let mut o = Oscillator::new_from_preset(&preset.oscillator_2_preset);
             if !preset.oscillator_2_track {
                 o.set_fixed_frequency(MidiMessage::note_to_frequency(
                     preset.oscillator_2_preset.tune as u8,
@@ -1923,7 +1923,7 @@ impl Voice {
         }
         if preset.noise > 0.0 {
             r.oscillators
-                .push(MiniOscillator::new_with(WaveformType::Noise));
+                .push(Oscillator::new_with(WaveformType::Noise));
             r.osc_mix.push(preset.noise);
         }
         r
@@ -1995,7 +1995,7 @@ impl SourcesAudio for Voice {
         let new_cutoff_percentage = self.filter_cutoff_start
             + (self.filter_cutoff_end - self.filter_cutoff_start)
                 * self.filter_envelope.source_audio(clock);
-        let new_cutoff = MiniFilter2::percent_to_frequency(new_cutoff_percentage);
+        let new_cutoff = Filter::percent_to_frequency(new_cutoff_percentage);
         self.filter.set_cutoff(new_cutoff);
         let filtered_mix = self.filter.transform_audio(osc_sum);
 

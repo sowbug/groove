@@ -8,7 +8,7 @@ use super::{
 };
 
 #[derive(Debug, Clone, Copy)]
-pub enum MiniFilter2Type {
+pub enum FilterType {
     None,
     LowPass {
         sample_rate: usize,
@@ -52,16 +52,16 @@ pub enum MiniFilter2Type {
     },
 }
 
-impl Default for MiniFilter2Type {
+impl Default for FilterType {
     fn default() -> Self {
-        MiniFilter2Type::None
+        FilterType::None
     }
 }
 
 #[derive(Default)]
-pub struct MiniFilter2 {
+pub struct Filter {
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
-    filter_type: MiniFilter2Type,
+    filter_type: FilterType,
     sample_rate: usize,
     cutoff: f32,
     a0: f64,
@@ -75,11 +75,11 @@ pub struct MiniFilter2 {
     output_m1: f64,
     output_m2: f64,
 }
-impl IsEffect for MiniFilter2 {}
+impl IsEffect for Filter {}
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
-impl MiniFilter2 {
+impl Filter {
     pub const FREQUENCY_TO_LINEAR_BASE: f32 = 800.0;
     pub const FREQUENCY_TO_LINEAR_COEFFICIENT: f32 = 25.0;
 
@@ -104,7 +104,7 @@ impl MiniFilter2 {
             .clamp(0.0, 1.0)
     }
 
-    pub fn new(filter_type: &MiniFilter2Type) -> Self {
+    pub fn new(filter_type: &FilterType) -> Self {
         let mut r = Self {
             ..Default::default()
         };
@@ -112,10 +112,10 @@ impl MiniFilter2 {
         r
     }
 
-    fn recalculate_coefficients(&mut self, new_filter_type: &MiniFilter2Type) {
+    fn recalculate_coefficients(&mut self, new_filter_type: &FilterType) {
         (self.a0, self.a1, self.a2, self.b0, self.b1, self.b2) = match *new_filter_type {
-            MiniFilter2Type::None => (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-            MiniFilter2Type::LowPass {
+            FilterType::None => (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            FilterType::LowPass {
                 sample_rate,
                 cutoff,
                 q,
@@ -124,7 +124,7 @@ impl MiniFilter2 {
                 self.cutoff = cutoff;
                 Self::rbj_low_pass_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilter2Type::HighPass {
+            FilterType::HighPass {
                 sample_rate,
                 cutoff,
                 q,
@@ -133,7 +133,7 @@ impl MiniFilter2 {
                 self.cutoff = cutoff;
                 Self::rbj_high_pass_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilter2Type::BandPass {
+            FilterType::BandPass {
                 sample_rate,
                 cutoff,
                 bandwidth,
@@ -142,7 +142,7 @@ impl MiniFilter2 {
                 self.cutoff = cutoff;
                 Self::rbj_band_pass_coefficients(sample_rate, cutoff, bandwidth)
             }
-            MiniFilter2Type::BandStop {
+            FilterType::BandStop {
                 sample_rate,
                 cutoff,
                 bandwidth,
@@ -151,7 +151,7 @@ impl MiniFilter2 {
                 self.cutoff = cutoff;
                 Self::rbj_band_stop_coefficients(sample_rate, cutoff, bandwidth)
             }
-            MiniFilter2Type::AllPass {
+            FilterType::AllPass {
                 sample_rate,
                 cutoff,
                 q,
@@ -160,7 +160,7 @@ impl MiniFilter2 {
                 self.cutoff = cutoff;
                 Self::rbj_all_pass_coefficients(sample_rate, cutoff, q)
             }
-            MiniFilter2Type::PeakingEq {
+            FilterType::PeakingEq {
                 sample_rate,
                 cutoff,
                 db_gain,
@@ -169,7 +169,7 @@ impl MiniFilter2 {
                 self.cutoff = cutoff;
                 Self::rbj_peaking_eq_coefficients(sample_rate, cutoff, db_gain)
             }
-            MiniFilter2Type::LowShelf {
+            FilterType::LowShelf {
                 sample_rate,
                 cutoff,
                 db_gain,
@@ -178,7 +178,7 @@ impl MiniFilter2 {
                 self.cutoff = cutoff;
                 Self::rbj_low_shelf_coefficients(sample_rate, cutoff, db_gain)
             }
-            MiniFilter2Type::HighShelf {
+            FilterType::HighShelf {
                 sample_rate,
                 cutoff,
                 db_gain,
@@ -193,75 +193,75 @@ impl MiniFilter2 {
 
     pub fn set_cutoff(&mut self, new_cutoff: f32) {
         let new_filter_type = match self.filter_type {
-            MiniFilter2Type::None => MiniFilter2Type::None,
-            MiniFilter2Type::LowPass {
+            FilterType::None => FilterType::None,
+            FilterType::LowPass {
                 sample_rate,
                 cutoff,
                 q,
-            } => MiniFilter2Type::LowPass {
+            } => FilterType::LowPass {
                 sample_rate,
                 cutoff: new_cutoff,
                 q,
             },
-            MiniFilter2Type::HighPass {
+            FilterType::HighPass {
                 sample_rate,
                 cutoff,
                 q,
-            } => MiniFilter2Type::LowPass {
+            } => FilterType::LowPass {
                 sample_rate,
                 cutoff: new_cutoff,
                 q,
             },
-            MiniFilter2Type::BandPass {
+            FilterType::BandPass {
                 sample_rate,
                 cutoff,
                 bandwidth,
-            } => MiniFilter2Type::BandPass {
-                sample_rate,
-                cutoff: new_cutoff,
-                bandwidth,
-            },
-            MiniFilter2Type::BandStop {
-                sample_rate,
-                cutoff,
-                bandwidth,
-            } => MiniFilter2Type::BandStop {
+            } => FilterType::BandPass {
                 sample_rate,
                 cutoff: new_cutoff,
                 bandwidth,
             },
-            MiniFilter2Type::AllPass {
+            FilterType::BandStop {
+                sample_rate,
+                cutoff,
+                bandwidth,
+            } => FilterType::BandStop {
+                sample_rate,
+                cutoff: new_cutoff,
+                bandwidth,
+            },
+            FilterType::AllPass {
                 sample_rate,
                 cutoff,
                 q,
-            } => MiniFilter2Type::AllPass {
+            } => FilterType::AllPass {
                 sample_rate,
                 cutoff: new_cutoff,
                 q,
             },
-            MiniFilter2Type::PeakingEq {
+            FilterType::PeakingEq {
                 sample_rate,
                 cutoff,
                 db_gain,
-            } => MiniFilter2Type::PeakingEq {
+            } => FilterType::PeakingEq {
                 sample_rate,
                 cutoff: new_cutoff,
                 db_gain,
             },
-            MiniFilter2Type::LowShelf {
+            FilterType::LowShelf {
                 sample_rate,
                 cutoff,
                 db_gain,
-            } => MiniFilter2Type::LowShelf {
+            } => FilterType::LowShelf {
                 sample_rate,
                 cutoff: new_cutoff,
                 db_gain,
             },
-            MiniFilter2Type::HighShelf {
+            FilterType::HighShelf {
                 sample_rate,
                 cutoff,
                 db_gain,
-            } => MiniFilter2Type::HighShelf {
+            } => FilterType::HighShelf {
                 sample_rate,
                 cutoff: new_cutoff,
                 db_gain,
@@ -272,75 +272,75 @@ impl MiniFilter2 {
 
     pub fn set_q(&mut self, new_val: f32) {
         let new_filter_type = match self.filter_type {
-            MiniFilter2Type::None => MiniFilter2Type::None,
-            MiniFilter2Type::LowPass {
+            FilterType::None => FilterType::None,
+            FilterType::LowPass {
                 sample_rate,
                 cutoff,
                 q,
-            } => MiniFilter2Type::LowPass {
+            } => FilterType::LowPass {
                 sample_rate,
                 cutoff,
                 q: new_val,
             },
-            MiniFilter2Type::HighPass {
+            FilterType::HighPass {
                 sample_rate,
                 cutoff,
                 q,
-            } => MiniFilter2Type::LowPass {
+            } => FilterType::LowPass {
                 sample_rate,
                 cutoff,
                 q: new_val,
             },
-            MiniFilter2Type::BandPass {
+            FilterType::BandPass {
                 sample_rate,
                 cutoff,
                 bandwidth,
-            } => MiniFilter2Type::BandPass {
+            } => FilterType::BandPass {
                 sample_rate,
                 cutoff,
                 bandwidth: new_val,
             },
-            MiniFilter2Type::BandStop {
+            FilterType::BandStop {
                 sample_rate,
                 cutoff,
                 bandwidth,
-            } => MiniFilter2Type::BandStop {
+            } => FilterType::BandStop {
                 sample_rate,
                 cutoff,
                 bandwidth: new_val,
             },
-            MiniFilter2Type::AllPass {
+            FilterType::AllPass {
                 sample_rate,
                 cutoff,
                 q,
-            } => MiniFilter2Type::AllPass {
+            } => FilterType::AllPass {
                 sample_rate,
                 cutoff,
                 q: new_val,
             },
-            MiniFilter2Type::PeakingEq {
+            FilterType::PeakingEq {
                 sample_rate,
                 cutoff,
                 db_gain,
-            } => MiniFilter2Type::PeakingEq {
+            } => FilterType::PeakingEq {
                 sample_rate,
                 cutoff,
                 db_gain: new_val,
             },
-            MiniFilter2Type::LowShelf {
+            FilterType::LowShelf {
                 sample_rate,
                 cutoff,
                 db_gain,
-            } => MiniFilter2Type::LowShelf {
+            } => FilterType::LowShelf {
                 sample_rate,
                 cutoff,
                 db_gain: new_val,
             },
-            MiniFilter2Type::HighShelf {
+            FilterType::HighShelf {
                 sample_rate,
                 cutoff,
                 db_gain,
-            } => MiniFilter2Type::HighShelf {
+            } => FilterType::HighShelf {
                 sample_rate,
                 cutoff,
                 db_gain: new_val,
@@ -362,7 +362,7 @@ impl MiniFilter2 {
         cutoff: f32,
         q: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates_q(sample_rate, cutoff, q);
+        let (w0, w0cos, w0sin, alpha) = Filter::rbj_intermediates_q(sample_rate, cutoff, q);
 
         (
             1.0 + alpha,
@@ -379,7 +379,7 @@ impl MiniFilter2 {
         cutoff: f32,
         q: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates_q(sample_rate, cutoff, q);
+        let (w0, w0cos, w0sin, alpha) = Filter::rbj_intermediates_q(sample_rate, cutoff, q);
 
         (
             1.0 + alpha,
@@ -409,7 +409,7 @@ impl MiniFilter2 {
         bandwidth: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
         let (w0, w0cos, w0sin, alpha) =
-            MiniFilter2::rbj_intermediates_bandwidth(sample_rate, cutoff, bandwidth);
+            Filter::rbj_intermediates_bandwidth(sample_rate, cutoff, bandwidth);
         (
             1.0 + alpha,
             -2.0f64 * w0cos,
@@ -426,7 +426,7 @@ impl MiniFilter2 {
         bandwidth: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
         let (w0, w0cos, w0sin, alpha) =
-            MiniFilter2::rbj_intermediates_bandwidth(sample_rate, cutoff, bandwidth);
+            Filter::rbj_intermediates_bandwidth(sample_rate, cutoff, bandwidth);
 
         (
             1.0 + alpha,
@@ -443,7 +443,7 @@ impl MiniFilter2 {
         cutoff: f32,
         q: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = MiniFilter2::rbj_intermediates_q(sample_rate, cutoff, q);
+        let (w0, w0cos, w0sin, alpha) = Filter::rbj_intermediates_q(sample_rate, cutoff, q);
         (
             1.0 + alpha,
             -2.0f64 * w0cos,
@@ -460,7 +460,7 @@ impl MiniFilter2 {
         db_gain: f32,
     ) -> (f64, f64, f64, f64, f64, f64) {
         let (w0, w0cos, w0sin, alpha) =
-            MiniFilter2::rbj_intermediates_q(sample_rate, cutoff, std::f32::consts::FRAC_1_SQRT_2);
+            Filter::rbj_intermediates_q(sample_rate, cutoff, std::f32::consts::FRAC_1_SQRT_2);
         let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
 
         (
@@ -493,7 +493,7 @@ impl MiniFilter2 {
     ) -> (f64, f64, f64, f64, f64, f64) {
         let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            MiniFilter2::rbj_intermediates_shelving(sample_rate, cutoff, a, 1.0);
+            Filter::rbj_intermediates_shelving(sample_rate, cutoff, a, 1.0);
 
         (
             (a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
@@ -512,7 +512,7 @@ impl MiniFilter2 {
     ) -> (f64, f64, f64, f64, f64, f64) {
         let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            MiniFilter2::rbj_intermediates_shelving(sample_rate, cutoff, a, 1.0);
+            Filter::rbj_intermediates_shelving(sample_rate, cutoff, a, 1.0);
 
         (
             (a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
@@ -525,13 +525,13 @@ impl MiniFilter2 {
     }
 }
 
-impl SinksAudio for MiniFilter2 {
+impl SinksAudio for Filter {
     fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
 
-impl TransformsAudio for MiniFilter2 {
+impl TransformsAudio for Filter {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         let s64 = input_sample as f64;
         let r = (self.b0 / self.a0) * s64
@@ -550,7 +550,7 @@ impl TransformsAudio for MiniFilter2 {
     }
 }
 
-impl SinksControl for MiniFilter2 {
+impl SinksControl for Filter {
     fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
         match param {
             SinksControlParam::Primary { value } => {
@@ -575,7 +575,7 @@ mod tests {
         preset::OscillatorPreset,
         primitives::{
             clock::Clock,
-            oscillators::MiniOscillator,
+            oscillators::Oscillator,
             tests::write_effect_to_file,
             IsController, SinksControl,
             SinksControlParam::{Primary, Secondary},
@@ -683,11 +683,11 @@ mod tests {
     impl IsController for TestNullController {}
 
     fn add_noise_and_write_filter_to_file(
-        filter: &mut MiniFilter2,
+        filter: &mut Filter,
         controller: &mut dyn IsController,
         basename: &str,
     ) {
-        let source = Rc::new(RefCell::new(MiniOscillator::new_with(WaveformType::Noise)));
+        let source = Rc::new(RefCell::new(Oscillator::new_with(WaveformType::Noise)));
         filter.add_audio_source(source);
         write_effect_to_file(filter, controller, basename);
     }
@@ -699,7 +699,7 @@ mod tests {
         const SIX_DB: f32 = 6.0;
 
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::LowPass {
+            &mut Filter::new(&FilterType::LowPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: std::f32::consts::FRAC_1_SQRT_2,
@@ -709,7 +709,7 @@ mod tests {
         );
 
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::LowPass {
+            &mut Filter::new(&FilterType::LowPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: Q_10,
@@ -719,7 +719,7 @@ mod tests {
         );
 
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::HighPass {
+            &mut Filter::new(&FilterType::HighPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: std::f32::consts::FRAC_1_SQRT_2,
@@ -728,7 +728,7 @@ mod tests {
             "rbj_noise_hpf_1KHz_min_q",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::HighPass {
+            &mut Filter::new(&FilterType::HighPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: Q_10,
@@ -737,7 +737,7 @@ mod tests {
             "rbj_noise_hpf_1KHz_q10",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::BandPass {
+            &mut Filter::new(&FilterType::BandPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 bandwidth: ONE_OCTAVE,
@@ -746,7 +746,7 @@ mod tests {
             "rbj_noise_bpf_1KHz_bw1",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::BandStop {
+            &mut Filter::new(&FilterType::BandStop {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 bandwidth: ONE_OCTAVE,
@@ -755,7 +755,7 @@ mod tests {
             "rbj_noise_bsf_1KHz_bw1",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::AllPass {
+            &mut Filter::new(&FilterType::AllPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.0,
                 q: std::f32::consts::FRAC_1_SQRT_2,
@@ -764,7 +764,7 @@ mod tests {
             "rbj_noise_apf_1KHz_min_q",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::PeakingEq {
+            &mut Filter::new(&FilterType::PeakingEq {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 db_gain: SIX_DB,
@@ -773,7 +773,7 @@ mod tests {
             "rbj_noise_peaking_eq_1KHz_6db",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::LowShelf {
+            &mut Filter::new(&FilterType::LowShelf {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 db_gain: SIX_DB,
@@ -782,7 +782,7 @@ mod tests {
             "rbj_noise_low_shelf_1KHz_6db",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::HighShelf {
+            &mut Filter::new(&FilterType::HighShelf {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 db_gain: SIX_DB,
@@ -794,14 +794,14 @@ mod tests {
 
     #[test]
     fn test_dynamic_cutoff() {
-        let mut source = MiniOscillator::new_from_preset(&OscillatorPreset {
+        let mut source = Oscillator::new_from_preset(&OscillatorPreset {
             waveform: WaveformType::Sawtooth,
             ..Default::default()
         });
         source.set_frequency(MidiMessage::note_to_frequency(MidiNote::C4 as u8));
 
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::LowPass {
+            &mut Filter::new(&FilterType::LowPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: std::f32::consts::FRAC_1_SQRT_2,
@@ -810,7 +810,7 @@ mod tests {
             "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::LowPass {
+            &mut Filter::new(&FilterType::LowPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: std::f32::consts::FRAC_1_SQRT_2,
@@ -824,7 +824,7 @@ mod tests {
             "rbj_sawtooth_middle_c_lpf_1KHz_dynamic_min_q_20",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::HighPass {
+            &mut Filter::new(&FilterType::HighPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: std::f32::consts::FRAC_1_SQRT_2,
@@ -833,7 +833,7 @@ mod tests {
             "rbj_sawtooth_middle_c_hpf_dynamic_8KHz_40Hz_min_q",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::BandPass {
+            &mut Filter::new(&FilterType::BandPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 bandwidth: std::f32::consts::FRAC_1_SQRT_2,
@@ -842,7 +842,7 @@ mod tests {
             "rbj_sawtooth_middle_c_bpf_dynamic_40Hz_8KHz_min_q",
         );
         add_noise_and_write_filter_to_file(
-            &mut MiniFilter2::new(&MiniFilter2Type::BandStop {
+            &mut Filter::new(&FilterType::BandStop {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 bandwidth: std::f32::consts::FRAC_1_SQRT_2,

@@ -186,14 +186,14 @@ pub mod tests {
         MidiChannel, MidiMessage, MidiMessageType, MidiNote, MONO_SAMPLE_MAX, MONO_SAMPLE_SILENCE,
     };
     use crate::preset::EnvelopePreset;
-    use crate::primitives::gain::MiniGain;
+    use crate::primitives::gain::Gain;
     use crate::primitives::{wrapped_new, SinksAudio};
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
     use super::clock::WatchedClock;
-    use super::envelopes::MiniEnvelope;
+    use super::envelopes::AdsrEnvelope;
     use super::mixer::Mixer;
-    use super::oscillators::MiniOscillator;
+    use super::oscillators::Oscillator;
     use super::{
         IsController, IsEffect, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
         SourcesControl, SourcesMidi, WatchesClock,
@@ -559,8 +559,8 @@ pub mod tests {
         /// for it to do anything meaningful.
         fn new() -> Self {
             Self {
-                oscillator: wrapped_new::<MiniOscillator>(),
-                envelope: Rc::new(RefCell::new(MiniEnvelope::new_with(
+                oscillator: wrapped_new::<Oscillator>(),
+                envelope: Rc::new(RefCell::new(AdsrEnvelope::new_with(
                     44100,
                     &EnvelopePreset::default(),
                 ))),
@@ -679,11 +679,11 @@ pub mod tests {
     fn test_simple_orchestrator() {
         let mut clock = WatchedClock::new();
         let mut orchestrator = SimpleOrchestrator::new();
-        let envelope = Rc::new(RefCell::new(MiniEnvelope::new_with(
+        let envelope = Rc::new(RefCell::new(AdsrEnvelope::new_with(
             clock.inner_clock().settings().sample_rate(),
             &EnvelopePreset::default(),
         )));
-        let oscillator = Rc::new(RefCell::new(MiniOscillator::new_with(
+        let oscillator = Rc::new(RefCell::new(Oscillator::new_with(
             crate::common::WaveformType::Sine,
         )));
         oscillator
@@ -693,11 +693,11 @@ pub mod tests {
             oscillator,
             envelope.clone(),
         )));
-        let effect = Rc::new(RefCell::new(MiniGain::new()));
+        let effect = Rc::new(RefCell::new(Gain::new()));
         effect.borrow_mut().add_audio_source(synth.clone());
         orchestrator.add_audio_source(effect.clone());
 
-        let mut controller = ContinuousControl::new_with(Box::new(MiniOscillator::new()));
+        let mut controller = ContinuousControl::new_with(Box::new(Oscillator::new()));
         let weak_effect = Rc::downgrade(&effect);
         controller.add_control_sink(weak_effect);
 

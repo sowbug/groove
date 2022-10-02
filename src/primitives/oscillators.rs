@@ -8,7 +8,7 @@ use crate::{
 use super::{clock::Clock, SourcesAudio, Wrappable};
 
 #[derive(Debug, Clone)]
-pub struct MiniOscillator {
+pub struct Oscillator {
     waveform: WaveformType,
 
     // Hertz. Any positive number. 440 = A4
@@ -27,7 +27,7 @@ pub struct MiniOscillator {
     noise_x2: u32,
 }
 
-impl Default for MiniOscillator {
+impl Default for Oscillator {
     fn default() -> Self {
         Self {
             // See the _pola test. I kept running into non-bugs where I had a
@@ -49,7 +49,7 @@ impl Default for MiniOscillator {
     }
 }
 
-impl Wrappable for MiniOscillator {
+impl Wrappable for Oscillator {
     fn new() -> Self {
         Self {
             ..Default::default()
@@ -57,7 +57,7 @@ impl Wrappable for MiniOscillator {
     }
 }
 
-impl MiniOscillator {
+impl Oscillator {
     pub fn new() -> Self {
         Self {
             ..Default::default()
@@ -109,7 +109,7 @@ impl MiniOscillator {
     }
 }
 
-impl SourcesAudio for MiniOscillator {
+impl SourcesAudio for Oscillator {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let phase_normalized = (self.adjusted_frequency() * clock.seconds) as MonoSample;
         match self.waveform {
@@ -159,10 +159,10 @@ mod tests {
         },
     };
 
-    use super::{MiniOscillator, WaveformType};
+    use super::{Oscillator, WaveformType};
 
-    fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> MiniOscillator {
-        let mut oscillator = MiniOscillator::new_from_preset(&OscillatorPreset {
+    fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> Oscillator {
+        let mut oscillator = Oscillator::new_from_preset(&OscillatorPreset {
             waveform,
             tune,
             ..Default::default()
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_oscillator_pola() {
-        let mut oscillator = MiniOscillator::new();
+        let mut oscillator = Oscillator::new();
         let mut clock = Clock::new();
         clock.tick(); // in case the oscillator happens to start at zero
         assert_ne!(0.0, oscillator.source_audio(&clock));
