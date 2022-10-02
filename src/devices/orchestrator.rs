@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::rc::{Rc, Weak};
 
-use super::automation::{AutomationPath, ControlTrip};
+use super::automation::{ControlPath, ControlTrip};
 use super::midi::MidiBus;
 use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
@@ -45,7 +45,7 @@ pub struct Orchestrator {
     id_to_arp: HashMap<DeviceId, Rc<RefCell<dyn IsMidiEffect>>>,
 
     id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
-    id_to_automation_sequence: HashMap<DeviceId, Rc<RefCell<AutomationPath>>>,
+    id_to_automation_sequence: HashMap<DeviceId, Rc<RefCell<ControlPath>>>,
 }
 
 impl Orchestrator {
@@ -451,7 +451,7 @@ impl Orchestrator {
         for sequence in self.settings.paths.clone() {
             self.id_to_automation_sequence.insert(
                 sequence.id.clone(),
-                Rc::new(RefCell::new(AutomationPath::from_settings(&sequence))),
+                Rc::new(RefCell::new(ControlPath::from_settings(&sequence))),
             );
         }
         for track_settings in self.settings.trips.clone() {

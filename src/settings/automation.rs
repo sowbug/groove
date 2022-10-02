@@ -4,43 +4,44 @@ use crate::{common::DeviceId, primitives::clock::BeatValue};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]
-pub enum AutomationStepType {
+pub enum ControlStepType {
     Flat { value: f32 }, // stairstep
     Slope { start: f32, end: f32 }, // linear
+
     // Logarithmic {start: f32, end: f32},
     // Trigger {id: String, value: f32}, // TODO: this might mean Automators are also AutomationSinks
     //          // and maybe MidiSinks.
 }
 
-impl AutomationStepType {
-    pub fn new_flat(value: f32) -> crate::settings::automation::AutomationStepType {
-        AutomationStepType::Flat { value }
+impl ControlStepType {
+    pub fn new_flat(value: f32) -> crate::settings::automation::ControlStepType {
+        ControlStepType::Flat { value }
     }
-    pub fn new_slope(start: f32, end: f32) -> crate::settings::automation::AutomationStepType {
-        AutomationStepType::Slope { start, end }
+    pub fn new_slope(start: f32, end: f32) -> crate::settings::automation::ControlStepType {
+        ControlStepType::Slope { start, end }
     }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub struct AutomationPathSettings {
+pub struct ControlPathSettings {
     pub id: DeviceId,
     pub note_value: Option<BeatValue>,
-    pub steps: Vec<AutomationStepType>,
+    pub steps: Vec<ControlStepType>,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub struct AutomationTargetSettings {
+pub struct ControlTargetSettings {
     pub id: DeviceId,
     pub param: String,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub struct AutomationTripSettings {
+pub struct ControlTripSettings {
     pub id: DeviceId,
-    pub target: AutomationTargetSettings,
+    pub target: ControlTargetSettings,
 
     #[serde(rename = "paths")]
     pub path_ids: Vec<DeviceId>,

@@ -1,6 +1,6 @@
 use crate::primitives::clock::Clock;
 use crate::primitives::{SinksControl, SinksControlParam, WatchesClock};
-use crate::settings::automation::AutomationStepType;
+use crate::settings::automation::ControlStepType;
 
 use std::collections::VecDeque;
 use std::rc::Rc;
@@ -12,8 +12,8 @@ pub struct ControlTrip {
 
     current_value: f32,
 
-    envelopes: SortedVec<AutomationEnvelope>,
-    envelopes_in_place: VecDeque<AutomationEnvelope>,
+    envelopes: SortedVec<ControlEnvelope>,
+    envelopes_in_place: VecDeque<ControlEnvelope>,
 }
 
 impl ControlTrip {
@@ -33,13 +33,13 @@ impl ControlTrip {
         self.cursor_beats = Self::CURSOR_BEGIN;
     }
 
-    pub fn add_path(&mut self, path: Rc<RefCell<AutomationPath>>) {
+    pub fn add_path(&mut self, path: Rc<RefCell<ControlPath>>) {
         for step in path.borrow().steps.clone() {
             let (start_value, end_value) = match step {
-                AutomationStepType::Flat { value } => (value, value),
-                AutomationStepType::Slope { start, end } => (start, end),
+                ControlStepType::Flat { value } => (value, value),
+                ControlStepType::Slope { start, end } => (start, end),
             };
-            self.envelopes.insert(AutomationEnvelope {
+            self.envelopes.insert(ControlEnvelope {
                 start_beat: self.cursor_beats,
                 end_beat: self.cursor_beats + 1.0,
                 start_value,
@@ -99,7 +99,7 @@ impl WatchesClock for ControlTrip {
 use sorted_vec::SortedVec;
 
 #[derive(Default, PartialEq, Clone, Copy)]
-struct AutomationEnvelope {
+struct ControlEnvelope {
     start_beat: f32,
     end_beat: f32,
     start_value: f32,
@@ -107,7 +107,7 @@ struct AutomationEnvelope {
     current_value: f32, // TODO: this feels more like a working value, not a struct value
 }
 
-impl WatchesClock for AutomationEnvelope {
+impl WatchesClock for ControlEnvelope {
     fn tick(&mut self, clock: &Clock) -> bool {
         let total_length_beats = self.end_beat - self.start_beat;
         if total_length_beats != 0.0 {
@@ -124,7 +124,7 @@ impl WatchesClock for AutomationEnvelope {
     }
 }
 
-impl PartialOrd for AutomationEnvelope {
+impl PartialOrd for ControlEnvelope {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.start_beat > other.start_beat {
             return Some(Ordering::Greater);
@@ -136,7 +136,7 @@ impl PartialOrd for AutomationEnvelope {
     }
 }
 
-impl Ord for AutomationEnvelope {
+impl Ord for ControlEnvelope {
     fn cmp(&self, other: &Self) -> Ordering {
         if self.start_beat > other.start_beat {
             return Ordering::Greater;
@@ -148,18 +148,18 @@ impl Ord for AutomationEnvelope {
     }
 }
 
-impl Eq for AutomationEnvelope {}
+impl Eq for ControlEnvelope {}
 
-use crate::{primitives::clock::BeatValue, settings::automation::AutomationPathSettings};
+use crate::{primitives::clock::BeatValue, settings::automation::ControlPathSettings};
 
 #[derive(Clone)]
-pub struct AutomationPath {
+pub struct ControlPath {
     pub note_value: Option<BeatValue>,
-    pub steps: Vec<AutomationStepType>,
+    pub steps: Vec<ControlStepType>,
 }
 
-impl AutomationPath {
-    pub(crate) fn from_settings(settings: &AutomationPathSettings) -> Self {
+impl ControlPath {
+    pub(crate) fn from_settings(settings: &ControlPathSettings) -> Self {
         Self {
             note_value: settings.note_value.clone(),
             steps: settings.steps.clone(),
@@ -182,15 +182,15 @@ mod tests {
     // TODO: a mini orchestrator that ticks until a certain condition is met
 
     #[test]
-    fn test_flat_step_automation() {
+    fn test_flat_step() {
         let step_vec = vec![
-            AutomationStepType::Flat { value: 0.9 },
-            AutomationStepType::Flat { value: 0.1 },
-            AutomationStepType::Flat { value: 0.2 },
-            AutomationStepType::Flat { value: 0.3 },
+            ControlStepType::Flat { value: 0.9 },
+            ControlStepType::Flat { value: 0.1 },
+            ControlStepType::Flat { value: 0.2 },
+            ControlStepType::Flat { value: 0.3 },
         ];
         let step_count = step_vec.len();
-        let sequence = Rc::new(RefCell::new(AutomationPath {
+        let sequence = Rc::new(RefCell::new(ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
         }));
@@ -217,7 +217,7 @@ mod tests {
                 if step_index < step_count {
                     let step = &sequence.borrow().steps[step_index];
                     match step {
-                        AutomationStepType::Flat { value } => {
+                        ControlStepType::Flat { value } => {
                             expected_value = *value;
                         }
                         _ => panic!(),
@@ -238,16 +238,16 @@ mod tests {
     }
 
     #[test]
-    fn test_slope_step_automation() {
+    fn test_slope_step() {
         const SAD_FLOAT_DIFF: f32 = 1.0e-2;
         let step_vec = vec![
-            AutomationStepType::new_slope(0.0, 1.0),
-            AutomationStepType::new_slope(1.0, 0.5),
-            AutomationStepType::new_slope(1.0, 0.0),
-            AutomationStepType::new_slope(0.0, 1.0),
+            ControlStepType::new_slope(0.0, 1.0),
+            ControlStepType::new_slope(1.0, 0.5),
+            ControlStepType::new_slope(1.0, 0.0),
+            ControlStepType::new_slope(0.0, 1.0),
         ];
         let interpolated_values = vec![0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
-        let path = Rc::new(RefCell::new(AutomationPath {
+        let path = Rc::new(RefCell::new(ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec.clone(),
         }));
