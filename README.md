@@ -45,6 +45,7 @@ The text on the left is the truth. It's what you save when you save your project
 - [Welsh's Synthesizer Cookbook](https://synthesizer-cookbook.com/)
 - [SynthLab](https://www.willpirkle.com/synthlab-landing/)
 - [Glicol](https://github.com/chaosprint/glicol) is consistent with the vision.
+- [Sonic Pi](https://sonic-pi.net/), which I somehow missed until just now.
 
 ## Installation for development
 
