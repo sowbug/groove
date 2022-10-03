@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
     collections::HashMap,
+    fmt::Debug,
     rc::{Rc, Weak},
 };
 
@@ -29,7 +30,7 @@ pub fn wrapped_new<T: Wrappable>() -> Rc<RefCell<T>> {
 }
 
 /// Provides audio in the form of digital samples.
-pub trait SourcesAudio {
+pub trait SourcesAudio: Debug {
     // Lots of implementers don't care about clock here,
     // but some do (oscillators, LFOs), and it's a lot cleaner
     // to pass a bit of extra information here than to either
@@ -67,7 +68,7 @@ pub trait TransformsAudio {
 }
 
 // Convenience generic for effects
-impl<T: SinksAudio + TransformsAudio> SourcesAudio for T {
+impl<T: SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let input = self.gather_source_audio(clock);
         self.transform_audio(input)
@@ -91,7 +92,7 @@ pub trait SourcesControl {
     }
 }
 
-pub trait SinksControl {
+pub trait SinksControl: Debug {
     fn handle_control(&mut self, clock: &Clock, param: &SinksControlParam);
 }
 
@@ -125,7 +126,7 @@ pub trait SourcesMidi {
     }
 }
 
-pub trait SinksMidi {
+pub trait SinksMidi: Debug {
     fn midi_channel(&self) -> MidiChannel;
     fn set_midi_channel(&mut self, midi_channel: MidiChannel);
 
@@ -154,7 +155,7 @@ pub trait SinksMidi {
 /// has been called for the time slice. For example, nobody will ask an Envelope
 /// for its amplitude until it's gotten a chance to calculate its amplitude for
 /// the time slice via tick().
-pub trait WatchesClock {
+pub trait WatchesClock: Debug {
     /// returns true if we had a finite amount of known work that has finished.
     /// TODO: if we return true, then do we still expect to be called for the
     /// result of our work during this cycle? E.g., source_audio()
@@ -199,7 +200,7 @@ pub mod tests {
         SourcesControl, SourcesMidi, WatchesClock,
     };
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct NullDevice {
         pub is_playing: bool,
         midi_channel: MidiChannel,
@@ -254,6 +255,7 @@ pub mod tests {
         }
     }
 
+    #[derive(Debug, Default)]
     pub struct SingleLevelDevice {
         level: MonoSample,
     }
@@ -447,7 +449,7 @@ pub mod tests {
         );
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct TestAlwaysSameLevelDevice {
         level: MonoSample,
     }
@@ -465,7 +467,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct TestAlwaysTooLoudDevice {}
     impl TestAlwaysTooLoudDevice {
         pub fn new() -> Self {
@@ -480,7 +482,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct TestAlwaysLoudDevice {}
     impl TestAlwaysLoudDevice {
         pub fn new() -> Self {
@@ -495,7 +497,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct TestAlwaysSilentDevice {}
     impl TestAlwaysSilentDevice {
         pub fn new() -> Self {
@@ -510,6 +512,7 @@ pub mod tests {
         }
     }
 
+    #[derive(Debug)]
     pub struct SimpleOrchestrator {
         main_mixer: Box<dyn IsEffect>,
     }
@@ -548,6 +551,7 @@ pub mod tests {
         }
     }
 
+    #[derive(Debug)]
     pub struct SimpleSynth {
         oscillator: Rc<RefCell<dyn SourcesAudio>>,
         envelope: Rc<RefCell<dyn SourcesAudio>>,
@@ -591,7 +595,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct SimpleTimer {
         time_to_run_seconds: f32,
     }
@@ -608,7 +612,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct SimpleTrigger {
         control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
         time_to_trigger_seconds: f32,
@@ -645,6 +649,7 @@ pub mod tests {
     }
 
     /// Lets a SourcesAudio act like an IsController
+    #[derive(Debug)]
     struct ContinuousControl {
         control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
         source: Box<dyn SourcesAudio>,
@@ -729,6 +734,7 @@ pub mod tests {
     }
 
     /// Keeps asking for time slices until end of specified lifetime.
+    #[derive(Debug, Default)]
     struct TestWatchesClock {
         lifetime_seconds: f32,
     }
@@ -745,7 +751,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     struct TestAudioSource {}
 
     impl SourcesAudio for TestAudioSource {
@@ -760,7 +766,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     struct TestSinksAudio {
         audio_sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     }
@@ -777,7 +783,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     struct TestAutomationSource {
         control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
     }
@@ -803,7 +809,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     struct TestAutomationSink {
         value: f32,
     }
@@ -828,7 +834,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     struct TestMidiSource {
         channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
     }
@@ -858,7 +864,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     struct TestSinksMidi {
         midi_channel: MidiChannel,
         is_note_on: bool,
@@ -901,7 +907,7 @@ pub mod tests {
     // which controls a MIDI instrument.
     //
     // This shows how all these traits work together.
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     struct TestSimpleKeyboard {
         control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
     }
@@ -932,7 +938,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     struct TestSimpleArpeggiator {
         tempo: f32,
         channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,

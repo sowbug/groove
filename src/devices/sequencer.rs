@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct MidiSequencer {
     midi_ticks_per_second: u32,
     beats_per_minute: f32,

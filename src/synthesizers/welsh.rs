@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-#[derive(EnumIter, Display, Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, Deserialize, Display, EnumIter, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PresetName {
     // -------------------- Strings
@@ -160,7 +160,7 @@ impl Default for PolyphonyPreset {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct SynthPreset {
     pub oscillator_1_preset: OscillatorPreset,
     pub oscillator_2_preset: OscillatorPreset,
@@ -1868,7 +1868,7 @@ impl Synth {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Voice {
     midi_channel: MidiChannel,
     oscillators: Vec<Oscillator>,
@@ -2015,7 +2015,7 @@ impl SourcesAudio for Voice {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Synth {
     midi_channel: MidiChannel,
     sample_rate: usize,

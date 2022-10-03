@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct PatternSequencer {
     time_signature: TimeSignature,
     cursor_beats: f32, // TODO: this should be a fixed-precision type
@@ -154,7 +154,7 @@ impl SourcesMidi for PatternSequencer {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct OrderedNote {
     pub when_beats: f32,
     pub message: MidiMessage,
@@ -186,7 +186,7 @@ impl Ord for OrderedNote {
 
 impl Eq for OrderedNote {}
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct Pattern {
     pub note_value: Option<BeatValue>,
     pub notes: Vec<Vec<u8>>,

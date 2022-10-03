@@ -14,7 +14,7 @@ pub mod orchestrator;
 pub mod patterns;
 pub mod sequencer;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Arpeggiator {
     midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,

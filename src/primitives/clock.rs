@@ -6,11 +6,12 @@ use crate::settings::ClockSettings;
 
 use super::WatchesClock;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum BeatValue {
     Whole,
     Half,
+    #[default]
     Quarter,
     Eighth,
     Sixteenth,
@@ -132,7 +133,7 @@ impl Default for TimeSignature {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct Clock {
     settings: ClockSettings,
 
@@ -167,7 +168,7 @@ impl Clock {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct WatchedClock {
     clock: Clock,
     watchers: Vec<Rc<RefCell<dyn WatchesClock>>>,

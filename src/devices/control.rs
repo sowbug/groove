@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 use std::{cell::RefCell, cmp::Ordering};
 
+#[derive(Debug)]
 pub struct ControlTrip {
     target_instrument: Rc<RefCell<dyn SinksControl>>,
     cursor_beats: f32,
@@ -99,7 +100,7 @@ impl WatchesClock for ControlTrip {
 
 use sorted_vec::SortedVec;
 
-#[derive(Default, PartialEq, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
 struct ControlEnvelope {
     start_beat: f32,
     end_beat: f32,
@@ -153,7 +154,7 @@ impl Eq for ControlEnvelope {}
 
 use crate::{primitives::clock::BeatValue, settings::control::ControlPathSettings};
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct ControlPath {
     pub note_value: Option<BeatValue>,
     pub steps: Vec<ControlStepType>,

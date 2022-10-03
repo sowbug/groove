@@ -7,7 +7,7 @@ use super::{
     TransformsAudio,
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Bitcrusher {
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     bits_to_crush: u8,

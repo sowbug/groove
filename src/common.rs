@@ -27,11 +27,11 @@ pub enum WaveformType {
 
 impl Default for WaveformType {
     fn default() -> Self {
-        WaveformType::None
+        WaveformType::Sine
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub enum MidiNote {
     None = 0,
     A0 = 21,
@@ -47,13 +47,14 @@ pub type MidiChannel = u8;
 pub const MIDI_CHANNEL_RECEIVE_NONE: MidiChannel = 254;
 pub const MIDI_CHANNEL_RECEIVE_ALL: MidiChannel = 255;
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Copy)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Copy, Default)]
 pub enum MidiMessageType {
+    #[default] // there isn't any sensible default here, so we pick something loud
     NoteOn = 0b1001,
     NoteOff = 0b1000,
     ProgramChange = 0b1100,
 }
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Clone, Serialize, Deserialize, Copy)]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Clone, Serialize, Deserialize, Copy, Default)]
 pub struct MidiMessage {
     // status and channel are normally packed into one byte, but for ease of use
     // we're unpacking here.
@@ -105,7 +106,7 @@ impl MidiMessage {
     }
 }
 
-#[derive(Eq, Debug, Clone, Serialize, Deserialize)]
+#[derive(Eq, Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OrderedMidiMessage {
     pub when: u32,
     pub message: MidiMessage,

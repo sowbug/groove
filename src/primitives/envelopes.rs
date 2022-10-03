@@ -22,7 +22,7 @@ enum EnvelopeState {
     Release,
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug, Default)]
 pub struct AdsrEnvelope {
     sample_rate: f32,
 
@@ -246,7 +246,7 @@ mod tests {
     use super::*;
 
     // TODO: this idea will work better if/when Envelope is a trait.
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct AlwaysLoudEnvelope {}
 
     #[allow(dead_code)]

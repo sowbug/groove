@@ -7,8 +7,9 @@ use super::{
     TransformsAudio,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {
+    #[default]
     None,
     LowPass {
         sample_rate: usize,
@@ -52,13 +53,7 @@ pub enum FilterType {
     },
 }
 
-impl Default for FilterType {
-    fn default() -> Self {
-        FilterType::None
-    }
-}
-
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Filter {
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     filter_type: FilterType,
@@ -586,12 +581,14 @@ mod tests {
     use super::*;
     const SAMPLE_RATE: usize = 44100;
 
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Debug, Default)]
     enum TestFilterControllerParam {
+        #[default]
         Cutoff,
         Q,
     }
 
+    #[derive(Debug)]
     struct TestFilterController {
         control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
         param: TestFilterControllerParam,
@@ -652,7 +649,7 @@ mod tests {
 
     impl IsController for TestFilterController {}
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     struct TestNullController {
         control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
     }

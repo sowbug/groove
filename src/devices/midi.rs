@@ -141,7 +141,7 @@ impl MidiSmfReader {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) struct MidiBus {
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
 }

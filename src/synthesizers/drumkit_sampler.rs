@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Voice {
     samples: Vec<MonoSample>,
     sample_clock_start: usize,
@@ -84,7 +84,7 @@ impl SourcesAudio for Voice {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Sampler {
     midi_channel: MidiChannel,
     note_to_voice: HashMap<u8, Voice>,

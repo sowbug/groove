@@ -4,7 +4,7 @@ use crate::common::MonoSample;
 
 use super::{clock::Clock, SinksAudio, SinksControl, SourcesAudio, TransformsAudio, IsEffect};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Gain {
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     amount: f32,

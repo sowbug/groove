@@ -2,6 +2,8 @@ pub mod control;
 pub mod effects;
 pub mod song;
 
+use std::default;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -14,7 +16,7 @@ use self::effects::EffectSettings;
 
 type MidiChannel = u8;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum InstrumentSettings {
     #[serde(rename_all = "kebab-case")]
@@ -43,14 +45,14 @@ pub enum InstrumentSettings {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DeviceSettings {
     Instrument(InstrumentSettings),
     Effect(EffectSettings),
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct PatternSettings {
     pub id: DeviceId,
@@ -58,7 +60,7 @@ pub struct PatternSettings {
     pub notes: Vec<Vec<String>>,
 }
 
-#[derive(Serialize, Deserialize, Default, Clone)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct TrackSettings {
     pub id: DeviceId,
@@ -68,7 +70,7 @@ pub struct TrackSettings {
     pub pattern_ids: Vec<DeviceId>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ClockSettings {
     #[serde(rename = "sample-rate")]

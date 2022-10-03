@@ -6,7 +6,7 @@ use crate::{
     primitives::{clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesAudio},
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 #[allow(dead_code)]
 pub struct Sampler {
     midi_channel: MidiChannel,

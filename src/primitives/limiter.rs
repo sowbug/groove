@@ -4,7 +4,7 @@ use crate::common::MonoSample;
 
 use super::{IsEffect, SinksAudio, SinksControl, SourcesAudio, TransformsAudio};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Limiter {
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
 

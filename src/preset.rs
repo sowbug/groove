@@ -10,7 +10,7 @@ pub struct OscillatorPreset {
 impl Default for OscillatorPreset {
     fn default() -> Self {
         Self {
-            waveform: WaveformType::None,
+            waveform: WaveformType::Sine,
             tune: OscillatorPreset::NATURAL_TUNING,
             mix: OscillatorPreset::FULL_MIX,
         }
@@ -91,7 +91,7 @@ impl LfoPreset {
 // Thus we can use defaults cutoff 0.0 and weight 0.0 as a hack for a passthrough.
 // Eventually we'll want this preset to be richer, and then we'll need an explicit
 // notion of a None filter type.
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct FilterPreset {
     pub cutoff: f32,
     pub weight: f32, // TODO: this is unused because it's just another way to say cutoff
@@ -108,7 +108,7 @@ mod tests {
 
     use super::OscillatorPreset;
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct NullDevice {
         pub is_playing: bool,
         midi_channel: MidiChannel,

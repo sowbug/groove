@@ -29,7 +29,7 @@ use super::sequencer::MidiSequencer;
 use super::Arpeggiator;
 
 /// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Orchestrator {
     settings: SongSettings,
 

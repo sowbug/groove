@@ -8,9 +8,9 @@ pub enum ControlStepType {
     Flat { value: f32 }, // stairstep
     Slope { start: f32, end: f32 }, // linear
 
-    // Logarithmic {start: f32, end: f32},
-    // Trigger {id: String, value: f32}, // TODO: this might mean Automators are also AutomationSinks
-    //          // and maybe MidiSinks.
+                         // Logarithmic {start: f32, end: f32},
+                         // Trigger {id: String, value: f32}, // TODO: this might mean Automators are also AutomationSinks
+                         //          // and maybe MidiSinks.
 }
 
 impl ControlStepType {
@@ -22,7 +22,7 @@ impl ControlStepType {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ControlPathSettings {
     pub id: DeviceId,
@@ -30,14 +30,14 @@ pub struct ControlPathSettings {
     pub steps: Vec<ControlStepType>,
 }
 
-#[derive(Serialize, Deserialize, Default, Clone)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ControlTargetSettings {
     pub id: DeviceId,
     pub param: String,
 }
 
-#[derive(Serialize, Deserialize, Default, Clone)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ControlTripSettings {
     pub id: DeviceId,
