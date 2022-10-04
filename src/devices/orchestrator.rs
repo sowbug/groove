@@ -28,6 +28,21 @@ use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
 use super::Arpeggiator;
 
+#[derive(Debug)]
+pub struct Performance {
+    pub sample_rate: usize,
+    pub worker: Worker<MonoSample>,
+}
+
+impl Performance {
+    pub fn new_with(sample_rate: usize) -> Self {
+        Self {
+            sample_rate,
+            worker: Worker::<MonoSample>::new_fifo(),
+        }
+    }
+}
+
 /// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
 #[derive(Debug, Default)]
 pub struct Orchestrator {
@@ -101,14 +116,15 @@ impl Orchestrator {
         (sample, false)
     }
 
-    pub fn perform_to_queue(&mut self, worker: &Worker<MonoSample>) -> anyhow::Result<()> {
-        let progress_indicator_quantum: usize =
-            self.clock.inner_clock().settings().sample_rate() / 2;
+    pub fn perform(&mut self) -> anyhow::Result<Performance> {
+        let sample_rate = self.clock.inner_clock().settings().sample_rate();
+        let performance = Performance::new_with(sample_rate);
+        let progress_indicator_quantum: usize = sample_rate / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
         self.clock.reset();
         loop {
             let (sample, done) = self.tick();
-            worker.push(sample);
+            performance.worker.push(sample);
             if next_progress_indicator <= self.clock.inner_clock().samples {
                 print!(".");
                 io::stdout().flush().unwrap();
@@ -119,7 +135,7 @@ impl Orchestrator {
             }
         }
         println!();
-        Ok(())
+        Ok(performance)
     }
 
     pub fn add_main_mixer_source(&mut self, device: Rc<RefCell<dyn SourcesAudio>>) {
@@ -473,7 +489,8 @@ impl Orchestrator {
             for path_id in control_trip_settings.path_ids {
                 let control_path_opt = self.id_to_control_path.get(&path_id);
                 if let Some(control_path) = control_path_opt {
-                    control_trip.borrow_mut().add_path(Rc::clone(&control_path)); // TODO: not sure this clone() is right
+                    control_trip.borrow_mut().add_path(Rc::clone(&control_path));
+                // TODO: not sure this clone() is right
                 } else {
                     panic!(
                         "automation track {} needs missing sequence {}",

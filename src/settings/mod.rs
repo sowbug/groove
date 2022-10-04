@@ -114,8 +114,7 @@ impl ClockSettings {
         self.time_signature
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn bpm(&self) -> f32 {
+    pub fn bpm(&self) -> f32 {
         self.beats_per_minute
     }
 

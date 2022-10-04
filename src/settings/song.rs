@@ -59,10 +59,9 @@ impl SongSettings {
 
 #[cfg(test)]
 mod tests {
-    use crossbeam::deque::Worker;
 
     use crate::{
-        common::MonoSample, devices::orchestrator::Orchestrator, settings::InstrumentSettings,
+        devices::orchestrator::Orchestrator, settings::InstrumentSettings,
         synthesizers::welsh::PresetName,
     };
 
@@ -103,7 +102,6 @@ mod tests {
         let result = SongSettings::new_from_yaml(yaml.as_str());
         assert!(result.is_ok());
         let mut orchestrator = Orchestrator::new(result.unwrap());
-        let worker = Worker::<MonoSample>::new_fifo();
-        assert!(orchestrator.perform_to_queue(&worker).is_ok());
+        assert!(orchestrator.perform().is_ok());
     }
 }
