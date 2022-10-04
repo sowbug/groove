@@ -115,11 +115,6 @@ impl TimeSignature {
     }
 
     #[allow(dead_code)]
-    /// ```
-    /// let ts = libgroove::primitives::clock::TimeSignature::new_defaults();
-    /// assert_eq!(ts.top, 4);
-    /// assert_eq!(ts.bottom, 4);
-    /// ```
     pub fn new_defaults() -> Self {
         Self::new_with(4, 4)
     }
