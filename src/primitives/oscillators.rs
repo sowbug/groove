@@ -5,7 +5,7 @@ use crate::{
     preset::{LfoPreset, OscillatorPreset},
 };
 
-use super::{clock::Clock, SourcesAudio, Wrappable};
+use super::{clock::Clock, SourcesAudio};
 
 #[derive(Debug, Clone)]
 pub struct Oscillator {
@@ -45,14 +45,6 @@ impl Default for Oscillator {
             frequency_modulation: 0.0,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
-        }
-    }
-}
-
-impl Wrappable for Oscillator {
-    fn new() -> Self {
-        Self {
-            ..Default::default()
         }
     }
 }

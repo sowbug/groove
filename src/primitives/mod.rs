@@ -21,14 +21,6 @@ pub mod limiter;
 pub mod mixer;
 pub mod oscillators;
 
-pub trait Wrappable: Default {
-    fn new() -> Self;
-}
-
-pub fn wrapped_new<T: Wrappable>() -> Rc<RefCell<T>> {
-    Rc::new(RefCell::new(T::new()))
-}
-
 /// Provides audio in the form of digital samples.
 pub trait SourcesAudio: Debug {
     // Lots of implementers don't care about clock here,
@@ -188,7 +180,7 @@ pub mod tests {
     };
     use crate::preset::EnvelopePreset;
     use crate::primitives::gain::Gain;
-    use crate::primitives::{wrapped_new, SinksAudio};
+    use crate::primitives::SinksAudio;
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
 
     use super::clock::WatchedClock;
@@ -560,10 +552,11 @@ pub mod tests {
     impl SimpleSynth {
         #[deprecated]
         /// You really don't want to call this, because you need a sample rate
-        /// for it to do anything meaningful.
+        /// for it to do anything meaningful, and it's a bad practice to hardcode
+        /// a 44.1KHz rate.
         fn new() -> Self {
             Self {
-                oscillator: wrapped_new::<Oscillator>(),
+                oscillator: Rc::new(RefCell::new(Oscillator::new())),
                 envelope: Rc::new(RefCell::new(AdsrEnvelope::new_with(
                     44100,
                     &EnvelopePreset::default(),
