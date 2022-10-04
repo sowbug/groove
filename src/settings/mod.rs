@@ -2,8 +2,6 @@ pub mod control;
 pub mod effects;
 pub mod song;
 
-use std::default;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{

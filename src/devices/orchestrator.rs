@@ -105,6 +105,7 @@ impl Orchestrator {
         let progress_indicator_quantum: usize =
             self.clock.inner_clock().settings().sample_rate() / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
+        self.clock.reset();
         loop {
             let (sample, done) = self.tick();
             worker.push(sample);

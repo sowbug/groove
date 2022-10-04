@@ -166,6 +166,12 @@ impl Clock {
         self.seconds = self.samples as f32 / self.settings.sample_rate() as f32;
         self.beats = (self.settings.bpm() / 60.0) * self.seconds;
     }
+
+    pub(crate) fn reset(&mut self) {
+        self.samples = 0;
+        self.seconds = 0.0;
+        self.beats = 0.0;
+    }
 }
 
 #[derive(Debug, Default)]
@@ -206,6 +212,10 @@ impl WatchedClock {
 
     pub fn tick(&mut self) {
         self.clock.tick();
+    }
+
+    pub(crate) fn reset(&mut self) {
+        self.clock.reset()
     }
 }
 

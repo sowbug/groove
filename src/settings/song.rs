@@ -9,7 +9,13 @@ use super::{
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
-#[derive(Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Clone)]
+pub enum LoadError {
+    FileError,
+    FormatError,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct SongSettings {
     pub clock: ClockSettings,
@@ -33,8 +39,8 @@ impl SongSettings {
         }
     }
 
-    pub fn new_from_yaml(yaml: &str) -> Self {
-        serde_yaml::from_str(yaml).unwrap()
+    pub fn new_from_yaml(yaml: &str) -> Result<SongSettings, LoadError> {
+        serde_yaml::from_str(yaml).map_err(|_| LoadError::FormatError)
     }
 
     #[allow(dead_code)]
@@ -94,8 +100,9 @@ mod tests {
     #[test]
     fn test_yaml_loads_and_parses() {
         let yaml = std::fs::read_to_string("test_data/kitchen-sink.yaml").unwrap();
-        let settings = SongSettings::new_from_yaml(yaml.as_str());
-        let mut orchestrator = Orchestrator::new(settings);
+        let result = SongSettings::new_from_yaml(yaml.as_str());
+        assert!(result.is_ok());
+        let mut orchestrator = Orchestrator::new(result.unwrap());
         let worker = Worker::<MonoSample>::new_fifo();
         assert!(orchestrator.perform_to_queue(&worker).is_ok());
     }

@@ -13,6 +13,7 @@ cpal = "0.13.5"
 crossbeam = "0.8"
 enum-primitive-derive = "0.2.2"
 hound = "3.4"
+iced = "0.4.2"
 midir = "0.8.0"
 midly = "0.5.2"
 more-asserts = "0.1.0"
@@ -29,6 +30,10 @@ strum_macros = "0.24.2"
 [[bin]]
 name = "groove"
 path = "src/main.rs"
+
+[[bin]]
+name = "groove-gui"
+path = "src/bin/app.rs"
 
 [lib]
 name = "libgroove"

@@ -28,6 +28,24 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "GUI",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove-gui",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove-gui",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Speaker: perform",
       "cargo": {
         "args": [

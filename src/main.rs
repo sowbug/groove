@@ -25,7 +25,7 @@ use std::{
     sync::{Arc, Condvar, Mutex},
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct ClDaw {
     orchestrator: Orchestrator,
 }
@@ -41,7 +41,7 @@ impl ClDaw {
         let yaml = std::fs::read_to_string(filename).unwrap();
         let settings = SongSettings::new_from_yaml(yaml.as_str());
         Self {
-            orchestrator: Orchestrator::new(settings),
+            orchestrator: Orchestrator::new(settings.unwrap()),
         }
     }
 
@@ -156,7 +156,7 @@ impl ClDaw {
             cpal::SampleFormat::U16 => device.build_output_stream(
                 &config,
                 move |data, output_callback_info| {
-                    ClDaw::get_sample_from_queue::<u16>(
+                    Self::get_sample_from_queue::<u16>(
                         &stealer,
                         &sync_pair_clone,
                         data,
@@ -215,7 +215,7 @@ impl ClDaw {
     }
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
     /// MIDI filename
