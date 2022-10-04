@@ -23,10 +23,10 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::rc::{Rc, Weak};
 
-use super::control::{ControlPath, ControlTrip};
-use super::midi::MidiBus;
-use super::patterns::{Pattern, PatternSequencer};
-use super::sequencer::MidiSequencer;
+use crate::devices::control::{ControlPath, ControlTrip};
+use crate::devices::midi::MidiBus;
+use crate::devices::patterns::{Pattern, PatternSequencer};
+use crate::devices::sequencer::MidiSequencer;
 
 #[derive(Debug)]
 pub struct Performance {

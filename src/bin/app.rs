@@ -3,8 +3,8 @@
 
 use iced::button::{self, Button};
 use iced::{Alignment, Column, Element, Sandbox, Settings, Text};
-use libgroove::devices::orchestrator::Orchestrator;
-use libgroove::helpers::IOHelper;
+use libgroove::IOHelper;
+use libgroove::Orchestrator;
 
 pub fn main() -> iced::Result {
     Groove::run(Settings::default())

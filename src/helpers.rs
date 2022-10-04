@@ -4,8 +4,8 @@ use std::sync::{Arc, Condvar, Mutex};
 
 use crate::common::MonoSample;
 use crate::devices::midi::MidiSmfReader;
-use crate::devices::orchestrator::{Orchestrator, Performance};
 use crate::devices::sequencer::MidiSequencer;
+use crate::orchestrator::{Orchestrator, Performance};
 use crate::settings::song::SongSettings;
 use crate::synthesizers::drumkit_sampler::Sampler;
 use crate::synthesizers::welsh::{PresetName, Synth, SynthPreset};

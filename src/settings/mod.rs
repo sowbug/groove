@@ -1,6 +1,6 @@
-pub mod control;
-pub mod effects;
-pub mod song;
+pub(crate) mod control;
+pub(crate) mod effects;
+pub(crate) mod song;
 
 use serde::{Deserialize, Serialize};
 

@@ -1,3 +1,3 @@
-pub mod clock;
-pub mod envelopes;
-pub mod oscillators;
+pub(crate) mod clock;
+pub(crate) mod envelopes;
+pub(crate) mod oscillators;

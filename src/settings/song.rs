@@ -61,8 +61,7 @@ impl SongSettings {
 mod tests {
 
     use crate::{
-        devices::orchestrator::Orchestrator, settings::InstrumentSettings,
-        synthesizers::welsh::PresetName,
+        orchestrator::Orchestrator, settings::InstrumentSettings, synthesizers::welsh::PresetName,
     };
 
     use super::{DeviceSettings, SongSettings};

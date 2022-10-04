@@ -1,6 +1,10 @@
-use std::{collections::HashMap, rc::Weak, cell::RefCell};
+use std::{cell::RefCell, collections::HashMap, rc::Weak};
 
-use crate::{common::{MidiChannel, MidiNote, MidiMessage}, traits::{SinksMidi, SinksControl, SinksControlParam, SourcesMidi, WatchesClock, IsMidiEffect}, primitives::clock::Clock};
+use crate::{
+    common::{MidiChannel, MidiMessage, MidiNote},
+    primitives::clock::Clock,
+    traits::{IsMidiEffect, SinksControl, SinksControlParam, SinksMidi, SourcesMidi, WatchesClock},
+};
 
 #[derive(Debug, Default)]
 pub struct Arpeggiator {

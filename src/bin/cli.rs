@@ -1,10 +1,7 @@
 #![feature(trait_upcasting)]
 #![allow(incomplete_features)]
 
-use libgroove::{
-    devices::orchestrator::Orchestrator,
-    helpers::{self, IOHelper},
-};
+use libgroove::{IOHelper, Orchestrator};
 
 use anyhow::Ok;
 use clap::Parser;
@@ -37,7 +34,7 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     if args.script_in.is_some() {
-        //      ScriptEngine::new().execute_file(&args.script_in.unwrap())
+        //TODO      ScriptEngine::new().execute_file(&args.script_in.unwrap())
         Ok(())
     } else {
         let mut orchestrator = if args.midi_in.is_some() {
@@ -53,9 +50,9 @@ fn main() -> anyhow::Result<()> {
 
         println!("Rendering queue");
         if let Some(output_filename) = args.wav_out {
-            helpers::IOHelper::send_performance_to_file(performance, &output_filename)
+            IOHelper::send_performance_to_file(performance, &output_filename)
         } else {
-            helpers::IOHelper::send_performance_to_output_device(performance)
+            IOHelper::send_performance_to_output_device(performance)
         }
     }
 }

@@ -1,7 +1,6 @@
-
-pub mod arpeggiator;
-pub mod bitcrusher;
-pub mod filter;
-pub mod gain;
-pub mod limiter;
-pub mod mixer;
+pub(crate) mod arpeggiator;
+pub(crate) mod bitcrusher;
+pub(crate) mod filter;
+pub(crate) mod gain;
+pub(crate) mod limiter;
+pub(crate) mod mixer;
