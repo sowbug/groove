@@ -4,10 +4,8 @@ use sorted_vec::SortedVec;
 
 use crate::{
     common::{MidiChannel, OrderedMidiMessage},
-    primitives::{
-        clock::{Clock, TimeSignature},
-        SinksMidi, SourcesMidi, WatchesClock,
-    },
+    primitives::clock::{Clock, TimeSignature},
+    traits::{SinksMidi, SourcesMidi, WatchesClock},
 };
 
 #[derive(Debug, Default)]
@@ -101,7 +99,7 @@ mod tests {
 
     use crate::{
         common::{MidiMessage, MidiNote, OrderedMidiMessage},
-        primitives::{clock::Clock, tests::NullDevice, SinksMidi, SourcesMidi, WatchesClock},
+        primitives::clock::Clock, traits::{tests::NullDevice, SinksMidi, SourcesMidi, WatchesClock},
     };
 
     use super::MidiSequencer;

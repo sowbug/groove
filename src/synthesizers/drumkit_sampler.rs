@@ -4,11 +4,11 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
-    general_midi::GeneralMidiPercussionProgram,
-    primitives::{
-        clock::Clock, IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
-    },
+    primitives::clock::Clock,
+    traits::{IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio},
 };
+
+use super::general_midi::GeneralMidiPercussionProgram;
 
 #[derive(Debug, Default)]
 struct Voice {

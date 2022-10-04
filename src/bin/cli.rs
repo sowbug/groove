@@ -41,9 +41,9 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     } else {
         let mut orchestrator = if args.midi_in.is_some() {
-            IOHelper::orchestrator_from_midi_file(args.midi_in.unwrap())
+            IOHelper::orchestrator_from_midi_file(args.midi_in.unwrap().as_str())
         } else if args.yaml_in.is_some() {
-            IOHelper::orchestrator_from_yaml_file(args.yaml_in.unwrap())
+            IOHelper::orchestrator_from_yaml_file(args.yaml_in.unwrap().as_str())
         } else {
             Orchestrator::new_defaults()
         };

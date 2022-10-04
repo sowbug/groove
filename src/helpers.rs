@@ -6,10 +6,10 @@ use crate::common::MonoSample;
 use crate::devices::midi::MidiSmfReader;
 use crate::devices::orchestrator::{Orchestrator, Performance};
 use crate::devices::sequencer::MidiSequencer;
-use crate::primitives::IsMidiInstrument;
 use crate::settings::song::SongSettings;
 use crate::synthesizers::drumkit_sampler::Sampler;
 use crate::synthesizers::welsh::{PresetName, Synth, SynthPreset};
+use crate::traits::IsMidiInstrument;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleRate, StreamConfig};
 use crossbeam::deque::Stealer;
@@ -17,14 +17,14 @@ use crossbeam::deque::Stealer;
 pub struct IOHelper {}
 
 impl IOHelper {
-    pub fn orchestrator_from_yaml_file(filename: String) -> Orchestrator {
+    pub fn orchestrator_from_yaml_file(filename: &str) -> Orchestrator {
         let yaml = std::fs::read_to_string(filename).unwrap();
         let settings = SongSettings::new_from_yaml(yaml.as_str());
 
         Orchestrator::new(settings.unwrap())
     }
 
-    pub fn orchestrator_from_midi_file(filename: String) -> Orchestrator {
+    pub fn orchestrator_from_midi_file(filename: &str) -> Orchestrator {
         let data = std::fs::read(filename).unwrap();
         let mut orchestrator = Orchestrator::new_defaults();
         MidiSmfReader::load_sequencer(&data, orchestrator.midi_sequencer());

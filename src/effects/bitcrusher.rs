@@ -1,10 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::common::MonoSample;
-
-use super::{
-    clock::Clock, IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio,
-    TransformsAudio,
+use crate::{
+    common::MonoSample,
+    primitives::clock::Clock,
+    traits::{
+        IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
+    },
 };
 
 #[derive(Debug, Default)]
@@ -54,7 +55,7 @@ impl SinksControl for Bitcrusher {
 mod tests {
 
     use super::*;
-    use crate::primitives::{clock::Clock, tests::TestAlwaysSameLevelDevice};
+    use crate::{primitives::{clock::Clock}, traits::tests::TestAlwaysSameLevelDevice};
     use std::f32::consts::PI;
 
     const CRUSHED_PI: f32 = 0.14062929;

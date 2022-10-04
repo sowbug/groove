@@ -1,10 +1,14 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::common::MonoSample;
+use crate::{
+    common::MonoSample,
+    primitives::clock::Clock,
+    traits::{
+        IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
+    },
+};
 
-use super::{clock::Clock, SinksAudio, SinksControl, SourcesAudio, TransformsAudio, IsEffect};
-
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Gain {
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     amount: f32,
@@ -12,9 +16,9 @@ pub struct Gain {
 impl IsEffect for Gain {}
 
 impl Gain {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
-            amount: 1.0,
             ..Default::default()
         }
     }
@@ -23,6 +27,14 @@ impl Gain {
         Self {
             amount,
             ..Default::default()
+        }
+    }
+}
+impl Default for Gain {
+    fn default() -> Self {
+        Self {
+            sources: Vec::default(),
+            amount: 1.0,
         }
     }
 }
@@ -37,9 +49,9 @@ impl TransformsAudio for Gain {
     }
 }
 impl SinksControl for Gain {
-    fn handle_control(&mut self, _clock: &Clock, param: &super::SinksControlParam) {
+    fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
         match param {
-            super::SinksControlParam::Primary { value } => self.amount = *value,
+            SinksControlParam::Primary { value } => self.amount = *value,
             _ => todo!(),
         }
     }
@@ -47,7 +59,8 @@ impl SinksControl for Gain {
 
 #[cfg(test)]
 mod tests {
-    use crate::primitives::tests::{TestAlwaysLoudDevice, TestAlwaysSameLevelDevice};
+
+    use crate::traits::tests::{TestAlwaysLoudDevice, TestAlwaysSameLevelDevice};
 
     use super::*;
 

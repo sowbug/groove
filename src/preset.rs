@@ -103,7 +103,7 @@ mod tests {
 
     use crate::{
         common::{MidiChannel, MidiMessage, MidiMessageType},
-        primitives::{clock::Clock, SinksControl, SinksControlParam, SinksMidi},
+        primitives::{clock::Clock}, traits::{SinksControl, SinksMidi, SinksControlParam},
     };
 
     use super::OscillatorPreset;

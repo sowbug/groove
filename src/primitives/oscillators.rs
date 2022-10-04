@@ -3,9 +3,10 @@ use std::f32::consts::PI;
 use crate::{
     common::{MonoSample, WaveformType},
     preset::{LfoPreset, OscillatorPreset},
+    traits::SourcesAudio,
 };
 
-use super::{clock::Clock, SourcesAudio};
+use super::clock::Clock;
 
 #[derive(Debug, Clone)]
 pub struct Oscillator {
@@ -50,6 +51,7 @@ impl Default for Oscillator {
 }
 
 impl Oscillator {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             ..Default::default()
@@ -142,8 +144,8 @@ mod tests {
     use crate::{
         common::{MidiMessage, MidiNote},
         preset::OscillatorPreset,
-        primitives::{
-            clock::{Clock, WatchedClock},
+        primitives::clock::{Clock, WatchedClock},
+        traits::{
             tests::{
                 write_orchestration_to_file, write_source_to_file, SimpleOrchestrator, SimpleTimer,
             },

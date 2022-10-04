@@ -1,6 +1,7 @@
 use crate::primitives::clock::Clock;
-use crate::primitives::{SinksControl, SinksControlParam, WatchesClock};
 use crate::settings::control::ControlStepType;
+use crate::traits::WatchesClock;
+use crate::traits::{SinksControl, SinksControlParam};
 
 use std::collections::VecDeque;
 use std::rc::Rc;
@@ -173,7 +174,7 @@ impl ControlPath {
 mod tests {
     use assert_approx_eq::assert_approx_eq;
 
-    use crate::primitives::tests::NullDevice;
+    use crate::traits::tests::NullDevice;
 
     use super::*;
 

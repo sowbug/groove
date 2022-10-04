@@ -3,14 +3,13 @@ use std::{f32::MAX, fmt::Debug};
 use crate::{
     common::{MidiMessage, MidiMessageType},
     preset::EnvelopePreset,
+    traits::{
+        SinksControl, SinksControlParam, SinksControlParam::Primary, SinksControlParam::Secondary,
+        SourcesAudio, WatchesClock,
+    },
 };
 
-use super::{
-    clock::Clock,
-    SinksControl,
-    SinksControlParam::{self, Primary, Secondary},
-    SourcesAudio, WatchesClock,
-};
+use super::clock::Clock;
 
 #[derive(Debug, Default)]
 enum EnvelopeState {

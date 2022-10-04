@@ -1,21 +1,22 @@
 use crate::common::{
     DeviceId, MidiChannel, MonoSample, MIDI_CHANNEL_RECEIVE_ALL, MONO_SAMPLE_SILENCE,
 };
-use crate::primitives::bitcrusher::Bitcrusher;
+use crate::effects::arpeggiator::Arpeggiator;
+use crate::effects::bitcrusher::Bitcrusher;
+use crate::effects::filter::{self, Filter};
+use crate::effects::gain::Gain;
+use crate::effects::limiter::Limiter;
+use crate::effects::mixer::Mixer;
 use crate::primitives::clock::WatchedClock;
-use crate::primitives::filter::Filter;
-use crate::primitives::gain::Gain;
-use crate::primitives::limiter::Limiter;
-use crate::primitives::mixer::Mixer;
-use crate::primitives::{
-    IsEffect, IsMidiEffect, SinksAudio, SinksControl, SinksMidi, SourcesAudio, SourcesMidi,
-    WatchesClock,
-};
 use crate::settings::effects::EffectSettings;
 use crate::settings::song::SongSettings;
 use crate::settings::{DeviceSettings, InstrumentSettings};
 
 use crate::synthesizers::{drumkit_sampler, welsh};
+use crate::traits::{
+    IsEffect, IsMidiEffect, SinksAudio, SinksControl, SinksMidi, SourcesAudio, SourcesMidi,
+    WatchesClock,
+};
 use crossbeam::deque::Worker;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -26,7 +27,6 @@ use super::control::{ControlPath, ControlTrip};
 use super::midi::MidiBus;
 use super::patterns::{Pattern, PatternSequencer};
 use super::sequencer::MidiSequencer;
-use super::Arpeggiator;
 
 #[derive(Debug)]
 pub struct Performance {
@@ -235,7 +235,7 @@ impl Orchestrator {
                     } => self.add_midi_effect_by_id(
                         // TODO
                         id,
-                        Rc::new(RefCell::new(Arpeggiator::new(
+                        Rc::new(RefCell::new(Arpeggiator::new_with(
                             midi_input_channel,
                             midi_output_channel,
                         ))),
@@ -273,23 +273,21 @@ impl Orchestrator {
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterLowPass12db { id, cutoff, q } => {
-                        let device = Rc::new(RefCell::new(Filter::new(
-                            &crate::primitives::filter::FilterType::LowPass {
+                        let device =
+                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::LowPass {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 q,
-                            },
-                        )));
+                            })));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterHighPass12db { id, cutoff, q } => {
-                        let device = Rc::new(RefCell::new(Filter::new(
-                            &crate::primitives::filter::FilterType::HighPass {
+                        let device =
+                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::HighPass {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 q,
-                            },
-                        )));
+                            })));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterBandPass12db {
@@ -297,13 +295,12 @@ impl Orchestrator {
                         cutoff,
                         bandwidth,
                     } => {
-                        let device = Rc::new(RefCell::new(Filter::new(
-                            &crate::primitives::filter::FilterType::BandPass {
+                        let device =
+                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::BandPass {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 bandwidth,
-                            },
-                        )));
+                            })));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterBandStop12db {
@@ -311,23 +308,21 @@ impl Orchestrator {
                         cutoff,
                         bandwidth,
                     } => {
-                        let device = Rc::new(RefCell::new(Filter::new(
-                            &crate::primitives::filter::FilterType::BandStop {
+                        let device =
+                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::BandStop {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 bandwidth,
-                            },
-                        )));
+                            })));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterAllPass12db { id, cutoff, q } => {
-                        let device = Rc::new(RefCell::new(Filter::new(
-                            &crate::primitives::filter::FilterType::AllPass {
+                        let device =
+                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::AllPass {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 q,
-                            },
-                        )));
+                            })));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterPeakingEq12db {
@@ -335,13 +330,12 @@ impl Orchestrator {
                         cutoff,
                         db_gain,
                     } => {
-                        let device = Rc::new(RefCell::new(Filter::new(
-                            &crate::primitives::filter::FilterType::PeakingEq {
+                        let device =
+                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::PeakingEq {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 db_gain,
-                            },
-                        )));
+                            })));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterLowShelf12db {
@@ -349,13 +343,12 @@ impl Orchestrator {
                         cutoff,
                         db_gain,
                     } => {
-                        let device = Rc::new(RefCell::new(Filter::new(
-                            &crate::primitives::filter::FilterType::LowShelf {
+                        let device =
+                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::LowShelf {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 db_gain,
-                            },
-                        )));
+                            })));
                         self.add_effect_by_id(id, device);
                     }
                     EffectSettings::FilterHighShelf12db {
@@ -363,13 +356,12 @@ impl Orchestrator {
                         cutoff,
                         db_gain,
                     } => {
-                        let device = Rc::new(RefCell::new(Filter::new(
-                            &crate::primitives::filter::FilterType::HighShelf {
+                        let device =
+                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::HighShelf {
                                 sample_rate: self.settings().clock.sample_rate(),
                                 cutoff,
                                 db_gain,
-                            },
-                        )));
+                            })));
                         self.add_effect_by_id(id, device);
                     }
                 };
@@ -488,9 +480,9 @@ impl Orchestrator {
             control_trip.borrow_mut().reset_cursor();
             for path_id in control_trip_settings.path_ids {
                 let control_path_opt = self.id_to_control_path.get(&path_id);
-                if let Some(control_path) = control_path_opt {
-                    control_trip.borrow_mut().add_path(Rc::clone(&control_path));
                 // TODO: not sure this clone() is right
+                if let Some(control_path) = control_path_opt {
+                    control_trip.borrow_mut().add_path(Rc::clone(control_path));
                 } else {
                     panic!(
                         "automation track {} needs missing sequence {}",

@@ -9,10 +9,7 @@ use sorted_vec::SortedVec;
 
 use crate::{
     common::{MidiChannel, MidiMessage},
-    primitives::{
-        clock::{BeatValue, Clock, TimeSignature},
-        SinksMidi, SourcesMidi, WatchesClock,
-    },
+    primitives::clock::{BeatValue, Clock, TimeSignature}, traits::{WatchesClock, SourcesMidi, SinksMidi},
 };
 
 #[derive(Debug, Default)]

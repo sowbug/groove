@@ -1,12 +1,17 @@
 #![feature(trait_upcasting)]
 #![allow(incomplete_features)]
 
-pub mod common;
 pub mod devices;
-pub mod general_midi;
 pub mod helpers;
-pub mod preset;
-pub mod primitives;
-pub mod scripting;
-pub mod settings;
-pub mod synthesizers;
+
+pub(crate) mod common;
+pub(crate) mod effects;
+pub(crate) mod preset;
+pub(crate) mod primitives;
+pub(crate) mod settings;
+pub(crate) mod synthesizers;
+pub(crate) mod traits;
+
+ // TODO: nobody uses this, because we still declare it to avoid bit rot
+ // while refactoring.
+pub(crate) mod scripting;

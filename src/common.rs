@@ -3,14 +3,9 @@ use std::cmp::Ordering;
 use serde::{Deserialize, Serialize};
 
 pub type MonoSample = f32;
-pub const MONO_SAMPLE_SILENCE: MonoSample = 0.0;
-pub const MONO_SAMPLE_MAX: MonoSample = 1.0;
-pub const MONO_SAMPLE_MIN: MonoSample = -1.0;
-
+#[allow(dead_code)]
 pub type StereoSample = (MonoSample, MonoSample);
-pub const STEREO_SAMPLE_SILENCE: StereoSample = (MONO_SAMPLE_SILENCE, MONO_SAMPLE_SILENCE);
-pub const STEREO_SAMPLE_MAX: StereoSample = (MONO_SAMPLE_MAX, MONO_SAMPLE_MAX);
-pub const STEREO_SAMPLE_MIN: StereoSample = (MONO_SAMPLE_MIN, MONO_SAMPLE_MIN);
+pub const MONO_SAMPLE_SILENCE: MonoSample = 0.0;
 
 pub type DeviceId = String;
 
@@ -74,7 +69,7 @@ impl MidiMessage {
         2.0_f32.powf((midi_note as u8 as f32 - 69.0) / 12.0) * 440.0
     }
 
-    pub fn to_frequency(&self) -> f32 {
+    pub fn message_to_frequency(&self) -> f32 {
         Self::note_to_frequency(self.data1)
     }
 
@@ -131,10 +126,20 @@ impl PartialEq for OrderedMidiMessage {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use assert_approx_eq::assert_approx_eq;
 
     use super::*;
+
+    pub const MONO_SAMPLE_MAX: MonoSample = 1.0;
+    pub const MONO_SAMPLE_MIN: MonoSample = -1.0;
+
+    #[allow(dead_code)]
+    pub const STEREO_SAMPLE_SILENCE: StereoSample = (MONO_SAMPLE_SILENCE, MONO_SAMPLE_SILENCE);
+    #[allow(dead_code)]
+    pub const STEREO_SAMPLE_MAX: StereoSample = (MONO_SAMPLE_MAX, MONO_SAMPLE_MAX);
+    #[allow(dead_code)]
+    pub const STEREO_SAMPLE_MIN: StereoSample = (MONO_SAMPLE_MIN, MONO_SAMPLE_MIN);
 
     impl MidiMessage {
         pub fn note_on_c4() -> MidiMessage {
@@ -149,12 +154,12 @@ mod tests {
     #[test]
     fn test_note_to_frequency() {
         assert_approx_eq!(
-            MidiMessage::new_note_on(0, MidiNote::C4 as u8, 0).to_frequency(),
+            MidiMessage::new_note_on(0, MidiNote::C4 as u8, 0).message_to_frequency(),
             261.625549
         );
-        assert_approx_eq!(MidiMessage::new_note_on(0, 0, 0).to_frequency(), 8.175798);
+        assert_approx_eq!(MidiMessage::new_note_on(0, 0, 0).message_to_frequency(), 8.175798);
         assert_approx_eq!(
-            MidiMessage::new_note_on(0, MidiNote::G9 as u8, 0).to_frequency(),
+            MidiMessage::new_note_on(0, MidiNote::G9 as u8, 0).message_to_frequency(),
             12543.855
         );
     }

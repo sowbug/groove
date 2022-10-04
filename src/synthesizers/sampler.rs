@@ -3,7 +3,7 @@ use hound;
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample},
-    primitives::{clock::Clock, SinksControl, SinksControlParam, SinksMidi, SourcesAudio},
+    primitives::{clock::Clock,}, traits::{SinksControl, SinksMidi, SinksControlParam, SourcesAudio},
 };
 
 #[derive(Debug, Default)]

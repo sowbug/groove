@@ -1,3 +1,4 @@
+use super::general_midi::GeneralMidiProgram;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::HashMap, f32::consts::FRAC_1_SQRT_2, rc::Rc};
@@ -5,13 +6,10 @@ use strum_macros::{Display, EnumIter};
 
 use crate::{
     common::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
-    general_midi::GeneralMidiProgram,
+    effects::filter::{Filter, FilterType},
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
-    primitives::{
-        clock::Clock,
-        envelopes::AdsrEnvelope,
-        filter::{Filter, FilterType},
-        oscillators::Oscillator,
+    primitives::{clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
+    traits::{
         IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
         TransformsAudio, WatchesClock,
     },
@@ -1955,7 +1953,7 @@ impl SinksMidi for Voice {
             .handle_midi_message(message, clock.seconds);
         match message.status {
             MidiMessageType::NoteOn => {
-                let frequency = message.to_frequency();
+                let frequency = message.message_to_frequency();
                 for o in self.oscillators.iter_mut() {
                     o.set_frequency(frequency);
                 }
@@ -2032,18 +2030,16 @@ impl Synth {
             midi_channel,
             sample_rate,
             preset,
-            //voices: Vec::new(),
             note_to_voice: HashMap::new(),
 
             debug_last_seconds: -1.0,
-            ..Default::default()
         }
     }
 
     fn voice_for_note(&mut self, note: u8) -> Rc<RefCell<Voice>> {
         let opt = self.note_to_voice.get(&note);
         if let Some(voice) = opt {
-            Rc::clone(&voice)
+            Rc::clone(voice)
         } else {
             let voice = Rc::new(RefCell::new(Voice::new(
                 self.midi_channel(),
@@ -2120,7 +2116,8 @@ mod tests {
 
     use crate::{
         common::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-        primitives::{clock::Clock, tests::canonicalize_filename},
+        primitives::clock::Clock,
+        traits::tests::canonicalize_filename,
     };
 
     use crate::{

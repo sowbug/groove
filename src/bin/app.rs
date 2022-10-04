@@ -5,7 +5,6 @@ use iced::button::{self, Button};
 use iced::{Alignment, Column, Element, Sandbox, Settings, Text};
 use libgroove::devices::orchestrator::Orchestrator;
 use libgroove::helpers::IOHelper;
-use libgroove::settings::song::SongSettings;
 
 pub fn main() -> iced::Result {
     Groove::run(Settings::default())
@@ -32,11 +31,9 @@ impl Sandbox for Groove {
 
     fn new() -> Self {
         let filename = "scripts/everything.yaml";
-        let yaml = std::fs::read_to_string(filename).unwrap();
-        let song_settings = SongSettings::new_from_yaml(yaml.as_str());
         Self {
             filename: filename.to_string(),
-            orchestrator: Orchestrator::new(song_settings.unwrap()),
+            orchestrator: IOHelper::orchestrator_from_yaml_file(filename),
             ..Default::default()
         }
     }
@@ -50,9 +47,8 @@ impl Sandbox for Groove {
             Message::PlayPressed => {
                 self.orchestrator = Orchestrator::new(self.orchestrator.settings().clone());
                 let performance = self.orchestrator.perform();
-                if performance.is_ok() {
-                    let result = IOHelper::send_performance_to_output_device(performance.unwrap());
-                    if result.is_ok() {
+                if let Ok(performance) = performance {
+                    if IOHelper::send_performance_to_output_device(performance).is_ok() {
                         // great
                     }
                 }

@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     common::{MidiChannel, MidiMessage, OrderedMidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    primitives::{SinksMidi, SourcesMidi},
+    traits::{SinksMidi, SourcesMidi},
 };
 
 use super::sequencer::MidiSequencer;

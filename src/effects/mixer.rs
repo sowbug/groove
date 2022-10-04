@@ -2,7 +2,10 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::common::MonoSample;
 
-use super::{IsEffect, SinksAudio, SinksControl, SourcesAudio, TransformsAudio};
+use crate::primitives::clock::Clock;
+use crate::traits::{
+    IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
+};
 
 #[derive(Debug, Default)]
 pub struct Mixer {
@@ -27,10 +30,7 @@ impl TransformsAudio for Mixer {
     }
 }
 impl SinksControl for Mixer {
-    fn handle_control(&mut self, _clock: &super::clock::Clock, param: &super::SinksControlParam) {
-        match param {
-            _ => {}
-        }
+    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
     }
 }
 
@@ -40,10 +40,8 @@ mod tests {
 
     use crate::{
         common::MONO_SAMPLE_SILENCE,
-        primitives::{
-            clock::Clock,
-            tests::{TestAlwaysLoudDevice, TestAlwaysSameLevelDevice, TestAlwaysSilentDevice},
-        },
+        primitives::clock::Clock,
+        traits::tests::{TestAlwaysLoudDevice, TestAlwaysSameLevelDevice, TestAlwaysSilentDevice},
     };
 
     use super::*;

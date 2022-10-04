@@ -2,9 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::settings::ClockSettings;
-
-use super::WatchesClock;
+use crate::{settings::ClockSettings, traits::WatchesClock};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -181,6 +179,7 @@ pub struct WatchedClock {
 }
 
 impl WatchedClock {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             ..Default::default()

@@ -1,10 +1,11 @@
 use std::{cell::RefCell, f64::consts::PI, rc::Rc};
 
-use crate::common::MonoSample;
-
-use super::{
-    clock::Clock, IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio,
-    TransformsAudio,
+use crate::{
+    common::MonoSample,
+    primitives::clock::Clock,
+    traits::{
+        IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
+    },
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -83,7 +84,7 @@ impl Filter {
     // Column A is 24db filter percentages from all the patches
     // Column B is envelope-filter percentages from all the patches
     pub fn percent_to_frequency(percentage: f32) -> f32 {
-        debug_assert!(percentage >= 0.0 && percentage <= 1.0);
+        debug_assert!((0.0..=1.0).contains(&percentage));
         Self::FREQUENCY_TO_LINEAR_BASE * Self::FREQUENCY_TO_LINEAR_COEFFICIENT.powf(percentage)
     }
 
@@ -568,12 +569,12 @@ mod tests {
     use crate::{
         common::{MidiMessage, MidiNote, WaveformType},
         preset::OscillatorPreset,
-        primitives::{
-            clock::Clock,
-            oscillators::Oscillator,
+        primitives::clock::Clock,
+        primitives::oscillators::Oscillator,
+        traits::{
             tests::write_effect_to_file,
-            IsController, SinksControl,
-            SinksControlParam::{Primary, Secondary},
+            IsController, SinksAudio, SinksControl,
+            SinksControlParam::{self},
             SourcesControl, WatchesClock,
         },
     };
@@ -638,8 +639,8 @@ mod tests {
                     + ((clock.seconds - self.time_start) / self.duration)
                         * (self.param_end - self.param_start);
                 let sink_param = match param {
-                    TestFilterControllerParam::Cutoff => Primary { value },
-                    TestFilterControllerParam::Q => Secondary { value },
+                    TestFilterControllerParam::Cutoff => SinksControlParam::Primary { value },
+                    TestFilterControllerParam::Q => SinksControlParam::Secondary { value },
                 };
                 self.issue_control(clock, &sink_param);
             }
