@@ -27,17 +27,18 @@ pub trait SourcesAudio: Debug {
 /// Can do something with audio samples. When it needs to do its
 /// work, it asks its SourcesAudio for their samples.
 pub trait SinksAudio {
-    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>>;
+    fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>];
+    fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>>;
 
     fn add_audio_source(&mut self, source: Rc<RefCell<dyn SourcesAudio>>) {
-        self.sources().push(source);
+        self.sources_mut().push(source);
     }
 
     fn gather_source_audio(&mut self, clock: &Clock) -> MonoSample {
-        if self.sources().is_empty() {
+        if self.sources_mut().is_empty() {
             return MONO_SAMPLE_SILENCE;
         }
-        self.sources()
+        self.sources_mut()
             .iter_mut()
             .map(|source| source.borrow_mut().source_audio(clock))
             .sum::<f32>()
@@ -756,11 +757,14 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     struct TestSinksAudio {
-        audio_sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
+        sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     }
     impl SinksAudio for TestSinksAudio {
-        fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
-            &mut self.audio_sources
+        fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+            &self.sources
+        }
+        fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+            &mut self.sources
         }
     }
     impl TestSinksAudio {

@@ -3,7 +3,9 @@ use std::{cell::RefCell, rc::Rc};
 use crate::common::MonoSample;
 
 use crate::primitives::clock::Clock;
-use crate::traits::{IsEffect, SinksAudio, SinksControl, SourcesAudio, TransformsAudio, SinksControlParam};
+use crate::traits::{
+    IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
+};
 
 #[derive(Debug, Default)]
 pub struct Limiter {
@@ -23,7 +25,10 @@ impl Limiter {
     }
 }
 impl SinksAudio for Limiter {
-    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+    fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+        &self.sources
+    }
+    fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
@@ -45,9 +50,8 @@ impl SinksControl for Limiter {
 mod tests {
     use crate::{
         common::MonoSample,
-        primitives::{
-            clock::Clock,
-        }, traits::tests::{TestAlwaysTooLoudDevice, TestAlwaysSameLevelDevice},
+        primitives::clock::Clock,
+        traits::tests::{TestAlwaysSameLevelDevice, TestAlwaysTooLoudDevice},
     };
     use assert_approx_eq::assert_approx_eq;
 

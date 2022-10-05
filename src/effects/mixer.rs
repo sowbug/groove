@@ -20,7 +20,10 @@ impl Mixer {
     }
 }
 impl SinksAudio for Mixer {
-    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+    fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+        &self.sources
+    }
+    fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
@@ -31,6 +34,7 @@ impl TransformsAudio for Mixer {
 }
 impl SinksControl for Mixer {
     fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
+        todo!()
     }
 }
 

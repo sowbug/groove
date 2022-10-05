@@ -107,6 +107,10 @@ impl Orchestrator {
         &self.settings
     }
 
+    pub fn settings_mut(&mut self) -> &mut SongSettings {
+        &mut self.settings
+    }
+
     fn tick(&mut self) -> (MonoSample, bool) {
         if self.clock.visit_watchers() {
             return (MONO_SAMPLE_SILENCE, true);
@@ -501,5 +505,9 @@ impl Orchestrator {
 
     pub fn midi_sequencer(&self) -> Rc<RefCell<MidiSequencer>> {
         Rc::clone(&self.midi_sequencer)
+    }
+
+    pub fn main_mixer(&self) -> &Mixer {
+        &self.main_mixer
     }
 }

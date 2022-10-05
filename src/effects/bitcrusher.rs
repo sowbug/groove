@@ -28,7 +28,10 @@ impl Bitcrusher {
     }
 }
 impl SinksAudio for Bitcrusher {
-    fn sources(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+    fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+        &self.sources
+    }
+    fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
         &mut self.sources
     }
 }
