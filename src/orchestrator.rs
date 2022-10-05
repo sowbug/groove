@@ -14,7 +14,7 @@ use crate::{
         limiter::Limiter,
         mixer::Mixer,
     },
-    primitives::clock::WatchedClock,
+    clock::WatchedClock,
 };
 
 use crate::synthesizers::{drumkit_sampler, welsh};

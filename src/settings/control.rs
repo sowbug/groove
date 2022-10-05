@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{common::DeviceId, primitives::clock::BeatValue};
+use crate::{common::DeviceId, clock::BeatValue};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]

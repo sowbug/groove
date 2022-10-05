@@ -1,8 +1,8 @@
 use std::{cell::RefCell, f64::consts::PI, rc::Rc};
 
 use crate::{
+    clock::Clock,
     common::MonoSample,
-    primitives::clock::Clock,
     traits::{
         IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
     },
@@ -573,13 +573,13 @@ mod tests {
         common::WaveformType,
         midi::{MidiMessage, MidiNote},
         preset::OscillatorPreset,
-        primitives::{clock::Clock, oscillators::Oscillator},
         traits::{
             tests::write_effect_to_file,
             IsController, SinksAudio, SinksControl,
             SinksControlParam::{self},
             SourcesControl, WatchesClock,
         },
+        {clock::Clock, oscillators::Oscillator},
     };
 
     use super::*;

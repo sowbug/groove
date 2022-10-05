@@ -102,8 +102,8 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
 
     use crate::{
+        clock::Clock,
         midi::{MidiChannel, MidiMessage, MidiMessageType},
-        primitives::clock::Clock,
         traits::{SinksControl, SinksControlParam, SinksMidi},
     };
 

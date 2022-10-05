@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 
-use hound;
-
 use crate::{
+    clock::Clock,
     common::MonoSample,
     midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
-    primitives::clock::Clock,
     traits::{IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio},
 };
 

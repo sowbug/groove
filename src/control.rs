@@ -1,4 +1,4 @@
-use crate::primitives::clock::Clock;
+use crate::clock::Clock;
 use crate::settings::control::ControlStepType;
 use crate::traits::WatchesClock;
 use crate::traits::{SinksControl, SinksControlParam};
@@ -153,7 +153,7 @@ impl Ord for ControlEnvelope {
 
 impl Eq for ControlEnvelope {}
 
-use crate::{primitives::clock::BeatValue, settings::control::ControlPathSettings};
+use crate::{clock::BeatValue, settings::control::ControlPathSettings};
 
 #[derive(Clone, Debug, Default)]
 pub struct ControlPath {

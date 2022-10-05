@@ -31,10 +31,7 @@ enum Message {
 
 impl<'a> Groove {
     fn container(title: &str) -> Column<'a, Message> {
-        Column::new()
-            .push(Text::new(title).size(50))
-            .spacing(20)
-            .into()
+        Column::new().push(Text::new(title).size(50)).spacing(20)
     }
 }
 

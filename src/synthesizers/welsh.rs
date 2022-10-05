@@ -9,11 +9,11 @@ use crate::{
     effects::filter::{Filter, FilterType},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
-    primitives::{clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
     traits::{
         IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
         TransformsAudio, WatchesClock,
     },
+    {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
 
 #[derive(Clone, Debug, Deserialize, Display, EnumIter, Serialize)]
@@ -2116,8 +2116,8 @@ mod tests {
     use super::*;
 
     use crate::{
+        clock::Clock,
         midi::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-        primitives::clock::Clock,
         traits::tests::canonicalize_filename,
     };
 

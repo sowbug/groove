@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::common::MonoSample;
 
-use crate::primitives::clock::Clock;
+use crate::clock::Clock;
 use crate::traits::{
     IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
 };
@@ -50,7 +50,7 @@ impl SinksControl for Limiter {
 mod tests {
     use crate::{
         common::MonoSample,
-        primitives::clock::Clock,
+        clock::Clock,
         traits::tests::{TestAlwaysSameLevelDevice, TestAlwaysTooLoudDevice},
     };
     use assert_approx_eq::assert_approx_eq;

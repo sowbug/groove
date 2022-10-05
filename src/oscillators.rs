@@ -142,9 +142,9 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     use crate::{
+        clock::{Clock, WatchedClock},
         midi::{MidiMessage, MidiNote},
         preset::OscillatorPreset,
-        primitives::clock::{Clock, WatchedClock},
         traits::{
             tests::{
                 write_orchestration_to_file, write_source_to_file, SimpleOrchestrator, SimpleTimer,

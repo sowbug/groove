@@ -1,8 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, rc::Weak};
 
 use crate::{
+    clock::Clock,
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
-    primitives::clock::Clock,
     traits::{IsMidiEffect, SinksControl, SinksControlParam, SinksMidi, SourcesMidi, WatchesClock},
 };
 

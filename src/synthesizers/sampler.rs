@@ -1,10 +1,7 @@
-// TODO: it might be cleaner to factor this out and have sampler take a BufReader instead.
-use hound;
-
 use crate::{
+    clock::Clock,
     common::MonoSample,
     midi::{MidiChannel, MidiMessage, MidiMessageType},
-    primitives::clock::Clock,
     traits::{SinksControl, SinksControlParam, SinksMidi, SourcesAudio},
 };
 

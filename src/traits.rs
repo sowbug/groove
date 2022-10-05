@@ -6,9 +6,9 @@ use std::{
 };
 
 use crate::{
+    clock::Clock,
     common::{MonoSample, MONO_SAMPLE_SILENCE},
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
-    primitives::clock::Clock,
 };
 
 /// Provides audio in the form of digital samples.
@@ -170,15 +170,14 @@ pub mod tests {
     use std::fs;
     use std::rc::{Rc, Weak};
 
+    use crate::clock::WatchedClock;
     use crate::midi::{
         tests::{self, MONO_SAMPLE_MIN},
         MidiChannel, MidiMessage, MidiMessageType, MidiNote,
     };
     use crate::preset::EnvelopePreset;
-    use crate::primitives::{
-        clock::WatchedClock, envelopes::AdsrEnvelope, oscillators::Oscillator,
-    };
-    use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
+    use crate::{clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator};
+    use crate::{common::MonoSample, settings::ClockSettings};
     use crate::{
         common::MONO_SAMPLE_SILENCE,
         effects::{gain::Gain, mixer::Mixer},

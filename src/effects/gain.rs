@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
+    clock::Clock,
     common::MonoSample,
-    primitives::clock::Clock,
     traits::{
         IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
     },

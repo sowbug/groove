@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     common::DeviceId,
-    primitives::clock::{BeatValue, TimeSignature},
+    clock::{BeatValue, TimeSignature},
     synthesizers::welsh::PresetName,
 };
 

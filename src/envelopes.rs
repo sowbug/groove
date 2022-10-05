@@ -240,7 +240,7 @@ impl WatchesClock for AdsrEnvelope {
 
 #[cfg(test)]
 mod tests {
-    use crate::{preset::EnvelopePreset, primitives::clock::Clock};
+    use crate::{preset::EnvelopePreset, clock::Clock};
 
     use super::*;
 

@@ -152,11 +152,7 @@ impl SinksMidi for MidiBus {
 
     fn set_midi_channel(&mut self, _midi_channel: MidiChannel) {}
 
-    fn handle_midi_for_channel(
-        &mut self,
-        clock: &crate::primitives::clock::Clock,
-        message: &MidiMessage,
-    ) {
+    fn handle_midi_for_channel(&mut self, clock: &crate::clock::Clock, message: &MidiMessage) {
         // send to everyone EXCEPT whoever sent it!
         self.issue_midi(clock, message);
     }

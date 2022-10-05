@@ -8,8 +8,8 @@ use std::{
 use sorted_vec::SortedVec;
 
 use crate::{
+    clock::{BeatValue, Clock, TimeSignature},
     midi::{MidiChannel, MidiMessage, MidiMessageType},
-    primitives::clock::{BeatValue, Clock, TimeSignature},
     traits::{SinksMidi, SourcesMidi, WatchesClock},
 };
 
@@ -224,7 +224,7 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     use super::*;
-    use crate::{primitives::clock::TimeSignature, settings::PatternSettings};
+    use crate::{clock::TimeSignature, settings::PatternSettings};
 
     #[test]
     fn test_pattern() {
