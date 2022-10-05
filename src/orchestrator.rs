@@ -1,16 +1,21 @@
-use crate::common::{
-    DeviceId, MidiChannel, MonoSample, MIDI_CHANNEL_RECEIVE_ALL, MONO_SAMPLE_SILENCE,
-};
-use crate::effects::arpeggiator::Arpeggiator;
-use crate::effects::bitcrusher::Bitcrusher;
-use crate::effects::filter::{self, Filter};
-use crate::effects::gain::Gain;
-use crate::effects::limiter::Limiter;
-use crate::effects::mixer::Mixer;
-use crate::primitives::clock::WatchedClock;
-use crate::settings::effects::EffectSettings;
-use crate::settings::song::SongSettings;
+use crate::common::{DeviceId, MonoSample, MONO_SAMPLE_SILENCE};
+use crate::midi::sequencer::MidiSequencer;
+use crate::midi::smf_reader::MidiBus;
+use crate::midi::MidiChannel;
+use crate::midi::MIDI_CHANNEL_RECEIVE_ALL;
+use crate::settings::{effects::EffectSettings, song::SongSettings};
 use crate::settings::{DeviceSettings, InstrumentSettings};
+use crate::{
+    effects::{
+        arpeggiator::Arpeggiator,
+        bitcrusher::Bitcrusher,
+        filter::{self, Filter},
+        gain::Gain,
+        limiter::Limiter,
+        mixer::Mixer,
+    },
+    primitives::clock::WatchedClock,
+};
 
 use crate::synthesizers::{drumkit_sampler, welsh};
 use crate::traits::{
@@ -23,10 +28,8 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::rc::{Rc, Weak};
 
-use crate::devices::control::{ControlPath, ControlTrip};
-use crate::devices::midi::MidiBus;
-use crate::devices::patterns::{Pattern, PatternSequencer};
-use crate::devices::sequencer::MidiSequencer;
+use crate::control::{ControlPath, ControlTrip};
+use crate::patterns::{Pattern, PatternSequencer};
 
 #[derive(Debug)]
 pub struct Performance {

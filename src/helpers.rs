@@ -3,8 +3,8 @@ use std::rc::Rc;
 use std::sync::{Arc, Condvar, Mutex};
 
 use crate::common::MonoSample;
-use crate::devices::midi::MidiSmfReader;
-use crate::devices::sequencer::MidiSequencer;
+use crate::midi::sequencer::MidiSequencer;
+use crate::midi::smf_reader::MidiSmfReader;
 use crate::orchestrator::{Orchestrator, Performance};
 use crate::settings::song::SongSettings;
 use crate::synthesizers::drumkit_sampler::Sampler;

@@ -11,7 +11,6 @@ use libgroove::Orchestrator;
 pub fn main() -> iced::Result {
     Groove::run(Settings::default())
 }
-
 struct Groove {
     filename: String,
     orchestrator: Orchestrator,

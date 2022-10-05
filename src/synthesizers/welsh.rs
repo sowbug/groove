@@ -5,8 +5,9 @@ use std::{cell::RefCell, collections::HashMap, f32::consts::FRAC_1_SQRT_2, rc::R
 use strum_macros::{Display, EnumIter};
 
 use crate::{
-    common::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MonoSample, WaveformType},
+    common::{MonoSample, WaveformType},
     effects::filter::{Filter, FilterType},
+    midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
     primitives::{clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
     traits::{
@@ -1938,7 +1939,7 @@ impl SinksControl for Voice {
     }
 }
 impl SinksMidi for Voice {
-    fn midi_channel(&self) -> crate::common::MidiChannel {
+    fn midi_channel(&self) -> MidiChannel {
         self.midi_channel
     }
 
@@ -2057,7 +2058,7 @@ impl SinksControl for Synth {
     }
 }
 impl SinksMidi for Synth {
-    fn midi_channel(&self) -> crate::common::MidiChannel {
+    fn midi_channel(&self) -> MidiChannel {
         self.midi_channel
     }
 
@@ -2115,7 +2116,7 @@ mod tests {
     use super::*;
 
     use crate::{
-        common::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
+        midi::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
         primitives::clock::Clock,
         traits::tests::canonicalize_filename,
     };

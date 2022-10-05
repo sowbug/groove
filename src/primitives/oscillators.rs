@@ -142,7 +142,7 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     use crate::{
-        common::{MidiMessage, MidiNote},
+        midi::{MidiMessage, MidiNote},
         preset::OscillatorPreset,
         primitives::clock::{Clock, WatchedClock},
         traits::{

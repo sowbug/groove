@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Weak};
 
 use crate::{
-    common::{MidiChannel, MidiMessage, MidiNote},
+    midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     primitives::clock::Clock,
     traits::{IsMidiEffect, SinksControl, SinksControlParam, SinksMidi, SourcesMidi, WatchesClock},
 };
@@ -35,12 +35,12 @@ impl SinksMidi for Arpeggiator {
     fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
         // TODO: we'll need clock to do cool things like schedule note change on next bar... maybe
         match message.status {
-            crate::common::MidiMessageType::NoteOn => {
+            MidiMessageType::NoteOn => {
                 self.is_device_playing = true;
                 self.note = MidiNote::C4
             }
-            crate::common::MidiMessageType::NoteOff => self.is_device_playing = false,
-            crate::common::MidiMessageType::ProgramChange => todo!(),
+            MidiMessageType::NoteOff => self.is_device_playing = false,
+            MidiMessageType::ProgramChange => todo!(),
         }
     }
 

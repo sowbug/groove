@@ -102,8 +102,9 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
 
     use crate::{
-        common::{MidiChannel, MidiMessage, MidiMessageType},
-        primitives::{clock::Clock}, traits::{SinksControl, SinksMidi, SinksControlParam},
+        midi::{MidiChannel, MidiMessage, MidiMessageType},
+        primitives::clock::Clock,
+        traits::{SinksControl, SinksControlParam, SinksMidi},
     };
 
     use super::OscillatorPreset;
@@ -131,7 +132,7 @@ mod tests {
         }
     }
     impl SinksMidi for NullDevice {
-        fn midi_channel(&self) -> crate::common::MidiChannel {
+        fn midi_channel(&self) -> MidiChannel {
             self.midi_channel
         }
 

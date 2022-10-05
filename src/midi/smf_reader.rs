@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    common::{MidiChannel, MidiMessage, OrderedMidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
+    midi::{MidiChannel, MidiMessage, OrderedMidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{SinksMidi, SourcesMidi},
 };
 

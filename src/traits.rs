@@ -6,10 +6,8 @@ use std::{
 };
 
 use crate::{
-    common::{
-        MidiChannel, MidiMessage, MonoSample, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE,
-        MONO_SAMPLE_SILENCE,
-    },
+    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
     primitives::clock::Clock,
 };
 
@@ -172,22 +170,24 @@ pub mod tests {
     use std::fs;
     use std::rc::{Rc, Weak};
 
-    use crate::common::tests::MONO_SAMPLE_MIN;
-    use crate::common::{
-        tests, MidiChannel, MidiMessage, MidiMessageType, MidiNote, MONO_SAMPLE_SILENCE,
+    use crate::midi::{
+        tests::{self, MONO_SAMPLE_MIN},
+        MidiChannel, MidiMessage, MidiMessageType, MidiNote,
     };
-    use crate::effects::mixer::Mixer;
     use crate::preset::EnvelopePreset;
-    use crate::primitives::clock::WatchedClock;
-    use crate::primitives::envelopes::AdsrEnvelope;
-    use crate::primitives::oscillators::Oscillator;
+    use crate::primitives::{
+        clock::WatchedClock, envelopes::AdsrEnvelope, oscillators::Oscillator,
+    };
     use crate::{common::MonoSample, primitives::clock::Clock, settings::ClockSettings};
+    use crate::{
+        common::MONO_SAMPLE_SILENCE,
+        effects::{gain::Gain, mixer::Mixer},
+    };
 
     use super::{
         IsController, IsEffect, SinksAudio, SinksControl, SinksControlParam, SinksMidi,
         SourcesAudio, SourcesControl, SourcesMidi, WatchesClock,
     };
-    use crate::effects::gain::Gain;
 
     #[derive(Debug, Default)]
     pub struct NullDevice {

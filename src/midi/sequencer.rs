@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Weak};
 use sorted_vec::SortedVec;
 
 use crate::{
-    common::{MidiChannel, OrderedMidiMessage},
+    midi::{MidiChannel, OrderedMidiMessage},
     primitives::clock::{Clock, TimeSignature},
     traits::{SinksMidi, SourcesMidi, WatchesClock},
 };
@@ -98,8 +98,9 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     use crate::{
-        common::{MidiMessage, MidiNote, OrderedMidiMessage},
-        primitives::clock::Clock, traits::{tests::NullDevice, SinksMidi, SourcesMidi, WatchesClock},
+        midi::{MidiMessage, MidiNote, OrderedMidiMessage},
+        primitives::clock::Clock,
+        traits::{tests::NullDevice, SinksMidi, SourcesMidi, WatchesClock},
     };
 
     use super::MidiSequencer;

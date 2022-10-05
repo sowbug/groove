@@ -8,8 +8,9 @@ use std::{
 use sorted_vec::SortedVec;
 
 use crate::{
-    common::{MidiChannel, MidiMessage},
-    primitives::clock::{BeatValue, Clock, TimeSignature}, traits::{WatchesClock, SourcesMidi, SinksMidi},
+    midi::{MidiChannel, MidiMessage, MidiMessageType},
+    primitives::clock::{BeatValue, Clock, TimeSignature},
+    traits::{SinksMidi, SourcesMidi, WatchesClock},
 };
 
 #[derive(Debug, Default)]
@@ -81,7 +82,7 @@ impl PatternSequencer {
             self.sequenced_notes.insert(OrderedNote {
                 when_beats,
                 message: MidiMessage {
-                    status: crate::common::MidiMessageType::NoteOn,
+                    status: MidiMessageType::NoteOn,
                     channel,
                     data1: note,
                     data2: 100,
@@ -90,7 +91,7 @@ impl PatternSequencer {
             self.sequenced_notes.insert(OrderedNote {
                 when_beats: when_beats + duration_beats,
                 message: MidiMessage {
-                    status: crate::common::MidiMessageType::NoteOff,
+                    status: MidiMessageType::NoteOff,
                     channel,
                     data1: note,
                     data2: 0,

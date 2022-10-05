@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use hound;
 
 use crate::{
-    common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample, MIDI_CHANNEL_RECEIVE_ALL},
+    common::MonoSample,
+    midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
     primitives::clock::Clock,
     traits::{IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio},
 };
@@ -43,7 +44,7 @@ impl SinksControl for Voice {
     }
 }
 impl SinksMidi for Voice {
-    fn midi_channel(&self) -> crate::common::MidiChannel {
+    fn midi_channel(&self) -> MidiChannel {
         MIDI_CHANNEL_RECEIVE_ALL
     }
 
@@ -149,7 +150,7 @@ impl SinksControl for Sampler {
     }
 }
 impl SinksMidi for Sampler {
-    fn midi_channel(&self) -> crate::common::MidiChannel {
+    fn midi_channel(&self) -> MidiChannel {
         self.midi_channel
     }
 

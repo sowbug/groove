@@ -570,10 +570,10 @@ mod tests {
     };
 
     use crate::{
-        common::{MidiMessage, MidiNote, WaveformType},
+        common::WaveformType,
+        midi::{MidiMessage, MidiNote},
         preset::OscillatorPreset,
-        primitives::clock::Clock,
-        primitives::oscillators::Oscillator,
+        primitives::{clock::Clock, oscillators::Oscillator},
         traits::{
             tests::write_effect_to_file,
             IsController, SinksAudio, SinksControl,

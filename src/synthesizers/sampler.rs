@@ -2,8 +2,10 @@
 use hound;
 
 use crate::{
-    common::{MidiChannel, MidiMessage, MidiMessageType, MonoSample},
-    primitives::{clock::Clock,}, traits::{SinksControl, SinksMidi, SinksControlParam, SourcesAudio},
+    common::MonoSample,
+    midi::{MidiChannel, MidiMessage, MidiMessageType},
+    primitives::clock::Clock,
+    traits::{SinksControl, SinksControlParam, SinksMidi, SourcesAudio},
 };
 
 #[derive(Debug, Default)]
@@ -44,7 +46,7 @@ impl SinksControl for Sampler {
     }
 }
 impl SinksMidi for Sampler {
-    fn midi_channel(&self) -> crate::common::MidiChannel {
+    fn midi_channel(&self) -> MidiChannel {
         self.midi_channel
     }
 
@@ -90,7 +92,7 @@ impl SourcesAudio for Sampler {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::MIDI_CHANNEL_RECEIVE_NONE;
+    use crate::midi::MIDI_CHANNEL_RECEIVE_NONE;
 
     use super::*;
 

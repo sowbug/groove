@@ -1,7 +1,7 @@
 use std::{f32::MAX, fmt::Debug};
 
 use crate::{
-    common::{MidiMessage, MidiMessageType},
+    midi::{MidiMessage, MidiMessageType},
     preset::EnvelopePreset,
     traits::{
         SinksControl, SinksControlParam, SinksControlParam::Primary, SinksControlParam::Secondary,
