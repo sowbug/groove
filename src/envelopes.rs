@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, ops::Range};
 
 use more_asserts::{debug_assert_ge, debug_assert_le};
 
@@ -24,8 +24,7 @@ pub enum EnvelopeTimeUnit {
 
 #[derive(Debug, Default)]
 pub struct EnvelopeStep {
-    pub start_time: f32,
-    pub end_time: f32,
+    pub interval: Range<f32>,
     pub start_value: MonoSample,
     pub end_value: MonoSample,
 }
@@ -38,11 +37,13 @@ impl EnvelopeStep {
         end_value: MonoSample,
     ) -> Self {
         Self {
-            start_time,
-            end_time: if duration == f32::MAX {
-                duration
-            } else {
-                start_time + duration
+            interval: Range {
+                start: start_time,
+                end: if duration == f32::MAX {
+                    duration
+                } else {
+                    start_time + duration
+                },
             },
             start_value,
             end_value,
@@ -50,14 +51,12 @@ impl EnvelopeStep {
     }
 
     pub(crate) fn new_with_end_time(
-        start_time: f32,
-        end_time: f32,
+        interval: Range<f32>,
         start_value: MonoSample,
         end_value: MonoSample,
     ) -> Self {
         Self {
-            start_time,
-            end_time,
+            interval,
             start_value,
             end_value,
         }
@@ -156,21 +155,21 @@ impl AdsrEnvelope {
 
     fn debug_validate_steps(&self) {
         debug_assert!(!self.steps.is_empty());
-        debug_assert_eq!(self.steps.first().unwrap().start_time, 0.0);
-        debug_assert_eq!(self.steps.last().unwrap().end_time, f32::MAX);
+        debug_assert_eq!(self.steps.first().unwrap().interval.start, 0.0);
+        debug_assert_eq!(self.steps.last().unwrap().interval.end, f32::MAX);
         let mut start_time = 0.0;
         let mut end_time = 0.0;
         let steps = self.steps();
         for step in steps {
-            debug_assert_le!(step.start_time, step.end_time); // Next step has non-negative duration
-            debug_assert_ge!(step.start_time, start_time); // We're not moving backward in time
-            debug_assert_le!(step.start_time, end_time); // Next step leaves no gaps (overlaps OK)
-            start_time = step.start_time;
-            end_time = step.end_time;
+            debug_assert_le!(step.interval.start, step.interval.end); // Next step has non-negative duration
+            debug_assert_ge!(step.interval.start, start_time); // We're not moving backward in time
+            debug_assert_le!(step.interval.start, end_time); // Next step leaves no gaps (overlaps OK)
+            start_time = step.interval.start;
+            end_time = step.interval.end;
 
             // We don't require subsequent steps to be valid, as long as
             // an earlier step covered the rest of the time range.
-            if step.end_time == f32::MAX {
+            if step.interval.end == f32::MAX {
                 break;
             }
         }
@@ -223,8 +222,14 @@ impl AdsrEnvelope {
             // normal case where key-up does not interrupt attack/decay.
             self.steps[AdsrEnvelopeStepName::Decay as usize] =
                 EnvelopeStep::new_with_duration(dt + p.attack, p.decay, 1.0, p.sustain);
-            self.steps[AdsrEnvelopeStepName::Sustain as usize] =
-                EnvelopeStep::new_with_end_time(dt + p.attack + p.decay, ut, p.sustain, p.sustain);
+            self.steps[AdsrEnvelopeStepName::Sustain as usize] = EnvelopeStep::new_with_end_time(
+                Range {
+                    start: dt + p.attack + p.decay,
+                    end: ut,
+                },
+                p.sustain,
+                p.sustain,
+            );
             self.steps[AdsrEnvelopeStepName::Release as usize] =
                 EnvelopeStep::new_with_duration(ut, p.release, p.sustain, 0.0);
             self.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
@@ -289,45 +294,57 @@ impl AdsrEnvelope {
             steps: vec![
                 EnvelopeStep {
                     // InitialIdle
+                    interval: Range {
+                        start: 0.0,
+                        end: f32::MAX,
+                    },
                     start_value: 0.0,
                     end_value: 0.0,
-                    start_time: 0.0,
-                    end_time: f32::MAX,
                 },
                 EnvelopeStep {
                     // Attack
+                    interval: Range {
+                        start: 0.0,
+                        end: f32::MAX,
+                    },
                     start_value: 0.0,
                     end_value: 1.0,
-                    start_time: 0.0,
-                    end_time: f32::MAX,
                 },
                 EnvelopeStep {
                     // Decay
+                    interval: Range {
+                        start: 0.0,
+                        end: f32::MAX,
+                    },
                     start_value: 1.0,
                     end_value: preset.sustain,
-                    start_time: 0.0,
-                    end_time: f32::MAX,
                 },
                 EnvelopeStep {
                     // Sustain
+                    interval: Range {
+                        start: 0.0,
+                        end: f32::MAX,
+                    },
                     start_value: preset.sustain,
                     end_value: preset.sustain,
-                    start_time: 0.0,
-                    end_time: f32::MAX,
                 },
                 EnvelopeStep {
                     // Release
+                    interval: Range {
+                        start: 0.0,
+                        end: f32::MAX,
+                    },
                     start_value: preset.sustain,
                     end_value: 0.0,
-                    start_time: 0.0,
-                    end_time: f32::MAX,
                 },
                 EnvelopeStep {
                     // FinalIdle
+                    interval: Range {
+                        start: 0.0,
+                        end: f32::MAX,
+                    },
                     start_value: 0.0,
                     end_value: 0.0,
-                    start_time: 0.0,
-                    end_time: f32::MAX,
                 },
             ],
             ..Default::default()
@@ -337,11 +354,11 @@ impl AdsrEnvelope {
     }
 
     fn source_audio_for_step(&self, time: f32, step: &EnvelopeStep) -> MonoSample {
-        if step.start_time == step.end_time || step.start_value == step.end_value {
+        if step.interval.start == step.interval.end || step.start_value == step.end_value {
             return step.end_value;
         }
-        let elapsed_time = time - step.start_time;
-        let total_interval_time = step.end_time - step.start_time;
+        let elapsed_time = time - step.interval.start;
+        let total_interval_time = step.interval.end - step.interval.start;
         let percentage_complete = elapsed_time / total_interval_time;
         let total_interval_value_delta = step.end_value - step.start_value;
         let mut value = step.start_value + total_interval_value_delta * percentage_complete;

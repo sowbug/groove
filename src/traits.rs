@@ -170,7 +170,7 @@ pub trait ShapesEnvelope {
     fn is_idle(&self, clock: &Clock) -> bool {
         let current_time = self.time_for_unit(clock);
         let step = self.current_step(current_time);
-        step.end_value == step.start_value && step.end_time == f32::MAX
+        step.end_value == step.start_value && step.interval.end == f32::MAX
     }
 
     fn current_step(&self, current_time: f32) -> &EnvelopeStep {
@@ -179,19 +179,19 @@ pub trait ShapesEnvelope {
 
         let mut candidate_step: &EnvelopeStep = steps.first().unwrap();
         for step in steps {
-            if candidate_step.end_time == f32::MAX {
+            if candidate_step.interval.end == f32::MAX {
                 // Any step with max end_time is terminal.
                 break;
             }
-            debug_assert!(step.start_time >= candidate_step.start_time);
-            debug_assert!(step.end_time >= candidate_step.start_time);
+            debug_assert!(step.interval.start >= candidate_step.interval.start);
+            debug_assert!(step.interval.end >= candidate_step.interval.start);
 
-            if step.start_time > current_time {
+            if step.interval.start > current_time {
                 // This step starts in the future. If all steps' start times
                 // are in order, then we can't do better than what we have.
                 break;
             }
-            if step.end_time < current_time {
+            if step.interval.end < current_time {
                 // This step already ended. It's invalid for this point in time.
                 continue;
             }
