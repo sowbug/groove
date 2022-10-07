@@ -167,7 +167,7 @@ pub trait ShapesEnvelope {
         };
 
         let step = self.current_step(current_time);
-        return step.end_value == step.start_value && step.end_time == f32::MAX;
+        step.end_value == step.start_value && step.end_time == f32::MAX
     }
 
     fn current_step(&self, current_time: f32) -> &EnvelopeStep {

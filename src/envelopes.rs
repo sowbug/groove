@@ -145,8 +145,8 @@ impl AdsrEnvelope {
     ) {
         let mut step = &mut self.steps[step as usize];
         if step.start_time >= current_time {
-            if current_value.is_some() {
-                step.start_value = current_value.unwrap();
+            if let Some(cv) = current_value {
+                step.start_value = cv;
             }
             step.start_time = current_time;
         }
@@ -160,8 +160,8 @@ impl AdsrEnvelope {
     ) {
         let mut step = &mut self.steps[step as usize];
         if step.end_time >= current_time {
-            if current_value.is_some() {
-                step.end_value = current_value.unwrap();
+            if let Some(cv) = current_value {
+                step.start_value = cv;
             }
             step.end_time = current_time;
         }
