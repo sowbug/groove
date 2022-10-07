@@ -7,8 +7,8 @@ use crate::{
     midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
     preset::EnvelopePreset,
     traits::{
-        ShapesEnvelope, SinksControl, SinksControlParam, SinksControlParam::Primary,
-        SinksControlParam::Secondary, SinksMidi, SourcesAudio,
+        SinksControl, SinksControlParam, SinksControlParam::Primary, SinksControlParam::Secondary,
+        SinksMidi, SourcesAudio,
     },
 };
 
@@ -64,6 +64,117 @@ impl EnvelopeStep {
 }
 
 #[derive(Debug, Default)]
+struct SteppedEnvelope {
+    time_unit: EnvelopeTimeUnit,
+    steps: Vec<EnvelopeStep>,
+}
+
+impl SteppedEnvelope {
+    pub(crate) fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
+    fn new_with(time_unit: EnvelopeTimeUnit, vec: Vec<EnvelopeStep>) -> Self {
+        let r = Self {
+            time_unit,
+            steps: vec,
+        };
+        r.debug_validate_steps();
+        r
+    }
+
+    pub(crate) fn push_step(&mut self, step: EnvelopeStep) {
+        self.steps.push(step);
+        self.debug_validate_steps();
+    }
+
+    fn steps(&self) -> &[EnvelopeStep] {
+        &self.steps
+    }
+
+    fn time_unit(&self) -> &EnvelopeTimeUnit {
+        &self.time_unit
+    }
+
+    fn time_for_unit(&self, clock: &Clock) -> f32 {
+        match self.time_unit() {
+            EnvelopeTimeUnit::Seconds => clock.seconds(),
+            EnvelopeTimeUnit::Beats => clock.beats(),
+            EnvelopeTimeUnit::Samples => todo!(),
+        }
+    }
+
+    fn step_for_time(&self, time: f32) -> &EnvelopeStep {
+        let steps = self.steps();
+        debug_assert!(!steps.is_empty());
+
+        let mut candidate_step: &EnvelopeStep = steps.first().unwrap();
+        for step in steps {
+            if candidate_step.interval.end == f32::MAX {
+                // Any step with max end_time is terminal.
+                break;
+            }
+            debug_assert!(step.interval.start >= candidate_step.interval.start);
+            debug_assert!(step.interval.end >= candidate_step.interval.start);
+
+            if step.interval.start > time {
+                // This step starts in the future. If all steps' start times
+                // are in order, then we can't do better than what we have.
+                break;
+            }
+            if step.interval.end < time {
+                // This step already ended. It's invalid for this point in time.
+                continue;
+            }
+            candidate_step = step;
+        }
+        candidate_step
+    }
+
+    fn debug_validate_steps(&self) {
+        debug_assert!(!self.steps.is_empty());
+        debug_assert_eq!(self.steps.first().unwrap().interval.start, 0.0);
+        debug_assert_eq!(self.steps.last().unwrap().interval.end, f32::MAX);
+        let mut start_time = 0.0;
+        let mut end_time = 0.0;
+        let steps = self.steps();
+        for step in steps {
+            debug_assert_le!(step.interval.start, step.interval.end); // Next step has non-negative duration
+            debug_assert_ge!(step.interval.start, start_time); // We're not moving backward in time
+            debug_assert_le!(step.interval.start, end_time); // Next step leaves no gaps (overlaps OK)
+            start_time = step.interval.start;
+            end_time = step.interval.end;
+
+            // We don't require subsequent steps to be valid, as long as
+            // an earlier step covered the rest of the time range.
+            if step.interval.end == f32::MAX {
+                break;
+            }
+        }
+        debug_assert_eq!(end_time, f32::MAX);
+    }
+
+    fn value_for_step_at_time(&self, step: &EnvelopeStep, time: f32) -> MonoSample {
+        if step.interval.start == step.interval.end || step.start_value == step.end_value {
+            return step.end_value;
+        }
+        let elapsed_time = time - step.interval.start;
+        let total_interval_time = step.interval.end - step.interval.start;
+        let percentage_complete = elapsed_time / total_interval_time;
+        let total_interval_value_delta = step.end_value - step.start_value;
+        let mut value = step.start_value + total_interval_value_delta * percentage_complete;
+        if (step.end_value > step.start_value && value > step.end_value)
+            || (step.end_value < step.start_value && value < step.end_value)
+        {
+            value = step.end_value;
+        }
+        value
+    }
+}
+
+#[derive(Debug, Default)]
 enum AdsrEnvelopeStepName {
     #[default]
     InitialIdle,
@@ -78,8 +189,8 @@ enum AdsrEnvelopeStepName {
 pub struct AdsrEnvelope {
     midi_channel: MidiChannel,
     preset: EnvelopePreset,
-    time_unit: EnvelopeTimeUnit,
-    steps: Vec<EnvelopeStep>,
+
+    envelope: SteppedEnvelope,
 
     note_on_time: f32,
     note_off_time: f32,
@@ -90,21 +201,10 @@ impl Default for AdsrEnvelope {
         Self {
             midi_channel: MIDI_CHANNEL_RECEIVE_ALL,
             preset: EnvelopePreset::default(),
-            time_unit: EnvelopeTimeUnit::default(),
-            steps: Vec::new(),
+            envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
             note_off_time: f32::MAX,
         }
-    }
-}
-
-impl ShapesEnvelope for AdsrEnvelope {
-    fn steps(&self) -> &[EnvelopeStep] {
-        &self.steps
-    }
-
-    fn time_unit(&self) -> &EnvelopeTimeUnit {
-        &self.time_unit
     }
 }
 
@@ -113,13 +213,13 @@ impl SinksControl for AdsrEnvelope {
         match param {
             Primary { value } => {
                 if *value == 1.0 {
-                    self.note_on_time = self.time_for_unit(clock);
+                    self.note_on_time = self.envelope.time_for_unit(clock);
                     self.note_off_time = f32::MAX;
                     self.handle_state_change();
                 } else {
                     // We don't touch the note-on time because that's still important
                     // to build the right envelope shape.
-                    self.note_off_time = self.time_for_unit(clock);
+                    self.note_off_time = self.envelope.time_for_unit(clock);
                     self.handle_state_change();
                 }
             }
@@ -153,36 +253,19 @@ impl AdsrEnvelope {
         }
     }
 
-    fn debug_validate_steps(&self) {
-        debug_assert!(!self.steps.is_empty());
-        debug_assert_eq!(self.steps.first().unwrap().interval.start, 0.0);
-        debug_assert_eq!(self.steps.last().unwrap().interval.end, f32::MAX);
-        let mut start_time = 0.0;
-        let mut end_time = 0.0;
-        let steps = self.steps();
-        for step in steps {
-            debug_assert_le!(step.interval.start, step.interval.end); // Next step has non-negative duration
-            debug_assert_ge!(step.interval.start, start_time); // We're not moving backward in time
-            debug_assert_le!(step.interval.start, end_time); // Next step leaves no gaps (overlaps OK)
-            start_time = step.interval.start;
-            end_time = step.interval.end;
-
-            // We don't require subsequent steps to be valid, as long as
-            // an earlier step covered the rest of the time range.
-            if step.interval.end == f32::MAX {
-                break;
-            }
-        }
-        debug_assert_eq!(end_time, f32::MAX);
+    pub(crate) fn is_idle(&self, clock: &Clock) -> bool {
+        let current_time = self.envelope.time_for_unit(clock);
+        let step = self.envelope.step_for_time(current_time);
+        step.end_value == step.start_value && step.interval.end == f32::MAX
     }
 
     fn handle_state_change(&mut self) {
         if self.note_on_time == f32::MAX {
             // We're waiting for a keypress; we have neither key-down nor key-up.
             // InitialIdle is only state.
-            self.steps[AdsrEnvelopeStepName::InitialIdle as usize] =
+            self.envelope.steps[AdsrEnvelopeStepName::InitialIdle as usize] =
                 EnvelopeStep::new_with_duration(0.0, f32::MAX, 0.0, 0.0);
-            self.debug_validate_steps();
+            self.envelope.debug_validate_steps();
             return;
         }
 
@@ -190,25 +273,26 @@ impl AdsrEnvelope {
         let dt = self.note_on_time; // "down time" as in key-down time
         let p = &self.preset;
 
-        self.steps[AdsrEnvelopeStepName::InitialIdle as usize] =
+        self.envelope.steps[AdsrEnvelopeStepName::InitialIdle as usize] =
             EnvelopeStep::new_with_duration(0.0, dt, 0.0, 0.0);
 
         // No matter whether we have a key-up yet, we want Attack to behave as if it's
         // going to complete normally, starting at 0, targeting 1, at the expected rate.
-        self.steps[AdsrEnvelopeStepName::Attack as usize] =
+        self.envelope.steps[AdsrEnvelopeStepName::Attack as usize] =
             EnvelopeStep::new_with_duration(dt, p.attack, 0.0, 1.0);
 
         if self.note_off_time == f32::MAX {
             // We don't have a key-up, so let's build an envelope that ends on sustain.
-            self.steps[AdsrEnvelopeStepName::Decay as usize] =
+            self.envelope.steps[AdsrEnvelopeStepName::Decay as usize] =
                 EnvelopeStep::new_with_duration(dt + p.attack, p.decay, 1.0, p.sustain);
-            self.steps[AdsrEnvelopeStepName::Sustain as usize] = EnvelopeStep::new_with_duration(
-                dt + p.attack + p.decay,
-                f32::MAX,
-                p.sustain,
-                p.sustain,
-            );
-            self.debug_validate_steps();
+            self.envelope.steps[AdsrEnvelopeStepName::Sustain as usize] =
+                EnvelopeStep::new_with_duration(
+                    dt + p.attack + p.decay,
+                    f32::MAX,
+                    p.sustain,
+                    p.sustain,
+                );
+            self.envelope.debug_validate_steps();
             return;
         }
 
@@ -220,41 +304,42 @@ impl AdsrEnvelope {
         let attack_decay_duration = p.attack + p.decay;
         if keydown_duration > attack_decay_duration {
             // normal case where key-up does not interrupt attack/decay.
-            self.steps[AdsrEnvelopeStepName::Decay as usize] =
+            self.envelope.steps[AdsrEnvelopeStepName::Decay as usize] =
                 EnvelopeStep::new_with_duration(dt + p.attack, p.decay, 1.0, p.sustain);
-            self.steps[AdsrEnvelopeStepName::Sustain as usize] = EnvelopeStep::new_with_end_time(
-                Range {
-                    start: dt + p.attack + p.decay,
-                    end: ut,
-                },
-                p.sustain,
-                p.sustain,
-            );
-            self.steps[AdsrEnvelopeStepName::Release as usize] =
+            self.envelope.steps[AdsrEnvelopeStepName::Sustain as usize] =
+                EnvelopeStep::new_with_end_time(
+                    Range {
+                        start: dt + p.attack + p.decay,
+                        end: ut,
+                    },
+                    p.sustain,
+                    p.sustain,
+                );
+            self.envelope.steps[AdsrEnvelopeStepName::Release as usize] =
                 EnvelopeStep::new_with_duration(ut, p.release, p.sustain, 0.0);
-            self.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
+            self.envelope.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
                 EnvelopeStep::new_with_duration(ut + p.release, f32::MAX, 0.0, 0.0);
         } else {
             // key-up happened during attack/decay.
             if keydown_duration >= p.attack {
                 // Attack completed normally, and decay was midway. Let decay finish, skip sustain.
-                self.steps[AdsrEnvelopeStepName::Decay as usize] =
+                self.envelope.steps[AdsrEnvelopeStepName::Decay as usize] =
                     EnvelopeStep::new_with_duration(dt + p.attack, p.decay, 1.0, p.sustain);
-                self.steps[AdsrEnvelopeStepName::Sustain as usize] =
+                self.envelope.steps[AdsrEnvelopeStepName::Sustain as usize] =
                     EnvelopeStep::new_with_duration(
                         dt + p.attack + p.decay,
                         0.0,
                         p.sustain,
                         p.sustain,
                     );
-                self.steps[AdsrEnvelopeStepName::Release as usize] =
+                self.envelope.steps[AdsrEnvelopeStepName::Release as usize] =
                     EnvelopeStep::new_with_duration(
                         dt + p.attack + p.decay,
                         p.release,
                         p.sustain,
                         0.0,
                     );
-                self.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
+                self.envelope.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
                     EnvelopeStep::new_with_duration(
                         dt + p.attack + p.decay + p.release,
                         f32::MAX,
@@ -267,115 +352,99 @@ impl AdsrEnvelope {
                 // envelope shape doesn't get weird (example: attack is interrupted at amplitude 0.1, but sustain was
                 // 0.8. If we let decay do its thing going from "ceiling" to sustain, then it would go *up* rather than
                 // down).
-                let intercept_value = self
-                    .source_audio_for_step(ut, &self.steps[AdsrEnvelopeStepName::Attack as usize]);
+                let intercept_value = self.envelope.value_for_step_at_time(
+                    &self.envelope.steps[AdsrEnvelopeStepName::Attack as usize],
+                    ut,
+                );
                 let scaled_sustain = p.sustain * intercept_value;
-                self.steps[AdsrEnvelopeStepName::Decay as usize] =
+                self.envelope.steps[AdsrEnvelopeStepName::Decay as usize] =
                     EnvelopeStep::new_with_duration(ut, p.decay, intercept_value, scaled_sustain);
-                self.steps[AdsrEnvelopeStepName::Sustain as usize] =
+                self.envelope.steps[AdsrEnvelopeStepName::Sustain as usize] =
                     EnvelopeStep::new_with_duration(
                         ut + p.decay,
                         0.0,
                         scaled_sustain,
                         scaled_sustain,
                     );
-                self.steps[AdsrEnvelopeStepName::Release as usize] =
+                self.envelope.steps[AdsrEnvelopeStepName::Release as usize] =
                     EnvelopeStep::new_with_duration(ut + p.decay, p.release, scaled_sustain, 0.0);
-                self.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
+                self.envelope.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
                     EnvelopeStep::new_with_duration(ut + p.decay + p.release, f32::MAX, 0.0, 0.0);
             }
         }
-        self.debug_validate_steps();
+        self.envelope.debug_validate_steps();
     }
 
     pub fn new_with(preset: &EnvelopePreset) -> Self {
-        let r = Self {
+        let vec = vec![
+            EnvelopeStep {
+                // InitialIdle
+                interval: Range {
+                    start: 0.0,
+                    end: f32::MAX,
+                },
+                start_value: 0.0,
+                end_value: 0.0,
+            },
+            EnvelopeStep {
+                // Attack
+                interval: Range {
+                    start: 0.0,
+                    end: f32::MAX,
+                },
+                start_value: 0.0,
+                end_value: 1.0,
+            },
+            EnvelopeStep {
+                // Decay
+                interval: Range {
+                    start: 0.0,
+                    end: f32::MAX,
+                },
+                start_value: 1.0,
+                end_value: preset.sustain,
+            },
+            EnvelopeStep {
+                // Sustain
+                interval: Range {
+                    start: 0.0,
+                    end: f32::MAX,
+                },
+                start_value: preset.sustain,
+                end_value: preset.sustain,
+            },
+            EnvelopeStep {
+                // Release
+                interval: Range {
+                    start: 0.0,
+                    end: f32::MAX,
+                },
+                start_value: preset.sustain,
+                end_value: 0.0,
+            },
+            EnvelopeStep {
+                // FinalIdle
+                interval: Range {
+                    start: 0.0,
+                    end: f32::MAX,
+                },
+                start_value: 0.0,
+                end_value: 0.0,
+            },
+        ];
+        Self {
             preset: *preset,
-            steps: vec![
-                EnvelopeStep {
-                    // InitialIdle
-                    interval: Range {
-                        start: 0.0,
-                        end: f32::MAX,
-                    },
-                    start_value: 0.0,
-                    end_value: 0.0,
-                },
-                EnvelopeStep {
-                    // Attack
-                    interval: Range {
-                        start: 0.0,
-                        end: f32::MAX,
-                    },
-                    start_value: 0.0,
-                    end_value: 1.0,
-                },
-                EnvelopeStep {
-                    // Decay
-                    interval: Range {
-                        start: 0.0,
-                        end: f32::MAX,
-                    },
-                    start_value: 1.0,
-                    end_value: preset.sustain,
-                },
-                EnvelopeStep {
-                    // Sustain
-                    interval: Range {
-                        start: 0.0,
-                        end: f32::MAX,
-                    },
-                    start_value: preset.sustain,
-                    end_value: preset.sustain,
-                },
-                EnvelopeStep {
-                    // Release
-                    interval: Range {
-                        start: 0.0,
-                        end: f32::MAX,
-                    },
-                    start_value: preset.sustain,
-                    end_value: 0.0,
-                },
-                EnvelopeStep {
-                    // FinalIdle
-                    interval: Range {
-                        start: 0.0,
-                        end: f32::MAX,
-                    },
-                    start_value: 0.0,
-                    end_value: 0.0,
-                },
-            ],
+            envelope: SteppedEnvelope::new_with(EnvelopeTimeUnit::Seconds, vec),
             ..Default::default()
-        };
-        r.debug_validate_steps();
-        r
-    }
-
-    fn source_audio_for_step(&self, time: f32, step: &EnvelopeStep) -> MonoSample {
-        if step.interval.start == step.interval.end || step.start_value == step.end_value {
-            return step.end_value;
         }
-        let elapsed_time = time - step.interval.start;
-        let total_interval_time = step.interval.end - step.interval.start;
-        let percentage_complete = elapsed_time / total_interval_time;
-        let total_interval_value_delta = step.end_value - step.start_value;
-        let mut value = step.start_value + total_interval_value_delta * percentage_complete;
-        if (step.end_value > step.start_value && value > step.end_value)
-            || (step.end_value < step.start_value && value < step.end_value)
-        {
-            value = step.end_value;
-        }
-        value
     }
 }
 
 impl SourcesAudio for AdsrEnvelope {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let time = self.time_for_unit(clock);
-        let step = self.current_step(time);
-        self.source_audio_for_step(time, step)
+        let time = self.envelope.time_for_unit(clock);
+        let step = self.envelope.step_for_time(time);
+        self.envelope.value_for_step_at_time(step, time)
     }
 }
 

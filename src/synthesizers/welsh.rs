@@ -9,7 +9,6 @@ use crate::{
     effects::filter::{Filter, FilterType},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
-    traits::ShapesEnvelope,
     traits::{
         IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio, TransformsAudio,
     },

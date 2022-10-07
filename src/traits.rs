@@ -5,7 +5,6 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::envelopes::{EnvelopeStep, EnvelopeTimeUnit};
 use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_SILENCE},
@@ -151,54 +150,6 @@ pub trait WatchesClock: Debug {
     /// If you're not sure what you should return, you should return true.
     /// This is because false prevents outer loops from ending.
     fn tick(&mut self, clock: &Clock) -> bool;
-}
-
-/// Provides common functionality for envelopes (things that vary an amplitude
-/// over time according to parameters and events).
-pub trait ShapesEnvelope {
-    fn steps(&self) -> &[EnvelopeStep];
-    fn time_unit(&self) -> &EnvelopeTimeUnit;
-
-    fn time_for_unit(&self, clock: &Clock) -> f32 {
-        match self.time_unit() {
-            EnvelopeTimeUnit::Seconds => clock.seconds(),
-            EnvelopeTimeUnit::Beats => clock.beats(),
-            EnvelopeTimeUnit::Samples => todo!(),
-        }
-    }
-
-    fn is_idle(&self, clock: &Clock) -> bool {
-        let current_time = self.time_for_unit(clock);
-        let step = self.current_step(current_time);
-        step.end_value == step.start_value && step.interval.end == f32::MAX
-    }
-
-    fn current_step(&self, current_time: f32) -> &EnvelopeStep {
-        let steps = self.steps();
-        debug_assert!(!steps.is_empty());
-
-        let mut candidate_step: &EnvelopeStep = steps.first().unwrap();
-        for step in steps {
-            if candidate_step.interval.end == f32::MAX {
-                // Any step with max end_time is terminal.
-                break;
-            }
-            debug_assert!(step.interval.start >= candidate_step.interval.start);
-            debug_assert!(step.interval.end >= candidate_step.interval.start);
-
-            if step.interval.start > current_time {
-                // This step starts in the future. If all steps' start times
-                // are in order, then we can't do better than what we have.
-                break;
-            }
-            if step.interval.end < current_time {
-                // This step already ended. It's invalid for this point in time.
-                continue;
-            }
-            candidate_step = step;
-        }
-        candidate_step
-    }
 }
 
 // WORKING ASSERTION: WatchesClock should not also SourcesAudio, because
