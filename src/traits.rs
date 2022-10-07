@@ -181,7 +181,7 @@ pub trait ShapesEnvelope {
                 break;
             }
             debug_assert!(step.start_time >= candidate_step.start_time);
-            debug_assert!(step.end_time >= candidate_step.end_time);
+            debug_assert!(step.end_time >= candidate_step.start_time);
 
             if step.start_time > current_time {
                 // This step starts in the future. If all steps' start times
