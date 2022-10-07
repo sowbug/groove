@@ -159,13 +159,16 @@ pub trait ShapesEnvelope {
     fn steps(&self) -> &[EnvelopeStep];
     fn time_unit(&self) -> &EnvelopeTimeUnit;
 
-    fn is_idle(&self, clock: &Clock) -> bool {
-        let current_time = match self.time_unit() {
+    fn time_for_unit(&self, clock: &Clock) -> f32 {
+        match self.time_unit() {
             EnvelopeTimeUnit::Seconds => clock.seconds(),
             EnvelopeTimeUnit::Beats => clock.beats(),
             EnvelopeTimeUnit::Samples => todo!(),
-        };
+        }
+    }
 
+    fn is_idle(&self, clock: &Clock) -> bool {
+        let current_time = self.time_for_unit(clock);
         let step = self.current_step(current_time);
         step.end_value == step.start_value && step.end_time == f32::MAX
     }

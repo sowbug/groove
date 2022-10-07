@@ -283,14 +283,6 @@ impl AdsrEnvelope {
         self.debug_validate_steps();
     }
 
-    fn time_for_unit(&self, clock: &Clock) -> f32 {
-        match self.time_unit {
-            EnvelopeTimeUnit::Seconds => clock.seconds(),
-            EnvelopeTimeUnit::Beats => clock.beats(),
-            EnvelopeTimeUnit::Samples => todo!(),
-        }
-    }
-
     pub fn new_with(preset: &EnvelopePreset) -> Self {
         let r = Self {
             preset: *preset,
@@ -364,11 +356,7 @@ impl AdsrEnvelope {
 
 impl SourcesAudio for AdsrEnvelope {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let time = match self.time_unit {
-            EnvelopeTimeUnit::Seconds => clock.seconds(),
-            EnvelopeTimeUnit::Beats => clock.beats(),
-            EnvelopeTimeUnit::Samples => todo!(),
-        };
+        let time = self.time_for_unit(clock);
         let step = self.current_step(time);
         self.source_audio_for_step(time, step)
     }
