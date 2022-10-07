@@ -132,7 +132,7 @@ impl Orchestrator {
         loop {
             let (sample, done) = self.tick();
             performance.worker.push(sample);
-            if next_progress_indicator <= self.clock.inner_clock().samples {
+            if next_progress_indicator <= self.clock.inner_clock().samples() {
                 print!(".");
                 io::stdout().flush().unwrap();
                 next_progress_indicator += progress_indicator_quantum;

@@ -105,7 +105,7 @@ impl Oscillator {
 
 impl SourcesAudio for Oscillator {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let phase_normalized = (self.adjusted_frequency() * clock.seconds) as MonoSample;
+        let phase_normalized = (self.adjusted_frequency() * clock.seconds()) as MonoSample;
         match self.waveform {
             WaveformType::None => 0.0,
             // https://en.wikipedia.org/wiki/Sine_wave

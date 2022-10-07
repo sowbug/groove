@@ -74,7 +74,7 @@ impl WatchesClock for ControlTrip {
 
         let mut num_to_remove: usize = 0;
         for envelope in self.envelopes_in_place.iter_mut() {
-            if clock.beats < envelope.start_beat {
+            if clock.beats() < envelope.start_beat {
                 break;
             }
             let last_value = self.current_value;
@@ -114,7 +114,7 @@ impl WatchesClock for ControlEnvelope {
     fn tick(&mut self, clock: &Clock) -> bool {
         let total_length_beats = self.end_beat - self.start_beat;
         if total_length_beats != 0.0 {
-            let how_far_we_have_gone_beats = clock.beats - self.start_beat;
+            let how_far_we_have_gone_beats = clock.beats() - self.start_beat;
             let percentage_done = how_far_we_have_gone_beats / total_length_beats;
             let total_length_value = self.target_value - self.start_value;
             self.current_value = self.start_value + total_length_value * percentage_done;
@@ -123,7 +123,7 @@ impl WatchesClock for ControlEnvelope {
         }
 
         // Are we done with all our work?
-        clock.beats >= self.end_beat
+        clock.beats() >= self.end_beat
     }
 }
 
@@ -216,7 +216,7 @@ mod tests {
             done = trip.tick(&clock) && done;
 
             // Have we reached a new beat? If yes, we need to update the expected value.
-            if clock.beats as usize == step_index {
+            if clock.beats() as usize == step_index {
                 // But only if we have a new step. If not, the old expected value stays.
                 if step_index < step_count {
                     let step = &sequence.borrow().steps[step_index];
@@ -268,7 +268,7 @@ mod tests {
         loop {
             let mut done = true;
             done = trip.tick(&clock) && done;
-            if clock.beats >= current_pattern_point {
+            if clock.beats() >= current_pattern_point {
                 expected_value = interpolated_values[(current_pattern_point * 2.0) as usize];
                 assert_approx_eq!(target.borrow().value, expected_value, SAD_FLOAT_DIFF);
                 current_pattern_point += 0.5;

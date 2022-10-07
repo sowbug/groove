@@ -130,10 +130,10 @@ impl Default for TimeSignature {
 pub struct Clock {
     settings: ClockSettings,
 
-    pub samples: usize, // Samples since clock creation.
-    pub seconds: f32,   // Seconds elapsed since clock creation.
-    pub beats: f32,     // Beats elapsed since clock creation.
-                        // Not https://en.wikipedia.org/wiki/Swatch_Internet_Time
+    samples: usize, // Samples since clock creation.
+    seconds: f32,   // Seconds elapsed since clock creation.
+    beats: f32,     // Beats elapsed since clock creation.
+                    // Not https://en.wikipedia.org/wiki/Swatch_Internet_Time
 }
 
 impl Clock {
@@ -154,8 +154,22 @@ impl Clock {
         &self.settings
     }
 
+    pub fn samples(&self) -> usize {
+        self.samples
+    }
+    pub fn seconds(&self) -> f32 {
+        self.seconds
+    }
+    pub fn beats(&self) -> f32 {
+        self.beats
+    }
+
     pub fn tick(&mut self) {
         self.samples += 1;
+        self.update();
+    }
+
+    fn update(&mut self) {
         self.seconds = self.samples as f32 / self.settings.sample_rate() as f32;
         self.beats = (self.settings.bpm() / 60.0) * self.seconds;
     }
@@ -215,8 +229,6 @@ impl WatchedClock {
 
 #[cfg(test)]
 mod tests {
-    use std::panic;
-
     use more_asserts::assert_lt;
 
     use super::*;
@@ -224,6 +236,22 @@ mod tests {
     impl Clock {
         pub fn new_test() -> Self {
             Self::new_with(&ClockSettings::new_test())
+        }
+
+        pub fn debug_new_with_time(time: f32) -> Self {
+            let mut r = Self::new();
+            r.debug_set_seconds(time);
+            r
+        }
+
+        pub fn debug_set_samples(&mut self, value: usize) {
+            self.samples = value;
+            self.update();
+        }
+
+        pub fn debug_set_seconds(&mut self, value: f32) {
+            self.samples = (self.settings().sample_rate() as f32 * value) as usize;
+            self.update();
         }
     }
 
@@ -239,38 +267,38 @@ mod tests {
         let mut clock = Clock::new_with(&clock_settings);
 
         // init state
-        assert_eq!(clock.samples, 0);
+        assert_eq!(clock.samples(), 0);
         assert_eq!(clock.seconds, 0.0);
-        assert_eq!(clock.beats, 0.0);
+        assert_eq!(clock.beats(), 0.0);
 
         // Check after one tick.
         clock.tick();
-        assert_eq!(clock.samples, 1);
+        assert_eq!(clock.samples(), 1);
         assert_eq!(clock.seconds, ONE_SAMPLE_OF_SECONDS);
-        assert_eq!(clock.beats, (BPM / 60.0) * ONE_SAMPLE_OF_SECONDS);
+        assert_eq!(clock.beats(), (BPM / 60.0) * ONE_SAMPLE_OF_SECONDS);
 
         // Check around a full quarter note of ticks.
         // minus one because we already did one tick(), then minus another to test edge
         for _ in 0..QUARTER_NOTE_OF_TICKS - 1 - 1 {
             clock.tick();
         }
-        assert_eq!(clock.samples, QUARTER_NOTE_OF_TICKS - 1);
+        assert_eq!(clock.samples(), QUARTER_NOTE_OF_TICKS - 1);
         assert!(clock.seconds < SECONDS_PER_BEAT as f32);
-        assert_lt!(clock.beats, 1.0);
+        assert_lt!(clock.beats(), 1.0);
 
         // Now right on the quarter note.
         clock.tick();
-        assert_eq!(clock.samples, QUARTER_NOTE_OF_TICKS);
+        assert_eq!(clock.samples(), QUARTER_NOTE_OF_TICKS);
         assert_eq!(clock.seconds, SECONDS_PER_BEAT as f32);
-        assert_eq!(clock.beats, 1.0);
+        assert_eq!(clock.beats(), 1.0);
 
         // One full minute.
         for _ in 0..QUARTER_NOTE_OF_TICKS * (BPM - 1.0) as usize {
             clock.tick();
         }
-        assert_eq!(clock.samples, SAMPLE_RATE * 60);
+        assert_eq!(clock.samples(), SAMPLE_RATE * 60);
         assert_eq!(clock.seconds, 60.0);
-        assert_eq!(clock.beats, BPM);
+        assert_eq!(clock.beats(), BPM);
     }
 
     #[test]

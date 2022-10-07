@@ -31,27 +31,29 @@ impl OscillatorPreset {
     }
 }
 
+// attack/decay/release are in time units.
+// sustain is a 0..=1 percentage.
 #[derive(Debug, Clone, Copy)]
 pub struct EnvelopePreset {
-    pub attack_seconds: f32,
-    pub decay_seconds: f32,
-    pub sustain_percentage: f32,
-    pub release_seconds: f32,
+    pub attack: f32,
+    pub decay: f32,
+    pub sustain: f32,
+    pub release: f32,
 }
 
 impl Default for EnvelopePreset {
     fn default() -> Self {
         Self {
-            attack_seconds: 0.0,
-            decay_seconds: 0.0,
-            sustain_percentage: 1.0,
-            release_seconds: 0.0,
+            attack: 0.0,
+            decay: 0.0,
+            sustain: 1.0,
+            release: 0.0,
         }
     }
 }
 
 impl EnvelopePreset {
-    pub const MAX: f32 = -1.0;
+    pub const MAX: f32 = 10000.0; // TODO: what exactly does Welsh mean by "max"?
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -634,12 +634,12 @@ mod tests {
     impl WatchesClock for TestFilterController {
         fn tick(&mut self, clock: &Clock) -> bool {
             if self.time_start < 0.0 {
-                self.time_start = clock.seconds;
+                self.time_start = clock.seconds();
             }
             if self.param_end != self.param_start {
                 let param = self.param;
                 let value = self.param_start
-                    + ((clock.seconds - self.time_start) / self.duration)
+                    + ((clock.seconds() - self.time_start) / self.duration)
                         * (self.param_end - self.param_start);
                 let sink_param = match param {
                     TestFilterControllerParam::Cutoff => SinksControlParam::Primary { value },

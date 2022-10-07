@@ -9,9 +9,9 @@ use crate::{
     effects::filter::{Filter, FilterType},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
+    traits::ShapesEnvelope,
     traits::{
-        IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
-        TransformsAudio, WatchesClock,
+        IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio, TransformsAudio,
     },
     {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
@@ -222,16 +222,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.75,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.19,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.19,
+                    attack: 0.0,
+                    decay: 0.19,
+                    sustain: 0.0,
+                    release: 0.19,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.67,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.67,
+                    attack: 0.0,
+                    decay: 0.67,
+                    sustain: 0.0,
+                    release: 0.67,
                 },
             },
             PresetName::Cello => Self {
@@ -266,16 +266,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.9,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 3.29,
-                    sustain_percentage: 0.78,
-                    release_seconds: EnvelopePreset::MAX,
+                    attack: 0.0,
+                    decay: 3.29,
+                    sustain: 0.78,
+                    release: EnvelopePreset::MAX,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.06,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.3,
+                    attack: 0.06,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.3,
                 },
             },
             PresetName::DoubleBass => Self {
@@ -315,10 +315,10 @@ impl SynthPreset {
                     ..Default::default()
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.35,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.19,
+                    attack: 0.35,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.19,
                 },
             },
             PresetName::Dulcimer => Self {
@@ -354,16 +354,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.50,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 1.69,
-                    sustain_percentage: 0.0,
-                    release_seconds: 1.78,
+                    attack: 0.0,
+                    decay: 1.69,
+                    sustain: 0.0,
+                    release: 1.78,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 4.0,
-                    sustain_percentage: 0.0,
-                    release_seconds: 4.0,
+                    attack: 0.0,
+                    decay: 4.0,
+                    sustain: 0.0,
+                    release: 4.0,
                 },
             },
 
@@ -398,16 +398,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.70,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.35,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.29,
+                    attack: 0.0,
+                    decay: 0.35,
+                    sustain: 0.0,
+                    release: 0.29,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 1.7,
-                    sustain_percentage: 0.0,
-                    release_seconds: 1.7,
+                    attack: 0.0,
+                    decay: 1.7,
+                    sustain: 0.0,
+                    release: 1.7,
                 },
             },
 
@@ -445,10 +445,10 @@ impl SynthPreset {
                     ..Default::default()
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 1.7,
-                    sustain_percentage: 0.0,
-                    release_seconds: 1.7,
+                    attack: 0.0,
+                    decay: 1.7,
+                    sustain: 0.0,
+                    release: 1.7,
                 },
             },
             PresetName::Harp => {
@@ -486,16 +486,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 1.0,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.04,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.23,
+                    attack: 0.04,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.23,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.85,
+                    attack: 0.0,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.85,
                 },
             },
             PresetName::Kora => {
@@ -550,16 +550,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.75,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 2.33,
-                    sustain_percentage: 0.6,
-                    release_seconds: 2.33,
+                    attack: 0.0,
+                    decay: 2.33,
+                    sustain: 0.6,
+                    release: 2.33,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 1.28,
-                    sustain_percentage: 0.0,
-                    release_seconds: 1.38,
+                    attack: 0.0,
+                    decay: 1.28,
+                    sustain: 0.0,
+                    release: 1.38,
                 },
             },
             PresetName::Viola => {
@@ -634,16 +634,16 @@ impl SynthPreset {
                 filter_resonance: 0.20,
                 filter_envelope_weight: 0.45,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.05,
-                    decay_seconds: 5.76,
-                    sustain_percentage: 0.94,
-                    release_seconds: 0.39,
+                    attack: 0.05,
+                    decay: 5.76,
+                    sustain: 0.94,
+                    release: 0.39,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 3.9,
-                    sustain_percentage: 0.96,
-                    release_seconds: 0.93,
+                    attack: 0.0,
+                    decay: 3.9,
+                    sustain: 0.96,
+                    release: 0.93,
                 },
             },
             PresetName::Harmonica => {
@@ -686,16 +686,16 @@ impl SynthPreset {
                     filter_resonance: 0.0,
                     filter_envelope_weight: 0.90,
                     filter_envelope_preset: EnvelopePreset {
-                        attack_seconds: 0.14,
-                        decay_seconds: 0.37,
-                        sustain_percentage: 0.78,
-                        release_seconds: EnvelopePreset::MAX,
+                        attack: 0.14,
+                        decay: 0.37,
+                        sustain: 0.78,
+                        release: EnvelopePreset::MAX,
                     },
                     amp_envelope_preset: EnvelopePreset {
-                        attack_seconds: 0.0,
-                        decay_seconds: EnvelopePreset::MAX,
-                        sustain_percentage: 1.0,
-                        release_seconds: 0.3,
+                        attack: 0.0,
+                        decay: EnvelopePreset::MAX,
+                        sustain: 1.0,
+                        release: 0.3,
                     },
                 }
             }
@@ -732,16 +732,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.3,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.11,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.18,
+                    attack: 0.11,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.18,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.06,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.50,
+                    attack: 0.06,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.50,
                 },
             },
             PresetName::Trumpet => {
@@ -782,16 +782,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.6,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.7,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.11,
+                    attack: 0.7,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.11,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.03,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.11,
+                    attack: 0.03,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.11,
                 },
             },
             // -------------------- Keyboards
@@ -844,10 +844,10 @@ impl SynthPreset {
                     ..Default::default()
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.6,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.4,
+                    attack: 0.6,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.4,
                 },
             },
             PresetName::Piano => Self {
@@ -882,16 +882,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.75,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 5.22,
-                    sustain_percentage: 0.0,
-                    release_seconds: EnvelopePreset::MAX,
+                    attack: 0.0,
+                    decay: 5.22,
+                    sustain: 0.0,
+                    release: EnvelopePreset::MAX,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.67,
-                    sustain_percentage: 0.25,
-                    release_seconds: 0.50,
+                    attack: 0.0,
+                    decay: 0.67,
+                    sustain: 0.25,
+                    release: 0.50,
                 },
             },
             // -------------------- Vocals
@@ -926,16 +926,16 @@ impl SynthPreset {
                 filter_resonance: 0.7,
                 filter_envelope_weight: 0.0,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.0,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.0,
+                    attack: 0.0,
+                    decay: 0.0,
+                    sustain: 0.0,
+                    release: 0.0,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.32,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.93,
+                    attack: 0.32,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.93,
                 },
             },
             PresetName::Choir => {
@@ -984,16 +984,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.6,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.11,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.11,
+                    attack: 0.0,
+                    decay: 0.11,
+                    sustain: 0.0,
+                    release: 0.11,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.22,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.22,
+                    attack: 0.0,
+                    decay: 0.22,
+                    sustain: 0.0,
+                    release: 0.22,
                 },
             },
             PresetName::Conga => {
@@ -1055,16 +1055,16 @@ impl SynthPreset {
                 filter_resonance: 0.55,
                 filter_envelope_weight: 0.65,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.02,
-                    sustain_percentage: 0.65,
-                    release_seconds: EnvelopePreset::MAX,
+                    attack: 0.0,
+                    decay: 0.02,
+                    sustain: 0.65,
+                    release: EnvelopePreset::MAX,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.15,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.15,
+                    attack: 0.0,
+                    decay: 0.15,
+                    sustain: 0.0,
+                    release: 0.15,
                 },
             },
             PresetName::CowbellAnalog => Self {
@@ -1098,16 +1098,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 0.65,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.02,
-                    sustain_percentage: 0.65,
-                    release_seconds: EnvelopePreset::MAX,
+                    attack: 0.0,
+                    decay: 0.02,
+                    sustain: 0.65,
+                    release: EnvelopePreset::MAX,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.15,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.15,
+                    attack: 0.0,
+                    decay: 0.15,
+                    sustain: 0.0,
+                    release: 0.15,
                 },
             },
             PresetName::Cymbal => Self {
@@ -1124,16 +1124,16 @@ impl SynthPreset {
                 filter_resonance: 0.50,
                 filter_envelope_weight: 0.70,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.14,
-                    sustain_percentage: 0.0,
-                    release_seconds: 1.8,
+                    attack: 0.0,
+                    decay: 0.14,
+                    sustain: 0.0,
+                    release: 1.8,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 1.1,
-                    sustain_percentage: 0.0,
-                    release_seconds: 1.0,
+                    attack: 0.0,
+                    decay: 1.1,
+                    sustain: 0.0,
+                    release: 1.0,
                 },
                 ..Default::default()
             },
@@ -1151,16 +1151,16 @@ impl SynthPreset {
                 filter_resonance: 1.0,
                 filter_envelope_weight: 0.85,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 1.19,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.0,
+                    attack: 0.0,
+                    decay: 1.19,
+                    sustain: 0.0,
+                    release: 0.0,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.09,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.0,
+                    attack: 0.0,
+                    decay: 0.09,
+                    sustain: 0.0,
+                    release: 0.0,
                 },
                 ..Default::default()
             },
@@ -1208,16 +1208,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 1.0,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.03,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.6,
+                    attack: 0.03,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.6,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.35,
+                    attack: 0.0,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.35,
                 },
             },
             PresetName::Mellow70sLead => {
@@ -1269,16 +1269,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 1.0,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.09,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: EnvelopePreset::MAX,
+                    attack: 0.09,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: EnvelopePreset::MAX,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.11,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 0.35,
+                    attack: 0.11,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 0.35,
                 },
             },
             PresetName::Trance5th => Self {
@@ -1317,7 +1317,7 @@ impl SynthPreset {
                     ..Default::default()
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    decay_seconds: EnvelopePreset::MAX,
+                    decay: EnvelopePreset::MAX,
                     ..Default::default()
                 },
             }, // -------------------- Bass
@@ -1352,16 +1352,16 @@ impl SynthPreset {
                 filter_resonance: 0.6,
                 filter_envelope_weight: 0.0,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.0,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.0,
+                    attack: 0.0,
+                    decay: 0.0,
+                    sustain: 0.0,
+                    release: 0.0,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.45,
-                    sustain_percentage: 0.15,
-                    release_seconds: 0.26,
+                    attack: 0.0,
+                    decay: 0.45,
+                    sustain: 0.15,
+                    release: 0.26,
                 },
             },
             PresetName::BassOfTheTimeLords => {
@@ -1405,16 +1405,16 @@ impl SynthPreset {
                 filter_resonance: 0.0,
                 filter_envelope_weight: 1.0,
                 filter_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: 0.15,
-                    sustain_percentage: 0.0,
-                    release_seconds: 0.0,
+                    attack: 0.0,
+                    decay: 0.15,
+                    sustain: 0.0,
+                    release: 0.0,
                 },
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.0,
-                    decay_seconds: EnvelopePreset::MAX,
-                    sustain_percentage: 1.0,
-                    release_seconds: 1.0,
+                    attack: 0.0,
+                    decay: EnvelopePreset::MAX,
+                    sustain: 1.0,
+                    release: 1.0,
                 },
             },
             PresetName::FunkBass => {
@@ -1506,9 +1506,9 @@ impl SynthPreset {
                 },
                 filter_resonance: 0.75,
                 amp_envelope_preset: EnvelopePreset {
-                    attack_seconds: 0.4,
-                    decay_seconds: EnvelopePreset::MAX,
-                    release_seconds: 2.7,
+                    attack: 0.4,
+                    decay: EnvelopePreset::MAX,
+                    release: 2.7,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -1890,7 +1890,7 @@ impl Voice {
             midi_channel,
             oscillators: Vec::new(),
             osc_mix: Vec::new(),
-            amp_envelope: AdsrEnvelope::new_with(sample_rate, &preset.amp_envelope_preset),
+            amp_envelope: AdsrEnvelope::new_with(&preset.amp_envelope_preset),
 
             lfo: Oscillator::new_lfo(&preset.lfo_preset),
             lfo_routing: preset.lfo_preset.routing,
@@ -1903,7 +1903,7 @@ impl Voice {
             }),
             filter_cutoff_start: Filter::frequency_to_percent(preset.filter_type_12db.cutoff),
             filter_cutoff_end: preset.filter_envelope_weight,
-            filter_envelope: AdsrEnvelope::new_with(sample_rate, &preset.filter_envelope_preset),
+            filter_envelope: AdsrEnvelope::new_with(&preset.filter_envelope_preset),
         };
         if !matches!(preset.oscillator_1_preset.waveform, WaveformType::None) {
             r.oscillators
@@ -1928,8 +1928,8 @@ impl Voice {
         r
     }
 
-    pub(crate) fn is_playing(&self) -> bool {
-        !self.amp_envelope.is_idle()
+    pub(crate) fn is_playing(&self, clock: &Clock) -> bool {
+        !self.amp_envelope.is_idle(clock)
     }
 }
 
@@ -1948,10 +1948,8 @@ impl SinksMidi for Voice {
     }
 
     fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
-        self.amp_envelope
-            .handle_midi_message(message, clock.seconds);
-        self.filter_envelope
-            .handle_midi_message(message, clock.seconds);
+        self.amp_envelope.handle_midi_for_channel(clock, message);
+        self.filter_envelope.handle_midi_for_channel(clock, message);
         match message.status {
             MidiMessageType::NoteOn => {
                 let frequency = message.message_to_frequency();
@@ -1990,7 +1988,6 @@ impl SourcesAudio for Voice {
         };
 
         // Filters
-        self.filter_envelope.tick(clock);
         let new_cutoff_percentage = self.filter_cutoff_start
             + (self.filter_cutoff_end - self.filter_cutoff_start)
                 * self.filter_envelope.source_audio(clock);
@@ -2005,9 +2002,6 @@ impl SourcesAudio for Voice {
         } else {
             1.0
         };
-
-        // Envelope
-        self.amp_envelope.tick(clock);
 
         // Final
         filtered_mix * self.amp_envelope.source_audio(clock) * lfo_amplitude_modulation
@@ -2092,17 +2086,17 @@ impl SinksMidi for Synth {
 
 impl SourcesAudio for Synth {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        if clock.seconds == self.debug_last_seconds {
+        if clock.seconds() == self.debug_last_seconds {
             panic!();
         } else {
-            self.debug_last_seconds = clock.seconds;
+            self.debug_last_seconds = clock.seconds();
         }
 
         let mut done = true;
         let mut current_value = 0.0;
         for (_note, voice) in self.note_to_voice.iter_mut() {
             current_value += voice.borrow_mut().source_audio(clock);
-            done = done && !voice.borrow().is_playing();
+            done = done && !voice.borrow().is_playing(clock);
         }
         if !self.note_to_voice.is_empty() {
             current_value /= self.note_to_voice.len() as MonoSample;
@@ -2149,13 +2143,13 @@ mod tests {
 
         let mut last_recognized_time_point = -1.;
         let time_note_off = duration / 2.0;
-        while clock.seconds < duration {
-            if clock.seconds >= 0.0 && last_recognized_time_point < 0.0 {
-                last_recognized_time_point = clock.seconds;
+        while clock.seconds() < duration {
+            if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
+                last_recognized_time_point = clock.seconds();
                 voice.handle_midi_for_channel(&clock, &midi_on);
             } else {
-                if clock.seconds >= time_note_off && last_recognized_time_point < time_note_off {
-                    last_recognized_time_point = clock.seconds;
+                if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off {
+                    last_recognized_time_point = clock.seconds();
                     voice.handle_midi_for_channel(&clock, &midi_off);
                 }
             }
@@ -2205,8 +2199,8 @@ mod tests {
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         let mut is_message_sent = false;
-        while clock.seconds < duration {
-            if when <= clock.seconds && !is_message_sent {
+        while clock.seconds() < duration {
+            if when <= clock.seconds() && !is_message_sent {
                 is_message_sent = true;
                 source.handle_midi_for_channel(clock, message);
             }
@@ -2249,16 +2243,16 @@ mod tests {
             filter_resonance: 0.7,
             filter_envelope_weight: 0.0,
             filter_envelope_preset: EnvelopePreset {
-                attack_seconds: 0.0,
-                decay_seconds: 0.0,
-                sustain_percentage: 0.0,
-                release_seconds: 0.0,
+                attack: 0.0,
+                decay: 0.0,
+                sustain: 0.0,
+                release: 0.0,
             },
             amp_envelope_preset: EnvelopePreset {
-                attack_seconds: 0.32,
-                decay_seconds: EnvelopePreset::MAX,
-                sustain_percentage: 1.0,
-                release_seconds: 0.93,
+                attack: 0.32,
+                decay: EnvelopePreset::MAX,
+                sustain: 1.0,
+                release: 0.93,
             },
         }
     }
@@ -2296,16 +2290,16 @@ mod tests {
             filter_resonance: 0.0,
             filter_envelope_weight: 0.9,
             filter_envelope_preset: EnvelopePreset {
-                attack_seconds: 0.0,
-                decay_seconds: 3.29,
-                sustain_percentage: 0.78,
-                release_seconds: EnvelopePreset::MAX,
+                attack: 0.0,
+                decay: 3.29,
+                sustain: 0.78,
+                release: EnvelopePreset::MAX,
             },
             amp_envelope_preset: EnvelopePreset {
-                attack_seconds: 0.06,
-                decay_seconds: EnvelopePreset::MAX,
-                sustain_percentage: 1.0,
-                release_seconds: 0.3,
+                attack: 0.06,
+                decay: EnvelopePreset::MAX,
+                sustain: 1.0,
+                release: 0.3,
             },
         }
     }
@@ -2341,16 +2335,16 @@ mod tests {
             filter_resonance: 0.0,
             filter_envelope_weight: 1.0,
             filter_envelope_preset: EnvelopePreset {
-                attack_seconds: 5.0,
-                decay_seconds: EnvelopePreset::MAX,
-                sustain_percentage: 1.0,
-                release_seconds: EnvelopePreset::MAX,
+                attack: 5.0,
+                decay: EnvelopePreset::MAX,
+                sustain: 1.0,
+                release: EnvelopePreset::MAX,
             },
             amp_envelope_preset: EnvelopePreset {
-                attack_seconds: 0.5,
-                decay_seconds: EnvelopePreset::MAX,
-                sustain_percentage: 1.0,
-                release_seconds: EnvelopePreset::MAX,
+                attack: 0.5,
+                decay: EnvelopePreset::MAX,
+                sustain: 1.0,
+                release: EnvelopePreset::MAX,
             },
         }
     }

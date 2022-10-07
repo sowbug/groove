@@ -127,7 +127,7 @@ impl WatchesClock for PatternSequencer {
         while !self.sequenced_notes.is_empty() {
             let note = *(self.sequenced_notes.first().unwrap());
 
-            if clock.beats >= note.when_beats {
+            if clock.beats() >= note.when_beats {
                 self.dispatch_note(&note, clock);
 
                 // TODO: this is violating a (future) rule that we can always randomly access

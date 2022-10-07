@@ -61,7 +61,7 @@ impl SourcesMidi for Arpeggiator {
 
 impl WatchesClock for Arpeggiator {
     fn tick(&mut self, clock: &Clock) -> bool {
-        if clock.beats >= self.next_beat {
+        if clock.beats() >= self.next_beat {
             self.next_beat += 1.0;
             if self.is_note_playing {
                 self.issue_midi(

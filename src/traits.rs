@@ -5,6 +5,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
+use crate::envelopes::{EnvelopeStep, EnvelopeTimeUnit};
 use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_SILENCE},
@@ -152,6 +153,51 @@ pub trait WatchesClock: Debug {
     fn tick(&mut self, clock: &Clock) -> bool;
 }
 
+/// Provides common functionality for envelopes (things that vary an amplitude
+/// over time according to parameters and events).
+pub trait ShapesEnvelope {
+    fn steps(&self) -> &[EnvelopeStep];
+    fn time_unit(&self) -> &EnvelopeTimeUnit;
+
+    fn is_idle(&self, clock: &Clock) -> bool {
+        let current_time = match self.time_unit() {
+            EnvelopeTimeUnit::Seconds => clock.seconds(),
+            EnvelopeTimeUnit::Beats => clock.beats(),
+            EnvelopeTimeUnit::Samples => todo!(),
+        };
+
+        let step = self.current_step(current_time);
+        return step.end_value == step.start_value && step.end_time == f32::MAX;
+    }
+
+    fn current_step(&self, current_time: f32) -> &EnvelopeStep {
+        let steps = self.steps();
+        debug_assert!(!steps.is_empty());
+
+        let mut candidate_step: &EnvelopeStep = steps.first().unwrap();
+        for step in steps {
+            if candidate_step.end_time == f32::MAX {
+                // Any step with max end_time is terminal.
+                break;
+            }
+            debug_assert!(step.start_time >= candidate_step.start_time);
+            debug_assert!(step.end_time >= candidate_step.end_time);
+
+            if step.start_time > current_time {
+                // This step starts in the future. If all steps' start times
+                // are in order, then we can't do better than what we have.
+                break;
+            }
+            if step.end_time < current_time {
+                // This step already ended. It's invalid for this point in time.
+                continue;
+            }
+            candidate_step = step;
+        }
+        candidate_step
+    }
+}
+
 // WORKING ASSERTION: WatchesClock should not also SourcesAudio, because
 // WatchesClock gets a clock tick, whereas SourcesAudio gets a sources_audio(), and
 // both are time slice-y. Be on the lookout for anything that claims to need both.
@@ -263,7 +309,7 @@ pub mod tests {
         let clock_settings = ClockSettings::new_defaults();
         let mut samples = Vec::<MonoSample>::new();
         let mut clock = Clock::new_with(&clock_settings);
-        while clock.seconds < 2.0 {
+        while clock.seconds() < 2.0 {
             samples.push(source.source_audio(&clock));
             clock.tick();
         }
@@ -318,7 +364,7 @@ pub mod tests {
         let clock_settings = ClockSettings::new_defaults();
         let mut clock = Clock::new_with(&clock_settings);
         let mut samples = Vec::<MonoSample>::new();
-        while clock.seconds < 2.0 {
+        while clock.seconds() < 2.0 {
             opt_controller.tick(&clock);
 
             let effect_sample = effect.source_audio(&clock);
@@ -553,7 +599,6 @@ pub mod tests {
             Self {
                 oscillator: Rc::new(RefCell::new(Oscillator::new())),
                 envelope: Rc::new(RefCell::new(AdsrEnvelope::new_with(
-                    44100,
                     &EnvelopePreset::default(),
                 ))),
             }
@@ -596,7 +641,7 @@ pub mod tests {
     }
     impl WatchesClock for SimpleTimer {
         fn tick(&mut self, clock: &Clock) -> bool {
-            clock.seconds >= self.time_to_run_seconds
+            clock.seconds() >= self.time_to_run_seconds
         }
     }
 
@@ -618,12 +663,12 @@ pub mod tests {
     }
     impl WatchesClock for SimpleTrigger {
         fn tick(&mut self, clock: &Clock) -> bool {
-            if !self.has_triggered && clock.seconds >= self.time_to_trigger_seconds {
+            if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
                 self.has_triggered = true;
                 let value = self.value;
                 self.issue_control(clock, &SinksControlParam::Primary { value });
             }
-            clock.seconds >= self.time_to_trigger_seconds
+            clock.seconds() >= self.time_to_trigger_seconds
         }
     }
     impl SourcesControl for SimpleTrigger {
@@ -673,7 +718,6 @@ pub mod tests {
         let mut clock = WatchedClock::new();
         let mut orchestrator = SimpleOrchestrator::new();
         let envelope = Rc::new(RefCell::new(AdsrEnvelope::new_with(
-            clock.inner_clock().settings().sample_rate(),
             &EnvelopePreset::default(),
         )));
         let oscillator = Rc::new(RefCell::new(Oscillator::new_with(
@@ -729,7 +773,7 @@ pub mod tests {
 
     impl WatchesClock for TestWatchesClock {
         fn tick(&mut self, clock: &Clock) -> bool {
-            clock.seconds >= self.lifetime_seconds
+            clock.seconds() >= self.lifetime_seconds
         }
     }
 
@@ -987,7 +1031,7 @@ pub mod tests {
                 break;
             }
         }
-        assert!(clock.seconds >= 1.0);
+        assert!(clock.seconds() >= 1.0);
     }
 
     #[test]

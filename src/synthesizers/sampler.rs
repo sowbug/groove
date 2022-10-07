@@ -55,7 +55,7 @@ impl SinksMidi for Sampler {
         match message.status {
             MidiMessageType::NoteOn => {
                 self.sample_pointer = 0;
-                self.sample_clock_start = clock.samples as usize;
+                self.sample_clock_start = clock.samples();
                 self.is_playing = true;
             }
             MidiMessageType::NoteOff => {
@@ -69,7 +69,7 @@ impl SourcesAudio for Sampler {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         // TODO: when we got rid of WatchesClock, we lost the concept of "done."
         // Be on the lookout for clipped audio.
-        self.sample_pointer = clock.samples as usize - self.sample_clock_start;
+        self.sample_pointer = clock.samples() - self.sample_clock_start;
         if self.sample_pointer >= self.samples.len() {
             self.is_playing = false;
             self.sample_pointer = 0;

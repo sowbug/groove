@@ -73,7 +73,7 @@ impl WatchesClock for MidiSequencer {
             // it signals that we're done.
             return true;
         }
-        let elapsed_midi_ticks = (clock.seconds * self.midi_ticks_per_second as f32) as u32;
+        let elapsed_midi_ticks = (clock.seconds() * self.midi_ticks_per_second as f32) as u32;
         while !self.midi_messages.is_empty() {
             let midi_message = self.midi_messages.first().unwrap();
 
@@ -113,8 +113,8 @@ mod tests {
     }
 
     fn advance_to_next_beat(clock: &mut Clock, sequencer: &mut MidiSequencer) {
-        let next_beat = clock.beats.floor() + 1.0;
-        while clock.beats < next_beat {
+        let next_beat = clock.beats().floor() + 1.0;
+        while clock.beats() < next_beat {
             clock.tick();
             sequencer.tick(&clock);
         }
@@ -197,7 +197,7 @@ mod tests {
         // be called tick().
         assert_eq!(sequencer.midi_messages.len(), 4);
         sequencer.tick(&clock);
-        assert_eq!(clock.beats, 0.0);
+        assert_eq!(clock.beats(), 0.0);
         assert_eq!(sequencer.midi_messages.len(), 3);
         {
             let dp_1 = device_1.borrow();
@@ -212,7 +212,7 @@ mod tests {
         }
 
         advance_to_next_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats.floor(), 1.0); // TODO: these floor() calls are a smell
+        assert_eq!(clock.beats().floor(), 1.0); // TODO: these floor() calls are a smell
         assert_eq!(sequencer.midi_messages.len(), 2);
         {
             let dp = device_1.borrow();
@@ -227,7 +227,7 @@ mod tests {
         }
 
         advance_to_next_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats.floor(), 2.0);
+        assert_eq!(clock.beats().floor(), 2.0);
         assert_eq!(sequencer.midi_messages.len(), 1);
         {
             let dp = device_1.borrow();
@@ -242,7 +242,7 @@ mod tests {
         }
 
         advance_to_next_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats.floor(), 3.0);
+        assert_eq!(clock.beats().floor(), 3.0);
         assert_eq!(sequencer.midi_messages.len(), 0);
         {
             let dp = device_1.borrow();
