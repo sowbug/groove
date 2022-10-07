@@ -64,7 +64,7 @@ impl EnvelopeStep {
 }
 
 #[derive(Debug, Default)]
-struct SteppedEnvelope {
+pub struct SteppedEnvelope {
     time_unit: EnvelopeTimeUnit,
     steps: Vec<EnvelopeStep>,
 }
@@ -76,7 +76,14 @@ impl SteppedEnvelope {
         }
     }
 
-    fn new_with(time_unit: EnvelopeTimeUnit, vec: Vec<EnvelopeStep>) -> Self {
+    pub(crate) fn new_with_time_unit(time_unit: EnvelopeTimeUnit) -> Self {
+        Self {
+            time_unit,
+            ..Default::default()
+        }
+    }
+
+    pub(crate) fn new_with(time_unit: EnvelopeTimeUnit, vec: Vec<EnvelopeStep>) -> Self {
         let r = Self {
             time_unit,
             steps: vec,
@@ -98,7 +105,7 @@ impl SteppedEnvelope {
         &self.time_unit
     }
 
-    fn time_for_unit(&self, clock: &Clock) -> f32 {
+    pub(crate) fn time_for_unit(&self, clock: &Clock) -> f32 {
         match self.time_unit() {
             EnvelopeTimeUnit::Seconds => clock.seconds(),
             EnvelopeTimeUnit::Beats => clock.beats(),
@@ -106,7 +113,7 @@ impl SteppedEnvelope {
         }
     }
 
-    fn step_for_time(&self, time: f32) -> &EnvelopeStep {
+    pub(crate) fn step_for_time(&self, time: f32) -> &EnvelopeStep {
         let steps = self.steps();
         debug_assert!(!steps.is_empty());
 
@@ -133,10 +140,27 @@ impl SteppedEnvelope {
         candidate_step
     }
 
+    pub(crate) fn value_for_step_at_time(&self, step: &EnvelopeStep, time: f32) -> MonoSample {
+        if step.interval.start == step.interval.end || step.start_value == step.end_value {
+            return step.end_value;
+        }
+        let elapsed_time = time - step.interval.start;
+        let total_interval_time = step.interval.end - step.interval.start;
+        let percentage_complete = elapsed_time / total_interval_time;
+        let total_interval_value_delta = step.end_value - step.start_value;
+        let mut value = step.start_value + total_interval_value_delta * percentage_complete;
+        if (step.end_value > step.start_value && value > step.end_value)
+            || (step.end_value < step.start_value && value < step.end_value)
+        {
+            value = step.end_value;
+        }
+        value
+    }
+
     fn debug_validate_steps(&self) {
         debug_assert!(!self.steps.is_empty());
         debug_assert_eq!(self.steps.first().unwrap().interval.start, 0.0);
-        debug_assert_eq!(self.steps.last().unwrap().interval.end, f32::MAX);
+        // TODO: this should be optional depending on who's using it ..... debug_assert_eq!(self.steps.last().unwrap().interval.end, f32::MAX);
         let mut start_time = 0.0;
         let mut end_time = 0.0;
         let steps = self.steps();
@@ -153,24 +177,7 @@ impl SteppedEnvelope {
                 break;
             }
         }
-        debug_assert_eq!(end_time, f32::MAX);
-    }
-
-    fn value_for_step_at_time(&self, step: &EnvelopeStep, time: f32) -> MonoSample {
-        if step.interval.start == step.interval.end || step.start_value == step.end_value {
-            return step.end_value;
-        }
-        let elapsed_time = time - step.interval.start;
-        let total_interval_time = step.interval.end - step.interval.start;
-        let percentage_complete = elapsed_time / total_interval_time;
-        let total_interval_value_delta = step.end_value - step.start_value;
-        let mut value = step.start_value + total_interval_value_delta * percentage_complete;
-        if (step.end_value > step.start_value && value > step.end_value)
-            || (step.end_value < step.start_value && value < step.end_value)
-        {
-            value = step.end_value;
-        }
-        value
+        // TODO same debug_assert_eq!(end_time, f32::MAX);
     }
 }
 

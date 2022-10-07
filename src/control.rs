@@ -1,11 +1,12 @@
 use crate::clock::Clock;
+use crate::envelopes::{EnvelopeStep, EnvelopeTimeUnit, SteppedEnvelope};
 use crate::settings::control::ControlStepType;
 use crate::traits::WatchesClock;
 use crate::traits::{SinksControl, SinksControlParam};
 
-use std::collections::VecDeque;
+use std::cell::RefCell;
+use std::ops::Range;
 use std::rc::Rc;
-use std::{cell::RefCell, cmp::Ordering};
 
 #[derive(Debug)]
 pub struct ControlTrip {
@@ -14,8 +15,7 @@ pub struct ControlTrip {
 
     current_value: f32,
 
-    envelopes: SortedVec<ControlEnvelope>,
-    envelopes_in_place: VecDeque<ControlEnvelope>,
+    envelope: SteppedEnvelope,
 }
 
 impl ControlTrip {
@@ -27,8 +27,7 @@ impl ControlTrip {
             target_instrument: target,
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f32::MAX, // TODO we want to make sure we set the target's value at start
-            envelopes: SortedVec::new(),
-            envelopes_in_place: VecDeque::new(),
+            envelope: SteppedEnvelope::new_with_time_unit(EnvelopeTimeUnit::Beats),
         }
     }
 
@@ -36,49 +35,35 @@ impl ControlTrip {
         self.cursor_beats = Self::CURSOR_BEGIN;
     }
 
+    // TODO: assert that these are added in time order
     pub fn add_path(&mut self, path: Rc<RefCell<ControlPath>>) {
         for step in path.borrow().steps.clone() {
             let (start_value, end_value) = match step {
                 ControlStepType::Flat { value } => (value, value),
                 ControlStepType::Slope { start, end } => (start, end),
             };
-            self.envelopes.insert(ControlEnvelope {
-                start_beat: self.cursor_beats,
-                end_beat: self.cursor_beats + 1.0,
+            self.envelope.push_step(EnvelopeStep {
+                interval: Range {
+                    start: self.cursor_beats,
+                    end: self.cursor_beats + 1.0,
+                },
                 start_value,
-                target_value: end_value,
-                current_value: start_value,
+                end_value,
             });
-
             self.cursor_beats += 1.0;
         }
-    }
-
-    pub fn freeze_trip_envelopes(&mut self) {
-        self.envelopes_in_place = VecDeque::new();
-        let i = self.envelopes.iter();
-        for e in i {
-            self.envelopes_in_place.push_back(*e);
-        }
-        self.envelopes.clear();
     }
 }
 
 impl WatchesClock for ControlTrip {
     fn tick(&mut self, clock: &Clock) -> bool {
-        if self.envelopes_in_place.is_empty() {
-            // This is different from falling through the loop below because
-            // it signals that we're done.
-            return true;
-        }
+        let time = self.envelope.time_for_unit(clock);
+        let step = self.envelope.step_for_time(time);
+        if step.interval.contains(&time) {
+            let value = self.envelope.value_for_step_at_time(step, time);
 
-        let mut num_to_remove: usize = 0;
-        for envelope in self.envelopes_in_place.iter_mut() {
-            if clock.beats() < envelope.start_beat {
-                break;
-            }
             let last_value = self.current_value;
-            self.current_value = envelope.current_value;
+            self.current_value = value;
             if self.current_value != last_value {
                 self.target_instrument.borrow_mut().handle_control(
                     clock,
@@ -87,71 +72,16 @@ impl WatchesClock for ControlTrip {
                     },
                 );
             }
-            if envelope.tick(clock) {
-                num_to_remove += 1;
-            }
+            return time >= step.interval.end;
         }
-        if num_to_remove > 0 {
-            // TODO: same issue as the similar code in Sequencer::tick().
-            self.envelopes_in_place.drain(0..num_to_remove);
-        }
-        false
+
+        // This is a drastic response to a tick that's out of range.
+        // It might be better to limit it to times that are later than
+        // the covered range. We're likely to hit ControlTrips that
+        // start beyond time zero.
+        true
     }
 }
-
-use sorted_vec::SortedVec;
-
-#[derive(Debug, Default, PartialEq, Clone, Copy)]
-struct ControlEnvelope {
-    start_beat: f32,
-    end_beat: f32,
-    start_value: f32,
-    target_value: f32,
-    current_value: f32, // TODO: this feels more like a working value, not a struct value
-}
-
-impl WatchesClock for ControlEnvelope {
-    fn tick(&mut self, clock: &Clock) -> bool {
-        let total_length_beats = self.end_beat - self.start_beat;
-        if total_length_beats != 0.0 {
-            let how_far_we_have_gone_beats = clock.beats() - self.start_beat;
-            let percentage_done = how_far_we_have_gone_beats / total_length_beats;
-            let total_length_value = self.target_value - self.start_value;
-            self.current_value = self.start_value + total_length_value * percentage_done;
-        } else {
-            self.current_value = self.target_value;
-        }
-
-        // Are we done with all our work?
-        clock.beats() >= self.end_beat
-    }
-}
-
-impl PartialOrd for ControlEnvelope {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.start_beat > other.start_beat {
-            return Some(Ordering::Greater);
-        }
-        if self.start_beat < other.start_beat {
-            return Some(Ordering::Less);
-        }
-        Some(Ordering::Equal)
-    }
-}
-
-impl Ord for ControlEnvelope {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.start_beat > other.start_beat {
-            return Ordering::Greater;
-        }
-        if self.start_beat < other.start_beat {
-            return Ordering::Less;
-        }
-        Ordering::Equal
-    }
-}
-
-impl Eq for ControlEnvelope {}
 
 use crate::{clock::BeatValue, settings::control::ControlPathSettings};
 
@@ -202,7 +132,6 @@ mod tests {
         let target_weak = Rc::clone(&target);
         let mut trip = ControlTrip::new(target_weak, target_param_name);
         trip.add_path(Rc::clone(&sequence));
-        trip.freeze_trip_envelopes(); // TODO I hate this method
 
         assert_eq!(target.borrow().value, 0.0f32);
 
@@ -260,7 +189,6 @@ mod tests {
         let target_trip_clone = Rc::clone(&target);
         let mut trip = ControlTrip::new(target_trip_clone, target_param_name);
         trip.add_path(path);
-        trip.freeze_trip_envelopes();
 
         let mut clock = Clock::new_test();
         let mut current_pattern_point = 0.0;
