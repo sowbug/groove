@@ -147,7 +147,7 @@ pub trait WatchesClock: Debug + Terminates {
 // Something that Terminates has a point in time where it would be OK never
 // being called or continuing to exist.
 //
-// If you're required to implement Terminates, but you don't know when 
+// If you're required to implement Terminates, but you don't know when
 // you need to terminate, then you should always return true. For example,
 // an arpeggiator is a WatchesClock, which means it is also a Terminates,
 // but it would be happy to keep responding to MIDI input forever. It should
@@ -181,7 +181,7 @@ pub mod tests {
     use crate::clock::WatchedClock;
     use crate::midi::MidiMessage;
     use crate::preset::EnvelopePreset;
-    use crate::traits::{SinksMidi, SourcesMidi, WatchesClock, Terminates};
+    use crate::traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock};
     use crate::utils::tests::{
         TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSink, TestControlSource,
         TestControlSourceContinuous, TestMidiSink, TestMidiSource, TestOrchestrator,
@@ -423,7 +423,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_time_slicer() {
+    fn test_clock_watcher() {
         let mut clock = Clock::new_test();
         let mut clock_watcher = TestClockWatcher::new(1.0);
 
