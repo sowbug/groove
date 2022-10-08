@@ -185,7 +185,7 @@ pub mod tests {
     use crate::utils::tests::{
         TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSink, TestControlSource,
         TestControlSourceContinuous, TestMidiSink, TestMidiSource, TestOrchestrator,
-        TestSimpleArpeggiator, TestSimpleKeyboard, TestSynth, TestTimer, TestTrigger,
+        TestArpeggiator, TestKeyboard, TestSynth, TestTimer, TestTrigger,
     };
     use crate::{clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator};
     use crate::{common::MonoSample, settings::ClockSettings};
@@ -488,8 +488,8 @@ pub mod tests {
 
     #[test]
     fn test_keyboard_to_automation_to_midi() {
-        let mut keyboard_interface = TestSimpleKeyboard::new();
-        let arpeggiator = Rc::new(RefCell::new(TestSimpleArpeggiator::new_with(
+        let mut keyboard_interface = TestKeyboard::new();
+        let arpeggiator = Rc::new(RefCell::new(TestArpeggiator::new_with(
             TestMidiSink::TEST_MIDI_CHANNEL,
         )));
         let instrument = Rc::new(RefCell::new(TestMidiSink::new()));

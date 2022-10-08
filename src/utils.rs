@@ -544,11 +544,11 @@ pub mod tests {
     //
     // This shows how all these traits work together.
     #[derive(Debug, Default)]
-    pub struct TestSimpleKeyboard {
+    pub struct TestKeyboard {
         control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
     }
 
-    impl SourcesControl for TestSimpleKeyboard {
+    impl SourcesControl for TestKeyboard {
         fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
             &self.control_sinks
         }
@@ -557,7 +557,7 @@ pub mod tests {
         }
     }
 
-    impl TestSimpleKeyboard {
+    impl TestKeyboard {
         pub fn new() -> Self {
             Self {
                 ..Default::default()
@@ -575,13 +575,13 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct TestSimpleArpeggiator {
+    pub struct TestArpeggiator {
         midi_channel_out: MidiChannel,
         pub tempo: f32,
         channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
     }
 
-    impl SinksControl for TestSimpleArpeggiator {
+    impl SinksControl for TestArpeggiator {
         fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
             match param {
                 SinksControlParam::Primary { value } => self.tempo = *value,
@@ -591,7 +591,7 @@ pub mod tests {
         }
     }
 
-    impl SourcesMidi for TestSimpleArpeggiator {
+    impl SourcesMidi for TestArpeggiator {
         fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
             &self.channels_to_sink_vecs
         }
@@ -602,7 +602,7 @@ pub mod tests {
         }
     }
 
-    impl WatchesClock for TestSimpleArpeggiator {
+    impl WatchesClock for TestArpeggiator {
         fn tick(&mut self, clock: &Clock) {
             // We don't actually pay any attention to self.tempo, but it's easy
             // enough to see that tempo could have influenced this MIDI message.
@@ -613,13 +613,13 @@ pub mod tests {
         }
     }
 
-    impl Terminates for TestSimpleArpeggiator {
+    impl Terminates for TestArpeggiator {
         fn is_finished(&self) -> bool {
             true
         }
     }
 
-    impl TestSimpleArpeggiator {
+    impl TestArpeggiator {
         pub fn new_with(midi_channel_out: MidiChannel) -> Self {
             Self {
                 midi_channel_out,
