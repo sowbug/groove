@@ -137,20 +137,28 @@ pub trait SinksMidi: Debug {
 /// on every time slice to provide an audio sample. A WatchesClock has no
 /// extrinsic reason to be called, so the trait exists to make sure that
 /// whatever intrinsic reason for being called is satisfied.
-///
-/// WatchesClock::tick() must be called exactly once for every sample, and
-/// they can assume that they won't be asked to provide anything until tick()
-/// has been called for the time slice. For example, nobody will ask an Envelope
-/// for its amplitude until it's gotten a chance to calculate its amplitude for
-/// the time slice via tick().
-pub trait WatchesClock: Debug {
-    /// returns true if we had a finite amount of known work that has finished.
-    /// TODO: if we return true, then do we still expect to be called for the
-    /// result of our work during this cycle? E.g., source_audio()
-    ///
-    /// If you're not sure what you should return, you should return true.
-    /// This is because false prevents outer loops from ending.
-    fn tick(&mut self, clock: &Clock) -> bool;
+pub trait WatchesClock: Debug + Terminates {
+    /// WatchesClock::tick() must be called exactly once for every sample, and
+    /// implementers can assume that they won't be asked to provide any
+    /// information until tick() has been called for the time slice.
+    fn tick(&mut self, clock: &Clock);
+}
+
+// Something that Terminates has a point in time where it would be OK never
+// being called or continuing to exist.
+//
+// If you're required to implement Terminates, but you don't know when 
+// you need to terminate, then you should always return true. For example,
+// an arpeggiator is a WatchesClock, which means it is also a Terminates,
+// but it would be happy to keep responding to MIDI input forever. It should
+// return true.
+//
+// The reason to choose true rather than false is that the caller uses is_finished()
+// to determine whether a song is complete. If a Terminates never returns true,
+// the loop will never end. Thus, "is_finished" is more like "is unaware of any
+// reason to continue existing" rather than "is certain there is no more work to do."
+pub trait Terminates {
+    fn is_finished(&self) -> bool;
 }
 
 // WORKING ASSERTION: WatchesClock should not also SourcesAudio, because
@@ -173,7 +181,7 @@ pub mod tests {
     use crate::clock::WatchedClock;
     use crate::midi::MidiMessage;
     use crate::preset::EnvelopePreset;
-    use crate::traits::{SinksMidi, SourcesMidi, WatchesClock};
+    use crate::traits::{SinksMidi, SourcesMidi, WatchesClock, Terminates};
     use crate::utils::tests::{
         TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSink, TestControlSource,
         TestControlSourceContinuous, TestMidiSink, TestMidiSource, TestOrchestrator,
@@ -417,11 +425,12 @@ pub mod tests {
     #[test]
     fn test_time_slicer() {
         let mut clock = Clock::new_test();
-        let mut time_slicer = TestClockWatcher::new(1.0);
+        let mut clock_watcher = TestClockWatcher::new(1.0);
 
         loop {
             clock.tick();
-            if time_slicer.tick(&mut clock) {
+            clock_watcher.tick(&mut clock);
+            if clock_watcher.is_finished() {
                 break;
             }
         }

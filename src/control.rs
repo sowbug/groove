@@ -1,8 +1,8 @@
 use crate::clock::{Clock, ClockTimeUnit};
 use crate::envelopes::{EnvelopeStep, SteppedEnvelope};
 use crate::settings::control::ControlStep;
-use crate::traits::WatchesClock;
 use crate::traits::{SinksControl, SinksControlParam};
+use crate::traits::{Terminates, WatchesClock};
 
 use std::cell::RefCell;
 use std::ops::Range;
@@ -25,6 +25,8 @@ pub struct ControlTrip {
     current_value: f32,
 
     envelope: SteppedEnvelope,
+
+    is_finished: bool,
 }
 
 impl ControlTrip {
@@ -37,6 +39,7 @@ impl ControlTrip {
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f32::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
+            is_finished: true,
         }
     }
 
@@ -67,11 +70,12 @@ impl ControlTrip {
             });
             self.cursor_beats += 1.0; // TODO: respect note_value
         }
+        self.is_finished = false;
     }
 }
 
 impl WatchesClock for ControlTrip {
-    fn tick(&mut self, clock: &Clock) -> bool {
+    fn tick(&mut self, clock: &Clock) {
         let time = self.envelope.time_for_unit(clock);
         let step = self.envelope.step_for_time(time);
         if step.interval.contains(&time) {
@@ -87,14 +91,21 @@ impl WatchesClock for ControlTrip {
                     },
                 );
             }
-            return time >= step.interval.end;
+            self.is_finished = time >= step.interval.end;
+            return;
         }
 
         // This is a drastic response to a tick that's out of range.
         // It might be better to limit it to times that are later than
         // the covered range. We're likely to hit ControlTrips that
         // start beyond time zero.
-        true
+        self.is_finished = true;
+    }
+}
+
+impl Terminates for ControlTrip {
+    fn is_finished(&self) -> bool {
+        self.is_finished
     }
 }
 

@@ -3,7 +3,10 @@ use std::{cell::RefCell, collections::HashMap, rc::Weak};
 use crate::{
     clock::Clock,
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
-    traits::{IsMidiEffect, SinksControl, SinksControlParam, SinksMidi, SourcesMidi, WatchesClock},
+    traits::{
+        IsMidiEffect, SinksControl, SinksControlParam, SinksMidi, SourcesMidi, Terminates,
+        WatchesClock,
+    },
 };
 
 #[derive(Debug, Default)]
@@ -60,7 +63,7 @@ impl SourcesMidi for Arpeggiator {
 }
 
 impl WatchesClock for Arpeggiator {
-    fn tick(&mut self, clock: &Clock) -> bool {
+    fn tick(&mut self, clock: &Clock) {
         if clock.beats() >= self.next_beat {
             self.next_beat += 1.0;
             if self.is_note_playing {
@@ -73,6 +76,7 @@ impl WatchesClock for Arpeggiator {
                     ),
                 );
                 self.is_note_playing = false;
+                // TODO duh
                 self.note_addition = if self.note_addition == 0 { 7 } else { 0 }
             }
             if self.is_device_playing {
@@ -87,6 +91,11 @@ impl WatchesClock for Arpeggiator {
                 self.is_note_playing = true;
             }
         }
+    }
+}
+
+impl Terminates for Arpeggiator {
+    fn is_finished(&self) -> bool {
         true
     }
 }

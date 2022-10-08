@@ -5,7 +5,7 @@ use sorted_vec::SortedVec;
 use crate::{
     clock::{Clock, TimeSignature},
     midi::{MidiChannel, OrderedMidiMessage},
-    traits::{SinksMidi, SourcesMidi, WatchesClock},
+    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
 
 #[derive(Debug, Default)]
@@ -67,11 +67,11 @@ impl SourcesMidi for MidiSequencer {
 }
 
 impl WatchesClock for MidiSequencer {
-    fn tick(&mut self, clock: &Clock) -> bool {
+    fn tick(&mut self, clock: &Clock) {
         if self.midi_messages.is_empty() {
             // This is different from falling through the loop below because
             // it signals that we're done.
-            return true;
+            return;
         }
         let elapsed_midi_ticks = (clock.seconds() * self.midi_ticks_per_second as f32) as u32;
         while !self.midi_messages.is_empty() {
@@ -89,10 +89,14 @@ impl WatchesClock for MidiSequencer {
                 break;
             }
         }
-        false
     }
 }
 
+impl Terminates for MidiSequencer {
+    fn is_finished(&self) -> bool {
+        self.midi_messages.is_empty()
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::{cell::RefCell, rc::Rc};

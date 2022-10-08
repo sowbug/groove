@@ -577,8 +577,9 @@ mod tests {
             tests::write_effect_to_file,
             IsController, SinksAudio, SinksControl,
             SinksControlParam::{self},
-            SourcesControl, WatchesClock,
+            SourcesControl, Terminates, WatchesClock,
         },
+        utils::tests::TestNullController,
         {clock::Clock, oscillators::Oscillator},
     };
 
@@ -632,7 +633,7 @@ mod tests {
     }
 
     impl WatchesClock for TestFilterController {
-        fn tick(&mut self, clock: &Clock) -> bool {
+        fn tick(&mut self, clock: &Clock) {
             if self.time_start < 0.0 {
                 self.time_start = clock.seconds();
             }
@@ -647,41 +648,16 @@ mod tests {
                 };
                 self.issue_control(clock, &sink_param);
             }
+        }
+    }
+
+    impl Terminates for TestFilterController {
+        fn is_finished(&self) -> bool {
             true
         }
     }
 
     impl IsController for TestFilterController {}
-
-    #[derive(Debug, Default)]
-    struct TestNullController {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
-    }
-
-    impl TestNullController {
-        fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-
-    impl SourcesControl for TestNullController {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
-            &self.control_sinks
-        }
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
-            &mut self.control_sinks
-        }
-    }
-
-    impl WatchesClock for TestNullController {
-        fn tick(&mut self, _clock: &Clock) -> bool {
-            true
-        }
-    }
-
-    impl IsController for TestNullController {}
 
     fn add_noise_and_write_filter_to_file(
         filter: &mut Filter,

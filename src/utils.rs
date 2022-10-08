@@ -18,7 +18,7 @@ pub mod tests {
         preset::EnvelopePreset,
         traits::{
             IsController, IsEffect, SinksAudio, SinksControl, SinksControlParam, SinksMidi,
-            SourcesAudio, SourcesControl, SourcesMidi, WatchesClock,
+            SourcesAudio, SourcesControl, SourcesMidi, Terminates, WatchesClock,
         },
     };
 
@@ -107,6 +107,40 @@ pub mod tests {
         }
     }
 
+    #[derive(Debug, Default)]
+    pub struct TestNullController {
+        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
+    }
+
+    impl TestNullController {
+        pub fn new() -> Self {
+            Self {
+                ..Default::default()
+            }
+        }
+    }
+
+    impl SourcesControl for TestNullController {
+        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+            &self.control_sinks
+        }
+        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+            &mut self.control_sinks
+        }
+    }
+
+    impl WatchesClock for TestNullController {
+        fn tick(&mut self, _clock: &Clock) {}
+    }
+
+    impl Terminates for TestNullController {
+        fn is_finished(&self) -> bool {
+            true
+        }
+    }
+
+    impl IsController for TestNullController {}
+
     #[derive(Debug)]
     pub struct TestOrchestrator {
         main_mixer: Box<dyn IsEffect>,
@@ -192,18 +226,25 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestTimer {
+        has_more_work: bool,
         time_to_run_seconds: f32,
     }
     impl TestTimer {
         pub fn new(time_to_run_seconds: f32) -> Self {
             Self {
                 time_to_run_seconds,
+                ..Default::default()
             }
         }
     }
     impl WatchesClock for TestTimer {
-        fn tick(&mut self, clock: &Clock) -> bool {
-            clock.seconds() >= self.time_to_run_seconds
+        fn tick(&mut self, clock: &Clock) {
+            self.has_more_work = clock.seconds() < self.time_to_run_seconds;
+        }
+    }
+    impl Terminates for TestTimer {
+        fn is_finished(&self) -> bool {
+            !self.has_more_work
         }
     }
 
@@ -224,13 +265,17 @@ pub mod tests {
         }
     }
     impl WatchesClock for TestTrigger {
-        fn tick(&mut self, clock: &Clock) -> bool {
+        fn tick(&mut self, clock: &Clock) {
             if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
                 self.has_triggered = true;
                 let value = self.value;
                 self.issue_control(clock, &SinksControlParam::Primary { value });
             }
-            clock.seconds() >= self.time_to_trigger_seconds
+        }
+    }
+    impl Terminates for TestTrigger {
+        fn is_finished(&self) -> bool {
+            self.has_triggered
         }
     }
     impl SourcesControl for TestTrigger {
@@ -267,9 +312,13 @@ pub mod tests {
         }
     }
     impl WatchesClock for TestControlSourceContinuous {
-        fn tick(&mut self, clock: &Clock) -> bool {
+        fn tick(&mut self, clock: &Clock) {
             let value = self.source.source_audio(clock);
             self.issue_control(clock, &SinksControlParam::Primary { value });
+        }
+    }
+    impl Terminates for TestControlSourceContinuous {
+        fn is_finished(&self) -> bool {
             true
         }
     }
@@ -348,18 +397,28 @@ pub mod tests {
     /// Keeps asking for time slices until end of specified lifetime.
     #[derive(Debug, Default)]
     pub struct TestClockWatcher {
+        has_more_work: bool,
         lifetime_seconds: f32,
     }
 
     impl WatchesClock for TestClockWatcher {
-        fn tick(&mut self, clock: &Clock) -> bool {
-            clock.seconds() >= self.lifetime_seconds
+        fn tick(&mut self, clock: &Clock) {
+            self.has_more_work = clock.seconds() < self.lifetime_seconds;
+        }
+    }
+
+    impl Terminates for TestClockWatcher {
+        fn is_finished(&self) -> bool {
+            !self.has_more_work
         }
     }
 
     impl TestClockWatcher {
         pub fn new(lifetime_seconds: f32) -> Self {
-            Self { lifetime_seconds }
+            Self {
+                lifetime_seconds,
+                ..Default::default()
+            }
         }
     }
 
@@ -544,13 +603,18 @@ pub mod tests {
     }
 
     impl WatchesClock for TestSimpleArpeggiator {
-        fn tick(&mut self, clock: &Clock) -> bool {
+        fn tick(&mut self, clock: &Clock) {
             // We don't actually pay any attention to self.tempo, but it's easy
             // enough to see that tempo could have influenced this MIDI message.
             self.issue_midi(
                 &clock,
                 &MidiMessage::new_note_on(self.midi_channel_out, 60, 100),
             );
+        }
+    }
+
+    impl Terminates for TestSimpleArpeggiator {
+        fn is_finished(&self) -> bool {
             true
         }
     }
@@ -574,12 +638,12 @@ pub mod tests {
     }
 
     impl WatchesClock for TestValueChecker {
-        fn tick(&mut self, clock: &Clock) -> bool {
+        fn tick(&mut self, clock: &Clock) {
             // We have to check is_empty() twice
             // because we might still get called
             // back if someone else isn't done yet.
             if self.values.is_empty() {
-                return true;
+                return;
             }
             if clock.time_for(&self.time_unit) >= self.checkpoint {
                 const SAD_FLOAT_DIFF: f32 = 1.0e-4;
@@ -591,6 +655,11 @@ pub mod tests {
                 self.checkpoint += self.checkpoint_delta;
                 self.values.pop_front();
             }
+        }
+    }
+
+    impl Terminates for TestValueChecker {
+        fn is_finished(&self) -> bool {
             self.values.is_empty()
         }
     }

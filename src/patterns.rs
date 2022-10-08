@@ -10,7 +10,7 @@ use sorted_vec::SortedVec;
 use crate::{
     clock::{BeatValue, Clock, TimeSignature},
     midi::{MidiChannel, MidiMessage, MidiMessageType},
-    traits::{SinksMidi, SourcesMidi, WatchesClock},
+    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
 
 #[derive(Debug, Default)]
@@ -115,14 +115,10 @@ impl PatternSequencer {
 }
 
 impl WatchesClock for PatternSequencer {
-    fn tick(&mut self, clock: &Clock) -> bool {
+    fn tick(&mut self, clock: &Clock) {
         // TODO: make this random-access by keeping sequenced_notes in place and scanning to find
         // next items to process. We will probably need some way to tell that the caller seeked.
         // Maybe Clock can tell us that!
-
-        if self.sequenced_notes.is_empty() {
-            return true;
-        }
 
         while !self.sequenced_notes.is_empty() {
             let note = *(self.sequenced_notes.first().unwrap());
@@ -138,7 +134,12 @@ impl WatchesClock for PatternSequencer {
                 break;
             }
         }
-        false
+    }
+}
+
+impl Terminates for PatternSequencer {
+    fn is_finished(&self) -> bool {
+        self.sequenced_notes.is_empty()
     }
 }
 
