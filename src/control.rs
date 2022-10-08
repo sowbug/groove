@@ -126,8 +126,7 @@ mod tests {
     use crate::{
         clock::WatchedClock,
         common::MonoSample,
-        traits::tests::TestValueChecker,
-        utils::tests::{TestMidiSink, TestOrchestrator},
+        utils::tests::{TestMidiSink, TestOrchestrator, TestValueChecker},
     };
 
     use super::*;
@@ -140,7 +139,6 @@ mod tests {
             ControlStep::Flat { value: 0.2 },
             ControlStep::Flat { value: 0.3 },
         ];
-        let step_count = step_vec.len();
         let sequence = Rc::new(RefCell::new(ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
@@ -148,44 +146,26 @@ mod tests {
         let target = Rc::new(RefCell::new(TestMidiSink::new()));
         let target_param_name = String::from("value");
         let target_weak = Rc::clone(&target);
-        let mut trip = ControlTrip::new(target_weak, target_param_name);
-        trip.add_path(Rc::clone(&sequence));
+        let trip = Rc::new(RefCell::new(ControlTrip::new(
+            target_weak,
+            target_param_name,
+        )));
+        trip.borrow_mut().add_path(Rc::clone(&sequence));
 
-        assert_eq!(target.borrow().value, 0.0f32);
+        let mut clock = WatchedClock::new();
+        clock.add_watcher(trip);
 
-        let mut clock = Clock::new_test();
-        let mut step_index: usize = 0;
-        let mut expected_value = f32::MAX;
-        loop {
-            let mut done = true;
+        clock.add_watcher(Rc::new(RefCell::new(TestValueChecker {
+            values: VecDeque::from(vec![0.9, 0.1, 0.2, 0.3]),
+            target,
+            checkpoint: 0.0,
+            checkpoint_delta: 1.0,
+            time_unit: ClockTimeUnit::Beats,
+        })));
 
-            // Let the trip do its work.
-            done = trip.tick(&clock) && done;
-
-            // Have we reached a new beat? If yes, we need to update the expected value.
-            if clock.beats() as usize == step_index {
-                // But only if we have a new step. If not, the old expected value stays.
-                if step_index < step_count {
-                    let step = &sequence.borrow().steps[step_index];
-                    match step {
-                        ControlStep::Flat { value } => {
-                            expected_value = *value;
-                        }
-                        _ => panic!(),
-                    }
-                }
-                step_index += 1;
-            }
-
-            // Make sure the value is correct for every time slice.
-            assert_eq!(target.borrow().value, expected_value);
-            if done {
-                break;
-            }
-
-            clock.tick();
-        }
-        assert_eq!(target.borrow().value, 0.3);
+        let mut samples_out = Vec::<MonoSample>::new();
+        let mut o = TestOrchestrator::new();
+        o.start(&mut clock, &mut samples_out);
     }
 
     #[test]
@@ -213,9 +193,10 @@ mod tests {
         let mut clock = WatchedClock::new();
         clock.add_watcher(trip);
 
+        let target = Rc::clone(&target);
         clock.add_watcher(Rc::new(RefCell::new(TestValueChecker {
             values: VecDeque::from(interpolated_values),
-            target: target.clone(),
+            target,
             checkpoint: 0.0,
             checkpoint_delta: 0.5,
             time_unit: ClockTimeUnit::Beats,

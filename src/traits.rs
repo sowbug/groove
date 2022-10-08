@@ -94,6 +94,7 @@ pub trait SourcesMidi {
     fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>;
 
     fn add_midi_sink(&mut self, channel: MidiChannel, sink: Weak<RefCell<dyn SinksMidi>>) {
+        // TODO: is there a good reason for channel != sink.midi_channel()? If not, why is it a param?
         self.midi_sinks_mut().entry(channel).or_default().push(sink);
     }
     fn issue_midi(&self, clock: &Clock, message: &MidiMessage) {
@@ -163,28 +164,26 @@ pub trait IsController: SourcesControl + WatchesClock {}
 #[cfg(test)]
 pub mod tests {
 
-    use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};
     use plotters::prelude::*;
     use std::cell::RefCell;
-    use std::collections::{HashMap, VecDeque};
     use std::fs;
-    use std::rc::{Rc, Weak};
+    use std::rc::Rc;
 
-    use crate::clock::{ClockTimeUnit, WatchedClock};
-    use crate::midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote};
+    use crate::clock::WatchedClock;
+    use crate::midi::MidiMessage;
     use crate::preset::EnvelopePreset;
+    use crate::traits::{SinksMidi, SourcesMidi, WatchesClock};
     use crate::utils::tests::{
-        TestControlSourceContinuous, TestOrchestrator, TestSynth, TestTimer, TestTrigger,
+        TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSink, TestControlSource,
+        TestControlSourceContinuous, TestMidiSink, TestMidiSource, TestOrchestrator,
+        TestSimpleArpeggiator, TestSimpleKeyboard, TestSynth, TestTimer, TestTrigger,
     };
     use crate::{clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator};
     use crate::{common::MonoSample, settings::ClockSettings};
     use crate::{common::MONO_SAMPLE_SILENCE, effects::gain::Gain};
 
-    use super::{
-        IsController, SinksAudio, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
-        SourcesControl, SourcesMidi, WatchesClock,
-    };
+    use super::{IsController, SinksAudio, SourcesAudio, SourcesControl};
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -415,290 +414,10 @@ pub mod tests {
         assert!(samples[44100] != 0.0 || samples[44100 + 1] != 0.0);
     }
 
-    /// Keeps asking for time slices until end of specified lifetime.
-    #[derive(Debug, Default)]
-    struct TestWatchesClock {
-        lifetime_seconds: f32,
-    }
-
-    impl WatchesClock for TestWatchesClock {
-        fn tick(&mut self, clock: &Clock) -> bool {
-            clock.seconds() >= self.lifetime_seconds
-        }
-    }
-
-    impl TestWatchesClock {
-        pub fn new(lifetime_seconds: f32) -> Self {
-            Self { lifetime_seconds }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    struct TestAudioSource {}
-
-    impl SourcesAudio for TestAudioSource {
-        fn source_audio(&mut self, _clock: &Clock) -> crate::common::MonoSample {
-            0.
-        }
-    }
-
-    impl TestAudioSource {
-        fn new() -> Self {
-            TestAudioSource {}
-        }
-    }
-
-    #[derive(Debug, Default)]
-    struct TestSinksAudio {
-        sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
-    }
-    impl SinksAudio for TestSinksAudio {
-        fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
-            &self.sources
-        }
-        fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
-            &mut self.sources
-        }
-    }
-    impl TestSinksAudio {
-        fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    struct TestAutomationSource {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
-    }
-
-    impl SourcesControl for TestAutomationSource {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
-            &self.control_sinks
-        }
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
-            &mut self.control_sinks
-        }
-    }
-
-    impl TestAutomationSource {
-        fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-
-        fn handle_test_event(&mut self, value: f32) {
-            self.issue_control(&Clock::new(), &SinksControlParam::Primary { value });
-        }
-    }
-
-    #[derive(Debug, Default)]
-    struct TestAutomationSink {
-        value: f32,
-    }
-
-    impl SinksControl for TestAutomationSink {
-        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-            match param {
-                SinksControlParam::Primary { value } => {
-                    self.value = *value;
-                }
-                #[allow(unused_variables)]
-                SinksControlParam::Secondary { value } => todo!(),
-            }
-        }
-    }
-
-    impl TestAutomationSink {
-        fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    struct TestMidiSource {
-        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
-    }
-
-    impl SourcesMidi for TestMidiSource {
-        fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
-            &self.channels_to_sink_vecs
-        }
-        fn midi_sinks_mut(
-            &mut self,
-        ) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
-            &mut self.channels_to_sink_vecs
-        }
-    }
-
-    impl TestMidiSource {
-        fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-
-        fn source_some_midi(&mut self, clock: &Clock) {
-            let message =
-                MidiMessage::new_note_on(TestSinksMidi::MIDI_CHANNEL, MidiNote::C4 as u8, 100);
-            self.issue_midi(clock, &message);
-        }
-    }
-
-    #[derive(Debug, Default)]
-    struct TestSinksMidi {
-        midi_channel: MidiChannel,
-        is_note_on: bool,
-    }
-
-    impl SinksMidi for TestSinksMidi {
-        fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-            self.midi_channel = midi_channel;
-        }
-
-        fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
-            match message.status {
-                MidiMessageType::NoteOn => {
-                    self.is_note_on = true;
-                }
-                MidiMessageType::NoteOff => {
-                    self.is_note_on = false;
-                }
-                MidiMessageType::ProgramChange => todo!(),
-            }
-        }
-
-        fn midi_channel(&self) -> MidiChannel {
-            Self::MIDI_CHANNEL
-        }
-    }
-
-    impl TestSinksMidi {
-        const MIDI_CHANNEL: MidiChannel = 7;
-
-        fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-
-    // Gets called with native functions telling it about external keyboard events.
-    // Translates those into automation events that influence an arpeggiator,
-    // which controls a MIDI instrument.
-    //
-    // This shows how all these traits work together.
-    #[derive(Debug, Default)]
-    struct TestSimpleKeyboard {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
-    }
-
-    impl SourcesControl for TestSimpleKeyboard {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
-            &self.control_sinks
-        }
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
-            &mut self.control_sinks
-        }
-    }
-
-    impl TestSimpleKeyboard {
-        fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-
-        fn handle_keypress(&mut self, key: u8) {
-            match key {
-                1 => {
-                    self.issue_control(&Clock::new(), &SinksControlParam::Primary { value: 0.5 });
-                }
-                _ => {}
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    struct TestSimpleArpeggiator {
-        tempo: f32,
-        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
-    }
-
-    impl SinksControl for TestSimpleArpeggiator {
-        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-            match param {
-                SinksControlParam::Primary { value } => self.tempo = *value,
-                #[allow(unused_variables)]
-                SinksControlParam::Secondary { value } => todo!(),
-            }
-        }
-    }
-
-    impl SourcesMidi for TestSimpleArpeggiator {
-        fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
-            &self.channels_to_sink_vecs
-        }
-        fn midi_sinks_mut(
-            &mut self,
-        ) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
-            &mut self.channels_to_sink_vecs
-        }
-    }
-
-    impl WatchesClock for TestSimpleArpeggiator {
-        fn tick(&mut self, clock: &Clock) -> bool {
-            // We don't actually pay any attention to self.tempo, but it's easy
-            // enough to see that tempo could have influenced this MIDI message.
-            self.issue_midi(
-                &clock,
-                &MidiMessage::new_note_on(TestSinksMidi::MIDI_CHANNEL, 60, 100),
-            );
-            true
-        }
-    }
-
-    impl TestSimpleArpeggiator {
-        fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-
-    #[derive(Debug)]
-    pub struct TestValueChecker {
-        pub values: VecDeque<f32>,
-        pub target: Rc<RefCell<dyn SourcesAudio>>,
-        pub checkpoint: f32,
-        pub checkpoint_delta: f32,
-        pub time_unit: ClockTimeUnit,
-    }
-
-    impl WatchesClock for TestValueChecker {
-        fn tick(&mut self, clock: &Clock) -> bool {
-            if clock.time_for(&self.time_unit) >= self.checkpoint {
-                const SAD_FLOAT_DIFF: f32 = 1.0e-4;
-                assert_approx_eq!(
-                    self.target.borrow_mut().source_audio(clock),
-                    self.values[0],
-                    SAD_FLOAT_DIFF
-                );
-                self.checkpoint += self.checkpoint_delta;
-                self.values.pop_front();
-            }
-            self.values.is_empty()
-        }
-    }
-
     #[test]
     fn test_time_slicer() {
         let mut clock = Clock::new_test();
-        let mut time_slicer = TestWatchesClock::new(1.0);
+        let mut time_slicer = TestClockWatcher::new(1.0);
 
         loop {
             clock.tick();
@@ -717,7 +436,7 @@ pub mod tests {
 
     #[test]
     fn test_audio_sink() {
-        let mut sink = TestSinksAudio::new();
+        let mut sink = TestAudioSink::new();
         let source = Rc::new(RefCell::new(TestAudioSource::new()));
         assert!(sink.sources().is_empty());
         sink.add_audio_source(source);
@@ -727,8 +446,8 @@ pub mod tests {
     #[test]
     fn test_automation_source_and_sink() {
         // By itself, TestAutomationSource doesn't do much, so we test both Source/Sink together.
-        let mut source = TestAutomationSource::new();
-        let sink = Rc::new(RefCell::new(TestAutomationSink::new()));
+        let mut source = TestControlSource::new();
+        let sink = Rc::new(RefCell::new(TestControlSink::new()));
 
         // Can we add a sink to the source?
         assert!(source.control_sinks().is_empty());
@@ -745,31 +464,33 @@ pub mod tests {
     #[test]
     fn test_midi_source_and_sink() {
         let mut source = TestMidiSource::new();
-        let sink = Rc::new(RefCell::new(TestSinksMidi::new()));
+        let sink = Rc::new(RefCell::new(TestMidiSink::new()));
 
         assert!(source.midi_sinks().is_empty());
         let sink_down = Rc::downgrade(&sink);
-        source.add_midi_sink(7, sink_down);
+        source.add_midi_sink(sink.borrow().midi_channel(), sink_down);
         assert!(!source.midi_sinks().is_empty());
 
         let clock = Clock::new_test();
-        assert!(!sink.borrow().is_note_on);
+        assert!(!sink.borrow().is_playing);
         source.source_some_midi(&clock);
-        assert!(sink.borrow().is_note_on);
+        assert!(sink.borrow().is_playing);
     }
 
     #[test]
     fn test_keyboard_to_automation_to_midi() {
         let mut keyboard_interface = TestSimpleKeyboard::new();
-        let arpeggiator = Rc::new(RefCell::new(TestSimpleArpeggiator::new()));
-        let instrument = Rc::new(RefCell::new(TestSinksMidi::new()));
+        let arpeggiator = Rc::new(RefCell::new(TestSimpleArpeggiator::new_with(
+            TestMidiSink::TEST_MIDI_CHANNEL,
+        )));
+        let instrument = Rc::new(RefCell::new(TestMidiSink::new()));
 
         let arpeggiator_weak = Rc::downgrade(&arpeggiator);
         keyboard_interface.add_control_sink(arpeggiator_weak);
         let sink = Rc::downgrade(&instrument);
         arpeggiator
             .borrow_mut()
-            .add_midi_sink(TestSinksMidi::MIDI_CHANNEL, sink);
+            .add_midi_sink(instrument.borrow().midi_channel(), sink);
 
         assert_eq!(arpeggiator.borrow().tempo, 0.0);
         keyboard_interface.handle_keypress(1); // set tempo to 50%
@@ -777,8 +498,8 @@ pub mod tests {
 
         let clock = Clock::new_test();
 
-        assert!(!instrument.borrow().is_note_on);
+        assert!(!instrument.borrow().is_playing);
         arpeggiator.borrow_mut().tick(&clock);
-        assert!(instrument.borrow().is_note_on);
+        assert!(instrument.borrow().is_playing);
     }
 }

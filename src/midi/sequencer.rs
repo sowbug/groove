@@ -127,9 +127,10 @@ mod tests {
         let mut clock = Clock::new();
         let mut sequencer = MidiSequencer::new();
 
-        let device = Rc::new(RefCell::new(TestMidiSink::new()));
+        let device = Rc::new(RefCell::new(TestMidiSink::new_with(0)));
         assert!(!device.borrow().is_playing);
 
+        // These helpers create messages on channel zero.
         sequencer.add_message(OrderedMidiMessage {
             when: sequencer.tick_for_beat(&clock, 0),
             message: MidiMessage::note_on_c4(),

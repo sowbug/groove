@@ -18,6 +18,7 @@ pub(crate) mod preset;
 pub(crate) mod settings;
 pub(crate) mod synthesizers;
 pub(crate) mod traits;
+pub(crate) mod utils;
 
 // TODO: nobody uses this, because we still declare it to avoid bit rot
 // while refactoring.

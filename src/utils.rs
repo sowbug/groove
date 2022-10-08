@@ -17,10 +17,16 @@ pub mod tests {
         oscillators::Oscillator,
         preset::EnvelopePreset,
         traits::{
-            IsController, IsEffect, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
-            SourcesControl, WatchesClock,
+            IsController, IsEffect, SinksAudio, SinksControl, SinksControlParam, SinksMidi,
+            SourcesAudio, SourcesControl, SourcesMidi, WatchesClock,
         },
     };
+
+    use assert_approx_eq::assert_approx_eq;
+    use std::collections::{HashMap, VecDeque};
+
+    use crate::clock::ClockTimeUnit;
+    use crate::midi::MidiNote;
 
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysSameLevel {
@@ -280,8 +286,17 @@ pub mod tests {
     }
 
     impl TestMidiSink {
+        pub const TEST_MIDI_CHANNEL: u8 = 42;
+
         pub fn new() -> Self {
             Self {
+                midi_channel: Self::TEST_MIDI_CHANNEL,
+                ..Default::default()
+            }
+        }
+        pub fn new_with(midi_channel: MidiChannel) -> Self {
+            Self {
+                midi_channel,
                 ..Default::default()
             }
         }
@@ -327,6 +342,256 @@ pub mod tests {
     impl SourcesAudio for TestMidiSink {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             self.value
+        }
+    }
+
+    /// Keeps asking for time slices until end of specified lifetime.
+    #[derive(Debug, Default)]
+    pub struct TestClockWatcher {
+        lifetime_seconds: f32,
+    }
+
+    impl WatchesClock for TestClockWatcher {
+        fn tick(&mut self, clock: &Clock) -> bool {
+            clock.seconds() >= self.lifetime_seconds
+        }
+    }
+
+    impl TestClockWatcher {
+        pub fn new(lifetime_seconds: f32) -> Self {
+            Self { lifetime_seconds }
+        }
+    }
+
+    #[derive(Debug, Default)]
+    pub struct TestAudioSource {}
+
+    impl SourcesAudio for TestAudioSource {
+        fn source_audio(&mut self, _clock: &Clock) -> crate::common::MonoSample {
+            0.
+        }
+    }
+
+    impl TestAudioSource {
+        pub fn new() -> Self {
+            TestAudioSource {}
+        }
+    }
+
+    #[derive(Debug, Default)]
+    pub struct TestAudioSink {
+        sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
+    }
+    impl SinksAudio for TestAudioSink {
+        fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+            &self.sources
+        }
+        fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+            &mut self.sources
+        }
+    }
+    impl TestAudioSink {
+        pub fn new() -> Self {
+            Self {
+                ..Default::default()
+            }
+        }
+    }
+
+    #[derive(Debug, Default)]
+    pub struct TestControlSource {
+        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
+    }
+
+    impl SourcesControl for TestControlSource {
+        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+            &self.control_sinks
+        }
+        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+            &mut self.control_sinks
+        }
+    }
+
+    impl TestControlSource {
+        pub fn new() -> Self {
+            Self {
+                ..Default::default()
+            }
+        }
+
+        pub fn handle_test_event(&mut self, value: f32) {
+            self.issue_control(&Clock::new(), &SinksControlParam::Primary { value });
+        }
+    }
+
+    #[derive(Debug, Default)]
+    pub struct TestControlSink {
+        pub value: f32,
+    }
+
+    impl SinksControl for TestControlSink {
+        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
+            match param {
+                SinksControlParam::Primary { value } => {
+                    self.value = *value;
+                }
+                #[allow(unused_variables)]
+                SinksControlParam::Secondary { value } => todo!(),
+            }
+        }
+    }
+
+    impl TestControlSink {
+        pub fn new() -> Self {
+            Self {
+                ..Default::default()
+            }
+        }
+    }
+
+    #[derive(Debug, Default)]
+    pub struct TestMidiSource {
+        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
+    }
+
+    impl SourcesMidi for TestMidiSource {
+        fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+            &self.channels_to_sink_vecs
+        }
+        fn midi_sinks_mut(
+            &mut self,
+        ) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+            &mut self.channels_to_sink_vecs
+        }
+    }
+
+    impl TestMidiSource {
+        pub fn new() -> Self {
+            Self {
+                ..Default::default()
+            }
+        }
+
+        pub fn source_some_midi(&mut self, clock: &Clock) {
+            let message =
+                MidiMessage::new_note_on(TestMidiSink::TEST_MIDI_CHANNEL, MidiNote::C4 as u8, 100);
+            self.issue_midi(clock, &message);
+        }
+    }
+
+    // Gets called with native functions telling it about external keyboard events.
+    // Translates those into automation events that influence an arpeggiator,
+    // which controls a MIDI instrument.
+    //
+    // This shows how all these traits work together.
+    #[derive(Debug, Default)]
+    pub struct TestSimpleKeyboard {
+        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
+    }
+
+    impl SourcesControl for TestSimpleKeyboard {
+        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+            &self.control_sinks
+        }
+        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+            &mut self.control_sinks
+        }
+    }
+
+    impl TestSimpleKeyboard {
+        pub fn new() -> Self {
+            Self {
+                ..Default::default()
+            }
+        }
+
+        pub fn handle_keypress(&mut self, key: u8) {
+            match key {
+                1 => {
+                    self.issue_control(&Clock::new(), &SinksControlParam::Primary { value: 0.5 });
+                }
+                _ => {}
+            }
+        }
+    }
+
+    #[derive(Debug, Default)]
+    pub struct TestSimpleArpeggiator {
+        midi_channel_out: MidiChannel,
+        pub tempo: f32,
+        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
+    }
+
+    impl SinksControl for TestSimpleArpeggiator {
+        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
+            match param {
+                SinksControlParam::Primary { value } => self.tempo = *value,
+                #[allow(unused_variables)]
+                SinksControlParam::Secondary { value } => todo!(),
+            }
+        }
+    }
+
+    impl SourcesMidi for TestSimpleArpeggiator {
+        fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+            &self.channels_to_sink_vecs
+        }
+        fn midi_sinks_mut(
+            &mut self,
+        ) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+            &mut self.channels_to_sink_vecs
+        }
+    }
+
+    impl WatchesClock for TestSimpleArpeggiator {
+        fn tick(&mut self, clock: &Clock) -> bool {
+            // We don't actually pay any attention to self.tempo, but it's easy
+            // enough to see that tempo could have influenced this MIDI message.
+            self.issue_midi(
+                &clock,
+                &MidiMessage::new_note_on(self.midi_channel_out, 60, 100),
+            );
+            true
+        }
+    }
+
+    impl TestSimpleArpeggiator {
+        pub fn new_with(midi_channel_out: MidiChannel) -> Self {
+            Self {
+                midi_channel_out,
+                ..Default::default()
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct TestValueChecker {
+        pub values: VecDeque<f32>,
+        pub target: Rc<RefCell<dyn SourcesAudio>>,
+        pub checkpoint: f32,
+        pub checkpoint_delta: f32,
+        pub time_unit: ClockTimeUnit,
+    }
+
+    impl WatchesClock for TestValueChecker {
+        fn tick(&mut self, clock: &Clock) -> bool {
+            // We have to check is_empty() twice
+            // because we might still get called
+            // back if someone else isn't done yet.
+            if self.values.is_empty() {
+                return true;
+            }
+            if clock.time_for(&self.time_unit) >= self.checkpoint {
+                const SAD_FLOAT_DIFF: f32 = 1.0e-4;
+                assert_approx_eq!(
+                    self.target.borrow_mut().source_audio(clock),
+                    self.values[0],
+                    SAD_FLOAT_DIFF
+                );
+                self.checkpoint += self.checkpoint_delta;
+                self.values.pop_front();
+            }
+            self.values.is_empty()
         }
     }
 }
