@@ -163,85 +163,28 @@ pub trait IsController: SourcesControl + WatchesClock {}
 #[cfg(test)]
 pub mod tests {
 
+    use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};
     use plotters::prelude::*;
     use std::cell::RefCell;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, VecDeque};
     use std::fs;
     use std::rc::{Rc, Weak};
 
-    use crate::clock::WatchedClock;
-    use crate::midi::{
-        tests::{self, MONO_SAMPLE_MIN},
-        MidiChannel, MidiMessage, MidiMessageType, MidiNote,
-    };
+    use crate::clock::{ClockTimeUnit, WatchedClock};
+    use crate::midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote};
     use crate::preset::EnvelopePreset;
+    use crate::utils::tests::{
+        TestControlSourceContinuous, TestOrchestrator, TestSynth, TestTimer, TestTrigger,
+    };
     use crate::{clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator};
     use crate::{common::MonoSample, settings::ClockSettings};
-    use crate::{
-        common::MONO_SAMPLE_SILENCE,
-        effects::{gain::Gain, mixer::Mixer},
-    };
+    use crate::{common::MONO_SAMPLE_SILENCE, effects::gain::Gain};
 
     use super::{
-        IsController, IsEffect, SinksAudio, SinksControl, SinksControlParam, SinksMidi,
-        SourcesAudio, SourcesControl, SourcesMidi, WatchesClock,
+        IsController, SinksAudio, SinksControl, SinksControlParam, SinksMidi, SourcesAudio,
+        SourcesControl, SourcesMidi, WatchesClock,
     };
-
-    #[derive(Debug, Default)]
-    pub struct NullDevice {
-        pub is_playing: bool,
-        midi_channel: MidiChannel,
-        pub midi_messages_received: usize,
-        pub midi_messages_handled: usize,
-        pub value: f32,
-    }
-
-    impl NullDevice {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-        pub fn set_value(&mut self, value: f32) {
-            self.value = value;
-        }
-    }
-    impl SinksMidi for NullDevice {
-        fn midi_channel(&self) -> MidiChannel {
-            self.midi_channel
-        }
-
-        fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-            self.midi_channel = midi_channel;
-        }
-        fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
-            self.midi_messages_received += 1;
-
-            match message.status {
-                MidiMessageType::NoteOn => {
-                    self.is_playing = true;
-                    self.midi_messages_handled += 1;
-                }
-                MidiMessageType::NoteOff => {
-                    self.is_playing = false;
-                    self.midi_messages_handled += 1;
-                }
-                MidiMessageType::ProgramChange => {
-                    self.midi_messages_handled += 1;
-                }
-            }
-        }
-    }
-    impl SinksControl for NullDevice {
-        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-            match param {
-                SinksControlParam::Primary { value } => self.set_value(*value),
-                #[allow(unused_variables)]
-                SinksControlParam::Secondary { value } => todo!(),
-            }
-        }
-    }
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -286,7 +229,7 @@ pub mod tests {
     }
 
     pub(crate) fn write_orchestration_to_file(
-        orchestrator: &mut SimpleOrchestrator,
+        orchestrator: &mut TestOrchestrator,
         clock: &mut WatchedClock,
         basename: &str,
     ) {
@@ -420,257 +363,10 @@ pub mod tests {
         );
     }
 
-    #[derive(Debug, Default)]
-    pub struct TestAlwaysSameLevelDevice {
-        level: MonoSample,
-    }
-    impl TestAlwaysSameLevelDevice {
-        pub fn new(level: MonoSample) -> Self {
-            Self {
-                level,
-                ..Default::default()
-            }
-        }
-    }
-    impl SourcesAudio for TestAlwaysSameLevelDevice {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            self.level
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAlwaysTooLoudDevice {}
-    impl TestAlwaysTooLoudDevice {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-    impl SourcesAudio for TestAlwaysTooLoudDevice {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            tests::MONO_SAMPLE_MAX + 0.1
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAlwaysLoudDevice {}
-    impl TestAlwaysLoudDevice {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-    impl SourcesAudio for TestAlwaysLoudDevice {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            tests::MONO_SAMPLE_MAX
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAlwaysSilentDevice {}
-    impl TestAlwaysSilentDevice {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-    impl SourcesAudio for TestAlwaysSilentDevice {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            MONO_SAMPLE_SILENCE
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAlwaysVeryQuietDevice {}
-    impl TestAlwaysVeryQuietDevice {
-        #[allow(dead_code)]
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-    impl SourcesAudio for TestAlwaysVeryQuietDevice {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            MONO_SAMPLE_MIN
-        }
-    }
-
-    #[derive(Debug)]
-    pub struct SimpleOrchestrator {
-        main_mixer: Box<dyn IsEffect>,
-    }
-
-    impl Default for SimpleOrchestrator {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    impl SimpleOrchestrator {
-        pub fn new() -> Self {
-            Self {
-                main_mixer: Box::new(Mixer::new()),
-            }
-        }
-
-        // TODO: I like "new_with"
-        #[allow(dead_code)]
-        pub fn new_with(main_mixer: Box<dyn IsEffect>) -> Self {
-            Self { main_mixer }
-        }
-
-        pub fn add_audio_source(&mut self, source: Rc<RefCell<dyn SourcesAudio>>) {
-            self.main_mixer.add_audio_source(source);
-        }
-
-        pub fn start(&mut self, clock: &mut WatchedClock, samples_out: &mut Vec<f32>) {
-            loop {
-                if clock.visit_watchers() {
-                    break;
-                }
-                samples_out.push(self.main_mixer.source_audio(clock.inner_clock()));
-                clock.tick();
-            }
-        }
-    }
-
-    #[derive(Debug)]
-    pub struct SimpleSynth {
-        oscillator: Rc<RefCell<dyn SourcesAudio>>,
-        envelope: Rc<RefCell<dyn SourcesAudio>>,
-    }
-
-    impl SimpleSynth {
-        #[deprecated]
-        /// You really don't want to call this, because you need a sample rate
-        /// for it to do anything meaningful, and it's a bad practice to hardcode
-        /// a 44.1KHz rate.
-        fn new() -> Self {
-            Self {
-                oscillator: Rc::new(RefCell::new(Oscillator::new())),
-                envelope: Rc::new(RefCell::new(AdsrEnvelope::new_with(
-                    &EnvelopePreset::default(),
-                ))),
-            }
-        }
-        fn new_with(
-            oscillator: Rc<RefCell<dyn SourcesAudio>>,
-            envelope: Rc<RefCell<dyn SourcesAudio>>,
-        ) -> Self {
-            Self {
-                oscillator,
-                envelope,
-            }
-        }
-    }
-
-    impl Default for SimpleSynth {
-        fn default() -> Self {
-            #[allow(deprecated)]
-            Self::new()
-        }
-    }
-
-    impl SourcesAudio for SimpleSynth {
-        fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-            self.oscillator.borrow_mut().source_audio(clock)
-                * self.envelope.borrow_mut().source_audio(clock)
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct SimpleTimer {
-        time_to_run_seconds: f32,
-    }
-    impl SimpleTimer {
-        pub fn new(time_to_run_seconds: f32) -> Self {
-            Self {
-                time_to_run_seconds,
-            }
-        }
-    }
-    impl WatchesClock for SimpleTimer {
-        fn tick(&mut self, clock: &Clock) -> bool {
-            clock.seconds() >= self.time_to_run_seconds
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct SimpleTrigger {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
-        time_to_trigger_seconds: f32,
-        value: f32,
-        has_triggered: bool,
-    }
-    impl SimpleTrigger {
-        fn new(time_to_trigger_seconds: f32, value: f32) -> Self {
-            Self {
-                time_to_trigger_seconds,
-                value,
-                ..Default::default()
-            }
-        }
-    }
-    impl WatchesClock for SimpleTrigger {
-        fn tick(&mut self, clock: &Clock) -> bool {
-            if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
-                self.has_triggered = true;
-                let value = self.value;
-                self.issue_control(clock, &SinksControlParam::Primary { value });
-            }
-            clock.seconds() >= self.time_to_trigger_seconds
-        }
-    }
-    impl SourcesControl for SimpleTrigger {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
-            &self.control_sinks
-        }
-
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
-            &mut self.control_sinks
-        }
-    }
-
-    /// Lets a SourcesAudio act like an IsController
-    #[derive(Debug)]
-    struct ContinuousControl {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
-        source: Box<dyn SourcesAudio>,
-    }
-    impl ContinuousControl {
-        fn new_with(source: Box<dyn SourcesAudio>) -> Self {
-            Self {
-                control_sinks: Vec::new(),
-                source: source,
-            }
-        }
-    }
-    impl SourcesControl for ContinuousControl {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
-            &self.control_sinks
-        }
-
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
-            &mut self.control_sinks
-        }
-    }
-    impl WatchesClock for ContinuousControl {
-        fn tick(&mut self, clock: &Clock) -> bool {
-            let value = self.source.source_audio(clock);
-            self.issue_control(clock, &SinksControlParam::Primary { value });
-            true
-        }
-    }
-    impl IsController for ContinuousControl {}
-
     #[test]
     fn test_simple_orchestrator() {
         let mut clock = WatchedClock::new();
-        let mut orchestrator = SimpleOrchestrator::new();
+        let mut orchestrator = TestOrchestrator::new();
         let envelope = Rc::new(RefCell::new(AdsrEnvelope::new_with(
             &EnvelopePreset::default(),
         )));
@@ -681,7 +377,7 @@ pub mod tests {
             .borrow_mut()
             .set_frequency(MidiMessage::note_to_frequency(60));
         let envelope_synth_clone = Rc::clone(&envelope);
-        let synth = Rc::new(RefCell::new(SimpleSynth::new_with(
+        let synth = Rc::new(RefCell::new(TestSynth::new_with(
             oscillator,
             envelope_synth_clone,
         )));
@@ -691,18 +387,18 @@ pub mod tests {
         let weak_effect = Rc::downgrade(&effect);
         orchestrator.add_audio_source(effect);
 
-        let mut controller = ContinuousControl::new_with(Box::new(Oscillator::new()));
+        let mut controller = TestControlSourceContinuous::new_with(Box::new(Oscillator::new()));
         controller.add_control_sink(weak_effect);
 
-        let timer = SimpleTimer::new(2.0);
+        let timer = TestTimer::new(2.0);
         clock.add_watcher(Rc::new(RefCell::new(timer)));
 
-        let mut trigger_on = SimpleTrigger::new(1.0, 1.0);
+        let mut trigger_on = TestTrigger::new(1.0, 1.0);
         let weak_envelope_on = Rc::downgrade(&envelope);
         trigger_on.add_control_sink(weak_envelope_on);
         clock.add_watcher(Rc::new(RefCell::new(trigger_on)));
 
-        let mut trigger_off = SimpleTrigger::new(1.5, 0.0);
+        let mut trigger_off = TestTrigger::new(1.5, 0.0);
         let weak_envelope_off = Rc::downgrade(&envelope);
         trigger_off.add_control_sink(weak_envelope_off);
         clock.add_watcher(Rc::new(RefCell::new(trigger_off)));
@@ -971,6 +667,31 @@ pub mod tests {
             Self {
                 ..Default::default()
             }
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct TestValueChecker {
+        pub values: VecDeque<f32>,
+        pub target: Rc<RefCell<dyn SourcesAudio>>,
+        pub checkpoint: f32,
+        pub checkpoint_delta: f32,
+        pub time_unit: ClockTimeUnit,
+    }
+
+    impl WatchesClock for TestValueChecker {
+        fn tick(&mut self, clock: &Clock) -> bool {
+            if clock.time_for(&self.time_unit) >= self.checkpoint {
+                const SAD_FLOAT_DIFF: f32 = 1.0e-4;
+                assert_approx_eq!(
+                    self.target.borrow_mut().source_audio(clock),
+                    self.values[0],
+                    SAD_FLOAT_DIFF
+                );
+                self.checkpoint += self.checkpoint_delta;
+                self.values.pop_front();
+            }
+            self.values.is_empty()
         }
     }
 

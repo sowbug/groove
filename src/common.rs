@@ -21,3 +21,11 @@ impl Default for WaveformType {
         WaveformType::Sine
     }
 }
+
+#[cfg(test)]
+pub mod tests {
+    use super::MonoSample;
+
+    pub const MONO_SAMPLE_MAX: MonoSample = 1.0;
+    pub const MONO_SAMPLE_MIN: MonoSample = -1.0;
+}

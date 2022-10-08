@@ -58,7 +58,7 @@ impl SinksControl for Bitcrusher {
 mod tests {
 
     use super::*;
-    use crate::{clock::Clock, traits::tests::TestAlwaysSameLevelDevice};
+    use crate::{clock::Clock, utils::tests::TestAudioSourceAlwaysSameLevel};
     use std::f32::consts::PI;
 
     const CRUSHED_PI: f32 = 0.14062929;
@@ -72,10 +72,10 @@ mod tests {
     #[test]
     fn test_bitcrusher_multisource() {
         let mut fx = Bitcrusher::new_with(8);
-        fx.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(
+        fx.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
             PI - 3.0,
         ))));
-        fx.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(
+        fx.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
             PI - 3.0,
         ))));
         assert_eq!(fx.source_audio(&Clock::new()), 2.0 * CRUSHED_PI);

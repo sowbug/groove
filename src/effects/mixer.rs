@@ -45,7 +45,9 @@ mod tests {
     use crate::{
         clock::Clock,
         common::MONO_SAMPLE_SILENCE,
-        traits::tests::{TestAlwaysLoudDevice, TestAlwaysSameLevelDevice, TestAlwaysSilentDevice},
+        utils::tests::{
+            TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSameLevel, TestAudioSourceAlwaysSilent,
+        },
     };
 
     use super::*;
@@ -59,15 +61,17 @@ mod tests {
         assert_eq!(mixer.source_audio(&clock), MONO_SAMPLE_SILENCE);
 
         // One always-loud
-        mixer.add_audio_source(Rc::new(RefCell::new(TestAlwaysLoudDevice::new())));
+        mixer.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysLoud::new())));
         assert_eq!(mixer.source_audio(&clock), 1.0);
 
         // One always-loud and one always-quiet
-        mixer.add_audio_source(Rc::new(RefCell::new(TestAlwaysSilentDevice::new())));
+        mixer.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSilent::new())));
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0);
 
         // ... and one in the middle
-        mixer.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(0.25))));
+        mixer.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
+            0.25,
+        ))));
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0 + 0.25);
     }
 }

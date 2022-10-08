@@ -108,19 +108,18 @@ impl PartialEq for OrderedMidiMessage {
 pub mod tests {
     use assert_approx_eq::assert_approx_eq;
 
-    use crate::common::{MonoSample, StereoSample, MONO_SAMPLE_SILENCE};
+    use crate::common::{
+        tests::MONO_SAMPLE_MAX, tests::MONO_SAMPLE_MIN, StereoSample, MONO_SAMPLE_SILENCE,
+    };
 
     use super::*;
-
-    pub const MONO_SAMPLE_MAX: MonoSample = 1.0;
-    pub const MONO_SAMPLE_MIN: MonoSample = -1.0;
 
     #[allow(dead_code)]
     pub const STEREO_SAMPLE_SILENCE: StereoSample = (MONO_SAMPLE_SILENCE, MONO_SAMPLE_SILENCE);
     #[allow(dead_code)]
     pub const STEREO_SAMPLE_MAX: StereoSample = (MONO_SAMPLE_MAX, MONO_SAMPLE_MAX);
     #[allow(dead_code)]
-    pub const STEREO_SAMPLE_MIN: StereoSample = (MONO_SAMPLE_MIN, MONO_SAMPLE_MIN);
+    pub const STEREO_SAMPLE_MIN: StereoSample = (MONO_SAMPLE_MAX, MONO_SAMPLE_MIN);
 
     impl MidiMessage {
         pub fn note_on_c4() -> MidiMessage {

@@ -49,9 +49,9 @@ impl SinksControl for Limiter {
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::MonoSample,
         clock::Clock,
-        traits::tests::{TestAlwaysSameLevelDevice, TestAlwaysTooLoudDevice},
+        common::MonoSample,
+        utils::tests::{TestAudioSourceAlwaysSameLevel, TestAudioSourceAlwaysTooLoud},
     };
     use assert_approx_eq::assert_approx_eq;
 
@@ -61,7 +61,7 @@ mod tests {
     fn test_limiter_mainline() {
         const MAX: MonoSample = 0.9;
         let mut limiter = Limiter::new_with(0.0, MAX);
-        limiter.add_audio_source(Rc::new(RefCell::new(TestAlwaysTooLoudDevice::new())));
+        limiter.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysTooLoud::new())));
         assert_eq!(limiter.source_audio(&Clock::new()), MAX);
     }
 
@@ -72,29 +72,43 @@ mod tests {
         let clock = Clock::new_test();
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
-            limiter.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(0.5))));
+            limiter.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
+                0.5,
+            ))));
             assert_eq!(limiter.source_audio(&clock), 0.5);
         }
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
-            limiter.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(-0.8))));
+            limiter.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
+                -0.8,
+            ))));
             assert_eq!(limiter.source_audio(&clock), MIN);
         }
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
-            limiter.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(0.8))));
+            limiter.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
+                0.8,
+            ))));
             assert_eq!(limiter.source_audio(&clock), MAX);
         }
 
         // multiple sources
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
-            limiter.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(0.2))));
-            limiter.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(0.6))));
+            limiter.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
+                0.2,
+            ))));
+            limiter.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
+                0.6,
+            ))));
             assert_eq!(limiter.source_audio(&clock), MAX);
-            limiter.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(-1.0))));
+            limiter.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
+                -1.0,
+            ))));
             assert_approx_eq!(limiter.source_audio(&clock), -0.2);
-            limiter.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(-1.0))));
+            limiter.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
+                -1.0,
+            ))));
             assert_eq!(limiter.source_audio(&clock), MIN);
         }
     }

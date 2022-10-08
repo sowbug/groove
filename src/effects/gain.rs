@@ -63,14 +63,14 @@ impl SinksControl for Gain {
 #[cfg(test)]
 mod tests {
 
-    use crate::traits::tests::{TestAlwaysLoudDevice, TestAlwaysSameLevelDevice};
+    use crate::utils::tests::{TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSameLevel};
 
     use super::*;
 
     #[test]
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(1.1);
-        gain.add_audio_source(Rc::new(RefCell::new(TestAlwaysLoudDevice::new())));
+        gain.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysLoud::new())));
         assert_eq!(gain.source_audio(&Clock::new()), 1.1);
     }
 
@@ -78,7 +78,9 @@ mod tests {
     fn test_gain_pola() {
         // principle of least astonishment: does a default instance adhere?
         let mut gain = Gain::new();
-        gain.add_audio_source(Rc::new(RefCell::new(TestAlwaysSameLevelDevice::new(0.888))));
+        gain.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
+            0.888,
+        ))));
         assert_eq!(gain.source_audio(&Clock::new()), 0.888);
     }
 }

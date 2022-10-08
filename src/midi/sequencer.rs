@@ -100,7 +100,8 @@ mod tests {
     use crate::{
         clock::Clock,
         midi::{MidiMessage, MidiNote, OrderedMidiMessage},
-        traits::{tests::NullDevice, SinksMidi, SourcesMidi, WatchesClock},
+        traits::{SinksMidi, SourcesMidi, WatchesClock},
+        utils::tests::TestMidiSink,
     };
 
     use super::MidiSequencer;
@@ -126,7 +127,7 @@ mod tests {
         let mut clock = Clock::new();
         let mut sequencer = MidiSequencer::new();
 
-        let device = Rc::new(RefCell::new(NullDevice::new()));
+        let device = Rc::new(RefCell::new(TestMidiSink::new()));
         assert!(!device.borrow().is_playing);
 
         sequencer.add_message(OrderedMidiMessage {
@@ -163,13 +164,13 @@ mod tests {
         let mut clock = Clock::new();
         let mut sequencer = MidiSequencer::new();
 
-        let device_1 = Rc::new(RefCell::new(NullDevice::new()));
+        let device_1 = Rc::new(RefCell::new(TestMidiSink::new()));
         assert!(!device_1.borrow().is_playing);
         device_1.borrow_mut().set_midi_channel(0);
         let sink = Rc::downgrade(&device_1);
         sequencer.add_midi_sink(0, sink);
 
-        let device_2 = Rc::new(RefCell::new(NullDevice::new()));
+        let device_2 = Rc::new(RefCell::new(TestMidiSink::new()));
         assert!(!device_2.borrow().is_playing);
         device_2.borrow_mut().set_midi_channel(1);
         let sink = Rc::downgrade(&device_2);

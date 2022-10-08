@@ -1,24 +1,46 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{common::DeviceId, clock::BeatValue};
+use crate::{clock::BeatValue, common::DeviceId};
 
+/// A ControlTrip contains successive ControlSteps. A ControlStep
+/// describes how to get from point A in time to point B in time,
+/// while controlling/automating the parameter over that time.
+/// For example, one ControlStep might say "go from 0.5 to 0.7
+/// linearly from beat twelve to beat sixteen." The ControlTrip knows
+/// which target that 0.5-0.7 applies to.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]
-pub enum ControlStepType {
-    Flat { value: f32 }, // stairstep
-    Slope { start: f32, end: f32 }, // linear
+pub enum ControlStep {
+    // stairstep
+    Flat {
+        value: f32,
+    },
+    // linear
+    Slope {
+        start: f32,
+        end: f32,
+    },
 
-                         // Logarithmic {start: f32, end: f32},
-                         // Trigger {id: String, value: f32}, // TODO: this might mean Automators are also AutomationSinks
-                         //          // and maybe MidiSinks.
+    // logarithmic
+    #[allow(dead_code)]
+    Logarithmic {
+        start: f32,
+        end: f32,
+    },
+
+    // event-driven
+    #[allow(dead_code)]
+    Triggered {
+        // TODO: if we implement this, then ControlTrips are also ControlSinks.
+    },
 }
 
-impl ControlStepType {
-    pub fn new_flat(value: f32) -> crate::settings::control::ControlStepType {
-        ControlStepType::Flat { value }
+impl ControlStep {
+    pub fn new_flat(value: f32) -> crate::settings::control::ControlStep {
+        ControlStep::Flat { value }
     }
-    pub fn new_slope(start: f32, end: f32) -> crate::settings::control::ControlStepType {
-        ControlStepType::Slope { start, end }
+    pub fn new_slope(start: f32, end: f32) -> crate::settings::control::ControlStep {
+        ControlStep::Slope { start, end }
     }
 }
 
@@ -27,7 +49,7 @@ impl ControlStepType {
 pub struct ControlPathSettings {
     pub id: DeviceId,
     pub note_value: Option<BeatValue>,
-    pub steps: Vec<ControlStepType>,
+    pub steps: Vec<ControlStep>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

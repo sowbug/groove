@@ -3,6 +3,7 @@ use std::{fmt::Debug, ops::Range};
 use more_asserts::{debug_assert_ge, debug_assert_le};
 
 use crate::{
+    clock::ClockTimeUnit,
     common::MonoSample,
     midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
     preset::EnvelopePreset,
@@ -13,15 +14,6 @@ use crate::{
 };
 
 use super::clock::Clock;
-
-#[derive(Debug, Default)]
-pub enum EnvelopeTimeUnit {
-    #[default]
-    Seconds,
-    Beats,
-    #[allow(dead_code)]
-    Samples,
-}
 
 #[derive(Debug, Default)]
 pub struct EnvelopeStep {
@@ -66,7 +58,7 @@ impl EnvelopeStep {
 
 #[derive(Debug, Default)]
 pub struct SteppedEnvelope {
-    time_unit: EnvelopeTimeUnit,
+    time_unit: ClockTimeUnit,
     steps: Vec<EnvelopeStep>,
 }
 
@@ -78,14 +70,14 @@ impl SteppedEnvelope {
         }
     }
 
-    pub(crate) fn new_with_time_unit(time_unit: EnvelopeTimeUnit) -> Self {
+    pub(crate) fn new_with_time_unit(time_unit: ClockTimeUnit) -> Self {
         Self {
             time_unit,
             ..Default::default()
         }
     }
 
-    pub(crate) fn new_with(time_unit: EnvelopeTimeUnit, vec: Vec<EnvelopeStep>) -> Self {
+    pub(crate) fn new_with(time_unit: ClockTimeUnit, vec: Vec<EnvelopeStep>) -> Self {
         let r = Self {
             time_unit,
             steps: vec,
@@ -103,16 +95,9 @@ impl SteppedEnvelope {
         &self.steps
     }
 
-    fn time_unit(&self) -> &EnvelopeTimeUnit {
+    #[allow(dead_code)]
+    fn time_unit(&self) -> &ClockTimeUnit {
         &self.time_unit
-    }
-
-    pub(crate) fn time_for_unit(&self, clock: &Clock) -> f32 {
-        match self.time_unit() {
-            EnvelopeTimeUnit::Seconds => clock.seconds(),
-            EnvelopeTimeUnit::Beats => clock.beats(),
-            EnvelopeTimeUnit::Samples => todo!(),
-        }
     }
 
     pub(crate) fn step_for_time(&self, time: f32) -> &EnvelopeStep {
@@ -180,6 +165,10 @@ impl SteppedEnvelope {
             }
         }
         // TODO same debug_assert_eq!(end_time, f32::MAX);
+    }
+
+    pub(crate) fn time_for_unit(&self, clock: &Clock) -> f32 {
+        clock.time_for(&self.time_unit)
     }
 }
 
@@ -443,7 +432,7 @@ impl AdsrEnvelope {
         ];
         Self {
             preset: *preset,
-            envelope: SteppedEnvelope::new_with(EnvelopeTimeUnit::Seconds, vec),
+            envelope: SteppedEnvelope::new_with(ClockTimeUnit::Seconds, vec),
             ..Default::default()
         }
     }

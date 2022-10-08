@@ -126,6 +126,16 @@ impl Default for TimeSignature {
     }
 }
 
+// A way to specify a time unit that Clock tracks.
+#[derive(Debug, Default)]
+pub enum ClockTimeUnit {
+    #[default]
+    Seconds,
+    Beats,
+    #[allow(dead_code)]
+    Samples,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Clock {
     settings: ClockSettings,
@@ -178,6 +188,14 @@ impl Clock {
         self.samples = 0;
         self.seconds = 0.0;
         self.beats = 0.0;
+    }
+
+    pub(crate) fn time_for(&self, unit: &ClockTimeUnit) -> f32 {
+        match unit {
+            ClockTimeUnit::Seconds => self.seconds(),
+            ClockTimeUnit::Beats => self.beats(),
+            ClockTimeUnit::Samples => todo!(),
+        }
     }
 }
 
