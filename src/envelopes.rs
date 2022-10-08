@@ -19,6 +19,7 @@ pub enum EnvelopeTimeUnit {
     #[default]
     Seconds,
     Beats,
+    #[allow(dead_code)]
     Samples,
 }
 
@@ -70,6 +71,7 @@ pub struct SteppedEnvelope {
 }
 
 impl SteppedEnvelope {
+    #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self {
             ..Default::default()

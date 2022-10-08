@@ -6,6 +6,7 @@ use crate::midi::MIDI_CHANNEL_RECEIVE_ALL;
 use crate::settings::{effects::EffectSettings, song::SongSettings};
 use crate::settings::{DeviceSettings, InstrumentSettings};
 use crate::{
+    clock::WatchedClock,
     effects::{
         arpeggiator::Arpeggiator,
         bitcrusher::Bitcrusher,
@@ -14,7 +15,6 @@ use crate::{
         limiter::Limiter,
         mixer::Mixer,
     },
-    clock::WatchedClock,
 };
 
 use crate::synthesizers::{drumkit_sampler, welsh};
@@ -497,7 +497,6 @@ impl Orchestrator {
                     );
                 }
             }
-            control_trip.borrow_mut().freeze_trip_envelopes();
             self.add_clock_watcher_by_id(control_trip_settings.id, control_trip);
         }
     }
