@@ -7,77 +7,77 @@ clock:
     - 4
 devices:
   - instrument:
-      welsh:
-        id: piano-1
-        midi-in: 0
-        preset: piano
+      - piano-1
+      - welsh:
+          midi-in: 0
+          preset: piano
   - instrument:
-      welsh:
-        id: bassline
-        midi-in: 1
-        preset: digital-bass
+      - bassline
+      - welsh:
+          midi-in: 1
+          preset: digital-bass
   - instrument:
-      drumkit:
-        id: drum-1
-        midi-in: 10
-        preset: "707"
+      - drum-1
+      - drumkit:
+          midi-in: 10
+          preset: "707"
   - instrument:
-      arpeggiator:
-        id: arp-1 # Not currently connected to anything
-        midi-in: 2
-        midi-out: 3
+      - arp-1 # Not currently connected to anything
+      - arpeggiator:
+          midi-in: 2
+          midi-out: 3
   - effect:
-      gain:
-        id: gain-1
-        amount: 0.50
+      - gain-1
+      - gain:
+          amount: 0.50
   - effect:
-      gain:
-        id: gain-2
-        amount: 0.50
+      - gain-2
+      - gain:
+          amount: 0.50
   - effect:
-      bitcrusher:
-        id: bitcrusher-1
-        bits-to-crush: 14
+      - bitcrusher-1
+      - bitcrusher:
+          bits-to-crush: 14
   - effect:
-      filter-low-pass-12db:
-        id: low-pass-1
-        cutoff: 1200.0
-        q: 1.0
+      - low-pass-1
+      - filter-low-pass-12db:
+          cutoff: 1200.0
+          q: 1.0
   - effect:
-      filter-high-pass-12db:
-        id: high-pass-1
-        cutoff: 1200.0
-        q: 1.0
+      - high-pass-1
+      - filter-high-pass-12db:
+          cutoff: 1200.0
+          q: 1.0
   - effect:
-      filter-band-pass-12db:
-        id: band-pass-1
-        cutoff: 1200.0
-        bandwidth: 1.0
+      - band-pass-1
+      - filter-band-pass-12db:
+          cutoff: 1200.0
+          bandwidth: 1.0
   - effect:
-      filter-band-stop-12db:
-        id: band-stop-1
-        cutoff: 1200.0
-        bandwidth: 1.0
+      - band-stop-1
+      - filter-band-stop-12db:
+          cutoff: 1200.0
+          bandwidth: 1.0
   - effect:
-      filter-all-pass-12db:
-        id: all-pass-1
-        cutoff: 1200.0
-        q: 1.0
+      - all-pass-1
+      - filter-all-pass-12db:
+          cutoff: 1200.0
+          q: 1.0
   - effect:
-      filter-peaking-eq-12db:
-        id: peaking-eq-1
-        cutoff: 1200.0
-        db-gain: 1.0
+      - peaking-eq-1
+      - filter-peaking-eq-12db:
+          cutoff: 1200.0
+          db-gain: 1.0
   - effect:
-      filter-low-shelf-12db:
-        id: low-shelf-1
-        cutoff: 1200.0
-        db-gain: 1.0
+      - low-shelf-1
+      - filter-low-shelf-12db:
+          cutoff: 1200.0
+          db-gain: 1.0
   - effect:
-      filter-high-shelf-12db:
-        id: high-shelf-1
-        cutoff: 1200.0
-        db-gain: 1.0
+      - high-shelf-1
+      - filter-high-shelf-12db:
+          cutoff: 1200.0
+          db-gain: 1.0
 patch-cables:
   - [piano-1, bitcrusher-1, low-pass-1, gain-1, main-mixer]
   - [bassline, gain-2, main-mixer]

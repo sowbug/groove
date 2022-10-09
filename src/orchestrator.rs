@@ -3,18 +3,11 @@ use crate::midi::sequencer::MidiSequencer;
 use crate::midi::smf_reader::MidiBus;
 use crate::midi::MidiChannel;
 use crate::midi::MIDI_CHANNEL_RECEIVE_ALL;
-use crate::settings::{effects::EffectSettings, song::SongSettings};
+use crate::settings::song::SongSettings;
 use crate::settings::{DeviceSettings, InstrumentSettings};
 use crate::{
     clock::WatchedClock,
-    effects::{
-        arpeggiator::Arpeggiator,
-        bitcrusher::Bitcrusher,
-        filter::{self, Filter},
-        gain::Gain,
-        limiter::Limiter,
-        mixer::Mixer,
-    },
+    effects::{arpeggiator::Arpeggiator, mixer::Mixer},
 };
 
 use crate::synthesizers::{drumkit_sampler, welsh};
@@ -208,9 +201,8 @@ impl Orchestrator {
         for device in self.settings.devices.clone() {
             // TODO: grrr, want this to be iter_mut()
             match device {
-                DeviceSettings::Instrument(settings) => match settings {
+                DeviceSettings::Instrument(id, settings) => match settings {
                     InstrumentSettings::Welsh {
-                        id,
                         midi_input_channel,
                         preset_name,
                     } => {
@@ -224,7 +216,6 @@ impl Orchestrator {
                         self.add_instrument_by_id(id, instrument);
                     }
                     InstrumentSettings::Drumkit {
-                        id,
                         midi_input_channel,
                         preset_name: _preset,
                     } => {
@@ -236,7 +227,6 @@ impl Orchestrator {
                         self.add_instrument_by_id(id, instrument);
                     }
                     InstrumentSettings::Arpeggiator {
-                        id,
                         midi_input_channel,
                         midi_output_channel,
                     } => self.add_midi_effect_by_id(
@@ -249,7 +239,7 @@ impl Orchestrator {
                         midi_input_channel,
                     ),
                 },
-                DeviceSettings::Effect(_settings) => { // skip
+                DeviceSettings::Effect(_id, _settings) => { // skip
                 }
             }
         }
@@ -257,121 +247,11 @@ impl Orchestrator {
 
     fn create_effects_from_settings(&mut self) {
         for device in self.settings.devices.clone() {
-            if let DeviceSettings::Effect(effect_settings) = device {
-                match effect_settings {
-                    // This has more repetition than we'd expect because of
-                    // https://stackoverflow.com/questions/26378842/how-do-i-overcome-match-arms-with-incompatible-types-for-structs-implementing-sa
-                    //
-                    // Match arms have to return the same types, and returning a Rc<RefCell<dyn some trait>> doesn't count
-                    // as the same type.
-                    EffectSettings::Limiter { id, min, max } => {
-                        let device = Rc::new(RefCell::new(Limiter::new_with(
-                            min as MonoSample,
-                            max as MonoSample,
-                        )));
-                        self.add_effect_by_id(id, device);
-                    }
-                    EffectSettings::Gain { id, amount } => {
-                        let device = Rc::new(RefCell::new(Gain::new_with(amount)));
-                        self.add_effect_by_id(id, device);
-                    }
-                    EffectSettings::Bitcrusher { id, bits_to_crush } => {
-                        let device = Rc::new(RefCell::new(Bitcrusher::new_with(bits_to_crush)));
-                        self.add_effect_by_id(id, device);
-                    }
-                    EffectSettings::FilterLowPass12db { id, cutoff, q } => {
-                        let device =
-                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::LowPass {
-                                sample_rate: self.settings().clock.sample_rate(),
-                                cutoff,
-                                q,
-                            })));
-                        self.add_effect_by_id(id, device);
-                    }
-                    EffectSettings::FilterHighPass12db { id, cutoff, q } => {
-                        let device =
-                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::HighPass {
-                                sample_rate: self.settings().clock.sample_rate(),
-                                cutoff,
-                                q,
-                            })));
-                        self.add_effect_by_id(id, device);
-                    }
-                    EffectSettings::FilterBandPass12db {
-                        id,
-                        cutoff,
-                        bandwidth,
-                    } => {
-                        let device =
-                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::BandPass {
-                                sample_rate: self.settings().clock.sample_rate(),
-                                cutoff,
-                                bandwidth,
-                            })));
-                        self.add_effect_by_id(id, device);
-                    }
-                    EffectSettings::FilterBandStop12db {
-                        id,
-                        cutoff,
-                        bandwidth,
-                    } => {
-                        let device =
-                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::BandStop {
-                                sample_rate: self.settings().clock.sample_rate(),
-                                cutoff,
-                                bandwidth,
-                            })));
-                        self.add_effect_by_id(id, device);
-                    }
-                    EffectSettings::FilterAllPass12db { id, cutoff, q } => {
-                        let device =
-                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::AllPass {
-                                sample_rate: self.settings().clock.sample_rate(),
-                                cutoff,
-                                q,
-                            })));
-                        self.add_effect_by_id(id, device);
-                    }
-                    EffectSettings::FilterPeakingEq12db {
-                        id,
-                        cutoff,
-                        db_gain,
-                    } => {
-                        let device =
-                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::PeakingEq {
-                                sample_rate: self.settings().clock.sample_rate(),
-                                cutoff,
-                                db_gain,
-                            })));
-                        self.add_effect_by_id(id, device);
-                    }
-                    EffectSettings::FilterLowShelf12db {
-                        id,
-                        cutoff,
-                        db_gain,
-                    } => {
-                        let device =
-                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::LowShelf {
-                                sample_rate: self.settings().clock.sample_rate(),
-                                cutoff,
-                                db_gain,
-                            })));
-                        self.add_effect_by_id(id, device);
-                    }
-                    EffectSettings::FilterHighShelf12db {
-                        id,
-                        cutoff,
-                        db_gain,
-                    } => {
-                        let device =
-                            Rc::new(RefCell::new(Filter::new(&filter::FilterType::HighShelf {
-                                sample_rate: self.settings().clock.sample_rate(),
-                                cutoff,
-                                db_gain,
-                            })));
-                        self.add_effect_by_id(id, device);
-                    }
-                };
+            if let DeviceSettings::Effect(id, effect_settings) = device {
+                self.add_effect_by_id(
+                    id,
+                    effect_settings.instantiate(self.settings().clock.sample_rate()),
+                );
             }
         }
     }

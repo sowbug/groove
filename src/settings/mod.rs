@@ -5,8 +5,8 @@ pub(crate) mod song;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::DeviceId,
     clock::{BeatValue, TimeSignature},
+    common::DeviceId,
     synthesizers::welsh::PresetName,
 };
 
@@ -19,7 +19,6 @@ type MidiChannel = u8;
 pub enum InstrumentSettings {
     #[serde(rename_all = "kebab-case")]
     Welsh {
-        id: DeviceId,
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
         #[serde(rename = "preset")]
@@ -27,7 +26,6 @@ pub enum InstrumentSettings {
     },
     #[serde(rename_all = "kebab-case")]
     Drumkit {
-        id: DeviceId,
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
         #[serde(rename = "preset")]
@@ -35,7 +33,6 @@ pub enum InstrumentSettings {
     },
     #[serde(rename_all = "kebab-case")]
     Arpeggiator {
-        id: DeviceId,
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
         #[serde(rename = "midi-out")]
@@ -46,8 +43,8 @@ pub enum InstrumentSettings {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DeviceSettings {
-    Instrument(InstrumentSettings),
-    Effect(EffectSettings),
+    Instrument(DeviceId, InstrumentSettings),
+    Effect(DeviceId, EffectSettings),
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
