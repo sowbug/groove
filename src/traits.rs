@@ -1,14 +1,13 @@
+use crate::{
+    clock::Clock,
+    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
+};
 use std::fmt::Debug;
 use std::{
     cell::RefCell,
     collections::HashMap,
     rc::{Rc, Weak},
-};
-
-use crate::{
-    clock::Clock,
-    common::{MonoSample, MONO_SAMPLE_SILENCE},
-    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
 
 /// Provides audio in the form of digital samples.
@@ -92,6 +91,9 @@ pub enum SinksControlParam {
 pub trait SourcesMidi {
     fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>;
     fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>;
+
+    fn midi_output_channel(&self) -> MidiChannel;
+    fn set_midi_output_channel(&mut self, midi_channel: MidiChannel);
 
     fn add_midi_sink(&mut self, channel: MidiChannel, sink: Weak<RefCell<dyn SinksMidi>>) {
         // TODO: is there a good reason for channel != sink.midi_channel()? If not, why is it a param?
@@ -183,9 +185,9 @@ pub mod tests {
     use crate::preset::EnvelopePreset;
     use crate::traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock};
     use crate::utils::tests::{
-        TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSink, TestControlSource,
-        TestControlSourceContinuous, TestMidiSink, TestMidiSource, TestOrchestrator,
-        TestArpeggiator, TestKeyboard, TestSynth, TestTimer, TestTrigger,
+        TestArpeggiator, TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSink,
+        TestControlSource, TestControlSourceContinuous, TestKeyboard, TestMidiSink, TestMidiSource,
+        TestOrchestrator, TestSynth, TestTimer, TestTrigger,
     };
     use crate::{clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator};
     use crate::{common::MonoSample, settings::ClockSettings};

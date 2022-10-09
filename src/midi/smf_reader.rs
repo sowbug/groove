@@ -1,16 +1,14 @@
+use super::sequencer::MidiSequencer;
+use crate::{
+    midi::{MidiChannel, MidiMessage, OrderedMidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
+    traits::{SinksMidi, SourcesMidi},
+};
 use midly::{MidiMessage as MidlyMidiMessage, TrackEventKind};
 use std::{
     cell::RefCell,
     collections::HashMap,
     rc::{Rc, Weak},
 };
-
-use crate::{
-    midi::{MidiChannel, MidiMessage, OrderedMidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{SinksMidi, SourcesMidi},
-};
-
-use super::sequencer::MidiSequencer;
 
 pub struct MidiSmfReader {}
 
@@ -165,6 +163,12 @@ impl SourcesMidi for MidiBus {
     fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
         &mut self.channels_to_sink_vecs
     }
+
+    fn midi_output_channel(&self) -> MidiChannel {
+        MIDI_CHANNEL_RECEIVE_ALL
+    }
+
+    fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
 }
 impl MidiBus {
     pub fn new() -> Self {

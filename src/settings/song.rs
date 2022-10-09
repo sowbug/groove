@@ -1,11 +1,9 @@
-use serde::{Deserialize, Serialize};
-
-use crate::common::DeviceId;
-
 use super::{
     control::{ControlPathSettings, ControlTripSettings},
     ClockSettings, DeviceSettings, PatternSettings, TrackSettings,
 };
+use crate::common::DeviceId;
+use serde::{Deserialize, Serialize};
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
@@ -40,7 +38,10 @@ impl SongSettings {
     }
 
     pub fn new_from_yaml(yaml: &str) -> Result<SongSettings, LoadError> {
-        serde_yaml::from_str(yaml).map_err(|_| LoadError::FormatError)
+        serde_yaml::from_str(yaml).map_err(|e| {
+            println!("{}", e);
+            LoadError::FormatError
+        })
     }
 
     #[allow(dead_code)]
@@ -72,19 +73,21 @@ mod tests {
             let mut r = Self {
                 ..Default::default()
             };
-            r.devices
-                .push(DeviceSettings::Instrument(InstrumentSettings::Welsh {
-                    id: String::from("piano-1"),
+            r.devices.push(DeviceSettings::Instrument(
+                String::from("piano-1"),
+                InstrumentSettings::Welsh {
                     midi_input_channel: 0,
                     preset_name: PresetName::Piano,
-                }));
+                },
+            ));
 
-            r.devices
-                .push(DeviceSettings::Instrument(InstrumentSettings::Drumkit {
-                    id: String::from("drum-1"),
+            r.devices.push(DeviceSettings::Instrument(
+                String::from("drum-1"),
+                InstrumentSettings::Drumkit {
                     midi_input_channel: 10,
                     preset_name: String::from("707"), // TODO, for now all 707
-                }));
+                },
+            ));
 
             r.patch_cables
                 .push(Self::new_patch_cable(vec!["piano", "main-mixer"]));

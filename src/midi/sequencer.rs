@@ -1,12 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Weak};
-
-use sorted_vec::SortedVec;
-
+use super::MIDI_CHANNEL_RECEIVE_ALL;
 use crate::{
     clock::{Clock, TimeSignature},
     midi::{MidiChannel, OrderedMidiMessage},
     traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
+use sorted_vec::SortedVec;
+use std::{cell::RefCell, collections::HashMap, rc::Weak};
 
 #[derive(Debug, Default)]
 pub struct MidiSequencer {
@@ -64,6 +63,12 @@ impl SourcesMidi for MidiSequencer {
     fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
         &self.channels_to_sink_vecs
     }
+
+    fn midi_output_channel(&self) -> MidiChannel {
+        MIDI_CHANNEL_RECEIVE_ALL // TODO: this is poorly named
+    }
+
+    fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
 }
 
 impl WatchesClock for MidiSequencer {

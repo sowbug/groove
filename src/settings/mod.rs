@@ -2,15 +2,19 @@ pub(crate) mod control;
 pub(crate) mod effects;
 pub(crate) mod song;
 
-use serde::{Deserialize, Serialize};
-
+use self::effects::EffectSettings;
 use crate::{
     clock::{BeatValue, TimeSignature},
     common::DeviceId,
-    synthesizers::welsh::PresetName,
+    effects::arpeggiator::Arpeggiator,
+    synthesizers::{
+        drumkit_sampler,
+        welsh::{self, PresetName},
+    },
+    traits::{IsMidiEffect, IsMidiInstrument},
 };
-
-use self::effects::EffectSettings;
+use serde::{Deserialize, Serialize};
+use std::{cell::RefCell, rc::Rc};
 
 type MidiChannel = u8;
 
@@ -31,6 +35,11 @@ pub enum InstrumentSettings {
         #[serde(rename = "preset")]
         preset_name: String,
     },
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MidiInstrumentSettings {
     #[serde(rename_all = "kebab-case")]
     Arpeggiator {
         #[serde(rename = "midi-in")]
@@ -44,6 +53,7 @@ pub enum InstrumentSettings {
 #[serde(rename_all = "kebab-case")]
 pub enum DeviceSettings {
     Instrument(DeviceId, InstrumentSettings),
+    MidiInstrument(DeviceId, MidiInstrumentSettings),
     Effect(DeviceId, EffectSettings),
 }
 
@@ -131,6 +141,41 @@ impl Default for ClockSettings {
             samples_per_second: 44100,
             beats_per_minute: 128.0,
             time_signature: TimeSignature { top: 4, bottom: 4 },
+        }
+    }
+}
+
+impl InstrumentSettings {
+    pub(crate) fn instantiate(&self, sample_rate: usize) -> Rc<RefCell<dyn IsMidiInstrument>> {
+        match &*self {
+            InstrumentSettings::Welsh {
+                midi_input_channel,
+                preset_name,
+            } => Rc::new(RefCell::new(welsh::Synth::new(
+                *midi_input_channel,
+                sample_rate,
+                welsh::SynthPreset::by_name(&preset_name),
+            ))),
+            InstrumentSettings::Drumkit {
+                midi_input_channel,
+                preset_name: _preset,
+            } => Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files(
+                *midi_input_channel,
+            ))),
+        }
+    }
+}
+
+impl MidiInstrumentSettings {
+    pub(crate) fn instantiate(&self, _sample_rate: usize) -> Rc<RefCell<dyn IsMidiEffect>> {
+        match *self {
+            MidiInstrumentSettings::Arpeggiator {
+                midi_input_channel,
+                midi_output_channel,
+            } => Rc::new(RefCell::new(Arpeggiator::new_with(
+                midi_input_channel,
+                midi_output_channel,
+            ))),
         }
     }
 }

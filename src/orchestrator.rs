@@ -1,28 +1,22 @@
 use crate::common::{DeviceId, MonoSample, MONO_SAMPLE_SILENCE};
+use crate::control::{ControlPath, ControlTrip};
 use crate::midi::sequencer::MidiSequencer;
 use crate::midi::smf_reader::MidiBus;
 use crate::midi::MidiChannel;
 use crate::midi::MIDI_CHANNEL_RECEIVE_ALL;
+use crate::patterns::{Pattern, PatternSequencer};
 use crate::settings::song::SongSettings;
-use crate::settings::{DeviceSettings, InstrumentSettings};
-use crate::{
-    clock::WatchedClock,
-    effects::{arpeggiator::Arpeggiator, mixer::Mixer},
-};
-
-use crate::synthesizers::{drumkit_sampler, welsh};
+use crate::settings::DeviceSettings;
 use crate::traits::{
     IsEffect, IsMidiEffect, SinksAudio, SinksControl, SinksMidi, SourcesAudio, SourcesMidi,
     WatchesClock,
 };
+use crate::{clock::WatchedClock, effects::mixer::Mixer};
 use crossbeam::deque::Worker;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::rc::{Rc, Weak};
-
-use crate::control::{ControlPath, ControlTrip};
-use crate::patterns::{Pattern, PatternSequencer};
 
 #[derive(Debug)]
 pub struct Performance {
@@ -143,8 +137,7 @@ impl Orchestrator {
     }
 
     fn prepare_from_settings(&mut self) {
-        self.create_effects_from_settings();
-        self.create_instruments_from_settings();
+        self.create_devices_from_settings();
         self.create_patch_cables_from_settings();
         self.create_tracks_from_settings();
         self.create_control_trips_from_settings();
@@ -196,62 +189,28 @@ impl Orchestrator {
         // TODO: assert that it wasn't added twice.
     }
 
-    fn create_instruments_from_settings(&mut self) {
+    fn create_devices_from_settings(&mut self) {
         // Then set up instruments, attaching to sequencers as they're set up.
-        for device in self.settings.devices.clone() {
-            // TODO: grrr, want this to be iter_mut()
-            match device {
-                DeviceSettings::Instrument(id, settings) => match settings {
-                    InstrumentSettings::Welsh {
-                        midi_input_channel,
-                        preset_name,
-                    } => {
-                        let instrument = Rc::new(RefCell::new(welsh::Synth::new(
-                            midi_input_channel,
-                            self.settings.clock.sample_rate(),
-                            welsh::SynthPreset::by_name(&preset_name),
-                        )));
-                        let instrument_weak = Rc::downgrade(&instrument);
-                        self.connect_to_downstream_midi_bus(midi_input_channel, instrument_weak);
-                        self.add_instrument_by_id(id, instrument);
-                    }
-                    InstrumentSettings::Drumkit {
-                        midi_input_channel,
-                        preset_name: _preset,
-                    } => {
-                        let instrument = Rc::new(RefCell::new(
-                            drumkit_sampler::Sampler::new_from_files(midi_input_channel),
-                        ));
-                        let instrument_weak = Rc::downgrade(&instrument);
-                        self.connect_to_downstream_midi_bus(midi_input_channel, instrument_weak);
-                        self.add_instrument_by_id(id, instrument);
-                    }
-                    InstrumentSettings::Arpeggiator {
-                        midi_input_channel,
-                        midi_output_channel,
-                    } => self.add_midi_effect_by_id(
-                        // TODO
-                        id,
-                        Rc::new(RefCell::new(Arpeggiator::new_with(
-                            midi_input_channel,
-                            midi_output_channel,
-                        ))),
-                        midi_input_channel,
-                    ),
-                },
-                DeviceSettings::Effect(_id, _settings) => { // skip
-                }
-            }
-        }
-    }
+        let sample_rate = self.settings().clock.sample_rate();
 
-    fn create_effects_from_settings(&mut self) {
+        // TODO: grrr, want this to be iter_mut()
         for device in self.settings.devices.clone() {
-            if let DeviceSettings::Effect(id, effect_settings) = device {
-                self.add_effect_by_id(
-                    id,
-                    effect_settings.instantiate(self.settings().clock.sample_rate()),
-                );
+            match device {
+                DeviceSettings::Instrument(id, instrument_settings) => {
+                    let instrument = instrument_settings.instantiate(sample_rate);
+                    let midi_channel = instrument.borrow().midi_channel();
+                    let instrument_weak = Rc::downgrade(&instrument);
+                    self.connect_to_downstream_midi_bus(midi_channel, instrument_weak);
+                    self.add_instrument_by_id(id, instrument);
+                }
+                DeviceSettings::MidiInstrument(id, midi_instrument_settings) => {
+                    let midi_instrument = midi_instrument_settings.instantiate(sample_rate);
+                    let midi_channel = midi_instrument.borrow().midi_channel();
+                    self.add_midi_effect_by_id(id, midi_instrument, midi_channel);
+                }
+                DeviceSettings::Effect(id, effect_settings) => {
+                    self.add_effect_by_id(id, effect_settings.instantiate(sample_rate));
+                }
             }
         }
     }

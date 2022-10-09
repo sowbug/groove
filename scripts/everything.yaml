@@ -16,7 +16,7 @@ devices:
     - welsh:
         midi-in: 1
         preset: digital-bass
-  - instrument:
+  - midi-instrument:
     - arp-1 # TODO: for dumb reasons this needs to be created before stuff it controls
     - arpeggiator:
         midi-in: 2

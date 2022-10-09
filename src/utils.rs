@@ -1,10 +1,7 @@
 #[cfg(test)]
 pub mod tests {
-    use std::{
-        cell::RefCell,
-        rc::{Rc, Weak},
-    };
-
+    use crate::clock::ClockTimeUnit;
+    use crate::midi::MidiNote;
     use crate::{
         clock::{Clock, WatchedClock},
         common::{
@@ -13,7 +10,7 @@ pub mod tests {
         },
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
-        midi::{MidiChannel, MidiMessage, MidiMessageType},
+        midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
         oscillators::Oscillator,
         preset::EnvelopePreset,
         traits::{
@@ -21,12 +18,12 @@ pub mod tests {
             SourcesAudio, SourcesControl, SourcesMidi, Terminates, WatchesClock,
         },
     };
-
     use assert_approx_eq::assert_approx_eq;
     use std::collections::{HashMap, VecDeque};
-
-    use crate::clock::ClockTimeUnit;
-    use crate::midi::MidiNote;
+    use std::{
+        cell::RefCell,
+        rc::{Rc, Weak},
+    };
 
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysSameLevel {
@@ -522,6 +519,12 @@ pub mod tests {
         ) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
             &mut self.channels_to_sink_vecs
         }
+
+        fn midi_output_channel(&self) -> MidiChannel {
+            MIDI_CHANNEL_RECEIVE_ALL
+        }
+
+        fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
     }
 
     impl TestMidiSource {
@@ -599,6 +602,14 @@ pub mod tests {
             &mut self,
         ) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
             &mut self.channels_to_sink_vecs
+        }
+
+        fn midi_output_channel(&self) -> MidiChannel {
+            self.midi_channel_out
+        }
+
+        fn set_midi_output_channel(&mut self, midi_channel: MidiChannel) {
+            self.midi_channel_out = midi_channel;
         }
     }
 

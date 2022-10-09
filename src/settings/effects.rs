@@ -1,7 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
-use serde::{Deserialize, Serialize};
-
 use crate::{
     common::MonoSample,
     effects::{
@@ -12,6 +8,8 @@ use crate::{
     },
     traits::IsEffect,
 };
+use serde::{Deserialize, Serialize};
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -74,7 +72,7 @@ pub enum EffectSettings {
 
 impl EffectSettings {
     pub(crate) fn instantiate(&self, sample_rate: usize) -> Rc<RefCell<dyn IsEffect>> {
-        let effect: Rc<RefCell<dyn IsEffect>> = match *self {
+        match *self {
             // This has more repetition than we'd expect because of
             // https://stackoverflow.com/questions/26378842/how-do-i-overcome-match-arms-with-incompatible-types-for-structs-implementing-sa
             //
@@ -144,7 +142,6 @@ impl EffectSettings {
                     db_gain,
                 })))
             }
-        };
-        effect
+        }
     }
 }

@@ -1,16 +1,14 @@
+use crate::{
+    clock::{BeatValue, Clock, TimeSignature},
+    midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
+    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
+};
+use sorted_vec::SortedVec;
 use std::{
     cell::RefCell,
     cmp::{self, Ordering},
     collections::HashMap,
     rc::{Rc, Weak},
-};
-
-use sorted_vec::SortedVec;
-
-use crate::{
-    clock::{BeatValue, Clock, TimeSignature},
-    midi::{MidiChannel, MidiMessage, MidiMessageType},
-    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
 
 #[derive(Debug, Default)]
@@ -151,6 +149,12 @@ impl SourcesMidi for PatternSequencer {
     fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
         &self.channels_to_sink_vecs
     }
+
+    fn midi_output_channel(&self) -> MidiChannel {
+        MIDI_CHANNEL_RECEIVE_ALL
+    }
+
+    fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
