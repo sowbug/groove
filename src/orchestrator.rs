@@ -1,12 +1,10 @@
 use crate::common::{DeviceId, MonoSample, MONO_SAMPLE_SILENCE, WW};
 use crate::control::{ControlPath, ControlTrip};
-use crate::midi::sequencer::MidiSequencer;
-use crate::midi::smf_reader::MidiBus;
-use crate::midi::MidiChannel;
-use crate::midi::MIDI_CHANNEL_RECEIVE_ALL;
+use crate::midi::{
+    sequencer::MidiSequencer, smf_reader::MidiBus, MidiChannel, MIDI_CHANNEL_RECEIVE_ALL,
+};
 use crate::patterns::{Pattern, PatternSequencer};
-use crate::settings::song::SongSettings;
-use crate::settings::DeviceSettings;
+use crate::settings::{song::SongSettings, DeviceSettings};
 use crate::traits::{
     IsEffect, IsMidiEffect, MakesControlSink, SinksAudio, SinksMidi, SourcesAudio, SourcesMidi,
     WatchesClock,
@@ -49,9 +47,6 @@ pub struct Orchestrator {
     id_to_effect: HashMap<DeviceId, Rc<RefCell<dyn IsEffect>>>,
     id_to_midi_effect: HashMap<DeviceId, Rc<RefCell<dyn IsMidiEffect>>>,
 
-    // temp
-    id_to_is_controllable: HashMap<DeviceId, Rc<RefCell<dyn MakesControlSink>>>,
-
     id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
     id_to_control_path: HashMap<DeviceId, Rc<RefCell<ControlPath>>>,
 }
@@ -71,8 +66,6 @@ impl Orchestrator {
             id_to_audio_source: HashMap::new(),
             id_to_effect: HashMap::new(),
             id_to_midi_effect: HashMap::new(),
-
-            id_to_is_controllable: HashMap::new(),
 
             id_to_pattern: HashMap::new(),
             id_to_control_path: HashMap::new(),
@@ -273,10 +266,6 @@ impl Orchestrator {
     }
 
     fn get_is_controllable_by_id(&self, id: &str) -> Rc<RefCell<dyn MakesControlSink>> {
-        if self.id_to_is_controllable.contains_key(id) {
-            let clone = Rc::clone(self.id_to_is_controllable.get(id).unwrap());
-            return clone;
-        }
         if self.id_to_effect.contains_key(id) {
             let clone = Rc::clone(self.id_to_effect.get(id).unwrap());
             return clone;
