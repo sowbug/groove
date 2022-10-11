@@ -34,15 +34,15 @@ devices:
   - effect:
     - gain-1
     - gain:
-        amount: 0.25
+        ceiling: 0.25
   - effect:
     - gain-2
     - gain:
-        amount: 0.25
+        ceiling: 0.25
   - effect:
     - gain-3
     - gain:
-        amount: 0.125
+        ceiling: 0.125
   - effect:
     - bitcrusher-1
     - bitcrusher:

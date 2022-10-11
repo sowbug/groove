@@ -12,11 +12,13 @@ use crate::{
 pub struct Gain {
     pub(crate) me: WW<Self>,
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
-    level: f32,
+    ceiling: f32,
 }
 impl IsEffect for Gain {}
 
 impl Gain {
+    pub(crate) const CONTROL_PARAM_CEILING: &str = "ceiling";
+
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
@@ -34,31 +36,31 @@ impl Gain {
         wrapped
     }
 
-    pub fn new_with(amount: f32) -> Self {
+    pub fn new_with(ceiling: f32) -> Self {
         Self {
-            level: amount,
+            ceiling,
             ..Default::default()
         }
     }
 
     #[allow(dead_code)]
-    pub fn new_wrapped_with(amount: f32) -> W<Self> {
+    pub fn new_wrapped_with(ceiling: f32) -> W<Self> {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-        let wrapped = Rc::new(RefCell::new(Self::new_with(amount)));
+        let wrapped = Rc::new(RefCell::new(Self::new_with(ceiling)));
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }
 
     #[allow(dead_code)]
     pub fn level(&self) -> f32 {
-        self.level
+        self.ceiling
     }
 
     #[allow(dead_code)]
     pub fn set_level(&mut self, level: f32) {
-        self.level = level;
+        self.ceiling = level;
     }
 }
 impl Default for Gain {
@@ -66,7 +68,7 @@ impl Default for Gain {
         Self {
             me: Weak::new(),
             sources: Vec::default(),
-            level: 1.0,
+            ceiling: 1.0,
         }
     }
 }
@@ -80,7 +82,7 @@ impl SinksAudio for Gain {
 }
 impl TransformsAudio for Gain {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
-        input_sample * self.level
+        input_sample * self.ceiling
     }
 }
 

@@ -77,7 +77,7 @@ pub trait SinksControl: Debug {
 }
 
 pub trait MakesControlSink: Debug {
-    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>>;
+    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>>;
 }
 
 pub trait SourcesMidi {
@@ -390,7 +390,10 @@ pub mod tests {
         // to Gain level changes.
         let mut audio_to_controller =
             TestControlSourceContinuous::new_with(Box::new(Oscillator::new()));
-        if let Some(effect_controller) = effect.borrow().make_control_sink() {
+        if let Some(effect_controller) = effect
+            .borrow()
+            .make_control_sink(Oscillator::CONTROL_PARAM_FREQUENCY)
+        {
             audio_to_controller.add_control_sink(effect_controller);
         };
 
@@ -400,13 +403,19 @@ pub mod tests {
         // TestTrigger provides an event at a certain time. EnvelopeNoteController adapts the event
         // to internal ADSR events.
         let mut trigger_on = TestTrigger::new(1.0, 1.0);
-        if let Some(envelope_controller) = envelope.borrow().make_control_sink() {
+        if let Some(envelope_controller) = envelope
+            .borrow()
+            .make_control_sink(AdsrEnvelope::CONTROL_PARAM_NOTE)
+        {
             trigger_on.add_control_sink(envelope_controller);
         };
         clock.add_watcher(Rc::new(RefCell::new(trigger_on)));
 
         let mut trigger_off = TestTrigger::new(1.5, 0.0);
-        if let Some(envelope_controller) = envelope.borrow().make_control_sink() {
+        if let Some(envelope_controller) = envelope
+            .borrow()
+            .make_control_sink(AdsrEnvelope::CONTROL_PARAM_NOTE)
+        {
             trigger_off.add_control_sink(envelope_controller);
         };
         clock.add_watcher(Rc::new(RefCell::new(trigger_off)));
@@ -461,7 +470,10 @@ pub mod tests {
 
         // Can we add a sink to the source?
         assert!(source.control_sinks().is_empty());
-        if let Some(controllable_controller) = sink.borrow().make_control_sink() {
+        if let Some(controllable_controller) = sink
+            .borrow()
+            .make_control_sink(TestControllable::CONTROL_PARAM_DEFAULT)
+        {
             source.add_control_sink(controllable_controller);
         };
         assert!(!source.control_sinks().is_empty());
@@ -494,7 +506,10 @@ pub mod tests {
         let arpeggiator = TestArpeggiator::new_wrapped_with(TestMidiSink::TEST_MIDI_CHANNEL);
         let instrument = TestMidiSink::new_wrapped();
 
-        if let Some(arpeggiator_controller) = arpeggiator.borrow().make_control_sink() {
+        if let Some(arpeggiator_controller) = arpeggiator
+            .borrow()
+            .make_control_sink(TestArpeggiator::CONTROL_PARAM_TEMPO)
+        {
             keyboard_interface.add_control_sink(arpeggiator_controller);
         };
         let sink = Rc::downgrade(&instrument);

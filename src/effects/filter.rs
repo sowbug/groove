@@ -77,6 +77,11 @@ impl Filter {
     pub const FREQUENCY_TO_LINEAR_BASE: f32 = 800.0;
     pub const FREQUENCY_TO_LINEAR_COEFFICIENT: f32 = 25.0;
 
+    pub(crate) const CONTROL_PARAM_CUTOFF: &str = "cutoff";
+    pub(crate) const CONTROL_PARAM_Q: &str = "q";
+    pub(crate) const CONTROL_PARAM_BANDWIDTH: &str = "bandwidth";
+    pub(crate) const CONTROL_PARAM_DB_GAIN: &str = "db-gain";
+
     // https://docs.google.com/spreadsheets/d/1uQylh2h77-fuJ6OM0vjF7yjRXflLFP0yQEnv5wbaP2c/edit#gid=0
     // =LOGEST(Sheet1!B2:B23, Sheet1!A2:A23,true, false)
     // Column A is 24db filter percentages from all the patches

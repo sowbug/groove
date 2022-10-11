@@ -328,7 +328,10 @@ impl Orchestrator {
         }
         for control_trip_settings in self.settings.trips.clone() {
             let target = self.get_is_controllable_by_id(&control_trip_settings.target.id);
-            if let Some(controller) = target.borrow().make_control_sink() {
+            if let Some(controller) = target
+                .borrow()
+                .make_control_sink(&control_trip_settings.target.param)
+            {
                 let control_trip = Rc::new(RefCell::new(ControlTrip::new(controller)));
                 control_trip.borrow_mut().reset_cursor();
                 for path_id in control_trip_settings.path_ids {

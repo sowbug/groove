@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "kebab-case")]
 pub enum EffectSettings {
     Gain {
-        amount: f32,
+        ceiling: f32,
     },
     Limiter {
         min: f32,
@@ -80,7 +80,7 @@ impl EffectSettings {
             EffectSettings::Limiter { min, max } => {
                 Limiter::new_wrapped_with(min as MonoSample, max as MonoSample)
             }
-            EffectSettings::Gain { amount } => Gain::new_wrapped_with(amount),
+            EffectSettings::Gain { ceiling } => Gain::new_wrapped_with(ceiling),
             EffectSettings::Bitcrusher { bits_to_crush } => {
                 Bitcrusher::new_wrapped_with(bits_to_crush)
             }

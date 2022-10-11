@@ -13,6 +13,8 @@ pub struct Bitcrusher {
 }
 impl IsEffect for Bitcrusher {}
 impl Bitcrusher {
+    pub(crate) const CONTROL_PARAM_BITS_TO_CRUSH: &str = "bits-to-crush";
+
     pub fn new_with(bits_to_crush: u8) -> Self {
         Self {
             bits_to_crush,

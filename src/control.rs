@@ -134,6 +134,18 @@ impl ControlPath {
 }
 
 #[derive(Debug)]
+pub struct FilterCutoffController {
+    target: WW<Filter>,
+}
+impl SinksControl for FilterCutoffController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_cutoff(value);
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct FilterQController {
     target: WW<Filter>,
 }
@@ -145,23 +157,49 @@ impl SinksControl for FilterQController {
     }
 }
 
+// TODO: I guess I haven't gotten around to implementing these yet for Filter
 #[derive(Debug)]
-pub struct FilterCutoffController {
+pub struct FilterBandwidthController {
     target: WW<Filter>,
 }
-impl SinksControl for FilterCutoffController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_cutoff(value);
+impl SinksControl for FilterBandwidthController {
+    fn handle_control(&mut self, _clock: &Clock, _value: f32) {
+        if let Some(_target) = self.target.upgrade() {
+            //            target.borrow_mut().set_bandwidth(value);
         }
     }
 }
+
+#[derive(Debug)]
+pub struct FilterDbGainController {
+    target: WW<Filter>,
+}
+impl SinksControl for FilterDbGainController {
+    fn handle_control(&mut self, _clock: &Clock, _value: f32) {
+        if let Some(_target) = self.target.upgrade() {
+            //            target.borrow_mut().set_db_gain(value);
+        }
+    }
+}
+
 impl MakesControlSink for Filter {
-    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
-            Some(Box::new(FilterCutoffController {
-                target: self.me.clone(),
-            }))
+            match param_name {
+                Self::CONTROL_PARAM_CUTOFF => Some(Box::new(FilterCutoffController {
+                    target: self.me.clone(),
+                })),
+                Self::CONTROL_PARAM_Q => Some(Box::new(FilterQController {
+                    target: self.me.clone(),
+                })),
+                Self::CONTROL_PARAM_BANDWIDTH => Some(Box::new(FilterBandwidthController {
+                    target: self.me.clone(),
+                })),
+                Self::CONTROL_PARAM_DB_GAIN => Some(Box::new(FilterDbGainController {
+                    target: self.me.clone(),
+                })),
+                _ => None,
+            }
         } else {
             None
         }
@@ -180,11 +218,14 @@ impl SinksControl for AdsrEnvelopeNoteController {
     }
 }
 impl MakesControlSink for AdsrEnvelope {
-    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
-            Some(Box::new(AdsrEnvelopeNoteController {
-                target: self.me.clone(),
-            }))
+            match param_name {
+                Self::CONTROL_PARAM_NOTE => Some(Box::new(AdsrEnvelopeNoteController {
+                    target: self.me.clone(),
+                })),
+                _ => None,
+            }
         } else {
             None
         }
@@ -203,11 +244,14 @@ impl SinksControl for GainLevelController {
     }
 }
 impl MakesControlSink for Gain {
-    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
-            Some(Box::new(GainLevelController {
-                target: self.me.clone(),
-            }))
+            match param_name {
+                Self::CONTROL_PARAM_CEILING => Some(Box::new(GainLevelController {
+                    target: self.me.clone(),
+                })),
+                _ => None,
+            }
         } else {
             None
         }
@@ -226,11 +270,14 @@ impl SinksControl for OscillatorFrequencyController {
     }
 }
 impl MakesControlSink for Oscillator {
-    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
-            Some(Box::new(OscillatorFrequencyController {
-                target: self.me.clone(),
-            }))
+            match param_name {
+                Self::CONTROL_PARAM_FREQUENCY => Some(Box::new(OscillatorFrequencyController {
+                    target: self.me.clone(),
+                })),
+                _ => None,
+            }
         } else {
             None
         }
@@ -260,12 +307,17 @@ impl SinksControl for LimiterMaxLevelController {
     }
 }
 impl MakesControlSink for Limiter {
-    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
-            // TODO match all values!
-            Some(Box::new(LimiterMinLevelController {
-                target: self.me.clone(),
-            }))
+            match param_name {
+                Self::CONTROL_PARAM_MIN => Some(Box::new(LimiterMinLevelController {
+                    target: self.me.clone(),
+                })),
+                Self::CONTROL_PARAM_MAX => Some(Box::new(LimiterMaxLevelController {
+                    target: self.me.clone(),
+                })),
+                _ => None,
+            }
         } else {
             None
         }
@@ -284,11 +336,14 @@ impl SinksControl for BitcrusherBitCountController {
     }
 }
 impl MakesControlSink for Bitcrusher {
-    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
-            Some(Box::new(BitcrusherBitCountController {
-                target: self.me.clone(),
-            }))
+            match param_name {
+                Self::CONTROL_PARAM_BITS_TO_CRUSH => Some(Box::new(BitcrusherBitCountController {
+                    target: self.me.clone(),
+                })),
+                _ => None,
+            }
         } else {
             None
         }
@@ -307,7 +362,7 @@ impl SinksControl for MixerController {
     }
 }
 impl MakesControlSink for Mixer {
-    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+    fn make_control_sink(&self, _param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(MixerController {
                 target: self.me.clone(),
@@ -345,7 +400,10 @@ mod tests {
 
         let mut clock = WatchedClock::new();
         let target = TestMidiSink::new_wrapped();
-        if let Some(target_control_sink) = target.borrow().make_control_sink() {
+        if let Some(target_control_sink) = target
+            .borrow()
+            .make_control_sink(TestMidiSink::CONTROL_PARAM_DEFAULT)
+        {
             let trip = Rc::new(RefCell::new(ControlTrip::new(target_control_sink)));
             trip.borrow_mut().add_path(Rc::clone(&sequence));
 
@@ -381,7 +439,10 @@ mod tests {
 
         let mut clock = WatchedClock::new();
         let target = TestMidiSink::new_wrapped();
-        if let Some(target_control_sink) = target.borrow().make_control_sink() {
+        if let Some(target_control_sink) = target
+            .borrow()
+            .make_control_sink(TestMidiSink::CONTROL_PARAM_DEFAULT)
+        {
             let trip = Rc::new(RefCell::new(ControlTrip::new(target_control_sink)));
             trip.borrow_mut().add_path(path);
             clock.add_watcher(trip);

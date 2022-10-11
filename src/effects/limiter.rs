@@ -14,6 +14,9 @@ pub struct Limiter {
 }
 impl IsEffect for Limiter {}
 impl Limiter {
+    pub(crate) const CONTROL_PARAM_MIN: &str = "min";
+    pub(crate) const CONTROL_PARAM_MAX: &str = "max";
+
     pub fn new_with(min: MonoSample, max: MonoSample) -> Self {
         Self {
             min,

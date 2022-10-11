@@ -348,6 +348,7 @@ pub mod tests {
 
     impl TestMidiSink {
         pub const TEST_MIDI_CHANNEL: u8 = 42;
+        pub const CONTROL_PARAM_DEFAULT: &str = "param";
 
         pub fn new() -> Self {
             Self {
@@ -415,11 +416,14 @@ pub mod tests {
         }
     }
     impl MakesControlSink for TestMidiSink {
-        fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+        fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
             if self.me.strong_count() != 0 {
-                Some(Box::new(TestMidiSinkController {
-                    target: self.me.clone(),
-                }))
+                match param_name {
+                    Self::CONTROL_PARAM_DEFAULT => Some(Box::new(TestMidiSinkController {
+                        target: self.me.clone(),
+                    })),
+                    _ => None,
+                }
             } else {
                 None
             }
@@ -533,6 +537,8 @@ pub mod tests {
         pub value: f32,
     }
     impl TestControllable {
+        pub(crate) const CONTROL_PARAM_DEFAULT: &str = "value";
+
         pub fn new() -> Self {
             Self {
                 ..Default::default()
@@ -548,11 +554,14 @@ pub mod tests {
         }
     }
     impl MakesControlSink for TestControllable {
-        fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+        fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
             if self.me.strong_count() != 0 {
-                Some(Box::new(TestControllableController {
-                    target: self.me.clone(),
-                }))
+                match param_name {
+                    Self::CONTROL_PARAM_DEFAULT => Some(Box::new(TestControllableController {
+                        target: self.me.clone(),
+                    })),
+                    _ => None,
+                }
             } else {
                 None
             }
@@ -684,17 +693,22 @@ pub mod tests {
         }
     }
     impl MakesControlSink for TestArpeggiator {
-        fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+        fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
             if self.me.strong_count() != 0 {
-                Some(Box::new(TestArpeggiatorTempoController {
-                    target: self.me.clone(),
-                }))
+                match param_name {
+                    Self::CONTROL_PARAM_TEMPO => Some(Box::new(TestArpeggiatorTempoController {
+                        target: self.me.clone(),
+                    })),
+                    _ => None,
+                }
             } else {
                 None
             }
         }
     }
     impl TestArpeggiator {
+        pub(crate) const CONTROL_PARAM_TEMPO: &str = "tempo";
+
         pub fn new_with(midi_channel_out: MidiChannel) -> Self {
             Self {
                 midi_channel_out,
