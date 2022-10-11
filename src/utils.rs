@@ -323,18 +323,6 @@ pub mod tests {
     }
     impl IsController for TestControlSourceContinuous {}
 
-    // #[derive(Debug)]
-    // struct TestControlSourceContinuousControlSink {
-    //     target: Weak<RefCell<TestMidiSink>>,
-    // }
-    // impl SinksControl for TestMidiSinkControlSink {
-    //     fn handle_control(&mut self, clock: &Clock, param: f32) {
-    //         if let Some(target) = self.target.upgrade() {
-    //             target.borrow_mut().set_value(param);
-    //         }
-    //     }
-    // }
-
     /// Helper for testing SinksMidi
     #[derive(Debug, Default)]
     pub struct TestMidiSink {
@@ -432,7 +420,7 @@ pub mod tests {
 
     #[derive(Debug)]
     pub struct TestMidiSinkController {
-        target: Weak<RefCell<TestMidiSink>>,
+        target: WW<TestMidiSink>,
     }
     impl SinksControl for TestMidiSinkController {
         fn handle_control(&mut self, _clock: &Clock, param: f32) {
@@ -570,7 +558,7 @@ pub mod tests {
 
     #[derive(Debug)]
     pub(crate) struct TestControllableController {
-        target: Weak<RefCell<TestControllable>>,
+        target: WW<TestControllable>,
     }
     impl SinksControl for TestControllableController {
         fn handle_control(&mut self, _clock: &Clock, param: f32) {
@@ -727,7 +715,7 @@ pub mod tests {
 
     #[derive(Debug)]
     pub struct TestArpeggiatorTempoController {
-        target: Weak<RefCell<TestArpeggiator>>,
+        target: WW<TestArpeggiator>,
     }
     impl SinksControl for TestArpeggiatorTempoController {
         fn handle_control(&mut self, _clock: &Clock, param: f32) {
