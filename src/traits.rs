@@ -59,33 +59,25 @@ impl<T: SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
 
 /// Controls SinksControl through SinksControlParam.
 pub trait SourcesControl {
-    fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>];
-    fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>>;
+    fn control_sinks(&self) -> &[Box<dyn SinksControl>];
+    fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>>;
 
-    fn add_control_sink(&mut self, sink: Weak<RefCell<dyn SinksControl>>) {
+    fn add_control_sink(&mut self, sink: Box<dyn SinksControl>) {
         self.control_sinks_mut().push(sink);
     }
-    fn issue_control(&mut self, clock: &Clock, param: &SinksControlParam) {
+    fn issue_control(&mut self, clock: &Clock, value: f32) {
         for sink in self.control_sinks_mut() {
-            if let Some(sink_up) = sink.upgrade() {
-                sink_up.borrow_mut().handle_control(clock, param);
-            }
+            sink.handle_control(clock, value);
         }
     }
 }
 
 pub trait SinksControl: Debug {
-    fn handle_control(&mut self, clock: &Clock, param: &SinksControlParam);
+    fn handle_control(&mut self, clock: &Clock, value: f32);
 }
 
-pub enum SinksControlParam {
-    Primary {
-        value: f32,
-    },
-    #[allow(dead_code)]
-    Secondary {
-        value: f32,
-    },
+pub trait MakesControlSink: Debug {
+    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>>;
 }
 
 pub trait SourcesMidi {
@@ -167,7 +159,7 @@ pub trait Terminates {
 // WatchesClock gets a clock tick, whereas SourcesAudio gets a sources_audio(), and
 // both are time slice-y. Be on the lookout for anything that claims to need both.
 pub trait IsMidiInstrument: SourcesAudio + SinksMidi {}
-pub trait IsEffect: SourcesAudio + SinksAudio + TransformsAudio + SinksControl {}
+pub trait IsEffect: SourcesAudio + SinksAudio + TransformsAudio + MakesControlSink {}
 pub trait IsMidiEffect: SourcesMidi + SinksMidi + WatchesClock {}
 pub trait IsController: SourcesControl + WatchesClock {}
 
@@ -181,12 +173,13 @@ pub mod tests {
     use std::rc::Rc;
 
     use crate::clock::WatchedClock;
+    use crate::common::W;
     use crate::midi::MidiMessage;
     use crate::preset::EnvelopePreset;
-    use crate::traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock};
+    use crate::traits::{MakesControlSink, SinksMidi, SourcesMidi, Terminates, WatchesClock};
     use crate::utils::tests::{
-        TestArpeggiator, TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSink,
-        TestControlSource, TestControlSourceContinuous, TestKeyboard, TestMidiSink, TestMidiSource,
+        TestArpeggiator, TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSource,
+        TestControlSourceContinuous, TestControllable, TestKeyboard, TestMidiSink, TestMidiSource,
         TestOrchestrator, TestSynth, TestTimer, TestTrigger,
     };
     use crate::{clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator};
@@ -263,7 +256,7 @@ pub mod tests {
     }
 
     pub(crate) fn write_effect_to_file(
-        effect: &mut dyn SourcesAudio,
+        effect: W<dyn SourcesAudio>,
         opt_controller: &mut dyn IsController,
         basename: &str,
     ) {
@@ -273,7 +266,7 @@ pub mod tests {
         while clock.seconds() < 2.0 {
             opt_controller.tick(&clock);
 
-            let effect_sample = effect.source_audio(&clock);
+            let effect_sample = effect.borrow_mut().source_audio(&clock);
             samples.push(effect_sample);
             clock.tick();
         }
@@ -376,12 +369,8 @@ pub mod tests {
     fn test_simple_orchestrator() {
         let mut clock = WatchedClock::new();
         let mut orchestrator = TestOrchestrator::new();
-        let envelope = Rc::new(RefCell::new(AdsrEnvelope::new_with(
-            &EnvelopePreset::default(),
-        )));
-        let oscillator = Rc::new(RefCell::new(Oscillator::new_with(
-            crate::common::WaveformType::Sine,
-        )));
+        let envelope = AdsrEnvelope::new_wrapped_with(&EnvelopePreset::default());
+        let oscillator = Oscillator::new_wrapped_with(crate::common::WaveformType::Sine);
         oscillator
             .borrow_mut()
             .set_frequency(MidiMessage::note_to_frequency(60));
@@ -390,26 +379,36 @@ pub mod tests {
             oscillator,
             envelope_synth_clone,
         )));
-        let effect = Rc::new(RefCell::new(Gain::new()));
+        let effect = Gain::new_wrapped();
         let source = Rc::clone(&synth);
         effect.borrow_mut().add_audio_source(source);
-        let weak_effect = Rc::downgrade(&effect);
-        orchestrator.add_audio_source(effect);
+        let source = Rc::clone(&effect);
+        orchestrator.add_audio_source(source);
 
-        let mut controller = TestControlSourceContinuous::new_with(Box::new(Oscillator::new()));
-        controller.add_control_sink(weak_effect);
+        // An Oscillator provides an audio signal. TestControlSourceContinuous adapts that audio
+        // signal to a series of control events. GainLevelController adapts the control events
+        // to Gain level changes.
+        let mut audio_to_controller =
+            TestControlSourceContinuous::new_with(Box::new(Oscillator::new()));
+        if let Some(effect_controller) = effect.borrow().make_control_sink() {
+            audio_to_controller.add_control_sink(effect_controller);
+        };
 
         let timer = TestTimer::new(2.0);
         clock.add_watcher(Rc::new(RefCell::new(timer)));
 
+        // TestTrigger provides an event at a certain time. EnvelopeNoteController adapts the event
+        // to internal ADSR events.
         let mut trigger_on = TestTrigger::new(1.0, 1.0);
-        let weak_envelope_on = Rc::downgrade(&envelope);
-        trigger_on.add_control_sink(weak_envelope_on);
+        if let Some(envelope_controller) = envelope.borrow().make_control_sink() {
+            trigger_on.add_control_sink(envelope_controller);
+        };
         clock.add_watcher(Rc::new(RefCell::new(trigger_on)));
 
         let mut trigger_off = TestTrigger::new(1.5, 0.0);
-        let weak_envelope_off = Rc::downgrade(&envelope);
-        trigger_off.add_control_sink(weak_envelope_off);
+        if let Some(envelope_controller) = envelope.borrow().make_control_sink() {
+            trigger_off.add_control_sink(envelope_controller);
+        };
         clock.add_watcher(Rc::new(RefCell::new(trigger_off)));
 
         let mut samples = Vec::<MonoSample>::new();
@@ -458,12 +457,13 @@ pub mod tests {
     fn test_automation_source_and_sink() {
         // By itself, TestAutomationSource doesn't do much, so we test both Source/Sink together.
         let mut source = TestControlSource::new();
-        let sink = Rc::new(RefCell::new(TestControlSink::new()));
+        let sink = TestControllable::new_wrapped();
 
         // Can we add a sink to the source?
         assert!(source.control_sinks().is_empty());
-        let sink_weak = Rc::downgrade(&sink);
-        source.add_control_sink(sink_weak);
+        if let Some(controllable_controller) = sink.borrow().make_control_sink() {
+            source.add_control_sink(controllable_controller);
+        };
         assert!(!source.control_sinks().is_empty());
 
         // Does the source propagate to its sinks?
@@ -475,7 +475,7 @@ pub mod tests {
     #[test]
     fn test_midi_source_and_sink() {
         let mut source = TestMidiSource::new();
-        let sink = Rc::new(RefCell::new(TestMidiSink::new()));
+        let sink = TestMidiSink::new_wrapped();
 
         assert!(source.midi_sinks().is_empty());
         let sink_down = Rc::downgrade(&sink);
@@ -491,13 +491,12 @@ pub mod tests {
     #[test]
     fn test_keyboard_to_automation_to_midi() {
         let mut keyboard_interface = TestKeyboard::new();
-        let arpeggiator = Rc::new(RefCell::new(TestArpeggiator::new_with(
-            TestMidiSink::TEST_MIDI_CHANNEL,
-        )));
-        let instrument = Rc::new(RefCell::new(TestMidiSink::new()));
+        let arpeggiator = TestArpeggiator::new_wrapped_with(TestMidiSink::TEST_MIDI_CHANNEL);
+        let instrument = TestMidiSink::new_wrapped();
 
-        let arpeggiator_weak = Rc::downgrade(&arpeggiator);
-        keyboard_interface.add_control_sink(arpeggiator_weak);
+        if let Some(arpeggiator_controller) = arpeggiator.borrow().make_control_sink() {
+            keyboard_interface.add_control_sink(arpeggiator_controller);
+        };
         let sink = Rc::downgrade(&instrument);
         arpeggiator
             .borrow_mut()

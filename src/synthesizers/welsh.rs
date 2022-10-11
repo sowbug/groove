@@ -9,9 +9,7 @@ use crate::{
     effects::filter::{Filter, FilterType},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
-    traits::{
-        IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio, TransformsAudio,
-    },
+    traits::{IsMidiInstrument, SinksMidi, SourcesAudio, TransformsAudio},
     {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
 
@@ -1932,11 +1930,6 @@ impl Voice {
     }
 }
 
-impl SinksControl for Voice {
-    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
-        todo!()
-    }
-}
 impl SinksMidi for Voice {
     fn midi_channel(&self) -> MidiChannel {
         self.midi_channel
@@ -2043,11 +2036,6 @@ impl Synth {
             self.note_to_voice.insert(note, Rc::clone(&voice));
             voice
         }
-    }
-}
-impl SinksControl for Synth {
-    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
-        todo!()
     }
 }
 impl SinksMidi for Synth {

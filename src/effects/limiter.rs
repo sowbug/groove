@@ -1,14 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::common::MonoSample;
+use crate::common::{MonoSample, W, WW};
 
-use crate::clock::Clock;
-use crate::traits::{
-    IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
-};
+use crate::traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio};
 
 #[derive(Debug, Default)]
 pub struct Limiter {
+    pub(crate) me: WW<Self>,
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
 
     min: MonoSample,
@@ -23,6 +21,22 @@ impl Limiter {
             ..Default::default()
         }
     }
+    pub fn new_wrapped_with(min: MonoSample, max: MonoSample) -> W<Self> {
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+        let wrapped = Rc::new(RefCell::new(Self::new_with(min, max)));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
+    }
+
+    pub fn set_min(&mut self, value: f32) {
+        self.min = value;
+    }
+
+    pub fn set_max(&mut self, value: f32) {
+        self.max = value;
+    }
 }
 impl SinksAudio for Limiter {
     fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
@@ -35,14 +49,6 @@ impl SinksAudio for Limiter {
 impl TransformsAudio for Limiter {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         input_sample.clamp(self.min, self.max)
-    }
-}
-impl SinksControl for Limiter {
-    fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-        match param {
-            SinksControlParam::Primary { value } => self.min = *value,
-            SinksControlParam::Secondary { value } => self.max = *value,
-        }
     }
 }
 

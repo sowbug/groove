@@ -1,16 +1,18 @@
-use std::{fmt::Debug, ops::Range};
+use std::{
+    cell::RefCell,
+    fmt::Debug,
+    ops::Range,
+    rc::{Rc, Weak},
+};
 
 use more_asserts::{debug_assert_ge, debug_assert_le};
 
 use crate::{
     clock::ClockTimeUnit,
-    common::MonoSample,
+    common::{MonoSample, W, WW},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
     preset::EnvelopePreset,
-    traits::{
-        SinksControl, SinksControlParam, SinksControlParam::Primary, SinksControlParam::Secondary,
-        SinksMidi, SourcesAudio,
-    },
+    traits::{SinksMidi, SourcesAudio},
 };
 
 use super::clock::Clock;
@@ -185,6 +187,7 @@ enum AdsrEnvelopeStepName {
 
 #[derive(Debug)]
 pub struct AdsrEnvelope {
+    pub(crate) me: WW<Self>,
     midi_channel: MidiChannel,
     preset: EnvelopePreset,
 
@@ -197,32 +200,12 @@ pub struct AdsrEnvelope {
 impl Default for AdsrEnvelope {
     fn default() -> Self {
         Self {
+            me: Weak::new(),
             midi_channel: MIDI_CHANNEL_RECEIVE_ALL,
             preset: EnvelopePreset::default(),
             envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
             note_off_time: f32::MAX,
-        }
-    }
-}
-
-impl SinksControl for AdsrEnvelope {
-    fn handle_control(&mut self, clock: &Clock, param: &SinksControlParam) {
-        match param {
-            Primary { value } => {
-                if *value == 1.0 {
-                    self.note_on_time = self.envelope.time_for_unit(clock);
-                    self.note_off_time = f32::MAX;
-                    self.handle_state_change();
-                } else {
-                    // We don't touch the note-on time because that's still important
-                    // to build the right envelope shape.
-                    self.note_off_time = self.envelope.time_for_unit(clock);
-                    self.handle_state_change();
-                }
-            }
-            #[allow(unused_variables)]
-            Secondary { value } => todo!(),
         }
     }
 }
@@ -236,8 +219,8 @@ impl SinksMidi for AdsrEnvelope {
     }
     fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
         match message.status {
-            MidiMessageType::NoteOn => self.handle_control(clock, &Primary { value: 1.0 }),
-            MidiMessageType::NoteOff => self.handle_control(clock, &Primary { value: 0.0 }),
+            MidiMessageType::NoteOn => self.handle_note_event(clock, true),
+            MidiMessageType::NoteOff => self.handle_note_event(clock, false),
             MidiMessageType::ProgramChange => {}
         }
     }
@@ -251,10 +234,33 @@ impl AdsrEnvelope {
         }
     }
 
+    #[allow(dead_code)]
+    pub(crate) fn new_wrapped_with(preset: &EnvelopePreset) -> W<Self> {
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+        let wrapped = Rc::new(RefCell::new(Self::new_with(preset)));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
+    }
+
     pub(crate) fn is_idle(&self, clock: &Clock) -> bool {
         let current_time = self.envelope.time_for_unit(clock);
         let step = self.envelope.step_for_time(current_time);
         step.end_value == step.start_value && step.interval.end == f32::MAX
+    }
+
+    pub(crate) fn handle_note_event(&mut self, clock: &Clock, note_on: bool) {
+        if note_on {
+            self.note_on_time = self.envelope.time_for_unit(clock);
+            self.note_off_time = f32::MAX;
+            self.handle_state_change();
+        } else {
+            // We don't touch the note-on time because that's still important
+            // to build the right envelope shape.
+            self.note_off_time = self.envelope.time_for_unit(clock);
+            self.handle_state_change();
+        }
     }
 
     fn handle_state_change(&mut self) {

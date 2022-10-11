@@ -1,15 +1,13 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    clock::Clock,
-    common::MonoSample,
-    traits::{
-        IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
-    },
+    common::{MonoSample, W, WW},
+    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
 };
 
 #[derive(Debug, Default)]
 pub struct Bitcrusher {
+    pub(crate) me: WW<Self>,
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     bits_to_crush: u8,
 }
@@ -20,6 +18,14 @@ impl Bitcrusher {
             bits_to_crush,
             ..Default::default()
         }
+    }
+    pub fn new_wrapped_with(bits_to_crush: u8) -> W<Self> {
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+        let wrapped = Rc::new(RefCell::new(Self::new_with(bits_to_crush)));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
     }
 
     #[allow(dead_code)]
@@ -41,16 +47,6 @@ impl TransformsAudio for Bitcrusher {
         let squished = input_i16 >> self.bits_to_crush;
         let expanded = squished << self.bits_to_crush;
         expanded as MonoSample / (i16::MAX as MonoSample)
-    }
-}
-impl SinksControl for Bitcrusher {
-    fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-        match param {
-            SinksControlParam::Primary { value } => {
-                self.set_bits_to_crush(*value as u8);
-            }
-            _ => todo!(),
-        }
     }
 }
 

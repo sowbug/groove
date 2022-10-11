@@ -1,4 +1,4 @@
-use crate::common::{DeviceId, MonoSample, MONO_SAMPLE_SILENCE};
+use crate::common::{DeviceId, MonoSample, MONO_SAMPLE_SILENCE, WW};
 use crate::control::{ControlPath, ControlTrip};
 use crate::midi::sequencer::MidiSequencer;
 use crate::midi::smf_reader::MidiBus;
@@ -8,7 +8,7 @@ use crate::patterns::{Pattern, PatternSequencer};
 use crate::settings::song::SongSettings;
 use crate::settings::DeviceSettings;
 use crate::traits::{
-    IsEffect, IsMidiEffect, SinksAudio, SinksControl, SinksMidi, SourcesAudio, SourcesMidi,
+    IsEffect, IsMidiEffect, MakesControlSink, SinksAudio, SinksMidi, SourcesAudio, SourcesMidi,
     WatchesClock,
 };
 use crate::{clock::WatchedClock, effects::mixer::Mixer};
@@ -16,7 +16,7 @@ use crossbeam::deque::Worker;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{self, Write};
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Performance {
@@ -49,6 +49,9 @@ pub struct Orchestrator {
     id_to_effect: HashMap<DeviceId, Rc<RefCell<dyn IsEffect>>>,
     id_to_midi_effect: HashMap<DeviceId, Rc<RefCell<dyn IsMidiEffect>>>,
 
+    // temp
+    id_to_is_controllable: HashMap<DeviceId, Rc<RefCell<dyn MakesControlSink>>>,
+
     id_to_pattern: HashMap<DeviceId, Rc<RefCell<Pattern>>>,
     id_to_control_path: HashMap<DeviceId, Rc<RefCell<ControlPath>>>,
 }
@@ -68,6 +71,8 @@ impl Orchestrator {
             id_to_audio_source: HashMap::new(),
             id_to_effect: HashMap::new(),
             id_to_midi_effect: HashMap::new(),
+
+            id_to_is_controllable: HashMap::new(),
 
             id_to_pattern: HashMap::new(),
             id_to_control_path: HashMap::new(),
@@ -150,7 +155,7 @@ impl Orchestrator {
     pub fn connect_to_downstream_midi_bus(
         &mut self,
         channel: MidiChannel,
-        instrument: Weak<RefCell<dyn SinksMidi>>,
+        instrument: WW<dyn SinksMidi>,
     ) {
         self.midi_bus
             .borrow_mut()
@@ -267,7 +272,11 @@ impl Orchestrator {
         panic!("yo {}", id);
     }
 
-    fn get_control_sink_by_id(&self, id: &str) -> Rc<RefCell<dyn SinksControl>> {
+    fn get_is_controllable_by_id(&self, id: &str) -> Rc<RefCell<dyn MakesControlSink>> {
+        if self.id_to_is_controllable.contains_key(id) {
+            let clone = Rc::clone(self.id_to_is_controllable.get(id).unwrap());
+            return clone;
+        }
         if self.id_to_effect.contains_key(id) {
             let clone = Rc::clone(self.id_to_effect.get(id).unwrap());
             return clone;
@@ -318,25 +327,29 @@ impl Orchestrator {
             );
         }
         for control_trip_settings in self.settings.trips.clone() {
-            let target = self.get_control_sink_by_id(&control_trip_settings.target.id);
-            let control_trip = Rc::new(RefCell::new(ControlTrip::new(
-                target,
-                control_trip_settings.target.param,
-            )));
-            control_trip.borrow_mut().reset_cursor();
-            for path_id in control_trip_settings.path_ids {
-                let control_path_opt = self.id_to_control_path.get(&path_id);
-                // TODO: not sure this clone() is right
-                if let Some(control_path) = control_path_opt {
-                    control_trip.borrow_mut().add_path(Rc::clone(control_path));
-                } else {
-                    panic!(
-                        "automation track {} needs missing sequence {}",
-                        control_trip_settings.id, path_id
-                    );
+            let target = self.get_is_controllable_by_id(&control_trip_settings.target.id);
+            if let Some(controller) = target.borrow().make_control_sink() {
+                let control_trip = Rc::new(RefCell::new(ControlTrip::new(controller)));
+                control_trip.borrow_mut().reset_cursor();
+                for path_id in control_trip_settings.path_ids {
+                    let control_path_opt = self.id_to_control_path.get(&path_id);
+                    // TODO: not sure this clone() is right
+                    if let Some(control_path) = control_path_opt {
+                        control_trip.borrow_mut().add_path(Rc::clone(control_path));
+                    } else {
+                        panic!(
+                            "control trip {} needs missing sequence {}",
+                            control_trip_settings.id, path_id
+                        );
+                    }
                 }
-            }
-            self.add_clock_watcher_by_id(control_trip_settings.id, control_trip);
+                self.add_clock_watcher_by_id(control_trip_settings.id, control_trip);
+            } else {
+                panic!(
+                    "someone instantiated a MakesControlSink without proper wrapping: {:?}.",
+                    target
+                );
+            };
         }
     }
 

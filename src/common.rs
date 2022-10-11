@@ -1,3 +1,18 @@
+use std::{cell::RefCell, rc::{Rc, Weak}};
+
+pub type W<T> = Rc<RefCell<T>>;
+pub type WW<T> = Weak<RefCell<T>>;
+
+// TODO: some kind of wrap_me() parameterized function
+//
+// a HasMe trait with set_me() or something like that 
+//
+// pub fn wrap_me<T>(me: T) -> W<T> {
+//     let wrapped = Rc::new(RefCell::new(me));
+//     wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+//     wrapped
+// }
+
 pub type MonoSample = f32;
 #[allow(dead_code)]
 pub type StereoSample = (MonoSample, MonoSample);

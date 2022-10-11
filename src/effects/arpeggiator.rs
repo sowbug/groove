@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     traits::{
-        IsMidiEffect, SinksControl, SinksControlParam, SinksMidi, SourcesMidi, Terminates,
+        IsMidiEffect,  SinksMidi, SourcesMidi, Terminates,
         WatchesClock,
     },
 };
@@ -21,12 +21,6 @@ pub struct Arpeggiator {
     is_note_playing: bool,
 
     next_beat: f32,
-}
-
-impl SinksControl for Arpeggiator {
-    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
-        todo!()
-    }
 }
 
 impl SinksMidi for Arpeggiator {

@@ -4,7 +4,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{IsMidiInstrument, SinksControl, SinksControlParam, SinksMidi, SourcesAudio},
+    traits::{IsMidiInstrument, SinksMidi, SourcesAudio},
 };
 
 use super::general_midi::GeneralMidiPercussionProgram;
@@ -36,11 +36,6 @@ impl Voice {
     }
 }
 
-impl SinksControl for Voice {
-    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
-        todo!()
-    }
-}
 impl SinksMidi for Voice {
     fn midi_channel(&self) -> MidiChannel {
         MIDI_CHANNEL_RECEIVE_ALL
@@ -142,11 +137,6 @@ impl Sampler {
     }
 }
 
-impl SinksControl for Sampler {
-    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
-        todo!()
-    }
-}
 impl SinksMidi for Sampler {
     fn midi_channel(&self) -> MidiChannel {
         self.midi_channel

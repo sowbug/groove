@@ -1,15 +1,20 @@
-use std::f32::consts::PI;
-
 use crate::{
-    common::{MonoSample, WaveformType},
+    common::{MonoSample, WaveformType, W, WW},
     preset::{LfoPreset, OscillatorPreset},
     traits::SourcesAudio,
+};
+use std::{
+    cell::RefCell,
+    f32::consts::PI,
+    rc::{Rc, Weak},
 };
 
 use super::clock::Clock;
 
 #[derive(Debug, Clone)]
 pub struct Oscillator {
+    pub(crate) me: WW<Self>,
+
     waveform: WaveformType,
 
     // Hertz. Any positive number. 440 = A4
@@ -39,6 +44,7 @@ impl Default for Oscillator {
             // One view is that a default oscillator should be quiet. Another view
             // is that a quiet oscillator isn't doing its main job of helping make
             // sound. Principle of Least Astonishment prevails.
+            me: Weak::new(),
             waveform: WaveformType::Sine,
             frequency: 440.0,
             fixed_frequency: 0.0,
@@ -66,6 +72,16 @@ impl Oscillator {
         // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5 is Square.
     }
 
+    #[allow(dead_code)]
+    pub(crate) fn new_wrapped_with(waveform: WaveformType) -> W<Self> {
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+        let wrapped = Rc::new(RefCell::new(Self::new_with(waveform)));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
+    }
+
     pub fn new_from_preset(preset: &OscillatorPreset) -> Self {
         Self {
             waveform: preset.waveform,
@@ -80,6 +96,16 @@ impl Oscillator {
             frequency: lfo_preset.frequency,
             ..Default::default()
         }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn new_wrapped() -> W<Self> {
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+        let wrapped = Rc::new(RefCell::new(Self::new()));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
     }
 
     pub(crate) fn adjusted_frequency(&self) -> f32 {

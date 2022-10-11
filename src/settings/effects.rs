@@ -1,5 +1,5 @@
 use crate::{
-    common::MonoSample,
+    common::{MonoSample, W},
     effects::{
         bitcrusher::Bitcrusher,
         filter::{Filter, FilterType},
@@ -9,7 +9,6 @@ use crate::{
     traits::IsEffect,
 };
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -71,76 +70,75 @@ pub enum EffectSettings {
 }
 
 impl EffectSettings {
-    pub(crate) fn instantiate(&self, sample_rate: usize) -> Rc<RefCell<dyn IsEffect>> {
+    pub(crate) fn instantiate(&self, sample_rate: usize) -> W<dyn IsEffect> {
         match *self {
             // This has more repetition than we'd expect because of
             // https://stackoverflow.com/questions/26378842/how-do-i-overcome-match-arms-with-incompatible-types-for-structs-implementing-sa
             //
             // Match arms have to return the same types, and returning a Rc<RefCell<dyn some trait>> doesn't count
             // as the same type.
-            EffectSettings::Limiter { min, max } => Rc::new(RefCell::new(Limiter::new_with(
-                min as MonoSample,
-                max as MonoSample,
-            ))),
-            EffectSettings::Gain { amount } => Rc::new(RefCell::new(Gain::new_with(amount))),
+            EffectSettings::Limiter { min, max } => {
+                Limiter::new_wrapped_with(min as MonoSample, max as MonoSample)
+            }
+            EffectSettings::Gain { amount } => Gain::new_wrapped_with(amount),
             EffectSettings::Bitcrusher { bits_to_crush } => {
-                Rc::new(RefCell::new(Bitcrusher::new_with(bits_to_crush)))
+                Bitcrusher::new_wrapped_with(bits_to_crush)
             }
             EffectSettings::FilterLowPass12db { cutoff, q } => {
-                Rc::new(RefCell::new(Filter::new(&FilterType::LowPass {
+                Filter::new_wrapped_with(&FilterType::LowPass {
                     sample_rate,
                     cutoff,
                     q,
-                })))
+                })
             }
             EffectSettings::FilterHighPass12db { cutoff, q } => {
-                Rc::new(RefCell::new(Filter::new(&FilterType::HighPass {
+                Filter::new_wrapped_with(&FilterType::HighPass {
                     sample_rate,
                     cutoff,
                     q,
-                })))
+                })
             }
             EffectSettings::FilterBandPass12db { cutoff, bandwidth } => {
-                Rc::new(RefCell::new(Filter::new(&FilterType::BandPass {
+                Filter::new_wrapped_with(&FilterType::BandPass {
                     sample_rate,
                     cutoff,
                     bandwidth,
-                })))
+                })
             }
             EffectSettings::FilterBandStop12db { cutoff, bandwidth } => {
-                Rc::new(RefCell::new(Filter::new(&FilterType::BandStop {
+                Filter::new_wrapped_with(&FilterType::BandStop {
                     sample_rate,
                     cutoff,
                     bandwidth,
-                })))
+                })
             }
             EffectSettings::FilterAllPass12db { cutoff, q } => {
-                Rc::new(RefCell::new(Filter::new(&FilterType::AllPass {
+                Filter::new_wrapped_with(&FilterType::AllPass {
                     sample_rate,
                     cutoff,
                     q,
-                })))
+                })
             }
             EffectSettings::FilterPeakingEq12db { cutoff, db_gain } => {
-                Rc::new(RefCell::new(Filter::new(&FilterType::PeakingEq {
+                Filter::new_wrapped_with(&FilterType::PeakingEq {
                     sample_rate,
                     cutoff,
                     db_gain,
-                })))
+                })
             }
             EffectSettings::FilterLowShelf12db { cutoff, db_gain } => {
-                Rc::new(RefCell::new(Filter::new(&FilterType::LowShelf {
+                Filter::new_wrapped_with(&FilterType::LowShelf {
                     sample_rate,
                     cutoff,
                     db_gain,
-                })))
+                })
             }
             EffectSettings::FilterHighShelf12db { cutoff, db_gain } => {
-                Rc::new(RefCell::new(Filter::new(&FilterType::HighShelf {
+                Filter::new_wrapped_with(&FilterType::HighShelf {
                     sample_rate,
                     cutoff,
                     db_gain,
-                })))
+                })
             }
         }
     }

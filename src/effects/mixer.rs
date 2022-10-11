@@ -1,14 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::common::MonoSample;
+use crate::common::{MonoSample, W, WW};
 
-use crate::clock::Clock;
-use crate::traits::{
-    IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
-};
+use crate::traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio};
 
 #[derive(Debug, Default)]
 pub struct Mixer {
+    pub(crate) me: WW<Self>,
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
 }
 impl IsEffect for Mixer {}
@@ -17,6 +15,14 @@ impl Mixer {
         Self {
             ..Default::default()
         }
+    }
+    pub fn new_wrapped() -> W<Self> {
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+        let wrapped = Rc::new(RefCell::new(Self::new()));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
     }
 }
 impl SinksAudio for Mixer {
@@ -30,11 +36,6 @@ impl SinksAudio for Mixer {
 impl TransformsAudio for Mixer {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         input_sample
-    }
-}
-impl SinksControl for Mixer {
-    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
-        todo!()
     }
 }
 

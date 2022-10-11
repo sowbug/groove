@@ -1,8 +1,13 @@
 use crate::clock::{Clock, ClockTimeUnit};
-use crate::envelopes::{EnvelopeStep, SteppedEnvelope};
+use crate::common::WW;
+use crate::effects::bitcrusher::Bitcrusher;
+use crate::effects::limiter::Limiter;
+use crate::effects::mixer::Mixer;
+use crate::effects::{filter::Filter, gain::Gain};
+use crate::envelopes::{AdsrEnvelope, EnvelopeStep, SteppedEnvelope};
+use crate::oscillators::Oscillator;
 use crate::settings::control::ControlStep;
-use crate::traits::{SinksControl, SinksControlParam};
-use crate::traits::{Terminates, WatchesClock};
+use crate::traits::{MakesControlSink, SinksControl, Terminates, WatchesClock};
 
 use std::cell::RefCell;
 use std::ops::Range;
@@ -19,7 +24,7 @@ use std::rc::Rc;
 /// target.
 #[derive(Debug)]
 pub struct ControlTrip {
-    target_instrument: Rc<RefCell<dyn SinksControl>>,
+    target: Box<dyn SinksControl>,
     cursor_beats: f32,
 
     current_value: f32,
@@ -33,9 +38,12 @@ impl ControlTrip {
     const CURSOR_BEGIN: f32 = 0.0;
 
     #[allow(unused_variables)]
-    pub fn new(target: Rc<RefCell<dyn SinksControl>>, target_param_name: String) -> Self {
+    pub fn new(
+        //        target: Rc<RefCell<dyn SinksControl>>,
+        target: Box<dyn SinksControl>,
+    ) -> Self {
         Self {
-            target_instrument: target,
+            target,
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f32::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
@@ -84,12 +92,7 @@ impl WatchesClock for ControlTrip {
             let last_value = self.current_value;
             self.current_value = value;
             if self.current_value != last_value {
-                self.target_instrument.borrow_mut().handle_control(
-                    clock,
-                    &SinksControlParam::Primary {
-                        value: self.current_value,
-                    },
-                );
+                self.target.handle_control(clock, self.current_value);
             }
             self.is_finished = time >= step.interval.end;
             return;
@@ -130,6 +133,191 @@ impl ControlPath {
     }
 }
 
+#[derive(Debug)]
+pub struct FilterQController {
+    target: WW<Filter>,
+}
+impl SinksControl for FilterQController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_q(value);
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct FilterCutoffController {
+    target: WW<Filter>,
+}
+impl SinksControl for FilterCutoffController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_cutoff(value);
+        }
+    }
+}
+impl MakesControlSink for Filter {
+    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(FilterCutoffController {
+                target: self.me.clone(),
+            }))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct AdsrEnvelopeNoteController {
+    target: WW<AdsrEnvelope>,
+}
+impl SinksControl for AdsrEnvelopeNoteController {
+    fn handle_control(&mut self, clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().handle_note_event(clock, value == 1.0);
+        }
+    }
+}
+impl MakesControlSink for AdsrEnvelope {
+    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(AdsrEnvelopeNoteController {
+                target: self.me.clone(),
+            }))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct GainLevelController {
+    target: WW<Gain>,
+}
+impl SinksControl for GainLevelController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_level(value);
+        }
+    }
+}
+impl MakesControlSink for Gain {
+    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(GainLevelController {
+                target: self.me.clone(),
+            }))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct OscillatorFrequencyController {
+    target: WW<Oscillator>,
+}
+impl SinksControl for OscillatorFrequencyController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_frequency(value);
+        }
+    }
+}
+impl MakesControlSink for Oscillator {
+    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(OscillatorFrequencyController {
+                target: self.me.clone(),
+            }))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct LimiterMinLevelController {
+    target: WW<Limiter>,
+}
+impl SinksControl for LimiterMinLevelController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_min(value);
+        }
+    }
+}
+#[derive(Debug)]
+pub struct LimiterMaxLevelController {
+    target: WW<Limiter>,
+}
+impl SinksControl for LimiterMaxLevelController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_max(value);
+        }
+    }
+}
+impl MakesControlSink for Limiter {
+    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            // TODO match all values!
+            Some(Box::new(LimiterMinLevelController {
+                target: self.me.clone(),
+            }))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct BitcrusherBitCountController {
+    target: WW<Bitcrusher>,
+}
+impl SinksControl for BitcrusherBitCountController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_bits_to_crush(value as u8); // TODO: are we only (0.0..=1.0)?
+        }
+    }
+}
+impl MakesControlSink for Bitcrusher {
+    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(BitcrusherBitCountController {
+                target: self.me.clone(),
+            }))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct MixerController {
+    target: WW<Mixer>,
+}
+impl SinksControl for MixerController {
+    fn handle_control(&mut self, _clock: &Clock, _value: f32) {
+        if let Some(_) = self.target.upgrade() {
+            // Mixer doesn't have any adjustable parameters!
+        }
+    }
+}
+impl MakesControlSink for Mixer {
+    fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(MixerController {
+                target: self.me.clone(),
+            }))
+        } else {
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
@@ -154,17 +342,15 @@ mod tests {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
         }));
-        let target = Rc::new(RefCell::new(TestMidiSink::new()));
-        let target_param_name = String::from("value");
-        let target_weak = Rc::clone(&target);
-        let trip = Rc::new(RefCell::new(ControlTrip::new(
-            target_weak,
-            target_param_name,
-        )));
-        trip.borrow_mut().add_path(Rc::clone(&sequence));
 
         let mut clock = WatchedClock::new();
-        clock.add_watcher(trip);
+        let target = TestMidiSink::new_wrapped();
+        if let Some(target_control_sink) = target.borrow().make_control_sink() {
+            let trip = Rc::new(RefCell::new(ControlTrip::new(target_control_sink)));
+            trip.borrow_mut().add_path(Rc::clone(&sequence));
+
+            clock.add_watcher(trip);
+        }
 
         clock.add_watcher(Rc::new(RefCell::new(TestValueChecker {
             values: VecDeque::from(vec![0.9, 0.1, 0.2, 0.3]),
@@ -192,17 +378,14 @@ mod tests {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
         }));
-        let target = Rc::new(RefCell::new(TestMidiSink::new()));
-        let target_param_name = String::from("value");
-        let target_trip_clone = Rc::clone(&target);
-        let trip = Rc::new(RefCell::new(ControlTrip::new(
-            target_trip_clone,
-            target_param_name,
-        )));
-        trip.borrow_mut().add_path(path);
 
         let mut clock = WatchedClock::new();
-        clock.add_watcher(trip);
+        let target = TestMidiSink::new_wrapped();
+        if let Some(target_control_sink) = target.borrow().make_control_sink() {
+            let trip = Rc::new(RefCell::new(ControlTrip::new(target_control_sink)));
+            trip.borrow_mut().add_path(path);
+            clock.add_watcher(trip);
+        }
 
         let target = Rc::clone(&target);
         clock.add_watcher(Rc::new(RefCell::new(TestValueChecker {

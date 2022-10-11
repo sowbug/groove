@@ -1,11 +1,8 @@
 use std::{cell::RefCell, f64::consts::PI, rc::Rc};
 
 use crate::{
-    clock::Clock,
-    common::MonoSample,
-    traits::{
-        IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
-    },
+    common::{MonoSample, W, WW},
+    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -56,6 +53,7 @@ pub enum FilterType {
 
 #[derive(Debug, Default)]
 pub struct Filter {
+    pub(crate) me: WW<Self>,
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
     filter_type: FilterType,
     sample_rate: usize,
@@ -106,6 +104,15 @@ impl Filter {
         };
         r.recalculate_coefficients(filter_type);
         r
+    }
+
+    pub fn new_wrapped_with(filter_type: &FilterType) -> W<Self> {
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+        let wrapped = Rc::new(RefCell::new(Self::new(filter_type)));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
     }
 
     fn recalculate_coefficients(&mut self, new_filter_type: &FilterType) {
@@ -549,54 +556,25 @@ impl TransformsAudio for Filter {
     }
 }
 
-impl SinksControl for Filter {
-    fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-        match param {
-            SinksControlParam::Primary { value } => {
-                self.set_cutoff(Self::percent_to_frequency(*value));
-            }
-            SinksControlParam::Secondary { value } => {
-                self.set_q(*value);
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::{
-        cell::RefCell,
-        rc::{Rc, Weak},
-    };
-
+    use super::*;
     use crate::{
         common::WaveformType,
-        midi::{MidiMessage, MidiNote},
-        preset::OscillatorPreset,
         traits::{
-            tests::write_effect_to_file,
-            IsController, SinksAudio, SinksControl,
-            SinksControlParam::{self},
-            SourcesControl, Terminates, WatchesClock,
+            tests::write_effect_to_file, IsController, SinksAudio, SinksControl, SourcesControl,
+            Terminates, WatchesClock,
         },
         utils::tests::TestNullController,
         {clock::Clock, oscillators::Oscillator},
     };
+    use std::{cell::RefCell, rc::Rc};
 
-    use super::*;
     const SAMPLE_RATE: usize = 44100;
-
-    #[derive(Copy, Clone, Debug, Default)]
-    enum TestFilterControllerParam {
-        #[default]
-        Cutoff,
-        Q,
-    }
 
     #[derive(Debug)]
     struct TestFilterController {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
-        param: TestFilterControllerParam,
+        control_sinks: Vec<Box<dyn SinksControl>>,
         param_start: f32,
         param_end: f32,
         duration: f32,
@@ -605,15 +583,11 @@ mod tests {
     }
 
     impl TestFilterController {
-        pub fn new(
-            param: TestFilterControllerParam,
-            param_start: f32,
-            param_end: f32,
-            duration: f32,
-        ) -> Self {
+        #[deprecated]
+        #[allow(dead_code)]
+        pub fn new(param_start: f32, param_end: f32, duration: f32) -> Self {
             Self {
                 control_sinks: Vec::new(),
-                param,
                 param_start,
                 param_end,
                 duration,
@@ -623,11 +597,11 @@ mod tests {
     }
 
     impl SourcesControl for TestFilterController {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
             &self.control_sinks
         }
 
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
             &mut self.control_sinks
         }
     }
@@ -638,15 +612,10 @@ mod tests {
                 self.time_start = clock.seconds();
             }
             if self.param_end != self.param_start {
-                let param = self.param;
                 let value = self.param_start
                     + ((clock.seconds() - self.time_start) / self.duration)
                         * (self.param_end - self.param_start);
-                let sink_param = match param {
-                    TestFilterControllerParam::Cutoff => SinksControlParam::Primary { value },
-                    TestFilterControllerParam::Q => SinksControlParam::Secondary { value },
-                };
-                self.issue_control(clock, &sink_param);
+                self.issue_control(clock, value);
             }
         }
     }
@@ -660,12 +629,12 @@ mod tests {
     impl IsController for TestFilterController {}
 
     fn add_noise_and_write_filter_to_file(
-        filter: &mut Filter,
+        filter: W<Filter>,
         controller: &mut dyn IsController,
         basename: &str,
     ) {
         let source = Rc::new(RefCell::new(Oscillator::new_with(WaveformType::Noise)));
-        filter.add_audio_source(source);
+        filter.borrow_mut().add_audio_source(source);
         write_effect_to_file(filter, controller, basename);
     }
 
@@ -676,7 +645,7 @@ mod tests {
         const SIX_DB: f32 = 6.0;
 
         add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::LowPass {
+            Filter::new_wrapped_with(&FilterType::LowPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: std::f32::consts::FRAC_1_SQRT_2,
@@ -686,7 +655,7 @@ mod tests {
         );
 
         add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::LowPass {
+            Filter::new_wrapped_with(&FilterType::LowPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: Q_10,
@@ -696,7 +665,7 @@ mod tests {
         );
 
         add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::HighPass {
+            Filter::new_wrapped_with(&FilterType::HighPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: std::f32::consts::FRAC_1_SQRT_2,
@@ -705,7 +674,7 @@ mod tests {
             "rbj_noise_hpf_1KHz_min_q",
         );
         add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::HighPass {
+            Filter::new_wrapped_with(&FilterType::HighPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 q: Q_10,
@@ -714,7 +683,7 @@ mod tests {
             "rbj_noise_hpf_1KHz_q10",
         );
         add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::BandPass {
+            Filter::new_wrapped_with(&FilterType::BandPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 bandwidth: ONE_OCTAVE,
@@ -723,7 +692,7 @@ mod tests {
             "rbj_noise_bpf_1KHz_bw1",
         );
         add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::BandStop {
+            Filter::new_wrapped_with(&FilterType::BandStop {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 bandwidth: ONE_OCTAVE,
@@ -732,7 +701,7 @@ mod tests {
             "rbj_noise_bsf_1KHz_bw1",
         );
         add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::AllPass {
+            Filter::new_wrapped_with(&FilterType::AllPass {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.0,
                 q: std::f32::consts::FRAC_1_SQRT_2,
@@ -741,7 +710,7 @@ mod tests {
             "rbj_noise_apf_1KHz_min_q",
         );
         add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::PeakingEq {
+            Filter::new_wrapped_with(&FilterType::PeakingEq {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 db_gain: SIX_DB,
@@ -750,7 +719,7 @@ mod tests {
             "rbj_noise_peaking_eq_1KHz_6db",
         );
         add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::LowShelf {
+            Filter::new_wrapped_with(&FilterType::LowShelf {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 db_gain: SIX_DB,
@@ -759,7 +728,7 @@ mod tests {
             "rbj_noise_low_shelf_1KHz_6db",
         );
         add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::HighShelf {
+            Filter::new_wrapped_with(&FilterType::HighShelf {
                 sample_rate: SAMPLE_RATE,
                 cutoff: 1000.,
                 db_gain: SIX_DB,
@@ -769,63 +738,63 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_dynamic_cutoff() {
-        let mut source = Oscillator::new_from_preset(&OscillatorPreset {
-            waveform: WaveformType::Sawtooth,
-            ..Default::default()
-        });
-        source.set_frequency(MidiMessage::note_to_frequency(MidiNote::C4 as u8));
+    // #[test]
+    // fn test_dynamic_cutoff() {
+    //     let mut source = Oscillator::new_from_preset(&OscillatorPreset {
+    //         waveform: WaveformType::Sawtooth,
+    //         ..Default::default()
+    //     });
+    //     source.set_frequency(MidiMessage::note_to_frequency(MidiNote::C4 as u8));
 
-        add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::LowPass {
-                sample_rate: SAMPLE_RATE,
-                cutoff: 1000.,
-                q: std::f32::consts::FRAC_1_SQRT_2,
-            }),
-            &mut TestFilterController::new(TestFilterControllerParam::Cutoff, 40.0, 8000.0, 2.0),
-            "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q",
-        );
-        add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::LowPass {
-                sample_rate: SAMPLE_RATE,
-                cutoff: 1000.,
-                q: std::f32::consts::FRAC_1_SQRT_2,
-            }),
-            &mut TestFilterController::new(
-                TestFilterControllerParam::Q,
-                std::f32::consts::FRAC_1_SQRT_2,
-                std::f32::consts::FRAC_1_SQRT_2 * 20.0,
-                2.0,
-            ),
-            "rbj_sawtooth_middle_c_lpf_1KHz_dynamic_min_q_20",
-        );
-        add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::HighPass {
-                sample_rate: SAMPLE_RATE,
-                cutoff: 1000.,
-                q: std::f32::consts::FRAC_1_SQRT_2,
-            }),
-            &mut TestFilterController::new(TestFilterControllerParam::Cutoff, 8000.0, 40.0, 2.0),
-            "rbj_sawtooth_middle_c_hpf_dynamic_8KHz_40Hz_min_q",
-        );
-        add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::BandPass {
-                sample_rate: SAMPLE_RATE,
-                cutoff: 1000.,
-                bandwidth: std::f32::consts::FRAC_1_SQRT_2,
-            }),
-            &mut TestFilterController::new(TestFilterControllerParam::Cutoff, 40.0, 8000.0, 2.0),
-            "rbj_sawtooth_middle_c_bpf_dynamic_40Hz_8KHz_min_q",
-        );
-        add_noise_and_write_filter_to_file(
-            &mut Filter::new(&FilterType::BandStop {
-                sample_rate: SAMPLE_RATE,
-                cutoff: 1000.,
-                bandwidth: std::f32::consts::FRAC_1_SQRT_2,
-            }),
-            &mut TestFilterController::new(TestFilterControllerParam::Cutoff, 40.0, 1500.0, 2.0),
-            "rbj_sawtooth_middle_c_bsf_dynamic_40Hz_1.5KHz_min_q",
-        );
-    }
+    //     add_noise_and_write_filter_to_file(
+    //         &mut Filter::new(&FilterType::LowPass {
+    //             sample_rate: SAMPLE_RATE,
+    //             cutoff: 1000.,
+    //             q: std::f32::consts::FRAC_1_SQRT_2,
+    //         }),
+    //         &mut TestFilterController::new(TestFilterControllerParam::Cutoff, 40.0, 8000.0, 2.0),
+    //         "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q",
+    //     );
+    //     add_noise_and_write_filter_to_file(
+    //         &mut Filter::new(&FilterType::LowPass {
+    //             sample_rate: SAMPLE_RATE,
+    //             cutoff: 1000.,
+    //             q: std::f32::consts::FRAC_1_SQRT_2,
+    //         }),
+    //         &mut TestFilterController::new(
+    //             TestFilterControllerParam::Q,
+    //             std::f32::consts::FRAC_1_SQRT_2,
+    //             std::f32::consts::FRAC_1_SQRT_2 * 20.0,
+    //             2.0,
+    //         ),
+    //         "rbj_sawtooth_middle_c_lpf_1KHz_dynamic_min_q_20",
+    //     );
+    //     add_noise_and_write_filter_to_file(
+    //         &mut Filter::new(&FilterType::HighPass {
+    //             sample_rate: SAMPLE_RATE,
+    //             cutoff: 1000.,
+    //             q: std::f32::consts::FRAC_1_SQRT_2,
+    //         }),
+    //         &mut TestFilterController::new(TestFilterControllerParam::Cutoff, 8000.0, 40.0, 2.0),
+    //         "rbj_sawtooth_middle_c_hpf_dynamic_8KHz_40Hz_min_q",
+    //     );
+    //     add_noise_and_write_filter_to_file(
+    //         &mut Filter::new(&FilterType::BandPass {
+    //             sample_rate: SAMPLE_RATE,
+    //             cutoff: 1000.,
+    //             bandwidth: std::f32::consts::FRAC_1_SQRT_2,
+    //         }),
+    //         &mut TestFilterController::new(TestFilterControllerParam::Cutoff, 40.0, 8000.0, 2.0),
+    //         "rbj_sawtooth_middle_c_bpf_dynamic_40Hz_8KHz_min_q",
+    //     );
+    //     add_noise_and_write_filter_to_file(
+    //         &mut Filter::new(&FilterType::BandStop {
+    //             sample_rate: SAMPLE_RATE,
+    //             cutoff: 1000.,
+    //             bandwidth: std::f32::consts::FRAC_1_SQRT_2,
+    //         }),
+    //         &mut TestFilterController::new(TestFilterControllerParam::Cutoff, 40.0, 1500.0, 2.0),
+    //         "rbj_sawtooth_middle_c_bsf_dynamic_40Hz_1.5KHz_min_q",
+    //     );
+    // }
 }

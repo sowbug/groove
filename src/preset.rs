@@ -106,7 +106,7 @@ mod tests {
     use crate::{
         clock::Clock,
         midi::{MidiChannel, MidiMessage, MidiMessageType},
-        traits::{SinksControl, SinksControlParam, SinksMidi},
+        traits::SinksMidi,
     };
 
     use super::OscillatorPreset;
@@ -128,11 +128,6 @@ mod tests {
         }
     }
 
-    impl SinksControl for NullDevice {
-        fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
-            todo!()
-        }
-    }
     impl SinksMidi for NullDevice {
         fn midi_channel(&self) -> MidiChannel {
             self.midi_channel

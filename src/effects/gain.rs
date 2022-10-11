@@ -1,17 +1,18 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 use crate::{
-    clock::Clock,
-    common::MonoSample,
-    traits::{
-        IsEffect, SinksAudio, SinksControl, SinksControlParam, SourcesAudio, TransformsAudio,
-    },
+    common::{MonoSample, W, WW},
+    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
 };
 
 #[derive(Debug)]
 pub struct Gain {
+    pub(crate) me: WW<Self>,
     sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
-    amount: f32,
+    level: f32,
 }
 impl IsEffect for Gain {}
 
@@ -23,18 +24,49 @@ impl Gain {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn new_wrapped() -> W<Self> {
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+        let wrapped = Rc::new(RefCell::new(Self::new()));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
+    }
+
     pub fn new_with(amount: f32) -> Self {
         Self {
-            amount,
+            level: amount,
             ..Default::default()
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn new_wrapped_with(amount: f32) -> W<Self> {
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+        let wrapped = Rc::new(RefCell::new(Self::new_with(amount)));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
+    }
+
+    #[allow(dead_code)]
+    pub fn level(&self) -> f32 {
+        self.level
+    }
+
+    #[allow(dead_code)]
+    pub fn set_level(&mut self, level: f32) {
+        self.level = level;
     }
 }
 impl Default for Gain {
     fn default() -> Self {
         Self {
+            me: Weak::new(),
             sources: Vec::default(),
-            amount: 1.0,
+            level: 1.0,
         }
     }
 }
@@ -48,22 +80,17 @@ impl SinksAudio for Gain {
 }
 impl TransformsAudio for Gain {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
-        input_sample * self.amount
-    }
-}
-impl SinksControl for Gain {
-    fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-        match param {
-            SinksControlParam::Primary { value } => self.amount = *value,
-            _ => todo!(),
-        }
+        input_sample * self.level
     }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use crate::utils::tests::{TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSameLevel};
+    use crate::{
+        clock::Clock,
+        utils::tests::{TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSameLevel},
+    };
 
     use super::*;
 

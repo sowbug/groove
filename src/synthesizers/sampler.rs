@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     midi::{MidiChannel, MidiMessage, MidiMessageType},
-    traits::{SinksControl, SinksControlParam, SinksMidi, SourcesAudio},
+    traits::{SinksMidi, SourcesAudio},
 };
 
 #[derive(Debug, Default)]
@@ -37,11 +37,6 @@ impl Sampler {
     }
 }
 
-impl SinksControl for Sampler {
-    fn handle_control(&mut self, _clock: &Clock, _param: &SinksControlParam) {
-        todo!()
-    }
-}
 impl SinksMidi for Sampler {
     fn midi_channel(&self) -> MidiChannel {
         self.midi_channel

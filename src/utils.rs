@@ -1,7 +1,9 @@
 #[cfg(test)]
 pub mod tests {
     use crate::clock::ClockTimeUnit;
+    use crate::common::{W, WW};
     use crate::midi::MidiNote;
+    use crate::traits::MakesControlSink;
     use crate::{
         clock::{Clock, WatchedClock},
         common::{
@@ -14,8 +16,8 @@ pub mod tests {
         oscillators::Oscillator,
         preset::EnvelopePreset,
         traits::{
-            IsController, IsEffect, SinksAudio, SinksControl, SinksControlParam, SinksMidi,
-            SourcesAudio, SourcesControl, SourcesMidi, Terminates, WatchesClock,
+            IsController, IsEffect, SinksAudio, SinksControl, SinksMidi, SourcesAudio,
+            SourcesControl, SourcesMidi, Terminates, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -106,7 +108,7 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestNullController {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
+        control_sinks: Vec<Box<dyn SinksControl>>,
     }
 
     impl TestNullController {
@@ -118,10 +120,10 @@ pub mod tests {
     }
 
     impl SourcesControl for TestNullController {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
             &self.control_sinks
         }
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
             &mut self.control_sinks
         }
     }
@@ -247,7 +249,7 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestTrigger {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
+        control_sinks: Vec<Box<dyn SinksControl>>,
         time_to_trigger_seconds: f32,
         value: f32,
         has_triggered: bool,
@@ -266,7 +268,7 @@ pub mod tests {
             if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
                 self.has_triggered = true;
                 let value = self.value;
-                self.issue_control(clock, &SinksControlParam::Primary { value });
+                self.issue_control(clock, value);
             }
         }
     }
@@ -276,11 +278,11 @@ pub mod tests {
         }
     }
     impl SourcesControl for TestTrigger {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
             &self.control_sinks
         }
 
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
             &mut self.control_sinks
         }
     }
@@ -288,7 +290,7 @@ pub mod tests {
     /// Lets a SourcesAudio act like an IsController
     #[derive(Debug)]
     pub struct TestControlSourceContinuous {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
+        control_sinks: Vec<Box<dyn SinksControl>>,
         source: Box<dyn SourcesAudio>,
     }
     impl TestControlSourceContinuous {
@@ -300,18 +302,18 @@ pub mod tests {
         }
     }
     impl SourcesControl for TestControlSourceContinuous {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
             &self.control_sinks
         }
 
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
             &mut self.control_sinks
         }
     }
     impl WatchesClock for TestControlSourceContinuous {
         fn tick(&mut self, clock: &Clock) {
             let value = self.source.source_audio(clock);
-            self.issue_control(clock, &SinksControlParam::Primary { value });
+            self.issue_control(clock, value);
         }
     }
     impl Terminates for TestControlSourceContinuous {
@@ -321,9 +323,22 @@ pub mod tests {
     }
     impl IsController for TestControlSourceContinuous {}
 
+    // #[derive(Debug)]
+    // struct TestControlSourceContinuousControlSink {
+    //     target: Weak<RefCell<TestMidiSink>>,
+    // }
+    // impl SinksControl for TestMidiSinkControlSink {
+    //     fn handle_control(&mut self, clock: &Clock, param: f32) {
+    //         if let Some(target) = self.target.upgrade() {
+    //             target.borrow_mut().set_value(param);
+    //         }
+    //     }
+    // }
+
     /// Helper for testing SinksMidi
     #[derive(Debug, Default)]
     pub struct TestMidiSink {
+        pub(crate) me: WW<Self>,
         pub is_playing: bool,
         midi_channel: MidiChannel,
         pub midi_messages_received: usize,
@@ -336,15 +351,33 @@ pub mod tests {
 
         pub fn new() -> Self {
             Self {
+                me: Weak::new(),
                 midi_channel: Self::TEST_MIDI_CHANNEL,
                 ..Default::default()
             }
+        }
+        pub fn new_wrapped() -> W<Self> {
+            // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+            // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+            let wrapped = Rc::new(RefCell::new(Self::new()));
+            wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+            wrapped
         }
         pub fn new_with(midi_channel: MidiChannel) -> Self {
             Self {
                 midi_channel,
                 ..Default::default()
             }
+        }
+        #[allow(dead_code)]
+        pub fn new_wrapped_with(midi_channel: MidiChannel) -> W<Self> {
+            // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+            // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+            let wrapped = Rc::new(RefCell::new(Self::new_with(midi_channel)));
+            wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+            wrapped
         }
         pub fn set_value(&mut self, value: f32) {
             self.value = value;
@@ -376,18 +409,32 @@ pub mod tests {
             }
         }
     }
-    impl SinksControl for TestMidiSink {
-        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-            match param {
-                SinksControlParam::Primary { value } => self.set_value(*value),
-                #[allow(unused_variables)]
-                SinksControlParam::Secondary { value } => todo!(),
-            }
-        }
-    }
     impl SourcesAudio for TestMidiSink {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             self.value
+        }
+    }
+    impl MakesControlSink for TestMidiSink {
+        fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+            if self.me.strong_count() != 0 {
+                Some(Box::new(TestMidiSinkController {
+                    target: self.me.clone(),
+                }))
+            } else {
+                None
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct TestMidiSinkController {
+        target: Weak<RefCell<TestMidiSink>>,
+    }
+    impl SinksControl for TestMidiSinkController {
+        fn handle_control(&mut self, _clock: &Clock, param: f32) {
+            if let Some(target) = self.target.upgrade() {
+                target.borrow_mut().set_value(param);
+            }
         }
     }
 
@@ -456,14 +503,14 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestControlSource {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
+        control_sinks: Vec<Box<dyn SinksControl>>,
     }
 
     impl SourcesControl for TestControlSource {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
             &self.control_sinks
         }
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
             &mut self.control_sinks
         }
     }
@@ -476,31 +523,50 @@ pub mod tests {
         }
 
         pub fn handle_test_event(&mut self, value: f32) {
-            self.issue_control(&Clock::new(), &SinksControlParam::Primary { value });
+            self.issue_control(&Clock::new(), value);
         }
     }
 
     #[derive(Debug, Default)]
-    pub struct TestControlSink {
+    pub struct TestControllable {
+        pub(crate) me: Weak<RefCell<Self>>,
         pub value: f32,
     }
+    impl TestControllable {
+        pub fn new() -> Self {
+            Self {
+                ..Default::default()
+            }
+        }
+        pub fn new_wrapped() -> W<Self> {
+            // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+            // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-    impl SinksControl for TestControlSink {
-        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-            match param {
-                SinksControlParam::Primary { value } => {
-                    self.value = *value;
-                }
-                #[allow(unused_variables)]
-                SinksControlParam::Secondary { value } => todo!(),
+            let wrapped = Rc::new(RefCell::new(Self::new()));
+            wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+            wrapped
+        }
+    }
+    impl MakesControlSink for TestControllable {
+        fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+            if self.me.strong_count() != 0 {
+                Some(Box::new(TestControllableController {
+                    target: self.me.clone(),
+                }))
+            } else {
+                None
             }
         }
     }
 
-    impl TestControlSink {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
+    #[derive(Debug)]
+    pub(crate) struct TestControllableController {
+        target: Weak<RefCell<TestControllable>>,
+    }
+    impl SinksControl for TestControllableController {
+        fn handle_control(&mut self, _clock: &Clock, param: f32) {
+            if let Some(target) = self.target.upgrade() {
+                target.borrow_mut().value = param;
             }
         }
     }
@@ -548,14 +614,14 @@ pub mod tests {
     // This shows how all these traits work together.
     #[derive(Debug, Default)]
     pub struct TestKeyboard {
-        control_sinks: Vec<Weak<RefCell<dyn SinksControl>>>,
+        control_sinks: Vec<Box<dyn SinksControl>>,
     }
 
     impl SourcesControl for TestKeyboard {
-        fn control_sinks(&self) -> &[Weak<RefCell<dyn SinksControl>>] {
+        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
             &self.control_sinks
         }
-        fn control_sinks_mut(&mut self) -> &mut Vec<Weak<RefCell<dyn SinksControl>>> {
+        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
             &mut self.control_sinks
         }
     }
@@ -570,7 +636,7 @@ pub mod tests {
         pub fn handle_keypress(&mut self, key: u8) {
             match key {
                 1 => {
-                    self.issue_control(&Clock::new(), &SinksControlParam::Primary { value: 0.5 });
+                    self.issue_control(&Clock::new(), 0.5);
                 }
                 _ => {}
             }
@@ -579,21 +645,11 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestArpeggiator {
+        me: Weak<RefCell<Self>>,
         midi_channel_out: MidiChannel,
         pub tempo: f32,
         channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
     }
-
-    impl SinksControl for TestArpeggiator {
-        fn handle_control(&mut self, _clock: &Clock, param: &SinksControlParam) {
-            match param {
-                SinksControlParam::Primary { value } => self.tempo = *value,
-                #[allow(unused_variables)]
-                SinksControlParam::Secondary { value } => todo!(),
-            }
-        }
-    }
-
     impl SourcesMidi for TestArpeggiator {
         fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
             &self.channels_to_sink_vecs
@@ -612,7 +668,6 @@ pub mod tests {
             self.midi_channel_out = midi_channel;
         }
     }
-
     impl WatchesClock for TestArpeggiator {
         fn tick(&mut self, clock: &Clock) {
             // We don't actually pay any attention to self.tempo, but it's easy
@@ -623,18 +678,47 @@ pub mod tests {
             );
         }
     }
-
     impl Terminates for TestArpeggiator {
         fn is_finished(&self) -> bool {
             true
         }
     }
-
+    impl MakesControlSink for TestArpeggiator {
+        fn make_control_sink(&self) -> Option<Box<dyn SinksControl>> {
+            if self.me.strong_count() != 0 {
+                Some(Box::new(TestArpeggiatorTempoController {
+                    target: self.me.clone(),
+                }))
+            } else {
+                None
+            }
+        }
+    }
     impl TestArpeggiator {
         pub fn new_with(midi_channel_out: MidiChannel) -> Self {
             Self {
                 midi_channel_out,
                 ..Default::default()
+            }
+        }
+        pub fn new_wrapped_with(midi_channel_out: MidiChannel) -> W<Self> {
+            // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+            // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
+
+            let wrapped = Rc::new(RefCell::new(Self::new_with(midi_channel_out)));
+            wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+            wrapped
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct TestArpeggiatorTempoController {
+        target: Weak<RefCell<TestArpeggiator>>,
+    }
+    impl SinksControl for TestArpeggiatorTempoController {
+        fn handle_control(&mut self, _clock: &Clock, param: f32) {
+            if let Some(target) = self.target.upgrade() {
+                target.borrow_mut().tempo = param;
             }
         }
     }
