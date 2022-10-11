@@ -356,7 +356,7 @@ pub struct MixerController {
 }
 impl SinksControl for MixerController {
     fn handle_control(&mut self, _clock: &Clock, _value: f32) {
-        if let Some(_) = self.target.upgrade() {
+        if self.target.upgrade().is_some() {
             // Mixer doesn't have any adjustable parameters!
         }
     }

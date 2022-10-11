@@ -147,14 +147,14 @@ impl Default for ClockSettings {
 
 impl InstrumentSettings {
     pub(crate) fn instantiate(&self, sample_rate: usize) -> Rc<RefCell<dyn IsMidiInstrument>> {
-        match &*self {
+        match self {
             InstrumentSettings::Welsh {
                 midi_input_channel,
                 preset_name,
             } => Rc::new(RefCell::new(welsh::Synth::new(
                 *midi_input_channel,
                 sample_rate,
-                welsh::SynthPreset::by_name(&preset_name),
+                welsh::SynthPreset::by_name(preset_name),
             ))),
             InstrumentSettings::Drumkit {
                 midi_input_channel,

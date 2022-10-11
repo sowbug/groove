@@ -71,10 +71,7 @@ impl SourcesAudio for Sampler {
         }
 
         if self.is_playing {
-            let sample = *self
-                .samples
-                .get(self.sample_pointer as usize)
-                .unwrap_or(&0.0);
+            let sample = *self.samples.get(self.sample_pointer).unwrap_or(&0.0);
             sample
         } else {
             0.0

@@ -1963,7 +1963,7 @@ impl SourcesAudio for Voice {
             // TODO: divide by 10,000 until we figure out how pitch depth is supposed to go
             // TODO: this could leave a side effect if we reuse voices and forget to clean up.
             for o in self.oscillators.iter_mut() {
-                o.set_frequency_modulation(lfo_for_pitch as f32);
+                o.set_frequency_modulation(lfo_for_pitch);
             }
         }
 

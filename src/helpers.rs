@@ -1,7 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::{Arc, Condvar, Mutex};
-
 use crate::common::MonoSample;
 use crate::midi::sequencer::MidiSequencer;
 use crate::midi::smf_reader::MidiSmfReader;
@@ -13,6 +9,9 @@ use crate::traits::IsMidiInstrument;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleRate, StreamConfig};
 use crossbeam::deque::Stealer;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::{Arc, Condvar, Mutex};
 
 pub struct IOHelper {}
 

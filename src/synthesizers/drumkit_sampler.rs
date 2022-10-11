@@ -48,7 +48,7 @@ impl SinksMidi for Voice {
         match message.status {
             MidiMessageType::NoteOn => {
                 self.sample_pointer = 0;
-                self.sample_clock_start = clock.samples() as usize;
+                self.sample_clock_start = clock.samples();
                 self.is_playing = true;
             }
             MidiMessageType::NoteOff => {
@@ -60,17 +60,14 @@ impl SinksMidi for Voice {
 }
 impl SourcesAudio for Voice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        self.sample_pointer = clock.samples() as usize - self.sample_clock_start;
+        self.sample_pointer = clock.samples() - self.sample_clock_start;
         if self.sample_pointer >= self.samples.len() {
             self.is_playing = false;
             self.sample_pointer = 0;
         }
 
         if self.is_playing {
-            let sample = *self
-                .samples
-                .get(self.sample_pointer as usize)
-                .unwrap_or(&0.0);
+            let sample = *self.samples.get(self.sample_pointer).unwrap_or(&0.0);
             sample
         } else {
             0.0

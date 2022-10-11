@@ -61,11 +61,10 @@ impl SongSettings {
 #[cfg(test)]
 mod tests {
 
+    use super::{DeviceSettings, SongSettings};
     use crate::{
         orchestrator::Orchestrator, settings::InstrumentSettings, synthesizers::welsh::PresetName,
     };
-
-    use super::{DeviceSettings, SongSettings};
 
     impl SongSettings {
         #[allow(dead_code)]
