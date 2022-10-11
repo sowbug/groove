@@ -7,7 +7,7 @@ use crate::traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio};
 #[derive(Debug, Default)]
 pub struct Mixer {
     pub(crate) me: WW<Self>,
-    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
+    sources: Vec<W<dyn SourcesAudio>>,
 }
 impl IsEffect for Mixer {}
 impl Mixer {
@@ -26,10 +26,10 @@ impl Mixer {
     }
 }
 impl SinksAudio for Mixer {
-    fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+    fn sources(&self) -> &[W<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+    fn sources_mut(&mut self) -> &mut Vec<W<dyn SourcesAudio>> {
         &mut self.sources
     }
 }

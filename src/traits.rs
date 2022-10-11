@@ -1,14 +1,10 @@
 use crate::{
     clock::Clock,
-    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    common::{MonoSample, MONO_SAMPLE_SILENCE, W, WW},
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
+use std::collections::HashMap;
 use std::fmt::Debug;
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::{Rc, Weak},
-};
 
 /// Provides audio in the form of digital samples.
 pub trait SourcesAudio: Debug {
@@ -24,10 +20,10 @@ pub trait SourcesAudio: Debug {
 /// Can do something with audio samples. When it needs to do its
 /// work, it asks its SourcesAudio for their samples.
 pub trait SinksAudio {
-    fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>];
-    fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>>;
+    fn sources(&self) -> &[W<dyn SourcesAudio>];
+    fn sources_mut(&mut self) -> &mut Vec<W<dyn SourcesAudio>>;
 
-    fn add_audio_source(&mut self, source: Rc<RefCell<dyn SourcesAudio>>) {
+    fn add_audio_source(&mut self, source: W<dyn SourcesAudio>) {
         self.sources_mut().push(source);
     }
 
@@ -81,13 +77,13 @@ pub trait MakesControlSink: Debug {
 }
 
 pub trait SourcesMidi {
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>;
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>;
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<WW<dyn SinksMidi>>>;
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<WW<dyn SinksMidi>>>;
 
     fn midi_output_channel(&self) -> MidiChannel;
     fn set_midi_output_channel(&mut self, midi_channel: MidiChannel);
 
-    fn add_midi_sink(&mut self, channel: MidiChannel, sink: Weak<RefCell<dyn SinksMidi>>) {
+    fn add_midi_sink(&mut self, channel: MidiChannel, sink: WW<dyn SinksMidi>) {
         // TODO: is there a good reason for channel != sink.midi_channel()? If not, why is it a param?
         self.midi_sinks_mut().entry(channel).or_default().push(sink);
     }

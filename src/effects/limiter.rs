@@ -7,7 +7,7 @@ use crate::traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio};
 #[derive(Debug, Default)]
 pub struct Limiter {
     pub(crate) me: WW<Self>,
-    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
+    sources: Vec<W<dyn SourcesAudio>>,
 
     min: MonoSample,
     max: MonoSample,
@@ -42,10 +42,10 @@ impl Limiter {
     }
 }
 impl SinksAudio for Limiter {
-    fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+    fn sources(&self) -> &[W<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+    fn sources_mut(&mut self) -> &mut Vec<W<dyn SourcesAudio>> {
         &mut self.sources
     }
 }

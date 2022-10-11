@@ -54,7 +54,7 @@ pub enum FilterType {
 #[derive(Debug, Default)]
 pub struct Filter {
     pub(crate) me: WW<Self>,
-    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
+    sources: Vec<W<dyn SourcesAudio>>,
     filter_type: FilterType,
     sample_rate: usize,
     cutoff: f32,
@@ -534,10 +534,10 @@ impl Filter {
 }
 
 impl SinksAudio for Filter {
-    fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+    fn sources(&self) -> &[W<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+    fn sources_mut(&mut self) -> &mut Vec<W<dyn SourcesAudio>> {
         &mut self.sources
     }
 }

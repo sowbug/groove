@@ -8,7 +8,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct Bitcrusher {
     pub(crate) me: WW<Self>,
-    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
+    sources: Vec<W<dyn SourcesAudio>>,
     bits_to_crush: u8,
 }
 impl IsEffect for Bitcrusher {}
@@ -36,10 +36,10 @@ impl Bitcrusher {
     }
 }
 impl SinksAudio for Bitcrusher {
-    fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+    fn sources(&self) -> &[W<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+    fn sources_mut(&mut self) -> &mut Vec<W<dyn SourcesAudio>> {
         &mut self.sources
     }
 }

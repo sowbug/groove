@@ -11,7 +11,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Gain {
     pub(crate) me: WW<Self>,
-    sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
+    sources: Vec<W<dyn SourcesAudio>>,
     ceiling: f32,
 }
 impl IsEffect for Gain {}
@@ -73,10 +73,10 @@ impl Default for Gain {
     }
 }
 impl SinksAudio for Gain {
-    fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+    fn sources(&self) -> &[W<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+    fn sources_mut(&mut self) -> &mut Vec<W<dyn SourcesAudio>> {
         &mut self.sources
     }
 }
