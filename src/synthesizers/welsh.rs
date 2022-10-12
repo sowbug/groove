@@ -1940,16 +1940,19 @@ impl SinksMidi for Voice {
     }
 
     fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
-        self.amp_envelope.handle_midi_for_channel(clock, message);
-        self.filter_envelope.handle_midi_for_channel(clock, message);
         match message.status {
             MidiMessageType::NoteOn => {
                 let frequency = message.message_to_frequency();
                 for o in self.oscillators.iter_mut() {
                     o.set_frequency(frequency);
                 }
+                self.amp_envelope.handle_note_event(clock, true);
+                self.filter_envelope.handle_note_event(clock, true);
             }
-            MidiMessageType::NoteOff => {}
+            MidiMessageType::NoteOff => {
+                self.amp_envelope.handle_note_event(clock, false);
+                self.filter_envelope.handle_note_event(clock, false);
+            }
             MidiMessageType::ProgramChange => {}
         }
     }

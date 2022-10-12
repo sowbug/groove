@@ -10,9 +10,8 @@ use more_asserts::{debug_assert_ge, debug_assert_le};
 use crate::{
     clock::ClockTimeUnit,
     common::{MonoSample, W, WW},
-    midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
     preset::EnvelopePreset,
-    traits::{SinksMidi, SourcesAudio},
+    traits::SourcesAudio,
 };
 
 use super::clock::Clock;
@@ -188,7 +187,6 @@ enum AdsrEnvelopeStepName {
 #[derive(Debug)]
 pub struct AdsrEnvelope {
     pub(crate) me: WW<Self>,
-    midi_channel: MidiChannel,
     preset: EnvelopePreset,
 
     envelope: SteppedEnvelope,
@@ -201,27 +199,10 @@ impl Default for AdsrEnvelope {
     fn default() -> Self {
         Self {
             me: Weak::new(),
-            midi_channel: MIDI_CHANNEL_RECEIVE_ALL,
             preset: EnvelopePreset::default(),
             envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
             note_off_time: f32::MAX,
-        }
-    }
-}
-
-impl SinksMidi for AdsrEnvelope {
-    fn midi_channel(&self) -> MidiChannel {
-        self.midi_channel
-    }
-    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-        self.midi_channel = midi_channel;
-    }
-    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
-        match message.status {
-            MidiMessageType::NoteOn => self.handle_note_event(clock, true),
-            MidiMessageType::NoteOff => self.handle_note_event(clock, false),
-            MidiMessageType::ProgramChange => {}
         }
     }
 }
@@ -481,9 +462,8 @@ mod tests {
         }
 
         // Now press a key. Make sure the sustaining part of the envelope is good.
-        let midi_on = MidiMessage::note_on_c4();
         const NOTE_ON_TIMESTAMP: f32 = 0.5;
-        envelope.handle_midi_for_channel(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP), &midi_on);
+        envelope.handle_note_event(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP), true);
 
         assert_approx_eq!(envelope.source_audio(&Clock::debug_new_with_time(0.0)), 0.0);
         assert_approx_eq!(
@@ -506,10 +486,8 @@ mod tests {
         );
 
         // Let the key go. Release should work.
-        let midi_off = MidiMessage::note_off_c4();
         const NOTE_OFF_TIMESTAMP: f32 = 2.0;
-        envelope
-            .handle_midi_for_channel(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP), &midi_off);
+        envelope.handle_note_event(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP), false);
 
         assert_approx_eq!(envelope.source_audio(&Clock::debug_new_with_time(0.0)), 0.0);
         assert_approx_eq!(
@@ -560,8 +538,7 @@ mod tests {
 
         // Press a key at time zero to make arithmetic easier. Attack should be
         // complete at expected time.
-        let midi_on = MidiMessage::note_on_c4();
-        envelope.handle_midi_for_channel(&Clock::new(), &midi_on);
+        envelope.handle_note_event(&Clock::new(), true);
         assert_eq!(
             envelope.source_audio(&Clock::debug_new_with_time(ep.attack)),
             1.0
@@ -569,12 +546,11 @@ mod tests {
 
         // But it turns out we release the key before attack completes! Decay should
         // commence as of wherever the amplitude was at that point.
-        let midi_off = MidiMessage::note_off_c4();
         let how_far_through_attack = 0.3f32;
         let attack_timestamp = ep.attack * how_far_through_attack;
         let amplitude_at_timestamp = (1.0 - 0.0) * how_far_through_attack;
         const EPSILONISH: f32 = 0.05;
-        envelope.handle_midi_for_channel(&Clock::debug_new_with_time(attack_timestamp), &midi_off);
+        envelope.handle_note_event(&Clock::debug_new_with_time(attack_timestamp), false);
         assert_approx_eq!(
             envelope.source_audio(&Clock::debug_new_with_time(attack_timestamp)),
             amplitude_at_timestamp
@@ -616,15 +592,13 @@ mod tests {
 
         // Press a key at time zero to make arithmetic easier. Attack should be
         // complete at expected time.
-        let midi_on = MidiMessage::note_on_c4();
-        envelope.handle_midi_for_channel(&Clock::new(), &midi_on);
+        envelope.handle_note_event(&Clock::new(), true);
 
         // We release the key mid-decay. Release should
         // commence as of wherever the amplitude was at that point.
-        let midi_off = MidiMessage::note_off_c4();
         let how_far_through_decay = 0.3f32;
         let decay_timestamp = ep.attack + ep.decay * how_far_through_decay;
-        envelope.handle_midi_for_channel(&Clock::debug_new_with_time(decay_timestamp), &midi_off);
+        envelope.handle_note_event(&Clock::debug_new_with_time(decay_timestamp), false);
 
         let amplitude_at_timestamp = 1.0 - (1.0 - ep.sustain) * how_far_through_decay;
         const EPSILONISH: f32 = 0.05;
