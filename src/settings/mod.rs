@@ -172,10 +172,7 @@ impl MidiInstrumentSettings {
             MidiInstrumentSettings::Arpeggiator {
                 midi_input_channel,
                 midi_output_channel,
-            } => Rc::new(RefCell::new(Arpeggiator::new_with(
-                midi_input_channel,
-                midi_output_channel,
-            ))),
+            } => Arpeggiator::new_wrapped_with(midi_input_channel, midi_output_channel),
         }
     }
 }

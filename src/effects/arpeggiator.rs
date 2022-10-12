@@ -1,13 +1,14 @@
 use crate::{
     clock::Clock,
-    common::Ww,
+    common::{rrc, Rrc, Ww},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     traits::{IsMidiEffect, SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Default)]
 pub struct Arpeggiator {
+    pub(crate) me: Ww<Self>,
     midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,
     midi_sinks: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
@@ -109,4 +110,16 @@ impl Arpeggiator {
             ..Default::default()
         }
     }
+
+    pub fn new_wrapped_with(
+        midi_channel_in: MidiChannel,
+        midi_channel_out: MidiChannel,
+    ) -> Rrc<Self> {
+        let wrapped = rrc(Self::new_with(midi_channel_in, midi_channel_out));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
+    }
+
+    // this is a placeholder to get the trait requirements satisfied
+    pub(crate) fn set_nothing(&mut self, _value: f32) {}
 }

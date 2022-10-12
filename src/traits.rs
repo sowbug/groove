@@ -154,9 +154,9 @@ pub trait Terminates {
 // WORKING ASSERTION: WatchesClock should not also SourcesAudio, because
 // WatchesClock gets a clock tick, whereas SourcesAudio gets a sources_audio(), and
 // both are time slice-y. Be on the lookout for anything that claims to need both.
-pub trait IsMidiInstrument: SourcesAudio + SinksMidi {}
+pub trait IsMidiInstrument: SourcesAudio + SinksMidi {} // TODO + MakesControlSink
 pub trait IsEffect: SourcesAudio + SinksAudio + TransformsAudio + MakesControlSink {}
-pub trait IsMidiEffect: SourcesMidi + SinksMidi + WatchesClock {}
+pub trait IsMidiEffect: SourcesMidi + SinksMidi + WatchesClock + MakesControlSink {}
 pub trait IsController: SourcesControl + WatchesClock {}
 
 #[cfg(test)]

@@ -1,5 +1,6 @@
 use crate::clock::{Clock, ClockTimeUnit};
 use crate::common::Ww;
+use crate::effects::arpeggiator::Arpeggiator;
 use crate::effects::bitcrusher::Bitcrusher;
 use crate::effects::limiter::Limiter;
 use crate::effects::mixer::Mixer;
@@ -369,6 +370,29 @@ impl MakesControlSink for Mixer {
     fn make_control_sink(&self, _param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(MixerController {
+                target: self.me.clone(),
+            }))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ArpeggiatorNothingController {
+    target: Ww<Arpeggiator>,
+}
+impl SinksControl for ArpeggiatorNothingController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_nothing(value);
+        }
+    }
+}
+impl MakesControlSink for Arpeggiator {
+    fn make_control_sink(&self, _param_name: &str) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(ArpeggiatorNothingController {
                 target: self.me.clone(),
             }))
         } else {

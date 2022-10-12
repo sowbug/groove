@@ -1,8 +1,8 @@
 use crate::{
-    common::{MonoSample, Rrc, Ww},
+    common::{rrc, MonoSample, Rrc, Ww},
     traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
 };
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 #[derive(Debug, Default)]
 pub struct Limiter {
@@ -25,10 +25,7 @@ impl Limiter {
         }
     }
     pub fn new_wrapped_with(min: MonoSample, max: MonoSample) -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
-        let wrapped = Rc::new(RefCell::new(Self::new_with(min, max)));
+        let wrapped = rrc(Self::new_with(min, max));
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }
@@ -64,6 +61,7 @@ mod tests {
         utils::tests::{TestAudioSourceAlwaysSameLevel, TestAudioSourceAlwaysTooLoud},
     };
     use assert_approx_eq::assert_approx_eq;
+    use std::cell::RefCell;
 
     #[test]
     fn test_limiter_mainline() {
