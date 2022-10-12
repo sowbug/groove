@@ -568,78 +568,20 @@ impl TransformsAudio for Filter {
 mod tests {
     use super::*;
     use crate::{
-        clock::Clock,
         common::{rrc, WaveformType},
         envelopes::{EnvelopeStep, SteppedEnvelope},
-        traits::{
-            IsController, MakesControlSink, SinksControl, SourcesControl, Terminates, WatchesClock,
-        },
+        traits::{MakesControlSink, SourcesControl},
         utils::tests::{write_source_and_controlled_effect, TestControlSourceContinuous},
     };
 
-    const SAMPLE_RATE: usize = 44100;
-
-    #[derive(Debug)]
-    struct TestFilterController {
-        control_sinks: Vec<Box<dyn SinksControl>>,
-        param_start: f32,
-        param_end: f32,
-        duration: f32,
-
-        time_start: f32,
-    }
-
-    impl TestFilterController {
-        #[deprecated]
-        #[allow(dead_code)]
-        pub fn new(param_start: f32, param_end: f32, duration: f32) -> Self {
-            Self {
-                control_sinks: Vec::new(),
-                param_start,
-                param_end,
-                duration,
-                time_start: -1.0f32,
-            }
-        }
-    }
-
-    impl SourcesControl for TestFilterController {
-        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
-            &self.control_sinks
-        }
-
-        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
-            &mut self.control_sinks
-        }
-    }
-
-    impl WatchesClock for TestFilterController {
-        fn tick(&mut self, clock: &Clock) {
-            if self.time_start < 0.0 {
-                self.time_start = clock.seconds();
-            }
-            if self.param_end != self.param_start {
-                let value = self.param_start
-                    + ((clock.seconds() - self.time_start) / self.duration)
-                        * (self.param_end - self.param_start);
-                self.issue_control(clock, value);
-            }
-        }
-    }
-
-    impl Terminates for TestFilterController {
-        fn is_finished(&self) -> bool {
-            true
-        }
-    }
-
-    impl IsController for TestFilterController {}
-
+    // TODO: these aren't really unit tests. They just spit out files that I
+    // listen to in Audacity.
     #[test]
     fn test_filters_with_output_wav() {
         const Q_10: f32 = 10.0;
         const ONE_OCTAVE: f32 = 1.0;
         const SIX_DB: f32 = 6.0;
+        const SAMPLE_RATE: usize = 44100;
 
         let tests = vec![
             (
@@ -735,6 +677,7 @@ mod tests {
 
     #[test]
     fn test_dynamic_cutoff() {
+        const SAMPLE_RATE: usize = 44100;
         let tests = vec![
             (
                 "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q",
