@@ -38,10 +38,7 @@ impl ControlTrip {
     const CURSOR_BEGIN: f32 = 0.0;
 
     #[allow(unused_variables)]
-    pub fn new(
-        //        target: Rc<RefCell<dyn SinksControl>>,
-        target: Box<dyn SinksControl>,
-    ) -> Self {
+    pub fn new(target: Box<dyn SinksControl>) -> Self {
         Self {
             target,
             cursor_beats: Self::CURSOR_BEGIN,
