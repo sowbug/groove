@@ -21,9 +21,16 @@ pub enum ControlStep {
         end: f32,
     },
 
-    // logarithmic
+    // curved, but it starts out fast and ends up slow.
     #[allow(dead_code)]
     Logarithmic {
+        start: f32,
+        end: f32,
+    },
+
+    // curved, but it starts out slow and ends up fast.
+    #[allow(dead_code)]
+    Exponential {
         start: f32,
         end: f32,
     },

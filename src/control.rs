@@ -4,7 +4,7 @@ use crate::effects::bitcrusher::Bitcrusher;
 use crate::effects::limiter::Limiter;
 use crate::effects::mixer::Mixer;
 use crate::effects::{filter::Filter, gain::Gain};
-use crate::envelopes::{AdsrEnvelope, EnvelopeStep, SteppedEnvelope};
+use crate::envelopes::{AdsrEnvelope, EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
 use crate::oscillators::Oscillator;
 use crate::settings::control::ControlStep;
 use crate::traits::{MakesControlSink, SinksControl, Terminates, WatchesClock};
@@ -56,11 +56,15 @@ impl ControlTrip {
     // currently isn't smart enough to handle out-of-order construction
     pub fn add_path(&mut self, path: Rc<RefCell<ControlPath>>) {
         for step in path.borrow().steps.clone() {
-            let (start_value, end_value) = match step {
-                ControlStep::Flat { value } => (value, value),
-                ControlStep::Slope { start, end } => (start, end),
-                #[allow(unused_variables)]
-                ControlStep::Logarithmic { start, end } => todo!(),
+            let (start_value, end_value, step_function) = match step {
+                ControlStep::Flat { value } => (value, value, EnvelopeFunction::Linear),
+                ControlStep::Slope { start, end } => (start, end, EnvelopeFunction::Linear),
+                ControlStep::Logarithmic { start, end } => {
+                    (start, end, EnvelopeFunction::Logarithmic)
+                }
+                ControlStep::Exponential { start, end } => {
+                    (start, end, EnvelopeFunction::Exponential)
+                }
                 ControlStep::Triggered {} => todo!(),
             };
             // Beware: there's an O(N) debug validlity check in push_step(),
@@ -72,6 +76,7 @@ impl ControlTrip {
                 },
                 start_value,
                 end_value,
+                step_function,
             });
             self.cursor_beats += 1.0; // TODO: respect note_value
         }
