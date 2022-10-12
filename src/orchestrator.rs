@@ -305,6 +305,7 @@ impl Orchestrator {
 
     fn create_control_trips_from_settings(&mut self) {
         if self.settings.trips.is_empty() {
+            // There's no need to instantiate the paths if there are no trips to use them.
             return;
         }
 
