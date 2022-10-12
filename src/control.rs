@@ -1,5 +1,5 @@
 use crate::clock::{Clock, ClockTimeUnit};
-use crate::common::WW;
+use crate::common::Ww;
 use crate::effects::bitcrusher::Bitcrusher;
 use crate::effects::limiter::Limiter;
 use crate::effects::mixer::Mixer;
@@ -137,7 +137,7 @@ impl ControlPath {
 
 #[derive(Debug)]
 pub struct FilterCutoffController {
-    target: WW<Filter>,
+    target: Ww<Filter>,
 }
 impl SinksControl for FilterCutoffController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
@@ -151,7 +151,7 @@ impl SinksControl for FilterCutoffController {
 
 #[derive(Debug)]
 pub struct FilterQController {
-    target: WW<Filter>,
+    target: Ww<Filter>,
 }
 impl SinksControl for FilterQController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
@@ -164,7 +164,7 @@ impl SinksControl for FilterQController {
 // TODO: I guess I haven't gotten around to implementing these yet for Filter
 #[derive(Debug)]
 pub struct FilterBandwidthController {
-    target: WW<Filter>,
+    target: Ww<Filter>,
 }
 impl SinksControl for FilterBandwidthController {
     fn handle_control(&mut self, _clock: &Clock, _value: f32) {
@@ -176,7 +176,7 @@ impl SinksControl for FilterBandwidthController {
 
 #[derive(Debug)]
 pub struct FilterDbGainController {
-    target: WW<Filter>,
+    target: Ww<Filter>,
 }
 impl SinksControl for FilterDbGainController {
     fn handle_control(&mut self, _clock: &Clock, _value: f32) {
@@ -212,7 +212,7 @@ impl MakesControlSink for Filter {
 
 #[derive(Debug)]
 pub struct AdsrEnvelopeNoteController {
-    target: WW<AdsrEnvelope>,
+    target: Ww<AdsrEnvelope>,
 }
 impl SinksControl for AdsrEnvelopeNoteController {
     fn handle_control(&mut self, clock: &Clock, value: f32) {
@@ -238,7 +238,7 @@ impl MakesControlSink for AdsrEnvelope {
 
 #[derive(Debug)]
 pub struct GainLevelController {
-    target: WW<Gain>,
+    target: Ww<Gain>,
 }
 impl SinksControl for GainLevelController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
@@ -264,7 +264,7 @@ impl MakesControlSink for Gain {
 
 #[derive(Debug)]
 pub struct OscillatorFrequencyController {
-    target: WW<Oscillator>,
+    target: Ww<Oscillator>,
 }
 impl SinksControl for OscillatorFrequencyController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
@@ -290,7 +290,7 @@ impl MakesControlSink for Oscillator {
 
 #[derive(Debug)]
 pub struct LimiterMinLevelController {
-    target: WW<Limiter>,
+    target: Ww<Limiter>,
 }
 impl SinksControl for LimiterMinLevelController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
@@ -301,7 +301,7 @@ impl SinksControl for LimiterMinLevelController {
 }
 #[derive(Debug)]
 pub struct LimiterMaxLevelController {
-    target: WW<Limiter>,
+    target: Ww<Limiter>,
 }
 impl SinksControl for LimiterMaxLevelController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
@@ -330,7 +330,7 @@ impl MakesControlSink for Limiter {
 
 #[derive(Debug)]
 pub struct BitcrusherBitCountController {
-    target: WW<Bitcrusher>,
+    target: Ww<Bitcrusher>,
 }
 impl SinksControl for BitcrusherBitCountController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
@@ -356,7 +356,7 @@ impl MakesControlSink for Bitcrusher {
 
 #[derive(Debug)]
 pub struct MixerController {
-    target: WW<Mixer>,
+    target: Ww<Mixer>,
 }
 impl SinksControl for MixerController {
     fn handle_control(&mut self, _clock: &Clock, _value: f32) {

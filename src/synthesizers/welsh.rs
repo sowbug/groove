@@ -2097,20 +2097,15 @@ impl SourcesAudio for Synth {
 
 #[cfg(test)]
 mod tests {
+    use super::Voice;
     use super::*;
-
     use crate::{
         clock::Clock,
-        midi::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-        traits::tests::canonicalize_filename,
-    };
-
-    use crate::{
         common::WaveformType,
+        midi::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
         preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
+        utils::tests::canonicalize_filename,
     };
-
-    use super::Voice;
 
     const SAMPLE_RATE: usize = 44100;
 

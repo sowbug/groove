@@ -1,7 +1,7 @@
 use super::clock::Clock;
 use crate::{
     clock::ClockTimeUnit,
-    common::{MonoSample, W, WW},
+    common::{MonoSample, Rrc, Ww},
     preset::EnvelopePreset,
     traits::SourcesAudio,
 };
@@ -152,7 +152,9 @@ impl SteppedEnvelope {
         } else {
             match step.step_function {
                 EnvelopeFunction::Linear => percentage_complete,
-                EnvelopeFunction::Logarithmic => percentage_complete.log(10000.0) * 2.0 + 1.0,
+                EnvelopeFunction::Logarithmic => {
+                    (percentage_complete.log(10000.0) * 2.0 + 1.0).clamp(0.0, 1.0)
+                }
                 EnvelopeFunction::Exponential => {
                     (100.0f64.powf(percentage_complete as f64) / 100.0) as f32
                 }
@@ -195,6 +197,14 @@ impl SteppedEnvelope {
     }
 }
 
+impl SourcesAudio for SteppedEnvelope {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let time = self.time_for_unit(clock);
+        let step = self.step_for_time(time);
+        self.value_for_step_at_time(step, time)
+    }
+}
+
 #[derive(Debug, Default)]
 enum AdsrEnvelopeStepName {
     #[default]
@@ -208,7 +218,7 @@ enum AdsrEnvelopeStepName {
 
 #[derive(Debug)]
 pub struct AdsrEnvelope {
-    pub(crate) me: WW<Self>,
+    pub(crate) me: Ww<Self>,
     preset: EnvelopePreset,
 
     envelope: SteppedEnvelope,
@@ -240,7 +250,7 @@ impl AdsrEnvelope {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn new_wrapped_with(preset: &EnvelopePreset) -> W<Self> {
+    pub(crate) fn new_wrapped_with(preset: &EnvelopePreset) -> Rrc<Self> {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 

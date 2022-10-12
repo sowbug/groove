@@ -1,11 +1,17 @@
-use std::{cell::RefCell, rc::{Rc, Weak}};
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
-pub type W<T> = Rc<RefCell<T>>;
-pub type WW<T> = Weak<RefCell<T>>;
+pub(crate) type Rrc<T> = Rc<RefCell<T>>;
+pub(crate) type Ww<T> = Weak<RefCell<T>>;
+pub(crate) fn rrc<T>(t: T) -> Rrc<T> {
+    Rc::new(RefCell::new(t))
+}
 
 // TODO: some kind of wrap_me() parameterized function
 //
-// a HasMe trait with set_me() or something like that 
+// a HasMe trait with set_me() or something like that
 //
 // pub fn wrap_me<T>(me: T) -> W<T> {
 //     let wrapped = Rc::new(RefCell::new(me));

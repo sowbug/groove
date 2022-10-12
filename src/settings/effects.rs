@@ -1,5 +1,5 @@
 use crate::{
-    common::{MonoSample, W},
+    common::{MonoSample, Rrc},
     effects::{
         bitcrusher::Bitcrusher,
         filter::{Filter, FilterType},
@@ -70,7 +70,7 @@ pub enum EffectSettings {
 }
 
 impl EffectSettings {
-    pub(crate) fn instantiate(&self, sample_rate: usize) -> W<dyn IsEffect> {
+    pub(crate) fn instantiate(&self, sample_rate: usize) -> Rrc<dyn IsEffect> {
         match *self {
             // This has more repetition than we'd expect because of
             // https://stackoverflow.com/questions/26378842/how-do-i-overcome-match-arms-with-incompatible-types-for-structs-implementing-sa

@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::WW,
+    common::Ww,
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     traits::{IsMidiEffect, SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 pub struct Arpeggiator {
     midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,
-    midi_sinks: HashMap<MidiChannel, Vec<WW<dyn SinksMidi>>>,
+    midi_sinks: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
 
     is_device_playing: bool,
 
@@ -44,11 +44,11 @@ impl SinksMidi for Arpeggiator {
 }
 
 impl SourcesMidi for Arpeggiator {
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<WW<dyn SinksMidi>>> {
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &mut self.midi_sinks
     }
 
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<WW<dyn SinksMidi>>> {
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &self.midi_sinks
     }
 

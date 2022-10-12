@@ -1,14 +1,13 @@
-use std::{cell::RefCell, rc::Rc};
-
 use crate::{
-    common::{MonoSample, W, WW},
+    common::{MonoSample, Rrc, Ww},
     traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
 };
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug, Default)]
 pub struct Bitcrusher {
-    pub(crate) me: WW<Self>,
-    sources: Vec<W<dyn SourcesAudio>>,
+    pub(crate) me: Ww<Self>,
+    sources: Vec<Rrc<dyn SourcesAudio>>,
     bits_to_crush: u8,
 }
 impl IsEffect for Bitcrusher {}
@@ -21,7 +20,7 @@ impl Bitcrusher {
             ..Default::default()
         }
     }
-    pub fn new_wrapped_with(bits_to_crush: u8) -> W<Self> {
+    pub fn new_wrapped_with(bits_to_crush: u8) -> Rrc<Self> {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
@@ -36,10 +35,10 @@ impl Bitcrusher {
     }
 }
 impl SinksAudio for Bitcrusher {
-    fn sources(&self) -> &[W<dyn SourcesAudio>] {
+    fn sources(&self) -> &[Rrc<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<W<dyn SourcesAudio>> {
+    fn sources_mut(&mut self) -> &mut Vec<Rrc<dyn SourcesAudio>> {
         &mut self.sources
     }
 }
@@ -54,7 +53,6 @@ impl TransformsAudio for Bitcrusher {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::{clock::Clock, utils::tests::TestAudioSourceAlwaysSameLevel};
     use std::f32::consts::PI;

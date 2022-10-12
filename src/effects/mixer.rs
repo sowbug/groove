@@ -1,13 +1,13 @@
+use crate::{
+    common::{MonoSample, Rrc, Ww},
+    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
+};
 use std::{cell::RefCell, rc::Rc};
-
-use crate::common::{MonoSample, W, WW};
-
-use crate::traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio};
 
 #[derive(Debug, Default)]
 pub struct Mixer {
-    pub(crate) me: WW<Self>,
-    sources: Vec<W<dyn SourcesAudio>>,
+    pub(crate) me: Ww<Self>,
+    sources: Vec<Rrc<dyn SourcesAudio>>,
 }
 impl IsEffect for Mixer {}
 impl Mixer {
@@ -16,7 +16,7 @@ impl Mixer {
             ..Default::default()
         }
     }
-    pub fn new_wrapped() -> W<Self> {
+    pub fn new_wrapped() -> Rrc<Self> {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
@@ -26,10 +26,10 @@ impl Mixer {
     }
 }
 impl SinksAudio for Mixer {
-    fn sources(&self) -> &[W<dyn SourcesAudio>] {
+    fn sources(&self) -> &[Rrc<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<W<dyn SourcesAudio>> {
+    fn sources_mut(&mut self) -> &mut Vec<Rrc<dyn SourcesAudio>> {
         &mut self.sources
     }
 }
@@ -41,8 +41,7 @@ impl TransformsAudio for Mixer {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
-
+    use super::*;
     use crate::{
         clock::Clock,
         common::MONO_SAMPLE_SILENCE,
@@ -50,8 +49,7 @@ mod tests {
             TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSameLevel, TestAudioSourceAlwaysSilent,
         },
     };
-
-    use super::*;
+    use std::{cell::RefCell, rc::Rc};
 
     #[test]
     fn test_mixer_mainline() {

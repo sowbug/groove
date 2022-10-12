@@ -1,4 +1,4 @@
-use crate::common::{DeviceId, MonoSample, MONO_SAMPLE_SILENCE, WW};
+use crate::common::{rrc, DeviceId, MonoSample, Ww, MONO_SAMPLE_SILENCE};
 use crate::control::{ControlPath, ControlTrip};
 use crate::midi::{
     sequencer::MidiSequencer, smf_reader::MidiBus, MidiChannel, MIDI_CHANNEL_RECEIVE_ALL,
@@ -57,7 +57,7 @@ impl Orchestrator {
             settings: settings.clone(),
             clock: WatchedClock::new_with(&settings.clock),
             main_mixer: Box::new(Mixer::new()),
-            midi_bus: Rc::new(RefCell::new(MidiBus::new())),
+            midi_bus: rrc(MidiBus::new()),
             midi_sequencer: Rc::new(RefCell::new(MidiSequencer::new())),
             pattern_sequencer: Rc::new(RefCell::new(PatternSequencer::new(
                 &settings.clock.time_signature(),
@@ -148,7 +148,7 @@ impl Orchestrator {
     pub fn connect_to_downstream_midi_bus(
         &mut self,
         channel: MidiChannel,
-        instrument: WW<dyn SinksMidi>,
+        instrument: Ww<dyn SinksMidi>,
     ) {
         self.midi_bus
             .borrow_mut()

@@ -1,5 +1,6 @@
+use super::clock::Clock;
 use crate::{
-    common::{MonoSample, WaveformType, W, WW},
+    common::{MonoSample, Rrc, WaveformType, Ww},
     preset::{LfoPreset, OscillatorPreset},
     traits::SourcesAudio,
 };
@@ -9,11 +10,9 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use super::clock::Clock;
-
 #[derive(Debug, Clone)]
 pub struct Oscillator {
-    pub(crate) me: WW<Self>,
+    pub(crate) me: Ww<Self>,
 
     waveform: WaveformType,
 
@@ -75,7 +74,7 @@ impl Oscillator {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn new_wrapped_with(waveform: WaveformType) -> W<Self> {
+    pub(crate) fn new_wrapped_with(waveform: WaveformType) -> Rrc<Self> {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
@@ -101,7 +100,7 @@ impl Oscillator {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn new_wrapped() -> W<Self> {
+    pub(crate) fn new_wrapped() -> Rrc<Self> {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
@@ -167,20 +166,17 @@ impl SourcesAudio for Oscillator {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
-
+    use super::{Oscillator, WaveformType};
     use crate::{
         clock::{Clock, WatchedClock},
         midi::{MidiMessage, MidiNote},
         preset::OscillatorPreset,
-        traits::{
-            tests::{write_orchestration_to_file, write_source_to_file},
-            SourcesAudio,
+        traits::SourcesAudio,
+        utils::tests::{
+            write_orchestration_to_file, write_source_to_file, TestOrchestrator, TestTimer,
         },
-        utils::tests::{TestOrchestrator, TestTimer},
     };
-
-    use super::{Oscillator, WaveformType};
+    use std::{cell::RefCell, rc::Rc};
 
     fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> Oscillator {
         let mut oscillator = Oscillator::new_from_preset(&OscillatorPreset {
@@ -209,7 +205,7 @@ mod tests {
             MidiNote::C4,
         ))));
         let mut clock = WatchedClock::new();
-        clock.add_watcher(Rc::new(RefCell::new(TestTimer::new(2.0))));
+        clock.add_watcher(Rc::new(RefCell::new(TestTimer::new_with(2.0))));
         write_orchestration_to_file(&mut orchestrator, &mut clock, "oscillator_sine_c3");
 
         let mut oscillator = create_oscillator(

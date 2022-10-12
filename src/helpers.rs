@@ -71,6 +71,7 @@ impl IOHelper {
                 0.
             };
             // This is where MonoSample becomes an f32.
+            #[allow(clippy::unnecessary_cast)]
             let sample_crossover: f32 = sample as f32;
             *next_sample = cpal::Sample::from(&sample_crossover);
         }

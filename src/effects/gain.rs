@@ -1,17 +1,16 @@
+use crate::{
+    common::{MonoSample, Rrc, Ww},
+    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
+};
 use std::{
     cell::RefCell,
     rc::{Rc, Weak},
 };
 
-use crate::{
-    common::{MonoSample, W, WW},
-    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
-};
-
 #[derive(Debug)]
 pub struct Gain {
-    pub(crate) me: WW<Self>,
-    sources: Vec<W<dyn SourcesAudio>>,
+    pub(crate) me: Ww<Self>,
+    sources: Vec<Rrc<dyn SourcesAudio>>,
     ceiling: f32,
 }
 impl IsEffect for Gain {}
@@ -27,7 +26,7 @@ impl Gain {
     }
 
     #[allow(dead_code)]
-    pub fn new_wrapped() -> W<Self> {
+    pub fn new_wrapped() -> Rrc<Self> {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
@@ -44,7 +43,7 @@ impl Gain {
     }
 
     #[allow(dead_code)]
-    pub fn new_wrapped_with(ceiling: f32) -> W<Self> {
+    pub fn new_wrapped_with(ceiling: f32) -> Rrc<Self> {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
@@ -73,10 +72,10 @@ impl Default for Gain {
     }
 }
 impl SinksAudio for Gain {
-    fn sources(&self) -> &[W<dyn SourcesAudio>] {
+    fn sources(&self) -> &[Rrc<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<W<dyn SourcesAudio>> {
+    fn sources_mut(&mut self) -> &mut Vec<Rrc<dyn SourcesAudio>> {
         &mut self.sources
     }
 }
@@ -89,12 +88,11 @@ impl TransformsAudio for Gain {
 #[cfg(test)]
 mod tests {
 
+    use super::*;
     use crate::{
         clock::Clock,
         utils::tests::{TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSameLevel},
     };
-
-    use super::*;
 
     #[test]
     fn test_gain_mainline() {

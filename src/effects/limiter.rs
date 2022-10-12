@@ -1,13 +1,13 @@
+use crate::{
+    common::{MonoSample, Rrc, Ww},
+    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
+};
 use std::{cell::RefCell, rc::Rc};
-
-use crate::common::{MonoSample, W, WW};
-
-use crate::traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio};
 
 #[derive(Debug, Default)]
 pub struct Limiter {
-    pub(crate) me: WW<Self>,
-    sources: Vec<W<dyn SourcesAudio>>,
+    pub(crate) me: Ww<Self>,
+    sources: Vec<Rrc<dyn SourcesAudio>>,
 
     min: MonoSample,
     max: MonoSample,
@@ -24,7 +24,7 @@ impl Limiter {
             ..Default::default()
         }
     }
-    pub fn new_wrapped_with(min: MonoSample, max: MonoSample) -> W<Self> {
+    pub fn new_wrapped_with(min: MonoSample, max: MonoSample) -> Rrc<Self> {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
@@ -42,10 +42,10 @@ impl Limiter {
     }
 }
 impl SinksAudio for Limiter {
-    fn sources(&self) -> &[W<dyn SourcesAudio>] {
+    fn sources(&self) -> &[Rrc<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<W<dyn SourcesAudio>> {
+    fn sources_mut(&mut self) -> &mut Vec<Rrc<dyn SourcesAudio>> {
         &mut self.sources
     }
 }
@@ -57,14 +57,13 @@ impl TransformsAudio for Limiter {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
         clock::Clock,
         common::MonoSample,
         utils::tests::{TestAudioSourceAlwaysSameLevel, TestAudioSourceAlwaysTooLoud},
     };
     use assert_approx_eq::assert_approx_eq;
-
-    use super::*;
 
     #[test]
     fn test_limiter_mainline() {
