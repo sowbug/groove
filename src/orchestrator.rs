@@ -30,7 +30,7 @@ impl Performance {
 }
 
 /// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Orchestrator {
     clock: WatchedClock, // owns all WatchesClock
     id_store: IdStore,

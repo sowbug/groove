@@ -7,7 +7,7 @@ use crate::{
 use std::rc::Rc;
 use std::{collections::HashMap, rc::Weak};
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct IdStore {
     next_id: usize,
 

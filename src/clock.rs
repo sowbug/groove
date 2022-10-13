@@ -203,7 +203,7 @@ impl Clock {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct WatchedClock {
     clock: Clock,
     watchers: Vec<Rc<RefCell<dyn WatchesClock>>>,

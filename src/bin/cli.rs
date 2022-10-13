@@ -1,10 +1,9 @@
 #![feature(trait_upcasting)]
 #![allow(incomplete_features)]
 
-use libgroove::{IOHelper, Orchestrator};
-
 use anyhow::Ok;
 use clap::Parser;
+use libgroove::{IOHelper, Orchestrator, ScriptEngine};
 
 #[derive(Parser, Debug, Default)]
 #[clap(author, version, about, long_about = None)]
@@ -34,7 +33,7 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     if args.script_in.is_some() {
-        //TODO      ScriptEngine::new().execute_file(&args.script_in.unwrap())
+        let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
         Ok(())
     } else {
         let mut orchestrator = if args.midi_in.is_some() {

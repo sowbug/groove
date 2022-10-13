@@ -1,8 +1,7 @@
-let o = new_orchestrator();
-let s = new_synth();
-o.patch_to_master(s);
-let seq = new_sequencer();
-o.add_sequencer(seq);
-seq.load_file("midi_files/major-scale-spaced-notes.mid");
-s.patch_to_midi_source(seq, 0);
+let o = Orchestrator();
+let s = Synth();
+o.add_audio_source(s);
+let seq = o.Sequencer();
+seq.load_midi_file("midi_files/major-scale-spaced-notes.mid");
+seq.add_midi_sink(s, 0);
 o.play();

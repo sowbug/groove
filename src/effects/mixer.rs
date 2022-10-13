@@ -4,7 +4,7 @@ use crate::{
 };
 use std::{cell::RefCell, rc::Rc};
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Mixer {
     pub(crate) me: Ww<Self>,
     sources: Vec<Ww<dyn SourcesAudio>>,
@@ -72,9 +72,7 @@ mod tests {
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0);
 
         // ... and one in the middle
-        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
-            0.25,
-        )));
+        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(0.25)));
         let source = Rc::downgrade(&source);
         mixer.add_audio_source(source);
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0 + 0.25);
