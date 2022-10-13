@@ -3,9 +3,8 @@ pub mod tests {
     use crate::{
         clock::{Clock, ClockTimeUnit, WatchedClock},
         common::{
-            rrc,
-            tests::{MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
-            MonoSample, Rrc, WaveformType, Ww, MONO_SAMPLE_SILENCE,
+            rrc, MonoSample, Rrc, WaveformType, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
+            MONO_SAMPLE_SILENCE,
         },
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
@@ -68,11 +67,12 @@ pub mod tests {
         let mut c = WatchedClock::new();
         let sample_rate = c.inner_clock().settings().sample_rate();
         let mut o = TestOrchestrator::new();
+        let osc = Oscillator::new_wrapped_with(waveform_type);
         if let Some(effect) = effect_opt {
-            effect
-                .borrow_mut()
-                .add_audio_source(Oscillator::new_wrapped_with(waveform_type));
-            o.add_audio_source(effect);
+            let osc_weak = Rc::downgrade(&osc);
+            effect.borrow_mut().add_audio_source(osc_weak);
+            let effect_weak = Rc::downgrade(&effect);
+            o.add_audio_source(effect_weak);
         }
         c.add_watcher(rrc(TestTimer::new_with(2.0)));
         if let Some(control) = control_opt {
@@ -314,7 +314,7 @@ pub mod tests {
             Self { main_mixer }
         }
 
-        pub fn add_audio_source(&mut self, source: Rc<RefCell<dyn SourcesAudio>>) {
+        pub fn add_audio_source(&mut self, source: Ww<dyn SourcesAudio>) {
             self.main_mixer.add_audio_source(source);
         }
 
@@ -561,7 +561,7 @@ pub mod tests {
             if self.me.strong_count() != 0 {
                 match param_name {
                     Self::CONTROL_PARAM_DEFAULT => Some(Box::new(TestMidiSinkController {
-                        target: self.me.clone(),
+                        target: Weak::clone(&self.me),
                     })),
                     _ => None,
                 }
@@ -628,13 +628,13 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestAudioSink {
-        sources: Vec<Rc<RefCell<dyn SourcesAudio>>>,
+        sources: Vec<Ww<dyn SourcesAudio>>,
     }
     impl SinksAudio for TestAudioSink {
-        fn sources(&self) -> &[Rc<RefCell<dyn SourcesAudio>>] {
+        fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
             &self.sources
         }
-        fn sources_mut(&mut self) -> &mut Vec<Rc<RefCell<dyn SourcesAudio>>> {
+        fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
             &mut self.sources
         }
     }
@@ -699,7 +699,7 @@ pub mod tests {
             if self.me.strong_count() != 0 {
                 match param_name {
                     Self::CONTROL_PARAM_DEFAULT => Some(Box::new(TestControllableController {
-                        target: self.me.clone(),
+                        target: Weak::clone(&self.me),
                     })),
                     _ => None,
                 }
@@ -838,7 +838,7 @@ pub mod tests {
             if self.me.strong_count() != 0 {
                 match param_name {
                     Self::CONTROL_PARAM_TEMPO => Some(Box::new(TestArpeggiatorTempoController {
-                        target: self.me.clone(),
+                        target: Weak::clone(&self.me),
                     })),
                     _ => None,
                 }

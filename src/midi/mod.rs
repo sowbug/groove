@@ -108,9 +108,7 @@ impl PartialEq for OrderedMidiMessage {
 pub mod tests {
     use assert_approx_eq::assert_approx_eq;
 
-    use crate::common::{
-        tests::MONO_SAMPLE_MAX, tests::MONO_SAMPLE_MIN, StereoSample, MONO_SAMPLE_SILENCE,
-    };
+    use crate::common::{StereoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE};
 
     use super::*;
 

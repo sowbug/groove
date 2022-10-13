@@ -53,7 +53,7 @@ pub enum FilterType {
 #[derive(Debug, Default)]
 pub struct Filter {
     pub(crate) me: Ww<Self>,
-    sources: Vec<Rrc<dyn SourcesAudio>>,
+    sources: Vec<Ww<dyn SourcesAudio>>,
     filter_type: FilterType,
     sample_rate: usize,
     cutoff: f32,
@@ -537,10 +537,10 @@ impl Filter {
 }
 
 impl SinksAudio for Filter {
-    fn sources(&self) -> &[Rrc<dyn SourcesAudio>] {
+    fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<Rrc<dyn SourcesAudio>> {
+    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
         &mut self.sources
     }
 }

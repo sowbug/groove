@@ -1,14 +1,11 @@
 use super::sequencer::MidiSequencer;
 use crate::{
+    common::Ww,
     midi::{MidiChannel, MidiMessage, OrderedMidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{SinksMidi, SourcesMidi},
 };
 use midly::{MidiMessage as MidlyMidiMessage, TrackEventKind};
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::{Rc, Weak},
-};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct MidiSmfReader {}
 
@@ -141,7 +138,7 @@ impl MidiSmfReader {
 
 #[derive(Debug, Default)]
 pub(crate) struct MidiBus {
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
+    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
 }
 impl SinksMidi for MidiBus {
     fn midi_channel(&self) -> MidiChannel {
@@ -156,11 +153,11 @@ impl SinksMidi for MidiBus {
     }
 }
 impl SourcesMidi for MidiBus {
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &self.channels_to_sink_vecs
     }
 
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &mut self.channels_to_sink_vecs
     }
 

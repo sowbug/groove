@@ -10,7 +10,7 @@ use std::{
 #[derive(Debug)]
 pub struct Gain {
     pub(crate) me: Ww<Self>,
-    sources: Vec<Rrc<dyn SourcesAudio>>,
+    sources: Vec<Ww<dyn SourcesAudio>>,
     ceiling: f32,
 }
 impl IsEffect for Gain {}
@@ -72,10 +72,10 @@ impl Default for Gain {
     }
 }
 impl SinksAudio for Gain {
-    fn sources(&self) -> &[Rrc<dyn SourcesAudio>] {
+    fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<Rrc<dyn SourcesAudio>> {
+    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
         &mut self.sources
     }
 }
@@ -97,7 +97,9 @@ mod tests {
     #[test]
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(1.1);
-        gain.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysLoud::new())));
+        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysLoud::new()));
+        let source = Rc::downgrade(&source);
+        gain.add_audio_source(source);
         assert_eq!(gain.source_audio(&Clock::new()), 1.1);
     }
 
@@ -105,9 +107,9 @@ mod tests {
     fn test_gain_pola() {
         // principle of least astonishment: does a default instance adhere?
         let mut gain = Gain::new();
-        gain.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
-            0.888,
-        ))));
+        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(0.888)));
+        let source = Rc::downgrade(&source);
+        gain.add_audio_source(source);
         assert_eq!(gain.source_audio(&Clock::new()), 0.888);
     }
 }

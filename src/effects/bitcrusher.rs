@@ -7,12 +7,17 @@ use std::{cell::RefCell, rc::Rc};
 #[derive(Debug, Default)]
 pub struct Bitcrusher {
     pub(crate) me: Ww<Self>,
-    sources: Vec<Rrc<dyn SourcesAudio>>,
+    sources: Vec<Ww<dyn SourcesAudio>>,
     bits_to_crush: u8,
 }
 impl IsEffect for Bitcrusher {}
 impl Bitcrusher {
     pub(crate) const CONTROL_PARAM_BITS_TO_CRUSH: &str = "bits-to-crush";
+
+    #[allow(dead_code)]
+    pub fn new() -> Self {
+        Self::new_with(8)
+    }
 
     pub fn new_with(bits_to_crush: u8) -> Self {
         Self {
@@ -35,10 +40,10 @@ impl Bitcrusher {
     }
 }
 impl SinksAudio for Bitcrusher {
-    fn sources(&self) -> &[Rrc<dyn SourcesAudio>] {
+    fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<Rrc<dyn SourcesAudio>> {
+    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
         &mut self.sources
     }
 }
@@ -68,12 +73,12 @@ mod tests {
     #[test]
     fn test_bitcrusher_multisource() {
         let mut fx = Bitcrusher::new_with(8);
-        fx.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
-            PI - 3.0,
-        ))));
-        fx.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
-            PI - 3.0,
-        ))));
+        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(PI - 3.0)));
+        let source = Rc::downgrade(&source);
+        fx.add_audio_source(source);
+        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(PI - 3.0)));
+        let source = Rc::downgrade(&source);
+        fx.add_audio_source(source);
         assert_eq!(fx.source_audio(&Clock::new()), 2.0 * CRUSHED_PI);
     }
 }

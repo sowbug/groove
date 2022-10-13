@@ -199,11 +199,13 @@ mod tests {
     #[test]
     fn test_oscillator_basic_waveforms() {
         let mut orchestrator = TestOrchestrator::new();
-        orchestrator.add_audio_source(Rc::new(RefCell::new(create_oscillator(
+        let oscillator = Rc::new(RefCell::new(create_oscillator(
             WaveformType::Sine,
             OscillatorPreset::NATURAL_TUNING,
             MidiNote::C4,
-        ))));
+        )));
+        let oscillator_weak = Rc::downgrade(&oscillator);
+        orchestrator.add_audio_source(oscillator_weak);
         let mut clock = WatchedClock::new();
         clock.add_watcher(Rc::new(RefCell::new(TestTimer::new_with(2.0))));
         write_orchestration_to_file(&mut orchestrator, &mut clock, "oscillator_sine_c3");

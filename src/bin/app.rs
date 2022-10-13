@@ -58,7 +58,7 @@ impl Sandbox for Groove {
     fn update(&mut self, message: Message) {
         match message {
             Message::PlayPressed => {
-                self.orchestrator = Orchestrator::new(self.orchestrator.settings().clone());
+                self.orchestrator = Orchestrator::new_with(self.orchestrator.settings().clone());
                 let performance = self.orchestrator.perform();
                 if let Ok(performance) = performance {
                     if IOHelper::send_performance_to_output_device(performance).is_ok() {

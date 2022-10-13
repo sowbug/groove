@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
+    common::{MonoSample, Ww, MONO_SAMPLE_SILENCE},
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
 use std::collections::HashMap;
@@ -20,10 +20,10 @@ pub trait SourcesAudio: Debug {
 /// Can do something with audio samples. When it needs to do its
 /// work, it asks its SourcesAudio for their samples.
 pub trait SinksAudio {
-    fn sources(&self) -> &[Rrc<dyn SourcesAudio>];
-    fn sources_mut(&mut self) -> &mut Vec<Rrc<dyn SourcesAudio>>;
+    fn sources(&self) -> &[Ww<dyn SourcesAudio>];
+    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>>;
 
-    fn add_audio_source(&mut self, source: Rrc<dyn SourcesAudio>) {
+    fn add_audio_source(&mut self, source: Ww<dyn SourcesAudio>) {
         self.sources_mut().push(source);
     }
 
@@ -33,7 +33,13 @@ pub trait SinksAudio {
         }
         self.sources_mut()
             .iter_mut()
-            .map(|source| source.borrow_mut().source_audio(clock))
+            .map(|source| {
+                if let Some(s) = source.upgrade() {
+                    s.borrow_mut().source_audio(clock)
+                } else {
+                    MONO_SAMPLE_SILENCE
+                }
+            })
             .sum::<f32>()
     }
 }
@@ -193,9 +199,9 @@ pub mod tests {
             envelope_synth_clone,
         )));
         let effect = Gain::new_wrapped();
-        let source = Rc::clone(&synth);
+        let source = Rc::downgrade(&synth);
         effect.borrow_mut().add_audio_source(source);
-        let source = Rc::clone(&effect);
+        let source = Rc::downgrade(&effect);
         orchestrator.add_audio_source(source);
 
         // An Oscillator provides an audio signal. TestControlSourceContinuous adapts that audio
@@ -271,6 +277,7 @@ pub mod tests {
         let mut sink = TestAudioSink::new();
         let source = Rc::new(RefCell::new(TestAudioSource::new()));
         assert!(sink.sources().is_empty());
+        let source = Rc::downgrade(&source);
         sink.add_audio_source(source);
         assert_eq!(sink.sources().len(), 1);
     }

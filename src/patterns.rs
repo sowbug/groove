@@ -8,7 +8,7 @@ use std::{
     cell::RefCell,
     cmp::{self, Ordering},
     collections::HashMap,
-    rc::{Rc, Weak},
+    rc::Weak,
 };
 
 #[derive(Debug, Default)]
@@ -31,9 +31,9 @@ impl PatternSequencer {
         }
     }
 
-    pub fn insert_pattern(&mut self, pattern: Rc<RefCell<Pattern>>, channel: u8) {
-        let pattern_note_value = if pattern.borrow().note_value.is_some() {
-            pattern.borrow().note_value.as_ref().unwrap().clone()
+    pub fn add_pattern(&mut self, pattern: &Pattern, channel: u8) {
+        let pattern_note_value = if pattern.note_value.is_some() {
+            pattern.note_value.as_ref().unwrap().clone()
         } else {
             self.time_signature.beat_value()
         };
@@ -47,7 +47,7 @@ impl PatternSequencer {
             self.time_signature.beat_value().divisor() / pattern_note_value.divisor();
 
         let mut max_pattern_len = 0;
-        for note_sequence in pattern.borrow().notes.iter() {
+        for note_sequence in pattern.notes.iter() {
             max_pattern_len = cmp::max(max_pattern_len, note_sequence.len());
             for (i, note) in note_sequence.iter().enumerate() {
                 self.insert_short_note(
@@ -226,7 +226,6 @@ impl Pattern {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
 
     use super::*;
     use crate::{clock::TimeSignature, settings::PatternSettings};
@@ -252,19 +251,18 @@ mod tests {
             notes: vec![note_pattern.clone()],
         };
 
-        // TODO: is there any way to avoid Rc/RefCell leaking into this class's API boundary?
-        let pattern = Rc::new(RefCell::new(Pattern::from_settings(&pattern_settings)));
+        let pattern = Pattern::from_settings(&pattern_settings);
 
         let expected_note_count = note_pattern.len();
-        assert_eq!(pattern.borrow().notes.len(), 1);
-        assert_eq!(pattern.borrow().notes[0].len(), expected_note_count);
+        assert_eq!(pattern.notes.len(), 1);
+        assert_eq!(pattern.notes[0].len(), expected_note_count);
 
         // We don't need to call reset_cursor(), but we do just once to make sure it's working.
         assert_eq!(sequencer.get_cursor(), PatternSequencer::CURSOR_BEGIN);
         sequencer.reset_cursor();
         assert_eq!(sequencer.get_cursor(), PatternSequencer::CURSOR_BEGIN);
 
-        sequencer.insert_pattern(pattern, 0);
+        sequencer.add_pattern(&pattern, 0);
         assert_eq!(sequencer.get_cursor(), (2 * time_signature.top) as f32);
         assert_eq!(sequencer.sequenced_notes.len(), expected_note_count * 2); // one on, one off
     }
@@ -301,14 +299,14 @@ mod tests {
             notes: vec![note_pattern_1.clone(), note_pattern_2.clone()],
         };
 
-        let pattern = Rc::new(RefCell::new(Pattern::from_settings(&pattern_settings)));
+        let pattern = Pattern::from_settings(&pattern_settings);
 
         let expected_note_count = note_pattern_1.len() + note_pattern_2.len();
-        assert_eq!(pattern.borrow().notes.len(), 2);
-        assert_eq!(pattern.borrow().notes[0].len(), note_pattern_1.len());
-        assert_eq!(pattern.borrow().notes[1].len(), note_pattern_2.len());
+        assert_eq!(pattern.notes.len(), 2);
+        assert_eq!(pattern.notes[0].len(), note_pattern_1.len());
+        assert_eq!(pattern.notes[1].len(), note_pattern_2.len());
 
-        sequencer.insert_pattern(pattern, 0);
+        sequencer.add_pattern(&pattern, 0);
 
         // expect max of (2, 3) measures
         assert_eq!(sequencer.get_cursor(), (3 * time_signature.top) as f32);
@@ -319,12 +317,12 @@ mod tests {
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4);
         let mut sequencer = PatternSequencer::new(&time_signature);
-        let pattern = Rc::new(RefCell::new(Pattern::from_settings(&PatternSettings {
+        let pattern = Pattern::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
             note_value: None,
             notes: vec![vec![String::from("1")]],
-        })));
-        sequencer.insert_pattern(pattern, 0);
+        });
+        sequencer.add_pattern(&pattern, 0);
 
         assert_eq!(sequencer.get_cursor(), time_signature.top as f32);
     }

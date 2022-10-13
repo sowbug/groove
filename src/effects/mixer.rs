@@ -7,7 +7,7 @@ use std::{cell::RefCell, rc::Rc};
 #[derive(Debug, Default)]
 pub struct Mixer {
     pub(crate) me: Ww<Self>,
-    sources: Vec<Rrc<dyn SourcesAudio>>,
+    sources: Vec<Ww<dyn SourcesAudio>>,
 }
 impl IsEffect for Mixer {}
 impl Mixer {
@@ -26,10 +26,10 @@ impl Mixer {
     }
 }
 impl SinksAudio for Mixer {
-    fn sources(&self) -> &[Rrc<dyn SourcesAudio>] {
+    fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
         &self.sources
     }
-    fn sources_mut(&mut self) -> &mut Vec<Rrc<dyn SourcesAudio>> {
+    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
         &mut self.sources
     }
 }
@@ -60,17 +60,23 @@ mod tests {
         assert_eq!(mixer.source_audio(&clock), MONO_SAMPLE_SILENCE);
 
         // One always-loud
-        mixer.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysLoud::new())));
+        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysLoud::new()));
+        let source = Rc::downgrade(&source);
+        mixer.add_audio_source(source);
         assert_eq!(mixer.source_audio(&clock), 1.0);
 
         // One always-loud and one always-quiet
-        mixer.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSilent::new())));
+        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSilent::new()));
+        let source = Rc::downgrade(&source);
+        mixer.add_audio_source(source);
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0);
 
         // ... and one in the middle
-        mixer.add_audio_source(Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
+        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(
             0.25,
-        ))));
+        )));
+        let source = Rc::downgrade(&source);
+        mixer.add_audio_source(source);
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0 + 0.25);
     }
 }

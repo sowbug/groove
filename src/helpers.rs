@@ -20,12 +20,12 @@ impl IOHelper {
         let yaml = std::fs::read_to_string(filename).unwrap();
         let settings = SongSettings::new_from_yaml(yaml.as_str());
 
-        Orchestrator::new(settings.unwrap())
+        Orchestrator::new_with(settings.unwrap())
     }
 
     pub fn orchestrator_from_midi_file(filename: &str) -> Orchestrator {
         let data = std::fs::read(filename).unwrap();
-        let mut orchestrator = Orchestrator::new_defaults();
+        let mut orchestrator = Orchestrator::new();
         MidiSmfReader::load_sequencer(&data, orchestrator.midi_sequencer());
 
         for channel in 0..MidiSequencer::connected_channel_count() {
@@ -40,10 +40,11 @@ impl IOHelper {
             };
             // We make up IDs here, as we know that MIDI won't be referencing them.
             let instrument = Rc::clone(&synth);
-            orchestrator.add_instrument_by_id(format!("instrument-{}", channel), instrument);
+            orchestrator.add_audio_source_by_id(format!("instrument-{}", channel), instrument);
             let sink = Rc::downgrade(&synth);
             orchestrator.connect_to_downstream_midi_bus(channel, sink);
-            orchestrator.add_main_mixer_source(synth);
+            let device = Rc::downgrade(&synth);
+            orchestrator.add_main_mixer_source(device);
         }
         orchestrator
     }

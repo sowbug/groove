@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
         } else if args.yaml_in.is_some() {
             IOHelper::orchestrator_from_yaml_file(args.yaml_in.unwrap().as_str())
         } else {
-            Orchestrator::new_defaults()
+            Orchestrator::new()
         };
 
         print!("Performing to queue ");

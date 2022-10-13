@@ -100,9 +100,15 @@ mod tests {
     #[test]
     fn test_yaml_loads_and_parses() {
         let yaml = std::fs::read_to_string("test_data/kitchen-sink.yaml").unwrap();
-        let result = SongSettings::new_from_yaml(yaml.as_str());
-        assert!(result.is_ok());
-        let mut orchestrator = Orchestrator::new(result.unwrap());
-        assert!(orchestrator.perform().is_ok());
+        if let Ok(song_settings) = SongSettings::new_from_yaml(yaml.as_str()) {
+            let mut orchestrator = Orchestrator::new_with(song_settings);
+            if let Ok(_performance) = orchestrator.perform() {
+                // cool
+            } else {
+                assert!(false, "performance failed");
+            }
+        } else {
+            assert!(false, "loading settings failed");
+        }
     }
 }

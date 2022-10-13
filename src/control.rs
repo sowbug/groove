@@ -9,10 +9,8 @@ use crate::envelopes::{AdsrEnvelope, EnvelopeFunction, EnvelopeStep, SteppedEnve
 use crate::oscillators::Oscillator;
 use crate::settings::control::ControlStep;
 use crate::traits::{MakesControlSink, SinksControl, Terminates, WatchesClock};
-
-use std::cell::RefCell;
 use std::ops::Range;
-use std::rc::Rc;
+use std::rc::Weak;
 
 /// ControlTrip, ControlPath, and ControlStep help with
 /// [automation](https://en.wikipedia.org/wiki/Track_automation).
@@ -55,8 +53,8 @@ impl ControlTrip {
 
     // TODO: assert that these are added in time order, as SteppedEnvelope
     // currently isn't smart enough to handle out-of-order construction
-    pub fn add_path(&mut self, path: Rc<RefCell<ControlPath>>) {
-        for step in path.borrow().steps.clone() {
+    pub fn add_path(&mut self, path: &ControlPath) {
+        for step in path.steps.clone() {
             let (start_value, end_value, step_function) = match step {
                 ControlStep::Flat { value } => (value, value, EnvelopeFunction::Linear),
                 ControlStep::Slope { start, end } => (start, end, EnvelopeFunction::Linear),
@@ -192,16 +190,16 @@ impl MakesControlSink for Filter {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_CUTOFF => Some(Box::new(FilterCutoffController {
-                    target: self.me.clone(),
+                    target: Weak::clone(&self.me),
                 })),
                 Self::CONTROL_PARAM_Q => Some(Box::new(FilterQController {
-                    target: self.me.clone(),
+                    target: Weak::clone(&self.me),
                 })),
                 Self::CONTROL_PARAM_BANDWIDTH => Some(Box::new(FilterBandwidthController {
-                    target: self.me.clone(),
+                    target: Weak::clone(&self.me),
                 })),
                 Self::CONTROL_PARAM_DB_GAIN => Some(Box::new(FilterDbGainController {
-                    target: self.me.clone(),
+                    target: Weak::clone(&self.me),
                 })),
                 _ => None,
             }
@@ -227,7 +225,7 @@ impl MakesControlSink for AdsrEnvelope {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_NOTE => Some(Box::new(AdsrEnvelopeNoteController {
-                    target: self.me.clone(),
+                    target: Weak::clone(&self.me),
                 })),
                 _ => None,
             }
@@ -253,7 +251,7 @@ impl MakesControlSink for Gain {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_CEILING => Some(Box::new(GainLevelController {
-                    target: self.me.clone(),
+                    target: Weak::clone(&self.me),
                 })),
                 _ => None,
             }
@@ -279,7 +277,7 @@ impl MakesControlSink for Oscillator {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_FREQUENCY => Some(Box::new(OscillatorFrequencyController {
-                    target: self.me.clone(),
+                    target: Weak::clone(&self.me),
                 })),
                 _ => None,
             }
@@ -316,10 +314,10 @@ impl MakesControlSink for Limiter {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_MIN => Some(Box::new(LimiterMinLevelController {
-                    target: self.me.clone(),
+                    target: Weak::clone(&self.me),
                 })),
                 Self::CONTROL_PARAM_MAX => Some(Box::new(LimiterMaxLevelController {
-                    target: self.me.clone(),
+                    target: Weak::clone(&self.me),
                 })),
                 _ => None,
             }
@@ -345,7 +343,7 @@ impl MakesControlSink for Bitcrusher {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_BITS_TO_CRUSH => Some(Box::new(BitcrusherBitCountController {
-                    target: self.me.clone(),
+                    target: Weak::clone(&self.me),
                 })),
                 _ => None,
             }
@@ -370,7 +368,7 @@ impl MakesControlSink for Mixer {
     fn make_control_sink(&self, _param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(MixerController {
-                target: self.me.clone(),
+                target: Weak::clone(&self.me),
             }))
         } else {
             None
@@ -393,7 +391,7 @@ impl MakesControlSink for Arpeggiator {
     fn make_control_sink(&self, _param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(ArpeggiatorNothingController {
-                target: self.me.clone(),
+                target: Weak::clone(&self.me),
             }))
         } else {
             None
@@ -407,7 +405,7 @@ mod tests {
 
     use crate::{
         clock::WatchedClock,
-        common::MonoSample,
+        common::{rrc, MonoSample},
         utils::tests::{TestMidiSink, TestOrchestrator, TestValueChecker},
     };
 
@@ -421,10 +419,10 @@ mod tests {
             ControlStep::Flat { value: 0.2 },
             ControlStep::Flat { value: 0.3 },
         ];
-        let sequence = Rc::new(RefCell::new(ControlPath {
+        let path = ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
-        }));
+        };
 
         let mut clock = WatchedClock::new();
         let target = TestMidiSink::new_wrapped();
@@ -432,19 +430,18 @@ mod tests {
             .borrow()
             .make_control_sink(TestMidiSink::CONTROL_PARAM_DEFAULT)
         {
-            let trip = Rc::new(RefCell::new(ControlTrip::new(target_control_sink)));
-            trip.borrow_mut().add_path(Rc::clone(&sequence));
-
+            let trip = rrc(ControlTrip::new(target_control_sink));
+            trip.borrow_mut().add_path(&path);
             clock.add_watcher(trip);
         }
 
-        clock.add_watcher(Rc::new(RefCell::new(TestValueChecker {
+        clock.add_watcher(rrc(TestValueChecker {
             values: VecDeque::from(vec![0.9, 0.1, 0.2, 0.3]),
             target,
             checkpoint: 0.0,
             checkpoint_delta: 1.0,
             time_unit: ClockTimeUnit::Beats,
-        })));
+        }));
 
         let mut samples_out = Vec::<MonoSample>::new();
         let mut o = TestOrchestrator::new();
@@ -460,10 +457,10 @@ mod tests {
             ControlStep::new_slope(0.0, 1.0),
         ];
         let interpolated_values = vec![0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
-        let path = Rc::new(RefCell::new(ControlPath {
+        let path = ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
-        }));
+        };
 
         let mut clock = WatchedClock::new();
         let target = TestMidiSink::new_wrapped();
@@ -471,19 +468,18 @@ mod tests {
             .borrow()
             .make_control_sink(TestMidiSink::CONTROL_PARAM_DEFAULT)
         {
-            let trip = Rc::new(RefCell::new(ControlTrip::new(target_control_sink)));
-            trip.borrow_mut().add_path(path);
+            let trip = rrc(ControlTrip::new(target_control_sink));
+            trip.borrow_mut().add_path(&path);
             clock.add_watcher(trip);
         }
 
-        let target = Rc::clone(&target);
-        clock.add_watcher(Rc::new(RefCell::new(TestValueChecker {
+        clock.add_watcher(rrc(TestValueChecker {
             values: VecDeque::from(interpolated_values),
             target,
             checkpoint: 0.0,
             checkpoint_delta: 0.5,
             time_unit: ClockTimeUnit::Beats,
-        })));
+        }));
 
         let mut samples_out = Vec::<MonoSample>::new();
         let mut o = TestOrchestrator::new();
