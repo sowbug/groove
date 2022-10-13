@@ -230,4 +230,21 @@ impl Orchestrator {
         }
         panic!("ControlPath id {} not found", id);
     }
+
+    //________________________
+    // Begin stuff I need for the GUI app
+    //________________________
+
+    pub fn bpm(&self) -> f32 {
+        self.clock.inner_clock().settings().bpm()
+    }
+
+    pub fn set_bpm(&mut self, bpm: f32) {
+        // TODO something something https://en.wikipedia.org/wiki/Law_of_Demeter
+        self.clock.inner_clock_mut().settings_mut().set_bpm(bpm);
+    }
+
+    pub fn main_mixer(&self) -> &dyn SinksAudio {
+        &(*self.main_mixer)
+    }
 }

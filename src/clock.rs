@@ -164,6 +164,10 @@ impl Clock {
         &self.settings
     }
 
+    pub fn settings_mut(&mut self) -> &mut ClockSettings {
+        &mut self.settings
+    }
+
     pub fn samples(&self) -> usize {
         self.samples
     }
@@ -222,6 +226,10 @@ impl WatchedClock {
 
     pub fn inner_clock(&self) -> &Clock {
         &self.clock
+    }
+
+    pub fn inner_clock_mut(&mut self) -> &mut Clock {
+        &mut self.clock
     }
 
     pub fn add_watcher(&mut self, watcher: Rc<RefCell<dyn WatchesClock>>) {

@@ -5,14 +5,15 @@ use iced::button::{self, Button};
 use iced::text_input::{self, TextInput};
 use iced::{Alignment, Column, Element, Row, Sandbox, Settings, Text};
 use iced_audio::{knob, IntRange, Knob, Normal};
-use libgroove::IOHelper;
 use libgroove::Orchestrator;
+use libgroove::{IOHelper, SongSettings};
 
 pub fn main() -> iced::Result {
     Groove::run(Settings::default())
 }
 struct Groove {
     filename: String,
+    song_settings: SongSettings,
     orchestrator: Orchestrator,
     play_button: button::State,
     stop_button: button::State,
@@ -40,9 +41,11 @@ impl Sandbox for Groove {
 
     fn new() -> Self {
         let filename = "scripts/everything.yaml";
+        let song_settings = IOHelper::song_settings_from_yaml_file(filename);
         Self {
             filename: filename.to_string(),
-            orchestrator: IOHelper::orchestrator_from_yaml_file(filename),
+            song_settings: song_settings.clone(),
+            orchestrator: Orchestrator::new_with(&song_settings),
             play_button: button::State::new(),
             stop_button: button::State::new(),
             bpm_state: knob::State::new(IntRange::new(1, 256).normal_param(128, 128)),
@@ -58,7 +61,7 @@ impl Sandbox for Groove {
     fn update(&mut self, message: Message) {
         match message {
             Message::PlayPressed => {
-                self.orchestrator = Orchestrator::new_with(&self.orchestrator.settings());
+                self.orchestrator = Orchestrator::new_with(&self.song_settings);
                 let performance = self.orchestrator.perform();
                 if let Ok(performance) = performance {
                     if IOHelper::send_performance_to_output_device(performance).is_ok() {
@@ -72,16 +75,18 @@ impl Sandbox for Groove {
             Message::BpmKnobChanged(value) => {
                 let new_value = value.scale(128.0 * 2.0);
                 dbg!(value, new_value);
-                self.orchestrator.settings_mut().clock.set_bpm(new_value);
-                let bpm = self.orchestrator.settings().clock.bpm();
+                // TODO: Orchestrator explodes if we try changing settings midway,
+                // so for now we're keeping two copies of the things we change!
+                self.song_settings.clock.set_bpm(new_value);
+                self.orchestrator.set_bpm(new_value);
+                let bpm = self.orchestrator.bpm();
                 dbg!(bpm);
             }
             Message::BpmTextInputChanged(value) => {
                 if let Ok(value_f32) = value.parse::<f32>() {
-                    self.orchestrator
-                        .settings_mut()
-                        .clock
-                        .set_bpm(value_f32 * 128.0 * 2.0);
+                    let bpm = value_f32 * 128.0 * 2.0;
+                    self.song_settings.clock.set_bpm(bpm);
+                    self.orchestrator.set_bpm(bpm);
                     self.misc_value += 1; // = value_f32.to_string();
                 }
                 dbg!(value, self.misc_value);
@@ -90,7 +95,7 @@ impl Sandbox for Groove {
     }
 
     fn view(&mut self) -> Element<Message> {
-        let bpm = self.orchestrator.settings().clock.bpm();
+        let bpm = self.orchestrator.bpm();
         dbg!(bpm);
         let top_row = Row::new()
             .padding(20)
@@ -107,19 +112,30 @@ impl Sandbox for Groove {
                 format!("{}", bpm).as_str(),
                 Message::BpmTextInputChanged,
             ))
-            .push(Button::new(&mut self.play_button, Text::new("⏯")).on_press(Message::PlayPressed))
             .push(
-                Button::new(&mut self.stop_button, Text::new("⏹")).on_press(Message::StopPressed),
+                Button::new(&mut self.play_button, Text::new("Play"))
+                    .on_press(Message::PlayPressed),
+            )
+            .push(
+                Button::new(&mut self.stop_button, Text::new("Stop"))
+                    .on_press(Message::StopPressed),
             );
 
-        // let mut source_row = Row::new()
-        //     .padding(20)
-        //     .align_items(Alignment::Start)
-        //     .push(Column::new());
+        let _source_row: Row<Message> = Row::new()
+            .padding(20)
+            .align_items(Alignment::Start)
+            .push(Column::new());
 
-        // for i in self.orchestrator.main_mixer().sources().iter().enumerate() {
-        //     source_row = source_row.push(Text::new(format!("{}", i.0)));
-        // }
+        let mut button_state_vec = Vec::<button::State>::new();
+        for _i in self.orchestrator.main_mixer().sources().iter().enumerate() {
+            let button_state = button::State::new();
+            dbg!(button_state);
+            // source_row = source_row.push(Button::new(
+            //     &mut button_state,
+            //     Text::new(format!("{}", i.0).as_str()),
+            // ));
+            button_state_vec.push(button_state);
+        }
 
         // //        Container::new(Column::new().push(top_row).push(source_row)).into()
 

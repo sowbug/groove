@@ -3,6 +3,7 @@
 
 pub use crate::helpers::IOHelper;
 pub use crate::orchestrator::Orchestrator;
+pub use crate::settings::song::SongSettings;
 
 pub(crate) mod clock;
 pub(crate) mod common;

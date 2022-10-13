@@ -17,12 +17,15 @@ use std::sync::{Arc, Condvar, Mutex};
 pub struct IOHelper {}
 
 impl IOHelper {
-    pub fn orchestrator_from_yaml_file(filename: &str) -> Orchestrator {
-        let yaml = std::fs::read_to_string(filename).unwrap();
-        if let Ok(settings) = SongSettings::new_from_yaml(yaml.as_str()) {
-            Orchestrator::new_with(&settings)
+    pub fn song_settings_from_yaml_file(filename: &str) -> SongSettings {
+        if let Ok(yaml) = std::fs::read_to_string(filename) {
+            if let Ok(settings) = SongSettings::new_from_yaml(yaml.as_str()) {
+                settings
+            } else {
+                panic!("do something better here");
+            }
         } else {
-            panic!("do something better here");
+            panic!("couldn't read YAML file")
         }
     }
 
