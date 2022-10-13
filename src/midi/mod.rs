@@ -1,9 +1,12 @@
 pub(crate) mod sequencer;
 pub(crate) mod smf_reader;
 
-use std::cmp::Ordering;
-
+use crate::{
+    common::Ww,
+    traits::{SinksMidi, SourcesMidi},
+};
 use serde::{Deserialize, Serialize};
+use std::{cmp::Ordering, collections::HashMap};
 
 #[derive(Debug, Default)]
 pub enum MidiNote {
@@ -104,13 +107,51 @@ impl PartialEq for OrderedMidiMessage {
     }
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct MidiBus {
+    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
+}
+impl SinksMidi for MidiBus {
+    fn midi_channel(&self) -> MidiChannel {
+        MIDI_CHANNEL_RECEIVE_ALL
+    }
+
+    fn set_midi_channel(&mut self, _midi_channel: MidiChannel) {}
+
+    fn handle_midi_for_channel(&mut self, clock: &crate::clock::Clock, message: &MidiMessage) {
+        // send to everyone EXCEPT whoever sent it!
+        self.issue_midi(clock, message);
+    }
+}
+impl SourcesMidi for MidiBus {
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
+        &self.channels_to_sink_vecs
+    }
+
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
+        &mut self.channels_to_sink_vecs
+    }
+
+    fn midi_output_channel(&self) -> MidiChannel {
+        MIDI_CHANNEL_RECEIVE_ALL
+    }
+
+    fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
+}
+impl MidiBus {
+    #[allow(dead_code)]
+    pub fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
-    use assert_approx_eq::assert_approx_eq;
-
-    use crate::common::{StereoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE};
-
     use super::*;
+    use crate::common::{StereoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE};
+    use assert_approx_eq::assert_approx_eq;
 
     #[allow(dead_code)]
     pub const STEREO_SAMPLE_SILENCE: StereoSample = (MONO_SAMPLE_SILENCE, MONO_SAMPLE_SILENCE);

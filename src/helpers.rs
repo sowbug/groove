@@ -1,7 +1,9 @@
-use crate::common::MonoSample;
+use crate::common::{rrc, MonoSample};
 use crate::midi::sequencer::MidiSequencer;
+use crate::midi::smf_reader::MidiSmfReader;
 use crate::orchestrator::{Orchestrator, Performance};
 use crate::settings::song::SongSettings;
+use crate::settings::ClockSettings;
 use crate::synthesizers::drumkit_sampler::Sampler;
 use crate::synthesizers::welsh::{PresetName, Synth, SynthPreset};
 use crate::traits::IsMidiInstrument;
@@ -27,7 +29,13 @@ impl IOHelper {
     pub fn orchestrator_from_midi_file(filename: &str) -> Orchestrator {
         let data = std::fs::read(filename).unwrap();
         let mut orchestrator = Orchestrator::new();
-        orchestrator.read_midi_data(&data);
+
+        let midi_sequencer = rrc(MidiSequencer::new());
+        MidiSmfReader::load_sequencer(&data, &mut midi_sequencer.borrow_mut());
+
+        let instrument = Rc::clone(&midi_sequencer);
+        orchestrator.connect_to_upstream_midi_bus(instrument);
+        orchestrator.register_clock_watcher(None, midi_sequencer);
 
         for channel in 0..MidiSequencer::connected_channel_count() {
             let synth: Rc<RefCell<dyn IsMidiInstrument>> = if channel == 9 {
@@ -35,13 +43,12 @@ impl IOHelper {
             } else {
                 Rc::new(RefCell::new(Synth::new(
                     channel,
-                    orchestrator.settings().clock.sample_rate(),
+                    ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
                     SynthPreset::by_name(&PresetName::Piano),
                 )))
             };
-            // We make up IDs here, as we know that MIDI won't be referencing them.
             let instrument = Rc::clone(&synth);
-            orchestrator.add_audio_source_by_id(format!("instrument-{}", channel), instrument);
+            orchestrator.register_audio_source(None, instrument);
             let sink = Rc::downgrade(&synth);
             orchestrator.connect_to_downstream_midi_bus(channel, sink);
             let device = Rc::downgrade(&synth);

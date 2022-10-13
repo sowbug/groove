@@ -2,8 +2,16 @@ use super::{
     control::{ControlPathSettings, ControlTripSettings},
     ClockSettings, DeviceSettings, PatternSettings, TrackSettings,
 };
-use crate::common::DeviceId;
+use crate::{
+    clock::WatchedClock,
+    common::{rrc, DeviceId},
+    control::{ControlPath, ControlTrip},
+    patterns::{Pattern, PatternSequencer},
+    Orchestrator,
+};
+use anyhow::{Error, Ok};
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
@@ -31,7 +39,7 @@ pub struct SongSettings {
 }
 
 impl SongSettings {
-    pub fn new_defaults() -> Self {
+    pub fn new() -> Self {
         Self {
             ..Default::default()
         }
@@ -44,58 +52,146 @@ impl SongSettings {
         })
     }
 
-    #[allow(dead_code)]
-    fn new_patch_cable(devices_to_connect: Vec<&str>) -> PatchCable {
-        if devices_to_connect.len() < 2 {
-            panic!("need vector of at least two devices to create PatchCable");
-        }
-        let mut patch_cable: Vec<DeviceId> = Vec::new();
+    pub(crate) fn instantiate(&self) -> Result<Orchestrator, Error> {
+        let mut o = Orchestrator::new();
+        o.set_watched_clock(WatchedClock::new_with(&self.clock));
+        self.instantiate_devices(&mut o);
+        self.instantiate_patch_cables(&mut o);
+        self.instantiate_tracks(&mut o);
+        self.instantiate_control_trips(&mut o);
+        Ok(o)
+    }
 
-        for device in devices_to_connect {
-            patch_cable.push(String::from(device));
+    fn instantiate_devices(&self, orchestrator: &mut Orchestrator) {
+        let sample_rate = self.clock.sample_rate();
+
+        for device in &self.devices {
+            match device {
+                DeviceSettings::Instrument(id, instrument_settings) => {
+                    let instrument = instrument_settings.instantiate(sample_rate);
+                    let midi_channel = instrument.borrow().midi_channel();
+                    let instrument_weak = Rc::downgrade(&instrument);
+                    orchestrator.connect_to_downstream_midi_bus(midi_channel, instrument_weak);
+                    orchestrator.register_audio_source(Some(id), instrument);
+                }
+                DeviceSettings::MidiInstrument(id, midi_instrument_settings) => {
+                    let midi_instrument = midi_instrument_settings.instantiate(sample_rate);
+                    let midi_channel = midi_instrument.borrow().midi_channel();
+                    orchestrator.register_midi_effect(Some(id), midi_instrument, midi_channel);
+                }
+                DeviceSettings::Effect(id, effect_settings) => {
+                    orchestrator
+                        .register_effect(Some(id), effect_settings.instantiate(sample_rate));
+                }
+            }
         }
-        patch_cable
+    }
+
+    fn instantiate_patch_cables(&self, orchestrator: &mut Orchestrator) {
+        for patch_cable in &self.patch_cables {
+            if patch_cable.len() < 2 {
+                dbg!("ignoring patch cable of length < 2");
+                continue;
+            }
+            let mut last_device_id: Option<DeviceId> = None;
+            for device_id in patch_cable {
+                if let Some(ldi) = last_device_id {
+                    let output = orchestrator.get_audio_source_by_id(&ldi);
+                    if device_id == "main-mixer" {
+                        orchestrator.add_main_mixer_source(output);
+                    } else {
+                        let input = orchestrator.get_audio_sink_by_id(&device_id);
+                        if let Some(input) = input.upgrade() {
+                            input.borrow_mut().add_audio_source(output);
+                        }
+                    }
+                }
+                last_device_id = Some(device_id.to_string());
+            }
+        }
+    }
+
+    // TODO: for now, a track has a single time signature. Each pattern can have its
+    // own to override the track's, but that's unwieldy compared to a single signature
+    // change as part of the overall track sequence. Maybe a pattern can be either
+    // a pattern or a TS change...
+    //
+    // TODO - should PatternSequencers be able to change their base time signature? Probably
+    fn instantiate_tracks(&self, orchestrator: &mut Orchestrator) {
+        if self.tracks.is_empty() {
+            return;
+        }
+
+        let pattern_sequencer = rrc(PatternSequencer::new(&self.clock.time_signature));
+        for pattern_settings in &self.patterns {
+            let pattern = rrc(Pattern::from_settings(&pattern_settings));
+            orchestrator.register_pattern(Some(&pattern_settings.id), pattern);
+        }
+
+        for track in &self.tracks {
+            let channel = track.midi_channel;
+            pattern_sequencer.borrow_mut().reset_cursor();
+            for pattern_id in &track.pattern_ids {
+                if let Some(pattern) = orchestrator.get_pattern_by_id(&pattern_id).upgrade() {
+                    pattern_sequencer
+                        .borrow_mut()
+                        .add_pattern(&pattern.borrow(), channel);
+                }
+            }
+        }
+
+        let instrument = Rc::clone(&pattern_sequencer);
+        orchestrator.connect_to_upstream_midi_bus(instrument);
+        orchestrator.register_clock_watcher(None, pattern_sequencer);
+    }
+
+    fn instantiate_control_trips(&self, orchestrator: &mut Orchestrator) {
+        if self.trips.is_empty() {
+            // There's no need to instantiate the paths if there are no trips to use them.
+            return;
+        }
+
+        for path_settings in &self.paths {
+            let v = rrc(ControlPath::from_settings(&path_settings));
+            orchestrator.register_control_path(Some(&path_settings.id), v);
+        }
+        for control_trip_settings in &self.trips {
+            if let Some(target) = orchestrator
+                .get_makes_control_sink_by_id(&control_trip_settings.target.id)
+                .upgrade()
+            {
+                if let Some(controller) = target
+                    .borrow()
+                    .make_control_sink(&control_trip_settings.target.param)
+                {
+                    let control_trip = rrc(ControlTrip::new(controller));
+                    control_trip.borrow_mut().reset_cursor();
+                    for path_id in &control_trip_settings.path_ids {
+                        let control_path = orchestrator.get_control_path_by_id(&path_id);
+                        if let Some(control_path) = control_path.upgrade() {
+                            control_trip.borrow_mut().add_path(&control_path.borrow());
+                        }
+                    }
+                    orchestrator
+                        .register_clock_watcher(Some(&control_trip_settings.id), control_trip);
+                } else {
+                    panic!(
+                        "someone instantiated a MakesControlSink without proper wrapping: {:?}.",
+                        target
+                    );
+                };
+            } else {
+                panic!("an upgrade failed. YOU HAD ONE JOB");
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use super::{DeviceSettings, SongSettings};
-    use crate::{
-        orchestrator::Orchestrator, settings::InstrumentSettings, synthesizers::welsh::PresetName,
-    };
-
-    impl SongSettings {
-        #[allow(dead_code)]
-        pub fn new_dev() -> Self {
-            let mut r = Self {
-                ..Default::default()
-            };
-            r.devices.push(DeviceSettings::Instrument(
-                String::from("piano-1"),
-                InstrumentSettings::Welsh {
-                    midi_input_channel: 0,
-                    preset_name: PresetName::Piano,
-                },
-            ));
-
-            r.devices.push(DeviceSettings::Instrument(
-                String::from("drum-1"),
-                InstrumentSettings::Drumkit {
-                    midi_input_channel: 10,
-                    preset_name: String::from("707"), // TODO, for now all 707
-                },
-            ));
-
-            r.patch_cables
-                .push(Self::new_patch_cable(vec!["piano", "main-mixer"]));
-            r.patch_cables
-                .push(Self::new_patch_cable(vec!["drumkit", "main-mixer"]));
-
-            r
-        }
-    }
+    use super::SongSettings;
+    use crate::orchestrator::Orchestrator;
 
     #[test]
     fn test_yaml_loads_and_parses() {
