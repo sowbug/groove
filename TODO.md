@@ -63,6 +63,10 @@
 - [ ] Regularly test with weird sample rates (super low, super high)
 - [ ] Identify entities that don't need ticks, and don't tick() them
 
+## Random thoughts
+
+- [ ] Is SourcesAudio actually multiple things? Some things like Oscillators are pure functions, mostly functions of time. Others, like a filter, maintain lots of internal state and can't be accessed randomly. While a distinction expressed in terms of traits might not change the program flow very much, having the knowledge of which is which might allow some optimizations later down the road.
+
 ## Project logistics
 
 - [ ] Automatic releases
