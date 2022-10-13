@@ -5,12 +5,12 @@ use crate::{
     traits::{SinksMidi, SourcesMidi},
 };
 use midly::{MidiMessage as MidlyMidiMessage, TrackEventKind};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 pub struct MidiSmfReader {}
 
 impl MidiSmfReader {
-    pub fn load_sequencer(data: &[u8], sequencer: Rc<RefCell<MidiSequencer>>) {
+    pub fn load_sequencer(data: &[u8], sequencer: &mut MidiSequencer) {
         let parse_result = midly::Smf::parse(data).unwrap();
 
         struct MetaInfo {
@@ -64,7 +64,7 @@ impl MidiSmfReader {
                                         ),
                                     }
                                 };
-                                sequencer.borrow_mut().add_message(midi_message);
+                                sequencer.add_message(midi_message);
                             }
                             MidlyMidiMessage::NoteOff { key, vel } => {
                                 let midi_message = OrderedMidiMessage {
@@ -75,7 +75,7 @@ impl MidiSmfReader {
                                         vel.as_int(),
                                     ),
                                 };
-                                sequencer.borrow_mut().add_message(midi_message);
+                                sequencer.add_message(midi_message);
                             }
                             MidlyMidiMessage::ProgramChange { program } => {
                                 let midi_message = OrderedMidiMessage {
@@ -85,7 +85,7 @@ impl MidiSmfReader {
                                         program.as_int(),
                                     ),
                                 };
-                                sequencer.borrow_mut().add_message(midi_message);
+                                sequencer.add_message(midi_message);
                             }
                             _ => {
                                 // println!("skipping {:?}", message);
@@ -119,9 +119,7 @@ impl MidiSmfReader {
 
                             let _bpm: f32 = (60.0 * 1000000.0) / (meta_info.tempo as f32);
 
-                            sequencer
-                                .borrow_mut()
-                                .set_midi_ticks_per_second(ticks_per_second as u32);
+                            sequencer.set_midi_ticks_per_second(ticks_per_second as u32);
                         }
                         _ => {}
                     },

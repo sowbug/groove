@@ -1,5 +1,6 @@
 use crate::common::{rrc, DeviceId, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE};
 use crate::control::{ControlPath, ControlTrip};
+use crate::midi::smf_reader::MidiSmfReader;
 use crate::midi::{
     sequencer::MidiSequencer, smf_reader::MidiBus, MidiChannel, MIDI_CHANNEL_RECEIVE_ALL,
 };
@@ -39,8 +40,8 @@ pub struct Orchestrator {
     clock: WatchedClock,
     main_mixer: Box<Mixer>, /////////////// // Not Box because get_effect("main-mixer") - can eliminate?
     midi_bus: Rc<RefCell<MidiBus>>, // Not Box because we need Weaks
-    midi_sequencer: Rc<RefCell<MidiSequencer>>,
-    pattern_sequencer: Rc<RefCell<PatternSequencer>>,
+    midi_sequencer: Ww<MidiSequencer>, // owned by WatchedClock
+    pattern_sequencer: Ww<PatternSequencer>, // owned by WatchedClock
 
     // We don't have owning Vecs for WatchesClock or IsMidiEffect because
     // both of those are owned by WatchedClock.
@@ -49,6 +50,8 @@ pub struct Orchestrator {
     patterns: Vec<Rrc<Pattern>>,
     control_paths: Vec<Rrc<ControlPath>>,
 
+    // These are all Weaks. That means someone else owns them.
+    // That someone else might be us (see Rc<RefCell<>> above).
     id_to_clock_watcher: HashMap<DeviceId, Ww<dyn WatchesClock>>,
     id_to_audio_source: HashMap<DeviceId, Ww<dyn SourcesAudio>>,
     id_to_effect: HashMap<DeviceId, Ww<dyn IsEffect>>,
@@ -58,16 +61,28 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    pub fn new_with(settings: SongSettings) -> Self {
+    pub fn new_with(settings: &SongSettings) -> Self {
+        let midi_bus = rrc(MidiBus::new());
+
+        let midi_sequencer = rrc(MidiSequencer::new());
+        let sink = Rc::downgrade(&midi_bus);
+        midi_sequencer
+            .borrow_mut()
+            .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
+
+        let pattern_sequencer = rrc(PatternSequencer::new(&settings.clock.time_signature()));
+        let sink = Rc::downgrade(&midi_bus);
+        pattern_sequencer
+            .borrow_mut()
+            .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
+
         let mut r = Self {
             settings: settings.clone(),
             clock: WatchedClock::new_with(&settings.clock),
             main_mixer: Box::new(Mixer::new()),
-            midi_bus: rrc(MidiBus::new()),
-            midi_sequencer: Rc::new(RefCell::new(MidiSequencer::new())),
-            pattern_sequencer: Rc::new(RefCell::new(PatternSequencer::new(
-                &settings.clock.time_signature(),
-            ))),
+            midi_bus,
+            midi_sequencer: Rc::downgrade(&midi_sequencer),
+            pattern_sequencer: Rc::downgrade(&pattern_sequencer),
 
             audio_sources: Vec::new(),
             effects: Vec::new(),
@@ -83,24 +98,14 @@ impl Orchestrator {
             id_to_control_path: HashMap::new(),
         };
 
-        let sink = Rc::downgrade(&r.midi_bus);
-        r.pattern_sequencer
-            .borrow_mut()
-            .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
-        let sink = Rc::downgrade(&r.midi_bus);
-        r.midi_sequencer
-            .borrow_mut()
-            .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
-        let watcher = Rc::clone(&r.midi_sequencer);
-        r.clock.add_watcher(watcher);
-        let watcher = Rc::clone(&r.pattern_sequencer);
-        r.clock.add_watcher(watcher);
+        r.clock.add_watcher(midi_sequencer);
+        r.clock.add_watcher(pattern_sequencer);
         r.prepare_from_settings();
         r
     }
 
     pub fn new() -> Self {
-        Self::new_with(SongSettings::new_defaults())
+        Self::new_with(&SongSettings::new_defaults())
     }
 
     pub fn settings(&self) -> &SongSettings {
@@ -327,15 +332,17 @@ impl Orchestrator {
         //
         // TODO - should PatternSequencers be able to change their base time signature? Probably
 
-        for track in self.settings.tracks.clone() {
-            let channel = track.midi_channel;
-            self.pattern_sequencer.borrow_mut().reset_cursor();
-            for pattern_id in track.pattern_ids {
-                let pattern = self.get_pattern_by_id(&pattern_id);
-                if let Some(pattern) = pattern.upgrade() {
-                    self.pattern_sequencer
-                        .borrow_mut()
-                        .add_pattern(&pattern.borrow(), channel);
+        if let Some(pattern_sequencer) = self.pattern_sequencer.upgrade() {
+            for track in self.settings.tracks.clone() {
+                let channel = track.midi_channel;
+                pattern_sequencer.borrow_mut().reset_cursor();
+                for pattern_id in track.pattern_ids {
+                    let pattern = self.get_pattern_by_id(&pattern_id);
+                    if let Some(pattern) = pattern.upgrade() {
+                        pattern_sequencer
+                            .borrow_mut()
+                            .add_pattern(&pattern.borrow(), channel);
+                    }
                 }
             }
         }
@@ -381,11 +388,17 @@ impl Orchestrator {
         }
     }
 
-    pub fn midi_sequencer(&self) -> Rc<RefCell<MidiSequencer>> {
-        Rc::clone(&self.midi_sequencer)
+    fn main_mixer(&self) -> &Mixer {
+        &self.main_mixer
     }
 
-    pub fn main_mixer(&self) -> &Mixer {
-        &self.main_mixer
+    // TODO: this is kind of a mess. We have an IOHelper method calling back into us.
+    // I wanted IOHelper to get the IO garbage out of Orchestrator.
+    pub(crate) fn read_midi_data(&mut self, data: &[u8]) {
+        if let Some(midi_sequencer) = self.midi_sequencer.upgrade() {
+            MidiSmfReader::load_sequencer(&data, &mut midi_sequencer.borrow_mut());
+        } else {
+            panic!("this shouldn't ever happen");
+        }
     }
 }

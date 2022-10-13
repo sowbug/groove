@@ -5,6 +5,7 @@ use crate::{
         filter::{Filter, FilterType},
         gain::Gain,
         limiter::Limiter,
+        mixer::Mixer,
     },
     traits::IsEffect,
 };
@@ -13,6 +14,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectSettings {
+    Mixer {},
     Gain {
         ceiling: f32,
     },
@@ -72,11 +74,7 @@ pub enum EffectSettings {
 impl EffectSettings {
     pub(crate) fn instantiate(&self, sample_rate: usize) -> Rrc<dyn IsEffect> {
         match *self {
-            // This has more repetition than we'd expect because of
-            // https://stackoverflow.com/questions/26378842/how-do-i-overcome-match-arms-with-incompatible-types-for-structs-implementing-sa
-            //
-            // Match arms have to return the same types, and returning a Rc<RefCell<dyn some trait>> doesn't count
-            // as the same type.
+            EffectSettings::Mixer {} => Mixer::new_wrapped(),
             EffectSettings::Limiter { min, max } => {
                 Limiter::new_wrapped_with(min as MonoSample, max as MonoSample)
             }

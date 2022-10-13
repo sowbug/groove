@@ -101,7 +101,7 @@ mod tests {
     fn test_yaml_loads_and_parses() {
         let yaml = std::fs::read_to_string("test_data/kitchen-sink.yaml").unwrap();
         if let Ok(song_settings) = SongSettings::new_from_yaml(yaml.as_str()) {
-            let mut orchestrator = Orchestrator::new_with(song_settings);
+            let mut orchestrator = Orchestrator::new_with(&song_settings);
             if let Ok(_performance) = orchestrator.perform() {
                 // cool
             } else {

@@ -1,6 +1,5 @@
 use crate::common::MonoSample;
 use crate::midi::sequencer::MidiSequencer;
-use crate::midi::smf_reader::MidiSmfReader;
 use crate::orchestrator::{Orchestrator, Performance};
 use crate::settings::song::SongSettings;
 use crate::synthesizers::drumkit_sampler::Sampler;
@@ -18,15 +17,17 @@ pub struct IOHelper {}
 impl IOHelper {
     pub fn orchestrator_from_yaml_file(filename: &str) -> Orchestrator {
         let yaml = std::fs::read_to_string(filename).unwrap();
-        let settings = SongSettings::new_from_yaml(yaml.as_str());
-
-        Orchestrator::new_with(settings.unwrap())
+        if let Ok(settings) = SongSettings::new_from_yaml(yaml.as_str()) {
+            Orchestrator::new_with(&settings)
+        } else {
+            panic!("do something better here");
+        }
     }
 
     pub fn orchestrator_from_midi_file(filename: &str) -> Orchestrator {
         let data = std::fs::read(filename).unwrap();
         let mut orchestrator = Orchestrator::new();
-        MidiSmfReader::load_sequencer(&data, orchestrator.midi_sequencer());
+        orchestrator.read_midi_data(&data);
 
         for channel in 0..MidiSequencer::connected_channel_count() {
             let synth: Rc<RefCell<dyn IsMidiInstrument>> = if channel == 9 {
