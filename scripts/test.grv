@@ -1,7 +1,21 @@
+// Creates a new Orchestrator, which takes devices and assembles them into a song.
 let o = Orchestrator();
+
+// A Synth responds to MIDI input and creates sounds.
 let s = Synth();
+
+// Tells the orchestrator that the synth's audio output should go to the main mixer.
 o.add_audio_source(s);
+
+// Create a MIDI sequencer.
 let seq = o.Sequencer();
+
+// Load a MIDI file that we know plays stuff on MIDI channel 0.
 seq.load_midi_file("midi_files/major-scale-spaced-notes.mid");
+
+// Plug a virtual MIDI cable between the synth and sequencer, and set the synth
+// to respond to MIDI channel 0.
 seq.add_midi_sink(s, 0);
+
+// Ask the Orchestrator to play the whole thing and output to out.wav.
 o.play();
