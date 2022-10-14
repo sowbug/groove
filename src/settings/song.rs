@@ -96,11 +96,11 @@ impl SongSettings {
             let mut last_device_id: Option<DeviceId> = None;
             for device_id in patch_cable {
                 if let Some(ldi) = last_device_id {
-                    let output = orchestrator.get_audio_source_by_id(&ldi);
+                    let output = orchestrator.audio_source_by(&ldi);
                     if device_id == "main-mixer" {
                         orchestrator.add_main_mixer_source(output);
                     } else {
-                        let input = orchestrator.get_audio_sink_by_id(&device_id);
+                        let input = orchestrator.audio_sink_by(&device_id);
                         if let Some(input) = input.upgrade() {
                             input.borrow_mut().add_audio_source(output);
                         }
@@ -132,7 +132,7 @@ impl SongSettings {
             let channel = track.midi_channel;
             pattern_sequencer.borrow_mut().reset_cursor();
             for pattern_id in &track.pattern_ids {
-                if let Some(pattern) = orchestrator.get_pattern_by_id(&pattern_id).upgrade() {
+                if let Some(pattern) = orchestrator.pattern_by(&pattern_id).upgrade() {
                     pattern_sequencer
                         .borrow_mut()
                         .add_pattern(&pattern.borrow(), channel);
@@ -157,7 +157,7 @@ impl SongSettings {
         }
         for control_trip_settings in &self.trips {
             if let Some(target) = orchestrator
-                .get_makes_control_sink_by_id(&control_trip_settings.target.id)
+                .makes_control_sink_by(&control_trip_settings.target.id)
                 .upgrade()
             {
                 if let Some(controller) = target
@@ -167,7 +167,7 @@ impl SongSettings {
                     let control_trip = rrc(ControlTrip::new(controller));
                     control_trip.borrow_mut().reset_cursor();
                     for path_id in &control_trip_settings.path_ids {
-                        let control_path = orchestrator.get_control_path_by_id(&path_id);
+                        let control_path = orchestrator.control_path_by(&path_id);
                         if let Some(control_path) = control_path.upgrade() {
                             control_trip.borrow_mut().add_path(&control_path.borrow());
                         }

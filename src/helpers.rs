@@ -60,7 +60,7 @@ impl IOHelper {
         orchestrator
     }
 
-    pub fn get_sample_from_queue<T: cpal::Sample>(
+    pub fn sample_from_queue<T: cpal::Sample>(
         stealer: &Stealer<MonoSample>,
         sync_pair: &Arc<(Mutex<bool>, Condvar)>,
         data: &mut [T],
@@ -115,7 +115,7 @@ impl IOHelper {
             cpal::SampleFormat::F32 => device.build_output_stream(
                 &config,
                 move |data, output_callback_info| {
-                    Self::get_sample_from_queue::<f32>(
+                    Self::sample_from_queue::<f32>(
                         &stealer,
                         &sync_pair_clone,
                         data,
@@ -127,7 +127,7 @@ impl IOHelper {
             cpal::SampleFormat::I16 => device.build_output_stream(
                 &config,
                 move |data, output_callback_info| {
-                    Self::get_sample_from_queue::<i16>(
+                    Self::sample_from_queue::<i16>(
                         &stealer,
                         &sync_pair_clone,
                         data,
@@ -139,7 +139,7 @@ impl IOHelper {
             cpal::SampleFormat::U16 => device.build_output_stream(
                 &config,
                 move |data, output_callback_info| {
-                    Self::get_sample_from_queue::<u16>(
+                    Self::sample_from_queue::<u16>(
                         &stealer,
                         &sync_pair_clone,
                         data,

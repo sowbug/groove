@@ -193,39 +193,39 @@ impl Orchestrator {
             .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
     }
 
-    pub fn get_audio_source_by_id(&self, id: &str) -> Ww<dyn SourcesAudio> {
-        if let Some(item) = self.id_store.get_audio_source_by_id(id) {
+    pub fn audio_source_by(&self, id: &str) -> Ww<dyn SourcesAudio> {
+        if let Some(item) = self.id_store.audio_source_by(id) {
             return item;
         }
         panic!("SourcesAudio id {} not found", id);
     }
 
-    pub fn get_audio_sink_by_id(&self, id: &str) -> Ww<dyn SinksAudio> {
+    pub fn audio_sink_by(&self, id: &str) -> Ww<dyn SinksAudio> {
         if id == "main-mixer" {
             panic!("special case this");
         }
-        if let Some(item) = self.id_store.get_audio_sink_by_id(id) {
+        if let Some(item) = self.id_store.audio_sink_by(id) {
             return item;
         }
         panic!("SinksAudio id {} not found", id);
     }
 
-    pub fn get_makes_control_sink_by_id(&self, id: &str) -> Ww<dyn MakesControlSink> {
-        if let Some(item) = self.id_store.get_makes_control_sink_by_id(id) {
+    pub fn makes_control_sink_by(&self, id: &str) -> Ww<dyn MakesControlSink> {
+        if let Some(item) = self.id_store.makes_control_sink_by(id) {
             return item;
         }
         panic!("MakesControlSink id {} not found", id);
     }
 
-    pub fn get_pattern_by_id(&self, id: &str) -> Ww<Pattern> {
-        if let Some(item) = self.id_store.get_pattern_by_id(id) {
+    pub fn pattern_by(&self, id: &str) -> Ww<Pattern> {
+        if let Some(item) = self.id_store.pattern_by(id) {
             return item;
         }
         panic!("Pattern id {} not found", id);
     }
 
-    pub fn get_control_path_by_id(&self, id: &str) -> Ww<ControlPath> {
-        if let Some(item) = self.id_store.get_control_path_by_id(id) {
+    pub fn control_path_by(&self, id: &str) -> Ww<ControlPath> {
+        if let Some(item) = self.id_store.control_path_by(id) {
             return item;
         }
         panic!("ControlPath id {} not found", id);

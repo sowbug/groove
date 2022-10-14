@@ -107,7 +107,7 @@ impl PatternSequencer {
     }
 
     #[cfg(test)]
-    pub(crate) fn get_cursor(&self) -> f32 {
+    pub(crate) fn cursor(&self) -> f32 {
         self.cursor_beats
     }
 }
@@ -258,12 +258,12 @@ mod tests {
         assert_eq!(pattern.notes[0].len(), expected_note_count);
 
         // We don't need to call reset_cursor(), but we do just once to make sure it's working.
-        assert_eq!(sequencer.get_cursor(), PatternSequencer::CURSOR_BEGIN);
+        assert_eq!(sequencer.cursor(), PatternSequencer::CURSOR_BEGIN);
         sequencer.reset_cursor();
-        assert_eq!(sequencer.get_cursor(), PatternSequencer::CURSOR_BEGIN);
+        assert_eq!(sequencer.cursor(), PatternSequencer::CURSOR_BEGIN);
 
         sequencer.add_pattern(&pattern, 0);
-        assert_eq!(sequencer.get_cursor(), (2 * time_signature.top) as f32);
+        assert_eq!(sequencer.cursor(), (2 * time_signature.top) as f32);
         assert_eq!(sequencer.sequenced_notes.len(), expected_note_count * 2); // one on, one off
     }
 
@@ -309,7 +309,7 @@ mod tests {
         sequencer.add_pattern(&pattern, 0);
 
         // expect max of (2, 3) measures
-        assert_eq!(sequencer.get_cursor(), (3 * time_signature.top) as f32);
+        assert_eq!(sequencer.cursor(), (3 * time_signature.top) as f32);
         assert_eq!(sequencer.sequenced_notes.len(), expected_note_count * 2); // one on, one off
     }
 
@@ -324,6 +324,6 @@ mod tests {
         });
         sequencer.add_pattern(&pattern, 0);
 
-        assert_eq!(sequencer.get_cursor(), time_signature.top as f32);
+        assert_eq!(sequencer.cursor(), time_signature.top as f32);
     }
 }

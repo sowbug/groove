@@ -93,7 +93,7 @@ impl IdStore {
         id
     }
 
-    pub fn get_audio_source_by_id(&self, id: &str) -> Option<Ww<dyn SourcesAudio>> {
+    pub fn audio_source_by(&self, id: &str) -> Option<Ww<dyn SourcesAudio>> {
         if let Some(item) = self.id_to_audio_source.get(id) {
             return Some(Weak::clone(item));
         }
@@ -104,7 +104,7 @@ impl IdStore {
         None
     }
 
-    pub fn get_audio_sink_by_id(&self, id: &str) -> Option<Ww<dyn SinksAudio>> {
+    pub fn audio_sink_by(&self, id: &str) -> Option<Ww<dyn SinksAudio>> {
         if let Some(item) = self.id_to_effect.get(id) {
             let clone = Weak::clone(&item);
             return Some(clone);
@@ -112,7 +112,7 @@ impl IdStore {
         None
     }
 
-    pub fn get_makes_control_sink_by_id(&self, id: &str) -> Option<Ww<dyn MakesControlSink>> {
+    pub fn makes_control_sink_by(&self, id: &str) -> Option<Ww<dyn MakesControlSink>> {
         if let Some(item) = self.id_to_effect.get(id) {
             let clone = Weak::clone(item);
             return Some(clone);
@@ -120,14 +120,14 @@ impl IdStore {
         None
     }
 
-    pub fn get_pattern_by_id(&self, id: &str) -> Option<Ww<Pattern>> {
+    pub fn pattern_by(&self, id: &str) -> Option<Ww<Pattern>> {
         if let Some(item) = self.id_to_pattern.get(id) {
             return Some(Weak::clone(item));
         }
         None
     }
 
-    pub fn get_control_path_by_id(&self, id: &str) -> Option<Ww<ControlPath>> {
+    pub fn control_path_by(&self, id: &str) -> Option<Ww<ControlPath>> {
         if let Some(item) = self.id_to_control_path.get(id) {
             return Some(Weak::clone(item));
         }

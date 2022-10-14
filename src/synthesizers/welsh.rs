@@ -1515,7 +1515,7 @@ impl SynthPreset {
 }
 
 impl Synth {
-    pub fn get_general_midi_preset(program: GeneralMidiProgram) -> SynthPreset {
+    pub fn general_midi_preset(program: GeneralMidiProgram) -> SynthPreset {
         let mut delegated = false;
         let preset = match program {
             GeneralMidiProgram::AcousticGrand => PresetName::Piano,
@@ -2066,7 +2066,7 @@ impl SinksMidi for Synth {
                 self.note_to_voice.remove(&note);
             }
             MidiMessageType::ProgramChange => {
-                self.preset = Synth::get_general_midi_preset(
+                self.preset = Synth::general_midi_preset(
                     GeneralMidiProgram::from_u8(message.data1).unwrap(),
                 );
             }
