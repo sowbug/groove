@@ -39,9 +39,9 @@ fn main() -> anyhow::Result<()> {
         let mut orchestrator = if args.midi_in.is_some() {
             IOHelper::orchestrator_from_midi_file(args.midi_in.unwrap().as_str())
         } else if args.yaml_in.is_some() {
-            Orchestrator::new_with(&IOHelper::song_settings_from_yaml_file(
-                args.yaml_in.unwrap().as_str(),
-            ))
+            IOHelper::song_settings_from_yaml_file(args.yaml_in.unwrap().as_str())
+                .instantiate()
+                .unwrap()
         } else {
             Orchestrator::new()
         };

@@ -1,149 +1,753 @@
-#![feature(trait_upcasting)]
-#![allow(incomplete_features)]
-
+use iced::alignment::{self, Alignment};
 use iced::button::{self, Button};
+use iced::scrollable::{self, Scrollable};
 use iced::text_input::{self, TextInput};
-use iced::{Alignment, Column, Element, Row, Sandbox, Settings, Text};
-use iced_audio::{knob, IntRange, Knob, Normal};
-use libgroove::Orchestrator;
-use libgroove::{IOHelper, SongSettings};
+use iced::{
+    Application, Checkbox, Column, Command, Container, Element, Font, Length, Row, Settings, Text,
+};
+use libgroove::{IOHelper, Orchestrator, SongSettings};
+use serde::{Deserialize, Serialize};
 
 pub fn main() -> iced::Result {
     Groove::run(Settings::default())
 }
-struct Groove {
-    filename: String,
+
+#[derive(Debug)]
+enum Groove {
+    Loading,
+    Loaded(State),
+}
+
+#[derive(Debug, Default)]
+struct State {
+    scroll: scrollable::State,
+    input: text_input::State,
+    input_value: String,
+    filter: Filter,
+    tasks: Vec<Task>,
+    controls: Controls,
+    dirty: bool,
+    saving: bool,
+    ////
     song_settings: SongSettings,
     orchestrator: Orchestrator,
-    play_button: button::State,
-    stop_button: button::State,
-    bpm_state: knob::State,
-    bpm_text_state: text_input::State,
-    misc_value: i32,
+    audio_sources: Vec<AudioSource>,
 }
 
 #[derive(Debug, Clone)]
 enum Message {
-    PlayPressed,
-    StopPressed,
-    BpmKnobChanged(Normal),
-    BpmTextInputChanged(String),
+    Loaded(Result<SavedState, LoadError>),
+    Saved(Result<(), SaveError>),
+    InputChanged(String),
+    CreateTask,
+    FilterChanged(Filter),
+    TaskMessage(usize, TaskMessage),
+    AudioSourceMessage(usize, AudioSourceMessage),
 }
 
-impl<'a> Groove {
-    fn container(title: &str) -> Column<'a, Message> {
-        Column::new().push(Text::new(title).size(50)).spacing(20)
-    }
-}
-
-impl Sandbox for Groove {
+impl Application for Groove {
+    type Executor = iced::executor::Default;
     type Message = Message;
+    type Flags = ();
 
-    fn new() -> Self {
-        let filename = "scripts/everything.yaml";
-        let song_settings = IOHelper::song_settings_from_yaml_file(filename);
-        Self {
-            filename: filename.to_string(),
-            song_settings: song_settings.clone(),
-            orchestrator: Orchestrator::new_with(&song_settings),
-            play_button: button::State::new(),
-            stop_button: button::State::new(),
-            bpm_state: knob::State::new(IntRange::new(1, 256).normal_param(128, 128)),
-            bpm_text_state: text_input::State::new(),
-            misc_value: 69,
-        }
+    fn new(_flags: ()) -> (Groove, Command<Message>) {
+        (
+            Groove::Loading,
+            Command::perform(SavedState::load(), Message::Loaded),
+        )
     }
 
     fn title(&self) -> String {
-        self.filename.clone()
+        let dirty = match self {
+            Groove::Loading => false,
+            Groove::Loaded(state) => state.dirty,
+        };
+
+        format!("Todos{} - Iced", if dirty { "*" } else { "" })
     }
 
-    fn update(&mut self, message: Message) {
-        match message {
-            Message::PlayPressed => {
-                self.orchestrator = Orchestrator::new_with(&self.song_settings);
-                let performance = self.orchestrator.perform();
-                if let Ok(performance) = performance {
-                    if IOHelper::send_performance_to_output_device(performance).is_ok() {
-                        // great
+    fn update(&mut self, message: Message) -> Command<Message> {
+        match self {
+            Groove::Loading => {
+                match message {
+                    Message::Loaded(Ok(state)) => {
+                        let orchestrator = state.song_settings.instantiate().unwrap();
+                        let mut audio_sources = Vec::<AudioSource>::new();
+                        for (i, _source) in orchestrator.main_mixer().sources().iter().enumerate() {
+                            audio_sources.push(AudioSource {
+                                name: format!("Audio Source #{}", i),
+                                ..Default::default()
+                            })
+                        }
+
+                        *self = Groove::Loaded(State {
+                            // input_value: state.input_value,
+                            // filter: state.filter,
+                            // tasks: state.tasks,
+                            song_settings: state.song_settings.clone(),
+                            orchestrator,
+                            audio_sources,
+                            ..State::default()
+                        });
                     }
+                    Message::Loaded(Err(_)) => {
+                        *self = Groove::Loaded(State::default());
+                    }
+                    _ => {}
                 }
+
+                Command::none()
             }
-            Message::StopPressed => {
-                todo!();
-            }
-            Message::BpmKnobChanged(value) => {
-                let new_value = value.scale(128.0 * 2.0);
-                dbg!(value, new_value);
-                // TODO: Orchestrator explodes if we try changing settings midway,
-                // so for now we're keeping two copies of the things we change!
-                self.song_settings.clock.set_bpm(new_value);
-                self.orchestrator.set_bpm(new_value);
-                let bpm = self.orchestrator.bpm();
-                dbg!(bpm);
-            }
-            Message::BpmTextInputChanged(value) => {
-                if let Ok(value_f32) = value.parse::<f32>() {
-                    let bpm = value_f32 * 128.0 * 2.0;
-                    self.song_settings.clock.set_bpm(bpm);
-                    self.orchestrator.set_bpm(bpm);
-                    self.misc_value += 1; // = value_f32.to_string();
+            Groove::Loaded(state) => {
+                let mut saved = false;
+
+                match message {
+                    Message::InputChanged(value) => {
+                        state.input_value = value;
+                    }
+                    Message::CreateTask => {
+                        if !state.input_value.is_empty() {
+                            state.tasks.push(Task::new(state.input_value.clone()));
+                            state.input_value.clear();
+                        }
+                    }
+                    Message::FilterChanged(filter) => {
+                        state.filter = filter;
+                    }
+                    Message::TaskMessage(i, TaskMessage::Delete) => {
+                        state.tasks.remove(i);
+                    }
+                    Message::TaskMessage(i, task_message) => {
+                        if let Some(task) = state.tasks.get_mut(i) {
+                            task.update(task_message);
+                        }
+                    }
+                    Message::Saved(_) => {
+                        state.saving = false;
+                        saved = true;
+                    }
+                    Message::Loaded(_) => todo!(),
+                    Message::AudioSourceMessage(i, audio_source_message) => {
+                        if let Some(audio_source) = state.audio_sources.get_mut(i) {
+                            audio_source.update(audio_source_message);
+                        }
+                    } //                    _ => {}
                 }
-                dbg!(value, self.misc_value);
+
+                if !saved {
+                    state.dirty = true;
+                }
+
+                if state.dirty && !state.saving {
+                    state.dirty = false;
+                    state.saving = true;
+
+                    Command::perform(
+                        SavedState {
+                            // input_value: state.input_value.clone(),
+                            // filter: state.filter,
+                            // tasks: state.tasks.clone(),
+                            song_settings: state.song_settings.clone(),
+                        }
+                        .save(),
+                        Message::Saved,
+                    )
+                } else {
+                    Command::none()
+                }
             }
         }
     }
 
     fn view(&mut self) -> Element<Message> {
-        let bpm = self.orchestrator.bpm();
-        dbg!(bpm);
-        let top_row = Row::new()
-            .padding(20)
-            .align_items(Alignment::Start)
-            .push(Knob::new(
-                &mut self.bpm_state,
-                Message::BpmKnobChanged,
-                || None,
-                || None,
-            ))
-            .push(TextInput::new(
-                &mut self.bpm_text_state,
-                "huh?",
-                format!("{}", bpm).as_str(),
-                Message::BpmTextInputChanged,
-            ))
+        match self {
+            Groove::Loading => loading_message(),
+            Groove::Loaded(State {
+                scroll,
+                input,
+                input_value,
+                filter,
+                tasks,
+                controls,
+                song_settings,
+                orchestrator,
+                audio_sources,
+                ..
+            }) => {
+                let title = Text::new(format!("BPM {}", song_settings.clock.bpm()))
+                    .width(Length::Fill)
+                    .size(100)
+                    .color([0.5, 0.5, 0.5])
+                    .horizontal_alignment(alignment::Horizontal::Center);
+
+                let input = TextInput::new(
+                    input,
+                    format!("other {}", orchestrator.bpm()).as_str(),
+                    input_value,
+                    Message::InputChanged,
+                )
+                .padding(15)
+                .size(30)
+                .on_submit(Message::CreateTask);
+
+                let controls = controls.view(&tasks, *filter);
+                let filtered_tasks = tasks.iter().filter(|task| filter.matches(task));
+
+                let sources1: Element<_> = if audio_sources.is_empty() {
+                    empty_message("nothing yet")
+                } else {
+                    audio_sources
+                        .iter_mut()
+                        .enumerate()
+                        .fold(Column::new().spacing(20), |column, (i, source)| {
+                            column.push(
+                                source
+                                    .view()
+                                    .map(move |message| Message::AudioSourceMessage(i, message)),
+                            )
+                        })
+                        .into()
+                };
+
+                let sources2: Element<_> = empty_message("You have not created a task yet...");
+
+                let tasks: Element<_> = if filtered_tasks.count() > 0 {
+                    tasks
+                        .iter_mut()
+                        .enumerate()
+                        .filter(|(_, task)| filter.matches(task))
+                        .fold(Column::new().spacing(20), |column, (i, task)| {
+                            column.push(
+                                task.view()
+                                    .map(move |message| Message::TaskMessage(i, message)),
+                            )
+                        })
+                        .into()
+                } else {
+                    empty_message(match filter {
+                        Filter::All => "You have not created a task yet...",
+                        Filter::Active => "All your tasks are done! :D",
+                        Filter::Completed => "You have not completed a task yet...",
+                    })
+                };
+
+                let content = Column::new()
+                    .max_width(800)
+                    .spacing(20)
+                    .push(title)
+                    .push(input)
+                    .push(controls)
+                    .push(sources1)
+                    .push(sources2)
+                    .push(tasks);
+
+                Scrollable::new(scroll)
+                    .padding(40)
+                    .push(Container::new(content).width(Length::Fill).center_x())
+                    .into()
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Task {
+    description: String,
+    completed: bool,
+
+    #[serde(skip)]
+    state: TaskState,
+}
+
+#[derive(Debug, Clone)]
+pub enum TaskState {
+    Idle {
+        edit_button: button::State,
+    },
+    Editing {
+        text_input: text_input::State,
+        delete_button: button::State,
+    },
+}
+
+impl Default for TaskState {
+    fn default() -> Self {
+        TaskState::Idle {
+            edit_button: button::State::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum TaskMessage {
+    Completed(bool),
+    Edit,
+    DescriptionEdited(String),
+    FinishEdition,
+    Delete,
+}
+
+impl Task {
+    fn new(description: String) -> Self {
+        Task {
+            description,
+            completed: false,
+            state: TaskState::Idle {
+                edit_button: button::State::new(),
+            },
+        }
+    }
+
+    fn update(&mut self, message: TaskMessage) {
+        match message {
+            TaskMessage::Completed(completed) => {
+                self.completed = completed;
+            }
+            TaskMessage::Edit => {
+                let mut text_input = text_input::State::focused();
+                text_input.select_all();
+
+                self.state = TaskState::Editing {
+                    text_input,
+                    delete_button: button::State::new(),
+                };
+            }
+            TaskMessage::DescriptionEdited(new_description) => {
+                self.description = new_description;
+            }
+            TaskMessage::FinishEdition => {
+                if !self.description.is_empty() {
+                    self.state = TaskState::Idle {
+                        edit_button: button::State::new(),
+                    }
+                }
+            }
+            TaskMessage::Delete => {}
+        }
+    }
+
+    fn view(&mut self) -> Element<TaskMessage> {
+        match &mut self.state {
+            TaskState::Idle { edit_button } => {
+                let checkbox =
+                    Checkbox::new(self.completed, &self.description, TaskMessage::Completed)
+                        .width(Length::Fill);
+
+                Row::new()
+                    .spacing(20)
+                    .align_items(Alignment::Center)
+                    .push(checkbox)
+                    .push(
+                        Button::new(edit_button, edit_icon())
+                            .on_press(TaskMessage::Edit)
+                            .padding(10)
+                            .style(style::Button::Icon),
+                    )
+                    .into()
+            }
+            TaskState::Editing {
+                text_input,
+                delete_button,
+            } => {
+                let text_input = TextInput::new(
+                    text_input,
+                    "Describe your task...",
+                    &self.description,
+                    TaskMessage::DescriptionEdited,
+                )
+                .on_submit(TaskMessage::FinishEdition)
+                .padding(10);
+
+                Row::new()
+                    .spacing(20)
+                    .align_items(Alignment::Center)
+                    .push(text_input)
+                    .push(
+                        Button::new(
+                            delete_button,
+                            Row::new()
+                                .spacing(10)
+                                .push(delete_icon())
+                                .push(Text::new("Delete")),
+                        )
+                        .on_press(TaskMessage::Delete)
+                        .padding(10)
+                        .style(style::Button::Destructive),
+                    )
+                    .into()
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct Controls {
+    all_button: button::State,
+    active_button: button::State,
+    completed_button: button::State,
+}
+
+impl Controls {
+    fn view(&mut self, tasks: &[Task], current_filter: Filter) -> Row<Message> {
+        let Controls {
+            all_button,
+            active_button,
+            completed_button,
+        } = self;
+
+        let tasks_left = tasks.iter().filter(|task| !task.completed).count();
+
+        let filter_button = |state, label, filter, current_filter| {
+            let label = Text::new(label).size(16);
+            let button = Button::new(state, label).style(if filter == current_filter {
+                style::Button::FilterSelected
+            } else {
+                style::Button::FilterActive
+            });
+
+            button.on_press(Message::FilterChanged(filter)).padding(8)
+        };
+
+        Row::new()
+            .spacing(20)
+            .align_items(Alignment::Center)
             .push(
-                Button::new(&mut self.play_button, Text::new("Play"))
-                    .on_press(Message::PlayPressed),
+                Text::new(format!(
+                    "{} {} left",
+                    tasks_left,
+                    if tasks_left == 1 { "task" } else { "tasks" }
+                ))
+                .width(Length::Fill)
+                .size(16),
             )
             .push(
-                Button::new(&mut self.stop_button, Text::new("Stop"))
-                    .on_press(Message::StopPressed),
-            );
+                Row::new()
+                    .width(Length::Shrink)
+                    .spacing(10)
+                    .push(filter_button(
+                        all_button,
+                        "All",
+                        Filter::All,
+                        current_filter,
+                    ))
+                    .push(filter_button(
+                        active_button,
+                        "Active",
+                        Filter::Active,
+                        current_filter,
+                    ))
+                    .push(filter_button(
+                        completed_button,
+                        "Completed",
+                        Filter::Completed,
+                        current_filter,
+                    )),
+            )
+    }
+}
 
-        let _source_row: Row<Message> = Row::new()
-            .padding(20)
-            .align_items(Alignment::Start)
-            .push(Column::new());
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Filter {
+    All,
+    Active,
+    Completed,
+}
 
-        let mut button_state_vec = Vec::<button::State>::new();
-        for _i in self.orchestrator.main_mixer().sources().iter().enumerate() {
-            let button_state = button::State::new();
-            dbg!(button_state);
-            // source_row = source_row.push(Button::new(
-            //     &mut button_state,
-            //     Text::new(format!("{}", i.0).as_str()),
-            // ));
-            button_state_vec.push(button_state);
+impl Default for Filter {
+    fn default() -> Self {
+        Filter::All
+    }
+}
+
+impl Filter {
+    fn matches(&self, task: &Task) -> bool {
+        match self {
+            Filter::All => true,
+            Filter::Active => !task.completed,
+            Filter::Completed => task.completed,
+        }
+    }
+}
+
+fn loading_message<'a>() -> Element<'a, Message> {
+    Container::new(
+        Text::new("Loading...")
+            .horizontal_alignment(alignment::Horizontal::Center)
+            .size(50),
+    )
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .center_y()
+    .into()
+}
+
+fn empty_message<'a>(message: &str) -> Element<'a, Message> {
+    Container::new(
+        Text::new(message)
+            .width(Length::Fill)
+            .size(25)
+            .horizontal_alignment(alignment::Horizontal::Center)
+            .color([0.7, 0.7, 0.7]),
+    )
+    .width(Length::Fill)
+    .height(Length::Units(200))
+    .center_y()
+    .into()
+}
+
+// Fonts
+const ICONS: Font = Font::External {
+    name: "Icons",
+    bytes: include_bytes!("../../fonts/icons.ttf"),
+};
+
+fn icon(unicode: char) -> Text {
+    Text::new(unicode.to_string())
+        .font(ICONS)
+        .width(Length::Units(20))
+        .horizontal_alignment(alignment::Horizontal::Center)
+        .size(20)
+}
+
+fn edit_icon() -> Text {
+    icon('\u{F303}')
+}
+
+fn delete_icon() -> Text {
+    icon('\u{F1F8}')
+}
+
+// Persistence
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SavedState {
+    // input_value: String,
+    // filter: Filter,
+    // tasks: Vec<Task>,
+    song_settings: SongSettings,
+}
+
+#[derive(Debug, Clone)]
+enum LoadError {
+    FileError,
+    FormatError,
+}
+
+#[derive(Debug, Clone)]
+enum SaveError {
+    FileError,
+    WriteError,
+    FormatError,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl SavedState {
+    fn path() -> std::path::PathBuf {
+        let mut path = if let Some(project_dirs) =
+            directories_next::ProjectDirs::from("rs", "Iced", "Todos")
+        {
+            project_dirs.data_dir().into()
+        } else {
+            std::env::current_dir().unwrap_or(std::path::PathBuf::new())
+        };
+
+        path.push("todos.json");
+
+        path
+    }
+
+    async fn load() -> Result<SavedState, LoadError> {
+        //  use async_std::prelude::*;
+
+        // let mut contents = String::new();
+
+        // let mut file = async_std::fs::File::open(Self::path())
+        //     .await
+        //     .map_err(|_| LoadError::FileError)?;
+
+        // file.read_to_string(&mut contents)
+        //     .await
+        //     .map_err(|_| LoadError::FileError)?;
+
+        // serde_json::from_str(&contents).map_err(|_| LoadError::FormatError)
+
+        let filename = "scripts/everything.yaml";
+        Ok(SavedState {
+            song_settings: IOHelper::song_settings_from_yaml_file(filename),
+        })
+    }
+
+    async fn save(self) -> Result<(), SaveError> {
+        use async_std::prelude::*;
+
+        let json = serde_json::to_string_pretty(&self).map_err(|_| SaveError::FormatError)?;
+
+        let path = Self::path();
+
+        if let Some(dir) = path.parent() {
+            async_std::fs::create_dir_all(dir)
+                .await
+                .map_err(|_| SaveError::FileError)?;
         }
 
-        // //        Container::new(Column::new().push(top_row).push(source_row)).into()
+        {
+            let mut file = async_std::fs::File::create(path)
+                .await
+                .map_err(|_| SaveError::FileError)?;
 
-        Self::container("this is a column")
-            .push(Text::new("asdfadfs"))
-            .push(Text::new("aopisdopdfgio"))
-            .push(top_row)
-            .push(Text::new(self.misc_value.to_string()))
-            .into()
+            file.write_all(json.as_bytes())
+                .await
+                .map_err(|_| SaveError::WriteError)?;
+        }
+
+        // This is a simple way to save at most once every couple seconds
+        async_std::task::sleep(std::time::Duration::from_secs(2)).await;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+enum AudioSourceMessage {
+    SomethingHappened,
+    IsActive(bool),
+}
+
+#[derive(Debug, Clone)]
+enum AudioSourceState {
+    Idle { button: button::State },
+}
+
+impl Default for AudioSourceState {
+    fn default() -> Self {
+        AudioSourceState::Idle {
+            button: button::State::new(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+struct AudioSource {
+    name: String,
+    is_active: bool,
+    state: AudioSourceState,
+}
+
+impl AudioSource {
+    fn update(&mut self, message: AudioSourceMessage) {
+        match message {
+            AudioSourceMessage::SomethingHappened => {
+                println!("AudioSourceMessage::SomethingHappened");
+            }
+            AudioSourceMessage::IsActive(is_active) => {
+                println!("{:?} {:?}", message, self);
+                self.is_active = is_active;
+            }
+        }
+    }
+
+    fn view(&mut self) -> Element<AudioSourceMessage> {
+        match &mut self.state {
+            AudioSourceState::Idle { button } => {
+                let checkbox =
+                    Checkbox::new(self.is_active, &self.name, AudioSourceMessage::IsActive)
+                        .width(Length::Fill);
+
+                Row::new()
+                    .spacing(20)
+                    .align_items(Alignment::Center)
+                    .push(checkbox)
+                    .push(
+                        Button::new(button, edit_icon())
+                            .on_press(AudioSourceMessage::SomethingHappened)
+                            .padding(10)
+                            .style(style::Button::Icon),
+                    )
+                    .into()
+            }
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl SavedState {
+    fn storage() -> Option<web_sys::Storage> {
+        let window = web_sys::window()?;
+
+        window.local_storage().ok()?
+    }
+
+    async fn load() -> Result<SavedState, LoadError> {
+        let storage = Self::storage().ok_or(LoadError::FileError)?;
+
+        let contents = storage
+            .get_item("state")
+            .map_err(|_| LoadError::FileError)?
+            .ok_or(LoadError::FileError)?;
+
+        serde_json::from_str(&contents).map_err(|_| LoadError::FormatError)
+    }
+
+    async fn save(self) -> Result<(), SaveError> {
+        let storage = Self::storage().ok_or(SaveError::FileError)?;
+
+        let json = serde_json::to_string_pretty(&self).map_err(|_| SaveError::FormatError)?;
+
+        storage
+            .set_item("state", &json)
+            .map_err(|_| SaveError::WriteError)?;
+
+        let _ = wasm_timer::Delay::new(std::time::Duration::from_secs(2)).await;
+
+        Ok(())
+    }
+}
+
+mod style {
+    use iced::{button, Background, Color, Vector};
+
+    pub enum Button {
+        FilterActive,
+        FilterSelected,
+        Icon,
+        Destructive,
+    }
+
+    impl button::StyleSheet for Button {
+        fn active(&self) -> button::Style {
+            match self {
+                Button::FilterActive => button::Style::default(),
+                Button::FilterSelected => button::Style {
+                    background: Some(Background::Color(Color::from_rgb(0.2, 0.2, 0.7))),
+                    border_radius: 10.0,
+                    text_color: Color::WHITE,
+                    ..button::Style::default()
+                },
+                Button::Icon => button::Style {
+                    text_color: Color::from_rgb(0.5, 0.5, 0.5),
+                    ..button::Style::default()
+                },
+                Button::Destructive => button::Style {
+                    background: Some(Background::Color(Color::from_rgb(0.8, 0.2, 0.2))),
+                    border_radius: 5.0,
+                    text_color: Color::WHITE,
+                    shadow_offset: Vector::new(1.0, 1.0),
+                    ..button::Style::default()
+                },
+            }
+        }
+
+        fn hovered(&self) -> button::Style {
+            let active = self.active();
+
+            button::Style {
+                text_color: match self {
+                    Button::Icon => Color::from_rgb(0.2, 0.2, 0.7),
+                    Button::FilterActive => Color::from_rgb(0.2, 0.2, 0.7),
+                    _ => active.text_color,
+                },
+                shadow_offset: active.shadow_offset + Vector::new(0.0, 1.0),
+                ..active
+            }
+        }
     }
 }

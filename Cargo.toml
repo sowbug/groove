@@ -1,16 +1,18 @@
 [package]
 name = "groove"
 version = "0.1.0"
-authors = [ "Mike Tsao <mike@sowbug.com>" ]
+authors = ["Mike Tsao <mike@sowbug.com>"]
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0.12"
 assert_approx_eq = "1.1.0"
+async-std = "1.0"
 clap = { version = "3.2.6", features = ["derive"] }
 convert_case = "0.1.0"
 cpal = "0.13.5"
 crossbeam = "0.8"
+directories-next = "2.0"
 enum-primitive-derive = "0.2.2"
 hound = "3.4"
 iced = "0.4.2"
@@ -23,6 +25,7 @@ plotters = "0.3.4"
 rhai = "1.10.1"
 ringbuf = "0.2"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.86"
 serde_yaml = "0.8"
 sorted-vec = "0.8.0"
 spectrum-analyzer = "1.2.6"

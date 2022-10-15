@@ -52,7 +52,7 @@ impl SongSettings {
         })
     }
 
-    pub(crate) fn instantiate(&self) -> Result<Orchestrator, Error> {
+    pub fn instantiate(&self) -> Result<Orchestrator, Error> {
         let mut o = Orchestrator::new();
         o.set_watched_clock(WatchedClock::new_with(&self.clock));
         self.instantiate_devices(&mut o);
@@ -191,17 +191,19 @@ impl SongSettings {
 mod tests {
 
     use super::SongSettings;
-    use crate::orchestrator::Orchestrator;
 
     #[test]
     fn test_yaml_loads_and_parses() {
         let yaml = std::fs::read_to_string("test_data/kitchen-sink.yaml").unwrap();
         if let Ok(song_settings) = SongSettings::new_from_yaml(yaml.as_str()) {
-            let mut orchestrator = Orchestrator::new_with(&song_settings);
-            if let Ok(_performance) = orchestrator.perform() {
-                // cool
+            if let Ok(mut orchestrator) = song_settings.instantiate() {
+                if let Ok(_performance) = orchestrator.perform() {
+                    // cool
+                } else {
+                    assert!(false, "performance failed");
+                }
             } else {
-                assert!(false, "performance failed");
+                assert!(false, "instantiation failed");
             }
         } else {
             assert!(false, "loading settings failed");

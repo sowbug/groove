@@ -67,14 +67,6 @@ impl Orchestrator {
         Default::default()
     }
 
-    pub fn new_with(settings: &SongSettings) -> Self {
-        if let Ok(o) = settings.instantiate() {
-            o
-        } else {
-            panic!()
-        }
-    }
-
     pub fn set_watched_clock(&mut self, clock: WatchedClock) {
         self.clock = clock;
     }
