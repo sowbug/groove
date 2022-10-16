@@ -14,11 +14,11 @@
           "--no-run",
           "--",
           "--show-output",
-          "--bin=libgroove",
+          "--bin=groove",
           "--package=groove",
         ],
         "filter": {
-          "name": "libgroove",
+          "name": "groove",
           "kind": "lib"
         }
       },
@@ -50,11 +50,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },
@@ -68,11 +68,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },
@@ -89,11 +89,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },
@@ -110,11 +110,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },
@@ -133,11 +133,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },
@@ -154,11 +154,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },
@@ -174,11 +174,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },
@@ -195,11 +195,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },
@@ -218,11 +218,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },
@@ -239,11 +239,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },
@@ -262,11 +262,11 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=groove",
+          "--bin=groove-cli",
           "--package=groove"
         ],
         "filter": {
-          "name": "groove",
+          "name": "groove-cli",
           "kind": "bin"
         }
       },

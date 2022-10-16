@@ -33,7 +33,7 @@ strum = "0.24.1"
 strum_macros = "0.24.2"
 
 [[bin]]
-name = "groove"
+name = "groove-cli"
 path = "src/bin/cli.rs"
 
 [[bin]]
@@ -41,5 +41,5 @@ name = "groove-gui"
 path = "src/bin/app.rs"
 
 [lib]
-name = "libgroove"
+name = "groove"
 path = "src/lib.rs"

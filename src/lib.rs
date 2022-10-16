@@ -6,6 +6,8 @@ pub use crate::orchestrator::Orchestrator;
 pub use crate::settings::song::SongSettings;
 pub use crate::scripting::ScriptEngine;
 
+pub mod gui;
+
 pub(crate) mod clock;
 pub(crate) mod common;
 pub(crate) mod control;

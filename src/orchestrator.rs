@@ -3,7 +3,6 @@ use crate::control::ControlPath;
 use crate::id_store::IdStore;
 use crate::midi::{MidiBus, MidiChannel, MIDI_CHANNEL_RECEIVE_ALL};
 use crate::patterns::Pattern;
-use crate::settings::song::SongSettings;
 use crate::traits::{
     IsEffect, IsMidiEffect, MakesControlSink, SinksAudio, SinksMidi, SourcesAudio, SourcesMidi,
     WatchesClock,

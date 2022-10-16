@@ -3,7 +3,7 @@
 
 use anyhow::Ok;
 use clap::Parser;
-use libgroove::{IOHelper, Orchestrator, ScriptEngine};
+use groove::{IOHelper, Orchestrator, ScriptEngine};
 
 #[derive(Parser, Debug, Default)]
 #[clap(author, version, about, long_about = None)]

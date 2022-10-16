@@ -1,11 +1,12 @@
+use groove::gui::{AudioSource, AudioSourceMessage, style, edit_icon, delete_icon};
 use iced::alignment::{self, Alignment};
 use iced::button::{self, Button};
 use iced::scrollable::{self, Scrollable};
 use iced::text_input::{self, TextInput};
 use iced::{
-    Application, Checkbox, Column, Command, Container, Element, Font, Length, Row, Settings, Text,
+    Application, Checkbox, Column, Command, Container, Element,  Length, Row, Settings, Text,
 };
-use libgroove::{IOHelper, Orchestrator, SongSettings};
+use groove::{IOHelper, Orchestrator, SongSettings};
 use serde::{Deserialize, Serialize};
 
 pub fn main() -> iced::Result {
@@ -495,28 +496,6 @@ fn empty_message<'a>(message: &str) -> Element<'a, Message> {
     .into()
 }
 
-// Fonts
-const ICONS: Font = Font::External {
-    name: "Icons",
-    bytes: include_bytes!("../../fonts/icons.ttf"),
-};
-
-fn icon(unicode: char) -> Text {
-    Text::new(unicode.to_string())
-        .font(ICONS)
-        .width(Length::Units(20))
-        .horizontal_alignment(alignment::Horizontal::Center)
-        .size(20)
-}
-
-fn edit_icon() -> Text {
-    icon('\u{F303}')
-}
-
-fn delete_icon() -> Text {
-    icon('\u{F1F8}')
-}
-
 // Persistence
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SavedState {
@@ -606,68 +585,6 @@ impl SavedState {
     }
 }
 
-#[derive(Debug, Clone)]
-enum AudioSourceMessage {
-    SomethingHappened,
-    IsActive(bool),
-}
-
-#[derive(Debug, Clone)]
-enum AudioSourceState {
-    Idle { button: button::State },
-}
-
-impl Default for AudioSourceState {
-    fn default() -> Self {
-        AudioSourceState::Idle {
-            button: button::State::new(),
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-struct AudioSource {
-    name: String,
-    is_active: bool,
-    state: AudioSourceState,
-}
-
-impl AudioSource {
-    fn update(&mut self, message: AudioSourceMessage) {
-        match message {
-            AudioSourceMessage::SomethingHappened => {
-                println!("AudioSourceMessage::SomethingHappened");
-            }
-            AudioSourceMessage::IsActive(is_active) => {
-                println!("{:?} {:?}", message, self);
-                self.is_active = is_active;
-            }
-        }
-    }
-
-    fn view(&mut self) -> Element<AudioSourceMessage> {
-        match &mut self.state {
-            AudioSourceState::Idle { button } => {
-                let checkbox =
-                    Checkbox::new(self.is_active, &self.name, AudioSourceMessage::IsActive)
-                        .width(Length::Fill);
-
-                Row::new()
-                    .spacing(20)
-                    .align_items(Alignment::Center)
-                    .push(checkbox)
-                    .push(
-                        Button::new(button, edit_icon())
-                            .on_press(AudioSourceMessage::SomethingHappened)
-                            .padding(10)
-                            .style(style::Button::Icon),
-                    )
-                    .into()
-            }
-        }
-    }
-}
-
 #[cfg(target_arch = "wasm32")]
 impl SavedState {
     fn storage() -> Option<web_sys::Storage> {
@@ -699,55 +616,5 @@ impl SavedState {
         let _ = wasm_timer::Delay::new(std::time::Duration::from_secs(2)).await;
 
         Ok(())
-    }
-}
-
-mod style {
-    use iced::{button, Background, Color, Vector};
-
-    pub enum Button {
-        FilterActive,
-        FilterSelected,
-        Icon,
-        Destructive,
-    }
-
-    impl button::StyleSheet for Button {
-        fn active(&self) -> button::Style {
-            match self {
-                Button::FilterActive => button::Style::default(),
-                Button::FilterSelected => button::Style {
-                    background: Some(Background::Color(Color::from_rgb(0.2, 0.2, 0.7))),
-                    border_radius: 10.0,
-                    text_color: Color::WHITE,
-                    ..button::Style::default()
-                },
-                Button::Icon => button::Style {
-                    text_color: Color::from_rgb(0.5, 0.5, 0.5),
-                    ..button::Style::default()
-                },
-                Button::Destructive => button::Style {
-                    background: Some(Background::Color(Color::from_rgb(0.8, 0.2, 0.2))),
-                    border_radius: 5.0,
-                    text_color: Color::WHITE,
-                    shadow_offset: Vector::new(1.0, 1.0),
-                    ..button::Style::default()
-                },
-            }
-        }
-
-        fn hovered(&self) -> button::Style {
-            let active = self.active();
-
-            button::Style {
-                text_color: match self {
-                    Button::Icon => Color::from_rgb(0.2, 0.2, 0.7),
-                    Button::FilterActive => Color::from_rgb(0.2, 0.2, 0.7),
-                    _ => active.text_color,
-                },
-                shadow_offset: active.shadow_offset + Vector::new(0.0, 1.0),
-                ..active
-            }
-        }
     }
 }
