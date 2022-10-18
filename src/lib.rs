@@ -3,10 +3,10 @@
 
 pub use crate::helpers::IOHelper;
 pub use crate::orchestrator::Orchestrator;
-pub use crate::settings::song::SongSettings;
 pub use crate::scripting::ScriptEngine;
+pub use crate::settings::song::SongSettings;
 
-pub mod gui;
+pub mod traits;
 
 pub(crate) mod clock;
 pub(crate) mod common;
@@ -23,5 +23,4 @@ pub(crate) mod preset;
 pub(crate) mod scripting;
 pub(crate) mod settings;
 pub(crate) mod synthesizers;
-pub(crate) mod traits;
 pub(crate) mod utils;

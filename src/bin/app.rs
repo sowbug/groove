@@ -1,8 +1,10 @@
-use groove::gui::message::Message;
-use groove::gui::persistence::{Filter, SavedState};
-use groove::gui::to_be_obsolete::{empty_message, loading_message, Task, TaskMessage};
-use groove::gui::{AudioSource, ControlBar};
+mod gui;
+
 use groove::{IOHelper, Orchestrator, SongSettings};
+use gui::message::Message;
+use gui::persistence::{Filter, SavedState};
+use gui::to_be_obsolete::{empty_message, loading_message, Task, TaskMessage};
+use gui::{AudioSource, AudioSourceMessage, ControlBar, ControlBarMessage};
 use iced::alignment::{self};
 use iced::scrollable::{self, Scrollable};
 use iced::text_input::{self, TextInput};
@@ -125,19 +127,19 @@ impl Application for Groove {
                             audio_source.update(audio_source_message.clone());
                         }
                         match audio_source_message {
-                            groove::gui::AudioSourceMessage::EditButtonPressed => todo!(),
-                            groove::gui::AudioSourceMessage::IsMuted(is_muted) => {
+                            AudioSourceMessage::EditButtonPressed => todo!(),
+                            AudioSourceMessage::IsMuted(is_muted) => {
                                 state.orchestrator.mute_audio_source(i, is_muted);
                             }
                         }
                     }
                     Message::ControlBarMessage(control_bar_message) => match control_bar_message {
-                        groove::gui::ControlBarMessage::Play => {
+                        ControlBarMessage::Play => {
                             if let Ok(performance) = state.orchestrator.perform() {
                                 IOHelper::send_performance_to_output_device(performance);
                             };
                         }
-                        groove::gui::ControlBarMessage::Stop => todo!(),
+                        ControlBarMessage::Stop => todo!(),
                     },
                 }
 

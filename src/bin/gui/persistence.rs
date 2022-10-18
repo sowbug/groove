@@ -1,8 +1,6 @@
-use serde::{Deserialize, Serialize};
-
-use crate::{IOHelper, SongSettings};
-
 use super::to_be_obsolete::Task;
+use crate::{IOHelper, SongSettings};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Filter {

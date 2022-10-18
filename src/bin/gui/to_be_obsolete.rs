@@ -1,12 +1,11 @@
+use super::message::Message;
+use super::persistence::Filter;
+use super::{delete_icon, edit_icon, style};
 use iced::alignment::{self, Alignment};
 use iced::button::{self, Button};
 use iced::text_input::{self, TextInput};
 use iced::{Checkbox, Container, Element, Length, Row, Text};
 use serde::{Deserialize, Serialize};
-
-use super::message::Message;
-use super::persistence::Filter;
-use super::{delete_icon, edit_icon, style};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {

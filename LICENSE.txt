@@ -1,0 +1,8 @@
+Main project: Copyright (c) 2022 Mike Tsao. All rights reserved.
+
+===
+
+Material Design icons are from https://github.com/google/material-design-icons/
+and made available under https://www.apache.org/licenses/LICENSE-2.0.txt
+
+===
