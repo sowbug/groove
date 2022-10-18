@@ -9,7 +9,10 @@ use crate::{
     effects::filter::{Filter, FilterType},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
-    traits::{IsMidiInstrument, SinksMidi, SourcesAudio, TransformsAudio},
+    traits::{
+        DescribesSourcesAudio, IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio,
+        TransformsAudio,
+    },
     {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
 
@@ -1879,6 +1882,8 @@ pub struct Voice {
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
     filter_envelope: AdsrEnvelope,
+
+    is_muted: bool,
 }
 
 impl Voice {
@@ -1901,6 +1906,8 @@ impl Voice {
             filter_cutoff_start: Filter::frequency_to_percent(preset.filter_type_12db.cutoff),
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: AdsrEnvelope::new_with(&preset.filter_envelope_preset),
+
+            is_muted: false,
         };
         if !matches!(preset.oscillator_1_preset.waveform, WaveformType::None) {
             r.oscillators
@@ -2002,6 +2009,20 @@ impl SourcesAudio for Voice {
         filtered_mix * self.amp_envelope.source_audio(clock) * lfo_amplitude_modulation
     }
 }
+impl DescribesSourcesAudio for Voice {
+    fn name(&self) -> &str {
+        "Welsh Voice"
+    }
+}
+impl IsMutable for Voice {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct Synth {
@@ -2009,6 +2030,7 @@ pub struct Synth {
     sample_rate: usize,
     preset: SynthPreset,
     note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
+    is_muted: bool,
 
     debug_last_seconds: f32,
 }
@@ -2021,6 +2043,7 @@ impl Synth {
             sample_rate,
             preset,
             note_to_voice: HashMap::new(),
+            is_muted: false,
 
             debug_last_seconds: -1.0,
         }
@@ -2066,9 +2089,8 @@ impl SinksMidi for Synth {
                 self.note_to_voice.remove(&note);
             }
             MidiMessageType::ProgramChange => {
-                self.preset = Synth::general_midi_preset(
-                    GeneralMidiProgram::from_u8(message.data1).unwrap(),
-                );
+                self.preset =
+                    Synth::general_midi_preset(GeneralMidiProgram::from_u8(message.data1).unwrap());
             }
         }
     }
@@ -2092,6 +2114,20 @@ impl SourcesAudio for Synth {
             current_value /= self.note_to_voice.len() as MonoSample;
         }
         current_value
+    }
+}
+impl DescribesSourcesAudio for Synth {
+    fn name(&self) -> &str {
+        "Welsh"
+    }
+}
+impl IsMutable for Synth {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
     }
 }
 

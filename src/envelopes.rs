@@ -3,7 +3,7 @@ use crate::{
     clock::ClockTimeUnit,
     common::{MonoSample, Rrc, Ww},
     preset::EnvelopePreset,
-    traits::SourcesAudio,
+    traits::{DescribesSourcesAudio, IsMutable, SourcesAudio},
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{
@@ -71,6 +71,7 @@ impl EnvelopeStep {
 pub struct SteppedEnvelope {
     time_unit: ClockTimeUnit,
     steps: Vec<EnvelopeStep>,
+    is_muted: bool,
 }
 
 impl SteppedEnvelope {
@@ -92,6 +93,7 @@ impl SteppedEnvelope {
         let r = Self {
             time_unit,
             steps: vec,
+            is_muted: false,
         };
         r.debug_validate_steps();
         r
@@ -204,6 +206,20 @@ impl SourcesAudio for SteppedEnvelope {
         self.value_for_step_at_time(step, time)
     }
 }
+impl DescribesSourcesAudio for SteppedEnvelope {
+    fn name(&self) -> &str {
+        "SteppedEnvelope"
+    }
+}
+impl IsMutable for SteppedEnvelope {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
+    }
+}
 
 #[derive(Debug, Default)]
 enum AdsrEnvelopeStepName {
@@ -220,6 +236,7 @@ enum AdsrEnvelopeStepName {
 pub struct AdsrEnvelope {
     pub(crate) me: Ww<Self>,
     preset: EnvelopePreset,
+    is_muted: bool,
 
     envelope: SteppedEnvelope,
 
@@ -232,6 +249,7 @@ impl Default for AdsrEnvelope {
         Self {
             me: Weak::new(),
             preset: EnvelopePreset::default(),
+            is_muted: false,
             envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
             note_off_time: f32::MAX,
@@ -524,6 +542,20 @@ impl SourcesAudio for AdsrEnvelope {
         let time = self.envelope.time_for_unit(clock);
         let step = self.envelope.step_for_time(time);
         self.envelope.value_for_step_at_time(step, time)
+    }
+}
+impl DescribesSourcesAudio for AdsrEnvelope {
+    fn name(&self) -> &str {
+        "AdsrEnvelope"
+    }
+}
+impl IsMutable for AdsrEnvelope {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
     }
 }
 

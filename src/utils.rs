@@ -13,8 +13,9 @@ pub mod tests {
         preset::EnvelopePreset,
         settings::ClockSettings,
         traits::{
-            IsController, IsEffect, MakesControlSink, SinksAudio, SinksControl, SinksMidi,
-            SourcesAudio, SourcesControl, SourcesMidi, Terminates, WatchesClock,
+            DescribesSourcesAudio, IsController, IsEffect, IsMutable, MakesControlSink, SinksAudio,
+            SinksControl, SinksMidi, SourcesAudio, SourcesControl, SourcesMidi, Terminates,
+            WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -214,6 +215,7 @@ pub mod tests {
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysSameLevel {
         level: MonoSample,
+        is_muted: bool,
     }
     impl TestAudioSourceAlwaysSameLevel {
         pub fn new(level: MonoSample) -> Self {
@@ -228,9 +230,25 @@ pub mod tests {
             self.level
         }
     }
+    impl DescribesSourcesAudio for TestAudioSourceAlwaysSameLevel {
+        fn name(&self) -> &str {
+            "TestAudioSourceAlwaysSameLevel"
+        }
+    }
+    impl IsMutable for TestAudioSourceAlwaysSameLevel {
+        fn is_muted(&self) -> bool {
+            self.is_muted
+        }
+
+        fn set_muted(&mut self, is_muted: bool) {
+            self.is_muted = is_muted;
+        }
+    }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysLoud {}
+    pub struct TestAudioSourceAlwaysLoud {
+        is_muted: bool,
+    }
     impl TestAudioSourceAlwaysLoud {
         pub fn new() -> Self {
             Self {
@@ -243,9 +261,25 @@ pub mod tests {
             MONO_SAMPLE_MAX
         }
     }
+    impl DescribesSourcesAudio for TestAudioSourceAlwaysLoud {
+        fn name(&self) -> &str {
+            "TestAudioSourceAlwaysLoud"
+        }
+    }
+    impl IsMutable for TestAudioSourceAlwaysLoud {
+        fn is_muted(&self) -> bool {
+            self.is_muted
+        }
+
+        fn set_muted(&mut self, is_muted: bool) {
+            self.is_muted = is_muted;
+        }
+    }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysTooLoud {}
+    pub struct TestAudioSourceAlwaysTooLoud {
+        is_muted: bool,
+    }
     impl TestAudioSourceAlwaysTooLoud {
         pub fn new() -> Self {
             Self {
@@ -258,9 +292,25 @@ pub mod tests {
             MONO_SAMPLE_MAX + 0.1
         }
     }
+    impl DescribesSourcesAudio for TestAudioSourceAlwaysTooLoud {
+        fn name(&self) -> &str {
+            "TestAudioSourceAlwaysTooLoud"
+        }
+    }
+    impl IsMutable for TestAudioSourceAlwaysTooLoud {
+        fn is_muted(&self) -> bool {
+            self.is_muted
+        }
+
+        fn set_muted(&mut self, is_muted: bool) {
+            self.is_muted = is_muted;
+        }
+    }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysSilent {}
+    pub struct TestAudioSourceAlwaysSilent {
+        is_muted: bool,
+    }
     impl TestAudioSourceAlwaysSilent {
         pub fn new() -> Self {
             Self {
@@ -273,9 +323,25 @@ pub mod tests {
             MONO_SAMPLE_SILENCE
         }
     }
+    impl DescribesSourcesAudio for TestAudioSourceAlwaysSilent {
+        fn name(&self) -> &str {
+            "TestAudioSourceAlwaysSilent"
+        }
+    }
+    impl IsMutable for TestAudioSourceAlwaysSilent {
+        fn is_muted(&self) -> bool {
+            self.is_muted
+        }
+
+        fn set_muted(&mut self, is_muted: bool) {
+            self.is_muted = is_muted;
+        }
+    }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysVeryQuiet {}
+    pub struct TestAudioSourceAlwaysVeryQuiet {
+        is_muted: bool,
+    }
     impl TestAudioSourceAlwaysVeryQuiet {
         #[allow(dead_code)]
         pub fn new() -> Self {
@@ -287,6 +353,20 @@ pub mod tests {
     impl SourcesAudio for TestAudioSourceAlwaysVeryQuiet {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_MIN
+        }
+    }
+    impl DescribesSourcesAudio for TestAudioSourceAlwaysVeryQuiet {
+        fn name(&self) -> &str {
+            "TestAudioSourceAlwaysVeryQuiet"
+        }
+    }
+    impl IsMutable for TestAudioSourceAlwaysVeryQuiet {
+        fn is_muted(&self) -> bool {
+            self.is_muted
+        }
+
+        fn set_muted(&mut self, is_muted: bool) {
+            self.is_muted = is_muted;
         }
     }
 
@@ -333,6 +413,7 @@ pub mod tests {
     pub struct TestSynth {
         oscillator: Rc<RefCell<dyn SourcesAudio>>,
         envelope: Rc<RefCell<dyn SourcesAudio>>,
+        is_muted: bool,
     }
 
     impl TestSynth {
@@ -341,12 +422,10 @@ pub mod tests {
         /// for it to do anything meaningful, and it's a bad practice to hardcode
         /// a 44.1KHz rate.
         fn new() -> Self {
-            Self {
-                oscillator: Rc::new(RefCell::new(Oscillator::new())),
-                envelope: Rc::new(RefCell::new(AdsrEnvelope::new_with(
-                    &EnvelopePreset::default(),
-                ))),
-            }
+            Self::new_with(
+                rrc(Oscillator::new()),
+                rrc(AdsrEnvelope::new_with(&EnvelopePreset::default())),
+            )
         }
         pub fn new_with(
             oscillator: Rc<RefCell<dyn SourcesAudio>>,
@@ -355,6 +434,7 @@ pub mod tests {
             Self {
                 oscillator,
                 envelope,
+                is_muted: false,
             }
         }
     }
@@ -370,6 +450,20 @@ pub mod tests {
         fn source_audio(&mut self, clock: &Clock) -> MonoSample {
             self.oscillator.borrow_mut().source_audio(clock)
                 * self.envelope.borrow_mut().source_audio(clock)
+        }
+    }
+    impl DescribesSourcesAudio for TestSynth {
+        fn name(&self) -> &str {
+            "TestSynth"
+        }
+    }
+    impl IsMutable for TestSynth {
+        fn is_muted(&self) -> bool {
+            self.is_muted
+        }
+
+        fn set_muted(&mut self, is_muted: bool) {
+            self.is_muted = is_muted;
         }
     }
 
@@ -481,6 +575,7 @@ pub mod tests {
     pub struct TestMidiSink {
         pub(crate) me: Ww<Self>,
         pub is_playing: bool,
+        is_muted: bool,
         midi_channel: MidiChannel,
         pub midi_messages_received: usize,
         pub midi_messages_handled: usize,
@@ -556,6 +651,20 @@ pub mod tests {
             self.value
         }
     }
+    impl DescribesSourcesAudio for TestMidiSink {
+        fn name(&self) -> &str {
+            "TestMidiSink"
+        }
+    }
+    impl IsMutable for TestMidiSink {
+        fn is_muted(&self) -> bool {
+            self.is_muted
+        }
+
+        fn set_muted(&mut self, is_muted: bool) {
+            self.is_muted = is_muted;
+        }
+    }
     impl MakesControlSink for TestMidiSink {
         fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
             if self.me.strong_count() != 0 {
@@ -612,17 +721,35 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSource {}
+    pub struct TestAudioSource {
+        is_muted: bool,
+    }
 
     impl SourcesAudio for TestAudioSource {
         fn source_audio(&mut self, _clock: &Clock) -> crate::common::MonoSample {
             0.
         }
     }
+    impl DescribesSourcesAudio for TestAudioSource {
+        fn name(&self) -> &str {
+            "TestAudioSource"
+        }
+    }
+    impl IsMutable for TestAudioSource {
+        fn is_muted(&self) -> bool {
+            self.is_muted
+        }
+
+        fn set_muted(&mut self, is_muted: bool) {
+            self.is_muted = is_muted;
+        }
+    }
 
     impl TestAudioSource {
         pub fn new() -> Self {
-            TestAudioSource {}
+            TestAudioSource {
+                ..Default::default()
+            }
         }
     }
 

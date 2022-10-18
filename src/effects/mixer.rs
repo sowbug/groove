@@ -1,6 +1,8 @@
 use crate::{
     common::{MonoSample, Rrc, Ww},
-    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{
+        DescribesSourcesAudio, IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio,
+    },
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -8,6 +10,7 @@ use std::{cell::RefCell, rc::Rc};
 pub struct Mixer {
     pub(crate) me: Ww<Self>,
     sources: Vec<Ww<dyn SourcesAudio>>,
+    is_muted: bool,
 }
 impl IsEffect for Mixer {}
 impl Mixer {
@@ -24,6 +27,12 @@ impl Mixer {
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }
+
+    pub fn mute_source(&mut self, index: usize, is_muted: bool) {
+        if let Some(source) = self.sources[index].upgrade() {
+            source.borrow_mut().set_muted(is_muted);
+        }
+    }
 }
 impl SinksAudio for Mixer {
     fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
@@ -36,6 +45,20 @@ impl SinksAudio for Mixer {
 impl TransformsAudio for Mixer {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         input_sample
+    }
+}
+impl DescribesSourcesAudio for Mixer {
+    fn name(&self) -> &str {
+        "Mixer"
+    }
+}
+impl IsMutable for Mixer {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
     }
 }
 

@@ -2,7 +2,7 @@ use super::clock::Clock;
 use crate::{
     common::{MonoSample, Rrc, WaveformType, Ww},
     preset::{LfoPreset, OscillatorPreset},
-    traits::SourcesAudio,
+    traits::{DescribesSourcesAudio, IsMutable, SourcesAudio},
 };
 use std::{
     cell::RefCell,
@@ -13,6 +13,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct Oscillator {
     pub(crate) me: Ww<Self>,
+    is_muted: bool,
 
     waveform: WaveformType,
 
@@ -44,6 +45,7 @@ impl Default for Oscillator {
             // is that a quiet oscillator isn't doing its main job of helping make
             // sound. Principle of Least Astonishment prevails.
             me: Weak::new(),
+            is_muted: false,
             waveform: WaveformType::Sine,
             frequency: 440.0,
             fixed_frequency: 0.0,
@@ -161,6 +163,20 @@ impl SourcesAudio for Oscillator {
                 tmp
             }
         }
+    }
+}
+impl DescribesSourcesAudio for Oscillator {
+    fn name(&self) -> &str {
+        "Oscillator"
+    }
+}
+impl IsMutable for Oscillator {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
     }
 }
 

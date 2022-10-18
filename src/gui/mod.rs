@@ -1,11 +1,19 @@
+pub mod message;
+pub mod persistence;
 pub mod style;
+pub mod to_be_obsolete;
 
+use crate::traits::SourcesAudio;
 use iced::{alignment, button, Alignment, Button, Checkbox, Element, Font, Length, Row, Text};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use self::message::Message;
 
 #[derive(Debug, Clone)]
 pub enum AudioSourceMessage {
-    SomethingHappened,
-    IsActive(bool),
+    EditButtonPressed,
+    IsMuted(bool),
 }
 
 #[derive(Debug, Clone)]
@@ -29,12 +37,19 @@ pub struct AudioSource {
 }
 
 impl AudioSource {
+    pub fn instantiate(source: Rc<RefCell<dyn SourcesAudio>>) -> Self {
+        Self {
+            name: source.borrow().name().to_string(),
+            ..Default::default()
+        }
+    }
+
     pub fn update(&mut self, message: AudioSourceMessage) {
         match message {
-            AudioSourceMessage::SomethingHappened => {
+            AudioSourceMessage::EditButtonPressed => {
                 println!("AudioSourceMessage::SomethingHappened");
             }
-            AudioSourceMessage::IsActive(is_active) => {
+            AudioSourceMessage::IsMuted(is_active) => {
                 println!("{:?} {:?}", message, self);
                 self.is_active = is_active;
             }
@@ -45,7 +60,7 @@ impl AudioSource {
         match &mut self.state {
             AudioSourceState::Idle { button } => {
                 let checkbox =
-                    Checkbox::new(self.is_active, &self.name, AudioSourceMessage::IsActive)
+                    Checkbox::new(self.is_active, &self.name, AudioSourceMessage::IsMuted)
                         .width(Length::Fill);
 
                 Row::new()
@@ -54,13 +69,54 @@ impl AudioSource {
                     .push(checkbox)
                     .push(
                         Button::new(button, edit_icon())
-                            .on_press(AudioSourceMessage::SomethingHappened)
+                            .on_press(AudioSourceMessage::EditButtonPressed)
                             .padding(10)
                             .style(style::Button::Icon),
                     )
                     .into()
             }
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ControlBarMessage {
+    Play,
+    Stop,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct ControlBar {
+    play_button: button::State,
+    stop_button: button::State,
+}
+
+impl ControlBar {
+    pub fn update(&mut self) {}
+
+    pub fn view(&mut self) -> Row<Message> {
+        Row::new()
+            .spacing(20)
+            .align_items(Alignment::Center)
+            .push(
+                Text::new(format!("{} {} left", 3, "plumbuses"))
+                    .width(Length::Fill)
+                    .size(16),
+            )
+            .push(
+                Row::new()
+                    .width(Length::Shrink)
+                    .spacing(10)
+                    .push(
+                        Button::new(&mut self.play_button, Text::new("play"))
+                            .on_press(Message::ControlBarMessage(ControlBarMessage::Play)),
+                    )
+                    .push(
+                        Button::new(&mut self.stop_button, Text::new("stop"))
+                            .on_press(Message::ControlBarMessage(ControlBarMessage::Stop)),
+                    )
+                    .push(Text::new("everyone")),
+            )
     }
 }
 

@@ -1,6 +1,8 @@
 use crate::{
     common::{MonoSample, Rrc, Ww},
-    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{
+        DescribesSourcesAudio, IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio,
+    },
 };
 use std::{cell::RefCell, f64::consts::PI, rc::Rc};
 
@@ -54,6 +56,7 @@ pub enum FilterType {
 pub struct Filter {
     pub(crate) me: Ww<Self>,
     sources: Vec<Ww<dyn SourcesAudio>>,
+    is_muted: bool,
     filter_type: FilterType,
     sample_rate: usize,
     cutoff: f32,
@@ -561,6 +564,20 @@ impl TransformsAudio for Filter {
         self.output_m2 = self.output_m1;
         self.output_m1 = r;
         r as MonoSample
+    }
+}
+impl DescribesSourcesAudio for Filter {
+    fn name(&self) -> &str {
+        "Filter"
+    }
+}
+impl IsMutable for Filter {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
     }
 }
 

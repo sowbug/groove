@@ -1,6 +1,8 @@
 use crate::{
     common::{MonoSample, Rrc, Ww},
-    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{
+        DescribesSourcesAudio, IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio,
+    },
 };
 use std::{
     cell::RefCell,
@@ -11,6 +13,7 @@ use std::{
 pub struct Gain {
     pub(crate) me: Ww<Self>,
     sources: Vec<Ww<dyn SourcesAudio>>,
+    is_muted: bool,
     ceiling: f32,
 }
 impl IsEffect for Gain {}
@@ -67,6 +70,7 @@ impl Default for Gain {
         Self {
             me: Weak::new(),
             sources: Vec::default(),
+            is_muted: false,
             ceiling: 1.0,
         }
     }
@@ -82,6 +86,20 @@ impl SinksAudio for Gain {
 impl TransformsAudio for Gain {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         input_sample * self.ceiling
+    }
+}
+impl DescribesSourcesAudio for Gain {
+    fn name(&self) -> &str {
+        "gain"
+    }
+}
+impl IsMutable for Gain {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
     }
 }
 

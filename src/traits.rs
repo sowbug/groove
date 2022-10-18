@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 /// Provides audio in the form of digital samples.
-pub trait SourcesAudio: Debug {
+pub trait SourcesAudio: Debug + DescribesSourcesAudio + IsMutable {
     // Lots of implementers don't care about clock here,
     // but some do (oscillators, LFOs), and it's a lot cleaner
     // to pass a bit of extra information here than to either
@@ -15,6 +15,13 @@ pub trait SourcesAudio: Debug {
     // everyone would have to call anyway), or define a whole
     // new trait that breaks a bunch of simple paths elsewhere.
     fn source_audio(&mut self, clock: &Clock) -> MonoSample;
+}
+pub trait DescribesSourcesAudio {
+    fn name(&self) -> &str;
+}
+pub trait IsMutable {
+    fn is_muted(&self) -> bool;
+    fn set_muted(&mut self, is_muted: bool);
 }
 
 /// Can do something with audio samples. When it needs to do its
@@ -35,7 +42,11 @@ pub trait SinksAudio {
             .iter_mut()
             .map(|source| {
                 if let Some(s) = source.upgrade() {
-                    s.borrow_mut().source_audio(clock)
+                    if s.borrow().is_muted() {
+                        MONO_SAMPLE_SILENCE
+                    } else {
+                        s.borrow_mut().source_audio(clock)
+                    }
                 } else {
                     MONO_SAMPLE_SILENCE
                 }
@@ -52,7 +63,9 @@ pub trait TransformsAudio {
 }
 
 // Convenience generic for effects
-impl<T: SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
+impl<T: SinksAudio + TransformsAudio + DescribesSourcesAudio + IsMutable + Debug> SourcesAudio
+    for T
+{
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let input = self.gather_source_audio(clock);
         self.transform_audio(input)

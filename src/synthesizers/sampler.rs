@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     midi::{MidiChannel, MidiMessage, MidiMessageType},
-    traits::{SinksMidi, SourcesAudio},
+    traits::{DescribesSourcesAudio, IsMutable, SinksMidi, SourcesAudio},
 };
 
 #[derive(Debug, Default)]
@@ -13,6 +13,7 @@ pub struct Sampler {
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
+    is_muted: bool,
     root_frequency: f32, // TODO: make not dead
 }
 
@@ -76,6 +77,20 @@ impl SourcesAudio for Sampler {
         } else {
             0.0
         }
+    }
+}
+impl DescribesSourcesAudio for Sampler {
+    fn name(&self) -> &str {
+        "Sampler"
+    }
+}
+impl IsMutable for Sampler {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
     }
 }
 

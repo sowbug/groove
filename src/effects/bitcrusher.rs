@@ -1,6 +1,8 @@
 use crate::{
     common::{MonoSample, Rrc, Ww},
-    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{
+        DescribesSourcesAudio, IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio,
+    },
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -9,6 +11,7 @@ pub struct Bitcrusher {
     pub(crate) me: Ww<Self>,
     sources: Vec<Ww<dyn SourcesAudio>>,
     bits_to_crush: u8,
+    is_muted: bool,
 }
 impl IsEffect for Bitcrusher {}
 impl Bitcrusher {
@@ -53,6 +56,21 @@ impl TransformsAudio for Bitcrusher {
         let squished = input_i16 >> self.bits_to_crush;
         let expanded = squished << self.bits_to_crush;
         expanded as MonoSample / (i16::MAX as MonoSample)
+    }
+}
+impl DescribesSourcesAudio for Bitcrusher {
+    fn name(&self) -> &str {
+        "Bitcrusher"
+    }
+}
+
+impl IsMutable for Bitcrusher {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
     }
 }
 

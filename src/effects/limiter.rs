@@ -1,6 +1,8 @@
 use crate::{
     common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
-    traits::{IsEffect, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{
+        DescribesSourcesAudio, IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio,
+    },
 };
 use std::rc::Rc;
 
@@ -8,6 +10,7 @@ use std::rc::Rc;
 pub struct Limiter {
     pub(crate) me: Ww<Self>,
     sources: Vec<Ww<dyn SourcesAudio>>,
+    is_muted: bool,
 
     min: MonoSample,
     max: MonoSample,
@@ -53,6 +56,20 @@ impl SinksAudio for Limiter {
 impl TransformsAudio for Limiter {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         input_sample.clamp(self.min, self.max)
+    }
+}
+impl DescribesSourcesAudio for Limiter {
+    fn name(&self) -> &str {
+        "Limiter"
+    }
+}
+impl IsMutable for Limiter {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
     }
 }
 

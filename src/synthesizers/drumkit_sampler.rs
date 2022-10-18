@@ -4,7 +4,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{IsMidiInstrument, SinksMidi, SourcesAudio},
+    traits::{DescribesSourcesAudio, IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio},
 };
 
 use super::general_midi::GeneralMidiPercussionProgram;
@@ -15,6 +15,7 @@ struct Voice {
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
+    is_muted: bool,
 }
 
 impl Voice {
@@ -60,6 +61,7 @@ impl SinksMidi for Voice {
 }
 impl SourcesAudio for Voice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        // TODO: this explodes if the clock moves backward.
         self.sample_pointer = clock.samples() - self.sample_clock_start;
         if self.sample_pointer >= self.samples.len() {
             self.is_playing = false;
@@ -74,11 +76,26 @@ impl SourcesAudio for Voice {
         }
     }
 }
+impl DescribesSourcesAudio for Voice {
+    fn name(&self) -> &str {
+        "Drumkit Voice"
+    }
+}
+impl IsMutable for Voice {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct Sampler {
     midi_channel: MidiChannel,
     note_to_voice: HashMap<u8, Voice>,
+    is_muted: bool,
 }
 impl IsMidiInstrument for Sampler {}
 
@@ -87,6 +104,7 @@ impl Sampler {
         Self {
             midi_channel,
             note_to_voice: HashMap::new(),
+            is_muted: false,
         }
     }
 
@@ -176,6 +194,20 @@ impl SourcesAudio for Sampler {
         //     .values()
         //     .map(|v| v.get_audio_sample())
         //     .sum()
+    }
+}
+impl DescribesSourcesAudio for Sampler {
+    fn name(&self) -> &str {
+        "Sampler Voice"
+    }
+}
+impl IsMutable for Sampler {
+    fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+
+    fn set_muted(&mut self, is_muted: bool) {
+        self.is_muted = is_muted;
     }
 }
 

@@ -238,4 +238,8 @@ impl Orchestrator {
     pub fn main_mixer(&self) -> &dyn SinksAudio {
         &(*self.main_mixer)
     }
+
+    pub fn mute_audio_source(&mut self, index: usize, is_muted: bool) {
+        self.main_mixer.mute_source(index, is_muted);
+    }
 }
