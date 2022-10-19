@@ -13,8 +13,6 @@ use iced::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
-use std::rc::{Rc, Weak};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -207,25 +205,6 @@ impl Track {
     }
 }
 
-#[derive(Debug)]
-struct ViewWrappers {
-    item: Weak<RefCell<dyn IsViewable>>,
-}
-
-impl ViewWrappers {
-    fn view(&mut self) -> Element<GrooveMessage> {
-        Container::new(if let Some(item) = self.item.upgrade() {
-            Text::new(format!(
-                "Number of sources: {}",
-                item.borrow_mut().get_string()
-            ))
-        } else {
-            Text::new("couldn't upgrade")
-        })
-        .into()
-    }
-}
-
 #[derive(Debug, Default)]
 struct State {
     scroll: scrollable::State,
@@ -235,7 +214,7 @@ struct State {
 
     project_name: String,
     orchestrator: Orchestrator,
-    viewables: Vec<ViewWrappers>,
+    viewables: Vec<Box<dyn IsViewable>>,
 }
 
 impl Application for Groove {
@@ -269,8 +248,18 @@ impl Application for Groove {
                         let viewables = orchestrator
                             .viewables()
                             .iter()
-                            .map(|item| ViewWrappers {
-                                item: Weak::clone(&item),
+                            .map(|item| {
+                                if let Some(item) = item.upgrade() {
+                                    if let Some(responder) = item.borrow_mut().make_is_viewable() {
+                                        responder
+                                    } else {
+                                        panic!(
+                                            "make responder failed. Probably forgot new_wrapped()"
+                                        )
+                                    }
+                                } else {
+                                    panic!("upgrade failed")
+                                }
                             })
                             .collect();
                         *self = Groove::Loaded(State {
@@ -320,9 +309,7 @@ impl Application for Groove {
                         }
                     }
                     Message::GrooveMessage(i, groove_message) => {
-                        if let Some(viewable) = state.orchestrator.viewables_mut()[i].upgrade() {
-                            viewable.borrow_mut().update(groove_message)
-                        }
+                        state.viewables[i].update(groove_message);
                     }
                 }
 

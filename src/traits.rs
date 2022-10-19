@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::{MonoSample, Ww, MONO_SAMPLE_SILENCE},
-    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
+    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE}, gui_helpers::IsViewable,
 };
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -93,6 +93,10 @@ pub trait SinksControl: Debug {
 
 pub trait MakesControlSink: Debug {
     fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>>;
+}
+
+pub trait MakesIsViewable: Debug {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>>;
 }
 
 pub trait SourcesMidi {

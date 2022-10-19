@@ -1,12 +1,11 @@
 use crate::common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE};
 use crate::control::ControlPath;
-use crate::gui_helpers::IsViewable;
 use crate::id_store::IdStore;
 use crate::midi::{MidiBus, MidiChannel, MIDI_CHANNEL_RECEIVE_ALL};
 use crate::patterns::Pattern;
 use crate::traits::{
-    IsEffect, IsMidiEffect, MakesControlSink, SinksAudio, SinksMidi, SourcesAudio, SourcesMidi,
-    WatchesClock,
+    IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi,
+    SourcesAudio, SourcesMidi, WatchesClock,
 };
 use crate::{clock::WatchedClock, effects::mixer::Mixer};
 use crossbeam::deque::Worker;
@@ -47,7 +46,7 @@ pub struct Orchestrator {
     control_paths: Vec<Rrc<ControlPath>>,
 
     // GUI
-    viewables: Vec<Ww<dyn IsViewable>>,
+    viewable_makers: Vec<Ww<dyn MakesIsViewable>>,
 }
 
 impl Default for Orchestrator {
@@ -55,16 +54,16 @@ impl Default for Orchestrator {
         let mut r = Self {
             clock: WatchedClock::default(),
             id_store: IdStore::default(),
-            main_mixer: rrc(Mixer::default()),
+            main_mixer: Mixer::new_wrapped(),
             midi_bus: rrc(MidiBus::default()),
             audio_sources: Vec::new(),
             effects: Vec::new(),
             patterns: Vec::new(),
             control_paths: Vec::new(),
-            viewables: Vec::new(),
+            viewable_makers: Vec::new(),
         };
         let value = Rc::downgrade(&r.main_mixer);
-        r.viewables.push(value);
+        r.viewable_makers.push(value);
         r
     }
 }
@@ -254,11 +253,11 @@ impl Orchestrator {
         self.main_mixer.borrow_mut().mute_source(index, is_muted);
     }
 
-    pub fn viewables(&self) -> &[Ww<dyn IsViewable>] {
-        &self.viewables
+    pub fn viewables(&self) -> &[Ww<dyn MakesIsViewable>] {
+        &self.viewable_makers
     }
 
-    pub fn viewables_mut(&mut self) -> &mut Vec<Ww<dyn IsViewable>> {
-        &mut self.viewables
+    pub fn viewables_mut(&mut self) -> &mut Vec<Ww<dyn MakesIsViewable>> {
+        &mut self.viewable_makers
     }
 }
