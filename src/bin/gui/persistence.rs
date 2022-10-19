@@ -1,11 +1,10 @@
-use crate::{FakeState, IOHelper, SongSettings};
+use crate::{IOHelper, SongSettings};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedState {
     pub project_name: String,
-    pub fake_state: FakeState,
-    //    pub song_settings: SongSettings,
+    pub song_settings: SongSettings,
 }
 
 #[derive(Debug, Clone)]
@@ -54,36 +53,35 @@ impl SavedState {
         let filename = "scripts/everything.yaml";
         Ok(SavedState {
             project_name: "Woop Woop Woop".to_string(),
-            fake_state: FakeState::new_with_fake_data(),
-            //            song_settings: IOHelper::song_settings_from_yaml_file(filename),
+            song_settings: IOHelper::song_settings_from_yaml_file(filename),
         })
     }
 
     pub async fn save(self) -> Result<(), SaveError> {
-        use async_std::prelude::*;
+        // use async_std::prelude::*;
 
-        let json = serde_json::to_string_pretty(&self).map_err(|_| SaveError::FormatError)?;
+        // let json = serde_json::to_string_pretty(&self).map_err(|_| SaveError::FormatError)?;
 
-        let path = Self::path();
+        // let path = Self::path();
 
-        if let Some(dir) = path.parent() {
-            async_std::fs::create_dir_all(dir)
-                .await
-                .map_err(|_| SaveError::FileError)?;
-        }
+        // if let Some(dir) = path.parent() {
+        //     async_std::fs::create_dir_all(dir)
+        //         .await
+        //         .map_err(|_| SaveError::FileError)?;
+        // }
 
-        {
-            let mut file = async_std::fs::File::create(path)
-                .await
-                .map_err(|_| SaveError::FileError)?;
+        // {
+        //     let mut file = async_std::fs::File::create(path)
+        //         .await
+        //         .map_err(|_| SaveError::FileError)?;
 
-            file.write_all(json.as_bytes())
-                .await
-                .map_err(|_| SaveError::WriteError)?;
-        }
+        //     file.write_all(json.as_bytes())
+        //         .await
+        //         .map_err(|_| SaveError::WriteError)?;
+        // }
 
-        // This is a simple way to save at most once every couple seconds
-        async_std::task::sleep(std::time::Duration::from_secs(2)).await;
+        // // This is a simple way to save at most once every couple seconds
+        // async_std::task::sleep(std::time::Duration::from_secs(2)).await;
 
         Ok(())
     }

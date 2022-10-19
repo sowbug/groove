@@ -1,8 +1,8 @@
 mod gui;
 
-use groove::{IOHelper, SongSettings};
+use groove::gui_helpers::{GrooveMessage, IsViewable};
+use groove::{BorderedContainer, IOHelper, Orchestrator, SongSettings};
 use gui::persistence::{LoadError, SaveError, SavedState};
-use gui::style::BorderedContainer;
 use gui::{mute_icon, play_icon, skip_to_prev_icon, stop_icon};
 use iced::alignment::{self};
 use iced::scrollable::{self, Scrollable};
@@ -13,6 +13,8 @@ use iced::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::rc::{Rc, Weak};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -22,6 +24,7 @@ pub enum Message {
     ControlBarPlay,
     ControlBarStop,
     ControlBarBpmChange(String),
+    GrooveMessage(usize, GrooveMessage),
 }
 
 pub fn main() -> iced::Result {
@@ -204,73 +207,22 @@ impl Track {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct FakeState {
-    project_name: String,
-    bpm: f32,
-    tracks: Vec<Track>,
-    clock: String,
+#[derive(Debug)]
+struct ViewWrappers {
+    item: Weak<RefCell<dyn IsViewable>>,
 }
 
-impl FakeState {
-    fn new() -> Self {
-        Self {
-            clock: "00:00:00".to_string(),
-            ..Default::default()
-        }
-    }
-
-    fn bpm(&self) -> f32 {
-        self.bpm
-    }
-    fn set_bpm(&mut self, new_value: f32) {
-        self.bpm = new_value;
-    }
-    fn tracks(&self) -> &[Track] {
-        &self.tracks
-    }
-
-    fn project_name(&self) -> &str {
-        self.project_name.as_ref()
-    }
-
-    fn set_project_name(&mut self, project_name: &str) {
-        self.project_name = project_name.to_string();
-    }
-
-    fn perform(&mut self) {
-        todo!()
-    }
-
-    fn mute_audio_source(&mut self, i: usize, muted: bool) {
-        self.tracks[i].set_muted(muted);
-    }
-
-    fn is_audio_source_muted(&self, i: usize) -> bool {
-        self.tracks[i].muted()
-    }
-
-    fn toggle_audio_source_mute(&mut self, i: usize) {
-        self.mute_audio_source(i, !self.is_audio_source_muted(i));
-    }
-
-    pub(crate) fn new_with_fake_data() -> Self {
-        let mut r = Self::new();
-
-        r.bpm = 128.0;
-        r.tracks.push(Track::new_with_fake_data());
-        r.tracks.push(Track::new_with_fake_data());
-        r.tracks.push(Track::new_with_fake_data());
-        r.tracks.push(Track::new_with_fake_data());
-        r
-    }
-
-    pub fn clock(&self) -> &str {
-        self.clock.as_ref()
-    }
-
-    pub fn set_clock(&mut self, clock: String) {
-        self.clock = clock;
+impl ViewWrappers {
+    fn view(&mut self) -> Element<GrooveMessage> {
+        Container::new(if let Some(item) = self.item.upgrade() {
+            Text::new(format!(
+                "Number of sources: {}",
+                item.borrow_mut().get_string()
+            ))
+        } else {
+            Text::new("couldn't upgrade")
+        })
+        .into()
     }
 }
 
@@ -280,7 +232,10 @@ struct State {
     control_bar: ControlBar,
     dirty: bool,
     saving: bool,
-    fake_state: FakeState,
+
+    project_name: String,
+    orchestrator: Orchestrator,
+    viewables: Vec<ViewWrappers>,
 }
 
 impl Application for Groove {
@@ -298,7 +253,7 @@ impl Application for Groove {
     fn title(&self) -> String {
         let project_name = match self {
             Groove::Loading => "new",
-            Groove::Loaded(state) => state.fake_state.project_name(),
+            Groove::Loaded(state) => state.project_name.as_str(),
         };
 
         format!("Groove - {}", project_name)
@@ -309,8 +264,19 @@ impl Application for Groove {
             Groove::Loading => {
                 match message {
                     Message::Loaded(Ok(state)) => {
+                        // TODO: handle error
+                        let orchestrator = state.song_settings.instantiate().unwrap();
+                        let viewables = orchestrator
+                            .viewables()
+                            .iter()
+                            .map(|item| ViewWrappers {
+                                item: Weak::clone(&item),
+                            })
+                            .collect();
                         *self = Groove::Loaded(State {
-                            fake_state: state.fake_state,
+                            project_name: state.project_name.clone(),
+                            orchestrator,
+                            viewables,
                             ..State::default()
                         });
                     }
@@ -332,23 +298,30 @@ impl Application for Groove {
                     }
                     Message::Loaded(_) => todo!(),
                     Message::TrackMessage(i, track_message) => {
-                        if let Some(track) = state.fake_state.tracks.get_mut(i) {
-                            track.update(track_message.clone());
-                        }
-                        match track_message {
-                            TrackMessage::Mute => {
-                                state.fake_state.toggle_audio_source_mute(i);
-                            }
-                        }
+                        // if let Some(track) = state.fake_state.tracks.get_mut(i) {
+                        //     track.update(track_message.clone());
+                        // }
+                        // match track_message {
+                        //     TrackMessage::Mute => {
+                        //         state.fake_state.toggle_audio_source_mute(i);
+                        //     }
+                        // }
                     }
                     Message::ControlBarPlay => {
-                        state.fake_state.perform();
+                        if let Ok(performance) = state.orchestrator.perform() {
+                            IOHelper::send_performance_to_output_device(performance);
+                        }
                     }
                     Message::ControlBarStop => todo!(),
                     Message::ControlBarBpmChange(new_value) => {
                         if let Ok(new_value) = new_value.parse() {
                             state.control_bar.update(ControlBarMessage::Bpm(new_value));
-                            state.fake_state.set_bpm(new_value);
+                            state.orchestrator.set_bpm(new_value);
+                        }
+                    }
+                    Message::GrooveMessage(i, groove_message) => {
+                        if let Some(viewable) = state.orchestrator.viewables_mut()[i].upgrade() {
+                            viewable.borrow_mut().update(groove_message)
                         }
                     }
                 }
@@ -363,8 +336,8 @@ impl Application for Groove {
 
                     Command::perform(
                         SavedState {
-                            project_name: state.fake_state.project_name.clone(),
-                            fake_state: state.fake_state.clone(),
+                            project_name: state.project_name.clone(),
+                            song_settings: SongSettings::default(), // TODO orchestrator ->>>
                         }
                         .save(),
                         Message::Saved,
@@ -382,23 +355,22 @@ impl Application for Groove {
             Groove::Loaded(State {
                 scroll,
                 control_bar,
-                fake_state,
+                orchestrator,
+                viewables,
                 ..
             }) => {
                 let control_bar: Column<_> = Column::new().spacing(20).push(control_bar.view());
 
-                let tracks: Element<_> = if fake_state.tracks().is_empty() {
+                let views: Element<_> = if orchestrator.viewables().is_empty() {
                     empty_message("nothing yet")
                 } else {
-                    fake_state
-                        .tracks
+                    viewables
                         .iter_mut()
                         .enumerate()
-                        .fold(Column::new().spacing(20), |column, (i, track)| {
+                        .fold(Column::new().spacing(20), |column, (i, item)| {
                             column.push(
-                                track
-                                    .view()
-                                    .map(move |message| Message::TrackMessage(i, message)),
+                                item.view()
+                                    .map(move |message| Message::GrooveMessage(i, message)),
                             )
                         })
                         .into()
@@ -408,7 +380,7 @@ impl Application for Groove {
                     .spacing(20)
                     .padding(0)
                     .push(control_bar)
-                    .push(tracks);
+                    .push(views);
 
                 Scrollable::new(scroll)
                     .padding(40)

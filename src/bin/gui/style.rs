@@ -26,16 +26,3 @@ impl button::StyleSheet for Button {
         }
     }
 }
-
-#[derive(Default)]
-pub struct BorderedContainer {}
-
-impl container::StyleSheet for BorderedContainer {
-    fn style(&self) -> container::Style {
-        container::Style {
-            border_color: iced::Color::BLACK,
-            border_width: 1.0,
-            ..Default::default()
-        }
-    }
-}

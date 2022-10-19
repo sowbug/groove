@@ -1,5 +1,6 @@
 use crate::common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE};
 use crate::control::ControlPath;
+use crate::gui_helpers::IsViewable;
 use crate::id_store::IdStore;
 use crate::midi::{MidiBus, MidiChannel, MIDI_CHANNEL_RECEIVE_ALL};
 use crate::patterns::Pattern;
@@ -33,7 +34,7 @@ impl Performance {
 pub struct Orchestrator {
     clock: WatchedClock, // owns all WatchesClock
     id_store: IdStore,
-    main_mixer: Box<Mixer>,
+    main_mixer: Rrc<Mixer>,
     midi_bus: Rrc<MidiBus>,
 
     // We don't have owning Vecs for WatchesClock or IsMidiEffect because
@@ -44,20 +45,27 @@ pub struct Orchestrator {
     // temp - doesn't belong here. something like a controlcontrolcontroller
     patterns: Vec<Rrc<Pattern>>,
     control_paths: Vec<Rrc<ControlPath>>,
+
+    // GUI
+    viewables: Vec<Ww<dyn IsViewable>>,
 }
 
 impl Default for Orchestrator {
     fn default() -> Self {
-        Self {
+        let mut r = Self {
             clock: WatchedClock::default(),
             id_store: IdStore::default(),
-            main_mixer: Box::new(Mixer::default()),
+            main_mixer: rrc(Mixer::default()),
             midi_bus: rrc(MidiBus::default()),
             audio_sources: Vec::new(),
             effects: Vec::new(),
             patterns: Vec::new(),
             control_paths: Vec::new(),
-        }
+            viewables: Vec::new(),
+        };
+        let value = Rc::downgrade(&r.main_mixer);
+        r.viewables.push(value);
+        r
     }
 }
 
@@ -74,7 +82,10 @@ impl Orchestrator {
         if self.clock.visit_watchers() {
             return (MONO_SAMPLE_SILENCE, true);
         }
-        let sample = self.main_mixer.source_audio(self.clock.inner_clock());
+        let sample = self
+            .main_mixer
+            .borrow_mut()
+            .source_audio(self.clock.inner_clock());
         self.clock.tick();
         (sample, false)
     }
@@ -102,7 +113,7 @@ impl Orchestrator {
     }
 
     pub fn add_main_mixer_source(&mut self, device: Ww<dyn SourcesAudio>) {
-        self.main_mixer.add_audio_source(device);
+        self.main_mixer.borrow_mut().add_audio_source(device);
     }
 
     pub fn register_clock_watcher(
@@ -235,11 +246,19 @@ impl Orchestrator {
         self.clock.inner_clock_mut().settings_mut().set_bpm(bpm);
     }
 
-    pub fn main_mixer(&self) -> &dyn SinksAudio {
-        &(*self.main_mixer)
-    }
+    // pub fn main_mixer(&self) -> &dyn SinksAudio {
+    //     &self.main_mixer.into()
+    // }
 
     pub fn mute_audio_source(&mut self, index: usize, is_muted: bool) {
-        self.main_mixer.mute_source(index, is_muted);
+        self.main_mixer.borrow_mut().mute_source(index, is_muted);
+    }
+
+    pub fn viewables(&self) -> &[Ww<dyn IsViewable>] {
+        &self.viewables
+    }
+
+    pub fn viewables_mut(&mut self) -> &mut Vec<Ww<dyn IsViewable>> {
+        &mut self.viewables
     }
 }
