@@ -16,6 +16,21 @@ use std::sync::{Arc, Condvar, Mutex};
 pub struct IOHelper {}
 
 impl IOHelper {
+    // orchestrator: &mut Orchestrator
+    pub async fn perform_async() -> Result<bool, &'static str> {
+        // if let Ok(performance) = orchestrator.perform() {
+        //     if let Ok(_) = IOHelper::send_performance_to_output_device(performance) {
+        //         Ok(true)
+        //     } else {
+        //         Err("playback")
+        //     }
+        // } else {
+        //     Err("oops")
+        // }
+        dbg!("exiting OK");
+        Ok(true)
+    }
+
     pub fn song_settings_from_yaml_file(filename: &str) -> SongSettings {
         if let Ok(yaml) = std::fs::read_to_string(filename) {
             if let Ok(settings) = SongSettings::new_from_yaml(yaml.as_str()) {

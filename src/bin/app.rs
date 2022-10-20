@@ -23,6 +23,7 @@ pub enum Message {
     ControlBarStop,
     ControlBarBpmChange(String),
     GrooveMessage(usize, GrooveMessage),
+    PlayComplete(Result<bool, &'static str>),
 }
 
 pub fn main() -> iced::Result {
@@ -297,11 +298,15 @@ impl Application for Groove {
                         // }
                     }
                     Message::ControlBarPlay => {
-                        if let Ok(performance) = state.orchestrator.perform() {
-                            IOHelper::send_performance_to_output_device(performance);
-                        }
+                        dbg!("Message::ControlBarPlay");
+                        return Command::perform(IOHelper::perform_async(), Message::PlayComplete)
+                        // if let Ok(performance) = state.orchestrator.perform() {
+                        //     IOHelper::send_performance_to_output_device(performance);
+                        // }
                     }
-                    Message::ControlBarStop => todo!(),
+                    Message::ControlBarStop => {
+                        dbg!("Message::ControlBarStop");
+                    }
                     Message::ControlBarBpmChange(new_value) => {
                         if let Ok(new_value) = new_value.parse() {
                             state.control_bar.update(ControlBarMessage::Bpm(new_value));
@@ -311,8 +316,12 @@ impl Application for Groove {
                     Message::GrooveMessage(i, groove_message) => {
                         state.viewables[i].update(groove_message);
                     }
+                    Message::PlayComplete(result) => {
+                        dbg!("got {:?}", result.is_ok());
+                    }
                 }
 
+                // TODO: we probably don't want this dirty/save logic for our app
                 if !saved {
                     state.dirty = true;
                 }

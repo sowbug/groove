@@ -35,6 +35,7 @@ pub enum InstrumentSettings {
         #[serde(rename = "preset")]
         preset_name: String,
     },
+    // TODO Sampler
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
