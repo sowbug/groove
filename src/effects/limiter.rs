@@ -19,27 +19,36 @@ impl Limiter {
     pub(crate) const CONTROL_PARAM_MAX: &str = "max";
 
     #[allow(dead_code)]
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self::new_with(MONO_SAMPLE_MIN, MONO_SAMPLE_MAX)
     }
-    pub fn new_with(min: MonoSample, max: MonoSample) -> Self {
+    fn new_with(min: MonoSample, max: MonoSample) -> Self {
         Self {
             min,
             max,
             ..Default::default()
         }
     }
-    pub fn new_wrapped_with(min: MonoSample, max: MonoSample) -> Rrc<Self> {
+
+    pub(crate) fn new_wrapped_with(min: MonoSample, max: MonoSample) -> Rrc<Self> {
         let wrapped = rrc(Self::new_with(min, max));
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }
 
-    pub fn set_min(&mut self, value: f32) {
+    pub(crate) fn min(&self) -> f32 {
+        self.min
+    }
+
+    pub(crate) fn max(&self) -> f32 {
+        self.max
+    }
+
+    pub(crate) fn set_min(&mut self, value: f32) {
         self.min = value;
     }
 
-    pub fn set_max(&mut self, value: f32) {
+    pub(crate) fn set_max(&mut self, value: f32) {
         self.max = value;
     }
 }

@@ -203,7 +203,11 @@ impl Filter {
         self.filter_type = *new_filter_type;
     }
 
-    pub fn set_cutoff(&mut self, new_cutoff: f32) {
+    pub(crate) fn cutoff(&self) -> f32 {
+        self.cutoff
+    }
+
+    pub(crate) fn set_cutoff(&mut self, new_cutoff: f32) {
         let new_filter_type = match self.filter_type {
             FilterType::None => FilterType::None,
             FilterType::LowPass {

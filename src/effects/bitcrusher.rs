@@ -16,11 +16,11 @@ impl Bitcrusher {
     pub(crate) const CONTROL_PARAM_BITS_TO_CRUSH: &str = "bits-to-crush";
 
     #[allow(dead_code)]
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self::new_with(8)
     }
 
-    pub fn new_with(bits_to_crush: u8) -> Self {
+    fn new_with(bits_to_crush: u8) -> Self {
         Self {
             bits_to_crush,
             ..Default::default()
@@ -35,8 +35,11 @@ impl Bitcrusher {
         wrapped
     }
 
-    #[allow(dead_code)]
-    pub fn set_bits_to_crush(&mut self, n: u8) {
+    pub(crate) fn bits_to_crush(&self) -> u8 {
+        self.bits_to_crush
+    }
+    
+    pub(crate) fn set_bits_to_crush(&mut self, n: u8) {
         self.bits_to_crush = n;
     }
 }

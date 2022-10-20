@@ -4,7 +4,7 @@ use iced::{container, Container, Element, Text};
 
 use crate::{
     common::Ww,
-    effects::{gain::Gain, mixer::Mixer},
+    effects::{bitcrusher::Bitcrusher, filter::Filter, gain::Gain, limiter::Limiter, mixer::Mixer},
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     traits::{MakesIsViewable, SinksAudio},
 };
@@ -13,7 +13,7 @@ use crate::{
 pub enum GrooveMessage {
     Null,
     Something,
-    GainMessage(GainMessage),
+    GainMessage(GainMessage), // TODO: this might be too specific
 }
 
 #[derive(Default)]
@@ -270,11 +270,176 @@ impl MakesIsViewable for Gain {
     }
 }
 
+#[derive(Debug)]
+pub struct BitcrusherViewableResponder {
+    target: Ww<Bitcrusher>,
+}
+impl IsViewable for BitcrusherViewableResponder {
+    fn view(&mut self) -> Element<GrooveMessage> {
+        if let Some(target) = self.target.upgrade() {
+            Container::new(
+                Text::new(format!(
+                    "bits to crush: {}",
+                    target.borrow().bits_to_crush()
+                ))
+                .horizontal_alignment(iced::alignment::Horizontal::Center)
+                .vertical_alignment(iced::alignment::Vertical::Center),
+            )
+            .padding(4)
+            .style(BorderedContainer::default())
+            .into()
+        } else {
+            panic!()
+        }
+    }
+
+    fn update(&mut self, message: GrooveMessage) {
+        match message {
+            GrooveMessage::GainMessage(message) => match message {
+                GainMessage::Level(level) => {
+                    if let Some(target) = self.target.upgrade() {
+                        if let Ok(level) = level.parse() {
+                            target.borrow_mut().set_bits_to_crush(level);
+                        }
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+}
+
+impl MakesIsViewable for Bitcrusher {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(BitcrusherViewableResponder {
+                target: Weak::clone(&self.me),
+            }))
+        } else {
+            println!(
+                "{}: probably forgot to call new_wrapped...()",
+                type_name::<Self>()
+            );
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct LimiterViewableResponder {
+    target: Ww<Limiter>,
+}
+impl IsViewable for LimiterViewableResponder {
+    fn view(&mut self) -> Element<GrooveMessage> {
+        if let Some(target) = self.target.upgrade() {
+            Container::new(
+                Text::new(format!(
+                    "min: {} max: {}",
+                    target.borrow().min(),
+                    target.borrow().max()
+                ))
+                .horizontal_alignment(iced::alignment::Horizontal::Center)
+                .vertical_alignment(iced::alignment::Vertical::Center),
+            )
+            .padding(4)
+            .style(BorderedContainer::default())
+            .into()
+        } else {
+            panic!()
+        }
+    }
+
+    fn update(&mut self, message: GrooveMessage) {
+        match message {
+            GrooveMessage::GainMessage(message) => match message {
+                GainMessage::Level(level) => {
+                    if let Some(target) = self.target.upgrade() {
+                        if let Ok(level) = level.parse() {
+                            target.borrow_mut().set_min(level);
+                        }
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+}
+
+impl MakesIsViewable for Limiter {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(LimiterViewableResponder {
+                target: Weak::clone(&self.me),
+            }))
+        } else {
+            println!(
+                "{}: probably forgot to call new_wrapped...()",
+                type_name::<Self>()
+            );
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct FilterViewableResponder {
+    target: Ww<Filter>,
+}
+impl IsViewable for FilterViewableResponder {
+    fn view(&mut self) -> Element<GrooveMessage> {
+        if let Some(target) = self.target.upgrade() {
+            Container::new(
+                Text::new(format!("cutoff: {}", target.borrow().cutoff()))
+                    .horizontal_alignment(iced::alignment::Horizontal::Center)
+                    .vertical_alignment(iced::alignment::Vertical::Center),
+            )
+            .padding(4)
+            .style(BorderedContainer::default())
+            .into()
+        } else {
+            panic!()
+        }
+    }
+
+    fn update(&mut self, message: GrooveMessage) {
+        match message {
+            GrooveMessage::GainMessage(message) => match message {
+                GainMessage::Level(level) => {
+                    if let Some(target) = self.target.upgrade() {
+                        if let Ok(level) = level.parse() {
+                            target.borrow_mut().set_cutoff(level);
+                        }
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+}
+
+impl MakesIsViewable for Filter {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(FilterViewableResponder {
+                target: Weak::clone(&self.me),
+            }))
+        } else {
+            println!(
+                "{}: probably forgot to call new_wrapped...()",
+                type_name::<Self>()
+            );
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         common::Rrc,
-        effects::{gain::Gain, mixer::Mixer},
+        effects::{
+            bitcrusher::Bitcrusher, filter::Filter, gain::Gain, limiter::Limiter, mixer::Mixer,
+        },
         synthesizers::{
             drumkit_sampler::Sampler as DrumkitSampler,
             sampler::Sampler,
@@ -313,6 +478,28 @@ mod tests {
             Some(GrooveMessage::GainMessage(super::GainMessage::Level(
                 "0.5".to_string(),
             ))),
+        );
+        test_one_viewable(
+            Bitcrusher::new_wrapped_with(7),
+            Some(GrooveMessage::GainMessage(super::GainMessage::Level(
+                "4".to_string(),
+            ))), // TODO: better messages
+        );
+        test_one_viewable(
+            Filter::new_wrapped_with(&crate::effects::filter::FilterType::AllPass {
+                sample_rate: 44100,
+                cutoff: 1000.0,
+                q: 2.0,
+            }),
+            Some(GrooveMessage::GainMessage(super::GainMessage::Level(
+                "0.5".to_string(),
+            ))), // TODO: better messages
+        );
+        test_one_viewable(
+            Limiter::new_wrapped_with(0.0, 1.0),
+            Some(GrooveMessage::GainMessage(super::GainMessage::Level(
+                "0.5".to_string(),
+            ))), // TODO: better messages
         );
     }
 }

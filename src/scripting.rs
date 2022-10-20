@@ -156,12 +156,12 @@ impl ScriptEngine {
     }
 
     fn new_bitcrusher() -> Rc<RefCell<Bitcrusher>> {
-        Rc::new(RefCell::new(Bitcrusher::new()))
+        Bitcrusher::new_wrapped_with(8)
     }
 
     #[allow(dead_code)]
     fn new_limiter() -> Rc<RefCell<Limiter>> {
-        Rc::new(RefCell::new(Limiter::new()))
+        Limiter::new_wrapped_with(0.0, 1.0)
     }
 
     fn register_root_audio_source(
