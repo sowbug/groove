@@ -1,6 +1,13 @@
 use std::{any::type_name, fmt::Debug, rc::Weak};
 
+use iced::text_input::State;
 use iced::{container, Column, Container, Element, Font, Text};
+use iced::{Row, TextInput};
+use iced_audio::knob;
+use iced_audio::text_marks;
+use iced_audio::tick_marks;
+use iced_audio::FloatRange;
+use iced_audio::Knob;
 
 use crate::{
     common::Ww,
@@ -29,6 +36,8 @@ pub enum GrooveMessage {
     Null,
     Something,
     GainMessage(GainMessage), // TODO: this might be too specific
+    GainLevelChangedAsNormal(iced_audio::Normal),
+    GainLevelChangedAsString(String),
 }
 
 #[derive(Default)]
@@ -275,31 +284,80 @@ impl MakesIsViewable for Synth {
 #[derive(Debug)]
 pub struct GainViewableResponder {
     target: Ww<Gain>,
+    knob_state: knob::State,
+    text_input_state: State,
+    tick_marks: tick_marks::Group,
+    text_marks: text_marks::Group,
+}
+impl GainViewableResponder {
+    fn new(me: Ww<Gain>) -> Self {
+        Self {
+            target: Weak::clone(&me),
+            knob_state: knob::State::new(FloatRange::new(0.0, 1.0).normal_param(1.0, 1.0)),
+            text_input_state: State::new(),
+            tick_marks: tick_marks::Group::subdivided(1, 1, 1, Some(tick_marks::Tier::Two)),
+            text_marks: text_marks::Group::min_max_and_center("0%", "100%", "50%"),
+        }
+    }
 }
 impl IsViewable for GainViewableResponder {
     fn view(&mut self) -> Element<GrooveMessage> {
         if let Some(target) = self.target.upgrade() {
-            let title = type_name::<Gain>();
-            let contents = format!("level: {}", target.borrow().level());
-            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
-                .into()
+            let level = target.borrow().level();
+            self.knob_state.normal_param.value = level.into();
+            let title = "Gain";
+            let contents = Container::new(
+                Row::new()
+                    .push(
+                        Container::new(
+                            Knob::new(
+                                &mut self.knob_state,
+                                GrooveMessage::GainLevelChangedAsNormal,
+                                || None,
+                                || None,
+                            )
+                            .tick_marks(&self.tick_marks)
+                            .text_marks(&self.text_marks),
+                        )
+                        .width(iced::Length::FillPortion(1)),
+                    )
+                    .push(
+                        TextInput::new(
+                            &mut self.text_input_state,
+                            "%",
+                            level.to_string().as_str(),
+                            GrooveMessage::GainLevelChangedAsString,
+                        )
+                        .width(iced::Length::FillPortion(1)),
+                    ),
+            )
+            .padding(20);
+            GuiStuff::titled_container(title, contents.into()).into()
         } else {
             panic!()
         }
     }
 
     fn update(&mut self, message: GrooveMessage) {
-        match message {
-            GrooveMessage::GainMessage(message) => match message {
-                GainMessage::Level(level) => {
-                    if let Some(target) = self.target.upgrade() {
+        if let Some(target) = self.target.upgrade() {
+            match message {
+                GrooveMessage::GainMessage(message) => match message {
+                    GainMessage::Level(level) => {
                         if let Ok(level) = level.parse() {
                             target.borrow_mut().set_level(level);
                         }
                     }
+                },
+                GrooveMessage::GainLevelChangedAsNormal(new_level) => {
+                    target.borrow_mut().set_level(new_level.as_f32());
                 }
-            },
-            _ => {}
+                GrooveMessage::GainLevelChangedAsString(new_level) => {
+                    if let Ok(level) = new_level.parse() {
+                        target.borrow_mut().set_level(level);
+                    }
+                }
+                _ => todo!(),
+            }
         }
     }
 }
@@ -311,9 +369,7 @@ pub enum GainMessage {
 impl MakesIsViewable for Gain {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
         if self.me.strong_count() != 0 {
-            Some(Box::new(GainViewableResponder {
-                target: Weak::clone(&self.me),
-            }))
+            Some(Box::new(GainViewableResponder::new(Weak::clone(&self.me))))
         } else {
             println!(
                 "{}: probably forgot to call new_wrapped...()",
