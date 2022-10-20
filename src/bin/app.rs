@@ -1,6 +1,6 @@
 mod gui;
 
-use groove::gui_helpers::{GrooveMessage, GuiStuff, IsViewable};
+use groove::gui::{GrooveMessage, GuiStuff, IsViewable};
 use groove::{BorderedContainer, IOHelper, Orchestrator, SongSettings};
 use gui::persistence::{LoadError, SaveError, SavedState};
 use gui::{mute_icon, play_icon, skip_to_prev_icon, stop_icon};

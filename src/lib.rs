@@ -5,9 +5,9 @@ pub use crate::helpers::IOHelper;
 pub use crate::orchestrator::Orchestrator;
 pub use crate::scripting::ScriptEngine;
 pub use crate::settings::song::SongSettings;
-pub use crate::gui_helpers::BorderedContainer;
+pub use crate::gui::BorderedContainer;
 
-pub mod gui_helpers;
+pub mod gui;
 pub mod traits;
 
 pub(crate) mod clock;
