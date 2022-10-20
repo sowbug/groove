@@ -4,10 +4,9 @@ use super::{
 };
 use crate::{
     clock::WatchedClock,
-    common::{rrc, DeviceId, Rrc},
+    common::{rrc, DeviceId},
     control::{ControlPath, ControlTrip},
     patterns::{Pattern, PatternSequencer},
-    traits::MakesIsViewable,
     Orchestrator,
 };
 use anyhow::{Error, Ok};
@@ -80,12 +79,17 @@ impl SongSettings {
                 DeviceSettings::MidiInstrument(id, midi_instrument_settings) => {
                     let midi_instrument = midi_instrument_settings.instantiate(sample_rate);
                     let midi_channel = midi_instrument.borrow().midi_channel();
-                    orchestrator.register_midi_effect(Some(id), midi_instrument, midi_channel);
+                    orchestrator.register_midi_effect(
+                        Some(id),
+                        Rc::clone(&midi_instrument),
+                        midi_channel,
+                    );
+                    orchestrator.register_viewable(midi_instrument);
                 }
                 DeviceSettings::Effect(id, effect_settings) => {
                     let effect = effect_settings.instantiate(sample_rate);
-                    orchestrator.register_viewable(Rc::clone(&effect) as Rrc<dyn MakesIsViewable>);
-                    orchestrator.register_effect(Some(id), effect);
+                    orchestrator.register_effect(Some(id), Rc::clone(&effect));
+                    orchestrator.register_viewable(effect);
                 }
             }
         }

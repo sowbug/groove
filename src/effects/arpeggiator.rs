@@ -120,6 +120,11 @@ impl Arpeggiator {
         wrapped
     }
 
+    // TODO: placeholder for a bunch of knobs and dials
+    pub(crate) fn nothing(&self) -> f32 {
+        0.0
+    }
+
     // this is a placeholder to get the trait requirements satisfied
     pub(crate) fn set_nothing(&mut self, _value: f32) {}
 }

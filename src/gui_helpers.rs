@@ -1,12 +1,27 @@
 use std::{any::type_name, fmt::Debug, rc::Weak};
 
-use iced::{container, Container, Element, Text};
+use iced::{container, Column, Container, Element, Font, Text};
 
 use crate::{
     common::Ww,
-    effects::{bitcrusher::Bitcrusher, filter::Filter, gain::Gain, limiter::Limiter, mixer::Mixer},
+    effects::{
+        arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain,
+        limiter::Limiter, mixer::Mixer,
+    },
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     traits::{MakesIsViewable, SinksAudio},
+};
+
+pub const SMALL_FONT_SIZE: u16 = 16;
+pub const SMALL_FONT: Font = Font::External {
+    name: "Small Font",
+    bytes: include_bytes!("../resources/fonts/SourceSansPro-Regular.ttf"),
+};
+
+pub const LARGE_FONT_SIZE: u16 = 20;
+pub const LARGE_FONT: Font = Font::External {
+    name: "Large Font",
+    bytes: include_bytes!("../resources/fonts/SourceSansPro-Regular.ttf"),
 };
 
 #[derive(Clone, Debug)]
@@ -22,10 +37,69 @@ pub struct BorderedContainer {}
 impl container::StyleSheet for BorderedContainer {
     fn style(&self) -> container::Style {
         container::Style {
+            background: Some(iced::Background::Color(iced::Color::from_rgb8(
+                224, 224, 224,
+            ))),
+            text_color: Some(iced::Color::from_rgb8(0, 0, 0)),
             border_color: iced::Color::BLACK,
             border_width: 1.0,
             ..Default::default()
         }
+    }
+}
+
+#[derive(Default)]
+pub struct TitleContainer {}
+
+impl container::StyleSheet for TitleContainer {
+    fn style(&self) -> container::Style {
+        container::Style {
+            background: Some(iced::Background::Color(iced::Color::BLACK)),
+            text_color: Some(iced::Color::from_rgb8(255, 255, 0)),
+            border_color: iced::Color::BLACK,
+            border_width: 1.0,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct GuiStuff {}
+
+impl<'a> GuiStuff {
+    pub fn titled_container(
+        title: &str,
+        contents: Element<'a, GrooveMessage>,
+    ) -> Element<'a, GrooveMessage> {
+        Container::new(
+            Column::new()
+                .push(Self::titled_container_title(title))
+                .push(Container::new(contents).padding(2)),
+        )
+        .padding(0)
+        .style(BorderedContainer::default())
+        .into()
+    }
+
+    pub fn titled_container_title(title: &str) -> Container<'a, GrooveMessage> {
+        Container::new(
+            Text::new(title.to_string())
+                .font(SMALL_FONT)
+                .size(SMALL_FONT_SIZE)
+                .horizontal_alignment(iced::alignment::Horizontal::Left)
+                .vertical_alignment(iced::alignment::Vertical::Center),
+        )
+        .width(iced::Length::Fill)
+        .padding(1)
+        .style(TitleContainer::default())
+    }
+
+    pub fn container_text(label: &str) -> Text {
+        Text::new(label.to_string())
+            .font(LARGE_FONT)
+            .size(LARGE_FONT_SIZE)
+            .horizontal_alignment(iced::alignment::Horizontal::Left)
+            .vertical_alignment(iced::alignment::Vertical::Center)
     }
 }
 
@@ -57,14 +131,10 @@ pub struct MixerViewableResponder {
 impl IsViewable for MixerViewableResponder {
     fn view(&mut self) -> Element<GrooveMessage> {
         if let Some(target) = self.target.upgrade() {
-            Container::new(
-                Text::new(format!("sources: {}", target.borrow().sources().len()))
-                    .horizontal_alignment(iced::alignment::Horizontal::Center)
-                    .vertical_alignment(iced::alignment::Vertical::Center),
-            )
-            .padding(4)
-            .style(BorderedContainer::default())
-            .into()
+            let title = type_name::<Mixer>();
+            let contents = format!("sources: {}", target.borrow().sources().len());
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
+                .into()
         } else {
             panic!()
         }
@@ -98,14 +168,10 @@ pub struct SamplerViewableResponder {
 impl IsViewable for SamplerViewableResponder {
     fn view(&mut self) -> Element<GrooveMessage> {
         if let Some(target) = self.target.upgrade() {
-            Container::new(
-                Text::new(format!("name: {}", target.borrow().filename))
-                    .horizontal_alignment(iced::alignment::Horizontal::Center)
-                    .vertical_alignment(iced::alignment::Vertical::Center),
-            )
-            .padding(4)
-            .style(BorderedContainer::default())
-            .into()
+            let title = type_name::<Sampler>();
+            let contents = format!("name: {}", target.borrow().filename);
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
+                .into()
         } else {
             panic!()
         }
@@ -139,14 +205,10 @@ pub struct DrumkitSamplerViewableResponder {
 impl IsViewable for DrumkitSamplerViewableResponder {
     fn view(&mut self) -> Element<GrooveMessage> {
         if let Some(target) = self.target.upgrade() {
-            Container::new(
-                Text::new(format!("kit name: {}", target.borrow().kit_name))
-                    .horizontal_alignment(iced::alignment::Horizontal::Center)
-                    .vertical_alignment(iced::alignment::Vertical::Center),
-            )
-            .padding(4)
-            .style(BorderedContainer::default())
-            .into()
+            let title = type_name::<DrumkitSampler>();
+            let contents = format!("kit name: {}", target.borrow().kit_name);
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
+                .into()
         } else {
             panic!()
         }
@@ -180,14 +242,10 @@ pub struct SynthViewableResponder {
 impl IsViewable for SynthViewableResponder {
     fn view(&mut self) -> Element<GrooveMessage> {
         if let Some(target) = self.target.upgrade() {
-            Container::new(
-                Text::new(format!("name: {}", target.borrow().preset.name))
-                    .horizontal_alignment(iced::alignment::Horizontal::Center)
-                    .vertical_alignment(iced::alignment::Vertical::Center),
-            )
-            .padding(4)
-            .style(BorderedContainer::default())
-            .into()
+            let title = type_name::<Synth>();
+            let contents = format!("name: {}", target.borrow().preset.name);
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
+                .into()
         } else {
             panic!()
         }
@@ -221,14 +279,10 @@ pub struct GainViewableResponder {
 impl IsViewable for GainViewableResponder {
     fn view(&mut self) -> Element<GrooveMessage> {
         if let Some(target) = self.target.upgrade() {
-            Container::new(
-                Text::new(format!("level: {}", target.borrow().level()))
-                    .horizontal_alignment(iced::alignment::Horizontal::Center)
-                    .vertical_alignment(iced::alignment::Vertical::Center),
-            )
-            .padding(4)
-            .style(BorderedContainer::default())
-            .into()
+            let title = type_name::<Gain>();
+            let contents = format!("level: {}", target.borrow().level());
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
+                .into()
         } else {
             panic!()
         }
@@ -277,17 +331,10 @@ pub struct BitcrusherViewableResponder {
 impl IsViewable for BitcrusherViewableResponder {
     fn view(&mut self) -> Element<GrooveMessage> {
         if let Some(target) = self.target.upgrade() {
-            Container::new(
-                Text::new(format!(
-                    "bits to crush: {}",
-                    target.borrow().bits_to_crush()
-                ))
-                .horizontal_alignment(iced::alignment::Horizontal::Center)
-                .vertical_alignment(iced::alignment::Vertical::Center),
-            )
-            .padding(4)
-            .style(BorderedContainer::default())
-            .into()
+            let title = type_name::<Bitcrusher>();
+            let contents = format!("bits to crush: {}", target.borrow().bits_to_crush());
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
+                .into()
         } else {
             panic!()
         }
@@ -332,18 +379,14 @@ pub struct LimiterViewableResponder {
 impl IsViewable for LimiterViewableResponder {
     fn view(&mut self) -> Element<GrooveMessage> {
         if let Some(target) = self.target.upgrade() {
-            Container::new(
-                Text::new(format!(
-                    "min: {} max: {}",
-                    target.borrow().min(),
-                    target.borrow().max()
-                ))
-                .horizontal_alignment(iced::alignment::Horizontal::Center)
-                .vertical_alignment(iced::alignment::Vertical::Center),
-            )
-            .padding(4)
-            .style(BorderedContainer::default())
-            .into()
+            let title = type_name::<Limiter>();
+            let contents = format!(
+                "min: {} max: {}",
+                target.borrow().min(),
+                target.borrow().max()
+            );
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
+                .into()
         } else {
             panic!()
         }
@@ -388,14 +431,10 @@ pub struct FilterViewableResponder {
 impl IsViewable for FilterViewableResponder {
     fn view(&mut self) -> Element<GrooveMessage> {
         if let Some(target) = self.target.upgrade() {
-            Container::new(
-                Text::new(format!("cutoff: {}", target.borrow().cutoff()))
-                    .horizontal_alignment(iced::alignment::Horizontal::Center)
-                    .vertical_alignment(iced::alignment::Vertical::Center),
-            )
-            .padding(4)
-            .style(BorderedContainer::default())
-            .into()
+            let title = type_name::<Filter>();
+            let contents = format!("cutoff: {}", target.borrow().cutoff());
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
+                .into()
         } else {
             panic!()
         }
@@ -433,12 +472,61 @@ impl MakesIsViewable for Filter {
     }
 }
 
+#[derive(Debug)]
+pub struct ArpeggiatorViewableResponder {
+    target: Ww<Arpeggiator>,
+}
+impl IsViewable for ArpeggiatorViewableResponder {
+    fn view(&mut self) -> Element<GrooveMessage> {
+        if let Some(target) = self.target.upgrade() {
+            let title = type_name::<Arpeggiator>();
+            let contents = format!("cutoff: {}", target.borrow().nothing());
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
+                .into()
+        } else {
+            panic!()
+        }
+    }
+
+    fn update(&mut self, message: GrooveMessage) {
+        match message {
+            GrooveMessage::GainMessage(message) => match message {
+                GainMessage::Level(level) => {
+                    if let Some(target) = self.target.upgrade() {
+                        if let Ok(level) = level.parse() {
+                            target.borrow_mut().set_nothing(level);
+                        }
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+}
+
+impl MakesIsViewable for Arpeggiator {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(ArpeggiatorViewableResponder {
+                target: Weak::clone(&self.me),
+            }))
+        } else {
+            println!(
+                "{}: probably forgot to call new_wrapped...()",
+                type_name::<Self>()
+            );
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         common::Rrc,
         effects::{
-            bitcrusher::Bitcrusher, filter::Filter, gain::Gain, limiter::Limiter, mixer::Mixer,
+            arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain,
+            limiter::Limiter, mixer::Mixer,
         },
         synthesizers::{
             drumkit_sampler::Sampler as DrumkitSampler,
@@ -497,6 +585,12 @@ mod tests {
         );
         test_one_viewable(
             Limiter::new_wrapped_with(0.0, 1.0),
+            Some(GrooveMessage::GainMessage(super::GainMessage::Level(
+                "0.5".to_string(),
+            ))), // TODO: better messages
+        );
+        test_one_viewable(
+            Arpeggiator::new_wrapped_with(0, 1),
             Some(GrooveMessage::GainMessage(super::GainMessage::Level(
                 "0.5".to_string(),
             ))), // TODO: better messages

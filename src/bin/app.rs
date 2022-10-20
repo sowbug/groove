@@ -1,6 +1,6 @@
 mod gui;
 
-use groove::gui_helpers::{GrooveMessage, IsViewable};
+use groove::gui_helpers::{GrooveMessage, GuiStuff, IsViewable};
 use groove::{BorderedContainer, IOHelper, Orchestrator, SongSettings};
 use gui::persistence::{LoadError, SaveError, SavedState};
 use gui::{mute_icon, play_icon, skip_to_prev_icon, stop_icon};
@@ -354,7 +354,7 @@ impl Application for Groove {
                     viewables
                         .iter_mut()
                         .enumerate()
-                        .fold(Column::new().spacing(20), |column, (i, item)| {
+                        .fold(Column::new().spacing(0), |column, (i, item)| {
                             column.push(
                                 item.view()
                                     .map(move |message| Message::GrooveMessage(i, message)),
@@ -363,15 +363,22 @@ impl Application for Groove {
                         .into()
                 };
 
-                let content = Column::new()
-                    .spacing(20)
-                    .padding(0)
-                    .push(control_bar)
-                    .push(views);
+                let scrollable_content = Column::new().spacing(0).padding(0).push(views);
 
-                Scrollable::new(scroll)
-                    .padding(40)
-                    .push(Container::new(content).width(Length::Fill).center_x())
+                let scrollable = Scrollable::new(scroll).padding(0).push(scrollable_content);
+
+                let under_construction = GuiStuff::container_text("Under Construction")
+                    .horizontal_alignment(alignment::Horizontal::Center)
+                    .vertical_alignment(alignment::Vertical::Center)
+                    .height(Length::Fill);
+                let main_workspace = Row::new()
+                    .push(under_construction.width(Length::FillPortion(1)))
+                    .push(scrollable.width(Length::FillPortion(1)));
+
+                Column::new()
+                    .push(control_bar)
+                    .push(main_workspace)
+                    .spacing(4)
                     .into()
             }
         }
