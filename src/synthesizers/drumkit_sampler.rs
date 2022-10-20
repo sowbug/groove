@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::{
     clock::Clock,
-    common::MonoSample,
+    common::{rrc, MonoSample, Rrc, Ww},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{DescribesSourcesAudio, IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio},
+    traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio},
 };
 
 use super::general_midi::GeneralMidiPercussionProgram;
@@ -76,11 +77,6 @@ impl SourcesAudio for Voice {
         }
     }
 }
-impl DescribesSourcesAudio for Voice {
-    fn name(&self) -> &str {
-        "Drumkit Voice"
-    }
-}
 impl IsMutable for Voice {
     fn is_muted(&self) -> bool {
         self.is_muted
@@ -93,18 +89,20 @@ impl IsMutable for Voice {
 
 #[derive(Debug, Default)]
 pub struct Sampler {
+    pub(crate) me: Ww<Self>,
     midi_channel: MidiChannel,
     note_to_voice: HashMap<u8, Voice>,
     is_muted: bool,
+
+    pub(crate) kit_name: String,
 }
 impl IsMidiInstrument for Sampler {}
 
 impl Sampler {
-    pub fn new(midi_channel: MidiChannel) -> Self {
+    fn new(midi_channel: MidiChannel) -> Self {
         Self {
             midi_channel,
-            note_to_voice: HashMap::new(),
-            is_muted: false,
+            ..Default::default()
         }
     }
 
@@ -114,7 +112,7 @@ impl Sampler {
         Ok(())
     }
 
-    pub fn new_from_files(midi_channel: MidiChannel) -> Self {
+    fn new_from_files(midi_channel: MidiChannel) -> Self {
         let mut r = Self::new(midi_channel);
         let samples: [(GeneralMidiPercussionProgram, &str); 21] = [
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
@@ -148,7 +146,14 @@ impl Sampler {
                 panic!("failed to load a sample: {}", filename);
             }
         }
+        r.kit_name = "707".to_string();
         r
+    }
+
+    pub fn new_wrapped_from_files(midi_channel: MidiChannel) -> Rrc<Self> {
+        let wrapped = rrc(Self::new_from_files(midi_channel));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
     }
 }
 
@@ -194,11 +199,6 @@ impl SourcesAudio for Sampler {
         //     .values()
         //     .map(|v| v.get_audio_sample())
         //     .sum()
-    }
-}
-impl DescribesSourcesAudio for Sampler {
-    fn name(&self) -> &str {
-        "Sampler Voice"
     }
 }
 impl IsMutable for Sampler {

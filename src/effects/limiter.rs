@@ -1,8 +1,6 @@
 use crate::{
     common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
-    traits::{
-        DescribesSourcesAudio, IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio,
-    },
+    traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
 use std::rc::Rc;
 
@@ -56,11 +54,6 @@ impl SinksAudio for Limiter {
 impl TransformsAudio for Limiter {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         input_sample.clamp(self.min, self.max)
-    }
-}
-impl DescribesSourcesAudio for Limiter {
-    fn name(&self) -> &str {
-        "Limiter"
     }
 }
 impl IsMutable for Limiter {

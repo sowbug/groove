@@ -4,8 +4,8 @@ use crate::id_store::IdStore;
 use crate::midi::{MidiBus, MidiChannel, MIDI_CHANNEL_RECEIVE_ALL};
 use crate::patterns::Pattern;
 use crate::traits::{
-    IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi,
-    SourcesAudio, SourcesMidi, WatchesClock,
+    IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi, SourcesAudio,
+    SourcesMidi, WatchesClock,
 };
 use crate::{clock::WatchedClock, effects::mixer::Mixer};
 use crossbeam::deque::Worker;
@@ -171,6 +171,10 @@ impl Orchestrator {
         let id = self.id_store.add_control_path_by_id(id, &path);
         self.control_paths.push(path);
         id
+    }
+
+    pub fn register_viewable(&mut self, viewable: Rrc<dyn MakesIsViewable>) {
+        self.viewable_makers.push(Rc::downgrade(&viewable));
     }
 
     /// If you're connecting an instrument downstream of MidiBus, it means that the

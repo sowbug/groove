@@ -1,13 +1,14 @@
 use crate::{
     clock::Clock,
     common::{MonoSample, Ww, MONO_SAMPLE_SILENCE},
-    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE}, gui_helpers::IsViewable,
+    gui_helpers::IsViewable,
+    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
 use std::collections::HashMap;
 use std::fmt::Debug;
 
 /// Provides audio in the form of digital samples.
-pub trait SourcesAudio: Debug + DescribesSourcesAudio + IsMutable {
+pub trait SourcesAudio: Debug + IsMutable {
     // Lots of implementers don't care about clock here,
     // but some do (oscillators, LFOs), and it's a lot cleaner
     // to pass a bit of extra information here than to either
@@ -15,9 +16,6 @@ pub trait SourcesAudio: Debug + DescribesSourcesAudio + IsMutable {
     // everyone would have to call anyway), or define a whole
     // new trait that breaks a bunch of simple paths elsewhere.
     fn source_audio(&mut self, clock: &Clock) -> MonoSample;
-}
-pub trait DescribesSourcesAudio {
-    fn name(&self) -> &str;
 }
 pub trait IsMutable {
     fn is_muted(&self) -> bool;
@@ -63,9 +61,7 @@ pub trait TransformsAudio {
 }
 
 // Convenience generic for effects
-impl<T: SinksAudio + TransformsAudio + DescribesSourcesAudio + IsMutable + Debug> SourcesAudio
-    for T
-{
+impl<T: SinksAudio + TransformsAudio + IsMutable + Debug> SourcesAudio for T {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let input = self.gather_source_audio(clock);
         self.transform_audio(input)
@@ -177,7 +173,7 @@ pub trait Terminates {
 // WORKING ASSERTION: WatchesClock should not also SourcesAudio, because
 // WatchesClock gets a clock tick, whereas SourcesAudio gets a sources_audio(), and
 // both are time slice-y. Be on the lookout for anything that claims to need both.
-pub trait IsMidiInstrument: SourcesAudio + SinksMidi {} // TODO + MakesControlSink
+pub trait IsMidiInstrument: SourcesAudio + SinksMidi + MakesIsViewable {} // TODO + MakesControlSink
 pub trait IsEffect: SourcesAudio + SinksAudio + TransformsAudio + MakesControlSink {}
 pub trait IsMidiEffect: SourcesMidi + SinksMidi + WatchesClock + MakesControlSink {}
 pub trait IsController: SourcesControl + WatchesClock {}

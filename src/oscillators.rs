@@ -2,7 +2,7 @@ use super::clock::Clock;
 use crate::{
     common::{MonoSample, Rrc, WaveformType, Ww},
     preset::{LfoPreset, OscillatorPreset},
-    traits::{DescribesSourcesAudio, IsMutable, SourcesAudio},
+    traits::{IsMutable, SourcesAudio},
 };
 use std::{
     cell::RefCell,
@@ -163,11 +163,6 @@ impl SourcesAudio for Oscillator {
                 tmp
             }
         }
-    }
-}
-impl DescribesSourcesAudio for Oscillator {
-    fn name(&self) -> &str {
-        "Oscillator"
     }
 }
 impl IsMutable for Oscillator {

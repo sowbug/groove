@@ -1,8 +1,6 @@
 use crate::{
     common::{MonoSample, Rrc, Ww},
-    traits::{
-        DescribesSourcesAudio, IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio,
-    },
+    traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -56,11 +54,6 @@ impl TransformsAudio for Bitcrusher {
         let squished = input_i16 >> self.bits_to_crush;
         let expanded = squished << self.bits_to_crush;
         expanded as MonoSample / (i16::MAX as MonoSample)
-    }
-}
-impl DescribesSourcesAudio for Bitcrusher {
-    fn name(&self) -> &str {
-        "Bitcrusher"
     }
 }
 

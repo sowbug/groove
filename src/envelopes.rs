@@ -3,7 +3,7 @@ use crate::{
     clock::ClockTimeUnit,
     common::{MonoSample, Rrc, Ww},
     preset::EnvelopePreset,
-    traits::{DescribesSourcesAudio, IsMutable, SourcesAudio},
+    traits::{IsMutable, SourcesAudio},
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{
@@ -204,11 +204,6 @@ impl SourcesAudio for SteppedEnvelope {
         let time = self.time_for_unit(clock);
         let step = self.step_for_time(time);
         self.value_for_step_at_time(step, time)
-    }
-}
-impl DescribesSourcesAudio for SteppedEnvelope {
-    fn name(&self) -> &str {
-        "SteppedEnvelope"
     }
 }
 impl IsMutable for SteppedEnvelope {
@@ -542,11 +537,6 @@ impl SourcesAudio for AdsrEnvelope {
         let time = self.envelope.time_for_unit(clock);
         let step = self.envelope.step_for_time(time);
         self.envelope.value_for_step_at_time(step, time)
-    }
-}
-impl DescribesSourcesAudio for AdsrEnvelope {
-    fn name(&self) -> &str {
-        "AdsrEnvelope"
     }
 }
 impl IsMutable for AdsrEnvelope {

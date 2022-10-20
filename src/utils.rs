@@ -13,9 +13,8 @@ pub mod tests {
         preset::EnvelopePreset,
         settings::ClockSettings,
         traits::{
-            DescribesSourcesAudio, IsController, IsEffect, IsMutable, MakesControlSink, SinksAudio,
-            SinksControl, SinksMidi, SourcesAudio, SourcesControl, SourcesMidi, Terminates,
-            WatchesClock,
+            IsController, IsEffect, IsMutable, MakesControlSink, SinksAudio, SinksControl,
+            SinksMidi, SourcesAudio, SourcesControl, SourcesMidi, Terminates, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -230,11 +229,6 @@ pub mod tests {
             self.level
         }
     }
-    impl DescribesSourcesAudio for TestAudioSourceAlwaysSameLevel {
-        fn name(&self) -> &str {
-            "TestAudioSourceAlwaysSameLevel"
-        }
-    }
     impl IsMutable for TestAudioSourceAlwaysSameLevel {
         fn is_muted(&self) -> bool {
             self.is_muted
@@ -259,11 +253,6 @@ pub mod tests {
     impl SourcesAudio for TestAudioSourceAlwaysLoud {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_MAX
-        }
-    }
-    impl DescribesSourcesAudio for TestAudioSourceAlwaysLoud {
-        fn name(&self) -> &str {
-            "TestAudioSourceAlwaysLoud"
         }
     }
     impl IsMutable for TestAudioSourceAlwaysLoud {
@@ -292,11 +281,6 @@ pub mod tests {
             MONO_SAMPLE_MAX + 0.1
         }
     }
-    impl DescribesSourcesAudio for TestAudioSourceAlwaysTooLoud {
-        fn name(&self) -> &str {
-            "TestAudioSourceAlwaysTooLoud"
-        }
-    }
     impl IsMutable for TestAudioSourceAlwaysTooLoud {
         fn is_muted(&self) -> bool {
             self.is_muted
@@ -321,11 +305,6 @@ pub mod tests {
     impl SourcesAudio for TestAudioSourceAlwaysSilent {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_SILENCE
-        }
-    }
-    impl DescribesSourcesAudio for TestAudioSourceAlwaysSilent {
-        fn name(&self) -> &str {
-            "TestAudioSourceAlwaysSilent"
         }
     }
     impl IsMutable for TestAudioSourceAlwaysSilent {
@@ -353,11 +332,6 @@ pub mod tests {
     impl SourcesAudio for TestAudioSourceAlwaysVeryQuiet {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_MIN
-        }
-    }
-    impl DescribesSourcesAudio for TestAudioSourceAlwaysVeryQuiet {
-        fn name(&self) -> &str {
-            "TestAudioSourceAlwaysVeryQuiet"
         }
     }
     impl IsMutable for TestAudioSourceAlwaysVeryQuiet {
@@ -450,11 +424,6 @@ pub mod tests {
         fn source_audio(&mut self, clock: &Clock) -> MonoSample {
             self.oscillator.borrow_mut().source_audio(clock)
                 * self.envelope.borrow_mut().source_audio(clock)
-        }
-    }
-    impl DescribesSourcesAudio for TestSynth {
-        fn name(&self) -> &str {
-            "TestSynth"
         }
     }
     impl IsMutable for TestSynth {
@@ -651,11 +620,6 @@ pub mod tests {
             self.value
         }
     }
-    impl DescribesSourcesAudio for TestMidiSink {
-        fn name(&self) -> &str {
-            "TestMidiSink"
-        }
-    }
     impl IsMutable for TestMidiSink {
         fn is_muted(&self) -> bool {
             self.is_muted
@@ -728,11 +692,6 @@ pub mod tests {
     impl SourcesAudio for TestAudioSource {
         fn source_audio(&mut self, _clock: &Clock) -> crate::common::MonoSample {
             0.
-        }
-    }
-    impl DescribesSourcesAudio for TestAudioSource {
-        fn name(&self) -> &str {
-            "TestAudioSource"
         }
     }
     impl IsMutable for TestAudioSource {

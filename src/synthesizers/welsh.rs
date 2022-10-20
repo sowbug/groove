@@ -5,14 +5,11 @@ use std::{cell::RefCell, collections::HashMap, f32::consts::FRAC_1_SQRT_2, rc::R
 use strum_macros::{Display, EnumIter};
 
 use crate::{
-    common::{MonoSample, WaveformType},
+    common::{rrc, MonoSample, Rrc, WaveformType, Ww},
     effects::filter::{Filter, FilterType},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     preset::{EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset},
-    traits::{
-        DescribesSourcesAudio, IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio,
-        TransformsAudio,
-    },
+    traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio, TransformsAudio},
     {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
 
@@ -161,6 +158,7 @@ impl Default for PolyphonyPreset {
 
 #[derive(Clone, Debug, Default)]
 pub struct SynthPreset {
+    pub name: String,
     pub oscillator_1_preset: OscillatorPreset,
     pub oscillator_2_preset: OscillatorPreset,
     pub oscillator_2_track: bool,
@@ -190,6 +188,7 @@ impl SynthPreset {
     pub fn by_name(name: &PresetName) -> Self {
         match name {
             PresetName::Banjo => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.2),
                     ..Default::default()
@@ -235,6 +234,7 @@ impl SynthPreset {
                 },
             },
             PresetName::Cello => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.1),
                     ..Default::default()
@@ -279,6 +279,7 @@ impl SynthPreset {
                 },
             },
             PresetName::DoubleBass => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.45),
                     tune: OscillatorPreset::octaves(-1.0),
@@ -322,6 +323,7 @@ impl SynthPreset {
                 },
             },
             PresetName::Dulcimer => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.25),
                     tune: OscillatorPreset::semis_and_cents(-7.0, 0.0),
@@ -368,6 +370,7 @@ impl SynthPreset {
             },
 
             PresetName::GuitarAcoustic => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.25),
                     ..Default::default()
@@ -412,6 +415,7 @@ impl SynthPreset {
             },
 
             PresetName::GuitarElectric => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.2),
                     tune: OscillatorPreset::NATURAL_TUNING,
@@ -455,6 +459,7 @@ impl SynthPreset {
                 panic!()
             }
             PresetName::HurdyGurdy => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.15),
                     tune: OscillatorPreset::NATURAL_TUNING,
@@ -517,6 +522,7 @@ impl SynthPreset {
                 panic!()
             }
             PresetName::StandupBass => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.25),
                     tune: OscillatorPreset::octaves(-1.0),
@@ -604,6 +610,7 @@ impl SynthPreset {
             }
             // -------------------- Brass
             PresetName::FrenchHorn => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.1),
                     ..Default::default()
@@ -653,7 +660,8 @@ impl SynthPreset {
                 panic!()
             }
             PresetName::Saxophone => {
-                SynthPreset {
+                Self {
+                    name: name.to_string(),
                     oscillator_1_preset: OscillatorPreset {
                         waveform: WaveformType::PulseWidth(0.3),
                         ..Default::default()
@@ -700,6 +708,7 @@ impl SynthPreset {
                 }
             }
             PresetName::Trombone => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Sawtooth,
                     ..Default::default()
@@ -748,6 +757,7 @@ impl SynthPreset {
                 panic!()
             }
             PresetName::Tuba => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Sawtooth,
                     tune: OscillatorPreset::NATURAL_TUNING,
@@ -811,6 +821,7 @@ impl SynthPreset {
                 panic!()
             }
             PresetName::Organ => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Triangle,
                     ..Default::default()
@@ -851,6 +862,7 @@ impl SynthPreset {
                 },
             },
             PresetName::Piano => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Sawtooth,
                     mix: 0.75,
@@ -896,6 +908,7 @@ impl SynthPreset {
             },
             // -------------------- Vocals
             PresetName::Angels => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Sawtooth,
                     ..Default::default()
@@ -955,6 +968,7 @@ impl SynthPreset {
                 panic!()
             }
             PresetName::Bongos => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Triangle,
                     ..Default::default()
@@ -1025,6 +1039,7 @@ impl SynthPreset {
                 panic!()
             }
             PresetName::Cowbell => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Square,
                     ..Default::default()
@@ -1068,6 +1083,7 @@ impl SynthPreset {
                 },
             },
             PresetName::CowbellAnalog => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.1),
                     ..Default::default()
@@ -1111,6 +1127,7 @@ impl SynthPreset {
                 },
             },
             PresetName::Cymbal => Self {
+                name: name.to_string(),
                 noise: 1.0,
                 polyphony: PolyphonyPreset::Mono,
                 filter_type_24db: FilterPreset {
@@ -1138,6 +1155,7 @@ impl SynthPreset {
                 ..Default::default()
             },
             PresetName::SideStick => Self {
+                name: name.to_string(),
                 noise: 1.0,
                 polyphony: PolyphonyPreset::Mono,
                 filter_type_24db: FilterPreset {
@@ -1175,6 +1193,7 @@ impl SynthPreset {
             }
             // -------------------- Leads
             PresetName::BrassSection => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Square,
                     tune: OscillatorPreset::semis_and_cents(0.0, -10.0),
@@ -1236,6 +1255,7 @@ impl SynthPreset {
                 panic!()
             }
             PresetName::StringsPwm => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Square,
                     tune: OscillatorPreset::semis_and_cents(0.0, -10.0),
@@ -1282,6 +1302,7 @@ impl SynthPreset {
                 },
             },
             PresetName::Trance5th => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Square,
                     ..Default::default()
@@ -1322,6 +1343,7 @@ impl SynthPreset {
                 },
             }, // -------------------- Bass
             PresetName::AcidBass => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::PulseWidth(0.25),
                     tune: OscillatorPreset::semis_and_cents(0.0, 10.),
@@ -1374,6 +1396,7 @@ impl SynthPreset {
                 panic!()
             }
             PresetName::DigitalBass => Self {
+                name: name.to_string(),
                 oscillator_1_preset: OscillatorPreset {
                     waveform: WaveformType::Square,
                     tune: OscillatorPreset::octaves(-1.0),
@@ -1489,6 +1512,7 @@ impl SynthPreset {
                 panic!()
             }
             PresetName::Wind => Self {
+                name: name.to_string(),
                 noise: 1.0,
                 lfo_preset: LfoPreset {
                     routing: LfoRouting::Amplitude,
@@ -2009,11 +2033,6 @@ impl SourcesAudio for Voice {
         filtered_mix * self.amp_envelope.source_audio(clock) * lfo_amplitude_modulation
     }
 }
-impl DescribesSourcesAudio for Voice {
-    fn name(&self) -> &str {
-        "Welsh Voice"
-    }
-}
 impl IsMutable for Voice {
     fn is_muted(&self) -> bool {
         self.is_muted
@@ -2026,9 +2045,10 @@ impl IsMutable for Voice {
 
 #[derive(Debug, Default, Clone)]
 pub struct Synth {
+    pub(crate) me: Ww<Self>,
     midi_channel: MidiChannel,
     sample_rate: usize,
-    preset: SynthPreset,
+    pub(crate) preset: SynthPreset,
     note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
     is_muted: bool,
 
@@ -2037,7 +2057,7 @@ pub struct Synth {
 impl IsMidiInstrument for Synth {}
 
 impl Synth {
-    pub fn new(midi_channel: MidiChannel, sample_rate: usize, preset: SynthPreset) -> Self {
+    fn new(midi_channel: MidiChannel, sample_rate: usize, preset: SynthPreset) -> Self {
         Self {
             midi_channel,
             sample_rate,
@@ -2046,7 +2066,19 @@ impl Synth {
             is_muted: false,
 
             debug_last_seconds: -1.0,
+
+            ..Default::default()
         }
+    }
+
+    pub fn new_wrapped_with(
+        midi_channel: MidiChannel,
+        sample_rate: usize,
+        preset: SynthPreset,
+    ) -> Rrc<Self> {
+        let wrapped = rrc(Self::new(midi_channel, sample_rate, preset));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
     }
 
     fn voice_for_note(&mut self, note: u8) -> Rc<RefCell<Voice>> {
@@ -2114,11 +2146,6 @@ impl SourcesAudio for Synth {
             current_value /= self.note_to_voice.len() as MonoSample;
         }
         current_value
-    }
-}
-impl DescribesSourcesAudio for Synth {
-    fn name(&self) -> &str {
-        "Welsh"
     }
 }
 impl IsMutable for Synth {
@@ -2234,6 +2261,7 @@ mod tests {
     #[allow(dead_code)]
     fn angels_patch() -> SynthPreset {
         SynthPreset {
+            name: "Angels".to_string(),
             oscillator_1_preset: OscillatorPreset {
                 waveform: WaveformType::Sawtooth,
                 ..Default::default()
@@ -2280,6 +2308,7 @@ mod tests {
 
     fn cello_patch() -> SynthPreset {
         SynthPreset {
+            name: "Cello".to_string(),
             oscillator_1_preset: OscillatorPreset {
                 waveform: WaveformType::PulseWidth(0.1),
                 ..Default::default()
@@ -2327,6 +2356,7 @@ mod tests {
 
     fn test_patch() -> SynthPreset {
         SynthPreset {
+            name: "Test".to_string(),
             oscillator_1_preset: OscillatorPreset {
                 waveform: WaveformType::Sawtooth,
                 ..Default::default()

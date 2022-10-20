@@ -141,11 +141,11 @@ impl ScriptEngine {
     }
 
     fn new_synth() -> Rrc<dyn IsMidiInstrument> {
-        rrc(welsh::Synth::new(
+        welsh::Synth::new_wrapped_with(
             0,
             44100,
             welsh::SynthPreset::by_name(&welsh::PresetName::Piano),
-        ))
+        )
     }
 
     fn new_sequencer(orchestrator: &mut Orchestrator) -> Rrc<MidiSequencer> {

@@ -1,13 +1,15 @@
 use crate::{
     clock::Clock,
-    common::MonoSample,
+    common::{rrc, MonoSample, Rrc, Ww},
     midi::{MidiChannel, MidiMessage, MidiMessageType},
-    traits::{DescribesSourcesAudio, IsMutable, SinksMidi, SourcesAudio},
+    traits::{IsMutable, SinksMidi, SourcesAudio},
 };
+use std::rc::Rc;
 
 #[derive(Debug, Default)]
 #[allow(dead_code)]
 pub struct Sampler {
+    pub(crate) me: Ww<Self>,
     midi_channel: MidiChannel,
     samples: Vec<MonoSample>,
     sample_clock_start: usize,
@@ -15,15 +17,23 @@ pub struct Sampler {
     is_playing: bool,
     is_muted: bool,
     root_frequency: f32, // TODO: make not dead
+
+    pub(crate) filename: String,
 }
 
 impl Sampler {
-    pub fn new(midi_channel: MidiChannel, buffer_size: usize) -> Self {
+    fn new(midi_channel: MidiChannel, buffer_size: usize) -> Self {
         Self {
             midi_channel,
             samples: Vec::with_capacity(buffer_size),
             ..Default::default()
         }
+    }
+
+    pub fn new_wrapped_with(midi_channel: MidiChannel, buffer_size: usize) -> Rrc<Self> {
+        let wrapped = rrc(Self::new(midi_channel, buffer_size));
+        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped
     }
 
     #[allow(dead_code)]
@@ -34,6 +44,7 @@ impl Sampler {
             r.samples
                 .push(sample.unwrap() as MonoSample / i16::MAX as MonoSample);
         }
+        r.filename = filename.to_string();
         r
     }
 }
@@ -77,11 +88,6 @@ impl SourcesAudio for Sampler {
         } else {
             0.0
         }
-    }
-}
-impl DescribesSourcesAudio for Sampler {
-    fn name(&self) -> &str {
-        "Sampler"
     }
 }
 impl IsMutable for Sampler {

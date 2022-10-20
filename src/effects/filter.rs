@@ -1,8 +1,6 @@
 use crate::{
     common::{MonoSample, Rrc, Ww},
-    traits::{
-        DescribesSourcesAudio, IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio,
-    },
+    traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
 use std::{cell::RefCell, f64::consts::PI, rc::Rc};
 
@@ -564,11 +562,6 @@ impl TransformsAudio for Filter {
         self.output_m2 = self.output_m1;
         self.output_m1 = r;
         r as MonoSample
-    }
-}
-impl DescribesSourcesAudio for Filter {
-    fn name(&self) -> &str {
-        "Filter"
     }
 }
 impl IsMutable for Filter {

@@ -151,17 +151,15 @@ impl InstrumentSettings {
             InstrumentSettings::Welsh {
                 midi_input_channel,
                 preset_name,
-            } => Rc::new(RefCell::new(welsh::Synth::new(
+            } => welsh::Synth::new_wrapped_with(
                 *midi_input_channel,
                 sample_rate,
                 welsh::SynthPreset::by_name(preset_name),
-            ))),
+            ),
             InstrumentSettings::Drumkit {
                 midi_input_channel,
                 preset_name: _preset,
-            } => Rc::new(RefCell::new(drumkit_sampler::Sampler::new_from_files(
-                *midi_input_channel,
-            ))),
+            } => drumkit_sampler::Sampler::new_wrapped_from_files(*midi_input_channel),
         }
     }
 }

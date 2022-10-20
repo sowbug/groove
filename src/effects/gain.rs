@@ -1,8 +1,6 @@
 use crate::{
     common::{MonoSample, Rrc, Ww},
-    traits::{
-        DescribesSourcesAudio, IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio,
-    },
+    traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
 use std::{
     cell::RefCell,
@@ -86,11 +84,6 @@ impl SinksAudio for Gain {
 impl TransformsAudio for Gain {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         input_sample * self.ceiling
-    }
-}
-impl DescribesSourcesAudio for Gain {
-    fn name(&self) -> &str {
-        "gain"
     }
 }
 impl IsMutable for Gain {

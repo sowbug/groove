@@ -72,7 +72,9 @@ impl SongSettings {
                     let midi_channel = instrument.borrow().midi_channel();
                     let instrument_weak = Rc::downgrade(&instrument);
                     orchestrator.connect_to_downstream_midi_bus(midi_channel, instrument_weak);
-                    orchestrator.register_audio_source(Some(id), instrument);
+                    let audio_source = Rc::clone(&instrument);
+                    orchestrator.register_audio_source(Some(id), audio_source);
+                    orchestrator.register_viewable(instrument);
                 }
                 DeviceSettings::MidiInstrument(id, midi_instrument_settings) => {
                     let midi_instrument = midi_instrument_settings.instantiate(sample_rate);

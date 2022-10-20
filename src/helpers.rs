@@ -1,4 +1,4 @@
-use crate::common::{rrc, MonoSample};
+use crate::common::{rrc, MonoSample, Rrc};
 use crate::midi::sequencer::MidiSequencer;
 use crate::midi::smf_reader::MidiSmfReader;
 use crate::orchestrator::{Orchestrator, Performance};
@@ -10,7 +10,6 @@ use crate::traits::IsMidiInstrument;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleRate, StreamConfig};
 use crossbeam::deque::Stealer;
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -41,14 +40,14 @@ impl IOHelper {
         orchestrator.register_clock_watcher(None, midi_sequencer);
 
         for channel in 0..MidiSequencer::connected_channel_count() {
-            let synth: Rc<RefCell<dyn IsMidiInstrument>> = if channel == 9 {
-                Rc::new(RefCell::new(Sampler::new_from_files(channel)))
+            let synth: Rrc<dyn IsMidiInstrument> = if channel == 9 {
+                Sampler::new_wrapped_from_files(channel)
             } else {
-                Rc::new(RefCell::new(Synth::new(
+                Synth::new_wrapped_with(
                     channel,
                     ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
                     SynthPreset::by_name(&PresetName::Piano),
-                )))
+                )
             };
             let instrument = Rc::clone(&synth);
             orchestrator.register_audio_source(None, instrument);
