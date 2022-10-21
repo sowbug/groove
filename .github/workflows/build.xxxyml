@@ -1,5 +1,5 @@
 # .github/workflows/build.yml
-name: Build
+name: Build for win/osx/linux
 
 on:
   push:
@@ -9,6 +9,10 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-pc-windows-gnu, x86_64-unknown-linux-musl, x86_64-apple-darwin]
     steps:
       - uses: actions/checkout@v3
       - name: Install dependencies
@@ -24,7 +28,7 @@ jobs:
         env:
           TOOLCHAIN_VERSION: nightly
         with:
-          RUSTTARGET: x86_64-unknown-linux-musl
+          RUSTTARGET: ${{ matrix.target }}
           UPLOAD_MODE: none
       - name: Upload artifact
         uses: actions/upload-artifact@v3
