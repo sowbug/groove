@@ -10,7 +10,14 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: sudo apt -y install libasound2-dev libfontconfig-dev pkg-config
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
       - name: Compile
         id: compile
         uses: rust-build/rust-build.action@v1.3.2
