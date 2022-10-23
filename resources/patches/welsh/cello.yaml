@@ -1,18 +1,18 @@
 ---
 name: cello
-oscillator-1-preset:
+oscillator-1:
   waveform:
     pulse-width: 0.1
   tune: 1.0
   mix: 1.0
-oscillator-2-preset:
+oscillator-2:
   waveform: square
   tune: 1.0
   mix: 1.0
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
-lfo-preset:
+lfo:
   routing: amplitude
   waveform: sine
   frequency: 7.5
@@ -28,12 +28,12 @@ filter-type-12db:
   weight: 0.1
 filter-resonance: 0.0
 filter-envelope-weight: 0.9
-filter-envelope-preset:
+filter-envelope:
   attack: 0.0
   decay: 3.29
   sustain: 0.78
   release: 10000.0
-amp-envelope-preset:
+amp-envelope:
   attack: 0.06
   decay: 10000.0
   sustain: 1.0

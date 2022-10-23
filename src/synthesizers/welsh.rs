@@ -10,10 +10,7 @@ use crate::{
     effects::filter::{Filter, FilterType},
     midi::{MidiChannel, MidiMessage, MidiMessageType},
     settings::{
-        patches::{
-            EnvelopePreset, FilterPreset, GlidePreset, LfoPreset, LfoRouting, OscillatorPreset,
-            PolyphonyPreset, WaveformType,
-        },
+        patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
     traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio, TransformsAudio},
@@ -22,7 +19,7 @@ use crate::{
 
 #[derive(Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum PresetName {
+pub enum PatchName {
     // -------------------- Strings
     Banjo,
     Cello,
@@ -138,37 +135,8 @@ pub enum PresetName {
     Wind,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub struct SynthPreset {
-    pub name: String,
-    pub oscillator_1_preset: OscillatorPreset,
-    pub oscillator_2_preset: OscillatorPreset,
-    pub oscillator_2_track: bool,
-    pub oscillator_2_sync: bool,
-
-    pub noise: f32,
-
-    pub lfo_preset: LfoPreset,
-
-    pub glide: GlidePreset,
-    pub has_unison: bool,
-    pub polyphony: PolyphonyPreset,
-
-    // There is meant to be only one filter, but the Welsh book
-    // provides alternate settings depending on the kind of filter
-    // your synthesizer has.
-    pub filter_type_24db: FilterPreset,
-    pub filter_type_12db: FilterPreset,
-    pub filter_resonance: f32, // This should be an appropriate interpretation of a linear 0..1
-    pub filter_envelope_weight: f32,
-    pub filter_envelope_preset: EnvelopePreset,
-
-    pub amp_envelope_preset: EnvelopePreset,
-}
-
 // TODO: cache these as they're loaded
-impl SynthPreset {
+impl SynthPatch {
     pub fn patch_name_to_settings_name(name: &str) -> String {
         name.to_case(Case::Kebab)
     }
@@ -180,7 +148,7 @@ impl SynthPreset {
         })
     }
 
-    pub fn by_name(name: &PresetName) -> Self {
+    pub fn by_name(name: &PatchName) -> Self {
         let filename = format!(
             "resources/patches/welsh/{}.yaml",
             Self::patch_name_to_settings_name(name.to_string().as_str())
@@ -198,352 +166,352 @@ impl SynthPreset {
 }
 
 impl Synth {
-    pub fn general_midi_preset(program: GeneralMidiProgram) -> SynthPreset {
+    pub fn general_midi_preset(program: GeneralMidiProgram) -> SynthPatch {
         let mut delegated = false;
         let preset = match program {
-            GeneralMidiProgram::AcousticGrand => PresetName::Piano,
+            GeneralMidiProgram::AcousticGrand => PatchName::Piano,
             GeneralMidiProgram::BrightAcoustic => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::ElectricGrand => PresetName::ElectricPiano,
+            GeneralMidiProgram::ElectricGrand => PatchName::ElectricPiano,
             GeneralMidiProgram::HonkyTonk => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::ElectricPiano1 => PresetName::ElectricPiano,
-            GeneralMidiProgram::ElectricPiano2 => PresetName::ElectricPiano,
-            GeneralMidiProgram::Harpsichord => PresetName::Harpsichord,
-            GeneralMidiProgram::Clav => PresetName::Clavichord,
-            GeneralMidiProgram::Celesta => PresetName::Celeste,
-            GeneralMidiProgram::Glockenspiel => PresetName::Glockenspiel,
+            GeneralMidiProgram::ElectricPiano1 => PatchName::ElectricPiano,
+            GeneralMidiProgram::ElectricPiano2 => PatchName::ElectricPiano,
+            GeneralMidiProgram::Harpsichord => PatchName::Harpsichord,
+            GeneralMidiProgram::Clav => PatchName::Clavichord,
+            GeneralMidiProgram::Celesta => PatchName::Celeste,
+            GeneralMidiProgram::Glockenspiel => PatchName::Glockenspiel,
             GeneralMidiProgram::MusicBox => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Vibraphone => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::Marimba => PresetName::Marimba,
-            GeneralMidiProgram::Xylophone => PresetName::Xylophone,
-            GeneralMidiProgram::TubularBells => PresetName::Bell,
-            GeneralMidiProgram::Dulcimer => PresetName::Dulcimer,
+            GeneralMidiProgram::Marimba => PatchName::Marimba,
+            GeneralMidiProgram::Xylophone => PatchName::Xylophone,
+            GeneralMidiProgram::TubularBells => PatchName::Bell,
+            GeneralMidiProgram::Dulcimer => PatchName::Dulcimer,
             GeneralMidiProgram::DrawbarOrgan => {
-                PresetName::Organ // TODO dup
+                PatchName::Organ // TODO dup
             }
             GeneralMidiProgram::PercussiveOrgan => {
-                PresetName::Organ // TODO dup
+                PatchName::Organ // TODO dup
             }
             GeneralMidiProgram::RockOrgan => {
-                PresetName::Organ // TODO dup
+                PatchName::Organ // TODO dup
             }
             GeneralMidiProgram::ChurchOrgan => {
-                PresetName::Organ // TODO dup
+                PatchName::Organ // TODO dup
             }
             GeneralMidiProgram::ReedOrgan => {
-                PresetName::Organ // TODO dup
+                PatchName::Organ // TODO dup
             }
-            GeneralMidiProgram::Accordion => PresetName::Accordion,
-            GeneralMidiProgram::Harmonica => PresetName::Harmonica,
+            GeneralMidiProgram::Accordion => PatchName::Accordion,
+            GeneralMidiProgram::Harmonica => PatchName::Harmonica,
             GeneralMidiProgram::TangoAccordion => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::AcousticGuitarNylon => PresetName::GuitarAcoustic,
+            GeneralMidiProgram::AcousticGuitarNylon => PatchName::GuitarAcoustic,
             GeneralMidiProgram::AcousticGuitarSteel => {
-                PresetName::GuitarAcoustic // TODO dup
+                PatchName::GuitarAcoustic // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarJazz => {
-                PresetName::GuitarElectric // TODO dup
+                PatchName::GuitarElectric // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarClean => {
-                PresetName::GuitarElectric // TODO dup
+                PatchName::GuitarElectric // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarMuted => {
-                PresetName::GuitarElectric // TODO dup
+                PatchName::GuitarElectric // TODO dup
             }
             GeneralMidiProgram::OverdrivenGuitar => {
-                PresetName::GuitarElectric // TODO dup
+                PatchName::GuitarElectric // TODO dup
             }
             GeneralMidiProgram::DistortionGuitar => {
-                PresetName::GuitarElectric // TODO dup
+                PatchName::GuitarElectric // TODO dup
             }
             GeneralMidiProgram::GuitarHarmonics => {
-                PresetName::GuitarElectric // TODO dup
+                PatchName::GuitarElectric // TODO dup
             }
-            GeneralMidiProgram::AcousticBass => PresetName::DoubleBass,
-            GeneralMidiProgram::ElectricBassFinger => PresetName::StandupBass,
-            GeneralMidiProgram::ElectricBassPick => PresetName::AcidBass,
+            GeneralMidiProgram::AcousticBass => PatchName::DoubleBass,
+            GeneralMidiProgram::ElectricBassFinger => PatchName::StandupBass,
+            GeneralMidiProgram::ElectricBassPick => PatchName::AcidBass,
             GeneralMidiProgram::FretlessBass => {
-                PresetName::DetroitBass // TODO same?
+                PatchName::DetroitBass // TODO same?
             }
-            GeneralMidiProgram::SlapBass1 => PresetName::FunkBass,
-            GeneralMidiProgram::SlapBass2 => PresetName::FunkBass,
-            GeneralMidiProgram::SynthBass1 => PresetName::DigitalBass,
-            GeneralMidiProgram::SynthBass2 => PresetName::DigitalBass,
-            GeneralMidiProgram::Violin => PresetName::Violin,
-            GeneralMidiProgram::Viola => PresetName::Viola,
-            GeneralMidiProgram::Cello => PresetName::Cello,
-            GeneralMidiProgram::Contrabass => PresetName::Contrabassoon,
+            GeneralMidiProgram::SlapBass1 => PatchName::FunkBass,
+            GeneralMidiProgram::SlapBass2 => PatchName::FunkBass,
+            GeneralMidiProgram::SynthBass1 => PatchName::DigitalBass,
+            GeneralMidiProgram::SynthBass2 => PatchName::DigitalBass,
+            GeneralMidiProgram::Violin => PatchName::Violin,
+            GeneralMidiProgram::Viola => PatchName::Viola,
+            GeneralMidiProgram::Cello => PatchName::Cello,
+            GeneralMidiProgram::Contrabass => PatchName::Contrabassoon,
             GeneralMidiProgram::TremoloStrings => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::PizzicatoStrings => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::OrchestralHarp => PresetName::Harp,
-            GeneralMidiProgram::Timpani => PresetName::Timpani,
+            GeneralMidiProgram::OrchestralHarp => PatchName::Harp,
+            GeneralMidiProgram::Timpani => PatchName::Timpani,
             GeneralMidiProgram::StringEnsemble1 => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::StringEnsemble2 => {
-                PresetName::StringsPwm // TODO same?
+                PatchName::StringsPwm // TODO same?
             }
-            GeneralMidiProgram::Synthstrings1 => PresetName::StringsPwm, // TODO same?
+            GeneralMidiProgram::Synthstrings1 => PatchName::StringsPwm, // TODO same?
 
             GeneralMidiProgram::Synthstrings2 => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::ChoirAahs => PresetName::Angels,
+            GeneralMidiProgram::ChoirAahs => PatchName::Angels,
 
-            GeneralMidiProgram::VoiceOohs => PresetName::Choir,
-            GeneralMidiProgram::SynthVoice => PresetName::VocalFemale,
+            GeneralMidiProgram::VoiceOohs => PatchName::Choir,
+            GeneralMidiProgram::SynthVoice => PatchName::VocalFemale,
 
             GeneralMidiProgram::OrchestraHit => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::Trumpet => PresetName::Trumpet,
-            GeneralMidiProgram::Trombone => PresetName::Trombone,
-            GeneralMidiProgram::Tuba => PresetName::Tuba,
+            GeneralMidiProgram::Trumpet => PatchName::Trumpet,
+            GeneralMidiProgram::Trombone => PatchName::Trombone,
+            GeneralMidiProgram::Tuba => PatchName::Tuba,
             GeneralMidiProgram::MutedTrumpet => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::FrenchHorn => PresetName::FrenchHorn,
+            GeneralMidiProgram::FrenchHorn => PatchName::FrenchHorn,
 
-            GeneralMidiProgram::BrassSection => PresetName::BrassSection,
+            GeneralMidiProgram::BrassSection => PatchName::BrassSection,
 
             GeneralMidiProgram::Synthbrass1 => {
-                PresetName::BrassSection // TODO dup
+                PatchName::BrassSection // TODO dup
             }
             GeneralMidiProgram::Synthbrass2 => {
-                PresetName::BrassSection // TODO dup
+                PatchName::BrassSection // TODO dup
             }
             GeneralMidiProgram::SopranoSax => {
-                PresetName::Saxophone // TODO dup
+                PatchName::Saxophone // TODO dup
             }
-            GeneralMidiProgram::AltoSax => PresetName::Saxophone,
+            GeneralMidiProgram::AltoSax => PatchName::Saxophone,
             GeneralMidiProgram::TenorSax => {
-                PresetName::Saxophone // TODO dup
+                PatchName::Saxophone // TODO dup
             }
             GeneralMidiProgram::BaritoneSax => {
-                PresetName::Saxophone // TODO dup
+                PatchName::Saxophone // TODO dup
             }
-            GeneralMidiProgram::Oboe => PresetName::Oboe,
-            GeneralMidiProgram::EnglishHorn => PresetName::EnglishHorn,
-            GeneralMidiProgram::Bassoon => PresetName::Bassoon,
-            GeneralMidiProgram::Clarinet => PresetName::Clarinet,
-            GeneralMidiProgram::Piccolo => PresetName::Piccolo,
-            GeneralMidiProgram::Flute => PresetName::Flute,
+            GeneralMidiProgram::Oboe => PatchName::Oboe,
+            GeneralMidiProgram::EnglishHorn => PatchName::EnglishHorn,
+            GeneralMidiProgram::Bassoon => PatchName::Bassoon,
+            GeneralMidiProgram::Clarinet => PatchName::Clarinet,
+            GeneralMidiProgram::Piccolo => PatchName::Piccolo,
+            GeneralMidiProgram::Flute => PatchName::Flute,
             GeneralMidiProgram::Recorder => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::PanFlute => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::BlownBottle => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Shakuhachi => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Whistle => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Ocarina => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Lead1Square => {
-                PresetName::MonoSolo // TODO: same?
+                PatchName::MonoSolo // TODO: same?
             }
             GeneralMidiProgram::Lead2Sawtooth => {
-                PresetName::Trance5th // TODO: same?
+                PatchName::Trance5th // TODO: same?
             }
             GeneralMidiProgram::Lead3Calliope => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Lead4Chiff => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Lead5Charang => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Lead6Voice => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Lead7Fifths => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Lead8BassLead => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Pad1NewAge => {
-                PresetName::NewAgeLead // TODO pad or lead?
+                PatchName::NewAgeLead // TODO pad or lead?
             }
             GeneralMidiProgram::Pad2Warm => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Pad3Polysynth => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Pad4Choir => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Pad5Bowed => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Pad6Metallic => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Pad7Halo => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Pad8Sweep => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Fx1Rain => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Fx2Soundtrack => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Fx3Crystal => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Fx4Atmosphere => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Fx5Brightness => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Fx6Goblins => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Fx7Echoes => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Fx8SciFi => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::Sitar => PresetName::Sitar,
-            GeneralMidiProgram::Banjo => PresetName::Banjo,
+            GeneralMidiProgram::Sitar => PatchName::Sitar,
+            GeneralMidiProgram::Banjo => PatchName::Banjo,
             GeneralMidiProgram::Shamisen => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Koto => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Kalimba => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::Bagpipe => PresetName::Bagpipes,
+            GeneralMidiProgram::Bagpipe => PatchName::Bagpipes,
             GeneralMidiProgram::Fiddle => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Shanai => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::TinkleBell => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Agogo => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::SteelDrums => {
-                PresetName::WheelsOfSteel // TODO same?
+                PatchName::WheelsOfSteel // TODO same?
             }
-            GeneralMidiProgram::Woodblock => PresetName::SideStick,
+            GeneralMidiProgram::Woodblock => PatchName::SideStick,
             GeneralMidiProgram::TaikoDrum => {
                 // XXXXXXXXXXXXX TMP
-                PresetName::Cello // TODO substitute.....
+                PatchName::Cello // TODO substitute.....
             }
-            GeneralMidiProgram::MelodicTom => PresetName::Bongos,
-            GeneralMidiProgram::SynthDrum => PresetName::SnareDrum,
-            GeneralMidiProgram::ReverseCymbal => PresetName::Cymbal,
+            GeneralMidiProgram::MelodicTom => PatchName::Bongos,
+            GeneralMidiProgram::SynthDrum => PatchName::SnareDrum,
+            GeneralMidiProgram::ReverseCymbal => PatchName::Cymbal,
             GeneralMidiProgram::GuitarFretNoise => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::BreathNoise => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
-            GeneralMidiProgram::Seashore => PresetName::OceanWavesWithFoghorn,
+            GeneralMidiProgram::Seashore => PatchName::OceanWavesWithFoghorn,
             GeneralMidiProgram::BirdTweet => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::TelephoneRing => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Helicopter => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Applause => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
             GeneralMidiProgram::Gunshot => {
                 delegated = true;
-                PresetName::Piano
+                PatchName::Piano
             }
         };
         if delegated {
             println!("Delegated {} to {}", program, preset);
         }
-        SynthPreset::by_name(&preset)
+        SynthPatch::by_name(&preset)
     }
 }
 
@@ -567,16 +535,16 @@ pub struct Voice {
 }
 
 impl Voice {
-    pub fn new(midi_channel: MidiChannel, sample_rate: usize, preset: &SynthPreset) -> Self {
+    pub fn new(midi_channel: MidiChannel, sample_rate: usize, preset: &SynthPatch) -> Self {
         let mut r = Self {
             midi_channel,
             oscillators: Vec::new(),
             osc_mix: Vec::new(),
-            amp_envelope: AdsrEnvelope::new_with(&preset.amp_envelope_preset),
+            amp_envelope: AdsrEnvelope::new_with(&preset.amp_envelope),
 
-            lfo: Oscillator::new_lfo(&preset.lfo_preset),
-            lfo_routing: preset.lfo_preset.routing,
-            lfo_depth: preset.lfo_preset.depth,
+            lfo: Oscillator::new_lfo(&preset.lfo),
+            lfo_routing: preset.lfo.routing,
+            lfo_depth: preset.lfo.depth,
 
             filter: Filter::new(&FilterType::LowPass {
                 sample_rate,
@@ -585,24 +553,24 @@ impl Voice {
             }),
             filter_cutoff_start: Filter::frequency_to_percent(preset.filter_type_12db.cutoff),
             filter_cutoff_end: preset.filter_envelope_weight,
-            filter_envelope: AdsrEnvelope::new_with(&preset.filter_envelope_preset),
+            filter_envelope: AdsrEnvelope::new_with(&preset.filter_envelope),
 
             is_muted: false,
         };
-        if !matches!(preset.oscillator_1_preset.waveform, WaveformType::None) {
+        if !matches!(preset.oscillator_1.waveform, WaveformType::None) {
             r.oscillators
-                .push(Oscillator::new_from_preset(&preset.oscillator_1_preset));
-            r.osc_mix.push(preset.oscillator_1_preset.mix);
+                .push(Oscillator::new_from_preset(&preset.oscillator_1));
+            r.osc_mix.push(preset.oscillator_1.mix);
         }
-        if !matches!(preset.oscillator_2_preset.waveform, WaveformType::None) {
-            let mut o = Oscillator::new_from_preset(&preset.oscillator_2_preset);
+        if !matches!(preset.oscillator_2.waveform, WaveformType::None) {
+            let mut o = Oscillator::new_from_preset(&preset.oscillator_2);
             if !preset.oscillator_2_track {
                 o.set_fixed_frequency(MidiMessage::note_to_frequency(
-                    preset.oscillator_2_preset.tune as u8,
+                    preset.oscillator_2.tune as u8,
                 ));
             }
             r.oscillators.push(o);
-            r.osc_mix.push(preset.oscillator_2_preset.mix);
+            r.osc_mix.push(preset.oscillator_2.mix);
         }
         if preset.noise > 0.0 {
             r.oscillators
@@ -704,7 +672,7 @@ pub struct Synth {
     pub(crate) me: Ww<Self>,
     midi_channel: MidiChannel,
     sample_rate: usize,
-    pub(crate) preset: SynthPreset,
+    pub(crate) preset: SynthPatch,
     note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
     is_muted: bool,
 
@@ -713,7 +681,7 @@ pub struct Synth {
 impl IsMidiInstrument for Synth {}
 
 impl Synth {
-    fn new(midi_channel: MidiChannel, sample_rate: usize, preset: SynthPreset) -> Self {
+    fn new(midi_channel: MidiChannel, sample_rate: usize, preset: SynthPatch) -> Self {
         Self {
             midi_channel,
             sample_rate,
@@ -730,7 +698,7 @@ impl Synth {
     pub fn new_wrapped_with(
         midi_channel: MidiChannel,
         sample_rate: usize,
-        preset: SynthPreset,
+        preset: SynthPatch,
     ) -> Rrc<Self> {
         let wrapped = rrc(Self::new(midi_channel, sample_rate, preset));
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
@@ -822,7 +790,7 @@ mod tests {
         clock::Clock,
         midi::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
         settings::patches::{
-            EnvelopePreset, FilterPreset, LfoPreset, LfoRouting, OscillatorPreset,
+            EnvelopeSettings, FilterPreset, LfoPreset, LfoRouting, OscillatorSettings, GlideSettings, PolyphonySettings,
         },
         synthesizers::welsh::WaveformType,
         utils::tests::canonicalize_filename,
@@ -938,29 +906,29 @@ mod tests {
         }
     }
 
-    fn cello_patch() -> SynthPreset {
-        SynthPreset {
-            name: SynthPreset::patch_name_to_settings_name("Cello"),
-            oscillator_1_preset: OscillatorPreset {
+    fn cello_patch() -> SynthPatch {
+        SynthPatch {
+            name: SynthPatch::patch_name_to_settings_name("Cello"),
+            oscillator_1: OscillatorSettings {
                 waveform: WaveformType::PulseWidth(0.1),
                 ..Default::default()
             },
-            oscillator_2_preset: OscillatorPreset {
+            oscillator_2: OscillatorSettings {
                 waveform: WaveformType::Square,
                 ..Default::default()
             },
             oscillator_2_track: true,
             oscillator_2_sync: false,
             noise: 0.0,
-            lfo_preset: LfoPreset {
+            lfo: LfoPreset {
                 routing: LfoRouting::Amplitude,
                 waveform: WaveformType::Sine,
                 frequency: 7.5,
                 depth: LfoPreset::percent(5.0),
             },
-            glide: GlidePreset::Off,
+            glide: GlideSettings::Off,
             has_unison: false,
-            polyphony: PolyphonyPreset::Multi,
+            polyphony: PolyphonySettings::Multi,
             filter_type_24db: FilterPreset {
                 cutoff: 40.0,
                 weight: 0.1,
@@ -971,42 +939,42 @@ mod tests {
             },
             filter_resonance: 0.0,
             filter_envelope_weight: 0.9,
-            filter_envelope_preset: EnvelopePreset {
+            filter_envelope: EnvelopeSettings {
                 attack: 0.0,
                 decay: 3.29,
                 sustain: 0.78,
-                release: EnvelopePreset::MAX,
+                release: EnvelopeSettings::MAX,
             },
-            amp_envelope_preset: EnvelopePreset {
+            amp_envelope: EnvelopeSettings {
                 attack: 0.06,
-                decay: EnvelopePreset::MAX,
+                decay: EnvelopeSettings::MAX,
                 sustain: 1.0,
                 release: 0.3,
             },
         }
     }
 
-    fn test_patch() -> SynthPreset {
-        SynthPreset {
-            name: SynthPreset::patch_name_to_settings_name("Test"),
-            oscillator_1_preset: OscillatorPreset {
+    fn test_patch() -> SynthPatch {
+        SynthPatch {
+            name: SynthPatch::patch_name_to_settings_name("Test"),
+            oscillator_1: OscillatorSettings {
                 waveform: WaveformType::Sawtooth,
                 ..Default::default()
             },
-            oscillator_2_preset: OscillatorPreset {
+            oscillator_2: OscillatorSettings {
                 waveform: WaveformType::None,
                 ..Default::default()
             },
             oscillator_2_track: true,
             oscillator_2_sync: false,
             noise: 0.0,
-            lfo_preset: LfoPreset {
+            lfo: LfoPreset {
                 routing: LfoRouting::None,
                 ..Default::default()
             },
-            glide: GlidePreset::Off,
+            glide: GlideSettings::Off,
             has_unison: false,
-            polyphony: PolyphonyPreset::Multi,
+            polyphony: PolyphonySettings::Multi,
             filter_type_24db: FilterPreset {
                 cutoff: 40.0,
                 weight: 0.1,
@@ -1017,17 +985,17 @@ mod tests {
             },
             filter_resonance: 0.0,
             filter_envelope_weight: 1.0,
-            filter_envelope_preset: EnvelopePreset {
+            filter_envelope: EnvelopeSettings {
                 attack: 5.0,
-                decay: EnvelopePreset::MAX,
+                decay: EnvelopeSettings::MAX,
                 sustain: 1.0,
-                release: EnvelopePreset::MAX,
+                release: EnvelopeSettings::MAX,
             },
-            amp_envelope_preset: EnvelopePreset {
+            amp_envelope: EnvelopeSettings {
                 attack: 0.5,
-                decay: EnvelopePreset::MAX,
+                decay: EnvelopeSettings::MAX,
                 sustain: 1.0,
-                release: EnvelopePreset::MAX,
+                release: EnvelopeSettings::MAX,
             },
         }
     }

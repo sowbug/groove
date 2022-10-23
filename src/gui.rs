@@ -584,10 +584,11 @@ mod tests {
             arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain,
             limiter::Limiter, mixer::Mixer,
         },
+        settings::patches::SynthPatch,
         synthesizers::{
             drumkit_sampler::Sampler as DrumkitSampler,
             sampler::Sampler,
-            welsh::{PresetName, Synth, SynthPreset},
+            welsh::{PatchName, Synth},
         },
         traits::MakesIsViewable,
     };
@@ -611,7 +612,7 @@ mod tests {
     #[test]
     fn test_viewables() {
         test_one_viewable(
-            Synth::new_wrapped_with(0, 44100, SynthPreset::by_name(&PresetName::Trombone)),
+            Synth::new_wrapped_with(0, 44100, SynthPatch::by_name(&PatchName::Trombone)),
             None,
         );
         test_one_viewable(DrumkitSampler::new_wrapped_from_files(0), None);

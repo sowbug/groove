@@ -195,7 +195,7 @@ pub mod tests {
         envelopes::AdsrEnvelope,
         midi::MidiMessage,
         oscillators::Oscillator,
-        settings::patches::{EnvelopePreset, WaveformType},
+        settings::patches::{EnvelopeSettings, WaveformType},
         traits::{MakesControlSink, SinksMidi, SourcesMidi, Terminates, WatchesClock},
         utils::tests::{
             TestArpeggiator, TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSource,
@@ -210,7 +210,7 @@ pub mod tests {
     fn test_orchestration() {
         let mut clock = WatchedClock::new();
         let mut orchestrator = TestOrchestrator::new();
-        let envelope = AdsrEnvelope::new_wrapped_with(&EnvelopePreset::default());
+        let envelope = AdsrEnvelope::new_wrapped_with(&EnvelopeSettings::default());
         let oscillator = Oscillator::new_wrapped_with(WaveformType::Sine);
         oscillator
             .borrow_mut()

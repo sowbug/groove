@@ -1,17 +1,17 @@
 ---
 name: side-stick
-oscillator-1-preset:
+oscillator-1:
   waveform: sine
   tune: 1.0
   mix: 1.0
-oscillator-2-preset:
+oscillator-2:
   waveform: sine
   tune: 1.0
   mix: 1.0
 oscillator-2-track: false
 oscillator-2-sync: false
 noise: 1.0
-lfo-preset:
+lfo:
   routing: none
   waveform: sine
   frequency: 0.0
@@ -27,12 +27,12 @@ filter-type-12db:
   weight: 0.71
 filter-resonance: 1.0
 filter-envelope-weight: 0.85
-filter-envelope-preset:
+filter-envelope:
   attack: 0.0
   decay: 1.19
   sustain: 0.0
   release: 0.0
-amp-envelope-preset:
+amp-envelope:
   attack: 0.0
   decay: 0.09
   sustain: 0.0

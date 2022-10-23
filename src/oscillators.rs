@@ -1,7 +1,7 @@
 use super::clock::Clock;
 use crate::{
     common::{MonoSample, Rrc, Ww},
-    settings::patches::{LfoPreset, OscillatorPreset, WaveformType},
+    settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
     traits::{IsMutable, SourcesAudio},
 };
 use std::{
@@ -85,7 +85,7 @@ impl Oscillator {
         wrapped
     }
 
-    pub fn new_from_preset(preset: &OscillatorPreset) -> Self {
+    pub fn new_from_preset(preset: &OscillatorSettings) -> Self {
         Self {
             waveform: preset.waveform,
             frequency_tune: preset.tune,
@@ -181,7 +181,7 @@ mod tests {
     use crate::{
         clock::{Clock, WatchedClock},
         midi::{MidiMessage, MidiNote},
-        settings::patches::OscillatorPreset,
+        settings::patches::OscillatorSettings,
         traits::SourcesAudio,
         utils::tests::{
             write_orchestration_to_file, write_source_to_file, TestOrchestrator, TestTimer,
@@ -190,7 +190,7 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> Oscillator {
-        let mut oscillator = Oscillator::new_from_preset(&OscillatorPreset {
+        let mut oscillator = Oscillator::new_from_preset(&OscillatorSettings {
             waveform,
             tune,
             ..Default::default()
@@ -212,7 +212,7 @@ mod tests {
         let mut orchestrator = TestOrchestrator::new();
         let oscillator = Rc::new(RefCell::new(create_oscillator(
             WaveformType::Sine,
-            OscillatorPreset::NATURAL_TUNING,
+            OscillatorSettings::NATURAL_TUNING,
             MidiNote::C4,
         )));
         let oscillator_weak = Rc::downgrade(&oscillator);
@@ -223,42 +223,42 @@ mod tests {
 
         let mut oscillator = create_oscillator(
             WaveformType::Square,
-            OscillatorPreset::NATURAL_TUNING,
+            OscillatorSettings::NATURAL_TUNING,
             MidiNote::C4,
         );
         write_source_to_file(&mut oscillator, "oscillator_square_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::PulseWidth(0.1),
-            OscillatorPreset::NATURAL_TUNING,
+            OscillatorSettings::NATURAL_TUNING,
             MidiNote::C4,
         );
         write_source_to_file(&mut oscillator, "oscillator_pulse_width_10_percent_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::Triangle,
-            OscillatorPreset::NATURAL_TUNING,
+            OscillatorSettings::NATURAL_TUNING,
             MidiNote::C4,
         );
         write_source_to_file(&mut oscillator, "oscillator_triangle_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::Sawtooth,
-            OscillatorPreset::NATURAL_TUNING,
+            OscillatorSettings::NATURAL_TUNING,
             MidiNote::C4,
         );
         write_source_to_file(&mut oscillator, "oscillator_sawtooth_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::Noise,
-            OscillatorPreset::NATURAL_TUNING,
+            OscillatorSettings::NATURAL_TUNING,
             MidiNote::None,
         );
         write_source_to_file(&mut oscillator, "oscillator_noise");
 
         let mut oscillator = create_oscillator(
             WaveformType::None,
-            OscillatorPreset::NATURAL_TUNING,
+            OscillatorSettings::NATURAL_TUNING,
             MidiNote::None,
         );
         write_source_to_file(&mut oscillator, "oscillator_none");
@@ -268,7 +268,7 @@ mod tests {
     fn test_oscillator_tuned() {
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
-            OscillatorPreset::octaves(0.0),
+            OscillatorSettings::octaves(0.0),
             MidiNote::C4,
         );
         assert_eq!(
@@ -279,7 +279,7 @@ mod tests {
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
-            OscillatorPreset::octaves(1.0),
+            OscillatorSettings::octaves(1.0),
             MidiNote::C4,
         );
         assert_eq!(
@@ -290,7 +290,7 @@ mod tests {
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
-            OscillatorPreset::octaves(-1.0),
+            OscillatorSettings::octaves(-1.0),
             MidiNote::C4,
         );
         assert_eq!(
@@ -301,7 +301,7 @@ mod tests {
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
-            OscillatorPreset::semis_and_cents(12.0, 0.0),
+            OscillatorSettings::semis_and_cents(12.0, 0.0),
             MidiNote::C4,
         );
         assert_eq!(
@@ -312,7 +312,7 @@ mod tests {
 
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
-            OscillatorPreset::semis_and_cents(0.0, -1200.0),
+            OscillatorSettings::semis_and_cents(0.0, -1200.0),
             MidiNote::C4,
         );
         assert_eq!(
@@ -326,7 +326,7 @@ mod tests {
     fn test_oscillator_modulated() {
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
-            OscillatorPreset::octaves(0.0),
+            OscillatorSettings::octaves(0.0),
             MidiNote::C4,
         );
         assert_eq!(

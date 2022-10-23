@@ -2,10 +2,11 @@ use crate::common::{rrc, MonoSample, Rrc};
 use crate::midi::sequencer::MidiSequencer;
 use crate::midi::smf_reader::MidiSmfReader;
 use crate::orchestrator::{Orchestrator, Performance};
+use crate::settings::patches::SynthPatch;
 use crate::settings::songs::SongSettings;
 use crate::settings::ClockSettings;
 use crate::synthesizers::drumkit_sampler::Sampler;
-use crate::synthesizers::welsh::{PresetName, Synth, SynthPreset};
+use crate::synthesizers::welsh::{PatchName, Synth};
 use crate::traits::IsMidiInstrument;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleRate, StreamConfig};
@@ -61,7 +62,7 @@ impl IOHelper {
                 Synth::new_wrapped_with(
                     channel,
                     ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
-                    SynthPreset::by_name(&PresetName::Piano),
+                    SynthPatch::by_name(&PatchName::Piano),
                 )
             };
             let instrument = Rc::clone(&synth);

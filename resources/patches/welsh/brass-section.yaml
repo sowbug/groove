@@ -1,10 +1,10 @@
 ---
 name: brass-section
-oscillator-1-preset:
+oscillator-1:
   waveform: square
   tune: 0.9942404
   mix: 1.0
-oscillator-2-preset:
+oscillator-2:
   waveform:
     pulse-width: 0.2
   tune: 2.011586
@@ -12,7 +12,7 @@ oscillator-2-preset:
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
-lfo-preset:
+lfo:
   routing: pulse-width
   waveform: triangle
   frequency: 5.5
@@ -28,12 +28,12 @@ filter-type-12db:
   weight: 0.1
 filter-resonance: 0.0
 filter-envelope-weight: 1.0
-filter-envelope-preset:
+filter-envelope:
   attack: 0.03
   decay: 10000.0
   sustain: 1.0
   release: 0.6
-amp-envelope-preset:
+amp-envelope:
   attack: 0.0
   decay: 10000.0
   sustain: 1.0

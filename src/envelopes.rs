@@ -2,7 +2,7 @@ use super::clock::Clock;
 use crate::{
     clock::ClockTimeUnit,
     common::{MonoSample, Rrc, Ww},
-    settings::patches::EnvelopePreset,
+    settings::patches::EnvelopeSettings,
     traits::{IsMutable, SourcesAudio},
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -230,7 +230,7 @@ enum AdsrEnvelopeStepName {
 #[derive(Debug)]
 pub struct AdsrEnvelope {
     pub(crate) me: Ww<Self>,
-    preset: EnvelopePreset,
+    preset: EnvelopeSettings,
     is_muted: bool,
 
     envelope: SteppedEnvelope,
@@ -243,7 +243,7 @@ impl Default for AdsrEnvelope {
     fn default() -> Self {
         Self {
             me: Weak::new(),
-            preset: EnvelopePreset::default(),
+            preset: EnvelopeSettings::default(),
             is_muted: false,
             envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
@@ -263,7 +263,7 @@ impl AdsrEnvelope {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn new_wrapped_with(preset: &EnvelopePreset) -> Rrc<Self> {
+    pub(crate) fn new_wrapped_with(preset: &EnvelopeSettings) -> Rrc<Self> {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
@@ -461,7 +461,7 @@ impl AdsrEnvelope {
         self.envelope.debug_validate_steps();
     }
 
-    pub fn new_with(preset: &EnvelopePreset) -> Self {
+    pub fn new_with(preset: &EnvelopeSettings) -> Self {
         let vec = vec![
             EnvelopeStep {
                 // InitialIdle
@@ -558,7 +558,7 @@ mod tests {
 
     #[test]
     fn test_envelope_mainline() {
-        let ep = EnvelopePreset {
+        let ep = EnvelopeSettings {
             attack: 0.1,
             decay: 0.2,
             sustain: 0.8,
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn test_envelope_interrupted_attack() {
-        let ep = EnvelopePreset {
+        let ep = EnvelopeSettings {
             attack: 0.2,
             decay: 0.4,
             sustain: 0.8,
@@ -694,7 +694,7 @@ mod tests {
 
     #[test]
     fn test_envelope_interrupted_decay() {
-        let ep = EnvelopePreset {
+        let ep = EnvelopeSettings {
             attack: 0.2,
             decay: 0.4,
             sustain: 0.8,

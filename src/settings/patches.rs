@@ -2,20 +2,20 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub struct SynthPreset {
+pub struct SynthPatch {
     pub name: String,
-    pub oscillator_1_preset: OscillatorPreset,
-    pub oscillator_2_preset: OscillatorPreset,
+    pub oscillator_1: OscillatorSettings,
+    pub oscillator_2: OscillatorSettings,
     pub oscillator_2_track: bool,
     pub oscillator_2_sync: bool,
 
     pub noise: f32,
 
-    pub lfo_preset: LfoPreset,
+    pub lfo: LfoPreset,
 
-    pub glide: GlidePreset,
+    pub glide: GlideSettings,
     pub has_unison: bool,
-    pub polyphony: PolyphonyPreset,
+    pub polyphony: PolyphonySettings,
 
     // There is meant to be only one filter, but the Welsh book
     // provides alternate settings depending on the kind of filter
@@ -24,9 +24,9 @@ pub struct SynthPreset {
     pub filter_type_12db: FilterPreset,
     pub filter_resonance: f32, // This should be an appropriate interpretation of a linear 0..1
     pub filter_envelope_weight: f32,
-    pub filter_envelope_preset: EnvelopePreset,
+    pub filter_envelope: EnvelopeSettings,
 
-    pub amp_envelope_preset: EnvelopePreset,
+    pub amp_envelope: EnvelopeSettings,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug, Default, Deserialize, Serialize)]
@@ -44,7 +44,7 @@ pub enum WaveformType {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum GlidePreset {
+pub enum GlideSettings {
     #[default]
     Off,
     On(f32),
@@ -52,7 +52,7 @@ pub enum GlidePreset {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum PolyphonyPreset {
+pub enum PolyphonySettings {
     #[default]
     Multi,
     Mono,
@@ -61,23 +61,23 @@ pub enum PolyphonyPreset {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub struct OscillatorPreset {
+pub struct OscillatorSettings {
     pub waveform: WaveformType,
     pub tune: f32,
     pub mix: f32,
 }
 
-impl Default for OscillatorPreset {
+impl Default for OscillatorSettings {
     fn default() -> Self {
         Self {
             waveform: WaveformType::default(),
-            tune: OscillatorPreset::NATURAL_TUNING,
-            mix: OscillatorPreset::FULL_MIX,
+            tune: OscillatorSettings::NATURAL_TUNING,
+            mix: OscillatorSettings::FULL_MIX,
         }
     }
 }
 
-impl OscillatorPreset {
+impl OscillatorSettings {
     pub const NATURAL_TUNING: f32 = 1.0; // tune field
     pub const FULL_MIX: f32 = 1.0; // mix field
 
@@ -97,14 +97,14 @@ impl OscillatorPreset {
 // sustain is a 0..=1 percentage.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub struct EnvelopePreset {
+pub struct EnvelopeSettings {
     pub attack: f32,
     pub decay: f32,
     pub sustain: f32,
     pub release: f32,
 }
 
-impl Default for EnvelopePreset {
+impl Default for EnvelopeSettings {
     fn default() -> Self {
         Self {
             attack: 0.0,
@@ -115,7 +115,7 @@ impl Default for EnvelopePreset {
     }
 }
 
-impl EnvelopePreset {
+impl EnvelopeSettings {
     #[allow(dead_code)]
     pub const MAX: f32 = 10000.0; // TODO: what exactly does Welsh mean by "max"?
 }
@@ -170,7 +170,7 @@ mod tests {
     use crate::{
         clock::Clock,
         midi::{MidiChannel, MidiMessage, MidiMessageType},
-        settings::patches::OscillatorPreset,
+        settings::patches::OscillatorSettings,
         traits::SinksMidi,
     };
 
@@ -221,34 +221,34 @@ mod tests {
 
     #[test]
     fn test_oscillator_tuning_helpers() {
-        assert_eq!(OscillatorPreset::NATURAL_TUNING, 1.0);
+        assert_eq!(OscillatorSettings::NATURAL_TUNING, 1.0);
 
         // tune
-        assert_eq!(OscillatorPreset::octaves(0.0), 1.0);
-        assert_eq!(OscillatorPreset::octaves(1.0), 2.0);
-        assert_eq!(OscillatorPreset::octaves(-1.0), 0.5);
-        assert_eq!(OscillatorPreset::octaves(2.0), 4.0);
-        assert_eq!(OscillatorPreset::octaves(-2.0), 0.25);
+        assert_eq!(OscillatorSettings::octaves(0.0), 1.0);
+        assert_eq!(OscillatorSettings::octaves(1.0), 2.0);
+        assert_eq!(OscillatorSettings::octaves(-1.0), 0.5);
+        assert_eq!(OscillatorSettings::octaves(2.0), 4.0);
+        assert_eq!(OscillatorSettings::octaves(-2.0), 0.25);
 
-        assert_eq!(OscillatorPreset::semis_and_cents(0.0, 0.0), 1.0);
-        assert_eq!(OscillatorPreset::semis_and_cents(12.0, 0.0), 2.0);
-        assert_approx_eq!(OscillatorPreset::semis_and_cents(5.0, 0.0), 1.334839557); // 349.2282÷261.6256, F4÷C4
+        assert_eq!(OscillatorSettings::semis_and_cents(0.0, 0.0), 1.0);
+        assert_eq!(OscillatorSettings::semis_and_cents(12.0, 0.0), 2.0);
+        assert_approx_eq!(OscillatorSettings::semis_and_cents(5.0, 0.0), 1.334839557); // 349.2282÷261.6256, F4÷C4
         assert_eq!(
-            OscillatorPreset::semis_and_cents(0.0, -100.0),
+            OscillatorSettings::semis_and_cents(0.0, -100.0),
             2.0f32.powf(-100.0 / 1200.0)
         );
 
         assert_eq!(
-            OscillatorPreset::octaves(0.5),
-            OscillatorPreset::semis_and_cents(6.0, 0.0)
+            OscillatorSettings::octaves(0.5),
+            OscillatorSettings::semis_and_cents(6.0, 0.0)
         );
         assert_eq!(
-            OscillatorPreset::octaves(1.0),
-            OscillatorPreset::semis_and_cents(0.0, 1200.0)
+            OscillatorSettings::octaves(1.0),
+            OscillatorSettings::semis_and_cents(0.0, 1200.0)
         );
         assert_eq!(
-            OscillatorPreset::semis_and_cents(1.0, 0.0),
-            OscillatorPreset::semis_and_cents(0.0, 100.0)
+            OscillatorSettings::semis_and_cents(1.0, 0.0),
+            OscillatorSettings::semis_and_cents(0.0, 100.0)
         );
     }
 }

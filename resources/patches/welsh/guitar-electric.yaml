@@ -1,11 +1,11 @@
 ---
 name: guitar-electric
-oscillator-1-preset:
+oscillator-1:
   waveform:
     pulse-width: 0.2
   tune: 1.0
   mix: 0.65
-oscillator-2-preset:
+oscillator-2:
   waveform:
     pulse-width: 0.15
   tune: 1.7817974
@@ -13,7 +13,7 @@ oscillator-2-preset:
 oscillator-2-track: true
 oscillator-2-sync: true
 noise: 0.0
-lfo-preset:
+lfo:
   routing: none
   waveform: sine
   frequency: 0.0
@@ -29,12 +29,12 @@ filter-type-12db:
   weight: 1.0
 filter-resonance: 0.0
 filter-envelope-weight: 0.0
-filter-envelope-preset:
+filter-envelope:
   attack: 0.0
   decay: 0.0
   sustain: 1.0
   release: 0.0
-amp-envelope-preset:
+amp-envelope:
   attack: 0.0
   decay: 1.7
   sustain: 0.0

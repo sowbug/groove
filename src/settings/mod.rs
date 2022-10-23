@@ -3,14 +3,14 @@ pub(crate) mod effects;
 pub(crate) mod patches;
 pub(crate) mod songs;
 
-use self::effects::EffectSettings;
+use self::{effects::EffectSettings, patches::SynthPatch};
 use crate::{
     clock::{BeatValue, TimeSignature},
     common::DeviceId,
     effects::arpeggiator::Arpeggiator,
     synthesizers::{
         drumkit_sampler,
-        welsh::{self, PresetName},
+        welsh::{self, PatchName},
     },
     traits::{IsMidiEffect, IsMidiInstrument},
 };
@@ -33,7 +33,7 @@ pub enum InstrumentSettings {
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
         #[serde(rename = "preset")]
-        preset_name: PresetName,
+        preset_name: PatchName,
     },
     #[serde(rename_all = "kebab-case")]
     Drumkit {
@@ -162,7 +162,7 @@ impl InstrumentSettings {
             } => welsh::Synth::new_wrapped_with(
                 *midi_input_channel,
                 sample_rate,
-                welsh::SynthPreset::by_name(preset_name),
+                SynthPatch::by_name(preset_name),
             ),
             InstrumentSettings::Drumkit {
                 midi_input_channel,

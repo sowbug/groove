@@ -1,17 +1,17 @@
 ---
 name: cymbal
-oscillator-1-preset:
+oscillator-1:
   waveform: sine
   tune: 1.0
   mix: 1.0
-oscillator-2-preset:
+oscillator-2:
   waveform: sine
   tune: 1.0
   mix: 1.0
 oscillator-2-track: false
 oscillator-2-sync: false
 noise: 1.0
-lfo-preset:
+lfo:
   routing: none
   waveform: sine
   frequency: 0.0
@@ -27,12 +27,12 @@ filter-type-12db:
   weight: 0.89
 filter-resonance: 0.5
 filter-envelope-weight: 0.7
-filter-envelope-preset:
+filter-envelope:
   attack: 0.0
   decay: 0.14
   sustain: 0.0
   release: 1.8
-amp-envelope-preset:
+amp-envelope:
   attack: 0.0
   decay: 1.1
   sustain: 0.0

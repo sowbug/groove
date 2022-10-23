@@ -2,6 +2,7 @@ use crate::{
     common::{rrc, Rrc},
     effects::{bitcrusher::Bitcrusher, limiter::Limiter},
     midi::{sequencer::MidiSequencer, smf_reader::MidiSmfReader, MidiChannel},
+    settings::patches::SynthPatch,
     synthesizers::welsh,
     traits::{IsMidiInstrument, SinksAudio, SinksMidi, SourcesAudio, SourcesMidi},
     IOHelper, Orchestrator,
@@ -141,11 +142,7 @@ impl ScriptEngine {
     }
 
     fn new_synth() -> Rrc<dyn IsMidiInstrument> {
-        welsh::Synth::new_wrapped_with(
-            0,
-            44100,
-            welsh::SynthPreset::by_name(&welsh::PresetName::Piano),
-        )
+        welsh::Synth::new_wrapped_with(0, 44100, SynthPatch::by_name(&welsh::PatchName::Piano))
     }
 
     fn new_sequencer(orchestrator: &mut Orchestrator) -> Rrc<MidiSequencer> {

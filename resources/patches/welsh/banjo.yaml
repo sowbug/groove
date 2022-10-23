@@ -1,11 +1,11 @@
 ---
 name: banjo
-oscillator-1-preset:
+oscillator-1:
   waveform:
     pulse-width: 0.2
   tune: 1.0
   mix: 1.0
-oscillator-2-preset:
+oscillator-2:
   waveform:
     pulse-width: 0.1
   tune: 1.3348398
@@ -13,7 +13,7 @@ oscillator-2-preset:
 oscillator-2-track: true
 oscillator-2-sync: true
 noise: 0.0
-lfo-preset:
+lfo:
   routing: amplitude
   waveform: triangle
   frequency: 10.0
@@ -30,12 +30,12 @@ filter-type-12db:
   weight: 0.63
 filter-resonance: 0.0
 filter-envelope-weight: 0.75
-filter-envelope-preset:
+filter-envelope:
   attack: 0.0
   decay: 0.19
   sustain: 0.0
   release: 0.19
-amp-envelope-preset:
+amp-envelope:
   attack: 0.0
   decay: 0.67
   sustain: 0.0

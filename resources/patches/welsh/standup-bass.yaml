@@ -1,18 +1,18 @@
 ---
 name: standup-bass
-oscillator-1-preset:
+oscillator-1:
   waveform:
     pulse-width: 0.25
   tune: 0.5
   mix: 1.0
-oscillator-2-preset:
+oscillator-2:
   waveform: triangle
   tune: 0.5
   mix: 1.0
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
-lfo-preset:
+lfo:
   routing: amplitude
   waveform: triangle
   frequency: 15.0
@@ -28,12 +28,12 @@ filter-type-12db:
   weight: 0.1
 filter-resonance: 0.0
 filter-envelope-weight: 0.75
-filter-envelope-preset:
+filter-envelope:
   attack: 0.0
   decay: 2.33
   sustain: 0.6
   release: 2.33
-amp-envelope-preset:
+amp-envelope:
   attack: 0.0
   decay: 1.28
   sustain: 0.0

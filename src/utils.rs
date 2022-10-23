@@ -7,7 +7,7 @@ pub mod tests {
         envelopes::AdsrEnvelope,
         midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MIDI_CHANNEL_RECEIVE_ALL},
         oscillators::Oscillator,
-        settings::patches::EnvelopePreset,
+        settings::patches::EnvelopeSettings,
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
@@ -396,7 +396,7 @@ pub mod tests {
         fn new() -> Self {
             Self::new_with(
                 rrc(Oscillator::new()),
-                rrc(AdsrEnvelope::new_with(&EnvelopePreset::default())),
+                rrc(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
             )
         }
         pub fn new_with(
