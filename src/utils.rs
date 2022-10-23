@@ -2,15 +2,13 @@
 pub mod tests {
     use crate::{
         clock::{Clock, ClockTimeUnit, WatchedClock},
-        common::{
-            rrc, MonoSample, Rrc, WaveformType, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
-            MONO_SAMPLE_SILENCE,
-        },
+        common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE},
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
         midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MIDI_CHANNEL_RECEIVE_ALL},
         oscillators::Oscillator,
-        preset::EnvelopePreset,
+        settings::patches::EnvelopePreset,
+        settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
             IsController, IsEffect, IsMutable, MakesControlSink, SinksAudio, SinksControl,

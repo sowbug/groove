@@ -2,7 +2,7 @@ use super::clock::Clock;
 use crate::{
     clock::ClockTimeUnit,
     common::{MonoSample, Rrc, Ww},
-    preset::EnvelopePreset,
+    settings::patches::EnvelopePreset,
     traits::{IsMutable, SourcesAudio},
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -552,7 +552,7 @@ impl IsMutable for AdsrEnvelope {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{clock::Clock, preset::EnvelopePreset};
+    use crate::clock::Clock;
     use assert_approx_eq::assert_approx_eq;
     use more_asserts::{assert_gt, assert_lt};
 

@@ -1,6 +1,6 @@
 use super::{
     control::{ControlPathSettings, ControlTripSettings},
-    ClockSettings, DeviceSettings, PatternSettings, TrackSettings,
+    ClockSettings, DeviceSettings, LoadError, PatternSettings, TrackSettings,
 };
 use crate::{
     clock::WatchedClock,
@@ -14,12 +14,6 @@ use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
-
-#[derive(Debug, Clone)]
-pub enum LoadError {
-    FileError,
-    FormatError,
-}
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]
@@ -45,7 +39,7 @@ impl SongSettings {
         }
     }
 
-    pub fn new_from_yaml(yaml: &str) -> Result<SongSettings, LoadError> {
+    pub fn new_from_yaml(yaml: &str) -> Result<Self, LoadError> {
         serde_yaml::from_str(yaml).map_err(|e| {
             println!("{}", e);
             LoadError::FormatError

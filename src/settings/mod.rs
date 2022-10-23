@@ -1,6 +1,7 @@
 pub(crate) mod control;
 pub(crate) mod effects;
-pub(crate) mod song;
+pub(crate) mod patches;
+pub(crate) mod songs;
 
 use self::effects::EffectSettings;
 use crate::{
@@ -17,6 +18,12 @@ use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, rc::Rc};
 
 type MidiChannel = u8;
+
+#[derive(Debug, Clone)]
+pub enum LoadError {
+    FileError,
+    FormatError,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]

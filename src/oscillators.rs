@@ -1,7 +1,7 @@
 use super::clock::Clock;
 use crate::{
-    common::{MonoSample, Rrc, WaveformType, Ww},
-    preset::{LfoPreset, OscillatorPreset},
+    common::{MonoSample, Rrc, Ww},
+    settings::patches::{LfoPreset, OscillatorPreset, WaveformType},
     traits::{IsMutable, SourcesAudio},
 };
 use std::{
@@ -181,7 +181,7 @@ mod tests {
     use crate::{
         clock::{Clock, WatchedClock},
         midi::{MidiMessage, MidiNote},
-        preset::OscillatorPreset,
+        settings::patches::OscillatorPreset,
         traits::SourcesAudio,
         utils::tests::{
             write_orchestration_to_file, write_source_to_file, TestOrchestrator, TestTimer,

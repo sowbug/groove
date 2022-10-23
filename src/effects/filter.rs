@@ -582,8 +582,9 @@ impl IsMutable for Filter {
 mod tests {
     use super::*;
     use crate::{
-        common::{rrc, WaveformType},
+        common::rrc,
         envelopes::{EnvelopeStep, SteppedEnvelope},
+        settings::patches::WaveformType,
         traits::{MakesControlSink, SourcesControl},
         utils::tests::{write_source_and_controlled_effect, TestControlSourceContinuous},
     };

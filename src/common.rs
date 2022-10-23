@@ -27,20 +27,3 @@ pub const MONO_SAMPLE_MAX: MonoSample = 1.0;
 pub const MONO_SAMPLE_MIN: MonoSample = -1.0;
 
 pub type DeviceId = String;
-
-#[derive(PartialEq, Copy, Clone, Debug)]
-pub enum WaveformType {
-    None,
-    Sine,
-    Square,
-    PulseWidth(f32),
-    Triangle,
-    Sawtooth,
-    Noise,
-}
-
-impl Default for WaveformType {
-    fn default() -> Self {
-        WaveformType::Sine
-    }
-}

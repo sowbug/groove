@@ -1,6 +1,66 @@
-use crate::common::WaveformType;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct SynthPreset {
+    pub name: String,
+    pub oscillator_1_preset: OscillatorPreset,
+    pub oscillator_2_preset: OscillatorPreset,
+    pub oscillator_2_track: bool,
+    pub oscillator_2_sync: bool,
+
+    pub noise: f32,
+
+    pub lfo_preset: LfoPreset,
+
+    pub glide: GlidePreset,
+    pub has_unison: bool,
+    pub polyphony: PolyphonyPreset,
+
+    // There is meant to be only one filter, but the Welsh book
+    // provides alternate settings depending on the kind of filter
+    // your synthesizer has.
+    pub filter_type_24db: FilterPreset,
+    pub filter_type_12db: FilterPreset,
+    pub filter_resonance: f32, // This should be an appropriate interpretation of a linear 0..1
+    pub filter_envelope_weight: f32,
+    pub filter_envelope_preset: EnvelopePreset,
+
+    pub amp_envelope_preset: EnvelopePreset,
+}
+
+#[derive(PartialEq, Copy, Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum WaveformType {
+    None,
+    #[default]
+    Sine,
+    Square,
+    PulseWidth(f32),
+    Triangle,
+    Sawtooth,
+    Noise,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GlidePreset {
+    #[default]
+    Off,
+    On(f32),
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PolyphonyPreset {
+    #[default]
+    Multi,
+    Mono,
+    MultiLimit(u8),
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct OscillatorPreset {
     pub waveform: WaveformType,
     pub tune: f32,
@@ -10,7 +70,7 @@ pub struct OscillatorPreset {
 impl Default for OscillatorPreset {
     fn default() -> Self {
         Self {
-            waveform: WaveformType::Sine,
+            waveform: WaveformType::default(),
             tune: OscillatorPreset::NATURAL_TUNING,
             mix: OscillatorPreset::FULL_MIX,
         }
@@ -21,10 +81,12 @@ impl OscillatorPreset {
     pub const NATURAL_TUNING: f32 = 1.0; // tune field
     pub const FULL_MIX: f32 = 1.0; // mix field
 
+    #[allow(dead_code)]
     pub fn octaves(num: f32) -> f32 {
         Self::semis_and_cents(num * 12.0, 0.0)
     }
 
+    #[allow(dead_code)]
     pub fn semis_and_cents(semitones: f32, cents: f32) -> f32 {
         // https://en.wikipedia.org/wiki/Cent_(music)
         2.0f32.powf((semitones * 100.0 + cents) / 1200.0)
@@ -33,7 +95,8 @@ impl OscillatorPreset {
 
 // attack/decay/release are in time units.
 // sustain is a 0..=1 percentage.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct EnvelopePreset {
     pub attack: f32,
     pub decay: f32,
@@ -53,24 +116,22 @@ impl Default for EnvelopePreset {
 }
 
 impl EnvelopePreset {
+    #[allow(dead_code)]
     pub const MAX: f32 = 10000.0; // TODO: what exactly does Welsh mean by "max"?
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum LfoRouting {
+    #[default]
     None,
     Amplitude,
     Pitch,
     PulseWidth,
 }
 
-impl Default for LfoRouting {
-    fn default() -> Self {
-        LfoRouting::None
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct LfoPreset {
     pub routing: LfoRouting,
     pub waveform: WaveformType,
@@ -79,10 +140,12 @@ pub struct LfoPreset {
 }
 
 impl LfoPreset {
+    #[allow(dead_code)]
     pub fn percent(num: f32) -> f32 {
         num / 100.0
     }
 
+    #[allow(dead_code)]
     pub fn semis_and_cents(semitones: f32, cents: f32) -> f32 {
         // https://en.wikipedia.org/wiki/Cent_(music)
         2.0f32.powf((semitones * 100.0 + cents) / 1200.0)
@@ -93,7 +156,8 @@ impl LfoPreset {
 // Thus we can use defaults cutoff 0.0 and weight 0.0 as a hack for a passthrough.
 // Eventually we'll want this preset to be richer, and then we'll need an explicit
 // notion of a None filter type.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct FilterPreset {
     pub cutoff: f32,
     pub weight: f32, // TODO: this is unused because it's just another way to say cutoff
@@ -106,10 +170,9 @@ mod tests {
     use crate::{
         clock::Clock,
         midi::{MidiChannel, MidiMessage, MidiMessageType},
+        settings::patches::OscillatorPreset,
         traits::SinksMidi,
     };
-
-    use super::OscillatorPreset;
 
     #[derive(Debug, Default)]
     pub struct NullDevice {

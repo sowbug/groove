@@ -186,20 +186,23 @@ pub trait IsController: SourcesControl + WatchesClock {}
 
 #[cfg(test)]
 pub mod tests {
-
     use super::{SinksAudio, SourcesAudio, SourcesControl};
-    use crate::clock::WatchedClock;
-    use crate::common::MonoSample;
-    use crate::midi::MidiMessage;
-    use crate::preset::EnvelopePreset;
-    use crate::traits::{MakesControlSink, SinksMidi, SourcesMidi, Terminates, WatchesClock};
-    use crate::utils::tests::{
-        TestArpeggiator, TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSource,
-        TestControlSourceContinuous, TestControllable, TestKeyboard, TestMidiSink, TestMidiSource,
-        TestOrchestrator, TestSynth, TestTimer, TestTrigger,
+    use crate::{
+        clock::Clock,
+        clock::WatchedClock,
+        common::{MonoSample, MONO_SAMPLE_SILENCE},
+        effects::gain::Gain,
+        envelopes::AdsrEnvelope,
+        midi::MidiMessage,
+        oscillators::Oscillator,
+        settings::patches::{EnvelopePreset, WaveformType},
+        traits::{MakesControlSink, SinksMidi, SourcesMidi, Terminates, WatchesClock},
+        utils::tests::{
+            TestArpeggiator, TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSource,
+            TestControlSourceContinuous, TestControllable, TestKeyboard, TestMidiSink,
+            TestMidiSource, TestOrchestrator, TestSynth, TestTimer, TestTrigger,
+        },
     };
-    use crate::{clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator};
-    use crate::{common::MONO_SAMPLE_SILENCE, effects::gain::Gain};
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -208,7 +211,7 @@ pub mod tests {
         let mut clock = WatchedClock::new();
         let mut orchestrator = TestOrchestrator::new();
         let envelope = AdsrEnvelope::new_wrapped_with(&EnvelopePreset::default());
-        let oscillator = Oscillator::new_wrapped_with(crate::common::WaveformType::Sine);
+        let oscillator = Oscillator::new_wrapped_with(WaveformType::Sine);
         oscillator
             .borrow_mut()
             .set_frequency(MidiMessage::note_to_frequency(60));
