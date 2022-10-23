@@ -1,0 +1,41 @@
+---
+name: cowbell-analog
+oscillator-1-preset:
+  waveform:
+    pulse-width: 0.1
+  tune: 1.0
+  mix: 1.0
+oscillator-2-preset:
+  waveform:
+    pulse-width: 0.35
+  tune: 1.3348398
+  mix: 1.0
+oscillator-2-track: true
+oscillator-2-sync: false
+noise: 0.0
+lfo-preset:
+  routing: none
+  waveform: sine
+  frequency: 0.0
+  depth: 0.0
+glide: "off"
+has-unison: false
+polyphony: mono
+filter-type-24db:
+  cutoff: 8100.0
+  weight: 0.87
+filter-type-12db:
+  cutoff: 3400.0
+  weight: 0.74
+filter-resonance: 0.0
+filter-envelope-weight: 0.65
+filter-envelope-preset:
+  attack: 0.0
+  decay: 0.02
+  sustain: 0.65
+  release: 10000.0
+amp-envelope-preset:
+  attack: 0.0
+  decay: 0.15
+  sustain: 0.0
+  release: 0.15

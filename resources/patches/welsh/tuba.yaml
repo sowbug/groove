@@ -1,0 +1,39 @@
+---
+name: tuba
+oscillator-1-preset:
+  waveform: sawtooth
+  tune: 1.0
+  mix: 0.85
+oscillator-2-preset:
+  waveform: sawtooth
+  tune: 0.5
+  mix: 1.0
+oscillator-2-track: true
+oscillator-2-sync: false
+noise: 0.0
+lfo-preset:
+  routing: amplitude
+  waveform: triangle
+  frequency: 2.4
+  depth: 0.05
+glide: "off"
+has-unison: false
+polyphony: multi
+filter-type-24db:
+  cutoff: 40.0
+  weight: 0.1
+filter-type-12db:
+  cutoff: 40.0
+  weight: 0.1
+filter-resonance: 0.0
+filter-envelope-weight: 0.6
+filter-envelope-preset:
+  attack: 0.7
+  decay: 10000.0
+  sustain: 1.0
+  release: 0.11
+amp-envelope-preset:
+  attack: 0.03
+  decay: 10000.0
+  sustain: 1.0
+  release: 0.11

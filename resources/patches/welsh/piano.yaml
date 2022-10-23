@@ -1,0 +1,40 @@
+---
+name: piano
+oscillator-1-preset:
+  waveform: sawtooth
+  tune: 1.0
+  mix: 0.75
+oscillator-2-preset:
+  waveform:
+    pulse-width: 0.15
+  tune: 2.244924
+  mix: 1.0
+oscillator-2-track: true
+oscillator-2-sync: true
+noise: 0.0
+lfo-preset:
+  routing: none
+  waveform: sine
+  frequency: 0.0
+  depth: 0.0
+glide: "off"
+has-unison: false
+polyphony: multi
+filter-type-24db:
+  cutoff: 40.0
+  weight: 0.1
+filter-type-12db:
+  cutoff: 40.0
+  weight: 0.1
+filter-resonance: 0.0
+filter-envelope-weight: 0.75
+filter-envelope-preset:
+  attack: 0.0
+  decay: 5.22
+  sustain: 0.0
+  release: 10000.0
+amp-envelope-preset:
+  attack: 0.0
+  decay: 0.67
+  sustain: 0.25
+  release: 0.5

@@ -1,0 +1,40 @@
+---
+name: acid-bass
+oscillator-1-preset:
+  waveform:
+    pulse-width: 0.25
+  tune: 1.005793
+  mix: 0.7
+oscillator-2-preset:
+  waveform: square
+  tune: 0.24856009
+  mix: 1.0
+oscillator-2-track: true
+oscillator-2-sync: false
+noise: 0.0
+lfo-preset:
+  routing: none
+  waveform: sine
+  frequency: 0.0
+  depth: 0.0
+glide: "off"
+has-unison: false
+polyphony: mono
+filter-type-24db:
+  cutoff: 450.0
+  weight: 0.45
+filter-type-12db:
+  cutoff: 330.0
+  weight: 0.4
+filter-resonance: 0.6
+filter-envelope-weight: 0.0
+filter-envelope-preset:
+  attack: 0.0
+  decay: 0.0
+  sustain: 0.0
+  release: 0.0
+amp-envelope-preset:
+  attack: 0.0
+  decay: 0.45
+  sustain: 0.15
+  release: 0.26

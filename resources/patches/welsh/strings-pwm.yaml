@@ -1,0 +1,39 @@
+---
+name: strings-pwm
+oscillator-1-preset:
+  waveform: square
+  tune: 0.9942404
+  mix: 1.0
+oscillator-2-preset:
+  waveform: square
+  tune: 1.005793
+  mix: 1.0
+oscillator-2-track: true
+oscillator-2-sync: false
+noise: 0.0
+lfo-preset:
+  routing: pulse-width
+  waveform: sine
+  frequency: 2.0
+  depth: 0.47
+glide: "off"
+has-unison: false
+polyphony: multi
+filter-type-24db:
+  cutoff: 2000.0
+  weight: 0.67
+filter-type-12db:
+  cutoff: 2000.0
+  weight: 0.67
+filter-resonance: 0.0
+filter-envelope-weight: 1.0
+filter-envelope-preset:
+  attack: 0.09
+  decay: 10000.0
+  sustain: 1.0
+  release: 10000.0
+amp-envelope-preset:
+  attack: 0.11
+  decay: 10000.0
+  sustain: 1.0
+  release: 0.35

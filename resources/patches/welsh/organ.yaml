@@ -1,0 +1,39 @@
+---
+name: organ
+oscillator-1-preset:
+  waveform: triangle
+  tune: 1.0
+  mix: 1.0
+oscillator-2-preset:
+  waveform: triangle
+  tune: 0.25
+  mix: 1.0
+oscillator-2-track: true
+oscillator-2-sync: false
+noise: 0.0
+lfo-preset:
+  routing: none
+  waveform: sine
+  frequency: 0.0
+  depth: 0.0
+glide: "off"
+has-unison: false
+polyphony: multi
+filter-type-24db:
+  cutoff: 20000.0
+  weight: 1.0
+filter-type-12db:
+  cutoff: 20000.0
+  weight: 1.0
+filter-resonance: 0.0
+filter-envelope-weight: 0.0
+filter-envelope-preset:
+  attack: 0.0
+  decay: 0.0
+  sustain: 1.0
+  release: 0.0
+amp-envelope-preset:
+  attack: 0.6
+  decay: 10000.0
+  sustain: 1.0
+  release: 0.4

@@ -1,0 +1,42 @@
+---
+name: banjo
+oscillator-1-preset:
+  waveform:
+    pulse-width: 0.2
+  tune: 1.0
+  mix: 1.0
+oscillator-2-preset:
+  waveform:
+    pulse-width: 0.1
+  tune: 1.3348398
+  mix: 0.8
+oscillator-2-track: true
+oscillator-2-sync: true
+noise: 0.0
+lfo-preset:
+  routing: amplitude
+  waveform: triangle
+  frequency: 10.0
+  depth: 0.1
+glide: "off"
+has-unison: false
+polyphony:
+  multi-limit: 5
+filter-type-24db:
+  cutoff: 2900.0
+  weight: 0.72
+filter-type-12db:
+  cutoff: 1500.0
+  weight: 0.63
+filter-resonance: 0.0
+filter-envelope-weight: 0.75
+filter-envelope-preset:
+  attack: 0.0
+  decay: 0.19
+  sustain: 0.0
+  release: 0.19
+amp-envelope-preset:
+  attack: 0.0
+  decay: 0.67
+  sustain: 0.0
+  release: 0.67
