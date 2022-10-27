@@ -1,14 +1,7 @@
-use super::general_midi::GeneralMidiProgram;
-use convert_case::{Case, Casing};
-use num_traits::FromPrimitive;
-use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::HashMap, f32::consts::FRAC_1_SQRT_2, rc::Rc};
-use strum_macros::{Display, EnumIter};
-
 use crate::{
     common::{rrc, MonoSample, Rrc, Ww},
     effects::filter::{Filter, FilterType},
-    midi::{MidiChannel, MidiMessage, MidiMessageType},
+    midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiMessageType},
     settings::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
@@ -16,6 +9,11 @@ use crate::{
     traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio, TransformsAudio},
     {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
+use convert_case::{Case, Casing};
+use num_traits::FromPrimitive;
+use serde::{Deserialize, Serialize};
+use std::{cell::RefCell, collections::HashMap, f32::consts::FRAC_1_SQRT_2, rc::Rc};
+use strum_macros::{Display, EnumIter};
 
 #[derive(Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -790,7 +788,8 @@ mod tests {
         clock::Clock,
         midi::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
         settings::patches::{
-            EnvelopeSettings, FilterPreset, LfoPreset, LfoRouting, OscillatorSettings, GlideSettings, PolyphonySettings,
+            EnvelopeSettings, FilterPreset, GlideSettings, LfoPreset, LfoRouting,
+            OscillatorSettings, PolyphonySettings,
         },
         synthesizers::welsh::WaveformType,
         utils::tests::canonicalize_filename,

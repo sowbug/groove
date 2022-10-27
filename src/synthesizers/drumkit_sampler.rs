@@ -1,14 +1,14 @@
-use std::collections::HashMap;
-use std::rc::Rc;
-
 use crate::{
     clock::Clock,
     common::{rrc, MonoSample, Rrc, Ww},
-    midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
+    midi::{
+        GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MidiMessageType,
+        MIDI_CHANNEL_RECEIVE_ALL,
+    },
     traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio},
 };
-
-use super::general_midi::GeneralMidiPercussionProgram;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Debug, Default)]
 struct Voice {
