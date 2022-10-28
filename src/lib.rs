@@ -1,7 +1,6 @@
 #![feature(trait_upcasting)]
 #![allow(incomplete_features)]
 
-pub use crate::gui::BorderedContainer;
 pub use crate::helpers::IOHelper;
 pub use crate::orchestrator::Orchestrator;
 pub use crate::scripting::ScriptEngine;

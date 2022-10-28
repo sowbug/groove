@@ -17,7 +17,7 @@ pub mod tests {
     };
     use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};
-    use plotters::prelude::*;
+   // use plotters::prelude::*;
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
     };
@@ -135,34 +135,34 @@ pub mod tests {
         );
     }
 
-    use std::error::Error;
-    fn generate_chart(
-        data: &Vec<(f32, f32)>,
-        min_domain: f32,
-        max_domain: f32,
-        min_range: f32,
-        max_range: f32,
-        filename: &str,
-    ) -> Result<(), Box<dyn Error>> {
-        let out_filename = format!("{}.png", filename);
-        let root = BitMapBackend::new(out_filename.as_str(), (640, 360)).into_drawing_area();
-        root.fill(&WHITE)?;
+    // use std::error::Error;
+    // fn generate_chart(
+    //     data: &Vec<(f32, f32)>,
+    //     min_domain: f32,
+    //     max_domain: f32,
+    //     min_range: f32,
+    //     max_range: f32,
+    //     filename: &str,
+    // ) -> Result<(), Box<dyn Error>> {
+    //     let out_filename = format!("{}.png", filename);
+    //     let root = BitMapBackend::new(out_filename.as_str(), (640, 360)).into_drawing_area();
+    //     root.fill(&WHITE)?;
 
-        let mut chart = ChartBuilder::on(&root)
-            .margin(0)
-            .x_label_area_size(20)
-            .y_label_area_size(0)
-            .build_cartesian_2d(
-                IntoLogRange::log_scale(min_domain..max_domain),
-                IntoLogRange::log_scale(min_range..max_range),
-            )?;
-        chart.configure_mesh().disable_mesh().draw()?;
-        chart.draw_series(LineSeries::new(data.iter().map(|t| (t.0, t.1)), &BLUE))?;
+    //     let mut chart = ChartBuilder::on(&root)
+    //         .margin(0)
+    //         .x_label_area_size(20)
+    //         .y_label_area_size(0)
+    //         .build_cartesian_2d(
+    //             IntoLogRange::log_scale(min_domain..max_domain),
+    //             IntoLogRange::log_scale(min_range..max_range),
+    //         )?;
+    //     chart.configure_mesh().disable_mesh().draw()?;
+    //     chart.draw_series(LineSeries::new(data.iter().map(|t| (t.0, t.1)), &BLUE))?;
 
-        root.present()?;
+    //     root.present()?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     pub(crate) fn generate_fft_for_samples(
         clock_settings: &ClockSettings,
@@ -197,14 +197,14 @@ pub mod tests {
             }
         }
 
-        let _ = generate_chart(
-            &data,
-            0.0,
-            clock_settings.sample_rate() as f32 / 2.0,
-            min_y,
-            max_y,
-            filename,
-        );
+        // let _ = generate_chart(
+        //     &data,
+        //     0.0,
+        //     clock_settings.sample_rate() as f32 / 2.0,
+        //     min_y,
+        //     max_y,
+        //     filename,
+        // );
     }
 
     /// /////////////////
