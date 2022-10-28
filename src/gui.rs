@@ -9,7 +9,8 @@ use crate::{
 };
 use iced::{
     alignment::{Horizontal, Vertical},
-    widget::{button, column, container, row, slider, text, text_input},
+    theme,
+    widget::{column, container, row, slider, text, text_input},
     Element, Font,
 };
 use std::{any::type_name, fmt::Debug, rc::Weak};
@@ -48,6 +49,7 @@ impl<'a> GuiStuff {
             container(contents).padding(2)
         ])
         .padding(0)
+        .style(theme::Container::Box)
         .into()
     }
 
@@ -61,6 +63,7 @@ impl<'a> GuiStuff {
         )
         .width(iced::Length::Fill)
         .padding(1)
+        .style(theme::Container::Custom(Self::titled_container_title_style))
         .into()
     }
 
@@ -71,6 +74,15 @@ impl<'a> GuiStuff {
             .horizontal_alignment(iced::alignment::Horizontal::Left)
             .vertical_alignment(Vertical::Center)
             .into()
+    }
+
+    fn titled_container_title_style(theme: &iced::Theme) -> container::Appearance {
+        let palette = theme.extended_palette();
+        container::Appearance {
+            text_color: Some(palette.background.strong.text),
+            background: Some(palette.background.strong.color.into()),
+            ..Default::default()
+        }
     }
 }
 
@@ -256,7 +268,7 @@ impl GainViewableResponder {
 impl IsViewable for GainViewableResponder {
     fn view(&self) -> Element<GrooveMessage> {
         if let Some(target) = self.target.upgrade() {
-            let level = target.borrow().level();
+            let _level = target.borrow().level();
             let title = "Gain";
             let contents = container(row![
                 container(slider(
@@ -285,7 +297,7 @@ impl IsViewable for GainViewableResponder {
                         }
                     }
                 },
-                GrooveMessage::GainLevelChangedAsInteger(new_level) => {
+                GrooveMessage::GainLevelChangedAsInteger(_new_level) => {
                     ///////////////////////////////// target.borrow_mut().set_level(new_level.as_f32());
                 }
                 GrooveMessage::GainLevelChangedAsString(new_level) => {

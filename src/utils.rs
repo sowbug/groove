@@ -17,7 +17,7 @@ pub mod tests {
     };
     use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};
-   // use plotters::prelude::*;
+    // use plotters::prelude::*;
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
     };
@@ -167,7 +167,7 @@ pub mod tests {
     pub(crate) fn generate_fft_for_samples(
         clock_settings: &ClockSettings,
         samples: &Vec<f32>,
-        filename: &str,
+        _filename: &str,
     ) {
         const HANN_WINDOW_LENGTH: usize = 2048;
         assert!(samples.len() >= HANN_WINDOW_LENGTH);

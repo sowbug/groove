@@ -22,20 +22,6 @@ pub enum SaveError {
 }
 
 impl SavedState {
-    fn path() -> std::path::PathBuf {
-        let mut path = if let Some(project_dirs) =
-            directories_next::ProjectDirs::from("rs", "Iced", "Todos")
-        {
-            project_dirs.data_dir().into()
-        } else {
-            std::env::current_dir().unwrap_or(std::path::PathBuf::new())
-        };
-
-        path.push("todos.json");
-
-        path
-    }
-
     pub async fn load() -> Result<SavedState, LoadError> {
         //  use async_std::prelude::*;
 

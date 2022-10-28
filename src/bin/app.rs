@@ -10,6 +10,7 @@ use gui::skip_to_prev_icon;
 use gui::stop_icon;
 use iced::alignment;
 use iced::executor;
+use iced::theme;
 use iced::theme::Theme;
 use iced::widget::button;
 use iced::widget::scrollable;
@@ -29,6 +30,7 @@ struct GrooveApp {
     state: State,
 
     project_name: String,
+    #[allow(dead_code)]
     orchestrator: Orchestrator,
     viewables: Vec<Box<dyn IsViewable>>,
     control_bar: ControlBar,
@@ -101,6 +103,7 @@ impl ControlBar {
         ])
         .width(Length::Fill)
         .padding(4)
+        .style(theme::Container::Box)
         .into()
     }
 }
@@ -119,8 +122,6 @@ impl Default for Clock {
 }
 
 impl Clock {
-    pub fn update(&mut self, _message: ControlBarMessage) {}
-
     pub fn view(&self) -> Element<Message> {
         container(text(self.current_time.clone())).into()
     }
@@ -135,7 +136,7 @@ impl Application for GrooveApp {
     fn new(_flags: ()) -> (GrooveApp, Command<Message>) {
         (
             GrooveApp {
-                theme: Theme::default(),
+                theme: Theme::Dark,
                 state: State::Idle,
                 ..Default::default()
             },
@@ -143,12 +144,12 @@ impl Application for GrooveApp {
         )
     }
 
-    fn theme(&self) -> Self::Theme {
+    fn theme(&self) -> Theme {
         self.theme
     }
 
     fn title(&self) -> String {
-        String::from("Stopwatch - Iced")
+        String::from(&self.project_name)
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
@@ -171,6 +172,7 @@ impl Application for GrooveApp {
                     })
                     .collect();
                 *self = Self {
+                    theme: self.theme,
                     project_name: state.project_name.clone(),
                     orchestrator,
                     viewables,
@@ -218,6 +220,7 @@ impl Application for GrooveApp {
     fn view(&self) -> Element<Message> {
         match self.state {
             State::Idle => {}
+            #[allow(unused)]
             State::Ticking { last_tick } => {}
         }
 
