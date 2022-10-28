@@ -111,6 +111,27 @@ impl Orchestrator {
         Ok(performance)
     }
 
+    pub fn perform_to_worker(&mut self, worker: &mut Worker<f32>) -> anyhow::Result<()> {
+        let sample_rate = self.clock.inner_clock().settings().sample_rate();
+        let progress_indicator_quantum: usize = sample_rate / 2;
+        let mut next_progress_indicator: usize = progress_indicator_quantum;
+        self.clock.reset();
+        loop {
+            let (sample, done) = self.tick();
+            worker.push(sample);
+            if next_progress_indicator <= self.clock.inner_clock().samples() {
+                print!(".");
+                io::stdout().flush().unwrap();
+                next_progress_indicator += progress_indicator_quantum;
+            }
+            if done {
+                break;
+            }
+        }
+        println!();
+        Ok(())
+    }
+
     pub fn add_main_mixer_source(&mut self, device: Ww<dyn SourcesAudio>) {
         self.main_mixer.borrow_mut().add_audio_source(device);
     }

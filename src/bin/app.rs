@@ -2,7 +2,7 @@ mod gui;
 
 use groove::gui::IsViewable;
 use groove::gui::ViewableMessage;
-use groove::IOHelper;
+use groove::AudioOutput;
 use groove::Orchestrator;
 use gui::persistence::LoadError;
 use gui::persistence::SavedState;
@@ -35,6 +35,7 @@ struct GrooveApp {
     orchestrator: Orchestrator,
     viewables: Vec<Box<dyn IsViewable<Message = ViewableMessage>>>,
     control_bar: ControlBar,
+    audio_output: AudioOutput,
 }
 
 #[derive(Default)]
@@ -71,16 +72,19 @@ pub enum ControlBarMessage {
 }
 
 impl ControlBar {
-    pub fn update(&mut self, message: ControlBarMessage, orchestrator: &mut Orchestrator) {
+    pub fn update(
+        &mut self,
+        message: ControlBarMessage,
+        orchestrator: &mut Orchestrator,
+        audio_output: &mut AudioOutput,
+    ) {
         match message {
             ControlBarMessage::Play => {
-                if let Ok(performance) = orchestrator.perform() {
-                    if let Ok(_) = IOHelper::send_performance_to_output_device(performance) {
-                        // great
-                    }
-                }
+                orchestrator.perform_to_worker(audio_output.worker_mut());
             }
-            ControlBarMessage::Stop => todo!(),
+            ControlBarMessage::Stop => {
+                audio_output.stop(); // TODO also stop orchestrator
+            }
             ControlBarMessage::SkipToStart => todo!(),
         }
     }
@@ -181,6 +185,7 @@ impl Application for GrooveApp {
                     viewables,
                     ..Default::default()
                 };
+                (*self).audio_output.start();
             }
             Message::Loaded(Err(_)) => {
                 todo!()
@@ -205,7 +210,8 @@ impl Application for GrooveApp {
                 //              self.duration = Duration::default();
             }
             Message::ControlBarMessage(message) => {
-                self.control_bar.update(message, &mut self.orchestrator)
+                self.control_bar
+                    .update(message, &mut self.orchestrator, &mut self.audio_output);
             }
             Message::ControlBarBpm(new_value) => {
                 if let Ok(bpm) = new_value.parse() {

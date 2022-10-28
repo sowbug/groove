@@ -9,27 +9,150 @@ use crate::synthesizers::drumkit_sampler::Sampler;
 use crate::synthesizers::welsh::{PatchName, Synth};
 use crate::traits::IsMidiInstrument;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{SampleRate, StreamConfig};
-use crossbeam::deque::Stealer;
+use cpal::{SampleRate, Stream, StreamConfig};
+use crossbeam::deque::{Steal, Stealer, Worker};
 use std::rc::Rc;
 use std::sync::{Arc, Condvar, Mutex};
+
+pub struct AudioOutput {
+    sample_rate: usize,
+    worker: Worker<f32>,
+    stream: Option<Stream>,
+    sync_pair: Arc<(Mutex<bool>, Condvar)>,
+}
+
+impl Default for AudioOutput {
+    fn default() -> Self {
+        Self {
+            sample_rate: 44100,
+            worker: Worker::<f32>::new_fifo(),
+            stream: None,
+            sync_pair: Arc::new((Mutex::new(false), Condvar::new())),
+        }
+    }
+}
+
+impl AudioOutput {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn start(&mut self) {
+        let host = cpal::default_host();
+        let device = host
+            .default_output_device()
+            .expect("no output device available");
+
+        let mut supported_configs_range = device
+            .supported_output_configs()
+            .expect("error while querying configs");
+        let supported_config = supported_configs_range
+            .next()
+            .expect("no supported config?!")
+            .with_sample_rate(SampleRate(self.sample_rate as u32));
+
+        let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
+        let sample_format = supported_config.sample_format();
+        let config: StreamConfig = supported_config.into();
+
+        let stealer = self.worker.stealer();
+
+        let sync_pair_clone = Arc::clone(&self.sync_pair);
+
+        if let Ok(result) = match sample_format {
+            cpal::SampleFormat::F32 => device.build_output_stream(
+                &config,
+                move |data, output_callback_info| {
+                    Self::sample_from_queue::<f32>(
+                        &stealer,
+                        &sync_pair_clone,
+                        data,
+                        output_callback_info,
+                    )
+                },
+                err_fn,
+            ),
+            cpal::SampleFormat::I16 => device.build_output_stream(
+                &config,
+                move |data, output_callback_info| {
+                    Self::sample_from_queue::<i16>(
+                        &stealer,
+                        &sync_pair_clone,
+                        data,
+                        output_callback_info,
+                    )
+                },
+                err_fn,
+            ),
+            cpal::SampleFormat::U16 => device.build_output_stream(
+                &config,
+                move |data, output_callback_info| {
+                    Self::sample_from_queue::<u16>(
+                        &stealer,
+                        &sync_pair_clone,
+                        data,
+                        output_callback_info,
+                    )
+                },
+                err_fn,
+            ),
+        } {
+            self.stream = Some(result);
+            if let Some(stream) = &self.stream {
+                if let Ok(_) = stream.play() {
+                    // hooray
+                }
+            }
+        }
+    }
+
+    pub fn stop(&mut self) {
+        let lock = &self.sync_pair.0;
+        let cvar = &self.sync_pair.1;
+        let mut finished = lock.lock().unwrap();
+        *finished = true;
+        cvar.notify_one();
+    }
+
+    pub fn pause(&mut self) {}
+
+    pub fn worker_mut(&mut self) -> &mut Worker<f32> {
+        &mut self.worker
+    }
+
+    #[allow(dead_code)]
+    fn sample_from_queue<T: cpal::Sample>(
+        stealer: &Stealer<MonoSample>,
+        sync_pair: &Arc<(Mutex<bool>, Condvar)>,
+        data: &mut [T],
+        _info: &cpal::OutputCallbackInfo,
+    ) {
+        for next_sample in data.iter_mut() {
+            let mut sample = 0.0f32;
+            if let Ok(finished) = sync_pair.0.lock() {
+                let finished: bool = *finished;
+                if !finished {
+                    if let Steal::Success(stolen_sample) = stealer.steal() {
+                        sample = stolen_sample;
+                    }
+                }
+            }
+            *next_sample = cpal::Sample::from(&sample);
+        }
+    }
+}
 
 pub struct IOHelper {}
 
 impl IOHelper {
-    // orchestrator: &mut Orchestrator
-    pub async fn perform_async() -> Result<bool, &'static str> {
-        // if let Ok(performance) = orchestrator.perform() {
-        //     if let Ok(_) = IOHelper::send_performance_to_output_device(performance) {
-        //         Ok(true)
-        //     } else {
-        //         Err("playback")
-        //     }
-        // } else {
-        //     Err("oops")
-        // }
-        dbg!("exiting OK");
-        Ok(true)
+    pub async fn perform_async(
+        orchestrator: &mut Orchestrator,
+    ) -> Result<Performance, &'static str> {
+        if let Ok(performance) = orchestrator.perform() {
+            Ok(performance)
+        } else {
+            Err("perform failed")
+        }
     }
 
     pub fn song_settings_from_yaml_file(filename: &str) -> SongSettings {

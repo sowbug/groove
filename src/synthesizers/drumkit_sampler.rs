@@ -62,11 +62,17 @@ impl SinksMidi for Voice {
 }
 impl SourcesAudio for Voice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        // TODO: this explodes if the clock moves backward.
-        self.sample_pointer = clock.samples() - self.sample_clock_start;
-        if self.sample_pointer >= self.samples.len() {
+        if self.sample_clock_start > clock.samples() {
+            // TODO: this stops the clock-moves-backward explosion.
+            // Come up with a more robust way to handle the sample pointer.
             self.is_playing = false;
             self.sample_pointer = 0;
+        } else {
+            self.sample_pointer = clock.samples() - self.sample_clock_start;
+            if self.sample_pointer >= self.samples.len() {
+                self.is_playing = false;
+                self.sample_pointer = 0;
+            }
         }
 
         if self.is_playing {

@@ -2,6 +2,7 @@
 #![allow(incomplete_features)]
 
 pub use crate::helpers::IOHelper;
+pub use crate::helpers::AudioOutput;
 pub use crate::orchestrator::Orchestrator;
 pub use crate::scripting::ScriptEngine;
 pub use crate::settings::songs::SongSettings;
