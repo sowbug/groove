@@ -9,21 +9,33 @@ use std::fmt::Debug;
 
 /// Provides audio in the form of digital samples.
 pub trait SourcesAudio: Debug + IsMutable {
-    // Lots of implementers don't care about clock here,
-    // but some do (oscillators, LFOs), and it's a lot cleaner
-    // to pass a bit of extra information here than to either
-    // create a separate optional method supplying it (which
-    // everyone would have to call anyway), or define a whole
-    // new trait that breaks a bunch of simple paths elsewhere.
+    // Lots of implementers don't care about clock here, but some do
+    // (oscillators, LFOs), and it's a lot cleaner to pass a bit of extra
+    // information here than to either create a separate optional method
+    // supplying it (which everyone would have to call anyway), or define a
+    // whole new trait that breaks a bunch of simple paths elsewhere.
+    //
+    // TODO: I dream of removing the mut in &mut self. But some devices
+    // legitimately change state when asked for their current state, and I
+    // couldn't think of a way to give a chance to mutate that doesn't just make
+    // everything more complicated.
     fn source_audio(&mut self, clock: &Clock) -> MonoSample;
 }
+
+/// Some SourcesAudio will need to be called each cycle even if we don't need
+/// their audio (effects, for example). I think (not sure) that it's easier for
+/// individual devices to track whether they're muted, and to make that
+/// information externally available, so that we can still call them (and their
+/// children, recursively) but ignore their output, compared to either expecting
+/// them to return silence (which would let muted be an internal-only state), or
+/// to have something up in the sky track everyone who's muted.
 pub trait IsMutable {
     fn is_muted(&self) -> bool;
     fn set_muted(&mut self, is_muted: bool);
 }
 
-/// Can do something with audio samples. When it needs to do its
-/// work, it asks its SourcesAudio for their samples.
+/// Can do something with audio samples. When it needs to do its work, it asks
+/// its SourcesAudio for their samples.
 pub trait SinksAudio {
     fn sources(&self) -> &[Ww<dyn SourcesAudio>];
     fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>>;
@@ -53,9 +65,9 @@ pub trait SinksAudio {
     }
 }
 
-/// TransformsAudio can be thought of as SourcesAudio + SinksAudio, but it's
-/// an important third traits because it exposes the business logic that
-/// happens between the sinking and sourcing, which is useful for testing.
+/// TransformsAudio can be thought of as SourcesAudio + SinksAudio, but it's an
+/// important third traits because it exposes the business logic that happens
+/// between the sinking and sourcing, which is useful for testing.
 pub trait TransformsAudio {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample;
 }
@@ -140,12 +152,12 @@ pub trait SinksMidi: Debug {
     fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage);
 }
 
-/// A WatchesClock is something that needs to be called for every time
-/// slice. This sounds like SourcesAudio; indeed SourcesAudio do not
-/// (and *cannot*) implement WatchesClock because they're already called
-/// on every time slice to provide an audio sample. A WatchesClock has no
-/// extrinsic reason to be called, so the trait exists to make sure that
-/// whatever intrinsic reason for being called is satisfied.
+/// A WatchesClock is something that needs to be called for every time slice.
+/// This sounds like SourcesAudio; indeed SourcesAudio do not (and *cannot*)
+/// implement WatchesClock because they're already called on every time slice to
+/// provide an audio sample. A WatchesClock has no extrinsic reason to be
+/// called, so the trait exists to make sure that whatever intrinsic reason for
+/// being called is satisfied.
 pub trait WatchesClock: Debug + Terminates {
     /// WatchesClock::tick() must be called exactly once for every sample, and
     /// implementers can assume that they won't be asked to provide any
@@ -156,23 +168,24 @@ pub trait WatchesClock: Debug + Terminates {
 // Something that Terminates has a point in time where it would be OK never
 // being called or continuing to exist.
 //
-// If you're required to implement Terminates, but you don't know when
-// you need to terminate, then you should always return true. For example,
-// an arpeggiator is a WatchesClock, which means it is also a Terminates,
-// but it would be happy to keep responding to MIDI input forever. It should
-// return true.
+// If you're required to implement Terminates, but you don't know when you need
+// to terminate, then you should always return true. For example, an arpeggiator
+// is a WatchesClock, which means it is also a Terminates, but it would be happy
+// to keep responding to MIDI input forever. It should return true.
 //
-// The reason to choose true rather than false is that the caller uses is_finished()
-// to determine whether a song is complete. If a Terminates never returns true,
-// the loop will never end. Thus, "is_finished" is more like "is unaware of any
-// reason to continue existing" rather than "is certain there is no more work to do."
+// The reason to choose true rather than false is that the caller uses
+// is_finished() to determine whether a song is complete. If a Terminates never
+// returns true, the loop will never end. Thus, "is_finished" is more like "is
+// unaware of any reason to continue existing" rather than "is certain there is
+// no more work to do."
 pub trait Terminates {
     fn is_finished(&self) -> bool;
 }
 
 // WORKING ASSERTION: WatchesClock should not also SourcesAudio, because
-// WatchesClock gets a clock tick, whereas SourcesAudio gets a sources_audio(), and
-// both are time slice-y. Be on the lookout for anything that claims to need both.
+// WatchesClock gets a clock tick, whereas SourcesAudio gets a sources_audio(),
+// and both are time slice-y. Be on the lookout for anything that claims to need
+// both.
 pub trait IsMidiInstrument: SourcesAudio + SinksMidi + MakesIsViewable {} // TODO + MakesControlSink
 pub trait IsEffect:
     SourcesAudio + SinksAudio + TransformsAudio + MakesControlSink + MakesIsViewable
@@ -226,9 +239,9 @@ pub mod tests {
         let source = Rc::downgrade(&effect);
         orchestrator.add_audio_source(source);
 
-        // An Oscillator provides an audio signal. TestControlSourceContinuous adapts that audio
-        // signal to a series of control events. GainLevelController adapts the control events
-        // to Gain level changes.
+        // An Oscillator provides an audio signal. TestControlSourceContinuous
+        // adapts that audio signal to a series of control events.
+        // GainLevelController adapts the control events to Gain level changes.
         let mut audio_to_controller =
             TestControlSourceContinuous::new_with(Box::new(Oscillator::new()));
         if let Some(effect_controller) = effect
@@ -241,8 +254,8 @@ pub mod tests {
         let timer = TestTimer::new_with(2.0);
         clock.add_watcher(Rc::new(RefCell::new(timer)));
 
-        // TestTrigger provides an event at a certain time. EnvelopeNoteController adapts the event
-        // to internal ADSR events.
+        // TestTrigger provides an event at a certain time.
+        // EnvelopeNoteController adapts the event to internal ADSR events.
         let mut trigger_on = TestTrigger::new(1.0, 1.0);
         if let Some(envelope_controller) = envelope
             .borrow()
@@ -268,8 +281,9 @@ pub mod tests {
         // envelope hasn't been triggered yet
         assert_eq!(samples[0], 0.0);
 
-        // envelope should be triggered at 1-second mark. We check two consecutive samples just in
-        // case the oscillator happens to cross over between negative and positive right at that moment.
+        // envelope should be triggered at 1-second mark. We check two
+        // consecutive samples just in case the oscillator happens to cross over
+        // between negative and positive right at that moment.
         assert!(samples[44100] != 0.0 || samples[44100 + 1] != 0.0);
     }
 
@@ -306,7 +320,8 @@ pub mod tests {
 
     #[test]
     fn test_automation_source_and_sink() {
-        // By itself, TestAutomationSource doesn't do much, so we test both Source/Sink together.
+        // By itself, TestAutomationSource doesn't do much, so we test both
+        // Source/Sink together.
         let mut source = TestControlSource::new();
         let sink = TestControllable::new_wrapped();
 
