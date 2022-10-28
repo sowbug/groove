@@ -28,12 +28,14 @@ pub const LARGE_FONT: Font = Font::External {
 };
 
 #[derive(Clone, Debug)]
-pub enum GrooveMessage {
-    Null,
-    Something,
-    GainMessage(GainMessage), // TODO: this might be too specific
+pub enum ViewableMessage {
+    ArpeggiatorChanged(u8),
+    BitcrusherValueChanged(u8),
+    FilterCutoffChanged(f32),
     GainLevelChangedAsString(String),
-    GainLevelChangedAsInteger(u8),
+    GainLevelChangedAsIntegerPercentage(u8),
+    LimiterMinChanged(f32),
+    LimiterMaxChanged(f32),
 }
 
 #[derive(Default)]
@@ -42,8 +44,8 @@ pub struct GuiStuff {}
 impl<'a> GuiStuff {
     pub fn titled_container(
         title: &str,
-        contents: Element<'a, GrooveMessage>,
-    ) -> Element<'a, GrooveMessage> {
+        contents: Element<'a, ViewableMessage>,
+    ) -> Element<'a, ViewableMessage> {
         container(column![
             Self::titled_container_title(title),
             container(contents).padding(2)
@@ -53,7 +55,7 @@ impl<'a> GuiStuff {
         .into()
     }
 
-    pub fn titled_container_title(title: &str) -> Element<'a, GrooveMessage> {
+    pub fn titled_container_title(title: &str) -> Element<'a, ViewableMessage> {
         container(
             text(title.to_string())
                 .font(SMALL_FONT)
@@ -67,7 +69,7 @@ impl<'a> GuiStuff {
         .into()
     }
 
-    pub fn container_text(label: &str) -> Element<'a, GrooveMessage> {
+    pub fn container_text(label: &str) -> Element<'a, ViewableMessage> {
         text(label.to_string())
             .font(LARGE_FONT)
             .size(LARGE_FONT_SIZE)
@@ -87,9 +89,11 @@ impl<'a> GuiStuff {
 }
 
 pub trait IsViewable: Debug {
-    fn view(&self) -> Element<GrooveMessage> {
+    type Message;
+
+    fn view(&self) -> Element<ViewableMessage> {
         GuiStuff::titled_container(
-            "untitled",
+            "Untitled",
             text("under construction")
                 .horizontal_alignment(Horizontal::Center)
                 .vertical_alignment(Vertical::Center)
@@ -101,7 +105,7 @@ pub trait IsViewable: Debug {
         type_name::<Self>().to_string()
     }
 
-    fn update(&mut self, message: GrooveMessage) {
+    fn update(&mut self, message: ViewableMessage) {
         dbg!(message);
     }
 }
@@ -111,7 +115,9 @@ pub struct MixerViewableResponder {
     target: Ww<Mixer>,
 }
 impl IsViewable for MixerViewableResponder {
-    fn view(&self) -> Element<GrooveMessage> {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Mixer>();
             let contents = format!("sources: {}", target.borrow().sources().len());
@@ -122,13 +128,13 @@ impl IsViewable for MixerViewableResponder {
         }
     }
 
-    fn update(&mut self, message: GrooveMessage) {
+    fn update(&mut self, message: Self::Message) {
         dbg!(message);
     }
 }
 
 impl MakesIsViewable for Mixer {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(MixerViewableResponder {
                 target: Weak::clone(&self.me),
@@ -148,7 +154,9 @@ pub struct SamplerViewableResponder {
     target: Ww<Sampler>,
 }
 impl IsViewable for SamplerViewableResponder {
-    fn view(&self) -> Element<GrooveMessage> {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Sampler>();
             let contents = format!("name: {}", target.borrow().filename);
@@ -159,13 +167,13 @@ impl IsViewable for SamplerViewableResponder {
         }
     }
 
-    fn update(&mut self, message: GrooveMessage) {
+    fn update(&mut self, message: Self::Message) {
         dbg!(message);
     }
 }
 
 impl MakesIsViewable for Sampler {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(SamplerViewableResponder {
                 target: Weak::clone(&self.me),
@@ -185,7 +193,9 @@ pub struct DrumkitSamplerViewableResponder {
     target: Ww<DrumkitSampler>,
 }
 impl IsViewable for DrumkitSamplerViewableResponder {
-    fn view(&self) -> Element<GrooveMessage> {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<DrumkitSampler>();
             let contents = format!("kit name: {}", target.borrow().kit_name);
@@ -196,13 +206,13 @@ impl IsViewable for DrumkitSamplerViewableResponder {
         }
     }
 
-    fn update(&mut self, message: GrooveMessage) {
+    fn update(&mut self, message: Self::Message) {
         dbg!(message);
     }
 }
 
 impl MakesIsViewable for DrumkitSampler {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(DrumkitSamplerViewableResponder {
                 target: Weak::clone(&self.me),
@@ -222,7 +232,9 @@ pub struct SynthViewableResponder {
     target: Ww<Synth>,
 }
 impl IsViewable for SynthViewableResponder {
-    fn view(&self) -> Element<GrooveMessage> {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Synth>();
             let contents = format!("name: {}", target.borrow().preset.name);
@@ -233,13 +245,13 @@ impl IsViewable for SynthViewableResponder {
         }
     }
 
-    fn update(&mut self, message: GrooveMessage) {
+    fn update(&mut self, message: Self::Message) {
         dbg!(message);
     }
 }
 
 impl MakesIsViewable for Synth {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(SynthViewableResponder {
                 target: Weak::clone(&self.me),
@@ -266,19 +278,26 @@ impl GainViewableResponder {
     }
 }
 impl IsViewable for GainViewableResponder {
-    fn view(&self) -> Element<GrooveMessage> {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
-            let _level = target.borrow().level();
+            let level = target.borrow().level();
+            let level_percent: u8 = (level * 100.0) as u8;
             let title = "Gain";
             let contents = container(row![
                 container(slider(
                     0..=100,
-                    50,
-                    GrooveMessage::GainLevelChangedAsInteger
+                    level_percent,
+                    Self::Message::GainLevelChangedAsIntegerPercentage
                 ))
                 .width(iced::Length::FillPortion(1)),
-                text_input("foo", "bar", GrooveMessage::GainLevelChangedAsString,)
-                    .width(iced::Length::FillPortion(1)),
+                text_input(
+                    "%",
+                    level_percent.to_string().as_str(),
+                    Self::Message::GainLevelChangedAsString,
+                )
+                .width(iced::Length::FillPortion(1)),
             ])
             .padding(20);
             GuiStuff::titled_container(title, contents.into()).into()
@@ -287,20 +306,17 @@ impl IsViewable for GainViewableResponder {
         }
     }
 
-    fn update(&mut self, message: GrooveMessage) {
+    fn update(&mut self, message: Self::Message) {
         if let Some(target) = self.target.upgrade() {
             match message {
-                GrooveMessage::GainMessage(message) => match message {
-                    GainMessage::Level(level) => {
-                        if let Ok(level) = level.parse() {
-                            target.borrow_mut().set_level(level);
-                        }
-                    }
-                },
-                GrooveMessage::GainLevelChangedAsInteger(_new_level) => {
-                    ///////////////////////////////// target.borrow_mut().set_level(new_level.as_f32());
+                Self::Message::GainLevelChangedAsIntegerPercentage(new_level) => {
+                    // TODO: we need input sanitizers
+                    // 0..=100
+                    // 0.0..=1.0
+                    // -1.0..=1.0
+                    target.borrow_mut().set_level((new_level as f32) / 100.0);
                 }
-                GrooveMessage::GainLevelChangedAsString(new_level) => {
+                Self::Message::GainLevelChangedAsString(new_level) => {
                     if let Ok(level) = new_level.parse() {
                         target.borrow_mut().set_level(level);
                     }
@@ -316,7 +332,7 @@ pub enum GainMessage {
     Level(String),
 }
 impl MakesIsViewable for Gain {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(GainViewableResponder::new(Weak::clone(&self.me))))
         } else {
@@ -334,7 +350,9 @@ pub struct BitcrusherViewableResponder {
     target: Ww<Bitcrusher>,
 }
 impl IsViewable for BitcrusherViewableResponder {
-    fn view(&self) -> Element<GrooveMessage> {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Bitcrusher>();
             let contents = format!("bits to crush: {}", target.borrow().bits_to_crush());
@@ -345,24 +363,20 @@ impl IsViewable for BitcrusherViewableResponder {
         }
     }
 
-    fn update(&mut self, message: GrooveMessage) {
+    fn update(&mut self, message: Self::Message) {
         match message {
-            GrooveMessage::GainMessage(message) => match message {
-                GainMessage::Level(level) => {
-                    if let Some(target) = self.target.upgrade() {
-                        if let Ok(level) = level.parse() {
-                            target.borrow_mut().set_bits_to_crush(level);
-                        }
-                    }
+            Self::Message::BitcrusherValueChanged(new_value) => {
+                if let Some(target) = self.target.upgrade() {
+                    target.borrow_mut().set_bits_to_crush(new_value);
                 }
-            },
-            _ => {}
+            }
+            _ => todo!(),
         }
     }
 }
 
 impl MakesIsViewable for Bitcrusher {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(BitcrusherViewableResponder {
                 target: Weak::clone(&self.me),
@@ -382,7 +396,9 @@ pub struct LimiterViewableResponder {
     target: Ww<Limiter>,
 }
 impl IsViewable for LimiterViewableResponder {
-    fn view(&self) -> Element<GrooveMessage> {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Limiter>();
             let contents = format!(
@@ -397,24 +413,25 @@ impl IsViewable for LimiterViewableResponder {
         }
     }
 
-    fn update(&mut self, message: GrooveMessage) {
+    fn update(&mut self, message: Self::Message) {
         match message {
-            GrooveMessage::GainMessage(message) => match message {
-                GainMessage::Level(level) => {
-                    if let Some(target) = self.target.upgrade() {
-                        if let Ok(level) = level.parse() {
-                            target.borrow_mut().set_min(level);
-                        }
-                    }
+            ViewableMessage::LimiterMinChanged(new_value) => {
+                if let Some(target) = self.target.upgrade() {
+                    target.borrow_mut().set_min(new_value);
                 }
-            },
-            _ => {}
+            }
+            ViewableMessage::LimiterMaxChanged(new_value) => {
+                if let Some(target) = self.target.upgrade() {
+                    target.borrow_mut().set_max(new_value);
+                }
+            }
+            _ => todo!(),
         }
     }
 }
 
 impl MakesIsViewable for Limiter {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(LimiterViewableResponder {
                 target: Weak::clone(&self.me),
@@ -434,7 +451,9 @@ pub struct FilterViewableResponder {
     target: Ww<Filter>,
 }
 impl IsViewable for FilterViewableResponder {
-    fn view(&self) -> Element<GrooveMessage> {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Filter>();
             let contents = format!("cutoff: {}", target.borrow().cutoff());
@@ -445,24 +464,20 @@ impl IsViewable for FilterViewableResponder {
         }
     }
 
-    fn update(&mut self, message: GrooveMessage) {
+    fn update(&mut self, message: Self::Message) {
         match message {
-            GrooveMessage::GainMessage(message) => match message {
-                GainMessage::Level(level) => {
-                    if let Some(target) = self.target.upgrade() {
-                        if let Ok(level) = level.parse() {
-                            target.borrow_mut().set_cutoff(level);
-                        }
-                    }
+            ViewableMessage::FilterCutoffChanged(new_value) => {
+                if let Some(target) = self.target.upgrade() {
+                    target.borrow_mut().set_cutoff(new_value);
                 }
-            },
-            _ => {}
+            }
+            _ => todo!(),
         }
     }
 }
 
 impl MakesIsViewable for Filter {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(FilterViewableResponder {
                 target: Weak::clone(&self.me),
@@ -482,7 +497,9 @@ pub struct ArpeggiatorViewableResponder {
     target: Ww<Arpeggiator>,
 }
 impl IsViewable for ArpeggiatorViewableResponder {
-    fn view(&self) -> Element<GrooveMessage> {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Arpeggiator>();
             let contents = format!("cutoff: {}", target.borrow().nothing());
@@ -493,24 +510,20 @@ impl IsViewable for ArpeggiatorViewableResponder {
         }
     }
 
-    fn update(&mut self, message: GrooveMessage) {
+    fn update(&mut self, message: Self::Message) {
         match message {
-            GrooveMessage::GainMessage(message) => match message {
-                GainMessage::Level(level) => {
-                    if let Some(target) = self.target.upgrade() {
-                        if let Ok(level) = level.parse() {
-                            target.borrow_mut().set_nothing(level);
-                        }
-                    }
+            ViewableMessage::ArpeggiatorChanged(new_value) => {
+                if let Some(target) = self.target.upgrade() {
+                    target.borrow_mut().set_nothing(new_value as f32);
                 }
-            },
-            _ => {}
+            }
+            _ => todo!(),
         }
     }
 }
 
 impl MakesIsViewable for Arpeggiator {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable>> {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(ArpeggiatorViewableResponder {
                 target: Weak::clone(&self.me),
@@ -542,11 +555,11 @@ mod tests {
         traits::MakesIsViewable,
     };
 
-    use super::GrooveMessage;
+    use super::ViewableMessage;
 
     // There aren't many assertions in this method, but we know it'll panic or spit out debug
     // messages if something's wrong.
-    fn test_one_viewable(factory: Rrc<dyn MakesIsViewable>, message: Option<GrooveMessage>) {
+    fn test_one_viewable(factory: Rrc<dyn MakesIsViewable>, message: Option<ViewableMessage>) {
         let is_viewable = factory.borrow_mut().make_is_viewable();
         if let Some(mut viewable) = is_viewable {
             let _ = viewable.view();
@@ -569,15 +582,11 @@ mod tests {
         test_one_viewable(Mixer::new_wrapped(), None);
         test_one_viewable(
             Gain::new_wrapped(),
-            Some(GrooveMessage::GainMessage(super::GainMessage::Level(
-                "0.5".to_string(),
-            ))),
+            Some(ViewableMessage::GainLevelChangedAsIntegerPercentage(28)),
         );
         test_one_viewable(
             Bitcrusher::new_wrapped_with(7),
-            Some(GrooveMessage::GainMessage(super::GainMessage::Level(
-                "4".to_string(),
-            ))), // TODO: better messages
+            Some(ViewableMessage::BitcrusherValueChanged(4)),
         );
         test_one_viewable(
             Filter::new_wrapped_with(&crate::effects::filter::FilterType::AllPass {
@@ -585,21 +594,15 @@ mod tests {
                 cutoff: 1000.0,
                 q: 2.0,
             }),
-            Some(GrooveMessage::GainMessage(super::GainMessage::Level(
-                "0.5".to_string(),
-            ))), // TODO: better messages
+            Some(ViewableMessage::FilterCutoffChanged(500.0)),
         );
         test_one_viewable(
             Limiter::new_wrapped_with(0.0, 1.0),
-            Some(GrooveMessage::GainMessage(super::GainMessage::Level(
-                "0.5".to_string(),
-            ))), // TODO: better messages
+            Some(ViewableMessage::LimiterMinChanged(0.5)),
         );
         test_one_viewable(
             Arpeggiator::new_wrapped_with(0, 1),
-            Some(GrooveMessage::GainMessage(super::GainMessage::Level(
-                "0.5".to_string(),
-            ))), // TODO: better messages
+            Some(ViewableMessage::ArpeggiatorChanged(42)),
         );
     }
 }

@@ -1,7 +1,7 @@
 mod gui;
 
-use groove::gui::GrooveMessage;
 use groove::gui::IsViewable;
+use groove::gui::ViewableMessage;
 use groove::Orchestrator;
 use gui::persistence::LoadError;
 use gui::persistence::SavedState;
@@ -32,7 +32,7 @@ struct GrooveApp {
     project_name: String,
     #[allow(dead_code)]
     orchestrator: Orchestrator,
-    viewables: Vec<Box<dyn IsViewable>>,
+    viewables: Vec<Box<dyn IsViewable<Message = ViewableMessage>>>,
     control_bar: ControlBar,
 }
 
@@ -53,7 +53,7 @@ pub enum Message {
     ControlBarBpmChange(String),
     ControlBarPlay,
     ControlBarStop,
-    GrooveMessage(usize, GrooveMessage),
+    ViewableMessage(usize, ViewableMessage),
 
     Tick(Instant),
 }
@@ -201,10 +201,10 @@ impl Application for GrooveApp {
             Message::Reset => {
                 //              self.duration = Duration::default();
             }
-            Message::GrooveMessage(_, _) => todo!(),
             Message::ControlBarBpmChange(_) => todo!(),
             Message::ControlBarPlay => todo!(),
             Message::ControlBarStop => todo!(),
+            Message::ViewableMessage(i, message) => self.viewables[i].update(message),
         }
 
         Command::none()
@@ -235,7 +235,7 @@ impl Application for GrooveApp {
                     .enumerate()
                     .map(|(i, item)| {
                         item.view()
-                            .map(move |message| Message::GrooveMessage(i, message))
+                            .map(move |message| Message::ViewableMessage(i, message))
                     })
                     .collect(),
             )
