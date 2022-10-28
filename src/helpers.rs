@@ -116,6 +116,10 @@ impl AudioOutput {
 
     pub fn pause(&mut self) {}
 
+    pub fn worker(&self) -> &Worker<f32> {
+        &self.worker
+    }
+
     pub fn worker_mut(&mut self) -> &mut Worker<f32> {
         &mut self.worker
     }

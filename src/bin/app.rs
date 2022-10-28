@@ -13,13 +13,15 @@ use iced::alignment;
 use iced::executor;
 use iced::theme;
 use iced::theme::Theme;
+use iced::time;
 use iced::widget::button;
 use iced::widget::scrollable;
 use iced::widget::text_input;
 use iced::widget::{column, container, row, text};
 use iced::Color;
+use iced::Subscription;
 use iced::{Alignment, Application, Command, Element, Length, Settings};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub fn main() -> iced::Result {
     GrooveApp::run(Settings::default())
@@ -72,23 +74,6 @@ pub enum ControlBarMessage {
 }
 
 impl ControlBar {
-    pub fn update(
-        &mut self,
-        message: ControlBarMessage,
-        orchestrator: &mut Orchestrator,
-        audio_output: &mut AudioOutput,
-    ) {
-        match message {
-            ControlBarMessage::Play => {
-                orchestrator.perform_to_worker(audio_output.worker_mut());
-            }
-            ControlBarMessage::Stop => {
-                audio_output.stop(); // TODO also stop orchestrator
-            }
-            ControlBarMessage::SkipToStart => todo!(),
-        }
-    }
-
     pub fn view(&self, orchestrator: &Orchestrator) -> Element<Message> {
         container(row![
             text_input(
@@ -202,17 +187,28 @@ impl Application for GrooveApp {
             },
             Message::Tick(now) => {
                 if let State::Ticking { last_tick } = &mut self.state {
-                    //                    self.duration += now - *last_tick;
-                    *last_tick = now;
+                    while self.audio_output.worker().len() < 2048 {
+                        let (sample, done) = self.orchestrator.tick();
+                        self.audio_output.worker_mut().push(sample);
+                        if done {
+                            // TODO - this needs to be stickier
+                            break;
+                        }
+                    }
                 }
             }
             Message::Reset => {
                 //              self.duration = Duration::default();
             }
-            Message::ControlBarMessage(message) => {
-                self.control_bar
-                    .update(message, &mut self.orchestrator, &mut self.audio_output);
-            }
+            Message::ControlBarMessage(message) => match message {
+                ControlBarMessage::Play => {
+                    self.state = State::Ticking {
+                        last_tick: Instant::now(),
+                    }
+                }
+                ControlBarMessage::Stop => self.state = State::Idle,
+                ControlBarMessage::SkipToStart => todo!(),
+            },
             Message::ControlBarBpm(new_value) => {
                 if let Ok(bpm) = new_value.parse() {
                     self.orchestrator.set_bpm(bpm);
@@ -224,12 +220,12 @@ impl Application for GrooveApp {
         Command::none()
     }
 
-    // fn subscription(&self) -> Subscription<Message> {
-    //     match self.state {
-    //         State::Idle => Subscription::none(),
-    //         State::Ticking { .. } => time::every(Duration::from_millis(10)).map(Message::Tick),
-    //     }
-    // }
+    fn subscription(&self) -> Subscription<Message> {
+        match self.state {
+            State::Idle => Subscription::none(),
+            State::Ticking { .. } => time::every(Duration::from_millis(10)).map(Message::Tick),
+        }
+    }
 
     fn view(&self) -> Element<Message> {
         match self.state {

@@ -2,12 +2,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{clock::BeatValue, common::DeviceId};
 
-/// A ControlTrip contains successive ControlSteps. A ControlStep
-/// describes how to get from point A in time to point B in time,
-/// while controlling/automating the parameter over that time.
-/// For example, one ControlStep might say "go from 0.5 to 0.7
-/// linearly from beat twelve to beat sixteen." The ControlTrip knows
-/// which target that 0.5-0.7 applies to.
+/// A ControlTrip contains successive ControlSteps. A ControlStep describes how
+/// to get from point A in time to point B in time, while controlling/automating
+/// the parameter over that time. For example, one ControlStep might say "go
+/// from 0.5 to 0.7 linearly from beat twelve to beat sixteen." The ControlTrip
+/// knows which target that 0.5-0.7 applies to.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub enum ControlStep {

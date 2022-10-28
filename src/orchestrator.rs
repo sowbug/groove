@@ -77,7 +77,8 @@ impl Orchestrator {
         self.clock = clock;
     }
 
-    fn tick(&mut self) -> (MonoSample, bool) {
+    // TODO - pub so that the app can drive slices. Maybe move to IOHelper
+    pub fn tick(&mut self) -> (MonoSample, bool) {
         if self.clock.visit_watchers() {
             return (MONO_SAMPLE_SILENCE, true);
         }
