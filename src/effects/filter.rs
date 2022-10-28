@@ -84,8 +84,9 @@ impl Filter {
 
     // https://docs.google.com/spreadsheets/d/1uQylh2h77-fuJ6OM0vjF7yjRXflLFP0yQEnv5wbaP2c/edit#gid=0
     // =LOGEST(Sheet1!B2:B23, Sheet1!A2:A23,true, false)
-    // Column A is 24db filter percentages from all the patches
-    // Column B is envelope-filter percentages from all the patches
+    // 
+    // Column A is 24db filter percentages from all the patches. Column B is
+    // envelope-filter percentages from all the patches.
     pub fn percent_to_frequency(percentage: f32) -> f32 {
         debug_assert!(
             (0.0..=1.0).contains(&percentage),
@@ -98,10 +99,9 @@ impl Filter {
     pub fn frequency_to_percent(frequency: f32) -> f32 {
         debug_assert!(frequency >= 0.0);
 
-        // I was stressed out about slightly negative values, but then
-        // I decided that adjusting the log numbers to handle more edge
-        // cases wasn't going to make a practical difference. So I'm
-        // clamping to [0, 1].
+        // I was stressed out about slightly negative values, but then I decided
+        // that adjusting the log numbers to handle more edge cases wasn't going
+        // to make a practical difference. So I'm clamping to [0, 1].
         (frequency / Self::FREQUENCY_TO_LINEAR_COEFFICIENT)
             .log(Self::FREQUENCY_TO_LINEAR_BASE)
             .clamp(0.0, 1.0)
@@ -116,7 +116,8 @@ impl Filter {
     }
 
     pub fn new_wrapped_with(filter_type: &FilterType) -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get
+        // the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
         let wrapped = Rc::new(RefCell::new(Self::new(filter_type)));

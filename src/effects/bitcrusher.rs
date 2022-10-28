@@ -27,7 +27,8 @@ impl Bitcrusher {
         }
     }
     pub fn new_wrapped_with(bits_to_crush: u8) -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
+        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get
+        // the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
         let wrapped = Rc::new(RefCell::new(Self::new_with(bits_to_crush)));

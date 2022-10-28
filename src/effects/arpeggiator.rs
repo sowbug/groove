@@ -28,7 +28,8 @@ impl SinksMidi for Arpeggiator {
     }
 
     fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
-        // TODO: we'll need clock to do cool things like schedule note change on next bar... maybe
+        // TODO: we'll need clock to do cool things like schedule note change on
+        // next bar... maybe
         match message.status {
             MidiMessageType::NoteOn => {
                 self.is_device_playing = true;
