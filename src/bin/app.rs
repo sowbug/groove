@@ -2,6 +2,7 @@ mod gui;
 
 use groove::gui::IsViewable;
 use groove::gui::ViewableMessage;
+use groove::IOHelper;
 use groove::Orchestrator;
 use gui::persistence::LoadError;
 use gui::persistence::SavedState;
@@ -50,9 +51,8 @@ pub enum Message {
     Loaded(Result<SavedState, LoadError>),
     Toggle,
     Reset,
-    ControlBarBpmChange(String),
-    ControlBarPlay,
-    ControlBarStop,
+    ControlBarMessage(ControlBarMessage),
+    ControlBarBpm(String),
     ViewableMessage(usize, ViewableMessage),
 
     Tick(Instant),
@@ -60,45 +60,48 @@ pub enum Message {
 
 #[derive(Debug, Default, Clone)]
 pub struct ControlBar {
-    bpm: f32,
-
     clock: Clock,
 }
 
+#[derive(Debug, Clone)]
 pub enum ControlBarMessage {
-    Bpm(f32),
-    Clock(String),
+    Play,
+    Stop,
+    SkipToStart,
 }
 
 impl ControlBar {
-    pub fn update(&mut self, message: ControlBarMessage) {
+    pub fn update(&mut self, message: ControlBarMessage, orchestrator: &mut Orchestrator) {
         match message {
-            ControlBarMessage::Bpm(new_value) => {
-                self.bpm = new_value;
+            ControlBarMessage::Play => {
+                if let Ok(performance) = orchestrator.perform() {
+                    if let Ok(_) = IOHelper::send_performance_to_output_device(performance) {
+                        // great
+                    }
+                }
             }
-            ControlBarMessage::Clock(new_time) => {
-                self.clock.current_time = new_time;
-            }
+            ControlBarMessage::Stop => todo!(),
+            ControlBarMessage::SkipToStart => todo!(),
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self, orchestrator: &Orchestrator) -> Element<Message> {
         container(row![
             text_input(
                 "BPM",
-                self.bpm.to_string().as_str(),
-                Message::ControlBarBpmChange
+                orchestrator.bpm().round().to_string().as_str(),
+                Message::ControlBarBpm
             )
             .width(Length::Units(40)),
             button(skip_to_prev_icon())
                 .width(Length::Units(32))
-                .on_press(Message::ControlBarPlay),
+                .on_press(Message::ControlBarMessage(ControlBarMessage::SkipToStart)),
             button(play_icon())
                 .width(Length::Units(32))
-                .on_press(Message::ControlBarPlay),
+                .on_press(Message::ControlBarMessage(ControlBarMessage::Play)),
             button(stop_icon())
                 .width(Length::Units(32))
-                .on_press(Message::ControlBarStop),
+                .on_press(Message::ControlBarMessage(ControlBarMessage::Stop)),
             self.clock.view()
         ])
         .width(Length::Fill)
@@ -201,9 +204,14 @@ impl Application for GrooveApp {
             Message::Reset => {
                 //              self.duration = Duration::default();
             }
-            Message::ControlBarBpmChange(_) => todo!(),
-            Message::ControlBarPlay => todo!(),
-            Message::ControlBarStop => todo!(),
+            Message::ControlBarMessage(message) => {
+                self.control_bar.update(message, &mut self.orchestrator)
+            }
+            Message::ControlBarBpm(new_value) => {
+                if let Ok(bpm) = new_value.parse() {
+                    self.orchestrator.set_bpm(bpm);
+                }
+            }
             Message::ViewableMessage(i, message) => self.viewables[i].update(message),
         }
 
@@ -224,7 +232,7 @@ impl Application for GrooveApp {
             State::Ticking { last_tick } => {}
         }
 
-        let control_bar = self.control_bar.view();
+        let control_bar = self.control_bar.view(&self.orchestrator);
 
         let views: Element<_> = if self.viewables.is_empty() {
             empty_message("nothing yet")
@@ -254,7 +262,7 @@ impl Application for GrooveApp {
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x()
-            .center_y()
+            .align_y(alignment::Vertical::Top)
             .into()
     }
 }
