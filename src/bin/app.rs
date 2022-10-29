@@ -1,8 +1,11 @@
 mod gui;
 
 use async_std::task::block_on;
+use groove::gui::GuiStuff;
 use groove::gui::IsViewable;
 use groove::gui::ViewableMessage;
+use groove::gui::NUMBERS_FONT;
+use groove::gui::NUMBERS_FONT_SIZE;
 use groove::AudioOutput;
 use groove::IOHelper;
 use groove::Orchestrator;
@@ -31,14 +34,17 @@ pub fn main() -> iced::Result {
 
 #[derive(Default)]
 struct GrooveApp {
+    // Overhead
     theme: Theme,
     state: State,
 
+    // UI components
+    control_bar: ControlBar,
+
+    // Model
     project_name: String,
-    #[allow(dead_code)]
     orchestrator: Orchestrator,
     viewables: Vec<Box<dyn IsViewable<Message = ViewableMessage>>>,
-    control_bar: ControlBar,
     audio_output: AudioOutput,
 }
 
@@ -54,18 +60,12 @@ enum State {
 #[derive(Debug, Clone)]
 pub enum Message {
     Loaded(Result<SavedState, LoadError>),
-    Toggle,
     Reset,
     ControlBarMessage(ControlBarMessage),
     ControlBarBpm(String),
     ViewableMessage(usize, ViewableMessage),
 
     Tick(Instant),
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct ControlBar {
-    clock: Clock,
 }
 
 #[derive(Debug, Clone)]
@@ -75,26 +75,36 @@ pub enum ControlBarMessage {
     SkipToStart,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct ControlBar {
+    clock: Clock,
+}
+
 impl ControlBar {
     pub fn view(&self, orchestrator: &Orchestrator) -> Element<Message> {
-        container(row![
-            text_input(
-                "BPM",
-                orchestrator.bpm().round().to_string().as_str(),
-                Message::ControlBarBpm
-            )
-            .width(Length::Units(40)),
-            button(skip_to_prev_icon())
-                .width(Length::Units(32))
-                .on_press(Message::ControlBarMessage(ControlBarMessage::SkipToStart)),
-            button(play_icon())
-                .width(Length::Units(32))
-                .on_press(Message::ControlBarMessage(ControlBarMessage::Play)),
-            button(stop_icon())
-                .width(Length::Units(32))
-                .on_press(Message::ControlBarMessage(ControlBarMessage::Stop)),
-            self.clock.view()
-        ])
+        container(
+            row![
+                text_input(
+                    "BPM",
+                    orchestrator.bpm().round().to_string().as_str(),
+                    Message::ControlBarBpm
+                )
+                .width(Length::Units(40)),
+                button(skip_to_prev_icon())
+                    .width(Length::Units(32))
+                    .on_press(Message::ControlBarMessage(ControlBarMessage::SkipToStart)),
+                button(play_icon())
+                    .width(Length::Units(32))
+                    .on_press(Message::ControlBarMessage(ControlBarMessage::Play)),
+                button(stop_icon())
+                    .width(Length::Units(32))
+                    .on_press(Message::ControlBarMessage(ControlBarMessage::Stop)),
+                self.clock.view()
+            ]
+            .padding(8)
+            .spacing(4)
+            .align_items(Alignment::Center),
+        )
         .width(Length::Fill)
         .padding(4)
         .style(theme::Container::Box)
@@ -103,21 +113,41 @@ impl ControlBar {
 }
 
 #[derive(Debug, Clone)]
+pub enum ClockMessage {
+    Time(f32),
+}
+
+#[derive(Debug, Clone)]
 struct Clock {
-    current_time: String,
+    seconds: f32,
 }
 
 impl Default for Clock {
     fn default() -> Self {
-        Self {
-            current_time: "00:00:00".to_string(),
-        }
+        Self { seconds: 0.0 }
     }
 }
 
 impl Clock {
+    pub fn update(&mut self, message: ClockMessage) {
+        match message {
+            ClockMessage::Time(value) => {
+                self.seconds = value;
+            }
+        }
+    }
+
     pub fn view(&self) -> Element<Message> {
-        container(text(self.current_time.clone())).into()
+        let minutes: u8 = (self.seconds / 60.0).floor() as u8;
+        let seconds = self.seconds as usize % 60;
+        let thousandths = (self.seconds.fract() * 1000.0) as u16;
+        container(
+            text(format!("{:02}:{:02}:{:03}", minutes, seconds, thousandths))
+                .font(NUMBERS_FONT)
+                .size(NUMBERS_FONT_SIZE),
+        )
+        .style(theme::Container::Custom(GuiStuff::number_box_style))
+        .into()
     }
 }
 
@@ -177,24 +207,16 @@ impl Application for GrooveApp {
             Message::Loaded(Err(_)) => {
                 todo!()
             }
-            Message::Toggle => match self.state {
-                State::Idle => {
-                    self.state = State::Ticking {
-                        last_tick: Instant::now(),
-                    };
-                }
-                State::Ticking { .. } => {
-                    self.state = State::Idle;
-                }
-            },
             Message::Tick(now) => {
                 if let State::Ticking { last_tick } = &mut self.state {
+                    self.control_bar
+                        .clock
+                        .update(ClockMessage::Time(self.orchestrator.elapsed_seconds()));
                     block_on(IOHelper::fill_audio_buffer(
                         self.audio_output.recommended_buffer_size(),
                         &mut self.orchestrator,
                         &mut self.audio_output,
                     ));
-                    // TODO - know when orchestrator is done
                 }
             }
             Message::Reset => {

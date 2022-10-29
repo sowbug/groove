@@ -286,4 +286,8 @@ impl Orchestrator {
     pub fn viewables_mut(&mut self) -> &mut Vec<Ww<dyn MakesIsViewable>> {
         &mut self.viewable_makers
     }
+
+    pub fn elapsed_seconds(&self) -> f32 {
+        self.clock.inner_clock().seconds()
+    }
 }

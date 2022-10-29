@@ -11,7 +11,7 @@ use iced::{
     alignment::{Horizontal, Vertical},
     theme,
     widget::{column, container, row, slider, text, text_input},
-    Element, Font,
+    Color, Element, Font,
 };
 use std::{any::type_name, fmt::Debug, rc::Weak};
 
@@ -25,6 +25,12 @@ pub const LARGE_FONT_SIZE: u16 = 20;
 pub const LARGE_FONT: Font = Font::External {
     name: "Large Font",
     bytes: include_bytes!("../resources/fonts/SourceSansPro-Regular.ttf"),
+};
+
+pub const NUMBERS_FONT_SIZE: u16 = 32;
+pub const NUMBERS_FONT: Font = Font::External {
+    name: "Numbers Font",
+    bytes: include_bytes!("../resources/fonts/NotoSansMono-Regular.ttf"),
 };
 
 #[derive(Clone, Debug)]
@@ -84,6 +90,14 @@ impl<'a> GuiStuff {
         container::Appearance {
             text_color: Some(palette.background.strong.text),
             background: Some(palette.background.strong.color.into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn number_box_style(theme: &iced::Theme) -> container::Appearance {
+        container::Appearance {
+            text_color: Some(Color::from_rgb8(255, 255, 0)),
+            background: Some(iced::Background::Color(Color::BLACK)),
             ..Default::default()
         }
     }
