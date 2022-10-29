@@ -1,5 +1,5 @@
 use crate::{
-    common::{MonoSample, Rrc, Ww},
+    common::{MonoSample, Rrc, Ww, rrc},
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
 use std::{cell::RefCell, rc::Rc};
@@ -31,7 +31,7 @@ impl Bitcrusher {
         // the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-        let wrapped = Rc::new(RefCell::new(Self::new_with(bits_to_crush)));
+        let wrapped = rrc(Self::new_with(bits_to_crush));
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }
@@ -88,10 +88,10 @@ mod tests {
     #[test]
     fn test_bitcrusher_multisource() {
         let mut fx = Bitcrusher::new_with(8);
-        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(PI - 3.0)));
+        let source = rrc(TestAudioSourceAlwaysSameLevel::new(PI - 3.0));
         let source = Rc::downgrade(&source);
         fx.add_audio_source(source);
-        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(PI - 3.0)));
+        let source = rrc(TestAudioSourceAlwaysSameLevel::new(PI - 3.0));
         let source = Rc::downgrade(&source);
         fx.add_audio_source(source);
         assert_eq!(fx.source_audio(&Clock::new()), 2.0 * CRUSHED_PI);

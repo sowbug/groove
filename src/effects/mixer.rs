@@ -1,5 +1,5 @@
 use crate::{
-    common::{MonoSample, Rrc, Ww},
+    common::{MonoSample, Rrc, Ww, rrc},
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
 use std::{cell::RefCell, rc::Rc};
@@ -21,7 +21,7 @@ impl Mixer {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-        let wrapped = Rc::new(RefCell::new(Self::new()));
+        let wrapped = rrc(Self::new());
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }
@@ -76,19 +76,19 @@ mod tests {
         assert_eq!(mixer.source_audio(&clock), MONO_SAMPLE_SILENCE);
 
         // One always-loud
-        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysLoud::new()));
+        let source = rrc(TestAudioSourceAlwaysLoud::new());
         let source = Rc::downgrade(&source);
         mixer.add_audio_source(source);
         assert_eq!(mixer.source_audio(&clock), 1.0);
 
         // One always-loud and one always-quiet
-        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSilent::new()));
+        let source = rrc(TestAudioSourceAlwaysSilent::new());
         let source = Rc::downgrade(&source);
         mixer.add_audio_source(source);
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0);
 
         // ... and one in the middle
-        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(0.25)));
+        let source = rrc(TestAudioSourceAlwaysSameLevel::new(0.25));
         let source = Rc::downgrade(&source);
         mixer.add_audio_source(source);
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0 + 0.25);

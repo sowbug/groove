@@ -1,5 +1,5 @@
 use crate::{
-    common::{MonoSample, Rrc, Ww},
+    common::{MonoSample, Rrc, Ww, rrc},
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
 use std::{
@@ -31,7 +31,7 @@ impl Gain {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-        let wrapped = Rc::new(RefCell::new(Self::new()));
+        let wrapped = rrc(Self::new());
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }
@@ -48,7 +48,7 @@ impl Gain {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-        let wrapped = Rc::new(RefCell::new(Self::new_with(ceiling)));
+        let wrapped = rrc(Self::new_with(ceiling));
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }
@@ -108,7 +108,7 @@ mod tests {
     #[test]
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(1.1);
-        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysLoud::new()));
+        let source = rrc(TestAudioSourceAlwaysLoud::new());
         let source = Rc::downgrade(&source);
         gain.add_audio_source(source);
         assert_eq!(gain.source_audio(&Clock::new()), 1.1);
@@ -118,7 +118,7 @@ mod tests {
     fn test_gain_pola() {
         // principle of least astonishment: does a default instance adhere?
         let mut gain = Gain::new();
-        let source = Rc::new(RefCell::new(TestAudioSourceAlwaysSameLevel::new(0.888)));
+        let source = rrc(TestAudioSourceAlwaysSameLevel::new(0.888));
         let source = Rc::downgrade(&source);
         gain.add_audio_source(source);
         assert_eq!(gain.source_audio(&Clock::new()), 0.888);

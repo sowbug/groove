@@ -383,8 +383,8 @@ pub mod tests {
 
     #[derive(Debug)]
     pub struct TestSynth {
-        oscillator: Rc<RefCell<dyn SourcesAudio>>,
-        envelope: Rc<RefCell<dyn SourcesAudio>>,
+        oscillator: Rrc<dyn SourcesAudio>,
+        envelope: Rrc<dyn SourcesAudio>,
         is_muted: bool,
     }
 
@@ -400,8 +400,8 @@ pub mod tests {
             )
         }
         pub fn new_with(
-            oscillator: Rc<RefCell<dyn SourcesAudio>>,
-            envelope: Rc<RefCell<dyn SourcesAudio>>,
+            oscillator: Rrc<dyn SourcesAudio>,
+            envelope: Rrc<dyn SourcesAudio>,
         ) -> Self {
             Self {
                 oscillator,
@@ -564,7 +564,7 @@ pub mod tests {
             // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
             // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-            let wrapped = Rc::new(RefCell::new(Self::new()));
+            let wrapped = rrc(Self::new());
             wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
             wrapped
         }
@@ -579,7 +579,7 @@ pub mod tests {
             // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
             // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-            let wrapped = Rc::new(RefCell::new(Self::new_with(midi_channel)));
+            let wrapped = rrc(Self::new_with(midi_channel));
             wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
             wrapped
         }
@@ -773,7 +773,7 @@ pub mod tests {
             // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
             // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-            let wrapped = Rc::new(RefCell::new(Self::new()));
+            let wrapped = rrc(Self::new());
             wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
             wrapped
         }
@@ -944,7 +944,7 @@ pub mod tests {
             // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
             // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-            let wrapped = Rc::new(RefCell::new(Self::new_with(midi_channel_out)));
+            let wrapped = rrc(Self::new_with(midi_channel_out));
             wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
             wrapped
         }
@@ -965,7 +965,7 @@ pub mod tests {
     #[derive(Debug)]
     pub struct TestValueChecker {
         pub values: VecDeque<f32>,
-        pub target: Rc<RefCell<dyn SourcesAudio>>,
+        pub target: Rrc<dyn SourcesAudio>,
         pub checkpoint: f32,
         pub checkpoint_delta: f32,
         pub time_unit: ClockTimeUnit,

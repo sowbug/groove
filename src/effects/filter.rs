@@ -1,5 +1,5 @@
 use crate::{
-    common::{MonoSample, Rrc, Ww},
+    common::{MonoSample, Rrc, Ww, rrc},
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
 use std::{cell::RefCell, f64::consts::PI, rc::Rc};
@@ -120,7 +120,7 @@ impl Filter {
         // the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-        let wrapped = Rc::new(RefCell::new(Self::new(filter_type)));
+        let wrapped = rrc(Self::new(filter_type));
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }

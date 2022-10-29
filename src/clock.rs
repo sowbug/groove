@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{settings::ClockSettings, traits::WatchesClock};
+use crate::{settings::ClockSettings, traits::WatchesClock, common::Rrc};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -206,7 +206,7 @@ impl Clock {
 #[derive(Clone, Debug, Default)]
 pub struct WatchedClock {
     clock: Clock,
-    watchers: Vec<Rc<RefCell<dyn WatchesClock>>>,
+    watchers: Vec<Rrc<dyn WatchesClock>>,
 }
 
 impl WatchedClock {
@@ -232,7 +232,7 @@ impl WatchedClock {
         &mut self.clock
     }
 
-    pub fn add_watcher(&mut self, watcher: Rc<RefCell<dyn WatchesClock>>) {
+    pub fn add_watcher(&mut self, watcher: Rrc<dyn WatchesClock>) {
         self.watchers.push(watcher);
     }
 

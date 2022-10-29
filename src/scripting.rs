@@ -152,18 +152,18 @@ impl ScriptEngine {
         r
     }
 
-    fn new_bitcrusher() -> Rc<RefCell<Bitcrusher>> {
+    fn new_bitcrusher() -> Rrc<Bitcrusher> {
         Bitcrusher::new_wrapped_with(8)
     }
 
     #[allow(dead_code)]
-    fn new_limiter() -> Rc<RefCell<Limiter>> {
+    fn new_limiter() -> Rrc<Limiter> {
         Limiter::new_wrapped_with(0.0, 1.0)
     }
 
     fn register_root_audio_source(
         orchestrator: &mut Orchestrator,
-        device: Rc<RefCell<dyn SourcesAudio>>,
+        device: Rrc<dyn SourcesAudio>,
     ) {
         // TODO: detect duplicate adds
         orchestrator.register_audio_source(None, Rc::clone(&device));
@@ -172,7 +172,7 @@ impl ScriptEngine {
 
     fn register_root_midi_instrument(
         orchestrator: &mut Orchestrator,
-        device: Rc<RefCell<dyn IsMidiInstrument>>,
+        device: Rrc<dyn IsMidiInstrument>,
     ) {
         // TODO: detect duplicate adds
         let audio_source = Rc::clone(&device);
@@ -181,7 +181,7 @@ impl ScriptEngine {
         orchestrator.add_main_mixer_source(device);
     }
 
-    fn load_midi_file(sequencer: Rc<RefCell<MidiSequencer>>, filename: &str) {
+    fn load_midi_file(sequencer: Rrc<MidiSequencer>, filename: &str) {
         let data = std::fs::read(filename).unwrap();
         MidiSmfReader::load_sequencer(&data, &mut sequencer.borrow_mut());
     }

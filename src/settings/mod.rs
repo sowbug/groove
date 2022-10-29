@@ -6,7 +6,7 @@ pub(crate) mod songs;
 use self::{effects::EffectSettings, patches::SynthPatch};
 use crate::{
     clock::{BeatValue, TimeSignature},
-    common::DeviceId,
+    common::{DeviceId, Rrc},
     effects::arpeggiator::Arpeggiator,
     synthesizers::{
         drumkit_sampler,
@@ -154,7 +154,7 @@ impl Default for ClockSettings {
 }
 
 impl InstrumentSettings {
-    pub(crate) fn instantiate(&self, sample_rate: usize) -> Rc<RefCell<dyn IsMidiInstrument>> {
+    pub(crate) fn instantiate(&self, sample_rate: usize) -> Rrc<dyn IsMidiInstrument> {
         match self {
             InstrumentSettings::Welsh {
                 midi_input_channel,
@@ -173,7 +173,7 @@ impl InstrumentSettings {
 }
 
 impl MidiInstrumentSettings {
-    pub(crate) fn instantiate(&self, _sample_rate: usize) -> Rc<RefCell<dyn IsMidiEffect>> {
+    pub(crate) fn instantiate(&self, _sample_rate: usize) -> Rrc<dyn IsMidiEffect> {
         match *self {
             MidiInstrumentSettings::Arpeggiator {
                 midi_input_channel,

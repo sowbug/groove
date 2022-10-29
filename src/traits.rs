@@ -203,7 +203,7 @@ pub mod tests {
     use crate::{
         clock::Clock,
         clock::WatchedClock,
-        common::{MonoSample, MONO_SAMPLE_SILENCE},
+        common::{rrc, MonoSample, MONO_SAMPLE_SILENCE},
         effects::gain::Gain,
         envelopes::AdsrEnvelope,
         midi::MidiMessage,
@@ -252,7 +252,7 @@ pub mod tests {
         };
 
         let timer = TestTimer::new_with(2.0);
-        clock.add_watcher(Rc::new(RefCell::new(timer)));
+        clock.add_watcher(rrc(timer));
 
         // TestTrigger provides an event at a certain time.
         // EnvelopeNoteController adapts the event to internal ADSR events.
@@ -263,7 +263,7 @@ pub mod tests {
         {
             trigger_on.add_control_sink(envelope_controller);
         };
-        clock.add_watcher(Rc::new(RefCell::new(trigger_on)));
+        clock.add_watcher(rrc(trigger_on));
 
         let mut trigger_off = TestTrigger::new(1.5, 0.0);
         if let Some(envelope_controller) = envelope
@@ -272,7 +272,7 @@ pub mod tests {
         {
             trigger_off.add_control_sink(envelope_controller);
         };
-        clock.add_watcher(Rc::new(RefCell::new(trigger_off)));
+        clock.add_watcher(rrc(trigger_off));
 
         let mut samples = Vec::<MonoSample>::new();
         orchestrator.start(&mut clock, &mut samples);
@@ -311,7 +311,7 @@ pub mod tests {
     #[test]
     fn test_audio_sink() {
         let mut sink = TestAudioSink::new();
-        let source = Rc::new(RefCell::new(TestAudioSource::new()));
+        let source = rrc(TestAudioSource::new());
         assert!(sink.sources().is_empty());
         let source = Rc::downgrade(&source);
         sink.add_audio_source(source);

@@ -1,6 +1,6 @@
 use super::clock::Clock;
 use crate::{
-    common::{MonoSample, Rrc, Ww},
+    common::{rrc, MonoSample, Rrc, Ww},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
     traits::{IsMutable, SourcesAudio},
 };
@@ -80,7 +80,7 @@ impl Oscillator {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-        let wrapped = Rc::new(RefCell::new(Self::new_with(waveform)));
+        let wrapped = rrc(Self::new_with(waveform));
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }
@@ -106,7 +106,7 @@ impl Oscillator {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-        let wrapped = Rc::new(RefCell::new(Self::new()));
+        let wrapped = rrc(Self::new());
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }
@@ -180,6 +180,7 @@ mod tests {
     use super::{Oscillator, WaveformType};
     use crate::{
         clock::{Clock, WatchedClock},
+        common::rrc,
         midi::{MidiMessage, MidiNote},
         settings::patches::OscillatorSettings,
         traits::SourcesAudio,
@@ -218,7 +219,7 @@ mod tests {
         let oscillator_weak = Rc::downgrade(&oscillator);
         orchestrator.add_audio_source(oscillator_weak);
         let mut clock = WatchedClock::new();
-        clock.add_watcher(Rc::new(RefCell::new(TestTimer::new_with(2.0))));
+        clock.add_watcher(rrc(TestTimer::new_with(2.0)));
         write_orchestration_to_file(&mut orchestrator, &mut clock, "oscillator_sine_c3");
 
         let mut oscillator = create_oscillator(

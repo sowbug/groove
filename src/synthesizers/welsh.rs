@@ -671,7 +671,7 @@ pub struct Synth {
     midi_channel: MidiChannel,
     sample_rate: usize,
     pub(crate) preset: SynthPatch,
-    note_to_voice: HashMap<u8, Rc<RefCell<Voice>>>,
+    note_to_voice: HashMap<u8, Rrc<Voice>>,
     is_muted: bool,
 
     debug_last_seconds: f32,
@@ -703,7 +703,7 @@ impl Synth {
         wrapped
     }
 
-    fn voice_for_note(&mut self, note: u8) -> Rc<RefCell<Voice>> {
+    fn voice_for_note(&mut self, note: u8) -> Rrc<Voice> {
         let opt = self.note_to_voice.get(&note);
         if let Some(voice) = opt {
             Rc::clone(voice)

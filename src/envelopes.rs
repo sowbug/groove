@@ -1,7 +1,7 @@
 use super::clock::Clock;
 use crate::{
     clock::ClockTimeUnit,
-    common::{MonoSample, Rrc, Ww},
+    common::{MonoSample, Rrc, Ww, rrc},
     settings::patches::EnvelopeSettings,
     traits::{IsMutable, SourcesAudio},
 };
@@ -267,7 +267,7 @@ impl AdsrEnvelope {
         // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
-        let wrapped = Rc::new(RefCell::new(Self::new_with(preset)));
+        let wrapped = rrc(Self::new_with(preset));
         wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
         wrapped
     }

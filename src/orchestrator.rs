@@ -140,7 +140,7 @@ impl Orchestrator {
     pub fn register_clock_watcher(
         &mut self,
         id: Option<&str>,
-        clock_watcher: Rc<RefCell<dyn WatchesClock>>,
+        clock_watcher: Rrc<dyn WatchesClock>,
     ) -> String {
         let id = self.id_store.add_clock_watcher_by_id(id, &clock_watcher);
         self.clock.add_watcher(clock_watcher);
@@ -150,7 +150,7 @@ impl Orchestrator {
     pub fn register_audio_source(
         &mut self,
         id: Option<&str>,
-        audio_source: Rc<RefCell<dyn SourcesAudio>>,
+        audio_source: Rrc<dyn SourcesAudio>,
     ) -> String {
         let id = self.id_store.add_audio_source_by_id(id, &audio_source);
         self.audio_sources.push(audio_source);
@@ -160,7 +160,7 @@ impl Orchestrator {
     pub fn register_effect(
         &mut self,
         id: Option<&str>,
-        effect: Rc<RefCell<dyn IsEffect>>,
+        effect: Rrc<dyn IsEffect>,
     ) -> String {
         let id = self.id_store.add_effect_by_id(id, &effect);
         self.effects.push(effect);
@@ -170,7 +170,7 @@ impl Orchestrator {
     pub fn register_midi_effect(
         &mut self,
         id: Option<&str>,
-        midi_effect: Rc<RefCell<dyn IsMidiEffect>>,
+        midi_effect: Rrc<dyn IsMidiEffect>,
         channel: MidiChannel,
     ) -> String {
         let instrument = Rc::downgrade(&midi_effect);

@@ -110,7 +110,7 @@ mod tests {
         clock::Clock,
         midi::{MidiMessage, MidiNote, OrderedMidiMessage},
         traits::{SinksMidi, SourcesMidi, WatchesClock},
-        utils::tests::TestMidiSink,
+        utils::tests::TestMidiSink, common::rrc,
     };
 
     use super::MidiSequencer;
@@ -136,7 +136,7 @@ mod tests {
         let mut clock = Clock::new();
         let mut sequencer = MidiSequencer::new();
 
-        let device = Rc::new(RefCell::new(TestMidiSink::new_with(0)));
+        let device = rrc(TestMidiSink::new_with(0));
         assert!(!device.borrow().is_playing);
 
         // These helpers create messages on channel zero.
@@ -174,13 +174,13 @@ mod tests {
         let mut clock = Clock::new();
         let mut sequencer = MidiSequencer::new();
 
-        let device_1 = Rc::new(RefCell::new(TestMidiSink::new()));
+        let device_1 = rrc(TestMidiSink::new());
         assert!(!device_1.borrow().is_playing);
         device_1.borrow_mut().set_midi_channel(0);
         let sink = Rc::downgrade(&device_1);
         sequencer.add_midi_sink(0, sink);
 
-        let device_2 = Rc::new(RefCell::new(TestMidiSink::new()));
+        let device_2 = rrc(TestMidiSink::new());
         assert!(!device_2.borrow().is_playing);
         device_2.borrow_mut().set_midi_channel(1);
         let sink = Rc::downgrade(&device_2);
