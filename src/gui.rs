@@ -31,9 +31,10 @@ pub const LARGE_FONT: Font = Font::External {
 pub enum ViewableMessage {
     ArpeggiatorChanged(u8),
     BitcrusherValueChanged(u8),
-    FilterCutoffChanged(f32),
+    FilterCutoffChangedAsF32(f32),
+    FilterCutoffChangedAsU8Percentage(u8),
     GainLevelChangedAsString(String),
-    GainLevelChangedAsIntegerPercentage(u8),
+    GainLevelChangedAsU8Percentage(u8),
     LimiterMinChanged(f32),
     LimiterMaxChanged(f32),
 }
@@ -289,7 +290,7 @@ impl IsViewable for GainViewableResponder {
                 container(slider(
                     0..=100,
                     level_percent,
-                    Self::Message::GainLevelChangedAsIntegerPercentage
+                    Self::Message::GainLevelChangedAsU8Percentage
                 ))
                 .width(iced::Length::FillPortion(1)),
                 text_input(
@@ -309,7 +310,7 @@ impl IsViewable for GainViewableResponder {
     fn update(&mut self, message: Self::Message) {
         if let Some(target) = self.target.upgrade() {
             match message {
-                Self::Message::GainLevelChangedAsIntegerPercentage(new_level) => {
+                Self::Message::GainLevelChangedAsU8Percentage(new_level) => {
                     // TODO: we need input sanitizers
                     // 0..=100
                     // 0.0..=1.0
@@ -456,9 +457,19 @@ impl IsViewable for FilterViewableResponder {
     fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Filter>();
-            let contents = format!("cutoff: {}", target.borrow().cutoff());
-            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
-                .into()
+            let contents = row![
+                container(slider(
+                    0..=100,
+                    (Filter::frequency_to_percent(target.borrow().cutoff()) * 100.0) as u8,
+                    Self::Message::FilterCutoffChangedAsU8Percentage
+                ))
+                .width(iced::Length::FillPortion(1)),
+                container(GuiStuff::container_text(
+                    format!("cutoff: {}", target.borrow().cutoff()).as_str()
+                ))
+                .width(iced::Length::FillPortion(1))
+            ];
+            GuiStuff::titled_container(title, contents.into()).into()
         } else {
             panic!()
         }
@@ -466,9 +477,16 @@ impl IsViewable for FilterViewableResponder {
 
     fn update(&mut self, message: Self::Message) {
         match message {
-            ViewableMessage::FilterCutoffChanged(new_value) => {
+            ViewableMessage::FilterCutoffChangedAsF32(new_value) => {
                 if let Some(target) = self.target.upgrade() {
                     target.borrow_mut().set_cutoff(new_value);
+                }
+            }
+            ViewableMessage::FilterCutoffChangedAsU8Percentage(new_value) => {
+                if let Some(target) = self.target.upgrade() {
+                    target
+                        .borrow_mut()
+                        .set_cutoff(Filter::percent_to_frequency((new_value as f32) / 100.0));
                 }
             }
             _ => todo!(),
@@ -582,7 +600,7 @@ mod tests {
         test_one_viewable(Mixer::new_wrapped(), None);
         test_one_viewable(
             Gain::new_wrapped(),
-            Some(ViewableMessage::GainLevelChangedAsIntegerPercentage(28)),
+            Some(ViewableMessage::GainLevelChangedAsU8Percentage(28)),
         );
         test_one_viewable(
             Bitcrusher::new_wrapped_with(7),
@@ -594,7 +612,7 @@ mod tests {
                 cutoff: 1000.0,
                 q: 2.0,
             }),
-            Some(ViewableMessage::FilterCutoffChanged(500.0)),
+            Some(ViewableMessage::FilterCutoffChangedAsF32(500.0)),
         );
         test_one_viewable(
             Limiter::new_wrapped_with(0.0, 1.0),

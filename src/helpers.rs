@@ -11,6 +11,7 @@ use crate::traits::IsMidiInstrument;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleRate, Stream, StreamConfig};
 use crossbeam::deque::{Steal, Stealer, Worker};
+use std::ops::BitAnd;
 use std::rc::Rc;
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -35,6 +36,10 @@ impl Default for AudioOutput {
 impl AudioOutput {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn recommended_buffer_size(&self) -> usize {
+        (self.sample_rate / 20).bitand(usize::MAX - 511)
     }
 
     pub fn start(&mut self) {
@@ -149,6 +154,21 @@ impl AudioOutput {
 pub struct IOHelper {}
 
 impl IOHelper {
+    pub async fn fill_audio_buffer(
+        buffer_size: usize,
+        orchestrator: &mut Orchestrator,
+        audio_output: &mut AudioOutput,
+    ) {
+        while audio_output.worker().len() < buffer_size {
+            let (sample, done) = orchestrator.tick();
+            audio_output.worker_mut().push(sample);
+            if done {
+                // TODO - this needs to be stickier
+                break;
+            }
+        }
+    }
+
     pub async fn perform_async(
         orchestrator: &mut Orchestrator,
     ) -> Result<Performance, &'static str> {

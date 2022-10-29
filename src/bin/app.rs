@@ -1,8 +1,10 @@
 mod gui;
 
+use async_std::task::block_on;
 use groove::gui::IsViewable;
 use groove::gui::ViewableMessage;
 use groove::AudioOutput;
+use groove::IOHelper;
 use groove::Orchestrator;
 use gui::persistence::LoadError;
 use gui::persistence::SavedState;
@@ -187,14 +189,12 @@ impl Application for GrooveApp {
             },
             Message::Tick(now) => {
                 if let State::Ticking { last_tick } = &mut self.state {
-                    while self.audio_output.worker().len() < 2048 {
-                        let (sample, done) = self.orchestrator.tick();
-                        self.audio_output.worker_mut().push(sample);
-                        if done {
-                            // TODO - this needs to be stickier
-                            break;
-                        }
-                    }
+                    block_on(IOHelper::fill_audio_buffer(
+                        self.audio_output.recommended_buffer_size(),
+                        &mut self.orchestrator,
+                        &mut self.audio_output,
+                    ));
+                    // TODO - know when orchestrator is done
                 }
             }
             Message::Reset => {
