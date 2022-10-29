@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{rrc, MonoSample, Rrc, Ww},
+    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
     midi::{MidiChannel, MidiMessage, MidiMessageType},
     traits::{IsMutable, SinksMidi, SourcesAudio},
 };
@@ -33,7 +33,7 @@ impl Sampler {
     #[allow(dead_code)] // TODO: add a setting for Sampler
     pub fn new_wrapped_with(midi_channel: MidiChannel, buffer_size: usize) -> Rrc<Self> {
         let wrapped = rrc(Self::new(midi_channel, buffer_size));
-        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
 

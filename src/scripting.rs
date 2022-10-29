@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc, Rrc},
+    common::{rrc, Rrc, rrc_downgrade},
     effects::{bitcrusher::Bitcrusher, limiter::Limiter},
     midi::{sequencer::MidiSequencer, smf_reader::MidiSmfReader, MidiChannel},
     settings::patches::SynthPatch,
@@ -8,17 +8,16 @@ use crate::{
     IOHelper, Orchestrator,
 };
 use rhai::{Engine, EvalAltResult};
-use std::{cell::RefCell, path::PathBuf, rc::Rc};
+use std::{path::PathBuf, rc::Rc};
 
+#[derive(Default)]
 pub struct ScriptEngine {
     engine: Engine,
 }
 
 impl ScriptEngine {
     pub fn new() -> Self {
-        let mut r = Self {
-            engine: Engine::new(),
-        };
+        let mut r = Self::default();
         r.register_methods();
         r
     }
@@ -39,34 +38,34 @@ impl ScriptEngine {
         let err = result.err().unwrap();
         match err.unwrap_inner() {
             rhai::EvalAltResult::ErrorArithmetic(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorArrayBounds(a, b, c) => {
-                panic!("{:?} {:?} {:?}", a, b, c);
+                panic!("{a:?} {b:?} {c:?}");
             }
             rhai::EvalAltResult::ErrorAssignmentToConstant(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorBitFieldBounds(a, b, c) => {
-                panic!("{:?} {:?} {:?}", a, b, c);
+                panic!("{a:?} {b:?} {c:?}");
             }
             rhai::EvalAltResult::ErrorCustomSyntax(a, b, c) => {
-                panic!("{:?} {:?} {:?}", a, b, c);
+                panic!("{a:?} {b:?} {c:?}");
             }
             rhai::EvalAltResult::ErrorDataRace(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorDataTooLarge(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorDotExpr(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorFor(a) => {
-                panic!("{:?}", a);
+                panic!("{a:?}");
             }
             rhai::EvalAltResult::ErrorForbiddenVariable(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorFunctionNotFound(a, b) => {
                 panic!(
@@ -75,61 +74,61 @@ impl ScriptEngine {
                 );
             }
             rhai::EvalAltResult::ErrorInFunctionCall(a, b, c, d) => {
-                panic!("{:?} {:?} {:?} {:?}", a, b, c, d);
+                panic!("{a:?} {b:?} {c:?} {d:?}");
             }
             rhai::EvalAltResult::ErrorInModule(a, b, c) => {
-                panic!("{:?} {:?} {:?}", a, b, c);
+                panic!("{a:?} {b:?} {c:?}");
             }
             rhai::EvalAltResult::ErrorIndexNotFound(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorIndexingType(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorMismatchDataType(a, b, c) => {
-                panic!("{:?} {:?} {:?}", a, b, c);
+                panic!("{a:?} {b:?} {c:?}");
             }
             rhai::EvalAltResult::ErrorMismatchOutputType(a, b, c) => {
-                panic!("{:?} {:?} {:?}", a, b, c);
+                panic!("{a:?} {b:?} {c:?}");
             }
             rhai::EvalAltResult::ErrorModuleNotFound(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorParsing(a, b) => {
-                panic!("{:?} {:?}", a, b)
+                panic!("{a:?} {b:?}")
             }
             rhai::EvalAltResult::ErrorPropertyNotFound(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorRuntime(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorStackOverflow(a) => {
-                panic!("{:?}", a);
+                panic!("{a:?}");
             }
             rhai::EvalAltResult::ErrorStringBounds(a, b, c) => {
-                panic!("{:?} {:?} {:?}", a, b, c);
+                panic!("{a:?} {b:?} {c:?}");
             }
             rhai::EvalAltResult::ErrorSystem(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorTerminated(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorTooManyModules(a) => {
-                panic!("{:?}", a);
+                panic!("{a:?}");
             }
             rhai::EvalAltResult::ErrorTooManyOperations(a) => {
-                panic!("{:?}", a);
+                panic!("{a:?}");
             }
             rhai::EvalAltResult::ErrorUnboundThis(a) => {
-                panic!("{:?}", a);
+                panic!("{a:?}");
             }
             rhai::EvalAltResult::ErrorVariableExists(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             rhai::EvalAltResult::ErrorVariableNotFound(a, b) => {
-                panic!("{:?} {:?}", a, b);
+                panic!("{a:?} {b:?}");
             }
             _ => {
                 panic!();
@@ -161,13 +160,10 @@ impl ScriptEngine {
         Limiter::new_wrapped_with(0.0, 1.0)
     }
 
-    fn register_root_audio_source(
-        orchestrator: &mut Orchestrator,
-        device: Rrc<dyn SourcesAudio>,
-    ) {
+    fn register_root_audio_source(orchestrator: &mut Orchestrator, device: Rrc<dyn SourcesAudio>) {
         // TODO: detect duplicate adds
         orchestrator.register_audio_source(None, Rc::clone(&device));
-        orchestrator.add_main_mixer_source(Rc::downgrade(&device));
+        orchestrator.add_main_mixer_source(rrc_downgrade(&device));
     }
 
     fn register_root_midi_instrument(
@@ -177,7 +173,7 @@ impl ScriptEngine {
         // TODO: detect duplicate adds
         let audio_source = Rc::clone(&device);
         orchestrator.register_audio_source(None, audio_source);
-        let device = Rc::downgrade(&device);
+        let device = rrc_downgrade(&device);
         orchestrator.add_main_mixer_source(device);
     }
 
@@ -188,7 +184,7 @@ impl ScriptEngine {
 
     fn connect_audio_sink_to_source(sink: Rrc<dyn SinksAudio>, source: Rrc<dyn SourcesAudio>) {
         // TODO: detect duplicate adds
-        sink.borrow_mut().add_audio_source(Rc::downgrade(&source));
+        sink.borrow_mut().add_audio_source(rrc_downgrade(&source));
     }
 
     fn play(orchestrator: &mut Orchestrator) {
@@ -206,7 +202,7 @@ impl ScriptEngine {
     fn add_midi_sink(upstream: Rrc<dyn SourcesMidi>, downstream: Rrc<dyn SinksMidi>, channel: i64) {
         upstream
             .borrow_mut()
-            .add_midi_sink(channel as MidiChannel, Rc::downgrade(&downstream));
+            .add_midi_sink(channel as MidiChannel, rrc_downgrade(&downstream));
     }
 
     fn add_midi_sink_as_midi_instrument(
@@ -214,7 +210,7 @@ impl ScriptEngine {
         downstream: Rrc<dyn IsMidiInstrument>,
         channel: i64,
     ) {
-        let sink = Rc::downgrade(&downstream);
+        let sink = rrc_downgrade(&downstream);
         upstream
             .borrow_mut()
             .add_midi_sink(channel as MidiChannel, sink);
@@ -227,7 +223,7 @@ impl ScriptEngine {
     ) {
         upstream
             .borrow_mut()
-            .add_midi_sink(channel as MidiChannel, Rc::downgrade(&downstream));
+            .add_midi_sink(channel as MidiChannel, rrc_downgrade(&downstream));
     }
 
     fn add_midi_sink_as_midi_instrument_to_midi_sequencer(
@@ -235,7 +231,7 @@ impl ScriptEngine {
         downstream: Rrc<dyn IsMidiInstrument>,
         channel: i64,
     ) {
-        let sink = Rc::downgrade(&downstream);
+        let sink = rrc_downgrade(&downstream);
         upstream
             .borrow_mut()
             .add_midi_sink(channel as MidiChannel, sink);

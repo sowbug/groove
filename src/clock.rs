@@ -1,8 +1,5 @@
-use std::{cell::RefCell, rc::Rc};
-
+use crate::{common::Rrc, settings::ClockSettings, traits::WatchesClock};
 use serde::{Deserialize, Serialize};
-
-use crate::{settings::ClockSettings, traits::WatchesClock, common::Rrc};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -49,7 +46,7 @@ impl BeatValue {
             256 => BeatValue::TwoHundredFiftySixth,
             512 => BeatValue::FiveHundredTwelfth,
             _ => {
-                panic!("unrecognized divisor for time signature: {}", divisor);
+                panic!("unrecognized divisor for time signature: {divisor}");
             }
         }
     }
@@ -310,13 +307,13 @@ mod tests {
             clock.tick();
         }
         assert_eq!(clock.samples(), QUARTER_NOTE_OF_TICKS - 1);
-        assert!(clock.seconds < SECONDS_PER_BEAT as f32);
+        assert!(clock.seconds < SECONDS_PER_BEAT);
         assert_lt!(clock.beats(), 1.0);
 
         // Now right on the quarter note.
         clock.tick();
         assert_eq!(clock.samples(), QUARTER_NOTE_OF_TICKS);
-        assert_eq!(clock.seconds, SECONDS_PER_BEAT as f32);
+        assert_eq!(clock.seconds, SECONDS_PER_BEAT);
         assert_eq!(clock.beats(), 1.0);
 
         // One full minute.

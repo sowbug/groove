@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{rrc, Rrc, Ww},
+    common::{rrc, rrc_downgrade, Rrc, Ww},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     traits::{IsMidiEffect, SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
@@ -117,7 +117,7 @@ impl Arpeggiator {
         midi_channel_out: MidiChannel,
     ) -> Rrc<Self> {
         let wrapped = rrc(Self::new_with(midi_channel_in, midi_channel_out));
-        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
 

@@ -232,7 +232,7 @@ mod tests {
 
         assert_eq!(OscillatorSettings::semis_and_cents(0.0, 0.0), 1.0);
         assert_eq!(OscillatorSettings::semis_and_cents(12.0, 0.0), 2.0);
-        assert_approx_eq!(OscillatorSettings::semis_and_cents(5.0, 0.0), 1.334839557); // 349.2282÷261.6256, F4÷C4
+        assert_approx_eq!(OscillatorSettings::semis_and_cents(5.0, 0.0), 1.334_839_6); // 349.2282÷261.6256, F4÷C4
         assert_eq!(
             OscillatorSettings::semis_and_cents(0.0, -100.0),
             2.0f32.powf(-100.0 / 1200.0)

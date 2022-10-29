@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{rrc, MonoSample, Rrc, Ww},
+    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
     midi::{
         GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MidiMessageType,
         MIDI_CHANNEL_RECEIVE_ALL,
@@ -146,10 +146,10 @@ impl Sampler {
         for (program, filename) in samples {
             let result = r.add_sample_for_note(
                 program as u8,
-                format!("samples/707/{} 707.wav", filename).as_str(),
+                format!("samples/707/{filename} 707.wav").as_str(),
             );
             if result.is_err() {
-                panic!("failed to load a sample: {}", filename);
+                panic!("failed to load a sample: {filename}");
             }
         }
         r.kit_name = "707".to_string();
@@ -158,7 +158,7 @@ impl Sampler {
 
     pub fn new_wrapped_from_files(midi_channel: MidiChannel) -> Rrc<Self> {
         let wrapped = rrc(Self::new_from_files(midi_channel));
-        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
 }

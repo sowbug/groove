@@ -1,5 +1,5 @@
 use crate::clock::{Clock, ClockTimeUnit};
-use crate::common::Ww;
+use crate::common::{Ww, wrc_clone};
 use crate::effects::arpeggiator::Arpeggiator;
 use crate::effects::bitcrusher::Bitcrusher;
 use crate::effects::limiter::Limiter;
@@ -190,16 +190,16 @@ impl MakesControlSink for Filter {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_CUTOFF => Some(Box::new(FilterCutoffController {
-                    target: Weak::clone(&self.me),
+                    target: wrc_clone(&self.me),
                 })),
                 Self::CONTROL_PARAM_Q => Some(Box::new(FilterQController {
-                    target: Weak::clone(&self.me),
+                    target: wrc_clone(&self.me),
                 })),
                 Self::CONTROL_PARAM_BANDWIDTH => Some(Box::new(FilterBandwidthController {
-                    target: Weak::clone(&self.me),
+                    target: wrc_clone(&self.me),
                 })),
                 Self::CONTROL_PARAM_DB_GAIN => Some(Box::new(FilterDbGainController {
-                    target: Weak::clone(&self.me),
+                    target: wrc_clone(&self.me),
                 })),
                 _ => None,
             }
@@ -225,7 +225,7 @@ impl MakesControlSink for AdsrEnvelope {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_NOTE => Some(Box::new(AdsrEnvelopeNoteController {
-                    target: Weak::clone(&self.me),
+                    target: wrc_clone(&self.me),
                 })),
                 _ => None,
             }
@@ -251,7 +251,7 @@ impl MakesControlSink for Gain {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_CEILING => Some(Box::new(GainLevelController {
-                    target: Weak::clone(&self.me),
+                    target: wrc_clone(&self.me),
                 })),
                 _ => None,
             }
@@ -277,7 +277,7 @@ impl MakesControlSink for Oscillator {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_FREQUENCY => Some(Box::new(OscillatorFrequencyController {
-                    target: Weak::clone(&self.me),
+                    target: wrc_clone(&self.me),
                 })),
                 _ => None,
             }
@@ -314,10 +314,10 @@ impl MakesControlSink for Limiter {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_MIN => Some(Box::new(LimiterMinLevelController {
-                    target: Weak::clone(&self.me),
+                    target: wrc_clone(&self.me),
                 })),
                 Self::CONTROL_PARAM_MAX => Some(Box::new(LimiterMaxLevelController {
-                    target: Weak::clone(&self.me),
+                    target: wrc_clone(&self.me),
                 })),
                 _ => None,
             }
@@ -343,7 +343,7 @@ impl MakesControlSink for Bitcrusher {
         if self.me.strong_count() != 0 {
             match param_name {
                 Self::CONTROL_PARAM_BITS_TO_CRUSH => Some(Box::new(BitcrusherBitCountController {
-                    target: Weak::clone(&self.me),
+                    target: wrc_clone(&self.me),
                 })),
                 _ => None,
             }
@@ -368,7 +368,7 @@ impl MakesControlSink for Mixer {
     fn make_control_sink(&self, _param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(MixerController {
-                target: Weak::clone(&self.me),
+                target: wrc_clone(&self.me),
             }))
         } else {
             None
@@ -391,7 +391,7 @@ impl MakesControlSink for Arpeggiator {
     fn make_control_sink(&self, _param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(ArpeggiatorNothingController {
-                target: Weak::clone(&self.me),
+                target: wrc_clone(&self.me),
             }))
         } else {
             None

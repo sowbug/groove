@@ -1,15 +1,17 @@
-use crate::common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE};
-use crate::control::ControlPath;
-use crate::id_store::IdStore;
-use crate::midi::{MidiBus, MidiChannel, MIDI_CHANNEL_RECEIVE_ALL};
-use crate::patterns::Pattern;
-use crate::traits::{
-    IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi, SourcesAudio,
-    SourcesMidi, WatchesClock,
+use crate::{
+    clock::WatchedClock,
+    common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE, rrc_downgrade},
+    control::ControlPath,
+    effects::mixer::Mixer,
+    id_store::IdStore,
+    midi::{MidiBus, MidiChannel, MIDI_CHANNEL_RECEIVE_ALL},
+    patterns::Pattern,
+    traits::{
+        IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi,
+        SourcesAudio, SourcesMidi, WatchesClock,
+    },
 };
-use crate::{clock::WatchedClock, effects::mixer::Mixer};
 use crossbeam::deque::Worker;
-use std::cell::RefCell;
 use std::io::{self, Write};
 use std::rc::Rc;
 
@@ -62,7 +64,7 @@ impl Default for Orchestrator {
             control_paths: Vec::new(),
             viewable_makers: Vec::new(),
         };
-        let value = Rc::downgrade(&r.main_mixer);
+        let value = rrc_downgrade(&r.main_mixer);
         r.viewable_makers.push(value);
         r
     }
@@ -157,11 +159,7 @@ impl Orchestrator {
         id
     }
 
-    pub fn register_effect(
-        &mut self,
-        id: Option<&str>,
-        effect: Rrc<dyn IsEffect>,
-    ) -> String {
+    pub fn register_effect(&mut self, id: Option<&str>, effect: Rrc<dyn IsEffect>) -> String {
         let id = self.id_store.add_effect_by_id(id, &effect);
         self.effects.push(effect);
         id
@@ -173,7 +171,7 @@ impl Orchestrator {
         midi_effect: Rrc<dyn IsMidiEffect>,
         channel: MidiChannel,
     ) -> String {
-        let instrument = Rc::downgrade(&midi_effect);
+        let instrument = rrc_downgrade(&midi_effect);
         self.connect_to_downstream_midi_bus(channel, instrument);
         let instrument = Rc::clone(&midi_effect);
         self.connect_to_upstream_midi_bus(instrument);
@@ -196,7 +194,7 @@ impl Orchestrator {
     }
 
     pub fn register_viewable(&mut self, viewable: Rrc<dyn MakesIsViewable>) {
-        self.viewable_makers.push(Rc::downgrade(&viewable));
+        self.viewable_makers.push(rrc_downgrade(&viewable));
     }
 
     /// If you're connecting an instrument downstream of MidiBus, it means that the
@@ -214,7 +212,7 @@ impl Orchestrator {
     /// If you're connecting an instrument upstream of MidiBus, it means that the
     /// instrument has something to say to other instruments.
     pub fn connect_to_upstream_midi_bus(&mut self, instrument: Rrc<dyn SourcesMidi>) {
-        let sink = Rc::downgrade(&self.midi_bus);
+        let sink = rrc_downgrade(&self.midi_bus);
         instrument
             .borrow_mut()
             .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
@@ -224,7 +222,7 @@ impl Orchestrator {
         if let Some(item) = self.id_store.audio_source_by(id) {
             return item;
         }
-        panic!("SourcesAudio id {} not found", id);
+        panic!("SourcesAudio id {id} not found");
     }
 
     pub fn audio_sink_by(&self, id: &str) -> Ww<dyn SinksAudio> {
@@ -234,28 +232,28 @@ impl Orchestrator {
         if let Some(item) = self.id_store.audio_sink_by(id) {
             return item;
         }
-        panic!("SinksAudio id {} not found", id);
+        panic!("SinksAudio id {id} not found");
     }
 
     pub fn makes_control_sink_by(&self, id: &str) -> Ww<dyn MakesControlSink> {
         if let Some(item) = self.id_store.makes_control_sink_by(id) {
             return item;
         }
-        panic!("MakesControlSink id {} not found", id);
+        panic!("MakesControlSink id {id} not found");
     }
 
     pub fn pattern_by(&self, id: &str) -> Ww<Pattern> {
         if let Some(item) = self.id_store.pattern_by(id) {
             return item;
         }
-        panic!("Pattern id {} not found", id);
+        panic!("Pattern id {id} not found");
     }
 
     pub fn control_path_by(&self, id: &str) -> Ww<ControlPath> {
         if let Some(item) = self.id_store.control_path_by(id) {
             return item;
         }
-        panic!("ControlPath id {} not found", id);
+        panic!("ControlPath id {id} not found");
     }
 
     //________________________

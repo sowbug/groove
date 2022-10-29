@@ -16,9 +16,9 @@ pub enum LoadError {
 
 #[derive(Debug, Clone)]
 pub enum SaveError {
-    FileError,
-    WriteError,
-    FormatError,
+    File,
+    Write,
+    Format,
 }
 
 impl SavedState {

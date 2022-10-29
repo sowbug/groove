@@ -1,13 +1,12 @@
 use super::clock::Clock;
 use crate::{
     clock::ClockTimeUnit,
-    common::{MonoSample, Rrc, Ww, rrc},
+    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
     settings::patches::EnvelopeSettings,
     traits::{IsMutable, SourcesAudio},
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{
-    cell::RefCell,
     fmt::Debug,
     ops::Range,
     rc::{Rc, Weak},
@@ -268,7 +267,7 @@ impl AdsrEnvelope {
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
         let wrapped = rrc(Self::new_with(preset));
-        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
 

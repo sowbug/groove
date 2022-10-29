@@ -1,8 +1,8 @@
 use crate::{
-    common::{MonoSample, Rrc, Ww, rrc},
+    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
-use std::{cell::RefCell, f64::consts::PI, rc::Rc};
+use std::{f64::consts::PI, rc::Rc};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {
@@ -84,7 +84,7 @@ impl Filter {
 
     // https://docs.google.com/spreadsheets/d/1uQylh2h77-fuJ6OM0vjF7yjRXflLFP0yQEnv5wbaP2c/edit#gid=0
     // =LOGEST(Sheet1!B2:B23, Sheet1!A2:A23,true, false)
-    // 
+    //
     // Column A is 24db filter percentages from all the patches. Column B is
     // envelope-filter percentages from all the patches.
     pub fn percent_to_frequency(percentage: f32) -> f32 {
@@ -121,7 +121,7 @@ impl Filter {
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
         let wrapped = rrc(Self::new(filter_type));
-        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
 

@@ -203,7 +203,7 @@ pub mod tests {
     use crate::{
         clock::Clock,
         clock::WatchedClock,
-        common::{rrc, MonoSample, MONO_SAMPLE_SILENCE},
+        common::{rrc, MonoSample, MONO_SAMPLE_SILENCE, rrc_downgrade},
         effects::gain::Gain,
         envelopes::AdsrEnvelope,
         midi::MidiMessage,
@@ -234,9 +234,9 @@ pub mod tests {
             envelope_synth_clone,
         )));
         let effect = Gain::new_wrapped();
-        let source = Rc::downgrade(&synth);
+        let source = rrc_downgrade(&synth);
         effect.borrow_mut().add_audio_source(source);
-        let source = Rc::downgrade(&effect);
+        let source = rrc_downgrade(&effect);
         orchestrator.add_audio_source(source);
 
         // An Oscillator provides an audio signal. TestControlSourceContinuous
@@ -313,7 +313,7 @@ pub mod tests {
         let mut sink = TestAudioSink::new();
         let source = rrc(TestAudioSource::new());
         assert!(sink.sources().is_empty());
-        let source = Rc::downgrade(&source);
+        let source = rrc_downgrade(&source);
         sink.add_audio_source(source);
         assert_eq!(sink.sources().len(), 1);
     }
@@ -347,7 +347,7 @@ pub mod tests {
         let sink = TestMidiSink::new_wrapped();
 
         assert!(source.midi_sinks().is_empty());
-        let sink_down = Rc::downgrade(&sink);
+        let sink_down = rrc_downgrade(&sink);
         source.add_midi_sink(sink.borrow().midi_channel(), sink_down);
         assert!(!source.midi_sinks().is_empty());
 
@@ -369,7 +369,7 @@ pub mod tests {
         {
             keyboard_interface.add_control_sink(arpeggiator_controller);
         };
-        let sink = Rc::downgrade(&instrument);
+        let sink = rrc_downgrade(&instrument);
         arpeggiator
             .borrow_mut()
             .add_midi_sink(instrument.borrow().midi_channel(), sink);

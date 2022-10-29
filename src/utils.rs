@@ -2,7 +2,10 @@
 pub mod tests {
     use crate::{
         clock::{Clock, ClockTimeUnit, WatchedClock},
-        common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE},
+        common::{
+            rrc, rrc_downgrade, wrc_clone, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
+            MONO_SAMPLE_SILENCE,
+        },
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
         midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MIDI_CHANNEL_RECEIVE_ALL},
@@ -33,13 +36,13 @@ pub mod tests {
             panic!();
         }
         let snake_filename = filename.to_case(Case::Snake);
-        format!("{}/{}.wav", OUT_DIR, snake_filename)
+        format!("{OUT_DIR}/{snake_filename}.wav")
     }
 
     pub fn canonicalize_fft_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
         let snake_filename = filename.to_case(Case::Snake);
-        format!("{}/{}-spectrum", OUT_DIR, snake_filename)
+        format!("{OUT_DIR}/{snake_filename}-spectrum")
     }
 
     fn write_samples_to_wav_file(basename: &str, sample_rate: usize, samples: &Vec<MonoSample>) {
@@ -67,9 +70,9 @@ pub mod tests {
         let mut o = TestOrchestrator::new();
         let osc = Oscillator::new_wrapped_with(waveform_type);
         if let Some(effect) = effect_opt {
-            let osc_weak = Rc::downgrade(&osc);
+            let osc_weak = rrc_downgrade(&osc);
             effect.borrow_mut().add_audio_source(osc_weak);
-            let effect_weak = Rc::downgrade(&effect);
+            let effect_weak = rrc_downgrade(&effect);
             o.add_audio_source(effect_weak);
         }
         c.add_watcher(rrc(TestTimer::new_with(2.0)));
@@ -508,7 +511,7 @@ pub mod tests {
         pub fn new_with(source: Box<dyn SourcesAudio>) -> Self {
             Self {
                 control_sinks: Vec::new(),
-                source: source,
+                source,
             }
         }
     }
@@ -555,7 +558,6 @@ pub mod tests {
 
         pub fn new() -> Self {
             Self {
-                me: Weak::new(),
                 midi_channel: Self::TEST_MIDI_CHANNEL,
                 ..Default::default()
             }
@@ -565,7 +567,7 @@ pub mod tests {
             // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
             let wrapped = rrc(Self::new());
-            wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
             wrapped
         }
         pub fn new_with(midi_channel: MidiChannel) -> Self {
@@ -580,7 +582,7 @@ pub mod tests {
             // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
             let wrapped = rrc(Self::new_with(midi_channel));
-            wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
             wrapped
         }
         pub fn set_value(&mut self, value: f32) {
@@ -632,7 +634,7 @@ pub mod tests {
             if self.me.strong_count() != 0 {
                 match param_name {
                     Self::CONTROL_PARAM_DEFAULT => Some(Box::new(TestMidiSinkController {
-                        target: Weak::clone(&self.me),
+                        target: wrc_clone(&self.me),
                     })),
                     _ => None,
                 }
@@ -758,7 +760,7 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestControllable {
-        pub(crate) me: Weak<RefCell<Self>>,
+        pub(crate) me: Ww<Self>,
         pub value: f32,
     }
     impl TestControllable {
@@ -774,7 +776,7 @@ pub mod tests {
             // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
             let wrapped = rrc(Self::new());
-            wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
             wrapped
         }
     }
@@ -783,7 +785,7 @@ pub mod tests {
             if self.me.strong_count() != 0 {
                 match param_name {
                     Self::CONTROL_PARAM_DEFAULT => Some(Box::new(TestControllableController {
-                        target: Weak::clone(&self.me),
+                        target: wrc_clone(&self.me),
                     })),
                     _ => None,
                 }
@@ -807,16 +809,16 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestMidiSource {
-        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
+        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     }
 
     impl SourcesMidi for TestMidiSource {
-        fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+        fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
             &self.channels_to_sink_vecs
         }
         fn midi_sinks_mut(
             &mut self,
-        ) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+        ) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
             &mut self.channels_to_sink_vecs
         }
 
@@ -879,18 +881,18 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestArpeggiator {
-        me: Weak<RefCell<Self>>,
+        me: Ww<Self>,
         midi_channel_out: MidiChannel,
         pub tempo: f32,
-        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
+        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     }
     impl SourcesMidi for TestArpeggiator {
-        fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+        fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
             &self.channels_to_sink_vecs
         }
         fn midi_sinks_mut(
             &mut self,
-        ) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+        ) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
             &mut self.channels_to_sink_vecs
         }
 
@@ -907,7 +909,7 @@ pub mod tests {
             // We don't actually pay any attention to self.tempo, but it's easy
             // enough to see that tempo could have influenced this MIDI message.
             self.issue_midi(
-                &clock,
+                clock,
                 &MidiMessage::new_note_on(self.midi_channel_out, 60, 100),
             );
         }
@@ -922,7 +924,7 @@ pub mod tests {
             if self.me.strong_count() != 0 {
                 match param_name {
                     Self::CONTROL_PARAM_TEMPO => Some(Box::new(TestArpeggiatorTempoController {
-                        target: Weak::clone(&self.me),
+                        target: wrc_clone(&self.me),
                     })),
                     _ => None,
                 }
@@ -945,7 +947,7 @@ pub mod tests {
             // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
             let wrapped = rrc(Self::new_with(midi_channel_out));
-            wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
             wrapped
         }
     }

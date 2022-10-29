@@ -1,19 +1,24 @@
-use crate::common::{rrc, MonoSample, Rrc};
-use crate::midi::sequencer::MidiSequencer;
-use crate::midi::smf_reader::MidiSmfReader;
-use crate::orchestrator::{Orchestrator, Performance};
-use crate::settings::patches::SynthPatch;
-use crate::settings::songs::SongSettings;
-use crate::settings::ClockSettings;
-use crate::synthesizers::drumkit_sampler::Sampler;
-use crate::synthesizers::welsh::{PatchName, Synth};
-use crate::traits::IsMidiInstrument;
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{SampleRate, Stream, StreamConfig};
+use crate::{
+    common::{rrc, MonoSample, Rrc, rrc_downgrade},
+    midi::{sequencer::MidiSequencer, smf_reader::MidiSmfReader},
+    orchestrator::{Orchestrator, Performance},
+    settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
+    synthesizers::{
+        drumkit_sampler::Sampler,
+        welsh::{PatchName, Synth},
+    },
+    traits::IsMidiInstrument,
+};
+use cpal::{
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    SampleRate, Stream, StreamConfig,
+};
 use crossbeam::deque::{Steal, Stealer, Worker};
-use std::ops::BitAnd;
-use std::rc::Rc;
-use std::sync::{Arc, Condvar, Mutex};
+use std::{
+    ops::BitAnd,
+    rc::Rc,
+    sync::{Arc, Condvar, Mutex},
+};
 
 pub struct AudioOutput {
     sample_rate: usize,
@@ -56,7 +61,7 @@ impl AudioOutput {
             .expect("no supported config?!")
             .with_sample_rate(SampleRate(self.sample_rate as u32));
 
-        let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
+        let err_fn = |err| eprintln!("an error occurred on the output audio stream: {err}");
         let sample_format = supported_config.sample_format();
         let config: StreamConfig = supported_config.into();
 
@@ -104,7 +109,7 @@ impl AudioOutput {
         } {
             self.stream = Some(result);
             if let Some(stream) = &self.stream {
-                if let Ok(_) = stream.play() {
+                if stream.play().is_ok() {
                     // hooray
                 }
             }
@@ -113,7 +118,7 @@ impl AudioOutput {
 
     pub fn stop(&mut self) {
         if let Some(stream) = &self.stream {
-            if let Ok(_) = stream.pause() {
+            if stream.pause().is_ok() {
                 // hooray again
             }
         }
@@ -219,9 +224,9 @@ impl IOHelper {
             };
             let instrument = Rc::clone(&synth);
             orchestrator.register_audio_source(None, instrument);
-            let sink = Rc::downgrade(&synth);
+            let sink = rrc_downgrade(&synth);
             orchestrator.connect_to_downstream_midi_bus(channel, sink);
-            let device = Rc::downgrade(&synth);
+            let device = rrc_downgrade(&synth);
             orchestrator.add_main_mixer_source(device);
         }
         orchestrator
@@ -270,7 +275,7 @@ impl IOHelper {
             .expect("no supported config?!")
             .with_sample_rate(SampleRate(performance.sample_rate as u32));
 
-        let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
+        let err_fn = |err| eprintln!("an error occurred on the output audio stream: {err}");
         let sample_format = supported_config.sample_format();
         let config: StreamConfig = supported_config.into();
 

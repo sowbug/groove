@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc, MonoSample, Rrc, Ww},
+    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
     effects::filter::{Filter, FilterType},
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiMessageType},
     settings::{
@@ -141,7 +141,7 @@ impl SynthPatch {
 
     pub fn new_from_yaml(yaml: &str) -> Result<Self, LoadError> {
         serde_yaml::from_str(yaml).map_err(|e| {
-            println!("{}", e);
+            println!("{e}");
             LoadError::FormatError
         })
     }
@@ -507,7 +507,7 @@ impl Synth {
             }
         };
         if delegated {
-            println!("Delegated {} to {}", program, preset);
+            println!("Delegated {program} to {preset}");
         }
         SynthPatch::by_name(&preset)
     }
@@ -699,7 +699,7 @@ impl Synth {
         preset: SynthPatch,
     ) -> Rrc<Self> {
         let wrapped = rrc(Self::new(midi_channel, sample_rate, preset));
-        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
 
@@ -820,11 +820,9 @@ mod tests {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
                 voice.handle_midi_for_channel(&clock, &midi_on);
-            } else {
-                if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off {
-                    last_recognized_time_point = clock.seconds();
-                    voice.handle_midi_for_channel(&clock, &midi_off);
-                }
+            } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off {
+                last_recognized_time_point = clock.seconds();
+                voice.handle_midi_for_channel(&clock, &midi_off);
             }
 
             let sample = voice.source_audio(&clock);

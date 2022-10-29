@@ -1,7 +1,7 @@
 use crate::{
     clock::{BeatValue, Clock, TimeSignature},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
+    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock}, common::Ww,
 };
 use sorted_vec::SortedVec;
 use std::{
@@ -16,7 +16,7 @@ pub struct PatternSequencer {
     time_signature: TimeSignature,
     cursor_beats: f32, // TODO: this should be a fixed-precision type
 
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
+    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     sequenced_notes: SortedVec<OrderedNote>,
 }
 
@@ -142,11 +142,11 @@ impl Terminates for PatternSequencer {
 }
 
 impl SourcesMidi for PatternSequencer {
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &mut self.channels_to_sink_vecs
     }
 
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &self.channels_to_sink_vecs
     }
 

@@ -360,7 +360,7 @@ pub mod tests {
     fn test_note_to_frequency() {
         assert_approx_eq!(
             MidiMessage::new_note_on(0, MidiNote::C4 as u8, 0).message_to_frequency(),
-            261.625549
+            261.625_55
         );
         assert_approx_eq!(
             MidiMessage::new_note_on(0, 0, 0).message_to_frequency(),

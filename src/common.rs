@@ -8,6 +8,12 @@ pub(crate) type Ww<T> = Weak<RefCell<T>>;
 pub(crate) fn rrc<T>(t: T) -> Rrc<T> {
     Rc::new(RefCell::new(t))
 }
+pub(crate) fn rrc_downgrade<T: ?Sized>(t: &Rc<RefCell<T>>) -> Weak<RefCell<T>> {
+    Rc::downgrade(t)
+}
+pub(crate) fn wrc_clone<T: ?Sized>(t: &Weak<RefCell<T>>) -> Weak<RefCell<T>> {
+    Weak::clone(t)
+}
 
 // TODO: some kind of wrap_me() parameterized function
 //

@@ -1,5 +1,5 @@
 use crate::{
-    common::Ww,
+    common::{Ww, wrc_clone},
     effects::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
@@ -136,8 +136,7 @@ impl IsViewable for MixerViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Mixer>();
             let contents = format!("sources: {}", target.borrow().sources().len());
-            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
-                .into()
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             panic!()
         }
@@ -152,7 +151,7 @@ impl MakesIsViewable for Mixer {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(MixerViewableResponder {
-                target: Weak::clone(&self.me),
+                target: wrc_clone(&self.me),
             }))
         } else {
             println!(
@@ -175,8 +174,7 @@ impl IsViewable for SamplerViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Sampler>();
             let contents = format!("name: {}", target.borrow().filename);
-            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
-                .into()
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             panic!()
         }
@@ -191,7 +189,7 @@ impl MakesIsViewable for Sampler {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(SamplerViewableResponder {
-                target: Weak::clone(&self.me),
+                target: wrc_clone(&self.me),
             }))
         } else {
             println!(
@@ -214,8 +212,7 @@ impl IsViewable for DrumkitSamplerViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<DrumkitSampler>();
             let contents = format!("kit name: {}", target.borrow().kit_name);
-            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
-                .into()
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             panic!()
         }
@@ -230,7 +227,7 @@ impl MakesIsViewable for DrumkitSampler {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(DrumkitSamplerViewableResponder {
-                target: Weak::clone(&self.me),
+                target: wrc_clone(&self.me),
             }))
         } else {
             println!(
@@ -253,8 +250,7 @@ impl IsViewable for SynthViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Synth>();
             let contents = format!("name: {}", target.borrow().preset.name);
-            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
-                .into()
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             panic!()
         }
@@ -269,7 +265,7 @@ impl MakesIsViewable for Synth {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(SynthViewableResponder {
-                target: Weak::clone(&self.me),
+                target: wrc_clone(&self.me),
             }))
         } else {
             println!(
@@ -288,7 +284,7 @@ pub struct GainViewableResponder {
 impl GainViewableResponder {
     fn new(me: Ww<Gain>) -> Self {
         Self {
-            target: Weak::clone(&me),
+            target: wrc_clone(&me),
         }
     }
 }
@@ -315,7 +311,7 @@ impl IsViewable for GainViewableResponder {
                 .width(iced::Length::FillPortion(1)),
             ])
             .padding(20);
-            GuiStuff::titled_container(title, contents.into()).into()
+            GuiStuff::titled_container(title, contents.into())
         } else {
             panic!()
         }
@@ -349,7 +345,7 @@ pub enum GainMessage {
 impl MakesIsViewable for Gain {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
-            Some(Box::new(GainViewableResponder::new(Weak::clone(&self.me))))
+            Some(Box::new(GainViewableResponder::new(wrc_clone(&self.me))))
         } else {
             println!(
                 "{}: probably forgot to call new_wrapped...()",
@@ -371,8 +367,7 @@ impl IsViewable for BitcrusherViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Bitcrusher>();
             let contents = format!("bits to crush: {}", target.borrow().bits_to_crush());
-            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
-                .into()
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             panic!()
         }
@@ -394,7 +389,7 @@ impl MakesIsViewable for Bitcrusher {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(BitcrusherViewableResponder {
-                target: Weak::clone(&self.me),
+                target: wrc_clone(&self.me),
             }))
         } else {
             println!(
@@ -421,8 +416,7 @@ impl IsViewable for LimiterViewableResponder {
                 target.borrow().min(),
                 target.borrow().max()
             );
-            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
-                .into()
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             panic!()
         }
@@ -449,7 +443,7 @@ impl MakesIsViewable for Limiter {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(LimiterViewableResponder {
-                target: Weak::clone(&self.me),
+                target: wrc_clone(&self.me),
             }))
         } else {
             println!(
@@ -483,7 +477,7 @@ impl IsViewable for FilterViewableResponder {
                 ))
                 .width(iced::Length::FillPortion(1))
             ];
-            GuiStuff::titled_container(title, contents.into()).into()
+            GuiStuff::titled_container(title, contents.into())
         } else {
             panic!()
         }
@@ -512,7 +506,7 @@ impl MakesIsViewable for Filter {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(FilterViewableResponder {
-                target: Weak::clone(&self.me),
+                target: wrc_clone(&self.me),
             }))
         } else {
             println!(
@@ -535,8 +529,7 @@ impl IsViewable for ArpeggiatorViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Arpeggiator>();
             let contents = format!("cutoff: {}", target.borrow().nothing());
-            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()).into())
-                .into()
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             panic!()
         }
@@ -558,7 +551,7 @@ impl MakesIsViewable for Arpeggiator {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(ArpeggiatorViewableResponder {
-                target: Weak::clone(&self.me),
+                target: wrc_clone(&self.me),
             }))
         } else {
             println!(
@@ -599,7 +592,7 @@ mod tests {
                 viewable.update(message);
             }
         } else {
-            assert!(false, "factory failed {:?}", factory);
+            assert!(false, "factory failed {factory:?}");
         }
     }
 

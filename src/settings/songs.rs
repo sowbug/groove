@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     clock::WatchedClock,
-    common::{rrc, DeviceId},
+    common::{rrc, DeviceId, rrc_downgrade},
     control::{ControlPath, ControlTrip},
     patterns::{Pattern, PatternSequencer},
     Orchestrator,
@@ -41,7 +41,7 @@ impl SongSettings {
 
     pub fn new_from_yaml(yaml: &str) -> Result<Self, LoadError> {
         serde_yaml::from_str(yaml).map_err(|e| {
-            println!("{}", e);
+            println!("{e}");
             LoadError::FormatError
         })
     }
@@ -64,7 +64,7 @@ impl SongSettings {
                 DeviceSettings::Instrument(id, instrument_settings) => {
                     let instrument = instrument_settings.instantiate(sample_rate);
                     let midi_channel = instrument.borrow().midi_channel();
-                    let instrument_weak = Rc::downgrade(&instrument);
+                    let instrument_weak = rrc_downgrade(&instrument);
                     orchestrator.connect_to_downstream_midi_bus(midi_channel, instrument_weak);
                     let audio_source = Rc::clone(&instrument);
                     orchestrator.register_audio_source(Some(id), audio_source);
@@ -102,7 +102,7 @@ impl SongSettings {
                     if device_id == "main-mixer" {
                         orchestrator.add_main_mixer_source(output);
                     } else {
-                        let input = orchestrator.audio_sink_by(&device_id);
+                        let input = orchestrator.audio_sink_by(device_id);
                         if let Some(input) = input.upgrade() {
                             input.borrow_mut().add_audio_source(output);
                         }
@@ -126,7 +126,7 @@ impl SongSettings {
 
         let pattern_sequencer = rrc(PatternSequencer::new(&self.clock.time_signature));
         for pattern_settings in &self.patterns {
-            let pattern = rrc(Pattern::from_settings(&pattern_settings));
+            let pattern = rrc(Pattern::from_settings(pattern_settings));
             orchestrator.register_pattern(Some(&pattern_settings.id), pattern);
         }
 
@@ -134,7 +134,7 @@ impl SongSettings {
             let channel = track.midi_channel;
             pattern_sequencer.borrow_mut().reset_cursor();
             for pattern_id in &track.pattern_ids {
-                if let Some(pattern) = orchestrator.pattern_by(&pattern_id).upgrade() {
+                if let Some(pattern) = orchestrator.pattern_by(pattern_id).upgrade() {
                     pattern_sequencer
                         .borrow_mut()
                         .add_pattern(&pattern.borrow(), channel);
@@ -154,7 +154,7 @@ impl SongSettings {
         }
 
         for path_settings in &self.paths {
-            let v = rrc(ControlPath::from_settings(&path_settings));
+            let v = rrc(ControlPath::from_settings(path_settings));
             orchestrator.register_control_path(Some(&path_settings.id), v);
         }
         for control_trip_settings in &self.trips {
@@ -169,7 +169,7 @@ impl SongSettings {
                     let control_trip = rrc(ControlTrip::new(controller));
                     control_trip.borrow_mut().reset_cursor();
                     for path_id in &control_trip_settings.path_ids {
-                        let control_path = orchestrator.control_path_by(&path_id);
+                        let control_path = orchestrator.control_path_by(path_id);
                         if let Some(control_path) = control_path.upgrade() {
                             control_trip.borrow_mut().add_path(&control_path.borrow());
                         }

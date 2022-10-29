@@ -141,7 +141,7 @@ impl Clock {
         let seconds = self.seconds as usize % 60;
         let thousandths = (self.seconds.fract() * 1000.0) as u16;
         container(
-            text(format!("{:02}:{:02}:{:03}", minutes, seconds, thousandths))
+            text(format!("{minutes:02}:{seconds:02}:{thousandths:03}"))
                 .font(NUMBERS_FONT)
                 .size(NUMBERS_FONT_SIZE),
         )
@@ -196,13 +196,13 @@ impl Application for GrooveApp {
                     .collect();
                 *self = Self {
                     theme: self.theme,
-                    project_name: state.project_name.clone(),
+                    project_name: state.project_name,
                     orchestrator,
                     viewables,
                     ..Default::default()
                 };
 
-                (*self).audio_output.start();
+                self.audio_output.start();
             }
             Message::Loaded(Err(_)) => {
                 todo!()
@@ -241,7 +241,7 @@ impl Application for GrooveApp {
                     // and https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
                     //
                     // This is needed to stop an ALSA buffer underrun on close
-                    (*self).audio_output.stop();
+                    self.audio_output.stop();
 
                     self.should_exit = true;
                 }

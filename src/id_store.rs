@@ -1,11 +1,13 @@
 use crate::{
-    common::{DeviceId, Rrc, Ww},
+    common::{DeviceId, Rrc, Ww, rrc_downgrade, wrc_clone},
     control::ControlPath,
     patterns::Pattern,
     traits::{IsEffect, IsMidiEffect, MakesControlSink, SinksAudio, SourcesAudio, WatchesClock},
 };
-use std::rc::Rc;
-use std::{collections::HashMap, rc::Weak};
+use std::{
+    collections::HashMap,
+    rc::{Rc, Weak},
+};
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct IdStore {
@@ -46,7 +48,7 @@ impl IdStore {
     ) -> String {
         let id = self.assign_id_if_none(id);
         self.id_to_clock_watcher
-            .insert(id.to_string(), Rc::downgrade(clock_watcher));
+            .insert(id.to_string(), rrc_downgrade(clock_watcher));
         id
     }
 
@@ -57,14 +59,14 @@ impl IdStore {
     ) -> String {
         let id = self.assign_id_if_none(id);
         self.id_to_audio_source
-            .insert(id.to_string(), Rc::downgrade(audio_source));
+            .insert(id.to_string(), rrc_downgrade(audio_source));
         id
     }
 
     pub fn add_effect_by_id(&mut self, id: Option<&str>, effect: &Rrc<dyn IsEffect>) -> String {
         let id = self.assign_id_if_none(id);
         self.id_to_effect
-            .insert(id.to_string(), Rc::downgrade(effect));
+            .insert(id.to_string(), rrc_downgrade(effect));
         id
     }
 
@@ -75,30 +77,30 @@ impl IdStore {
     ) -> String {
         let id = self.assign_id_if_none(id);
         self.id_to_midi_effect
-            .insert(id.to_string(), Rc::downgrade(&midi_effect));
+            .insert(id.to_string(), rrc_downgrade(midi_effect));
         id
     }
 
     pub fn add_control_path_by_id(&mut self, id: Option<&str>, path: &Rrc<ControlPath>) -> String {
         let id = self.assign_id_if_none(id);
         self.id_to_control_path
-            .insert(id.to_string(), Rc::downgrade(path));
+            .insert(id.to_string(), rrc_downgrade(path));
         id
     }
 
     pub fn add_pattern_by_id(&mut self, id: Option<&str>, pattern: &Rrc<Pattern>) -> String {
         let id = self.assign_id_if_none(id);
         self.id_to_pattern
-            .insert(id.to_string(), Rc::downgrade(pattern));
+            .insert(id.to_string(), rrc_downgrade(pattern));
         id
     }
 
     pub fn audio_source_by(&self, id: &str) -> Option<Ww<dyn SourcesAudio>> {
         if let Some(item) = self.id_to_audio_source.get(id) {
-            return Some(Weak::clone(item));
+            return Some(wrc_clone(item));
         }
         if let Some(item) = self.id_to_effect.get(id) {
-            let clone = Weak::clone(&item);
+            let clone = wrc_clone(item);
             return Some(clone);
         }
         None
@@ -106,7 +108,7 @@ impl IdStore {
 
     pub fn audio_sink_by(&self, id: &str) -> Option<Ww<dyn SinksAudio>> {
         if let Some(item) = self.id_to_effect.get(id) {
-            let clone = Weak::clone(&item);
+            let clone = wrc_clone(item);
             return Some(clone);
         }
         None
@@ -114,7 +116,7 @@ impl IdStore {
 
     pub fn makes_control_sink_by(&self, id: &str) -> Option<Ww<dyn MakesControlSink>> {
         if let Some(item) = self.id_to_effect.get(id) {
-            let clone = Weak::clone(item);
+            let clone = wrc_clone(item);
             return Some(clone);
         }
         None
@@ -122,14 +124,14 @@ impl IdStore {
 
     pub fn pattern_by(&self, id: &str) -> Option<Ww<Pattern>> {
         if let Some(item) = self.id_to_pattern.get(id) {
-            return Some(Weak::clone(item));
+            return Some(wrc_clone(item));
         }
         None
     }
 
     pub fn control_path_by(&self, id: &str) -> Option<Ww<ControlPath>> {
         if let Some(item) = self.id_to_control_path.get(id) {
-            return Some(Weak::clone(item));
+            return Some(wrc_clone(item));
         }
         None
     }

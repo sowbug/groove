@@ -30,7 +30,7 @@ impl MidiSmfReader {
             time_signature_denominator_exp: 0,
         };
         for (track_number, track) in parse_result.tracks.iter().enumerate() {
-            println!("Processing track {}", track_number);
+            println!("Processing track {track_number}");
             let mut track_time_ticks: u32 = 0; // The relative time references start over at zero with each track.
 
             for t in track.iter() {

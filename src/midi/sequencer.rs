@@ -2,7 +2,7 @@ use super::MIDI_CHANNEL_RECEIVE_ALL;
 use crate::{
     clock::{Clock, TimeSignature},
     midi::{MidiChannel, OrderedMidiMessage},
-    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
+    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock}, common::Ww,
 };
 use sorted_vec::SortedVec;
 use std::{cell::RefCell, collections::HashMap, rc::Weak};
@@ -14,7 +14,7 @@ pub struct MidiSequencer {
     time_signature: TimeSignature,
 
     // TODO: if this gets too unwieldy, consider https://crates.io/crates/multimap
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>>,
+    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
 
     midi_messages: SortedVec<OrderedMidiMessage>,
 }
@@ -56,11 +56,11 @@ impl MidiSequencer {
 }
 
 impl SourcesMidi for MidiSequencer {
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &mut self.channels_to_sink_vecs
     }
 
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Weak<RefCell<dyn SinksMidi>>>> {
+    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &self.channels_to_sink_vecs
     }
 
@@ -104,13 +104,13 @@ impl Terminates for MidiSequencer {
 }
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::{rc::Rc};
 
     use crate::{
         clock::Clock,
         midi::{MidiMessage, MidiNote, OrderedMidiMessage},
         traits::{SinksMidi, SourcesMidi, WatchesClock},
-        utils::tests::TestMidiSink, common::rrc,
+        utils::tests::TestMidiSink, common::{rrc, rrc_downgrade},
     };
 
     use super::MidiSequencer;
@@ -126,7 +126,7 @@ mod tests {
         let next_beat = clock.beats().floor() + 1.0;
         while clock.beats() < next_beat {
             clock.tick();
-            sequencer.tick(&clock);
+            sequencer.tick(clock);
         }
         let _d = true;
     }
@@ -149,7 +149,7 @@ mod tests {
             message: MidiMessage::note_off_c4(),
         });
 
-        let sink = Rc::downgrade(&device);
+        let sink = rrc_downgrade(&device);
         sequencer.add_midi_sink(0, sink);
 
         sequencer.tick(&clock);
@@ -177,13 +177,13 @@ mod tests {
         let device_1 = rrc(TestMidiSink::new());
         assert!(!device_1.borrow().is_playing);
         device_1.borrow_mut().set_midi_channel(0);
-        let sink = Rc::downgrade(&device_1);
+        let sink = rrc_downgrade(&device_1);
         sequencer.add_midi_sink(0, sink);
 
         let device_2 = rrc(TestMidiSink::new());
         assert!(!device_2.borrow().is_playing);
         device_2.borrow_mut().set_midi_channel(1);
-        let sink = Rc::downgrade(&device_2);
+        let sink = rrc_downgrade(&device_2);
         sequencer.add_midi_sink(1, sink);
 
         sequencer.add_message(OrderedMidiMessage {

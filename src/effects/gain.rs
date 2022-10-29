@@ -1,13 +1,10 @@
 use crate::{
-    common::{MonoSample, Rrc, Ww, rrc},
+    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Gain {
     pub(crate) me: Ww<Self>,
     sources: Vec<Ww<dyn SourcesAudio>>,
@@ -22,6 +19,7 @@ impl Gain {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
+            ceiling: 1.0,
             ..Default::default()
         }
     }
@@ -32,7 +30,7 @@ impl Gain {
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
         let wrapped = rrc(Self::new());
-        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
 
@@ -49,7 +47,7 @@ impl Gain {
         // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
 
         let wrapped = rrc(Self::new_with(ceiling));
-        wrapped.borrow_mut().me = Rc::downgrade(&wrapped);
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
 
@@ -61,16 +59,6 @@ impl Gain {
     #[allow(dead_code)]
     pub fn set_level(&mut self, level: f32) {
         self.ceiling = level;
-    }
-}
-impl Default for Gain {
-    fn default() -> Self {
-        Self {
-            me: Weak::new(),
-            sources: Vec::default(),
-            is_muted: false,
-            ceiling: 1.0,
-        }
     }
 }
 impl SinksAudio for Gain {
@@ -109,7 +97,7 @@ mod tests {
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(1.1);
         let source = rrc(TestAudioSourceAlwaysLoud::new());
-        let source = Rc::downgrade(&source);
+        let source = rrc_downgrade(&source);
         gain.add_audio_source(source);
         assert_eq!(gain.source_audio(&Clock::new()), 1.1);
     }
@@ -119,7 +107,7 @@ mod tests {
         // principle of least astonishment: does a default instance adhere?
         let mut gain = Gain::new();
         let source = rrc(TestAudioSourceAlwaysSameLevel::new(0.888));
-        let source = Rc::downgrade(&source);
+        let source = rrc_downgrade(&source);
         gain.add_audio_source(source);
         assert_eq!(gain.source_audio(&Clock::new()), 0.888);
     }
