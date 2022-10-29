@@ -112,6 +112,11 @@ impl AudioOutput {
     }
 
     pub fn stop(&mut self) {
+        if let Some(stream) = &self.stream {
+            if let Ok(_) = stream.pause() {
+                // hooray again
+            }
+        }
         let lock = &self.sync_pair.0;
         let cvar = &self.sync_pair.1;
         let mut finished = lock.lock().unwrap();

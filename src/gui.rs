@@ -94,7 +94,7 @@ impl<'a> GuiStuff {
         }
     }
 
-    pub fn number_box_style(theme: &iced::Theme) -> container::Appearance {
+    pub fn number_box_style(_theme: &iced::Theme) -> container::Appearance {
         container::Appearance {
             text_color: Some(Color::from_rgb8(255, 255, 0)),
             background: Some(iced::Background::Color(Color::BLACK)),

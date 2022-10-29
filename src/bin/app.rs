@@ -1,35 +1,33 @@
 mod gui;
 
 use async_std::task::block_on;
-use groove::gui::GuiStuff;
-use groove::gui::IsViewable;
-use groove::gui::ViewableMessage;
-use groove::gui::NUMBERS_FONT;
-use groove::gui::NUMBERS_FONT_SIZE;
-use groove::AudioOutput;
-use groove::IOHelper;
-use groove::Orchestrator;
-use gui::persistence::LoadError;
-use gui::persistence::SavedState;
-use gui::play_icon;
-use gui::skip_to_prev_icon;
-use gui::stop_icon;
-use iced::alignment;
-use iced::executor;
-use iced::theme;
-use iced::theme::Theme;
-use iced::time;
-use iced::widget::button;
-use iced::widget::scrollable;
-use iced::widget::text_input;
-use iced::widget::{column, container, row, text};
-use iced::Color;
-use iced::Subscription;
-use iced::{Alignment, Application, Command, Element, Length, Settings};
+use groove::{
+    gui::{GuiStuff, IsViewable, ViewableMessage, NUMBERS_FONT, NUMBERS_FONT_SIZE},
+    AudioOutput, IOHelper, Orchestrator,
+};
+use gui::{
+    persistence::{LoadError, SavedState},
+    play_icon, skip_to_prev_icon, stop_icon,
+};
+use iced::{
+    alignment, executor,
+    theme::{self, Theme},
+    time,
+    widget::{button, column, container, row, scrollable, text, text_input},
+    Alignment, Application, Color, Command, Element, Length, Settings, Subscription,
+};
+use iced_native::{window, Event};
 use std::time::{Duration, Instant};
 
 pub fn main() -> iced::Result {
-    GrooveApp::run(Settings::default())
+    GrooveApp::run(Settings {
+        // This override is needed so that we get the CloseRequested event that
+        // we need to turn off the cpal Stream. See
+        // https://github.com/iced-rs/iced/blob/master/examples/events/ for an
+        // example.
+        exit_on_close_request: false,
+        ..Settings::default()
+    })
 }
 
 #[derive(Default)]
@@ -37,6 +35,7 @@ struct GrooveApp {
     // Overhead
     theme: Theme,
     state: State,
+    should_exit: bool,
 
     // UI components
     control_bar: ControlBar,
@@ -60,12 +59,12 @@ enum State {
 #[derive(Debug, Clone)]
 pub enum Message {
     Loaded(Result<SavedState, LoadError>),
-    Reset,
     ControlBarMessage(ControlBarMessage),
     ControlBarBpm(String),
     ViewableMessage(usize, ViewableMessage),
 
     Tick(Instant),
+    EventOccurred(iced::Event),
 }
 
 #[derive(Debug, Clone)]
@@ -202,11 +201,13 @@ impl Application for GrooveApp {
                     viewables,
                     ..Default::default()
                 };
+
                 (*self).audio_output.start();
             }
             Message::Loaded(Err(_)) => {
                 todo!()
             }
+            #[allow(unused_variables)]
             Message::Tick(now) => {
                 if let State::Ticking { last_tick } = &mut self.state {
                     self.control_bar
@@ -218,9 +219,6 @@ impl Application for GrooveApp {
                         &mut self.audio_output,
                     ));
                 }
-            }
-            Message::Reset => {
-                //              self.duration = Duration::default();
             }
             Message::ControlBarMessage(message) => match message {
                 ControlBarMessage::Play => {
@@ -237,16 +235,34 @@ impl Application for GrooveApp {
                 }
             }
             Message::ViewableMessage(i, message) => self.viewables[i].update(message),
+            Message::EventOccurred(event) => {
+                if let Event::Window(window::Event::CloseRequested) = event {
+                    // See https://github.com/iced-rs/iced/pull/804
+                    // and https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
+                    //
+                    // This is needed to stop an ALSA buffer underrun on close
+                    (*self).audio_output.stop();
+
+                    self.should_exit = true;
+                }
+            }
         }
 
         Command::none()
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        match self.state {
-            State::Idle => Subscription::none(),
-            State::Ticking { .. } => time::every(Duration::from_millis(10)).map(Message::Tick),
-        }
+        Subscription::batch([
+            iced_native::subscription::events().map(Message::EventOccurred),
+            match self.state {
+                State::Idle => Subscription::none(),
+                State::Ticking { .. } => time::every(Duration::from_millis(10)).map(Message::Tick),
+            },
+        ])
+    }
+
+    fn should_exit(&self) -> bool {
+        self.should_exit
     }
 
     fn view(&self) -> Element<Message> {

@@ -15,7 +15,10 @@ crossbeam = "0.8"
 directories-next = "2.0"
 enum-primitive-derive = "0.2.2"
 hound = "3.4"
-iced = { path = "../iced", features = ["smol"] }
+iced = { git = "https://github.com/iced-rs/iced", rev = "ac6a3cf8eb77df69cbb6538900786faca778cf05", features = [
+    "smol"
+] }
+iced_native = { git = "https://github.com/iced-rs/iced", rev = "ac6a3cf8eb77df69cbb6538900786faca778cf05" }
 #iced_audio = "0.8.0"
 midir = "0.8.0"
 midly = "0.5.2"
