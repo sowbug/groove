@@ -9,7 +9,7 @@ use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{
     fmt::Debug,
     ops::Range,
-    rc::{Rc, Weak},
+    rc::{Weak},
 };
 
 #[derive(Debug, Default)]

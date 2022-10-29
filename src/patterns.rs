@@ -5,10 +5,8 @@ use crate::{
 };
 use sorted_vec::SortedVec;
 use std::{
-    cell::RefCell,
     cmp::{self, Ordering},
     collections::HashMap,
-    rc::Weak,
 };
 
 #[derive(Debug, Default)]

@@ -203,7 +203,7 @@ pub mod tests {
     use crate::{
         clock::Clock,
         clock::WatchedClock,
-        common::{rrc, MonoSample, MONO_SAMPLE_SILENCE, rrc_downgrade},
+        common::{rrc, rrc_downgrade, MonoSample, MONO_SAMPLE_SILENCE},
         effects::gain::Gain,
         envelopes::AdsrEnvelope,
         midi::MidiMessage,
@@ -294,7 +294,7 @@ pub mod tests {
 
         loop {
             clock.tick();
-            clock_watcher.tick(&mut clock);
+            clock_watcher.tick(&clock);
             if clock_watcher.is_finished() {
                 break;
             }

@@ -24,10 +24,10 @@ pub mod tests {
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
     };
-    use std::cell::RefCell;
+
     use std::collections::{HashMap, VecDeque};
     use std::fs;
-    use std::rc::{Rc, Weak};
+    use std::rc::Rc;
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -45,7 +45,7 @@ pub mod tests {
         format!("{OUT_DIR}/{snake_filename}-spectrum")
     }
 
-    fn write_samples_to_wav_file(basename: &str, sample_rate: usize, samples: &Vec<MonoSample>) {
+    fn write_samples_to_wav_file(basename: &str, sample_rate: usize, samples: &[MonoSample]) {
         let spec = hound::WavSpec {
             channels: 1,
             sample_rate: sample_rate as u32,
@@ -816,9 +816,7 @@ pub mod tests {
         fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
             &self.channels_to_sink_vecs
         }
-        fn midi_sinks_mut(
-            &mut self,
-        ) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
+        fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
             &mut self.channels_to_sink_vecs
         }
 
@@ -890,9 +888,7 @@ pub mod tests {
         fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
             &self.channels_to_sink_vecs
         }
-        fn midi_sinks_mut(
-            &mut self,
-        ) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
+        fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
             &mut self.channels_to_sink_vecs
         }
 

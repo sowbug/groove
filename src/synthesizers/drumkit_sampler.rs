@@ -8,7 +8,7 @@ use crate::{
     traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio},
 };
 use std::collections::HashMap;
-use std::rc::Rc;
+
 
 #[derive(Debug, Default)]
 struct Voice {

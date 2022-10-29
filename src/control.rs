@@ -10,7 +10,7 @@ use crate::oscillators::Oscillator;
 use crate::settings::control::ControlStep;
 use crate::traits::{MakesControlSink, SinksControl, Terminates, WatchesClock};
 use std::ops::Range;
-use std::rc::Weak;
+
 
 /// ControlTrip, ControlPath, and ControlStep help with
 /// [automation](https://en.wikipedia.org/wiki/Track_automation).

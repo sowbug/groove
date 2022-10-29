@@ -6,7 +6,7 @@ use crate::{
 };
 use std::{
     f32::consts::PI,
-    rc::{Rc, Weak},
+    rc::{Weak},
 };
 
 #[derive(Debug, Clone)]

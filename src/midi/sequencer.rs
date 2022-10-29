@@ -5,7 +5,7 @@ use crate::{
     traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock}, common::Ww,
 };
 use sorted_vec::SortedVec;
-use std::{cell::RefCell, collections::HashMap, rc::Weak};
+use std::{collections::HashMap};
 
 #[derive(Debug, Default)]
 pub struct MidiSequencer {
@@ -104,7 +104,7 @@ impl Terminates for MidiSequencer {
 }
 #[cfg(test)]
 mod tests {
-    use std::{rc::Rc};
+    
 
     use crate::{
         clock::Clock,

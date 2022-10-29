@@ -4,7 +4,7 @@ use crate::{
     midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
     traits::{IsMidiEffect, SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap};
 
 #[derive(Debug, Default)]
 pub struct Arpeggiator {

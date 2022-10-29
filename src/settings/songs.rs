@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     clock::WatchedClock,
-    common::{rrc, DeviceId, rrc_downgrade},
+    common::{rrc, rrc_downgrade, DeviceId},
     control::{ControlPath, ControlTrip},
     patterns::{Pattern, PatternSequencer},
     Orchestrator,
@@ -202,13 +202,13 @@ mod tests {
                 if let Ok(_performance) = orchestrator.perform() {
                     // cool
                 } else {
-                    assert!(false, "performance failed");
+                    panic!("performance failed");
                 }
             } else {
-                assert!(false, "instantiation failed");
+                panic!("instantiation failed");
             }
         } else {
-            assert!(false, "loading settings failed");
+            panic!("loading settings failed");
         }
     }
 }

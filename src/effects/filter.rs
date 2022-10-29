@@ -2,7 +2,7 @@ use crate::{
     common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
-use std::{f64::consts::PI, rc::Rc};
+use std::{f64::consts::PI};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {

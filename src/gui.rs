@@ -1,5 +1,5 @@
 use crate::{
-    common::{Ww, wrc_clone},
+    common::{wrc_clone, Ww},
     effects::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
@@ -13,7 +13,7 @@ use iced::{
     widget::{column, container, row, slider, text, text_input},
     Color, Element, Font,
 };
-use std::{any::type_name, fmt::Debug, rc::Weak};
+use std::{any::type_name, fmt::Debug};
 
 pub const SMALL_FONT_SIZE: u16 = 16;
 pub const SMALL_FONT: Font = Font::External {
@@ -592,7 +592,7 @@ mod tests {
                 viewable.update(message);
             }
         } else {
-            assert!(false, "factory failed {factory:?}");
+            panic!("factory failed {factory:?}");
         }
     }
 
