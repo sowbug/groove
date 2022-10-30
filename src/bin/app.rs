@@ -3,7 +3,7 @@ mod gui;
 use async_std::task::block_on;
 use groove::{
     gui::{GuiStuff, IsViewable, ViewableMessage, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    AudioOutput, IOHelper, Orchestrator,
+    AudioOutput, IOHelper, Orchestrator, TimeSignature,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -113,40 +113,71 @@ impl ControlBar {
 
 #[derive(Debug, Clone)]
 pub enum ClockMessage {
+    TimeSignature(u8, u8),
     Time(f32),
+    Beats(f32),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 struct Clock {
+    time_signature: TimeSignature,
     seconds: f32,
-}
-
-impl Default for Clock {
-    fn default() -> Self {
-        Self { seconds: 0.0 }
-    }
+    beats: f32,
 }
 
 impl Clock {
     pub fn update(&mut self, message: ClockMessage) {
         match message {
+            ClockMessage::TimeSignature(top, bottom) => {
+                // TODO: nobody sends this message. In order to send this
+                // message correctly, either Clock needs a live pointer to
+                // orchestrator, or we need to look into some way to subscribe
+                // to orchestrator changes.
+                self.time_signature = TimeSignature::new_with(top.into(), bottom.into());
+            }
             ClockMessage::Time(value) => {
                 self.seconds = value;
+            }
+            ClockMessage::Beats(value) => {
+                self.beats = value;
             }
         }
     }
 
     pub fn view(&self) -> Element<Message> {
-        let minutes: u8 = (self.seconds / 60.0).floor() as u8;
-        let seconds = self.seconds as usize % 60;
-        let thousandths = (self.seconds.fract() * 1000.0) as u16;
-        container(
-            text(format!("{minutes:02}:{seconds:02}:{thousandths:03}"))
-                .font(NUMBERS_FONT)
-                .size(NUMBERS_FONT_SIZE),
-        )
-        .style(theme::Container::Custom(GuiStuff::number_box_style))
-        .into()
+        let time_counter = {
+            let minutes: u8 = (self.seconds / 60.0).floor() as u8;
+            let seconds = self.seconds as usize % 60;
+            let thousandths = (self.seconds.fract() * 1000.0) as u16;
+            container(
+                text(format!("{minutes:02}:{seconds:02}:{thousandths:03}"))
+                    .font(NUMBERS_FONT)
+                    .size(NUMBERS_FONT_SIZE),
+            )
+            .style(theme::Container::Custom(GuiStuff::number_box_style))
+        };
+
+        let time_signature = {
+            container(column![
+                text(format!("{}", self.time_signature.top)),
+                text(format!("{}", self.time_signature.bottom))
+            ])
+        };
+
+        let beat_counter = {
+            let denom = self.time_signature.top as f32;
+
+            let measures = (self.beats / denom) as usize;
+            let beats = (self.beats % denom) as usize;
+            let fractional = (self.beats.fract() * 10000.0) as usize;
+            container(
+                text(format!("{measures:04}m{beats:02}b{fractional:03}"))
+                    .font(NUMBERS_FONT)
+                    .size(NUMBERS_FONT_SIZE),
+            )
+            .style(theme::Container::Custom(GuiStuff::number_box_style))
+        };
+        row![time_counter, time_signature, beat_counter].into()
     }
 }
 
@@ -213,6 +244,9 @@ impl Application for GrooveApp {
                     self.control_bar
                         .clock
                         .update(ClockMessage::Time(self.orchestrator.elapsed_seconds()));
+                    self.control_bar
+                        .clock
+                        .update(ClockMessage::Beats(self.orchestrator.elapsed_beats()));
                     block_on(IOHelper::fill_audio_buffer(
                         self.audio_output.recommended_buffer_size(),
                         &mut self.orchestrator,

@@ -30,7 +30,8 @@ impl Performance {
     }
 }
 
-/// Orchestrator takes a description of a song and turns it into an in-memory representation that is ready to render to sound.
+/// Orchestrator takes a description of a song and turns it into an in-memory
+/// representation that is ready to render to sound.
 #[derive(Debug, Clone)]
 pub struct Orchestrator {
     clock: WatchedClock, // owns all WatchesClock
@@ -38,8 +39,8 @@ pub struct Orchestrator {
     main_mixer: Rrc<Mixer>,
     midi_bus: Rrc<MidiBus>,
 
-    // We don't have owning Vecs for WatchesClock or IsMidiEffect because
-    // both of those are owned by WatchedClock.
+    // We don't have owning Vecs for WatchesClock or IsMidiEffect because both
+    // of those are owned by WatchedClock.
     audio_sources: Vec<Rrc<dyn SourcesAudio>>,
     effects: Vec<Rrc<dyn IsEffect>>,
 
@@ -197,8 +198,8 @@ impl Orchestrator {
         self.viewable_makers.push(rrc_downgrade(&viewable));
     }
 
-    /// If you're connecting an instrument downstream of MidiBus, it means that the
-    /// instrument wants to hear what other instruments have to say.
+    /// If you're connecting an instrument downstream of MidiBus, it means that
+    /// the instrument wants to hear what other instruments have to say.
     pub fn connect_to_downstream_midi_bus(
         &mut self,
         channel: MidiChannel,
@@ -209,8 +210,8 @@ impl Orchestrator {
             .add_midi_sink(channel, instrument);
     }
 
-    /// If you're connecting an instrument upstream of MidiBus, it means that the
-    /// instrument has something to say to other instruments.
+    /// If you're connecting an instrument upstream of MidiBus, it means that
+    /// the instrument has something to say to other instruments.
     pub fn connect_to_upstream_midi_bus(&mut self, instrument: Rrc<dyn SourcesMidi>) {
         let sink = rrc_downgrade(&self.midi_bus);
         instrument
@@ -269,9 +270,7 @@ impl Orchestrator {
         self.clock.inner_clock_mut().settings_mut().set_bpm(bpm);
     }
 
-    // pub fn main_mixer(&self) -> &dyn SinksAudio {
-    //     &self.main_mixer.into()
-    // }
+    // pub fn main_mixer(&self) -> &dyn SinksAudio { &self.main_mixer.into() }
 
     pub fn mute_audio_source(&mut self, index: usize, is_muted: bool) {
         self.main_mixer.borrow_mut().mute_source(index, is_muted);
@@ -287,5 +286,9 @@ impl Orchestrator {
 
     pub fn elapsed_seconds(&self) -> f32 {
         self.clock.inner_clock().seconds()
+    }
+
+    pub fn elapsed_beats(&self) -> f32 {
+        self.clock.inner_clock().beats()
     }
 }

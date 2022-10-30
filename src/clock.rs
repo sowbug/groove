@@ -86,8 +86,8 @@ pub struct TimeSignature {
     //   include 5 slots in it. The only relevance seems to be whether
     //   we'd round a 5-slot pattern in a 4/4 song to the next even measure,
     //   or just tack the next pattern directly onto the sixth beat.
-    pub top: u32,
-    pub bottom: u32,
+    pub top: usize,
+    pub bottom: usize,
 }
 
 impl TimeSignature {
@@ -98,7 +98,7 @@ impl TimeSignature {
         }
     }
 
-    pub(crate) fn new_with(top: u32, bottom: u32) -> Self {
+    pub fn new_with(top: usize, bottom: usize) -> Self {
         if top == 0 {
             panic!("Time signature top number can't be zero.");
         }

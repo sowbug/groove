@@ -101,7 +101,7 @@ impl ClockSettings {
     pub(crate) fn new(
         samples_per_second: usize,
         beats_per_minute: f32,
-        time_signature: (u32, u32),
+        time_signature: (usize, usize),
     ) -> Self {
         Self {
             samples_per_second,
