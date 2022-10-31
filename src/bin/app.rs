@@ -21,12 +21,12 @@ use iced_native::{window, Event};
 use midly::num::u4;
 use std::time::{Duration, Instant};
 
-#[derive(Default)]
 struct GrooveApp {
     // Overhead
     theme: Theme,
     state: State,
     should_exit: bool,
+    last_tick: Instant, // A monotonically increasing value to tell when things have happened
 
     // UI components
     control_bar: ControlBar,
@@ -39,6 +39,23 @@ struct GrooveApp {
 
     // Extra
     midi_input: MidiInputHandler,
+}
+
+impl Default for GrooveApp {
+    fn default() -> Self {
+        Self {
+            theme: Default::default(),
+            state: Default::default(),
+            should_exit: Default::default(),
+            last_tick: Instant::now(),
+            control_bar: Default::default(),
+            project_name: Default::default(),
+            orchestrator: Default::default(),
+            viewables: Default::default(),
+            audio_output: Default::default(),
+            midi_input: Default::default(),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -73,7 +90,7 @@ pub struct ControlBar {
 }
 
 impl ControlBar {
-    pub fn view(&self, orchestrator: &Orchestrator) -> Element<Message> {
+    pub fn view(&self, orchestrator: &Orchestrator, last_tick: Instant) -> Element<Message> {
         container(
             row![
                 text_input(
@@ -92,7 +109,7 @@ impl ControlBar {
                     .width(Length::Units(32))
                     .on_press(Message::ControlBarMessage(ControlBarMessage::Stop)),
                 self.clock.view(),
-                self.midi.view(),
+                self.midi.view(last_tick),
             ]
             .padding(8)
             .spacing(4)
@@ -178,13 +195,22 @@ impl Clock {
 #[derive(Debug, Clone)]
 pub enum MidiControlBarMessage {
     Inputs(Vec<(usize, String)>),
-    Activity,
+    Activity(Instant),
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 struct Midi {
     inputs: Vec<(usize, String)>,
-    activity: usize,
+    activity_tick: Instant,
+}
+
+impl Default for Midi {
+    fn default() -> Self {
+        Self {
+            inputs: Vec::default(),
+            activity_tick: Instant::now(),
+        }
+    }
 }
 
 impl Midi {
@@ -193,16 +219,22 @@ impl Midi {
             MidiControlBarMessage::Inputs(inputs) => {
                 self.inputs = inputs.clone();
             }
-            MidiControlBarMessage::Activity => self.activity = 10,
+            MidiControlBarMessage::Activity(now) => self.activity_tick = now,
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self, last_tick: Instant) -> Element<Message> {
         let mut s = String::new();
         for input in self.inputs.iter() {
             s = format!("{} {}", s, input.1);
         }
-        let input_dropdown = container(text("todo"));
+        let input_dropdown = container(text(
+            if last_tick.duration_since(self.activity_tick) > Duration::from_millis(250) {
+                " "
+            } else {
+                "x"
+            },
+        ));
         let activity_indicator = container(text(s));
         row![input_dropdown, activity_indicator].into()
     }
@@ -218,6 +250,7 @@ impl Application for GrooveApp {
         (
             GrooveApp {
                 theme: Theme::Dark,
+                last_tick: Instant::now(),
                 ..Default::default()
             },
             Command::perform(SavedState::load(), Message::Loaded),
@@ -270,9 +303,11 @@ impl Application for GrooveApp {
             Message::Loaded(Err(_)) => {
                 todo!()
             }
-            #[allow(unused_variables)]
             Message::Tick(now) => {
+                self.last_tick = now;
                 if let State::Playing = &mut self.state {
+                    // TODO law of demeter - should we be reaching in here, or
+                    // just tell ControlBar?
                     self.control_bar
                         .clock
                         .update(ClockMessage::Time(self.orchestrator.elapsed_seconds()));
@@ -293,6 +328,9 @@ impl Application for GrooveApp {
                                 u4::into(channel),
                                 message,
                             );
+                            self.control_bar
+                                .midi
+                                .update(MidiControlBarMessage::Activity(Instant::now()));
                         }
                     }
                 }
@@ -349,7 +387,7 @@ impl Application for GrooveApp {
             State::Playing => {}
         }
 
-        let control_bar = self.control_bar.view(&self.orchestrator);
+        let control_bar = self.control_bar.view(&self.orchestrator, self.last_tick);
 
         let views: Element<_> = if self.viewables.is_empty() {
             empty_message("nothing yet")
