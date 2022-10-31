@@ -1,8 +1,7 @@
 use crate::{
-    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
+    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
-
 
 #[derive(Debug, Default)]
 pub struct Bitcrusher {
@@ -27,10 +26,6 @@ impl Bitcrusher {
         }
     }
     pub fn new_wrapped_with(bits_to_crush: u8) -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get
-        // the syntax right.
-        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
         let wrapped = rrc(Self::new_with(bits_to_crush));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped

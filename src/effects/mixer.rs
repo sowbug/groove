@@ -1,8 +1,7 @@
 use crate::{
-    common::{MonoSample, Rrc, Ww, rrc, rrc_downgrade},
+    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
-
 
 #[derive(Clone, Debug, Default)]
 pub struct Mixer {
@@ -18,9 +17,6 @@ impl Mixer {
         }
     }
     pub fn new_wrapped() -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
         let wrapped = rrc(Self::new());
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
@@ -65,7 +61,6 @@ mod tests {
             TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSameLevel, TestAudioSourceAlwaysSilent,
         },
     };
-    
 
     #[test]
     fn test_mixer_mainline() {

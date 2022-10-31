@@ -203,7 +203,7 @@ pub mod tests {
     use crate::{
         clock::Clock,
         clock::WatchedClock,
-        common::{rrc, rrc_downgrade, MonoSample, MONO_SAMPLE_SILENCE},
+        common::{rrc, rrc_clone, rrc_downgrade, MonoSample, MONO_SAMPLE_SILENCE},
         effects::gain::Gain,
         envelopes::AdsrEnvelope,
         midi::MidiMessage,
@@ -216,8 +216,6 @@ pub mod tests {
             TestMidiSource, TestOrchestrator, TestSynth, TestTimer, TestTrigger,
         },
     };
-    use std::cell::RefCell;
-    use std::rc::Rc;
 
     #[test]
     fn test_orchestration() {
@@ -228,11 +226,8 @@ pub mod tests {
         oscillator
             .borrow_mut()
             .set_frequency(MidiMessage::note_to_frequency(60));
-        let envelope_synth_clone = Rc::clone(&envelope);
-        let synth = Rc::new(RefCell::new(TestSynth::new_with(
-            oscillator,
-            envelope_synth_clone,
-        )));
+        let envelope_synth_clone = rrc_clone(&envelope);
+        let synth = rrc(TestSynth::new_with(oscillator, envelope_synth_clone));
         let effect = Gain::new_wrapped();
         let source = rrc_downgrade(&synth);
         effect.borrow_mut().add_audio_source(source);

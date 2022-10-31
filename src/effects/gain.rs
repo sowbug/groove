@@ -3,7 +3,6 @@ use crate::{
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
 
-
 #[derive(Debug, Default)]
 pub struct Gain {
     pub(crate) me: Ww<Self>,
@@ -26,9 +25,6 @@ impl Gain {
 
     #[allow(dead_code)]
     pub fn new_wrapped() -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
         let wrapped = rrc(Self::new());
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
@@ -43,9 +39,6 @@ impl Gain {
 
     #[allow(dead_code)]
     pub fn new_wrapped_with(ceiling: f32) -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
         let wrapped = rrc(Self::new_with(ceiling));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped

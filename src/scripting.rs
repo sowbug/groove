@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc, Rrc, rrc_downgrade},
+    common::{rrc, rrc_clone, rrc_downgrade, Rrc},
     effects::{bitcrusher::Bitcrusher, limiter::Limiter},
     midi::{sequencer::MidiSequencer, smf_reader::MidiSmfReader, MidiChannel},
     settings::patches::SynthPatch,
@@ -8,7 +8,7 @@ use crate::{
     IOHelper, Orchestrator,
 };
 use rhai::{Engine, EvalAltResult};
-use std::{path::PathBuf, rc::Rc};
+use std::path::PathBuf;
 
 #[derive(Default)]
 pub struct ScriptEngine {
@@ -146,7 +146,7 @@ impl ScriptEngine {
 
     fn new_sequencer(orchestrator: &mut Orchestrator) -> Rrc<MidiSequencer> {
         let r = rrc(MidiSequencer::new());
-        let clock_watcher = Rc::clone(&r);
+        let clock_watcher = rrc_clone(&r);
         orchestrator.register_clock_watcher(None, clock_watcher);
         r
     }
@@ -162,7 +162,7 @@ impl ScriptEngine {
 
     fn register_root_audio_source(orchestrator: &mut Orchestrator, device: Rrc<dyn SourcesAudio>) {
         // TODO: detect duplicate adds
-        orchestrator.register_audio_source(None, Rc::clone(&device));
+        orchestrator.register_audio_source(None, rrc_clone(&device));
         orchestrator.add_main_mixer_source(rrc_downgrade(&device));
     }
 
@@ -171,7 +171,7 @@ impl ScriptEngine {
         device: Rrc<dyn IsMidiInstrument>,
     ) {
         // TODO: detect duplicate adds
-        let audio_source = Rc::clone(&device);
+        let audio_source = rrc_clone(&device);
         orchestrator.register_audio_source(None, audio_source);
         let device = rrc_downgrade(&device);
         orchestrator.add_main_mixer_source(device);

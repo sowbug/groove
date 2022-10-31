@@ -1,16 +1,12 @@
 use super::clock::Clock;
 use crate::{
     clock::ClockTimeUnit,
-    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
+    common::{rrc, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
     settings::patches::EnvelopeSettings,
     traits::{IsMutable, SourcesAudio},
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
-use std::{
-    fmt::Debug,
-    ops::Range,
-    rc::{Weak},
-};
+use std::{fmt::Debug, ops::Range};
 
 #[derive(Debug, Default)]
 pub enum EnvelopeFunction {
@@ -241,7 +237,7 @@ pub struct AdsrEnvelope {
 impl Default for AdsrEnvelope {
     fn default() -> Self {
         Self {
-            me: Weak::new(),
+            me: weak_new(),
             preset: EnvelopeSettings::default(),
             is_muted: false,
             envelope: SteppedEnvelope::default(),
@@ -263,9 +259,6 @@ impl AdsrEnvelope {
 
     #[allow(dead_code)]
     pub(crate) fn new_wrapped_with(preset: &EnvelopeSettings) -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
         let wrapped = rrc(Self::new_with(preset));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped

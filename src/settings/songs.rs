@@ -4,14 +4,13 @@ use super::{
 };
 use crate::{
     clock::WatchedClock,
-    common::{rrc, rrc_downgrade, DeviceId},
+    common::{rrc, rrc_clone, rrc_downgrade, DeviceId},
     control::{ControlPath, ControlTrip},
     patterns::{Pattern, PatternSequencer},
     Orchestrator,
 };
 use anyhow::{Error, Ok};
 use serde::{Deserialize, Serialize};
-use std::rc::Rc;
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
@@ -66,7 +65,7 @@ impl SongSettings {
                     let midi_channel = instrument.borrow().midi_channel();
                     let instrument_weak = rrc_downgrade(&instrument);
                     orchestrator.connect_to_downstream_midi_bus(midi_channel, instrument_weak);
-                    let audio_source = Rc::clone(&instrument);
+                    let audio_source = rrc_clone(&instrument);
                     orchestrator.register_audio_source(Some(id), audio_source);
                     orchestrator.register_viewable(instrument);
                 }
@@ -75,14 +74,14 @@ impl SongSettings {
                     let midi_channel = midi_instrument.borrow().midi_channel();
                     orchestrator.register_midi_effect(
                         Some(id),
-                        Rc::clone(&midi_instrument),
+                        rrc_clone(&midi_instrument),
                         midi_channel,
                     );
                     orchestrator.register_viewable(midi_instrument);
                 }
                 DeviceSettings::Effect(id, effect_settings) => {
                     let effect = effect_settings.instantiate(sample_rate);
-                    orchestrator.register_effect(Some(id), Rc::clone(&effect));
+                    orchestrator.register_effect(Some(id), rrc_clone(&effect));
                     orchestrator.register_viewable(effect);
                 }
             }
@@ -142,7 +141,7 @@ impl SongSettings {
             }
         }
 
-        let instrument = Rc::clone(&pattern_sequencer);
+        let instrument = rrc_clone(&pattern_sequencer);
         orchestrator.connect_to_upstream_midi_bus(instrument);
         orchestrator.register_clock_watcher(None, pattern_sequencer);
     }

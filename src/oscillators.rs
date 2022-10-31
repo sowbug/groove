@@ -1,13 +1,10 @@
 use super::clock::Clock;
 use crate::{
-    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
+    common::{rrc, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
     traits::{IsMutable, SourcesAudio},
 };
-use std::{
-    f32::consts::PI,
-    rc::{Weak},
-};
+use std::f32::consts::PI;
 
 #[derive(Debug, Clone)]
 pub struct Oscillator {
@@ -43,7 +40,7 @@ impl Default for Oscillator {
             // One view is that a default oscillator should be quiet. Another view
             // is that a quiet oscillator isn't doing its main job of helping make
             // sound. Principle of Least Astonishment prevails.
-            me: Weak::new(),
+            me: weak_new(),
             is_muted: false,
             waveform: WaveformType::Sine,
             frequency: 440.0,
@@ -76,9 +73,6 @@ impl Oscillator {
 
     #[allow(dead_code)]
     pub(crate) fn new_wrapped_with(waveform: WaveformType) -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
         let wrapped = rrc(Self::new_with(waveform));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
@@ -102,9 +96,6 @@ impl Oscillator {
 
     #[allow(dead_code)]
     pub(crate) fn new_wrapped() -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
         let wrapped = rrc(Self::new());
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
@@ -187,7 +178,6 @@ mod tests {
             write_orchestration_to_file, write_source_to_file, TestOrchestrator, TestTimer,
         },
     };
-    use std::{cell::RefCell, rc::Rc};
 
     fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> Oscillator {
         let mut oscillator = Oscillator::new_from_preset(&OscillatorSettings {
@@ -210,11 +200,11 @@ mod tests {
     #[test]
     fn test_oscillator_basic_waveforms() {
         let mut orchestrator = TestOrchestrator::new();
-        let oscillator = Rc::new(RefCell::new(create_oscillator(
+        let oscillator = rrc(create_oscillator(
             WaveformType::Sine,
             OscillatorSettings::NATURAL_TUNING,
             MidiNote::C4,
-        )));
+        ));
         let oscillator_weak = rrc_downgrade(&oscillator);
         orchestrator.add_audio_source(oscillator_weak);
         let mut clock = WatchedClock::new();

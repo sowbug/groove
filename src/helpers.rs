@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc, MonoSample, Rrc, rrc_downgrade},
+    common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc},
     midi::{sequencer::MidiSequencer, smf_reader::MidiSmfReader},
     orchestrator::{Orchestrator, Performance},
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
@@ -16,7 +16,6 @@ use cpal::{
 use crossbeam::deque::{Steal, Stealer, Worker};
 use std::{
     ops::BitAnd,
-    rc::Rc,
     sync::{Arc, Condvar, Mutex},
 };
 
@@ -208,7 +207,7 @@ impl IOHelper {
         let midi_sequencer = rrc(MidiSequencer::new());
         MidiSmfReader::load_sequencer(&data, &mut midi_sequencer.borrow_mut());
 
-        let instrument = Rc::clone(&midi_sequencer);
+        let instrument = rrc_clone(&midi_sequencer);
         orchestrator.connect_to_upstream_midi_bus(instrument);
         orchestrator.register_clock_watcher(None, midi_sequencer);
 
@@ -222,7 +221,7 @@ impl IOHelper {
                     SynthPatch::by_name(&PatchName::Piano),
                 )
             };
-            let instrument = Rc::clone(&synth);
+            let instrument = rrc_clone(&synth);
             orchestrator.register_audio_source(None, instrument);
             let sink = rrc_downgrade(&synth);
             orchestrator.connect_to_downstream_midi_bus(channel, sink);

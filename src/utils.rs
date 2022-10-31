@@ -3,8 +3,8 @@ pub mod tests {
     use crate::{
         clock::{Clock, ClockTimeUnit, WatchedClock},
         common::{
-            rrc, rrc_downgrade, wrc_clone, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
-            MONO_SAMPLE_SILENCE,
+            rrc, rrc_clone, rrc_downgrade, wrc_clone, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX,
+            MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE,
         },
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
@@ -27,7 +27,6 @@ pub mod tests {
 
     use std::collections::{HashMap, VecDeque};
     use std::fs;
-    use std::rc::Rc;
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -77,7 +76,7 @@ pub mod tests {
         }
         c.add_watcher(rrc(TestTimer::new_with(2.0)));
         if let Some(control) = control_opt {
-            let watcher = Rc::clone(&control);
+            let watcher = rrc_clone(&control);
             c.add_watcher(watcher);
         }
         let mut samples_out = Vec::<MonoSample>::new();
@@ -563,9 +562,6 @@ pub mod tests {
             }
         }
         pub fn new_wrapped() -> Rrc<Self> {
-            // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-            // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
             let wrapped = rrc(Self::new());
             wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
             wrapped
@@ -578,9 +574,6 @@ pub mod tests {
         }
         #[allow(dead_code)]
         pub fn new_wrapped_with(midi_channel: MidiChannel) -> Rrc<Self> {
-            // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-            // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
             let wrapped = rrc(Self::new_with(midi_channel));
             wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
             wrapped
@@ -772,9 +765,6 @@ pub mod tests {
             }
         }
         pub fn new_wrapped() -> Rrc<Self> {
-            // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-            // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
             let wrapped = rrc(Self::new());
             wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
             wrapped
@@ -939,9 +929,6 @@ pub mod tests {
             }
         }
         pub fn new_wrapped_with(midi_channel_out: MidiChannel) -> Rrc<Self> {
-            // TODO: Rc::new_cyclic() should make this easier, but I couldn't get the syntax right.
-            // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
             let wrapped = rrc(Self::new_with(midi_channel_out));
             wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
             wrapped

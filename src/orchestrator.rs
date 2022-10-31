@@ -1,6 +1,6 @@
 use crate::{
     clock::WatchedClock,
-    common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE, rrc_downgrade},
+    common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
     control::ControlPath,
     effects::mixer::Mixer,
     id_store::IdStore,
@@ -13,7 +13,6 @@ use crate::{
 };
 use crossbeam::deque::Worker;
 use std::io::{self, Write};
-use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Performance {
@@ -174,7 +173,7 @@ impl Orchestrator {
     ) -> String {
         let instrument = rrc_downgrade(&midi_effect);
         self.connect_to_downstream_midi_bus(channel, instrument);
-        let instrument = Rc::clone(&midi_effect);
+        let instrument = rrc_clone(&midi_effect);
         self.connect_to_upstream_midi_bus(instrument);
 
         let id = self.id_store.add_midi_effect_by_id(id, &midi_effect);

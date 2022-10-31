@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
+    common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww},
     effects::filter::{Filter, FilterType},
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiMessageType},
     settings::{
@@ -12,7 +12,7 @@ use crate::{
 use convert_case::{Case, Casing};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::HashMap, f32::consts::FRAC_1_SQRT_2, rc::Rc};
+use std::{collections::HashMap, f32::consts::FRAC_1_SQRT_2};
 use strum_macros::{Display, EnumIter};
 
 #[derive(Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, PartialEq, Serialize)]
@@ -706,14 +706,14 @@ impl Synth {
     fn voice_for_note(&mut self, note: u8) -> Rrc<Voice> {
         let opt = self.note_to_voice.get(&note);
         if let Some(voice) = opt {
-            Rc::clone(voice)
+            rrc_clone(voice)
         } else {
-            let voice = Rc::new(RefCell::new(Voice::new(
+            let voice = rrc(Voice::new(
                 self.midi_channel(),
                 self.sample_rate,
                 &self.preset,
-            )));
-            self.note_to_voice.insert(note, Rc::clone(&voice));
+            ));
+            self.note_to_voice.insert(note, rrc_clone(&voice));
             voice
         }
     }
@@ -820,7 +820,8 @@ mod tests {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
                 voice.handle_midi_for_channel(&clock, &midi_on);
-            } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off {
+            } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
+            {
                 last_recognized_time_point = clock.seconds();
                 voice.handle_midi_for_channel(&clock, &midi_off);
             }

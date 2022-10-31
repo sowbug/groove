@@ -1,8 +1,8 @@
 use crate::{
-    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
+    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
 };
-use std::{f64::consts::PI};
+use std::f64::consts::PI;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {
@@ -116,10 +116,6 @@ impl Filter {
     }
 
     pub fn new_wrapped_with(filter_type: &FilterType) -> Rrc<Self> {
-        // TODO: Rc::new_cyclic() should make this easier, but I couldn't get
-        // the syntax right.
-        // https://doc.rust-lang.org/std/rc/struct.Rc.html#method.new_cyclic
-
         let wrapped = rrc(Self::new(filter_type));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
