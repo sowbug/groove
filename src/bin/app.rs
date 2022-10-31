@@ -98,18 +98,22 @@ impl ControlBar {
                     orchestrator.bpm().round().to_string().as_str(),
                     Message::ControlBarBpm
                 )
-                .width(Length::Units(40)),
-                button(skip_to_prev_icon())
-                    .width(Length::Units(32))
-                    .on_press(Message::ControlBarMessage(ControlBarMessage::SkipToStart)),
-                button(play_icon())
-                    .width(Length::Units(32))
-                    .on_press(Message::ControlBarMessage(ControlBarMessage::Play)),
-                button(stop_icon())
-                    .width(Length::Units(32))
-                    .on_press(Message::ControlBarMessage(ControlBarMessage::Stop)),
-                self.clock.view(),
-                self.midi.view(last_tick),
+                .width(Length::Units(60)),
+                container(row![
+                    button(skip_to_prev_icon())
+                        .width(Length::Units(32))
+                        .on_press(Message::ControlBarMessage(ControlBarMessage::SkipToStart)),
+                    button(play_icon())
+                        .width(Length::Units(32))
+                        .on_press(Message::ControlBarMessage(ControlBarMessage::Play)),
+                    button(stop_icon())
+                        .width(Length::Units(32))
+                        .on_press(Message::ControlBarMessage(ControlBarMessage::Stop))
+                ])
+                .align_x(alignment::Horizontal::Center)
+                .width(Length::FillPortion(1)),
+                container(self.clock.view()).width(Length::FillPortion(1)),
+                container(self.midi.view(last_tick)).width(Length::FillPortion(1)),
             ]
             .padding(8)
             .spacing(4)
@@ -234,8 +238,9 @@ impl Midi {
             } else {
                 "x"
             },
-        ));
-        let activity_indicator = container(text(s));
+        ))
+        .width(Length::FillPortion(1));
+        let activity_indicator = container(text(s)).width(Length::FillPortion(7));
         row![input_dropdown, activity_indicator].into()
     }
 }
