@@ -1,5 +1,14 @@
 # TODO
 
+## Architecture proofs
+
+- [ ] Is refcounting/interior mutability required?
+- [x] An external thread (MIDI input) can inject events
+- [ ] We can update the project during play, gracefully
+- [ ] Different types of devices can render in terms of other things (e.g., automation as a layer on top of the thing it controls)
+- [ ] Different views of same device: expanded, collapsed, detail, summary, enabled, disabled, playing
+- [ ] What's the real engineering cost of adding a new device?
+
 ## Table stakes
 
 - [ ] Stereo
