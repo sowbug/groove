@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
+    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     midi::{
         GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MidiMessageType,
         MIDI_CHANNEL_RECEIVE_ALL,
@@ -8,7 +8,6 @@ use crate::{
     traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio},
 };
 use std::collections::HashMap;
-
 
 #[derive(Debug, Default)]
 struct Voice {
@@ -57,6 +56,7 @@ impl SinksMidi for Voice {
                 self.is_playing = false;
             }
             MidiMessageType::ProgramChange => {}
+            MidiMessageType::Controller => todo!(),
         }
     }
 }
@@ -187,6 +187,7 @@ impl SinksMidi for Sampler {
                 }
             }
             MidiMessageType::ProgramChange => {}
+            MidiMessageType::Controller => todo!(),
         }
     }
 }

@@ -5,8 +5,12 @@ use crate::{
     common::Ww,
     traits::{SinksMidi, SourcesMidi},
 };
+use crossbeam::deque::{Stealer, Worker};
+use midir::{Ignore, MidiInput, MidiInputConnection};
+use midly::MidiMessage as MidlyMidiMessage;
+use midly::{live::LiveEvent, num::u4};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, collections::HashMap};
+use std::{cmp::Ordering, collections::HashMap, error::Error};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub enum MidiNote {
@@ -30,6 +34,7 @@ pub enum MidiMessageType {
     NoteOn = 0b1001,
     NoteOff = 0b1000,
     ProgramChange = 0b1100,
+    Controller,
 }
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Clone, Serialize, Deserialize, Copy, Default)]
 pub struct MidiMessage {
@@ -73,12 +78,41 @@ impl MidiMessage {
         }
     }
 
+    pub(crate) fn new_controller(channel: MidiChannel, controller: u8, value: u8) -> Self {
+        MidiMessage {
+            status: MidiMessageType::Controller,
+            channel,
+            data1: controller,
+            data2: value,
+        }
+    }
+
     pub(crate) fn new_program_change(channel: MidiChannel, program: u8) -> Self {
         MidiMessage {
             status: MidiMessageType::ProgramChange,
             channel,
             data1: program,
             data2: 0,
+        }
+    }
+
+    pub(crate) fn from_midly(channel: u4, midly_message: MidlyMidiMessage) -> Self {
+        match midly_message {
+            MidlyMidiMessage::NoteOff { key, vel } => {
+                Self::new_note_off(u8::from(channel), u8::from(key), u8::from(vel))
+            }
+            MidlyMidiMessage::NoteOn { key, vel } => {
+                Self::new_note_on(u8::from(channel), u8::from(key), u8::from(vel))
+            }
+            MidlyMidiMessage::Aftertouch { key, vel } => todo!(),
+            MidlyMidiMessage::Controller { controller, value } => {
+                Self::new_controller(u8::from(channel), u8::from(controller), u8::from(value))
+            }
+            MidlyMidiMessage::ProgramChange { program } => {
+                Self::new_program_change(u8::from(channel), u8::from(program))
+            }
+            MidlyMidiMessage::ChannelAftertouch { vel } => todo!(),
+            MidlyMidiMessage::PitchBend { bend } => todo!(),
         }
     }
 }
@@ -331,6 +365,98 @@ pub enum GeneralMidiPercussionProgram {
     OpenCuica = 79,
     MuteTriangle = 80,
     OpenTriangle = 81,
+}
+
+pub struct MidiInputHandler {
+    conn_in: Option<MidiInputConnection<()>>,
+    pub stealer: Option<Stealer<(u64, u4, MidiMessage)>>,
+    inputs: Vec<(usize, String)>,
+}
+
+impl Default for MidiInputHandler {
+    fn default() -> Self {
+        Self {
+            conn_in: None,
+            stealer: None,
+            inputs: Vec::default(),
+        }
+    }
+}
+
+impl MidiInputHandler {
+    pub fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
+    pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
+        if let Ok(mut midi_in) = MidiInput::new("Groove MIDI input") {
+            midi_in.ignore(Ignore::None);
+
+            let in_ports = midi_in.ports();
+            let in_port = match in_ports.len() {
+                0 => return Err("no input port found".into()),
+                1 => {
+                    println!(
+                        "Choosing the only available input port: {}",
+                        midi_in.port_name(&in_ports[0]).unwrap()
+                    );
+                    &in_ports[0]
+                }
+                _ => {
+                    for port in in_ports.iter() {
+                        println!("{}", midi_in.port_name(port).unwrap());
+                    }
+                    //                panic!("there are multiple MIDI input devices, and that's scary");
+                    &in_ports[1]
+                }
+            };
+
+            self.inputs.clear();
+            for (i, port) in in_ports.iter().enumerate() {
+                self.inputs
+                    .push((i, midi_in.port_name(port).unwrap()));
+            }
+
+            println!("\nOpening connection");
+            let in_port_name = midi_in.port_name(in_port)?;
+
+            // _conn_in needs to be a named parameter, because it needs to be kept alive until the end of the scope
+            let worker = Worker::<(u64, u4, MidiMessage)>::new_fifo();
+            self.stealer = Some(worker.stealer());
+            self.conn_in = Some(midi_in.connect(
+                in_port,
+                "midir-read-input",
+                move |stamp, event, _| {
+                    let event = LiveEvent::parse(event).unwrap();
+                    match event {
+                        LiveEvent::Midi { channel, message } => {
+                            worker.push((
+                                stamp,
+                                channel,
+                                MidiMessage::from_midly(channel, message),
+                            ));
+                        }
+                        _ => {}
+                    }
+                },
+                (),
+            )?);
+
+            Ok(())
+        } else {
+            Err("couldn't create MidiInput".into())
+        }
+    }
+
+    pub fn stop(&mut self) {
+        self.conn_in = None;
+    }
+
+    pub fn inputs(&self) -> &[(usize, String)] {
+        &self.inputs
+    }
 }
 
 #[cfg(test)]

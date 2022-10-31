@@ -1,10 +1,9 @@
 use crate::{
     clock::Clock,
-    common::{rrc, MonoSample, Rrc, Ww, rrc_downgrade},
+    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     midi::{MidiChannel, MidiMessage, MidiMessageType},
     traits::{IsMutable, SinksMidi, SourcesAudio},
 };
-
 
 #[derive(Debug, Default)]
 #[allow(dead_code)]
@@ -70,6 +69,9 @@ impl SinksMidi for Sampler {
                 self.is_playing = false;
             }
             MidiMessageType::ProgramChange => {}
+            MidiMessageType::Controller => todo!(),
+            // TODO: there's way too much duplication across synths and samplers
+            // and voices
         }
     }
 }
@@ -87,7 +89,7 @@ impl SourcesAudio for Sampler {
                 self.sample_pointer = 0;
             }
         }
-        
+
         if self.is_playing {
             let sample = *self.samples.get(self.sample_pointer).unwrap_or(&0.0);
             sample

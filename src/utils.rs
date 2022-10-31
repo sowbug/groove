@@ -84,8 +84,7 @@ pub mod tests {
         write_samples_to_wav_file(basename, sample_rate, &samples_out);
     }
 
-    /////////////////////
-    /// DEDUPLICATE vvvvv
+    ///////////////////// DEDUPLICATE vvvvv
     pub(crate) fn write_source_to_file(source: &mut dyn SourcesAudio, basename: &str) {
         let clock_settings = ClockSettings::new_defaults();
         let mut samples = Vec::<MonoSample>::new();
@@ -150,16 +149,13 @@ pub mod tests {
     //     let root = BitMapBackend::new(out_filename.as_str(), (640, 360)).into_drawing_area();
     //     root.fill(&WHITE)?;
 
-    //     let mut chart = ChartBuilder::on(&root)
-    //         .margin(0)
-    //         .x_label_area_size(20)
-    //         .y_label_area_size(0)
-    //         .build_cartesian_2d(
-    //             IntoLogRange::log_scale(min_domain..max_domain),
-    //             IntoLogRange::log_scale(min_range..max_range),
-    //         )?;
-    //     chart.configure_mesh().disable_mesh().draw()?;
-    //     chart.draw_series(LineSeries::new(data.iter().map(|t| (t.0, t.1)), &BLUE))?;
+    //     let mut chart = ChartBuilder::on(&root) .margin(0)
+    //         .x_label_area_size(20) .y_label_area_size(0) .build_cartesian_2d(
+    //         IntoLogRange::log_scale(min_domain..max_domain),
+    //         IntoLogRange::log_scale(min_range..max_range), )?;
+    //         chart.configure_mesh().disable_mesh().draw()?;
+    //             chart.draw_series(LineSeries::new(data.iter().map(|t| (t.0,
+    //             t.1)), &BLUE))?;
 
     //     root.present()?;
 
@@ -393,8 +389,8 @@ pub mod tests {
     impl TestSynth {
         #[deprecated]
         /// You really don't want to call this, because you need a sample rate
-        /// for it to do anything meaningful, and it's a bad practice to hardcode
-        /// a 44.1KHz rate.
+        /// for it to do anything meaningful, and it's a bad practice to
+        /// hardcode a 44.1KHz rate.
         fn new() -> Self {
             Self::new_with(
                 rrc(Oscillator::new()),
@@ -605,6 +601,7 @@ pub mod tests {
                 MidiMessageType::ProgramChange => {
                     self.midi_messages_handled += 1;
                 }
+                MidiMessageType::Controller => todo!(),
             }
         }
     }
@@ -831,9 +828,9 @@ pub mod tests {
         }
     }
 
-    // Gets called with native functions telling it about external keyboard events.
-    // Translates those into automation events that influence an arpeggiator,
-    // which controls a MIDI instrument.
+    // Gets called with native functions telling it about external keyboard
+    // events. Translates those into automation events that influence an
+    // arpeggiator, which controls a MIDI instrument.
     //
     // This shows how all these traits work together.
     #[derive(Debug, Default)]
@@ -958,9 +955,8 @@ pub mod tests {
 
     impl WatchesClock for TestValueChecker {
         fn tick(&mut self, clock: &Clock) {
-            // We have to check is_empty() twice
-            // because we might still get called
-            // back if someone else isn't done yet.
+            // We have to check is_empty() twice because we might still get
+            // called back if someone else isn't done yet.
             if self.values.is_empty() {
                 return;
             }

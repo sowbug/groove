@@ -607,6 +607,7 @@ impl SinksMidi for Voice {
                 self.filter_envelope.handle_note_event(clock, false);
             }
             MidiMessageType::ProgramChange => {}
+            MidiMessageType::Controller => todo!(),
         }
     }
 }
@@ -746,6 +747,7 @@ impl SinksMidi for Synth {
                 self.preset =
                     Synth::general_midi_preset(GeneralMidiProgram::from_u8(message.data1).unwrap());
             }
+            MidiMessageType::Controller => todo!(),
         }
     }
 }

@@ -37,6 +37,8 @@ impl SinksMidi for Arpeggiator {
             }
             MidiMessageType::NoteOff => self.is_device_playing = false,
             MidiMessageType::ProgramChange => todo!(),
+            MidiMessageType::Controller => todo!(),
+            
         }
     }
 

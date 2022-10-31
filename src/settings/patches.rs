@@ -215,6 +215,7 @@ mod tests {
                 MidiMessageType::ProgramChange => {
                     self.midi_messages_handled += 1;
                 }
+                MidiMessageType::Controller => todo!(),
             }
         }
     }

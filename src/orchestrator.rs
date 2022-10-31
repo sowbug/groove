@@ -4,7 +4,7 @@ use crate::{
     control::ControlPath,
     effects::mixer::Mixer,
     id_store::IdStore,
-    midi::{MidiBus, MidiChannel, MIDI_CHANNEL_RECEIVE_ALL},
+    midi::{MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     patterns::Pattern,
     traits::{
         IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi,
@@ -289,5 +289,9 @@ impl Orchestrator {
 
     pub fn elapsed_beats(&self) -> f32 {
         self.clock.inner_clock().beats()
+    }
+
+    pub fn handle_external_midi(&mut self, stamp: u64, channel: u8, message: MidiMessage) {
+        dbg!(stamp, channel, message);
     }
 }

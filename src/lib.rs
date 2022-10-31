@@ -4,6 +4,7 @@
 pub use crate::clock::TimeSignature;
 pub use crate::helpers::AudioOutput;
 pub use crate::helpers::IOHelper;
+pub use crate::midi::MidiInputHandler;
 pub use crate::orchestrator::Orchestrator;
 pub use crate::scripting::ScriptEngine;
 pub use crate::settings::songs::SongSettings;

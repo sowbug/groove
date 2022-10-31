@@ -1,9 +1,10 @@
 mod gui;
 
 use async_std::task::block_on;
+use crossbeam::deque::Steal;
 use groove::{
     gui::{GuiStuff, IsViewable, ViewableMessage, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    AudioOutput, IOHelper, Orchestrator, TimeSignature,
+    AudioOutput, IOHelper, MidiInputHandler, Orchestrator, TimeSignature,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -17,18 +18,8 @@ use iced::{
     Alignment, Application, Color, Command, Element, Length, Settings, Subscription,
 };
 use iced_native::{window, Event};
+use midly::num::u4;
 use std::time::{Duration, Instant};
-
-pub fn main() -> iced::Result {
-    GrooveApp::run(Settings {
-        // This override is needed so that we get the CloseRequested event that
-        // we need to turn off the cpal Stream. See
-        // https://github.com/iced-rs/iced/blob/master/examples/events/ for an
-        // example.
-        exit_on_close_request: false,
-        ..Settings::default()
-    })
-}
 
 #[derive(Default)]
 struct GrooveApp {
@@ -45,15 +36,16 @@ struct GrooveApp {
     orchestrator: Orchestrator,
     viewables: Vec<Box<dyn IsViewable<Message = ViewableMessage>>>,
     audio_output: AudioOutput,
+
+    // Extra
+    midi_input: MidiInputHandler,
 }
 
 #[derive(Default)]
 enum State {
     #[default]
     Idle,
-    Ticking {
-        last_tick: Instant,
-    },
+    Playing,
 }
 
 #[derive(Debug, Clone)]
@@ -77,6 +69,7 @@ pub enum ControlBarMessage {
 #[derive(Debug, Default, Clone)]
 pub struct ControlBar {
     clock: Clock,
+    midi: Midi,
 }
 
 impl ControlBar {
@@ -98,7 +91,8 @@ impl ControlBar {
                 button(stop_icon())
                     .width(Length::Units(32))
                     .on_press(Message::ControlBarMessage(ControlBarMessage::Stop)),
-                self.clock.view()
+                self.clock.view(),
+                self.midi.view(),
             ]
             .padding(8)
             .spacing(4)
@@ -181,6 +175,39 @@ impl Clock {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum MidiControlBarMessage {
+    Inputs(Vec<(usize, String)>),
+    Activity,
+}
+
+#[derive(Debug, Default, Clone)]
+struct Midi {
+    inputs: Vec<(usize, String)>,
+    activity: usize,
+}
+
+impl Midi {
+    pub fn update(&mut self, message: MidiControlBarMessage) {
+        match message {
+            MidiControlBarMessage::Inputs(inputs) => {
+                self.inputs = inputs.clone();
+            }
+            MidiControlBarMessage::Activity => self.activity = 10,
+        }
+    }
+
+    pub fn view(&self) -> Element<Message> {
+        let mut s = String::new();
+        for input in self.inputs.iter() {
+            s = format!("{} {}", s, input.1);
+        }
+        let input_dropdown = container(text("todo"));
+        let activity_indicator = container(text(s));
+        row![input_dropdown, activity_indicator].into()
+    }
+}
+
 impl Application for GrooveApp {
     type Message = Message;
     type Theme = Theme;
@@ -191,7 +218,6 @@ impl Application for GrooveApp {
         (
             GrooveApp {
                 theme: Theme::Dark,
-                state: State::Idle,
                 ..Default::default()
             },
             Command::perform(SavedState::load(), Message::Loaded),
@@ -234,13 +260,19 @@ impl Application for GrooveApp {
                 };
 
                 self.audio_output.start();
+                self.midi_input.start();
+
+                let inputs = self.midi_input.inputs();
+                self.control_bar
+                    .midi
+                    .update(MidiControlBarMessage::Inputs(inputs.to_vec()));
             }
             Message::Loaded(Err(_)) => {
                 todo!()
             }
             #[allow(unused_variables)]
             Message::Tick(now) => {
-                if let State::Ticking { last_tick } = &mut self.state {
+                if let State::Playing = &mut self.state {
                     self.control_bar
                         .clock
                         .update(ClockMessage::Time(self.orchestrator.elapsed_seconds()));
@@ -253,13 +285,22 @@ impl Application for GrooveApp {
                         &mut self.audio_output,
                     ));
                 }
-            }
-            Message::ControlBarMessage(message) => match message {
-                ControlBarMessage::Play => {
-                    self.state = State::Ticking {
-                        last_tick: Instant::now(),
+                if let Some(stealer) = &self.midi_input.stealer {
+                    while stealer.len() != 0 {
+                        if let Steal::Success((stamp, channel, message)) = stealer.steal() {
+                            self.orchestrator.handle_external_midi(
+                                stamp,
+                                u4::into(channel),
+                                message,
+                            );
+                        }
                     }
                 }
+            }
+            Message::ControlBarMessage(message) => match message {
+                // TODO: not sure if we need ticking for now. it's playing OR
+                // midi
+                ControlBarMessage::Play => self.state = State::Playing,
                 ControlBarMessage::Stop => self.state = State::Idle,
                 ControlBarMessage::SkipToStart => todo!(),
             },
@@ -271,10 +312,11 @@ impl Application for GrooveApp {
             Message::ViewableMessage(i, message) => self.viewables[i].update(message),
             Message::EventOccurred(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {
-                    // See https://github.com/iced-rs/iced/pull/804
-                    // and https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
+                    // See https://github.com/iced-rs/iced/pull/804 and
+                    // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
                     //
                     // This is needed to stop an ALSA buffer underrun on close
+                    self.midi_input.stop();
                     self.audio_output.stop();
 
                     self.should_exit = true;
@@ -288,9 +330,11 @@ impl Application for GrooveApp {
     fn subscription(&self) -> Subscription<Message> {
         Subscription::batch([
             iced_native::subscription::events().map(Message::EventOccurred),
+            // This is duplicative because I think we'll want different activity
+            // levels depending on whether we're playing
             match self.state {
-                State::Idle => Subscription::none(),
-                State::Ticking { .. } => time::every(Duration::from_millis(10)).map(Message::Tick),
+                State::Idle => time::every(Duration::from_millis(10)).map(Message::Tick),
+                State::Playing { .. } => time::every(Duration::from_millis(10)).map(Message::Tick),
             },
         ])
     }
@@ -302,8 +346,7 @@ impl Application for GrooveApp {
     fn view(&self) -> Element<Message> {
         match self.state {
             State::Idle => {}
-            #[allow(unused)]
-            State::Ticking { last_tick } => {}
+            State::Playing => {}
         }
 
         let control_bar = self.control_bar.view(&self.orchestrator);
@@ -339,6 +382,17 @@ impl Application for GrooveApp {
             .align_y(alignment::Vertical::Top)
             .into()
     }
+}
+
+pub fn main() -> iced::Result {
+    GrooveApp::run(Settings {
+        // This override is needed so that we get the CloseRequested event that
+        // we need to turn off the cpal Stream. See
+        // https://github.com/iced-rs/iced/blob/master/examples/events/ for an
+        // example.
+        exit_on_close_request: false,
+        ..Settings::default()
+    })
 }
 
 fn empty_message(message: &str) -> Element<'_, Message> {
