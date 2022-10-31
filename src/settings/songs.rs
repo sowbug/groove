@@ -123,7 +123,7 @@ impl SongSettings {
             return;
         }
 
-        let pattern_sequencer = rrc(PatternSequencer::new(&self.clock.time_signature));
+        let pattern_sequencer = PatternSequencer::new_wrapped_with(&self.clock.time_signature);
         for pattern_settings in &self.patterns {
             let pattern = rrc(Pattern::from_settings(pattern_settings));
             orchestrator.register_pattern(Some(&pattern_settings.id), pattern);
@@ -143,7 +143,9 @@ impl SongSettings {
 
         let instrument = rrc_clone(&pattern_sequencer);
         orchestrator.connect_to_upstream_midi_bus(instrument);
-        orchestrator.register_clock_watcher(None, pattern_sequencer);
+        let instrument = rrc_clone(&pattern_sequencer);
+        orchestrator.register_clock_watcher(None, instrument);
+        orchestrator.register_viewable(pattern_sequencer);
     }
 
     fn instantiate_control_trips(&self, orchestrator: &mut Orchestrator) {

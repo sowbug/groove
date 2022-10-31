@@ -5,7 +5,7 @@ use crate::{
         limiter::Limiter, mixer::Mixer,
     },
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
-    traits::{MakesIsViewable, SinksAudio},
+    traits::{MakesIsViewable, SinksAudio}, patterns::PatternSequencer,
 };
 use iced::{
     alignment::{Horizontal, Vertical},
@@ -562,6 +562,46 @@ impl MakesIsViewable for Arpeggiator {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct PatternSequencerViewableResponder {
+    target: Ww<PatternSequencer>,
+}
+impl IsViewable for PatternSequencerViewableResponder {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        if let Some(target) = self.target.upgrade() {
+            let title = type_name::<PatternSequencer>();
+            let contents = format!("cursor point: {}", target.borrow().cursor());
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
+        } else {
+            panic!()
+        }
+    }
+
+    fn update(&mut self, message: Self::Message) {
+        dbg!(message);
+    }
+}
+
+impl MakesIsViewable for PatternSequencer {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(PatternSequencerViewableResponder {
+                target: wrc_clone(&self.me),
+            }))
+        } else {
+            println!(
+                "{}: probably forgot to call new_wrapped...()",
+                type_name::<Self>()
+            );
+            None
+        }
+    }
+}
+
+
 
 #[cfg(test)]
 mod tests {

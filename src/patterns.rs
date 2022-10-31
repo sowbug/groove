@@ -1,7 +1,7 @@
 use crate::{
     clock::{BeatValue, Clock, TimeSignature},
     midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock}, common::Ww,
+    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock}, common::{Ww, Rrc, rrc, rrc_downgrade},
 };
 use sorted_vec::SortedVec;
 use std::{
@@ -11,6 +11,7 @@ use std::{
 
 #[derive(Debug, Default)]
 pub struct PatternSequencer {
+    pub(crate) me: Ww<Self>,
     time_signature: TimeSignature,
     cursor_beats: f32, // TODO: this should be a fixed-precision type
 
@@ -21,12 +22,18 @@ pub struct PatternSequencer {
 impl PatternSequencer {
     const CURSOR_BEGIN: f32 = 0.0;
 
-    pub fn new(time_signature: &TimeSignature) -> Self {
+    pub fn new_with(time_signature: &TimeSignature) -> Self {
         Self {
             time_signature: *time_signature,
             cursor_beats: Self::CURSOR_BEGIN,
             ..Default::default()
         }
+    }
+
+    pub fn new_wrapped_with(time_signature: &TimeSignature) -> Rrc<Self> {
+        let wrapped = rrc(Self::new_with(time_signature));
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
+        wrapped
     }
 
     pub fn add_pattern(&mut self, pattern: &Pattern, channel: u8) {
@@ -104,7 +111,8 @@ impl PatternSequencer {
         self.cursor_beats = Self::CURSOR_BEGIN;
     }
 
-    #[cfg(test)]
+    // TODO remove when we have more substantial interaction with GUI
+    // #[cfg(test)]
     pub(crate) fn cursor(&self) -> f32 {
         self.cursor_beats
     }
@@ -231,7 +239,7 @@ mod tests {
     #[test]
     fn test_pattern() {
         let time_signature = TimeSignature::new_defaults();
-        let mut sequencer = PatternSequencer::new(&time_signature);
+        let mut sequencer = PatternSequencer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This means
         // that we should interpret this as TWO measures, the first having four notes, and
@@ -268,7 +276,7 @@ mod tests {
     #[test]
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8);
-        let mut sequencer = PatternSequencer::new(&time_signature);
+        let mut sequencer = PatternSequencer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time signature
         // calls for eighth notes, they last twice as long as they seem.
@@ -314,7 +322,7 @@ mod tests {
     #[test]
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4);
-        let mut sequencer = PatternSequencer::new(&time_signature);
+        let mut sequencer = PatternSequencer::new_with(&time_signature);
         let pattern = Pattern::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
             note_value: None,
