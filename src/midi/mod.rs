@@ -419,10 +419,8 @@ impl MidiInputHandler {
                     .push((i, midi_in.port_name(port).unwrap()));
             }
 
-            println!("\nOpening connection");
             let in_port_name = midi_in.port_name(in_port)?;
 
-            // _conn_in needs to be a named parameter, because it needs to be kept alive until the end of the scope
             let worker = Worker::<(u64, u4, MidiMessage)>::new_fifo();
             self.stealer = Some(worker.stealer());
             self.conn_in = Some(midi_in.connect(
@@ -454,6 +452,7 @@ impl MidiInputHandler {
         self.conn_in = None;
     }
 
+    // TODO: no idea when this gets refreshed
     pub fn inputs(&self) -> &[(usize, String)] {
         &self.inputs
     }
