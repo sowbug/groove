@@ -2,13 +2,14 @@ pub(crate) mod sequencer;
 pub(crate) mod smf_reader;
 
 use crate::{
-    common::Ww,
+    common::{rrc, rrc_clone, rrc_downgrade, weak_new, Rrc, Ww},
     traits::{SinksMidi, SourcesMidi},
+    Orchestrator,
 };
 use crossbeam::deque::{Stealer, Worker};
-use midir::{Ignore, MidiInput, MidiInputConnection};
-use midly::MidiMessage as MidlyMidiMessage;
+use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
 use midly::{live::LiveEvent, num::u4};
+use midly::{num::u7, MidiMessage as MidlyMidiMessage};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, collections::HashMap, error::Error};
 
@@ -367,6 +368,9 @@ pub enum GeneralMidiPercussionProgram {
     OpenTriangle = 81,
 }
 
+/// Handles MIDI input coming from outside Groove. For example, if you have a
+/// MIDI keyboard plugged into your computer's USB, you should be able to use
+/// that keyboard to input notes into Groove, and MidiInputHandler manages that.
 pub struct MidiInputHandler {
     conn_in: Option<MidiInputConnection<()>>,
     pub stealer: Option<Stealer<(u64, u4, MidiMessage)>>,
@@ -408,15 +412,15 @@ impl MidiInputHandler {
                     for port in in_ports.iter() {
                         println!("{}", midi_in.port_name(port).unwrap());
                     }
-                    //                panic!("there are multiple MIDI input devices, and that's scary");
+                    //                panic!("there are multiple MIDI input
+                    //                devices, and that's scary");
                     &in_ports[1]
                 }
             };
 
             self.inputs.clear();
             for (i, port) in in_ports.iter().enumerate() {
-                self.inputs
-                    .push((i, midi_in.port_name(port).unwrap()));
+                self.inputs.push((i, midi_in.port_name(port).unwrap()));
             }
 
             let in_port_name = midi_in.port_name(in_port)?;
@@ -425,7 +429,7 @@ impl MidiInputHandler {
             self.stealer = Some(worker.stealer());
             self.conn_in = Some(midi_in.connect(
                 in_port,
-                "midir-read-input",
+                "Groove input",
                 move |stamp, event, _| {
                     let event = LiveEvent::parse(event).unwrap();
                     match event {
@@ -455,6 +459,180 @@ impl MidiInputHandler {
     // TODO: no idea when this gets refreshed
     pub fn inputs(&self) -> &[(usize, String)] {
         &self.inputs
+    }
+}
+
+pub struct MidiOutputHandler {
+    pub(crate) me: Ww<Self>,
+    conn_out: Option<MidiOutputConnection>,
+    stealer: Option<Stealer<(u64, u4, MidiMessage)>>,
+    outputs: Vec<(usize, String)>,
+}
+
+impl std::fmt::Debug for MidiOutputHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({:?}, {:?})", self.stealer, self.outputs)
+    }
+}
+
+impl Default for MidiOutputHandler {
+    fn default() -> Self {
+        Self {
+            me: weak_new(),
+            conn_out: None,
+            stealer: None,
+            outputs: Vec::default(),
+        }
+    }
+}
+
+impl MidiOutputHandler {
+    fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
+    pub fn new_wrapped() -> Rrc<Self> {
+        let wrapped = rrc(Self::new());
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
+        wrapped
+    }
+
+    pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
+        if let Ok(midi_out) = MidiOutput::new("Groove MIDI output") {
+            let out_ports = midi_out.ports();
+            let out_port = match out_ports.len() {
+                0 => return Err("no output port found".into()),
+                1 => {
+                    println!(
+                        "Choosing the only available output port: {}",
+                        midi_out.port_name(&out_ports[0]).unwrap()
+                    );
+                    &out_ports[0]
+                }
+                _ => {
+                    for port in out_ports.iter() {
+                        println!("{}", midi_out.port_name(port).unwrap());
+                    }
+                    //                panic!("there are multiple MIDI output
+                    //                devices, and that's scary");
+                    &out_ports[1] // TODO
+                }
+            };
+
+            // self.outputs.clear(); for (i, port) in
+            // out_ports.iter().enumerate() { self.outputs .push((i,
+            //     midi_out.port_name(port).unwrap())); }
+
+            // let out_port_name = midi_out.port_name(out_port)?;
+
+            let worker = Worker::<(u64, u4, MidiMessage)>::new_fifo();
+            self.stealer = Some(worker.stealer());
+            self.conn_out = Some(midi_out.connect(out_port, "Groove output")?);
+
+            Ok(())
+        } else {
+            Err("couldn't create MidiOutput".into())
+        }
+    }
+
+    pub fn send(&mut self, message: &[u8]) -> Result<(), SendError> {
+        if self.conn_out.is_some() {
+            self.conn_out.as_mut().unwrap().send(message)
+        } else {
+            Err(SendError::Other("couldn't send"))
+        }
+    }
+
+    pub fn stop(&mut self) {
+        self.conn_out = None;
+    }
+
+    // TODO: no idea when this gets refreshed
+    pub fn outputs(&self) -> &[(usize, String)] {
+        &self.outputs
+    }
+}
+
+impl SinksMidi for MidiOutputHandler {
+    fn midi_channel(&self) -> MidiChannel {
+        MIDI_CHANNEL_RECEIVE_ALL
+    }
+
+    fn set_midi_channel(&mut self, _midi_channel: MidiChannel) {}
+
+    fn handle_midi_for_channel(&mut self, _clock: &crate::clock::Clock, message: &MidiMessage) {
+        let channel: u4 = u4::from(message.channel);
+        let event = match message.status {
+            MidiMessageType::NoteOn => LiveEvent::Midi {
+                channel,
+                message: MidlyMidiMessage::NoteOn {
+                    key: u7::from(message.data1),
+                    vel: u7::from(message.data2),
+                },
+            },
+            MidiMessageType::NoteOff => LiveEvent::Midi {
+                channel,
+                message: MidlyMidiMessage::NoteOff {
+                    key: u7::from(message.data1),
+                    vel: u7::from(message.data2),
+                },
+            },
+            MidiMessageType::ProgramChange => todo!(),
+            MidiMessageType::Controller => todo!(),
+        };
+
+        // TODO: this seems like a lot of work
+        let mut buf = Vec::new();
+        event.write(&mut buf).unwrap();
+        self.send(&buf);
+    }
+}
+
+pub struct MidiHandler {
+    midi_input: MidiInputHandler,
+    midi_output: Rrc<MidiOutputHandler>,
+}
+
+// TODO - this is an ExternalMidi that implements SinksMidi and SourcesMidi, and
+// IOHelper connects it to Orchestrator. I think.
+impl MidiHandler {
+    pub fn new_with(orchestrator: &mut Orchestrator) -> Self {
+        let r = Self::default();
+
+        let t = rrc_clone(&r.midi_output);
+        let t: Rrc<dyn SinksMidi> = t;
+        orchestrator.connect_to_downstream_midi_bus(MIDI_CHANNEL_RECEIVE_ALL, rrc_downgrade(&t));
+
+        r
+    }
+
+    pub fn available_devices(&self) -> &[(usize, String)] {
+        &self.midi_input.inputs()
+    }
+
+    pub fn input_stealer(&self) -> &Option<Stealer<(u64, u4, MidiMessage)>> {
+        &self.midi_input.stealer
+    }
+
+    pub fn start(&mut self) {
+        self.midi_input.start();
+        self.midi_output.borrow_mut().start();
+    }
+
+    pub fn stop(&mut self) {
+        self.midi_input.stop();
+        self.midi_output.borrow_mut().stop();
+    }
+}
+
+impl Default for MidiHandler {
+    fn default() -> Self {
+        Self {
+            midi_input: MidiInputHandler::new(),
+            midi_output: MidiOutputHandler::new_wrapped(),
+        }
     }
 }
 

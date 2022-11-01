@@ -4,7 +4,7 @@ use async_std::task::block_on;
 use crossbeam::deque::Steal;
 use groove::{
     gui::{GuiStuff, IsViewable, ViewableMessage, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    AudioOutput, IOHelper, MidiInputHandler, Orchestrator, TimeSignature,
+    AudioOutput, IOHelper, MidiHandler, Orchestrator, TimeSignature,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -38,7 +38,7 @@ struct GrooveApp {
     audio_output: AudioOutput,
 
     // Extra
-    midi_input: MidiInputHandler,
+    midi: MidiHandler,
 }
 
 impl Default for GrooveApp {
@@ -53,7 +53,7 @@ impl Default for GrooveApp {
             orchestrator: Default::default(),
             viewables: Default::default(),
             audio_output: Default::default(),
-            midi_input: Default::default(),
+            midi: MidiHandler::default(),
         }
     }
 }
@@ -273,7 +273,7 @@ impl Application for GrooveApp {
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::Loaded(Ok(state)) => {
-                let orchestrator = state.song_settings.instantiate().unwrap();
+                let mut orchestrator = state.song_settings.instantiate().unwrap();
                 let viewables = orchestrator
                     .viewables()
                     .iter()
@@ -289,18 +289,25 @@ impl Application for GrooveApp {
                         }
                     })
                     .collect();
+                let midi = MidiHandler::new_with(&mut orchestrator);
                 *self = Self {
                     theme: self.theme,
                     project_name: state.project_name,
                     orchestrator,
                     viewables,
+                    midi,
                     ..Default::default()
                 };
 
                 self.audio_output.start();
-                self.midi_input.start();
+                self.midi.start();
 
-                let inputs = self.midi_input.inputs();
+                // TODO: no outputs because MidiOutputHandler is held inside a
+                // RefCell, and thus can't give out addresses to any of its
+                // data. I think the right model here is to make
+                // RefreshMidiDevices and MidiDevicesRefreshed messages, and
+                // then ask for updates when needed.
+                let inputs = self.midi.available_devices();
                 self.control_bar
                     .midi
                     .update(MidiControlBarMessage::Inputs(inputs.to_vec()));
@@ -325,7 +332,7 @@ impl Application for GrooveApp {
                         &mut self.audio_output,
                     ));
                 }
-                if let Some(stealer) = &self.midi_input.stealer {
+                if let Some(stealer) = &self.midi.input_stealer() {
                     while stealer.len() != 0 {
                         if let Steal::Success((stamp, channel, message)) = stealer.steal() {
                             self.orchestrator.handle_external_midi(
@@ -359,7 +366,7 @@ impl Application for GrooveApp {
                     // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
                     //
                     // This is needed to stop an ALSA buffer underrun on close
-                    self.midi_input.stop();
+                    self.midi.stop();
                     self.audio_output.stop();
 
                     self.should_exit = true;
