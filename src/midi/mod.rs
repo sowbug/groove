@@ -8,8 +8,11 @@ use crate::{
 };
 use crossbeam::deque::{Stealer, Worker};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
-use midly::{live::LiveEvent, num::u4};
-use midly::{num::u7, MidiMessage as MidlyMidiMessage};
+use midly::{
+    live::LiveEvent,
+    num::{u4, u7},
+    MidiMessage as MidlyMidiMessage,
+};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, collections::HashMap, error::Error};
 
@@ -105,6 +108,7 @@ impl MidiMessage {
             MidlyMidiMessage::NoteOn { key, vel } => {
                 Self::new_note_on(u8::from(channel), u8::from(key), u8::from(vel))
             }
+            #[allow(unused_variables)]
             MidlyMidiMessage::Aftertouch { key, vel } => todo!(),
             MidlyMidiMessage::Controller { controller, value } => {
                 Self::new_controller(u8::from(channel), u8::from(controller), u8::from(value))
@@ -112,7 +116,9 @@ impl MidiMessage {
             MidlyMidiMessage::ProgramChange { program } => {
                 Self::new_program_change(u8::from(channel), u8::from(program))
             }
+            #[allow(unused_variables)]
             MidlyMidiMessage::ChannelAftertouch { vel } => todo!(),
+            #[allow(unused_variables)]
             MidlyMidiMessage::PitchBend { bend } => todo!(),
         }
     }
@@ -373,7 +379,7 @@ pub enum GeneralMidiPercussionProgram {
 /// that keyboard to input notes into Groove, and MidiInputHandler manages that.
 pub struct MidiInputHandler {
     conn_in: Option<MidiInputConnection<()>>,
-    pub stealer: Option<Stealer<(u64, u4, MidiMessage)>>,
+    pub stealer: Option<Stealer<(u64, u8, MidiMessage)>>,
     inputs: Vec<(usize, String)>,
 }
 
@@ -423,9 +429,9 @@ impl MidiInputHandler {
                 self.inputs.push((i, midi_in.port_name(port).unwrap()));
             }
 
-            let in_port_name = midi_in.port_name(in_port)?;
+            let _in_port_name = midi_in.port_name(in_port)?;
 
-            let worker = Worker::<(u64, u4, MidiMessage)>::new_fifo();
+            let worker = Worker::<(u64, u8, MidiMessage)>::new_fifo();
             self.stealer = Some(worker.stealer());
             self.conn_in = Some(midi_in.connect(
                 in_port,
@@ -436,7 +442,7 @@ impl MidiInputHandler {
                         LiveEvent::Midi { channel, message } => {
                             worker.push((
                                 stamp,
-                                channel,
+                                u8::from(channel),
                                 MidiMessage::from_midly(channel, message),
                             ));
                         }
@@ -550,6 +556,7 @@ impl MidiOutputHandler {
     }
 
     // TODO: no idea when this gets refreshed
+    #[allow(dead_code)]
     pub fn outputs(&self) -> &[(usize, String)] {
         &self.outputs
     }
@@ -586,7 +593,9 @@ impl SinksMidi for MidiOutputHandler {
         // TODO: this seems like a lot of work
         let mut buf = Vec::new();
         event.write(&mut buf).unwrap();
-        self.send(&buf);
+        if self.send(&buf).is_err() {
+            // TODO
+        }
     }
 }
 
@@ -612,13 +621,21 @@ impl MidiHandler {
         &self.midi_input.inputs()
     }
 
-    pub fn input_stealer(&self) -> &Option<Stealer<(u64, u4, MidiMessage)>> {
+    pub fn input_stealer(&self) -> &Option<Stealer<(u64, u8, MidiMessage)>> {
         &self.midi_input.stealer
     }
 
     pub fn start(&mut self) {
-        self.midi_input.start();
-        self.midi_output.borrow_mut().start();
+        let r = self.midi_input.start();
+        if r.is_ok() {
+            // TODO
+        } else {
+            panic!("couldn't start MIDI input")
+        }
+        let r = self.midi_output.borrow_mut().start();
+        if r.is_ok() {
+            // TODO
+        }
     }
 
     pub fn stop(&mut self) {

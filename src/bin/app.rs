@@ -1,7 +1,7 @@
 mod gui;
 
 use async_std::task::block_on;
-use crossbeam::deque::Steal;
+use crossbeam::deque::Steal; // TODO: this leaks into the app. Necessary?
 use groove::{
     gui::{GuiStuff, IsViewable, ViewableMessage, NUMBERS_FONT, NUMBERS_FONT_SIZE},
     AudioOutput, IOHelper, MidiHandler, Orchestrator, TimeSignature,
@@ -18,7 +18,6 @@ use iced::{
     Alignment, Application, Color, Command, Element, Length, Settings, Subscription,
 };
 use iced_native::{window, Event};
-use midly::num::u4;
 use std::time::{Duration, Instant};
 
 struct GrooveApp {
@@ -335,11 +334,8 @@ impl Application for GrooveApp {
                 if let Some(stealer) = &self.midi.input_stealer() {
                     while stealer.len() != 0 {
                         if let Steal::Success((stamp, channel, message)) = stealer.steal() {
-                            self.orchestrator.handle_external_midi(
-                                stamp,
-                                u4::into(channel),
-                                message,
-                            );
+                            self.orchestrator
+                                .handle_external_midi(stamp, channel, message);
                             self.control_bar
                                 .midi
                                 .update(MidiControlBarMessage::Activity(Instant::now()));
