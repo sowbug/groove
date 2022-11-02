@@ -169,7 +169,7 @@ mod tests {
 
     use crate::{
         clock::Clock,
-        midi::{MidiChannel, MidiMessage, MidiMessageType},
+        midi::{MidiChannel, MidiMessage},
         settings::patches::OscillatorSettings,
         traits::SinksMidi,
     };
@@ -200,22 +200,31 @@ mod tests {
             self.midi_channel = midi_channel;
         }
 
-        fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
+        fn handle_midi_for_channel(
+            &mut self,
+            _clock: &Clock,
+            _channel: &MidiChannel,
+            message: &MidiMessage,
+        ) {
             self.midi_messages_received += 1;
 
-            match message.status {
-                MidiMessageType::NoteOn => {
-                    self.is_playing = true;
-                    self.midi_messages_handled += 1;
-                }
-                MidiMessageType::NoteOff => {
+            #[allow(unused_variables)]
+            match message {
+                MidiMessage::NoteOff { key, vel } => {
                     self.is_playing = false;
                     self.midi_messages_handled += 1;
                 }
-                MidiMessageType::ProgramChange => {
+                MidiMessage::NoteOn { key, vel } => {
+                    self.is_playing = true;
                     self.midi_messages_handled += 1;
                 }
-                MidiMessageType::Controller => todo!(),
+                MidiMessage::Aftertouch { key, vel } => todo!(),
+                MidiMessage::Controller { controller, value } => todo!(),
+                MidiMessage::ProgramChange { program } => {
+                    self.midi_messages_handled += 1;
+                }
+                MidiMessage::ChannelAftertouch { vel } => todo!(),
+                MidiMessage::PitchBend { bend } => todo!(),
             }
         }
     }

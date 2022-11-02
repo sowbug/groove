@@ -1,10 +1,10 @@
 use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, Rrc, Ww},
-    midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote},
+    midi::{MidiChannel, MidiMessage, MidiNote, MidiUtils},
     traits::{IsMidiEffect, SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct Arpeggiator {
@@ -27,18 +27,26 @@ impl SinksMidi for Arpeggiator {
         self.midi_channel_in
     }
 
-    fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
+    fn handle_midi_for_channel(
+        &mut self,
+        _clock: &Clock,
+        _channel: &MidiChannel,
+        message: &MidiMessage,
+    ) {
         // TODO: we'll need clock to do cool things like schedule note change on
         // next bar... maybe
-        match message.status {
-            MidiMessageType::NoteOn => {
+        #[allow(unused_variables)]
+        match message {
+            MidiMessage::NoteOff { key, vel } => self.is_device_playing = false,
+            MidiMessage::NoteOn { key, vel } => {
                 self.is_device_playing = true;
                 self.note = MidiNote::C4
             }
-            MidiMessageType::NoteOff => self.is_device_playing = false,
-            MidiMessageType::ProgramChange => todo!(),
-            MidiMessageType::Controller => todo!(),
-            
+            MidiMessage::Aftertouch { key, vel } => todo!(),
+            MidiMessage::Controller { controller, value } => todo!(),
+            MidiMessage::ProgramChange { program } => todo!(),
+            MidiMessage::ChannelAftertouch { vel } => todo!(),
+            MidiMessage::PitchBend { bend } => todo!(),
         }
     }
 
@@ -72,11 +80,8 @@ impl WatchesClock for Arpeggiator {
             if self.is_note_playing {
                 self.issue_midi(
                     clock,
-                    &MidiMessage::new_note_off(
-                        self.midi_channel_out,
-                        self.note as u8 + self.note_addition,
-                        100,
-                    ),
+                    &self.midi_channel_out,
+                    &MidiUtils::new_note_off2(self.note as u8 + self.note_addition, 100),
                 );
                 self.is_note_playing = false;
                 // TODO duh
@@ -85,11 +90,8 @@ impl WatchesClock for Arpeggiator {
             if self.is_device_playing {
                 self.issue_midi(
                     clock,
-                    &MidiMessage::new_note_on(
-                        self.midi_channel_out,
-                        self.note as u8 + self.note_addition,
-                        100,
-                    ),
+                    &self.midi_channel_out,
+                    &MidiUtils::new_note_on2(self.note as u8 + self.note_addition, 100),
                 );
                 self.is_note_playing = true;
             }

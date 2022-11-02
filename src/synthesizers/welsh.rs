@@ -1,7 +1,7 @@
 use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww},
     effects::filter::{Filter, FilterType},
-    midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiMessageType},
+    midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
     settings::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
@@ -563,9 +563,7 @@ impl Voice {
         if !matches!(preset.oscillator_2.waveform, WaveformType::None) {
             let mut o = Oscillator::new_from_preset(&preset.oscillator_2);
             if !preset.oscillator_2_track {
-                o.set_fixed_frequency(MidiMessage::note_to_frequency(
-                    preset.oscillator_2.tune as u8,
-                ));
+                o.set_fixed_frequency(MidiUtils::note_to_frequency(preset.oscillator_2.tune as u8));
             }
             r.oscillators.push(o);
             r.osc_mix.push(preset.oscillator_2.mix);
@@ -592,22 +590,31 @@ impl SinksMidi for Voice {
         self.midi_channel = midi_channel;
     }
 
-    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
-        match message.status {
-            MidiMessageType::NoteOn => {
-                let frequency = message.message_to_frequency();
+    fn handle_midi_for_channel(
+        &mut self,
+        clock: &Clock,
+        _channel: &MidiChannel,
+        message: &MidiMessage,
+    ) {
+        #[allow(unused_variables)]
+        match message {
+            MidiMessage::NoteOff { key, vel } => {
+                self.amp_envelope.handle_note_event(clock, false);
+                self.filter_envelope.handle_note_event(clock, false);
+            }
+            MidiMessage::NoteOn { key, vel } => {
+                let frequency = MidiUtils::message_to_frequency(&message);
                 for o in self.oscillators.iter_mut() {
                     o.set_frequency(frequency);
                 }
                 self.amp_envelope.handle_note_event(clock, true);
                 self.filter_envelope.handle_note_event(clock, true);
             }
-            MidiMessageType::NoteOff => {
-                self.amp_envelope.handle_note_event(clock, false);
-                self.filter_envelope.handle_note_event(clock, false);
-            }
-            MidiMessageType::ProgramChange => {}
-            MidiMessageType::Controller => todo!(),
+            MidiMessage::Aftertouch { key, vel } => todo!(),
+            MidiMessage::Controller { controller, value } => todo!(),
+            MidiMessage::ProgramChange { program } => todo!(),
+            MidiMessage::ChannelAftertouch { vel } => todo!(),
+            MidiMessage::PitchBend { bend } => todo!(),
         }
     }
 }
@@ -728,26 +735,38 @@ impl SinksMidi for Synth {
         self.midi_channel = midi_channel;
     }
 
-    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
-        match message.status {
-            MidiMessageType::NoteOn => {
-                let note = message.data1;
-                let voice = self.voice_for_note(note);
-                voice.borrow_mut().handle_midi_for_channel(clock, message);
-            }
-            MidiMessageType::NoteOff => {
-                let note = message.data1;
-                let voice = self.voice_for_note(note);
-                voice.borrow_mut().handle_midi_for_channel(clock, message);
+    fn handle_midi_for_channel(
+        &mut self,
+        clock: &Clock,
+        channel: &MidiChannel,
+        message: &MidiMessage,
+    ) {
+        #[allow(unused_variables)]
+        match message {
+            MidiMessage::NoteOff { key, vel } => {
+                let voice = self.voice_for_note(u8::from(*key));
+                voice
+                    .borrow_mut()
+                    .handle_midi_for_channel(clock, channel, message);
 
                 // TODO: this is incorrect because it kills voices before release is complete
-                self.note_to_voice.remove(&note);
+                self.note_to_voice.remove(&u8::from(*key));
             }
-            MidiMessageType::ProgramChange => {
-                self.preset =
-                    Synth::general_midi_preset(GeneralMidiProgram::from_u8(message.data1).unwrap());
+            MidiMessage::NoteOn { key, vel } => {
+                let voice = self.voice_for_note(u8::from(*key));
+                voice
+                    .borrow_mut()
+                    .handle_midi_for_channel(clock, channel, message);
             }
-            MidiMessageType::Controller => todo!(),
+            MidiMessage::Aftertouch { key, vel } => todo!(),
+            MidiMessage::Controller { controller, value } => todo!(),
+            MidiMessage::ProgramChange { program } => {
+                self.preset = Synth::general_midi_preset(
+                    GeneralMidiProgram::from_u8(u8::from(*program)).unwrap(),
+                );
+            }
+            MidiMessage::ChannelAftertouch { vel } => todo!(),
+            MidiMessage::PitchBend { bend } => todo!(),
         }
     }
 }
@@ -788,7 +807,7 @@ mod tests {
     use super::*;
     use crate::{
         clock::Clock,
-        midi::{MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
+        midi::{MidiMessage, MidiUtils, MIDI_CHANNEL_RECEIVE_ALL},
         settings::patches::{
             EnvelopeSettings, FilterPreset, GlideSettings, LfoPreset, LfoRouting,
             OscillatorSettings, PolyphonySettings,
@@ -813,19 +832,19 @@ mod tests {
         const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
-        let midi_on = MidiMessage::note_on_c4();
-        let midi_off = MidiMessage::note_off_c4();
+        let midi_on = MidiUtils::note_on_c4();
+        let midi_off = MidiUtils::note_off_c4();
 
         let mut last_recognized_time_point = -1.;
         let time_note_off = duration / 2.0;
         while clock.seconds() < duration {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
-                voice.handle_midi_for_channel(&clock, &midi_on);
+                voice.handle_midi_for_channel(&clock, &0, &midi_on);
             } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
             {
                 last_recognized_time_point = clock.seconds();
-                voice.handle_midi_for_channel(&clock, &midi_off);
+                voice.handle_midi_for_channel(&clock, &0, &midi_off);
             }
 
             let sample = voice.source_audio(&clock);
@@ -898,7 +917,7 @@ mod tests {
         while clock.seconds() < duration {
             if when <= clock.seconds() && !is_message_sent {
                 is_message_sent = true;
-                source.handle_midi_for_channel(clock, message);
+                source.handle_midi_for_channel(clock, &0, message);
             }
             let sample = source.source_audio(clock);
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
@@ -1002,12 +1021,12 @@ mod tests {
 
     #[test]
     fn test_basic_synth_patch() {
-        let message_on = MidiMessage::note_on_c4();
-        let message_off = MidiMessage::note_off_c4();
+        let message_on = MidiUtils::note_on_c4();
+        let message_off = MidiUtils::note_off_c4();
 
         let mut clock = Clock::new();
         let mut voice = Voice::new(MIDI_CHANNEL_RECEIVE_ALL, SAMPLE_RATE, &test_patch());
-        voice.handle_midi_for_channel(&clock, &message_on);
+        voice.handle_midi_for_channel(&clock, &0, &message_on);
         write_sound(
             &mut voice,
             &mut clock,
@@ -1020,12 +1039,12 @@ mod tests {
 
     #[test]
     fn test_basic_cello_patch() {
-        let message_on = MidiMessage::note_on_c4();
-        let message_off = MidiMessage::note_off_c4();
+        let message_on = MidiUtils::note_on_c4();
+        let message_off = MidiUtils::note_off_c4();
 
         let mut clock = Clock::new();
         let mut voice = Voice::new(MIDI_CHANNEL_RECEIVE_ALL, SAMPLE_RATE, &cello_patch());
-        voice.handle_midi_for_channel(&clock, &message_on);
+        voice.handle_midi_for_channel(&clock, &0, &message_on);
         write_sound(
             &mut voice,
             &mut clock,

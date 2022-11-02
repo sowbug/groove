@@ -1,6 +1,6 @@
 use super::sequencer::MidiSequencer;
-use crate::midi::{MidiMessage, OrderedMidiMessage};
-use midly::{MidiMessage as MidlyMidiMessage, TrackEventKind};
+use crate::patterns::OrderedEvent;
+use midly::TrackEventKind;
 
 pub struct MidiSmfReader {}
 
@@ -31,61 +31,20 @@ impl MidiSmfReader {
         };
         for (track_number, track) in parse_result.tracks.iter().enumerate() {
             println!("Processing track {track_number}");
-            let mut track_time_ticks: u32 = 0; // The relative time references start over at zero with each track.
+            let mut track_time_ticks: usize = 0; // The relative time references start over at zero with each track.
 
             for t in track.iter() {
                 match t.kind {
                     TrackEventKind::Midi { channel, message } => {
-                        let delta = t.delta;
-                        track_time_ticks += delta.as_int();
-                        match message {
-                            MidlyMidiMessage::NoteOn { key, vel } => {
-                                let midi_message = if vel == 0 {
-                                    OrderedMidiMessage {
-                                        when: track_time_ticks,
-                                        message: MidiMessage::new_note_off(
-                                            channel.as_int(),
-                                            key.as_int(),
-                                            vel.as_int(),
-                                        ),
-                                    }
-                                } else {
-                                    OrderedMidiMessage {
-                                        when: track_time_ticks,
-                                        message: MidiMessage::new_note_on(
-                                            channel.as_int(),
-                                            key.as_int(),
-                                            vel.as_int(),
-                                        ),
-                                    }
-                                };
-                                sequencer.add_message(midi_message);
-                            }
-                            MidlyMidiMessage::NoteOff { key, vel } => {
-                                let midi_message = OrderedMidiMessage {
-                                    when: track_time_ticks,
-                                    message: MidiMessage::new_note_off(
-                                        channel.as_int(),
-                                        key.as_int(),
-                                        vel.as_int(),
-                                    ),
-                                };
-                                sequencer.add_message(midi_message);
-                            }
-                            MidlyMidiMessage::ProgramChange { program } => {
-                                let midi_message = OrderedMidiMessage {
-                                    when: track_time_ticks,
-                                    message: MidiMessage::new_program_change(
-                                        channel.as_int(),
-                                        program.as_int(),
-                                    ),
-                                };
-                                sequencer.add_message(midi_message);
-                            }
-                            _ => {
-                                // println!("skipping {:?}", message);
-                            }
-                        }
+                        let delta = t.delta.as_int() as usize;
+                        track_time_ticks += delta;
+                        sequencer.add_message(OrderedEvent {
+                            when: track_time_ticks,
+                            channel: channel.into(),
+                            event: message,
+                        });
+                        // TODO: prior version of this code treated vel=0 as
+                        // note-off. Do we need to handle that higher up?
                     }
 
                     TrackEventKind::Meta(meta_message) => match meta_message {
@@ -114,7 +73,7 @@ impl MidiSmfReader {
 
                             let _bpm: f32 = (60.0 * 1000000.0) / (meta_info.tempo as f32);
 
-                            sequencer.set_midi_ticks_per_second(ticks_per_second as u32);
+                            sequencer.set_midi_ticks_per_second(ticks_per_second as usize);
                         }
                         _ => {}
                     },

@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    midi::{MidiChannel, MidiMessage, MidiMessageType},
+    midi::{MidiChannel, MidiMessage},
     traits::{IsMutable, SinksMidi, SourcesAudio},
 };
 
@@ -58,21 +58,30 @@ impl SinksMidi for Sampler {
         self.midi_channel = midi_channel;
     }
 
-    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
-        match message.status {
-            MidiMessageType::NoteOn => {
+    fn handle_midi_for_channel(
+        &mut self,
+        clock: &Clock,
+        _channel: &MidiChannel,
+        message: &MidiMessage,
+    ) {
+        #[allow(unused_variables)]
+        match message {
+            MidiMessage::NoteOff { key, vel } => {
+                self.is_playing = false;
+            }
+            MidiMessage::NoteOn { key, vel } => {
                 self.sample_pointer = 0;
                 self.sample_clock_start = clock.samples();
                 self.is_playing = true;
             }
-            MidiMessageType::NoteOff => {
-                self.is_playing = false;
-            }
-            MidiMessageType::ProgramChange => {}
-            MidiMessageType::Controller => todo!(),
-            // TODO: there's way too much duplication across synths and samplers
-            // and voices
+            MidiMessage::Aftertouch { key, vel } => todo!(),
+            MidiMessage::Controller { controller, value } => todo!(),
+            MidiMessage::ProgramChange { program } => todo!(),
+            MidiMessage::ChannelAftertouch { vel } => todo!(),
+            MidiMessage::PitchBend { bend } => todo!(),
         }
+        // TODO: there's way too much duplication across synths and samplers
+        // and voices
     }
 }
 impl SourcesAudio for Sampler {

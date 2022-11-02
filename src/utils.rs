@@ -8,7 +8,7 @@ pub mod tests {
         },
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
-        midi::{MidiChannel, MidiMessage, MidiMessageType, MidiNote, MIDI_CHANNEL_RECEIVE_ALL},
+        midi::{MidiChannel, MidiMessage, MidiNote, MidiUtils, MIDI_CHANNEL_RECEIVE_ALL},
         oscillators::Oscillator,
         settings::patches::EnvelopeSettings,
         settings::patches::WaveformType,
@@ -586,22 +586,31 @@ pub mod tests {
         fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
             self.midi_channel = midi_channel;
         }
-        fn handle_midi_for_channel(&mut self, _clock: &Clock, message: &MidiMessage) {
+        fn handle_midi_for_channel(
+            &mut self,
+            _clock: &Clock,
+            _channel: &MidiChannel,
+            message: &MidiMessage,
+        ) {
             self.midi_messages_received += 1;
 
-            match message.status {
-                MidiMessageType::NoteOn => {
-                    self.is_playing = true;
-                    self.midi_messages_handled += 1;
-                }
-                MidiMessageType::NoteOff => {
+            #[allow(unused_variables)]
+            match message {
+                MidiMessage::NoteOff { key, vel } => {
                     self.is_playing = false;
                     self.midi_messages_handled += 1;
                 }
-                MidiMessageType::ProgramChange => {
+                MidiMessage::NoteOn { key, vel } => {
+                    self.is_playing = true;
                     self.midi_messages_handled += 1;
                 }
-                MidiMessageType::Controller => todo!(),
+                MidiMessage::Aftertouch { key, vel } => todo!(),
+                MidiMessage::Controller { controller, value } => todo!(),
+                MidiMessage::ProgramChange { program } => {
+                    self.midi_messages_handled += 1;
+                }
+                MidiMessage::ChannelAftertouch { vel } => todo!(),
+                MidiMessage::PitchBend { bend } => todo!(),
             }
         }
     }
@@ -822,9 +831,8 @@ pub mod tests {
         }
 
         pub fn source_some_midi(&mut self, clock: &Clock) {
-            let message =
-                MidiMessage::new_note_on(TestMidiSink::TEST_MIDI_CHANNEL, MidiNote::C4 as u8, 100);
-            self.issue_midi(clock, &message);
+            let message = MidiUtils::new_note_on2(MidiNote::C4 as u8, 100);
+            self.issue_midi(clock, &TestMidiSink::TEST_MIDI_CHANNEL, &message);
         }
     }
 
@@ -893,7 +901,8 @@ pub mod tests {
             // enough to see that tempo could have influenced this MIDI message.
             self.issue_midi(
                 clock,
-                &MidiMessage::new_note_on(self.midi_channel_out, 60, 100),
+                &self.midi_channel_out,
+                &MidiUtils::new_note_on2(60, 100),
             );
         }
     }

@@ -1,22 +1,24 @@
 use super::MIDI_CHANNEL_RECEIVE_ALL;
 use crate::{
     clock::{Clock, TimeSignature},
-    midi::{MidiChannel, OrderedMidiMessage},
-    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock}, common::Ww,
+    common::Ww,
+    midi::MidiChannel,
+    patterns::OrderedEvent,
+    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
 use sorted_vec::SortedVec;
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct MidiSequencer {
-    midi_ticks_per_second: u32,
+    midi_ticks_per_second: usize,
     beats_per_minute: f32,
     time_signature: TimeSignature,
 
     // TODO: if this gets too unwieldy, consider https://crates.io/crates/multimap
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
 
-    midi_messages: SortedVec<OrderedMidiMessage>,
+    midi_messages: SortedVec<OrderedEvent<usize>>,
 }
 
 impl MidiSequencer {
@@ -42,16 +44,16 @@ impl MidiSequencer {
         self.time_signature = time_signature;
     }
 
-    pub fn set_midi_ticks_per_second(&mut self, tps: u32) {
+    pub fn set_midi_ticks_per_second(&mut self, tps: usize) {
         self.midi_ticks_per_second = tps;
     }
 
-    pub fn add_message(&mut self, message: OrderedMidiMessage) {
+    pub fn add_message(&mut self, message: OrderedEvent<usize>) {
         self.midi_messages.insert(message);
     }
 
-    fn dispatch_midi_message(&self, midi_message: &OrderedMidiMessage, clock: &Clock) {
-        self.issue_midi(clock, &midi_message.message);
+    fn dispatch_midi_message(&self, message: &OrderedEvent<usize>, clock: &Clock) {
+        self.issue_midi(clock, &message.channel, &message.event);
     }
 }
 
@@ -78,7 +80,7 @@ impl WatchesClock for MidiSequencer {
             // it signals that we're done.
             return;
         }
-        let elapsed_midi_ticks = (clock.seconds() * self.midi_ticks_per_second as f32) as u32;
+        let elapsed_midi_ticks = (clock.seconds() * self.midi_ticks_per_second as f32) as usize;
         while !self.midi_messages.is_empty() {
             let midi_message = self.midi_messages.first().unwrap();
 
@@ -104,21 +106,21 @@ impl Terminates for MidiSequencer {
 }
 #[cfg(test)]
 mod tests {
-    
-
-    use crate::{
-        clock::Clock,
-        midi::{MidiMessage, MidiNote, OrderedMidiMessage},
-        traits::{SinksMidi, SourcesMidi, WatchesClock},
-        utils::tests::TestMidiSink, common::{rrc, rrc_downgrade},
-    };
 
     use super::MidiSequencer;
+    use crate::{
+        clock::Clock,
+        common::{rrc, rrc_downgrade},
+        midi::{MidiNote, MidiUtils},
+        patterns::OrderedEvent,
+        traits::{SinksMidi, SourcesMidi, WatchesClock},
+        utils::tests::TestMidiSink,
+    };
 
     impl MidiSequencer {
-        pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: u32) -> u32 {
+        pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: usize) -> usize {
             let tpb = self.midi_ticks_per_second as f32 / (clock.settings().bpm() / 60.0);
-            (tpb * beat as f32) as u32
+            (tpb * beat as f32) as usize
         }
     }
 
@@ -140,13 +142,15 @@ mod tests {
         assert!(!device.borrow().is_playing);
 
         // These helpers create messages on channel zero.
-        sequencer.add_message(OrderedMidiMessage {
+        sequencer.add_message(OrderedEvent {
             when: sequencer.tick_for_beat(&clock, 0),
-            message: MidiMessage::note_on_c4(),
+            channel: 0,
+            event: MidiUtils::note_on_c4(),
         });
-        sequencer.add_message(OrderedMidiMessage {
+        sequencer.add_message(OrderedEvent {
             when: sequencer.tick_for_beat(&clock, 1),
-            message: MidiMessage::note_off_c4(),
+            channel: 0,
+            event: MidiUtils::note_off_c4(),
         });
 
         let sink = rrc_downgrade(&device);
@@ -186,21 +190,25 @@ mod tests {
         let sink = rrc_downgrade(&device_2);
         sequencer.add_midi_sink(1, sink);
 
-        sequencer.add_message(OrderedMidiMessage {
+        sequencer.add_message(OrderedEvent {
             when: sequencer.tick_for_beat(&clock, 0),
-            message: MidiMessage::new_note_on(0, 60, 0),
+            channel: 0,
+            event: MidiUtils::new_note_on2(60, 0),
         });
-        sequencer.add_message(OrderedMidiMessage {
+        sequencer.add_message(OrderedEvent {
             when: sequencer.tick_for_beat(&clock, 1),
-            message: MidiMessage::new_note_on(1, 60, 0),
+            channel: 1,
+            event: MidiUtils::new_note_on2(60, 0),
         });
-        sequencer.add_message(OrderedMidiMessage {
+        sequencer.add_message(OrderedEvent {
             when: sequencer.tick_for_beat(&clock, 2),
-            message: MidiMessage::new_note_off(0, MidiNote::C4 as u8, 0),
+            channel: 0,
+            event: MidiUtils::new_note_off2(MidiNote::C4 as u8, 0),
         });
-        sequencer.add_message(OrderedMidiMessage {
+        sequencer.add_message(OrderedEvent {
             when: sequencer.tick_for_beat(&clock, 3),
-            message: MidiMessage::new_note_off(1, MidiNote::C4 as u8, 0),
+            channel: 1,
+            event: MidiUtils::new_note_off2(MidiNote::C4 as u8, 0),
         });
 
         // TODO: this tick() doesn't match the Clock tick() in the sense that the clock is in the right state

@@ -118,18 +118,18 @@ pub trait SourcesMidi {
         // TODO: is there a good reason for channel != sink.midi_channel()? If not, why is it a param?
         self.midi_sinks_mut().entry(channel).or_default().push(sink);
     }
-    fn issue_midi(&self, clock: &Clock, message: &MidiMessage) {
+    fn issue_midi(&self, clock: &Clock, channel: &MidiChannel, message: &MidiMessage) {
         if self.midi_sinks().contains_key(&MIDI_CHANNEL_RECEIVE_ALL) {
             for sink in self.midi_sinks().get(&MIDI_CHANNEL_RECEIVE_ALL).unwrap() {
                 if let Some(sink_up) = sink.upgrade() {
-                    sink_up.borrow_mut().handle_midi(clock, message);
+                    sink_up.borrow_mut().handle_midi(clock, channel, message);
                 }
             }
         }
-        if self.midi_sinks().contains_key(&message.channel) {
-            for sink in self.midi_sinks().get(&message.channel).unwrap() {
+        if self.midi_sinks().contains_key(channel) {
+            for sink in self.midi_sinks().get(channel).unwrap() {
                 if let Some(sink_up) = sink.upgrade() {
-                    sink_up.borrow_mut().handle_midi(clock, message);
+                    sink_up.borrow_mut().handle_midi(clock, channel, message);
                 }
             }
         }
@@ -139,17 +139,21 @@ pub trait SinksMidi: Debug {
     fn midi_channel(&self) -> MidiChannel;
     fn set_midi_channel(&mut self, midi_channel: MidiChannel);
 
-    fn handle_midi(&mut self, clock: &Clock, message: &MidiMessage) {
+    fn handle_midi(&mut self, clock: &Clock, channel: &MidiChannel, message: &MidiMessage) {
         if self.midi_channel() == MIDI_CHANNEL_RECEIVE_NONE {
             return;
         }
-        if self.midi_channel() == MIDI_CHANNEL_RECEIVE_ALL || self.midi_channel() == message.channel
-        {
+        if self.midi_channel() == MIDI_CHANNEL_RECEIVE_ALL || self.midi_channel() == *channel {
             // TODO: SourcesMidi is already going through trouble to respect channels. Is this redundant?
-            self.handle_midi_for_channel(clock, message);
+            self.handle_midi_for_channel(clock, channel, message);
         }
     }
-    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage);
+    fn handle_midi_for_channel(
+        &mut self,
+        clock: &Clock,
+        channel: &MidiChannel,
+        message: &MidiMessage,
+    );
 }
 
 /// A WatchesClock is something that needs to be called for every time slice.
@@ -206,7 +210,7 @@ pub mod tests {
         common::{rrc, rrc_clone, rrc_downgrade, MonoSample, MONO_SAMPLE_SILENCE},
         effects::gain::Gain,
         envelopes::AdsrEnvelope,
-        midi::MidiMessage,
+        midi::MidiUtils,
         oscillators::Oscillator,
         settings::patches::{EnvelopeSettings, WaveformType},
         traits::{MakesControlSink, SinksMidi, SourcesMidi, Terminates, WatchesClock},
@@ -225,7 +229,7 @@ pub mod tests {
         let oscillator = Oscillator::new_wrapped_with(WaveformType::Sine);
         oscillator
             .borrow_mut()
-            .set_frequency(MidiMessage::note_to_frequency(60));
+            .set_frequency(MidiUtils::note_to_frequency(60));
         let envelope_synth_clone = rrc_clone(&envelope);
         let synth = rrc(TestSynth::new_with(oscillator, envelope_synth_clone));
         let effect = Gain::new_wrapped();

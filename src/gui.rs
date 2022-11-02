@@ -4,8 +4,9 @@ use crate::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
     },
+    patterns::PatternSequencer,
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
-    traits::{MakesIsViewable, SinksAudio}, patterns::PatternSequencer,
+    traits::{MakesIsViewable, SinksAudio},
 };
 use iced::{
     alignment::{Horizontal, Vertical},
@@ -600,8 +601,6 @@ impl MakesIsViewable for PatternSequencer {
         }
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

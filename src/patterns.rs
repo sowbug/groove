@@ -1,8 +1,10 @@
 use crate::{
     clock::{BeatValue, Clock, TimeSignature},
-    midi::{MidiChannel, MidiMessage, MidiMessageType, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock}, common::{Ww, Rrc, rrc, rrc_downgrade},
+    common::{rrc, rrc_downgrade, Rrc, Ww},
+    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
+    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
+use midly::num::u7;
 use sorted_vec::SortedVec;
 use std::{
     cmp::{self, Ordering},
@@ -16,7 +18,7 @@ pub struct PatternSequencer {
     cursor_beats: f32, // TODO: this should be a fixed-precision type
 
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
-    sequenced_notes: SortedVec<OrderedNote>,
+    sequenced_notes: SortedVec<OrderedEvent<f32>>,
 }
 
 impl PatternSequencer {
@@ -82,29 +84,27 @@ impl PatternSequencer {
         duration_beats: f32,
     ) {
         if note != 0 {
-            self.sequenced_notes.insert(OrderedNote {
-                when_beats,
-                message: MidiMessage {
-                    status: MidiMessageType::NoteOn,
-                    channel,
-                    data1: note,
-                    data2: 100,
+            self.sequenced_notes.insert(OrderedEvent {
+                when: when_beats,
+                channel,
+                event: MidiMessage::NoteOn {
+                    key: u7::from(note),
+                    vel: 100.into(),
                 },
             });
-            self.sequenced_notes.insert(OrderedNote {
-                when_beats: when_beats + duration_beats,
-                message: MidiMessage {
-                    status: MidiMessageType::NoteOff,
-                    channel,
-                    data1: note,
-                    data2: 0,
+            self.sequenced_notes.insert(OrderedEvent {
+                when: when_beats + duration_beats,
+                channel,
+                event: MidiMessage::NoteOff {
+                    key: u7::from(note),
+                    vel: 0.into(),
                 },
             });
         }
     }
 
-    fn dispatch_note(&mut self, note: &OrderedNote, clock: &Clock) {
-        self.issue_midi(clock, &note.message);
+    fn dispatch_note(&mut self, note: &OrderedEvent<f32>, clock: &Clock) {
+        self.issue_midi(clock, &note.channel, &note.event);
     }
 
     pub(crate) fn reset_cursor(&mut self) {
@@ -127,7 +127,7 @@ impl WatchesClock for PatternSequencer {
         while !self.sequenced_notes.is_empty() {
             let note = *(self.sequenced_notes.first().unwrap());
 
-            if clock.beats() >= note.when_beats {
+            if clock.beats() >= note.when {
                 self.dispatch_note(&note, clock);
 
                 // TODO: this is violating a (future) rule that we can always randomly access
@@ -163,37 +163,44 @@ impl SourcesMidi for PatternSequencer {
     fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct OrderedNote {
-    pub when_beats: f32,
-    pub message: MidiMessage,
+#[derive(Clone, Copy, Debug)]
+pub struct OrderedEvent<T: PartialOrd + PartialEq> {
+    pub when: T,
+    pub channel: MidiChannel,
+    pub event: MidiMessage,
 }
 
-impl PartialOrd for OrderedNote {
+impl<T: PartialOrd> PartialOrd for OrderedEvent<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.when_beats > other.when_beats {
+        if self.when > other.when {
             return Some(Ordering::Greater);
         }
-        if self.when_beats < other.when_beats {
+        if self.when < other.when {
             return Some(Ordering::Less);
         }
         Some(Ordering::Equal)
     }
 }
 
-impl Ord for OrderedNote {
+impl<T: PartialOrd> Ord for OrderedEvent<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.when_beats > other.when_beats {
+        if self.when > other.when {
             return Ordering::Greater;
         }
-        if self.when_beats < other.when_beats {
+        if self.when < other.when {
             return Ordering::Less;
         }
         Ordering::Equal
     }
 }
 
-impl Eq for OrderedNote {}
+impl<T: PartialOrd> PartialEq for OrderedEvent<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.when == other.when && self.event == other.event
+    }
+}
+
+impl<T: PartialOrd> Eq for OrderedEvent<T> {}
 
 #[derive(Clone, Debug, Default)]
 pub struct Pattern {

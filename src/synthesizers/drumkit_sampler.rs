@@ -1,10 +1,7 @@
 use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    midi::{
-        GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MidiMessageType,
-        MIDI_CHANNEL_RECEIVE_ALL,
-    },
+    midi::{GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio},
 };
 use std::collections::HashMap;
@@ -45,18 +42,27 @@ impl SinksMidi for Voice {
     #[allow(unused_variables)]
     fn set_midi_channel(&mut self, midi_channel: MidiChannel) {}
 
-    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
-        match message.status {
-            MidiMessageType::NoteOn => {
+    fn handle_midi_for_channel(
+        &mut self,
+        clock: &Clock,
+        _channel: &MidiChannel,
+        message: &MidiMessage,
+    ) {
+        #[allow(unused_variables)]
+        match message {
+            MidiMessage::NoteOff { key, vel } => {
+                self.is_playing = false;
+            }
+            MidiMessage::NoteOn { key, vel } => {
                 self.sample_pointer = 0;
                 self.sample_clock_start = clock.samples();
                 self.is_playing = true;
             }
-            MidiMessageType::NoteOff => {
-                self.is_playing = false;
-            }
-            MidiMessageType::ProgramChange => {}
-            MidiMessageType::Controller => todo!(),
+            MidiMessage::Aftertouch { key, vel } => todo!(),
+            MidiMessage::Controller { controller, value } => todo!(),
+            MidiMessage::ProgramChange { program } => todo!(),
+            MidiMessage::ChannelAftertouch { vel } => todo!(),
+            MidiMessage::PitchBend { bend } => todo!(),
         }
     }
 }
@@ -172,22 +178,29 @@ impl SinksMidi for Sampler {
         self.midi_channel = midi_channel;
     }
 
-    fn handle_midi_for_channel(&mut self, clock: &Clock, message: &MidiMessage) {
-        match message.status {
-            MidiMessageType::NoteOn => {
-                let note: u8 = message.data1;
-                if let Some(voice) = self.note_to_voice.get_mut(&note) {
-                    voice.handle_midi_for_channel(clock, message);
+    fn handle_midi_for_channel(
+        &mut self,
+        clock: &Clock,
+        channel: &MidiChannel,
+        message: &MidiMessage,
+    ) {
+        #[allow(unused_variables)]
+        match message {
+            MidiMessage::NoteOff { key, vel } => {
+                if let Some(voice) = self.note_to_voice.get_mut(&u8::from(*key)) {
+                    voice.handle_midi_for_channel(clock, channel, message);
                 }
             }
-            MidiMessageType::NoteOff => {
-                let note: u8 = message.data1;
-                if let Some(voice) = self.note_to_voice.get_mut(&note) {
-                    voice.handle_midi_for_channel(clock, message);
+            MidiMessage::NoteOn { key, vel } => {
+                if let Some(voice) = self.note_to_voice.get_mut(&u8::from(*key)) {
+                    voice.handle_midi_for_channel(clock, channel, message);
                 }
             }
-            MidiMessageType::ProgramChange => {}
-            MidiMessageType::Controller => todo!(),
+            MidiMessage::Aftertouch { key, vel } => todo!(),
+            MidiMessage::Controller { controller, value } => todo!(),
+            MidiMessage::ProgramChange { program } => todo!(),
+            MidiMessage::ChannelAftertouch { vel } => todo!(),
+            MidiMessage::PitchBend { bend } => todo!(),
         }
     }
 }

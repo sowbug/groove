@@ -1,6 +1,8 @@
 pub(crate) mod sequencer;
 pub(crate) mod smf_reader;
 
+pub use midly::MidiMessage;
+
 use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, weak_new, Rrc, Ww},
     traits::{SinksMidi, SourcesMidi},
@@ -11,12 +13,12 @@ use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnec
 use midly::{
     live::LiveEvent,
     num::{u4, u7},
-    MidiMessage as MidlyMidiMessage,
 };
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error};
 
 #[derive(Clone, Copy, Debug, Default)]
+#[allow(dead_code)]
 pub enum MidiNote {
     None = 0,
     A0 = 21,
@@ -40,17 +42,10 @@ pub enum MidiMessageType {
     ProgramChange = 0b1100,
     Controller,
 }
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Clone, Serialize, Deserialize, Copy, Default)]
-pub struct MidiMessage {
-    // status and channel are normally packed into one byte, but for ease of use
-    // we're unpacking here.
-    pub status: MidiMessageType,
-    pub channel: MidiChannel,
-    pub data1: u8,
-    pub data2: u8,
-}
 
-impl MidiMessage {
+pub struct MidiUtils {}
+
+impl MidiUtils {
     pub fn note_to_frequency(note: u8) -> f32 {
         2.0_f32.powf((note as f32 - 69.0) / 12.0) * 440.0
     }
@@ -60,91 +55,31 @@ impl MidiMessage {
         2.0_f32.powf((midi_note as u8 as f32 - 69.0) / 12.0) * 440.0
     }
 
-    pub fn message_to_frequency(&self) -> f32 {
-        Self::note_to_frequency(self.data1)
-    }
-
-    pub(crate) fn new_note_on(channel: MidiChannel, note: u8, vel: u8) -> Self {
-        MidiMessage {
-            status: MidiMessageType::NoteOn,
-            channel,
-            data1: note,
-            data2: vel,
+    #[allow(unused_variables)]
+    pub fn message_to_frequency(message: &MidiMessage) -> f32 {
+        match message {
+            MidiMessage::NoteOff { key, vel } => Self::note_to_frequency(u8::from(*key)),
+            MidiMessage::NoteOn { key, vel } => Self::note_to_frequency(u8::from(*key)),
+            MidiMessage::Aftertouch { key, vel } => todo!(),
+            MidiMessage::Controller { controller, value } => todo!(),
+            MidiMessage::ProgramChange { program } => todo!(),
+            MidiMessage::ChannelAftertouch { vel } => todo!(),
+            MidiMessage::PitchBend { bend } => todo!(),
         }
     }
 
-    pub(crate) fn new_note_off(channel: MidiChannel, note: u8, vel: u8) -> Self {
-        MidiMessage {
-            status: MidiMessageType::NoteOff,
-            channel,
-            data1: note,
-            data2: vel,
+    pub(crate) fn new_note_on2(note: u8, vel: u8) -> MidiMessage {
+        MidiMessage::NoteOn {
+            key: u7::from(note),
+            vel: u7::from(vel),
         }
     }
 
-    pub(crate) fn new_controller(channel: MidiChannel, controller: u8, value: u8) -> Self {
-        MidiMessage {
-            status: MidiMessageType::Controller,
-            channel,
-            data1: controller,
-            data2: value,
+    pub(crate) fn new_note_off2(note: u8, vel: u8) -> MidiMessage {
+        MidiMessage::NoteOff {
+            key: u7::from(note),
+            vel: u7::from(vel),
         }
-    }
-
-    pub(crate) fn new_program_change(channel: MidiChannel, program: u8) -> Self {
-        MidiMessage {
-            status: MidiMessageType::ProgramChange,
-            channel,
-            data1: program,
-            data2: 0,
-        }
-    }
-
-    pub(crate) fn from_midly(channel: u4, midly_message: MidlyMidiMessage) -> Self {
-        match midly_message {
-            MidlyMidiMessage::NoteOff { key, vel } => {
-                Self::new_note_off(u8::from(channel), u8::from(key), u8::from(vel))
-            }
-            MidlyMidiMessage::NoteOn { key, vel } => {
-                Self::new_note_on(u8::from(channel), u8::from(key), u8::from(vel))
-            }
-            #[allow(unused_variables)]
-            MidlyMidiMessage::Aftertouch { key, vel } => todo!(),
-            MidlyMidiMessage::Controller { controller, value } => {
-                Self::new_controller(u8::from(channel), u8::from(controller), u8::from(value))
-            }
-            MidlyMidiMessage::ProgramChange { program } => {
-                Self::new_program_change(u8::from(channel), u8::from(program))
-            }
-            #[allow(unused_variables)]
-            MidlyMidiMessage::ChannelAftertouch { vel } => todo!(),
-            #[allow(unused_variables)]
-            MidlyMidiMessage::PitchBend { bend } => todo!(),
-        }
-    }
-}
-
-#[derive(Eq, Debug, Clone, Serialize, Deserialize, Default)]
-pub struct OrderedMidiMessage {
-    pub when: u32,
-    pub message: MidiMessage,
-}
-
-impl Ord for OrderedMidiMessage {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.when.cmp(&other.when)
-    }
-}
-
-impl PartialOrd for OrderedMidiMessage {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for OrderedMidiMessage {
-    fn eq(&self, other: &Self) -> bool {
-        self.when == other.when
     }
 }
 
@@ -159,9 +94,14 @@ impl SinksMidi for MidiBus {
 
     fn set_midi_channel(&mut self, _midi_channel: MidiChannel) {}
 
-    fn handle_midi_for_channel(&mut self, clock: &crate::clock::Clock, message: &MidiMessage) {
+    fn handle_midi_for_channel(
+        &mut self,
+        clock: &crate::clock::Clock,
+        channel: &MidiChannel,
+        message: &MidiMessage,
+    ) {
         // send to everyone EXCEPT whoever sent it!
-        self.issue_midi(clock, message);
+        self.issue_midi(clock, channel, message);
     }
 }
 impl SourcesMidi for MidiBus {
@@ -440,11 +380,7 @@ impl MidiInputHandler {
                     let event = LiveEvent::parse(event).unwrap();
                     match event {
                         LiveEvent::Midi { channel, message } => {
-                            worker.push((
-                                stamp,
-                                u8::from(channel),
-                                MidiMessage::from_midly(channel, message),
-                            ));
+                            worker.push((stamp, u8::from(channel), message));
                         }
                         _ => {}
                     }
@@ -569,25 +505,15 @@ impl SinksMidi for MidiOutputHandler {
 
     fn set_midi_channel(&mut self, _midi_channel: MidiChannel) {}
 
-    fn handle_midi_for_channel(&mut self, _clock: &crate::clock::Clock, message: &MidiMessage) {
-        let channel: u4 = u4::from(message.channel);
-        let event = match message.status {
-            MidiMessageType::NoteOn => LiveEvent::Midi {
-                channel,
-                message: MidlyMidiMessage::NoteOn {
-                    key: u7::from(message.data1),
-                    vel: u7::from(message.data2),
-                },
-            },
-            MidiMessageType::NoteOff => LiveEvent::Midi {
-                channel,
-                message: MidlyMidiMessage::NoteOff {
-                    key: u7::from(message.data1),
-                    vel: u7::from(message.data2),
-                },
-            },
-            MidiMessageType::ProgramChange => todo!(),
-            MidiMessageType::Controller => todo!(),
+    fn handle_midi_for_channel(
+        &mut self,
+        _clock: &crate::clock::Clock,
+        channel: &MidiChannel,
+        message: &MidiMessage,
+    ) {
+        let event = LiveEvent::Midi {
+            channel: u4::from(*channel),
+            message: *message,
         };
 
         // TODO: this seems like a lot of work
@@ -666,29 +592,23 @@ pub mod tests {
     #[allow(dead_code)]
     pub const STEREO_SAMPLE_MIN: StereoSample = (MONO_SAMPLE_MAX, MONO_SAMPLE_MIN);
 
-    impl MidiMessage {
+    impl MidiUtils {
         pub fn note_on_c4() -> MidiMessage {
-            MidiMessage::new_note_on(0, MidiNote::C4 as u8, 0)
+            Self::new_note_on2(MidiNote::C4 as u8, 0)
         }
 
         pub fn note_off_c4() -> MidiMessage {
-            MidiMessage::new_note_off(0, MidiNote::C4 as u8, 0)
+            Self::new_note_off2(MidiNote::C4 as u8, 0)
         }
     }
 
     #[test]
     fn test_note_to_frequency() {
-        assert_approx_eq!(
-            MidiMessage::new_note_on(0, MidiNote::C4 as u8, 0).message_to_frequency(),
-            261.625_55
-        );
-        assert_approx_eq!(
-            MidiMessage::new_note_on(0, 0, 0).message_to_frequency(),
-            8.175798
-        );
-        assert_approx_eq!(
-            MidiMessage::new_note_on(0, MidiNote::G9 as u8, 0).message_to_frequency(),
-            12543.855
-        );
+        let message = MidiUtils::new_note_on2(MidiNote::C4 as u8, 0);
+        assert_approx_eq!(MidiUtils::message_to_frequency(&message), 261.625_55);
+        let message = MidiUtils::new_note_on2(0, 0);
+        assert_approx_eq!(MidiUtils::message_to_frequency(&message), 8.175798);
+        let message = MidiUtils::new_note_on2(MidiNote::G9 as u8, 0);
+        assert_approx_eq!(MidiUtils::message_to_frequency(&message), 12543.855);
     }
 }
