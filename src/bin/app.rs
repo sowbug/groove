@@ -220,7 +220,7 @@ impl Midi {
     pub fn update(&mut self, message: MidiControlBarMessage) {
         match message {
             MidiControlBarMessage::Inputs(inputs) => {
-                self.inputs = inputs.clone();
+                self.inputs = inputs;
             }
             MidiControlBarMessage::Activity(now) => self.activity_tick = now,
         }
@@ -229,7 +229,7 @@ impl Midi {
     pub fn view(&self, last_tick: Instant) -> Element<Message> {
         let mut s = String::new();
         for input in self.inputs.iter() {
-            s = format!("{} {}", s, input.1);
+            s = format!("{s} {}", input.1);
         }
         let input_dropdown = container(text(
             if last_tick.duration_since(self.activity_tick) > Duration::from_millis(250) {
@@ -332,7 +332,7 @@ impl Application for GrooveApp {
                     ));
                 }
                 if let Some(stealer) = &self.midi.input_stealer() {
-                    while stealer.len() != 0 {
+                    while !stealer.is_empty() {
                         if let Steal::Success((stamp, channel, message)) = stealer.steal() {
                             self.orchestrator
                                 .handle_external_midi(stamp, channel, message);

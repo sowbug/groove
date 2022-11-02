@@ -317,20 +317,11 @@ pub enum GeneralMidiPercussionProgram {
 /// Handles MIDI input coming from outside Groove. For example, if you have a
 /// MIDI keyboard plugged into your computer's USB, you should be able to use
 /// that keyboard to input notes into Groove, and MidiInputHandler manages that.
+#[derive(Default)]
 pub struct MidiInputHandler {
     conn_in: Option<MidiInputConnection<()>>,
     pub stealer: Option<Stealer<(u64, u8, MidiMessage)>>,
     inputs: Vec<(usize, String)>,
-}
-
-impl Default for MidiInputHandler {
-    fn default() -> Self {
-        Self {
-            conn_in: None,
-            stealer: None,
-            inputs: Vec::default(),
-        }
-    }
 }
 
 impl MidiInputHandler {
@@ -378,6 +369,7 @@ impl MidiInputHandler {
                 "Groove input",
                 move |stamp, event, _| {
                     let event = LiveEvent::parse(event).unwrap();
+                    #[allow(clippy::single_match)]
                     match event {
                         LiveEvent::Midi { channel, message } => {
                             worker.push((stamp, u8::from(channel), message));
@@ -544,7 +536,7 @@ impl MidiHandler {
     }
 
     pub fn available_devices(&self) -> &[(usize, String)] {
-        &self.midi_input.inputs()
+        self.midi_input.inputs()
     }
 
     pub fn input_stealer(&self) -> &Option<Stealer<(u64, u8, MidiMessage)>> {

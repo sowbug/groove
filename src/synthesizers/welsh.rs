@@ -603,7 +603,7 @@ impl SinksMidi for Voice {
                 self.filter_envelope.handle_note_event(clock, false);
             }
             MidiMessage::NoteOn { key, vel } => {
-                let frequency = MidiUtils::message_to_frequency(&message);
+                let frequency = MidiUtils::message_to_frequency(message);
                 for o in self.oscillators.iter_mut() {
                     o.set_frequency(frequency);
                 }
