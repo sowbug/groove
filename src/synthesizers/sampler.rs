@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     midi::{MidiChannel, MidiMessage},
-    traits::{IsMutable, SinksMidi, SourcesAudio},
+    traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio},
 };
 
 #[derive(Debug, Default)]
@@ -19,6 +19,7 @@ pub struct Sampler {
 
     pub(crate) filename: String,
 }
+impl IsMidiInstrument for Sampler {}
 
 impl Sampler {
     fn new(midi_channel: MidiChannel, buffer_size: usize) -> Self {

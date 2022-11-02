@@ -342,7 +342,7 @@ pub mod tests {
 
     #[derive(Debug)]
     pub struct TestOrchestrator {
-        main_mixer: Box<dyn IsEffect>,
+        pub main_mixer: Box<dyn IsEffect>,
     }
 
     impl Default for TestOrchestrator {

@@ -203,23 +203,32 @@ pub trait IsController: SourcesControl + WatchesClock {}
 
 #[cfg(test)]
 pub mod tests {
-    use super::{SinksAudio, SourcesAudio, SourcesControl};
+    use super::{IsMidiInstrument, SinksAudio, SourcesAudio, SourcesControl};
     use crate::{
         clock::Clock,
         clock::WatchedClock,
-        common::{rrc, rrc_clone, rrc_downgrade, MonoSample, MONO_SAMPLE_SILENCE},
-        effects::gain::Gain,
+        common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, MONO_SAMPLE_SILENCE},
+        control::ControlTrip,
+        effects::{arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain},
         envelopes::AdsrEnvelope,
-        midi::MidiUtils,
+        midi::{sequencer::MidiSequencer, MidiChannel, MidiUtils},
         oscillators::Oscillator,
-        settings::patches::{EnvelopeSettings, WaveformType},
+        patterns::PatternSequencer,
+        settings::patches::{EnvelopeSettings, SynthPatch, WaveformType},
+        synthesizers::{
+            drumkit_sampler::Sampler as DrumkitSampler,
+            sampler::Sampler,
+            welsh::{PatchName, Synth},
+        },
         traits::{MakesControlSink, SinksMidi, SourcesMidi, Terminates, WatchesClock},
         utils::tests::{
             TestArpeggiator, TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSource,
             TestControlSourceContinuous, TestControllable, TestKeyboard, TestMidiSink,
             TestMidiSource, TestOrchestrator, TestSynth, TestTimer, TestTrigger,
         },
+        TimeSignature,
     };
+    use rand::random;
 
     #[test]
     fn test_orchestration() {
@@ -382,5 +391,105 @@ pub mod tests {
         assert!(!instrument.borrow().is_playing);
         arpeggiator.borrow_mut().tick(&clock);
         assert!(instrument.borrow().is_playing);
+    }
+
+    /// Add concrete instances of WatchesClock here for anyone to use for
+    /// testing.
+    fn watches_clock_instances_for_testing() -> Vec<Rrc<dyn WatchesClock>> {
+        let target = Bitcrusher::new_wrapped_with(4)
+            .borrow_mut()
+            .make_control_sink(Bitcrusher::CONTROL_PARAM_BITS_TO_CRUSH)
+            .unwrap();
+        vec![
+            Arpeggiator::new_wrapped_with(0, 0),
+            rrc(ControlTrip::new(target)),
+            PatternSequencer::new_wrapped_with(&TimeSignature::new_defaults()),
+            rrc(MidiSequencer::new()),
+        ]
+    }
+
+    #[test]
+    fn test_clock_watcher_random_access() {
+        let mut clock = WatchedClock::new();
+
+        let mut watchers = watches_clock_instances_for_testing();
+        while !watchers.is_empty() {
+            clock.add_watcher(watchers.pop().unwrap());
+        }
+
+        // Regular start to finish, twice.
+        for _ in 0..2 {
+            for _ in 0..100 {
+                clock.tick();
+            }
+            clock.reset();
+        }
+
+        // Backwards.
+        clock.reset();
+        for t in 0..100 {
+            clock.inner_clock_mut().debug_set_samples(t);
+            clock.tick();
+        }
+
+        // Random.
+        for _ in 0..100 {
+            clock.inner_clock_mut().debug_set_samples(random());
+            clock.tick();
+        }
+    }
+
+    /// Add concrete instances of SourcesAudio here for anyone to use for
+    /// testing.
+    fn sources_audio_instances_for_testing() -> Vec<Rrc<dyn SourcesAudio>> {
+        const MIDI_CHANNEL: MidiChannel = 0;
+
+        // If the instance is meaningfully testable after new(), put it here.
+        let mut sources: Vec<Rrc<dyn SourcesAudio>> = vec![
+            Filter::new_wrapped_with(&crate::effects::filter::FilterType::BandPass {
+                sample_rate: 13245,
+                cutoff: 2343.9,
+                bandwidth: 4354.3,
+            }),
+            Gain::new_wrapped_with(0.5),
+        ];
+
+        // If the instance needs to be told to play a note, put it here.
+        let midi_instruments: Vec<Rrc<dyn IsMidiInstrument>> = vec![
+            DrumkitSampler::new_wrapped_from_files(MIDI_CHANNEL),
+            Sampler::new_wrapped_with(MIDI_CHANNEL, 10000),
+            Synth::new_wrapped_with(MIDI_CHANNEL, 44007, SynthPatch::by_name(&PatchName::Piano)),
+        ];
+        for instrument in midi_instruments {
+            instrument.borrow_mut().handle_midi_for_channel(
+                &Clock::new(),
+                &0,
+                &MidiUtils::note_on_c4(),
+            );
+            sources.push(instrument);
+        }
+
+        sources
+    }
+
+    #[test]
+    fn test_sources_audio_random_access() {
+        let mut orchestrator = TestOrchestrator::new();
+
+        let mut sources = sources_audio_instances_for_testing();
+
+        while !sources.is_empty() {
+            let source = sources.pop();
+            if let Some(source) = source {
+                let source = rrc_downgrade(&source);
+                orchestrator.add_audio_source(source);
+            }
+        }
+
+        for _ in 0..100 {
+            let mut clock = Clock::new();
+            clock.debug_set_samples(random());
+            let _ = orchestrator.main_mixer.source_audio(&clock);
+        }
     }
 }
