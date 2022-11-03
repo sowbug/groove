@@ -49,6 +49,7 @@ pub struct Orchestrator {
 
     // GUI
     viewable_makers: Vec<Ww<dyn MakesIsViewable>>,
+    is_playing: bool,
 }
 
 impl Default for Orchestrator {
@@ -63,6 +64,7 @@ impl Default for Orchestrator {
             patterns: Vec::new(),
             control_paths: Vec::new(),
             viewable_makers: Vec::new(),
+            is_playing: false,
         };
         let value = rrc_downgrade(&r.main_mixer);
         r.viewable_makers.push(value);
@@ -81,7 +83,9 @@ impl Orchestrator {
 
     // TODO - pub so that the app can drive slices. Maybe move to IOHelper
     pub fn tick(&mut self) -> (MonoSample, bool) {
+        self.is_playing = true;
         if self.clock.visit_watchers() {
+            self.is_playing = false;
             return (MONO_SAMPLE_SILENCE, true);
         }
         let sample = self
@@ -297,5 +301,9 @@ impl Orchestrator {
 
     pub fn reset_clock(&mut self) {
         self.clock.reset();
+    }
+
+    pub fn is_playing(&self) -> bool {
+        self.is_playing
     }
 }

@@ -323,6 +323,9 @@ impl Application for GrooveApp {
                         &mut self.orchestrator,
                         &mut self.audio_output,
                     ));
+                    if !self.orchestrator.is_playing() {
+                        self.state = State::Idle;
+                    }
                 }
                 if let Some(stealer) = &self.midi.input_stealer() {
                     while !stealer.is_empty() {
