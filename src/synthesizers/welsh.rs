@@ -825,7 +825,7 @@ mod tests {
 
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: clock.settings().sample_rate() as u32,
+            sample_rate: clock.sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -863,7 +863,7 @@ mod tests {
     //         let result = panic::catch_unwind(|| {
     //             Voice::new(
     //                 MIDI_CHANNEL_RECEIVE_ALL,
-    //                 clock.settings().sample_rate(),
+    //                 clock.sample_rate(),
     //                 &super::SynthPreset::by_name(&preset),
     //             )
     //         });
@@ -906,7 +906,7 @@ mod tests {
     ) {
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: clock.settings().sample_rate() as u32,
+            sample_rate: clock.sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };

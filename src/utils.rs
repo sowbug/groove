@@ -65,7 +65,7 @@ pub mod tests {
         control_opt: Option<Rrc<dyn WatchesClock>>,
     ) {
         let mut c = WatchedClock::new();
-        let sample_rate = c.inner_clock().settings().sample_rate();
+        let sample_rate = c.inner_clock().sample_rate();
         let mut o = TestOrchestrator::new();
         let osc = Oscillator::new_wrapped_with(waveform_type);
         if let Some(effect) = effect_opt {
@@ -95,7 +95,7 @@ pub mod tests {
         }
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: clock_settings.sample_rate() as u32,
+            sample_rate: clock.sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -120,7 +120,7 @@ pub mod tests {
         orchestrator.start(clock, &mut samples);
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: clock.inner_clock().settings().sample_rate() as u32,
+            sample_rate: clock.inner_clock().sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -579,6 +579,11 @@ pub mod tests {
         pub fn set_value(&mut self, value: f32) {
             self.value = value;
         }
+
+        #[allow(dead_code)]
+        pub fn dump_messages(&self) {
+            dbg!(&self.messages);
+        }
     }
 
     impl SinksMidi for TestMidiSink {
@@ -595,6 +600,7 @@ pub mod tests {
             channel: &MidiChannel,
             message: &MidiMessage,
         ) {
+            assert_eq!(self.midi_channel, *channel);
             self.messages.push((clock.beats(), *channel, *message));
             self.received_count += 1;
 

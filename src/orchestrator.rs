@@ -93,7 +93,7 @@ impl Orchestrator {
     }
 
     pub fn perform(&mut self) -> anyhow::Result<Performance> {
-        let sample_rate = self.clock.inner_clock().settings().sample_rate();
+        let sample_rate = self.clock.inner_clock().sample_rate();
         let performance = Performance::new_with(sample_rate);
         let progress_indicator_quantum: usize = sample_rate / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
@@ -115,7 +115,7 @@ impl Orchestrator {
     }
 
     pub fn perform_to_worker(&mut self, worker: &mut Worker<f32>) -> anyhow::Result<()> {
-        let sample_rate = self.clock.inner_clock().settings().sample_rate();
+        let sample_rate = self.clock.inner_clock().sample_rate();
         let progress_indicator_quantum: usize = sample_rate / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
         self.clock.reset();

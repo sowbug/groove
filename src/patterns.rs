@@ -271,7 +271,7 @@ impl PatternNew<Note> {
                 note_vec.push(Note {
                     key: Self::note_to_value(note),
                     velocity: 127,
-                    duration: PerfectTimeUnit(0.25),
+                    duration: PerfectTimeUnit(1.0),
                 });
             }
             r.notes.push(note_vec);
@@ -330,7 +330,7 @@ impl Eq for PerfectTimeUnit {}
 pub struct Note {
     key: u8,
     velocity: u8,
-    duration: PerfectTimeUnit,
+    duration: PerfectTimeUnit, // expressed as multiple of the containing Pattern's note value.
 }
 
 #[derive(Debug)]
@@ -421,13 +421,16 @@ impl PatternSequencerNew {
             self.time_signature.beat_value().divisor() / pattern_note_value.divisor();
 
         let channel = *channel;
-        let note_value_in_beats = self.duration_for_beat(&pattern_note_value);
         let mut max_track_len = 0;
         for track in pattern.notes.iter() {
             max_track_len = cmp::max(max_track_len, track.len());
             for (i, note) in track.iter().enumerate() {
+                if note.key == 0 {
+                    // This is an empty slot in the pattern. Don't do anything.
+                    continue;
+                }
                 let i: PerfectTimeUnit = i.into();
-                let note_start = self.cursor_beats + i * note_value_in_beats;
+                let note_start = self.cursor_beats + i * PerfectTimeUnit(pattern_multiplier);
                 self.events.insert(
                     note_start,
                     (
@@ -438,8 +441,13 @@ impl PatternSequencerNew {
                         },
                     ),
                 );
+                // This makes the everything.yaml playback sound funny, since no
+                // note lasts longer than a quarter-note. I'm going to leave it
+                // like this to force myself to implement duration expression
+                // correctly, rather than continuing to hardcode 0.49 as the
+                // duration.
                 self.events.insert(
-                    note_start + note.duration,
+                    note_start + note.duration * PerfectTimeUnit(pattern_multiplier),
                     (channel, Event::NoteOff { key: note.key }),
                 );
             }
@@ -531,9 +539,15 @@ impl Terminates for PatternSequencerNew {
     }
 }
 
+impl PatternSequencerNew {
+    pub fn debug_dump_events(&self) {
+        println!("{:?}", self.events);
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use more_asserts::{assert_gt, assert_lt};
+    use assert_approx_eq::assert_approx_eq;
 
     use super::*;
     use crate::{
@@ -610,12 +624,10 @@ mod tests {
         // seem.
         //
         // four quarter-notes in 7/8 time = 8 beats = 2 measures
-        let note_pattern_1 = vec![
-            "1".to_string(),
-            "2".to_string(),
-            "3".to_string(),
-            "4".to_string(),
-        ];
+        let mut note_pattern_1 = Vec::new();
+        for i in 1..=4 {
+            note_pattern_1.push(i.to_string());
+        }
         // eight quarter-notes in 7/8 time = 16 beats = 3 measures
         let mut note_pattern_2 = Vec::new();
         for i in 11..=18 {
@@ -668,27 +680,32 @@ mod tests {
         let pattern_sequencer = rrc(PatternSequencerNew::new());
         let mut pattern = PatternNew::<Note>::new();
 
-        pattern.note_value = Some(BeatValue::Quarter);
+        const NOTE_VALUE: BeatValue = BeatValue::Quarter;
+        pattern.note_value = Some(NOTE_VALUE);
         pattern.notes.push(vec![
+            // Normal duration
             Note {
                 key: 1,
                 velocity: 40,
-                duration: PerfectTimeUnit(0.5),
+                duration: PerfectTimeUnit(1.0),
             },
+            // A little bit shorter
             Note {
                 key: 2,
                 velocity: 41,
-                duration: PerfectTimeUnit(0.5),
+                duration: PerfectTimeUnit(0.99),
             },
+            // A little bit longer
             Note {
                 key: 3,
                 velocity: 42,
-                duration: PerfectTimeUnit(0.5),
+                duration: PerfectTimeUnit(1.01),
             },
+            // Zero duration!
             Note {
                 key: 4,
                 velocity: 43,
-                duration: PerfectTimeUnit(0.5),
+                duration: PerfectTimeUnit(0.0),
             },
         ]);
 
@@ -707,6 +724,7 @@ mod tests {
         assert!(midi_recorder.borrow().messages.is_empty());
 
         let mut clock = WatchedClock::new();
+        let sample_rate = clock.inner_clock().sample_rate();
         let watcher = rrc_clone(&pattern_sequencer);
         clock.add_watcher(watcher);
 
@@ -724,14 +742,21 @@ mod tests {
             pattern.notes[0].len() * 2
         );
 
-        // The clock should stop just after the last note-off.
-        assert_gt!(clock.inner_clock().beats(), 1.0);
-        assert_lt!(clock.inner_clock().beats(), 1.01);
+        pattern_sequencer.borrow().debug_dump_events();
+
+        // The clock should stop at the last note-off, which is 1.01 beats past
+        // the start of the third note, which started at 2.0. Since the fourth
+        // note is zero-duration, it actually ends at 3.0, before the third
+        // note's note-off event happens.
+        let last_beat = 3.01;
+        assert_approx_eq!(
+            clock.inner_clock().beats(),
+            last_beat,
+            1.5 / sample_rate as f32 // The extra 0.5 is for f32 precision
+        );
         assert_eq!(
             clock.inner_clock().samples(),
-            ((60.0 * 1.0 / clock.inner_clock().settings().bpm())
-                * (clock.inner_clock().settings().sample_rate() as f32)) as usize
-                + 1
+            clock.inner_clock().settings().beats_to_samples(last_beat) + 1
         );
 
         // Start test recorder over again.
@@ -760,29 +785,26 @@ mod tests {
         midi_recorder.borrow_mut().messages.clear();
 
         // Move just past first note.
-        clock.inner_clock_mut().debug_set_beats(0.001);
+        clock.inner_clock_mut().debug_set_samples(1);
 
-        // Keep going until just before half of first beat.
-        while clock.inner_clock().beats() <= 0.49 {
+        // Keep going until just before half of second beat. We should see the
+        // first note off (not on!) and the second note on/off.
+        while clock.inner_clock().beats() < 2.0 {
             clock.visit_watchers();
             clock.tick();
         }
+        assert_eq!(midi_recorder.borrow().messages.len(), 3);
 
-        // Now we should see the first note off (not on!), and the second note
-        // on.
-        assert_eq!(midi_recorder.borrow().messages.len(), 2);
-
-        // Keep ticking until halfway point. Should see two more events: #2 off,
+        // Keep ticking through start of second beat. Should see one more event:
         // #3 on.
         //
-        // Note that we have a little fudge factor (.5001) because of f32
+        // Note that we have a little fudge factor (2.001) because of f32
         // accuracy. TODO: for the thousandth time, switch over to something
         // more accurate.
-        while clock.inner_clock().beats() <= 0.5001 {
+        while clock.inner_clock().beats() <= 2.001 {
             clock.visit_watchers();
             clock.tick();
         }
-
         assert_eq!(midi_recorder.borrow().messages.len(), 4);
     }
 }

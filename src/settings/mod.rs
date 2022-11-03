@@ -137,6 +137,11 @@ impl ClockSettings {
         self.beats_per_minute = new_value;
     }
 
+    pub fn beats_to_samples(&self, beats: f32) -> usize {
+        let seconds = beats * 60.0 / self.beats_per_minute;
+        (seconds * self.samples_per_second as f32) as usize
+    }
+
     // TODO: Horrible precision problems
     pub fn beats_per_sample(&self) -> f32 {
         (self.bpm() / 60.0) / self.sample_rate() as f32

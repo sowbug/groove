@@ -174,6 +174,9 @@ impl Clock {
     pub fn beats(&self) -> f32 {
         self.beats
     }
+    pub fn sample_rate(&self) -> usize {
+        self.settings().sample_rate()
+    }
 
     pub fn tick(&mut self) {
         self.samples += 1;
@@ -276,12 +279,12 @@ mod tests {
         }
 
         pub fn debug_set_seconds(&mut self, value: f32) {
-            self.samples = (self.settings().sample_rate() as f32 * value) as usize;
+            self.samples = (self.sample_rate() as f32 * value) as usize;
             self.update();
         }
 
         pub fn debug_set_beats(&mut self, value: f32) {
-            self.samples = (self.settings().sample_rate() as f32
+            self.samples = (self.sample_rate() as f32
                 * (60.0 * value / self.settings().bpm())) as usize;
             self.update();
         }
