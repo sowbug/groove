@@ -6,7 +6,7 @@ use crate::{
     clock::WatchedClock,
     common::{rrc, rrc_clone, rrc_downgrade, DeviceId},
     control::{ControlPath, ControlTrip},
-    patterns::{Note, PatternNew, PatternSequencerNew},
+    patterns::{Note, Pattern, PatternSequencer},
     Orchestrator,
 };
 use anyhow::{Error, Ok};
@@ -123,9 +123,9 @@ impl SongSettings {
             return;
         }
 
-        let pattern_sequencer = PatternSequencerNew::new_wrapped_with(&self.clock.time_signature);
+        let pattern_sequencer = PatternSequencer::new_wrapped_with(&self.clock.time_signature);
         for pattern_settings in &self.patterns {
-            let pattern = rrc(PatternNew::<Note>::from_settings(pattern_settings));
+            let pattern = rrc(Pattern::<Note>::from_settings(pattern_settings));
             orchestrator.register_pattern(Some(&pattern_settings.id), pattern);
         }
 

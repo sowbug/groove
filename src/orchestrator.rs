@@ -5,7 +5,7 @@ use crate::{
     effects::mixer::Mixer,
     id_store::IdStore,
     midi::{MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    patterns::{Note, PatternNew},
+    patterns::{Note, Pattern},
     traits::{
         IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi,
         SourcesAudio, SourcesMidi, WatchesClock,
@@ -44,7 +44,7 @@ pub struct Orchestrator {
     effects: Vec<Rrc<dyn IsEffect>>,
 
     // temp - doesn't belong here. something like a controlcontrolcontroller
-    patterns: Vec<Rrc<PatternNew<Note>>>,
+    patterns: Vec<Rrc<Pattern<Note>>>,
     control_paths: Vec<Rrc<ControlPath>>,
 
     // GUI
@@ -181,7 +181,7 @@ impl Orchestrator {
         id
     }
 
-    pub fn register_pattern(&mut self, id: Option<&str>, pattern: Rrc<PatternNew<Note>>) -> String {
+    pub fn register_pattern(&mut self, id: Option<&str>, pattern: Rrc<Pattern<Note>>) -> String {
         let id = self.id_store.add_pattern_by_id(id, &pattern);
         self.patterns.push(pattern);
         id
@@ -242,7 +242,7 @@ impl Orchestrator {
         panic!("MakesControlSink id {id} not found");
     }
 
-    pub fn pattern_by(&self, id: &str) -> Ww<PatternNew<Note>> {
+    pub fn pattern_by(&self, id: &str) -> Ww<Pattern<Note>> {
         if let Some(item) = self.id_store.pattern_by(id) {
             return item;
         }

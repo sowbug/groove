@@ -4,7 +4,7 @@ use crate::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
     },
-    patterns::PatternSequencerNew,
+    patterns::PatternSequencer,
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     traits::{MakesIsViewable, SinksAudio},
 };
@@ -566,14 +566,14 @@ impl MakesIsViewable for Arpeggiator {
 
 #[derive(Debug)]
 pub struct PatternSequencerNewViewableResponder {
-    target: Ww<PatternSequencerNew>,
+    target: Ww<PatternSequencer>,
 }
 impl IsViewable for PatternSequencerNewViewableResponder {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
-            let title = type_name::<PatternSequencerNew>();
+            let title = type_name::<PatternSequencer>();
             let contents = format!("cursor point: {}", target.borrow().cursor());
             GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
@@ -586,7 +586,7 @@ impl IsViewable for PatternSequencerNewViewableResponder {
     }
 }
 
-impl MakesIsViewable for PatternSequencerNew {
+impl MakesIsViewable for PatternSequencer {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(PatternSequencerNewViewableResponder {
@@ -610,7 +610,7 @@ mod tests {
             arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain,
             limiter::Limiter, mixer::Mixer,
         },
-        patterns::PatternSequencerNew,
+        patterns::PatternSequencer,
         settings::patches::SynthPatch,
         synthesizers::{
             drumkit_sampler::Sampler as DrumkitSampler,
@@ -670,7 +670,7 @@ mod tests {
             Some(ViewableMessage::ArpeggiatorChanged(42)),
         );
         test_one_viewable(
-            PatternSequencerNew::new_wrapped_with(&crate::TimeSignature::default()),
+            PatternSequencer::new_wrapped_with(&crate::TimeSignature::default()),
             Some(ViewableMessage::ArpeggiatorChanged(42)),
         );
     }

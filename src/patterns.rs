@@ -6,7 +6,6 @@ use crate::{
 };
 use btreemultimap::BTreeMultiMap;
 use midly::num::u7;
-use sorted_vec::SortedVec;
 use std::{
     cmp::{self, Ordering},
     collections::HashMap,
@@ -14,160 +13,6 @@ use std::{
     ops::Bound::{Excluded, Included},
     ops::{Add, Mul},
 };
-
-#[derive(Debug, Default)]
-pub struct PatternSequencerOld {
-    pub(crate) me: Ww<Self>,
-    time_signature: TimeSignature,
-    cursor_beats: f32, // TODO: this should be a fixed-precision type
-
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
-    sequenced_notes: SortedVec<OrderedEvent<f32>>,
-}
-
-impl PatternSequencerOld {
-    const CURSOR_BEGIN: f32 = 0.0;
-
-    pub fn new_with(time_signature: &TimeSignature) -> Self {
-        Self {
-            time_signature: *time_signature,
-            cursor_beats: Self::CURSOR_BEGIN,
-            ..Default::default()
-        }
-    }
-
-    pub fn new_wrapped_with(time_signature: &TimeSignature) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(time_signature));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
-    }
-
-    pub fn add_pattern(&mut self, pattern: &PatternOld, channel: u8) {
-        let pattern_note_value = if pattern.note_value.is_some() {
-            pattern.note_value.as_ref().unwrap().clone()
-        } else {
-            self.time_signature.beat_value()
-        };
-
-        // If the time signature is 4/4 and the pattern is also quarter-notes,
-        // then the multiplier is 1.0 because no correction is needed.
-        //
-        // If it's 4/4 and eighth notes, for example, the multiplier is 0.5,
-        // because each pattern note represents only a half-beat.
-        let pattern_multiplier =
-            self.time_signature.beat_value().divisor() / pattern_note_value.divisor();
-
-        let mut max_pattern_len = 0;
-        for note_sequence in pattern.notes.iter() {
-            max_pattern_len = cmp::max(max_pattern_len, note_sequence.len());
-            for (i, note) in note_sequence.iter().enumerate() {
-                self.insert_short_note(
-                    channel,
-                    *note,
-                    self.cursor_beats + i as f32 * pattern_multiplier,
-                    0.49, // TODO: hack because we don't have duration
-                );
-            }
-        }
-
-        // Round up to full measure and advance cursor
-        let rounded_max_pattern_len =
-            ((max_pattern_len as f32 * pattern_multiplier / self.time_signature.top as f32).ceil()
-                * self.time_signature.top as f32) as usize;
-        self.cursor_beats += rounded_max_pattern_len as f32;
-    }
-
-    // TODO: if there is an existing note-off message already scheduled for this
-    // note that happens after this note-on event, then we should delete that
-    // event; otherwise, this note will get released early (and then released
-    // again, which does nothing). That's probably not what we want.
-    fn insert_short_note(
-        &mut self,
-        channel: MidiChannel,
-        note: u8,
-        when_beats: f32,
-        duration_beats: f32,
-    ) {
-        if note != 0 {
-            self.sequenced_notes.insert(OrderedEvent {
-                when: when_beats,
-                channel,
-                event: MidiMessage::NoteOn {
-                    key: u7::from(note),
-                    vel: 100.into(),
-                },
-            });
-            self.sequenced_notes.insert(OrderedEvent {
-                when: when_beats + duration_beats,
-                channel,
-                event: MidiMessage::NoteOff {
-                    key: u7::from(note),
-                    vel: 0.into(),
-                },
-            });
-        }
-    }
-
-    fn dispatch_note(&mut self, note: &OrderedEvent<f32>, clock: &Clock) {
-        self.issue_midi(clock, &note.channel, &note.event);
-    }
-
-    pub(crate) fn reset_cursor(&mut self) {
-        self.cursor_beats = Self::CURSOR_BEGIN;
-    }
-
-    // TODO remove when we have more substantial interaction with GUI
-    // #[cfg(test)]
-    pub(crate) fn cursor(&self) -> f32 {
-        self.cursor_beats
-    }
-}
-
-impl WatchesClock for PatternSequencerOld {
-    fn tick(&mut self, clock: &Clock) {
-        // TODO: make this random-access by keeping sequenced_notes in place and
-        // scanning to find next items to process. We will probably need some
-        // way to tell that the caller seeked. Maybe Clock can tell us that!
-
-        while !self.sequenced_notes.is_empty() {
-            let note = *(self.sequenced_notes.first().unwrap());
-
-            if clock.beats() >= note.when {
-                self.dispatch_note(&note, clock);
-
-                // TODO: this is violating a (future) rule that we can always
-                // randomly access anything in the song. It's actually more than
-                // that, because it's destroying information that would be
-                // needed to add that ability later.
-                self.sequenced_notes.remove_index(0);
-            } else {
-                break;
-            }
-        }
-    }
-}
-
-impl Terminates for PatternSequencerOld {
-    fn is_finished(&self) -> bool {
-        self.sequenced_notes.is_empty()
-    }
-}
-
-impl SourcesMidi for PatternSequencerOld {
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &mut self.channels_to_sink_vecs
-    }
-
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &self.channels_to_sink_vecs
-    }
-
-    fn midi_output_channel(&self) -> MidiChannel {
-        MIDI_CHANNEL_RECEIVE_ALL
-    }
-
-    fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
-}
 
 #[derive(Clone, Copy, Debug)]
 pub struct OrderedEvent<T: PartialOrd + PartialEq> {
@@ -209,41 +54,13 @@ impl<T: PartialOrd> PartialEq for OrderedEvent<T> {
 impl<T: PartialOrd> Eq for OrderedEvent<T> {}
 
 #[derive(Clone, Debug, Default)]
-pub struct PatternOld {
-    pub note_value: Option<BeatValue>,
-    pub notes: Vec<Vec<u8>>,
-}
-
-impl PatternOld {
-    pub(crate) fn from_settings(settings: &crate::settings::PatternSettings) -> Self {
-        let mut r = Self {
-            note_value: settings.note_value.clone(),
-            notes: Vec::new(),
-        };
-        for note_sequence in settings.notes.iter() {
-            let mut note_vec = Vec::new();
-            for note in note_sequence.iter() {
-                note_vec.push(PatternOld::note_to_value(note));
-            }
-            r.notes.push(note_vec);
-        }
-        r
-    }
-
-    fn note_to_value(note: &str) -> u8 {
-        // TODO https://en.wikipedia.org/wiki/Scientific_pitch_notation labels,
-        // e.g., for General MIDI percussion
-        note.parse().unwrap_or_default()
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct PatternNew<T: Default> {
+pub struct Pattern<T: Default> {
     pub note_value: Option<BeatValue>,
     pub notes: Vec<Vec<T>>,
 }
 
-impl<T: Default> PatternNew<T> {
+impl<T: Default> Pattern<T> {
+    #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self {
             ..Default::default()
@@ -259,7 +76,7 @@ impl<T: Default> PatternNew<T> {
 
 // TODO: I got eager with the <T> and then tired when I realized it would affect
 // more stuff. Thus there's only an implementation for Note.
-impl PatternNew<Note> {
+impl Pattern<Note> {
     pub(crate) fn from_settings(settings: &crate::settings::PatternSettings) -> Self {
         let mut r = Self {
             note_value: settings.note_value.clone(),
@@ -280,6 +97,10 @@ impl PatternNew<Note> {
     }
 }
 
+/// This is named facetiously. f32 has problems the way I'm using it. I'd like
+/// to replace with something better later on, but for now I'm going to try to
+/// use the struct to get type safety and make refactoring easier later on when
+/// I replace f32 with something else.
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct PerfectTimeUnit(f32);
 
@@ -340,7 +161,7 @@ pub enum Event {
 }
 
 #[derive(Debug)]
-pub struct PatternSequencerNew {
+pub struct PatternSequencer {
     pub(crate) me: Ww<Self>,
 
     time_signature: TimeSignature,
@@ -352,7 +173,7 @@ pub struct PatternSequencerNew {
     last_instant_handled: PerfectTimeUnit,
     last_instant_handled_not_handled: bool,
 }
-impl Default for PatternSequencerNew {
+impl Default for PatternSequencer {
     fn default() -> Self {
         Self {
             me: weak_new(),
@@ -365,9 +186,10 @@ impl Default for PatternSequencerNew {
         }
     }
 }
-impl PatternSequencerNew {
+impl PatternSequencer {
     const CURSOR_BEGIN: PerfectTimeUnit = PerfectTimeUnit(0.0);
 
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -394,6 +216,7 @@ impl PatternSequencerNew {
         self.cursor_beats = Self::CURSOR_BEGIN;
     }
 
+    #[allow(dead_code)]
     fn clear(&mut self) {
         // TODO: should this also disconnect sinks? I don't think so
         self.events.clear();
@@ -404,7 +227,7 @@ impl PatternSequencerNew {
     pub(crate) fn insert_pattern_at_cursor(
         &mut self,
         channel: &MidiChannel,
-        pattern: &PatternNew<Note>,
+        pattern: &Pattern<Note>,
     ) {
         let pattern_note_value = if pattern.note_value.is_some() {
             pattern.note_value.as_ref().unwrap().clone()
@@ -460,10 +283,6 @@ impl PatternSequencerNew {
         self.cursor_beats = self.cursor_beats + PerfectTimeUnit::from(rounded_max_pattern_len);
     }
 
-    fn duration_for_beat(&self, note_value: &BeatValue) -> PerfectTimeUnit {
-        PerfectTimeUnit(1.0 / note_value.divisor())
-    }
-
     fn handle_event(&self, clock: &Clock, channel: &MidiChannel, event: &Event) {
         let note = match event {
             Event::NoteOn { key, velocity } => MidiMessage::NoteOn {
@@ -479,7 +298,7 @@ impl PatternSequencerNew {
     }
 }
 
-impl SourcesMidi for PatternSequencerNew {
+impl SourcesMidi for PatternSequencer {
     fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &mut self.channels_to_sink_vecs
     }
@@ -495,7 +314,7 @@ impl SourcesMidi for PatternSequencerNew {
     fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
 }
 
-impl WatchesClock for PatternSequencerNew {
+impl WatchesClock for PatternSequencer {
     fn tick(&mut self, clock: &Clock) {
         let current_instant = PerfectTimeUnit(clock.beats());
         if current_instant < self.last_instant_handled {
@@ -528,7 +347,7 @@ impl WatchesClock for PatternSequencerNew {
     }
 }
 
-impl Terminates for PatternSequencerNew {
+impl Terminates for PatternSequencer {
     fn is_finished(&self) -> bool {
         // TODO: This looks like it could be expensive.
         let mut the_rest = self.events.range((
@@ -536,12 +355,6 @@ impl Terminates for PatternSequencerNew {
             Included(PerfectTimeUnit(f32::MAX)),
         ));
         the_rest.next().is_none()
-    }
-}
-
-impl PatternSequencerNew {
-    pub fn debug_dump_events(&self) {
-        println!("{:?}", self.events);
     }
 }
 
@@ -557,13 +370,8 @@ mod tests {
         utils::tests::TestMidiSink,
     };
 
-    impl PatternOld {
-        fn value_to_note(value: u8) -> String {
-            value.to_string()
-        }
-    }
-
-    impl PatternNew<PerfectTimeUnit> {
+    #[allow(dead_code)]
+    impl Pattern<PerfectTimeUnit> {
         fn value_to_note(value: u8) -> Note {
             Note {
                 key: value,
@@ -573,10 +381,16 @@ mod tests {
         }
     }
 
+    impl PatternSequencer {
+        pub fn debug_dump_events(&self) {
+            println!("{:?}", self.events);
+        }
+    }
+
     #[test]
     fn test_pattern() {
         let time_signature = TimeSignature::new_defaults();
-        let mut sequencer = PatternSequencerNew::new_with(&time_signature);
+        let mut sequencer = PatternSequencer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
         // means that we should interpret this as TWO measures, the first having
@@ -595,16 +409,16 @@ mod tests {
             notes: vec![note_pattern],
         };
 
-        let pattern = PatternNew::from_settings(&pattern_settings);
+        let pattern = Pattern::from_settings(&pattern_settings);
 
         assert_eq!(pattern.notes.len(), 1);
         assert_eq!(pattern.notes[0].len(), expected_note_count);
 
         // We don't need to call reset_cursor(), but we do just once to make
         // sure it's working.
-        assert_eq!(sequencer.cursor(), PatternSequencerNew::CURSOR_BEGIN);
+        assert_eq!(sequencer.cursor(), PatternSequencer::CURSOR_BEGIN);
         sequencer.reset_cursor();
-        assert_eq!(sequencer.cursor(), PatternSequencerNew::CURSOR_BEGIN);
+        assert_eq!(sequencer.cursor(), PatternSequencer::CURSOR_BEGIN);
 
         sequencer.insert_pattern_at_cursor(&0, &pattern);
         assert_eq!(
@@ -617,7 +431,7 @@ mod tests {
     #[test]
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8);
-        let mut sequencer = PatternSequencerNew::new_with(&time_signature);
+        let mut sequencer = PatternSequencer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time
         // signature calls for eighth notes, they last twice as long as they
@@ -641,7 +455,7 @@ mod tests {
             notes: vec![note_pattern_1, note_pattern_2],
         };
 
-        let pattern = PatternNew::from_settings(&pattern_settings);
+        let pattern = Pattern::from_settings(&pattern_settings);
 
         let expected_note_count = len_1 + len_2;
         assert_eq!(pattern.notes.len(), 2);
@@ -661,8 +475,8 @@ mod tests {
     #[test]
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4);
-        let mut sequencer = PatternSequencerNew::new_with(&time_signature);
-        let pattern = PatternNew::<Note>::from_settings(&PatternSettings {
+        let mut sequencer = PatternSequencer::new_with(&time_signature);
+        let pattern = Pattern::<Note>::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
             note_value: None,
             notes: vec![vec![String::from("1")]],
@@ -677,8 +491,8 @@ mod tests {
 
     #[test]
     fn test_random_access() {
-        let pattern_sequencer = rrc(PatternSequencerNew::new());
-        let mut pattern = PatternNew::<Note>::new();
+        let pattern_sequencer = rrc(PatternSequencer::new());
+        let mut pattern = Pattern::<Note>::new();
 
         const NOTE_VALUE: BeatValue = BeatValue::Quarter;
         pattern.note_value = Some(NOTE_VALUE);
