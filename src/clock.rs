@@ -1,3 +1,9 @@
+use std::{
+    cmp::Ordering,
+    fmt::Display,
+    ops::{Add, Mul},
+};
+
 use crate::{common::Rrc, settings::ClockSettings, traits::WatchesClock};
 use serde::{Deserialize, Serialize};
 
@@ -256,6 +262,58 @@ impl WatchedClock {
     }
 }
 
+/// This is named facetiously. f32 has problems the way I'm using it. I'd like
+/// to replace with something better later on, but for now I'm going to try to
+/// use the struct to get type safety and make refactoring easier later on when
+/// I replace f32 with something else.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct PerfectTimeUnit(pub f32);
+
+impl Display for PerfectTimeUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+impl From<f32> for PerfectTimeUnit {
+    fn from(value: f32) -> Self {
+        PerfectTimeUnit(value)
+    }
+}
+impl From<usize> for PerfectTimeUnit {
+    fn from(value: usize) -> Self {
+        PerfectTimeUnit(value as f32)
+    }
+}
+impl Add for PerfectTimeUnit {
+    type Output = PerfectTimeUnit;
+    fn add(self, rhs: Self) -> Self::Output {
+        PerfectTimeUnit(self.0 + rhs.0)
+    }
+}
+impl Mul for PerfectTimeUnit {
+    type Output = PerfectTimeUnit;
+    fn mul(self, rhs: Self) -> Self::Output {
+        PerfectTimeUnit(self.0 * rhs.0)
+    }
+}
+impl PartialOrd for PerfectTimeUnit {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+impl Ord for PerfectTimeUnit {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self > other {
+            return Ordering::Greater;
+        }
+        if self < other {
+            return Ordering::Less;
+        }
+        Ordering::Equal
+    }
+}
+impl Eq for PerfectTimeUnit {}
+
 #[cfg(test)]
 mod tests {
     use more_asserts::assert_lt;
@@ -284,8 +342,8 @@ mod tests {
         }
 
         pub fn debug_set_beats(&mut self, value: f32) {
-            self.samples = (self.sample_rate() as f32
-                * (60.0 * value / self.settings().bpm())) as usize;
+            self.samples =
+                (self.sample_rate() as f32 * (60.0 * value / self.settings().bpm())) as usize;
             self.update();
         }
     }

@@ -1,5 +1,5 @@
 use crate::{
-    clock::{BeatValue, Clock, TimeSignature},
+    clock::{BeatValue, Clock, PerfectTimeUnit, TimeSignature},
     common::{rrc, rrc_downgrade, weak_new, Rrc, Ww},
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
@@ -9,9 +9,7 @@ use midly::num::u7;
 use std::{
     cmp::{self, Ordering},
     collections::HashMap,
-    fmt::Display,
     ops::Bound::{Excluded, Included},
-    ops::{Add, Mul},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -96,56 +94,6 @@ impl Pattern<Note> {
         r
     }
 }
-
-/// This is named facetiously. f32 has problems the way I'm using it. I'd like
-/// to replace with something better later on, but for now I'm going to try to
-/// use the struct to get type safety and make refactoring easier later on when
-/// I replace f32 with something else.
-#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
-pub struct PerfectTimeUnit(f32);
-
-impl Display for PerfectTimeUnit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
-    }
-}
-impl From<f32> for PerfectTimeUnit {
-    fn from(value: f32) -> Self {
-        PerfectTimeUnit(value)
-    }
-}
-impl From<usize> for PerfectTimeUnit {
-    fn from(value: usize) -> Self {
-        PerfectTimeUnit(value as f32)
-    }
-}
-impl Add for PerfectTimeUnit {
-    type Output = PerfectTimeUnit;
-    fn add(self, rhs: Self) -> Self::Output {
-        PerfectTimeUnit(self.0 + rhs.0)
-    }
-}
-
-impl Mul for PerfectTimeUnit {
-    type Output = PerfectTimeUnit;
-    fn mul(self, rhs: Self) -> Self::Output {
-        PerfectTimeUnit(self.0 * rhs.0)
-    }
-}
-
-impl Ord for PerfectTimeUnit {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self > other {
-            return Ordering::Greater;
-        }
-        if self < other {
-            return Ordering::Less;
-        }
-        Ordering::Equal
-    }
-}
-
-impl Eq for PerfectTimeUnit {}
 
 #[derive(Debug, Default)]
 pub struct Note {
