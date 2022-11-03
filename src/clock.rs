@@ -233,6 +233,8 @@ impl WatchedClock {
         self.watchers.push(watcher);
     }
 
+    /// Calls tick() on every watcher. Returns true if all have reported that
+    /// they're done.
     pub fn visit_watchers(&mut self) -> bool {
         let mut done = true;
         for watcher in self.watchers.iter_mut() {
@@ -275,6 +277,12 @@ mod tests {
 
         pub fn debug_set_seconds(&mut self, value: f32) {
             self.samples = (self.settings().sample_rate() as f32 * value) as usize;
+            self.update();
+        }
+
+        pub fn debug_set_beats(&mut self, value: f32) {
+            self.samples = (self.settings().sample_rate() as f32
+                * (60.0 * value / self.settings().bpm())) as usize;
             self.update();
         }
     }

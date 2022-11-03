@@ -317,14 +317,7 @@ impl Application for GrooveApp {
             Message::Tick(now) => {
                 self.last_tick = now;
                 if let State::Playing = &mut self.state {
-                    // TODO law of demeter - should we be reaching in here, or
-                    // just tell ControlBar?
-                    self.control_bar
-                        .clock
-                        .update(ClockMessage::Time(self.orchestrator.elapsed_seconds()));
-                    self.control_bar
-                        .clock
-                        .update(ClockMessage::Beats(self.orchestrator.elapsed_beats()));
+                    self.update_clock();
                     block_on(IOHelper::fill_audio_buffer(
                         self.audio_output.recommended_buffer_size(),
                         &mut self.orchestrator,
@@ -347,7 +340,13 @@ impl Application for GrooveApp {
                 // TODO: not sure if we need ticking for now. it's playing OR
                 // midi
                 ControlBarMessage::Play => self.state = State::Playing,
-                ControlBarMessage::Stop => self.state = State::Idle,
+                ControlBarMessage::Stop => match self.state {
+                    State::Idle => {
+                        self.orchestrator.reset_clock();
+                        self.update_clock();
+                    }
+                    State::Playing => self.state = State::Idle,
+                },
                 ControlBarMessage::SkipToStart => todo!(),
             },
             Message::ControlBarBpm(new_value) => {
@@ -427,6 +426,19 @@ impl Application for GrooveApp {
             .center_x()
             .align_y(alignment::Vertical::Top)
             .into()
+    }
+}
+
+impl GrooveApp {
+    fn update_clock(&mut self) {
+        // TODO law of demeter - should we be reaching in here, or just tell
+        // ControlBar?
+        self.control_bar
+            .clock
+            .update(ClockMessage::Time(self.orchestrator.elapsed_seconds()));
+        self.control_bar
+            .clock
+            .update(ClockMessage::Beats(self.orchestrator.elapsed_beats()));
     }
 }
 

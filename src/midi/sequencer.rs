@@ -160,16 +160,16 @@ mod tests {
         {
             let dp = device.borrow();
             assert!(dp.is_playing);
-            assert_eq!(dp.midi_messages_received, 1);
-            assert_eq!(dp.midi_messages_handled, 1);
+            assert_eq!(dp.received_count, 1);
+            assert_eq!(dp.handled_count, 1);
         }
 
         advance_to_next_beat(&mut clock, &mut sequencer);
         {
             let dp = device.borrow();
             assert!(!dp.is_playing);
-            assert_eq!(dp.midi_messages_received, 2);
-            assert_eq!(dp.midi_messages_handled, 2);
+            assert_eq!(dp.received_count, 2);
+            assert_eq!(dp.handled_count, 2);
         }
     }
 
@@ -221,13 +221,13 @@ mod tests {
         {
             let dp_1 = device_1.borrow();
             assert!(dp_1.is_playing);
-            assert_eq!(dp_1.midi_messages_received, 1);
-            assert_eq!(dp_1.midi_messages_handled, 1);
+            assert_eq!(dp_1.received_count, 1);
+            assert_eq!(dp_1.handled_count, 1);
 
             let dp_2 = device_2.borrow();
             assert!(!dp_2.is_playing);
-            assert_eq!(dp_2.midi_messages_received, 0);
-            assert_eq!(dp_2.midi_messages_handled, 0);
+            assert_eq!(dp_2.received_count, 0);
+            assert_eq!(dp_2.handled_count, 0);
         }
 
         advance_to_next_beat(&mut clock, &mut sequencer);
@@ -236,13 +236,13 @@ mod tests {
         {
             let dp = device_1.borrow();
             assert!(dp.is_playing);
-            assert_eq!(dp.midi_messages_received, 1);
-            assert_eq!(dp.midi_messages_handled, 1);
+            assert_eq!(dp.received_count, 1);
+            assert_eq!(dp.handled_count, 1);
 
             let dp_2 = device_2.borrow();
             assert!(dp_2.is_playing);
-            assert_eq!(dp_2.midi_messages_received, 1);
-            assert_eq!(dp_2.midi_messages_handled, 1);
+            assert_eq!(dp_2.received_count, 1);
+            assert_eq!(dp_2.handled_count, 1);
         }
 
         advance_to_next_beat(&mut clock, &mut sequencer);
@@ -251,13 +251,13 @@ mod tests {
         {
             let dp = device_1.borrow();
             assert!(!dp.is_playing);
-            assert_eq!(dp.midi_messages_received, 2);
-            assert_eq!(dp.midi_messages_handled, 2);
+            assert_eq!(dp.received_count, 2);
+            assert_eq!(dp.handled_count, 2);
 
             let dp_2 = device_2.borrow();
             assert!(dp_2.is_playing);
-            assert_eq!(dp_2.midi_messages_received, 1);
-            assert_eq!(dp_2.midi_messages_handled, 1);
+            assert_eq!(dp_2.received_count, 1);
+            assert_eq!(dp_2.handled_count, 1);
         }
 
         advance_to_next_beat(&mut clock, &mut sequencer);
@@ -266,13 +266,13 @@ mod tests {
         {
             let dp = device_1.borrow();
             assert!(!dp.is_playing);
-            assert_eq!(dp.midi_messages_received, 2);
-            assert_eq!(dp.midi_messages_handled, 2);
+            assert_eq!(dp.received_count, 2);
+            assert_eq!(dp.handled_count, 2);
 
             let dp_2 = device_2.borrow();
             assert!(!dp_2.is_playing);
-            assert_eq!(dp_2.midi_messages_received, 2);
-            assert_eq!(dp_2.midi_messages_handled, 2);
+            assert_eq!(dp_2.received_count, 2);
+            assert_eq!(dp_2.handled_count, 2);
         }
     }
 }

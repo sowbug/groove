@@ -5,7 +5,7 @@ use crate::{
     effects::mixer::Mixer,
     id_store::IdStore,
     midi::{MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    patterns::Pattern,
+    patterns::{Note, PatternNew},
     traits::{
         IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi,
         SourcesAudio, SourcesMidi, WatchesClock,
@@ -44,7 +44,7 @@ pub struct Orchestrator {
     effects: Vec<Rrc<dyn IsEffect>>,
 
     // temp - doesn't belong here. something like a controlcontrolcontroller
-    patterns: Vec<Rrc<Pattern>>,
+    patterns: Vec<Rrc<PatternNew<Note>>>,
     control_paths: Vec<Rrc<ControlPath>>,
 
     // GUI
@@ -181,7 +181,7 @@ impl Orchestrator {
         id
     }
 
-    pub fn register_pattern(&mut self, id: Option<&str>, pattern: Rrc<Pattern>) -> String {
+    pub fn register_pattern(&mut self, id: Option<&str>, pattern: Rrc<PatternNew<Note>>) -> String {
         let id = self.id_store.add_pattern_by_id(id, &pattern);
         self.patterns.push(pattern);
         id
@@ -242,7 +242,7 @@ impl Orchestrator {
         panic!("MakesControlSink id {id} not found");
     }
 
-    pub fn pattern_by(&self, id: &str) -> Ww<Pattern> {
+    pub fn pattern_by(&self, id: &str) -> Ww<PatternNew<Note>> {
         if let Some(item) = self.id_store.pattern_by(id) {
             return item;
         }
@@ -293,5 +293,9 @@ impl Orchestrator {
 
     pub fn handle_external_midi(&mut self, stamp: u64, channel: u8, message: MidiMessage) {
         dbg!(stamp, channel, message);
+    }
+
+    pub fn reset_clock(&mut self) {
+        self.clock.reset();
     }
 }

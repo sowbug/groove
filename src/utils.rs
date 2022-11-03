@@ -542,9 +542,11 @@ pub mod tests {
         pub is_playing: bool,
         is_muted: bool,
         midi_channel: MidiChannel,
-        pub midi_messages_received: usize,
-        pub midi_messages_handled: usize,
+        pub received_count: usize,
+        pub handled_count: usize,
         pub value: f32,
+
+        pub messages: Vec<(f32, MidiChannel, MidiMessage)>,
     }
 
     impl TestMidiSink {
@@ -578,6 +580,7 @@ pub mod tests {
             self.value = value;
         }
     }
+
     impl SinksMidi for TestMidiSink {
         fn midi_channel(&self) -> MidiChannel {
             self.midi_channel
@@ -588,26 +591,27 @@ pub mod tests {
         }
         fn handle_midi_for_channel(
             &mut self,
-            _clock: &Clock,
-            _channel: &MidiChannel,
+            clock: &Clock,
+            channel: &MidiChannel,
             message: &MidiMessage,
         ) {
-            self.midi_messages_received += 1;
+            self.messages.push((clock.beats(), *channel, *message));
+            self.received_count += 1;
 
             #[allow(unused_variables)]
             match message {
                 MidiMessage::NoteOff { key, vel } => {
                     self.is_playing = false;
-                    self.midi_messages_handled += 1;
+                    self.handled_count += 1;
                 }
                 MidiMessage::NoteOn { key, vel } => {
                     self.is_playing = true;
-                    self.midi_messages_handled += 1;
+                    self.handled_count += 1;
                 }
                 MidiMessage::Aftertouch { key, vel } => todo!(),
                 MidiMessage::Controller { controller, value } => todo!(),
                 MidiMessage::ProgramChange { program } => {
-                    self.midi_messages_handled += 1;
+                    self.handled_count += 1;
                 }
                 MidiMessage::ChannelAftertouch { vel } => todo!(),
                 MidiMessage::PitchBend { bend } => todo!(),

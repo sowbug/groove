@@ -1,12 +1,10 @@
 use crate::{
-    common::{DeviceId, Rrc, Ww, rrc_downgrade, wrc_clone},
+    common::{rrc_downgrade, wrc_clone, DeviceId, Rrc, Ww},
     control::ControlPath,
-    patterns::Pattern,
+    patterns::{Note, PatternNew},
     traits::{IsEffect, IsMidiEffect, MakesControlSink, SinksAudio, SourcesAudio, WatchesClock},
 };
-use std::{
-    collections::HashMap,
-};
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct IdStore {
@@ -17,7 +15,7 @@ pub(crate) struct IdStore {
     id_to_audio_source: HashMap<DeviceId, Ww<dyn SourcesAudio>>,
     id_to_effect: HashMap<DeviceId, Ww<dyn IsEffect>>,
     id_to_midi_effect: HashMap<DeviceId, Ww<dyn IsMidiEffect>>,
-    id_to_pattern: HashMap<DeviceId, Ww<Pattern>>,
+    id_to_pattern: HashMap<DeviceId, Ww<PatternNew<Note>>>,
     id_to_control_path: HashMap<DeviceId, Ww<ControlPath>>,
 }
 
@@ -87,7 +85,11 @@ impl IdStore {
         id
     }
 
-    pub fn add_pattern_by_id(&mut self, id: Option<&str>, pattern: &Rrc<Pattern>) -> String {
+    pub fn add_pattern_by_id(
+        &mut self,
+        id: Option<&str>,
+        pattern: &Rrc<PatternNew<Note>>,
+    ) -> String {
         let id = self.assign_id_if_none(id);
         self.id_to_pattern
             .insert(id.to_string(), rrc_downgrade(pattern));
@@ -121,7 +123,7 @@ impl IdStore {
         None
     }
 
-    pub fn pattern_by(&self, id: &str) -> Option<Ww<Pattern>> {
+    pub fn pattern_by(&self, id: &str) -> Option<Ww<PatternNew<Note>>> {
         if let Some(item) = self.id_to_pattern.get(id) {
             return Some(wrc_clone(item));
         }

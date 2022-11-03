@@ -213,7 +213,7 @@ pub mod tests {
         envelopes::AdsrEnvelope,
         midi::{sequencer::MidiSequencer, MidiChannel, MidiUtils},
         oscillators::Oscillator,
-        patterns::PatternSequencer,
+        patterns::PatternSequencerNew,
         settings::patches::{EnvelopeSettings, SynthPatch, WaveformType},
         synthesizers::{
             drumkit_sampler::Sampler as DrumkitSampler,
@@ -403,7 +403,7 @@ pub mod tests {
         vec![
             Arpeggiator::new_wrapped_with(0, 0),
             rrc(ControlTrip::new(target)),
-            PatternSequencer::new_wrapped_with(&TimeSignature::new_defaults()),
+            PatternSequencerNew::new_wrapped_with(&TimeSignature::new_defaults()),
             rrc(MidiSequencer::new()),
         ]
     }
