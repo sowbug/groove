@@ -173,23 +173,16 @@ impl IsViewable for MixerViewableResponder {
 
     fn update(&mut self, message: Self::Message) {
         if let Some(target) = self.target.upgrade() {
-            dbg!(&message);
             match message {
-                ViewableMessage::MutePressed(is_muted) => target.borrow_mut().set_muted(is_muted),
-                ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled)
+                ViewableMessage::MutePressed(is_muted) => {
+                    target.borrow_mut().set_muted(is_muted);
                 }
-                ViewableMessage::ArpeggiatorChanged(_) => todo!(),
-                ViewableMessage::BitcrusherValueChanged(_) => todo!(),
-                ViewableMessage::FilterCutoffChangedAsF32(_) => todo!(),
-                ViewableMessage::FilterCutoffChangedAsU8Percentage(_) => todo!(),
-                ViewableMessage::GainLevelChangedAsString(_) => todo!(),
-                ViewableMessage::GainLevelChangedAsU8Percentage(_) => todo!(),
-                ViewableMessage::LimiterMinChanged(_) => todo!(),
-                ViewableMessage::LimiterMaxChanged(_) => todo!(),
+                ViewableMessage::EnablePressed(is_enabled) => {
+                    target.borrow_mut().set_enabled(is_enabled);
+                }
+                _ => todo!(),
             };
         };
-        dbg!(message);
     }
 }
 
@@ -220,14 +213,28 @@ impl IsViewable for SamplerViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Sampler>();
             let contents = format!("name: {}", target.borrow().filename);
-            GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
+            GuiStuff::titled_container(
+                Some(target),
+                title,
+                GuiStuff::container_text(contents.as_str()),
+            )
         } else {
             panic!()
         }
     }
 
     fn update(&mut self, message: Self::Message) {
-        dbg!(message);
+        if let Some(target) = self.target.upgrade() {
+            match message {
+                ViewableMessage::MutePressed(is_muted) => {
+                    target.borrow_mut().set_muted(is_muted);
+                }
+                ViewableMessage::EnablePressed(is_enabled) => {
+                    target.borrow_mut().set_enabled(is_enabled);
+                }
+                _ => todo!(),
+            };
+        };
     }
 }
 
@@ -258,14 +265,28 @@ impl IsViewable for DrumkitSamplerViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<DrumkitSampler>();
             let contents = format!("kit name: {}", target.borrow().kit_name);
-            GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
+            GuiStuff::titled_container(
+                Some(target),
+                title,
+                GuiStuff::container_text(contents.as_str()),
+            )
         } else {
             panic!()
         }
     }
 
     fn update(&mut self, message: Self::Message) {
-        dbg!(message);
+        if let Some(target) = self.target.upgrade() {
+            match message {
+                ViewableMessage::MutePressed(is_muted) => {
+                    target.borrow_mut().set_muted(is_muted);
+                }
+                ViewableMessage::EnablePressed(is_enabled) => {
+                    target.borrow_mut().set_enabled(is_enabled);
+                }
+                _ => todo!(),
+            };
+        };
     }
 }
 
@@ -296,14 +317,28 @@ impl IsViewable for SynthViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Synth>();
             let contents = format!("name: {}", target.borrow().preset.name);
-            GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
+            GuiStuff::titled_container(
+                Some(target),
+                title,
+                GuiStuff::container_text(contents.as_str()),
+            )
         } else {
             panic!()
         }
     }
 
     fn update(&mut self, message: Self::Message) {
-        dbg!(message);
+        if let Some(target) = self.target.upgrade() {
+            match message {
+                ViewableMessage::MutePressed(is_muted) => {
+                    target.borrow_mut().set_muted(is_muted);
+                }
+                ViewableMessage::EnablePressed(is_enabled) => {
+                    target.borrow_mut().set_enabled(is_enabled);
+                }
+                _ => todo!(),
+            };
+        };
     }
 }
 
@@ -357,7 +392,7 @@ impl IsViewable for GainViewableResponder {
                 .width(iced::Length::FillPortion(1)),
             ])
             .padding(20);
-            GuiStuff::titled_container(None, title, contents.into())
+            GuiStuff::titled_container(Some(target), title, contents.into())
         } else {
             panic!()
         }
@@ -366,6 +401,12 @@ impl IsViewable for GainViewableResponder {
     fn update(&mut self, message: Self::Message) {
         if let Some(target) = self.target.upgrade() {
             match message {
+                ViewableMessage::MutePressed(is_muted) => {
+                    target.borrow_mut().set_muted(is_muted);
+                }
+                ViewableMessage::EnablePressed(is_enabled) => {
+                    target.borrow_mut().set_enabled(is_enabled);
+                }
                 Self::Message::GainLevelChangedAsU8Percentage(new_level) => {
                     // TODO: we need input sanitizers
                     // 0..=100
@@ -413,20 +454,31 @@ impl IsViewable for BitcrusherViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Bitcrusher>();
             let contents = format!("bits to crush: {}", target.borrow().bits_to_crush());
-            GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
+            GuiStuff::titled_container(
+                Some(target),
+                title,
+                GuiStuff::container_text(contents.as_str()),
+            )
         } else {
             panic!()
         }
     }
 
     fn update(&mut self, message: Self::Message) {
-        match message {
-            Self::Message::BitcrusherValueChanged(new_value) => {
-                if let Some(target) = self.target.upgrade() {
+        if let Some(target) = self.target.upgrade() {
+            match message {
+                ViewableMessage::MutePressed(is_muted) => {
+                    target.borrow_mut().set_muted(is_muted);
+                }
+                ViewableMessage::EnablePressed(is_enabled) => {
+                    target.borrow_mut().set_enabled(is_enabled);
+                }
+
+                Self::Message::BitcrusherValueChanged(new_value) => {
                     target.borrow_mut().set_bits_to_crush(new_value);
                 }
+                _ => todo!(),
             }
-            _ => todo!(),
         }
     }
 }
@@ -462,25 +514,35 @@ impl IsViewable for LimiterViewableResponder {
                 target.borrow().min(),
                 target.borrow().max()
             );
-            GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
+            GuiStuff::titled_container(
+                Some(target),
+                title,
+                GuiStuff::container_text(contents.as_str()),
+            )
         } else {
             panic!()
         }
     }
 
     fn update(&mut self, message: Self::Message) {
-        match message {
-            ViewableMessage::LimiterMinChanged(new_value) => {
-                if let Some(target) = self.target.upgrade() {
-                    target.borrow_mut().set_min(new_value);
+        if let Some(target) = self.target.upgrade() {
+            match message {
+                ViewableMessage::MutePressed(is_muted) => {
+                    target.borrow_mut().set_muted(is_muted);
                 }
-            }
-            ViewableMessage::LimiterMaxChanged(new_value) => {
-                if let Some(target) = self.target.upgrade() {
+                ViewableMessage::EnablePressed(is_enabled) => {
+                    target.borrow_mut().set_enabled(is_enabled);
+                }
+                ViewableMessage::LimiterMinChanged(new_value) => {
+                    if let Some(target) = self.target.upgrade() {
+                        target.borrow_mut().set_min(new_value);
+                    }
+                }
+                ViewableMessage::LimiterMaxChanged(new_value) => {
                     target.borrow_mut().set_max(new_value);
                 }
+                _ => todo!(),
             }
-            _ => todo!(),
         }
     }
 }
@@ -523,27 +585,33 @@ impl IsViewable for FilterViewableResponder {
                 ))
                 .width(iced::Length::FillPortion(1))
             ];
-            GuiStuff::titled_container(None, title, contents.into())
+            GuiStuff::titled_container(Some(target), title, contents.into())
         } else {
             panic!()
         }
     }
 
     fn update(&mut self, message: Self::Message) {
-        match message {
-            ViewableMessage::FilterCutoffChangedAsF32(new_value) => {
-                if let Some(target) = self.target.upgrade() {
-                    target.borrow_mut().set_cutoff(new_value);
+        if let Some(target) = self.target.upgrade() {
+            match message {
+                ViewableMessage::MutePressed(is_muted) => {
+                    target.borrow_mut().set_muted(is_muted);
                 }
-            }
-            ViewableMessage::FilterCutoffChangedAsU8Percentage(new_value) => {
-                if let Some(target) = self.target.upgrade() {
+                ViewableMessage::EnablePressed(is_enabled) => {
+                    target.borrow_mut().set_enabled(is_enabled);
+                }
+                ViewableMessage::FilterCutoffChangedAsF32(new_value) => {
+                    if let Some(target) = self.target.upgrade() {
+                        target.borrow_mut().set_cutoff(new_value);
+                    }
+                }
+                ViewableMessage::FilterCutoffChangedAsU8Percentage(new_value) => {
                     target
                         .borrow_mut()
                         .set_cutoff(Filter::percent_to_frequency((new_value as f32) / 100.0));
                 }
+                _ => todo!(),
             }
-            _ => todo!(),
         }
     }
 }
@@ -575,20 +643,30 @@ impl IsViewable for ArpeggiatorViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Arpeggiator>();
             let contents = format!("cutoff: {}", target.borrow().nothing());
-            GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
+            GuiStuff::titled_container(
+                Some(target),
+                title,
+                GuiStuff::container_text(contents.as_str()),
+            )
         } else {
             panic!()
         }
     }
 
     fn update(&mut self, message: Self::Message) {
-        match message {
-            ViewableMessage::ArpeggiatorChanged(new_value) => {
-                if let Some(target) = self.target.upgrade() {
+        if let Some(target) = self.target.upgrade() {
+            match message {
+                ViewableMessage::MutePressed(is_muted) => {
+                    target.borrow_mut().set_muted(is_muted);
+                }
+                ViewableMessage::EnablePressed(is_enabled) => {
+                    target.borrow_mut().set_enabled(is_enabled);
+                }
+                ViewableMessage::ArpeggiatorChanged(new_value) => {
                     target.borrow_mut().set_nothing(new_value as f32);
                 }
+                _ => todo!(),
             }
-            _ => todo!(),
         }
     }
 }
@@ -620,14 +698,28 @@ impl IsViewable for PatternSequencerNewViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<PatternSequencer>();
             let contents = format!("cursor point: {}", target.borrow().cursor());
-            GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
+            GuiStuff::titled_container(
+                Some(target),
+                title,
+                GuiStuff::container_text(contents.as_str()),
+            )
         } else {
             panic!()
         }
     }
 
     fn update(&mut self, message: Self::Message) {
-        dbg!(message);
+        if let Some(target) = self.target.upgrade() {
+            match message {
+                ViewableMessage::MutePressed(is_muted) => {
+                    target.borrow_mut().set_muted(is_muted);
+                }
+                ViewableMessage::EnablePressed(is_enabled) => {
+                    target.borrow_mut().set_enabled(is_enabled);
+                }
+                _ => todo!(),
+            };
+        };
     }
 }
 
@@ -716,7 +808,7 @@ mod tests {
         );
         test_one_viewable(
             PatternSequencer::new_wrapped_with(&crate::TimeSignature::default()),
-            Some(ViewableMessage::ArpeggiatorChanged(42)),
+            Some(ViewableMessage::EnablePressed(false)),
         );
     }
 }

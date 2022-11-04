@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww},
+    common::{rrc, rrc_clone, rrc_downgrade, weak_new, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
     effects::filter::{Filter, FilterType},
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
     settings::{
@@ -670,7 +670,7 @@ impl HasOverhead for Voice {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Synth {
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
@@ -684,16 +684,26 @@ pub struct Synth {
 }
 impl IsMidiInstrument for Synth {}
 
+impl Default for Synth {
+    fn default() -> Self {
+        Self {
+            me: weak_new(),
+            overhead: Overhead::default(),
+            midi_channel: MidiChannel::default(),
+            sample_rate: usize::default(),
+            preset: SynthPatch::default(),
+            note_to_voice: HashMap::default(),
+            debug_last_seconds: -1.0,
+        }
+    }
+}
+
 impl Synth {
     fn new(midi_channel: MidiChannel, sample_rate: usize, preset: SynthPatch) -> Self {
         Self {
             midi_channel,
             sample_rate,
             preset,
-            note_to_voice: HashMap::new(),
-
-            debug_last_seconds: -1.0,
-
             ..Default::default()
         }
     }
@@ -769,8 +779,11 @@ impl SinksMidi for Synth {
 }
 impl SourcesAudio for Synth {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        if !self.overhead().is_enabled() || self.overhead().is_muted() {
+            return MONO_SAMPLE_SILENCE;
+        }
         if clock.seconds() == self.debug_last_seconds {
-            panic!();
+            panic!("We were called twice with the same time slice. Should this be OK?");
         } else {
             self.debug_last_seconds = clock.seconds();
         }

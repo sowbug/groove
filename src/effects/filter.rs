@@ -50,7 +50,7 @@ pub enum FilterType {
     },
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Filter {
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
@@ -71,6 +71,33 @@ pub struct Filter {
     output_m2: f64,
 }
 impl IsEffect for Filter {}
+
+// We can't derive this because we need to call recalculate_coefficients(). Is
+// there an elegant way to get that done for free without a bunch of repetition?
+impl Default for Filter {
+    fn default() -> Self {
+        let mut r = Self {
+            me: Default::default(),
+            overhead: Default::default(),
+            sources: Default::default(),
+            filter_type: Default::default(),
+            sample_rate: Default::default(),
+            cutoff: Default::default(),
+            a0: Default::default(),
+            a1: Default::default(),
+            a2: Default::default(),
+            b0: Default::default(),
+            b1: Default::default(),
+            b2: Default::default(),
+            sample_m1: Default::default(),
+            sample_m2: Default::default(),
+            output_m1: Default::default(),
+            output_m2: Default::default(),
+        };
+        r.recalculate_coefficients(&FilterType::default());
+        r
+    }
+}
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
@@ -124,7 +151,7 @@ impl Filter {
 
     fn recalculate_coefficients(&mut self, new_filter_type: &FilterType) {
         (self.a0, self.a1, self.a2, self.b0, self.b1, self.b2) = match *new_filter_type {
-            FilterType::None => (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            FilterType::None => (1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
             FilterType::LowPass {
                 sample_rate,
                 cutoff,

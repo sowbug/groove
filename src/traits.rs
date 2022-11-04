@@ -115,7 +115,12 @@ pub trait SinksAudio {
             .iter_mut()
             .map(|source| {
                 if let Some(s) = source.upgrade() {
-                    s.borrow_mut().source_audio(clock)
+                    let sample = s.borrow_mut().source_audio(clock);
+                    if s.borrow().is_muted() {
+                        MONO_SAMPLE_SILENCE
+                    } else {
+                        sample
+                    }
                 } else {
                     MONO_SAMPLE_SILENCE
                 }
@@ -134,10 +139,14 @@ pub trait TransformsAudio {
 // Convenience generic for effects
 impl<T: HasOverhead + SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let input = self.gather_source_audio(clock);
+
+        // It's important for this to happen after the gather_source_audio(),
+        // because we don't know whether the sources are depending on being
+        // called for each time slice.
         if self.is_muted() {
             return MONO_SAMPLE_SILENCE;
         }
-        let input = self.gather_source_audio(clock);
         if self.is_enabled() {
             self.transform_audio(input)
         } else {
@@ -270,6 +279,40 @@ pub trait IsMidiEffect:
 pub trait IsController: SourcesControl + WatchesClock {}
 
 #[cfg(test)]
+macro_rules! sources_audio_tests {
+    ($($name:ident: $type:ty,)*) => {
+    $(
+        mod $name {
+            use super::*;
+
+            #[test]
+            fn new_audio_source_is_silent() {
+                let mut s = <$type>::default();
+                assert_eq!(s.source_audio(&Clock::new()), MONO_SAMPLE_SILENCE);
+            }
+        }
+    )*
+    }
+}
+
+#[cfg(test)]
+macro_rules! sinks_audio_tests {
+    ($($name:ident: $type:ty,)*) => {
+    $(
+        mod $name {
+            use super::*;
+
+            #[test]
+            fn new_audio_sink_can_be_instantiated() {
+                let s = <$type>::default();
+                assert_eq!(s.sources().len(), 0);
+            }
+        }
+    )*
+    }
+}
+
+#[cfg(test)]
 pub mod tests {
     use super::{IsMidiInstrument, SinksAudio, SourcesAudio, SourcesControl};
     use crate::{
@@ -378,10 +421,27 @@ pub mod tests {
         assert!(clock.seconds() >= 1.0);
     }
 
-    #[test]
-    fn test_audio_source() {
-        let mut s = TestAudioSource::new();
-        assert_eq!(s.source_audio(&Clock::new()), MONO_SAMPLE_SILENCE);
+    sources_audio_tests! {
+        adsr_envelope: AdsrEnvelope,
+        bitcrusher: Bitcrusher,
+        drumkit_sampler: DrumkitSampler,
+        filter: Filter,
+        gain: Gain,
+        limiter: crate::effects::limiter::Limiter,
+        mixer: crate::effects::mixer::Mixer,
+        oscillator: Oscillator,
+        sampler: Sampler,
+        stepped_envelope: crate::envelopes::SteppedEnvelope,
+        test_audio_source: TestAudioSource,
+        welsh_synth: Synth,
+    }
+
+    sinks_audio_tests! {
+        sinks_audio_bitcrusher: Bitcrusher,
+        sinks_audio_filter: Filter,
+        sinks_audio_gain: Gain,
+        sinks_audio_limiter: crate::effects::limiter::Limiter,
+        sinks_audio_mixer: crate::effects::mixer::Mixer,
     }
 
     #[test]

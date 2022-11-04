@@ -2,7 +2,7 @@ use crate::{
     clock::{BeatValue, Clock, PerfectTimeUnit, TimeSignature},
     common::{rrc, rrc_downgrade, weak_new, Rrc, Ww},
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{SinksMidi, SourcesMidi, Terminates, WatchesClock},
+    traits::{HasOverhead, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
 use btreemultimap::BTreeMultiMap;
 use midly::num::u7;
@@ -111,6 +111,7 @@ pub enum Event {
 #[derive(Debug)]
 pub struct PatternSequencer {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
 
     time_signature: TimeSignature,
 
@@ -125,6 +126,7 @@ impl Default for PatternSequencer {
     fn default() -> Self {
         Self {
             me: weak_new(),
+            overhead: Overhead::default(),
             time_signature: TimeSignature::default(),
             channels_to_sink_vecs: HashMap::default(),
             events: BTreeMultiMap::default(),
@@ -273,28 +275,30 @@ impl WatchesClock for PatternSequencer {
         }
         // TODO: if clock has jumped far forward
 
-        // If the last instant marks a new interval, then we want to include any
-        // events scheduled at exactly that time. So the range is inclusive.
-        let range = if self.last_instant_handled_not_handled {
-            self.last_instant_handled_not_handled = false;
-            (
-                Included(self.last_instant_handled),
-                Included(PerfectTimeUnit(clock.beats())),
-            )
-        } else {
-            (
-                Excluded(self.last_instant_handled),
-                Included(PerfectTimeUnit(clock.beats())),
-            )
-        };
-        let events = self.events.range(range);
-        for (_when, event) in events {
-            self.handle_event(clock, &event.0, &event.1);
+        if self.overhead.is_enabled() {
+            // If the last instant marks a new interval, then we want to include any
+            // events scheduled at exactly that time. So the range is inclusive.
+            let range = if self.last_instant_handled_not_handled {
+                self.last_instant_handled_not_handled = false;
+                (
+                    Included(self.last_instant_handled),
+                    Included(PerfectTimeUnit(clock.beats())),
+                )
+            } else {
+                (
+                    Excluded(self.last_instant_handled),
+                    Included(PerfectTimeUnit(clock.beats())),
+                )
+            };
+            let events = self.events.range(range);
+            for (_when, event) in events {
+                self.handle_event(clock, &event.0, &event.1);
+            }
         }
+
         self.last_instant_handled = PerfectTimeUnit(clock.beats());
     }
 }
-
 impl Terminates for PatternSequencer {
     fn is_finished(&self) -> bool {
         // TODO: This looks like it could be expensive.
@@ -303,6 +307,16 @@ impl Terminates for PatternSequencer {
             Included(PerfectTimeUnit(f32::MAX)),
         ));
         the_rest.next().is_none()
+    }
+}
+// TODO: what does it mean for a MIDI device to be muted?
+impl HasOverhead for PatternSequencer {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
+    }
+
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 

@@ -2,13 +2,16 @@ use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, Rrc, Ww},
     midi::{MidiChannel, MidiMessage, MidiNote, MidiUtils},
-    traits::{IsMidiEffect, SinksMidi, SourcesMidi, Terminates, WatchesClock},
+    traits::{
+        HasOverhead, IsMidiEffect, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock,
+    },
 };
 use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct Arpeggiator {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
     midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,
     midi_sinks: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
@@ -132,4 +135,14 @@ impl Arpeggiator {
 
     // this is a placeholder to get the trait requirements satisfied
     pub(crate) fn set_nothing(&mut self, _value: f32) {}
+}
+
+impl HasOverhead for Arpeggiator {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
+    }
+
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
+    }
 }

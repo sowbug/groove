@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
+    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
     midi::{GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{HasOverhead, IsMidiInstrument, Overhead, SinksMidi, SourcesAudio},
 };
@@ -209,18 +209,14 @@ impl SinksMidi for Sampler {
 
 impl SourcesAudio for Sampler {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        // TODO: this looks a lot like a Mixer
-        let mut sum = 0.0;
-        for v in self.note_to_voice.values_mut() {
-            sum += v.source_audio(clock);
+        if !self.overhead().is_enabled() || self.overhead().is_muted() {
+            return MONO_SAMPLE_SILENCE;
         }
-        sum
-        // couldn't use this because map gives us a non-mut
-        //
-        // self.note_to_voice
-        //     .values()
-        //     .map(|v| v.get_audio_sample())
-        //     .sum()
+
+        self.note_to_voice
+            .values_mut()
+            .map(|v| v.source_audio(clock))
+            .sum()
     }
 }
 impl HasOverhead for Sampler {

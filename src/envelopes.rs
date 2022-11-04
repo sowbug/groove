@@ -3,7 +3,7 @@ use crate::{
     clock::ClockTimeUnit,
     common::{rrc, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
     settings::patches::EnvelopeSettings,
-    traits::{Overhead, SourcesAudio, HasOverhead},
+    traits::{HasOverhead, Overhead, SourcesAudio},
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{fmt::Debug, ops::Range};
@@ -70,6 +70,16 @@ pub struct SteppedEnvelope {
 }
 
 impl SteppedEnvelope {
+    const EMPTY_STEP: EnvelopeStep = EnvelopeStep {
+        interval: Range {
+            start: 0.0,
+            end: 0.0,
+        },
+        start_value: 0.0,
+        end_value: 0.0,
+        step_function: EnvelopeFunction::Linear,
+    };
+
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self {
@@ -110,7 +120,9 @@ impl SteppedEnvelope {
 
     pub(crate) fn step_for_time(&self, time: f32) -> &EnvelopeStep {
         let steps = self.steps();
-        debug_assert!(!steps.is_empty());
+        if steps.is_empty() {
+            return &Self::EMPTY_STEP;
+        }
 
         let mut candidate_step: &EnvelopeStep = steps.first().unwrap();
         for step in steps {
@@ -210,7 +222,6 @@ impl HasOverhead for SteppedEnvelope {
         &mut self.overhead
     }
 }
-
 
 #[derive(Debug, Default)]
 enum AdsrEnvelopeStepName {
@@ -540,7 +551,6 @@ impl HasOverhead for AdsrEnvelope {
         &mut self.overhead
     }
 }
-
 
 #[cfg(test)]
 mod tests {
