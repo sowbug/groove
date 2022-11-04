@@ -84,6 +84,7 @@
   at the end of the chain
 - [ ] Regularly test with weird sample rates (super low, super high)
 - [ ] Identify entities that don't need ticks, and don't tick() them
+- [ ] Come up with a better TODO than `panic!()`. Get comfortable with handling `Result<>`.
 
 ## Random thoughts
 
