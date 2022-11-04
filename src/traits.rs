@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 /// Provides audio in the form of digital samples.
-pub trait SourcesAudio: Debug + IsMutable {
+pub trait SourcesAudio: HasMute + Debug {
     // Lots of implementers don't care about clock here, but some do
     // (oscillators, LFOs), and it's a lot cleaner to pass a bit of extra
     // information here than to either create a separate optional method
@@ -22,6 +22,53 @@ pub trait SourcesAudio: Debug + IsMutable {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample;
 }
 
+/// Convenience struct that devices can use to populate fields that mini-traits
+/// require.
+#[derive(Clone, Debug, Default)]
+pub struct Overhead {
+    is_muted: bool,
+    is_disabled: bool,
+}
+
+impl Overhead {
+    pub(crate) fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+    pub(crate) fn set_muted(&mut self, is_muted: bool) -> bool {
+        self.is_muted = is_muted;
+        self.is_muted
+    }
+    pub(crate) fn is_enabled(&self) -> bool {
+        !self.is_disabled
+    }
+    pub(crate) fn set_enabled(&mut self, is_enabled: bool) -> bool {
+        self.is_disabled = !is_enabled;
+        !self.is_disabled
+    }
+}
+
+pub trait HasOverhead: HasMute + HasEnable {
+    fn overhead(&self) -> &Overhead;
+    fn overhead_mut(&mut self) -> &mut Overhead;
+}
+impl<T: HasOverhead> HasMute for T {
+    fn is_muted(&self) -> bool {
+        self.overhead().is_muted()
+    }
+    fn set_muted(&mut self, is_muted: bool) -> bool {
+        self.overhead_mut().set_muted(is_muted)
+    }
+}
+impl<T: HasOverhead> HasEnable for T {
+    fn is_enabled(&self) -> bool {
+        self.overhead().is_enabled()
+    }
+    fn set_enabled(&mut self, is_enabled: bool) -> bool {
+        self.overhead_mut().set_enabled(is_enabled);
+        self.overhead().is_enabled()
+    }
+}
+
 /// Some SourcesAudio will need to be called each cycle even if we don't need
 /// their audio (effects, for example). I think (not sure) that it's easier for
 /// individual devices to track whether they're muted, and to make that
@@ -29,9 +76,25 @@ pub trait SourcesAudio: Debug + IsMutable {
 /// children, recursively) but ignore their output, compared to either expecting
 /// them to return silence (which would let muted be an internal-only state), or
 /// to have something up in the sky track everyone who's muted.
-pub trait IsMutable {
+pub trait HasMute {
     fn is_muted(&self) -> bool;
-    fn set_muted(&mut self, is_muted: bool);
+    fn set_muted(&mut self, is_muted: bool) -> bool;
+    fn toggle_muted(&mut self) -> bool {
+        self.set_muted(!self.is_muted())
+    }
+}
+
+// Whether this device can be switched on/off at runtime. The difference between
+// muted and enabled is that a muted device kills the sound, even if non-muted
+// devices are inputting sound to it. A disabled device, on the other hand,
+// might pass through sound without changing it. For example, a disabled filter
+// in the middle of a chain would become a passthrough.
+pub trait HasEnable {
+    fn is_enabled(&self) -> bool;
+    fn set_enabled(&mut self, is_enabled: bool) -> bool;
+    fn toggle_enabled(&mut self) -> bool {
+        self.set_enabled(!self.is_enabled())
+    }
 }
 
 /// Can do something with audio samples. When it needs to do its work, it asks
@@ -52,11 +115,7 @@ pub trait SinksAudio {
             .iter_mut()
             .map(|source| {
                 if let Some(s) = source.upgrade() {
-                    if s.borrow().is_muted() {
-                        MONO_SAMPLE_SILENCE
-                    } else {
-                        s.borrow_mut().source_audio(clock)
-                    }
+                    s.borrow_mut().source_audio(clock)
                 } else {
                     MONO_SAMPLE_SILENCE
                 }
@@ -73,10 +132,17 @@ pub trait TransformsAudio {
 }
 
 // Convenience generic for effects
-impl<T: SinksAudio + TransformsAudio + IsMutable + Debug> SourcesAudio for T {
+impl<T: HasOverhead + SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        if self.is_muted() {
+            return MONO_SAMPLE_SILENCE;
+        }
         let input = self.gather_source_audio(clock);
-        self.transform_audio(input)
+        if self.is_enabled() {
+            self.transform_audio(input)
+        } else {
+            input
+        }
     }
 }
 
@@ -115,7 +181,8 @@ pub trait SourcesMidi {
     fn set_midi_output_channel(&mut self, midi_channel: MidiChannel);
 
     fn add_midi_sink(&mut self, channel: MidiChannel, sink: Ww<dyn SinksMidi>) {
-        // TODO: is there a good reason for channel != sink.midi_channel()? If not, why is it a param?
+        // TODO: is there a good reason for channel != sink.midi_channel()? If
+        // not, why is it a param?
         self.midi_sinks_mut().entry(channel).or_default().push(sink);
     }
     fn issue_midi(&self, clock: &Clock, channel: &MidiChannel, message: &MidiMessage) {
@@ -144,7 +211,8 @@ pub trait SinksMidi: Debug {
             return;
         }
         if self.midi_channel() == MIDI_CHANNEL_RECEIVE_ALL || self.midi_channel() == *channel {
-            // TODO: SourcesMidi is already going through trouble to respect channels. Is this redundant?
+            // TODO: SourcesMidi is already going through trouble to respect
+            // channels. Is this redundant?
             self.handle_midi_for_channel(clock, channel, message);
         }
     }

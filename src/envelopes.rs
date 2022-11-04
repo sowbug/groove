@@ -3,7 +3,7 @@ use crate::{
     clock::ClockTimeUnit,
     common::{rrc, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
     settings::patches::EnvelopeSettings,
-    traits::{IsMutable, SourcesAudio},
+    traits::{Overhead, SourcesAudio, HasOverhead},
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{fmt::Debug, ops::Range};
@@ -64,9 +64,9 @@ impl EnvelopeStep {
 
 #[derive(Debug, Default)]
 pub struct SteppedEnvelope {
+    overhead: Overhead,
     time_unit: ClockTimeUnit,
     steps: Vec<EnvelopeStep>,
-    is_muted: bool,
 }
 
 impl SteppedEnvelope {
@@ -88,7 +88,7 @@ impl SteppedEnvelope {
         let r = Self {
             time_unit,
             steps: vec,
-            is_muted: false,
+            ..Default::default()
         };
         r.debug_validate_steps();
         r
@@ -201,15 +201,16 @@ impl SourcesAudio for SteppedEnvelope {
         self.value_for_step_at_time(step, time)
     }
 }
-impl IsMutable for SteppedEnvelope {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for SteppedEnvelope {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
+
 
 #[derive(Debug, Default)]
 enum AdsrEnvelopeStepName {
@@ -225,8 +226,8 @@ enum AdsrEnvelopeStepName {
 #[derive(Debug)]
 pub struct AdsrEnvelope {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
     preset: EnvelopeSettings,
-    is_muted: bool,
 
     envelope: SteppedEnvelope,
 
@@ -238,8 +239,8 @@ impl Default for AdsrEnvelope {
     fn default() -> Self {
         Self {
             me: weak_new(),
+            overhead: Overhead::default(),
             preset: EnvelopeSettings::default(),
-            is_muted: false,
             envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
             note_off_time: f32::MAX,
@@ -523,7 +524,6 @@ impl AdsrEnvelope {
         }
     }
 }
-
 impl SourcesAudio for AdsrEnvelope {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let time = self.envelope.time_for_unit(clock);
@@ -531,15 +531,16 @@ impl SourcesAudio for AdsrEnvelope {
         self.envelope.value_for_step_at_time(step, time)
     }
 }
-impl IsMutable for AdsrEnvelope {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for AdsrEnvelope {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
+
 
 #[cfg(test)]
 mod tests {

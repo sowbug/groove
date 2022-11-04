@@ -1,6 +1,6 @@
 use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
 };
 use std::f64::consts::PI;
 
@@ -53,8 +53,9 @@ pub enum FilterType {
 #[derive(Debug, Default)]
 pub struct Filter {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+
     sources: Vec<Ww<dyn SourcesAudio>>,
-    is_muted: bool,
     filter_type: FilterType,
     sample_rate: usize,
     cutoff: f32,
@@ -546,7 +547,6 @@ impl SinksAudio for Filter {
         &mut self.sources
     }
 }
-
 impl TransformsAudio for Filter {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         let s64 = input_sample as f64;
@@ -565,13 +565,13 @@ impl TransformsAudio for Filter {
         r as MonoSample
     }
 }
-impl IsMutable for Filter {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Filter {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 

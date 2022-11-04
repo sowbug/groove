@@ -1,13 +1,14 @@
 use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
 };
 
 #[derive(Debug, Default)]
 pub struct Gain {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+
     sources: Vec<Ww<dyn SourcesAudio>>,
-    is_muted: bool,
     ceiling: f32,
 }
 impl IsEffect for Gain {}
@@ -67,13 +68,13 @@ impl TransformsAudio for Gain {
         input_sample * self.ceiling
     }
 }
-impl IsMutable for Gain {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Gain {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 

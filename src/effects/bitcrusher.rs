@@ -1,14 +1,15 @@
 use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio, HasOverhead},
 };
 
 #[derive(Debug, Default)]
 pub struct Bitcrusher {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+
     sources: Vec<Ww<dyn SourcesAudio>>,
     bits_to_crush: u8,
-    is_muted: bool,
 }
 impl IsEffect for Bitcrusher {}
 impl Bitcrusher {
@@ -55,14 +56,13 @@ impl TransformsAudio for Bitcrusher {
         expanded as MonoSample / (i16::MAX as MonoSample)
     }
 }
-
-impl IsMutable for Bitcrusher {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Bitcrusher {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 

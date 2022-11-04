@@ -1,14 +1,14 @@
 use crate::{
-    common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, rrc_downgrade},
-    traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
+    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
+    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
 };
-
 
 #[derive(Debug, Default)]
 pub struct Limiter {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+
     sources: Vec<Ww<dyn SourcesAudio>>,
-    is_muted: bool,
 
     min: MonoSample,
     max: MonoSample,
@@ -65,13 +65,13 @@ impl TransformsAudio for Limiter {
         input_sample.clamp(self.min, self.max)
     }
 }
-impl IsMutable for Limiter {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Limiter {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 
@@ -84,7 +84,6 @@ mod tests {
         utils::tests::{TestAudioSourceAlwaysSameLevel, TestAudioSourceAlwaysTooLoud},
     };
     use assert_approx_eq::assert_approx_eq;
-    
 
     #[test]
     fn test_limiter_mainline() {

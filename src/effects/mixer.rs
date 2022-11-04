@@ -1,13 +1,14 @@
 use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{IsEffect, IsMutable, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
 };
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct Mixer {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+
     sources: Vec<Ww<dyn SourcesAudio>>,
-    is_muted: bool,
 }
 impl IsEffect for Mixer {}
 impl Mixer {
@@ -20,12 +21,6 @@ impl Mixer {
         let wrapped = rrc(Self::new());
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
-    }
-
-    pub fn mute_source(&mut self, index: usize, is_muted: bool) {
-        if let Some(source) = self.sources[index].upgrade() {
-            source.borrow_mut().set_muted(is_muted);
-        }
     }
 }
 impl SinksAudio for Mixer {
@@ -41,13 +36,13 @@ impl TransformsAudio for Mixer {
         input_sample
     }
 }
-impl IsMutable for Mixer {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Mixer {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 

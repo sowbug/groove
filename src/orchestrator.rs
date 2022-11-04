@@ -273,12 +273,6 @@ impl Orchestrator {
         self.clock.inner_clock_mut().settings_mut().set_bpm(bpm);
     }
 
-    // pub fn main_mixer(&self) -> &dyn SinksAudio { &self.main_mixer.into() }
-
-    pub fn mute_audio_source(&mut self, index: usize, is_muted: bool) {
-        self.main_mixer.borrow_mut().mute_source(index, is_muted);
-    }
-
     pub fn viewables(&self) -> &[Ww<dyn MakesIsViewable>] {
         &self.viewable_makers
     }

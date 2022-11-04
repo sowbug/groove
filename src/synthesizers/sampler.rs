@@ -2,19 +2,20 @@ use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     midi::{MidiChannel, MidiMessage},
-    traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio},
+    traits::{HasOverhead, IsMidiInstrument, Overhead, SinksMidi, SourcesAudio},
 };
 
 #[derive(Debug, Default)]
 #[allow(dead_code)]
 pub struct Sampler {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+
     midi_channel: MidiChannel,
     samples: Vec<MonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
-    is_muted: bool,
     root_frequency: f32, // TODO: make not dead
 
     pub(crate) filename: String,
@@ -108,13 +109,13 @@ impl SourcesAudio for Sampler {
         }
     }
 }
-impl IsMutable for Sampler {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Sampler {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 

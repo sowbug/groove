@@ -2,17 +2,18 @@ use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     midi::{GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio},
+    traits::{HasOverhead, IsMidiInstrument, Overhead, SinksMidi, SourcesAudio},
 };
 use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 struct Voice {
+    overhead: Overhead,
+
     samples: Vec<MonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
-    is_muted: bool,
 }
 
 impl Voice {
@@ -89,22 +90,23 @@ impl SourcesAudio for Voice {
         }
     }
 }
-impl IsMutable for Voice {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Voice {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 
 #[derive(Debug, Default)]
 pub struct Sampler {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+
     midi_channel: MidiChannel,
     note_to_voice: HashMap<u8, Voice>,
-    is_muted: bool,
 
     pub(crate) kit_name: String,
 }
@@ -221,13 +223,13 @@ impl SourcesAudio for Sampler {
         //     .sum()
     }
 }
-impl IsMutable for Sampler {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Sampler {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 

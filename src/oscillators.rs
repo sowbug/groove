@@ -2,14 +2,14 @@ use super::clock::Clock;
 use crate::{
     common::{rrc, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{IsMutable, SourcesAudio},
+    traits::{HasOverhead, Overhead, SourcesAudio},
 };
 use std::f32::consts::PI;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Oscillator {
     pub(crate) me: Ww<Self>,
-    is_muted: bool,
+    overhead: Overhead,
 
     waveform: WaveformType,
 
@@ -41,7 +41,7 @@ impl Default for Oscillator {
             // is that a quiet oscillator isn't doing its main job of helping make
             // sound. Principle of Least Astonishment prevails.
             me: weak_new(),
-            is_muted: false,
+            overhead: Overhead::default(),
             waveform: WaveformType::Sine,
             frequency: 440.0,
             fixed_frequency: 0.0,
@@ -155,13 +155,13 @@ impl SourcesAudio for Oscillator {
         }
     }
 }
-impl IsMutable for Oscillator {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Oscillator {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 

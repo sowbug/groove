@@ -6,7 +6,7 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{IsMidiInstrument, IsMutable, SinksMidi, SourcesAudio, TransformsAudio},
+    traits::{HasOverhead, IsMidiInstrument, Overhead, SinksMidi, SourcesAudio, TransformsAudio},
     {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
 use convert_case::{Case, Casing};
@@ -515,6 +515,8 @@ impl Synth {
 
 #[derive(Debug, Default)]
 pub struct Voice {
+    overhead: Overhead,
+
     midi_channel: MidiChannel,
     oscillators: Vec<Oscillator>,
     osc_mix: Vec<f32>,
@@ -528,16 +530,12 @@ pub struct Voice {
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
     filter_envelope: AdsrEnvelope,
-
-    is_muted: bool,
 }
 
 impl Voice {
     pub fn new(midi_channel: MidiChannel, sample_rate: usize, preset: &SynthPatch) -> Self {
         let mut r = Self {
             midi_channel,
-            oscillators: Vec::new(),
-            osc_mix: Vec::new(),
             amp_envelope: AdsrEnvelope::new_with(&preset.amp_envelope),
 
             lfo: Oscillator::new_lfo(&preset.lfo),
@@ -552,8 +550,7 @@ impl Voice {
             filter_cutoff_start: Filter::frequency_to_percent(preset.filter_type_12db.cutoff),
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: AdsrEnvelope::new_with(&preset.filter_envelope),
-
-            is_muted: false,
+            ..Default::default()
         };
         if !matches!(preset.oscillator_1.waveform, WaveformType::None) {
             r.oscillators
@@ -663,24 +660,25 @@ impl SourcesAudio for Voice {
         filtered_mix * self.amp_envelope.source_audio(clock) * lfo_amplitude_modulation
     }
 }
-impl IsMutable for Voice {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Voice {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct Synth {
     pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+
     midi_channel: MidiChannel,
     sample_rate: usize,
     pub(crate) preset: SynthPatch,
     note_to_voice: HashMap<u8, Rrc<Voice>>,
-    is_muted: bool,
 
     debug_last_seconds: f32,
 }
@@ -693,7 +691,6 @@ impl Synth {
             sample_rate,
             preset,
             note_to_voice: HashMap::new(),
-            is_muted: false,
 
             debug_last_seconds: -1.0,
 
@@ -770,7 +767,6 @@ impl SinksMidi for Synth {
         }
     }
 }
-
 impl SourcesAudio for Synth {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         if clock.seconds() == self.debug_last_seconds {
@@ -791,13 +787,13 @@ impl SourcesAudio for Synth {
         current_value
     }
 }
-impl IsMutable for Synth {
-    fn is_muted(&self) -> bool {
-        self.is_muted
+impl HasOverhead for Synth {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
     }
 
-    fn set_muted(&mut self, is_muted: bool) {
-        self.is_muted = is_muted;
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }
 
