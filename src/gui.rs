@@ -83,7 +83,6 @@ impl<'a> GuiStuff {
                     ViewableMessage::MutePressed
                 )
             ]
-            .into()
         } else {
             row![text("".to_string())]
         });
@@ -162,7 +161,11 @@ impl IsViewable for MixerViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Mixer>();
             let contents = format!("sources: {}", target.borrow().sources().len());
-            GuiStuff::titled_container(Some(target), title, GuiStuff::container_text(contents.as_str()))
+            GuiStuff::titled_container(
+                Some(target),
+                title,
+                GuiStuff::container_text(contents.as_str()),
+            )
         } else {
             panic!()
         }
