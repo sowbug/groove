@@ -1,5 +1,5 @@
 use crate::clock::{Clock, ClockTimeUnit};
-use crate::common::{Ww, wrc_clone};
+use crate::common::{wrc_clone, Ww};
 use crate::effects::arpeggiator::Arpeggiator;
 use crate::effects::bitcrusher::Bitcrusher;
 use crate::effects::limiter::Limiter;
@@ -10,7 +10,6 @@ use crate::oscillators::Oscillator;
 use crate::settings::control::ControlStep;
 use crate::traits::{MakesControlSink, SinksControl, Terminates, WatchesClock};
 use std::ops::Range;
-
 
 /// ControlTrip, ControlPath, and ControlStep help with
 /// [automation](https://en.wikipedia.org/wiki/Track_automation).
