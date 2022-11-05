@@ -559,6 +559,26 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
     use more_asserts::{assert_gt, assert_lt};
 
+    mod adsr {
+        use crate::envelopes::AdsrEnvelope;
+
+        fn instance() -> AdsrEnvelope {
+            return AdsrEnvelope::default();
+        }
+
+        include!("test_trait_makes_control_sink.rs");
+    }
+
+    mod stepped_envelope {
+        use crate::envelopes::SteppedEnvelope;
+
+        fn instance() -> SteppedEnvelope {
+            return SteppedEnvelope::default();
+        }
+
+        include!("test_trait_sources_audio.rs");
+    }
+
     #[test]
     fn test_envelope_mainline() {
         let ep = EnvelopeSettings {

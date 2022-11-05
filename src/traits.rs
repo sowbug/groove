@@ -313,6 +313,65 @@ macro_rules! sinks_audio_tests {
 }
 
 #[cfg(test)]
+macro_rules! sources_midi_tests {
+    ($($name:ident: $type:ty,)*) => {
+    $(
+        mod $name {
+            use super::*;
+
+            #[test]
+            fn new_midi_source_can_be_instantiated() {
+                let s = <$type>::default();
+                assert_eq!(s.midi_sinks().len(), 0);
+            }
+        }
+    )*
+    }
+}
+
+#[cfg(test)]
+macro_rules! sinks_midi_tests {
+    ($($name:ident: $type:ty,)*) => {
+    $(
+        mod $name {
+            use super::*;
+
+            #[test]
+            fn new_midi_sink_can_be_instantiated() {
+                let s = <$type>::default();
+                assert_eq!(s.midi_channel(), 0);
+            }
+        }
+    )*
+    }
+}
+
+#[cfg(test)]
+macro_rules! has_overhead_tests {
+    ($($name:ident: $type:ty,)*) => {
+    $(
+        mod $name {
+            use crate::traits::HasEnable;
+            use crate::traits::HasMute;
+
+            #[test]
+            fn has_overhead_mute_enable_work() {
+                let mut s = <$type>::default();
+                assert_eq!(s.is_enabled(), true);
+                assert_eq!(s.is_muted(), false);
+
+                s.set_enabled(false);
+                assert_eq!(s.is_enabled(), false);
+
+                s.set_muted(true);
+                assert_eq!(s.is_muted(), true);
+            }
+        }
+    )*
+    }
+}
+
+#[cfg(test)]
 pub mod tests {
     use super::{IsMidiInstrument, SinksAudio, SourcesAudio, SourcesControl};
     use crate::{
@@ -421,19 +480,20 @@ pub mod tests {
         assert!(clock.seconds() >= 1.0);
     }
 
+    // grep -R "HasOverhead for " src/ | grep -o "for.*$" | grep -o -E "[A-Z][[:alpha:]]+" | sort -u
     sources_audio_tests! {
-        adsr_envelope: AdsrEnvelope,
-        bitcrusher: Bitcrusher,
-        drumkit_sampler: DrumkitSampler,
-        filter: Filter,
-        gain: Gain,
-        limiter: crate::effects::limiter::Limiter,
-        mixer: crate::effects::mixer::Mixer,
-        oscillator: Oscillator,
-        sampler: Sampler,
-        stepped_envelope: crate::envelopes::SteppedEnvelope,
-        test_audio_source: TestAudioSource,
-        welsh_synth: Synth,
+        sources_audio_adsr_envelope: AdsrEnvelope,
+        sources_audio_bitcrusher: Bitcrusher,
+        sources_audio_drumkit_sampler: DrumkitSampler,
+        sources_audio_filter: Filter,
+        sources_audio_gain: Gain,
+        sources_audio_limiter: crate::effects::limiter::Limiter,
+        sources_audio_mixer: crate::effects::mixer::Mixer,
+        sources_audio_oscillator: Oscillator,
+        sources_audio_sampler: Sampler,
+        sources_audio_stepped_envelope: crate::envelopes::SteppedEnvelope,
+        sources_audio_test_audio_source: TestAudioSource,
+        sources_audio_synth: Synth,
     }
 
     sinks_audio_tests! {
@@ -442,6 +502,40 @@ pub mod tests {
         sinks_audio_gain: Gain,
         sinks_audio_limiter: crate::effects::limiter::Limiter,
         sinks_audio_mixer: crate::effects::mixer::Mixer,
+    }
+
+    sources_midi_tests! {
+        sources_midi_arpeggiator: Arpeggiator,
+    }
+
+    sinks_midi_tests! {
+        sinks_midi_synth: Synth,
+    }
+
+    has_overhead_tests! {
+        has_overhead_adsr_envelope: crate::envelopes::AdsrEnvelope,
+        has_overhead_arpeggiator: crate::effects::arpeggiator::Arpeggiator,
+        has_overhead_bitcrusher: crate::effects::bitcrusher::Bitcrusher,
+        has_overhead_filter: crate::effects::filter::Filter,
+        has_overhead_gain: crate::effects::gain::Gain,
+        has_overhead_limiter: crate::effects::limiter::Limiter,
+        has_overhead_mixer: crate::effects::mixer::Mixer,
+        has_overhead_oscillator: crate::oscillators::Oscillator,
+        has_overhead_pattern_sequencer: crate::patterns::PatternSequencer,
+        has_overhead_sampler: crate::synthesizers::sampler::Sampler,
+        has_overhead_drumkit_sampler: crate::synthesizers::drumkit_sampler::Sampler,
+        has_overhead_stepped_envelope: crate::envelopes::SteppedEnvelope,
+        has_overhead_synth: crate::synthesizers::welsh::Synth,
+        has_overhead_test_audio_sink: crate::utils::tests::TestAudioSink,
+        has_overhead_test_audio_source: crate::utils::tests::TestAudioSource,
+        has_overhead_test_audio_source_always_loud: crate::utils::tests::TestAudioSourceAlwaysLoud,
+        has_overhead_test_audio_source_always_same_level: crate::utils::tests::TestAudioSourceAlwaysSameLevel,
+        has_overhead_test_audio_source_always_silent: crate::utils::tests::TestAudioSourceAlwaysSilent,
+        has_overhead_test_audio_source_always_too_loud: crate::utils::tests::TestAudioSourceAlwaysTooLoud,
+        has_overhead_test_audio_source_always_very_quiet: crate::utils::tests::TestAudioSourceAlwaysVeryQuiet,
+        has_overhead_test_midi_sink: crate::utils::tests::TestMidiSink,
+        has_overhead_test_synth: crate::utils::tests::TestSynth,
+        has_overhead_voice: crate::synthesizers::welsh::Voice,
     }
 
     #[test]

@@ -146,3 +146,14 @@ impl HasOverhead for Arpeggiator {
         &mut self.overhead
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn instance() -> Arpeggiator {
+        return Arpeggiator::default();
+    }
+
+    include!("../test_trait_is_midi_effect.rs");
+}
