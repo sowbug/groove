@@ -2,7 +2,7 @@ use crate::{
     common::{MonoSample, Rrc},
     effects::{
         bitcrusher::Bitcrusher,
-        filter::{Filter, FilterType},
+        filter::{BiQuadFilter, FilterParams},
         gain::Gain,
         limiter::Limiter,
         mixer::Mixer,
@@ -83,60 +83,43 @@ impl EffectSettings {
                 Bitcrusher::new_wrapped_with(bits_to_crush)
             }
             EffectSettings::FilterLowPass12db { cutoff, q } => {
-                Filter::new_wrapped_with(&FilterType::LowPass {
-                    sample_rate,
-                    cutoff,
-                    q,
-                })
+                BiQuadFilter::new_wrapped_with(&FilterParams::LowPass { cutoff, q }, sample_rate)
             }
             EffectSettings::FilterHighPass12db { cutoff, q } => {
-                Filter::new_wrapped_with(&FilterType::HighPass {
-                    sample_rate,
-                    cutoff,
-                    q,
-                })
+                BiQuadFilter::new_wrapped_with(&FilterParams::HighPass { cutoff, q }, sample_rate)
             }
             EffectSettings::FilterBandPass12db { cutoff, bandwidth } => {
-                Filter::new_wrapped_with(&FilterType::BandPass {
+                BiQuadFilter::new_wrapped_with(
+                    &FilterParams::BandPass { cutoff, bandwidth },
                     sample_rate,
-                    cutoff,
-                    bandwidth,
-                })
+                )
             }
             EffectSettings::FilterBandStop12db { cutoff, bandwidth } => {
-                Filter::new_wrapped_with(&FilterType::BandStop {
+                BiQuadFilter::new_wrapped_with(
+                    &FilterParams::BandStop { cutoff, bandwidth },
                     sample_rate,
-                    cutoff,
-                    bandwidth,
-                })
+                )
             }
             EffectSettings::FilterAllPass12db { cutoff, q } => {
-                Filter::new_wrapped_with(&FilterType::AllPass {
-                    sample_rate,
-                    cutoff,
-                    q,
-                })
+                BiQuadFilter::new_wrapped_with(&FilterParams::AllPass { cutoff, q }, sample_rate)
             }
             EffectSettings::FilterPeakingEq12db { cutoff, db_gain } => {
-                Filter::new_wrapped_with(&FilterType::PeakingEq {
+                BiQuadFilter::new_wrapped_with(
+                    &FilterParams::PeakingEq { cutoff, db_gain },
                     sample_rate,
-                    cutoff,
-                    db_gain,
-                })
+                )
             }
             EffectSettings::FilterLowShelf12db { cutoff, db_gain } => {
-                Filter::new_wrapped_with(&FilterType::LowShelf {
+                BiQuadFilter::new_wrapped_with(
+                    &FilterParams::LowShelf { cutoff, db_gain },
                     sample_rate,
-                    cutoff,
-                    db_gain,
-                })
+                )
             }
             EffectSettings::FilterHighShelf12db { cutoff, db_gain } => {
-                Filter::new_wrapped_with(&FilterType::HighShelf {
+                BiQuadFilter::new_wrapped_with(
+                    &FilterParams::HighShelf { cutoff, db_gain },
                     sample_rate,
-                    cutoff,
-                    db_gain,
-                })
+                )
             }
         }
     }

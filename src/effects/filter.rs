@@ -8,100 +8,115 @@ use std::f64::consts::PI;
 pub enum FilterType {
     #[default]
     None,
+    LowPass,
+    HighPass,
+    BandPass,
+    BandStop,
+    AllPass,
+    PeakingEq,
+    LowShelf,
+    HighShelf,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum FilterParams {
+    #[default]
+    None,
     LowPass {
-        sample_rate: usize,
         cutoff: f32,
         q: f32,
     },
     HighPass {
-        sample_rate: usize,
         cutoff: f32,
         q: f32,
     },
     BandPass {
-        sample_rate: usize,
         cutoff: f32,
         bandwidth: f32,
     },
     BandStop {
-        sample_rate: usize,
         cutoff: f32,
         bandwidth: f32,
     },
     AllPass {
-        sample_rate: usize,
         cutoff: f32,
         q: f32,
     },
     PeakingEq {
-        sample_rate: usize,
         cutoff: f32,
         db_gain: f32,
     },
     LowShelf {
-        sample_rate: usize,
         cutoff: f32,
         db_gain: f32,
     },
     HighShelf {
-        sample_rate: usize,
         cutoff: f32,
         db_gain: f32,
     },
 }
 
-#[derive(Debug)]
-pub struct Filter {
-    pub(crate) me: Ww<Self>,
-    overhead: Overhead,
+impl FilterParams {
+    fn type_for(params: Self) -> FilterType {
+        #[allow(unused_variables)]
+        match params {
+            FilterParams::None => FilterType::None,
+            FilterParams::LowPass { cutoff, q } => FilterType::LowPass,
+            FilterParams::HighPass { cutoff, q } => FilterType::HighPass,
+            FilterParams::BandPass { cutoff, bandwidth } => FilterType::BandPass,
+            FilterParams::BandStop { cutoff, bandwidth } => FilterType::BandStop,
+            FilterParams::AllPass { cutoff, q } => FilterType::AllPass,
+            FilterParams::PeakingEq { cutoff, db_gain } => FilterType::PeakingEq,
+            FilterParams::LowShelf { cutoff, db_gain } => FilterType::LowShelf,
+            FilterParams::HighShelf { cutoff, db_gain } => FilterType::HighShelf,
+        }
+    }
+}
 
-    sources: Vec<Ww<dyn SourcesAudio>>,
-    filter_type: FilterType,
-    sample_rate: usize,
-    cutoff: f32,
+#[derive(Debug, Default)]
+struct CoefficientSet {
     a0: f64,
     a1: f64,
     a2: f64,
     b0: f64,
     b1: f64,
     b2: f64,
+}
+
+#[derive(Debug)]
+pub struct BiQuadFilter {
+    pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+
+    sources: Vec<Ww<dyn SourcesAudio>>,
+
+    sample_rate: usize,
+    filter_type: FilterType,
+    cutoff: f32,
+    param2: f32, // can represent q, bandwidth, or db_gain
+    coefficients: CoefficientSet,
+
+    // Working variables
     sample_m1: f64, // "sample minus two" or x(n-2)
     sample_m2: f64,
     output_m1: f64,
     output_m2: f64,
 }
-impl IsEffect for Filter {}
+impl IsEffect for BiQuadFilter {}
 
 // We can't derive this because we need to call recalculate_coefficients(). Is
 // there an elegant way to get that done for free without a bunch of repetition?
-impl Default for Filter {
+impl Default for BiQuadFilter {
     fn default() -> Self {
-        let mut r = Self {
-            me: Default::default(),
-            overhead: Default::default(),
-            sources: Default::default(),
-            filter_type: Default::default(),
-            sample_rate: Default::default(),
-            cutoff: Default::default(),
-            a0: Default::default(),
-            a1: Default::default(),
-            a2: Default::default(),
-            b0: Default::default(),
-            b1: Default::default(),
-            b2: Default::default(),
-            sample_m1: Default::default(),
-            sample_m2: Default::default(),
-            output_m1: Default::default(),
-            output_m2: Default::default(),
-        };
-        r.recalculate_coefficients(&FilterType::default());
+        let mut r = Self::default_fields();
+        r.update_coefficients();
         r
     }
 }
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
-impl Filter {
+impl BiQuadFilter {
     pub const FREQUENCY_TO_LINEAR_BASE: f32 = 800.0;
     pub const FREQUENCY_TO_LINEAR_COEFFICIENT: f32 = 25.0;
 
@@ -135,97 +150,85 @@ impl Filter {
             .clamp(0.0, 1.0)
     }
 
-    pub fn new(filter_type: &FilterType) -> Self {
-        let mut r = Self {
-            ..Default::default()
-        };
-        r.recalculate_coefficients(filter_type);
+    /// Returns a new/default struct without calling update_coefficients().
+    fn default_fields() -> Self {
+        Self {
+            me: Default::default(),
+            overhead: Default::default(),
+            sources: Default::default(),
+            filter_type: Default::default(),
+            sample_rate: Default::default(),
+            cutoff: Default::default(),
+            param2: Default::default(),
+            coefficients: CoefficientSet::default(),
+            sample_m1: Default::default(),
+            sample_m2: Default::default(),
+            output_m1: Default::default(),
+            output_m2: Default::default(),
+        }
+    }
+
+    pub fn new_with(params: &FilterParams, sample_rate: usize) -> Self {
+        let mut r = Self::default_fields();
+        r.filter_type = FilterParams::type_for(*params);
+        r.sample_rate = sample_rate;
+        match *params {
+            FilterParams::None => {}
+            FilterParams::LowPass { cutoff, q } => {
+                r.cutoff = cutoff;
+                r.param2 = q;
+            }
+            FilterParams::HighPass { cutoff, q } => {
+                r.cutoff = cutoff;
+                r.param2 = q;
+            }
+            FilterParams::BandPass { cutoff, bandwidth } => {
+                r.cutoff = cutoff;
+                r.param2 = bandwidth;
+            }
+            FilterParams::BandStop { cutoff, bandwidth } => {
+                r.cutoff = cutoff;
+                r.param2 = bandwidth;
+            }
+            FilterParams::AllPass { cutoff, q } => {
+                r.cutoff = cutoff;
+                r.param2 = q;
+            }
+            FilterParams::PeakingEq { cutoff, db_gain } => {
+                r.cutoff = cutoff;
+                r.param2 = db_gain;
+            }
+            FilterParams::LowShelf { cutoff, db_gain } => {
+                r.cutoff = cutoff;
+                r.param2 = db_gain;
+            }
+            FilterParams::HighShelf { cutoff, db_gain } => {
+                r.cutoff = cutoff;
+                r.param2 = db_gain;
+            }
+        }
+        r.update_coefficients();
         r
     }
 
-    pub fn new_wrapped_with(filter_type: &FilterType) -> Rrc<Self> {
-        let wrapped = rrc(Self::new(filter_type));
+    pub fn new_wrapped_with(params: &FilterParams, sample_rate: usize) -> Rrc<Self> {
+        let wrapped = rrc(Self::new_with(params, sample_rate));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
 
-    fn recalculate_coefficients(&mut self, new_filter_type: &FilterType) {
-        (self.a0, self.a1, self.a2, self.b0, self.b1, self.b2) = match *new_filter_type {
-            FilterType::None => (1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-            FilterType::LowPass {
-                sample_rate,
-                cutoff,
-                q,
-            } => {
-                self.sample_rate = sample_rate;
-                self.cutoff = cutoff;
-                Self::rbj_low_pass_coefficients(sample_rate, cutoff, q)
-            }
-            FilterType::HighPass {
-                sample_rate,
-                cutoff,
-                q,
-            } => {
-                self.sample_rate = sample_rate;
-                self.cutoff = cutoff;
-                Self::rbj_high_pass_coefficients(sample_rate, cutoff, q)
-            }
-            FilterType::BandPass {
-                sample_rate,
-                cutoff,
-                bandwidth,
-            } => {
-                self.sample_rate = sample_rate;
-                self.cutoff = cutoff;
-                Self::rbj_band_pass_coefficients(sample_rate, cutoff, bandwidth)
-            }
-            FilterType::BandStop {
-                sample_rate,
-                cutoff,
-                bandwidth,
-            } => {
-                self.sample_rate = sample_rate;
-                self.cutoff = cutoff;
-                Self::rbj_band_stop_coefficients(sample_rate, cutoff, bandwidth)
-            }
-            FilterType::AllPass {
-                sample_rate,
-                cutoff,
-                q,
-            } => {
-                self.sample_rate = sample_rate;
-                self.cutoff = cutoff;
-                Self::rbj_all_pass_coefficients(sample_rate, cutoff, q)
-            }
-            FilterType::PeakingEq {
-                sample_rate,
-                cutoff,
-                db_gain,
-            } => {
-                self.sample_rate = sample_rate;
-                self.cutoff = cutoff;
-                Self::rbj_peaking_eq_coefficients(sample_rate, cutoff, db_gain)
-            }
-            FilterType::LowShelf {
-                sample_rate,
-                cutoff,
-                db_gain,
-            } => {
-                self.sample_rate = sample_rate;
-                self.cutoff = cutoff;
-                Self::rbj_low_shelf_coefficients(sample_rate, cutoff, db_gain)
-            }
-            FilterType::HighShelf {
-                sample_rate,
-                cutoff,
-                db_gain,
-            } => {
-                self.sample_rate = sample_rate;
-                self.cutoff = cutoff;
-                Self::rbj_high_shelf_coefficients(sample_rate, cutoff, db_gain)
-            }
+    fn update_coefficients(&mut self) {
+        self.coefficients = match self.filter_type {
+            FilterType::None => self.rbj_none_coefficients(),
+            FilterType::LowPass => self.rbj_low_pass_coefficients(),
+            FilterType::HighPass => self.rbj_high_pass_coefficients(),
+            FilterType::BandPass => self.rbj_band_pass_coefficients(),
+            FilterType::BandStop => self.rbj_band_stop_coefficients(),
+            FilterType::AllPass => self.rbj_all_pass_coefficients(),
+            FilterType::PeakingEq => self.rbj_peaking_eq_coefficients(),
+            FilterType::LowShelf => self.rbj_low_shelf_coefficients(),
+            FilterType::HighShelf => self.rbj_high_shelf_coefficients(),
         };
-        self.filter_type = *new_filter_type;
     }
 
     pub(crate) fn cutoff(&self) -> f32 {
@@ -233,161 +236,24 @@ impl Filter {
     }
 
     pub(crate) fn set_cutoff(&mut self, new_cutoff: f32) {
-        let new_filter_type = match self.filter_type {
-            FilterType::None => FilterType::None,
-            FilterType::LowPass {
-                sample_rate,
-                cutoff,
-                q,
-            } => FilterType::LowPass {
-                sample_rate,
-                cutoff: new_cutoff,
-                q,
-            },
-            FilterType::HighPass {
-                sample_rate,
-                cutoff,
-                q,
-            } => FilterType::LowPass {
-                sample_rate,
-                cutoff: new_cutoff,
-                q,
-            },
-            FilterType::BandPass {
-                sample_rate,
-                cutoff,
-                bandwidth,
-            } => FilterType::BandPass {
-                sample_rate,
-                cutoff: new_cutoff,
-                bandwidth,
-            },
-            FilterType::BandStop {
-                sample_rate,
-                cutoff,
-                bandwidth,
-            } => FilterType::BandStop {
-                sample_rate,
-                cutoff: new_cutoff,
-                bandwidth,
-            },
-            FilterType::AllPass {
-                sample_rate,
-                cutoff,
-                q,
-            } => FilterType::AllPass {
-                sample_rate,
-                cutoff: new_cutoff,
-                q,
-            },
-            FilterType::PeakingEq {
-                sample_rate,
-                cutoff,
-                db_gain,
-            } => FilterType::PeakingEq {
-                sample_rate,
-                cutoff: new_cutoff,
-                db_gain,
-            },
-            FilterType::LowShelf {
-                sample_rate,
-                cutoff,
-                db_gain,
-            } => FilterType::LowShelf {
-                sample_rate,
-                cutoff: new_cutoff,
-                db_gain,
-            },
-            FilterType::HighShelf {
-                sample_rate,
-                cutoff,
-                db_gain,
-            } => FilterType::HighShelf {
-                sample_rate,
-                cutoff: new_cutoff,
-                db_gain,
-            },
-        };
-        self.recalculate_coefficients(&new_filter_type)
+        self.cutoff = new_cutoff;
+        self.update_coefficients();
     }
 
     pub fn set_q(&mut self, new_val: f32) {
-        let new_filter_type = match self.filter_type {
-            FilterType::None => FilterType::None,
-            FilterType::LowPass {
-                sample_rate,
-                cutoff,
-                q,
-            } => FilterType::LowPass {
-                sample_rate,
-                cutoff,
-                q: new_val,
-            },
-            FilterType::HighPass {
-                sample_rate,
-                cutoff,
-                q,
-            } => FilterType::LowPass {
-                sample_rate,
-                cutoff,
-                q: new_val,
-            },
-            FilterType::BandPass {
-                sample_rate,
-                cutoff,
-                bandwidth,
-            } => FilterType::BandPass {
-                sample_rate,
-                cutoff,
-                bandwidth: new_val,
-            },
-            FilterType::BandStop {
-                sample_rate,
-                cutoff,
-                bandwidth,
-            } => FilterType::BandStop {
-                sample_rate,
-                cutoff,
-                bandwidth: new_val,
-            },
-            FilterType::AllPass {
-                sample_rate,
-                cutoff,
-                q,
-            } => FilterType::AllPass {
-                sample_rate,
-                cutoff,
-                q: new_val,
-            },
-            FilterType::PeakingEq {
-                sample_rate,
-                cutoff,
-                db_gain,
-            } => FilterType::PeakingEq {
-                sample_rate,
-                cutoff,
-                db_gain: new_val,
-            },
-            FilterType::LowShelf {
-                sample_rate,
-                cutoff,
-                db_gain,
-            } => FilterType::LowShelf {
-                sample_rate,
-                cutoff,
-                db_gain: new_val,
-            },
-            FilterType::HighShelf {
-                sample_rate,
-                cutoff,
-                db_gain,
-            } => FilterType::HighShelf {
-                sample_rate,
-                cutoff,
-                db_gain: new_val,
-            },
-        };
-        self.recalculate_coefficients(&new_filter_type)
+        self.param2 = new_val;
+        self.update_coefficients();
+    }
+
+    fn rbj_none_coefficients(&self) -> CoefficientSet {
+        CoefficientSet {
+            a0: 1.0,
+            a1: 0.0,
+            a2: 0.0,
+            b0: 0.0,
+            b1: 0.0,
+            b2: 0.0,
+        }
     }
 
     fn rbj_intermediates_q(sample_rate: usize, cutoff: f32, q: f32) -> (f64, f64, f64, f64) {
@@ -398,38 +264,32 @@ impl Filter {
         (w0, w0cos, w0sin, alpha)
     }
 
-    fn rbj_low_pass_coefficients(
-        sample_rate: usize,
-        cutoff: f32,
-        q: f32,
-    ) -> (f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = Filter::rbj_intermediates_q(sample_rate, cutoff, q);
+    fn rbj_low_pass_coefficients(&self) -> CoefficientSet {
+        let (w0, w0cos, w0sin, alpha) =
+            Self::rbj_intermediates_q(self.sample_rate, self.cutoff, self.param2);
 
-        (
-            1.0 + alpha,
-            -2.0f64 * w0cos,
-            1.0 - alpha,
-            (1.0 - w0cos) / 2.0f64,
-            (1.0 - w0cos),
-            (1.0 - w0cos) / 2.0f64,
-        )
+        CoefficientSet {
+            a0: 1.0 + alpha,
+            a1: -2.0f64 * w0cos,
+            a2: 1.0 - alpha,
+            b0: (1.0 - w0cos) / 2.0f64,
+            b1: (1.0 - w0cos),
+            b2: (1.0 - w0cos) / 2.0f64,
+        }
     }
 
-    fn rbj_high_pass_coefficients(
-        sample_rate: usize,
-        cutoff: f32,
-        q: f32,
-    ) -> (f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = Filter::rbj_intermediates_q(sample_rate, cutoff, q);
+    fn rbj_high_pass_coefficients(&self) -> CoefficientSet {
+        let (w0, w0cos, w0sin, alpha) =
+            Self::rbj_intermediates_q(self.sample_rate, self.cutoff, self.param2);
 
-        (
-            1.0 + alpha,
-            -2.0f64 * w0cos,
-            1.0 - alpha,
-            (1.0 + w0cos) / 2.0f64,
-            -(1.0 + w0cos),
-            (1.0 + w0cos) / 2.0f64,
-        )
+        CoefficientSet {
+            a0: 1.0 + alpha,
+            a1: -2.0f64 * w0cos,
+            a2: 1.0 - alpha,
+            b0: (1.0 + w0cos) / 2.0f64,
+            b1: -(1.0 + w0cos),
+            b2: (1.0 + w0cos) / 2.0f64,
+        }
     }
 
     fn rbj_intermediates_bandwidth(
@@ -444,74 +304,62 @@ impl Filter {
         (w0, w0cos, w0sin, alpha)
     }
 
-    fn rbj_band_pass_coefficients(
-        sample_rate: usize,
-        cutoff: f32,
-        bandwidth: f32,
-    ) -> (f64, f64, f64, f64, f64, f64) {
+    fn rbj_band_pass_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Filter::rbj_intermediates_bandwidth(sample_rate, cutoff, bandwidth);
-        (
-            1.0 + alpha,
-            -2.0f64 * w0cos,
-            1.0 - alpha,
-            alpha,
-            0.0,
-            -alpha,
-        )
+            Self::rbj_intermediates_bandwidth(self.sample_rate, self.cutoff, self.param2);
+        CoefficientSet {
+            a0: 1.0 + alpha,
+            a1: -2.0f64 * w0cos,
+            a2: 1.0 - alpha,
+            b0: alpha,
+            b1: 0.0,
+            b2: -alpha,
+        }
     }
 
-    fn rbj_band_stop_coefficients(
-        sample_rate: usize,
-        cutoff: f32,
-        bandwidth: f32,
-    ) -> (f64, f64, f64, f64, f64, f64) {
+    fn rbj_band_stop_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Filter::rbj_intermediates_bandwidth(sample_rate, cutoff, bandwidth);
+            Self::rbj_intermediates_bandwidth(self.sample_rate, self.cutoff, self.param2);
 
-        (
-            1.0 + alpha,
-            -2.0f64 * w0cos,
-            1.0 - alpha,
-            1.0,
-            -2.0f64 * w0cos,
-            1.0,
-        )
+        CoefficientSet {
+            a0: 1.0 + alpha,
+            a1: -2.0f64 * w0cos,
+            a2: 1.0 - alpha,
+            b0: 1.0,
+            b1: -2.0f64 * w0cos,
+            b2: 1.0,
+        }
     }
 
-    fn rbj_all_pass_coefficients(
-        sample_rate: usize,
-        cutoff: f32,
-        q: f32,
-    ) -> (f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) = Filter::rbj_intermediates_q(sample_rate, cutoff, q);
-        (
-            1.0 + alpha,
-            -2.0f64 * w0cos,
-            1.0 - alpha,
-            1.0 - alpha,
-            -2.0f64 * w0cos,
-            1.0 + alpha,
-        )
+    fn rbj_all_pass_coefficients(&self) -> CoefficientSet {
+        let (w0, w0cos, w0sin, alpha) =
+            Self::rbj_intermediates_q(self.sample_rate, self.cutoff, self.param2);
+        CoefficientSet {
+            a0: 1.0 + alpha,
+            a1: -2.0f64 * w0cos,
+            a2: 1.0 - alpha,
+            b0: 1.0 - alpha,
+            b1: -2.0f64 * w0cos,
+            b2: 1.0 + alpha,
+        }
     }
 
-    fn rbj_peaking_eq_coefficients(
-        sample_rate: usize,
-        cutoff: f32,
-        db_gain: f32,
-    ) -> (f64, f64, f64, f64, f64, f64) {
-        let (w0, w0cos, w0sin, alpha) =
-            Filter::rbj_intermediates_q(sample_rate, cutoff, std::f32::consts::FRAC_1_SQRT_2);
-        let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
+    fn rbj_peaking_eq_coefficients(&self) -> CoefficientSet {
+        let (w0, w0cos, w0sin, alpha) = Self::rbj_intermediates_q(
+            self.sample_rate,
+            self.cutoff,
+            std::f32::consts::FRAC_1_SQRT_2,
+        );
+        let a = 10f64.powf(self.param2 as f64 / 10.0f64).sqrt();
 
-        (
-            1.0 + alpha / a,
-            -2.0f64 * w0cos,
-            1.0 - alpha / a,
-            1.0 + alpha * a,
-            -2.0f64 * w0cos,
-            1.0 - alpha * a,
-        )
+        CoefficientSet {
+            a0: 1.0 + alpha / a,
+            a1: -2.0f64 * w0cos,
+            a2: 1.0 - alpha / a,
+            b0: 1.0 + alpha * a,
+            b1: -2.0f64 * w0cos,
+            b2: 1.0 - alpha * a,
+        }
     }
 
     fn rbj_intermediates_shelving(
@@ -527,46 +375,38 @@ impl Filter {
         (w0, w0cos, w0sin, alpha)
     }
 
-    fn rbj_low_shelf_coefficients(
-        sample_rate: usize,
-        cutoff: f32,
-        db_gain: f32,
-    ) -> (f64, f64, f64, f64, f64, f64) {
-        let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
+    fn rbj_low_shelf_coefficients(&self) -> CoefficientSet {
+        let a = 10f64.powf(self.param2 as f64 / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            Filter::rbj_intermediates_shelving(sample_rate, cutoff, a, 1.0);
+            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
 
-        (
-            (a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
-            -2.0 * ((a - 1.0) + (a + 1.0) * w0cos),
-            (a + 1.0) + (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha,
-            a * ((a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha),
-            2.0 * a * ((a - 1.0) - (a + 1.0) * w0cos),
-            a * ((a + 1.0) - (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha),
-        )
+        CoefficientSet {
+            a0: (a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
+            a1: -2.0 * ((a - 1.0) + (a + 1.0) * w0cos),
+            a2: (a + 1.0) + (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha,
+            b0: a * ((a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha),
+            b1: 2.0 * a * ((a - 1.0) - (a + 1.0) * w0cos),
+            b2: a * ((a + 1.0) - (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha),
+        }
     }
 
-    fn rbj_high_shelf_coefficients(
-        sample_rate: usize,
-        cutoff: f32,
-        db_gain: f32,
-    ) -> (f64, f64, f64, f64, f64, f64) {
-        let a = 10f64.powf(db_gain as f64 / 10.0f64).sqrt();
+    fn rbj_high_shelf_coefficients(&self) -> CoefficientSet {
+        let a = 10f64.powf(self.param2 as f64 / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            Filter::rbj_intermediates_shelving(sample_rate, cutoff, a, 1.0);
+            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
 
-        (
-            (a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
-            2.0 * ((a - 1.0) - (a + 1.0) * w0cos),
-            (a + 1.0) - (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha,
-            a * ((a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha),
-            -2.0 * a * ((a - 1.0) + (a + 1.0) * w0cos),
-            a * ((a + 1.0) + (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha),
-        )
+        CoefficientSet {
+            a0: (a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
+            a1: 2.0 * ((a - 1.0) - (a + 1.0) * w0cos),
+            a2: (a + 1.0) - (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha,
+            b0: a * ((a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha),
+            b1: -2.0 * a * ((a - 1.0) + (a + 1.0) * w0cos),
+            b2: a * ((a + 1.0) + (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha),
+        }
     }
 }
 
-impl SinksAudio for Filter {
+impl SinksAudio for BiQuadFilter {
     fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
         &self.sources
     }
@@ -574,14 +414,14 @@ impl SinksAudio for Filter {
         &mut self.sources
     }
 }
-impl TransformsAudio for Filter {
+impl TransformsAudio for BiQuadFilter {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
         let s64 = input_sample as f64;
-        let r = (self.b0 / self.a0) * s64
-            + (self.b1 / self.a0) * self.sample_m1
-            + (self.b2 / self.a0) * self.sample_m2
-            - (self.a1 / self.a0) * self.output_m1
-            - (self.a2 / self.a0) * self.output_m2;
+        let r = (self.coefficients.b0 / self.coefficients.a0) * s64
+            + (self.coefficients.b1 / self.coefficients.a0) * self.sample_m1
+            + (self.coefficients.b2 / self.coefficients.a0) * self.sample_m2
+            - (self.coefficients.a1 / self.coefficients.a0) * self.output_m1
+            - (self.coefficients.a2 / self.coefficients.a0) * self.output_m2;
 
         // Scroll everything forward in time.
         self.sample_m2 = self.sample_m1;
@@ -592,7 +432,7 @@ impl TransformsAudio for Filter {
         r as MonoSample
     }
 }
-impl HasOverhead for Filter {
+impl HasOverhead for BiQuadFilter {
     fn overhead(&self) -> &Overhead {
         &self.overhead
     }
@@ -625,80 +465,70 @@ mod tests {
         let tests = vec![
             (
                 "rbj_noise_lpf_1KHz_min_q",
-                &FilterType::LowPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::LowPass {
                     cutoff: 1000.,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
             ),
             (
                 "rbj_noise_lpf_1KHz_q10",
-                &FilterType::LowPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::LowPass {
                     cutoff: 1000.,
                     q: Q_10,
                 },
             ),
             (
                 "rbj_noise_hpf_1KHz_min_q",
-                &FilterType::HighPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::HighPass {
                     cutoff: 1000.,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
             ),
             (
                 "rbj_noise_hpf_1KHz_q10",
-                &FilterType::HighPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::HighPass {
                     cutoff: 1000.,
                     q: Q_10,
                 },
             ),
             (
                 "rbj_noise_bpf_1KHz_bw1",
-                &FilterType::BandPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::BandPass {
                     cutoff: 1000.,
                     bandwidth: ONE_OCTAVE,
                 },
             ),
             (
                 "rbj_noise_bsf_1KHz_bw1",
-                &FilterType::BandStop {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::BandStop {
                     cutoff: 1000.,
                     bandwidth: ONE_OCTAVE,
                 },
             ),
             (
                 "rbj_noise_apf_1KHz_min_q",
-                &FilterType::AllPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::AllPass {
                     cutoff: 1000.0,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
             ),
             (
                 "rbj_noise_peaking_eq_1KHz_6db",
-                &FilterType::PeakingEq {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::PeakingEq {
                     cutoff: 1000.,
                     db_gain: SIX_DB,
                 },
             ),
             (
                 "rbj_noise_low_shelf_1KHz_6db",
-                &FilterType::LowShelf {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::LowShelf {
                     cutoff: 1000.,
                     db_gain: SIX_DB,
                 },
             ),
             (
                 "rbj_noise_high_shelf_1KHz_6db",
-                &FilterType::HighShelf {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::HighShelf {
                     cutoff: 1000.,
                     db_gain: SIX_DB,
                 },
@@ -708,7 +538,7 @@ mod tests {
             write_source_and_controlled_effect(
                 t.0,
                 WaveformType::Noise,
-                Some(Filter::new_wrapped_with(t.1)),
+                Some(BiQuadFilter::new_wrapped_with(t.1, SAMPLE_RATE)),
                 None,
             );
         }
@@ -720,82 +550,76 @@ mod tests {
         let tests = vec![
             (
                 "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q",
-                &FilterType::LowPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::LowPass {
                     cutoff: 1000.,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                Filter::CONTROL_PARAM_CUTOFF,
+                BiQuadFilter::CONTROL_PARAM_CUTOFF,
                 40.0,
                 8000.0,
             ),
             (
                 "rbj_sawtooth_middle_c_lpf_dynamic_40Hz_8KHz_min_q",
-                &FilterType::LowPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::LowPass {
                     cutoff: 1000.,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                Filter::CONTROL_PARAM_CUTOFF,
+                BiQuadFilter::CONTROL_PARAM_CUTOFF,
                 40.0,
                 8000.0,
             ),
             (
                 "rbj_sawtooth_middle_c_lpf_1KHz_dynamic_min_q_20",
-                &FilterType::LowPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::LowPass {
                     cutoff: 1000.,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                Filter::CONTROL_PARAM_Q, ////// NOTE! This is Q! Not cutoff!
+                BiQuadFilter::CONTROL_PARAM_Q, ////// NOTE! This is Q! Not cutoff!
                 std::f32::consts::FRAC_1_SQRT_2,
                 std::f32::consts::FRAC_1_SQRT_2 * 20.0,
             ),
             (
                 "rbj_sawtooth_middle_c_hpf_dynamic_8KHz_40Hz_min_q",
-                &FilterType::HighPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::HighPass {
                     cutoff: 1000.,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                Filter::CONTROL_PARAM_CUTOFF,
+                BiQuadFilter::CONTROL_PARAM_CUTOFF,
                 8000.0,
                 40.0,
             ),
             (
                 "rbj_sawtooth_middle_c_bpf_dynamic_40Hz_8KHz_min_q",
-                &FilterType::BandPass {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::BandPass {
                     cutoff: 1000.,
                     bandwidth: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                Filter::CONTROL_PARAM_CUTOFF,
+                BiQuadFilter::CONTROL_PARAM_CUTOFF,
                 40.0,
                 8000.0,
             ),
             (
                 "rbj_sawtooth_middle_c_bsf_dynamic_40Hz_1.5KHz_min_q",
-                &FilterType::BandStop {
-                    sample_rate: SAMPLE_RATE,
+                &FilterParams::BandStop {
                     cutoff: 1000.,
                     bandwidth: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                Filter::CONTROL_PARAM_CUTOFF,
+                BiQuadFilter::CONTROL_PARAM_CUTOFF,
                 40.0,
                 1500.0,
             ),
         ];
         for t in tests {
-            let effect = Filter::new_wrapped_with(t.1);
+            let effect = BiQuadFilter::new_wrapped_with(t.1, SAMPLE_RATE);
             let mut envelope = Box::new(SteppedEnvelope::new_with_time_unit(
                 crate::clock::ClockTimeUnit::Seconds,
             ));
             let (start_value, end_value) = match t.2 {
-                Filter::CONTROL_PARAM_CUTOFF => (
-                    Filter::frequency_to_percent(t.3),
-                    Filter::frequency_to_percent(t.4),
+                BiQuadFilter::CONTROL_PARAM_CUTOFF => (
+                    BiQuadFilter::frequency_to_percent(t.3),
+                    BiQuadFilter::frequency_to_percent(t.4),
                 ),
-                Filter::CONTROL_PARAM_Q => (t.3, t.4),
+                BiQuadFilter::CONTROL_PARAM_Q => (t.3, t.4),
                 _ => todo!(),
             };
             envelope.push_step(EnvelopeStep::new_with_duration(

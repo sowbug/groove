@@ -1,7 +1,7 @@
 use crate::{
     common::{wrc_clone, Rrc, Ww},
     effects::{
-        arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain,
+        arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
     },
     patterns::PatternSequencer,
@@ -565,18 +565,18 @@ impl MakesIsViewable for Limiter {
 
 #[derive(Debug)]
 pub struct FilterViewableResponder {
-    target: Ww<Filter>,
+    target: Ww<BiQuadFilter>,
 }
 impl IsViewable for FilterViewableResponder {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
-            let title = type_name::<Filter>();
+            let title = type_name::<BiQuadFilter>();
             let contents = row![
                 container(slider(
                     0..=100,
-                    (Filter::frequency_to_percent(target.borrow().cutoff()) * 100.0) as u8,
+                    (BiQuadFilter::frequency_to_percent(target.borrow().cutoff()) * 100.0) as u8,
                     Self::Message::FilterCutoffChangedAsU8Percentage
                 ))
                 .width(iced::Length::FillPortion(1)),
@@ -608,7 +608,9 @@ impl IsViewable for FilterViewableResponder {
                 ViewableMessage::FilterCutoffChangedAsU8Percentage(new_value) => {
                     target
                         .borrow_mut()
-                        .set_cutoff(Filter::percent_to_frequency((new_value as f32) / 100.0));
+                        .set_cutoff(BiQuadFilter::percent_to_frequency(
+                            (new_value as f32) / 100.0,
+                        ));
                 }
                 _ => todo!(),
             }
@@ -616,7 +618,7 @@ impl IsViewable for FilterViewableResponder {
     }
 }
 
-impl MakesIsViewable for Filter {
+impl MakesIsViewable for BiQuadFilter {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(FilterViewableResponder {
@@ -744,8 +746,12 @@ mod tests {
     use crate::{
         common::Rrc,
         effects::{
-            arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain,
-            limiter::Limiter, mixer::Mixer,
+            arpeggiator::Arpeggiator,
+            bitcrusher::Bitcrusher,
+            filter::{BiQuadFilter, FilterParams},
+            gain::Gain,
+            limiter::Limiter,
+            mixer::Mixer,
         },
         patterns::PatternSequencer,
         settings::patches::SynthPatch,
@@ -791,11 +797,13 @@ mod tests {
             Some(ViewableMessage::BitcrusherValueChanged(4)),
         );
         test_one_viewable(
-            Filter::new_wrapped_with(&crate::effects::filter::FilterType::AllPass {
-                sample_rate: 44100,
-                cutoff: 1000.0,
-                q: 2.0,
-            }),
+            BiQuadFilter::new_wrapped_with(
+                &FilterParams::AllPass {
+                    cutoff: 1000.0,
+                    q: 2.0,
+                },
+                44100,
+            ),
             Some(ViewableMessage::FilterCutoffChangedAsF32(500.0)),
         );
         test_one_viewable(

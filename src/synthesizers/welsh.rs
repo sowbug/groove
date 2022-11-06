@@ -1,6 +1,6 @@
 use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, weak_new, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
-    effects::filter::{Filter, FilterType},
+    effects::filter::{BiQuadFilter, FilterParams},
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
     settings::{
         patches::{LfoRouting, SynthPatch, WaveformType},
@@ -526,7 +526,7 @@ pub struct Voice {
     lfo_routing: LfoRouting,
     lfo_depth: f32,
 
-    filter: Filter,
+    filter: BiQuadFilter,
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
     filter_envelope: AdsrEnvelope,
@@ -542,12 +542,14 @@ impl Voice {
             lfo_routing: preset.lfo.routing,
             lfo_depth: preset.lfo.depth,
 
-            filter: Filter::new(&FilterType::LowPass {
+            filter: BiQuadFilter::new_with(
+                &FilterParams::LowPass {
+                    cutoff: preset.filter_type_12db.cutoff,
+                    q: FRAC_1_SQRT_2, // TODO: resonance
+                },
                 sample_rate,
-                cutoff: preset.filter_type_12db.cutoff,
-                q: FRAC_1_SQRT_2, // TODO: resonance
-            }),
-            filter_cutoff_start: Filter::frequency_to_percent(preset.filter_type_12db.cutoff),
+            ),
+            filter_cutoff_start: BiQuadFilter::frequency_to_percent(preset.filter_type_12db.cutoff),
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: AdsrEnvelope::new_with(&preset.filter_envelope),
             ..Default::default()
@@ -644,7 +646,7 @@ impl SourcesAudio for Voice {
         let new_cutoff_percentage = self.filter_cutoff_start
             + (self.filter_cutoff_end - self.filter_cutoff_start)
                 * self.filter_envelope.source_audio(clock);
-        let new_cutoff = Filter::percent_to_frequency(new_cutoff_percentage);
+        let new_cutoff = BiQuadFilter::percent_to_frequency(new_cutoff_percentage);
         self.filter.set_cutoff(new_cutoff);
         let filtered_mix = self.filter.transform_audio(osc_sum);
 

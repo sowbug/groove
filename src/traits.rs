@@ -379,7 +379,9 @@ pub mod tests {
         clock::WatchedClock,
         common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, MONO_SAMPLE_SILENCE},
         control::ControlTrip,
-        effects::{arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::Filter, gain::Gain},
+        effects::{
+            arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
+        },
         envelopes::AdsrEnvelope,
         midi::{sequencer::MidiSequencer, MidiChannel, MidiUtils},
         oscillators::Oscillator,
@@ -485,7 +487,7 @@ pub mod tests {
         sources_audio_adsr_envelope: AdsrEnvelope,
         sources_audio_bitcrusher: Bitcrusher,
         sources_audio_drumkit_sampler: DrumkitSampler,
-        sources_audio_filter: Filter,
+        sources_audio_filter: BiQuadFilter,
         sources_audio_gain: Gain,
         sources_audio_limiter: crate::effects::limiter::Limiter,
         sources_audio_mixer: crate::effects::mixer::Mixer,
@@ -498,7 +500,7 @@ pub mod tests {
 
     sinks_audio_tests! {
         sinks_audio_bitcrusher: Bitcrusher,
-        sinks_audio_filter: Filter,
+        sinks_audio_filter: BiQuadFilter,
         sinks_audio_gain: Gain,
         sinks_audio_limiter: crate::effects::limiter::Limiter,
         sinks_audio_mixer: crate::effects::mixer::Mixer,
@@ -516,7 +518,7 @@ pub mod tests {
         has_overhead_adsr_envelope: crate::envelopes::AdsrEnvelope,
         has_overhead_arpeggiator: crate::effects::arpeggiator::Arpeggiator,
         has_overhead_bitcrusher: crate::effects::bitcrusher::Bitcrusher,
-        has_overhead_filter: crate::effects::filter::Filter,
+        has_overhead_filter: crate::effects::filter::BiQuadFilter,
         has_overhead_gain: crate::effects::gain::Gain,
         has_overhead_limiter: crate::effects::limiter::Limiter,
         has_overhead_mixer: crate::effects::mixer::Mixer,
@@ -668,11 +670,13 @@ pub mod tests {
 
         // If the instance is meaningfully testable after new(), put it here.
         let mut sources: Vec<Rrc<dyn SourcesAudio>> = vec![
-            Filter::new_wrapped_with(&crate::effects::filter::FilterType::BandPass {
-                sample_rate: 13245,
-                cutoff: 2343.9,
-                bandwidth: 4354.3,
-            }),
+            BiQuadFilter::new_wrapped_with(
+                &crate::effects::filter::FilterParams::BandPass {
+                    cutoff: 2343.9,
+                    bandwidth: 4354.3,
+                },
+                13245,
+            ),
             Gain::new_wrapped_with(0.5),
         ];
 

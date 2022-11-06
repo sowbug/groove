@@ -4,7 +4,7 @@ use crate::effects::arpeggiator::Arpeggiator;
 use crate::effects::bitcrusher::Bitcrusher;
 use crate::effects::limiter::Limiter;
 use crate::effects::mixer::Mixer;
-use crate::effects::{filter::Filter, gain::Gain};
+use crate::effects::{filter::BiQuadFilter, gain::Gain};
 use crate::envelopes::{AdsrEnvelope, EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
 use crate::oscillators::Oscillator;
 use crate::settings::control::ControlStep;
@@ -135,21 +135,21 @@ impl ControlPath {
 
 #[derive(Debug)]
 pub struct FilterCutoffController {
-    target: Ww<Filter>,
+    target: Ww<BiQuadFilter>,
 }
 impl SinksControl for FilterCutoffController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
         if let Some(target) = self.target.upgrade() {
             target
                 .borrow_mut()
-                .set_cutoff(Filter::percent_to_frequency(value));
+                .set_cutoff(BiQuadFilter::percent_to_frequency(value));
         }
     }
 }
 
 #[derive(Debug)]
 pub struct FilterQController {
-    target: Ww<Filter>,
+    target: Ww<BiQuadFilter>,
 }
 impl SinksControl for FilterQController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
@@ -162,7 +162,7 @@ impl SinksControl for FilterQController {
 // TODO: I guess I haven't gotten around to implementing these yet for Filter
 #[derive(Debug)]
 pub struct FilterBandwidthController {
-    target: Ww<Filter>,
+    target: Ww<BiQuadFilter>,
 }
 impl SinksControl for FilterBandwidthController {
     fn handle_control(&mut self, _clock: &Clock, _value: f32) {
@@ -174,7 +174,7 @@ impl SinksControl for FilterBandwidthController {
 
 #[derive(Debug)]
 pub struct FilterDbGainController {
-    target: Ww<Filter>,
+    target: Ww<BiQuadFilter>,
 }
 impl SinksControl for FilterDbGainController {
     fn handle_control(&mut self, _clock: &Clock, _value: f32) {
@@ -184,7 +184,7 @@ impl SinksControl for FilterDbGainController {
     }
 }
 
-impl MakesControlSink for Filter {
+impl MakesControlSink for BiQuadFilter {
     fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
         if self.me.strong_count() != 0 {
             match param_name {
