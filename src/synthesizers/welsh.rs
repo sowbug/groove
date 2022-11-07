@@ -646,8 +646,7 @@ impl SourcesAudio for Voice {
         let new_cutoff_percentage = self.filter_cutoff_start
             + (self.filter_cutoff_end - self.filter_cutoff_start)
                 * self.filter_envelope.source_audio(clock);
-        let new_cutoff = BiQuadFilter::percent_to_frequency(new_cutoff_percentage);
-        self.filter.set_cutoff(new_cutoff);
+        self.filter.set_cutoff_pct(new_cutoff_percentage);
         let filtered_mix = self.filter.transform_audio(osc_sum);
 
         // LFO amplitude modulation

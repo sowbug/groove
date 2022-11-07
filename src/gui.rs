@@ -576,12 +576,12 @@ impl IsViewable for FilterViewableResponder {
             let contents = row![
                 container(slider(
                     0..=100,
-                    (BiQuadFilter::frequency_to_percent(target.borrow().cutoff()) * 100.0) as u8,
+                    (target.borrow().cutoff_pct() * 100.0) as u8,
                     Self::Message::FilterCutoffChangedAsU8Percentage
                 ))
                 .width(iced::Length::FillPortion(1)),
                 container(GuiStuff::container_text(
-                    format!("cutoff: {}", target.borrow().cutoff()).as_str()
+                    format!("cutoff: {}Hz", target.borrow().cutoff_hz()).as_str()
                 ))
                 .width(iced::Length::FillPortion(1))
             ];
@@ -602,15 +602,13 @@ impl IsViewable for FilterViewableResponder {
                 }
                 ViewableMessage::FilterCutoffChangedAsF32(new_value) => {
                     if let Some(target) = self.target.upgrade() {
-                        target.borrow_mut().set_cutoff(new_value);
+                        target.borrow_mut().set_cutoff_hz(new_value);
                     }
                 }
                 ViewableMessage::FilterCutoffChangedAsU8Percentage(new_value) => {
                     target
                         .borrow_mut()
-                        .set_cutoff(BiQuadFilter::percent_to_frequency(
-                            (new_value as f32) / 100.0,
-                        ));
+                        .set_cutoff_pct((new_value as f32) / 100.0);
                 }
                 _ => todo!(),
             }

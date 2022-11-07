@@ -140,9 +140,7 @@ pub struct FilterCutoffController {
 impl SinksControl for FilterCutoffController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
         if let Some(target) = self.target.upgrade() {
-            target
-                .borrow_mut()
-                .set_cutoff(BiQuadFilter::percent_to_frequency(value));
+            target.borrow_mut().set_cutoff_pct(value);
         }
     }
 }

@@ -231,13 +231,21 @@ impl BiQuadFilter {
         };
     }
 
-    pub(crate) fn cutoff(&self) -> f32 {
+    pub(crate) fn cutoff_hz(&self) -> f32 {
         self.cutoff
     }
 
-    pub(crate) fn set_cutoff(&mut self, new_cutoff: f32) {
-        self.cutoff = new_cutoff;
+    pub(crate) fn set_cutoff_hz(&mut self, hz: f32) {
+        self.cutoff = hz;
         self.update_coefficients();
+    }
+
+    pub(crate) fn cutoff_pct(&self) -> f32 {
+        Self::frequency_to_percent(self.cutoff)
+    }
+
+    pub(crate) fn set_cutoff_pct(&mut self, percent: f32) {
+        self.set_cutoff_hz(Self::percent_to_frequency(percent));
     }
 
     pub fn set_q(&mut self, new_val: f32) {
