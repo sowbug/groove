@@ -409,12 +409,8 @@ impl SinksControl for LimiterMaxController {
 pub(crate) enum MixerControlParams {}
 
 impl MakesControlSink for Mixer {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            if let Ok(param) = MixerControlParams::from_str(param_name) {
-                {}
-            }
-        }
+    fn make_control_sink(&self, _param_name: &str) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {}
         None
     }
 }
