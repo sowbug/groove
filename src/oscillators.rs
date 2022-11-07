@@ -54,8 +54,6 @@ impl Default for Oscillator {
 }
 
 impl Oscillator {
-    pub(crate) const CONTROL_PARAM_FREQUENCY: &str = "frequency";
-
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {

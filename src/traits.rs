@@ -378,7 +378,7 @@ pub mod tests {
         clock::Clock,
         clock::WatchedClock,
         common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, MONO_SAMPLE_SILENCE},
-        control::ControlTrip,
+        control::{ControlTrip, OscillatorControlParams},
         effects::{
             arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         },
@@ -426,7 +426,7 @@ pub mod tests {
             TestControlSourceContinuous::new_with(Box::new(Oscillator::new()));
         if let Some(effect_controller) = effect
             .borrow()
-            .make_control_sink(Oscillator::CONTROL_PARAM_FREQUENCY)
+            .make_control_sink(&OscillatorControlParams::Frequency.to_string())
         {
             audio_to_controller.add_control_sink(effect_controller);
         };
