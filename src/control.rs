@@ -1,3 +1,5 @@
+use strum_macros::{Display, EnumString};
+
 use crate::clock::{Clock, ClockTimeUnit};
 use crate::common::{wrc_clone, Ww};
 use crate::effects::arpeggiator::Arpeggiator;
@@ -10,6 +12,7 @@ use crate::oscillators::Oscillator;
 use crate::settings::control::ControlStep;
 use crate::traits::{MakesControlSink, SinksControl, Terminates, WatchesClock};
 use std::ops::Range;
+use std::str::FromStr;
 
 /// ControlTrip, ControlPath, and ControlStep help with
 /// [automation](https://en.wikipedia.org/wiki/Track_automation).
@@ -373,6 +376,31 @@ impl MakesControlSink for Mixer {
     }
 }
 
+#[derive(Display, Debug, EnumString)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum ArpeggiatorControlParams {
+    Nothing,
+}
+
+impl MakesControlSink for Arpeggiator {
+    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            if let Ok(param) = ArpeggiatorControlParams::from_str(param_name) {
+                {
+                    match param {
+                        ArpeggiatorControlParams::Nothing => {
+                            return Some(Box::new(ArpeggiatorNothingController {
+                                target: wrc_clone(&self.me),
+                            }))
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
 #[derive(Debug)]
 pub struct ArpeggiatorNothingController {
     target: Ww<Arpeggiator>,
@@ -381,17 +409,6 @@ impl SinksControl for ArpeggiatorNothingController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
         if let Some(target) = self.target.upgrade() {
             target.borrow_mut().set_nothing(value);
-        }
-    }
-}
-impl MakesControlSink for Arpeggiator {
-    fn make_control_sink(&self, _param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(ArpeggiatorNothingController {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            None
         }
     }
 }
