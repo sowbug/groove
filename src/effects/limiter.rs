@@ -14,10 +14,8 @@ pub struct Limiter {
     max: MonoSample,
 }
 impl IsEffect for Limiter {}
-impl Limiter {
-    pub(crate) const CONTROL_PARAM_MIN: &str = "min";
-    pub(crate) const CONTROL_PARAM_MAX: &str = "max";
 
+impl Limiter {
     #[allow(dead_code)]
     fn new() -> Self {
         Self::new_with(MONO_SAMPLE_MIN, MONO_SAMPLE_MAX)

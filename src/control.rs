@@ -288,46 +288,6 @@ impl MakesControlSink for Oscillator {
 }
 
 #[derive(Debug)]
-pub struct LimiterMinLevelController {
-    target: Ww<Limiter>,
-}
-impl SinksControl for LimiterMinLevelController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_min(value);
-        }
-    }
-}
-#[derive(Debug)]
-pub struct LimiterMaxLevelController {
-    target: Ww<Limiter>,
-}
-impl SinksControl for LimiterMaxLevelController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_max(value);
-        }
-    }
-}
-impl MakesControlSink for Limiter {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            match param_name {
-                Self::CONTROL_PARAM_MIN => Some(Box::new(LimiterMinLevelController {
-                    target: wrc_clone(&self.me),
-                })),
-                Self::CONTROL_PARAM_MAX => Some(Box::new(LimiterMaxLevelController {
-                    target: wrc_clone(&self.me),
-                })),
-                _ => None,
-            }
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct BitcrusherBitCountController {
     target: Ww<Bitcrusher>,
 }
@@ -389,6 +349,61 @@ impl SinksControl for ArpeggiatorNothingController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
         if let Some(target) = self.target.upgrade() {
             target.borrow_mut().set_nothing(value);
+        }
+    }
+}
+
+#[derive(Display, Debug, EnumString)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum LimiterControlParams {
+    Min,
+    Max,
+}
+
+impl MakesControlSink for Limiter {
+    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            if let Ok(param) = LimiterControlParams::from_str(param_name) {
+                {
+                    match param {
+                        LimiterControlParams::Min => {
+                            return Some(Box::new(LimiterMinController {
+                                target: wrc_clone(&self.me),
+                            }))
+                        }
+                        LimiterControlParams::Max => {
+                            return Some(Box::new(LimiterMaxController {
+                                target: wrc_clone(&self.me),
+                            }))
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+#[derive(Debug)]
+pub struct LimiterMinController {
+    target: Ww<Limiter>,
+}
+impl SinksControl for LimiterMinController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_min(value);
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct LimiterMaxController {
+    target: Ww<Limiter>,
+}
+impl SinksControl for LimiterMaxController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_max(value);
         }
     }
 }
