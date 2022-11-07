@@ -46,13 +46,13 @@ impl Gain {
     }
 
     #[allow(dead_code)]
-    pub fn level(&self) -> f32 {
+    pub fn ceiling(&self) -> f32 {
         self.ceiling
     }
 
     #[allow(dead_code)]
-    pub fn set_level(&mut self, level: f32) {
-        self.ceiling = level;
+    pub fn set_ceiling(&mut self, pct: f32) {
+        self.ceiling = pct;
     }
 }
 impl SinksAudio for Gain {

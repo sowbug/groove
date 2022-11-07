@@ -239,7 +239,7 @@ pub struct GainLevelController {
 impl SinksControl for GainLevelController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
         if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_level(value);
+            target.borrow_mut().set_ceiling(value);
         }
     }
 }

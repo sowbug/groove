@@ -374,7 +374,7 @@ impl IsViewable for GainViewableResponder {
 
     fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
-            let level = target.borrow().level();
+            let level = target.borrow().ceiling();
             let level_percent: u8 = (level * 100.0) as u8;
             let title = "Gain";
             let contents = container(row![
@@ -412,11 +412,11 @@ impl IsViewable for GainViewableResponder {
                     // 0..=100
                     // 0.0..=1.0
                     // -1.0..=1.0
-                    target.borrow_mut().set_level((new_level as f32) / 100.0);
+                    target.borrow_mut().set_ceiling((new_level as f32) / 100.0);
                 }
-                Self::Message::GainLevelChangedAsString(new_level) => {
-                    if let Ok(level) = new_level.parse() {
-                        target.borrow_mut().set_level(level);
+                Self::Message::GainLevelChangedAsString(ceiling) => {
+                    if let Ok(ceiling) = ceiling.parse() {
+                        target.borrow_mut().set_ceiling(ceiling);
                     }
                 }
                 _ => todo!(),
