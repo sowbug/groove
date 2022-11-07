@@ -378,7 +378,7 @@ pub mod tests {
         clock::Clock,
         clock::WatchedClock,
         common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, MONO_SAMPLE_SILENCE},
-        control::{ControlTrip, OscillatorControlParams},
+        control::{AdsrEnvelopeControlParams, ControlTrip, OscillatorControlParams},
         effects::{
             arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         },
@@ -439,7 +439,7 @@ pub mod tests {
         let mut trigger_on = TestTrigger::new(1.0, 1.0);
         if let Some(envelope_controller) = envelope
             .borrow()
-            .make_control_sink(AdsrEnvelope::CONTROL_PARAM_NOTE)
+            .make_control_sink(&AdsrEnvelopeControlParams::Note.to_string())
         {
             trigger_on.add_control_sink(envelope_controller);
         };
@@ -448,7 +448,7 @@ pub mod tests {
         let mut trigger_off = TestTrigger::new(1.5, 0.0);
         if let Some(envelope_controller) = envelope
             .borrow()
-            .make_control_sink(AdsrEnvelope::CONTROL_PARAM_NOTE)
+            .make_control_sink(&AdsrEnvelopeControlParams::Note.to_string())
         {
             trigger_off.add_control_sink(envelope_controller);
         };

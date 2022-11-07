@@ -260,8 +260,6 @@ impl Default for AdsrEnvelope {
 }
 
 impl AdsrEnvelope {
-    pub(crate) const CONTROL_PARAM_NOTE: &str = "note"; // 1.0 = on, everything else = off, TODO velocity
-
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
