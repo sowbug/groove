@@ -249,11 +249,31 @@ impl BiQuadFilter {
         self.set_cutoff_hz(Self::percent_to_frequency(percent));
     }
 
-    pub fn set_q(&mut self, new_val: f32) {
-        self.param2 = new_val;
+    // Note that these three are all alises for the same field: param2. This was
+    // easier, for now, than some kind of fancy impl per filter type.
+    pub fn q(&self) -> f32 {
+        self.param2
+    }
+    pub fn set_q(&mut self, param2: f32) {
+        self.param2 = param2;
         self.update_coefficients();
     }
 
+    pub fn db_gain(&self) -> f32 {
+        self.param2
+    }
+    pub fn set_db_gain(&mut self, param2: f32) {
+        self.param2 = param2;
+        self.update_coefficients();
+    }
+
+    pub fn bandwidth(&self) -> f32 {
+        self.param2
+    }
+    pub fn set_bandwidth(&mut self, param2: f32) {
+        self.param2 = param2;
+        self.update_coefficients();
+    }
     fn rbj_none_coefficients(&self) -> CoefficientSet {
         CoefficientSet {
             a0: 1.0,
