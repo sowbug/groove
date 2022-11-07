@@ -83,6 +83,7 @@ struct CoefficientSet {
     b2: f64,
 }
 
+/// https://en.wikipedia.org/wiki/Digital_biquad_filter
 #[derive(Debug)]
 pub struct BiQuadFilter {
     pub(crate) me: Ww<Self>,
