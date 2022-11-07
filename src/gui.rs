@@ -407,12 +407,12 @@ impl IsViewable for GainViewableResponder {
                 ViewableMessage::EnablePressed(is_enabled) => {
                     target.borrow_mut().set_enabled(is_enabled);
                 }
-                Self::Message::GainLevelChangedAsU8Percentage(new_level) => {
+                Self::Message::GainLevelChangedAsU8Percentage(ceiling) => {
                     // TODO: we need input sanitizers
                     // 0..=100
                     // 0.0..=1.0
                     // -1.0..=1.0
-                    target.borrow_mut().set_ceiling((new_level as f32) / 100.0);
+                    target.borrow_mut().set_ceiling((ceiling as f32) / 100.0);
                 }
                 Self::Message::GainLevelChangedAsString(ceiling) => {
                     if let Ok(ceiling) = ceiling.parse() {
