@@ -236,32 +236,6 @@ impl MakesControlSink for AdsrEnvelope {
 }
 
 #[derive(Debug)]
-pub struct GainLevelController {
-    target: Ww<Gain>,
-}
-impl SinksControl for GainLevelController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_ceiling(value);
-        }
-    }
-}
-impl MakesControlSink for Gain {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            match param_name {
-                Self::CONTROL_PARAM_CEILING => Some(Box::new(GainLevelController {
-                    target: wrc_clone(&self.me),
-                })),
-                _ => None,
-            }
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct BitcrusherBitCountController {
     target: Ww<Bitcrusher>,
 }
@@ -323,6 +297,43 @@ impl SinksControl for ArpeggiatorNothingController {
     fn handle_control(&mut self, _clock: &Clock, value: f32) {
         if let Some(target) = self.target.upgrade() {
             target.borrow_mut().set_nothing(value);
+        }
+    }
+}
+
+#[derive(Display, Debug, EnumString)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum GainControlParams {
+    Ceiling,
+}
+
+impl MakesControlSink for Gain {
+    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
+        if self.me.strong_count() != 0 {
+            if let Ok(param) = GainControlParams::from_str(param_name) {
+                {
+                    match param {
+                        GainControlParams::Ceiling => {
+                            return Some(Box::new(GainCeilingController {
+                                target: wrc_clone(&self.me),
+                            }))
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+#[derive(Debug)]
+pub struct GainCeilingController {
+    target: Ww<Gain>,
+}
+impl SinksControl for GainCeilingController {
+    fn handle_control(&mut self, _clock: &Clock, value: f32) {
+        if let Some(target) = self.target.upgrade() {
+            target.borrow_mut().set_ceiling(value);
         }
     }
 }

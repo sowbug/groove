@@ -14,8 +14,6 @@ pub struct Gain {
 impl IsEffect for Gain {}
 
 impl Gain {
-    pub(crate) const CONTROL_PARAM_CEILING: &str = "ceiling";
-
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
