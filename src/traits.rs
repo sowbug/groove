@@ -378,7 +378,10 @@ pub mod tests {
         clock::Clock,
         clock::WatchedClock,
         common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, MONO_SAMPLE_SILENCE},
-        control::{AdsrEnvelopeControlParams, ControlTrip, OscillatorControlParams},
+        control::{
+            AdsrEnvelopeControlParams, BitcrusherControlParams, ControlTrip,
+            OscillatorControlParams,
+        },
         effects::{
             arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         },
@@ -482,7 +485,8 @@ pub mod tests {
         assert!(clock.seconds() >= 1.0);
     }
 
-    // grep -R "HasOverhead for " src/ | grep -o "for.*$" | grep -o -E "[A-Z][[:alpha:]]+" | sort -u
+    // $ grep -R "HasOverhead for " src/ | grep -o "for.*$" | \
+    //   grep -o -E "[A-Z][[:alpha:]]+" | sort -u`
     sources_audio_tests! {
         sources_audio_adsr_envelope: AdsrEnvelope,
         sources_audio_bitcrusher: Bitcrusher,
@@ -622,7 +626,7 @@ pub mod tests {
     fn watches_clock_instances_for_testing() -> Vec<Rrc<dyn WatchesClock>> {
         let target = Bitcrusher::new_wrapped_with(4)
             .borrow_mut()
-            .make_control_sink(Bitcrusher::CONTROL_PARAM_BITS_TO_CRUSH)
+            .make_control_sink(&BitcrusherControlParams::BitsToCrush.to_string())
             .unwrap();
         vec![
             Arpeggiator::new_wrapped_with(0, 0),

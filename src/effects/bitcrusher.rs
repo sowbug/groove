@@ -13,8 +13,6 @@ pub struct Bitcrusher {
 }
 impl IsEffect for Bitcrusher {}
 impl Bitcrusher {
-    pub(crate) const CONTROL_PARAM_BITS_TO_CRUSH: &str = "bits-to-crush";
-
     #[allow(dead_code)]
     fn new() -> Self {
         Self::new_with(8)
@@ -44,14 +42,6 @@ impl Bitcrusher {
 
     pub(crate) fn set_bits_to_crush(&mut self, n: u8) {
         self.bits_to_crush = n;
-    }
-
-    pub(crate) fn bits_to_crush_pct(&self) -> f32 {
-        self.bits_to_crush as f32 / 16.0
-    }
-
-    pub(crate) fn set_bits_to_crush_pct(&mut self, pct: f32) {
-        self.bits_to_crush = (pct * 16.0) as u8;
     }
 }
 impl SinksAudio for Bitcrusher {
