@@ -46,24 +46,6 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Speaker: perform",
-      "cargo": {
-        "args": [
-          "build",
-          "--bin=groove-cli",
-          "--package=groove"
-        ],
-        "filter": {
-          "name": "groove-cli",
-          "kind": "bin"
-        }
-      },
-      "args": [],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
       "name": "YAML to speaker",
       "cargo": {
         "args": [
