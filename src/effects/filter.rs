@@ -121,11 +121,6 @@ impl BiQuadFilter {
     pub const FREQUENCY_TO_LINEAR_BASE: f32 = 800.0;
     pub const FREQUENCY_TO_LINEAR_COEFFICIENT: f32 = 25.0;
 
-    pub(crate) const CONTROL_PARAM_CUTOFF: &str = "cutoff";
-    pub(crate) const CONTROL_PARAM_Q: &str = "q";
-    pub(crate) const CONTROL_PARAM_BANDWIDTH: &str = "bandwidth";
-    pub(crate) const CONTROL_PARAM_DB_GAIN: &str = "db-gain";
-
     // https://docs.google.com/spreadsheets/d/1uQylh2h77-fuJ6OM0vjF7yjRXflLFP0yQEnv5wbaP2c/edit#gid=0
     // =LOGEST(Sheet1!B2:B23, Sheet1!A2:A23,true, false)
     //
@@ -476,6 +471,7 @@ mod tests {
     use super::*;
     use crate::{
         common::rrc,
+        control::BiQuadFilterControlParams,
         envelopes::{EnvelopeStep, SteppedEnvelope},
         settings::patches::WaveformType,
         traits::{MakesControlSink, SourcesControl},
@@ -583,7 +579,7 @@ mod tests {
                     cutoff: 1000.,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                BiQuadFilter::CONTROL_PARAM_CUTOFF,
+                BiQuadFilterControlParams::Cutoff,
                 40.0,
                 8000.0,
             ),
@@ -593,7 +589,7 @@ mod tests {
                     cutoff: 1000.,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                BiQuadFilter::CONTROL_PARAM_CUTOFF,
+                BiQuadFilterControlParams::Cutoff,
                 40.0,
                 8000.0,
             ),
@@ -603,7 +599,7 @@ mod tests {
                     cutoff: 1000.,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                BiQuadFilter::CONTROL_PARAM_Q, ////// NOTE! This is Q! Not cutoff!
+                BiQuadFilterControlParams::Q, ////// NOTE! This is Q! Not cutoff!
                 std::f32::consts::FRAC_1_SQRT_2,
                 std::f32::consts::FRAC_1_SQRT_2 * 20.0,
             ),
@@ -613,7 +609,7 @@ mod tests {
                     cutoff: 1000.,
                     q: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                BiQuadFilter::CONTROL_PARAM_CUTOFF,
+                BiQuadFilterControlParams::Cutoff,
                 8000.0,
                 40.0,
             ),
@@ -623,7 +619,7 @@ mod tests {
                     cutoff: 1000.,
                     bandwidth: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                BiQuadFilter::CONTROL_PARAM_CUTOFF,
+                BiQuadFilterControlParams::Cutoff,
                 40.0,
                 8000.0,
             ),
@@ -633,7 +629,7 @@ mod tests {
                     cutoff: 1000.,
                     bandwidth: std::f32::consts::FRAC_1_SQRT_2,
                 },
-                BiQuadFilter::CONTROL_PARAM_CUTOFF,
+                BiQuadFilterControlParams::Cutoff,
                 40.0,
                 1500.0,
             ),
@@ -644,11 +640,11 @@ mod tests {
                 crate::clock::ClockTimeUnit::Seconds,
             ));
             let (start_value, end_value) = match t.2 {
-                BiQuadFilter::CONTROL_PARAM_CUTOFF => (
+                BiQuadFilterControlParams::Cutoff => (
                     BiQuadFilter::frequency_to_percent(t.3),
                     BiQuadFilter::frequency_to_percent(t.4),
                 ),
-                BiQuadFilter::CONTROL_PARAM_Q => (t.3, t.4),
+                BiQuadFilterControlParams::Q => (t.3, t.4),
                 _ => todo!(),
             };
             envelope.push_step(EnvelopeStep::new_with_duration(
@@ -658,7 +654,7 @@ mod tests {
                 end_value,
                 crate::envelopes::EnvelopeFunction::Linear,
             ));
-            let control_sink_opt = effect.borrow_mut().make_control_sink(t.2);
+            let control_sink_opt = effect.borrow_mut().make_control_sink(&t.2.to_string());
             if let Some(control_sink) = control_sink_opt {
                 let controller = rrc(TestControlSourceContinuous::new_with(envelope));
                 controller.borrow_mut().add_control_sink(control_sink);

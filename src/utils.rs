@@ -21,13 +21,14 @@ pub mod tests {
     };
     use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};
+    use std::str::FromStr;
     // use plotters::prelude::*;
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
     };
-
     use std::collections::{HashMap, VecDeque};
     use std::fs;
+    use strum_macros::{Display, EnumString};
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -540,6 +541,12 @@ pub mod tests {
     }
     impl IsController for TestControlSourceContinuous {}
 
+    #[derive(Display, Debug, EnumString)]
+    #[strum(serialize_all = "kebab_case")]
+    pub(crate) enum TestMidiSinkControlParams {
+        Param,
+    }
+
     /// Helper for testing SinksMidi
     #[derive(Debug, Default)]
     pub struct TestMidiSink {
@@ -557,7 +564,6 @@ pub mod tests {
 
     impl TestMidiSink {
         pub const TEST_MIDI_CHANNEL: u8 = 42;
-        pub const CONTROL_PARAM_DEFAULT: &str = "param";
 
         pub fn new() -> Self {
             Self {
@@ -638,15 +644,17 @@ pub mod tests {
     impl MakesControlSink for TestMidiSink {
         fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
             if self.me.strong_count() != 0 {
-                match param_name {
-                    Self::CONTROL_PARAM_DEFAULT => Some(Box::new(TestMidiSinkController {
-                        target: wrc_clone(&self.me),
-                    })),
-                    _ => None,
+                if let Ok(param) = TestMidiSinkControlParams::from_str(param_name) {
+                    match param {
+                        TestMidiSinkControlParams::Param => {
+                            return Some(Box::new(TestMidiSinkController {
+                                target: wrc_clone(&self.me),
+                            }));
+                        }
+                    }
                 }
-            } else {
-                None
             }
+            None
         }
     }
     impl HasOverhead for TestMidiSink {
@@ -782,14 +790,18 @@ pub mod tests {
         }
     }
 
+    #[derive(Display, Debug, EnumString)]
+    #[strum(serialize_all = "kebab_case")]
+    pub(crate) enum TestControllableControlParams {
+        Value,
+    }
+
     #[derive(Debug, Default)]
     pub struct TestControllable {
         pub(crate) me: Ww<Self>,
         pub value: f32,
     }
     impl TestControllable {
-        pub(crate) const CONTROL_PARAM_DEFAULT: &str = "value";
-
         pub fn new() -> Self {
             Self {
                 ..Default::default()
@@ -804,15 +816,17 @@ pub mod tests {
     impl MakesControlSink for TestControllable {
         fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
             if self.me.strong_count() != 0 {
-                match param_name {
-                    Self::CONTROL_PARAM_DEFAULT => Some(Box::new(TestControllableController {
-                        target: wrc_clone(&self.me),
-                    })),
-                    _ => None,
+                if let Ok(param) = TestControllableControlParams::from_str(param_name) {
+                    match param {
+                        TestControllableControlParams::Value => {
+                            return Some(Box::new(TestControllableController {
+                                target: wrc_clone(&self.me),
+                            }));
+                        }
+                    }
                 }
-            } else {
-                None
             }
+            None
         }
     }
 
@@ -897,6 +911,12 @@ pub mod tests {
         }
     }
 
+    #[derive(Display, Debug, EnumString)]
+    #[strum(serialize_all = "kebab_case")]
+    pub(crate) enum TestArpeggiatorControlParams {
+        Tempo,
+    }
+
     #[derive(Debug, Default)]
     pub struct TestArpeggiator {
         me: Ww<Self>,
@@ -939,20 +959,20 @@ pub mod tests {
     impl MakesControlSink for TestArpeggiator {
         fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
             if self.me.strong_count() != 0 {
-                match param_name {
-                    Self::CONTROL_PARAM_TEMPO => Some(Box::new(TestArpeggiatorTempoController {
-                        target: wrc_clone(&self.me),
-                    })),
-                    _ => None,
+                if let Ok(param) = TestArpeggiatorControlParams::from_str(param_name) {
+                    match param {
+                        TestArpeggiatorControlParams::Tempo => {
+                            return Some(Box::new(TestArpeggiatorTempoController {
+                                target: wrc_clone(&self.me),
+                            }))
+                        }
+                    }
                 }
-            } else {
-                None
             }
+            None
         }
     }
     impl TestArpeggiator {
-        pub(crate) const CONTROL_PARAM_TEMPO: &str = "tempo";
-
         pub fn new_with(midi_channel_out: MidiChannel) -> Self {
             Self {
                 midi_channel_out,

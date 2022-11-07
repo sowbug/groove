@@ -397,9 +397,10 @@ pub mod tests {
         },
         traits::{MakesControlSink, SinksMidi, SourcesMidi, Terminates, WatchesClock},
         utils::tests::{
-            TestArpeggiator, TestAudioSink, TestAudioSource, TestClockWatcher, TestControlSource,
-            TestControlSourceContinuous, TestControllable, TestKeyboard, TestMidiSink,
-            TestMidiSource, TestOrchestrator, TestSynth, TestTimer, TestTrigger,
+            TestArpeggiator, TestArpeggiatorControlParams, TestAudioSink, TestAudioSource,
+            TestClockWatcher, TestControlSource, TestControlSourceContinuous, TestControllable,
+            TestControllableControlParams, TestKeyboard, TestMidiSink, TestMidiSource,
+            TestOrchestrator, TestSynth, TestTimer, TestTrigger,
         },
         TimeSignature,
     };
@@ -565,7 +566,7 @@ pub mod tests {
         assert!(source.control_sinks().is_empty());
         if let Some(controllable_controller) = sink
             .borrow()
-            .make_control_sink(TestControllable::CONTROL_PARAM_DEFAULT)
+            .make_control_sink(&TestControllableControlParams::Value.to_string())
         {
             source.add_control_sink(controllable_controller);
         };
@@ -601,7 +602,7 @@ pub mod tests {
 
         if let Some(arpeggiator_controller) = arpeggiator
             .borrow()
-            .make_control_sink(TestArpeggiator::CONTROL_PARAM_TEMPO)
+            .make_control_sink(&TestArpeggiatorControlParams::Tempo.to_string())
         {
             keyboard_interface.add_control_sink(arpeggiator_controller);
         };
