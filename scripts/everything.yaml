@@ -16,11 +16,6 @@ devices:
     - welsh:
         midi-in: 1
         preset: digital-bass
-  - midi-instrument:
-    - arp-1 # TODO: for dumb reasons this needs to be created before stuff it controls
-    - arpeggiator:
-        midi-in: 2
-        midi-out: 3
   - instrument:
     - synth-1
     - welsh:
@@ -31,6 +26,11 @@ devices:
     - drumkit:
         midi-in: 10
         preset: "707"
+  - midi-instrument:
+    - arp-1
+    - arpeggiator:
+        midi-in: 2
+        midi-out: 3
   - effect:
     - gain-1
     - gain:
