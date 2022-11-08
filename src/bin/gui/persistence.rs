@@ -22,7 +22,7 @@ pub enum SaveError {
 }
 
 impl SavedState {
-    pub async fn load() -> Result<SavedState, LoadError> {
+    pub async fn load() -> anyhow::Result<SavedState, LoadError> {
         //  use async_std::prelude::*;
 
         // let mut contents = String::new();
@@ -38,10 +38,16 @@ impl SavedState {
         // serde_json::from_str(&contents).map_err(|_| LoadError::FormatError)
 
         let filename = "scripts/everything.yaml";
-        Ok(SavedState {
-            project_name: "Woop Woop Woop".to_string(),
-            song_settings: IOHelper::song_settings_from_yaml_file(filename),
-        })
+        match IOHelper::song_settings_from_yaml_file(filename) {
+            Ok(song_settings) => Ok(SavedState {
+                project_name: "Woop Woop Woop".to_string(),
+                song_settings,
+            }),
+            Err(err) => {
+                println!("Error: {}", err);
+                Err(LoadError::FileError)
+            }
+        }
     }
 
     pub async fn save(self) -> Result<(), SaveError> {

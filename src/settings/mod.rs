@@ -16,11 +16,11 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
-
 type MidiChannel = u8;
 
 #[derive(Debug, Clone)]
 pub enum LoadError {
+    #[allow(dead_code)]
     FileError,
     FormatError,
 }

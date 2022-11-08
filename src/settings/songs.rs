@@ -1,6 +1,6 @@
 use super::{
     control::{ControlPathSettings, ControlTripSettings},
-    ClockSettings, DeviceSettings, LoadError, PatternSettings, TrackSettings,
+    ClockSettings, DeviceSettings, PatternSettings, TrackSettings,
 };
 use crate::{
     clock::WatchedClock,
@@ -9,7 +9,7 @@ use crate::{
     patterns::{Note, Pattern, PatternSequencer},
     Orchestrator,
 };
-use anyhow::{Error, Ok};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
@@ -38,14 +38,12 @@ impl SongSettings {
         }
     }
 
-    pub fn new_from_yaml(yaml: &str) -> Result<Self, LoadError> {
-        serde_yaml::from_str(yaml).map_err(|e| {
-            println!("{e}");
-            LoadError::FormatError
-        })
+    pub fn new_from_yaml(yaml: &str) -> anyhow::Result<Self> {
+        let settings = serde_yaml::from_str(yaml)?;
+        Ok(settings)
     }
 
-    pub fn instantiate(&self) -> Result<Orchestrator, Error> {
+    pub fn instantiate(&self) -> Result<Orchestrator> {
         let mut o = Orchestrator::new();
         o.set_watched_clock(WatchedClock::new_with(&self.clock));
         self.instantiate_devices(&mut o);
@@ -97,13 +95,15 @@ impl SongSettings {
             let mut last_device_id: Option<DeviceId> = None;
             for device_id in patch_cable {
                 if let Some(ldi) = last_device_id {
-                    let output = orchestrator.audio_source_by(&ldi);
-                    if device_id == "main-mixer" {
-                        orchestrator.add_main_mixer_source(output);
-                    } else {
-                        let input = orchestrator.audio_sink_by(device_id);
-                        if let Some(input) = input.upgrade() {
-                            input.borrow_mut().add_audio_source(output);
+                    if let Ok(output) = orchestrator.audio_source_by(&ldi) {
+                        if device_id == "main-mixer" {
+                            orchestrator.add_main_mixer_source(output);
+                        } else {
+                            if let Ok(input) = orchestrator.audio_sink_by(device_id) {
+                                if let Some(input) = input.upgrade() {
+                                    input.borrow_mut().add_audio_source(output);
+                                }
+                            }
                         }
                     }
                 }
@@ -133,10 +133,12 @@ impl SongSettings {
             let channel = track.midi_channel;
             pattern_sequencer.borrow_mut().reset_cursor();
             for pattern_id in &track.pattern_ids {
-                if let Some(pattern) = orchestrator.pattern_by(pattern_id).upgrade() {
-                    pattern_sequencer
-                        .borrow_mut()
-                        .insert_pattern_at_cursor(&channel, &pattern.borrow());
+                if let Ok(pattern) = orchestrator.pattern_by(pattern_id) {
+                    if let Some(pattern) = pattern.upgrade() {
+                        pattern_sequencer
+                            .borrow_mut()
+                            .insert_pattern_at_cursor(&channel, &pattern.borrow());
+                    }
                 }
             }
         }
@@ -159,32 +161,27 @@ impl SongSettings {
             orchestrator.register_control_path(Some(&path_settings.id), v);
         }
         for control_trip_settings in &self.trips {
-            if let Some(target) = orchestrator
-                .makes_control_sink_by(&control_trip_settings.target.id)
-                .upgrade()
+            if let Ok(control_sink) =
+                orchestrator.makes_control_sink_by(&control_trip_settings.target.id)
             {
-                if let Some(controller) = target
-                    .borrow()
-                    .make_control_sink(&control_trip_settings.target.param)
-                {
-                    let control_trip = rrc(ControlTrip::new(controller));
-                    control_trip.borrow_mut().reset_cursor();
-                    for path_id in &control_trip_settings.path_ids {
-                        let control_path = orchestrator.control_path_by(path_id);
-                        if let Some(control_path) = control_path.upgrade() {
-                            control_trip.borrow_mut().add_path(&control_path.borrow());
+                if let Some(target) = control_sink.upgrade() {
+                    if let Some(controller) = target
+                        .borrow()
+                        .make_control_sink(&control_trip_settings.target.param)
+                    {
+                        let control_trip = rrc(ControlTrip::new(controller));
+                        control_trip.borrow_mut().reset_cursor();
+                        for path_id in &control_trip_settings.path_ids {
+                            if let Ok(control_path) = orchestrator.control_path_by(path_id) {
+                                if let Some(control_path) = control_path.upgrade() {
+                                    control_trip.borrow_mut().add_path(&control_path.borrow());
+                                }
+                            }
                         }
+                        orchestrator
+                            .register_clock_watcher(Some(&control_trip_settings.id), control_trip);
                     }
-                    orchestrator
-                        .register_clock_watcher(Some(&control_trip_settings.id), control_trip);
-                } else {
-                    panic!(
-                        "someone instantiated a MakesControlSink without proper wrapping: {:?}.",
-                        target
-                    );
-                };
-            } else {
-                panic!("an upgrade failed. YOU HAD ONE JOB");
+                }
             }
         }
     }
@@ -197,19 +194,22 @@ mod tests {
 
     #[test]
     fn test_yaml_loads_and_parses() {
-        let yaml = std::fs::read_to_string("test_data/kitchen-sink.yaml").unwrap();
-        if let Ok(song_settings) = SongSettings::new_from_yaml(yaml.as_str()) {
-            if let Ok(mut orchestrator) = song_settings.instantiate() {
-                if let Ok(_performance) = orchestrator.perform() {
-                    // cool
+        if let Ok(yaml) = std::fs::read_to_string("test_data/kitchen-sink.yaml") {
+            if let Ok(song_settings) = SongSettings::new_from_yaml(yaml.as_str()) {
+                if let Ok(mut orchestrator) = song_settings.instantiate() {
+                    if let Ok(_performance) = orchestrator.perform() {
+                        // cool
+                    } else {
+                        dbg!("performance failed");
+                    }
                 } else {
-                    panic!("performance failed");
+                    dbg!("instantiation failed");
                 }
             } else {
-                panic!("instantiation failed");
+                dbg!("parsing settings failed");
             }
         } else {
-            panic!("loading settings failed");
+            dbg!("loading YAML failed");
         }
     }
 }

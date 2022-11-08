@@ -299,7 +299,10 @@ impl Application for GrooveApp {
                 };
 
                 self.audio_output.start();
-                self.midi.start();
+                match self.midi.start() {
+                    Err(err) => println!("error starting MIDI: {}", err.to_string()),
+                    _ => {}
+                }
 
                 // TODO: no outputs because MidiOutputHandler is held inside a
                 // RefCell, and thus can't give out addresses to any of its

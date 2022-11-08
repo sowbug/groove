@@ -15,7 +15,7 @@ use midly::{
     num::{u4, u7},
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, error::Error};
+use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Default)]
 #[allow(dead_code)]
@@ -331,13 +331,13 @@ impl MidiInputHandler {
         }
     }
 
-    pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn start(&mut self) -> anyhow::Result<()> {
         if let Ok(mut midi_in) = MidiInput::new("Groove MIDI input") {
             midi_in.ignore(Ignore::None);
 
             let in_ports = midi_in.ports();
             let in_port = match in_ports.len() {
-                0 => return Err("no input port found".into()),
+                0 => return Err(anyhow::Error::msg("no input port found")),
                 1 => {
                     println!(
                         "Choosing the only available input port: {}",
@@ -364,7 +364,7 @@ impl MidiInputHandler {
 
             let worker = Worker::<(u64, u8, MidiMessage)>::new_fifo();
             self.stealer = Some(worker.stealer());
-            self.conn_in = Some(midi_in.connect(
+            match midi_in.connect(
                 in_port,
                 "Groove input",
                 move |stamp, event, _| {
@@ -378,11 +378,15 @@ impl MidiInputHandler {
                     }
                 },
                 (),
-            )?);
-
-            Ok(())
+            ) {
+                Ok(conn) => {
+                    self.conn_in = Some(conn);
+                    Ok(())
+                }
+                Err(err) => Err(anyhow::Error::msg(err.to_string())),
+            }
         } else {
-            Err("couldn't create MidiInput".into())
+            Err(anyhow::Error::msg("couldn't create MidiInput"))
         }
     }
 
@@ -433,11 +437,11 @@ impl MidiOutputHandler {
         wrapped
     }
 
-    pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn start(&mut self) -> anyhow::Result<()> {
         if let Ok(midi_out) = MidiOutput::new("Groove MIDI output") {
             let out_ports = midi_out.ports();
             let out_port = match out_ports.len() {
-                0 => return Err("no output port found".into()),
+                0 => return Err(anyhow::Error::msg("no output port found")),
                 1 => {
                     println!(
                         "Choosing the only available output port: {}",
@@ -463,11 +467,15 @@ impl MidiOutputHandler {
 
             let worker = Worker::<(u64, u4, MidiMessage)>::new_fifo();
             self.stealer = Some(worker.stealer());
-            self.conn_out = Some(midi_out.connect(out_port, "Groove output")?);
-
-            Ok(())
+            match midi_out.connect(out_port, "Groove output") {
+                Ok(conn) => {
+                    self.conn_out = Some(conn);
+                    Ok(())
+                }
+                Err(err) => Err(anyhow::Error::msg(err.to_string())),
+            }
         } else {
-            Err("couldn't create MidiOutput".into())
+            Err(anyhow::Error::msg("couldn't create MidiOutput"))
         }
     }
 
@@ -543,17 +551,10 @@ impl MidiHandler {
         &self.midi_input.stealer
     }
 
-    pub fn start(&mut self) {
-        let r = self.midi_input.start();
-        if r.is_ok() {
-            // TODO
-        } else {
-            panic!("couldn't start MIDI input")
-        }
-        let r = self.midi_output.borrow_mut().start();
-        if r.is_ok() {
-            // TODO
-        }
+    pub fn start(&mut self) -> anyhow::Result<()> {
+        self.midi_input.start()?;
+        self.midi_output.borrow_mut().start()?;
+        Ok(())
     }
 
     pub fn stop(&mut self) {

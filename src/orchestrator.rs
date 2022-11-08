@@ -222,42 +222,59 @@ impl Orchestrator {
             .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
     }
 
-    pub fn audio_source_by(&self, id: &str) -> Ww<dyn SourcesAudio> {
+    pub fn audio_source_by(&self, id: &str) -> anyhow::Result<Ww<dyn SourcesAudio>> {
         if let Some(item) = self.id_store.audio_source_by(id) {
-            return item;
+            Ok(item)
+        } else {
+            Err(anyhow::Error::msg(format!(
+                "SourcesAudio id {} not found",
+                id
+            )))
         }
-        panic!("SourcesAudio id {id} not found");
     }
 
-    pub fn audio_sink_by(&self, id: &str) -> Ww<dyn SinksAudio> {
+    pub fn audio_sink_by(&self, id: &str) -> anyhow::Result<Ww<dyn SinksAudio>> {
         if id == "main-mixer" {
             panic!("special case this");
         }
         if let Some(item) = self.id_store.audio_sink_by(id) {
-            return item;
+            Ok(item)
+        } else {
+            Err(anyhow::Error::msg(format!(
+                "SinksAudio id {} not found",
+                id
+            )))
         }
-        panic!("SinksAudio id {id} not found");
     }
 
-    pub fn makes_control_sink_by(&self, id: &str) -> Ww<dyn MakesControlSink> {
+    pub fn makes_control_sink_by(&self, id: &str) -> anyhow::Result<Ww<dyn MakesControlSink>> {
         if let Some(item) = self.id_store.makes_control_sink_by(id) {
-            return item;
+            Ok(item)
+        } else {
+            Err(anyhow::Error::msg(format!(
+                "MakesControlSink id {} not found",
+                id
+            )))
         }
-        panic!("MakesControlSink id {id} not found");
     }
 
-    pub fn pattern_by(&self, id: &str) -> Ww<Pattern<Note>> {
+    pub fn pattern_by(&self, id: &str) -> anyhow::Result<Ww<Pattern<Note>>> {
         if let Some(item) = self.id_store.pattern_by(id) {
-            return item;
+            Ok(item)
+        } else {
+            Err(anyhow::Error::msg(format!("Pattern id {} not found", id)))
         }
-        panic!("Pattern id {id} not found");
     }
 
-    pub fn control_path_by(&self, id: &str) -> Ww<ControlPath> {
+    pub fn control_path_by(&self, id: &str) -> anyhow::Result<Ww<ControlPath>> {
         if let Some(item) = self.id_store.control_path_by(id) {
-            return item;
+            Ok(item)
+        } else {
+            Err(anyhow::Error::msg(format!(
+                "ControlPath id {} not found",
+                id
+            )))
         }
-        panic!("ControlPath id {id} not found");
     }
 
     //________________________

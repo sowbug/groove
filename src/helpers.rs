@@ -188,16 +188,10 @@ impl IOHelper {
         }
     }
 
-    pub fn song_settings_from_yaml_file(filename: &str) -> SongSettings {
-        if let Ok(yaml) = std::fs::read_to_string(filename) {
-            if let Ok(settings) = SongSettings::new_from_yaml(yaml.as_str()) {
-                settings
-            } else {
-                panic!("do something better here");
-            }
-        } else {
-            panic!("couldn't read YAML file")
-        }
+    pub fn song_settings_from_yaml_file(filename: &str) -> anyhow::Result<SongSettings> {
+        let yaml = std::fs::read_to_string(filename)?;
+        let settings = SongSettings::new_from_yaml(yaml.as_str())?;
+        Ok(settings)
     }
 
     pub fn orchestrator_from_midi_file(filename: &str) -> Orchestrator {

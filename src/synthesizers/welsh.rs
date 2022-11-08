@@ -152,19 +152,22 @@ impl SynthPatch {
             Self::patch_name_to_settings_name(name.to_string().as_str())
         );
         if let Ok(contents) = std::fs::read_to_string(filename) {
-            if let Ok(patch) = Self::new_from_yaml(&contents) {
-                patch
-            } else {
-                panic!("couldn't load that patch");
+            match Self::new_from_yaml(&contents) {
+                Ok(patch) => patch,
+                Err(err) => {
+                    // TODO: this should return a failsafe patch, maybe a boring
+                    // square wave
+                    panic!("couldn't parse patch file: {:?}", err);
+                }
             }
         } else {
-            panic!("couldn't read that file");
+            panic!("couldn't read patch file");
         }
     }
 }
 
 impl Synth {
-    pub fn general_midi_preset(program: GeneralMidiProgram) -> SynthPatch {
+    pub fn general_midi_preset(program: &GeneralMidiProgram) -> anyhow::Result<SynthPatch> {
         let mut delegated = false;
         let preset = match program {
             GeneralMidiProgram::AcousticGrand => PatchName::Piano,
@@ -509,7 +512,7 @@ impl Synth {
         if delegated {
             println!("Delegated {program} to {preset}");
         }
-        SynthPatch::by_name(&preset)
+        Ok(SynthPatch::by_name(&preset))
     }
 }
 
@@ -769,9 +772,13 @@ impl SinksMidi for Synth {
             MidiMessage::Aftertouch { key, vel } => todo!(),
             MidiMessage::Controller { controller, value } => todo!(),
             MidiMessage::ProgramChange { program } => {
-                self.preset = Synth::general_midi_preset(
-                    GeneralMidiProgram::from_u8(u8::from(*program)).unwrap(),
-                );
+                if let Some(program) = GeneralMidiProgram::from_u8(u8::from(*program)) {
+                    if let Ok(preset) = Synth::general_midi_preset(&program) {
+                        self.preset = preset;
+                    } else {
+                        println!("unrecognized patch from MIDI program change: {}", &program);
+                    }
+                }
             }
             MidiMessage::ChannelAftertouch { vel } => todo!(),
             MidiMessage::PitchBend { bend } => todo!(),
