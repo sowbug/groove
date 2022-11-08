@@ -125,6 +125,10 @@ impl<'a> GuiStuff {
             ..Default::default()
         }
     }
+
+    fn missing_target_container() -> Element<'a, ViewableMessage> {
+        container(text("missing target!")).into()
+    }
 }
 
 pub trait IsViewable: Debug {
@@ -167,7 +171,7 @@ impl IsViewable for MixerViewableResponder {
                 GuiStuff::container_text(contents.as_str()),
             )
         } else {
-            panic!()
+            GuiStuff::missing_target_container()
         }
     }
 
@@ -219,7 +223,7 @@ impl IsViewable for SamplerViewableResponder {
                 GuiStuff::container_text(contents.as_str()),
             )
         } else {
-            panic!()
+            GuiStuff::missing_target_container()
         }
     }
 
@@ -271,7 +275,7 @@ impl IsViewable for DrumkitSamplerViewableResponder {
                 GuiStuff::container_text(contents.as_str()),
             )
         } else {
-            panic!()
+            GuiStuff::missing_target_container()
         }
     }
 
@@ -323,7 +327,7 @@ impl IsViewable for SynthViewableResponder {
                 GuiStuff::container_text(contents.as_str()),
             )
         } else {
-            panic!()
+            GuiStuff::missing_target_container()
         }
     }
 
@@ -394,7 +398,7 @@ impl IsViewable for GainViewableResponder {
             .padding(20);
             GuiStuff::titled_container(Some(target), title, contents.into())
         } else {
-            panic!()
+            GuiStuff::missing_target_container()
         }
     }
 
@@ -460,7 +464,7 @@ impl IsViewable for BitcrusherViewableResponder {
                 GuiStuff::container_text(contents.as_str()),
             )
         } else {
-            panic!()
+            GuiStuff::missing_target_container()
         }
     }
 
@@ -520,7 +524,7 @@ impl IsViewable for LimiterViewableResponder {
                 GuiStuff::container_text(contents.as_str()),
             )
         } else {
-            panic!()
+            GuiStuff::missing_target_container()
         }
     }
 
@@ -587,7 +591,7 @@ impl IsViewable for FilterViewableResponder {
             ];
             GuiStuff::titled_container(Some(target), title, contents.into())
         } else {
-            panic!()
+            GuiStuff::missing_target_container()
         }
     }
 
@@ -649,7 +653,7 @@ impl IsViewable for ArpeggiatorViewableResponder {
                 GuiStuff::container_text(contents.as_str()),
             )
         } else {
-            panic!()
+            GuiStuff::missing_target_container()
         }
     }
 
@@ -704,7 +708,7 @@ impl IsViewable for PatternSequencerNewViewableResponder {
                 GuiStuff::container_text(contents.as_str()),
             )
         } else {
-            panic!()
+            GuiStuff::missing_target_container()
         }
     }
 
