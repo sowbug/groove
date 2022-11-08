@@ -59,18 +59,18 @@ patch-cables:
   - [drum-1, main-mixer]
 patterns:
   - id: basic-1
-    note-value: sixteenth
+    note-value: eighth
     notes:
-      - [60, 00, 60, 00, 60, 00, 60, 00, 67, 00, 67, 00, 67, 00, 67, 00]
+      - [60, 60, 60, 60, 67, 67, 67, 67]
   - id: basic-2
-    note-value: sixteenth
+    note-value: eighth
     notes:
-      - [72, 00, 72, 00, 72, 00, 72, 00, 64, 00, 64, 00, 64, 00, 64, 00]
-      - [60, 00, 60, 00, 60, 00, 60, 00, 67, 00, 67, 00, 67, 00, 67, 00]
+      - [72, 72, 72, 72, 64, 64, 64, 64]
+      - [60, 60, 60, 60, 67, 67, 67, 67]
   - id: bass
-    note-value: sixteenth
+    note-value: eighth
     notes:
-      - [67, 00, 60, 00, 67, 00, 60, 00, 67, 00, 60, 00, 67, 00, 60, 00]
+      - [67, 60, 67, 60, 67, 60, 67, 60]
   - id: four-on-the-floor
     note-value: sixteenth
     notes:
