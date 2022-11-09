@@ -5,10 +5,10 @@ use crate::{
     traits::{HasOverhead, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
 use btreemultimap::BTreeMultiMap;
-use midly::num::u7;
 use std::{
     cmp::{self, Ordering},
     collections::HashMap,
+    fmt::Debug,
     ops::Bound::{Excluded, Included},
 };
 
@@ -103,75 +103,31 @@ pub struct Note {
 }
 
 #[derive(Debug)]
-pub enum Event {
-    NoteOn { key: u8, velocity: u8 },
-    NoteOff { key: u8 },
-}
-
-#[derive(Debug)]
-pub struct PatternSequencer {
-    pub(crate) me: Ww<Self>,
-    overhead: Overhead,
-
+pub struct PatternProgrammer {
+    beat_sequencer: Rrc<BeatSequencer>,
     time_signature: TimeSignature,
-
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
-    events: BTreeMultiMap<PerfectTimeUnit, (MidiChannel, Event)>,
-
     cursor_beats: PerfectTimeUnit,
-    last_instant_handled: PerfectTimeUnit,
-    last_instant_handled_not_handled: bool,
 }
-impl Default for PatternSequencer {
-    fn default() -> Self {
-        Self {
-            me: weak_new(),
-            overhead: Overhead::default(),
-            time_signature: TimeSignature::default(),
-            channels_to_sink_vecs: HashMap::default(),
-            events: BTreeMultiMap::default(),
-            cursor_beats: Self::CURSOR_BEGIN,
-            last_instant_handled: PerfectTimeUnit::default(),
-            last_instant_handled_not_handled: true,
-        }
-    }
-}
-impl PatternSequencer {
+
+impl PatternProgrammer {
     const CURSOR_BEGIN: PerfectTimeUnit = PerfectTimeUnit(0.0);
 
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn new_with(time_signature: &TimeSignature) -> Self {
+    pub fn new_with(sequencer: Rrc<BeatSequencer>, time_signature: &TimeSignature) -> Self {
         Self {
+            beat_sequencer: sequencer,
             time_signature: *time_signature,
-            ..Default::default()
+            cursor_beats: Self::CURSOR_BEGIN,
         }
-    }
-
-    pub fn new_wrapped_with(time_signature: &TimeSignature) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(time_signature));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     // TODO: pub non-crate for Viewable...
+    #[allow(dead_code)]
     pub fn cursor(&self) -> PerfectTimeUnit {
         self.cursor_beats
     }
 
     pub(crate) fn reset_cursor(&mut self) {
         self.cursor_beats = Self::CURSOR_BEGIN;
-    }
-
-    #[allow(dead_code)]
-    fn clear(&mut self) {
-        // TODO: should this also disconnect sinks? I don't think so
-        self.events.clear();
-        self.last_instant_handled = PerfectTimeUnit::default();
-        self.last_instant_handled_not_handled = true;
     }
 
     pub(crate) fn insert_pattern_at_cursor(
@@ -204,24 +160,26 @@ impl PatternSequencer {
                 }
                 let i: PerfectTimeUnit = i.into();
                 let note_start = self.cursor_beats + i * PerfectTimeUnit(pattern_multiplier);
-                self.events.insert(
+                self.beat_sequencer.borrow_mut().insert(
                     note_start,
-                    (
-                        channel,
-                        Event::NoteOn {
-                            key: note.key,
-                            velocity: note.velocity,
-                        },
-                    ),
+                    channel,
+                    MidiMessage::NoteOn {
+                        key: note.key.into(),
+                        vel: note.velocity.into(),
+                    },
                 );
                 // This makes the everything.yaml playback sound funny, since no
-                // note lasts longer than a quarter-note. I'm going to leave it
-                // like this to force myself to implement duration expression
-                // correctly, rather than continuing to hardcode 0.49 as the
-                // duration.
-                self.events.insert(
+                // note lasts longer than the pattern's note value. I'm going to
+                // leave it like this to force myself to implement duration
+                // expression correctly, rather than continuing to hardcode 0.49
+                // as the duration.
+                self.beat_sequencer.borrow_mut().insert(
                     note_start + note.duration * PerfectTimeUnit(pattern_multiplier),
-                    (channel, Event::NoteOff { key: note.key }),
+                    channel,
+                    MidiMessage::NoteOff {
+                        key: note.key.into(),
+                        vel: note.velocity.into(),
+                    },
                 );
             }
         }
@@ -232,23 +190,68 @@ impl PatternSequencer {
                 * self.time_signature.top as f32;
         self.cursor_beats = self.cursor_beats + PerfectTimeUnit::from(rounded_max_pattern_len);
     }
+}
 
-    fn handle_event(&self, clock: &Clock, channel: &MidiChannel, event: &Event) {
-        let note = match event {
-            Event::NoteOn { key, velocity } => MidiMessage::NoteOn {
-                key: u7::from(*key),
-                vel: u7::from(*velocity),
-            },
-            Event::NoteOff { key } => MidiMessage::NoteOff {
-                key: u7::from(*key),
-                vel: u7::from(0),
-            },
-        };
-        self.issue_midi(clock, channel, &note);
+#[derive(Debug)]
+pub struct BeatSequencer {
+    pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
+    next_instant: PerfectTimeUnit,
+    events: BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>,
+}
+
+impl Default for BeatSequencer {
+    fn default() -> Self {
+        Self {
+            me: weak_new(),
+            overhead: Overhead::default(),
+            channels_to_sink_vecs: Default::default(),
+            next_instant: Default::default(),
+            events: Default::default(),
+        }
     }
 }
 
-impl SourcesMidi for PatternSequencer {
+impl BeatSequencer {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    pub(crate) fn new_wrapped() -> Rrc<Self> {
+        let wrapped = rrc(Self::new());
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
+        wrapped
+    }
+
+    pub(crate) fn clear(&mut self) {
+        // TODO: should this also disconnect sinks? I don't think so
+        self.events.clear();
+        self.next_instant = PerfectTimeUnit::default();
+    }
+
+    pub(crate) fn insert(
+        &mut self,
+        when: PerfectTimeUnit,
+        channel: MidiChannel,
+        message: MidiMessage,
+    ) {
+        self.events.insert(when, (channel, message));
+    }
+}
+
+// TODO: what does it mean for a MIDI device to be muted?
+impl HasOverhead for BeatSequencer {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
+    }
+
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
+    }
+}
+
+impl SourcesMidi for BeatSequencer {
     fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &mut self.channels_to_sink_vecs
     }
@@ -264,59 +267,35 @@ impl SourcesMidi for PatternSequencer {
     fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
 }
 
-impl WatchesClock for PatternSequencer {
+impl WatchesClock for BeatSequencer {
     fn tick(&mut self, clock: &Clock) {
-        let current_instant = PerfectTimeUnit(clock.beats());
-        if current_instant < self.last_instant_handled {
-            // The clock has jumped back. TODO: turn off notes that are
-            // currently playing.
-            self.last_instant_handled = current_instant;
-            self.last_instant_handled_not_handled = true;
-        }
-        // TODO: if clock has jumped far forward
+        self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
 
         if self.overhead.is_enabled() {
-            // If the last instant marks a new interval, then we want to include any
-            // events scheduled at exactly that time. So the range is inclusive.
-            let range = if self.last_instant_handled_not_handled {
-                self.last_instant_handled_not_handled = false;
-                (
-                    Included(self.last_instant_handled),
-                    Included(PerfectTimeUnit(clock.beats())),
-                )
-            } else {
-                (
-                    Excluded(self.last_instant_handled),
-                    Included(PerfectTimeUnit(clock.beats())),
-                )
-            };
+            // If the last instant marks a new interval, then we want to include
+            // any events scheduled at exactly that time. So the range is
+            // inclusive.
+            let range = (
+                Included(PerfectTimeUnit(clock.beats())),
+                Excluded(self.next_instant),
+            );
             let events = self.events.range(range);
             for (_when, event) in events {
-                self.handle_event(clock, &event.0, &event.1);
+                dbg!(&range, &event);
+                self.issue_midi(clock, &event.0, &event.1);
             }
         }
-
-        self.last_instant_handled = PerfectTimeUnit(clock.beats());
     }
 }
-impl Terminates for PatternSequencer {
+
+impl Terminates for BeatSequencer {
     fn is_finished(&self) -> bool {
         // TODO: This looks like it could be expensive.
         let mut the_rest = self.events.range((
-            Excluded(self.last_instant_handled),
+            Included(self.next_instant),
             Included(PerfectTimeUnit(f32::MAX)),
         ));
         the_rest.next().is_none()
-    }
-}
-// TODO: what does it mean for a MIDI device to be muted?
-impl HasOverhead for PatternSequencer {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
-
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
     }
 }
 
@@ -343,7 +322,7 @@ mod tests {
         }
     }
 
-    impl PatternSequencer {
+    impl BeatSequencer {
         pub fn debug_dump_events(&self) {
             println!("{:?}", self.events);
         }
@@ -352,7 +331,8 @@ mod tests {
     #[test]
     fn test_pattern() {
         let time_signature = TimeSignature::new_defaults();
-        let mut sequencer = PatternSequencer::new_with(&time_signature);
+        let sequencer = BeatSequencer::new_wrapped();
+        let mut programmer = PatternProgrammer::new_with(rrc_clone(&sequencer), &time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
         // means that we should interpret this as TWO measures, the first having
@@ -378,22 +358,23 @@ mod tests {
 
         // We don't need to call reset_cursor(), but we do just once to make
         // sure it's working.
-        assert_eq!(sequencer.cursor(), PatternSequencer::CURSOR_BEGIN);
-        sequencer.reset_cursor();
-        assert_eq!(sequencer.cursor(), PatternSequencer::CURSOR_BEGIN);
+        assert_eq!(programmer.cursor(), PatternProgrammer::CURSOR_BEGIN);
+        programmer.reset_cursor();
+        assert_eq!(programmer.cursor(), PatternProgrammer::CURSOR_BEGIN);
 
-        sequencer.insert_pattern_at_cursor(&0, &pattern);
+        programmer.insert_pattern_at_cursor(&0, &pattern);
         assert_eq!(
-            sequencer.cursor(),
+            programmer.cursor(),
             PerfectTimeUnit::from(2 * time_signature.top)
         );
-        assert_eq!(sequencer.events.len(), expected_note_count * 2); // one on, one off
+        assert_eq!(sequencer.borrow().events.len(), expected_note_count * 2); // one on, one off
     }
 
     #[test]
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8);
-        let mut sequencer = PatternSequencer::new_with(&time_signature);
+        let sequencer = BeatSequencer::new_wrapped();
+        let mut programmer = PatternProgrammer::new_with(rrc_clone(&sequencer), &time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time
         // signature calls for eighth notes, they last twice as long as they
@@ -424,36 +405,39 @@ mod tests {
         assert_eq!(pattern.notes[0].len(), len_1);
         assert_eq!(pattern.notes[1].len(), len_2);
 
-        sequencer.insert_pattern_at_cursor(&0, &pattern);
+        programmer.insert_pattern_at_cursor(&0, &pattern);
 
         // expect max of (2, 3) measures
         assert_eq!(
-            sequencer.cursor(),
+            programmer.cursor(),
             PerfectTimeUnit::from(3 * time_signature.top)
         );
-        assert_eq!(sequencer.events.len(), expected_note_count * 2); // one on, one off
+        assert_eq!(sequencer.borrow().events.len(), expected_note_count * 2); // one on, one off
     }
 
     #[test]
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4);
-        let mut sequencer = PatternSequencer::new_with(&time_signature);
+        let sequencer = BeatSequencer::new_wrapped();
+        let mut programmer = PatternProgrammer::new_with(sequencer, &time_signature);
         let pattern = Pattern::<Note>::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
             note_value: None,
             notes: vec![vec![String::from("1")]],
         });
-        sequencer.insert_pattern_at_cursor(&0, &pattern);
+        programmer.insert_pattern_at_cursor(&0, &pattern);
 
         assert_eq!(
-            sequencer.cursor(),
+            programmer.cursor(),
             PerfectTimeUnit::from(time_signature.top)
         );
     }
 
     #[test]
     fn test_random_access() {
-        let pattern_sequencer = rrc(PatternSequencer::new());
+        let sequencer = BeatSequencer::new_wrapped();
+        let mut programmer =
+            PatternProgrammer::new_with(rrc_clone(&sequencer), &TimeSignature::new_defaults());
         let mut pattern = Pattern::<Note>::new();
 
         const NOTE_VALUE: BeatValue = BeatValue::Quarter;
@@ -488,20 +472,16 @@ mod tests {
         let midi_recorder = TestMidiSink::new_wrapped();
         let midi_channel = midi_recorder.borrow().midi_channel();
         let sink = rrc_downgrade(&midi_recorder);
-        pattern_sequencer
-            .borrow_mut()
-            .add_midi_sink(midi_channel, sink);
+        sequencer.borrow_mut().add_midi_sink(midi_channel, sink);
 
-        pattern_sequencer
-            .borrow_mut()
-            .insert_pattern_at_cursor(&midi_channel, &pattern);
+        programmer.insert_pattern_at_cursor(&midi_channel, &pattern);
 
         // Test recorder has seen nothing to start with.
         assert!(midi_recorder.borrow().messages.is_empty());
 
         let mut clock = WatchedClock::new();
         let sample_rate = clock.inner_clock().sample_rate();
-        let watcher = rrc_clone(&pattern_sequencer);
+        let watcher = rrc_clone(&sequencer);
         clock.add_watcher(watcher);
 
         loop {
@@ -518,7 +498,7 @@ mod tests {
             pattern.notes[0].len() * 2
         );
 
-        pattern_sequencer.borrow().debug_dump_events();
+        sequencer.borrow().debug_dump_events();
 
         // The clock should stop at the last note-off, which is 1.01 beats past
         // the start of the third note, which started at 2.0. Since the fourth
@@ -532,7 +512,7 @@ mod tests {
         );
         assert_eq!(
             clock.inner_clock().samples(),
-            clock.inner_clock().settings().beats_to_samples(last_beat) + 1
+            clock.inner_clock().settings().beats_to_samples(last_beat)
         );
 
         // Start test recorder over again.
@@ -547,15 +527,11 @@ mod tests {
         // Only the first time slice's events should have fired.
         assert_eq!(midi_recorder.borrow().messages.len(), 1);
 
-        // Fast-forward to the end. For now (until we have defined how jumping
-        // forward should behave), the proper response is for everything to
-        // fire.
+        // Fast-forward to the end. Nothing else should fire. This is because
+        // any tick() should do work for just the slice specified.
         clock.inner_clock_mut().debug_set_seconds(10.0);
         assert!(clock.visit_watchers());
-        assert_eq!(
-            midi_recorder.borrow().messages.len(),
-            pattern.notes[0].len() * 2
-        );
+        assert_eq!(midi_recorder.borrow().messages.len(), 1);
 
         // Start test recorder over again.
         midi_recorder.borrow_mut().messages.clear();
@@ -565,7 +541,7 @@ mod tests {
 
         // Keep going until just before half of second beat. We should see the
         // first note off (not on!) and the second note on/off.
-        while clock.inner_clock().beats() < 2.0 {
+        while clock.inner_clock().next_slice_in_beats() < 2.0 {
             clock.visit_watchers();
             clock.tick();
         }
@@ -573,14 +549,11 @@ mod tests {
 
         // Keep ticking through start of second beat. Should see one more event:
         // #3 on.
-        //
-        // Note that we have a little fudge factor (2.001) because of f32
-        // accuracy. TODO: for the thousandth time, switch over to something
-        // more accurate.
-        while clock.inner_clock().beats() <= 2.001 {
+        while clock.inner_clock().beats() <= 2.0 {
             clock.visit_watchers();
             clock.tick();
         }
+        dbg!(&midi_recorder.borrow().messages);
         assert_eq!(midi_recorder.borrow().messages.len(), 4);
     }
 }

@@ -870,7 +870,7 @@ pub mod tests {
         }
 
         pub fn source_some_midi(&mut self, clock: &Clock) {
-            let message = MidiUtils::new_note_on2(MidiNote::C4 as u8, 100);
+            let message = MidiUtils::new_note_on(MidiNote::C4 as u8, 100);
             self.issue_midi(clock, &TestMidiSink::TEST_MIDI_CHANNEL, &message);
         }
     }
@@ -947,7 +947,7 @@ pub mod tests {
             self.issue_midi(
                 clock,
                 &self.midi_channel_out,
-                &MidiUtils::new_note_on2(60, 100),
+                &MidiUtils::new_note_on(60, 100),
             );
         }
     }

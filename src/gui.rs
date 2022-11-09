@@ -4,7 +4,7 @@ use crate::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
     },
-    patterns::PatternSequencer,
+    patterns::BeatSequencer,
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, SinksAudio},
 };
@@ -692,16 +692,16 @@ impl MakesIsViewable for Arpeggiator {
 }
 
 #[derive(Debug)]
-pub struct PatternSequencerNewViewableResponder {
-    target: Ww<PatternSequencer>,
+pub struct BeatSequencerViewableResponder {
+    target: Ww<BeatSequencer>,
 }
-impl IsViewable for PatternSequencerNewViewableResponder {
+impl IsViewable for BeatSequencerViewableResponder {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
-            let title = type_name::<PatternSequencer>();
-            let contents = format!("cursor point: {}", target.borrow().cursor());
+            let title = type_name::<BeatSequencer>();
+            let contents = format!("cursor point: {}", "tOdO");
             GuiStuff::titled_container(
                 Some(target),
                 title,
@@ -727,10 +727,10 @@ impl IsViewable for PatternSequencerNewViewableResponder {
     }
 }
 
-impl MakesIsViewable for PatternSequencer {
+impl MakesIsViewable for BeatSequencer {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
-            Some(Box::new(PatternSequencerNewViewableResponder {
+            Some(Box::new(BeatSequencerViewableResponder {
                 target: wrc_clone(&self.me),
             }))
         } else {
@@ -755,7 +755,7 @@ mod tests {
             limiter::Limiter,
             mixer::Mixer,
         },
-        patterns::PatternSequencer,
+        patterns::BeatSequencer,
         settings::patches::SynthPatch,
         synthesizers::{
             drumkit_sampler::Sampler as DrumkitSampler,
@@ -817,7 +817,7 @@ mod tests {
             Some(ViewableMessage::ArpeggiatorChanged(42)),
         );
         test_one_viewable(
-            PatternSequencer::new_wrapped_with(&crate::TimeSignature::default()),
+            BeatSequencer::new_wrapped(),
             Some(ViewableMessage::EnablePressed(false)),
         );
     }

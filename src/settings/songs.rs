@@ -6,7 +6,7 @@ use crate::{
     clock::WatchedClock,
     common::{rrc, rrc_clone, rrc_downgrade, DeviceId},
     control::{ControlPath, ControlTrip},
-    patterns::{Note, Pattern, PatternSequencer},
+    patterns::{BeatSequencer, Note, Pattern, PatternProgrammer},
     Orchestrator,
 };
 use anyhow::Result;
@@ -123,31 +123,31 @@ impl SongSettings {
             return;
         }
 
-        let pattern_sequencer = PatternSequencer::new_wrapped_with(&self.clock.time_signature);
         for pattern_settings in &self.patterns {
             let pattern = rrc(Pattern::<Note>::from_settings(pattern_settings));
             orchestrator.register_pattern(Some(&pattern_settings.id), pattern);
         }
+        let sequencer = BeatSequencer::new_wrapped();
+        let mut programmer =
+            PatternProgrammer::new_with(rrc_clone(&sequencer), &self.clock.time_signature);
 
         for track in &self.tracks {
             let channel = track.midi_channel;
-            pattern_sequencer.borrow_mut().reset_cursor();
+            programmer.reset_cursor();
             for pattern_id in &track.pattern_ids {
                 if let Ok(pattern) = orchestrator.pattern_by(pattern_id) {
                     if let Some(pattern) = pattern.upgrade() {
-                        pattern_sequencer
-                            .borrow_mut()
-                            .insert_pattern_at_cursor(&channel, &pattern.borrow());
+                        programmer.insert_pattern_at_cursor(&channel, &pattern.borrow());
                     }
                 }
             }
         }
 
-        let instrument = rrc_clone(&pattern_sequencer);
+        let instrument = rrc_clone(&sequencer);
         orchestrator.connect_to_upstream_midi_bus(instrument);
-        let instrument = rrc_clone(&pattern_sequencer);
+        let instrument = rrc_clone(&sequencer);
         orchestrator.register_clock_watcher(None, instrument);
-        orchestrator.register_viewable(pattern_sequencer);
+        orchestrator.register_viewable(sequencer);
     }
 
     fn instantiate_control_trips(&self, orchestrator: &mut Orchestrator) {

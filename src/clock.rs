@@ -184,14 +184,38 @@ impl Clock {
         self.settings().sample_rate()
     }
 
+    /// The next_slice_in_ methods return the start of the next time slice, in
+    /// whatever unit is requested. The usage is to accurately identify the
+    /// range of times that a given time slice includes, rather than just doing
+    /// a <= comparison on each tick().
+    #[allow(dead_code)]
+    pub(crate) fn next_slice_in_samples(&self) -> usize {
+        self.samples + 1
+    }
+    #[allow(dead_code)]
+    pub(crate) fn next_slice_in_seconds(&self) -> f32 {
+        self.seconds_for_sample(self.samples + 1)
+    }
+    pub(crate) fn next_slice_in_beats(&self) -> f32 {
+        self.beats_for_sample(self.samples + 1)
+    }
+
     pub fn tick(&mut self) {
         self.samples += 1;
         self.update();
     }
 
+    fn seconds_for_sample(&self, sample: usize) -> f32 {
+        sample as f32 / self.settings.sample_rate() as f32
+    }
+
+    fn beats_for_sample(&self, sample: usize) -> f32 {
+        (self.settings.bpm() / 60.0) * self.seconds_for_sample(sample)
+    }
+
     fn update(&mut self) {
-        self.seconds = self.samples as f32 / self.settings.sample_rate() as f32;
-        self.beats = (self.settings.bpm() / 60.0) * self.seconds;
+        self.seconds = self.seconds_for_sample(self.samples);
+        self.beats = self.beats_for_sample(self.samples);
     }
 
     pub(crate) fn reset(&mut self) {
@@ -403,28 +427,35 @@ mod tests {
         assert!(matches!(ts.beat_value(), BeatValue::Quarter));
     }
 
-    // #[test]
-    // #[should_panic]
-    // fn test_time_signature_invalid_bad_top() {
-    //     TimeSignature::new(0, 4);
-    // }
+    //#[test]
+    #[allow(dead_code)]
+    #[should_panic]
+    fn test_time_signature_invalid_bad_top() {
+        TimeSignature::new_with(0, 4);
+    }
 
-    // #[test]
-    // #[should_panic]
-    // fn test_time_signature_invalid_bottom_not_power_of_two() {
-    //     TimeSignature::new(4, 5);
-    // }
+    //#[test]
+    #[should_panic]
+    #[allow(dead_code)]
+    fn test_time_signature_invalid_bottom_not_power_of_two() {
+        TimeSignature::new_with(4, 5);
+    }
 
-    // #[test]
-    // #[should_panic]
-    // fn test_time_signature_invalid_bottom_below_range() {
-    //     TimeSignature::new(4, 0);
-    // }
+    //#[test]
+    #[should_panic]
+    #[allow(dead_code)]
+    fn test_time_signature_invalid_bottom_below_range() {
+        TimeSignature::new_with(4, 0);
+    }
 
-    // #[test]
-    // #[should_panic]
-    // fn test_time_signature_invalid_bottom_above_range() {
-    //     // 2^10 = 1024
-    //     TimeSignature::new(4, BeatValue::from_divisor(2.0f32.powi(10)).divisor() as u32);
-    // }
+    //#[test]
+    #[should_panic]
+    #[allow(dead_code)]
+    fn test_time_signature_invalid_bottom_above_range() {
+        // 2^10 = 1024
+        TimeSignature::new_with(
+            4,
+            BeatValue::from_divisor(2.0f32.powi(10)).divisor() as usize,
+        );
+    }
 }

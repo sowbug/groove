@@ -10,10 +10,7 @@ use crate::{
 };
 use crossbeam::deque::{Stealer, Worker};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
-use midly::{
-    live::LiveEvent,
-    num::{u4, u7},
-};
+use midly::{live::LiveEvent, num::u4};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -65,20 +62,6 @@ impl MidiUtils {
             MidiMessage::ProgramChange { program } => todo!(),
             MidiMessage::ChannelAftertouch { vel } => todo!(),
             MidiMessage::PitchBend { bend } => todo!(),
-        }
-    }
-
-    pub(crate) fn new_note_on2(note: u8, vel: u8) -> MidiMessage {
-        MidiMessage::NoteOn {
-            key: u7::from(note),
-            vel: u7::from(vel),
-        }
-    }
-
-    pub(crate) fn new_note_off2(note: u8, vel: u8) -> MidiMessage {
-        MidiMessage::NoteOff {
-            key: u7::from(note),
-            vel: u7::from(vel),
         }
     }
 }
@@ -577,6 +560,7 @@ pub mod tests {
     use super::*;
     use crate::common::{StereoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE};
     use assert_approx_eq::assert_approx_eq;
+    use midly::num::u7;
 
     #[allow(dead_code)]
     pub const STEREO_SAMPLE_SILENCE: StereoSample = (MONO_SAMPLE_SILENCE, MONO_SAMPLE_SILENCE);
@@ -586,22 +570,36 @@ pub mod tests {
     pub const STEREO_SAMPLE_MIN: StereoSample = (MONO_SAMPLE_MAX, MONO_SAMPLE_MIN);
 
     impl MidiUtils {
+        pub(crate) fn new_note_on(note: u8, vel: u8) -> MidiMessage {
+            MidiMessage::NoteOn {
+                key: u7::from(note),
+                vel: u7::from(vel),
+            }
+        }
+
+        pub(crate) fn new_note_off(note: u8, vel: u8) -> MidiMessage {
+            MidiMessage::NoteOff {
+                key: u7::from(note),
+                vel: u7::from(vel),
+            }
+        }
+
         pub fn note_on_c4() -> MidiMessage {
-            Self::new_note_on2(MidiNote::C4 as u8, 0)
+            Self::new_note_on(MidiNote::C4 as u8, 0)
         }
 
         pub fn note_off_c4() -> MidiMessage {
-            Self::new_note_off2(MidiNote::C4 as u8, 0)
+            Self::new_note_off(MidiNote::C4 as u8, 0)
         }
     }
 
     #[test]
     fn test_note_to_frequency() {
-        let message = MidiUtils::new_note_on2(MidiNote::C4 as u8, 0);
+        let message = MidiUtils::new_note_on(MidiNote::C4 as u8, 0);
         assert_approx_eq!(MidiUtils::message_to_frequency(&message), 261.625_55);
-        let message = MidiUtils::new_note_on2(0, 0);
+        let message = MidiUtils::new_note_on(0, 0);
         assert_approx_eq!(MidiUtils::message_to_frequency(&message), 8.175798);
-        let message = MidiUtils::new_note_on2(MidiNote::G9 as u8, 0);
+        let message = MidiUtils::new_note_on(MidiNote::G9 as u8, 0);
         assert_approx_eq!(MidiUtils::message_to_frequency(&message), 12543.855);
     }
 }

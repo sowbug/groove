@@ -1,7 +1,10 @@
+use midly::num::u7;
+
 use crate::{
-    clock::Clock,
+    clock::{Clock, PerfectTimeUnit},
     common::{rrc, rrc_downgrade, Rrc, Ww},
-    midi::{MidiChannel, MidiMessage, MidiNote, MidiUtils},
+    midi::{MidiChannel, MidiMessage},
+    patterns::BeatSequencer,
     traits::{
         HasOverhead, IsMidiEffect, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock,
     },
@@ -14,15 +17,9 @@ pub struct Arpeggiator {
     overhead: Overhead,
     midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,
-    midi_sinks: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
+    beat_sequencer: BeatSequencer,
 
     is_device_playing: bool,
-
-    note: MidiNote,
-    note_addition: u8,
-    is_note_playing: bool,
-
-    next_beat: f32,
 }
 
 impl SinksMidi for Arpeggiator {
@@ -32,7 +29,7 @@ impl SinksMidi for Arpeggiator {
 
     fn handle_midi_for_channel(
         &mut self,
-        _clock: &Clock,
+        clock: &Clock,
         _channel: &MidiChannel,
         message: &MidiMessage,
     ) {
@@ -42,8 +39,9 @@ impl SinksMidi for Arpeggiator {
         match message {
             MidiMessage::NoteOff { key, vel } => self.is_device_playing = false,
             MidiMessage::NoteOn { key, vel } => {
+                self.rebuild_sequence(clock, key.as_int(), vel.as_int());
                 self.is_device_playing = true;
-                self.note = MidiNote::C4
+                //                self.sequence_start_beats = clock.beats();
             }
             MidiMessage::Aftertouch { key, vel } => todo!(),
             MidiMessage::Controller { controller, value } => todo!(),
@@ -51,6 +49,9 @@ impl SinksMidi for Arpeggiator {
             MidiMessage::ChannelAftertouch { vel } => todo!(),
             MidiMessage::PitchBend { bend } => todo!(),
         }
+        self.beat_sequencer
+            .overhead_mut()
+            .set_enabled(self.is_device_playing);
     }
 
     fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
@@ -60,11 +61,11 @@ impl SinksMidi for Arpeggiator {
 
 impl SourcesMidi for Arpeggiator {
     fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &mut self.midi_sinks
+        self.beat_sequencer.midi_sinks_mut()
     }
 
     fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &self.midi_sinks
+        self.beat_sequencer.midi_sinks()
     }
 
     fn midi_output_channel(&self) -> MidiChannel {
@@ -78,27 +79,7 @@ impl SourcesMidi for Arpeggiator {
 
 impl WatchesClock for Arpeggiator {
     fn tick(&mut self, clock: &Clock) {
-        if clock.beats() >= self.next_beat {
-            self.next_beat += 1.0;
-            if self.is_note_playing {
-                self.issue_midi(
-                    clock,
-                    &self.midi_channel_out,
-                    &MidiUtils::new_note_off2(self.note as u8 + self.note_addition, 100),
-                );
-                self.is_note_playing = false;
-                // TODO duh
-                self.note_addition = if self.note_addition == 0 { 7 + 12 } else { 0 }
-            }
-            if self.is_device_playing {
-                self.issue_midi(
-                    clock,
-                    &self.midi_channel_out,
-                    &MidiUtils::new_note_on2(self.note as u8 + self.note_addition, 100),
-                );
-                self.is_note_playing = true;
-            }
-        }
+        self.beat_sequencer.tick(clock); // TODO: loop
     }
 }
 
@@ -135,6 +116,79 @@ impl Arpeggiator {
 
     // this is a placeholder to get the trait requirements satisfied
     pub(crate) fn set_nothing(&mut self, _value: f32) {}
+
+    fn insert_one_note(
+        &mut self,
+        when: PerfectTimeUnit,
+        duration: PerfectTimeUnit,
+        key: u8,
+        vel: u8,
+    ) {
+        self.beat_sequencer.insert(
+            when,
+            self.midi_channel_out,
+            MidiMessage::NoteOn {
+                key: u7::from(key),
+                vel: u7::from(vel),
+            },
+        );
+        self.beat_sequencer.insert(
+            when + duration,
+            self.midi_channel_out,
+            MidiMessage::NoteOff {
+                key: u7::from(key),
+                vel: u7::from(vel),
+            },
+        );
+    }
+
+    fn rebuild_sequence(&mut self, clock: &Clock, key: u8, vel: u8) {
+        self.beat_sequencer.clear();
+
+        let start_beat = crate::clock::PerfectTimeUnit(clock.beats());
+        self.insert_one_note(
+            start_beat + PerfectTimeUnit(0.25 * 0.0),
+            PerfectTimeUnit(0.25),
+            key,
+            vel,
+        );
+        self.insert_one_note(
+            start_beat + PerfectTimeUnit(0.25 * 1.0),
+            PerfectTimeUnit(0.25),
+            key + 2,
+            vel,
+        );
+        self.insert_one_note(
+            start_beat + PerfectTimeUnit(0.25 * 2.0),
+            PerfectTimeUnit(0.25),
+            key + 4,
+            vel,
+        );
+        self.insert_one_note(
+            start_beat + PerfectTimeUnit(0.25 * 3.0),
+            PerfectTimeUnit(0.25),
+            key + 5,
+            vel,
+        );
+        self.insert_one_note(
+            start_beat + PerfectTimeUnit(0.25 * 4.0),
+            PerfectTimeUnit(0.25),
+            key + 7,
+            vel,
+        );
+        self.insert_one_note(
+            start_beat + PerfectTimeUnit(0.25 * 5.0),
+            PerfectTimeUnit(0.25),
+            key + 9,
+            vel,
+        );
+        self.insert_one_note(
+            start_beat + PerfectTimeUnit(0.25 * 6.0),
+            PerfectTimeUnit(0.25),
+            key + 11,
+            vel,
+        );
+    }
 }
 
 impl HasOverhead for Arpeggiator {

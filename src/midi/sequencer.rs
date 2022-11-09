@@ -55,6 +55,11 @@ impl MidiSequencer {
     fn dispatch_midi_message(&self, message: &OrderedEvent<usize>, clock: &Clock) {
         self.issue_midi(clock, &message.channel, &message.event);
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn clear(&mut self) {
+        self.midi_messages.clear();
+    }
 }
 
 impl SourcesMidi for MidiSequencer {
@@ -193,22 +198,22 @@ mod tests {
         sequencer.add_message(OrderedEvent {
             when: sequencer.tick_for_beat(&clock, 0),
             channel: 0,
-            event: MidiUtils::new_note_on2(60, 0),
+            event: MidiUtils::new_note_on(60, 0),
         });
         sequencer.add_message(OrderedEvent {
             when: sequencer.tick_for_beat(&clock, 1),
             channel: 1,
-            event: MidiUtils::new_note_on2(60, 0),
+            event: MidiUtils::new_note_on(60, 0),
         });
         sequencer.add_message(OrderedEvent {
             when: sequencer.tick_for_beat(&clock, 2),
             channel: 0,
-            event: MidiUtils::new_note_off2(MidiNote::C4 as u8, 0),
+            event: MidiUtils::new_note_off(MidiNote::C4 as u8, 0),
         });
         sequencer.add_message(OrderedEvent {
             when: sequencer.tick_for_beat(&clock, 3),
             channel: 1,
-            event: MidiUtils::new_note_off2(MidiNote::C4 as u8, 0),
+            event: MidiUtils::new_note_off(MidiNote::C4 as u8, 0),
         });
 
         // TODO: this tick() doesn't match the Clock tick() in the sense that the clock is in the right state
