@@ -4,7 +4,7 @@ use crate::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
     },
-    midi::sequencer::BeatSequencer,
+    midi::sequencers::BeatSequencer,
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, SinksAudio},
 };
@@ -787,7 +787,7 @@ mod tests {
             limiter::Limiter,
             mixer::Mixer,
         },
-        midi::sequencer::BeatSequencer,
+        midi::sequencers::BeatSequencer,
         settings::patches::SynthPatch,
         synthesizers::{
             drumkit_sampler::Sampler as DrumkitSampler,

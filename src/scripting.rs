@@ -1,7 +1,7 @@
 use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, Rrc},
     effects::{bitcrusher::Bitcrusher, limiter::Limiter},
-    midi::{sequencer::MidiSequencer, smf_reader::MidiSmfReader, MidiChannel},
+    midi::{programmers::MidiSmfReader, sequencers::MidiTickSequencer, MidiChannel},
     settings::patches::SynthPatch,
     synthesizers::welsh,
     traits::{IsMidiInstrument, SinksAudio, SinksMidi, SourcesAudio, SourcesMidi},
@@ -144,8 +144,8 @@ impl ScriptEngine {
         welsh::Synth::new_wrapped_with(0, 44100, SynthPatch::by_name(&welsh::PatchName::Piano))
     }
 
-    fn new_sequencer(orchestrator: &mut Orchestrator) -> Rrc<MidiSequencer> {
-        let r = rrc(MidiSequencer::new());
+    fn new_sequencer(orchestrator: &mut Orchestrator) -> Rrc<MidiTickSequencer> {
+        let r = rrc(MidiTickSequencer::new());
         let clock_watcher = rrc_clone(&r);
         orchestrator.register_clock_watcher(None, clock_watcher);
         r
@@ -177,9 +177,9 @@ impl ScriptEngine {
         orchestrator.add_main_mixer_source(device);
     }
 
-    fn load_midi_file(sequencer: Rrc<MidiSequencer>, filename: &str) {
+    fn load_midi_file(sequencer: Rrc<MidiTickSequencer>, filename: &str) {
         let data = std::fs::read(filename).unwrap();
-        MidiSmfReader::load_sequencer(&data, &mut sequencer.borrow_mut());
+        MidiSmfReader::program_sequencer(&data, &mut sequencer.borrow_mut());
     }
 
     fn connect_audio_sink_to_source(sink: Rrc<dyn SinksAudio>, source: Rrc<dyn SourcesAudio>) {
@@ -217,7 +217,7 @@ impl ScriptEngine {
     }
 
     fn add_midi_sink_to_midi_sequencer(
-        upstream: Rrc<MidiSequencer>,
+        upstream: Rrc<MidiTickSequencer>,
         downstream: Rrc<dyn SinksMidi>,
         channel: i64,
     ) {
@@ -227,7 +227,7 @@ impl ScriptEngine {
     }
 
     fn add_midi_sink_as_midi_instrument_to_midi_sequencer(
-        upstream: Rrc<MidiSequencer>,
+        upstream: Rrc<MidiTickSequencer>,
         downstream: Rrc<dyn IsMidiInstrument>,
         channel: i64,
     ) {

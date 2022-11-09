@@ -387,7 +387,7 @@ pub mod tests {
         },
         envelopes::AdsrEnvelope,
         midi::{
-            sequencer::{BeatSequencer, MidiSequencer},
+            sequencers::{BeatSequencer, MidiTickSequencer},
             MidiChannel, MidiUtils,
         },
         oscillators::Oscillator,
@@ -523,15 +523,16 @@ pub mod tests {
     has_overhead_tests! {
         has_overhead_adsr_envelope: crate::envelopes::AdsrEnvelope,
         has_overhead_arpeggiator: crate::effects::arpeggiator::Arpeggiator,
-        has_overhead_beat_sequencer: crate::midi::sequencer::BeatSequencer,
+        has_overhead_beat_sequencer: crate::midi::sequencers::BeatSequencer,
         has_overhead_bitcrusher: crate::effects::bitcrusher::Bitcrusher,
+        has_overhead_drumkit_sampler: crate::synthesizers::drumkit_sampler::Sampler,
         has_overhead_filter: crate::effects::filter::BiQuadFilter,
         has_overhead_gain: crate::effects::gain::Gain,
         has_overhead_limiter: crate::effects::limiter::Limiter,
+        has_overhead_midi_tick_sequencer: crate::midi::sequencers::MidiTickSequencer,
         has_overhead_mixer: crate::effects::mixer::Mixer,
         has_overhead_oscillator: crate::oscillators::Oscillator,
         has_overhead_sampler: crate::synthesizers::sampler::Sampler,
-        has_overhead_drumkit_sampler: crate::synthesizers::drumkit_sampler::Sampler,
         has_overhead_stepped_envelope: crate::envelopes::SteppedEnvelope,
         has_overhead_synth: crate::synthesizers::welsh::Synth,
         has_overhead_test_audio_sink: crate::utils::tests::TestAudioSink,
@@ -634,7 +635,7 @@ pub mod tests {
             Arpeggiator::new_wrapped_with(0, 0),
             rrc(ControlTrip::new(target)),
             BeatSequencer::new_wrapped(),
-            rrc(MidiSequencer::new()),
+            rrc(MidiTickSequencer::new()),
         ]
     }
 

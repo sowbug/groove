@@ -11,76 +11,6 @@ use std::{
     ops::Bound::{Excluded, Included},
 };
 
-#[derive(Debug)]
-pub struct MidiSequencer {
-    midi_ticks_per_second: MidiTicks,
-    tick_sequencer: MidiTickSequencer,
-}
-
-impl Default for MidiSequencer {
-    fn default() -> Self {
-        Self {
-            midi_ticks_per_second: MidiTicks(960),
-            tick_sequencer: MidiTickSequencer::default(),
-        }
-    }
-}
-
-impl MidiSequencer {
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
-    pub fn connected_channel_count() -> u8 {
-        16
-    }
-
-    pub(crate) fn set_midi_ticks_per_second(&mut self, tps: usize) {
-        self.midi_ticks_per_second = MidiTicks(tps);
-    }
-
-    pub(crate) fn insert(&mut self, when: MidiTicks, channel: MidiChannel, message: MidiMessage) {
-        self.tick_sequencer.insert(when, channel, message);
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn clear(&mut self) {
-        self.tick_sequencer.clear();
-    }
-}
-
-impl SourcesMidi for MidiSequencer {
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        self.tick_sequencer.midi_sinks_mut()
-    }
-
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        self.tick_sequencer.midi_sinks()
-    }
-
-    fn midi_output_channel(&self) -> MidiChannel {
-        self.tick_sequencer.midi_output_channel()
-    }
-
-    fn set_midi_output_channel(&mut self, midi_channel: MidiChannel) {
-        self.tick_sequencer.set_midi_output_channel(midi_channel);
-    }
-}
-
-impl WatchesClock for MidiSequencer {
-    fn tick(&mut self, clock: &Clock) {
-        self.tick_sequencer.tick(clock);
-    }
-}
-
-impl Terminates for MidiSequencer {
-    fn is_finished(&self) -> bool {
-        self.tick_sequencer.is_finished()
-    }
-}
-
 pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
 
 #[derive(Debug)]
@@ -228,6 +158,7 @@ impl MidiTickSequencer {
         wrapped
     }
 
+    #[allow(dead_code)]
     pub(crate) fn clear(&mut self) {
         // TODO: should this also disconnect sinks? I don't think so
         self.events.clear();
@@ -302,9 +233,7 @@ impl Terminates for MidiTickSequencer {
 #[cfg(test)]
 mod tests {
 
-    use super::{
-        BeatEventsMap, BeatSequencer, MidiSequencer, MidiTickEventsMap, MidiTickSequencer,
-    };
+    use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         clock::{Clock, MidiTicks},
         common::{rrc, rrc_downgrade},
@@ -329,14 +258,16 @@ mod tests {
         }
     }
 
-    impl MidiSequencer {
+    impl MidiTickSequencer {
         pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: usize) -> MidiTicks {
-            let tpb = self.midi_ticks_per_second.0 as f32 / (clock.settings().bpm() / 60.0);
+            //            let tpb = self.midi_ticks_per_second.0 as f32 /
+            //            (clock.settings().bpm() / 60.0);
+            let tpb = 960.0 / (clock.settings().bpm() / 60.0); // TODO: who should own the number of ticks/second?
             MidiTicks::from(tpb * beat as f32)
         }
     }
 
-    fn advance_to_next_beat(clock: &mut Clock, sequencer: &mut MidiSequencer) {
+    fn advance_to_next_beat(clock: &mut Clock, sequencer: &mut MidiTickSequencer) {
         let next_beat = clock.beats().floor() + 1.0;
         while clock.beats() < next_beat {
             clock.tick();
@@ -346,7 +277,7 @@ mod tests {
 
     // We're papering over the issue that MIDI events are firing a little late.
     // See Clock::next_slice_in_midi_ticks().
-    fn advance_one_midi_tick(clock: &mut Clock, sequencer: &mut MidiSequencer) {
+    fn advance_one_midi_tick(clock: &mut Clock, sequencer: &mut MidiTickSequencer) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
             clock.tick();
@@ -357,7 +288,7 @@ mod tests {
     #[test]
     fn test_sequencer() {
         let mut clock = Clock::new();
-        let mut sequencer = MidiSequencer::new();
+        let mut sequencer = MidiTickSequencer::new();
 
         let device = rrc(TestMidiSink::new_with(0));
         assert!(!device.borrow().is_playing);
@@ -397,7 +328,7 @@ mod tests {
     #[test]
     fn test_sequencer_multichannel() {
         let mut clock = Clock::new();
-        let mut sequencer = MidiSequencer::new();
+        let mut sequencer = MidiTickSequencer::new();
 
         let device_1 = rrc(TestMidiSink::new());
         assert!(!device_1.borrow().is_playing);
@@ -431,16 +362,12 @@ mod tests {
             1,
             MidiUtils::new_note_off(MidiNote::C4 as u8, 0),
         );
-        assert_eq!(sequencer.tick_sequencer.debug_events().len(), 4);
-
-        dbg!(&sequencer.tick_sequencer.debug_events());
+        assert_eq!(sequencer.debug_events().len(), 4);
 
         // Let the tick #0 event(s) fire.
         assert_eq!(clock.samples(), 0);
         assert_eq!(clock.midi_ticks(), 0);
         advance_one_midi_tick(&mut clock, &mut sequencer);
-        dbg!(&device_1.borrow().messages);
-        dbg!(&device_2.borrow().messages);
         {
             let dp_1 = device_1.borrow();
             assert!(dp_1.is_playing);
@@ -454,8 +381,6 @@ mod tests {
         }
 
         advance_to_next_beat(&mut clock, &mut sequencer);
-        dbg!(&device_1.borrow().messages);
-        dbg!(&device_2.borrow().messages);
         assert_eq!(clock.beats().floor(), 1.0); // TODO: these floor() calls are a smell
         {
             let dp = device_1.borrow();

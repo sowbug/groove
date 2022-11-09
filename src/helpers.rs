@@ -1,13 +1,12 @@
 use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc},
-    midi::{sequencer::MidiSequencer, smf_reader::MidiSmfReader},
     orchestrator::{Orchestrator, Performance},
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     synthesizers::{
         drumkit_sampler::Sampler,
         welsh::{PatchName, Synth},
     },
-    traits::IsMidiInstrument,
+    traits::IsMidiInstrument, midi::{sequencers::MidiTickSequencer, programmers::MidiSmfReader},
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -198,14 +197,16 @@ impl IOHelper {
         let data = std::fs::read(filename).unwrap();
         let mut orchestrator = Orchestrator::new();
 
-        let midi_sequencer = rrc(MidiSequencer::new());
-        MidiSmfReader::load_sequencer(&data, &mut midi_sequencer.borrow_mut());
+        let midi_sequencer = rrc(MidiTickSequencer::new());
+        MidiSmfReader::program_sequencer(&data, &mut midi_sequencer.borrow_mut());
 
         let instrument = rrc_clone(&midi_sequencer);
         orchestrator.connect_to_upstream_midi_bus(instrument);
         orchestrator.register_clock_watcher(None, midi_sequencer);
 
-        for channel in 0..MidiSequencer::connected_channel_count() {
+        // TODO: this is a hack. We need only the number of channels used in the
+        // SMF, but a few idle ones won't hurt for now.
+        for channel in 0..16 {
             let synth: Rrc<dyn IsMidiInstrument> = if channel == 9 {
                 Sampler::new_wrapped_from_files(channel)
             } else {
@@ -241,8 +242,8 @@ impl IOHelper {
                 sample_option.success().unwrap_or_default()
             } else {
                 // TODO(miket): this isn't great, because we don't know whether
-                // the steal failure was because of a spurious error (buffer underrun)
-                // or complete processing.
+                // the steal failure was because of a spurious error (buffer
+                // underrun) or complete processing.
                 *finished = true;
                 cvar.notify_one();
                 0.
@@ -318,8 +319,8 @@ impl IOHelper {
 
         stream.play()?;
 
-        // See https://doc.rust-lang.org/stable/std/sync/struct.Condvar.html for origin of this
-        // code.
+        // See https://doc.rust-lang.org/stable/std/sync/struct.Condvar.html for
+        // origin of this code.
         let &(ref lock, ref cvar) = &*sync_pair;
         let mut finished = lock.lock().unwrap();
         while !*finished {

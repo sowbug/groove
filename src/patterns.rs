@@ -1,7 +1,7 @@
 use crate::{
     clock::{BeatValue, PerfectTimeUnit, TimeSignature},
     common::Rrc,
-    midi::{sequencer::BeatSequencer, MidiChannel, MidiMessage},
+    midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
 };
 use std::{cmp, fmt::Debug};
 

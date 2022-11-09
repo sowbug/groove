@@ -3,7 +3,7 @@ use midly::num::u7;
 use crate::{
     clock::{Clock, PerfectTimeUnit},
     common::{rrc, rrc_downgrade, Rrc, Ww},
-    midi::{sequencer::BeatSequencer, MidiChannel, MidiMessage},
+    midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
     traits::{
         HasOverhead, IsMidiEffect, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock,
     },

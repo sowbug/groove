@@ -1,4 +1,5 @@
-pub(crate) mod sequencer;
+pub(crate) mod programmers;
+pub(crate) mod sequencers;
 pub(crate) mod smf_reader;
 
 pub use midly::MidiMessage;
