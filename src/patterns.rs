@@ -1,16 +1,9 @@
 use crate::{
-    clock::{BeatValue, Clock, MidiTicks, PerfectTimeUnit, TimeSignature},
-    common::{rrc, rrc_downgrade, weak_new, Rrc, Ww},
-    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{HasOverhead, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock},
+    clock::{BeatValue, PerfectTimeUnit, TimeSignature},
+    common::Rrc,
+    midi::{sequencer::BeatSequencer, MidiChannel, MidiMessage},
 };
-use btreemultimap::BTreeMultiMap;
-use std::{
-    cmp,
-    collections::HashMap,
-    fmt::Debug,
-    ops::Bound::{Excluded, Included},
-};
+use std::{cmp, fmt::Debug};
 
 #[derive(Clone, Debug, Default)]
 pub struct Pattern<T: Default> {
@@ -153,222 +146,6 @@ impl PatternProgrammer {
     }
 }
 
-#[derive(Debug)]
-pub struct BeatSequencer {
-    pub(crate) me: Ww<Self>,
-    overhead: Overhead,
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
-    next_instant: PerfectTimeUnit,
-    events: BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>,
-    last_event_time: PerfectTimeUnit,
-}
-
-impl Default for BeatSequencer {
-    fn default() -> Self {
-        Self {
-            me: weak_new(),
-            overhead: Overhead::default(),
-            channels_to_sink_vecs: Default::default(),
-            next_instant: Default::default(),
-            events: Default::default(),
-            last_event_time: Default::default(),
-        }
-    }
-}
-
-impl BeatSequencer {
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-
-    pub(crate) fn new_wrapped() -> Rrc<Self> {
-        let wrapped = rrc(Self::new());
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
-    }
-
-    pub(crate) fn clear(&mut self) {
-        // TODO: should this also disconnect sinks? I don't think so
-        self.events.clear();
-        self.next_instant = PerfectTimeUnit::default();
-        self.last_event_time = PerfectTimeUnit::default();
-    }
-
-    pub(crate) fn insert(
-        &mut self,
-        when: PerfectTimeUnit,
-        channel: MidiChannel,
-        message: MidiMessage,
-    ) {
-        self.events.insert(when, (channel, message));
-        if when > self.last_event_time {
-            self.last_event_time = when;
-        }
-    }
-}
-
-// TODO: what does it mean for a MIDI device to be muted?
-impl HasOverhead for BeatSequencer {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
-
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
-
-impl SourcesMidi for BeatSequencer {
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &mut self.channels_to_sink_vecs
-    }
-
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &self.channels_to_sink_vecs
-    }
-
-    fn midi_output_channel(&self) -> MidiChannel {
-        MIDI_CHANNEL_RECEIVE_ALL
-    }
-
-    fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
-}
-
-impl WatchesClock for BeatSequencer {
-    fn tick(&mut self, clock: &Clock) {
-        self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
-
-        if self.overhead.is_enabled() {
-            // If the last instant marks a new interval, then we want to include
-            // any events scheduled at exactly that time. So the range is
-            // inclusive.
-            let range = (
-                Included(PerfectTimeUnit(clock.beats())),
-                Excluded(self.next_instant),
-            );
-            let events = self.events.range(range);
-            for (_when, event) in events {
-                self.issue_midi(clock, &event.0, &event.1);
-            }
-        }
-    }
-}
-
-impl Terminates for BeatSequencer {
-    fn is_finished(&self) -> bool {
-        self.next_instant > self.last_event_time
-    }
-}
-
-pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
-
-#[derive(Debug)]
-pub struct MidiTickSequencer {
-    pub(crate) me: Ww<Self>,
-    overhead: Overhead,
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
-    next_instant: MidiTicks,
-    events: MidiTickEventsMap,
-    last_event_time: MidiTicks,
-}
-
-impl Default for MidiTickSequencer {
-    fn default() -> Self {
-        Self {
-            me: weak_new(),
-            overhead: Overhead::default(),
-            channels_to_sink_vecs: Default::default(),
-            next_instant: MidiTicks::MIN,
-            events: Default::default(),
-            last_event_time: MidiTicks::MIN,
-        }
-    }
-}
-
-impl MidiTickSequencer {
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn new_wrapped() -> Rrc<Self> {
-        let wrapped = rrc(Self::new());
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
-    }
-
-    pub(crate) fn clear(&mut self) {
-        // TODO: should this also disconnect sinks? I don't think so
-        self.events.clear();
-        self.next_instant = MidiTicks::MIN;
-        self.last_event_time = MidiTicks::MIN;
-    }
-
-    pub(crate) fn insert(&mut self, when: MidiTicks, channel: MidiChannel, message: MidiMessage) {
-        self.events.insert(when, (channel, message));
-        if when >= self.last_event_time {
-            self.last_event_time = when;
-        }
-    }
-}
-
-// TODO: what does it mean for a MIDI device to be muted?
-impl HasOverhead for MidiTickSequencer {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
-
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
-
-impl SourcesMidi for MidiTickSequencer {
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &mut self.channels_to_sink_vecs
-    }
-
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &self.channels_to_sink_vecs
-    }
-
-    fn midi_output_channel(&self) -> MidiChannel {
-        MIDI_CHANNEL_RECEIVE_ALL
-    }
-
-    fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
-}
-
-impl WatchesClock for MidiTickSequencer {
-    fn tick(&mut self, clock: &Clock) {
-        self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
-
-        if self.overhead.is_enabled() {
-            // If the last instant marks a new interval, then we want to include
-            // any events scheduled at exactly that time. So the range is
-            // inclusive.
-            //
-            // TODO: see comment in Clock::next_slice_in_midi_ticks about these
-            // ranges firing MIDI events late.
-            let range = (
-                Included(MidiTicks(clock.midi_ticks())),
-                Excluded(self.next_instant),
-            );
-            let events = self.events.range(range);
-            for (_when, event) in events {
-                self.issue_midi(clock, &event.0, &event.1);
-            }
-        }
-    }
-}
-
-impl Terminates for MidiTickSequencer {
-    fn is_finished(&self) -> bool {
-        self.next_instant > self.last_event_time
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use assert_approx_eq::assert_approx_eq;
@@ -376,8 +153,9 @@ mod tests {
     use super::*;
     use crate::{
         clock::{TimeSignature, WatchedClock},
-        common::rrc_clone,
+        common::{rrc_clone, rrc_downgrade},
         settings::PatternSettings,
+        traits::{SinksMidi, SourcesMidi},
         utils::tests::TestMidiSink,
     };
 
@@ -389,18 +167,6 @@ mod tests {
                 velocity: 127,
                 duration: PerfectTimeUnit(0.25),
             }
-        }
-    }
-
-    impl BeatSequencer {
-        pub fn debug_dump_events(&self) {
-            println!("{:?}", self.events);
-        }
-    }
-
-    impl MidiTickSequencer {
-        pub(crate) fn debug_events(&self) -> &MidiTickEventsMap {
-            &self.events
         }
     }
 
@@ -443,7 +209,10 @@ mod tests {
             programmer.cursor(),
             PerfectTimeUnit::from(2 * time_signature.top)
         );
-        assert_eq!(sequencer.borrow().events.len(), expected_note_count * 2); // one on, one off
+        assert_eq!(
+            sequencer.borrow().debug_events().len(),
+            expected_note_count * 2
+        ); // one on, one off
     }
 
     #[test]
@@ -488,7 +257,10 @@ mod tests {
             programmer.cursor(),
             PerfectTimeUnit::from(3 * time_signature.top)
         );
-        assert_eq!(sequencer.borrow().events.len(), expected_note_count * 2); // one on, one off
+        assert_eq!(
+            sequencer.borrow().debug_events().len(),
+            expected_note_count * 2
+        ); // one on, one off
     }
 
     #[test]

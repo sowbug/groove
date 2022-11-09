@@ -386,9 +386,11 @@ pub mod tests {
             arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         },
         envelopes::AdsrEnvelope,
-        midi::{sequencer::MidiSequencer, MidiChannel, MidiUtils},
+        midi::{
+            sequencer::{BeatSequencer, MidiSequencer},
+            MidiChannel, MidiUtils,
+        },
         oscillators::Oscillator,
-        patterns::BeatSequencer,
         settings::patches::{EnvelopeSettings, SynthPatch, WaveformType},
         synthesizers::{
             drumkit_sampler::Sampler as DrumkitSampler,
@@ -521,7 +523,7 @@ pub mod tests {
     has_overhead_tests! {
         has_overhead_adsr_envelope: crate::envelopes::AdsrEnvelope,
         has_overhead_arpeggiator: crate::effects::arpeggiator::Arpeggiator,
-        has_overhead_beat_sequencer: crate::patterns::BeatSequencer,
+        has_overhead_beat_sequencer: crate::midi::sequencer::BeatSequencer,
         has_overhead_bitcrusher: crate::effects::bitcrusher::Bitcrusher,
         has_overhead_filter: crate::effects::filter::BiQuadFilter,
         has_overhead_gain: crate::effects::gain::Gain,

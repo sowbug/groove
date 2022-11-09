@@ -6,7 +6,8 @@ use crate::{
     clock::WatchedClock,
     common::{rrc, rrc_clone, rrc_downgrade, DeviceId},
     control::{ControlPath, ControlTrip},
-    patterns::{BeatSequencer, Note, Pattern, PatternProgrammer},
+    midi::sequencer::BeatSequencer,
+    patterns::{Note, Pattern, PatternProgrammer},
     Orchestrator,
 };
 use anyhow::Result;
