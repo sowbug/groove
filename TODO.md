@@ -3,7 +3,8 @@
 ## Architecture proofs
 
 - [ ] Solve whether refcounting/interior mutability is required. This is a
-  prerequisite for scaling up effects/instruments.
+  prerequisite for scaling up effects/instruments. Refcounting is especially
+  needed for embedded/no_std.
 - [x] An external thread (MIDI input) can inject events
 - [ ] Live play: keyboard plays sounds, patterns can play one-off or loop on
   command
@@ -16,6 +17,8 @@
 - [ ] Organized view: it's clear what makes an audio "lane" work. This might be
   in terms of audio sources (with orphans) or MIDI routes.
 - [ ] What's the real engineering cost of adding a new device?
+- [ ] Verify that capable instruments can generate same events
+  backwards/forwards.
 
 ## Table stakes
 
@@ -84,7 +87,8 @@
   at the end of the chain
 - [ ] Regularly test with weird sample rates (super low, super high)
 - [ ] Identify entities that don't need ticks, and don't tick() them
-- [ ] Come up with a better TODO than `panic!()`. Get comfortable with handling `Result<>`.
+- [ ] Come up with a better TODO than `panic!()`. Get comfortable with handling
+  `Result<>`.
 
 ## Random thoughts
 
