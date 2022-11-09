@@ -1,7 +1,7 @@
 use crate::{
     common::{rrc_downgrade, wrc_clone, DeviceId, Rrc, Ww},
     control::ControlPath,
-    patterns::{Note, Pattern},
+    midi::patterns::{Note, Pattern},
     traits::{IsEffect, IsMidiEffect, MakesControlSink, SinksAudio, SourcesAudio, WatchesClock},
 };
 use std::collections::HashMap;

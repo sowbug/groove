@@ -23,7 +23,6 @@ pub(crate) mod id_store;
 pub(crate) mod midi;
 pub(crate) mod orchestrator;
 pub(crate) mod oscillators;
-pub(crate) mod patterns;
 pub(crate) mod scripting;
 pub(crate) mod settings;
 pub(crate) mod synthesizers;

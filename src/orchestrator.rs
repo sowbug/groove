@@ -4,8 +4,10 @@ use crate::{
     control::ControlPath,
     effects::mixer::Mixer,
     id_store::IdStore,
-    midi::{MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    patterns::{Note, Pattern},
+    midi::{
+        patterns::{Note, Pattern},
+        MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL,
+    },
     traits::{
         IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi,
         SourcesAudio, SourcesMidi, WatchesClock,
