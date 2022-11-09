@@ -12,7 +12,7 @@ use iced::{
     alignment::{Horizontal, Vertical},
     theme,
     widget::{checkbox, column, container, row, slider, text, text_input},
-    Color, Element, Font,
+    Color, Element, Font, Theme,
 };
 use std::{any::type_name, fmt::Debug};
 
@@ -46,6 +46,39 @@ pub enum ViewableMessage {
     GainLevelChangedAsU8Percentage(u8),
     LimiterMinChanged(f32),
     LimiterMaxChanged(f32),
+}
+
+struct TitledContainerTitleStyle {
+    theme: iced::Theme,
+}
+
+impl container::StyleSheet for TitledContainerTitleStyle {
+    type Style = Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> container::Appearance {
+        let palette = self.theme.extended_palette();
+        container::Appearance {
+            text_color: Some(palette.background.strong.text),
+            background: Some(palette.background.strong.color.into()),
+            ..Default::default()
+        }
+    }
+}
+
+struct NumberContainerStyle {
+    _theme: iced::Theme,
+}
+
+impl container::StyleSheet for NumberContainerStyle {
+    type Style = Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> container::Appearance {
+        container::Appearance {
+            text_color: Some(Color::from_rgb8(255, 255, 0)),
+            background: Some(iced::Background::Color(Color::BLACK)),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Default)]
@@ -96,7 +129,9 @@ impl<'a> GuiStuff {
         ])
         .width(iced::Length::Fill)
         .padding(1)
-        .style(theme::Container::Custom(Self::titled_container_title_style))
+        .style(theme::Container::Custom(
+            Self::titled_container_title_style(&Theme::Dark),
+        ))
         .into()
     }
 
@@ -109,21 +144,20 @@ impl<'a> GuiStuff {
             .into()
     }
 
-    fn titled_container_title_style(theme: &iced::Theme) -> container::Appearance {
-        let palette = theme.extended_palette();
-        container::Appearance {
-            text_color: Some(palette.background.strong.text),
-            background: Some(palette.background.strong.color.into()),
-            ..Default::default()
-        }
+    fn titled_container_title_style(
+        theme: &iced::Theme,
+    ) -> Box<(dyn iced::widget::container::StyleSheet<Style = Theme>)> {
+        Box::new(TitledContainerTitleStyle {
+            theme: theme.clone(),
+        })
     }
 
-    pub fn number_box_style(_theme: &iced::Theme) -> container::Appearance {
-        container::Appearance {
-            text_color: Some(Color::from_rgb8(255, 255, 0)),
-            background: Some(iced::Background::Color(Color::BLACK)),
-            ..Default::default()
-        }
+    pub fn number_box_style(
+        theme: &iced::Theme,
+    ) -> Box<(dyn iced::widget::container::StyleSheet<Style = Theme>)> {
+        Box::new(NumberContainerStyle {
+            _theme: theme.clone(),
+        })
     }
 
     fn missing_target_container() -> Element<'a, ViewableMessage> {
@@ -412,9 +446,7 @@ impl IsViewable for GainViewableResponder {
                     target.borrow_mut().set_enabled(is_enabled);
                 }
                 Self::Message::GainLevelChangedAsU8Percentage(ceiling) => {
-                    // TODO: we need input sanitizers
-                    // 0..=100
-                    // 0.0..=1.0
+                    // TODO: we need input sanitizers 0..=100 0.0..=1.0
                     // -1.0..=1.0
                     target.borrow_mut().set_ceiling((ceiling as f32) / 100.0);
                 }
@@ -767,8 +799,8 @@ mod tests {
 
     use super::ViewableMessage;
 
-    // There aren't many assertions in this method, but we know it'll panic or spit out debug
-    // messages if something's wrong.
+    // There aren't many assertions in this method, but we know it'll panic or
+    // spit out debug messages if something's wrong.
     fn test_one_viewable(factory: Rrc<dyn MakesIsViewable>, message: Option<ViewableMessage>) {
         let is_viewable = factory.borrow_mut().make_is_viewable();
         if let Some(mut viewable) = is_viewable {

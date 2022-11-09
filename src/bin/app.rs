@@ -168,7 +168,7 @@ impl Clock {
                     .font(NUMBERS_FONT)
                     .size(NUMBERS_FONT_SIZE),
             )
-            .style(theme::Container::Custom(GuiStuff::number_box_style))
+            .style(theme::Container::Custom(GuiStuff::number_box_style(&Theme::Dark)))
         };
 
         let time_signature = {
@@ -189,7 +189,7 @@ impl Clock {
                     .font(NUMBERS_FONT)
                     .size(NUMBERS_FONT_SIZE),
             )
-            .style(theme::Container::Custom(GuiStuff::number_box_style))
+            .style(theme::Container::Custom(GuiStuff::number_box_style(&Theme::Dark)))
         };
         row![time_counter, time_signature, beat_counter].into()
     }
@@ -261,8 +261,8 @@ impl Application for GrooveApp {
         )
     }
 
-    fn theme(&self) -> Theme {
-        self.theme
+    fn theme(&self) -> Self::Theme {
+        self.theme.clone()
     }
 
     fn title(&self) -> String {
@@ -290,7 +290,7 @@ impl Application for GrooveApp {
                     .collect();
                 let midi = MidiHandler::new_with(&mut orchestrator);
                 *self = Self {
-                    theme: self.theme,
+                    theme: self.theme.clone(),
                     project_name: state.project_name,
                     orchestrator,
                     viewables,
