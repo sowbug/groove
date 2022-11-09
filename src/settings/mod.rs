@@ -94,6 +94,9 @@ pub struct ClockSettings {
 
     #[serde(rename = "time-signature")]
     time_signature: TimeSignature,
+
+    #[serde(skip)]
+    midi_ticks_per_second: usize,
 }
 
 impl ClockSettings {
@@ -110,6 +113,7 @@ impl ClockSettings {
                 top: time_signature.0,
                 bottom: time_signature.1,
             },
+            midi_ticks_per_second: 960, // TODO
         }
     }
 
@@ -124,7 +128,10 @@ impl ClockSettings {
         self.samples_per_second
     }
 
-    #[allow(dead_code)]
+    pub fn midi_ticks_per_second(&self) -> usize {
+        self.midi_ticks_per_second
+    }
+
     pub fn time_signature(&self) -> TimeSignature {
         self.time_signature
     }
@@ -154,6 +161,7 @@ impl Default for ClockSettings {
             samples_per_second: 44100,
             beats_per_minute: 128.0,
             time_signature: TimeSignature { top: 4, bottom: 4 },
+            midi_ticks_per_second: 960,
         }
     }
 }

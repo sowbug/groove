@@ -137,6 +137,8 @@ pub enum ClockTimeUnit {
     Beats,
     #[allow(dead_code)]
     Samples,
+    #[allow(dead_code)]
+    MidiTicks,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -145,8 +147,13 @@ pub struct Clock {
 
     samples: usize, // Samples since clock creation.
     seconds: f32,   // Seconds elapsed since clock creation.
-    beats: f32,     // Beats elapsed since clock creation.
-                    // Not https://en.wikipedia.org/wiki/Swatch_Internet_Time
+
+    // Beats elapsed since clock creation. Not
+    // https://en.wikipedia.org/wiki/Swatch_Internet_Time
+    beats: f32,
+
+    // Typically 960 ticks per second
+    midi_ticks: usize,
 }
 
 impl Clock {
@@ -180,6 +187,9 @@ impl Clock {
     pub fn beats(&self) -> f32 {
         self.beats
     }
+    pub fn midi_ticks(&self) -> usize {
+        self.midi_ticks
+    }
     pub fn sample_rate(&self) -> usize {
         self.settings().sample_rate()
     }
@@ -199,6 +209,20 @@ impl Clock {
     pub(crate) fn next_slice_in_beats(&self) -> f32 {
         self.beats_for_sample(self.samples + 1)
     }
+    pub(crate) fn next_slice_in_midi_ticks(&self) -> usize {
+        // Because MIDI ticks (960Hz) are larger than samples (44100Hz), many of
+        // the ranges computed in MidiTickSequencer::tick() are empty. A range
+        // is nonzero only when the division works out so that the start is
+        // barely on the left, and the end barely on the right. This means that
+        // something scheduled for MIDI tick zero will actually happen around
+        // sample 46 (44100/960 = 45.9375), so MIDI time is about a millisecond
+        // behind where it should be.
+        //
+        // TODO: Come up with a better conversion method that aligns integer
+        // MIDI ticks with the first range that could include them, but that
+        // doesn't then schedule the tick more than once.
+        self.midi_ticks_for_sample(self.samples + 1)
+    }
 
     pub fn tick(&mut self) {
         self.samples += 1;
@@ -208,20 +232,24 @@ impl Clock {
     fn seconds_for_sample(&self, sample: usize) -> f32 {
         sample as f32 / self.settings.sample_rate() as f32
     }
-
     fn beats_for_sample(&self, sample: usize) -> f32 {
         (self.settings.bpm() / 60.0) * self.seconds_for_sample(sample)
+    }
+    fn midi_ticks_for_sample(&self, sample: usize) -> usize {
+        (self.settings.midi_ticks_per_second() as f32 * self.seconds_for_sample(sample)) as usize
     }
 
     fn update(&mut self) {
         self.seconds = self.seconds_for_sample(self.samples);
         self.beats = self.beats_for_sample(self.samples);
+        self.midi_ticks = self.midi_ticks_for_sample(self.samples);
     }
 
     pub(crate) fn reset(&mut self) {
         self.samples = 0;
         self.seconds = 0.0;
         self.beats = 0.0;
+        self.midi_ticks = 0;
     }
 
     pub(crate) fn time_for(&self, unit: &ClockTimeUnit) -> f32 {
@@ -229,6 +257,7 @@ impl Clock {
             ClockTimeUnit::Seconds => self.seconds(),
             ClockTimeUnit::Beats => self.beats(),
             ClockTimeUnit::Samples => todo!(),
+            ClockTimeUnit::MidiTicks => todo!(),
         }
     }
 }
@@ -337,6 +366,55 @@ impl Ord for PerfectTimeUnit {
     }
 }
 impl Eq for PerfectTimeUnit {}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct MidiTicks(pub usize);
+
+impl MidiTicks {
+    #[allow(dead_code)]
+    pub(crate) const MAX: MidiTicks = MidiTicks(usize::MAX);
+    pub(crate) const MIN: MidiTicks = MidiTicks(usize::MIN);
+}
+
+impl Display for MidiTicks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+impl From<f32> for MidiTicks {
+    fn from(value: f32) -> Self {
+        MidiTicks(value as usize)
+    }
+}
+impl Add for MidiTicks {
+    type Output = MidiTicks;
+    fn add(self, rhs: Self) -> Self::Output {
+        MidiTicks(self.0 + rhs.0)
+    }
+}
+impl Mul for MidiTicks {
+    type Output = MidiTicks;
+    fn mul(self, rhs: Self) -> Self::Output {
+        MidiTicks(self.0 * rhs.0)
+    }
+}
+impl PartialOrd for MidiTicks {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+impl Ord for MidiTicks {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self > other {
+            return Ordering::Greater;
+        }
+        if self < other {
+            return Ordering::Less;
+        }
+        Ordering::Equal
+    }
+}
+impl Eq for MidiTicks {}
 
 #[cfg(test)]
 mod tests {

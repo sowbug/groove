@@ -1,5 +1,5 @@
 use super::sequencer::MidiSequencer;
-use crate::patterns::OrderedEvent;
+use crate::clock::MidiTicks;
 use midly::TrackEventKind;
 
 pub struct MidiSmfReader {}
@@ -38,11 +38,7 @@ impl MidiSmfReader {
                     TrackEventKind::Midi { channel, message } => {
                         let delta = t.delta.as_int() as usize;
                         track_time_ticks += delta;
-                        sequencer.add_message(OrderedEvent {
-                            when: track_time_ticks,
-                            channel: channel.into(),
-                            event: message,
-                        });
+                        sequencer.insert(MidiTicks(track_time_ticks), channel.into(), message);
                         // TODO: prior version of this code treated vel=0 as
                         // note-off. Do we need to handle that higher up?
                     }
