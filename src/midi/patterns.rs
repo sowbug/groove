@@ -1,7 +1,11 @@
-use crate::clock::{BeatValue, PerfectTimeUnit};
+use crate::{
+    clock::{BeatValue, PerfectTimeUnit},
+    common::{rrc, rrc_downgrade, Rrc, Ww},
+    traits::{HasOverhead, Overhead},
+};
 use std::fmt::Debug;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Note {
     pub(crate) key: u8,
     pub(crate) velocity: u8,
@@ -49,5 +53,42 @@ impl Pattern<Note> {
             r.notes.push(note_vec);
         }
         r
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct PatternManager {
+    pub(crate) me: Ww<Self>,
+    overhead: Overhead,
+
+    patterns: Vec<Pattern<Note>>,
+}
+
+impl PatternManager {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    pub(crate) fn new_wrapped() -> Rrc<Self> {
+        let wrapped = rrc(Self::new());
+        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
+        wrapped
+    }
+
+    pub(crate) fn register(&mut self, pattern: Pattern<Note>) {
+        self.patterns.push(pattern);
+    }
+
+    pub(crate) fn patterns(&self) -> &[Pattern<Note>] {
+        &self.patterns
+    }
+}
+
+impl HasOverhead for PatternManager {
+    fn overhead(&self) -> &Overhead {
+        &self.overhead
+    }
+    fn overhead_mut(&mut self) -> &mut Overhead {
+        &mut self.overhead
     }
 }

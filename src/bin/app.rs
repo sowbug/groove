@@ -168,7 +168,9 @@ impl Clock {
                     .font(NUMBERS_FONT)
                     .size(NUMBERS_FONT_SIZE),
             )
-            .style(theme::Container::Custom(GuiStuff::number_box_style(&Theme::Dark)))
+            .style(theme::Container::Custom(GuiStuff::number_box_style(
+                &Theme::Dark,
+            )))
         };
 
         let time_signature = {
@@ -189,7 +191,9 @@ impl Clock {
                     .font(NUMBERS_FONT)
                     .size(NUMBERS_FONT_SIZE),
             )
-            .style(theme::Container::Custom(GuiStuff::number_box_style(&Theme::Dark)))
+            .style(theme::Container::Custom(GuiStuff::number_box_style(
+                &Theme::Dark,
+            )))
         };
         row![time_counter, time_signature, beat_counter].into()
     }
@@ -367,6 +371,7 @@ impl Application for GrooveApp {
                     // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
                     //
                     // This is needed to stop an ALSA buffer underrun on close
+                    dbg!("Close requested. I'm asking everyone to stop.");
                     self.midi.stop();
                     self.audio_output.stop();
 
@@ -391,6 +396,12 @@ impl Application for GrooveApp {
     }
 
     fn should_exit(&self) -> bool {
+        if self.should_exit {
+            // I think that self.midi or self.audio_output are causing the app
+            // to hang randomly on exit. I'm going to keep this here to be
+            // certain that the close code is really running.
+            dbg!("I'm trying to exit!", self.should_exit);
+        }
         self.should_exit
     }
 

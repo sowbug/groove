@@ -15,6 +15,7 @@ use crate::{
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
@@ -127,9 +128,12 @@ impl SongSettings {
             return;
         }
 
+        let mut ids_to_patterns: HashMap<String, Pattern<Note>> = HashMap::new();
+        let pattern_manager = orchestrator.pattern_manager();
         for pattern_settings in &self.patterns {
-            let pattern = rrc(Pattern::<Note>::from_settings(pattern_settings));
-            orchestrator.register_pattern(Some(&pattern_settings.id), pattern);
+            let pattern = Pattern::<Note>::from_settings(pattern_settings);
+            ids_to_patterns.insert(pattern_settings.id.clone(), pattern.clone());
+            pattern_manager.borrow_mut().register(pattern);
         }
         let sequencer = BeatSequencer::new_wrapped();
         let mut programmer =
@@ -139,10 +143,8 @@ impl SongSettings {
             let channel = track.midi_channel;
             programmer.reset_cursor();
             for pattern_id in &track.pattern_ids {
-                if let Ok(pattern) = orchestrator.pattern_by(pattern_id) {
-                    if let Some(pattern) = pattern.upgrade() {
-                        programmer.insert_pattern_at_cursor(&channel, &pattern.borrow());
-                    }
+                if let Some(pattern) = ids_to_patterns.get(pattern_id) {
+                    programmer.insert_pattern_at_cursor(&channel, &pattern);
                 }
             }
         }

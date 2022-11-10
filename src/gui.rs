@@ -1,10 +1,13 @@
 use crate::{
-    common::{wrc_clone, Rrc, Ww},
+    common::{rrc_clone, wrc_clone, Rrc, Ww},
     effects::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
     },
-    midi::sequencers::BeatSequencer,
+    midi::{
+        patterns::{Note, Pattern, PatternManager},
+        sequencers::BeatSequencer,
+    },
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, SinksAudio},
 };
@@ -46,6 +49,7 @@ pub enum ViewableMessage {
     GainLevelChangedAsU8Percentage(u8),
     LimiterMinChanged(f32),
     LimiterMaxChanged(f32),
+    PatternMessage(usize, PatternMessage),
 }
 
 struct TitledContainerTitleStyle {
@@ -763,6 +767,87 @@ impl MakesIsViewable for BeatSequencer {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(BeatSequencerViewableResponder {
+                target: wrc_clone(&self.me),
+            }))
+        } else {
+            println!(
+                "{}: probably forgot to call new_wrapped...()",
+                type_name::<Self>()
+            );
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PatternManagerViewableResponder {
+    target: Ww<PatternManager>,
+}
+impl IsViewable for PatternManagerViewableResponder {
+    type Message = ViewableMessage;
+
+    fn view<'a>(&'a self) -> Element<'a, Self::Message> {
+        if let Some(target) = self.target.upgrade() {
+            let target = rrc_clone(&target);
+            let title = type_name::<PatternManager>();
+            let contents = {
+                let target = target.borrow();
+                let pattern_views = target.patterns().iter().enumerate().map(|(i, item)| {
+                    item.view(&self)
+                        .map(move |message| ViewableMessage::PatternMessage(i, message))
+                });
+                column(pattern_views.collect())
+            };
+            GuiStuff::titled_container(Some(target), title, contents.into())
+        } else {
+            GuiStuff::missing_target_container()
+        }
+    }
+
+    fn update(&mut self, message: Self::Message) {
+        if let Some(target) = self.target.upgrade() {
+            match message {
+                _ => todo!(),
+            };
+        };
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum PatternMessage {
+    SomethingHappened,
+}
+
+impl Pattern<Note> {
+    // This is super-weird. To satisfy the lifetime checks, I had to send in
+    // _thing. There must be a better way to do this. TODO
+    fn view<'a>(&self, _thing: &'a PatternManagerViewableResponder) -> Element<'a, PatternMessage> {
+        let mut note_rows = Vec::new();
+        for track in self.notes.iter() {
+            let mut note_row = Vec::new();
+            for note in track {
+                let cell = text(format!("{:02} ", note.key).to_string());
+                note_row.push(cell.into());
+            }
+            let row_note_row = row(note_row).into();
+            note_rows.push(row_note_row);
+        }
+        column(vec![
+            text(format!("{:?}", self.note_value)).into(),
+            column(note_rows).into(),
+        ])
+        .into()
+    }
+
+    fn update(&mut self, message: ViewableMessage) {
+        dbg!(message);
+    }
+}
+
+impl MakesIsViewable for PatternManager {
+    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
+        if self.me.strong_count() != 0 {
+            Some(Box::new(PatternManagerViewableResponder {
                 target: wrc_clone(&self.me),
             }))
         } else {

@@ -4,10 +4,7 @@ use crate::{
     control::ControlPath,
     effects::mixer::Mixer,
     id_store::IdStore,
-    midi::{
-        patterns::{Note, Pattern},
-        MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL,
-    },
+    midi::{patterns::PatternManager, MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{
         IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi,
         SourcesAudio, SourcesMidi, WatchesClock,
@@ -45,8 +42,9 @@ pub struct Orchestrator {
     audio_sources: Vec<Rrc<dyn SourcesAudio>>,
     effects: Vec<Rrc<dyn IsEffect>>,
 
+    pattern_manager: Rrc<PatternManager>,
+
     // temp - doesn't belong here. something like a controlcontrolcontroller
-    patterns: Vec<Rrc<Pattern<Note>>>,
     control_paths: Vec<Rrc<ControlPath>>,
 
     // GUI
@@ -63,12 +61,14 @@ impl Default for Orchestrator {
             midi_bus: rrc(MidiBus::default()),
             audio_sources: Vec::new(),
             effects: Vec::new(),
-            patterns: Vec::new(),
+            pattern_manager: PatternManager::new_wrapped(),
             control_paths: Vec::new(),
             viewable_makers: Vec::new(),
             is_playing: false,
         };
         let value = rrc_downgrade(&r.main_mixer);
+        r.viewable_makers.push(value);
+        let value = rrc_downgrade(&r.pattern_manager);
         r.viewable_makers.push(value);
         r
     }
@@ -187,12 +187,6 @@ impl Orchestrator {
         id
     }
 
-    pub fn register_pattern(&mut self, id: Option<&str>, pattern: Rrc<Pattern<Note>>) -> String {
-        let id = self.id_store.add_pattern_by_id(id, &pattern);
-        self.patterns.push(pattern);
-        id
-    }
-
     pub fn register_control_path(&mut self, id: Option<&str>, path: Rrc<ControlPath>) -> String {
         let id = self.id_store.add_control_path_by_id(id, &path);
         self.control_paths.push(path);
@@ -260,14 +254,6 @@ impl Orchestrator {
         }
     }
 
-    pub fn pattern_by(&self, id: &str) -> anyhow::Result<Ww<Pattern<Note>>> {
-        if let Some(item) = self.id_store.pattern_by(id) {
-            Ok(item)
-        } else {
-            Err(anyhow::Error::msg(format!("Pattern id {} not found", id)))
-        }
-    }
-
     pub fn control_path_by(&self, id: &str) -> anyhow::Result<Ww<ControlPath>> {
         if let Some(item) = self.id_store.control_path_by(id) {
             Ok(item)
@@ -318,5 +304,9 @@ impl Orchestrator {
 
     pub fn is_playing(&self) -> bool {
         self.is_playing
+    }
+
+    pub(crate) fn pattern_manager(&self) -> Rrc<PatternManager> {
+        rrc_clone(&self.pattern_manager)
     }
 }
