@@ -81,13 +81,13 @@
 - [x] Universal time unit during rendering (it's sample, as in sample rate)
 - [ ] Unit test the filters
 - [ ] More unit tests
-- [ ] Generalize envelopes
-- [ ] Generic unit tests for all the traits
+- [x] Generalize envelopes
+- [x] Generic unit tests for all the traits
 - [ ] Maybe let audio processors work in wider float ranges, and then clamp only
   at the end of the chain
 - [ ] Regularly test with weird sample rates (super low, super high)
 - [ ] Identify entities that don't need ticks, and don't tick() them
-- [ ] Come up with a better TODO than `panic!()`. Get comfortable with handling
+- [x] Come up with a better TODO than `panic!()`. Get comfortable with handling
   `Result<>`.
 
 ## Random thoughts
@@ -98,6 +98,11 @@
   expressed in terms of traits might not change the program flow very much,
   having the knowledge of which is which might allow some optimizations later
   down the road.
+
+## Bugs
+
+- [ ] When scrubbing, MIDI instruments should turn off any playing instruments
+  that would have been turned off during the skipped part.
 
 ## Project logistics
 
