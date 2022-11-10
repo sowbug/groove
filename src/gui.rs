@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc_clone, wrc_clone, Rrc, Ww},
+    common::{wrc_clone, Rrc, Ww},
     effects::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
@@ -14,7 +14,7 @@ use crate::{
 use iced::{
     alignment::{Horizontal, Vertical},
     theme,
-    widget::{checkbox, column, container, row, slider, text, text_input},
+    widget::{button, checkbox, column, container, row, slider, text, text_input},
     Color, Element, Font, Theme,
 };
 use std::{any::type_name, fmt::Debug};
@@ -779,49 +779,14 @@ impl MakesIsViewable for BeatSequencer {
     }
 }
 
-#[derive(Debug)]
-pub struct PatternManagerViewableResponder {
-    target: Ww<PatternManager>,
-}
-impl IsViewable for PatternManagerViewableResponder {
-    type Message = ViewableMessage;
-
-    fn view<'a>(&'a self) -> Element<'a, Self::Message> {
-        if let Some(target) = self.target.upgrade() {
-            let target = rrc_clone(&target);
-            let title = type_name::<PatternManager>();
-            let contents = {
-                let target = target.borrow();
-                let pattern_views = target.patterns().iter().enumerate().map(|(i, item)| {
-                    item.view(&self)
-                        .map(move |message| ViewableMessage::PatternMessage(i, message))
-                });
-                column(pattern_views.collect())
-            };
-            GuiStuff::titled_container(Some(target), title, contents.into())
-        } else {
-            GuiStuff::missing_target_container()
-        }
-    }
-
-    fn update(&mut self, message: Self::Message) {
-        if let Some(target) = self.target.upgrade() {
-            match message {
-                _ => todo!(),
-            };
-        };
-    }
-}
-
 #[derive(Clone, Debug)]
 pub enum PatternMessage {
     SomethingHappened,
+    ButtonPressed,
 }
 
 impl Pattern<Note> {
-    // This is super-weird. To satisfy the lifetime checks, I had to send in
-    // _thing. There must be a better way to do this. TODO
-    fn view<'a>(&self, _thing: &'a PatternManagerViewableResponder) -> Element<'a, PatternMessage> {
+    fn view<'a>(&self) -> Element<'a, PatternMessage> {
         let mut note_rows = Vec::new();
         for track in self.notes.iter() {
             let mut note_row = Vec::new();
@@ -833,29 +798,44 @@ impl Pattern<Note> {
             note_rows.push(row_note_row);
         }
         column(vec![
-            text(format!("{:?}", self.note_value)).into(),
+            button(text(format!("{:?}", self.note_value)))
+                .on_press(PatternMessage::ButtonPressed)
+                .into(),
             column(note_rows).into(),
         ])
         .into()
     }
 
-    fn update(&mut self, message: ViewableMessage) {
-        dbg!(message);
+    fn update(&mut self, message: PatternMessage) {
+        match message {
+            _ => {
+                dbg!(&message);
+            }
+        }
     }
 }
 
-impl MakesIsViewable for PatternManager {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(PatternManagerViewableResponder {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
+impl PatternManager {
+    pub fn view(&self) -> Element<ViewableMessage> {
+        let title = type_name::<PatternManager>();
+        let contents = {
+            let pattern_views = self.patterns().iter().enumerate().map(|(i, item)| {
+                item.view()
+                    .map(move |message| ViewableMessage::PatternMessage(i, message))
+            });
+            column(pattern_views.collect())
+        };
+        GuiStuff::titled_container(None, title, contents.into())
+    }
+
+    pub fn update(&mut self, message: ViewableMessage) {
+        match message {
+            ViewableMessage::PatternMessage(i, message) => {
+                self.patterns_mut()[i].update(message);
+            }
+            _ => {
+                dbg!(&message);
+            }
         }
     }
 }

@@ -364,7 +364,14 @@ impl Application for GrooveApp {
                     self.orchestrator.set_bpm(bpm);
                 }
             }
-            Message::ViewableMessage(i, message) => self.viewables[i].update(message),
+            Message::ViewableMessage(i, message) => {
+                if i == 999 {
+                    // TODO: short-term hack!
+                    self.orchestrator.pattern_manager_mut().update(message);
+                } else {
+                    self.viewables[i].update(message)
+                }
+            }
             Message::EventOccurred(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {
                     // See https://github.com/iced-rs/iced/pull/804 and
@@ -416,18 +423,25 @@ impl Application for GrooveApp {
         let views: Element<_> = if self.viewables.is_empty() {
             empty_message("nothing yet")
         } else {
-            column(
-                self.viewables
-                    .iter()
-                    .enumerate()
-                    .map(|(i, item)| {
-                        item.view()
-                            .map(move |message| Message::ViewableMessage(i, message))
-                    })
-                    .collect(),
-            )
-            .spacing(10)
-            .into()
+            // Start the views from the IsViewables views.
+            let mut view_vec: Vec<Element<Message>> = self
+                .viewables
+                .iter()
+                .enumerate()
+                .map(|(i, item)| {
+                    item.view()
+                        .map(move |message| Message::ViewableMessage(i, message))
+                })
+                .collect();
+
+            // Add in the view of the non-IsViewable PatternManager.
+            view_vec.push(
+                self.orchestrator
+                    .pattern_manager()
+                    .view()
+                    .map(move |message| Message::ViewableMessage(999, message)),
+            );
+            column(view_vec).spacing(10).into()
         };
         let scrollable_content = column![views];
         let under_construction = text("Under Construction").width(Length::FillPortion(1));

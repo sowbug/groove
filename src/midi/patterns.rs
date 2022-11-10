@@ -1,6 +1,5 @@
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
-    common::{rrc, rrc_downgrade, Rrc, Ww},
     traits::{HasOverhead, Overhead},
 };
 use std::fmt::Debug;
@@ -57,22 +56,15 @@ impl Pattern<Note> {
 }
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct PatternManager {
-    pub(crate) me: Ww<Self>,
+pub struct PatternManager {
     overhead: Overhead,
 
     patterns: Vec<Pattern<Note>>,
 }
 
 impl PatternManager {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
-    }
-
-    pub(crate) fn new_wrapped() -> Rrc<Self> {
-        let wrapped = rrc(Self::new());
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     pub(crate) fn register(&mut self, pattern: Pattern<Note>) {
@@ -81,6 +73,11 @@ impl PatternManager {
 
     pub(crate) fn patterns(&self) -> &[Pattern<Note>] {
         &self.patterns
+    }
+
+    // TODO: this seems weird that we can give back a &mut to the slice.
+    pub(crate) fn patterns_mut(&mut self) -> &mut [Pattern<Note>] {
+        &mut self.patterns
     }
 }
 

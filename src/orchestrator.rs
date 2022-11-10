@@ -42,7 +42,7 @@ pub struct Orchestrator {
     audio_sources: Vec<Rrc<dyn SourcesAudio>>,
     effects: Vec<Rrc<dyn IsEffect>>,
 
-    pattern_manager: Rrc<PatternManager>,
+    pattern_manager: PatternManager,
 
     // temp - doesn't belong here. something like a controlcontrolcontroller
     control_paths: Vec<Rrc<ControlPath>>,
@@ -61,15 +61,15 @@ impl Default for Orchestrator {
             midi_bus: rrc(MidiBus::default()),
             audio_sources: Vec::new(),
             effects: Vec::new(),
-            pattern_manager: PatternManager::new_wrapped(),
+            pattern_manager: PatternManager::new(),
             control_paths: Vec::new(),
             viewable_makers: Vec::new(),
             is_playing: false,
         };
         let value = rrc_downgrade(&r.main_mixer);
         r.viewable_makers.push(value);
-        let value = rrc_downgrade(&r.pattern_manager);
-        r.viewable_makers.push(value);
+        // let value = rrc_downgrade(&r.pattern_manager);
+        // r.viewable_makers.push(value);
         r
     }
 }
@@ -306,7 +306,11 @@ impl Orchestrator {
         self.is_playing
     }
 
-    pub(crate) fn pattern_manager(&self) -> Rrc<PatternManager> {
-        rrc_clone(&self.pattern_manager)
+    pub fn pattern_manager(&self) -> &PatternManager {
+        &self.pattern_manager
+    }
+
+    pub fn pattern_manager_mut(&mut self) -> &mut PatternManager {
+        &mut self.pattern_manager
     }
 }

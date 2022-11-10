@@ -129,11 +129,11 @@ impl SongSettings {
         }
 
         let mut ids_to_patterns: HashMap<String, Pattern<Note>> = HashMap::new();
-        let pattern_manager = orchestrator.pattern_manager();
+        let pattern_manager = orchestrator.pattern_manager_mut();
         for pattern_settings in &self.patterns {
             let pattern = Pattern::<Note>::from_settings(pattern_settings);
             ids_to_patterns.insert(pattern_settings.id.clone(), pattern.clone());
-            pattern_manager.borrow_mut().register(pattern);
+            pattern_manager.register(pattern);
         }
         let sequencer = BeatSequencer::new_wrapped();
         let mut programmer =
