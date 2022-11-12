@@ -1,7 +1,7 @@
 use crate::{
     common::{rrc_downgrade, wrc_clone, DeviceId, Rrc, Ww},
     control::ControlPath,
-    traits::{IsEffect, IsMidiEffect, MakesControlSink, SinksAudio, SourcesAudio, WatchesClock},
+    traits::{IsEffect, IsMidiEffect, SinksAudio, SourcesAudio, WatchesClock},
 };
 use std::collections::HashMap;
 
@@ -95,14 +95,6 @@ impl IdStore {
     }
 
     pub fn audio_sink_by(&self, id: &str) -> Option<Ww<dyn SinksAudio>> {
-        if let Some(item) = self.id_to_effect.get(id) {
-            let clone = wrc_clone(item);
-            return Some(clone);
-        }
-        None
-    }
-
-    pub fn makes_control_sink_by(&self, id: &str) -> Option<Ww<dyn MakesControlSink>> {
         if let Some(item) = self.id_to_effect.get(id) {
             let clone = wrc_clone(item);
             return Some(clone);

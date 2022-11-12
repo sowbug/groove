@@ -1,6 +1,7 @@
 use crate::{
     clock::Clock,
     common::{MonoSample, Ww, MONO_SAMPLE_SILENCE},
+    control::{BigMessage, SmallMessage, SmallMessageGenerator},
     gui::{IsViewable, ViewableMessage},
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
@@ -155,27 +156,35 @@ impl<T: HasOverhead + SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
     }
 }
 
-/// Controls SinksControl through SinksControlParam.
-pub trait SourcesControl {
-    fn control_sinks(&self) -> &[Box<dyn SinksControl>];
-    fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>>;
-
-    fn add_control_sink(&mut self, sink: Box<dyn SinksControl>) {
-        self.control_sinks_mut().push(sink);
+// TODO: write tests for these two new traits.
+pub trait SourcesUpdates {
+    fn target_uids(&self) -> &[usize];
+    fn target_uids_mut(&mut self) -> &mut Vec<usize>;
+    fn target_messages(&self) -> &[SmallMessageGenerator];
+    fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator>;
+    fn add_target(&mut self, target_uid: usize, target_message: SmallMessageGenerator) {
+        self.target_uids_mut().push(target_uid);
+        self.target_messages_mut().push(target_message);
     }
-    fn issue_control(&mut self, clock: &Clock, value: f32) {
-        for sink in self.control_sinks_mut() {
-            sink.handle_control(clock, value);
+    fn post_message(&mut self, value: f32) -> Vec<BigMessage> {
+        let mut v = Vec::new();
+        for uid in self.target_uids() {
+            for message in self.target_messages() {
+                v.push(BigMessage::SmallMessage(*uid, message(value)));
+            }
         }
+        v
     }
 }
 
-pub trait SinksControl: Debug {
-    fn handle_control(&mut self, clock: &Clock, value: f32);
-}
-
-pub trait MakesControlSink: Debug {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>>;
+// TODO: this should have an associated type Message, but I can't figure out how
+// to make it work.
+pub trait SinksUpdates: Debug {
+    // Idea: if someone asks for a message generator, then that's the clue we
+    // need to register our UID. All that could be managed in that central
+    // place.
+    fn message_for(&self, param: &str) -> SmallMessageGenerator;
+    fn update(&mut self, clock: &Clock, message: SmallMessage);
 }
 
 pub trait MakesIsViewable: Debug {
@@ -240,10 +249,13 @@ pub trait SinksMidi: Debug {
 /// called, so the trait exists to make sure that whatever intrinsic reason for
 /// being called is satisfied.
 pub trait WatchesClock: Debug + Terminates {
+    // type Message; // TODO: figure out how to do this!
+
     /// WatchesClock::tick() must be called exactly once for every sample, and
     /// implementers can assume that they won't be asked to provide any
     /// information until tick() has been called for the time slice.
-    fn tick(&mut self, clock: &Clock);
+    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage>;
+    // TODO: should be Box<> so stuff gets handed over more cheaply
 }
 
 // Something that Terminates has a point in time where it would be OK never
@@ -269,14 +281,12 @@ pub trait Terminates {
 // both.
 pub trait IsMidiInstrument: SourcesAudio + SinksMidi + MakesIsViewable {} // TODO + MakesControlSink
 pub trait IsEffect:
-    SourcesAudio + SinksAudio + TransformsAudio + MakesControlSink + MakesIsViewable
+    SourcesAudio + SinksAudio + TransformsAudio + SinksUpdates + HasOverhead + MakesIsViewable
 {
 }
-pub trait IsMidiEffect:
-    SourcesMidi + SinksMidi + WatchesClock + MakesControlSink + MakesIsViewable
-{
-}
-pub trait IsController: SourcesControl + WatchesClock {}
+
+pub trait IsMidiEffect: SourcesMidi + SinksMidi + WatchesClock + MakesIsViewable {}
+pub trait IsController: SourcesUpdates + WatchesClock {}
 
 #[cfg(test)]
 macro_rules! sources_audio_tests {
@@ -373,15 +383,12 @@ macro_rules! has_overhead_tests {
 
 #[cfg(test)]
 pub mod tests {
-    use super::{IsMidiInstrument, SinksAudio, SourcesAudio, SourcesControl};
+    use super::{IsMidiInstrument, SinksAudio, SourcesAudio, WatchesClock};
     use crate::{
         clock::Clock,
         clock::WatchedClock,
         common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, MONO_SAMPLE_SILENCE},
-        control::{
-            AdsrEnvelopeControlParams, BitcrusherControlParams, ControlTrip,
-            OscillatorControlParams,
-        },
+        control::{AdsrEnvelopeControlParams, GainControlParams},
         effects::{
             arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         },
@@ -397,12 +404,11 @@ pub mod tests {
             sampler::Sampler,
             welsh::{PatchName, Synth},
         },
-        traits::{MakesControlSink, SinksMidi, SourcesMidi, Terminates, WatchesClock},
+        traits::{SinksMidi, SinksUpdates, SourcesMidi, SourcesUpdates, Terminates},
         utils::tests::{
             TestArpeggiator, TestArpeggiatorControlParams, TestAudioSink, TestAudioSource,
-            TestClockWatcher, TestControlSource, TestControlSourceContinuous, TestControllable,
-            TestControllableControlParams, TestKeyboard, TestMidiSink, TestMidiSource,
-            TestOrchestrator, TestSynth, TestTimer, TestTrigger,
+            TestClockWatcher, TestControlSourceContinuous, TestKeyboard, TestMidiSink,
+            TestMidiSource, TestOrchestrator, TestSynth, TestTimer, TestTrigger,
         },
     };
     use rand::random;
@@ -411,54 +417,75 @@ pub mod tests {
     fn test_orchestration() {
         let mut clock = WatchedClock::new();
         let mut orchestrator = TestOrchestrator::new();
+
+        // Create a synth consisting of an oscillator and envelope.
         let envelope = AdsrEnvelope::new_wrapped_with(&EnvelopeSettings::default());
         let oscillator = Oscillator::new_wrapped_with(WaveformType::Sine);
         oscillator
             .borrow_mut()
             .set_frequency(MidiUtils::note_to_frequency(60));
-        let envelope_synth_clone = rrc_clone(&envelope);
-        let synth = rrc(TestSynth::new_with(oscillator, envelope_synth_clone));
-        let effect = Gain::new_wrapped();
-        let source = rrc_downgrade(&synth);
-        effect.borrow_mut().add_audio_source(source);
-        let source = rrc_downgrade(&effect);
-        orchestrator.add_audio_source(source);
+        let synth = rrc(TestSynth::new_with(
+            oscillator,
+            rrc_clone::<AdsrEnvelope>(&envelope),
+        ));
 
-        // An Oscillator provides an audio signal. TestControlSourceContinuous
-        // adapts that audio signal to a series of control events.
-        // GainLevelController adapts the control events to Gain level changes.
+        // Create a gain effect, and plug the synth's audio output into it.
+        let effect = Gain::new_wrapped();
+        effect
+            .borrow_mut()
+            .add_audio_source(rrc_downgrade::<TestSynth>(&synth));
+
+        // Then plug the gain effect's audio out into the main mixer.
+        orchestrator.add_audio_source(rrc_downgrade::<Gain>(&effect));
+
+        // Let the system know how to find the gain effect again.
+        const GAIN_UID: usize = 17;
+        orchestrator
+            .updateables
+            .insert(GAIN_UID, rrc_downgrade::<Gain>(&effect));
+
+        // Create a second Oscillator that provides an audio signal.
+        // TestControlSourceContinuous adapts that audio signal to a series of
+        // control events, and then posts messages that the gain effect handles
+        // to adjust its level.
         let mut audio_to_controller =
             TestControlSourceContinuous::new_with(Box::new(Oscillator::new()));
-        if let Some(effect_controller) = effect
+        let message = effect
             .borrow()
-            .make_control_sink(&OscillatorControlParams::Frequency.to_string())
-        {
-            audio_to_controller.add_control_sink(effect_controller);
-        };
+            .message_for(&GainControlParams::Ceiling.to_string());
+        audio_to_controller.add_target(GAIN_UID, message);
 
+        // TestTrigger posts a message at a given time. We use it to trigger the
+        // AdsrEnvelope note-on..
+        let mut trigger_on = TestTrigger::new(1.0, 1.0);
+        const ENVELOPE_UID: usize = 42;
+        orchestrator
+            .updateables
+            .insert(ENVELOPE_UID, rrc_downgrade::<AdsrEnvelope>(&envelope));
+        trigger_on.add_target(
+            ENVELOPE_UID,
+            envelope
+                .borrow()
+                .message_for(&AdsrEnvelopeControlParams::Note.to_string()),
+        );
+        clock.add_watcher(rrc(trigger_on));
+
+        // Same thing, except the value sent is zero, which the AdsrEnvelope
+        // interprets as note-off.
+        let mut trigger_off = TestTrigger::new(1.5, 0.0);
+        trigger_off.add_target(
+            ENVELOPE_UID,
+            envelope
+                .borrow()
+                .message_for(&AdsrEnvelopeControlParams::Note.to_string()),
+        );
+        clock.add_watcher(rrc(trigger_off));
+
+        // Tell the orchestrator when to end its loop.
         let timer = TestTimer::new_with(2.0);
         clock.add_watcher(rrc(timer));
 
-        // TestTrigger provides an event at a certain time.
-        // EnvelopeNoteController adapts the event to internal ADSR events.
-        let mut trigger_on = TestTrigger::new(1.0, 1.0);
-        if let Some(envelope_controller) = envelope
-            .borrow()
-            .make_control_sink(&AdsrEnvelopeControlParams::Note.to_string())
-        {
-            trigger_on.add_control_sink(envelope_controller);
-        };
-        clock.add_watcher(rrc(trigger_on));
-
-        let mut trigger_off = TestTrigger::new(1.5, 0.0);
-        if let Some(envelope_controller) = envelope
-            .borrow()
-            .make_control_sink(&AdsrEnvelopeControlParams::Note.to_string())
-        {
-            trigger_off.add_control_sink(envelope_controller);
-        };
-        clock.add_watcher(rrc(trigger_off));
-
+        // Run everything.
         let mut samples = Vec::<MonoSample>::new();
         orchestrator.start(&mut clock, &mut samples);
         assert_eq!(samples.len(), 2 * 44100);
@@ -552,32 +579,8 @@ pub mod tests {
         let mut sink = TestAudioSink::new();
         let source = rrc(TestAudioSource::new());
         assert!(sink.sources().is_empty());
-        let source = rrc_downgrade(&source);
-        sink.add_audio_source(source);
+        sink.add_audio_source(rrc_downgrade::<TestAudioSource>(&source));
         assert_eq!(sink.sources().len(), 1);
-    }
-
-    #[test]
-    fn test_automation_source_and_sink() {
-        // By itself, TestAutomationSource doesn't do much, so we test both
-        // Source/Sink together.
-        let mut source = TestControlSource::new();
-        let sink = TestControllable::new_wrapped();
-
-        // Can we add a sink to the source?
-        assert!(source.control_sinks().is_empty());
-        if let Some(controllable_controller) = sink
-            .borrow()
-            .make_control_sink(&TestControllableControlParams::Value.to_string())
-        {
-            source.add_control_sink(controllable_controller);
-        };
-        assert!(!source.control_sinks().is_empty());
-
-        // Does the source propagate to its sinks?
-        assert_eq!(sink.borrow().value, 0.0);
-        source.handle_test_event(42.0);
-        assert_eq!(sink.borrow().value, 42.0);
     }
 
     #[test]
@@ -586,8 +589,10 @@ pub mod tests {
         let sink = TestMidiSink::new_wrapped();
 
         assert!(source.midi_sinks().is_empty());
-        let sink_down = rrc_downgrade(&sink);
-        source.add_midi_sink(sink.borrow().midi_channel(), sink_down);
+        source.add_midi_sink(
+            sink.borrow().midi_channel(),
+            rrc_downgrade::<TestMidiSink>(&sink),
+        );
         assert!(!source.midi_sinks().is_empty());
 
         let clock = Clock::new_test();
@@ -598,26 +603,35 @@ pub mod tests {
 
     #[test]
     fn test_keyboard_to_automation_to_midi() {
+        // A fake external device that produces messages.
         let mut keyboard_interface = TestKeyboard::new();
+
+        // Should respond to messages by producing MIDI messages.
         let arpeggiator = TestArpeggiator::new_wrapped_with(TestMidiSink::TEST_MIDI_CHANNEL);
         let instrument = TestMidiSink::new_wrapped();
 
-        if let Some(arpeggiator_controller) = arpeggiator
+        let message = arpeggiator
             .borrow()
-            .make_control_sink(&TestArpeggiatorControlParams::Tempo.to_string())
-        {
-            keyboard_interface.add_control_sink(arpeggiator_controller);
-        };
-        let sink = rrc_downgrade(&instrument);
-        arpeggiator
-            .borrow_mut()
-            .add_midi_sink(instrument.borrow().midi_channel(), sink);
+            .message_for(&TestArpeggiatorControlParams::Tempo.to_string());
+        keyboard_interface.add_target(0, message);
+
+        arpeggiator.borrow_mut().add_midi_sink(
+            instrument.borrow().midi_channel(),
+            rrc_downgrade::<TestMidiSink>(&instrument),
+        );
 
         assert_eq!(arpeggiator.borrow().tempo, 0.0);
-        keyboard_interface.handle_keypress(1); // set tempo to 50%
-        assert_eq!(arpeggiator.borrow().tempo, 0.5);
 
         let clock = Clock::new_test();
+
+        let messages = keyboard_interface.handle_keypress(1); // set tempo to 50%
+        messages.iter().for_each(|m| match m {
+            crate::control::BigMessage::SmallMessage(uid, msg) => {
+                assert_eq!(uid, &0);
+                arpeggiator.borrow_mut().update(&clock, msg.clone());
+            }
+        });
+        assert_eq!(arpeggiator.borrow().tempo, 0.5);
 
         assert!(!instrument.borrow().is_playing);
         arpeggiator.borrow_mut().tick(&clock);
@@ -627,13 +641,14 @@ pub mod tests {
     /// Add concrete instances of WatchesClock here for anyone to use for
     /// testing.
     fn watches_clock_instances_for_testing() -> Vec<Rrc<dyn WatchesClock>> {
-        let target = Bitcrusher::new_wrapped_with(4)
-            .borrow_mut()
-            .make_control_sink(&BitcrusherControlParams::BitsToCrush.to_string())
-            .unwrap();
+        // TODO: figure out how to work this back into testing let target =
+        // Bitcrusher::new_wrapped_with(4) .borrow_mut()
+        //     .make_control_sink(&BitcrusherControlParams::BitsToCrush.to_string())
+        //     .unwrap(); rrc(ControlTrip::new(
+        //     crate::control::ControlTripTargetType::New(target), )),
+
         vec![
             Arpeggiator::new_wrapped_with(0, 0),
-            rrc(ControlTrip::new(target)),
             BeatSequencer::new_wrapped(),
             rrc(MidiTickSequencer::new()),
         ]
@@ -714,8 +729,7 @@ pub mod tests {
         while !sources.is_empty() {
             let source = sources.pop();
             if let Some(source) = source {
-                let source = rrc_downgrade(&source);
-                orchestrator.add_audio_source(source);
+                orchestrator.add_audio_source(rrc_downgrade(&source));
             }
         }
 

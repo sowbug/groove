@@ -3,6 +3,7 @@ use midly::num::u7;
 use crate::{
     clock::{Clock, PerfectTimeUnit},
     common::{rrc, rrc_downgrade, Rrc, Ww},
+    control::BigMessage,
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
     traits::{
         HasOverhead, IsMidiEffect, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock,
@@ -77,8 +78,9 @@ impl SourcesMidi for Arpeggiator {
 }
 
 impl WatchesClock for Arpeggiator {
-    fn tick(&mut self, clock: &Clock) {
+    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         self.beat_sequencer.tick(clock); // TODO: loop
+        Vec::new()
     }
 }
 

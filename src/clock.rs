@@ -4,7 +4,7 @@ use std::{
     ops::{Add, Mul},
 };
 
-use crate::{common::Rrc, settings::ClockSettings, traits::WatchesClock};
+use crate::{common::Rrc, control::BigMessage, settings::ClockSettings, traits::WatchesClock};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -297,13 +297,15 @@ impl WatchedClock {
 
     /// Calls tick() on every watcher. Returns true if all have reported that
     /// they're done.
-    pub fn visit_watchers(&mut self) -> bool {
+    pub fn visit_watchers(&mut self) -> (bool, Vec<BigMessage>) {
         let mut done = true;
+        let mut messages = Vec::<BigMessage>::new();
         for watcher in self.watchers.iter_mut() {
-            watcher.borrow_mut().tick(&self.clock);
+            let mut msgs = watcher.borrow_mut().tick(&self.clock);
+            messages.append(&mut msgs);
             done &= watcher.borrow().is_finished();
         }
-        done
+        (done, messages)
     }
 
     pub fn tick(&mut self) {

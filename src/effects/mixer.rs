@@ -3,7 +3,7 @@ use crate::{
     traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
 };
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Mixer {
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
@@ -67,20 +67,17 @@ mod tests {
 
         // One always-loud
         let source = rrc(TestAudioSourceAlwaysLoud::new());
-        let source = rrc_downgrade(&source);
-        mixer.add_audio_source(source);
+        mixer.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysLoud>(&source));
         assert_eq!(mixer.source_audio(&clock), 1.0);
 
         // One always-loud and one always-quiet
         let source = rrc(TestAudioSourceAlwaysSilent::new());
-        let source = rrc_downgrade(&source);
-        mixer.add_audio_source(source);
+        mixer.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSilent>(&source));
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0);
 
         // ... and one in the middle
         let source = rrc(TestAudioSourceAlwaysSameLevel::new(0.25));
-        let source = rrc_downgrade(&source);
-        mixer.add_audio_source(source);
+        mixer.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0 + 0.25);
     }
 }

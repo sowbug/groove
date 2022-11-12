@@ -11,6 +11,7 @@ use crate::{
         programmers::PatternProgrammer,
         sequencers::BeatSequencer,
     },
+    traits::{IsEffect, IsMidiInstrument},
     Orchestrator,
 };
 use anyhow::Result;
@@ -66,10 +67,14 @@ impl SongSettings {
                 DeviceSettings::Instrument(id, instrument_settings) => {
                     let instrument = instrument_settings.instantiate(sample_rate);
                     let midi_channel = instrument.borrow().midi_channel();
-                    let instrument_weak = rrc_downgrade(&instrument);
-                    orchestrator.connect_to_downstream_midi_bus(midi_channel, instrument_weak);
-                    let audio_source = rrc_clone(&instrument);
-                    orchestrator.register_audio_source(Some(id), audio_source);
+                    orchestrator.connect_to_downstream_midi_bus(
+                        midi_channel,
+                        rrc_downgrade::<dyn IsMidiInstrument>(&instrument),
+                    );
+                    orchestrator.register_audio_source(
+                        Some(id),
+                        rrc_clone::<dyn IsMidiInstrument>(&instrument),
+                    );
                     orchestrator.register_viewable(instrument);
                 }
                 DeviceSettings::MidiInstrument(id, midi_instrument_settings) => {
@@ -85,7 +90,8 @@ impl SongSettings {
                 DeviceSettings::Effect(id, effect_settings) => {
                     let effect = effect_settings.instantiate(sample_rate);
                     orchestrator.register_effect(Some(id), rrc_clone(&effect));
-                    orchestrator.register_viewable(effect);
+                    orchestrator.register_updateable(Some(id), rrc_clone::<dyn IsEffect>(&effect));
+                    orchestrator.register_viewable(rrc_clone::<dyn IsEffect>(&effect));
                 }
             }
         }
@@ -149,10 +155,8 @@ impl SongSettings {
             }
         }
 
-        let instrument = rrc_clone(&sequencer);
-        orchestrator.connect_to_upstream_midi_bus(instrument);
-        let instrument = rrc_clone(&sequencer);
-        orchestrator.register_clock_watcher(None, instrument);
+        orchestrator.connect_to_upstream_midi_bus(rrc_clone::<BeatSequencer>(&sequencer));
+        orchestrator.register_clock_watcher(None, rrc_clone::<BeatSequencer>(&sequencer));
         orchestrator.register_viewable(sequencer);
     }
 
@@ -167,15 +171,13 @@ impl SongSettings {
             orchestrator.register_control_path(Some(&path_settings.id), v);
         }
         for control_trip_settings in &self.trips {
-            if let Ok(control_sink) =
-                orchestrator.makes_control_sink_by(&control_trip_settings.target.id)
-            {
-                if let Some(target) = control_sink.upgrade() {
-                    if let Some(controller) = target
-                        .borrow()
-                        .make_control_sink(&control_trip_settings.target.param)
-                    {
-                        let control_trip = rrc(ControlTrip::new(controller));
+            if let Ok(uid) = orchestrator.updateable_uid_by(&control_trip_settings.target.id) {
+                if let Ok(updateable) = orchestrator.updateable_by(uid) {
+                    if let Some(updateable) = updateable.upgrade() {
+                        let m = updateable
+                            .borrow()
+                            .message_for(&control_trip_settings.target.param);
+                        let control_trip = rrc(ControlTrip::new(uid, m));
                         control_trip.borrow_mut().reset_cursor();
                         for path_id in &control_trip_settings.path_ids {
                             if let Ok(control_path) = orchestrator.control_path_by(path_id) {

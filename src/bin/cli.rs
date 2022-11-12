@@ -3,7 +3,8 @@
 
 use anyhow::Ok;
 use clap::Parser;
-use groove::{IOHelper, Orchestrator, ScriptEngine};
+use groove::{IOHelper, Orchestrator};
+//use groove::ScriptEngine;
 
 #[derive(Parser, Debug, Default)]
 #[clap(author, version, about, long_about = None)]
@@ -33,14 +34,13 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     if args.script_in.is_some() {
-        let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
+        //let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
         Ok(())
     } else {
         let mut orchestrator = if args.midi_in.is_some() {
             IOHelper::orchestrator_from_midi_file(args.midi_in.unwrap().as_str())
         } else if args.yaml_in.is_some() {
-            IOHelper::song_settings_from_yaml_file(args.yaml_in.unwrap().as_str())?
-                .instantiate()?
+            IOHelper::song_settings_from_yaml_file(args.yaml_in.unwrap().as_str())?.instantiate()?
         } else {
             Orchestrator::new()
         };

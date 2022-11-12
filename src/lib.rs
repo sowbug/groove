@@ -7,7 +7,7 @@ pub use crate::helpers::IOHelper;
 pub use crate::midi::MidiHandler;
 pub use crate::midi::MIDI_CHANNEL_RECEIVE_ALL;
 pub use crate::orchestrator::Orchestrator;
-pub use crate::scripting::ScriptEngine;
+//pub use crate::scripting::ScriptEngine;
 pub use crate::settings::songs::SongSettings;
 
 pub mod gui;

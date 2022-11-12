@@ -1,31 +1,42 @@
-use strum_macros::{Display, EnumString};
-
 use crate::clock::{Clock, ClockTimeUnit};
-use crate::common::{wrc_clone, Ww};
-use crate::effects::arpeggiator::Arpeggiator;
-use crate::effects::bitcrusher::Bitcrusher;
-use crate::effects::limiter::Limiter;
-use crate::effects::mixer::Mixer;
-use crate::effects::{filter::BiQuadFilter, gain::Gain};
-use crate::envelopes::{AdsrEnvelope, EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
-use crate::oscillators::Oscillator;
+use crate::effects::{
+    arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
+    limiter::Limiter, mixer::Mixer,
+};
 use crate::settings::control::ControlStep;
-use crate::traits::{MakesControlSink, SinksControl, Terminates, WatchesClock};
+use crate::traits::{SinksUpdates, Terminates, WatchesClock};
+use crate::{clock::BeatValue, settings::control::ControlPathSettings};
+use crate::{
+    envelopes::{AdsrEnvelope, EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
+    oscillators::Oscillator,
+};
+use core::fmt::Debug;
+use std::fmt;
 use std::ops::Range;
 use std::str::FromStr;
+use strum_macros::{Display, EnumString};
+
+// https://boydjohnson.dev/blog/impl-debug-for-fn-type/ gave me enough clues to
+// get through this.
+pub trait SmallMessageGeneratorT: Fn(f32) -> SmallMessage {}
+impl<F> SmallMessageGeneratorT for F where F: Fn(f32) -> SmallMessage {}
+impl std::fmt::Debug for dyn SmallMessageGeneratorT {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SmallMessageGenerator")
+    }
+}
+pub type SmallMessageGenerator = Box<dyn SmallMessageGeneratorT>;
 
 /// ControlTrip, ControlPath, and ControlStep help with
-/// [automation](https://en.wikipedia.org/wiki/Track_automation).
-/// Briefly, a ControlTrip consists of ControlSteps stamped out
-/// of ControlPaths, and ControlSteps are generic EnvelopeSteps
-/// that SteppedEnvelope uses.
+/// [automation](https://en.wikipedia.org/wiki/Track_automation). Briefly, a
+/// ControlTrip consists of ControlSteps stamped out of ControlPaths, and
+/// ControlSteps are generic EnvelopeSteps that SteppedEnvelope uses.
 ///
-/// A ControlTrip is one automation track, which can run as long
-/// as the whole song. For now, it controls one parameter of one
-/// target.
-#[derive(Debug)]
-pub struct ControlTrip {
-    target: Box<dyn SinksControl>,
+/// A ControlTrip is one automation track, which can run as long as the whole
+/// song. For now, it controls one parameter of one target.
+pub(crate) struct ControlTrip {
+    target_uid: usize,
+    target_on_update: Option<SmallMessageGenerator>,
     cursor_beats: f32,
 
     current_value: f32,
@@ -35,13 +46,26 @@ pub struct ControlTrip {
     is_finished: bool,
 }
 
+impl fmt::Debug for ControlTrip {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ControlTrip")
+            .field("target_uid", &self.target_uid)
+            .field("target_on_update", &self.target_on_update.is_some())
+            .field("cursor_beats", &self.cursor_beats)
+            .field("current_value", &self.current_value)
+            .field("envelope", &self.envelope)
+            .field("is_finished", &self.is_finished)
+            .finish()
+    }
+}
+
 impl ControlTrip {
     const CURSOR_BEGIN: f32 = 0.0;
 
-    #[allow(unused_variables)]
-    pub fn new(target: Box<dyn SinksControl>) -> Self {
+    pub fn new(target_uid: usize, on_update: SmallMessageGenerator) -> Self {
         Self {
-            target,
+            target_uid,
+            target_on_update: Some(on_update),
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f32::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
@@ -68,8 +92,8 @@ impl ControlTrip {
                 }
                 ControlStep::Triggered {} => todo!(),
             };
-            // Beware: there's an O(N) debug validlity check in push_step(),
-            // so this loop is O(N^2).
+            // Beware: there's an O(N) debug validlity check in push_step(), so
+            // this loop is O(N^2).
             self.envelope.push_step(EnvelopeStep {
                 interval: Range {
                     start: self.cursor_beats,
@@ -85,8 +109,21 @@ impl ControlTrip {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum SmallMessage {
+    ValueChanged(f32),
+    SecondValueChanged(f32),
+    ThirdValueChanged(f32),
+    FourthValueChanged(f32),
+}
+
+#[derive(Clone, Debug)]
+pub enum BigMessage {
+    SmallMessage(usize, SmallMessage),
+}
 impl WatchesClock for ControlTrip {
-    fn tick(&mut self, clock: &Clock) {
+    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
+        let mut messages = Vec::<BigMessage>::new();
         let time = self.envelope.time_for_unit(clock);
         let step = self.envelope.step_for_time(time);
         if step.interval.contains(&time) {
@@ -95,17 +132,22 @@ impl WatchesClock for ControlTrip {
             let last_value = self.current_value;
             self.current_value = value;
             if self.current_value != last_value {
-                self.target.handle_control(clock, self.current_value);
+                if let Some(f) = &self.target_on_update {
+                    messages.push(BigMessage::SmallMessage(
+                        self.target_uid,
+                        (f)(self.current_value),
+                    ));
+                }
             }
             self.is_finished = time >= step.interval.end;
-            return;
+        } else {
+            // This is a drastic response to a tick that's out of range. It
+            // might be better to limit it to times that are later than the
+            // covered range. We're likely to hit ControlTrips that start beyond
+            // time zero.
+            self.is_finished = true;
         }
-
-        // This is a drastic response to a tick that's out of range.
-        // It might be better to limit it to times that are later than
-        // the covered range. We're likely to hit ControlTrips that
-        // start beyond time zero.
-        self.is_finished = true;
+        messages
     }
 }
 
@@ -115,12 +157,9 @@ impl Terminates for ControlTrip {
     }
 }
 
-use crate::{clock::BeatValue, settings::control::ControlPathSettings};
-
-/// A ControlPath makes it easier to construct sequences of ControlSteps.
-/// It's just like a pattern in a pattern-based sequencer. ControlPaths
-/// aren't required; they just make repetitive sequences less tedious
-/// to build.
+/// A ControlPath makes it easier to construct sequences of ControlSteps. It's
+/// just like a pattern in a pattern-based sequencer. ControlPaths aren't
+/// required; they just make repetitive sequences less tedious to build.
 #[derive(Clone, Debug, Default)]
 pub struct ControlPath {
     pub note_value: Option<BeatValue>,
@@ -145,33 +184,20 @@ pub(crate) enum AdsrEnvelopeControlParams {
     Note,
 }
 
-impl MakesControlSink for AdsrEnvelope {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            if let Ok(param) = AdsrEnvelopeControlParams::from_str(param_name) {
-                {
-                    match param {
-                        AdsrEnvelopeControlParams::Note => {
-                            return Some(Box::new(AdsrEnvelopeNoteController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                    }
-                }
+impl SinksUpdates for AdsrEnvelope {
+    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
+        if let Ok(param) = AdsrEnvelopeControlParams::from_str(param_name) {
+            match param {
+                AdsrEnvelopeControlParams::Note => return Box::new(SmallMessage::ValueChanged),
             }
         }
-        None
+        panic!("unrecognized parameter name: {}", param_name);
     }
-}
 
-#[derive(Debug)]
-pub struct AdsrEnvelopeNoteController {
-    target: Ww<AdsrEnvelope>,
-}
-impl SinksControl for AdsrEnvelopeNoteController {
-    fn handle_control(&mut self, clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().handle_note_event(clock, value == 1.0);
+    fn update(&mut self, clock: &Clock, message: SmallMessage) {
+        match message {
+            SmallMessage::ValueChanged(value) => self.set_note(clock, value),
+            _ => {}
         }
     }
 }
@@ -182,33 +208,20 @@ pub(crate) enum ArpeggiatorControlParams {
     Nothing,
 }
 
-impl MakesControlSink for Arpeggiator {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            if let Ok(param) = ArpeggiatorControlParams::from_str(param_name) {
-                {
-                    match param {
-                        ArpeggiatorControlParams::Nothing => {
-                            return Some(Box::new(ArpeggiatorNothingController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                    }
-                }
+impl SinksUpdates for Arpeggiator {
+    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
+        if let Ok(param) = ArpeggiatorControlParams::from_str(param_name) {
+            match param {
+                ArpeggiatorControlParams::Nothing => return Box::new(SmallMessage::ValueChanged),
             }
         }
-        None
+        panic!("unrecognized parameter name: {}", param_name);
     }
-}
 
-#[derive(Debug)]
-pub struct ArpeggiatorNothingController {
-    target: Ww<Arpeggiator>,
-}
-impl SinksControl for ArpeggiatorNothingController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_nothing(value);
+    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
+        match message {
+            SmallMessage::ValueChanged(value) => self.set_nothing(value),
+            _ => {}
         }
     }
 }
@@ -216,90 +229,38 @@ impl SinksControl for ArpeggiatorNothingController {
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum BiQuadFilterControlParams {
-    Cutoff,
-    Q,
     Bandwidth,
+    #[strum(serialize = "cutoff", serialize = "cutoff-pct")]
+    CutoffPct,
     DbGain,
+    Q,
 }
 
-impl MakesControlSink for BiQuadFilter {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            if let Ok(param) = BiQuadFilterControlParams::from_str(param_name) {
-                {
-                    match param {
-                        BiQuadFilterControlParams::Cutoff => {
-                            return Some(Box::new(BiQuadFilterCutoffController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                        BiQuadFilterControlParams::Q => {
-                            return Some(Box::new(BiQuadFilterQController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                        BiQuadFilterControlParams::Bandwidth => {
-                            return Some(Box::new(BiQuadFilterBandwidthController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                        BiQuadFilterControlParams::DbGain => {
-                            return Some(Box::new(BiQuadFilterDbGainController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                    }
+impl SinksUpdates for BiQuadFilter {
+    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
+        if let Ok(param) = BiQuadFilterControlParams::from_str(param_name) {
+            match param {
+                BiQuadFilterControlParams::Bandwidth => {
+                    return Box::new(SmallMessage::ValueChanged)
                 }
+                BiQuadFilterControlParams::CutoffPct => {
+                    return Box::new(SmallMessage::SecondValueChanged)
+                }
+                BiQuadFilterControlParams::DbGain => {
+                    return Box::new(SmallMessage::ThirdValueChanged)
+                }
+                BiQuadFilterControlParams::Q => return Box::new(SmallMessage::FourthValueChanged),
             }
         }
-        None
+        panic!("unrecognized parameter name: {}", param_name);
     }
-}
 
-#[derive(Debug)]
-pub struct BiQuadFilterCutoffController {
-    target: Ww<BiQuadFilter>,
-}
-impl SinksControl for BiQuadFilterCutoffController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_cutoff_pct(value);
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct BiQuadFilterQController {
-    target: Ww<BiQuadFilter>,
-}
-impl SinksControl for BiQuadFilterQController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_q(value);
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct BiQuadFilterBandwidthController {
-    target: Ww<BiQuadFilter>,
-}
-impl SinksControl for BiQuadFilterBandwidthController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_bandwidth(value);
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct BiQuadFilterDbGainController {
-    target: Ww<BiQuadFilter>,
-}
-impl SinksControl for BiQuadFilterDbGainController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_db_gain(value);
+    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
+        match message {
+            SmallMessage::ValueChanged(value) => self.set_bandwidth(value),
+            SmallMessage::SecondValueChanged(value) => self.set_cutoff_pct(value),
+            SmallMessage::ThirdValueChanged(value) => self.set_db_gain(value),
+            SmallMessage::FourthValueChanged(value) => self.set_q(value),
         }
     }
 }
@@ -307,38 +268,26 @@ impl SinksControl for BiQuadFilterDbGainController {
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum BitcrusherControlParams {
-    BitsToCrush,
+    #[strum(serialize = "bits-to-crush", serialize = "bits-to-crush-pct")]
+    BitsToCrushPct,
 }
 
-impl MakesControlSink for Bitcrusher {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            if let Ok(param) = BitcrusherControlParams::from_str(param_name) {
-                {
-                    match param {
-                        BitcrusherControlParams::BitsToCrush => {
-                            return Some(Box::new(BitcrusherBitsToCrushController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                    }
+impl SinksUpdates for Bitcrusher {
+    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
+        if let Ok(param) = BitcrusherControlParams::from_str(param_name) {
+            match param {
+                BitcrusherControlParams::BitsToCrushPct => {
+                    return Box::new(SmallMessage::ValueChanged)
                 }
             }
         }
-        None
+        panic!("unrecognized parameter name: {}", param_name);
     }
-}
 
-#[derive(Debug)]
-pub struct BitcrusherBitsToCrushController {
-    target: Ww<Bitcrusher>,
-}
-impl SinksControl for BitcrusherBitsToCrushController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            // TODO: we're exceeding the normal f32 control range. Should
-            // standardize ("normalize?")
-            target.borrow_mut().set_bits_to_crush(value as u8);
+    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
+        match message {
+            SmallMessage::ValueChanged(value) => self.set_bits_to_crush_pct(value),
+            _ => {}
         }
     }
 }
@@ -349,33 +298,20 @@ pub(crate) enum GainControlParams {
     Ceiling,
 }
 
-impl MakesControlSink for Gain {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            if let Ok(param) = GainControlParams::from_str(param_name) {
-                {
-                    match param {
-                        GainControlParams::Ceiling => {
-                            return Some(Box::new(GainCeilingController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                    }
-                }
+impl SinksUpdates for Gain {
+    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
+        if let Ok(param) = GainControlParams::from_str(param_name) {
+            match param {
+                GainControlParams::Ceiling => return Box::new(SmallMessage::ValueChanged),
             }
         }
-        None
+        panic!("unrecognized parameter name: {}", param_name);
     }
-}
 
-#[derive(Debug)]
-pub struct GainCeilingController {
-    target: Ww<Gain>,
-}
-impl SinksControl for GainCeilingController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_ceiling(value);
+    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
+        match message {
+            SmallMessage::ValueChanged(value) => self.set_ceiling(value),
+            _ => {}
         }
     }
 }
@@ -383,54 +319,26 @@ impl SinksControl for GainCeilingController {
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum LimiterControlParams {
-    Min,
     Max,
+    Min,
 }
 
-impl MakesControlSink for Limiter {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            if let Ok(param) = LimiterControlParams::from_str(param_name) {
-                {
-                    match param {
-                        LimiterControlParams::Min => {
-                            return Some(Box::new(LimiterMinController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                        LimiterControlParams::Max => {
-                            return Some(Box::new(LimiterMaxController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                    }
-                }
+impl SinksUpdates for Limiter {
+    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
+        if let Ok(param) = LimiterControlParams::from_str(param_name) {
+            match param {
+                LimiterControlParams::Max => return Box::new(SmallMessage::ValueChanged),
+                LimiterControlParams::Min => return Box::new(SmallMessage::SecondValueChanged),
             }
         }
-        None
+        panic!("unrecognized parameter name: {}", param_name);
     }
-}
 
-#[derive(Debug)]
-pub struct LimiterMinController {
-    target: Ww<Limiter>,
-}
-impl SinksControl for LimiterMinController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_min(value);
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct LimiterMaxController {
-    target: Ww<Limiter>,
-}
-impl SinksControl for LimiterMaxController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_max(value);
+    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
+        match message {
+            SmallMessage::ValueChanged(value) => self.set_max(value),
+            SmallMessage::SecondValueChanged(value) => self.set_min(value),
+            _ => {}
         }
     }
 }
@@ -439,11 +347,12 @@ impl SinksControl for LimiterMaxController {
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum MixerControlParams {}
 
-impl MakesControlSink for Mixer {
-    fn make_control_sink(&self, _param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {}
-        None
+impl SinksUpdates for Mixer {
+    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
+        panic!("unrecognized parameter name: {}", param_name);
     }
+
+    fn update(&mut self, _clock: &Clock, _message: SmallMessage) {}
 }
 
 #[derive(Display, Debug, EnumString)]
@@ -452,33 +361,20 @@ pub(crate) enum OscillatorControlParams {
     Frequency,
 }
 
-impl MakesControlSink for Oscillator {
-    fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-        if self.me.strong_count() != 0 {
-            if let Ok(param) = OscillatorControlParams::from_str(param_name) {
-                {
-                    match param {
-                        OscillatorControlParams::Frequency => {
-                            return Some(Box::new(OscillatorFrequencyController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                    }
-                }
+impl SinksUpdates for Oscillator {
+    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
+        if let Ok(param) = OscillatorControlParams::from_str(param_name) {
+            match param {
+                OscillatorControlParams::Frequency => return Box::new(SmallMessage::ValueChanged),
             }
         }
-        None
+        panic!("unrecognized parameter name: {}", param_name);
     }
-}
 
-#[derive(Debug)]
-pub struct OscillatorFrequencyController {
-    target: Ww<Oscillator>,
-}
-impl SinksControl for OscillatorFrequencyController {
-    fn handle_control(&mut self, _clock: &Clock, value: f32) {
-        if let Some(target) = self.target.upgrade() {
-            target.borrow_mut().set_frequency(value);
+    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
+        match message {
+            SmallMessage::ValueChanged(value) => self.set_frequency(value),
+            _ => {}
         }
     }
 }
@@ -492,10 +388,8 @@ mod tests {
 
     use crate::{
         clock::WatchedClock,
-        common::{rrc, MonoSample},
-        utils::tests::{
-            TestMidiSink, TestMidiSinkControlParams, TestOrchestrator, TestValueChecker,
-        },
+        common::{rrc, rrc_downgrade, MonoSample},
+        utils::tests::{TestMidiSink, TestOrchestrator, TestValueChecker},
     };
 
     use super::*;
@@ -514,17 +408,16 @@ mod tests {
         };
 
         let mut clock = WatchedClock::new();
+        let mut o = TestOrchestrator::new();
         let target = TestMidiSink::new_wrapped();
-        if let Some(target_control_sink) = target
-            .borrow()
-            .make_control_sink(&TestMidiSinkControlParams::Param.to_string())
-        {
-            let trip = rrc(ControlTrip::new(target_control_sink));
-            trip.borrow_mut().add_path(&path);
-            clock.add_watcher(trip);
-        }
+        const UID: usize = 42;
+        o.updateables
+            .insert(UID, rrc_downgrade::<TestMidiSink>(&target));
+        let trip = rrc(ControlTrip::new(UID, Box::new(SmallMessage::ValueChanged)));
+        trip.borrow_mut().add_path(&path);
+        clock.add_watcher(trip);
 
-        clock.add_watcher(rrc(TestValueChecker {
+        o.add_final_watcher(rrc(TestValueChecker {
             values: VecDeque::from(vec![0.9, 0.1, 0.2, 0.3]),
             target,
             checkpoint: 0.0,
@@ -533,7 +426,6 @@ mod tests {
         }));
 
         let mut samples_out = Vec::<MonoSample>::new();
-        let mut o = TestOrchestrator::new();
         o.start(&mut clock, &mut samples_out);
     }
 
@@ -552,17 +444,16 @@ mod tests {
         };
 
         let mut clock = WatchedClock::new();
+        let mut o = TestOrchestrator::new();
         let target = TestMidiSink::new_wrapped();
-        if let Some(target_control_sink) = target
-            .borrow()
-            .make_control_sink(&TestMidiSinkControlParams::Param.to_string())
-        {
-            let trip = rrc(ControlTrip::new(target_control_sink));
-            trip.borrow_mut().add_path(&path);
-            clock.add_watcher(trip);
-        }
+        const UID: usize = 42;
+        o.updateables
+            .insert(UID, rrc_downgrade::<TestMidiSink>(&target));
+        let trip = rrc(ControlTrip::new(UID, Box::new(SmallMessage::ValueChanged)));
+        trip.borrow_mut().add_path(&path);
+        clock.add_watcher(trip);
 
-        clock.add_watcher(rrc(TestValueChecker {
+        o.add_final_watcher(rrc(TestValueChecker {
             values: VecDeque::from(interpolated_values),
             target,
             checkpoint: 0.0,
@@ -571,7 +462,6 @@ mod tests {
         }));
 
         let mut samples_out = Vec::<MonoSample>::new();
-        let mut o = TestOrchestrator::new();
         o.start(&mut clock, &mut samples_out);
     }
 }

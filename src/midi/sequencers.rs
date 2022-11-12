@@ -1,6 +1,7 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
     common::{rrc, rrc_downgrade, weak_new, Rrc, Ww},
+    control::BigMessage,
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{HasOverhead, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock},
 };
@@ -95,7 +96,7 @@ impl SourcesMidi for BeatSequencer {
 }
 
 impl WatchesClock for BeatSequencer {
-    fn tick(&mut self, clock: &Clock) {
+    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
 
         if self.overhead.is_enabled() {
@@ -111,6 +112,7 @@ impl WatchesClock for BeatSequencer {
                 self.issue_midi(clock, &event.0, &event.1);
             }
         }
+        Vec::new()
     }
 }
 
@@ -202,7 +204,7 @@ impl SourcesMidi for MidiTickSequencer {
 }
 
 impl WatchesClock for MidiTickSequencer {
-    fn tick(&mut self, clock: &Clock) {
+    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
 
         if self.overhead.is_enabled() {
@@ -221,6 +223,7 @@ impl WatchesClock for MidiTickSequencer {
                 self.issue_midi(clock, &event.0, &event.1);
             }
         }
+        Vec::new()
     }
 }
 
@@ -305,8 +308,7 @@ mod tests {
             MidiUtils::note_off_c4(),
         );
 
-        let sink = rrc_downgrade(&device);
-        sequencer.add_midi_sink(0, sink);
+        sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink>(&device));
 
         advance_one_midi_tick(&mut clock, &mut sequencer);
         {
@@ -333,14 +335,12 @@ mod tests {
         let device_1 = rrc(TestMidiSink::new());
         assert!(!device_1.borrow().is_playing);
         device_1.borrow_mut().set_midi_channel(0);
-        let sink = rrc_downgrade(&device_1);
-        sequencer.add_midi_sink(0, sink);
+        sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink>(&device_1));
 
         let device_2 = rrc(TestMidiSink::new());
         assert!(!device_2.borrow().is_playing);
         device_2.borrow_mut().set_midi_channel(1);
-        let sink = rrc_downgrade(&device_2);
-        sequencer.add_midi_sink(1, sink);
+        sequencer.add_midi_sink(1, rrc_downgrade::<TestMidiSink>(&device_2));
 
         sequencer.insert(
             sequencer.tick_for_beat(&clock, 0),

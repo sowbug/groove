@@ -1,17 +1,20 @@
 use crate::{
-    clock::WatchedClock,
-    common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
-    control::ControlPath,
+    clock::{Clock, WatchedClock},
+    common::{rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
+    control::{BigMessage, ControlPath},
     effects::mixer::Mixer,
     id_store::IdStore,
     midi::{patterns::PatternManager, MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{
-        IsEffect, IsMidiEffect, MakesControlSink, MakesIsViewable, SinksAudio, SinksMidi,
-        SourcesAudio, SourcesMidi, WatchesClock,
+        IsEffect, IsMidiEffect, MakesIsViewable, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
+        SourcesMidi, WatchesClock,
     },
 };
 use crossbeam::deque::Worker;
-use std::io::{self, Write};
+use std::{
+    collections::HashMap,
+    io::{self, Write},
+};
 
 #[derive(Debug)]
 pub struct Performance {
@@ -30,11 +33,11 @@ impl Performance {
 
 /// Orchestrator takes a description of a song and turns it into an in-memory
 /// representation that is ready to render to sound.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default)]
 pub struct Orchestrator {
     clock: WatchedClock, // owns all WatchesClock
     id_store: IdStore,
-    main_mixer: Rrc<Mixer>,
+    main_mixer: Mixer,
     midi_bus: Rrc<MidiBus>,
 
     // We don't have owning Vecs for WatchesClock or IsMidiEffect because both
@@ -50,28 +53,11 @@ pub struct Orchestrator {
     // GUI
     viewable_makers: Vec<Ww<dyn MakesIsViewable>>,
     is_playing: bool,
-}
 
-impl Default for Orchestrator {
-    fn default() -> Self {
-        let mut r = Self {
-            clock: WatchedClock::default(),
-            id_store: IdStore::default(),
-            main_mixer: Mixer::new_wrapped(),
-            midi_bus: rrc(MidiBus::default()),
-            audio_sources: Vec::new(),
-            effects: Vec::new(),
-            pattern_manager: PatternManager::new(),
-            control_paths: Vec::new(),
-            viewable_makers: Vec::new(),
-            is_playing: false,
-        };
-        let value = rrc_downgrade(&r.main_mixer);
-        r.viewable_makers.push(value);
-        // let value = rrc_downgrade(&r.pattern_manager);
-        // r.viewable_makers.push(value);
-        r
-    }
+    // The new system
+    last_updateable_id: usize,
+    updateables: HashMap<usize, Ww<dyn SinksUpdates>>,
+    id_to_updateable_uid: HashMap<String, usize>,
 }
 
 impl Orchestrator {
@@ -86,16 +72,30 @@ impl Orchestrator {
     // TODO - pub so that the app can drive slices. Maybe move to IOHelper
     pub fn tick(&mut self) -> (MonoSample, bool) {
         self.is_playing = true;
-        if self.clock.visit_watchers() {
+        let (done, messages) = self.clock.visit_watchers();
+        let inner_clock = &self.clock.inner_clock().clone();
+        self.update(inner_clock, &messages);
+        if done {
             self.is_playing = false;
             return (MONO_SAMPLE_SILENCE, true);
         }
-        let sample = self
-            .main_mixer
-            .borrow_mut()
-            .source_audio(self.clock.inner_clock());
+        let sample = self.main_mixer.source_audio(inner_clock);
         self.clock.tick();
         (sample, false)
+    }
+
+    fn update(&mut self, clock: &Clock, messages: &[BigMessage]) {
+        for message in messages {
+            match message {
+                BigMessage::SmallMessage(uid, message) => {
+                    if let Some(target) = self.updateables.get(uid) {
+                        if let Some(target) = target.upgrade() {
+                            target.borrow_mut().update(clock, message.clone());
+                        }
+                    }
+                }
+            }
+        }
     }
 
     pub fn perform(&mut self) -> anyhow::Result<Performance> {
@@ -142,7 +142,7 @@ impl Orchestrator {
     }
 
     pub fn add_main_mixer_source(&mut self, device: Ww<dyn SourcesAudio>) {
-        self.main_mixer.borrow_mut().add_audio_source(device);
+        self.main_mixer.add_audio_source(device);
     }
 
     pub fn register_clock_watcher(
@@ -177,10 +177,11 @@ impl Orchestrator {
         midi_effect: Rrc<dyn IsMidiEffect>,
         channel: MidiChannel,
     ) -> String {
-        let instrument = rrc_downgrade(&midi_effect);
-        self.connect_to_downstream_midi_bus(channel, instrument);
-        let instrument = rrc_clone(&midi_effect);
-        self.connect_to_upstream_midi_bus(instrument);
+        self.connect_to_downstream_midi_bus(
+            channel,
+            rrc_downgrade::<dyn IsMidiEffect>(&midi_effect),
+        );
+        self.connect_to_upstream_midi_bus(rrc_clone::<dyn IsMidiEffect>(&midi_effect));
 
         let id = self.id_store.add_midi_effect_by_id(id, &midi_effect);
         self.clock.add_watcher(midi_effect);
@@ -195,6 +196,17 @@ impl Orchestrator {
 
     pub fn register_viewable(&mut self, viewable: Rrc<dyn MakesIsViewable>) {
         self.viewable_makers.push(rrc_downgrade(&viewable));
+    }
+
+    pub fn register_updateable(&mut self, id: Option<&str>, updateable: Rrc<dyn SinksUpdates>) {
+        self.last_updateable_id += 1;
+        self.updateables
+            .insert(self.last_updateable_id, rrc_downgrade(&updateable));
+
+        if let Some(id) = id {
+            self.id_to_updateable_uid
+                .insert(id.to_string(), self.last_updateable_id);
+        }
     }
 
     /// If you're connecting an instrument downstream of MidiBus, it means that
@@ -212,10 +224,10 @@ impl Orchestrator {
     /// If you're connecting an instrument upstream of MidiBus, it means that
     /// the instrument has something to say to other instruments.
     pub fn connect_to_upstream_midi_bus(&mut self, instrument: Rrc<dyn SourcesMidi>) {
-        let sink = rrc_downgrade(&self.midi_bus);
-        instrument
-            .borrow_mut()
-            .add_midi_sink(MIDI_CHANNEL_RECEIVE_ALL, sink);
+        instrument.borrow_mut().add_midi_sink(
+            MIDI_CHANNEL_RECEIVE_ALL,
+            rrc_downgrade::<MidiBus>(&self.midi_bus),
+        );
     }
 
     pub fn audio_source_by(&self, id: &str) -> anyhow::Result<Ww<dyn SourcesAudio>> {
@@ -243,23 +255,34 @@ impl Orchestrator {
         }
     }
 
-    pub fn makes_control_sink_by(&self, id: &str) -> anyhow::Result<Ww<dyn MakesControlSink>> {
-        if let Some(item) = self.id_store.makes_control_sink_by(id) {
-            Ok(item)
-        } else {
-            Err(anyhow::Error::msg(format!(
-                "MakesControlSink id {} not found",
-                id
-            )))
-        }
-    }
-
     pub fn control_path_by(&self, id: &str) -> anyhow::Result<Ww<ControlPath>> {
         if let Some(item) = self.id_store.control_path_by(id) {
             Ok(item)
         } else {
             Err(anyhow::Error::msg(format!(
                 "ControlPath id {} not found",
+                id
+            )))
+        }
+    }
+
+    pub fn updateable_by(&self, uid: usize) -> anyhow::Result<Ww<dyn SinksUpdates>> {
+        if let Some(item) = self.updateables.get(&uid) {
+            Ok(item.clone())
+        } else {
+            Err(anyhow::Error::msg(format!(
+                "Updateable uid {} not found",
+                uid
+            )))
+        }
+    }
+
+    pub fn updateable_uid_by(&self, id: &str) -> anyhow::Result<usize> {
+        if let Some(uid) = self.id_to_updateable_uid.get(id) {
+            Ok(*uid)
+        } else {
+            Err(anyhow::Error::msg(format!(
+                "Updateable UID not found by id {}",
                 id
             )))
         }
@@ -312,5 +335,9 @@ impl Orchestrator {
 
     pub fn pattern_manager_mut(&mut self) -> &mut PatternManager {
         &mut self.pattern_manager
+    }
+
+    pub fn mixer(&self) -> &Mixer {
+        &self.main_mixer
     }
 }

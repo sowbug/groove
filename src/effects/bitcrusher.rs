@@ -43,6 +43,10 @@ impl Bitcrusher {
     pub(crate) fn set_bits_to_crush(&mut self, n: u8) {
         self.bits_to_crush = n;
     }
+
+    pub(crate) fn set_bits_to_crush_pct(&mut self, pct: f32) {
+        self.set_bits_to_crush((pct * 15.0) as u8);
+    }
 }
 impl SinksAudio for Bitcrusher {
     fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
@@ -88,11 +92,9 @@ mod tests {
     fn test_bitcrusher_multisource() {
         let mut fx = Bitcrusher::new_with(8);
         let source = rrc(TestAudioSourceAlwaysSameLevel::new(PI - 3.0));
-        let source = rrc_downgrade(&source);
-        fx.add_audio_source(source);
+        fx.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
         let source = rrc(TestAudioSourceAlwaysSameLevel::new(PI - 3.0));
-        let source = rrc_downgrade(&source);
-        fx.add_audio_source(source);
+        fx.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
         assert_eq!(fx.source_audio(&Clock::new()), 2.0 * CRUSHED_PI);
     }
 }

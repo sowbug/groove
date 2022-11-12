@@ -293,6 +293,12 @@ impl AdsrEnvelope {
         }
     }
 
+    // This method exists to make it easier to adapt to IsUpdatable's generated
+    // update() code.
+    pub(crate) fn set_note(&mut self, clock: &Clock, value: f32) {
+        self.handle_note_event(clock, value == 1.0);
+    }
+
     fn handle_state_change(&mut self) {
         if self.note_on_time == f32::MAX {
             // We're waiting for a keypress; we have neither key-down nor key-up.
@@ -556,16 +562,6 @@ mod tests {
     use crate::clock::Clock;
     use assert_approx_eq::assert_approx_eq;
     use more_asserts::{assert_gt, assert_lt};
-
-    mod adsr {
-        use crate::envelopes::AdsrEnvelope;
-
-        fn instance() -> AdsrEnvelope {
-            return AdsrEnvelope::default();
-        }
-
-        include!("test_trait_makes_control_sink.rs");
-    }
 
     mod stepped_envelope {
         use crate::envelopes::SteppedEnvelope;

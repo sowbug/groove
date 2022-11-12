@@ -203,8 +203,7 @@ mod tests {
             OscillatorSettings::NATURAL_TUNING,
             MidiNote::C4,
         ));
-        let oscillator_weak = rrc_downgrade(&oscillator);
-        orchestrator.add_audio_source(oscillator_weak);
+        orchestrator.add_audio_source(rrc_downgrade::<Oscillator>(&oscillator));
         let mut clock = WatchedClock::new();
         clock.add_watcher(rrc(TestTimer::new_with(2.0)));
         write_orchestration_to_file(&mut orchestrator, &mut clock, "oscillator_sine_c3");

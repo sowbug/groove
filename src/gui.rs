@@ -10,6 +10,7 @@ use crate::{
     },
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, SinksAudio},
+    Orchestrator,
 };
 use iced::{
     alignment::{Horizontal, Vertical},
@@ -188,59 +189,35 @@ pub trait IsViewable: Debug {
     }
 
     fn update(&mut self, message: ViewableMessage) {
-        dbg!(message);
+        dbg!(&message);
     }
 }
 
-#[derive(Debug)]
-pub struct MixerViewableResponder {
-    target: Ww<Mixer>,
-}
-impl IsViewable for MixerViewableResponder {
+impl IsViewable for Mixer {
     type Message = ViewableMessage;
 
-    fn view(&self) -> Element<Self::Message> {
-        if let Some(target) = self.target.upgrade() {
-            let title = type_name::<Mixer>();
-            let contents = format!("sources: {}", target.borrow().sources().len());
-            GuiStuff::titled_container(
-                Some(target),
-                title,
-                GuiStuff::container_text(contents.as_str()),
-            )
-        } else {
-            GuiStuff::missing_target_container()
-        }
+    fn view(&self) -> Element<ViewableMessage> {
+        let title = type_name::<Mixer>();
+        let contents = format!("sources: {}", self.sources().len());
+        GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
     }
 
-    fn update(&mut self, message: Self::Message) {
-        if let Some(target) = self.target.upgrade() {
-            match message {
-                ViewableMessage::MutePressed(is_muted) => {
-                    target.borrow_mut().set_muted(is_muted);
-                }
-                ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled);
-                }
-                _ => todo!(),
-            };
+    fn update(&mut self, message: ViewableMessage) {
+        match message {
+            ViewableMessage::MutePressed(is_muted) => {
+                self.set_muted(is_muted);
+            }
+            ViewableMessage::EnablePressed(is_enabled) => {
+                self.set_enabled(is_enabled);
+            }
+            _ => todo!(),
         };
     }
 }
 
 impl MakesIsViewable for Mixer {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(MixerViewableResponder {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
-        }
+        None
     }
 }
 
@@ -815,8 +792,10 @@ impl Pattern<Note> {
     }
 }
 
-impl PatternManager {
-    pub fn view(&self) -> Element<ViewableMessage> {
+impl IsViewable for PatternManager {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<Self::Message> {
         let title = type_name::<PatternManager>();
         let contents = {
             let pattern_views = self.patterns().iter().enumerate().map(|(i, item)| {
@@ -828,7 +807,7 @@ impl PatternManager {
         GuiStuff::titled_container(None, title, contents.into())
     }
 
-    pub fn update(&mut self, message: ViewableMessage) {
+    fn update(&mut self, message: Self::Message) {
         match message {
             ViewableMessage::PatternMessage(i, message) => {
                 self.patterns_mut()[i].update(message);
@@ -837,6 +816,22 @@ impl PatternManager {
                 dbg!(&message);
             }
         }
+    }
+}
+
+impl IsViewable for Orchestrator {
+    type Message = ViewableMessage;
+
+    fn view(&self) -> Element<ViewableMessage> {
+        column(vec![self.pattern_manager().view(), self.mixer().view()].into()).into()
+    }
+
+    fn name(&self) -> String {
+        type_name::<Self>().to_string()
+    }
+
+    fn update(&mut self, message: ViewableMessage) {
+        dbg!(message);
     }
 }
 
@@ -850,7 +845,6 @@ mod tests {
             filter::{BiQuadFilter, FilterParams},
             gain::Gain,
             limiter::Limiter,
-            mixer::Mixer,
         },
         midi::sequencers::BeatSequencer,
         settings::patches::SynthPatch,
@@ -886,7 +880,7 @@ mod tests {
         );
         test_one_viewable(DrumkitSampler::new_wrapped_from_files(0), None);
         test_one_viewable(Sampler::new_wrapped_with(0, 1024), None);
-        test_one_viewable(Mixer::new_wrapped(), None);
+        // TODO - test it! test_one_viewable(Mixer::new_wrapped(), None);
         test_one_viewable(
             Gain::new_wrapped(),
             Some(ViewableMessage::GainLevelChangedAsU8Percentage(28)),

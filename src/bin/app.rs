@@ -437,7 +437,6 @@ impl Application for GrooveApp {
             // Add in the view of the non-IsViewable PatternManager.
             view_vec.push(
                 self.orchestrator
-                    .pattern_manager()
                     .view()
                     .map(move |message| Message::ViewableMessage(999, message)),
             );

@@ -1,12 +1,13 @@
 use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc},
+    midi::{programmers::MidiSmfReader, sequencers::MidiTickSequencer},
     orchestrator::{Orchestrator, Performance},
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     synthesizers::{
         drumkit_sampler::Sampler,
         welsh::{PatchName, Synth},
     },
-    traits::IsMidiInstrument, midi::{sequencers::MidiTickSequencer, programmers::MidiSmfReader},
+    traits::IsMidiInstrument,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -200,8 +201,7 @@ impl IOHelper {
         let midi_sequencer = rrc(MidiTickSequencer::new());
         MidiSmfReader::program_sequencer(&data, &mut midi_sequencer.borrow_mut());
 
-        let instrument = rrc_clone(&midi_sequencer);
-        orchestrator.connect_to_upstream_midi_bus(instrument);
+        orchestrator.connect_to_upstream_midi_bus(rrc_clone::<MidiTickSequencer>(&midi_sequencer));
         orchestrator.register_clock_watcher(None, midi_sequencer);
 
         // TODO: this is a hack. We need only the number of channels used in the
@@ -216,12 +216,12 @@ impl IOHelper {
                     SynthPatch::by_name(&PatchName::Piano),
                 )
             };
-            let instrument = rrc_clone(&synth);
-            orchestrator.register_audio_source(None, instrument);
-            let sink = rrc_downgrade(&synth);
-            orchestrator.connect_to_downstream_midi_bus(channel, sink);
-            let device = rrc_downgrade(&synth);
-            orchestrator.add_main_mixer_source(device);
+            orchestrator.register_audio_source(None, rrc_clone::<dyn IsMidiInstrument>(&synth));
+            orchestrator.connect_to_downstream_midi_bus(
+                channel,
+                rrc_downgrade::<dyn IsMidiInstrument>(&synth),
+            );
+            orchestrator.add_main_mixer_source(rrc_downgrade::<dyn IsMidiInstrument>(&synth));
         }
         orchestrator
     }

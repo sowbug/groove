@@ -3,9 +3,10 @@ pub mod tests {
     use crate::{
         clock::{Clock, ClockTimeUnit, WatchedClock},
         common::{
-            rrc, rrc_clone, rrc_downgrade, wrc_clone, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX,
-            MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE,
+            rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
+            MONO_SAMPLE_SILENCE,
         },
+        control::{BigMessage, SmallMessage, SmallMessageGenerator},
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
         midi::{MidiChannel, MidiMessage, MidiNote, MidiUtils, MIDI_CHANNEL_RECEIVE_ALL},
@@ -14,14 +15,12 @@ pub mod tests {
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            HasOverhead, IsController, IsEffect, MakesControlSink, Overhead, SinksAudio,
-            SinksControl, SinksMidi, SourcesAudio, SourcesControl, SourcesMidi, Terminates,
-            WatchesClock,
+            HasOverhead, IsEffect, Overhead, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
+            SourcesMidi, SourcesUpdates, Terminates, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};
-    use std::str::FromStr;
     // use plotters::prelude::*;
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
@@ -71,15 +70,14 @@ pub mod tests {
         let mut o = TestOrchestrator::new();
         let osc = Oscillator::new_wrapped_with(waveform_type);
         if let Some(effect) = effect_opt {
-            let osc_weak = rrc_downgrade(&osc);
-            effect.borrow_mut().add_audio_source(osc_weak);
-            let effect_weak = rrc_downgrade(&effect);
-            o.add_audio_source(effect_weak);
+            effect
+                .borrow_mut()
+                .add_audio_source(rrc_downgrade::<Oscillator>(&osc));
+            o.add_audio_source(rrc_downgrade::<dyn IsEffect>(&effect));
         }
         c.add_watcher(rrc(TestTimer::new_with(2.0)));
         if let Some(control) = control_opt {
-            let watcher = rrc_clone(&control);
-            c.add_watcher(watcher);
+            c.add_watcher(rrc_clone::<dyn WatchesClock>(&control));
         }
         let mut samples_out = Vec::<MonoSample>::new();
         o.start(&mut c, &mut samples_out);
@@ -346,35 +344,68 @@ pub mod tests {
     #[derive(Debug)]
     pub struct TestOrchestrator {
         pub main_mixer: Box<dyn IsEffect>,
+        pub updateables: HashMap<usize, Ww<dyn SinksUpdates>>,
+
+        // The final clock watcher gets to run and test the state resulting from
+        // all the prior clock watchers' ticks.
+        pub final_clock_watcher: Option<Ww<dyn WatchesClock>>,
     }
 
     impl Default for TestOrchestrator {
         fn default() -> Self {
-            Self::new()
+            Self {
+                main_mixer: Box::new(Mixer::new()),
+                updateables: Default::default(),
+                final_clock_watcher: None,
+            }
         }
     }
 
     impl TestOrchestrator {
         pub fn new() -> Self {
             Self {
-                main_mixer: Box::new(Mixer::new()),
+                ..Default::default()
             }
         }
 
-        // TODO: I like "new_with"
         #[allow(dead_code)]
         pub fn new_with(main_mixer: Box<dyn IsEffect>) -> Self {
-            Self { main_mixer }
+            Self {
+                main_mixer,
+                ..Default::default()
+            }
         }
 
         pub fn add_audio_source(&mut self, source: Ww<dyn SourcesAudio>) {
             self.main_mixer.add_audio_source(source);
         }
 
+        pub fn add_final_watcher(&mut self, watcher: Rrc<dyn WatchesClock>) {
+            self.final_clock_watcher = Some(rrc_downgrade(&watcher));
+        }
+
         pub fn start(&mut self, clock: &mut WatchedClock, samples_out: &mut Vec<MonoSample>) {
             loop {
-                if clock.visit_watchers() {
+                let (mut done, messages) = clock.visit_watchers();
+                if let Some(watcher) = &self.final_clock_watcher {
+                    if let Some(watcher) = watcher.upgrade() {
+                        watcher.borrow_mut().tick(&clock.inner_clock());
+                        done = done && watcher.borrow().is_finished();
+                    }
+                }
+                if done {
                     break;
+                }
+                for message in messages {
+                    match message {
+                        crate::control::BigMessage::SmallMessage(uid, message) => {
+                            if let Some(target) = self.updateables.get_mut(&uid) {
+                                if let Some(target) = target.upgrade() {
+                                    target.borrow_mut().update(clock.inner_clock(), message);
+                                }
+                            }
+                        }
+                    }
                 }
                 samples_out.push(self.main_mixer.source_audio(clock.inner_clock()));
                 clock.tick();
@@ -452,8 +483,9 @@ pub mod tests {
         }
     }
     impl WatchesClock for TestTimer {
-        fn tick(&mut self, clock: &Clock) {
+        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
             self.has_more_work = clock.seconds() < self.time_to_run_seconds;
+            Vec::new()
         }
     }
     impl Terminates for TestTimer {
@@ -464,7 +496,9 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestTrigger {
-        control_sinks: Vec<Box<dyn SinksControl>>,
+        target_uids: Vec<usize>,
+        target_messages: Vec<SmallMessageGenerator>,
+
         time_to_trigger_seconds: f32,
         value: f32,
         has_triggered: bool,
@@ -479,12 +513,31 @@ pub mod tests {
         }
     }
     impl WatchesClock for TestTrigger {
-        fn tick(&mut self, clock: &Clock) {
+        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
             if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
                 self.has_triggered = true;
                 let value = self.value;
-                self.issue_control(clock, value);
+                self.post_message(value)
+            } else {
+                Vec::default()
             }
+        }
+    }
+    impl SourcesUpdates for TestTrigger {
+        fn target_uids(&self) -> &[usize] {
+            &self.target_uids
+        }
+
+        fn target_uids_mut(&mut self) -> &mut Vec<usize> {
+            &mut self.target_uids
+        }
+
+        fn target_messages(&self) -> &[SmallMessageGenerator] {
+            &self.target_messages
+        }
+
+        fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator> {
+            &mut self.target_messages
         }
     }
     impl Terminates for TestTrigger {
@@ -492,46 +545,44 @@ pub mod tests {
             self.has_triggered
         }
     }
-    impl SourcesControl for TestTrigger {
-        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
-            &self.control_sinks
-        }
-
-        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
-            &mut self.control_sinks
-        }
-    }
 
     /// Lets a SourcesAudio act like an IsController
     #[derive(Debug)]
     pub struct TestControlSourceContinuous {
-        control_sinks: Vec<Box<dyn SinksControl>>,
         source: Box<dyn SourcesAudio>,
+        target_uids: Vec<usize>,
+        target_messages: Vec<SmallMessageGenerator>,
     }
     impl TestControlSourceContinuous {
         pub fn new_with(source: Box<dyn SourcesAudio>) -> Self {
             Self {
-                control_sinks: Vec::new(),
                 source,
+                target_uids: Vec::new(),
+                target_messages: Vec::new(),
             }
-        }
-    }
-    impl SourcesControl for TestControlSourceContinuous {
-        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
-            &self.control_sinks
-        }
-
-        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
-            &mut self.control_sinks
         }
     }
     impl WatchesClock for TestControlSourceContinuous {
-        fn tick(&mut self, clock: &Clock) {
-            let value = self.source.source_audio(clock);
-            if value < 0.0 {
-                let mut _fii = 1.0 + self.source.source_audio(clock);
-            }
-            self.issue_control(clock, value);
+        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
+            let value = self.source.source_audio(clock).abs();
+            self.post_message(value)
+        }
+    }
+    impl SourcesUpdates for TestControlSourceContinuous {
+        fn target_uids(&self) -> &[usize] {
+            &self.target_uids
+        }
+
+        fn target_uids_mut(&mut self) -> &mut Vec<usize> {
+            &mut self.target_uids
+        }
+
+        fn target_messages(&self) -> &[SmallMessageGenerator] {
+            &self.target_messages
+        }
+
+        fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator> {
+            &mut self.target_messages
         }
     }
     impl Terminates for TestControlSourceContinuous {
@@ -539,7 +590,6 @@ pub mod tests {
             true
         }
     }
-    impl IsController for TestControlSourceContinuous {}
 
     #[derive(Display, Debug, EnumString)]
     #[strum(serialize_all = "kebab_case")]
@@ -588,6 +638,7 @@ pub mod tests {
             wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
             wrapped
         }
+        #[allow(dead_code)]
         pub fn set_value(&mut self, value: f32) {
             self.value = value;
         }
@@ -641,22 +692,6 @@ pub mod tests {
             self.value
         }
     }
-    impl MakesControlSink for TestMidiSink {
-        fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-            if self.me.strong_count() != 0 {
-                if let Ok(param) = TestMidiSinkControlParams::from_str(param_name) {
-                    match param {
-                        TestMidiSinkControlParams::Param => {
-                            return Some(Box::new(TestMidiSinkController {
-                                target: wrc_clone(&self.me),
-                            }));
-                        }
-                    }
-                }
-            }
-            None
-        }
-    }
     impl HasOverhead for TestMidiSink {
         fn overhead(&self) -> &Overhead {
             &self.overhead
@@ -666,16 +701,20 @@ pub mod tests {
             &mut self.overhead
         }
     }
-
-    #[derive(Debug)]
-    pub struct TestMidiSinkController {
-        target: Ww<TestMidiSink>,
-    }
-    impl SinksControl for TestMidiSinkController {
-        fn handle_control(&mut self, _clock: &Clock, param: f32) {
-            if let Some(target) = self.target.upgrade() {
-                target.borrow_mut().set_value(param);
+    impl SinksUpdates for TestMidiSink {
+        fn update(&mut self, _clock: &Clock, message: SmallMessage) {
+            match message {
+                SmallMessage::ValueChanged(value) => {
+                    self.value = value;
+                }
+                _ => {
+                    dbg!(&message);
+                }
             }
+        }
+
+        fn message_for(&self, _param: &str) -> SmallMessageGenerator {
+            todo!()
         }
     }
 
@@ -687,8 +726,9 @@ pub mod tests {
     }
 
     impl WatchesClock for TestClockWatcher {
-        fn tick(&mut self, clock: &Clock) {
+        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
             self.has_more_work = clock.seconds() < self.lifetime_seconds;
+            Vec::new()
         }
     }
 
@@ -765,84 +805,6 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct TestControlSource {
-        control_sinks: Vec<Box<dyn SinksControl>>,
-    }
-
-    impl SourcesControl for TestControlSource {
-        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
-            &self.control_sinks
-        }
-        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
-            &mut self.control_sinks
-        }
-    }
-
-    impl TestControlSource {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-
-        pub fn handle_test_event(&mut self, value: f32) {
-            self.issue_control(&Clock::new(), value);
-        }
-    }
-
-    #[derive(Display, Debug, EnumString)]
-    #[strum(serialize_all = "kebab_case")]
-    pub(crate) enum TestControllableControlParams {
-        Value,
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestControllable {
-        pub(crate) me: Ww<Self>,
-        pub value: f32,
-    }
-    impl TestControllable {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-        pub fn new_wrapped() -> Rrc<Self> {
-            let wrapped = rrc(Self::new());
-            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-            wrapped
-        }
-    }
-    impl MakesControlSink for TestControllable {
-        fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-            if self.me.strong_count() != 0 {
-                if let Ok(param) = TestControllableControlParams::from_str(param_name) {
-                    match param {
-                        TestControllableControlParams::Value => {
-                            return Some(Box::new(TestControllableController {
-                                target: wrc_clone(&self.me),
-                            }));
-                        }
-                    }
-                }
-            }
-            None
-        }
-    }
-
-    #[derive(Debug)]
-    pub(crate) struct TestControllableController {
-        target: Ww<TestControllable>,
-    }
-    impl SinksControl for TestControllableController {
-        fn handle_control(&mut self, _clock: &Clock, param: f32) {
-            if let Some(target) = self.target.upgrade() {
-                target.borrow_mut().value = param;
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
     pub struct TestMidiSource {
         channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     }
@@ -876,21 +838,30 @@ pub mod tests {
     }
 
     // Gets called with native functions telling it about external keyboard
-    // events. Translates those into automation events that influence an
+    // events. Translates those into update messages that influence an
     // arpeggiator, which controls a MIDI instrument.
     //
     // This shows how all these traits work together.
     #[derive(Debug, Default)]
     pub struct TestKeyboard {
-        control_sinks: Vec<Box<dyn SinksControl>>,
+        target_uids: Vec<usize>,
+        target_messages: Vec<SmallMessageGenerator>,
     }
-
-    impl SourcesControl for TestKeyboard {
-        fn control_sinks(&self) -> &[Box<dyn SinksControl>] {
-            &self.control_sinks
+    impl SourcesUpdates for TestKeyboard {
+        fn target_uids(&self) -> &[usize] {
+            &self.target_uids
         }
-        fn control_sinks_mut(&mut self) -> &mut Vec<Box<dyn SinksControl>> {
-            &mut self.control_sinks
+
+        fn target_uids_mut(&mut self) -> &mut Vec<usize> {
+            &mut self.target_uids
+        }
+
+        fn target_messages(&self) -> &[SmallMessageGenerator] {
+            &self.target_messages
+        }
+
+        fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator> {
+            &mut self.target_messages
         }
     }
 
@@ -901,12 +872,12 @@ pub mod tests {
             }
         }
 
-        pub fn handle_keypress(&mut self, key: u8) {
+        pub fn handle_keypress(&mut self, key: u8) -> Vec<BigMessage> {
             match key {
-                1 => {
-                    self.issue_control(&Clock::new(), 0.5);
+                1 => self.post_message(0.5),
+                _ => {
+                    vec![]
                 }
-                _ => {}
             }
         }
     }
@@ -941,7 +912,7 @@ pub mod tests {
         }
     }
     impl WatchesClock for TestArpeggiator {
-        fn tick(&mut self, clock: &Clock) {
+        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
             // We don't actually pay any attention to self.tempo, but it's easy
             // enough to see that tempo could have influenced this MIDI message.
             self.issue_midi(
@@ -949,6 +920,7 @@ pub mod tests {
                 &self.midi_channel_out,
                 &MidiUtils::new_note_on(60, 100),
             );
+            Vec::new()
         }
     }
     impl Terminates for TestArpeggiator {
@@ -956,20 +928,20 @@ pub mod tests {
             true
         }
     }
-    impl MakesControlSink for TestArpeggiator {
-        fn make_control_sink(&self, param_name: &str) -> Option<Box<dyn SinksControl>> {
-            if self.me.strong_count() != 0 {
-                if let Ok(param) = TestArpeggiatorControlParams::from_str(param_name) {
-                    match param {
-                        TestArpeggiatorControlParams::Tempo => {
-                            return Some(Box::new(TestArpeggiatorTempoController {
-                                target: wrc_clone(&self.me),
-                            }))
-                        }
-                    }
-                }
+    impl SinksUpdates for TestArpeggiator {
+        fn message_for(&self, param: &str) -> SmallMessageGenerator {
+            assert_eq!(
+                TestArpeggiatorControlParams::Tempo.to_string().as_str(),
+                param
+            );
+            Box::new(SmallMessage::ValueChanged)
+        }
+
+        fn update(&mut self, _clock: &Clock, message: SmallMessage) {
+            match message {
+                SmallMessage::ValueChanged(value) => self.tempo = value,
+                _ => todo!(),
             }
-            None
         }
     }
     impl TestArpeggiator {
@@ -987,18 +959,6 @@ pub mod tests {
     }
 
     #[derive(Debug)]
-    pub struct TestArpeggiatorTempoController {
-        target: Ww<TestArpeggiator>,
-    }
-    impl SinksControl for TestArpeggiatorTempoController {
-        fn handle_control(&mut self, _clock: &Clock, param: f32) {
-            if let Some(target) = self.target.upgrade() {
-                target.borrow_mut().tempo = param;
-            }
-        }
-    }
-
-    #[derive(Debug)]
     pub struct TestValueChecker {
         pub values: VecDeque<f32>,
         pub target: Rrc<dyn SourcesAudio>,
@@ -1008,22 +968,20 @@ pub mod tests {
     }
 
     impl WatchesClock for TestValueChecker {
-        fn tick(&mut self, clock: &Clock) {
-            // We have to check is_empty() twice because we might still get
-            // called back if someone else isn't done yet.
-            if self.values.is_empty() {
-                return;
+        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
+            if !self.values.is_empty() {
+                if clock.time_for(&self.time_unit) >= self.checkpoint {
+                    const SAD_FLOAT_DIFF: f32 = 1.0e-4;
+                    assert_approx_eq!(
+                        self.target.borrow_mut().source_audio(clock),
+                        self.values[0],
+                        SAD_FLOAT_DIFF
+                    );
+                    self.checkpoint += self.checkpoint_delta;
+                    self.values.pop_front();
+                }
             }
-            if clock.time_for(&self.time_unit) >= self.checkpoint {
-                const SAD_FLOAT_DIFF: f32 = 1.0e-4;
-                assert_approx_eq!(
-                    self.target.borrow_mut().source_audio(clock),
-                    self.values[0],
-                    SAD_FLOAT_DIFF
-                );
-                self.checkpoint += self.checkpoint_delta;
-                self.values.pop_front();
-            }
+            Vec::new()
         }
     }
 

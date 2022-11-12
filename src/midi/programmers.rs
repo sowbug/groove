@@ -359,8 +359,9 @@ mod tests {
 
         let midi_recorder = TestMidiSink::new_wrapped();
         let midi_channel = midi_recorder.borrow().midi_channel();
-        let sink = rrc_downgrade(&midi_recorder);
-        sequencer.borrow_mut().add_midi_sink(midi_channel, sink);
+        sequencer
+            .borrow_mut()
+            .add_midi_sink(midi_channel, rrc_downgrade::<TestMidiSink>(&midi_recorder));
 
         programmer.insert_pattern_at_cursor(&midi_channel, &pattern);
 
@@ -369,11 +370,11 @@ mod tests {
 
         let mut clock = WatchedClock::new();
         let sample_rate = clock.inner_clock().sample_rate();
-        let watcher = rrc_clone(&sequencer);
-        clock.add_watcher(watcher);
+        clock.add_watcher(rrc_clone::<BeatSequencer>(&sequencer));
 
         loop {
-            if clock.visit_watchers() {
+            let (done, _messages) = clock.visit_watchers();
+            if done {
                 break;
             }
             clock.tick();
@@ -410,7 +411,8 @@ mod tests {
         clock.reset();
 
         // This shouldn't explode.
-        assert!(!clock.visit_watchers());
+        let (done, _) = clock.visit_watchers();
+        assert!(!done);
 
         // Only the first time slice's events should have fired.
         assert_eq!(midi_recorder.borrow().messages.len(), 1);
@@ -418,7 +420,8 @@ mod tests {
         // Fast-forward to the end. Nothing else should fire. This is because
         // any tick() should do work for just the slice specified.
         clock.inner_clock_mut().debug_set_seconds(10.0);
-        assert!(clock.visit_watchers());
+        let (done, _) = clock.visit_watchers();
+        assert!(done);
         assert_eq!(midi_recorder.borrow().messages.len(), 1);
 
         // Start test recorder over again.

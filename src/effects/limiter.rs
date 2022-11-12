@@ -88,8 +88,7 @@ mod tests {
         const MAX: MonoSample = 0.9;
         let mut limiter = Limiter::new_with(0.0, MAX);
         let source = rrc(TestAudioSourceAlwaysTooLoud::new());
-        let source = rrc_downgrade(&source);
-        limiter.add_audio_source(source);
+        limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysTooLoud>(&source));
         assert_eq!(limiter.source_audio(&Clock::new()), MAX);
     }
 
@@ -101,22 +100,19 @@ mod tests {
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new(0.5));
-            let source = rrc_downgrade(&source);
-            limiter.add_audio_source(source);
+            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
             assert_eq!(limiter.source_audio(&clock), 0.5);
         }
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new(-0.8));
-            let source = rrc_downgrade(&source);
-            limiter.add_audio_source(source);
+            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
             assert_eq!(limiter.source_audio(&clock), MIN);
         }
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new(0.8));
-            let source = rrc_downgrade(&source);
-            limiter.add_audio_source(source);
+            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
             assert_eq!(limiter.source_audio(&clock), MAX);
         }
 
@@ -124,19 +120,15 @@ mod tests {
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new(0.2));
-            let source = rrc_downgrade(&source);
-            limiter.add_audio_source(source);
+            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
             let source = rrc(TestAudioSourceAlwaysSameLevel::new(0.6));
-            let source = rrc_downgrade(&source);
-            limiter.add_audio_source(source);
+            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
             assert_eq!(limiter.source_audio(&clock), MAX);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new(-1.0));
-            let source = rrc_downgrade(&source);
-            limiter.add_audio_source(source);
+            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
             assert_approx_eq!(limiter.source_audio(&clock), -0.2);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new(-1.0));
-            let source = rrc_downgrade(&source);
-            limiter.add_audio_source(source);
+            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
             assert_eq!(limiter.source_audio(&clock), MIN);
         }
     }
