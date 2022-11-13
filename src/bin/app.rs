@@ -168,9 +168,9 @@ impl Clock {
                     .font(NUMBERS_FONT)
                     .size(NUMBERS_FONT_SIZE),
             )
-            .style(theme::Container::Custom(GuiStuff::number_box_style(
-                &Theme::Dark,
-            )))
+            .style(theme::Container::Custom(
+                GuiStuff::<Message>::number_box_style(&Theme::Dark),
+            ))
         };
 
         let time_signature = {
@@ -191,9 +191,9 @@ impl Clock {
                     .font(NUMBERS_FONT)
                     .size(NUMBERS_FONT_SIZE),
             )
-            .style(theme::Container::Custom(GuiStuff::number_box_style(
-                &Theme::Dark,
-            )))
+            .style(theme::Container::Custom(
+                GuiStuff::<Message>::number_box_style(&Theme::Dark),
+            ))
         };
         row![time_counter, time_signature, beat_counter].into()
     }
@@ -369,7 +369,8 @@ impl Application for GrooveApp {
                     // TODO: short-term hack!
                     self.orchestrator.pattern_manager_mut().update(message);
                 } else {
-                    self.viewables[i].update(message)
+                    let _ = self.viewables[i].update(message);
+                    // TODO: deal with this command after wrapping it.
                 }
             }
             Message::EventOccurred(event) => {

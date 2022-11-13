@@ -15,10 +15,10 @@ use crate::{
 use iced::{
     alignment::{Horizontal, Vertical},
     theme,
-    widget::{button, checkbox, column, container, row, slider, text, text_input},
-    Color, Element, Font, Theme,
+    widget::{button, column, container, row, slider, text, text_input},
+    Color, Command, Element, Font, Theme,
 };
-use std::{any::type_name, fmt::Debug};
+use std::{any::type_name, fmt::Debug, marker::PhantomData};
 
 pub const SMALL_FONT_SIZE: u16 = 16;
 pub const SMALL_FONT: Font = Font::External {
@@ -87,14 +87,16 @@ impl container::StyleSheet for NumberContainerStyle {
 }
 
 #[derive(Default)]
-pub struct GuiStuff {}
+pub struct GuiStuff<'a, Message> {
+    phantom: PhantomData<&'a Message>,
+}
 
-impl<'a> GuiStuff {
+impl<'a, Message: 'a> GuiStuff<'a, Message> {
     pub fn titled_container(
         device: Option<Rrc<dyn HasOverhead>>,
         title: &str,
-        contents: Element<'a, ViewableMessage>,
-    ) -> Element<'a, ViewableMessage> {
+        contents: Element<'a, Message>,
+    ) -> Element<'a, Message> {
         container(column![
             Self::titled_container_title(device, title),
             container(contents).padding(2)
@@ -104,33 +106,34 @@ impl<'a> GuiStuff {
         .into()
     }
 
+    #[allow(unused_variables)]
     pub fn titled_container_title(
         device: Option<Rrc<dyn HasOverhead>>,
         title: &str,
-    ) -> Element<'a, ViewableMessage> {
-        let checkboxes = container(if let Some(device) = device {
-            row![
-                checkbox(
-                    "Enabled".to_string(),
-                    device.borrow().is_enabled(),
-                    ViewableMessage::EnablePressed
-                ),
-                checkbox(
-                    "Muted".to_string(),
-                    device.borrow().is_muted(),
-                    ViewableMessage::MutePressed
-                )
-            ]
-        } else {
-            row![text("".to_string())]
-        });
+    ) -> Element<'a, Message> {
+        // let checkboxes = container(if let Some(device) = device {
+        //     row![
+        //         checkbox(
+        //             "Enabled".to_string(),
+        //             device.borrow().is_enabled(),
+        //             ViewableMessage::EnablePressed
+        //         ),
+        //         checkbox(
+        //             "Muted".to_string(),
+        //             device.borrow().is_muted(),
+        //             ViewableMessage::MutePressed
+        //         )
+        //     ]
+        // } else {
+        //     row![text("".to_string())]
+        // });
         container(row![
             text(title.to_string())
                 .font(SMALL_FONT)
                 .size(SMALL_FONT_SIZE)
                 .horizontal_alignment(iced::alignment::Horizontal::Left)
                 .vertical_alignment(Vertical::Center),
-            checkboxes
+            // checkboxes
         ])
         .width(iced::Length::Fill)
         .padding(1)
@@ -140,7 +143,7 @@ impl<'a> GuiStuff {
         .into()
     }
 
-    pub fn container_text(label: &str) -> Element<'a, ViewableMessage> {
+    pub fn container_text(label: &str) -> Element<'a, Message> {
         text(label.to_string())
             .font(LARGE_FONT)
             .size(LARGE_FONT_SIZE)
@@ -165,7 +168,7 @@ impl<'a> GuiStuff {
         })
     }
 
-    fn missing_target_container() -> Element<'a, ViewableMessage> {
+    fn missing_target_container() -> Element<'a, Message> {
         container(text("missing target!")).into()
     }
 }
@@ -173,7 +176,7 @@ impl<'a> GuiStuff {
 pub trait IsViewable: Debug {
     type Message;
 
-    fn view(&self) -> Element<ViewableMessage> {
+    fn view(&self) -> Element<'_, Self::Message, iced::Renderer> {
         GuiStuff::titled_container(
             None,
             "Untitled",
@@ -188,8 +191,9 @@ pub trait IsViewable: Debug {
         type_name::<Self>().to_string()
     }
 
-    fn update(&mut self, message: ViewableMessage) {
-        dbg!(&message);
+    #[allow(unused_variables)]
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        Command::none()
     }
 }
 
@@ -202,7 +206,7 @@ impl IsViewable for Mixer {
         GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
     }
 
-    fn update(&mut self, message: ViewableMessage) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             ViewableMessage::MutePressed(is_muted) => {
                 self.set_muted(is_muted);
@@ -212,6 +216,7 @@ impl IsViewable for Mixer {
             }
             _ => todo!(),
         };
+        Command::none()
     }
 }
 
@@ -242,7 +247,7 @@ impl IsViewable for SamplerViewableResponder {
         }
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
@@ -254,6 +259,7 @@ impl IsViewable for SamplerViewableResponder {
                 _ => todo!(),
             };
         };
+        Command::none()
     }
 }
 
@@ -294,7 +300,7 @@ impl IsViewable for DrumkitSamplerViewableResponder {
         }
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
@@ -306,6 +312,7 @@ impl IsViewable for DrumkitSamplerViewableResponder {
                 _ => todo!(),
             };
         };
+        Command::none()
     }
 }
 
@@ -346,7 +353,7 @@ impl IsViewable for SynthViewableResponder {
         }
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
@@ -358,6 +365,7 @@ impl IsViewable for SynthViewableResponder {
                 _ => todo!(),
             };
         };
+        Command::none()
     }
 }
 
@@ -417,7 +425,7 @@ impl IsViewable for GainViewableResponder {
         }
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
@@ -439,6 +447,7 @@ impl IsViewable for GainViewableResponder {
                 _ => todo!(),
             }
         }
+        Command::none()
     }
 }
 
@@ -481,7 +490,7 @@ impl IsViewable for BitcrusherViewableResponder {
         }
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
@@ -497,6 +506,7 @@ impl IsViewable for BitcrusherViewableResponder {
                 _ => todo!(),
             }
         }
+        Command::none()
     }
 }
 
@@ -541,7 +551,7 @@ impl IsViewable for LimiterViewableResponder {
         }
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
@@ -561,6 +571,7 @@ impl IsViewable for LimiterViewableResponder {
                 _ => todo!(),
             }
         }
+        Command::none()
     }
 }
 
@@ -608,7 +619,7 @@ impl IsViewable for FilterViewableResponder {
         }
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
@@ -630,6 +641,7 @@ impl IsViewable for FilterViewableResponder {
                 _ => todo!(),
             }
         }
+        Command::none()
     }
 }
 
@@ -670,7 +682,7 @@ impl IsViewable for ArpeggiatorViewableResponder {
         }
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
@@ -685,6 +697,7 @@ impl IsViewable for ArpeggiatorViewableResponder {
                 _ => todo!(),
             }
         }
+        Command::none()
     }
 }
 
@@ -725,7 +738,7 @@ impl IsViewable for BeatSequencerViewableResponder {
         }
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
@@ -737,6 +750,7 @@ impl IsViewable for BeatSequencerViewableResponder {
                 _ => todo!(),
             };
         };
+        Command::none()
     }
 }
 
@@ -807,7 +821,7 @@ impl IsViewable for PatternManager {
         GuiStuff::titled_container(None, title, contents.into())
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             ViewableMessage::PatternMessage(i, message) => {
                 self.patterns_mut()[i].update(message);
@@ -816,6 +830,7 @@ impl IsViewable for PatternManager {
                 dbg!(&message);
             }
         }
+        Command::none()
     }
 }
 
@@ -830,8 +845,9 @@ impl IsViewable for Orchestrator {
         type_name::<Self>().to_string()
     }
 
-    fn update(&mut self, message: ViewableMessage) {
-        dbg!(message);
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        dbg!(&message);
+        Command::none()
     }
 }
 
