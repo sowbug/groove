@@ -388,7 +388,7 @@ mod tests {
 
     use crate::{
         clock::WatchedClock,
-        common::{rrc, rrc_downgrade, MonoSample},
+        common::{rrc, rrc_downgrade},
         utils::tests::{TestMidiSink, TestOrchestrator, TestValueChecker},
     };
 
@@ -425,8 +425,7 @@ mod tests {
             time_unit: ClockTimeUnit::Beats,
         }));
 
-        let mut samples_out = Vec::<MonoSample>::new();
-        o.start(&mut clock, &mut samples_out);
+        let _ = o.run_until_completion(&mut clock);
     }
 
     #[test]
@@ -461,7 +460,6 @@ mod tests {
             time_unit: ClockTimeUnit::Beats,
         }));
 
-        let mut samples_out = Vec::<MonoSample>::new();
-        o.start(&mut clock, &mut samples_out);
+        let _ = o.run_until_completion(&mut clock);
     }
 }

@@ -451,7 +451,7 @@ pub mod tests {
     use crate::{
         clock::Clock,
         clock::WatchedClock,
-        common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, MONO_SAMPLE_SILENCE},
+        common::{rrc, rrc_clone, rrc_downgrade, Rrc, MONO_SAMPLE_SILENCE},
         control::{AdsrEnvelopeControlParams, GainControlParams},
         effects::{
             arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
@@ -550,8 +550,7 @@ pub mod tests {
         clock.add_watcher(rrc(timer));
 
         // Run everything.
-        let mut samples = Vec::<MonoSample>::new();
-        orchestrator.start(&mut clock, &mut samples);
+        let samples = orchestrator.run_until_completion(&mut clock);
         assert_eq!(samples.len(), 2 * 44100);
 
         // envelope hasn't been triggered yet

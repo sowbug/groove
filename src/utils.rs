@@ -79,8 +79,7 @@ pub mod tests {
         if let Some(control) = control_opt {
             c.add_watcher(rrc_clone::<dyn WatchesClock>(&control));
         }
-        let mut samples_out = Vec::<MonoSample>::new();
-        o.start(&mut c, &mut samples_out);
+        let samples_out = o.run_until_completion(&mut c);
         write_samples_to_wav_file(basename, sample_rate, &samples_out);
     }
 
@@ -111,13 +110,13 @@ pub mod tests {
         );
     }
 
+    #[allow(dead_code)]
     pub(crate) fn write_orchestration_to_file(
         orchestrator: &mut TestOrchestrator,
         clock: &mut WatchedClock,
         basename: &str,
     ) {
-        let mut samples = Vec::<MonoSample>::new();
-        orchestrator.start(clock, &mut samples);
+        let samples = orchestrator.run_until_completion(clock);
         let spec = hound::WavSpec {
             channels: 1,
             sample_rate: clock.inner_clock().sample_rate() as u32,
@@ -384,7 +383,8 @@ pub mod tests {
             self.final_clock_watcher = Some(rrc_downgrade(&watcher));
         }
 
-        pub fn start(&mut self, clock: &mut WatchedClock, samples_out: &mut Vec<MonoSample>) {
+        pub fn run_until_completion(&mut self, clock: &mut WatchedClock) -> Vec<MonoSample> {
+            let mut samples_out = Vec::new();
             loop {
                 let (mut done, messages) = clock.visit_watchers();
                 if let Some(watcher) = &self.final_clock_watcher {
@@ -410,6 +410,7 @@ pub mod tests {
                 samples_out.push(self.main_mixer.source_audio(clock.inner_clock()));
                 clock.tick();
             }
+            samples_out
         }
     }
 

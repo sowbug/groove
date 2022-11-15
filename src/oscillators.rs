@@ -167,14 +167,11 @@ impl HasOverhead for Oscillator {
 mod tests {
     use super::{Oscillator, WaveformType};
     use crate::{
-        clock::{Clock, WatchedClock},
-        common::{rrc, rrc_downgrade},
+        clock::Clock,
         midi::{MidiNote, MidiUtils},
         settings::patches::OscillatorSettings,
         traits::SourcesAudio,
-        utils::tests::{
-            write_orchestration_to_file, write_source_to_file, TestOrchestrator, TestTimer,
-        },
+        utils::tests::write_source_to_file,
     };
 
     fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> Oscillator {
