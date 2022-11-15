@@ -197,16 +197,19 @@ mod tests {
 
     #[test]
     fn test_oscillator_basic_waveforms() {
-        let mut orchestrator = TestOrchestrator::new();
-        let oscillator = rrc(create_oscillator(
-            WaveformType::Sine,
-            OscillatorSettings::NATURAL_TUNING,
-            MidiNote::C4,
-        ));
-        orchestrator.add_audio_source(rrc_downgrade::<Oscillator>(&oscillator));
-        let mut clock = WatchedClock::new();
-        clock.add_watcher(rrc(TestTimer::new_with(2.0)));
-        write_orchestration_to_file(&mut orchestrator, &mut clock, "oscillator_sine_c3");
+        //
+        // TODO: why is this one different from the rest in this test?
+        //
+        // let mut orchestrator = TestOrchestrator::new();
+        // let oscillator = rrc(create_oscillator(
+        //     WaveformType::Sine,
+        //     OscillatorSettings::NATURAL_TUNING,
+        //     MidiNote::C4,
+        // ));
+        // orchestrator.add_audio_source(rrc_downgrade::<Oscillator>(&oscillator));
+        // let mut clock = WatchedClock::new();
+        // clock.add_watcher(rrc(TestTimer::new_with(2.0)));
+        // write_orchestration_to_file(&mut orchestrator, &mut clock, "oscillator_sine_c3");
 
         let mut oscillator = create_oscillator(
             WaveformType::Square,
