@@ -6,8 +6,8 @@ use crate::{
     id_store::IdStore,
     midi::{patterns::PatternManager, MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{
-        IsEffect, IsMidiEffect, MakesIsViewable, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
-        SourcesMidi, WatchesClock,
+        EvenNewerIsUpdateable, IsEffect, IsMidiEffect, MakesIsViewable, SinksAudio, SinksMidi,
+        SinksUpdates, SourcesAudio, SourcesMidi, WatchesClock,
     },
 };
 use crossbeam::deque::Worker;
@@ -29,6 +29,35 @@ impl Performance {
             worker: Worker::<MonoSample>::new_fifo(),
         }
     }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Default)]
+pub(crate) enum OrchestratorMessage {
+    #[default]
+    None,
+    GotAnF32(f32),
+    Tick(Clock),
+    Midi(Clock, u8, MidiMessage),
+}
+
+#[allow(dead_code)]
+pub(crate) type BoxedEffect = Box<dyn IsEffect>;
+//pub(crate) type BoxedMidiEffect = Box<dyn IsMidiEffect<Message = OrchestratorMessage>>;
+#[allow(dead_code)]
+pub(crate) type BoxedSourcesAudio = Box<dyn SourcesAudio>;
+#[allow(dead_code)]
+pub(crate) type Updateable = dyn EvenNewerIsUpdateable<Message = OrchestratorMessage>;
+#[allow(dead_code)]
+pub(crate) type BoxedUpdateable = Box<Updateable>;
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub(crate) enum Uid {
+    OrchestratorUpdateable(usize),
+    SourcesAudio(usize),
+    IsEffect(usize),
+    IsMidiEffect(usize),
 }
 
 /// Orchestrator takes a description of a song and turns it into an in-memory

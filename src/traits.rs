@@ -82,6 +82,11 @@ impl<T: HasOverhead + SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
 }
 
 // TODO: write tests for these two new traits.
+//
+// TODO: this is probably all wrong. The post_message() part is definitely
+// wrong, now that update() can return Commands containing Messages. I'd like to
+// see whether all this boilerplate can be handled by someone else, either
+// centralized or as a truly effortless generic.
 pub trait SourcesUpdates {
     fn target_uids(&self) -> &[usize];
     fn target_uids_mut(&mut self) -> &mut Vec<usize>;
@@ -110,6 +115,65 @@ pub trait SinksUpdates: Debug {
     // place.
     fn message_for(&self, param: &str) -> SmallMessageGenerator;
     fn update(&mut self, clock: &Clock, message: SmallMessage);
+}
+
+// This section is taken from iced.rs.
+
+// TODO: why did I have to make this next line's Internal<T> pub? Why didn't
+// iced have to do this?
+#[derive(Debug)]
+pub(crate) struct EvenNewerCommand<T>(pub Internal<T>);
+
+#[derive(Debug)]
+pub(crate) enum Internal<T> {
+    None,
+    Single(T),
+    Batch(Vec<T>),
+}
+
+impl<T> EvenNewerCommand<T> {
+    pub const fn none() -> Self {
+        Self(Internal::None)
+    }
+
+    pub const fn single(action: T) -> Self {
+        Self(Internal::Single(action))
+    }
+
+    pub fn batch(commands: impl IntoIterator<Item = EvenNewerCommand<T>>) -> Self {
+        let mut batch = Vec::new();
+
+        for EvenNewerCommand(command) in commands {
+            match command {
+                Internal::None => {}
+                Internal::Single(command) => batch.push(command),
+                Internal::Batch(commands) => batch.extend(commands),
+            }
+        }
+
+        Self(Internal::Batch(batch))
+    }
+}
+
+pub(crate) trait EvenNewerIsUpdateable: Terminates + Debug {
+    type Message;
+
+    fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message>;
+
+    // Idea: if someone asks for a message generator, then that's the clue we
+    // need to register our UID. All that could be managed in that central
+    // place.
+    fn message_for(&self, param_name: &str) -> Box<dyn MessageGeneratorT<Self::Message>>;
+}
+
+// https://boydjohnson.dev/blog/impl-debug-for-fn-type/ gave me enough clues to
+// get through this.
+pub trait MessageGeneratorT<M>: Fn(f32) -> M {}
+impl<F, M> MessageGeneratorT<M> for F where F: Fn(f32) -> M {}
+impl<M> std::fmt::Debug for dyn MessageGeneratorT<M> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MessageGenerator")
+    }
 }
 
 pub trait MakesIsViewable: Debug {

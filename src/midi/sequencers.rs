@@ -3,7 +3,11 @@ use crate::{
     common::{rrc, rrc_downgrade, weak_new, Rrc, Ww},
     control::BigMessage,
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{HasOverhead, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock},
+    orchestrator::OrchestratorMessage,
+    traits::{
+        EvenNewerCommand, EvenNewerIsUpdateable, HasOverhead, MessageGeneratorT, Overhead,
+        SinksMidi, SourcesMidi, Terminates, WatchesClock,
+    },
 };
 use btreemultimap::BTreeMultiMap;
 use std::{
@@ -122,6 +126,48 @@ impl Terminates for BeatSequencer {
     }
 }
 
+impl EvenNewerIsUpdateable for BeatSequencer {
+    type Message = OrchestratorMessage;
+
+    fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        match message {
+            OrchestratorMessage::Tick(clock) => {
+                self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
+
+                if self.overhead.is_enabled() {
+                    // If the last instant marks a new interval, then we want to include
+                    // any events scheduled at exactly that time. So the range is
+                    // inclusive.
+                    let range = (
+                        Included(PerfectTimeUnit(clock.beats())),
+                        Excluded(self.next_instant),
+                    );
+                    let events = self.events.range(range);
+                    EvenNewerCommand::batch(events.into_iter().fold(
+                        Vec::new(),
+                        |mut vec: Vec<EvenNewerCommand<Self::Message>>,
+                         (_when, (channel, message))| {
+                            vec.push(EvenNewerCommand::single(OrchestratorMessage::Midi(
+                                clock.clone(),
+                                *channel,
+                                *message,
+                            )));
+                            vec
+                        },
+                    ))
+                } else {
+                    EvenNewerCommand::none()
+                }
+            }
+            _ => EvenNewerCommand::none(),
+        }
+    }
+
+    fn message_for(&self, _param_name: &str) -> Box<dyn MessageGeneratorT<Self::Message>> {
+        todo!()
+    }
+}
+
 pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
 
 #[derive(Debug)]
@@ -230,6 +276,48 @@ impl WatchesClock for MidiTickSequencer {
 impl Terminates for MidiTickSequencer {
     fn is_finished(&self) -> bool {
         self.next_instant > self.last_event_time
+    }
+}
+
+impl EvenNewerIsUpdateable for MidiTickSequencer {
+    type Message = OrchestratorMessage;
+
+    fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        match message {
+            OrchestratorMessage::Tick(clock) => {
+                self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
+
+                if self.overhead.is_enabled() {
+                    // If the last instant marks a new interval, then we want to include
+                    // any events scheduled at exactly that time. So the range is
+                    // inclusive.
+                    let range = (
+                        Included(MidiTicks(clock.midi_ticks())),
+                        Excluded(self.next_instant),
+                    );
+                    let events = self.events.range(range);
+                    EvenNewerCommand::batch(events.into_iter().fold(
+                        Vec::new(),
+                        |mut vec: Vec<EvenNewerCommand<Self::Message>>,
+                         (_when, (channel, message))| {
+                            vec.push(EvenNewerCommand::single(OrchestratorMessage::Midi(
+                                clock.clone(),
+                                *channel,
+                                *message,
+                            )));
+                            vec
+                        },
+                    ))
+                } else {
+                    EvenNewerCommand::none()
+                }
+            }
+            _ => EvenNewerCommand::none(),
+        }
+    }
+
+    fn message_for(&self, _param_name: &str) -> Box<dyn MessageGeneratorT<Self::Message>> {
+        todo!()
     }
 }
 
