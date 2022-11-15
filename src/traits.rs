@@ -23,81 +23,6 @@ pub trait SourcesAudio: HasMute + Debug {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample;
 }
 
-/// Convenience struct that devices can use to populate fields that mini-traits
-/// require.
-#[derive(Clone, Debug, Default)]
-pub struct Overhead {
-    is_muted: bool,
-    is_disabled: bool,
-}
-
-impl Overhead {
-    pub(crate) fn is_muted(&self) -> bool {
-        self.is_muted
-    }
-    pub(crate) fn set_muted(&mut self, is_muted: bool) -> bool {
-        self.is_muted = is_muted;
-        self.is_muted
-    }
-    pub(crate) fn is_enabled(&self) -> bool {
-        !self.is_disabled
-    }
-    pub(crate) fn set_enabled(&mut self, is_enabled: bool) -> bool {
-        self.is_disabled = !is_enabled;
-        !self.is_disabled
-    }
-}
-
-pub trait HasOverhead: HasMute + HasEnable {
-    fn overhead(&self) -> &Overhead;
-    fn overhead_mut(&mut self) -> &mut Overhead;
-}
-impl<T: HasOverhead> HasMute for T {
-    fn is_muted(&self) -> bool {
-        self.overhead().is_muted()
-    }
-    fn set_muted(&mut self, is_muted: bool) -> bool {
-        self.overhead_mut().set_muted(is_muted)
-    }
-}
-impl<T: HasOverhead> HasEnable for T {
-    fn is_enabled(&self) -> bool {
-        self.overhead().is_enabled()
-    }
-    fn set_enabled(&mut self, is_enabled: bool) -> bool {
-        self.overhead_mut().set_enabled(is_enabled);
-        self.overhead().is_enabled()
-    }
-}
-
-/// Some SourcesAudio will need to be called each cycle even if we don't need
-/// their audio (effects, for example). I think (not sure) that it's easier for
-/// individual devices to track whether they're muted, and to make that
-/// information externally available, so that we can still call them (and their
-/// children, recursively) but ignore their output, compared to either expecting
-/// them to return silence (which would let muted be an internal-only state), or
-/// to have something up in the sky track everyone who's muted.
-pub trait HasMute {
-    fn is_muted(&self) -> bool;
-    fn set_muted(&mut self, is_muted: bool) -> bool;
-    fn toggle_muted(&mut self) -> bool {
-        self.set_muted(!self.is_muted())
-    }
-}
-
-// Whether this device can be switched on/off at runtime. The difference between
-// muted and enabled is that a muted device kills the sound, even if non-muted
-// devices are inputting sound to it. A disabled device, on the other hand,
-// might pass through sound without changing it. For example, a disabled filter
-// in the middle of a chain would become a passthrough.
-pub trait HasEnable {
-    fn is_enabled(&self) -> bool;
-    fn set_enabled(&mut self, is_enabled: bool) -> bool;
-    fn toggle_enabled(&mut self) -> bool {
-        self.set_enabled(!self.is_enabled())
-    }
-}
-
 /// Can do something with audio samples. When it needs to do its work, it asks
 /// its SourcesAudio for their samples.
 pub trait SinksAudio {
@@ -273,6 +198,81 @@ pub trait WatchesClock: Debug + Terminates {
 // no more work to do."
 pub trait Terminates {
     fn is_finished(&self) -> bool;
+}
+
+/// Convenience struct that devices can use to populate fields that mini-traits
+/// require.
+#[derive(Clone, Debug, Default)]
+pub struct Overhead {
+    is_muted: bool,
+    is_disabled: bool,
+}
+
+impl Overhead {
+    pub(crate) fn is_muted(&self) -> bool {
+        self.is_muted
+    }
+    pub(crate) fn set_muted(&mut self, is_muted: bool) -> bool {
+        self.is_muted = is_muted;
+        self.is_muted
+    }
+    pub(crate) fn is_enabled(&self) -> bool {
+        !self.is_disabled
+    }
+    pub(crate) fn set_enabled(&mut self, is_enabled: bool) -> bool {
+        self.is_disabled = !is_enabled;
+        !self.is_disabled
+    }
+}
+
+pub trait HasOverhead: HasMute + HasEnable {
+    fn overhead(&self) -> &Overhead;
+    fn overhead_mut(&mut self) -> &mut Overhead;
+}
+impl<T: HasOverhead> HasMute for T {
+    fn is_muted(&self) -> bool {
+        self.overhead().is_muted()
+    }
+    fn set_muted(&mut self, is_muted: bool) -> bool {
+        self.overhead_mut().set_muted(is_muted)
+    }
+}
+impl<T: HasOverhead> HasEnable for T {
+    fn is_enabled(&self) -> bool {
+        self.overhead().is_enabled()
+    }
+    fn set_enabled(&mut self, is_enabled: bool) -> bool {
+        self.overhead_mut().set_enabled(is_enabled);
+        self.overhead().is_enabled()
+    }
+}
+
+/// Some SourcesAudio will need to be called each cycle even if we don't need
+/// their audio (effects, for example). I think (not sure) that it's easier for
+/// individual devices to track whether they're muted, and to make that
+/// information externally available, so that we can still call them (and their
+/// children, recursively) but ignore their output, compared to either expecting
+/// them to return silence (which would let muted be an internal-only state), or
+/// to have something up in the sky track everyone who's muted.
+pub trait HasMute {
+    fn is_muted(&self) -> bool;
+    fn set_muted(&mut self, is_muted: bool) -> bool;
+    fn toggle_muted(&mut self) -> bool {
+        self.set_muted(!self.is_muted())
+    }
+}
+
+// Whether this device can be switched on/off at runtime. The difference between
+// muted and enabled is that a muted device kills the sound, even if non-muted
+// devices are inputting sound to it. A disabled device, on the other hand,
+// might pass through sound without changing it. For example, a disabled filter
+// in the middle of a chain would become a passthrough.
+pub trait HasEnable {
+    fn is_enabled(&self) -> bool;
+    fn set_enabled(&mut self, is_enabled: bool) -> bool;
+    fn toggle_enabled(&mut self) -> bool {
+        self.set_enabled(!self.is_enabled())
+    }
 }
 
 // WORKING ASSERTION: WatchesClock should not also SourcesAudio, because
