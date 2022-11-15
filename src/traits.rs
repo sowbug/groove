@@ -514,8 +514,10 @@ pub mod tests {
         assert!(clock.seconds() >= 1.0);
     }
 
+    // ```bash
     // $ grep -R "HasOverhead for " src/ | grep -o "for.*$" | \
     //   grep -o -E "[A-Z][[:alpha:]]+" | sort -u`
+    // ```
     sources_audio_tests! {
         sources_audio_adsr_envelope: AdsrEnvelope,
         sources_audio_bitcrusher: Bitcrusher,
