@@ -16,7 +16,8 @@ pub mod tests {
         settings::ClockSettings,
         traits::{
             EvenNewerCommand, HasOverhead, Internal, IsEffect, Overhead, SinksAudio, SinksMidi,
-            SinksUpdates, SourcesAudio, SourcesMidi, SourcesUpdates, Terminates, WatchesClock,
+            SinksUpdates, SourcesAudio, SourcesMidi, SourcesUpdates, Terminates, TransformsAudio,
+            WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -139,6 +140,7 @@ pub mod tests {
         );
     }
 
+    // ```rust
     // use std::error::Error;
     // fn generate_chart(
     //     data: &Vec<(f32, f32)>,
@@ -164,6 +166,7 @@ pub mod tests {
 
     //     Ok(())
     // }
+    // ```
 
     pub(crate) fn generate_fft_for_samples(
         clock_settings: &ClockSettings,
@@ -198,6 +201,7 @@ pub mod tests {
             }
         }
 
+        // ```rust
         // let _ = generate_chart(
         //     &data,
         //     0.0,
@@ -206,6 +210,7 @@ pub mod tests {
         //     max_y,
         //     filename,
         // );
+        // ```
     }
 
     /// /////////////////
@@ -341,8 +346,10 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysVeryQuiet {
+        uid: usize,
         overhead: Overhead,
     }
+    impl TestIsMidiInstrument for TestAudioSourceAlwaysVeryQuiet {}
     impl TestAudioSourceAlwaysVeryQuiet {
         #[allow(dead_code)]
         pub fn new() -> Self {
@@ -363,6 +370,26 @@ pub mod tests {
 
         fn overhead_mut(&mut self) -> &mut Overhead {
             &mut self.overhead
+        }
+    }
+    impl TestUpdateable for TestAudioSourceAlwaysVeryQuiet {
+        type Message = TestMessage;
+
+        fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            EvenNewerCommand::none()
+        }
+
+        fn param_id_for_name(&self, _param_name: &str) -> usize {
+            usize::MAX
+        }
+    }
+    impl HasUid for TestAudioSourceAlwaysVeryQuiet {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
         }
     }
 
@@ -457,17 +484,23 @@ pub mod tests {
         fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message>;
         fn param_id_for_name(&self, param_name: &str) -> usize;
     }
+    pub trait HasUid {
+        fn uid(&self) -> usize;
+        fn set_uid(&mut self, uid: usize);
+    }
 
     // Composed traits, top-level traits
     pub(crate) trait TestIsController: TestUpdateable + HasUid + Terminates {}
-    pub(crate) trait TestIsEffect: TestUpdateable + HasUid + IsEffect {}
+    pub(crate) trait TestIsEffect: TestUpdateable + HasUid + TransformsAudio {}
     pub(crate) trait TestIsMidiInstrument: TestUpdateable + HasUid + SourcesAudio {}
     pub(crate) type TestTestIsController = dyn TestIsController<Message = TestMessage>;
+    pub(crate) type TestTestIsEffect = dyn TestIsEffect<Message = TestMessage>;
     pub(crate) type TestTestIsMidiInstrument = dyn TestIsMidiInstrument<Message = TestMessage>;
     pub(crate) type TestTestUpdateable = dyn TestUpdateable<Message = TestMessage>;
 
     pub(crate) enum TestBoxedEntity {
         TestIsController(Box<TestTestIsController>),
+        TestIsEffect(Box<TestTestIsEffect>),
         TestIsMidiInstrument(Box<TestTestIsMidiInstrument>),
         #[allow(dead_code)]
         TestUpdateable(Box<TestTestUpdateable>),
@@ -483,6 +516,7 @@ pub mod tests {
             let uid = self.get_next_uid();
             match entity {
                 TestBoxedEntity::TestIsController(ref mut e) => e.set_uid(uid),
+                TestBoxedEntity::TestIsEffect(ref mut e) => e.set_uid(uid),
                 TestBoxedEntity::TestIsMidiInstrument(ref mut e) => e.set_uid(uid),
                 TestBoxedEntity::TestUpdateable(_) => {
                     todo!("I don't think anyone should be just an updateable")
@@ -518,17 +552,52 @@ pub mod tests {
     }
 
     #[derive(Default)]
+    pub struct TestMixer {
+        uid: usize,
+    }
+    impl TestIsEffect for TestMixer {}
+    impl HasUid for TestMixer {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
+        }
+    }
+    impl TransformsAudio for TestMixer {
+        fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
+            input_sample
+        }
+    }
+    impl TestUpdateable for TestMixer {
+        type Message = TestMessage;
+
+        fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            todo!()
+        }
+
+        fn param_id_for_name(&self, _param_name: &str) -> usize {
+            todo!()
+        }
+    }
+
+    #[derive(Default)]
     pub struct TestOrchestrator2 {
         store: TestStore,
         uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
-        root_source_uids: Vec<usize>,
+        audio_sink_uid_to_source_uids: HashMap<usize, Vec<usize>>,
+        main_mixer_uid: usize,
     }
 
     impl TestOrchestrator2 {
         fn new() -> Self {
-            Self {
+            let mut r = Self {
                 ..Default::default()
-            }
+            };
+            let main_mixer = Box::new(TestMixer::default());
+            r.main_mixer_uid = r.add(TestBoxedEntity::TestIsEffect(main_mixer));
+            r
         }
 
         pub(crate) fn add(&mut self, entity: TestBoxedEntity) -> usize {
@@ -538,7 +607,9 @@ pub mod tests {
         fn link_control(&mut self, controller_uid: usize, target_uid: usize, param_name: &str) {
             if let Some(target) = self.store.get(target_uid) {
                 let param_id = match target {
+                    // TODO: everyone's the same... design issue?
                     TestBoxedEntity::TestIsController(e) => e.param_id_for_name(param_name),
+                    TestBoxedEntity::TestIsEffect(e) => e.param_id_for_name(param_name),
                     TestBoxedEntity::TestIsMidiInstrument(e) => e.param_id_for_name(param_name),
                     TestBoxedEntity::TestUpdateable(e) => e.param_id_for_name(param_name),
                 };
@@ -554,8 +625,54 @@ pub mod tests {
             }
         }
 
+        pub(crate) fn patch(&mut self, source_uid: usize, sink_uid: usize) {
+            // Validate that sink_uid refers to something that has audio input
+            if let Some(input) = self.store.get(sink_uid) {
+                match input {
+                    // TODO: there could be things that have audio input but
+                    // don't transform, like an audio recorder (or technically a
+                    // main mixer).
+                    TestBoxedEntity::TestIsController(_) => {
+                        debug_assert!(false, "this item doesn't transform audio");
+                        return;
+                    }
+                    TestBoxedEntity::TestIsEffect(_) => {}
+                    TestBoxedEntity::TestIsMidiInstrument(_) => {
+                        debug_assert!(false, "this item doesn't transform audio");
+                        return;
+                    }
+                    TestBoxedEntity::TestUpdateable(_) => {
+                        debug_assert!(false, "this item doesn't transform audio");
+                        return;
+                    }
+                }
+            }
+
+            // Validate that source_uid refers to something that outputs audio
+            if let Some(output) = self.store.get(source_uid) {
+                match output {
+                    TestBoxedEntity::TestIsController(_) => {
+                        debug_assert!(false, "this item doesn't output audio");
+                        return;
+                    }
+                    TestBoxedEntity::TestIsEffect(_) => {}
+                    TestBoxedEntity::TestIsMidiInstrument(_) => {}
+                    TestBoxedEntity::TestUpdateable(_) => {
+                        debug_assert!(false, "this item doesn't output audio");
+                        return;
+                    }
+                }
+            }
+
+            // We've passed our checks. Record it.
+            self.audio_sink_uid_to_source_uids
+                .entry(sink_uid)
+                .or_default()
+                .push(source_uid);
+        }
+
         fn connect_to_main_mixer(&mut self, source_uid: usize) {
-            self.root_source_uids.push(source_uid);
+            self.patch(source_uid, self.main_mixer_uid);
         }
 
         fn handle_message(&mut self, message: TestMessage) {
@@ -583,7 +700,7 @@ pub mod tests {
                 if self.are_all_finished() {
                     break;
                 }
-                samples.push(self.gather_audio(clock));
+                samples.push(self.gather_audio(self.main_mixer_uid, clock));
                 clock.tick();
                 if !run_until_completion {
                     break;
@@ -594,7 +711,9 @@ pub mod tests {
 
         fn are_all_finished(&mut self) -> bool {
             self.store.values().all(|item| match item {
+                // TODO: seems like just one kind needs this
                 TestBoxedEntity::TestIsController(entity) => entity.is_finished(),
+                TestBoxedEntity::TestIsEffect(_) => true,
                 TestBoxedEntity::TestIsMidiInstrument(_) => true,
                 TestBoxedEntity::TestUpdateable(_) => true,
             })
@@ -614,6 +733,10 @@ pub mod tests {
                         }
                         TestBoxedEntity::TestIsMidiInstrument(_) => {}
                         TestBoxedEntity::TestUpdateable(_) => {}
+                        TestBoxedEntity::TestIsEffect(_) => {
+                            // TODO: ensure that effects get a tick via
+                            // source_audio() even if they're muted or disabled
+                        }
                     }
                     vec
                 },
@@ -632,23 +755,98 @@ pub mod tests {
             }
         }
 
-        fn gather_audio(&mut self, clock: &mut Clock) -> f32 {
-            self.root_source_uids
-                .iter()
-                .map(|uid| {
-                    if let Some(item) = self.store.get_mut(*uid) {
-                        match item {
-                            TestBoxedEntity::TestIsController(_) => MONO_SAMPLE_SILENCE,
-                            TestBoxedEntity::TestIsMidiInstrument(entity) => {
-                                entity.source_audio(clock)
+        // This (probably) embarrassing method is supposed to be a naturally
+        // recursive algorithm expressed iteratively. Yeah, just like the Google
+        // interview question. The reason functional recursion wouldn't fly is
+        // that the Rust borrow checker won't let us call ourselves if we've
+        // already borrowed ourselves &mut, which goes for any of our fields.
+        // TODO: simplify
+        fn gather_audio(&mut self, uid: usize, clock: &mut Clock) -> MonoSample {
+            enum StackEntry {
+                ToVisit(usize),
+                CollectResultFor(usize),
+                Result(MonoSample),
+            }
+            let mut stack = Vec::new();
+            let mut sum = MONO_SAMPLE_SILENCE;
+            stack.push(StackEntry::ToVisit(uid));
+
+            while let Some(entry) = stack.pop() {
+                match entry {
+                    StackEntry::ToVisit(uid) => {
+                        // We've never seen this node before.
+                        if let Some(entity) = self.store.get_mut(uid) {
+                            match entity {
+                                // If it's a leaf, eval it now and add it to the
+                                // running sum.
+                                TestBoxedEntity::TestIsMidiInstrument(entity) => {
+                                    sum += entity.source_audio(clock);
+                                }
+                                // If it's a node, eval its leaves, then eval
+                                // its nodes, then process the result.
+                                TestBoxedEntity::TestIsEffect(_) => {
+                                    // Tell us to process sum.
+                                    stack.push(StackEntry::CollectResultFor(uid));
+                                    if let Some(source_uids) =
+                                        self.audio_sink_uid_to_source_uids.get(&uid)
+                                    {
+                                        // Eval leaves
+                                        for source_uid in source_uids {
+                                            if let Some(entity) = self.store.get_mut(*source_uid) {
+                                                match entity {
+                                                    TestBoxedEntity::TestIsController(_) => {}
+                                                    TestBoxedEntity::TestIsEffect(_) => {}
+                                                    TestBoxedEntity::TestIsMidiInstrument(e) => {
+                                                        sum += e.source_audio(clock);
+                                                    }
+                                                    TestBoxedEntity::TestUpdateable(_) => todo!(),
+                                                }
+                                            }
+                                        }
+                                        stack.push(StackEntry::Result(sum));
+                                        sum = MONO_SAMPLE_SILENCE;
+
+                                        // Eval nodes
+                                        for source_uid in source_uids {
+                                            if let Some(entity) = self.store.get_mut(*source_uid) {
+                                                match entity {
+                                                    TestBoxedEntity::TestIsController(_) => {}
+                                                    TestBoxedEntity::TestIsEffect(_) => stack
+                                                        .push(StackEntry::ToVisit(*source_uid)),
+                                                    TestBoxedEntity::TestIsMidiInstrument(_) => {}
+                                                    TestBoxedEntity::TestUpdateable(_) => todo!(),
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // an effect is at the end of a chain.
+                                        // This should be harmless (but probably
+                                        // confusing for the end user; might
+                                        // want to flag it).
+                                    }
+                                }
+                                TestBoxedEntity::TestIsController(_) => {}
+                                TestBoxedEntity::TestUpdateable(_) => {}
                             }
-                            TestBoxedEntity::TestUpdateable(_) => MONO_SAMPLE_SILENCE,
                         }
-                    } else {
-                        MONO_SAMPLE_SILENCE
                     }
-                })
-                .sum()
+                    StackEntry::Result(sample) => sum += sample,
+                    StackEntry::CollectResultFor(uid) => {
+                        if let Some(entity) = self.store.get_mut(uid) {
+                            match entity {
+                                TestBoxedEntity::TestIsMidiInstrument(_) => {}
+                                TestBoxedEntity::TestIsEffect(entity) => {
+                                    stack.push(StackEntry::Result(entity.transform_audio(sum)));
+                                    sum = MONO_SAMPLE_SILENCE;
+                                }
+                                TestBoxedEntity::TestIsController(_) => {}
+                                TestBoxedEntity::TestUpdateable(_) => {}
+                            }
+                        }
+                    }
+                }
+            }
+            sum
         }
 
         fn send_control_f32(&mut self, uid: usize, value: f32) {
@@ -656,11 +854,17 @@ pub mod tests {
                 for (target_uid, param) in e {
                     if let Some(target) = self.store.get_mut(*target_uid) {
                         match target {
+                            // TODO: everyone is the same...
                             TestBoxedEntity::TestUpdateable(e) => {
                                 e.update(TestMessage::UpdateF32(*param, value));
                             }
-                            TestBoxedEntity::TestIsController(_) => todo!(),
+                            TestBoxedEntity::TestIsController(e) => {
+                                e.update(TestMessage::UpdateF32(*param, value));
+                            }
                             TestBoxedEntity::TestIsMidiInstrument(e) => {
+                                e.update(TestMessage::UpdateF32(*param, value));
+                            }
+                            TestBoxedEntity::TestIsEffect(e) => {
                                 e.update(TestMessage::UpdateF32(*param, value));
                             }
                         }
@@ -668,11 +872,6 @@ pub mod tests {
                 }
             }
         }
-    }
-
-    pub trait HasUid {
-        fn uid(&self) -> usize;
-        fn set_uid(&mut self, uid: usize);
     }
 
     #[derive(Display, Debug, EnumString)]
@@ -722,7 +921,8 @@ pub mod tests {
         }
     }
     impl Terminates for TestLfo {
-        // FLAG: seems superfluous
+        // This hardcoded value is OK because an LFO doesn't have a defined
+        // beginning/end. It just keeps going. Yet it truly is a controller.
         fn is_finished(&self) -> bool {
             true
         }
@@ -743,16 +943,20 @@ pub mod tests {
         );
         o.connect_to_main_mixer(synth_1_uid);
 
-        let synth_2 = TestAudioSourceAlwaysLoud::default();
+        let loud_source = TestAudioSourceAlwaysLoud::default();
         let arpeggiator = TestArpeggiator::default();
-        let synth_2_uid = o.add(TestBoxedEntity::TestIsMidiInstrument(Box::new(synth_2)));
+        let loud_source_uid = o.add(TestBoxedEntity::TestIsMidiInstrument(Box::new(loud_source)));
         let arpeggiator_uid = o.add(TestBoxedEntity::TestIsController(Box::new(arpeggiator)));
         o.link_control(
             arpeggiator_uid,
-            synth_2_uid,
+            loud_source_uid,
             &TestSynthControlParams::OscillatorModulation.to_string(),
         );
-        o.connect_to_main_mixer(synth_2_uid);
+
+        let effect = TestNegatingEffect::default();
+        let effect_uid = o.add(TestBoxedEntity::TestIsEffect(Box::new(effect)));
+        o.patch(loud_source_uid, effect_uid);
+        o.connect_to_main_mixer(effect_uid);
 
         const SECONDS: usize = 1;
         let t = TestTimer::new_with(SECONDS as f32);
@@ -762,7 +966,38 @@ pub mod tests {
         let samples = o.run(&mut clock, &TestMessage::Tick, true);
 
         assert_eq!(samples.len(), SECONDS * clock.sample_rate());
-        assert!(samples[0] > 0.0);
+        assert!(samples[0..256].iter().sum::<f32>() != MONO_SAMPLE_SILENCE);
+    }
+
+    #[derive(Debug, Default)]
+    pub struct TestNegatingEffect {
+        uid: usize,
+    }
+    impl TestIsEffect for TestNegatingEffect {}
+    impl HasUid for TestNegatingEffect {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
+        }
+    }
+    impl TestUpdateable for TestNegatingEffect {
+        type Message = TestMessage;
+
+        fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            todo!()
+        }
+
+        fn param_id_for_name(&self, _param_name: &str) -> usize {
+            todo!()
+        }
+    }
+    impl TransformsAudio for TestNegatingEffect {
+        fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
+            -input_sample
+        }
     }
 
     #[derive(Display, Debug, EnumString, FromRepr)]
@@ -813,7 +1048,6 @@ pub mod tests {
 
     impl SourcesAudio for TestSynth {
         fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-            dbg!(&self.oscillator.adjusted_frequency());
             self.oscillator.source_audio(clock) * self.envelope.borrow_mut().source_audio(clock)
         }
     }
@@ -865,12 +1099,6 @@ pub mod tests {
 
         fn set_uid(&mut self, uid: usize) {
             self.uid = uid;
-        }
-    }
-    impl Terminates for TestSynth {
-        // FLAG: seems superfluous
-        fn is_finished(&self) -> bool {
-            true
         }
     }
 
