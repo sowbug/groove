@@ -15,8 +15,8 @@ pub mod tests {
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            EvenNewerCommand, HasOverhead, IsEffect, Overhead, SinksAudio, SinksMidi, SinksUpdates,
-            SourcesAudio, SourcesMidi, SourcesUpdates, Terminates, WatchesClock,
+            EvenNewerCommand, HasOverhead, Internal, IsEffect, Overhead, SinksAudio, SinksMidi,
+            SinksUpdates, SourcesAudio, SourcesMidi, SourcesUpdates, Terminates, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -474,29 +474,12 @@ pub mod tests {
     }
 
     #[derive(Default)]
-    pub struct TestStore {}
-
-    #[derive(Default)]
-    pub struct TestOrchestrator2 {
+    pub struct TestStore {
         last_uid: usize,
-        uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
         uid_to_item: HashMap<usize, TestBoxedEntity>,
-        root_source_uids: Vec<usize>,
     }
-
-    impl TestOrchestrator2 {
-        fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-
-        fn get_next_uid(&mut self) -> usize {
-            self.last_uid += 1;
-            self.last_uid
-        }
-
-        fn add(&mut self, mut entity: TestBoxedEntity) -> usize {
+    impl TestStore {
+        pub(crate) fn add(&mut self, mut entity: TestBoxedEntity) -> usize {
             let uid = self.get_next_uid();
             match entity {
                 TestBoxedEntity::TestIsController(ref mut e) => e.set_uid(uid),
@@ -510,15 +493,57 @@ pub mod tests {
             uid
         }
 
+        pub(crate) fn get(&self, uid: usize) -> Option<&TestBoxedEntity> {
+            self.uid_to_item.get(&uid)
+        }
+
+        pub(crate) fn get_mut(&mut self, uid: usize) -> Option<&mut TestBoxedEntity> {
+            self.uid_to_item.get_mut(&uid)
+        }
+
+        pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, TestBoxedEntity> {
+            self.uid_to_item.values()
+        }
+
+        pub(crate) fn values_mut(
+            &mut self,
+        ) -> std::collections::hash_map::ValuesMut<usize, TestBoxedEntity> {
+            self.uid_to_item.values_mut()
+        }
+
+        fn get_next_uid(&mut self) -> usize {
+            self.last_uid += 1;
+            self.last_uid
+        }
+    }
+
+    #[derive(Default)]
+    pub struct TestOrchestrator2 {
+        store: TestStore,
+        uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
+        root_source_uids: Vec<usize>,
+    }
+
+    impl TestOrchestrator2 {
+        fn new() -> Self {
+            Self {
+                ..Default::default()
+            }
+        }
+
+        pub(crate) fn add(&mut self, entity: TestBoxedEntity) -> usize {
+            self.store.add(entity)
+        }
+
         fn link_control(&mut self, controller_uid: usize, target_uid: usize, param_name: &str) {
-            if let Some(target) = self.uid_to_item.get(&target_uid) {
+            if let Some(target) = self.store.get(target_uid) {
                 let param_id = match target {
                     TestBoxedEntity::TestIsController(e) => e.param_id_for_name(param_name),
                     TestBoxedEntity::TestIsMidiInstrument(e) => e.param_id_for_name(param_name),
                     TestBoxedEntity::TestUpdateable(e) => e.param_id_for_name(param_name),
                 };
 
-                if let Some(controller) = self.uid_to_item.get(&controller_uid) {
+                if let Some(controller) = self.store.get(controller_uid) {
                     if let TestBoxedEntity::TestIsController(_controller) = controller {
                         self.uid_to_control
                             .entry(controller_uid)
@@ -553,54 +578,12 @@ pub mod tests {
         ) -> Vec<MonoSample> {
             let mut samples = Vec::<MonoSample>::new();
             loop {
-                let command = EvenNewerCommand::batch(self.uid_to_item.values_mut().fold(
-                    Vec::new(),
-                    |mut vec: Vec<EvenNewerCommand<TestMessage>>, item| {
-                        match item {
-                            TestBoxedEntity::TestIsController(entity) => {
-                                vec.push(entity.update(tick_fn(clock.clone())));
-                            }
-                            TestBoxedEntity::TestIsMidiInstrument(_) => {}
-                            TestBoxedEntity::TestUpdateable(_) => {}
-                        }
-                        vec
-                    },
-                ));
-
-                match command.0 {
-                    crate::traits::Internal::None => {}
-                    crate::traits::Internal::Single(message) => self.handle_message(message),
-                    crate::traits::Internal::Batch(messages) => {
-                        for message in messages {
-                            self.handle_message(message);
-                        }
-                    }
-                }
-                if self.uid_to_item.values().all(|item| match item {
-                    TestBoxedEntity::TestIsController(entity) => entity.is_finished(),
-                    TestBoxedEntity::TestIsMidiInstrument(_) => true,
-                    TestBoxedEntity::TestUpdateable(_) => true,
-                }) {
+                let command = self.update(tick_fn, clock);
+                self.handle_command(command);
+                if self.are_all_finished() {
                     break;
                 }
-                samples.push(
-                    self.root_source_uids
-                        .iter()
-                        .map(|uid| {
-                            if let Some(item) = self.uid_to_item.get_mut(uid) {
-                                match item {
-                                    TestBoxedEntity::TestIsController(_) => MONO_SAMPLE_SILENCE,
-                                    TestBoxedEntity::TestIsMidiInstrument(entity) => {
-                                        entity.source_audio(clock)
-                                    }
-                                    TestBoxedEntity::TestUpdateable(_) => MONO_SAMPLE_SILENCE,
-                                }
-                            } else {
-                                MONO_SAMPLE_SILENCE
-                            }
-                        })
-                        .sum(),
-                );
+                samples.push(self.gather_audio(clock));
                 clock.tick();
                 if !run_until_completion {
                     break;
@@ -609,10 +592,69 @@ pub mod tests {
             samples
         }
 
+        fn are_all_finished(&mut self) -> bool {
+            self.store.values().all(|item| match item {
+                TestBoxedEntity::TestIsController(entity) => entity.is_finished(),
+                TestBoxedEntity::TestIsMidiInstrument(_) => true,
+                TestBoxedEntity::TestUpdateable(_) => true,
+            })
+        }
+
+        fn update(
+            &mut self,
+            tick_fn: &dyn Fn(Clock) -> TestMessage,
+            clock: &mut Clock,
+        ) -> EvenNewerCommand<TestMessage> {
+            EvenNewerCommand::batch(self.store.values_mut().fold(
+                Vec::new(),
+                |mut vec: Vec<EvenNewerCommand<TestMessage>>, item| {
+                    match item {
+                        TestBoxedEntity::TestIsController(entity) => {
+                            vec.push(entity.update(tick_fn(clock.clone())));
+                        }
+                        TestBoxedEntity::TestIsMidiInstrument(_) => {}
+                        TestBoxedEntity::TestUpdateable(_) => {}
+                    }
+                    vec
+                },
+            ))
+        }
+
+        fn handle_command(&mut self, command: EvenNewerCommand<TestMessage>) {
+            match command.0 {
+                Internal::None => {}
+                Internal::Single(message) => self.handle_message(message),
+                Internal::Batch(messages) => {
+                    for message in messages {
+                        self.handle_message(message);
+                    }
+                }
+            }
+        }
+
+        fn gather_audio(&mut self, clock: &mut Clock) -> f32 {
+            self.root_source_uids
+                .iter()
+                .map(|uid| {
+                    if let Some(item) = self.store.get_mut(*uid) {
+                        match item {
+                            TestBoxedEntity::TestIsController(_) => MONO_SAMPLE_SILENCE,
+                            TestBoxedEntity::TestIsMidiInstrument(entity) => {
+                                entity.source_audio(clock)
+                            }
+                            TestBoxedEntity::TestUpdateable(_) => MONO_SAMPLE_SILENCE,
+                        }
+                    } else {
+                        MONO_SAMPLE_SILENCE
+                    }
+                })
+                .sum()
+        }
+
         fn send_control_f32(&mut self, uid: usize, value: f32) {
             if let Some(e) = self.uid_to_control.get(&uid) {
                 for (target_uid, param) in e {
-                    if let Some(target) = self.uid_to_item.get_mut(target_uid) {
+                    if let Some(target) = self.store.get_mut(*target_uid) {
                         match target {
                             TestBoxedEntity::TestUpdateable(e) => {
                                 e.update(TestMessage::UpdateF32(*param, value));
