@@ -484,10 +484,8 @@ pub mod tests {
 
         // Create a synth consisting of an oscillator and envelope.
         let envelope = AdsrEnvelope::new_wrapped_with(&EnvelopeSettings::default());
-        let oscillator = Oscillator::new_wrapped_with(WaveformType::Sine);
-        oscillator
-            .borrow_mut()
-            .set_frequency(MidiUtils::note_to_frequency(60));
+        let mut oscillator = Box::new(Oscillator::new_with(WaveformType::Sine));
+        oscillator.set_frequency(MidiUtils::note_to_frequency(60));
         let synth = rrc(TestSynth::new_with(
             oscillator,
             rrc_clone::<AdsrEnvelope>(&envelope),

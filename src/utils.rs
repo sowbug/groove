@@ -6,7 +6,7 @@ pub mod tests {
             rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
             MONO_SAMPLE_SILENCE,
         },
-        control::{BigMessage, SmallMessage, SmallMessageGenerator},
+        control::{BigMessage, OscillatorControlParams, SmallMessage, SmallMessageGenerator},
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
         midi::{MidiChannel, MidiMessage, MidiNote, MidiUtils, MIDI_CHANNEL_RECEIVE_ALL},
@@ -15,18 +15,22 @@ pub mod tests {
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            HasOverhead, IsEffect, Overhead, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
-            SourcesMidi, SourcesUpdates, Terminates, WatchesClock,
+            EvenNewerCommand, HasOverhead, IsEffect, Overhead, SinksAudio, SinksMidi, SinksUpdates,
+            SourcesAudio, SourcesMidi, SourcesUpdates, Terminates, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};
+    use strum_macros::FromRepr;
     // use plotters::prelude::*;
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
     };
-    use std::collections::{HashMap, VecDeque};
     use std::fs;
+    use std::{
+        collections::{HashMap, VecDeque},
+        str::FromStr,
+    };
     use strum_macros::{Display, EnumString};
 
     pub fn canonicalize_filename(filename: &str) -> String {
@@ -239,6 +243,7 @@ pub mod tests {
     pub struct TestAudioSourceAlwaysLoud {
         overhead: Overhead,
     }
+    impl TestIsMidiInstrument for TestAudioSourceAlwaysLoud {}
     impl TestAudioSourceAlwaysLoud {
         pub fn new() -> Self {
             Self {
@@ -258,6 +263,17 @@ pub mod tests {
 
         fn overhead_mut(&mut self) -> &mut Overhead {
             &mut self.overhead
+        }
+    }
+    impl TestUpdateable for TestAudioSourceAlwaysLoud {
+        type Message = TestMessage;
+
+        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            todo!()
+        }
+
+        fn param_id_for_name(&self, param_name: &str) -> usize {
+            usize::MAX
         }
     }
 
@@ -414,11 +430,322 @@ pub mod tests {
         }
     }
 
+    #[derive(Clone, Debug, Default)]
+    pub enum TestMessage {
+        #[default]
+        Nothing,
+        Something,
+        Tick(Clock),
+        ControlF32(usize, f32),
+        UpdateF32(usize, f32),
+    }
+
+    // Primitive traits
+    pub(crate) trait TestUpdateable {
+        type Message;
+        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message>;
+        fn param_id_for_name(&self, param_name: &str) -> usize;
+    }
+
+    // Composed traits, top-level traits
+    pub(crate) trait TestIsController: TestUpdateable + HasUid + Terminates {}
+    pub(crate) trait TestIsEffect: TestUpdateable + IsEffect {}
+    pub(crate) trait TestIsMidiInstrument: TestUpdateable + SourcesAudio {}
+    pub(crate) type TestTestIsController = dyn TestIsController<Message = TestMessage>;
+    pub(crate) type TestTestIsMidiInstrument = dyn TestIsMidiInstrument<Message = TestMessage>;
+    pub(crate) type TestTestUpdateable = dyn TestUpdateable<Message = TestMessage>;
+
+    pub(crate) enum TestBoxedEntity {
+        TestIsController(Box<TestTestIsController>),
+        TestIsMidiInstrument(Box<TestTestIsMidiInstrument>),
+        TestUpdateable(Box<TestTestUpdateable>),
+    }
+
+    #[derive(Default)]
+    pub struct TestStore {}
+
+    #[derive(Default)]
+    pub struct TestOrchestrator2 {
+        last_uid: usize,
+        uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
+        uid_to_item: HashMap<usize, TestBoxedEntity>,
+        root_source_uids: Vec<usize>,
+        tickers: Vec<Box<dyn TestUpdateable<Message = TestMessage>>>,
+    }
+
+    impl TestOrchestrator2 {
+        fn new() -> Self {
+            Self {
+                ..Default::default()
+            }
+        }
+
+        fn get_next_uid(&mut self) -> usize {
+            self.last_uid += 1;
+            self.last_uid
+        }
+
+        fn add(&mut self, entity: TestBoxedEntity) -> usize {
+            let uid = self.get_next_uid();
+            self.uid_to_item.insert(uid, entity);
+            uid
+        }
+
+        fn add_updateable(&mut self, item: Box<TestTestUpdateable>) -> usize {
+            self.add(TestBoxedEntity::TestUpdateable(item))
+        }
+
+        fn add_controller(&mut self, item: Box<TestTestIsController>) -> usize {
+            self.add(TestBoxedEntity::TestIsController(item))
+        }
+
+        fn add_midi_instrument(&mut self, item: Box<TestTestIsMidiInstrument>) -> usize {
+            self.add(TestBoxedEntity::TestIsMidiInstrument(item))
+        }
+
+        fn magically_control(
+            &mut self,
+            controller_uid: usize,
+            target_uid: usize,
+            param_name: &str,
+        ) {
+            if let Some(target) = self.uid_to_item.get(&target_uid) {
+                let param_id = match target {
+                    TestBoxedEntity::TestIsController(e) => e.param_id_for_name(param_name),
+                    TestBoxedEntity::TestIsMidiInstrument(e) => e.param_id_for_name(param_name),
+                    TestBoxedEntity::TestUpdateable(e) => e.param_id_for_name(param_name),
+                };
+
+                if let Some(controller) = self.uid_to_item.get(&controller_uid) {
+                    if let TestBoxedEntity::TestIsController(_controller) = controller {
+                        self.uid_to_control
+                            .entry(controller_uid)
+                            .or_default()
+                            .push((target_uid, param_id));
+                    }
+                }
+            }
+        }
+
+        fn connect_to_main_mixer(&mut self, source_uid: usize) {
+            self.root_source_uids.push(source_uid);
+        }
+
+        fn handle_message(&mut self, message: TestMessage) {
+            match message {
+                TestMessage::Nothing => todo!(),
+                TestMessage::Something => todo!(),
+                TestMessage::Tick(_) => todo!(),
+                TestMessage::ControlF32(uid, value) => {
+                    self.send_control_f32(uid, value);
+                }
+                TestMessage::UpdateF32(_, _) => todo!(),
+            }
+        }
+
+        fn run(
+            &mut self,
+            clock: &mut Clock,
+            tick_fn: &dyn Fn(Clock) -> TestMessage,
+            run_until_completion: bool,
+        ) -> Vec<MonoSample> {
+            let mut samples = Vec::<MonoSample>::new();
+            loop {
+                let command = EvenNewerCommand::batch(self.uid_to_item.values_mut().fold(
+                    Vec::new(),
+                    |mut vec: Vec<EvenNewerCommand<TestMessage>>, item| {
+                        match item {
+                            TestBoxedEntity::TestIsController(entity) => {
+                                vec.push(entity.update(tick_fn(clock.clone())));
+                            }
+                            TestBoxedEntity::TestIsMidiInstrument(_) => {}
+                            TestBoxedEntity::TestUpdateable(_) => {}
+                        }
+                        vec
+                    },
+                ));
+
+                match command.0 {
+                    crate::traits::Internal::None => {}
+                    crate::traits::Internal::Single(message) => self.handle_message(message),
+                    crate::traits::Internal::Batch(messages) => {
+                        for message in messages {
+                            self.handle_message(message);
+                        }
+                    }
+                }
+                if self.uid_to_item.values().all(|item| match item {
+                    TestBoxedEntity::TestIsController(entity) => entity.is_finished(),
+                    TestBoxedEntity::TestIsMidiInstrument(_) => true,
+                    TestBoxedEntity::TestUpdateable(_) => true,
+                }) {
+                    break;
+                }
+                samples.push(
+                    self.root_source_uids
+                        .iter()
+                        .map(|uid| {
+                            if let Some(item) = self.uid_to_item.get_mut(uid) {
+                                match item {
+                                    TestBoxedEntity::TestIsController(_) => MONO_SAMPLE_SILENCE,
+                                    TestBoxedEntity::TestIsMidiInstrument(entity) => {
+                                        entity.source_audio(clock)
+                                    }
+                                    TestBoxedEntity::TestUpdateable(_) => MONO_SAMPLE_SILENCE,
+                                }
+                            } else {
+                                MONO_SAMPLE_SILENCE
+                            }
+                        })
+                        .sum(),
+                );
+                clock.tick();
+                if !run_until_completion {
+                    break;
+                }
+            }
+            samples
+        }
+
+        fn send_control_f32(&mut self, uid: usize, value: f32) {
+            if let Some(e) = self.uid_to_control.get(&uid) {
+                for (target_uid, param) in e {
+                    if let Some(target) = self.uid_to_item.get_mut(target_uid) {
+                        match target {
+                            TestBoxedEntity::TestUpdateable(e) => {
+                                e.update(TestMessage::UpdateF32(*param, value));
+                            }
+                            TestBoxedEntity::TestIsController(_) => todo!(),
+                            TestBoxedEntity::TestIsMidiInstrument(e) => {
+                                e.update(TestMessage::UpdateF32(*param, value));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // https://boydjohnson.dev/blog/impl-debug-for-fn-type/ gave me enough clues to
+    // get through this.
+    pub trait TestMessageGeneratorT<M>: Fn(f32) -> M {}
+    impl<F, M> TestMessageGeneratorT<M> for F where F: Fn(f32) -> M {}
+    impl<M> std::fmt::Debug for dyn TestMessageGeneratorT<M> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "TestMessageGenerator")
+        }
+    }
+    pub type TestMessageGenerator = Box<dyn TestMessageGeneratorT<TestMessage>>;
+
+    pub trait HasUid {
+        fn uid(&self) -> usize;
+        fn set_uid(&mut self, uid: usize);
+    }
+
+    #[derive(Display, Debug, EnumString)]
+    #[strum(serialize_all = "kebab_case")]
+    pub(crate) enum TestLfoControlParams {
+        Frequency,
+    }
+
+    #[derive(Default)]
+    pub struct TestLfo {
+        uid: usize,
+        oscillator: Oscillator,
+        generators: Vec<TestMessageGenerator>,
+    }
+    impl HasUid for TestLfo {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
+        }
+    }
+    impl TestLfo {
+        fn set_frequency(&mut self, frequency_hz: f32) {
+            self.oscillator.set_frequency(frequency_hz);
+        }
+    }
+    impl TestIsController for TestLfo {}
+    impl TestUpdateable for TestLfo {
+        type Message = TestMessage;
+
+        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            if let TestMessage::Tick(clock) = message {
+                let value = self.oscillator.source_audio(&clock);
+                EvenNewerCommand::single(TestMessage::ControlF32(self.uid, value))
+            } else {
+                EvenNewerCommand::none()
+            }
+        }
+
+        fn param_id_for_name(&self, param_name: &str) -> usize {
+            if let Ok(param) = TestLfoControlParams::from_str(param_name) {
+                param as usize
+            } else {
+                0
+            }
+        }
+    }
+    impl Terminates for TestLfo {
+        // FLAG: seems superfluous
+        fn is_finished(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn test_ideal() {
+        let mut o = TestOrchestrator2::new();
+        let synth_1 = TestSynth::default();
+        let mut lfo = TestLfo::default();
+        lfo.set_frequency(2.0);
+        let synth_1_uid = o.add_midi_instrument(Box::new(synth_1));
+        lfo.set_uid(o.last_uid + 1); // this is horrible
+        let lfo_uid = o.add_controller(Box::new(lfo));
+        o.magically_control(
+            lfo_uid,
+            synth_1_uid,
+            &OscillatorControlParams::Frequency.to_string(),
+        );
+        o.connect_to_main_mixer(synth_1_uid);
+
+        let synth_2 = TestAudioSourceAlwaysLoud::default();
+        let arpeggiator = TestArpeggiator::default();
+        let synth_2_uid = o.add_midi_instrument(Box::new(synth_2));
+        let arpeggiator_uid = o.add_controller(Box::new(arpeggiator));
+        o.magically_control(
+            arpeggiator_uid,
+            synth_2_uid,
+            &TestSynthControlParams::OscillatorModulation.to_string(),
+        );
+        o.connect_to_main_mixer(synth_2_uid);
+
+        const SECONDS: usize = 1;
+        let t = TestTimer::new_with(SECONDS as f32);
+        let _ = o.add_controller(Box::new(t));
+
+        let mut clock = Clock::new();
+        let samples = o.run(&mut clock, &TestMessage::Tick, true);
+
+        assert_eq!(samples.len(), SECONDS * clock.sample_rate());
+        assert!(samples[0] > 0.0);
+        assert!(false);
+    }
+
+    #[derive(Display, Debug, EnumString, FromRepr)]
+    #[strum(serialize_all = "kebab_case")]
+    pub enum TestSynthControlParams {
+        OscillatorModulation,
+    }
+
     #[derive(Debug)]
     pub struct TestSynth {
         overhead: Overhead,
 
-        oscillator: Rrc<dyn SourcesAudio>,
+        oscillator: Box<Oscillator>,
         envelope: Rrc<dyn SourcesAudio>,
     }
 
@@ -430,14 +757,11 @@ pub mod tests {
         #[allow(dead_code)]
         fn new() -> Self {
             Self::new_with(
-                rrc(Oscillator::new()),
+                Box::new(Oscillator::new()),
                 rrc(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
             )
         }
-        pub fn new_with(
-            oscillator: Rrc<dyn SourcesAudio>,
-            envelope: Rrc<dyn SourcesAudio>,
-        ) -> Self {
+        pub fn new_with(oscillator: Box<Oscillator>, envelope: Rrc<dyn SourcesAudio>) -> Self {
             Self {
                 oscillator,
                 envelope,
@@ -449,15 +773,16 @@ pub mod tests {
         fn default() -> Self {
             Self {
                 overhead: Overhead::default(),
-                oscillator: rrc(Oscillator::new()),
+                oscillator: Box::new(Oscillator::new()),
                 envelope: rrc(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
             }
         }
     }
+
     impl SourcesAudio for TestSynth {
         fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-            self.oscillator.borrow_mut().source_audio(clock)
-                * self.envelope.borrow_mut().source_audio(clock)
+            dbg!(&self.oscillator.adjusted_frequency());
+            self.oscillator.source_audio(clock) * self.envelope.borrow_mut().source_audio(clock)
         }
     }
     impl HasOverhead for TestSynth {
@@ -470,8 +795,47 @@ pub mod tests {
         }
     }
 
+    impl TestIsMidiInstrument for TestSynth {}
+    impl TestUpdateable for TestSynth {
+        type Message = TestMessage;
+
+        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Nothing => todo!(),
+                TestMessage::Something => todo!(),
+                TestMessage::Tick(_) => todo!(),
+                TestMessage::ControlF32(_, _) => todo!(),
+                TestMessage::UpdateF32(param_index, value) => {
+                    if let Some(param) = TestSynthControlParams::from_repr(param_index) {
+                        match param {
+                            TestSynthControlParams::OscillatorModulation => {
+                                self.oscillator.set_frequency_modulation(value);
+                            }
+                        }
+                    }
+                }
+            }
+            EvenNewerCommand::none()
+        }
+
+        fn param_id_for_name(&self, param_name: &str) -> usize {
+            if let Ok(param) = TestSynthControlParams::from_str(param_name) {
+                param as usize
+            } else {
+                0
+            }
+        }
+    }
+    impl Terminates for TestSynth {
+        // FLAG: seems superfluous
+        fn is_finished(&self) -> bool {
+            true
+        }
+    }
+
     #[derive(Debug, Default)]
     pub struct TestTimer {
+        uid: usize,
         has_more_work: bool,
         time_to_run_seconds: f32,
     }
@@ -492,6 +856,36 @@ pub mod tests {
     impl Terminates for TestTimer {
         fn is_finished(&self) -> bool {
             !self.has_more_work
+        }
+    }
+    impl TestIsController for TestTimer {}
+    impl TestUpdateable for TestTimer {
+        type Message = TestMessage;
+
+        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Nothing => todo!(),
+                TestMessage::Something => todo!(),
+                TestMessage::Tick(clock) => {
+                    self.has_more_work = clock.seconds() < self.time_to_run_seconds;
+                }
+                TestMessage::ControlF32(_, _) => todo!(),
+                TestMessage::UpdateF32(_, _) => todo!(),
+            }
+            EvenNewerCommand::none()
+        }
+
+        fn param_id_for_name(&self, param_name: &str) -> usize {
+            todo!()
+        }
+    }
+    impl HasUid for TestTimer {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
         }
     }
 
@@ -891,6 +1285,7 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestArpeggiator {
+        uid: usize,
         me: Ww<Self>,
         midi_channel_out: MidiChannel,
         pub tempo: f32,
@@ -943,6 +1338,36 @@ pub mod tests {
                 SmallMessage::ValueChanged(value) => self.tempo = value,
                 _ => todo!(),
             }
+        }
+    }
+    impl TestIsController for TestArpeggiator {}
+    impl TestUpdateable for TestArpeggiator {
+        type Message = TestMessage;
+
+        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Nothing => todo!(),
+                TestMessage::Something => todo!(),
+                TestMessage::Tick(clock) => {
+                    //todo!("I know I need to spit out notes now")
+                }
+                TestMessage::ControlF32(_, _) => todo!(),
+                TestMessage::UpdateF32(_, _) => todo!(),
+            }
+            EvenNewerCommand::none()
+        }
+
+        fn param_id_for_name(&self, param_name: &str) -> usize {
+            todo!()
+        }
+    }
+    impl HasUid for TestArpeggiator {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid
         }
     }
     impl TestArpeggiator {
