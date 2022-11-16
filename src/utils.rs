@@ -241,6 +241,7 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysLoud {
+        uid: usize,
         overhead: Overhead,
     }
     impl TestIsMidiInstrument for TestAudioSourceAlwaysLoud {}
@@ -268,12 +269,21 @@ pub mod tests {
     impl TestUpdateable for TestAudioSourceAlwaysLoud {
         type Message = TestMessage;
 
-        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
             todo!()
         }
 
-        fn param_id_for_name(&self, param_name: &str) -> usize {
+        fn param_id_for_name(&self, _param_name: &str) -> usize {
             usize::MAX
+        }
+    }
+    impl HasUid for TestAudioSourceAlwaysLoud {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
         }
     }
 
@@ -434,6 +444,7 @@ pub mod tests {
     pub enum TestMessage {
         #[default]
         Nothing,
+        #[allow(dead_code)]
         Something,
         Tick(Clock),
         ControlF32(usize, f32),
@@ -449,8 +460,8 @@ pub mod tests {
 
     // Composed traits, top-level traits
     pub(crate) trait TestIsController: TestUpdateable + HasUid + Terminates {}
-    pub(crate) trait TestIsEffect: TestUpdateable + IsEffect {}
-    pub(crate) trait TestIsMidiInstrument: TestUpdateable + SourcesAudio {}
+    pub(crate) trait TestIsEffect: TestUpdateable + HasUid + IsEffect {}
+    pub(crate) trait TestIsMidiInstrument: TestUpdateable + HasUid + SourcesAudio {}
     pub(crate) type TestTestIsController = dyn TestIsController<Message = TestMessage>;
     pub(crate) type TestTestIsMidiInstrument = dyn TestIsMidiInstrument<Message = TestMessage>;
     pub(crate) type TestTestUpdateable = dyn TestUpdateable<Message = TestMessage>;
@@ -458,6 +469,7 @@ pub mod tests {
     pub(crate) enum TestBoxedEntity {
         TestIsController(Box<TestTestIsController>),
         TestIsMidiInstrument(Box<TestTestIsMidiInstrument>),
+        #[allow(dead_code)]
         TestUpdateable(Box<TestTestUpdateable>),
     }
 
@@ -470,7 +482,6 @@ pub mod tests {
         uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
         uid_to_item: HashMap<usize, TestBoxedEntity>,
         root_source_uids: Vec<usize>,
-        tickers: Vec<Box<dyn TestUpdateable<Message = TestMessage>>>,
     }
 
     impl TestOrchestrator2 {
@@ -485,30 +496,21 @@ pub mod tests {
             self.last_uid
         }
 
-        fn add(&mut self, entity: TestBoxedEntity) -> usize {
+        fn add(&mut self, mut entity: TestBoxedEntity) -> usize {
             let uid = self.get_next_uid();
+            match entity {
+                TestBoxedEntity::TestIsController(ref mut e) => e.set_uid(uid),
+                TestBoxedEntity::TestIsMidiInstrument(ref mut e) => e.set_uid(uid),
+                TestBoxedEntity::TestUpdateable(_) => {
+                    todo!("I don't think anyone should be just an updateable")
+                }
+            }
+
             self.uid_to_item.insert(uid, entity);
             uid
         }
 
-        fn add_updateable(&mut self, item: Box<TestTestUpdateable>) -> usize {
-            self.add(TestBoxedEntity::TestUpdateable(item))
-        }
-
-        fn add_controller(&mut self, item: Box<TestTestIsController>) -> usize {
-            self.add(TestBoxedEntity::TestIsController(item))
-        }
-
-        fn add_midi_instrument(&mut self, item: Box<TestTestIsMidiInstrument>) -> usize {
-            self.add(TestBoxedEntity::TestIsMidiInstrument(item))
-        }
-
-        fn magically_control(
-            &mut self,
-            controller_uid: usize,
-            target_uid: usize,
-            param_name: &str,
-        ) {
+        fn link_control(&mut self, controller_uid: usize, target_uid: usize, param_name: &str) {
             if let Some(target) = self.uid_to_item.get(&target_uid) {
                 let param_id = match target {
                     TestBoxedEntity::TestIsController(e) => e.param_id_for_name(param_name),
@@ -626,17 +628,6 @@ pub mod tests {
         }
     }
 
-    // https://boydjohnson.dev/blog/impl-debug-for-fn-type/ gave me enough clues to
-    // get through this.
-    pub trait TestMessageGeneratorT<M>: Fn(f32) -> M {}
-    impl<F, M> TestMessageGeneratorT<M> for F where F: Fn(f32) -> M {}
-    impl<M> std::fmt::Debug for dyn TestMessageGeneratorT<M> {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "TestMessageGenerator")
-        }
-    }
-    pub type TestMessageGenerator = Box<dyn TestMessageGeneratorT<TestMessage>>;
-
     pub trait HasUid {
         fn uid(&self) -> usize;
         fn set_uid(&mut self, uid: usize);
@@ -652,7 +643,6 @@ pub mod tests {
     pub struct TestLfo {
         uid: usize,
         oscillator: Oscillator,
-        generators: Vec<TestMessageGenerator>,
     }
     impl HasUid for TestLfo {
         fn uid(&self) -> usize {
@@ -702,10 +692,9 @@ pub mod tests {
         let synth_1 = TestSynth::default();
         let mut lfo = TestLfo::default();
         lfo.set_frequency(2.0);
-        let synth_1_uid = o.add_midi_instrument(Box::new(synth_1));
-        lfo.set_uid(o.last_uid + 1); // this is horrible
-        let lfo_uid = o.add_controller(Box::new(lfo));
-        o.magically_control(
+        let synth_1_uid = o.add(TestBoxedEntity::TestIsMidiInstrument(Box::new(synth_1)));
+        let lfo_uid = o.add(TestBoxedEntity::TestIsController(Box::new(lfo)));
+        o.link_control(
             lfo_uid,
             synth_1_uid,
             &OscillatorControlParams::Frequency.to_string(),
@@ -714,9 +703,9 @@ pub mod tests {
 
         let synth_2 = TestAudioSourceAlwaysLoud::default();
         let arpeggiator = TestArpeggiator::default();
-        let synth_2_uid = o.add_midi_instrument(Box::new(synth_2));
-        let arpeggiator_uid = o.add_controller(Box::new(arpeggiator));
-        o.magically_control(
+        let synth_2_uid = o.add(TestBoxedEntity::TestIsMidiInstrument(Box::new(synth_2)));
+        let arpeggiator_uid = o.add(TestBoxedEntity::TestIsController(Box::new(arpeggiator)));
+        o.link_control(
             arpeggiator_uid,
             synth_2_uid,
             &TestSynthControlParams::OscillatorModulation.to_string(),
@@ -725,14 +714,13 @@ pub mod tests {
 
         const SECONDS: usize = 1;
         let t = TestTimer::new_with(SECONDS as f32);
-        let _ = o.add_controller(Box::new(t));
+        let _ = o.add(TestBoxedEntity::TestIsController(Box::new(t)));
 
         let mut clock = Clock::new();
         let samples = o.run(&mut clock, &TestMessage::Tick, true);
 
         assert_eq!(samples.len(), SECONDS * clock.sample_rate());
         assert!(samples[0] > 0.0);
-        assert!(false);
     }
 
     #[derive(Display, Debug, EnumString, FromRepr)]
@@ -743,6 +731,7 @@ pub mod tests {
 
     #[derive(Debug)]
     pub struct TestSynth {
+        uid: usize,
         overhead: Overhead,
 
         oscillator: Box<Oscillator>,
@@ -772,6 +761,7 @@ pub mod tests {
     impl Default for TestSynth {
         fn default() -> Self {
             Self {
+                uid: 0,
                 overhead: Overhead::default(),
                 oscillator: Box::new(Oscillator::new()),
                 envelope: rrc(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
@@ -826,6 +816,15 @@ pub mod tests {
             }
         }
     }
+    impl HasUid for TestSynth {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
+        }
+    }
     impl Terminates for TestSynth {
         // FLAG: seems superfluous
         fn is_finished(&self) -> bool {
@@ -875,7 +874,7 @@ pub mod tests {
             EvenNewerCommand::none()
         }
 
-        fn param_id_for_name(&self, param_name: &str) -> usize {
+        fn param_id_for_name(&self, _param_name: &str) -> usize {
             todo!()
         }
     }
@@ -1348,8 +1347,8 @@ pub mod tests {
             match message {
                 TestMessage::Nothing => todo!(),
                 TestMessage::Something => todo!(),
-                TestMessage::Tick(clock) => {
-                    //todo!("I know I need to spit out notes now")
+                TestMessage::Tick(_clock) => {
+                    // TODO todo!("I know I need to spit out notes now")
                 }
                 TestMessage::ControlF32(_, _) => todo!(),
                 TestMessage::UpdateF32(_, _) => todo!(),
@@ -1357,7 +1356,7 @@ pub mod tests {
             EvenNewerCommand::none()
         }
 
-        fn param_id_for_name(&self, param_name: &str) -> usize {
+        fn param_id_for_name(&self, _param_name: &str) -> usize {
             todo!()
         }
     }
