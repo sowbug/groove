@@ -91,9 +91,9 @@ mod tests {
     #[test]
     fn test_bitcrusher_multisource() {
         let mut fx = Bitcrusher::new_with(8);
-        let source = rrc(TestAudioSourceAlwaysSameLevel::new(PI - 3.0));
+        let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(PI - 3.0));
         fx.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
-        let source = rrc(TestAudioSourceAlwaysSameLevel::new(PI - 3.0));
+        let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(PI - 3.0));
         fx.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
         assert_eq!(fx.source_audio(&Clock::new()), 2.0 * CRUSHED_PI);
     }

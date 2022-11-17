@@ -8,116 +8,56 @@ use crate::{
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-/// Provides audio in the form of digital samples.
-pub trait SourcesAudio: HasMute + Debug {
-    // Lots of implementers don't care about clock here, but some do
-    // (oscillators, LFOs), and it's a lot cleaner to pass a bit of extra
-    // information here than to either create a separate optional method
-    // supplying it (which everyone would have to call anyway), or define a
-    // whole new trait that breaks a bunch of simple paths elsewhere.
-    //
-    // TODO: I dream of removing the mut in &mut self. But some devices
-    // legitimately change state when asked for their current state, and I
-    // couldn't think of a way to give a chance to mutate that doesn't just make
-    // everything more complicated.
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample;
+pub(crate) trait NewIsController: Terminates + NewUpdateable + HasUid {}
+pub(crate) trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid {}
+pub(crate) trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid {}
+
+// pub(crate) enum GrooveMessage {
+//     None,
+// }
+
+// pub(crate) type IsControllerType = dyn NewIsController<Message = GrooveMessage>;
+// pub(crate) type IsEffectType = dyn NewIsEffect<Message = GrooveMessage>;
+// pub(crate) type IsInstrumentType = dyn NewIsInstrument<Message = GrooveMessage>;
+
+pub(crate) trait NewUpdateable: Debug {
+    type Message;
+    fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message>;
+    fn param_id_for_name(&self, param_name: &str) -> usize;
+}
+pub trait HasUid: Debug {
+    fn uid(&self) -> usize;
+    fn set_uid(&mut self, uid: usize);
 }
 
-/// Can do something with audio samples. When it needs to do its work, it asks
-/// its SourcesAudio for their samples.
-pub trait SinksAudio {
-    fn sources(&self) -> &[Ww<dyn SourcesAudio>];
-    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>>;
-
-    fn add_audio_source(&mut self, source: Ww<dyn SourcesAudio>) {
-        self.sources_mut().push(source);
-    }
-
-    fn gather_source_audio(&mut self, clock: &Clock) -> MonoSample {
-        if self.sources_mut().is_empty() {
-            return MONO_SAMPLE_SILENCE;
-        }
-        self.sources_mut()
-            .iter_mut()
-            .map(|source| {
-                if let Some(s) = source.upgrade() {
-                    let sample = s.borrow_mut().source_audio(clock);
-                    if s.borrow().is_muted() {
-                        MONO_SAMPLE_SILENCE
-                    } else {
-                        sample
-                    }
-                } else {
-                    MONO_SAMPLE_SILENCE
-                }
-            })
-            .sum::<f32>()
-    }
+/// Provides audio in the form of digital samples.
+pub trait SourcesAudio: Debug {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample;
 }
 
 /// TransformsAudio can be thought of as SourcesAudio + SinksAudio, but it's an
 /// important third traits because it exposes the business logic that happens
 /// between the sinking and sourcing, which is useful for testing.
-pub trait TransformsAudio {
+pub trait TransformsAudio: Debug {
     fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample;
 }
 
-// Convenience generic for effects
-impl<T: HasOverhead + SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let input = self.gather_source_audio(clock);
-
-        // It's important for this to happen after the gather_source_audio(),
-        // because we don't know whether the sources are depending on being
-        // called for each time slice.
-        if self.is_muted() {
-            return MONO_SAMPLE_SILENCE;
-        }
-        if self.is_enabled() {
-            self.transform_audio(input)
-        } else {
-            input
-        }
-    }
-}
-
-// TODO: write tests for these two new traits.
+// Something that Terminates has a point in time where it would be OK never
+// being called or continuing to exist.
 //
-// TODO: this is probably all wrong. The post_message() part is definitely
-// wrong, now that update() can return Commands containing Messages. I'd like to
-// see whether all this boilerplate can be handled by someone else, either
-// centralized or as a truly effortless generic.
-pub trait SourcesUpdates {
-    fn target_uids(&self) -> &[usize];
-    fn target_uids_mut(&mut self) -> &mut Vec<usize>;
-    fn target_messages(&self) -> &[SmallMessageGenerator];
-    fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator>;
-    fn add_target(&mut self, target_uid: usize, target_message: SmallMessageGenerator) {
-        self.target_uids_mut().push(target_uid);
-        self.target_messages_mut().push(target_message);
-    }
-    fn post_message(&mut self, value: f32) -> Vec<BigMessage> {
-        let mut v = Vec::new();
-        for uid in self.target_uids() {
-            for message in self.target_messages() {
-                v.push(BigMessage::SmallMessage(*uid, message(value)));
-            }
-        }
-        v
-    }
+// If you're required to implement Terminates, but you don't know when you need
+// to terminate, then you should always return true. For example, an arpeggiator
+// is a WatchesClock, which means it is also a Terminates, but it would be happy
+// to keep responding to MIDI input forever. It should return true.
+//
+// The reason to choose true rather than false is that the caller uses
+// is_finished() to determine whether a song is complete. If a Terminates never
+// returns true, the loop will never end. Thus, "is_finished" is more like "is
+// unaware of any reason to continue existing" rather than "is certain there is
+// no more work to do."
+pub trait Terminates: Debug {
+    fn is_finished(&self) -> bool;
 }
-
-// TODO: this should have an associated type Message, but I can't figure out how
-// to make it work.
-pub trait SinksUpdates: Debug {
-    // Idea: if someone asks for a message generator, then that's the clue we
-    // need to register our UID. All that could be managed in that central
-    // place.
-    fn message_for(&self, param: &str) -> SmallMessageGenerator;
-    fn update(&mut self, clock: &Clock, message: SmallMessage);
-}
-
-// This section is taken from iced.rs.
 
 // TODO: why did I have to make this next line's Internal<T> pub? Why didn't
 // iced have to do this?
@@ -155,6 +95,92 @@ impl<T> EvenNewerCommand<T> {
     }
 }
 
+/// Can do something with audio samples. When it needs to do its work, it asks
+/// its SourcesAudio for their samples.
+#[deprecated]
+pub trait SinksAudio {
+    fn sources(&self) -> &[Ww<dyn SourcesAudio>];
+    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>>;
+
+    fn add_audio_source(&mut self, source: Ww<dyn SourcesAudio>) {
+        self.sources_mut().push(source);
+    }
+
+    fn gather_source_audio(&mut self, clock: &Clock) -> MonoSample {
+        if self.sources_mut().is_empty() {
+            return MONO_SAMPLE_SILENCE;
+        }
+        self.sources_mut()
+            .iter_mut()
+            .map(|source| {
+                if let Some(s) = source.upgrade() {
+                    s.borrow_mut().source_audio(clock) // TODO: find a new home for HasMute
+                } else {
+                    MONO_SAMPLE_SILENCE
+                }
+            })
+            .sum::<f32>()
+    }
+}
+
+// Convenience generic for effects
+impl<T: HasOverhead + SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let input = self.gather_source_audio(clock);
+
+        // It's important for this to happen after the gather_source_audio(),
+        // because we don't know whether the sources are depending on being
+        // called for each time slice.
+        if self.is_muted() {
+            return MONO_SAMPLE_SILENCE;
+        }
+        if self.is_enabled() {
+            self.transform_audio(input)
+        } else {
+            input
+        }
+    }
+}
+
+// TODO: write tests for these two new traits.
+//
+// TODO: this is probably all wrong. The post_message() part is definitely
+// wrong, now that update() can return Commands containing Messages. I'd like to
+// see whether all this boilerplate can be handled by someone else, either
+// centralized or as a truly effortless generic.
+#[deprecated]
+pub trait SourcesUpdates {
+    fn target_uids(&self) -> &[usize];
+    fn target_uids_mut(&mut self) -> &mut Vec<usize>;
+    fn target_messages(&self) -> &[SmallMessageGenerator];
+    fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator>;
+    fn add_target(&mut self, target_uid: usize, target_message: SmallMessageGenerator) {
+        self.target_uids_mut().push(target_uid);
+        self.target_messages_mut().push(target_message);
+    }
+    fn post_message(&mut self, value: f32) -> Vec<BigMessage> {
+        let mut v = Vec::new();
+        for uid in self.target_uids() {
+            for message in self.target_messages() {
+                v.push(BigMessage::SmallMessage(*uid, message(value)));
+            }
+        }
+        v
+    }
+}
+
+// TODO: this should have an associated type Message, but I can't figure out how
+// to make it work.
+#[deprecated]
+pub trait SinksUpdates: Debug {
+    // Idea: if someone asks for a message generator, then that's the clue we
+    // need to register our UID. All that could be managed in that central
+    // place.
+    fn message_for(&self, param: &str) -> SmallMessageGenerator;
+    fn update(&mut self, clock: &Clock, message: SmallMessage);
+}
+
+#[deprecated]
 pub(crate) trait EvenNewerIsUpdateable: Terminates + Debug {
     type Message;
 
@@ -180,6 +206,7 @@ pub trait MakesIsViewable: Debug {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>>;
 }
 
+#[deprecated]
 pub trait SourcesMidi {
     fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>;
     fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>;
@@ -209,6 +236,8 @@ pub trait SourcesMidi {
         }
     }
 }
+
+#[deprecated]
 pub trait SinksMidi: Debug {
     fn midi_channel(&self) -> MidiChannel;
     fn set_midi_channel(&mut self, midi_channel: MidiChannel);
@@ -237,6 +266,7 @@ pub trait SinksMidi: Debug {
 /// provide an audio sample. A WatchesClock has no extrinsic reason to be
 /// called, so the trait exists to make sure that whatever intrinsic reason for
 /// being called is satisfied.
+#[deprecated]
 pub trait WatchesClock: Debug + Terminates {
     // type Message; // TODO: figure out how to do this!
 
@@ -247,25 +277,9 @@ pub trait WatchesClock: Debug + Terminates {
     // TODO: should be Box<> so stuff gets handed over more cheaply
 }
 
-// Something that Terminates has a point in time where it would be OK never
-// being called or continuing to exist.
-//
-// If you're required to implement Terminates, but you don't know when you need
-// to terminate, then you should always return true. For example, an arpeggiator
-// is a WatchesClock, which means it is also a Terminates, but it would be happy
-// to keep responding to MIDI input forever. It should return true.
-//
-// The reason to choose true rather than false is that the caller uses
-// is_finished() to determine whether a song is complete. If a Terminates never
-// returns true, the loop will never end. Thus, "is_finished" is more like "is
-// unaware of any reason to continue existing" rather than "is certain there is
-// no more work to do."
-pub trait Terminates {
-    fn is_finished(&self) -> bool;
-}
-
 /// Convenience struct that devices can use to populate fields that mini-traits
 /// require.
+#[deprecated]
 #[derive(Clone, Debug, Default)]
 pub struct Overhead {
     is_muted: bool,
@@ -289,6 +303,7 @@ impl Overhead {
     }
 }
 
+#[deprecated]
 pub trait HasOverhead: HasMute + HasEnable {
     fn overhead(&self) -> &Overhead;
     fn overhead_mut(&mut self) -> &mut Overhead;
@@ -318,6 +333,7 @@ impl<T: HasOverhead> HasEnable for T {
 /// children, recursively) but ignore their output, compared to either expecting
 /// them to return silence (which would let muted be an internal-only state), or
 /// to have something up in the sky track everyone who's muted.
+#[deprecated]
 pub trait HasMute {
     fn is_muted(&self) -> bool;
     fn set_muted(&mut self, is_muted: bool) -> bool;
@@ -331,6 +347,7 @@ pub trait HasMute {
 // devices are inputting sound to it. A disabled device, on the other hand,
 // might pass through sound without changing it. For example, a disabled filter
 // in the middle of a chain would become a passthrough.
+#[deprecated]
 pub trait HasEnable {
     fn is_enabled(&self) -> bool;
     fn set_enabled(&mut self, is_enabled: bool) -> bool;
@@ -343,107 +360,18 @@ pub trait HasEnable {
 // WatchesClock gets a clock tick, whereas SourcesAudio gets a sources_audio(),
 // and both are time slice-y. Be on the lookout for anything that claims to need
 // both.
+#[deprecated]
 pub trait IsMidiInstrument: SourcesAudio + SinksMidi + MakesIsViewable {} // TODO + MakesControlSink
+#[deprecated]
 pub trait IsEffect:
     SourcesAudio + SinksAudio + TransformsAudio + SinksUpdates + HasOverhead + MakesIsViewable
 {
 }
 
+#[deprecated]
 pub trait IsMidiEffect: SourcesMidi + SinksMidi + WatchesClock + MakesIsViewable {}
+#[deprecated]
 pub trait IsController: SourcesUpdates + WatchesClock {}
-
-#[cfg(test)]
-macro_rules! sources_audio_tests {
-    ($($name:ident: $type:ty,)*) => {
-    $(
-        mod $name {
-            use super::*;
-
-            #[test]
-            fn new_audio_source_is_silent() {
-                let mut s = <$type>::default();
-                assert_eq!(s.source_audio(&Clock::new()), MONO_SAMPLE_SILENCE);
-            }
-        }
-    )*
-    }
-}
-
-#[cfg(test)]
-macro_rules! sinks_audio_tests {
-    ($($name:ident: $type:ty,)*) => {
-    $(
-        mod $name {
-            use super::*;
-
-            #[test]
-            fn new_audio_sink_can_be_instantiated() {
-                let s = <$type>::default();
-                assert_eq!(s.sources().len(), 0);
-            }
-        }
-    )*
-    }
-}
-
-#[cfg(test)]
-macro_rules! sources_midi_tests {
-    ($($name:ident: $type:ty,)*) => {
-    $(
-        mod $name {
-            use super::*;
-
-            #[test]
-            fn new_midi_source_can_be_instantiated() {
-                let s = <$type>::default();
-                assert_eq!(s.midi_sinks().len(), 0);
-            }
-        }
-    )*
-    }
-}
-
-#[cfg(test)]
-macro_rules! sinks_midi_tests {
-    ($($name:ident: $type:ty,)*) => {
-    $(
-        mod $name {
-            use super::*;
-
-            #[test]
-            fn new_midi_sink_can_be_instantiated() {
-                let s = <$type>::default();
-                assert_eq!(s.midi_channel(), 0);
-            }
-        }
-    )*
-    }
-}
-
-#[cfg(test)]
-macro_rules! has_overhead_tests {
-    ($($name:ident: $type:ty,)*) => {
-    $(
-        mod $name {
-            use crate::traits::HasEnable;
-            use crate::traits::HasMute;
-
-            #[test]
-            fn has_overhead_mute_enable_work() {
-                let mut s = <$type>::default();
-                assert_eq!(s.is_enabled(), true);
-                assert_eq!(s.is_muted(), false);
-
-                s.set_enabled(false);
-                assert_eq!(s.is_enabled(), false);
-
-                s.set_muted(true);
-                assert_eq!(s.is_muted(), true);
-            }
-        }
-    )*
-    }
-}
 
 #[cfg(test)]
 pub mod tests {
@@ -573,68 +501,6 @@ pub mod tests {
             }
         }
         assert!(clock.seconds() >= 1.0);
-    }
-
-    // ```bash
-    // $ grep -R "HasOverhead for " src/ | grep -o "for.*$" | \
-    //   grep -o -E "[A-Z][[:alpha:]]+" | sort -u`
-    // ```
-    sources_audio_tests! {
-        sources_audio_adsr_envelope: AdsrEnvelope,
-        sources_audio_bitcrusher: Bitcrusher,
-        sources_audio_drumkit_sampler: DrumkitSampler,
-        sources_audio_filter: BiQuadFilter,
-        sources_audio_gain: Gain,
-        sources_audio_limiter: crate::effects::limiter::Limiter,
-        sources_audio_mixer: crate::effects::mixer::Mixer,
-        sources_audio_oscillator: Oscillator,
-        sources_audio_sampler: Sampler,
-        sources_audio_stepped_envelope: crate::envelopes::SteppedEnvelope,
-        sources_audio_test_audio_source: TestAudioSource,
-        sources_audio_synth: Synth,
-    }
-
-    sinks_audio_tests! {
-        sinks_audio_bitcrusher: Bitcrusher,
-        sinks_audio_filter: BiQuadFilter,
-        sinks_audio_gain: Gain,
-        sinks_audio_limiter: crate::effects::limiter::Limiter,
-        sinks_audio_mixer: crate::effects::mixer::Mixer,
-    }
-
-    sources_midi_tests! {
-        sources_midi_arpeggiator: Arpeggiator,
-    }
-
-    sinks_midi_tests! {
-        sinks_midi_synth: Synth,
-    }
-
-    has_overhead_tests! {
-        has_overhead_adsr_envelope: crate::envelopes::AdsrEnvelope,
-        has_overhead_arpeggiator: crate::effects::arpeggiator::Arpeggiator,
-        has_overhead_beat_sequencer: crate::midi::sequencers::BeatSequencer,
-        has_overhead_bitcrusher: crate::effects::bitcrusher::Bitcrusher,
-        has_overhead_drumkit_sampler: crate::synthesizers::drumkit_sampler::Sampler,
-        has_overhead_filter: crate::effects::filter::BiQuadFilter,
-        has_overhead_gain: crate::effects::gain::Gain,
-        has_overhead_limiter: crate::effects::limiter::Limiter,
-        has_overhead_midi_tick_sequencer: crate::midi::sequencers::MidiTickSequencer,
-        has_overhead_mixer: crate::effects::mixer::Mixer,
-        has_overhead_oscillator: crate::oscillators::Oscillator,
-        has_overhead_sampler: crate::synthesizers::sampler::Sampler,
-        has_overhead_stepped_envelope: crate::envelopes::SteppedEnvelope,
-        has_overhead_synth: crate::synthesizers::welsh::Synth,
-        has_overhead_test_audio_sink: crate::utils::tests::TestAudioSink,
-        has_overhead_test_audio_source: crate::utils::tests::TestAudioSource,
-        has_overhead_test_audio_source_always_loud: crate::utils::tests::TestAudioSourceAlwaysLoud,
-        has_overhead_test_audio_source_always_same_level: crate::utils::tests::TestAudioSourceAlwaysSameLevel,
-        has_overhead_test_audio_source_always_silent: crate::utils::tests::TestAudioSourceAlwaysSilent,
-        has_overhead_test_audio_source_always_too_loud: crate::utils::tests::TestAudioSourceAlwaysTooLoud,
-        has_overhead_test_audio_source_always_very_quiet: crate::utils::tests::TestAudioSourceAlwaysVeryQuiet,
-        has_overhead_test_midi_sink: crate::utils::tests::TestMidiSink,
-        has_overhead_test_synth: crate::utils::tests::TestSynth,
-        has_overhead_voice: crate::synthesizers::welsh::Voice,
     }
 
     #[test]

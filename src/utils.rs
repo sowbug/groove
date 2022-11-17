@@ -15,7 +15,8 @@ pub mod tests {
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            EvenNewerCommand, HasOverhead, Internal, IsEffect, Overhead, SinksAudio, SinksMidi,
+            EvenNewerCommand, HasOverhead, HasUid, Internal, IsEffect, NewIsController,
+            NewIsEffect, NewIsInstrument, NewUpdateable, Overhead, SinksAudio, SinksMidi,
             SinksUpdates, SourcesAudio, SourcesMidi, SourcesUpdates, Terminates, TransformsAudio,
             WatchesClock,
         },
@@ -217,12 +218,11 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysSameLevel {
-        overhead: Overhead,
-
+        uid: usize,
         level: MonoSample,
     }
     impl TestAudioSourceAlwaysSameLevel {
-        pub fn new(level: MonoSample) -> Self {
+        pub fn new_with(level: MonoSample) -> Self {
             Self {
                 level,
                 ..Default::default()
@@ -234,22 +234,12 @@ pub mod tests {
             self.level
         }
     }
-    impl HasOverhead for TestAudioSourceAlwaysSameLevel {
-        fn overhead(&self) -> &Overhead {
-            &self.overhead
-        }
-
-        fn overhead_mut(&mut self) -> &mut Overhead {
-            &mut self.overhead
-        }
-    }
 
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysLoud {
         uid: usize,
-        overhead: Overhead,
     }
-    impl TestIsMidiInstrument for TestAudioSourceAlwaysLoud {}
+    impl NewIsInstrument for TestAudioSourceAlwaysLoud {}
     impl TestAudioSourceAlwaysLoud {
         pub fn new() -> Self {
             Self {
@@ -262,16 +252,7 @@ pub mod tests {
             MONO_SAMPLE_MAX
         }
     }
-    impl HasOverhead for TestAudioSourceAlwaysLoud {
-        fn overhead(&self) -> &Overhead {
-            &self.overhead
-        }
-
-        fn overhead_mut(&mut self) -> &mut Overhead {
-            &mut self.overhead
-        }
-    }
-    impl TestUpdateable for TestAudioSourceAlwaysLoud {
+    impl NewUpdateable for TestAudioSourceAlwaysLoud {
         type Message = TestMessage;
 
         fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -294,8 +275,9 @@ pub mod tests {
 
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysTooLoud {
-        overhead: Overhead,
+        uid: usize,
     }
+    impl NewIsInstrument for TestAudioSourceAlwaysTooLoud {}
     impl TestAudioSourceAlwaysTooLoud {
         pub fn new() -> Self {
             Self {
@@ -308,20 +290,32 @@ pub mod tests {
             MONO_SAMPLE_MAX + 0.1
         }
     }
-    impl HasOverhead for TestAudioSourceAlwaysTooLoud {
-        fn overhead(&self) -> &Overhead {
-            &self.overhead
+    impl HasUid for TestAudioSourceAlwaysTooLoud {
+        fn uid(&self) -> usize {
+            self.uid
         }
 
-        fn overhead_mut(&mut self) -> &mut Overhead {
-            &mut self.overhead
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid
+        }
+    }
+    impl NewUpdateable for TestAudioSourceAlwaysTooLoud {
+        type Message = TestMessage;
+
+        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            todo!()
+        }
+
+        fn param_id_for_name(&self, param_name: &str) -> usize {
+            todo!()
         }
     }
 
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysSilent {
-        overhead: Overhead,
+        uid: usize,
     }
+    impl NewIsInstrument for TestAudioSourceAlwaysSilent {}
     impl TestAudioSourceAlwaysSilent {
         pub fn new() -> Self {
             Self {
@@ -334,22 +328,32 @@ pub mod tests {
             MONO_SAMPLE_SILENCE
         }
     }
-    impl HasOverhead for TestAudioSourceAlwaysSilent {
-        fn overhead(&self) -> &Overhead {
-            &self.overhead
+    impl HasUid for TestAudioSourceAlwaysSilent {
+        fn uid(&self) -> usize {
+            self.uid
         }
 
-        fn overhead_mut(&mut self) -> &mut Overhead {
-            &mut self.overhead
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid
+        }
+    }
+    impl NewUpdateable for TestAudioSourceAlwaysSilent {
+        type Message = TestMessage;
+
+        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            todo!()
+        }
+
+        fn param_id_for_name(&self, param_name: &str) -> usize {
+            todo!()
         }
     }
 
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysVeryQuiet {
         uid: usize,
-        overhead: Overhead,
     }
-    impl TestIsMidiInstrument for TestAudioSourceAlwaysVeryQuiet {}
+    impl NewIsInstrument for TestAudioSourceAlwaysVeryQuiet {}
     impl TestAudioSourceAlwaysVeryQuiet {
         #[allow(dead_code)]
         pub fn new() -> Self {
@@ -363,26 +367,6 @@ pub mod tests {
             MONO_SAMPLE_MIN
         }
     }
-    impl HasOverhead for TestAudioSourceAlwaysVeryQuiet {
-        fn overhead(&self) -> &Overhead {
-            &self.overhead
-        }
-
-        fn overhead_mut(&mut self) -> &mut Overhead {
-            &mut self.overhead
-        }
-    }
-    impl TestUpdateable for TestAudioSourceAlwaysVeryQuiet {
-        type Message = TestMessage;
-
-        fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
-            EvenNewerCommand::none()
-        }
-
-        fn param_id_for_name(&self, _param_name: &str) -> usize {
-            usize::MAX
-        }
-    }
     impl HasUid for TestAudioSourceAlwaysVeryQuiet {
         fn uid(&self) -> usize {
             self.uid
@@ -390,6 +374,17 @@ pub mod tests {
 
         fn set_uid(&mut self, uid: usize) {
             self.uid = uid;
+        }
+    }
+    impl NewUpdateable for TestAudioSourceAlwaysVeryQuiet {
+        type Message = TestMessage;
+
+        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+            todo!()
+        }
+
+        fn param_id_for_name(&self, param_name: &str) -> usize {
+            todo!()
         }
     }
 
@@ -478,32 +473,25 @@ pub mod tests {
         UpdateF32(usize, f32),
     }
 
-    // Primitive traits
-    pub(crate) trait TestUpdateable {
-        type Message;
-        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message>;
-        fn param_id_for_name(&self, param_name: &str) -> usize;
-    }
-    pub trait HasUid {
-        fn uid(&self) -> usize;
-        fn set_uid(&mut self, uid: usize);
-    }
+    // Primitive traits pub(crate) trait TestUpdateable { type Message; fn
+    // update(&mut self, message: Self::Message) ->
+    //     EvenNewerCommand<Self::Message>; fn param_id_for_name(&self,
+    //     param_name: &str) -> usize; }
 
-    // Composed traits, top-level traits
-    pub(crate) trait TestIsController: TestUpdateable + HasUid + Terminates {}
-    pub(crate) trait TestIsEffect: TestUpdateable + HasUid + TransformsAudio {}
-    pub(crate) trait TestIsMidiInstrument: TestUpdateable + HasUid + SourcesAudio {}
-    pub(crate) type TestTestIsController = dyn TestIsController<Message = TestMessage>;
-    pub(crate) type TestTestIsEffect = dyn TestIsEffect<Message = TestMessage>;
-    pub(crate) type TestTestIsMidiInstrument = dyn TestIsMidiInstrument<Message = TestMessage>;
-    pub(crate) type TestTestUpdateable = dyn TestUpdateable<Message = TestMessage>;
+    // // Composed traits, top-level traits pub(crate) trait TestIsController:
+    // TestUpdateable + HasUid + Terminates {} pub(crate) trait TestIsEffect:
+    // TestUpdateable + HasUid + TransformsAudio {} pub(crate) trait
+    // TestIsMidiInstrument: TestUpdateable + HasUid + SourcesAudio {}
+    // pub(crate) type TestTestIsController = dyn TestIsController<Message =
+    // TestMessage>; pub(crate) type TestTestIsEffect = dyn TestIsEffect<Message
+    // = TestMessage>; pub(crate) type TestTestIsMidiInstrument = dyn
+    // TestIsMidiInstrument<Message = TestMessage>; pub(crate) type
+    // TestTestUpdateable = dyn TestUpdateable<Message = TestMessage>;
 
     pub(crate) enum TestBoxedEntity {
-        TestIsController(Box<TestTestIsController>),
-        TestIsEffect(Box<TestTestIsEffect>),
-        TestIsMidiInstrument(Box<TestTestIsMidiInstrument>),
-        #[allow(dead_code)]
-        TestUpdateable(Box<TestTestUpdateable>),
+        TestIsController(Box<dyn NewIsController<Message = TestMessage>>),
+        TestIsEffect(Box<dyn NewIsEffect<Message = TestMessage>>),
+        TestIsInstrument(Box<dyn NewIsInstrument<Message = TestMessage>>),
     }
 
     #[derive(Default)]
@@ -517,10 +505,7 @@ pub mod tests {
             match entity {
                 TestBoxedEntity::TestIsController(ref mut e) => e.set_uid(uid),
                 TestBoxedEntity::TestIsEffect(ref mut e) => e.set_uid(uid),
-                TestBoxedEntity::TestIsMidiInstrument(ref mut e) => e.set_uid(uid),
-                TestBoxedEntity::TestUpdateable(_) => {
-                    todo!("I don't think anyone should be just an updateable")
-                }
+                TestBoxedEntity::TestIsInstrument(ref mut e) => e.set_uid(uid),
             }
 
             self.uid_to_item.insert(uid, entity);
@@ -551,11 +536,11 @@ pub mod tests {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct TestMixer {
         uid: usize,
     }
-    impl TestIsEffect for TestMixer {}
+    impl NewIsEffect for TestMixer {}
     impl HasUid for TestMixer {
         fn uid(&self) -> usize {
             self.uid
@@ -570,7 +555,7 @@ pub mod tests {
             input_sample
         }
     }
-    impl TestUpdateable for TestMixer {
+    impl NewUpdateable for TestMixer {
         type Message = TestMessage;
 
         fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -610,8 +595,7 @@ pub mod tests {
                     // TODO: everyone's the same... design issue?
                     TestBoxedEntity::TestIsController(e) => e.param_id_for_name(param_name),
                     TestBoxedEntity::TestIsEffect(e) => e.param_id_for_name(param_name),
-                    TestBoxedEntity::TestIsMidiInstrument(e) => e.param_id_for_name(param_name),
-                    TestBoxedEntity::TestUpdateable(e) => e.param_id_for_name(param_name),
+                    TestBoxedEntity::TestIsInstrument(e) => e.param_id_for_name(param_name),
                 };
 
                 if let Some(controller) = self.store.get(controller_uid) {
@@ -637,11 +621,7 @@ pub mod tests {
                         return;
                     }
                     TestBoxedEntity::TestIsEffect(_) => {}
-                    TestBoxedEntity::TestIsMidiInstrument(_) => {
-                        debug_assert!(false, "this item doesn't transform audio");
-                        return;
-                    }
-                    TestBoxedEntity::TestUpdateable(_) => {
+                    TestBoxedEntity::TestIsInstrument(_) => {
                         debug_assert!(false, "this item doesn't transform audio");
                         return;
                     }
@@ -656,11 +636,7 @@ pub mod tests {
                         return;
                     }
                     TestBoxedEntity::TestIsEffect(_) => {}
-                    TestBoxedEntity::TestIsMidiInstrument(_) => {}
-                    TestBoxedEntity::TestUpdateable(_) => {
-                        debug_assert!(false, "this item doesn't output audio");
-                        return;
-                    }
+                    TestBoxedEntity::TestIsInstrument(_) => {}
                 }
             }
 
@@ -714,8 +690,7 @@ pub mod tests {
                 // TODO: seems like just one kind needs this
                 TestBoxedEntity::TestIsController(entity) => entity.is_finished(),
                 TestBoxedEntity::TestIsEffect(_) => true,
-                TestBoxedEntity::TestIsMidiInstrument(_) => true,
-                TestBoxedEntity::TestUpdateable(_) => true,
+                TestBoxedEntity::TestIsInstrument(_) => true,
             })
         }
 
@@ -731,8 +706,7 @@ pub mod tests {
                         TestBoxedEntity::TestIsController(entity) => {
                             vec.push(entity.update(tick_fn(clock.clone())));
                         }
-                        TestBoxedEntity::TestIsMidiInstrument(_) => {}
-                        TestBoxedEntity::TestUpdateable(_) => {}
+                        TestBoxedEntity::TestIsInstrument(_) => {}
                         TestBoxedEntity::TestIsEffect(_) => {
                             // TODO: ensure that effects get a tick via
                             // source_audio() even if they're muted or disabled
@@ -779,7 +753,7 @@ pub mod tests {
                             match entity {
                                 // If it's a leaf, eval it now and add it to the
                                 // running sum.
-                                TestBoxedEntity::TestIsMidiInstrument(entity) => {
+                                TestBoxedEntity::TestIsInstrument(entity) => {
                                     sum += entity.source_audio(clock);
                                 }
                                 // If it's a node, eval its leaves, then eval
@@ -796,10 +770,9 @@ pub mod tests {
                                                 match entity {
                                                     TestBoxedEntity::TestIsController(_) => {}
                                                     TestBoxedEntity::TestIsEffect(_) => {}
-                                                    TestBoxedEntity::TestIsMidiInstrument(e) => {
+                                                    TestBoxedEntity::TestIsInstrument(e) => {
                                                         sum += e.source_audio(clock);
                                                     }
-                                                    TestBoxedEntity::TestUpdateable(_) => todo!(),
                                                 }
                                             }
                                         }
@@ -811,10 +784,10 @@ pub mod tests {
                                             if let Some(entity) = self.store.get_mut(*source_uid) {
                                                 match entity {
                                                     TestBoxedEntity::TestIsController(_) => {}
-                                                    TestBoxedEntity::TestIsEffect(_) => stack
-                                                        .push(StackEntry::ToVisit(*source_uid)),
-                                                    TestBoxedEntity::TestIsMidiInstrument(_) => {}
-                                                    TestBoxedEntity::TestUpdateable(_) => todo!(),
+                                                    TestBoxedEntity::TestIsEffect(_) => {
+                                                        stack.push(StackEntry::ToVisit(*source_uid))
+                                                    }
+                                                    TestBoxedEntity::TestIsInstrument(_) => {}
                                                 }
                                             }
                                         }
@@ -826,7 +799,6 @@ pub mod tests {
                                     }
                                 }
                                 TestBoxedEntity::TestIsController(_) => {}
-                                TestBoxedEntity::TestUpdateable(_) => {}
                             }
                         }
                     }
@@ -834,13 +806,12 @@ pub mod tests {
                     StackEntry::CollectResultFor(uid) => {
                         if let Some(entity) = self.store.get_mut(uid) {
                             match entity {
-                                TestBoxedEntity::TestIsMidiInstrument(_) => {}
+                                TestBoxedEntity::TestIsInstrument(_) => {}
                                 TestBoxedEntity::TestIsEffect(entity) => {
                                     stack.push(StackEntry::Result(entity.transform_audio(sum)));
                                     sum = MONO_SAMPLE_SILENCE;
                                 }
                                 TestBoxedEntity::TestIsController(_) => {}
-                                TestBoxedEntity::TestUpdateable(_) => {}
                             }
                         }
                     }
@@ -855,13 +826,10 @@ pub mod tests {
                     if let Some(target) = self.store.get_mut(*target_uid) {
                         match target {
                             // TODO: everyone is the same...
-                            TestBoxedEntity::TestUpdateable(e) => {
-                                e.update(TestMessage::UpdateF32(*param, value));
-                            }
                             TestBoxedEntity::TestIsController(e) => {
                                 e.update(TestMessage::UpdateF32(*param, value));
                             }
-                            TestBoxedEntity::TestIsMidiInstrument(e) => {
+                            TestBoxedEntity::TestIsInstrument(e) => {
                                 e.update(TestMessage::UpdateF32(*param, value));
                             }
                             TestBoxedEntity::TestIsEffect(e) => {
@@ -880,11 +848,12 @@ pub mod tests {
         Frequency,
     }
 
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct TestLfo {
         uid: usize,
         oscillator: Oscillator,
     }
+    impl NewIsController for TestLfo {}
     impl HasUid for TestLfo {
         fn uid(&self) -> usize {
             self.uid
@@ -894,13 +863,7 @@ pub mod tests {
             self.uid = uid;
         }
     }
-    impl TestLfo {
-        fn set_frequency(&mut self, frequency_hz: f32) {
-            self.oscillator.set_frequency(frequency_hz);
-        }
-    }
-    impl TestIsController for TestLfo {}
-    impl TestUpdateable for TestLfo {
+    impl NewUpdateable for TestLfo {
         type Message = TestMessage;
 
         fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -927,6 +890,11 @@ pub mod tests {
             true
         }
     }
+    impl TestLfo {
+        fn set_frequency(&mut self, frequency_hz: f32) {
+            self.oscillator.set_frequency(frequency_hz);
+        }
+    }
 
     #[test]
     fn test_ideal() {
@@ -934,7 +902,7 @@ pub mod tests {
         let synth_1 = TestSynth::default();
         let mut lfo = TestLfo::default();
         lfo.set_frequency(2.0);
-        let synth_1_uid = o.add(TestBoxedEntity::TestIsMidiInstrument(Box::new(synth_1)));
+        let synth_1_uid = o.add(TestBoxedEntity::TestIsInstrument(Box::new(synth_1)));
         let lfo_uid = o.add(TestBoxedEntity::TestIsController(Box::new(lfo)));
         o.link_control(
             lfo_uid,
@@ -945,7 +913,7 @@ pub mod tests {
 
         let loud_source = TestAudioSourceAlwaysLoud::default();
         let arpeggiator = TestArpeggiator::default();
-        let loud_source_uid = o.add(TestBoxedEntity::TestIsMidiInstrument(Box::new(loud_source)));
+        let loud_source_uid = o.add(TestBoxedEntity::TestIsInstrument(Box::new(loud_source)));
         let arpeggiator_uid = o.add(TestBoxedEntity::TestIsController(Box::new(arpeggiator)));
         o.link_control(
             arpeggiator_uid,
@@ -973,7 +941,7 @@ pub mod tests {
     pub struct TestNegatingEffect {
         uid: usize,
     }
-    impl TestIsEffect for TestNegatingEffect {}
+    impl NewIsEffect for TestNegatingEffect {}
     impl HasUid for TestNegatingEffect {
         fn uid(&self) -> usize {
             self.uid
@@ -983,7 +951,7 @@ pub mod tests {
             self.uid = uid;
         }
     }
-    impl TestUpdateable for TestNegatingEffect {
+    impl NewUpdateable for TestNegatingEffect {
         type Message = TestMessage;
 
         fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -1009,7 +977,6 @@ pub mod tests {
     #[derive(Debug)]
     pub struct TestSynth {
         uid: usize,
-        overhead: Overhead,
 
         oscillator: Box<Oscillator>,
         envelope: Rrc<dyn SourcesAudio>,
@@ -1039,7 +1006,6 @@ pub mod tests {
         fn default() -> Self {
             Self {
                 uid: 0,
-                overhead: Overhead::default(),
                 oscillator: Box::new(Oscillator::new()),
                 envelope: rrc(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
             }
@@ -1051,18 +1017,9 @@ pub mod tests {
             self.oscillator.source_audio(clock) * self.envelope.borrow_mut().source_audio(clock)
         }
     }
-    impl HasOverhead for TestSynth {
-        fn overhead(&self) -> &Overhead {
-            &self.overhead
-        }
 
-        fn overhead_mut(&mut self) -> &mut Overhead {
-            &mut self.overhead
-        }
-    }
-
-    impl TestIsMidiInstrument for TestSynth {}
-    impl TestUpdateable for TestSynth {
+    impl NewIsInstrument for TestSynth {}
+    impl NewUpdateable for TestSynth {
         type Message = TestMessage;
 
         fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -1127,8 +1084,8 @@ pub mod tests {
             !self.has_more_work
         }
     }
-    impl TestIsController for TestTimer {}
-    impl TestUpdateable for TestTimer {
+    impl NewIsController for TestTimer {}
+    impl NewUpdateable for TestTimer {
         type Message = TestMessage;
 
         fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -1609,8 +1566,8 @@ pub mod tests {
             }
         }
     }
-    impl TestIsController for TestArpeggiator {}
-    impl TestUpdateable for TestArpeggiator {
+    impl NewIsController for TestArpeggiator {}
+    impl NewUpdateable for TestArpeggiator {
         type Message = TestMessage;
 
         fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {

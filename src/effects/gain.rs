@@ -97,7 +97,7 @@ mod tests {
     fn test_gain_pola() {
         // principle of least astonishment: does a default instance adhere?
         let mut gain = Gain::new();
-        let source = rrc(TestAudioSourceAlwaysSameLevel::new(0.888));
+        let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(0.888));
         gain.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
         assert_eq!(gain.source_audio(&Clock::new()), 0.888);
     }

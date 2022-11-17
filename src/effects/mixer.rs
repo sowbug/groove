@@ -76,7 +76,7 @@ mod tests {
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0);
 
         // ... and one in the middle
-        let source = rrc(TestAudioSourceAlwaysSameLevel::new(0.25));
+        let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(0.25));
         mixer.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0 + 0.25);
     }
