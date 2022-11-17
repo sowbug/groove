@@ -221,6 +221,19 @@ pub mod tests {
         uid: usize,
         level: MonoSample,
     }
+    impl NewIsInstrument for TestAudioSourceAlwaysSameLevel {}
+    impl HasUid for TestAudioSourceAlwaysSameLevel {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.set_uid(uid);
+        }
+    }
+    impl NewUpdateable for TestAudioSourceAlwaysSameLevel {
+        type Message = TestMessage;
+    }
     impl TestAudioSourceAlwaysSameLevel {
         pub fn new_with(level: MonoSample) -> Self {
             Self {
@@ -254,14 +267,6 @@ pub mod tests {
     }
     impl NewUpdateable for TestAudioSourceAlwaysLoud {
         type Message = TestMessage;
-
-        fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
-            todo!()
-        }
-
-        fn param_id_for_name(&self, _param_name: &str) -> usize {
-            usize::MAX
-        }
     }
     impl HasUid for TestAudioSourceAlwaysLoud {
         fn uid(&self) -> usize {
@@ -301,14 +306,6 @@ pub mod tests {
     }
     impl NewUpdateable for TestAudioSourceAlwaysTooLoud {
         type Message = TestMessage;
-
-        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
-            todo!()
-        }
-
-        fn param_id_for_name(&self, param_name: &str) -> usize {
-            todo!()
-        }
     }
 
     #[derive(Debug, Default)]
@@ -339,14 +336,6 @@ pub mod tests {
     }
     impl NewUpdateable for TestAudioSourceAlwaysSilent {
         type Message = TestMessage;
-
-        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
-            todo!()
-        }
-
-        fn param_id_for_name(&self, param_name: &str) -> usize {
-            todo!()
-        }
     }
 
     #[derive(Debug, Default)]
@@ -378,14 +367,6 @@ pub mod tests {
     }
     impl NewUpdateable for TestAudioSourceAlwaysVeryQuiet {
         type Message = TestMessage;
-
-        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
-            todo!()
-        }
-
-        fn param_id_for_name(&self, param_name: &str) -> usize {
-            todo!()
-        }
     }
 
     #[derive(Debug)]
@@ -557,14 +538,6 @@ pub mod tests {
     }
     impl NewUpdateable for TestMixer {
         type Message = TestMessage;
-
-        fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
-            todo!()
-        }
-
-        fn param_id_for_name(&self, _param_name: &str) -> usize {
-            todo!()
-        }
     }
 
     #[derive(Default)]
@@ -953,14 +926,6 @@ pub mod tests {
     }
     impl NewUpdateable for TestNegatingEffect {
         type Message = TestMessage;
-
-        fn update(&mut self, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
-            todo!()
-        }
-
-        fn param_id_for_name(&self, _param_name: &str) -> usize {
-            todo!()
-        }
     }
     impl TransformsAudio for TestNegatingEffect {
         fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
@@ -1099,10 +1064,6 @@ pub mod tests {
                 TestMessage::UpdateF32(_, _) => todo!(),
             }
             EvenNewerCommand::none()
-        }
-
-        fn param_id_for_name(&self, _param_name: &str) -> usize {
-            todo!()
         }
     }
     impl HasUid for TestTimer {
@@ -1581,10 +1542,6 @@ pub mod tests {
                 TestMessage::UpdateF32(_, _) => todo!(),
             }
             EvenNewerCommand::none()
-        }
-
-        fn param_id_for_name(&self, _param_name: &str) -> usize {
-            todo!()
         }
     }
     impl HasUid for TestArpeggiator {

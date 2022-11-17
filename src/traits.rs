@@ -22,8 +22,12 @@ pub(crate) trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid {}
 
 pub(crate) trait NewUpdateable: Debug {
     type Message;
-    fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message>;
-    fn param_id_for_name(&self, param_name: &str) -> usize;
+    fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        EvenNewerCommand::none()
+    }
+    fn param_id_for_name(&self, param_name: &str) -> usize {
+        usize::MAX
+    }
 }
 pub trait HasUid: Debug {
     fn uid(&self) -> usize;
