@@ -383,7 +383,7 @@ pub mod tests {
         clock::Clock,
         clock::WatchedClock,
         common::{rrc, rrc_clone, rrc_downgrade, Rrc, MONO_SAMPLE_SILENCE},
-        control::{AdsrEnvelopeControlParams, GainControlParams},
+        control::{AdsrEnvelopeControlParams, BigMessage, GainControlParams},
         effects::{
             arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         },
@@ -401,9 +401,13 @@ pub mod tests {
             welsh::{PatchName, Synth},
         },
         traits::{SinksMidi, SinksUpdates, SourcesMidi, SourcesUpdates, Terminates},
-        utils::tests::{
-            OldTestOrchestrator, TestArpeggiator, TestArpeggiatorControlParams, TestClockWatcher,
-            TestControlSourceContinuous, TestMidiSink, TestSynth, TestTimer, TestTrigger,
+        utils::{
+            tests::{
+                OldTestOrchestrator, TestArpeggiator, TestArpeggiatorControlParams,
+                TestClockWatcher, TestControlSourceContinuous, TestMidiSink, TestSynth,
+                TestTrigger,
+            },
+            Timer,
         },
     };
     use rand::random;
@@ -478,7 +482,7 @@ pub mod tests {
         clock.add_watcher(rrc(trigger_off));
 
         // Tell the orchestrator when to end its loop.
-        let timer = TestTimer::new_with(2.0);
+        let timer = Timer::<TestMessage>::new_with(2.0);
         clock.add_watcher(rrc(timer));
 
         // Run everything.

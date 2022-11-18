@@ -6,8 +6,8 @@ use crate::{
     orchestrator::Store,
     traits::{
         BoxedEntity, EvenNewerCommand, HasUid, Internal, Message, NewIsController, NewIsEffect,
-        NewUpdateable, Terminates,
-    },
+        NewUpdateable, Terminates, WatchesClock,
+    }, control::BigMessage,
 };
 use core::fmt::Debug;
 use std::{collections::HashMap, marker::PhantomData};
@@ -364,6 +364,12 @@ impl<M: Message> HasUid for Timer<M> {
         self.uid = uid;
     }
 }
+impl<M: Message> WatchesClock for Timer<M> {
+    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
+        self.has_more_work = clock.seconds() < self.time_to_run_seconds;
+        Vec::new()
+    }
+}
 
 #[derive(Debug, Default)]
 pub(crate) struct Trigger<M: Message> {
@@ -515,7 +521,7 @@ pub mod tests {
                 .add_audio_source(rrc_downgrade::<Oscillator>(&osc));
             o.add_audio_source(rrc_downgrade::<dyn IsEffect>(&effect));
         }
-        c.add_watcher(rrc(TestTimer::new_with(2.0)));
+        c.add_watcher(rrc(Timer::<TestMessage>::new_with(2.0)));
         if let Some(control) = control_opt {
             c.add_watcher(rrc_clone::<dyn WatchesClock>(&control));
         }
@@ -1183,62 +1189,6 @@ pub mod tests {
         }
     }
     impl<M: Message> HasUid for TestSynth<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestTimer {
-        uid: usize,
-        has_more_work: bool,
-        time_to_run_seconds: f32,
-    }
-    impl TestTimer {
-        pub fn new_with(time_to_run_seconds: f32) -> Self {
-            Self {
-                time_to_run_seconds,
-                ..Default::default()
-            }
-        }
-    }
-    impl WatchesClock for TestTimer {
-        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-            self.has_more_work = clock.seconds() < self.time_to_run_seconds;
-            Vec::new()
-        }
-    }
-    impl Terminates for TestTimer {
-        fn is_finished(&self) -> bool {
-            !self.has_more_work
-        }
-    }
-    impl NewIsController for TestTimer {}
-    impl NewUpdateable for TestTimer {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                TestMessage::Nothing => todo!(),
-                TestMessage::Something => todo!(),
-                TestMessage::Tick => {
-                    self.has_more_work = clock.seconds() < self.time_to_run_seconds;
-                }
-                TestMessage::ControlF32(_, _) => todo!(),
-                TestMessage::UpdateF32(_, _) => todo!(),
-            }
-            EvenNewerCommand::none()
-        }
-    }
-    impl HasUid for TestTimer {
         fn uid(&self) -> usize {
             self.uid
         }
