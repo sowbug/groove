@@ -68,6 +68,49 @@ pub(crate) enum Uid {
     IsMidiEffect(usize),
 }
 
+#[derive(Debug, Default)]
+pub struct Store<M> {
+    last_uid: usize,
+    uid_to_item: HashMap<usize, BoxedEntity<M>>,
+}
+
+impl<M> Store<M> {
+    pub(crate) fn add(&mut self, mut entity: BoxedEntity<M>) -> usize {
+        let uid = self.get_next_uid();
+        match entity {
+            BoxedEntity::Controller(ref mut e) => e.set_uid(uid),
+            BoxedEntity::Effect(ref mut e) => e.set_uid(uid),
+            BoxedEntity::Instrument(ref mut e) => e.set_uid(uid),
+        }
+
+        self.uid_to_item.insert(uid, entity);
+        uid
+    }
+
+    pub(crate) fn get(&self, uid: usize) -> Option<&BoxedEntity<M>> {
+        self.uid_to_item.get(&uid)
+    }
+
+    pub(crate) fn get_mut(&mut self, uid: usize) -> Option<&mut BoxedEntity<M>> {
+        self.uid_to_item.get_mut(&uid)
+    }
+
+    pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, BoxedEntity<M>> {
+        self.uid_to_item.values()
+    }
+
+    pub(crate) fn values_mut(
+        &mut self,
+    ) -> std::collections::hash_map::ValuesMut<usize, BoxedEntity<M>> {
+        self.uid_to_item.values_mut()
+    }
+
+    fn get_next_uid(&mut self) -> usize {
+        self.last_uid += 1;
+        self.last_uid
+    }
+}
+
 /// Orchestrator takes a description of a song and turns it into an in-memory
 /// representation that is ready to render to sound.
 #[derive(Debug, Default)]
