@@ -1,4 +1,5 @@
 use crate::{
+    clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
 };
@@ -57,7 +58,7 @@ impl SinksAudio for Bitcrusher {
     }
 }
 impl TransformsAudio for Bitcrusher {
-    fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         let input_i16 = (input_sample * (i16::MAX as MonoSample)) as i16;
         let squished = input_i16 >> self.bits_to_crush;
         let expanded = squished << self.bits_to_crush;
@@ -85,7 +86,7 @@ mod tests {
     #[test]
     fn test_bitcrusher_basic() {
         let mut fx = Bitcrusher::new_with(8);
-        assert_eq!(fx.transform_audio(PI - 3.0), CRUSHED_PI);
+        assert_eq!(fx.transform_audio(&Clock::default(), PI - 3.0), CRUSHED_PI);
     }
 
     #[test]
@@ -95,6 +96,6 @@ mod tests {
         fx.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
         let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(PI - 3.0));
         fx.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
-        assert_eq!(fx.source_audio(&Clock::new()), 2.0 * CRUSHED_PI);
+        assert_eq!(fx.source_audio(&Clock::default()), 2.0 * CRUSHED_PI);
     }
 }

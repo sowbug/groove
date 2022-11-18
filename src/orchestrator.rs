@@ -6,8 +6,9 @@ use crate::{
     id_store::IdStore,
     midi::{patterns::PatternManager, MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{
-        EvenNewerIsUpdateable, IsEffect, IsMidiEffect, MakesIsViewable, SinksAudio, SinksMidi,
-        SinksUpdates, SourcesAudio, SourcesMidi, WatchesClock,
+        EvenNewerIsUpdateable, IsEffect, IsMidiEffect, MakesIsViewable, NewIsController,
+        NewIsEffect, NewIsInstrument, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
+        SourcesMidi, WatchesClock,
     },
 };
 use crossbeam::deque::Worker;
@@ -39,6 +40,13 @@ pub(crate) enum OrchestratorMessage {
     GotAnF32(f32),
     Tick(Clock),
     Midi(Clock, u8, MidiMessage),
+}
+
+#[derive(Debug)]
+pub(crate) enum BoxedEntity<M> {
+    Controller(Box<dyn NewIsController<Message = M>>),
+    Effect(Box<dyn NewIsEffect<Message = M>>),
+    Instrument(Box<dyn NewIsInstrument<Message = M>>),
 }
 
 #[allow(dead_code)]

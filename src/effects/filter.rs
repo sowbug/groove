@@ -1,6 +1,6 @@
 use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio}, clock::Clock,
 };
 use std::f64::consts::PI;
 
@@ -439,7 +439,7 @@ impl SinksAudio for BiQuadFilter {
     }
 }
 impl TransformsAudio for BiQuadFilter {
-    fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         let s64 = input_sample as f64;
         let r = (self.coefficients.b0 / self.coefficients.a0) * s64
             + (self.coefficients.b1 / self.coefficients.a0) * self.sample_m1

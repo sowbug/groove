@@ -1,6 +1,6 @@
 use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
+    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio}, clock::Clock,
 };
 
 #[derive(Clone, Debug, Default)]
@@ -32,7 +32,7 @@ impl SinksAudio for Mixer {
     }
 }
 impl TransformsAudio for Mixer {
-    fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         input_sample
     }
 }

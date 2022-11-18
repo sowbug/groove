@@ -650,7 +650,7 @@ impl SourcesAudio for Voice {
             + (self.filter_cutoff_end - self.filter_cutoff_start)
                 * self.filter_envelope.source_audio(clock);
         self.filter.set_cutoff_pct(new_cutoff_percentage);
-        let filtered_mix = self.filter.transform_audio(osc_sum);
+        let filtered_mix = self.filter.transform_audio(clock, osc_sum);
 
         // LFO amplitude modulation
         let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {

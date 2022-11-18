@@ -8,28 +8,35 @@ use crate::{
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-pub(crate) trait NewIsController: Terminates + NewUpdateable + HasUid {}
-pub(crate) trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid {}
-pub(crate) trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid {}
+pub(crate) trait NewIsController: NewUpdateable + Terminates + HasUid + Debug {}
+pub(crate) trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid + Debug {}
+pub(crate) trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid + Debug {}
 
-// pub(crate) enum GrooveMessage {
-//     None,
-// }
+#[derive(Clone, Debug, Default)]
+pub(crate) enum GrooveMessage {
+    #[default]
+    Nop,
+    Tick,
+    ControlF32(usize, f32), // Sent by controller, (self.uid, new value)
+    UpdateF32(usize, f32),  // sent by system, (param_id, new value)
+    Midi(MidiChannel, MidiMessage),
+}
 
 // pub(crate) type IsControllerType = dyn NewIsController<Message = GrooveMessage>;
 // pub(crate) type IsEffectType = dyn NewIsEffect<Message = GrooveMessage>;
 // pub(crate) type IsInstrumentType = dyn NewIsInstrument<Message = GrooveMessage>;
 
-pub(crate) trait NewUpdateable: Debug {
+pub(crate) trait NewUpdateable {
     type Message;
-    fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }
     fn param_id_for_name(&self, param_name: &str) -> usize {
         usize::MAX
     }
 }
-pub trait HasUid: Debug {
+pub trait HasUid {
     fn uid(&self) -> usize;
     fn set_uid(&mut self, uid: usize);
 }
@@ -40,10 +47,10 @@ pub trait SourcesAudio: Debug {
 }
 
 /// TransformsAudio can be thought of as SourcesAudio + SinksAudio, but it's an
-/// important third traits because it exposes the business logic that happens
+/// important third trait because it exposes the business logic that happens
 /// between the sinking and sourcing, which is useful for testing.
 pub trait TransformsAudio: Debug {
-    fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample;
+    fn transform_audio(&mut self, clock: &Clock, input_sample: MonoSample) -> MonoSample;
 }
 
 // Something that Terminates has a point in time where it would be OK never
@@ -139,7 +146,7 @@ impl<T: HasOverhead + SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
             return MONO_SAMPLE_SILENCE;
         }
         if self.is_enabled() {
-            self.transform_audio(input)
+            self.transform_audio(clock, input)
         } else {
             input
         }

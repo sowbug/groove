@@ -532,7 +532,7 @@ pub mod tests {
         }
     }
     impl TransformsAudio for TestMixer {
-        fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
+        fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
             input_sample
         }
     }
@@ -624,13 +624,13 @@ pub mod tests {
             self.patch(source_uid, self.main_mixer_uid);
         }
 
-        fn handle_message(&mut self, message: TestMessage) {
+        fn handle_message(&mut self, clock: &Clock, message: TestMessage) {
             match message {
                 TestMessage::Nothing => todo!(),
                 TestMessage::Something => todo!(),
                 TestMessage::Tick(_) => todo!(),
                 TestMessage::ControlF32(uid, value) => {
-                    self.send_control_f32(uid, value);
+                    self.send_control_f32(clock, uid, value);
                 }
                 TestMessage::UpdateF32(_, _) => todo!(),
             }
@@ -644,8 +644,8 @@ pub mod tests {
         ) -> Vec<MonoSample> {
             let mut samples = Vec::<MonoSample>::new();
             loop {
-                let command = self.update(tick_fn, clock);
-                self.handle_command(command);
+                let command = self.update(clock, tick_fn);
+                self.handle_command(clock, command);
                 if self.are_all_finished() {
                     break;
                 }
@@ -669,15 +669,15 @@ pub mod tests {
 
         fn update(
             &mut self,
-            tick_fn: &dyn Fn(Clock) -> TestMessage,
             clock: &mut Clock,
+            tick_fn: &dyn Fn(Clock) -> TestMessage,
         ) -> EvenNewerCommand<TestMessage> {
             EvenNewerCommand::batch(self.store.values_mut().fold(
                 Vec::new(),
                 |mut vec: Vec<EvenNewerCommand<TestMessage>>, item| {
                     match item {
                         TestBoxedEntity::TestIsController(entity) => {
-                            vec.push(entity.update(tick_fn(clock.clone())));
+                            vec.push(entity.update(clock, tick_fn(clock.clone())));
                         }
                         TestBoxedEntity::TestIsInstrument(_) => {}
                         TestBoxedEntity::TestIsEffect(_) => {
@@ -690,13 +690,13 @@ pub mod tests {
             ))
         }
 
-        fn handle_command(&mut self, command: EvenNewerCommand<TestMessage>) {
+        fn handle_command(&mut self, clock: &Clock, command: EvenNewerCommand<TestMessage>) {
             match command.0 {
                 Internal::None => {}
-                Internal::Single(message) => self.handle_message(message),
+                Internal::Single(message) => self.handle_message(clock, message),
                 Internal::Batch(messages) => {
                     for message in messages {
-                        self.handle_message(message);
+                        self.handle_message(clock, message);
                     }
                 }
             }
@@ -781,7 +781,9 @@ pub mod tests {
                             match entity {
                                 TestBoxedEntity::TestIsInstrument(_) => {}
                                 TestBoxedEntity::TestIsEffect(entity) => {
-                                    stack.push(StackEntry::Result(entity.transform_audio(sum)));
+                                    stack.push(StackEntry::Result(
+                                        entity.transform_audio(clock, sum),
+                                    ));
                                     sum = MONO_SAMPLE_SILENCE;
                                 }
                                 TestBoxedEntity::TestIsController(_) => {}
@@ -793,20 +795,20 @@ pub mod tests {
             sum
         }
 
-        fn send_control_f32(&mut self, uid: usize, value: f32) {
+        fn send_control_f32(&mut self, clock: &Clock, uid: usize, value: f32) {
             if let Some(e) = self.uid_to_control.get(&uid) {
                 for (target_uid, param) in e {
                     if let Some(target) = self.store.get_mut(*target_uid) {
                         match target {
                             // TODO: everyone is the same...
                             TestBoxedEntity::TestIsController(e) => {
-                                e.update(TestMessage::UpdateF32(*param, value));
+                                e.update(clock, TestMessage::UpdateF32(*param, value));
                             }
                             TestBoxedEntity::TestIsInstrument(e) => {
-                                e.update(TestMessage::UpdateF32(*param, value));
+                                e.update(clock, TestMessage::UpdateF32(*param, value));
                             }
                             TestBoxedEntity::TestIsEffect(e) => {
-                                e.update(TestMessage::UpdateF32(*param, value));
+                                e.update(clock, TestMessage::UpdateF32(*param, value));
                             }
                         }
                     }
@@ -839,7 +841,11 @@ pub mod tests {
     impl NewUpdateable for TestLfo {
         type Message = TestMessage;
 
-        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
             if let TestMessage::Tick(clock) = message {
                 let value = self.oscillator.source_audio(&clock);
                 EvenNewerCommand::single(TestMessage::ControlF32(self.uid, value))
@@ -928,7 +934,7 @@ pub mod tests {
         type Message = TestMessage;
     }
     impl TransformsAudio for TestNegatingEffect {
-        fn transform_audio(&mut self, input_sample: MonoSample) -> MonoSample {
+        fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
             -input_sample
         }
     }
@@ -987,7 +993,11 @@ pub mod tests {
     impl NewUpdateable for TestSynth {
         type Message = TestMessage;
 
-        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
             match message {
                 TestMessage::Nothing => todo!(),
                 TestMessage::Something => todo!(),
@@ -1053,7 +1063,11 @@ pub mod tests {
     impl NewUpdateable for TestTimer {
         type Message = TestMessage;
 
-        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
             match message {
                 TestMessage::Nothing => todo!(),
                 TestMessage::Something => todo!(),
@@ -1531,7 +1545,11 @@ pub mod tests {
     impl NewUpdateable for TestArpeggiator {
         type Message = TestMessage;
 
-        fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
             match message {
                 TestMessage::Nothing => todo!(),
                 TestMessage::Something => todo!(),
