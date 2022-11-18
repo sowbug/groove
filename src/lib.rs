@@ -21,6 +21,7 @@ pub(crate) mod effects;
 pub(crate) mod envelopes;
 pub(crate) mod helpers;
 pub(crate) mod id_store;
+pub(crate) mod messages;
 pub(crate) mod midi;
 pub(crate) mod orchestrator;
 pub(crate) mod oscillators;

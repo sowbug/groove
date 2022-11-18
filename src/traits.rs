@@ -12,19 +12,12 @@ pub(crate) trait NewIsController: NewUpdateable + Terminates + HasUid + Debug {}
 pub(crate) trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid + Debug {}
 pub(crate) trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid + Debug {}
 
-#[derive(Clone, Debug, Default)]
-pub(crate) enum GrooveMessage {
-    #[default]
-    Nop,
-    Tick,
-    ControlF32(usize, f32), // Sent by controller, (self.uid, new value)
-    UpdateF32(usize, f32),  // sent by system, (param_id, new value)
-    Midi(MidiChannel, MidiMessage),
+#[derive(Debug)]
+pub(crate) enum BoxedEntity<M> {
+    Controller(Box<dyn NewIsController<Message = M>>),
+    Effect(Box<dyn NewIsEffect<Message = M>>),
+    Instrument(Box<dyn NewIsInstrument<Message = M>>),
 }
-
-// pub(crate) type IsControllerType = dyn NewIsController<Message = GrooveMessage>;
-// pub(crate) type IsEffectType = dyn NewIsEffect<Message = GrooveMessage>;
-// pub(crate) type IsInstrumentType = dyn NewIsInstrument<Message = GrooveMessage>;
 
 pub(crate) trait NewUpdateable {
     type Message;

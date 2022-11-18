@@ -1,6 +1,7 @@
 use crate::{
     clock::Clock,
-    traits::{EvenNewerCommand, GrooveMessage, HasUid, NewIsController, NewUpdateable, Terminates},
+    messages::GrooveMessage,
+    traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, Terminates},
 };
 use core::fmt::Debug;
 use std::marker::PhantomData;
@@ -164,16 +165,18 @@ pub mod tests {
         control::{BigMessage, OscillatorControlParams, SmallMessage, SmallMessageGenerator},
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
+        messages::tests::TestMessage,
         midi::{MidiChannel, MidiMessage, MidiNote, MidiUtils, MIDI_CHANNEL_RECEIVE_ALL},
+        orchestrator::Store,
         oscillators::Oscillator,
         settings::patches::EnvelopeSettings,
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            EvenNewerCommand, HasOverhead, HasUid, Internal, IsEffect, NewIsController,
-            NewIsEffect, NewIsInstrument, NewUpdateable, Overhead, SinksAudio, SinksMidi,
-            SinksUpdates, SourcesAudio, SourcesMidi, SourcesUpdates, Terminates, TransformsAudio,
-            WatchesClock,
+            BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, Internal, IsEffect,
+            NewIsController, NewIsEffect, NewIsInstrument, NewUpdateable, Overhead, SinksAudio,
+            SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi, SourcesUpdates, Terminates,
+            TransformsAudio, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -642,80 +645,6 @@ pub mod tests {
         }
     }
 
-    #[derive(Clone, Debug, Default)]
-    pub enum TestMessage {
-        #[default]
-        Nothing,
-        #[allow(dead_code)]
-        Something,
-        Tick,
-        ControlF32(usize, f32),
-        UpdateF32(usize, f32),
-    }
-
-    // Primitive traits pub(crate) trait TestUpdateable { type Message; fn
-    // update(&mut self, message: Self::Message) ->
-    //     EvenNewerCommand<Self::Message>; fn param_id_for_name(&self,
-    //     param_name: &str) -> usize; }
-
-    // // Composed traits, top-level traits pub(crate) trait TestIsController:
-    // TestUpdateable + HasUid + Terminates {} pub(crate) trait TestIsEffect:
-    // TestUpdateable + HasUid + TransformsAudio {} pub(crate) trait
-    // TestIsMidiInstrument: TestUpdateable + HasUid + SourcesAudio {}
-    // pub(crate) type TestTestIsController = dyn TestIsController<Message =
-    // TestMessage>; pub(crate) type TestTestIsEffect = dyn TestIsEffect<Message
-    // = TestMessage>; pub(crate) type TestTestIsMidiInstrument = dyn
-    // TestIsMidiInstrument<Message = TestMessage>; pub(crate) type
-    // TestTestUpdateable = dyn TestUpdateable<Message = TestMessage>;
-
-    pub(crate) enum TestBoxedEntity {
-        TestIsController(Box<dyn NewIsController<Message = TestMessage>>),
-        TestIsEffect(Box<dyn NewIsEffect<Message = TestMessage>>),
-        TestIsInstrument(Box<dyn NewIsInstrument<Message = TestMessage>>),
-    }
-
-    #[derive(Default)]
-    pub struct TestStore {
-        last_uid: usize,
-        uid_to_item: HashMap<usize, TestBoxedEntity>,
-    }
-    impl TestStore {
-        pub(crate) fn add(&mut self, mut entity: TestBoxedEntity) -> usize {
-            let uid = self.get_next_uid();
-            match entity {
-                TestBoxedEntity::TestIsController(ref mut e) => e.set_uid(uid),
-                TestBoxedEntity::TestIsEffect(ref mut e) => e.set_uid(uid),
-                TestBoxedEntity::TestIsInstrument(ref mut e) => e.set_uid(uid),
-            }
-
-            self.uid_to_item.insert(uid, entity);
-            uid
-        }
-
-        pub(crate) fn get(&self, uid: usize) -> Option<&TestBoxedEntity> {
-            self.uid_to_item.get(&uid)
-        }
-
-        pub(crate) fn get_mut(&mut self, uid: usize) -> Option<&mut TestBoxedEntity> {
-            self.uid_to_item.get_mut(&uid)
-        }
-
-        pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, TestBoxedEntity> {
-            self.uid_to_item.values()
-        }
-
-        pub(crate) fn values_mut(
-            &mut self,
-        ) -> std::collections::hash_map::ValuesMut<usize, TestBoxedEntity> {
-            self.uid_to_item.values_mut()
-        }
-
-        fn get_next_uid(&mut self) -> usize {
-            self.last_uid += 1;
-            self.last_uid
-        }
-    }
-
     #[derive(Debug, Default)]
     pub struct TestMixer {
         uid: usize,
@@ -741,7 +670,7 @@ pub mod tests {
 
     #[derive(Default)]
     pub struct TestOrchestrator2 {
-        store: TestStore,
+        store: Store<TestMessage>,
         uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
         audio_sink_uid_to_source_uids: HashMap<usize, Vec<usize>>,
         main_mixer_uid: usize,
@@ -753,11 +682,11 @@ pub mod tests {
                 ..Default::default()
             };
             let main_mixer = Box::new(TestMixer::default());
-            r.main_mixer_uid = r.add(TestBoxedEntity::TestIsEffect(main_mixer));
+            r.main_mixer_uid = r.add(BoxedEntity::<TestMessage>::Effect(main_mixer));
             r
         }
 
-        pub(crate) fn add(&mut self, entity: TestBoxedEntity) -> usize {
+        pub(crate) fn add(&mut self, entity: BoxedEntity<TestMessage>) -> usize {
             self.store.add(entity)
         }
 
@@ -765,13 +694,13 @@ pub mod tests {
             if let Some(target) = self.store.get(target_uid) {
                 let param_id = match target {
                     // TODO: everyone's the same... design issue?
-                    TestBoxedEntity::TestIsController(e) => e.param_id_for_name(param_name),
-                    TestBoxedEntity::TestIsEffect(e) => e.param_id_for_name(param_name),
-                    TestBoxedEntity::TestIsInstrument(e) => e.param_id_for_name(param_name),
+                    BoxedEntity::Controller(e) => e.param_id_for_name(param_name),
+                    BoxedEntity::Effect(e) => e.param_id_for_name(param_name),
+                    BoxedEntity::Instrument(e) => e.param_id_for_name(param_name),
                 };
 
                 if let Some(controller) = self.store.get(controller_uid) {
-                    if let TestBoxedEntity::TestIsController(_controller) = controller {
+                    if let BoxedEntity::Controller(_controller) = controller {
                         self.uid_to_control
                             .entry(controller_uid)
                             .or_default()
@@ -788,12 +717,12 @@ pub mod tests {
                     // TODO: there could be things that have audio input but
                     // don't transform, like an audio recorder (or technically a
                     // main mixer).
-                    TestBoxedEntity::TestIsController(_) => {
+                    BoxedEntity::Controller(_) => {
                         debug_assert!(false, "this item doesn't transform audio");
                         return;
                     }
-                    TestBoxedEntity::TestIsEffect(_) => {}
-                    TestBoxedEntity::TestIsInstrument(_) => {
+                    BoxedEntity::Effect(_) => {}
+                    BoxedEntity::Instrument(_) => {
                         debug_assert!(false, "this item doesn't transform audio");
                         return;
                     }
@@ -803,12 +732,12 @@ pub mod tests {
             // Validate that source_uid refers to something that outputs audio
             if let Some(output) = self.store.get(source_uid) {
                 match output {
-                    TestBoxedEntity::TestIsController(_) => {
+                    BoxedEntity::Controller(_) => {
                         debug_assert!(false, "this item doesn't output audio");
                         return;
                     }
-                    TestBoxedEntity::TestIsEffect(_) => {}
-                    TestBoxedEntity::TestIsInstrument(_) => {}
+                    BoxedEntity::Effect(_) => {}
+                    BoxedEntity::Instrument(_) => {}
                 }
             }
 
@@ -860,9 +789,9 @@ pub mod tests {
         fn are_all_finished(&mut self) -> bool {
             self.store.values().all(|item| match item {
                 // TODO: seems like just one kind needs this
-                TestBoxedEntity::TestIsController(entity) => entity.is_finished(),
-                TestBoxedEntity::TestIsEffect(_) => true,
-                TestBoxedEntity::TestIsInstrument(_) => true,
+                BoxedEntity::Controller(entity) => entity.is_finished(),
+                BoxedEntity::Effect(_) => true,
+                BoxedEntity::Instrument(_) => true,
             })
         }
 
@@ -875,11 +804,11 @@ pub mod tests {
                 Vec::new(),
                 |mut vec: Vec<EvenNewerCommand<TestMessage>>, item| {
                     match item {
-                        TestBoxedEntity::TestIsController(entity) => {
+                        BoxedEntity::Controller(entity) => {
                             vec.push(entity.update(clock, tick_message.clone()));
                         }
-                        TestBoxedEntity::TestIsInstrument(_) => {}
-                        TestBoxedEntity::TestIsEffect(_) => {
+                        BoxedEntity::Instrument(_) => {}
+                        BoxedEntity::Effect(_) => {
                             // TODO: ensure that effects get a tick via
                             // source_audio() even if they're muted or disabled
                         }
@@ -925,12 +854,12 @@ pub mod tests {
                             match entity {
                                 // If it's a leaf, eval it now and add it to the
                                 // running sum.
-                                TestBoxedEntity::TestIsInstrument(entity) => {
+                                BoxedEntity::Instrument(entity) => {
                                     sum += entity.source_audio(clock);
                                 }
                                 // If it's a node, eval its leaves, then eval
                                 // its nodes, then process the result.
-                                TestBoxedEntity::TestIsEffect(_) => {
+                                BoxedEntity::Effect(_) => {
                                     // Tell us to process sum.
                                     stack.push(StackEntry::CollectResultFor(uid));
                                     if let Some(source_uids) =
@@ -940,9 +869,9 @@ pub mod tests {
                                         for source_uid in source_uids {
                                             if let Some(entity) = self.store.get_mut(*source_uid) {
                                                 match entity {
-                                                    TestBoxedEntity::TestIsController(_) => {}
-                                                    TestBoxedEntity::TestIsEffect(_) => {}
-                                                    TestBoxedEntity::TestIsInstrument(e) => {
+                                                    BoxedEntity::Controller(_) => {}
+                                                    BoxedEntity::Effect(_) => {}
+                                                    BoxedEntity::Instrument(e) => {
                                                         sum += e.source_audio(clock);
                                                     }
                                                 }
@@ -955,11 +884,11 @@ pub mod tests {
                                         for source_uid in source_uids {
                                             if let Some(entity) = self.store.get_mut(*source_uid) {
                                                 match entity {
-                                                    TestBoxedEntity::TestIsController(_) => {}
-                                                    TestBoxedEntity::TestIsEffect(_) => {
+                                                    BoxedEntity::Controller(_) => {}
+                                                    BoxedEntity::Effect(_) => {
                                                         stack.push(StackEntry::ToVisit(*source_uid))
                                                     }
-                                                    TestBoxedEntity::TestIsInstrument(_) => {}
+                                                    BoxedEntity::Instrument(_) => {}
                                                 }
                                             }
                                         }
@@ -970,7 +899,7 @@ pub mod tests {
                                         // want to flag it).
                                     }
                                 }
-                                TestBoxedEntity::TestIsController(_) => {}
+                                BoxedEntity::Controller(_) => {}
                             }
                         }
                     }
@@ -978,14 +907,14 @@ pub mod tests {
                     StackEntry::CollectResultFor(uid) => {
                         if let Some(entity) = self.store.get_mut(uid) {
                             match entity {
-                                TestBoxedEntity::TestIsInstrument(_) => {}
-                                TestBoxedEntity::TestIsEffect(entity) => {
+                                BoxedEntity::Instrument(_) => {}
+                                BoxedEntity::Effect(entity) => {
                                     stack.push(StackEntry::Result(
                                         entity.transform_audio(clock, sum),
                                     ));
                                     sum = MONO_SAMPLE_SILENCE;
                                 }
-                                TestBoxedEntity::TestIsController(_) => {}
+                                BoxedEntity::Controller(_) => {}
                             }
                         }
                     }
@@ -1000,13 +929,13 @@ pub mod tests {
                     if let Some(target) = self.store.get_mut(*target_uid) {
                         match target {
                             // TODO: everyone is the same...
-                            TestBoxedEntity::TestIsController(e) => {
+                            BoxedEntity::Controller(e) => {
                                 e.update(clock, TestMessage::UpdateF32(*param, value));
                             }
-                            TestBoxedEntity::TestIsInstrument(e) => {
+                            BoxedEntity::Instrument(e) => {
                                 e.update(clock, TestMessage::UpdateF32(*param, value));
                             }
-                            TestBoxedEntity::TestIsEffect(e) => {
+                            BoxedEntity::Effect(e) => {
                                 e.update(clock, TestMessage::UpdateF32(*param, value));
                             }
                         }
@@ -1080,8 +1009,8 @@ pub mod tests {
         let synth_1 = TestSynth::default();
         let mut lfo = TestLfo::default();
         lfo.set_frequency(2.0);
-        let synth_1_uid = o.add(TestBoxedEntity::TestIsInstrument(Box::new(synth_1)));
-        let lfo_uid = o.add(TestBoxedEntity::TestIsController(Box::new(lfo)));
+        let synth_1_uid = o.add(BoxedEntity::Instrument(Box::new(synth_1)));
+        let lfo_uid = o.add(BoxedEntity::Controller(Box::new(lfo)));
         o.link_control(
             lfo_uid,
             synth_1_uid,
@@ -1091,8 +1020,8 @@ pub mod tests {
 
         let loud_source = TestAudioSourceAlwaysLoud::default();
         let arpeggiator = TestArpeggiator::default();
-        let loud_source_uid = o.add(TestBoxedEntity::TestIsInstrument(Box::new(loud_source)));
-        let arpeggiator_uid = o.add(TestBoxedEntity::TestIsController(Box::new(arpeggiator)));
+        let loud_source_uid = o.add(BoxedEntity::Instrument(Box::new(loud_source)));
+        let arpeggiator_uid = o.add(BoxedEntity::Controller(Box::new(arpeggiator)));
         o.link_control(
             arpeggiator_uid,
             loud_source_uid,
@@ -1100,13 +1029,13 @@ pub mod tests {
         );
 
         let effect = TestNegatingEffect::default();
-        let effect_uid = o.add(TestBoxedEntity::TestIsEffect(Box::new(effect)));
+        let effect_uid = o.add(BoxedEntity::Effect(Box::new(effect)));
         o.patch(loud_source_uid, effect_uid);
         o.connect_to_main_mixer(effect_uid);
 
         const SECONDS: usize = 1;
-        let t = TestTimer::new_with(SECONDS as f32);
-        let _ = o.add(TestBoxedEntity::TestIsController(Box::new(t)));
+        let t = Timer::<TestMessage>::new_with(SECONDS as f32);
+        let _ = o.add(BoxedEntity::Controller(Box::new(t)));
 
         let mut clock = Clock::new();
         let samples = o.run(&mut clock, TestMessage::Tick, true);
