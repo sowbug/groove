@@ -1,6 +1,3 @@
-#![feature(trait_upcasting)]
-#![allow(incomplete_features)]
-
 use anyhow::Ok;
 use clap::Parser;
 use groove::{IOHelper, Orchestrator};
