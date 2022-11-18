@@ -1,13 +1,14 @@
 use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_SILENCE},
+    control::{BigMessage, SmallMessageGenerator},
     effects::mixer::Mixer,
     messages::GrooveMessage,
     orchestrator::Store,
     traits::{
         BoxedEntity, EvenNewerCommand, HasUid, Internal, Message, NewIsController, NewIsEffect,
-        NewUpdateable, Terminates, WatchesClock,
-    }, control::BigMessage,
+        NewUpdateable, SourcesUpdates, Terminates, WatchesClock,
+    },
 };
 use core::fmt::Debug;
 use std::{collections::HashMap, marker::PhantomData};
@@ -378,6 +379,9 @@ pub(crate) struct Trigger<M: Message> {
     value: f32,
     has_triggered: bool,
 
+    target_uids: Vec<usize>,
+    target_messages: Vec<SmallMessageGenerator>,
+
     _phantom: PhantomData<M>,
 }
 impl<M: Message> NewIsController for Trigger<M> {}
@@ -412,6 +416,34 @@ impl<M: Message> Trigger<M> {
             time_to_trigger_seconds,
             value,
             ..Default::default()
+        }
+    }
+}
+impl<M: Message> SourcesUpdates for Trigger<M> {
+    fn target_uids(&self) -> &[usize] {
+        &self.target_uids
+    }
+
+    fn target_uids_mut(&mut self) -> &mut Vec<usize> {
+        &mut self.target_uids
+    }
+
+    fn target_messages(&self) -> &[SmallMessageGenerator] {
+        &self.target_messages
+    }
+
+    fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator> {
+        &mut self.target_messages
+    }
+}
+impl<M: Message> WatchesClock for Trigger<M> {
+    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
+        if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
+            self.has_triggered = true;
+            let value = self.value;
+            self.post_message(value)
+        } else {
+            Vec::default()
         }
     }
 }
@@ -1195,58 +1227,6 @@ pub mod tests {
 
         fn set_uid(&mut self, uid: usize) {
             self.uid = uid;
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestTrigger {
-        target_uids: Vec<usize>,
-        target_messages: Vec<SmallMessageGenerator>,
-
-        time_to_trigger_seconds: f32,
-        value: f32,
-        has_triggered: bool,
-    }
-    impl TestTrigger {
-        pub fn new(time_to_trigger_seconds: f32, value: f32) -> Self {
-            Self {
-                time_to_trigger_seconds,
-                value,
-                ..Default::default()
-            }
-        }
-    }
-    impl WatchesClock for TestTrigger {
-        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-            if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
-                self.has_triggered = true;
-                let value = self.value;
-                self.post_message(value)
-            } else {
-                Vec::default()
-            }
-        }
-    }
-    impl SourcesUpdates for TestTrigger {
-        fn target_uids(&self) -> &[usize] {
-            &self.target_uids
-        }
-
-        fn target_uids_mut(&mut self) -> &mut Vec<usize> {
-            &mut self.target_uids
-        }
-
-        fn target_messages(&self) -> &[SmallMessageGenerator] {
-            &self.target_messages
-        }
-
-        fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator> {
-            &mut self.target_messages
-        }
-    }
-    impl Terminates for TestTrigger {
-        fn is_finished(&self) -> bool {
-            self.has_triggered
         }
     }
 

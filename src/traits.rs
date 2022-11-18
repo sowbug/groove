@@ -405,9 +405,8 @@ pub mod tests {
             tests::{
                 OldTestOrchestrator, TestArpeggiator, TestArpeggiatorControlParams,
                 TestClockWatcher, TestControlSourceContinuous, TestMidiSink, TestSynth,
-                TestTrigger,
             },
-            Timer,
+            Timer, Trigger,
         },
     };
     use rand::random;
@@ -455,9 +454,9 @@ pub mod tests {
         //     .message_for(&GainControlParams::Ceiling.to_string());
         // audio_to_controller.add_target(GAIN_UID, message);
 
-        // TestTrigger posts a message at a given time. We use it to trigger the
+        // Trigger posts a message at a given time. We use it to trigger the
         // AdsrEnvelope note-on..
-        let mut trigger_on = TestTrigger::new(1.0, 1.0);
+        let mut trigger_on = Trigger::<TestMessage>::new(1.0, 1.0);
         const ENVELOPE_UID: usize = 42;
         orchestrator
             .updateables
@@ -472,7 +471,7 @@ pub mod tests {
 
         // Same thing, except the value sent is zero, which the AdsrEnvelope
         // interprets as note-off.
-        let mut trigger_off = TestTrigger::new(1.5, 0.0);
+        let mut trigger_off = Trigger::<TestMessage>::new(1.5, 0.0);
         trigger_off.add_target(
             ENVELOPE_UID,
             envelope
