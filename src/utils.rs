@@ -449,7 +449,7 @@ pub mod tests {
         Nothing,
         #[allow(dead_code)]
         Something,
-        Tick(Clock),
+        Tick,
         ControlF32(usize, f32),
         UpdateF32(usize, f32),
     }
@@ -628,7 +628,7 @@ pub mod tests {
             match message {
                 TestMessage::Nothing => todo!(),
                 TestMessage::Something => todo!(),
-                TestMessage::Tick(_) => todo!(),
+                TestMessage::Tick => todo!(),
                 TestMessage::ControlF32(uid, value) => {
                     self.send_control_f32(clock, uid, value);
                 }
@@ -639,12 +639,12 @@ pub mod tests {
         fn run(
             &mut self,
             clock: &mut Clock,
-            tick_fn: &dyn Fn(Clock) -> TestMessage,
+            tick_message: TestMessage,
             run_until_completion: bool,
         ) -> Vec<MonoSample> {
             let mut samples = Vec::<MonoSample>::new();
             loop {
-                let command = self.update(clock, tick_fn);
+                let command = self.update(clock, tick_message.clone());
                 self.handle_command(clock, command);
                 if self.are_all_finished() {
                     break;
@@ -670,14 +670,14 @@ pub mod tests {
         fn update(
             &mut self,
             clock: &mut Clock,
-            tick_fn: &dyn Fn(Clock) -> TestMessage,
+            tick_message: TestMessage,
         ) -> EvenNewerCommand<TestMessage> {
             EvenNewerCommand::batch(self.store.values_mut().fold(
                 Vec::new(),
                 |mut vec: Vec<EvenNewerCommand<TestMessage>>, item| {
                     match item {
                         TestBoxedEntity::TestIsController(entity) => {
-                            vec.push(entity.update(clock, tick_fn(clock.clone())));
+                            vec.push(entity.update(clock, tick_message.clone()));
                         }
                         TestBoxedEntity::TestIsInstrument(_) => {}
                         TestBoxedEntity::TestIsEffect(_) => {
@@ -846,7 +846,7 @@ pub mod tests {
             clock: &Clock,
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
-            if let TestMessage::Tick(clock) = message {
+            if let TestMessage::Tick = message {
                 let value = self.oscillator.source_audio(&clock);
                 EvenNewerCommand::single(TestMessage::ControlF32(self.uid, value))
             } else {
@@ -910,7 +910,7 @@ pub mod tests {
         let _ = o.add(TestBoxedEntity::TestIsController(Box::new(t)));
 
         let mut clock = Clock::new();
-        let samples = o.run(&mut clock, &TestMessage::Tick, true);
+        let samples = o.run(&mut clock, TestMessage::Tick, true);
 
         assert_eq!(samples.len(), SECONDS * clock.sample_rate());
         assert!(samples[0..256].iter().sum::<f32>() != MONO_SAMPLE_SILENCE);
@@ -1001,7 +1001,7 @@ pub mod tests {
             match message {
                 TestMessage::Nothing => todo!(),
                 TestMessage::Something => todo!(),
-                TestMessage::Tick(_) => todo!(),
+                TestMessage::Tick => todo!(),
                 TestMessage::ControlF32(_, _) => todo!(),
                 TestMessage::UpdateF32(param_index, value) => {
                     if let Some(param) = TestSynthControlParams::from_repr(param_index) {
@@ -1071,7 +1071,7 @@ pub mod tests {
             match message {
                 TestMessage::Nothing => todo!(),
                 TestMessage::Something => todo!(),
-                TestMessage::Tick(clock) => {
+                TestMessage::Tick => {
                     self.has_more_work = clock.seconds() < self.time_to_run_seconds;
                 }
                 TestMessage::ControlF32(_, _) => todo!(),
@@ -1553,7 +1553,7 @@ pub mod tests {
             match message {
                 TestMessage::Nothing => todo!(),
                 TestMessage::Something => todo!(),
-                TestMessage::Tick(_clock) => {
+                TestMessage::Tick => {
                     // TODO todo!("I know I need to spit out notes now")
                 }
                 TestMessage::ControlF32(_, _) => todo!(),
