@@ -1,3 +1,158 @@
+use crate::{
+    clock::Clock,
+    traits::{EvenNewerCommand, GrooveMessage, HasUid, NewIsController, NewUpdateable, Terminates},
+};
+use core::fmt::Debug;
+use std::marker::PhantomData;
+
+#[derive(Debug, Default)]
+pub struct Timer<M> {
+    uid: usize,
+    has_more_work: bool,
+    time_to_run_seconds: f32,
+
+    _phantom: PhantomData<M>,
+}
+impl<M> Timer<M>
+where
+    M: Debug + Default,
+{
+    #[allow(dead_code)]
+    pub fn new_with(time_to_run_seconds: f32) -> Self {
+        Self {
+            time_to_run_seconds,
+            ..Default::default()
+        }
+    }
+}
+impl<M> Terminates for Timer<M>
+where
+    Timer<M>: Debug + Default,
+{
+    fn is_finished(&self) -> bool {
+        !self.has_more_work
+    }
+}
+impl<M> NewIsController for Timer<M> where Timer<M>: Debug + Default {}
+impl<M> NewUpdateable for Timer<M>
+where
+    Timer<M>: Debug + Default,
+{
+    default type Message = M;
+
+    default fn update(
+        &mut self,
+        _clock: &Clock,
+        _message: Self::Message,
+    ) -> EvenNewerCommand<Self::Message> {
+        EvenNewerCommand::none()
+    }
+}
+impl NewUpdateable for Timer<GrooveMessage> {
+    type Message = GrooveMessage;
+
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        match message {
+            GrooveMessage::Tick => {
+                self.has_more_work = clock.seconds() < self.time_to_run_seconds;
+            }
+            _ => {}
+        }
+        EvenNewerCommand::none()
+    }
+}
+
+impl<M> HasUid for Timer<M>
+where
+    Timer<M>: Debug + Default,
+{
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Trigger<M>
+where
+    M: Debug + Default,
+{
+    uid: usize,
+    time_to_trigger_seconds: f32,
+    value: f32,
+    has_triggered: bool,
+
+    _phantom: PhantomData<M>,
+}
+impl<M> NewIsController for Trigger<M> where M: Debug + Default {}
+impl<M> NewUpdateable for Trigger<M>
+where
+    M: Debug + Default,
+{
+    default type Message = M;
+
+    default fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> EvenNewerCommand<Self::Message> {
+        EvenNewerCommand::none()
+    }
+}
+impl<M> Terminates for Trigger<M>
+where
+    M: Debug + Default,
+{
+    fn is_finished(&self) -> bool {
+        self.has_triggered
+    }
+}
+impl<M> HasUid for Trigger<M>
+where
+    M: Debug + Default,
+{
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
+impl<M> Trigger<M>
+where
+    M: Debug + Default,
+{
+    pub fn new(time_to_trigger_seconds: f32, value: f32) -> Self {
+        Self {
+            time_to_trigger_seconds,
+            value,
+            ..Default::default()
+        }
+    }
+}
+impl NewUpdateable for Trigger<GrooveMessage> {
+    type Message = GrooveMessage;
+
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        match message {
+            GrooveMessage::Tick => {
+                return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
+                    self.has_triggered = true;
+                    EvenNewerCommand::single(GrooveMessage::ControlF32(self.uid, self.value))
+                } else {
+                    EvenNewerCommand::none()
+                };
+            }
+            _ => {}
+        }
+        EvenNewerCommand::none()
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use crate::{
@@ -34,6 +189,8 @@ pub mod tests {
         str::FromStr,
     };
     use strum_macros::{Display, EnumString};
+
+    use super::{Timer, Trigger};
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -215,6 +372,48 @@ pub mod tests {
     }
 
     /// /////////////////
+
+    impl NewUpdateable for Timer<TestMessage> {
+        type Message = TestMessage;
+
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Tick => {
+                    self.has_more_work = clock.seconds() < self.time_to_run_seconds;
+                }
+                _ => {}
+            }
+            EvenNewerCommand::none()
+        }
+    }
+
+    impl NewUpdateable for Trigger<TestMessage> {
+        type Message = TestMessage;
+
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Tick => {
+                    return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds
+                    {
+                        self.has_triggered = true;
+                        EvenNewerCommand::single(TestMessage::ControlF32(self.uid, self.value))
+                    } else {
+                        EvenNewerCommand::none()
+                    };
+                }
+                _ => {}
+            }
+            EvenNewerCommand::none()
+        }
+    }
 
     #[derive(Debug, Default)]
     pub struct TestAudioSourceAlwaysSameLevel {

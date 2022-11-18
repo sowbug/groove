@@ -1,3 +1,4 @@
+#![feature(specialization)]
 #![feature(trait_upcasting)]
 #![allow(incomplete_features)]
 
