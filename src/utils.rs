@@ -1,23 +1,20 @@
 use crate::{
     clock::Clock,
     messages::GrooveMessage,
-    traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, Terminates},
+    traits::{EvenNewerCommand, HasUid, Message, NewIsController, NewUpdateable, Terminates},
 };
 use core::fmt::Debug;
 use std::marker::PhantomData;
 
 #[derive(Debug, Default)]
-pub struct Timer<M> {
+pub(crate) struct Timer<M: Message> {
     uid: usize,
     has_more_work: bool,
     time_to_run_seconds: f32,
 
     _phantom: PhantomData<M>,
 }
-impl<M> Timer<M>
-where
-    M: Debug + Default,
-{
+impl<M: Message> Timer<M> {
     #[allow(dead_code)]
     pub fn new_with(time_to_run_seconds: f32) -> Self {
         Self {
@@ -26,19 +23,13 @@ where
         }
     }
 }
-impl<M> Terminates for Timer<M>
-where
-    Timer<M>: Debug + Default,
-{
+impl<M: Message> Terminates for Timer<M> {
     fn is_finished(&self) -> bool {
         !self.has_more_work
     }
 }
-impl<M> NewIsController for Timer<M> where Timer<M>: Debug + Default {}
-impl<M> NewUpdateable for Timer<M>
-where
-    Timer<M>: Debug + Default,
-{
+impl<M: Message> NewIsController for Timer<M> {}
+impl<M: Message> NewUpdateable for Timer<M> {
     default type Message = M;
 
     default fn update(
@@ -62,11 +53,7 @@ impl NewUpdateable for Timer<GrooveMessage> {
         EvenNewerCommand::none()
     }
 }
-
-impl<M> HasUid for Timer<M>
-where
-    Timer<M>: Debug + Default,
-{
+impl<M: Message> HasUid for Timer<M> {
     fn uid(&self) -> usize {
         self.uid
     }
@@ -77,10 +64,7 @@ where
 }
 
 #[derive(Debug, Default)]
-pub struct Trigger<M>
-where
-    M: Debug + Default,
-{
+pub(crate) struct Trigger<M: Message> {
     uid: usize,
     time_to_trigger_seconds: f32,
     value: f32,
@@ -88,11 +72,8 @@ where
 
     _phantom: PhantomData<M>,
 }
-impl<M> NewIsController for Trigger<M> where M: Debug + Default {}
-impl<M> NewUpdateable for Trigger<M>
-where
-    M: Debug + Default,
-{
+impl<M: Message> NewIsController for Trigger<M> {}
+impl<M: Message> NewUpdateable for Trigger<M> {
     default type Message = M;
 
     default fn update(
@@ -103,17 +84,13 @@ where
         EvenNewerCommand::none()
     }
 }
-impl<M> Terminates for Trigger<M>
-where
-    M: Debug + Default,
+impl<M: Message> Terminates for Trigger<M>
 {
     fn is_finished(&self) -> bool {
         self.has_triggered
     }
 }
-impl<M> HasUid for Trigger<M>
-where
-    M: Debug + Default,
+impl<M: Message> HasUid for Trigger<M>
 {
     fn uid(&self) -> usize {
         self.uid
@@ -123,9 +100,7 @@ where
         self.uid = uid;
     }
 }
-impl<M> Trigger<M>
-where
-    M: Debug + Default,
+impl<M: Message> Trigger<M>
 {
     pub fn new(time_to_trigger_seconds: f32, value: f32) -> Self {
         Self {

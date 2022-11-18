@@ -11,6 +11,7 @@ use std::fmt::Debug;
 pub(crate) trait NewIsController: NewUpdateable + Terminates + HasUid + Debug {}
 pub(crate) trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid + Debug {}
 pub(crate) trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid + Debug {}
+pub(crate) trait Message: Debug + Default {}
 
 #[derive(Debug)]
 pub(crate) enum BoxedEntity<M> {
