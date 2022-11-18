@@ -1,10 +1,312 @@
 use crate::{
     clock::Clock,
+    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    effects::mixer::Mixer,
     messages::GrooveMessage,
-    traits::{EvenNewerCommand, HasUid, Message, NewIsController, NewUpdateable, Terminates},
+    orchestrator::Store,
+    traits::{
+        BoxedEntity, EvenNewerCommand, HasUid, Internal, Message, NewIsController, NewIsEffect,
+        NewUpdateable, Terminates,
+    },
 };
 use core::fmt::Debug;
-use std::marker::PhantomData;
+use std::{collections::HashMap, marker::PhantomData};
+
+#[derive(Default)]
+pub struct NewOrchestrator<M: Message> {
+    store: Store<M>,
+    uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
+    audio_sink_uid_to_source_uids: HashMap<usize, Vec<usize>>,
+    main_mixer_uid: usize,
+
+    // state_checker is an optional IsEffect that verifies expected state
+    // after all each loop iteration's commands have been acted upon.
+    //
+    // It is an effect because it is intended to monitor another thing's
+    // output, which is more like an effect than a controller or an
+    // instrument.
+    state_checker: Option<Box<dyn NewIsEffect<Message = M>>>,
+}
+
+impl<M: Message> NewOrchestrator<M> {
+    pub(crate) fn new() -> Self {
+        let mut r = Self {
+            ..Default::default()
+        };
+        let main_mixer = Box::new(Mixer::default());
+        r.main_mixer_uid = r.add(BoxedEntity::Effect(main_mixer));
+        r
+    }
+
+    pub(crate) fn add(&mut self, entity: BoxedEntity<M>) -> usize {
+        self.store.add(entity)
+    }
+
+    pub(crate) fn link_control(
+        &mut self,
+        controller_uid: usize,
+        target_uid: usize,
+        param_name: &str,
+    ) {
+        if let Some(target) = self.store.get(target_uid) {
+            let param_id = match target {
+                // TODO: everyone's the same... design issue?
+                BoxedEntity::Controller(e) => e.param_id_for_name(param_name),
+                BoxedEntity::Effect(e) => e.param_id_for_name(param_name),
+                BoxedEntity::Instrument(e) => e.param_id_for_name(param_name),
+            };
+
+            if let Some(controller) = self.store.get(controller_uid) {
+                if let BoxedEntity::Controller(_controller) = controller {
+                    self.uid_to_control
+                        .entry(controller_uid)
+                        .or_default()
+                        .push((target_uid, param_id));
+                }
+            }
+        }
+    }
+
+    pub(crate) fn patch(&mut self, source_uid: usize, sink_uid: usize) {
+        // Validate that sink_uid refers to something that has audio input
+        if let Some(input) = self.store.get(sink_uid) {
+            match input {
+                // TODO: there could be things that have audio input but
+                // don't transform, like an audio recorder (or technically a
+                // main mixer).
+                BoxedEntity::Controller(_) => {
+                    debug_assert!(false, "this item doesn't transform audio");
+                    return;
+                }
+                BoxedEntity::Effect(_) => {}
+                BoxedEntity::Instrument(_) => {
+                    debug_assert!(false, "this item doesn't transform audio");
+                    return;
+                }
+            }
+        }
+
+        // Validate that source_uid refers to something that outputs audio
+        if let Some(output) = self.store.get(source_uid) {
+            match output {
+                BoxedEntity::Controller(_) => {
+                    debug_assert!(false, "this item doesn't output audio");
+                    return;
+                }
+                BoxedEntity::Effect(_) => {}
+                BoxedEntity::Instrument(_) => {}
+            }
+        }
+
+        // We've passed our checks. Record it.
+        self.audio_sink_uid_to_source_uids
+            .entry(sink_uid)
+            .or_default()
+            .push(source_uid);
+    }
+
+    pub(crate) fn connect_to_main_mixer(&mut self, source_uid: usize) {
+        self.patch(source_uid, self.main_mixer_uid);
+    }
+
+    fn handle_message(&mut self, clock: &Clock, message: M) {
+        match message {
+            // TestMessage::Nothing => todo!(),
+            // TestMessage::Something => todo!(),
+            // TestMessage::Tick => todo!(),
+            // TestMessage::ControlF32(uid, value) => {
+            //     self.send_control_f32(uid, value);
+            // }
+            // TestMessage::UpdateF32(_, _) => todo!(),
+            _ => {}
+        }
+    }
+    //////////// HUGE TODO *********************************************************
+
+    pub(crate) fn run(
+        &mut self,
+        clock: &mut Clock,
+        tick_message: M,
+        run_until_completion: bool,
+    ) -> Vec<MonoSample> {
+        let mut samples = Vec::<MonoSample>::new();
+        loop {
+            let command = self.update(clock, tick_message.clone());
+            self.handle_command(clock, command);
+            if self.state_checker.is_some() {
+                // TODO: figure out how to get around borrow checker
+                // self.state_checker.unwrap().update(clock, tick_message.clone());
+            }
+            if self.are_all_finished() {
+                break;
+            }
+            samples.push(self.gather_audio(clock, self.main_mixer_uid));
+            clock.tick();
+            if !run_until_completion {
+                break;
+            }
+        }
+        samples
+    }
+
+    fn are_all_finished(&mut self) -> bool {
+        self.store.values().all(|item| match item {
+            // TODO: seems like just one kind needs this
+            BoxedEntity::Controller(entity) => entity.is_finished(),
+            BoxedEntity::Effect(_) => true,
+            BoxedEntity::Instrument(_) => true,
+        })
+    }
+
+    fn update(&mut self, clock: &Clock, tick_message: M) -> EvenNewerCommand<M> {
+        EvenNewerCommand::batch(self.store.values_mut().fold(
+            Vec::new(),
+            |mut vec: Vec<EvenNewerCommand<M>>, item| {
+                match item {
+                    BoxedEntity::Controller(entity) => {
+                        vec.push(entity.update(clock, tick_message.clone()));
+                    }
+                    BoxedEntity::Instrument(_) => {}
+                    BoxedEntity::Effect(_) => {
+                        // TODO: ensure that effects get a tick via
+                        // source_audio() even if they're muted or disabled
+                    }
+                }
+                vec
+            },
+        ))
+    }
+
+    fn handle_command(&mut self, clock: &Clock, command: EvenNewerCommand<M>) {
+        match command.0 {
+            Internal::None => {}
+            Internal::Single(message) => self.handle_message(clock, message),
+            Internal::Batch(messages) => {
+                for message in messages {
+                    self.handle_message(clock, message);
+                }
+            }
+        }
+    }
+
+    // This (probably) embarrassing method is supposed to be a naturally
+    // recursive algorithm expressed iteratively. Yeah, just like the Google
+    // interview question. The reason functional recursion wouldn't fly is
+    // that the Rust borrow checker won't let us call ourselves if we've
+    // already borrowed ourselves &mut, which goes for any of our fields.
+    // TODO: simplify
+    fn gather_audio(&mut self, clock: &mut Clock, uid: usize) -> MonoSample {
+        enum StackEntry {
+            ToVisit(usize),
+            CollectResultFor(usize),
+            Result(MonoSample),
+        }
+        let mut stack = Vec::new();
+        let mut sum = MONO_SAMPLE_SILENCE;
+        stack.push(StackEntry::ToVisit(uid));
+
+        while let Some(entry) = stack.pop() {
+            match entry {
+                StackEntry::ToVisit(uid) => {
+                    // We've never seen this node before.
+                    if let Some(entity) = self.store.get_mut(uid) {
+                        match entity {
+                            // If it's a leaf, eval it now and add it to the
+                            // running sum.
+                            BoxedEntity::Instrument(entity) => {
+                                sum += entity.source_audio(clock);
+                            }
+                            // If it's a node, eval its leaves, then eval
+                            // its nodes, then process the result.
+                            BoxedEntity::Effect(_) => {
+                                // Tell us to process sum.
+                                stack.push(StackEntry::CollectResultFor(uid));
+                                if let Some(source_uids) =
+                                    self.audio_sink_uid_to_source_uids.get(&uid)
+                                {
+                                    // Eval leaves
+                                    for source_uid in source_uids {
+                                        if let Some(entity) = self.store.get_mut(*source_uid) {
+                                            match entity {
+                                                BoxedEntity::Controller(_) => {}
+                                                BoxedEntity::Effect(_) => {}
+                                                BoxedEntity::Instrument(e) => {
+                                                    sum += e.source_audio(clock);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    stack.push(StackEntry::Result(sum));
+                                    sum = MONO_SAMPLE_SILENCE;
+
+                                    // Eval nodes
+                                    for source_uid in source_uids {
+                                        if let Some(entity) = self.store.get_mut(*source_uid) {
+                                            match entity {
+                                                BoxedEntity::Controller(_) => {}
+                                                BoxedEntity::Effect(_) => {
+                                                    stack.push(StackEntry::ToVisit(*source_uid))
+                                                }
+                                                BoxedEntity::Instrument(_) => {}
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // an effect is at the end of a chain.
+                                    // This should be harmless (but probably
+                                    // confusing for the end user; might
+                                    // want to flag it).
+                                }
+                            }
+                            BoxedEntity::Controller(_) => {}
+                        }
+                    }
+                }
+                StackEntry::Result(sample) => sum += sample,
+                StackEntry::CollectResultFor(uid) => {
+                    if let Some(entity) = self.store.get_mut(uid) {
+                        match entity {
+                            BoxedEntity::Instrument(_) => {}
+                            BoxedEntity::Effect(entity) => {
+                                stack.push(StackEntry::Result(entity.transform_audio(clock, sum)));
+                                sum = MONO_SAMPLE_SILENCE;
+                            }
+                            BoxedEntity::Controller(_) => {}
+                        }
+                    }
+                }
+            }
+        }
+        sum
+    }
+
+    pub(crate) fn add_state_checker(&mut self, state_checker: Box<dyn NewIsEffect<Message = M>>) {
+        self.state_checker = Some(state_checker);
+    }
+}
+
+impl NewOrchestrator<GrooveMessage> {
+    fn send_control_f32(&mut self, clock: &Clock, uid: usize, value: f32) {
+        if let Some(e) = self.uid_to_control.get(&uid) {
+            for (target_uid, param) in e {
+                if let Some(target) = self.store.get_mut(*target_uid) {
+                    match target {
+                        // TODO: everyone is the same...
+                        BoxedEntity::Controller(e) => {
+                            e.update(clock, GrooveMessage::UpdateF32(*param, value));
+                        }
+                        BoxedEntity::Instrument(e) => {
+                            e.update(clock, GrooveMessage::UpdateF32(*param, value));
+                        }
+                        BoxedEntity::Effect(e) => {
+                            e.update(clock, GrooveMessage::UpdateF32(*param, value));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 #[derive(Debug, Default)]
 pub(crate) struct Timer<M: Message> {
@@ -84,14 +386,12 @@ impl<M: Message> NewUpdateable for Trigger<M> {
         EvenNewerCommand::none()
     }
 }
-impl<M: Message> Terminates for Trigger<M>
-{
+impl<M: Message> Terminates for Trigger<M> {
     fn is_finished(&self) -> bool {
         self.has_triggered
     }
 }
-impl<M: Message> HasUid for Trigger<M>
-{
+impl<M: Message> HasUid for Trigger<M> {
     fn uid(&self) -> usize {
         self.uid
     }
@@ -100,8 +400,7 @@ impl<M: Message> HasUid for Trigger<M>
         self.uid = uid;
     }
 }
-impl<M: Message> Trigger<M>
-{
+impl<M: Message> Trigger<M> {
     pub fn new(time_to_trigger_seconds: f32, value: f32) -> Self {
         Self {
             time_to_trigger_seconds,
@@ -149,9 +448,9 @@ pub mod tests {
         settings::ClockSettings,
         traits::{
             BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, Internal, IsEffect,
-            NewIsController, NewIsEffect, NewIsInstrument, NewUpdateable, Overhead, SinksAudio,
-            SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi, SourcesUpdates, Terminates,
-            TransformsAudio, WatchesClock,
+            MakesIsViewable, Message, NewIsController, NewIsEffect, NewIsInstrument, NewUpdateable,
+            Overhead, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi,
+            SourcesUpdates, Terminates, TransformsAudio, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -161,14 +460,14 @@ pub mod tests {
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
     };
-    use std::fs;
     use std::{
         collections::{HashMap, VecDeque},
         str::FromStr,
     };
+    use std::{fs, marker::PhantomData};
     use strum_macros::{Display, EnumString};
 
-    use super::{Timer, Trigger};
+    use super::{NewOrchestrator, Timer, Trigger};
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -208,7 +507,7 @@ pub mod tests {
     ) {
         let mut c = WatchedClock::new();
         let sample_rate = c.inner_clock().sample_rate();
-        let mut o = TestOrchestrator::new();
+        let mut o = OldTestOrchestrator::new();
         let osc = Oscillator::new_wrapped_with(waveform_type);
         if let Some(effect) = effect_opt {
             effect
@@ -253,7 +552,7 @@ pub mod tests {
 
     #[allow(dead_code)]
     pub(crate) fn write_orchestration_to_file(
-        orchestrator: &mut TestOrchestrator,
+        orchestrator: &mut OldTestOrchestrator,
         clock: &mut WatchedClock,
         basename: &str,
     ) {
@@ -392,14 +691,37 @@ pub mod tests {
             EvenNewerCommand::none()
         }
     }
+    impl NewOrchestrator<TestMessage> {
+        fn send_control_f32(&mut self, clock: &Clock, uid: usize, value: f32) {
+            if let Some(e) = self.uid_to_control.get(&uid) {
+                for (target_uid, param) in e {
+                    if let Some(target) = self.store.get_mut(*target_uid) {
+                        match target {
+                            // TODO: everyone is the same...
+                            BoxedEntity::Controller(e) => {
+                                e.update(clock, TestMessage::UpdateF32(*param, value));
+                            }
+                            BoxedEntity::Instrument(e) => {
+                                e.update(clock, TestMessage::UpdateF32(*param, value));
+                            }
+                            BoxedEntity::Effect(e) => {
+                                e.update(clock, TestMessage::UpdateF32(*param, value));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysSameLevel {
+    pub struct TestAudioSourceAlwaysSameLevel<M: Message> {
         uid: usize,
         level: MonoSample,
+        _phantom: PhantomData<M>,
     }
-    impl NewIsInstrument for TestAudioSourceAlwaysSameLevel {}
-    impl HasUid for TestAudioSourceAlwaysSameLevel {
+    impl<M: Message> NewIsInstrument for TestAudioSourceAlwaysSameLevel<M> {}
+    impl<M: Message> HasUid for TestAudioSourceAlwaysSameLevel<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -408,10 +730,10 @@ pub mod tests {
             self.set_uid(uid);
         }
     }
-    impl NewUpdateable for TestAudioSourceAlwaysSameLevel {
+    impl<M: Message> NewUpdateable for TestAudioSourceAlwaysSameLevel<M> {
         type Message = TestMessage;
     }
-    impl TestAudioSourceAlwaysSameLevel {
+    impl<M: Message> TestAudioSourceAlwaysSameLevel<M> {
         pub fn new_with(level: MonoSample) -> Self {
             Self {
                 level,
@@ -419,33 +741,34 @@ pub mod tests {
             }
         }
     }
-    impl SourcesAudio for TestAudioSourceAlwaysSameLevel {
+    impl<M: Message> SourcesAudio for TestAudioSourceAlwaysSameLevel<M> {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             self.level
         }
     }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysLoud {
+    pub struct TestAudioSourceAlwaysLoud<M: Message> {
         uid: usize,
+        _phantom: PhantomData<M>,
     }
-    impl NewIsInstrument for TestAudioSourceAlwaysLoud {}
-    impl TestAudioSourceAlwaysLoud {
+    impl<M: Message> NewIsInstrument for TestAudioSourceAlwaysLoud<M> {}
+    impl<M: Message> TestAudioSourceAlwaysLoud<M> {
         pub fn new() -> Self {
             Self {
                 ..Default::default()
             }
         }
     }
-    impl SourcesAudio for TestAudioSourceAlwaysLoud {
+    impl<M: Message> SourcesAudio for TestAudioSourceAlwaysLoud<M> {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_MAX
         }
     }
-    impl NewUpdateable for TestAudioSourceAlwaysLoud {
+    impl<M: Message> NewUpdateable for TestAudioSourceAlwaysLoud<M> {
         type Message = TestMessage;
     }
-    impl HasUid for TestAudioSourceAlwaysLoud {
+    impl<M: Message> HasUid for TestAudioSourceAlwaysLoud<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -456,23 +779,24 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysTooLoud {
+    pub struct TestAudioSourceAlwaysTooLoud<M: Message> {
         uid: usize,
+        _phantom: PhantomData<M>,
     }
-    impl NewIsInstrument for TestAudioSourceAlwaysTooLoud {}
-    impl TestAudioSourceAlwaysTooLoud {
+    impl<M: Message> NewIsInstrument for TestAudioSourceAlwaysTooLoud<M> {}
+    impl<M: Message> TestAudioSourceAlwaysTooLoud<M> {
         pub fn new() -> Self {
             Self {
                 ..Default::default()
             }
         }
     }
-    impl SourcesAudio for TestAudioSourceAlwaysTooLoud {
+    impl<M: Message> SourcesAudio for TestAudioSourceAlwaysTooLoud<M> {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_MAX + 0.1
         }
     }
-    impl HasUid for TestAudioSourceAlwaysTooLoud {
+    impl<M: Message> HasUid for TestAudioSourceAlwaysTooLoud<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -481,28 +805,29 @@ pub mod tests {
             self.uid = uid
         }
     }
-    impl NewUpdateable for TestAudioSourceAlwaysTooLoud {
+    impl<M: Message> NewUpdateable for TestAudioSourceAlwaysTooLoud<M> {
         type Message = TestMessage;
     }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysSilent {
+    pub struct TestAudioSourceAlwaysSilent<M: Message> {
         uid: usize,
+        _phantom: PhantomData<M>,
     }
-    impl NewIsInstrument for TestAudioSourceAlwaysSilent {}
-    impl TestAudioSourceAlwaysSilent {
+    impl<M: Message> NewIsInstrument for TestAudioSourceAlwaysSilent<M> {}
+    impl<M: Message> TestAudioSourceAlwaysSilent<M> {
         pub fn new() -> Self {
             Self {
                 ..Default::default()
             }
         }
     }
-    impl SourcesAudio for TestAudioSourceAlwaysSilent {
+    impl<M: Message> SourcesAudio for TestAudioSourceAlwaysSilent<M> {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_SILENCE
         }
     }
-    impl HasUid for TestAudioSourceAlwaysSilent {
+    impl<M: Message> HasUid for TestAudioSourceAlwaysSilent<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -511,16 +836,17 @@ pub mod tests {
             self.uid = uid
         }
     }
-    impl NewUpdateable for TestAudioSourceAlwaysSilent {
+    impl<M: Message> NewUpdateable for TestAudioSourceAlwaysSilent<M> {
         type Message = TestMessage;
     }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysVeryQuiet {
+    pub struct TestAudioSourceAlwaysVeryQuiet<M: Message> {
         uid: usize,
+        _phantom: PhantomData<M>,
     }
-    impl NewIsInstrument for TestAudioSourceAlwaysVeryQuiet {}
-    impl TestAudioSourceAlwaysVeryQuiet {
+    impl<M: Message> NewIsInstrument for TestAudioSourceAlwaysVeryQuiet<M> {}
+    impl<M: Message> TestAudioSourceAlwaysVeryQuiet<M> {
         #[allow(dead_code)]
         pub fn new() -> Self {
             Self {
@@ -528,12 +854,12 @@ pub mod tests {
             }
         }
     }
-    impl SourcesAudio for TestAudioSourceAlwaysVeryQuiet {
+    impl<M: Message> SourcesAudio for TestAudioSourceAlwaysVeryQuiet<M> {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             MONO_SAMPLE_MIN
         }
     }
-    impl HasUid for TestAudioSourceAlwaysVeryQuiet {
+    impl<M: Message> HasUid for TestAudioSourceAlwaysVeryQuiet<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -542,12 +868,12 @@ pub mod tests {
             self.uid = uid;
         }
     }
-    impl NewUpdateable for TestAudioSourceAlwaysVeryQuiet {
+    impl<M: Message> NewUpdateable for TestAudioSourceAlwaysVeryQuiet<M> {
         type Message = TestMessage;
     }
 
     #[derive(Debug)]
-    pub struct TestOrchestrator {
+    pub struct OldTestOrchestrator {
         pub main_mixer: Box<dyn IsEffect>,
         pub updateables: HashMap<usize, Ww<dyn SinksUpdates>>,
 
@@ -556,17 +882,17 @@ pub mod tests {
         pub final_clock_watcher: Option<Ww<dyn WatchesClock>>,
     }
 
-    impl Default for TestOrchestrator {
+    impl Default for OldTestOrchestrator {
         fn default() -> Self {
             Self {
-                main_mixer: Box::new(Mixer::new()),
+                main_mixer: Box::new(Mixer::<TestMessage>::new()),
                 updateables: Default::default(),
                 final_clock_watcher: None,
             }
         }
     }
 
-    impl TestOrchestrator {
+    impl OldTestOrchestrator {
         pub fn new() -> Self {
             Self {
                 ..Default::default()
@@ -621,11 +947,13 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct TestMixer {
+    pub struct TestMixer<M: Message> {
         uid: usize,
+
+        _phantom: PhantomData<M>,
     }
-    impl NewIsEffect for TestMixer {}
-    impl HasUid for TestMixer {
+    impl<M: Message> NewIsEffect for TestMixer<M> {}
+    impl<M: Message> HasUid for TestMixer<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -634,290 +962,13 @@ pub mod tests {
             self.uid = uid;
         }
     }
-    impl TransformsAudio for TestMixer {
+    impl<M: Message> TransformsAudio for TestMixer<M> {
         fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
             input_sample
         }
     }
-    impl NewUpdateable for TestMixer {
+    impl<M: Message> NewUpdateable for TestMixer<M> {
         type Message = TestMessage;
-    }
-
-    #[derive(Default)]
-    pub struct TestOrchestrator2 {
-        store: Store<TestMessage>,
-        uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
-        audio_sink_uid_to_source_uids: HashMap<usize, Vec<usize>>,
-        main_mixer_uid: usize,
-    }
-
-    impl TestOrchestrator2 {
-        fn new() -> Self {
-            let mut r = Self {
-                ..Default::default()
-            };
-            let main_mixer = Box::new(TestMixer::default());
-            r.main_mixer_uid = r.add(BoxedEntity::<TestMessage>::Effect(main_mixer));
-            r
-        }
-
-        pub(crate) fn add(&mut self, entity: BoxedEntity<TestMessage>) -> usize {
-            self.store.add(entity)
-        }
-
-        fn link_control(&mut self, controller_uid: usize, target_uid: usize, param_name: &str) {
-            if let Some(target) = self.store.get(target_uid) {
-                let param_id = match target {
-                    // TODO: everyone's the same... design issue?
-                    BoxedEntity::Controller(e) => e.param_id_for_name(param_name),
-                    BoxedEntity::Effect(e) => e.param_id_for_name(param_name),
-                    BoxedEntity::Instrument(e) => e.param_id_for_name(param_name),
-                };
-
-                if let Some(controller) = self.store.get(controller_uid) {
-                    if let BoxedEntity::Controller(_controller) = controller {
-                        self.uid_to_control
-                            .entry(controller_uid)
-                            .or_default()
-                            .push((target_uid, param_id));
-                    }
-                }
-            }
-        }
-
-        pub(crate) fn patch(&mut self, source_uid: usize, sink_uid: usize) {
-            // Validate that sink_uid refers to something that has audio input
-            if let Some(input) = self.store.get(sink_uid) {
-                match input {
-                    // TODO: there could be things that have audio input but
-                    // don't transform, like an audio recorder (or technically a
-                    // main mixer).
-                    BoxedEntity::Controller(_) => {
-                        debug_assert!(false, "this item doesn't transform audio");
-                        return;
-                    }
-                    BoxedEntity::Effect(_) => {}
-                    BoxedEntity::Instrument(_) => {
-                        debug_assert!(false, "this item doesn't transform audio");
-                        return;
-                    }
-                }
-            }
-
-            // Validate that source_uid refers to something that outputs audio
-            if let Some(output) = self.store.get(source_uid) {
-                match output {
-                    BoxedEntity::Controller(_) => {
-                        debug_assert!(false, "this item doesn't output audio");
-                        return;
-                    }
-                    BoxedEntity::Effect(_) => {}
-                    BoxedEntity::Instrument(_) => {}
-                }
-            }
-
-            // We've passed our checks. Record it.
-            self.audio_sink_uid_to_source_uids
-                .entry(sink_uid)
-                .or_default()
-                .push(source_uid);
-        }
-
-        fn connect_to_main_mixer(&mut self, source_uid: usize) {
-            self.patch(source_uid, self.main_mixer_uid);
-        }
-
-        fn handle_message(&mut self, clock: &Clock, message: TestMessage) {
-            match message {
-                TestMessage::Nothing => todo!(),
-                TestMessage::Something => todo!(),
-                TestMessage::Tick => todo!(),
-                TestMessage::ControlF32(uid, value) => {
-                    self.send_control_f32(clock, uid, value);
-                }
-                TestMessage::UpdateF32(_, _) => todo!(),
-            }
-        }
-
-        fn run(
-            &mut self,
-            clock: &mut Clock,
-            tick_message: TestMessage,
-            run_until_completion: bool,
-        ) -> Vec<MonoSample> {
-            let mut samples = Vec::<MonoSample>::new();
-            loop {
-                let command = self.update(clock, tick_message.clone());
-                self.handle_command(clock, command);
-                if self.are_all_finished() {
-                    break;
-                }
-                samples.push(self.gather_audio(self.main_mixer_uid, clock));
-                clock.tick();
-                if !run_until_completion {
-                    break;
-                }
-            }
-            samples
-        }
-
-        fn are_all_finished(&mut self) -> bool {
-            self.store.values().all(|item| match item {
-                // TODO: seems like just one kind needs this
-                BoxedEntity::Controller(entity) => entity.is_finished(),
-                BoxedEntity::Effect(_) => true,
-                BoxedEntity::Instrument(_) => true,
-            })
-        }
-
-        fn update(
-            &mut self,
-            clock: &mut Clock,
-            tick_message: TestMessage,
-        ) -> EvenNewerCommand<TestMessage> {
-            EvenNewerCommand::batch(self.store.values_mut().fold(
-                Vec::new(),
-                |mut vec: Vec<EvenNewerCommand<TestMessage>>, item| {
-                    match item {
-                        BoxedEntity::Controller(entity) => {
-                            vec.push(entity.update(clock, tick_message.clone()));
-                        }
-                        BoxedEntity::Instrument(_) => {}
-                        BoxedEntity::Effect(_) => {
-                            // TODO: ensure that effects get a tick via
-                            // source_audio() even if they're muted or disabled
-                        }
-                    }
-                    vec
-                },
-            ))
-        }
-
-        fn handle_command(&mut self, clock: &Clock, command: EvenNewerCommand<TestMessage>) {
-            match command.0 {
-                Internal::None => {}
-                Internal::Single(message) => self.handle_message(clock, message),
-                Internal::Batch(messages) => {
-                    for message in messages {
-                        self.handle_message(clock, message);
-                    }
-                }
-            }
-        }
-
-        // This (probably) embarrassing method is supposed to be a naturally
-        // recursive algorithm expressed iteratively. Yeah, just like the Google
-        // interview question. The reason functional recursion wouldn't fly is
-        // that the Rust borrow checker won't let us call ourselves if we've
-        // already borrowed ourselves &mut, which goes for any of our fields.
-        // TODO: simplify
-        fn gather_audio(&mut self, uid: usize, clock: &mut Clock) -> MonoSample {
-            enum StackEntry {
-                ToVisit(usize),
-                CollectResultFor(usize),
-                Result(MonoSample),
-            }
-            let mut stack = Vec::new();
-            let mut sum = MONO_SAMPLE_SILENCE;
-            stack.push(StackEntry::ToVisit(uid));
-
-            while let Some(entry) = stack.pop() {
-                match entry {
-                    StackEntry::ToVisit(uid) => {
-                        // We've never seen this node before.
-                        if let Some(entity) = self.store.get_mut(uid) {
-                            match entity {
-                                // If it's a leaf, eval it now and add it to the
-                                // running sum.
-                                BoxedEntity::Instrument(entity) => {
-                                    sum += entity.source_audio(clock);
-                                }
-                                // If it's a node, eval its leaves, then eval
-                                // its nodes, then process the result.
-                                BoxedEntity::Effect(_) => {
-                                    // Tell us to process sum.
-                                    stack.push(StackEntry::CollectResultFor(uid));
-                                    if let Some(source_uids) =
-                                        self.audio_sink_uid_to_source_uids.get(&uid)
-                                    {
-                                        // Eval leaves
-                                        for source_uid in source_uids {
-                                            if let Some(entity) = self.store.get_mut(*source_uid) {
-                                                match entity {
-                                                    BoxedEntity::Controller(_) => {}
-                                                    BoxedEntity::Effect(_) => {}
-                                                    BoxedEntity::Instrument(e) => {
-                                                        sum += e.source_audio(clock);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        stack.push(StackEntry::Result(sum));
-                                        sum = MONO_SAMPLE_SILENCE;
-
-                                        // Eval nodes
-                                        for source_uid in source_uids {
-                                            if let Some(entity) = self.store.get_mut(*source_uid) {
-                                                match entity {
-                                                    BoxedEntity::Controller(_) => {}
-                                                    BoxedEntity::Effect(_) => {
-                                                        stack.push(StackEntry::ToVisit(*source_uid))
-                                                    }
-                                                    BoxedEntity::Instrument(_) => {}
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        // an effect is at the end of a chain.
-                                        // This should be harmless (but probably
-                                        // confusing for the end user; might
-                                        // want to flag it).
-                                    }
-                                }
-                                BoxedEntity::Controller(_) => {}
-                            }
-                        }
-                    }
-                    StackEntry::Result(sample) => sum += sample,
-                    StackEntry::CollectResultFor(uid) => {
-                        if let Some(entity) = self.store.get_mut(uid) {
-                            match entity {
-                                BoxedEntity::Instrument(_) => {}
-                                BoxedEntity::Effect(entity) => {
-                                    stack.push(StackEntry::Result(
-                                        entity.transform_audio(clock, sum),
-                                    ));
-                                    sum = MONO_SAMPLE_SILENCE;
-                                }
-                                BoxedEntity::Controller(_) => {}
-                            }
-                        }
-                    }
-                }
-            }
-            sum
-        }
-
-        fn send_control_f32(&mut self, clock: &Clock, uid: usize, value: f32) {
-            if let Some(e) = self.uid_to_control.get(&uid) {
-                for (target_uid, param) in e {
-                    if let Some(target) = self.store.get_mut(*target_uid) {
-                        match target {
-                            // TODO: everyone is the same...
-                            BoxedEntity::Controller(e) => {
-                                e.update(clock, TestMessage::UpdateF32(*param, value));
-                            }
-                            BoxedEntity::Instrument(e) => {
-                                e.update(clock, TestMessage::UpdateF32(*param, value));
-                            }
-                            BoxedEntity::Effect(e) => {
-                                e.update(clock, TestMessage::UpdateF32(*param, value));
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     #[derive(Display, Debug, EnumString)]
@@ -927,12 +978,13 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct TestLfo {
+    pub struct TestLfo<M: Message> {
         uid: usize,
         oscillator: Oscillator,
+        _phantom: PhantomData<M>,
     }
-    impl NewIsController for TestLfo {}
-    impl HasUid for TestLfo {
+    impl<M: Message> NewIsController for TestLfo<M> {}
+    impl<M: Message> HasUid for TestLfo<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -941,7 +993,7 @@ pub mod tests {
             self.uid = uid;
         }
     }
-    impl NewUpdateable for TestLfo {
+    impl<M: Message> NewUpdateable for TestLfo<M> {
         type Message = TestMessage;
 
         fn update(
@@ -965,14 +1017,14 @@ pub mod tests {
             }
         }
     }
-    impl Terminates for TestLfo {
+    impl<M: Message> Terminates for TestLfo<M> {
         // This hardcoded value is OK because an LFO doesn't have a defined
         // beginning/end. It just keeps going. Yet it truly is a controller.
         fn is_finished(&self) -> bool {
             true
         }
     }
-    impl TestLfo {
+    impl<M: Message> TestLfo<M> {
         fn set_frequency(&mut self, frequency_hz: f32) {
             self.oscillator.set_frequency(frequency_hz);
         }
@@ -980,9 +1032,9 @@ pub mod tests {
 
     #[test]
     fn test_ideal() {
-        let mut o = TestOrchestrator2::new();
-        let synth_1 = TestSynth::default();
-        let mut lfo = TestLfo::default();
+        let mut o = NewOrchestrator::<TestMessage>::new();
+        let synth_1 = TestSynth::<TestMessage>::default();
+        let mut lfo = TestLfo::<TestMessage>::default();
         lfo.set_frequency(2.0);
         let synth_1_uid = o.add(BoxedEntity::Instrument(Box::new(synth_1)));
         let lfo_uid = o.add(BoxedEntity::Controller(Box::new(lfo)));
@@ -993,8 +1045,8 @@ pub mod tests {
         );
         o.connect_to_main_mixer(synth_1_uid);
 
-        let loud_source = TestAudioSourceAlwaysLoud::default();
-        let arpeggiator = TestArpeggiator::default();
+        let loud_source = TestAudioSourceAlwaysLoud::<TestMessage>::default();
+        let arpeggiator = TestArpeggiator::<TestMessage>::default();
         let loud_source_uid = o.add(BoxedEntity::Instrument(Box::new(loud_source)));
         let arpeggiator_uid = o.add(BoxedEntity::Controller(Box::new(arpeggiator)));
         o.link_control(
@@ -1003,7 +1055,7 @@ pub mod tests {
             &TestSynthControlParams::OscillatorModulation.to_string(),
         );
 
-        let effect = TestNegatingEffect::default();
+        let effect = TestNegatingEffect::<TestMessage>::default();
         let effect_uid = o.add(BoxedEntity::Effect(Box::new(effect)));
         o.patch(loud_source_uid, effect_uid);
         o.connect_to_main_mixer(effect_uid);
@@ -1020,11 +1072,12 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct TestNegatingEffect {
+    pub struct TestNegatingEffect<M: Message> {
         uid: usize,
+        _phantom: PhantomData<M>,
     }
-    impl NewIsEffect for TestNegatingEffect {}
-    impl HasUid for TestNegatingEffect {
+    impl<M: Message> NewIsEffect for TestNegatingEffect<M> {}
+    impl<M: Message> HasUid for TestNegatingEffect<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -1033,10 +1086,10 @@ pub mod tests {
             self.uid = uid;
         }
     }
-    impl NewUpdateable for TestNegatingEffect {
+    impl<M: Message> NewUpdateable for TestNegatingEffect<M> {
         type Message = TestMessage;
     }
-    impl TransformsAudio for TestNegatingEffect {
+    impl<M: Message> TransformsAudio for TestNegatingEffect<M> {
         fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
             -input_sample
         }
@@ -1049,14 +1102,15 @@ pub mod tests {
     }
 
     #[derive(Debug)]
-    pub struct TestSynth {
+    pub struct TestSynth<M: Message> {
         uid: usize,
 
         oscillator: Box<Oscillator>,
         envelope: Rrc<dyn SourcesAudio>,
+        _phantom: PhantomData<M>,
     }
 
-    impl TestSynth {
+    impl<M: Message> TestSynth<M> {
         /// You really don't want to call this, because you need a sample rate
         /// for it to do anything meaningful, and it's a bad practice to
         /// hardcode a 44.1KHz rate.
@@ -1076,24 +1130,25 @@ pub mod tests {
             }
         }
     }
-    impl Default for TestSynth {
+    impl<M: Message> Default for TestSynth<M> {
         fn default() -> Self {
             Self {
                 uid: 0,
                 oscillator: Box::new(Oscillator::new()),
                 envelope: rrc(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
+                _phantom: Default::default(),
             }
         }
     }
 
-    impl SourcesAudio for TestSynth {
+    impl<M: Message> SourcesAudio for TestSynth<M> {
         fn source_audio(&mut self, clock: &Clock) -> MonoSample {
             self.oscillator.source_audio(clock) * self.envelope.borrow_mut().source_audio(clock)
         }
     }
 
-    impl NewIsInstrument for TestSynth {}
-    impl NewUpdateable for TestSynth {
+    impl<M: Message> NewIsInstrument for TestSynth<M> {}
+    impl<M: Message> NewUpdateable for TestSynth<M> {
         type Message = TestMessage;
 
         fn update(
@@ -1127,7 +1182,7 @@ pub mod tests {
             }
         }
     }
-    impl HasUid for TestSynth {
+    impl<M: Message> HasUid for TestSynth<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -1247,49 +1302,64 @@ pub mod tests {
 
     /// Lets a SourcesAudio act like an IsController
     #[derive(Debug)]
-    pub struct TestControlSourceContinuous {
+    pub struct TestControlSourceContinuous<M: Message> {
+        uid: usize,
         source: Box<dyn SourcesAudio>,
-        target_uids: Vec<usize>,
-        target_messages: Vec<SmallMessageGenerator>,
+
+        _phantom: PhantomData<M>,
     }
-    impl TestControlSourceContinuous {
-        pub fn new_with(source: Box<dyn SourcesAudio>) -> Self {
-            Self {
-                source,
-                target_uids: Vec::new(),
-                target_messages: Vec::new(),
+    impl<M: Message> NewIsController for TestControlSourceContinuous<M> {}
+    impl<M: Message> NewUpdateable for TestControlSourceContinuous<M> {
+        default type Message = M;
+
+        default fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            EvenNewerCommand::none()
+        }
+    }
+    impl NewUpdateable for TestControlSourceContinuous<TestMessage> {
+        type Message = TestMessage;
+
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Tick => {
+                    let value = self.source.source_audio(&clock).abs();
+                    EvenNewerCommand::single(TestMessage::ControlF32(self.uid, value))
+                }
+                _ => EvenNewerCommand::none(),
             }
         }
     }
-    impl WatchesClock for TestControlSourceContinuous {
-        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-            let value = self.source.source_audio(clock).abs();
-            self.post_message(value)
-        }
-    }
-    impl SourcesUpdates for TestControlSourceContinuous {
-        fn target_uids(&self) -> &[usize] {
-            &self.target_uids
-        }
-
-        fn target_uids_mut(&mut self) -> &mut Vec<usize> {
-            &mut self.target_uids
-        }
-
-        fn target_messages(&self) -> &[SmallMessageGenerator] {
-            &self.target_messages
-        }
-
-        fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator> {
-            &mut self.target_messages
-        }
-    }
-    impl Terminates for TestControlSourceContinuous {
+    impl<M: Message> Terminates for TestControlSourceContinuous<M> {
         fn is_finished(&self) -> bool {
             true
         }
     }
+    impl<M: Message> HasUid for TestControlSourceContinuous<M> {
+        fn uid(&self) -> usize {
+            self.uid
+        }
 
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
+        }
+    }
+    impl<M: Message> TestControlSourceContinuous<M> {
+        pub fn new_with(source: Box<dyn SourcesAudio>) -> Self {
+            Self {
+                uid: usize::default(),
+                source,
+                _phantom: PhantomData::default(),
+            }
+        }
+    }
     #[derive(Display, Debug, EnumString)]
     #[strum(serialize_all = "kebab_case")]
     pub(crate) enum TestMidiSinkControlParams {
@@ -1298,7 +1368,7 @@ pub mod tests {
 
     /// Helper for testing SinksMidi
     #[derive(Debug, Default)]
-    pub struct TestMidiSink {
+    pub struct TestMidiSink<M: Message> {
         pub(crate) me: Ww<Self>,
         overhead: Overhead,
 
@@ -1311,7 +1381,7 @@ pub mod tests {
         pub messages: Vec<(f32, MidiChannel, MidiMessage)>,
     }
 
-    impl TestMidiSink {
+    impl<M: Message> TestMidiSink<M> {
         pub const TEST_MIDI_CHANNEL: u8 = 42;
 
         pub fn new() -> Self {
@@ -1348,7 +1418,7 @@ pub mod tests {
         }
     }
 
-    impl SinksMidi for TestMidiSink {
+    impl<M: Message> SinksMidi for TestMidiSink<M> {
         fn midi_channel(&self) -> MidiChannel {
             self.midi_channel
         }
@@ -1386,12 +1456,12 @@ pub mod tests {
             }
         }
     }
-    impl SourcesAudio for TestMidiSink {
+    impl<M: Message> SourcesAudio for TestMidiSink<M> {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             self.value
         }
     }
-    impl HasOverhead for TestMidiSink {
+    impl<M: Message> HasOverhead for TestMidiSink<M> {
         fn overhead(&self) -> &Overhead {
             &self.overhead
         }
@@ -1400,7 +1470,7 @@ pub mod tests {
             &mut self.overhead
         }
     }
-    impl SinksUpdates for TestMidiSink {
+    impl<M: Message> SinksUpdates for TestMidiSink<M> {
         fn update(&mut self, _clock: &Clock, message: SmallMessage) {
             match message {
                 SmallMessage::ValueChanged(value) => {
@@ -1419,164 +1489,31 @@ pub mod tests {
 
     /// Keeps asking for time slices until end of specified lifetime.
     #[derive(Debug, Default)]
-    pub struct TestClockWatcher {
+    pub struct TestClockWatcher<M: Message> {
         has_more_work: bool,
         lifetime_seconds: f32,
+
+        _phantom: PhantomData<M>,
     }
 
-    impl WatchesClock for TestClockWatcher {
+    impl<M: Message> WatchesClock for TestClockWatcher<M> {
         fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
             self.has_more_work = clock.seconds() < self.lifetime_seconds;
             Vec::new()
         }
     }
 
-    impl Terminates for TestClockWatcher {
+    impl<M: Message> Terminates for TestClockWatcher<M> {
         fn is_finished(&self) -> bool {
             !self.has_more_work
         }
     }
 
-    impl TestClockWatcher {
+    impl<M: Message> TestClockWatcher<M> {
         pub fn new(lifetime_seconds: f32) -> Self {
             Self {
                 lifetime_seconds,
                 ..Default::default()
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAudioSource {
-        overhead: Overhead,
-    }
-
-    impl SourcesAudio for TestAudioSource {
-        fn source_audio(&mut self, _clock: &Clock) -> crate::common::MonoSample {
-            0.
-        }
-    }
-    impl HasOverhead for TestAudioSource {
-        fn overhead(&self) -> &Overhead {
-            &self.overhead
-        }
-
-        fn overhead_mut(&mut self) -> &mut Overhead {
-            &mut self.overhead
-        }
-    }
-    impl TestAudioSource {
-        pub fn new() -> Self {
-            TestAudioSource {
-                ..Default::default()
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAudioSink {
-        overhead: Overhead,
-        sources: Vec<Ww<dyn SourcesAudio>>,
-    }
-    impl SinksAudio for TestAudioSink {
-        fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
-            &self.sources
-        }
-        fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
-            &mut self.sources
-        }
-    }
-    impl HasOverhead for TestAudioSink {
-        fn overhead(&self) -> &Overhead {
-            &self.overhead
-        }
-
-        fn overhead_mut(&mut self) -> &mut Overhead {
-            &mut self.overhead
-        }
-    }
-    impl TestAudioSink {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestMidiSource {
-        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
-    }
-
-    impl SourcesMidi for TestMidiSource {
-        fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-            &self.channels_to_sink_vecs
-        }
-        fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-            &mut self.channels_to_sink_vecs
-        }
-
-        fn midi_output_channel(&self) -> MidiChannel {
-            MIDI_CHANNEL_RECEIVE_ALL
-        }
-
-        fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
-    }
-
-    impl TestMidiSource {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-
-        pub fn source_some_midi(&mut self, clock: &Clock) {
-            let message = MidiUtils::new_note_on(MidiNote::C4 as u8, 100);
-            self.issue_midi(clock, &TestMidiSink::TEST_MIDI_CHANNEL, &message);
-        }
-    }
-
-    // Gets called with native functions telling it about external keyboard
-    // events. Translates those into update messages that influence an
-    // arpeggiator, which controls a MIDI instrument.
-    //
-    // This shows how all these traits work together.
-    #[derive(Debug, Default)]
-    pub struct TestKeyboard {
-        target_uids: Vec<usize>,
-        target_messages: Vec<SmallMessageGenerator>,
-    }
-    impl SourcesUpdates for TestKeyboard {
-        fn target_uids(&self) -> &[usize] {
-            &self.target_uids
-        }
-
-        fn target_uids_mut(&mut self) -> &mut Vec<usize> {
-            &mut self.target_uids
-        }
-
-        fn target_messages(&self) -> &[SmallMessageGenerator] {
-            &self.target_messages
-        }
-
-        fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator> {
-            &mut self.target_messages
-        }
-    }
-
-    impl TestKeyboard {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-
-        pub fn handle_keypress(&mut self, key: u8) -> Vec<BigMessage> {
-            match key {
-                1 => self.post_message(0.5),
-                _ => {
-                    vec![]
-                }
             }
         }
     }
@@ -1588,14 +1525,14 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct TestArpeggiator {
+    pub struct TestArpeggiator<M: Message> {
         uid: usize,
         me: Ww<Self>,
         midi_channel_out: MidiChannel,
         pub tempo: f32,
         channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     }
-    impl SourcesMidi for TestArpeggiator {
+    impl<M: Message> SourcesMidi for TestArpeggiator<M> {
         fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
             &self.channels_to_sink_vecs
         }
@@ -1611,7 +1548,7 @@ pub mod tests {
             self.midi_channel_out = midi_channel;
         }
     }
-    impl WatchesClock for TestArpeggiator {
+    impl<M: Message> WatchesClock for TestArpeggiator<M> {
         fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
             // We don't actually pay any attention to self.tempo, but it's easy
             // enough to see that tempo could have influenced this MIDI message.
@@ -1623,12 +1560,12 @@ pub mod tests {
             Vec::new()
         }
     }
-    impl Terminates for TestArpeggiator {
+    impl<M: Message> Terminates for TestArpeggiator<M> {
         fn is_finished(&self) -> bool {
             true
         }
     }
-    impl SinksUpdates for TestArpeggiator {
+    impl<M: Message> SinksUpdates for TestArpeggiator<M> {
         fn message_for(&self, param: &str) -> SmallMessageGenerator {
             assert_eq!(
                 TestArpeggiatorControlParams::Tempo.to_string().as_str(),
@@ -1644,8 +1581,8 @@ pub mod tests {
             }
         }
     }
-    impl NewIsController for TestArpeggiator {}
-    impl NewUpdateable for TestArpeggiator {
+    impl<M: Message> NewIsController for TestArpeggiator<M> {}
+    impl<M: Message> NewUpdateable for TestArpeggiator<M> {
         type Message = TestMessage;
 
         fn update(
@@ -1665,7 +1602,7 @@ pub mod tests {
             EvenNewerCommand::none()
         }
     }
-    impl HasUid for TestArpeggiator {
+    impl<M: Message> HasUid for TestArpeggiator<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -1674,7 +1611,7 @@ pub mod tests {
             self.uid = uid
         }
     }
-    impl TestArpeggiator {
+    impl<M: Message> TestArpeggiator<M> {
         pub fn new_with(midi_channel_out: MidiChannel) -> Self {
             Self {
                 midi_channel_out,
@@ -1688,36 +1625,93 @@ pub mod tests {
         }
     }
 
-    #[derive(Debug)]
-    pub struct TestValueChecker {
+    #[derive(Debug, Default)]
+    pub struct TestValueChecker<M: Message> {
+        uid: usize,
         pub values: VecDeque<f32>,
-        pub target: Rrc<dyn SourcesAudio>,
+        pub target_uid: usize,
         pub checkpoint: f32,
         pub checkpoint_delta: f32,
         pub time_unit: ClockTimeUnit,
+        _phantom: PhantomData<M>,
     }
+    impl<M: Message> NewIsEffect for TestValueChecker<M> {}
+    impl<M: Message> TransformsAudio for TestValueChecker<M> {
+        fn transform_audio(&mut self, clock: &Clock, input_sample: MonoSample) -> MonoSample {
+            todo!()
+        }
+    }
+    impl<M: Message> NewUpdateable for TestValueChecker<M> {
+        default type Message = M;
 
-    impl WatchesClock for TestValueChecker {
-        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-            if !self.values.is_empty() {
-                if clock.time_for(&self.time_unit) >= self.checkpoint {
-                    const SAD_FLOAT_DIFF: f32 = 1.0e-4;
-                    assert_approx_eq!(
-                        self.target.borrow_mut().source_audio(clock),
-                        self.values[0],
-                        SAD_FLOAT_DIFF
-                    );
-                    self.checkpoint += self.checkpoint_delta;
-                    self.values.pop_front();
+        default fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            EvenNewerCommand::none()
+        }
+    }
+    impl NewUpdateable for TestValueChecker<TestMessage> {
+        type Message = TestMessage;
+
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Tick => {
+                    if !self.values.is_empty() {
+                        if clock.time_for(&self.time_unit) >= self.checkpoint {
+                            const SAD_FLOAT_DIFF: f32 = 1.0e-4;
+                            assert_approx_eq!(
+                                1000.0, // TODO TODO
+                                //      self.target_uid.source_audio(clock),
+                                self.values[0],
+                                SAD_FLOAT_DIFF
+                            );
+                            self.checkpoint += self.checkpoint_delta;
+                            self.values.pop_front();
+                        }
+                    }
                 }
+                _ => todo!(),
             }
-            Vec::new()
+            EvenNewerCommand::none()
+        }
+    }
+    impl<M: Message> HasUid for TestValueChecker<M> {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
         }
     }
 
-    impl Terminates for TestValueChecker {
+    impl<M: Message> Terminates for TestValueChecker<M> {
         fn is_finished(&self) -> bool {
             self.values.is_empty()
+        }
+    }
+    impl<M: Message> TestValueChecker<M> {
+        pub(crate) fn new_with(
+            values: &[f32],
+            target_uid: usize,
+            checkpoint: f32,
+            checkpoint_delta: f32,
+            time_unit: ClockTimeUnit,
+        ) -> Self {
+            Self {
+                values: VecDeque::from(Vec::from(values)),
+                target_uid,
+                checkpoint,
+                checkpoint_delta,
+                time_unit,
+                ..Default::default()
+            }
         }
     }
 }

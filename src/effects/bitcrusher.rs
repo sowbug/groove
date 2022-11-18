@@ -78,7 +78,9 @@ impl HasOverhead for Bitcrusher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{clock::Clock, utils::tests::TestAudioSourceAlwaysSameLevel};
+    use crate::{
+        clock::Clock, messages::tests::TestMessage, utils::tests::TestAudioSourceAlwaysSameLevel,
+    };
     use std::f32::consts::PI;
 
     const CRUSHED_PI: f32 = 0.14062929;
@@ -93,9 +95,9 @@ mod tests {
     fn test_bitcrusher_multisource() {
         let mut fx = Bitcrusher::new_with(8);
         let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(PI - 3.0));
-        fx.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
+        fx.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source));
         let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(PI - 3.0));
-        fx.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
+        fx.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source));
         assert_eq!(fx.source_audio(&Clock::default()), 2.0 * CRUSHED_PI);
     }
 }

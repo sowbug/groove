@@ -2,7 +2,7 @@ use crate::{midi::MidiChannel, traits::Message};
 use midly::MidiMessage;
 
 #[derive(Clone, Debug, Default)]
-pub(crate) enum GrooveMessage {
+pub enum GrooveMessage {
     #[default]
     Nop,
     Tick,

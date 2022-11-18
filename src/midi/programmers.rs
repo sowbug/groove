@@ -194,6 +194,7 @@ mod tests {
     use crate::{
         clock::{BeatValue, TimeSignature, WatchedClock},
         common::{rrc_clone, rrc_downgrade},
+        messages::tests::TestMessage,
         settings::PatternSettings,
         traits::{SinksMidi, SourcesMidi},
         utils::tests::TestMidiSink,
@@ -359,9 +360,10 @@ mod tests {
 
         let midi_recorder = TestMidiSink::new_wrapped();
         let midi_channel = midi_recorder.borrow().midi_channel();
-        sequencer
-            .borrow_mut()
-            .add_midi_sink(midi_channel, rrc_downgrade::<TestMidiSink>(&midi_recorder));
+        sequencer.borrow_mut().add_midi_sink(
+            midi_channel,
+            rrc_downgrade::<TestMidiSink<TestMessage>>(&midi_recorder),
+        );
 
         programmer.insert_pattern_at_cursor(&midi_channel, &pattern);
 

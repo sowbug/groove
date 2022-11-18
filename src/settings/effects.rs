@@ -7,6 +7,7 @@ use crate::{
         limiter::Limiter,
         mixer::Mixer,
     },
+    messages::GrooveMessage,
     traits::IsEffect,
 };
 use serde::{Deserialize, Serialize};
@@ -74,7 +75,7 @@ pub enum EffectSettings {
 impl EffectSettings {
     pub(crate) fn instantiate(&self, sample_rate: usize) -> Rrc<dyn IsEffect> {
         match *self {
-            EffectSettings::Mixer {} => Mixer::new_wrapped(),
+            EffectSettings::Mixer {} => Mixer::<GrooveMessage>::new_wrapped(),
             EffectSettings::Limiter { min, max } => {
                 Limiter::new_wrapped_with(min as MonoSample, max as MonoSample)
             }

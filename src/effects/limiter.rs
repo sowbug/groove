@@ -1,6 +1,7 @@
 use crate::{
+    clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
-    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio}, clock::Clock,
+    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
 };
 
 #[derive(Debug, Default)]
@@ -79,6 +80,7 @@ mod tests {
     use crate::{
         clock::Clock,
         common::MonoSample,
+        messages::tests::TestMessage,
         utils::tests::{TestAudioSourceAlwaysSameLevel, TestAudioSourceAlwaysTooLoud},
     };
     use assert_approx_eq::assert_approx_eq;
@@ -88,7 +90,9 @@ mod tests {
         const MAX: MonoSample = 0.9;
         let mut limiter = Limiter::new_with(0.0, MAX);
         let source = rrc(TestAudioSourceAlwaysTooLoud::new());
-        limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysTooLoud>(&source));
+        limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysTooLoud<TestMessage>>(
+            &source,
+        ));
         assert_eq!(limiter.source_audio(&Clock::new()), MAX);
     }
 
@@ -100,19 +104,25 @@ mod tests {
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(0.5));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
+            limiter.add_audio_source(
+                rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source),
+            );
             assert_eq!(limiter.source_audio(&clock), 0.5);
         }
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(-0.8));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
+            limiter.add_audio_source(
+                rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source),
+            );
             assert_eq!(limiter.source_audio(&clock), MIN);
         }
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(0.8));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
+            limiter.add_audio_source(
+                rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source),
+            );
             assert_eq!(limiter.source_audio(&clock), MAX);
         }
 
@@ -120,15 +130,23 @@ mod tests {
         {
             let mut limiter = Limiter::new_with(MIN, MAX);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(0.2));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
+            limiter.add_audio_source(
+                rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source),
+            );
             let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(0.6));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
+            limiter.add_audio_source(
+                rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source),
+            );
             assert_eq!(limiter.source_audio(&clock), MAX);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(-1.0));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
+            limiter.add_audio_source(
+                rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source),
+            );
             assert_approx_eq!(limiter.source_audio(&clock), -0.2);
             let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(-1.0));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
+            limiter.add_audio_source(
+                rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source),
+            );
             assert_eq!(limiter.source_audio(&clock), MIN);
         }
     }

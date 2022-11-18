@@ -329,6 +329,7 @@ mod tests {
     use crate::{
         clock::{Clock, MidiTicks},
         common::{rrc, rrc_downgrade},
+        messages::tests::TestMessage,
         midi::{MidiNote, MidiUtils},
         traits::{SinksMidi, SourcesMidi, WatchesClock},
         utils::tests::TestMidiSink,
@@ -397,7 +398,7 @@ mod tests {
             MidiUtils::note_off_c4(),
         );
 
-        sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink>(&device));
+        sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink<TestMessage>>(&device));
 
         advance_one_midi_tick(&mut clock, &mut sequencer);
         {
@@ -424,12 +425,12 @@ mod tests {
         let device_1 = rrc(TestMidiSink::new());
         assert!(!device_1.borrow().is_playing);
         device_1.borrow_mut().set_midi_channel(0);
-        sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink>(&device_1));
+        sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink<TestMessage>>(&device_1));
 
         let device_2 = rrc(TestMidiSink::new());
         assert!(!device_2.borrow().is_playing);
         device_2.borrow_mut().set_midi_channel(1);
-        sequencer.add_midi_sink(1, rrc_downgrade::<TestMidiSink>(&device_2));
+        sequencer.add_midi_sink(1, rrc_downgrade::<TestMidiSink<TestMessage>>(&device_2));
 
         sequencer.insert(
             sequencer.tick_for_beat(&clock, 0),

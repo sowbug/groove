@@ -4,11 +4,12 @@ use crate::{
     control::{BigMessage, ControlPath},
     effects::mixer::Mixer,
     id_store::IdStore,
+    messages::GrooveMessage,
     midi::{patterns::PatternManager, MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{
-        EvenNewerIsUpdateable, IsEffect, IsMidiEffect, MakesIsViewable, NewIsController,
-        NewIsEffect, NewIsInstrument, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
-        SourcesMidi, WatchesClock, BoxedEntity,
+        BoxedEntity, EvenNewerIsUpdateable, IsEffect, IsMidiEffect, MakesIsViewable,
+        NewIsController, NewIsEffect, NewIsInstrument, SinksAudio, SinksMidi, SinksUpdates,
+        SourcesAudio, SourcesMidi, WatchesClock,
     },
 };
 use crossbeam::deque::Worker;
@@ -31,7 +32,6 @@ impl Performance {
         }
     }
 }
-
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
@@ -111,7 +111,7 @@ impl<M> Store<M> {
 pub struct Orchestrator {
     clock: WatchedClock, // owns all WatchesClock
     id_store: IdStore,
-    main_mixer: Mixer,
+    main_mixer: Mixer<GrooveMessage>,
     midi_bus: Rrc<MidiBus>,
 
     // We don't have owning Vecs for WatchesClock or IsMidiEffect because both
@@ -411,7 +411,7 @@ impl Orchestrator {
         &mut self.pattern_manager
     }
 
-    pub fn mixer(&self) -> &Mixer {
+    pub fn mixer(&self) -> &Mixer<GrooveMessage> {
         &self.main_mixer
     }
 }

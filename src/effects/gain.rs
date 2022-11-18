@@ -1,6 +1,7 @@
 use crate::{
+    clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio}, clock::Clock,
+    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
 };
 
 #[derive(Debug, Default)]
@@ -82,6 +83,7 @@ mod tests {
     use super::*;
     use crate::{
         clock::Clock,
+        messages::tests::TestMessage,
         utils::tests::{TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSameLevel},
     };
 
@@ -89,7 +91,9 @@ mod tests {
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(1.1);
         let source = rrc(TestAudioSourceAlwaysLoud::new());
-        gain.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysLoud>(&source));
+        gain.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysLoud<TestMessage>>(
+            &source,
+        ));
         assert_eq!(gain.source_audio(&Clock::new()), 1.1);
     }
 
@@ -98,7 +102,9 @@ mod tests {
         // principle of least astonishment: does a default instance adhere?
         let mut gain = Gain::new();
         let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(0.888));
-        gain.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSameLevel>(&source));
+        gain.add_audio_source(
+            rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source),
+        );
         assert_eq!(gain.source_audio(&Clock::new()), 0.888);
     }
 }

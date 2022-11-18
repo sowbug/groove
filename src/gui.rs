@@ -9,7 +9,7 @@ use crate::{
         sequencers::BeatSequencer,
     },
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
-    traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, SinksAudio},
+    traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, Message, SinksAudio},
     Orchestrator,
 };
 use iced::{
@@ -197,11 +197,11 @@ pub trait IsViewable: Debug {
     }
 }
 
-impl IsViewable for Mixer {
+impl<M: Message> IsViewable for Mixer<M> {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<ViewableMessage> {
-        let title = type_name::<Mixer>();
+        let title = "MIXER";
         let contents = format!("sources: {}", self.sources().len());
         GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
     }
@@ -220,7 +220,7 @@ impl IsViewable for Mixer {
     }
 }
 
-impl MakesIsViewable for Mixer {
+impl<M: Message> MakesIsViewable for Mixer<M> {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         None
     }
