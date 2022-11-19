@@ -21,9 +21,6 @@ use std::{collections::HashMap, marker::PhantomData};
 pub struct NewOrchestrator<M: Message> {
     uid: usize,
     store: Store<M>,
-    uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
-    audio_sink_uid_to_source_uids: HashMap<usize, Vec<usize>>,
-    midi_channel_to_receiver_uid: HashMap<MidiChannel, Vec<usize>>,
     main_mixer_uid: usize,
 }
 impl<M: Message> NewIsController for NewOrchestrator<M> {}
@@ -86,20 +83,15 @@ impl<M: Message> NewOrchestrator<M> {
 
             if let Some(controller) = self.store.get(controller_uid) {
                 if let BoxedEntity::Controller(_controller) = controller {
-                    self.uid_to_control
-                        .entry(controller_uid)
-                        .or_default()
-                        .push((target_uid, param_id));
+                    self.store
+                        .link_control(controller_uid, target_uid, param_id);
                 }
             }
         }
     }
 
     pub(crate) fn unlink_control(&mut self, controller_uid: usize, target_uid: usize) {
-        self.uid_to_control
-            .entry(controller_uid)
-            .or_default()
-            .retain(|(uid, _)| *uid != target_uid);
+        self.store.unlink_control(controller_uid, target_uid);
     }
 
     pub(crate) fn patch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
@@ -133,18 +125,12 @@ impl<M: Message> NewOrchestrator<M> {
         }
 
         // We've passed our checks. Record it.
-        self.audio_sink_uid_to_source_uids
-            .entry(input_uid)
-            .or_default()
-            .push(output_uid);
+        self.store.patch(output_uid, input_uid);
         Ok(())
     }
 
     pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) {
-        self.audio_sink_uid_to_source_uids
-            .entry(input_uid)
-            .or_default()
-            .retain(|&uid| uid != output_uid);
+        self.store.unpatch(output_uid, input_uid);
     }
 
     pub(crate) fn connect_to_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
@@ -192,11 +178,10 @@ impl<M: Message> NewOrchestrator<M> {
                             BoxedEntity::Effect(_) => {
                                 // Tell us to process sum.
                                 stack.push(StackEntry::CollectResultFor(uid));
-                                if let Some(source_uids) =
-                                    self.audio_sink_uid_to_source_uids.get(&uid)
-                                {
+                                if let Some(source_uids) = self.store.patches(uid) {
+                                    let source_uids = source_uids.to_vec();
                                     // Eval leaves
-                                    for source_uid in source_uids {
+                                    for source_uid in &source_uids {
                                         if let Some(entity) = self.store.get_mut(*source_uid) {
                                             match entity {
                                                 BoxedEntity::Controller(_) => {}
@@ -211,7 +196,7 @@ impl<M: Message> NewOrchestrator<M> {
                                     sum = MONO_SAMPLE_SILENCE;
 
                                     // Eval nodes
-                                    for source_uid in source_uids {
+                                    for source_uid in &source_uids {
                                         if let Some(entity) = self.store.get_mut(*source_uid) {
                                             match entity {
                                                 BoxedEntity::Controller(_) => {}
@@ -260,10 +245,8 @@ impl<M: Message> NewOrchestrator<M> {
         receiver_uid: usize,
         receiver_midi_channel: MidiChannel,
     ) {
-        self.midi_channel_to_receiver_uid
-            .entry(receiver_midi_channel)
-            .or_default()
-            .push(receiver_uid);
+        self.store
+            .connect_midi_receiver(receiver_uid, receiver_midi_channel);
     }
 
     pub(crate) fn disconnect_midi_downstream(
@@ -271,16 +254,8 @@ impl<M: Message> NewOrchestrator<M> {
         receiver_uid: usize,
         receiver_midi_channel: MidiChannel,
     ) {
-        self.midi_channel_to_receiver_uid
-            .entry(receiver_midi_channel)
-            .or_default()
-            .retain(|&uid| uid != receiver_uid);
-    }
-
-    fn send_msg_midi(&self, clock: &Clock, channel: MidiChannel, message: MidiMessage) {
-        if let Some(target_uids) = self.midi_channel_to_receiver_uid.get(&channel) {
-            todo!()
-        }
+        self.store
+            .disconnect_midi_receiver(receiver_uid, receiver_midi_channel);
     }
 }
 impl<M: Message> Default for NewOrchestrator<M> {
@@ -288,9 +263,6 @@ impl<M: Message> Default for NewOrchestrator<M> {
         let mut r = Self {
             uid: Default::default(),
             store: Default::default(),
-            uid_to_control: Default::default(),
-            audio_sink_uid_to_source_uids: Default::default(),
-            midi_channel_to_receiver_uid: Default::default(),
             main_mixer_uid: Default::default(),
         };
         let main_mixer = Box::new(Mixer::default());
@@ -300,19 +272,20 @@ impl<M: Message> Default for NewOrchestrator<M> {
 }
 impl NewOrchestrator<GrooveMessage> {
     fn send_control_f32(&mut self, clock: &Clock, uid: usize, value: f32) {
-        if let Some(e) = self.uid_to_control.get(&uid) {
-            for (target_uid, param) in e {
-                if let Some(target) = self.store.get_mut(*target_uid) {
+        if let Some(links) = self.store.control_links(uid) {
+            let links = links.to_vec();
+            for (target_uid, param) in links {
+                if let Some(target) = self.store.get_mut(target_uid) {
                     match target {
                         // TODO: everyone is the same...
                         BoxedEntity::Controller(e) => {
-                            e.update(clock, GrooveMessage::UpdateF32(*param, value));
+                            e.update(clock, GrooveMessage::UpdateF32(param, value));
                         }
                         BoxedEntity::Instrument(e) => {
-                            e.update(clock, GrooveMessage::UpdateF32(*param, value));
+                            e.update(clock, GrooveMessage::UpdateF32(param, value));
                         }
                         BoxedEntity::Effect(e) => {
-                            e.update(clock, GrooveMessage::UpdateF32(*param, value));
+                            e.update(clock, GrooveMessage::UpdateF32(param, value));
                         }
                     }
                 }
@@ -498,10 +471,10 @@ pub mod tests {
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            BoxedEntity, EvenNewerCommand,  HasOverhead, HasUid, Internal,
-            IsEffect, MakesIsViewable, Message, NewIsController, NewIsEffect, NewIsInstrument,
-            NewUpdateable, Overhead, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
-            SourcesMidi, SourcesUpdates, Terminates, TransformsAudio, WatchesClock,
+            BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, Internal, IsEffect,
+            MakesIsViewable, Message, NewIsController, NewIsEffect, NewIsInstrument, NewUpdateable,
+            Overhead, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi,
+            SourcesUpdates, Terminates, TransformsAudio, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -743,19 +716,19 @@ pub mod tests {
     }
     impl NewOrchestrator<TestMessage> {
         fn send_control_f32(&mut self, clock: &Clock, uid: usize, value: f32) {
-            if let Some(e) = self.uid_to_control.get(&uid) {
-                for (target_uid, param) in e {
-                    if let Some(target) = self.store.get_mut(*target_uid) {
+            if let Some(e) = self.store.control_links(uid) {
+                for (target_uid, param) in e.to_vec() {
+                    if let Some(target) = self.store.get_mut(target_uid) {
                         match target {
                             // TODO: everyone is the same...
                             BoxedEntity::Controller(e) => {
-                                e.update(clock, TestMessage::UpdateF32(*param, value));
+                                e.update(clock, TestMessage::UpdateF32(param, value));
                             }
                             BoxedEntity::Instrument(e) => {
-                                e.update(clock, TestMessage::UpdateF32(*param, value));
+                                e.update(clock, TestMessage::UpdateF32(param, value));
                             }
                             BoxedEntity::Effect(e) => {
-                                e.update(clock, TestMessage::UpdateF32(*param, value));
+                                e.update(clock, TestMessage::UpdateF32(param, value));
                             }
                         }
                     }
@@ -1977,7 +1950,7 @@ pub mod tests {
             uid: usize,
             value: f32,
         ) {
-            if let Some(e) = orchestrator.uid_to_control.get(&uid) {
+            if let Some(e) = orchestrator.store.control_links(uid) {
                 // TODO: is this clone() necessary? I got lazy because its' a
                 // mut borrow of orchestrator inside a non-mut block.
                 for (target_uid, param_id) in e.clone() {
@@ -2032,23 +2005,21 @@ pub mod tests {
             channel: u8,
             message: MidiMessage,
         ) {
-            for receiver_uid in orchestrator
-                .midi_channel_to_receiver_uid
-                .entry(channel)
-                .or_default()
-            {
-                // TODO: can this loop?
-                if let Some(target) = orchestrator.store.get_mut(*receiver_uid) {
-                    let message = TestMessage::Midi(channel, message);
-                    match target {
-                        BoxedEntity::Controller(e) => {
-                            e.update(clock, message);
-                        }
-                        BoxedEntity::Instrument(e) => {
-                            e.update(clock, message);
-                        }
-                        BoxedEntity::Effect(e) => {
-                            e.update(clock, message);
+            if let Some(receiver_uids) = orchestrator.store.midi_receivers(channel) {
+                for receiver_uid in receiver_uids.to_vec() {
+                    // TODO: can this loop?
+                    if let Some(target) = orchestrator.store.get_mut(receiver_uid) {
+                        let message = TestMessage::Midi(channel, message);
+                        match target {
+                            BoxedEntity::Controller(e) => {
+                                e.update(clock, message);
+                            }
+                            BoxedEntity::Instrument(e) => {
+                                e.update(clock, message);
+                            }
+                            BoxedEntity::Effect(e) => {
+                                e.update(clock, message);
+                            }
                         }
                     }
                 }

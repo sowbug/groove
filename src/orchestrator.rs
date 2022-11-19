@@ -66,6 +66,9 @@ pub(crate) enum Uid {
 pub struct Store<M> {
     last_uid: usize,
     uid_to_item: HashMap<usize, BoxedEntity<M>>,
+    uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
+    audio_sink_uid_to_source_uids: HashMap<usize, Vec<usize>>,
+    midi_channel_to_receiver_uid: HashMap<MidiChannel, Vec<usize>>,
 }
 
 impl<M> Store<M> {
@@ -102,6 +105,65 @@ impl<M> Store<M> {
     fn get_next_uid(&mut self) -> usize {
         self.last_uid += 1;
         self.last_uid
+    }
+
+    pub(crate) fn link_control(
+        &mut self,
+        controller_uid: usize,
+        target_uid: usize,
+        param_id: usize,
+    ) {
+        self.uid_to_control
+            .entry(controller_uid)
+            .or_default()
+            .push((target_uid, param_id));
+    }
+
+    pub(crate) fn unlink_control(&mut self, controller_uid: usize, target_uid: usize) {
+        self.uid_to_control
+            .entry(controller_uid)
+            .or_default()
+            .retain(|(uid, _)| *uid != target_uid);
+    }
+
+    pub(crate) fn control_links(&self, controller_uid: usize) -> Option<&Vec<(usize, usize)>> {
+        self.uid_to_control.get(&controller_uid)
+    }
+
+    pub(crate) fn patch(&mut self, output_uid: usize, input_uid: usize) {
+        self.audio_sink_uid_to_source_uids
+            .entry(input_uid)
+            .or_default()
+            .push(output_uid);
+    }
+
+    pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) {
+        self.audio_sink_uid_to_source_uids
+            .entry(input_uid)
+            .or_default()
+            .retain(|&uid| uid != output_uid);
+    }
+
+    pub(crate) fn patches(&self, input_uid: usize) -> Option<&Vec<usize>> {
+        self.audio_sink_uid_to_source_uids.get(&input_uid)
+    }
+
+    pub(crate) fn midi_receivers(&self, channel: MidiChannel) -> Option<&Vec<usize>> {
+        self.midi_channel_to_receiver_uid.get(&channel)
+    }
+
+    pub(crate) fn connect_midi_receiver(&mut self, receiver_uid: usize, channel: MidiChannel) {
+        self.midi_channel_to_receiver_uid
+            .entry(channel)
+            .or_default()
+            .push(receiver_uid);
+    }
+
+    pub(crate) fn disconnect_midi_receiver(&mut self, receiver_uid: usize, channel: MidiChannel) {
+        self.midi_channel_to_receiver_uid
+            .entry(channel)
+            .or_default()
+            .retain(|&uid| uid != receiver_uid);
     }
 }
 
