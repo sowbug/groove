@@ -13,7 +13,7 @@ use crate::{
         sequencers::BeatSequencer,
     },
     traits::{IsEffect, IsMidiInstrument},
-    Orchestrator,
+    OldOrchestrator,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -50,8 +50,8 @@ impl SongSettings {
         Ok(settings)
     }
 
-    pub fn instantiate(&self) -> Result<Orchestrator> {
-        let mut o = Orchestrator::new();
+    pub fn instantiate(&self) -> Result<OldOrchestrator> {
+        let mut o = OldOrchestrator::new();
         o.set_watched_clock(WatchedClock::new_with(&self.clock));
         self.instantiate_devices(&mut o);
         self.instantiate_patch_cables(&mut o);
@@ -60,7 +60,7 @@ impl SongSettings {
         Ok(o)
     }
 
-    fn instantiate_devices(&self, orchestrator: &mut Orchestrator) {
+    fn instantiate_devices(&self, orchestrator: &mut OldOrchestrator) {
         let sample_rate = self.clock.sample_rate();
 
         for device in &self.devices {
@@ -98,7 +98,7 @@ impl SongSettings {
         }
     }
 
-    fn instantiate_patch_cables(&self, orchestrator: &mut Orchestrator) {
+    fn instantiate_patch_cables(&self, orchestrator: &mut OldOrchestrator) {
         for patch_cable in &self.patch_cables {
             if patch_cable.len() < 2 {
                 dbg!("ignoring patch cable of length < 2");
@@ -130,7 +130,7 @@ impl SongSettings {
     // a pattern or a TS change...
     //
     // TODO - should PatternSequencers be able to change their base time signature? Probably
-    fn instantiate_tracks(&self, orchestrator: &mut Orchestrator) {
+    fn instantiate_tracks(&self, orchestrator: &mut OldOrchestrator) {
         if self.tracks.is_empty() {
             return;
         }
@@ -163,7 +163,7 @@ impl SongSettings {
         orchestrator.register_viewable(sequencer);
     }
 
-    fn instantiate_control_trips(&self, orchestrator: &mut Orchestrator) {
+    fn instantiate_control_trips(&self, orchestrator: &mut OldOrchestrator) {
         if self.trips.is_empty() {
             // There's no need to instantiate the paths if there are no trips to use them.
             return;

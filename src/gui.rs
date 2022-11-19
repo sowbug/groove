@@ -11,7 +11,7 @@ use crate::{
     },
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, Message, SinksAudio},
-    Orchestrator,
+    OldOrchestrator,
 };
 use iced::{
     alignment::{Horizontal, Vertical},
@@ -835,7 +835,7 @@ impl IsViewable for PatternManager {
     }
 }
 
-impl IsViewable for Orchestrator {
+impl IsViewable for OldOrchestrator {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<ViewableMessage> {

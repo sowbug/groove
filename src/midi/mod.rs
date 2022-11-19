@@ -8,7 +8,7 @@ pub use midly::MidiMessage;
 use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, weak_new, Rrc, Ww},
     traits::{SinksMidi, SourcesMidi},
-    Orchestrator,
+    OldOrchestrator,
 };
 use crossbeam::deque::{Stealer, Worker};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
@@ -518,7 +518,7 @@ pub struct MidiHandler {
 // TODO - this is an ExternalMidi that implements SinksMidi and SourcesMidi, and
 // IOHelper connects it to Orchestrator. I think.
 impl MidiHandler {
-    pub fn new_with(orchestrator: &mut Orchestrator) -> Self {
+    pub fn new_with(orchestrator: &mut OldOrchestrator) -> Self {
         let r = Self::default();
 
         let t = rrc_clone(&r.midi_output);

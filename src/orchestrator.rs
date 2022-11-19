@@ -170,7 +170,7 @@ impl<M> Store<M> {
 /// Orchestrator takes a description of a song and turns it into an in-memory
 /// representation that is ready to render to sound.
 #[derive(Debug, Default)]
-pub struct Orchestrator {
+pub struct OldOrchestrator {
     clock: WatchedClock, // owns all WatchesClock
     id_store: IdStore,
     main_mixer: Mixer<GrooveMessage>,
@@ -196,7 +196,7 @@ pub struct Orchestrator {
     id_to_updateable_uid: HashMap<String, usize>,
 }
 
-impl Orchestrator {
+impl OldOrchestrator {
     pub fn new() -> Self {
         Default::default()
     }

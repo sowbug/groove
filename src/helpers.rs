@@ -2,7 +2,7 @@ use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc},
     messages::GrooveMessage,
     midi::{programmers::MidiSmfReader, sequencers::MidiTickSequencer},
-    orchestrator::{Orchestrator, Performance},
+    orchestrator::{OldOrchestrator, Performance},
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     synthesizers::{
         drumkit_sampler::Sampler,
@@ -166,7 +166,7 @@ pub struct IOHelper {}
 impl IOHelper {
     pub async fn fill_audio_buffer(
         buffer_size: usize,
-        orchestrator: &mut Orchestrator,
+        orchestrator: &mut OldOrchestrator,
         audio_output: &mut AudioOutput,
     ) {
         while audio_output.worker().len() < buffer_size {
@@ -180,7 +180,7 @@ impl IOHelper {
     }
 
     pub async fn perform_async(
-        orchestrator: &mut Orchestrator,
+        orchestrator: &mut OldOrchestrator,
     ) -> Result<Performance, &'static str> {
         if let Ok(performance) = orchestrator.perform() {
             Ok(performance)
@@ -195,9 +195,9 @@ impl IOHelper {
         Ok(settings)
     }
 
-    pub fn orchestrator_from_midi_file(filename: &str) -> Orchestrator {
+    pub fn orchestrator_from_midi_file(filename: &str) -> OldOrchestrator {
         let data = std::fs::read(filename).unwrap();
-        let mut orchestrator = Orchestrator::new();
+        let mut orchestrator = OldOrchestrator::new();
 
         let midi_sequencer = rrc(MidiTickSequencer::new());
         MidiSmfReader::program_sequencer(&data, &mut midi_sequencer.borrow_mut());
