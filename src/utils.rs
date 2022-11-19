@@ -4,39 +4,66 @@ use crate::{
     control::{BigMessage, SmallMessageGenerator},
     effects::mixer::Mixer,
     messages::GrooveMessage,
+    midi::MidiChannel,
     orchestrator::Store,
     traits::{
-        BoxedEntity, EvenNewerCommand, HasUid, Internal, Message, NewIsController, NewIsEffect,
-        NewUpdateable, SourcesUpdates, Terminates, WatchesClock,
+        BoxedEntity, EvenNewerCommand, HasUid, Internal, IsController, Message, NewIsController,
+        NewIsEffect, NewIsInstrument, NewUpdateable, SourcesAudio, SourcesUpdates, Terminates,
+        WatchesClock,
     },
 };
+use anyhow::{anyhow, Result};
 use core::fmt::Debug;
+use midly::MidiMessage;
 use std::{collections::HashMap, marker::PhantomData};
 
-#[derive(Default)]
+#[derive(Debug)]
 pub struct NewOrchestrator<M: Message> {
+    uid: usize,
     store: Store<M>,
     uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
     audio_sink_uid_to_source_uids: HashMap<usize, Vec<usize>>,
+    midi_channel_to_receiver_uid: HashMap<MidiChannel, Vec<usize>>,
     main_mixer_uid: usize,
-
-    // state_checker is an optional IsEffect that verifies expected state
-    // after all each loop iteration's commands have been acted upon.
-    //
-    // It is an effect because it is intended to monitor another thing's
-    // output, which is more like an effect than a controller or an
-    // instrument.
-    state_checker: Option<Box<dyn NewIsEffect<Message = M>>>,
 }
+impl<M: Message> NewIsController for NewOrchestrator<M> {}
+impl<M: Message> NewUpdateable for NewOrchestrator<M> {
+    type Message = M;
 
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        EvenNewerCommand::batch(self.store.values_mut().fold(
+            Vec::new(),
+            |mut vec: Vec<EvenNewerCommand<Self::Message>>, item| {
+                match item {
+                    BoxedEntity::Controller(entity) => {
+                        let command = entity.update(clock, message.clone());
+
+                        vec.push(command);
+                    }
+                    _ => {}
+                }
+                vec
+            },
+        ))
+    }
+}
+impl<M: Message> Terminates for NewOrchestrator<M> {
+    fn is_finished(&self) -> bool {
+        true
+    }
+}
+impl<M: Message> HasUid for NewOrchestrator<M> {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 impl<M: Message> NewOrchestrator<M> {
     pub(crate) fn new() -> Self {
-        let mut r = Self {
-            ..Default::default()
-        };
-        let main_mixer = Box::new(Mixer::default());
-        r.main_mixer_uid = r.add(BoxedEntity::Effect(main_mixer));
-        r
+        Default::default()
     }
 
     pub(crate) fn add(&mut self, entity: BoxedEntity<M>) -> usize {
@@ -68,86 +95,60 @@ impl<M: Message> NewOrchestrator<M> {
         }
     }
 
-    pub(crate) fn patch(&mut self, source_uid: usize, sink_uid: usize) {
-        // Validate that sink_uid refers to something that has audio input
-        if let Some(input) = self.store.get(sink_uid) {
+    pub(crate) fn unlink_control(&mut self, controller_uid: usize, target_uid: usize) {
+        self.uid_to_control
+            .entry(controller_uid)
+            .or_default()
+            .retain(|(uid, _)| *uid != target_uid);
+    }
+
+    pub(crate) fn patch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
+        // TODO: detect loops
+
+        // Validate that input_uid refers to something that has audio input
+        if let Some(input) = self.store.get(input_uid) {
             match input {
                 // TODO: there could be things that have audio input but
                 // don't transform, like an audio recorder (or technically a
                 // main mixer).
-                BoxedEntity::Controller(_) => {
-                    debug_assert!(false, "this item doesn't transform audio");
-                    return;
-                }
                 BoxedEntity::Effect(_) => {}
-                BoxedEntity::Instrument(_) => {
-                    debug_assert!(false, "this item doesn't transform audio");
-                    return;
+                _ => {
+                    return Err(anyhow!("Item {:?} doesn't transform audio", input));
                 }
             }
+        } else {
+            return Err(anyhow!("Couldn't find input_uid {}", input_uid));
         }
 
         // Validate that source_uid refers to something that outputs audio
-        if let Some(output) = self.store.get(source_uid) {
+        if let Some(output) = self.store.get(output_uid) {
             match output {
                 BoxedEntity::Controller(_) => {
-                    debug_assert!(false, "this item doesn't output audio");
-                    return;
+                    return Err(anyhow!("Item {:?} doesn't output audio", output));
                 }
-                BoxedEntity::Effect(_) => {}
-                BoxedEntity::Instrument(_) => {}
+                _ => {}
             }
+        } else {
+            return Err(anyhow!("Couldn't find output_uid {}", output_uid));
         }
 
         // We've passed our checks. Record it.
         self.audio_sink_uid_to_source_uids
-            .entry(sink_uid)
+            .entry(input_uid)
             .or_default()
-            .push(source_uid);
+            .push(output_uid);
+        Ok(())
     }
 
-    pub(crate) fn connect_to_main_mixer(&mut self, source_uid: usize) {
-        self.patch(source_uid, self.main_mixer_uid);
+    pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) {
+        self.audio_sink_uid_to_source_uids
+            .entry(input_uid)
+            .or_default()
+            .retain(|&uid| uid != output_uid);
     }
 
-    fn handle_message(&mut self, clock: &Clock, message: M) {
-        match message {
-            // TestMessage::Nothing => todo!(),
-            // TestMessage::Something => todo!(),
-            // TestMessage::Tick => todo!(),
-            // TestMessage::ControlF32(uid, value) => {
-            //     self.send_control_f32(uid, value);
-            // }
-            // TestMessage::UpdateF32(_, _) => todo!(),
-            _ => {}
-        }
-    }
-    //////////// HUGE TODO *********************************************************
-
-    pub(crate) fn run(
-        &mut self,
-        clock: &mut Clock,
-        tick_message: M,
-        run_until_completion: bool,
-    ) -> Vec<MonoSample> {
-        let mut samples = Vec::<MonoSample>::new();
-        loop {
-            let command = self.update(clock, tick_message.clone());
-            self.handle_command(clock, command);
-            if self.state_checker.is_some() {
-                // TODO: figure out how to get around borrow checker
-                // self.state_checker.unwrap().update(clock, tick_message.clone());
-            }
-            if self.are_all_finished() {
-                break;
-            }
-            samples.push(self.gather_audio(clock, self.main_mixer_uid));
-            clock.tick();
-            if !run_until_completion {
-                break;
-            }
-        }
-        samples
+    pub(crate) fn connect_to_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
+        self.patch(source_uid, self.main_mixer_uid)
     }
 
     fn are_all_finished(&mut self) -> bool {
@@ -157,37 +158,6 @@ impl<M: Message> NewOrchestrator<M> {
             BoxedEntity::Effect(_) => true,
             BoxedEntity::Instrument(_) => true,
         })
-    }
-
-    fn update(&mut self, clock: &Clock, tick_message: M) -> EvenNewerCommand<M> {
-        EvenNewerCommand::batch(self.store.values_mut().fold(
-            Vec::new(),
-            |mut vec: Vec<EvenNewerCommand<M>>, item| {
-                match item {
-                    BoxedEntity::Controller(entity) => {
-                        vec.push(entity.update(clock, tick_message.clone()));
-                    }
-                    BoxedEntity::Instrument(_) => {}
-                    BoxedEntity::Effect(_) => {
-                        // TODO: ensure that effects get a tick via
-                        // source_audio() even if they're muted or disabled
-                    }
-                }
-                vec
-            },
-        ))
-    }
-
-    fn handle_command(&mut self, clock: &Clock, command: EvenNewerCommand<M>) {
-        match command.0 {
-            Internal::None => {}
-            Internal::Single(message) => self.handle_message(clock, message),
-            Internal::Batch(messages) => {
-                for message in messages {
-                    self.handle_message(clock, message);
-                }
-            }
-        }
     }
 
     // This (probably) embarrassing method is supposed to be a naturally
@@ -281,11 +251,53 @@ impl<M: Message> NewOrchestrator<M> {
         sum
     }
 
-    pub(crate) fn add_state_checker(&mut self, state_checker: Box<dyn NewIsEffect<Message = M>>) {
-        self.state_checker = Some(state_checker);
+    pub(crate) fn connect_midi_upstream(&self, source_uid: usize) {
+        dbg!(&source_uid);
+    }
+
+    pub(crate) fn connect_midi_downstream(
+        &mut self,
+        receiver_uid: usize,
+        receiver_midi_channel: MidiChannel,
+    ) {
+        self.midi_channel_to_receiver_uid
+            .entry(receiver_midi_channel)
+            .or_default()
+            .push(receiver_uid);
+    }
+
+    pub(crate) fn disconnect_midi_downstream(
+        &mut self,
+        receiver_uid: usize,
+        receiver_midi_channel: MidiChannel,
+    ) {
+        self.midi_channel_to_receiver_uid
+            .entry(receiver_midi_channel)
+            .or_default()
+            .retain(|&uid| uid != receiver_uid);
+    }
+
+    fn send_msg_midi(&self, clock: &Clock, channel: MidiChannel, message: MidiMessage) {
+        if let Some(target_uids) = self.midi_channel_to_receiver_uid.get(&channel) {
+            todo!()
+        }
     }
 }
-
+impl<M: Message> Default for NewOrchestrator<M> {
+    fn default() -> Self {
+        let mut r = Self {
+            uid: Default::default(),
+            store: Default::default(),
+            uid_to_control: Default::default(),
+            audio_sink_uid_to_source_uids: Default::default(),
+            midi_channel_to_receiver_uid: Default::default(),
+            main_mixer_uid: Default::default(),
+        };
+        let main_mixer = Box::new(Mixer::default());
+        r.main_mixer_uid = r.add(BoxedEntity::Effect(main_mixer));
+        r
+    }
+}
 impl NewOrchestrator<GrooveMessage> {
     fn send_control_f32(&mut self, clock: &Clock, uid: usize, value: f32) {
         if let Some(e) = self.uid_to_control.get(&uid) {
@@ -308,6 +320,7 @@ impl NewOrchestrator<GrooveMessage> {
         }
     }
 }
+impl NewUpdateable for NewOrchestrator<GrooveMessage> {}
 
 #[derive(Debug, Default)]
 pub(crate) struct Timer<M: Message> {
@@ -337,8 +350,8 @@ impl<M: Message> NewUpdateable for Timer<M> {
 
     default fn update(
         &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
+        clock: &Clock,
+        message: Self::Message,
     ) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }
@@ -485,16 +498,17 @@ pub mod tests {
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, Internal, IsEffect,
-            MakesIsViewable, Message, NewIsController, NewIsEffect, NewIsInstrument, NewUpdateable,
-            Overhead, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi,
-            SourcesUpdates, Terminates, TransformsAudio, WatchesClock,
+            BoxedEntity, EvenNewerCommand,  HasOverhead, HasUid, Internal,
+            IsEffect, MakesIsViewable, Message, NewIsController, NewIsEffect, NewIsInstrument,
+            NewUpdateable, Overhead, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
+            SourcesMidi, SourcesUpdates, Terminates, TransformsAudio, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};
     use strum_macros::FromRepr;
     // use plotters::prelude::*;
+    use super::{NewOrchestrator, Timer, Trigger};
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
     };
@@ -504,8 +518,6 @@ pub mod tests {
     };
     use std::{fs, marker::PhantomData};
     use strum_macros::{Display, EnumString};
-
-    use super::{NewOrchestrator, Timer, Trigger};
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -752,34 +764,48 @@ pub mod tests {
         }
     }
 
+    #[derive(Display, Debug, EnumString)]
+    #[strum(serialize_all = "kebab_case")]
+    pub(crate) enum TestAudioSourceSetLevelControlParams {
+        Level,
+    }
+
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysSameLevel<M: Message> {
+    pub struct TestAudioSourceOneLevel<M: Message> {
         uid: usize,
         level: MonoSample,
         _phantom: PhantomData<M>,
     }
-    impl<M: Message> NewIsInstrument for TestAudioSourceAlwaysSameLevel<M> {}
-    impl<M: Message> HasUid for TestAudioSourceAlwaysSameLevel<M> {
+    impl<M: Message> NewIsInstrument for TestAudioSourceOneLevel<M> {}
+    impl<M: Message> HasUid for TestAudioSourceOneLevel<M> {
         fn uid(&self) -> usize {
             self.uid
         }
 
         fn set_uid(&mut self, uid: usize) {
-            self.set_uid(uid);
+            self.uid = uid;
         }
     }
-    impl<M: Message> NewUpdateable for TestAudioSourceAlwaysSameLevel<M> {
+    impl<M: Message> NewUpdateable for TestAudioSourceOneLevel<M> {
         type Message = TestMessage;
     }
-    impl<M: Message> TestAudioSourceAlwaysSameLevel<M> {
+    impl<M: Message> TestAudioSourceOneLevel<M> {
         pub fn new_with(level: MonoSample) -> Self {
             Self {
                 level,
                 ..Default::default()
             }
         }
+
+        pub fn level(&self) -> f32 {
+            self.level
+        }
+
+        pub fn set_level(&mut self, level: MonoSample) {
+            self.level = level;
+        }
     }
-    impl<M: Message> SourcesAudio for TestAudioSourceAlwaysSameLevel<M> {
+    impl<M: Message> SourcesAudio for TestAudioSourceOneLevel<M> {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             self.level
         }
@@ -1032,6 +1058,21 @@ pub mod tests {
         }
     }
     impl<M: Message> NewUpdateable for TestLfo<M> {
+        default type Message = M;
+
+        default fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            EvenNewerCommand::none()
+        }
+
+        default fn param_id_for_name(&self, param_name: &str) -> usize {
+            usize::MAX
+        }
+    }
+    impl NewUpdateable for TestLfo<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -1066,47 +1107,6 @@ pub mod tests {
         fn set_frequency(&mut self, frequency_hz: f32) {
             self.oscillator.set_frequency(frequency_hz);
         }
-    }
-
-    #[test]
-    fn test_ideal() {
-        let mut o = NewOrchestrator::<TestMessage>::new();
-        let synth_1 = TestSynth::<TestMessage>::default();
-        let mut lfo = TestLfo::<TestMessage>::default();
-        lfo.set_frequency(2.0);
-        let synth_1_uid = o.add(BoxedEntity::Instrument(Box::new(synth_1)));
-        let lfo_uid = o.add(BoxedEntity::Controller(Box::new(lfo)));
-        o.link_control(
-            lfo_uid,
-            synth_1_uid,
-            &OscillatorControlParams::Frequency.to_string(),
-        );
-        o.connect_to_main_mixer(synth_1_uid);
-
-        let loud_source = TestAudioSourceAlwaysLoud::<TestMessage>::default();
-        let arpeggiator = TestArpeggiator::<TestMessage>::default();
-        let loud_source_uid = o.add(BoxedEntity::Instrument(Box::new(loud_source)));
-        let arpeggiator_uid = o.add(BoxedEntity::Controller(Box::new(arpeggiator)));
-        o.link_control(
-            arpeggiator_uid,
-            loud_source_uid,
-            &TestSynthControlParams::OscillatorModulation.to_string(),
-        );
-
-        let effect = TestNegatingEffect::<TestMessage>::default();
-        let effect_uid = o.add(BoxedEntity::Effect(Box::new(effect)));
-        o.patch(loud_source_uid, effect_uid);
-        o.connect_to_main_mixer(effect_uid);
-
-        const SECONDS: usize = 1;
-        let t = Timer::<TestMessage>::new_with(SECONDS as f32);
-        let _ = o.add(BoxedEntity::Controller(Box::new(t)));
-
-        let mut clock = Clock::new();
-        let samples = o.run(&mut clock, TestMessage::Tick, true);
-
-        assert_eq!(samples.len(), SECONDS * clock.sample_rate());
-        assert!(samples[0..256].iter().sum::<f32>() != MONO_SAMPLE_SILENCE);
     }
 
     #[derive(Debug, Default)]
@@ -1187,6 +1187,21 @@ pub mod tests {
 
     impl<M: Message> NewIsInstrument for TestSynth<M> {}
     impl<M: Message> NewUpdateable for TestSynth<M> {
+        default type Message = M;
+
+        default fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            EvenNewerCommand::none()
+        }
+
+        default fn param_id_for_name(&self, param_name: &str) -> usize {
+            usize::MAX
+        }
+    }
+    impl NewUpdateable for TestSynth<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -1195,10 +1210,6 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Nothing => todo!(),
-                TestMessage::Something => todo!(),
-                TestMessage::Tick => todo!(),
-                TestMessage::ControlF32(_, _) => todo!(),
                 TestMessage::UpdateF32(param_index, value) => {
                     if let Some(param) = TestSynthControlParams::from_repr(param_index) {
                         match param {
@@ -1208,6 +1219,7 @@ pub mod tests {
                         }
                     }
                 }
+                _ => todo!(),
             }
             EvenNewerCommand::none()
         }
@@ -1417,6 +1429,182 @@ pub mod tests {
         }
     }
 
+    #[derive(Debug)]
+    pub struct TestInstrument<M: Message> {
+        uid: usize,
+        pub(crate) me: Ww<Self>,
+        overhead: Overhead,
+
+        sound_source: Oscillator,
+        pub is_playing: bool,
+        midi_channel: MidiChannel,
+        pub received_count: usize,
+        pub handled_count: usize,
+
+        pub debug_messages: Vec<(f32, MidiChannel, MidiMessage)>,
+    }
+    impl<M: Message> NewIsInstrument for TestInstrument<M> {}
+    impl<M: Message> NewUpdateable for TestInstrument<M> {
+        default type Message = M;
+
+        default fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            EvenNewerCommand::none()
+        }
+    }
+    impl NewUpdateable for TestInstrument<TestMessage> {
+        type Message = TestMessage;
+
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Midi(channel, message) => {
+                    self.new_handle_midi(clock, channel, message);
+                }
+                _ => todo!(),
+            }
+            EvenNewerCommand::none()
+        }
+    }
+    impl<M: Message> HasUid for TestInstrument<M> {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
+        }
+    }
+    impl<M: Message> Default for TestInstrument<M> {
+        fn default() -> Self {
+            Self {
+                uid: Default::default(),
+                me: Default::default(),
+                overhead: Default::default(),
+                sound_source: Default::default(),
+                is_playing: Default::default(),
+                midi_channel: Self::TEST_MIDI_CHANNEL,
+                received_count: Default::default(),
+                handled_count: Default::default(),
+                debug_messages: Default::default(),
+            }
+        }
+    }
+    impl<M: Message> TestInstrument<M> {
+        pub const TEST_MIDI_CHANNEL: u8 = 42;
+
+        pub fn new() -> Self {
+            Self {
+                midi_channel: Self::TEST_MIDI_CHANNEL,
+                ..Default::default()
+            }
+        }
+        pub fn new_wrapped() -> Rrc<Self> {
+            let wrapped = rrc(Self::new());
+            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
+            wrapped
+        }
+        pub fn new_with(midi_channel: MidiChannel) -> Self {
+            Self {
+                midi_channel,
+                ..Default::default()
+            }
+        }
+        #[allow(dead_code)]
+        pub fn new_wrapped_with(midi_channel: MidiChannel) -> Rrc<Self> {
+            let wrapped = rrc(Self::new_with(midi_channel));
+            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
+            wrapped
+        }
+
+        #[allow(dead_code)]
+        pub fn dump_messages(&self) {
+            dbg!(&self.debug_messages);
+        }
+
+        fn new_handle_midi(&mut self, clock: &Clock, channel: MidiChannel, message: MidiMessage) {
+            assert_eq!(self.midi_channel, channel);
+            self.debug_messages.push((clock.beats(), channel, message));
+            self.received_count += 1;
+
+            match message {
+                MidiMessage::NoteOn { key, vel } => {
+                    self.is_playing = true;
+                    self.sound_source
+                        .set_frequency(MidiUtils::note_to_frequency(key.as_int()));
+                }
+                MidiMessage::NoteOff { key, vel } => {
+                    self.is_playing = false;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    impl<M: Message> SinksMidi for TestInstrument<M> {
+        fn midi_channel(&self) -> MidiChannel {
+            self.midi_channel
+        }
+
+        fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
+            self.midi_channel = midi_channel;
+        }
+        fn handle_midi_for_channel(
+            &mut self,
+            clock: &Clock,
+            channel: &MidiChannel,
+            message: &MidiMessage,
+        ) {
+            assert_eq!(self.midi_channel, *channel);
+            self.debug_messages
+                .push((clock.beats(), *channel, *message));
+            self.received_count += 1;
+
+            #[allow(unused_variables)]
+            match message {
+                MidiMessage::NoteOff { key, vel } => {
+                    self.is_playing = false;
+                    self.handled_count += 1;
+                }
+                MidiMessage::NoteOn { key, vel } => {
+                    self.is_playing = true;
+                    self.handled_count += 1;
+                }
+                MidiMessage::Aftertouch { key, vel } => todo!(),
+                MidiMessage::Controller { controller, value } => todo!(),
+                MidiMessage::ProgramChange { program } => {
+                    self.handled_count += 1;
+                }
+                MidiMessage::ChannelAftertouch { vel } => todo!(),
+                MidiMessage::PitchBend { bend } => todo!(),
+            }
+        }
+    }
+    impl<M: Message> SourcesAudio for TestInstrument<M> {
+        fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+            if self.is_playing {
+                self.sound_source.source_audio(clock)
+            } else {
+                MONO_SAMPLE_SILENCE
+            }
+        }
+    }
+    impl<M: Message> HasOverhead for TestInstrument<M> {
+        fn overhead(&self) -> &Overhead {
+            &self.overhead
+        }
+
+        fn overhead_mut(&mut self) -> &mut Overhead {
+            &mut self.overhead
+        }
+    }
+
     /// Keeps asking for time slices until end of specified lifetime.
     #[derive(Debug, Default)]
     pub struct TestClockWatcher<M: Message> {
@@ -1454,12 +1642,20 @@ pub mod tests {
         Tempo,
     }
 
+    enum TestArpeggiatorAction {
+        Nothing,
+        NoteOn,
+        NoteOff,
+    }
+
     #[derive(Debug, Default)]
     pub struct TestArpeggiator<M: Message> {
         uid: usize,
         me: Ww<Self>,
         midi_channel_out: MidiChannel,
         pub tempo: f32,
+        is_enabled: bool,
+        is_playing: bool,
         channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     }
     impl<M: Message> SourcesMidi for TestArpeggiator<M> {
@@ -1513,6 +1709,17 @@ pub mod tests {
     }
     impl<M: Message> NewIsController for TestArpeggiator<M> {}
     impl<M: Message> NewUpdateable for TestArpeggiator<M> {
+        default type Message = TestMessage;
+
+        default fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            EvenNewerCommand::none()
+        }
+    }
+    impl NewUpdateable for TestArpeggiator<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -1521,15 +1728,47 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Nothing => todo!(),
-                TestMessage::Something => todo!(),
-                TestMessage::Tick => {
-                    // TODO todo!("I know I need to spit out notes now")
+                TestMessage::Tick => match self.what_to_do(clock) {
+                    TestArpeggiatorAction::Nothing => {
+                        return EvenNewerCommand::none();
+                    }
+                    TestArpeggiatorAction::NoteOn => {
+                        // This is elegant, I hope. If the arpeggiator is
+                        // disabled during play, and we were playing a note,
+                        // then we still send the off note,
+                        return if self.is_enabled {
+                            self.is_playing = true;
+                            EvenNewerCommand::single(TestMessage::Midi(
+                                self.midi_channel_out,
+                                MidiMessage::NoteOn {
+                                    key: 60.into(),
+                                    vel: 127.into(),
+                                },
+                            ))
+                        } else {
+                            EvenNewerCommand::none()
+                        };
+                    }
+                    TestArpeggiatorAction::NoteOff => {
+                        return if self.is_playing {
+                            EvenNewerCommand::single(TestMessage::Midi(
+                                self.midi_channel_out,
+                                MidiMessage::NoteOff {
+                                    key: 60.into(),
+                                    vel: 0.into(),
+                                },
+                            ))
+                        } else {
+                            EvenNewerCommand::none()
+                        };
+                    }
+                },
+                TestMessage::Enable(enabled) => {
+                    self.is_enabled = enabled;
+                    EvenNewerCommand::none()
                 }
-                TestMessage::ControlF32(_, _) => todo!(),
-                TestMessage::UpdateF32(_, _) => todo!(),
+                _ => todo!(),
             }
-            EvenNewerCommand::none()
         }
     }
     impl<M: Message> HasUid for TestArpeggiator<M> {
@@ -1552,6 +1791,20 @@ pub mod tests {
             let wrapped = rrc(Self::new_with(midi_channel_out));
             wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
             wrapped
+        }
+
+        fn what_to_do(&self, clock: &Clock) -> TestArpeggiatorAction {
+            let beat_slice_start = clock.beats();
+            let beat_slice_end = clock.next_slice_in_beats();
+            let next_exact_beat = beat_slice_start.floor();
+            let next_exact_half_beat = next_exact_beat + 0.5;
+            if next_exact_beat >= beat_slice_start && next_exact_beat < beat_slice_end {
+                return TestArpeggiatorAction::NoteOn;
+            }
+            if next_exact_half_beat >= beat_slice_start && next_exact_half_beat < beat_slice_end {
+                return TestArpeggiatorAction::NoteOff;
+            }
+            return TestArpeggiatorAction::Nothing;
         }
     }
 
@@ -1643,5 +1896,378 @@ pub mod tests {
                 ..Default::default()
             }
         }
+    }
+
+    #[derive(Debug, Default)]
+    struct Runner {
+        // state_checker is an optional IsEffect that verifies expected state
+        // after all each loop iteration's commands have been acted upon.
+        //
+        // It is an effect because it is intended to monitor another thing's
+        // output, which is more like an effect than a controller or an
+        // instrument.
+        state_checker: Option<Box<dyn NewIsEffect<Message = TestMessage>>>,
+    }
+    impl Runner {
+        pub(crate) fn add_state_checker(
+            &mut self,
+            state_checker: Box<dyn NewIsEffect<Message = TestMessage>>,
+        ) {
+            self.state_checker = Some(state_checker);
+        }
+
+        pub fn run(
+            &mut self,
+            orchestrator: &mut Box<NewOrchestrator<TestMessage>>,
+            clock: &mut Clock,
+            run_until_completion: bool,
+        ) -> Vec<MonoSample> {
+            let mut samples = Vec::<MonoSample>::new();
+            loop {
+                let command = orchestrator.update(clock, TestMessage::Tick);
+                match command.0 {
+                    Internal::None => {}
+                    Internal::Single(message) => {
+                        self.handle_message(orchestrator, clock, message);
+                    }
+                    Internal::Batch(messages) => {
+                        for message in messages {
+                            self.handle_message(orchestrator, clock, message);
+                        }
+                    }
+                }
+                if let Some(checker) = &mut self.state_checker {
+                    // This one is treated specially in that it is guaranteed to
+                    // run after everyone else's update() calls for this tick.
+                    checker.update(clock, TestMessage::Tick);
+                }
+                if orchestrator.are_all_finished() {
+                    break;
+                }
+                samples.push(orchestrator.gather_audio(clock, orchestrator.main_mixer_uid));
+                clock.tick();
+                if !run_until_completion {
+                    break;
+                }
+            }
+            samples
+        }
+
+        fn handle_message(
+            &mut self,
+            orchestrator: &mut NewOrchestrator<TestMessage>,
+            clock: &Clock,
+            message: TestMessage,
+        ) {
+            match message {
+                TestMessage::ControlF32(uid, value) => {
+                    self.handle_msg_control_f32(orchestrator, clock, uid, value)
+                }
+                TestMessage::Midi(channel, message) => {
+                    self.handle_msg_midi(orchestrator, clock, channel, message)
+                }
+                _ => todo!(),
+            }
+        }
+
+        fn handle_msg_control_f32(
+            &mut self,
+            orchestrator: &mut NewOrchestrator<TestMessage>,
+            clock: &Clock,
+            uid: usize,
+            value: f32,
+        ) {
+            if let Some(e) = orchestrator.uid_to_control.get(&uid) {
+                // TODO: is this clone() necessary? I got lazy because its' a
+                // mut borrow of orchestrator inside a non-mut block.
+                for (target_uid, param_id) in e.clone() {
+                    self.send_msg_update_f32(orchestrator, clock, target_uid, param_id, value);
+                }
+            }
+        }
+
+        fn send_msg_update_f32(
+            &mut self,
+            orchestrator: &mut NewOrchestrator<TestMessage>,
+            clock: &Clock,
+            target_uid: usize,
+            param_id: usize,
+            value: f32,
+        ) {
+            self.send_msg(
+                orchestrator,
+                clock,
+                target_uid,
+                TestMessage::UpdateF32(param_id, value),
+            );
+        }
+
+        fn send_msg(
+            &mut self,
+            orchestrator: &mut NewOrchestrator<TestMessage>,
+            clock: &Clock,
+            target_uid: usize,
+            message: TestMessage,
+        ) {
+            if let Some(target) = orchestrator.store.get_mut(target_uid) {
+                match target {
+                    // TODO: everyone is the same...
+                    BoxedEntity::Controller(e) => {
+                        e.update(clock, message);
+                    }
+                    BoxedEntity::Instrument(e) => {
+                        e.update(clock, message);
+                    }
+                    BoxedEntity::Effect(e) => {
+                        e.update(clock, message);
+                    }
+                }
+            }
+        }
+
+        fn handle_msg_midi(
+            &mut self,
+            orchestrator: &mut NewOrchestrator<TestMessage>,
+            clock: &Clock,
+            channel: u8,
+            message: MidiMessage,
+        ) {
+            for receiver_uid in orchestrator
+                .midi_channel_to_receiver_uid
+                .entry(channel)
+                .or_default()
+            {
+                // TODO: can this loop?
+                if let Some(target) = orchestrator.store.get_mut(*receiver_uid) {
+                    let message = TestMessage::Midi(channel, message);
+                    match target {
+                        BoxedEntity::Controller(e) => {
+                            e.update(clock, message);
+                        }
+                        BoxedEntity::Instrument(e) => {
+                            e.update(clock, message);
+                        }
+                        BoxedEntity::Effect(e) => {
+                            e.update(clock, message);
+                        }
+                    }
+                }
+            }
+        }
+
+        fn send_msg_enable(
+            &mut self,
+            orchestrator: &mut NewOrchestrator<TestMessage>,
+            clock: &Clock,
+            target_uid: usize,
+            enabled: bool,
+        ) {
+            self.send_msg(
+                orchestrator,
+                clock,
+                target_uid,
+                TestMessage::Enable(enabled),
+            );
+        }
+    }
+
+    // GrooveMessage::Nop => {
+    //     dbg!(clock, message);
+    // }
+    // GrooveMessage::Tick => panic!("GrooveMessage::Tick should be sent only by the system"),
+    // GrooveMessage::ControlF32(uid, value) => ,
+    // GrooveMessage::UpdateF32(param_id, value) => panic!(
+    //     "GrooveMessage::UpdateF32({}, {}) should be dispatched by Orchestrator, not received by it",param_id,value            ),
+    // GrooveMessage::Midi(channel, message) => self.send_midi_message(clock, channel, message),
+
+    #[test]
+    fn test_audio_routing() {
+        let mut o = Box::new(NewOrchestrator::<TestMessage>::default());
+
+        // A simple audio source.
+        let synth_uid = o.add(BoxedEntity::Instrument(Box::new(
+            TestSynth::<TestMessage>::default(),
+        )));
+
+        // A simple effect.
+        let effect_uid = o.add(BoxedEntity::Effect(Box::new(TestNegatingEffect::<
+            TestMessage,
+        >::default())));
+
+        // Connect the audio's output to the effect's input.
+        assert!(o.patch(synth_uid, effect_uid).is_ok());
+
+        // And patch the effect into the main mixer.
+        o.connect_to_main_mixer(effect_uid);
+
+        // Run the main loop for a while.
+        const SECONDS: usize = 1;
+        let _ = o.add(BoxedEntity::Controller(Box::new(
+            Timer::<TestMessage>::new_with(SECONDS as f32),
+        )));
+
+        // Gather the audio output.
+        let mut runner = Runner::default();
+        let mut clock = Clock::new();
+        let samples_1 = runner.run(&mut o, &mut clock, true);
+
+        // We should get exactly the right amount of audio.
+        assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
+
+        // It should not all be silence.
+        assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
+
+        // Run again but without the negating effect in the mix.
+        o.unpatch(synth_uid, effect_uid);
+        clock.reset();
+        let samples_2 = runner.run(&mut o, &mut clock, true);
+
+        // The sample pairs should cancel each other out.
+        assert!(!samples_2.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
+        samples_1.iter().zip(samples_2.iter()).all(|(a, b)| {
+            *a + *b == MONO_SAMPLE_SILENCE && (*a == MONO_SAMPLE_SILENCE || *a != *b)
+        });
+    }
+
+    // TODO: I had a bug for a day where I'd swapped the param_names for the
+    // first and second audio inputs. In other words, the moment I got out
+    // of the type system, I failed. Consider taking a more strongly typed
+    // argument as an alternative to the (necessary) string argument.
+
+    #[test]
+    fn test_control_routing() {
+        let mut o = Box::new(NewOrchestrator::<TestMessage>::default());
+
+        // The synth's frequency is modulated by the LFO.
+        let synth_1_uid = o.add(BoxedEntity::Instrument(Box::new(
+            TestSynth::<TestMessage>::default(),
+        )));
+        let mut lfo = TestLfo::<TestMessage>::default();
+        lfo.set_frequency(2.0);
+        let lfo_uid = o.add(BoxedEntity::Controller(Box::new(lfo)));
+        o.link_control(
+            lfo_uid,
+            synth_1_uid,
+            &TestSynthControlParams::OscillatorModulation.to_string(),
+        );
+
+        // We'll hear the synth's audio output.
+        o.connect_to_main_mixer(synth_1_uid);
+
+        const SECONDS: usize = 1;
+        let _ = o.add(BoxedEntity::Controller(Box::new(
+            Timer::<TestMessage>::new_with(SECONDS as f32),
+        )));
+
+        // Gather the audio output.
+        let mut runner = Runner::default();
+        let mut clock = Clock::new();
+        let samples_1 = runner.run(&mut o, &mut clock, true);
+
+        // We should get exactly the right amount of audio.
+        assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
+
+        // It should not all be silence.
+        assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
+
+        // Run again after disconnecting the LFO.
+        o.unlink_control(lfo_uid, synth_1_uid);
+        clock.reset();
+        let samples_2 = runner.run(&mut o, &mut clock, true);
+
+        // The two runs should be different. That's not a great test of what
+        // we're doing here, but it will detect when things are broken.
+        samples_1
+            .iter()
+            .zip(samples_2.iter())
+            .any(|(a, b)| *a != *b);
+    }
+
+    #[test]
+    fn test_midi_routing() {
+        let mut o = Box::new(NewOrchestrator::<TestMessage>::default());
+
+        // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
+        let instrument_uid = o.add(BoxedEntity::Instrument(Box::new(TestInstrument::<
+            TestMessage,
+        >::default())));
+        let arpeggiator_uid = o.add(BoxedEntity::Controller(Box::new(TestArpeggiator::<
+            TestMessage,
+        >::new_with(
+            TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
+        ))));
+
+        // We'll hear the instrument.
+        assert!(o.connect_to_main_mixer(instrument_uid).is_ok());
+
+        // This might not be necessary. We will automatically get every MIDI
+        // message sent.
+        o.connect_midi_upstream(arpeggiator_uid);
+        o.connect_midi_downstream(
+            instrument_uid,
+            TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
+        );
+
+        const SECONDS: usize = 1;
+        let _ = o.add(BoxedEntity::Controller(Box::new(
+            Timer::<TestMessage>::new_with(SECONDS as f32),
+        )));
+
+        // Everything is hooked up. Let's run it and hear what we got.
+        let mut runner = Runner::default();
+        let mut clock = Clock::new();
+        let samples = runner.run(&mut o, &mut clock, true);
+
+        // We haven't asked the arpeggiator to start sending anything yet.
+        assert!(
+            samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
+            "Expected total silence because the arpeggiator is not turned on."
+        );
+
+        // Let's turn on the arpeggiator.
+        runner.send_msg_enable(&mut o, &clock, arpeggiator_uid, true);
+        clock.reset();
+        let samples = runner.run(&mut o, &mut clock, true);
+        assert!(
+            samples.iter().any(|&s| s != MONO_SAMPLE_SILENCE),
+            "Expected some sound because the arpeggiator is now running."
+        );
+
+        // The arpeggiator is still running. Let's disable it (taking advantage
+        // of the fact that TestInstrument has zero release time, because
+        // otherwise it would keep generating a bit of sound even after the
+        // arpeggiator told it to stop).
+        //
+        // Note that we're implicitly testing that the arpeggiator will send a
+        // note-off if necessary, even if it's disabled mid-note.
+        runner.send_msg_enable(&mut o, &clock, arpeggiator_uid, false);
+
+        // It's actually immaterial to this test whether this has any sound in
+        // it. We're just giving the arpeggiator a bit of time to clear out any
+        // leftover note.
+        clock.reset();
+        let _ = runner.run(&mut o, &mut clock, true);
+
+        // But by now it should be silent.
+        clock.reset();
+        let samples = runner.run(&mut o, &mut clock, true);
+        assert!(
+            samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
+            "Expected total silence again after disabling the arpeggiator."
+        );
+
+        // Re-enable the arpeggiator but disconnect the instrument's MIDI
+        // connection.
+        runner.send_msg_enable(&mut o, &clock, arpeggiator_uid, true);
+        o.disconnect_midi_downstream(
+            instrument_uid,
+            TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
+        );
+        clock.reset();
+        let samples = runner.run(&mut o, &mut clock, true);
+        assert!(
+            samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
+            "Expected total silence after disconnecting the instrument from the MIDI bus."
+        );
     }
 }

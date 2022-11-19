@@ -6,12 +6,11 @@ use crate::{
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
 use std::collections::HashMap;
-use std::fmt::Debug;
 
-pub trait NewIsController: NewUpdateable + Terminates + HasUid + Debug {}
-pub trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid + Debug {}
-pub trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid + Debug {}
-pub trait Message: Clone + Debug + Default + 'static {} // TODO: that 'static scares me
+pub trait NewIsController: NewUpdateable + Terminates + HasUid + std::fmt::Debug {}
+pub trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid + std::fmt::Debug {}
+pub trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid + std::fmt::Debug {}
+pub trait Message: Clone + std::fmt::Debug + Default + 'static {} // TODO: that 'static scares me
 
 #[derive(Debug)]
 pub(crate) enum BoxedEntity<M> {
@@ -21,11 +20,15 @@ pub(crate) enum BoxedEntity<M> {
 }
 
 pub trait NewUpdateable {
-    type Message;
+    type Message: Message;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }
+    fn handle_message(&mut self, clock: &Clock, message: Self::Message) {
+        todo!()
+    }
+
     fn param_id_for_name(&self, param_name: &str) -> usize {
         usize::MAX
     }
@@ -36,14 +39,14 @@ pub trait HasUid {
 }
 
 /// Provides audio in the form of digital samples.
-pub trait SourcesAudio: Debug {
+pub trait SourcesAudio: std::fmt::Debug {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample;
 }
 
 /// TransformsAudio can be thought of as SourcesAudio + SinksAudio, but it's an
 /// important third trait because it exposes the business logic that happens
 /// between the sinking and sourcing, which is useful for testing.
-pub trait TransformsAudio: Debug {
+pub trait TransformsAudio: std::fmt::Debug {
     fn transform_audio(&mut self, clock: &Clock, input_sample: MonoSample) -> MonoSample;
 }
 
@@ -60,7 +63,7 @@ pub trait TransformsAudio: Debug {
 // returns true, the loop will never end. Thus, "is_finished" is more like "is
 // unaware of any reason to continue existing" rather than "is certain there is
 // no more work to do."
-pub trait Terminates: Debug {
+pub trait Terminates: std::fmt::Debug {
     fn is_finished(&self) -> bool;
 }
 
@@ -127,7 +130,7 @@ pub trait SinksAudio {
 }
 
 // Convenience generic for effects
-impl<T: HasOverhead + SinksAudio + TransformsAudio + Debug> SourcesAudio for T {
+impl<T: HasOverhead + SinksAudio + TransformsAudio + std::fmt::Debug> SourcesAudio for T {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let input = self.gather_source_audio(clock);
 
@@ -175,7 +178,7 @@ pub trait SourcesUpdates {
 // TODO: this should have an associated type Message, but I can't figure out how
 // to make it work.
 #[deprecated]
-pub trait SinksUpdates: Debug {
+pub trait SinksUpdates: std::fmt::Debug {
     // Idea: if someone asks for a message generator, then that's the clue we
     // need to register our UID. All that could be managed in that central
     // place.
@@ -184,7 +187,7 @@ pub trait SinksUpdates: Debug {
 }
 
 #[deprecated]
-pub(crate) trait EvenNewerIsUpdateable: Terminates + Debug {
+pub(crate) trait EvenNewerIsUpdateable: Terminates + std::fmt::Debug {
     type Message;
 
     fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message>;
@@ -205,7 +208,7 @@ impl<M> std::fmt::Debug for dyn MessageGeneratorT<M> {
     }
 }
 
-pub trait MakesIsViewable: Debug {
+pub trait MakesIsViewable: std::fmt::Debug {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>>;
 }
 
@@ -241,7 +244,7 @@ pub trait SourcesMidi {
 }
 
 #[deprecated]
-pub trait SinksMidi: Debug {
+pub trait SinksMidi: std::fmt::Debug {
     fn midi_channel(&self) -> MidiChannel;
     fn set_midi_channel(&mut self, midi_channel: MidiChannel);
 
@@ -270,7 +273,7 @@ pub trait SinksMidi: Debug {
 /// called, so the trait exists to make sure that whatever intrinsic reason for
 /// being called is satisfied.
 #[deprecated]
-pub trait WatchesClock: Debug + Terminates {
+pub trait WatchesClock: std::fmt::Debug + Terminates {
     // type Message; // TODO: figure out how to do this!
 
     /// WatchesClock::tick() must be called exactly once for every sample, and

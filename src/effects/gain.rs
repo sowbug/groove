@@ -84,7 +84,7 @@ mod tests {
     use crate::{
         clock::Clock,
         messages::tests::TestMessage,
-        utils::tests::{TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSameLevel},
+        utils::tests::{TestAudioSourceAlwaysLoud, TestAudioSourceOneLevel},
     };
 
     #[test]
@@ -101,10 +101,10 @@ mod tests {
     fn test_gain_pola() {
         // principle of least astonishment: does a default instance adhere?
         let mut gain = Gain::new();
-        let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(0.888));
-        gain.add_audio_source(
-            rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source),
-        );
+        let source = rrc(TestAudioSourceOneLevel::new_with(0.888));
+        gain.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
+            &source,
+        ));
         assert_eq!(gain.source_audio(&Clock::new()), 0.888);
     }
 }

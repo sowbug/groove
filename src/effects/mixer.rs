@@ -72,7 +72,7 @@ mod tests {
         common::MONO_SAMPLE_SILENCE,
         messages::tests::TestMessage,
         utils::tests::{
-            TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSameLevel, TestAudioSourceAlwaysSilent,
+            TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSilent, TestAudioSourceOneLevel,
         },
     };
 
@@ -99,10 +99,10 @@ mod tests {
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0);
 
         // ... and one in the middle
-        let source = rrc(TestAudioSourceAlwaysSameLevel::new_with(0.25));
-        mixer.add_audio_source(
-            rrc_downgrade::<TestAudioSourceAlwaysSameLevel<TestMessage>>(&source),
-        );
+        let source = rrc(TestAudioSourceOneLevel::new_with(0.25));
+        mixer.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
+            &source,
+        ));
         assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0 + 0.25);
     }
 }

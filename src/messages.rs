@@ -14,7 +14,9 @@ impl Message for GrooveMessage {}
 
 #[cfg(test)]
 pub mod tests {
-    use crate::traits::Message;
+    use midly::MidiMessage;
+
+    use crate::{midi::MidiChannel, traits::Message};
 
     #[derive(Clone, Debug, Default)]
     pub enum TestMessage {
@@ -25,6 +27,8 @@ pub mod tests {
         Tick,
         ControlF32(usize, f32),
         UpdateF32(usize, f32),
+        Midi(MidiChannel, MidiMessage),
+        Enable(bool),
     }
     impl Message for TestMessage {}
 }
