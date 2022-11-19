@@ -6,7 +6,7 @@ use crate::{
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     orchestrator::OrchestratorMessage,
     traits::{
-        EvenNewerCommand, EvenNewerIsUpdateable, HasOverhead, MessageGeneratorT, Overhead,
+        EvenNewerCommand, EvenNewerIsUpdateable, HasOverhead, Message, MessageGeneratorT, Overhead,
         SinksMidi, SourcesMidi, Terminates, WatchesClock,
     },
 };
@@ -20,7 +20,7 @@ use std::{
 pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
 
 #[derive(Debug)]
-pub struct BeatSequencer {
+pub struct BeatSequencer<M: Message> {
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
@@ -29,7 +29,7 @@ pub struct BeatSequencer {
     last_event_time: PerfectTimeUnit,
 }
 
-impl Default for BeatSequencer {
+impl<M: Message> Default for BeatSequencer<M> {
     fn default() -> Self {
         Self {
             me: weak_new(),
@@ -42,7 +42,7 @@ impl Default for BeatSequencer {
     }
 }
 
-impl BeatSequencer {
+impl<M: Message> BeatSequencer<M> {
     pub(crate) fn new() -> Self {
         Self::default()
     }
@@ -74,7 +74,7 @@ impl BeatSequencer {
 }
 
 // TODO: what does it mean for a MIDI device to be muted?
-impl HasOverhead for BeatSequencer {
+impl<M: Message> HasOverhead for BeatSequencer<M> {
     fn overhead(&self) -> &Overhead {
         &self.overhead
     }
@@ -84,7 +84,7 @@ impl HasOverhead for BeatSequencer {
     }
 }
 
-impl SourcesMidi for BeatSequencer {
+impl<M: Message> SourcesMidi for BeatSequencer<M> {
     fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &mut self.channels_to_sink_vecs
     }
@@ -100,7 +100,7 @@ impl SourcesMidi for BeatSequencer {
     fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
 }
 
-impl WatchesClock for BeatSequencer {
+impl<M: Message> WatchesClock for BeatSequencer<M> {
     fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
 
@@ -121,13 +121,13 @@ impl WatchesClock for BeatSequencer {
     }
 }
 
-impl Terminates for BeatSequencer {
+impl<M: Message> Terminates for BeatSequencer<M> {
     fn is_finished(&self) -> bool {
         self.next_instant > self.last_event_time
     }
 }
 
-impl EvenNewerIsUpdateable for BeatSequencer {
+impl<M: Message> EvenNewerIsUpdateable for BeatSequencer<M> {
     type Message = OrchestratorMessage;
 
     fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -172,7 +172,7 @@ impl EvenNewerIsUpdateable for BeatSequencer {
 pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
 
 #[derive(Debug)]
-pub struct MidiTickSequencer {
+pub struct MidiTickSequencer<M: Message> {
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
@@ -181,7 +181,7 @@ pub struct MidiTickSequencer {
     last_event_time: MidiTicks,
 }
 
-impl Default for MidiTickSequencer {
+impl<M: Message> Default for MidiTickSequencer<M> {
     fn default() -> Self {
         Self {
             me: weak_new(),
@@ -194,7 +194,7 @@ impl Default for MidiTickSequencer {
     }
 }
 
-impl MidiTickSequencer {
+impl<M: Message> MidiTickSequencer<M> {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self::default()
@@ -224,7 +224,7 @@ impl MidiTickSequencer {
 }
 
 // TODO: what does it mean for a MIDI device to be muted?
-impl HasOverhead for MidiTickSequencer {
+impl<M: Message> HasOverhead for MidiTickSequencer<M> {
     fn overhead(&self) -> &Overhead {
         &self.overhead
     }
@@ -234,7 +234,7 @@ impl HasOverhead for MidiTickSequencer {
     }
 }
 
-impl SourcesMidi for MidiTickSequencer {
+impl<M: Message> SourcesMidi for MidiTickSequencer<M> {
     fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
         &mut self.channels_to_sink_vecs
     }
@@ -250,7 +250,7 @@ impl SourcesMidi for MidiTickSequencer {
     fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
 }
 
-impl WatchesClock for MidiTickSequencer {
+impl<M: Message> WatchesClock for MidiTickSequencer<M> {
     fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
 
@@ -274,13 +274,13 @@ impl WatchesClock for MidiTickSequencer {
     }
 }
 
-impl Terminates for MidiTickSequencer {
+impl<M: Message> Terminates for MidiTickSequencer<M> {
     fn is_finished(&self) -> bool {
         self.next_instant > self.last_event_time
     }
 }
 
-impl EvenNewerIsUpdateable for MidiTickSequencer {
+impl<M: Message> EvenNewerIsUpdateable for MidiTickSequencer<M> {
     type Message = OrchestratorMessage;
 
     fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -331,11 +331,11 @@ mod tests {
         common::{rrc, rrc_downgrade},
         messages::tests::TestMessage,
         midi::{MidiNote, MidiUtils},
-        traits::{SinksMidi, SourcesMidi, WatchesClock},
+        traits::{Message, SinksMidi, SourcesMidi, WatchesClock},
         utils::tests::TestMidiSink,
     };
 
-    impl BeatSequencer {
+    impl<M: Message> BeatSequencer<M> {
         pub fn debug_events(&self) -> &BeatEventsMap {
             &self.events
         }
@@ -345,13 +345,13 @@ mod tests {
         }
     }
 
-    impl MidiTickSequencer {
+    impl<M: Message> MidiTickSequencer<M> {
         pub(crate) fn debug_events(&self) -> &MidiTickEventsMap {
             &self.events
         }
     }
 
-    impl MidiTickSequencer {
+    impl<M: Message> MidiTickSequencer<M> {
         pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: usize) -> MidiTicks {
             //            let tpb = self.midi_ticks_per_second.0 as f32 /
             //            (clock.settings().bpm() / 60.0);
@@ -360,7 +360,7 @@ mod tests {
         }
     }
 
-    fn advance_to_next_beat(clock: &mut Clock, sequencer: &mut MidiTickSequencer) {
+    fn advance_to_next_beat(clock: &mut Clock, sequencer: &mut MidiTickSequencer<TestMessage>) {
         let next_beat = clock.beats().floor() + 1.0;
         while clock.beats() < next_beat {
             clock.tick();
@@ -370,7 +370,7 @@ mod tests {
 
     // We're papering over the issue that MIDI events are firing a little late.
     // See Clock::next_slice_in_midi_ticks().
-    fn advance_one_midi_tick(clock: &mut Clock, sequencer: &mut MidiTickSequencer) {
+    fn advance_one_midi_tick(clock: &mut Clock, sequencer: &mut MidiTickSequencer<TestMessage>) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
             clock.tick();

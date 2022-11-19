@@ -6,6 +6,7 @@ use crate::{
     clock::WatchedClock,
     common::{rrc, rrc_clone, rrc_downgrade, DeviceId},
     control::{ControlPath, ControlTrip},
+    messages::GrooveMessage,
     midi::{
         patterns::{Note, Pattern},
         programmers::PatternProgrammer,
@@ -142,7 +143,8 @@ impl SongSettings {
             pattern_manager.register(pattern);
         }
         let sequencer = BeatSequencer::new_wrapped();
-        let mut programmer = PatternProgrammer::new_with(&self.clock.time_signature);
+        let mut programmer =
+            PatternProgrammer::<GrooveMessage>::new_with(&self.clock.time_signature);
 
         for track in &self.tracks {
             let channel = track.midi_channel;
@@ -154,8 +156,10 @@ impl SongSettings {
             }
         }
 
-        orchestrator.connect_to_upstream_midi_bus(rrc_clone::<BeatSequencer>(&sequencer));
-        orchestrator.register_clock_watcher(None, rrc_clone::<BeatSequencer>(&sequencer));
+        orchestrator
+            .connect_to_upstream_midi_bus(rrc_clone::<BeatSequencer<GrooveMessage>>(&sequencer));
+        orchestrator
+            .register_clock_watcher(None, rrc_clone::<BeatSequencer<GrooveMessage>>(&sequencer));
         orchestrator.register_viewable(sequencer);
     }
 

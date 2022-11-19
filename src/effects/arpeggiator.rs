@@ -4,6 +4,7 @@ use crate::{
     clock::{Clock, PerfectTimeUnit},
     common::{rrc, rrc_downgrade, Rrc, Ww},
     control::BigMessage,
+    messages::GrooveMessage,
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
     traits::{
         HasOverhead, IsMidiEffect, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock,
@@ -17,7 +18,7 @@ pub struct Arpeggiator {
     overhead: Overhead,
     midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,
-    beat_sequencer: BeatSequencer,
+    beat_sequencer: BeatSequencer<GrooveMessage>,
 
     is_device_playing: bool,
 }

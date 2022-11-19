@@ -1,5 +1,6 @@
 use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc},
+    messages::GrooveMessage,
     midi::{programmers::MidiSmfReader, sequencers::MidiTickSequencer},
     orchestrator::{Orchestrator, Performance},
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
@@ -201,7 +202,9 @@ impl IOHelper {
         let midi_sequencer = rrc(MidiTickSequencer::new());
         MidiSmfReader::program_sequencer(&data, &mut midi_sequencer.borrow_mut());
 
-        orchestrator.connect_to_upstream_midi_bus(rrc_clone::<MidiTickSequencer>(&midi_sequencer));
+        orchestrator.connect_to_upstream_midi_bus(rrc_clone::<MidiTickSequencer<GrooveMessage>>(
+            &midi_sequencer,
+        ));
         orchestrator.register_clock_watcher(None, midi_sequencer);
 
         // TODO: this is a hack. We need only the number of channels used in the

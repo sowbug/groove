@@ -1,8 +1,10 @@
-use std::cmp;
+use std::{cmp, marker::PhantomData};
 
 use crate::{
     clock::{MidiTicks, PerfectTimeUnit},
     common::Rrc,
+    messages::GrooveMessage,
+    traits::Message,
     TimeSignature,
 };
 use midly::{MidiMessage, TrackEventKind};
@@ -16,7 +18,7 @@ use super::{
 pub struct MidiSmfReader {}
 
 impl MidiSmfReader {
-    pub fn program_sequencer(data: &[u8], sequencer: &mut MidiTickSequencer) {
+    pub fn program_sequencer(data: &[u8], sequencer: &mut MidiTickSequencer<GrooveMessage>) {
         let parse_result = midly::Smf::parse(data).unwrap();
 
         struct MetaInfo {
@@ -97,18 +99,21 @@ impl MidiSmfReader {
 }
 
 #[derive(Debug)]
-pub struct PatternProgrammer {
+pub struct PatternProgrammer<M: Message> {
     time_signature: TimeSignature,
     cursor_beats: PerfectTimeUnit,
+
+    _phantom: PhantomData<M>,
 }
 
-impl PatternProgrammer {
+impl<M: Message> PatternProgrammer<M> {
     const CURSOR_BEGIN: PerfectTimeUnit = PerfectTimeUnit(0.0);
 
     pub fn new_with(time_signature: &TimeSignature) -> Self {
         Self {
             time_signature: *time_signature,
             cursor_beats: Self::CURSOR_BEGIN,
+            _phantom: PhantomData::default(),
         }
     }
 
@@ -124,7 +129,7 @@ impl PatternProgrammer {
 
     pub(crate) fn insert_pattern_at_cursor(
         &mut self,
-        sequencer: Rrc<BeatSequencer>,
+        sequencer: Rrc<BeatSequencer<M>>,
         channel: &MidiChannel,
         pattern: &Pattern<Note>,
     ) {
@@ -214,7 +219,7 @@ mod tests {
     fn test_pattern() {
         let time_signature = TimeSignature::new_defaults();
         let sequencer = BeatSequencer::new_wrapped();
-        let mut programmer = PatternProgrammer::new_with(&time_signature);
+        let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
         // means that we should interpret this as TWO measures, the first having
@@ -240,9 +245,15 @@ mod tests {
 
         // We don't need to call reset_cursor(), but we do just once to make
         // sure it's working.
-        assert_eq!(programmer.cursor(), PatternProgrammer::CURSOR_BEGIN);
+        assert_eq!(
+            programmer.cursor(),
+            PatternProgrammer::<TestMessage>::CURSOR_BEGIN
+        );
         programmer.reset_cursor();
-        assert_eq!(programmer.cursor(), PatternProgrammer::CURSOR_BEGIN);
+        assert_eq!(
+            programmer.cursor(),
+            PatternProgrammer::<TestMessage>::CURSOR_BEGIN
+        );
 
         programmer.insert_pattern_at_cursor(rrc_clone(&sequencer), &0, &pattern);
         assert_eq!(
@@ -259,7 +270,7 @@ mod tests {
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8);
         let sequencer = BeatSequencer::new_wrapped();
-        let mut programmer = PatternProgrammer::new_with(&time_signature);
+        let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time
         // signature calls for eighth notes, they last twice as long as they
@@ -307,7 +318,7 @@ mod tests {
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4);
         let sequencer = BeatSequencer::new_wrapped();
-        let mut programmer = PatternProgrammer::new_with(&time_signature);
+        let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
         let pattern = Pattern::<Note>::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
             note_value: None,
@@ -324,7 +335,8 @@ mod tests {
     #[test]
     fn test_random_access() {
         let sequencer = BeatSequencer::new_wrapped();
-        let mut programmer = PatternProgrammer::new_with(&TimeSignature::new_defaults());
+        let mut programmer =
+            PatternProgrammer::<TestMessage>::new_with(&TimeSignature::new_defaults());
         let mut pattern = Pattern::<Note>::new();
 
         const NOTE_VALUE: BeatValue = BeatValue::Quarter;
@@ -370,7 +382,7 @@ mod tests {
 
         let mut clock = WatchedClock::new();
         let sample_rate = clock.inner_clock().sample_rate();
-        clock.add_watcher(rrc_clone::<BeatSequencer>(&sequencer));
+        clock.add_watcher(rrc_clone::<BeatSequencer<TestMessage>>(&sequencer));
 
         loop {
             let (done, _messages) = clock.visit_watchers();

@@ -4,6 +4,7 @@ use crate::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
     },
+    messages::GrooveMessage,
     midi::{
         patterns::{Note, Pattern, PatternManager},
         sequencers::BeatSequencer,
@@ -718,15 +719,15 @@ impl MakesIsViewable for Arpeggiator {
 }
 
 #[derive(Debug)]
-pub struct BeatSequencerViewableResponder {
-    target: Ww<BeatSequencer>,
+pub struct BeatSequencerViewableResponder<M: Message> {
+    target: Ww<BeatSequencer<M>>,
 }
-impl IsViewable for BeatSequencerViewableResponder {
+impl<M: Message> IsViewable for BeatSequencerViewableResponder<M> {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
-            let title = type_name::<BeatSequencer>();
+            let title = type_name::<BeatSequencer<GrooveMessage>>();
             let contents = format!("cursor point: {}", "tOdO");
             GuiStuff::titled_container(
                 Some(target),
@@ -754,7 +755,7 @@ impl IsViewable for BeatSequencerViewableResponder {
     }
 }
 
-impl MakesIsViewable for BeatSequencer {
+impl<M: Message> MakesIsViewable for BeatSequencer<M> {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(BeatSequencerViewableResponder {
@@ -862,6 +863,7 @@ mod tests {
             gain::Gain,
             limiter::Limiter,
         },
+        messages::tests::TestMessage,
         midi::sequencers::BeatSequencer,
         settings::patches::SynthPatch,
         synthesizers::{
@@ -924,7 +926,7 @@ mod tests {
             Some(ViewableMessage::ArpeggiatorChanged(42)),
         );
         test_one_viewable(
-            BeatSequencer::new_wrapped(),
+            BeatSequencer::<TestMessage>::new_wrapped(),
             Some(ViewableMessage::EnablePressed(false)),
         );
     }
