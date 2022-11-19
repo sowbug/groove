@@ -4,11 +4,12 @@ use midly::MidiMessage;
 #[derive(Clone, Debug, Default)]
 pub enum GrooveMessage {
     #[default]
-    Nop,
+    Nop, // "no operation" $EA
     Tick,
     ControlF32(usize, f32), // Sent by controller, (self.uid, new value)
     UpdateF32(usize, f32),  // sent by system, (param_id, new value)
     Midi(MidiChannel, MidiMessage),
+    Enable(bool),
 }
 impl Message for GrooveMessage {}
 
@@ -21,9 +22,7 @@ pub mod tests {
     #[derive(Clone, Debug, Default)]
     pub enum TestMessage {
         #[default]
-        Nothing,
-        #[allow(dead_code)]
-        Something,
+        Nop, // "no-op"
         Tick,
         ControlF32(usize, f32),
         UpdateF32(usize, f32),
