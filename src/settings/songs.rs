@@ -142,15 +142,14 @@ impl SongSettings {
             pattern_manager.register(pattern);
         }
         let sequencer = BeatSequencer::new_wrapped();
-        let mut programmer =
-            PatternProgrammer::new_with(rrc_clone(&sequencer), &self.clock.time_signature);
+        let mut programmer = PatternProgrammer::new_with(&self.clock.time_signature);
 
         for track in &self.tracks {
             let channel = track.midi_channel;
             programmer.reset_cursor();
             for pattern_id in &track.pattern_ids {
                 if let Some(pattern) = ids_to_patterns.get(pattern_id) {
-                    programmer.insert_pattern_at_cursor(&channel, &pattern);
+                    programmer.insert_pattern_at_cursor(rrc_clone(&sequencer), &channel, &pattern);
                 }
             }
         }

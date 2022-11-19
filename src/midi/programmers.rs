@@ -98,7 +98,6 @@ impl MidiSmfReader {
 
 #[derive(Debug)]
 pub struct PatternProgrammer {
-    beat_sequencer: Rrc<BeatSequencer>,
     time_signature: TimeSignature,
     cursor_beats: PerfectTimeUnit,
 }
@@ -106,9 +105,8 @@ pub struct PatternProgrammer {
 impl PatternProgrammer {
     const CURSOR_BEGIN: PerfectTimeUnit = PerfectTimeUnit(0.0);
 
-    pub fn new_with(sequencer: Rrc<BeatSequencer>, time_signature: &TimeSignature) -> Self {
+    pub fn new_with(time_signature: &TimeSignature) -> Self {
         Self {
-            beat_sequencer: sequencer,
             time_signature: *time_signature,
             cursor_beats: Self::CURSOR_BEGIN,
         }
@@ -126,6 +124,7 @@ impl PatternProgrammer {
 
     pub(crate) fn insert_pattern_at_cursor(
         &mut self,
+        sequencer: Rrc<BeatSequencer>,
         channel: &MidiChannel,
         pattern: &Pattern<Note>,
     ) {
@@ -154,7 +153,7 @@ impl PatternProgrammer {
                 }
                 let i: PerfectTimeUnit = i.into();
                 let note_start = self.cursor_beats + i * PerfectTimeUnit(pattern_multiplier);
-                self.beat_sequencer.borrow_mut().insert(
+                sequencer.borrow_mut().insert(
                     note_start,
                     channel,
                     MidiMessage::NoteOn {
@@ -167,7 +166,7 @@ impl PatternProgrammer {
                 // leave it like this to force myself to implement duration
                 // expression correctly, rather than continuing to hardcode 0.49
                 // as the duration.
-                self.beat_sequencer.borrow_mut().insert(
+                sequencer.borrow_mut().insert(
                     note_start + note.duration * PerfectTimeUnit(pattern_multiplier),
                     channel,
                     MidiMessage::NoteOff {
@@ -215,7 +214,7 @@ mod tests {
     fn test_pattern() {
         let time_signature = TimeSignature::new_defaults();
         let sequencer = BeatSequencer::new_wrapped();
-        let mut programmer = PatternProgrammer::new_with(rrc_clone(&sequencer), &time_signature);
+        let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
         // means that we should interpret this as TWO measures, the first having
@@ -245,7 +244,7 @@ mod tests {
         programmer.reset_cursor();
         assert_eq!(programmer.cursor(), PatternProgrammer::CURSOR_BEGIN);
 
-        programmer.insert_pattern_at_cursor(&0, &pattern);
+        programmer.insert_pattern_at_cursor(rrc_clone(&sequencer), &0, &pattern);
         assert_eq!(
             programmer.cursor(),
             PerfectTimeUnit::from(2 * time_signature.top)
@@ -260,7 +259,7 @@ mod tests {
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8);
         let sequencer = BeatSequencer::new_wrapped();
-        let mut programmer = PatternProgrammer::new_with(rrc_clone(&sequencer), &time_signature);
+        let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time
         // signature calls for eighth notes, they last twice as long as they
@@ -291,7 +290,7 @@ mod tests {
         assert_eq!(pattern.notes[0].len(), len_1);
         assert_eq!(pattern.notes[1].len(), len_2);
 
-        programmer.insert_pattern_at_cursor(&0, &pattern);
+        programmer.insert_pattern_at_cursor(rrc_clone(&sequencer), &0, &pattern);
 
         // expect max of (2, 3) measures
         assert_eq!(
@@ -308,13 +307,13 @@ mod tests {
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4);
         let sequencer = BeatSequencer::new_wrapped();
-        let mut programmer = PatternProgrammer::new_with(sequencer, &time_signature);
+        let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern::<Note>::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
             note_value: None,
             notes: vec![vec![String::from("1")]],
         });
-        programmer.insert_pattern_at_cursor(&0, &pattern);
+        programmer.insert_pattern_at_cursor(rrc_clone(&sequencer), &0, &pattern);
 
         assert_eq!(
             programmer.cursor(),
@@ -325,8 +324,7 @@ mod tests {
     #[test]
     fn test_random_access() {
         let sequencer = BeatSequencer::new_wrapped();
-        let mut programmer =
-            PatternProgrammer::new_with(rrc_clone(&sequencer), &TimeSignature::new_defaults());
+        let mut programmer = PatternProgrammer::new_with(&TimeSignature::new_defaults());
         let mut pattern = Pattern::<Note>::new();
 
         const NOTE_VALUE: BeatValue = BeatValue::Quarter;
@@ -365,7 +363,7 @@ mod tests {
             rrc_downgrade::<TestMidiSink<TestMessage>>(&midi_recorder),
         );
 
-        programmer.insert_pattern_at_cursor(&midi_channel, &pattern);
+        programmer.insert_pattern_at_cursor(rrc_clone(&sequencer), &midi_channel, &pattern);
 
         // Test recorder has seen nothing to start with.
         assert!(midi_recorder.borrow().messages.is_empty());
