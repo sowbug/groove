@@ -10,7 +10,7 @@ use std::collections::HashMap;
 pub trait NewIsController: NewUpdateable + Terminates + HasUid + std::fmt::Debug {}
 pub trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid + std::fmt::Debug {}
 pub trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid + std::fmt::Debug {}
-pub trait Message: Clone + std::fmt::Debug + Default + 'static {} // TODO: that 'static scares me
+pub trait MessageBounds: Clone + std::fmt::Debug + Default + 'static {} // TODO: that 'static scares me
 
 #[derive(Debug)]
 pub(crate) enum BoxedEntity<M> {
@@ -20,7 +20,7 @@ pub(crate) enum BoxedEntity<M> {
 }
 
 pub trait NewUpdateable {
-    type Message: Message;
+    type Message: MessageBounds;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()

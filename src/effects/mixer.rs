@@ -2,30 +2,30 @@ use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     traits::{
-        HasOverhead, HasUid, IsEffect, Message, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
+        HasOverhead, HasUid, IsEffect, MessageBounds, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
         SourcesAudio, TransformsAudio,
     },
 };
 
 #[derive(Clone, Debug, Default)]
-pub struct Mixer<M: Message> {
+pub struct Mixer<M: MessageBounds> {
     uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
     sources: Vec<Ww<dyn SourcesAudio>>,
 }
-impl<M: Message> IsEffect for Mixer<M> {}
-impl<M: Message> NewIsEffect for Mixer<M> {}
-impl<M: Message> TransformsAudio for Mixer<M> {
+impl<M: MessageBounds> IsEffect for Mixer<M> {}
+impl<M: MessageBounds> NewIsEffect for Mixer<M> {}
+impl<M: MessageBounds> TransformsAudio for Mixer<M> {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         input_sample
     }
 }
-impl<M: Message> NewUpdateable for Mixer<M> {
+impl<M: MessageBounds> NewUpdateable for Mixer<M> {
     type Message = M;
 }
-impl<M: Message> HasUid for Mixer<M> {
+impl<M: MessageBounds> HasUid for Mixer<M> {
     fn uid(&self) -> usize {
         self.uid
     }
@@ -34,7 +34,7 @@ impl<M: Message> HasUid for Mixer<M> {
         self.uid = uid;
     }
 }
-impl<M: Message> Mixer<M> {
+impl<M: MessageBounds> Mixer<M> {
     pub fn new() -> Self {
         Self {
             ..Default::default()
@@ -46,7 +46,7 @@ impl<M: Message> Mixer<M> {
         wrapped
     }
 }
-impl<M: Message> SinksAudio for Mixer<M> {
+impl<M: MessageBounds> SinksAudio for Mixer<M> {
     fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
         &self.sources
     }
@@ -54,7 +54,7 @@ impl<M: Message> SinksAudio for Mixer<M> {
         &mut self.sources
     }
 }
-impl<M: Message> HasOverhead for Mixer<M> {
+impl<M: MessageBounds> HasOverhead for Mixer<M> {
     fn overhead(&self) -> &Overhead {
         &self.overhead
     }

@@ -7,11 +7,13 @@ use crate::{
     messages::GrooveMessage,
     midi::{patterns::PatternManager, MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{
-        BoxedEntity, EvenNewerIsUpdateable, IsEffect, IsMidiEffect, MakesIsViewable,
-        NewIsController, NewIsEffect, NewIsInstrument, SinksAudio, SinksMidi, SinksUpdates,
-        SourcesAudio, SourcesMidi, WatchesClock,
+        BoxedEntity, EvenNewerCommand, EvenNewerIsUpdateable, HasUid, Internal, IsEffect,
+        IsMidiEffect, MakesIsViewable, MessageBounds, NewIsController, NewIsEffect,
+        NewIsInstrument, NewUpdateable, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
+        SourcesMidi, Terminates, WatchesClock,
     },
 };
+use anyhow::{anyhow, Result};
 use crossbeam::deque::Worker;
 use std::{
     collections::HashMap,
@@ -60,6 +62,443 @@ pub(crate) enum Uid {
     SourcesAudio(usize),
     IsEffect(usize),
     IsMidiEffect(usize),
+}
+
+#[derive(Debug)]
+pub struct Orchestrator<M: MessageBounds> {
+    uid: usize,
+    store: Store<M>,
+    main_mixer_uid: usize,
+}
+impl<M: MessageBounds> NewIsController for Orchestrator<M> {}
+impl<M: MessageBounds> NewUpdateable for Orchestrator<M> {
+    type Message = M;
+
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        EvenNewerCommand::batch(self.store.values_mut().fold(
+            Vec::new(),
+            |mut vec: Vec<EvenNewerCommand<Self::Message>>, item| {
+                match item {
+                    BoxedEntity::Controller(entity) => {
+                        let command = entity.update(clock, message.clone());
+
+                        vec.push(command);
+                    }
+                    _ => {}
+                }
+                vec
+            },
+        ))
+    }
+}
+impl<M: MessageBounds> Terminates for Orchestrator<M> {
+    fn is_finished(&self) -> bool {
+        true
+    }
+}
+impl<M: MessageBounds> HasUid for Orchestrator<M> {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
+impl<M: MessageBounds> Orchestrator<M> {
+    pub(crate) fn new() -> Self {
+        Default::default()
+    }
+
+    pub(crate) fn store(&self) -> &Store<M> {
+        &self.store
+    }
+
+    pub(crate) fn store_mut(&mut self) -> &mut Store<M> {
+        &mut self.store
+    }
+
+    pub(crate) fn add(&mut self, entity: BoxedEntity<M>) -> usize {
+        self.store.add(entity)
+    }
+
+    pub(crate) fn link_control(
+        &mut self,
+        controller_uid: usize,
+        target_uid: usize,
+        param_name: &str,
+    ) {
+        if let Some(target) = self.store.get(target_uid) {
+            let param_id = match target {
+                // TODO: everyone's the same... design issue?
+                BoxedEntity::Controller(e) => e.param_id_for_name(param_name),
+                BoxedEntity::Effect(e) => e.param_id_for_name(param_name),
+                BoxedEntity::Instrument(e) => e.param_id_for_name(param_name),
+            };
+
+            if let Some(controller) = self.store.get(controller_uid) {
+                if let BoxedEntity::Controller(_controller) = controller {
+                    self.store
+                        .link_control(controller_uid, target_uid, param_id);
+                }
+            }
+        }
+    }
+
+    pub(crate) fn unlink_control(&mut self, controller_uid: usize, target_uid: usize) {
+        self.store.unlink_control(controller_uid, target_uid);
+    }
+
+    pub(crate) fn patch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
+        // TODO: detect loops
+
+        // Validate that input_uid refers to something that has audio input
+        if let Some(input) = self.store.get(input_uid) {
+            match input {
+                // TODO: there could be things that have audio input but
+                // don't transform, like an audio recorder (or technically a
+                // main mixer).
+                BoxedEntity::Effect(_) => {}
+                _ => {
+                    return Err(anyhow!("Item {:?} doesn't transform audio", input));
+                }
+            }
+        } else {
+            return Err(anyhow!("Couldn't find input_uid {}", input_uid));
+        }
+
+        // Validate that source_uid refers to something that outputs audio
+        if let Some(output) = self.store.get(output_uid) {
+            match output {
+                BoxedEntity::Controller(_) => {
+                    return Err(anyhow!("Item {:?} doesn't output audio", output));
+                }
+                _ => {}
+            }
+        } else {
+            return Err(anyhow!("Couldn't find output_uid {}", output_uid));
+        }
+
+        // We've passed our checks. Record it.
+        self.store.patch(output_uid, input_uid);
+        Ok(())
+    }
+
+    pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) {
+        self.store.unpatch(output_uid, input_uid);
+    }
+
+    pub(crate) fn connect_to_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
+        self.patch(source_uid, self.main_mixer_uid)
+    }
+
+    pub(crate) fn are_all_finished(&mut self) -> bool {
+        self.store.values().all(|item| match item {
+            // TODO: seems like just one kind needs this
+            BoxedEntity::Controller(entity) => entity.is_finished(),
+            BoxedEntity::Effect(_) => true,
+            BoxedEntity::Instrument(_) => true,
+        })
+    }
+
+    // This (probably) embarrassing method is supposed to be a naturally
+    // recursive algorithm expressed iteratively. Yeah, just like the Google
+    // interview question. The reason functional recursion wouldn't fly is
+    // that the Rust borrow checker won't let us call ourselves if we've
+    // already borrowed ourselves &mut, which goes for any of our fields.
+    // TODO: simplify
+    pub(crate) fn gather_audio(&mut self, clock: &mut Clock) -> MonoSample {
+        enum StackEntry {
+            ToVisit(usize),
+            CollectResultFor(usize),
+            Result(MonoSample),
+        }
+        let mut stack = Vec::new();
+        let mut sum = MONO_SAMPLE_SILENCE;
+        stack.push(StackEntry::ToVisit(self.main_mixer_uid));
+
+        while let Some(entry) = stack.pop() {
+            match entry {
+                StackEntry::ToVisit(uid) => {
+                    // We've never seen this node before.
+                    if let Some(entity) = self.store.get_mut(uid) {
+                        match entity {
+                            // If it's a leaf, eval it now and add it to the
+                            // running sum.
+                            BoxedEntity::Instrument(entity) => {
+                                sum += entity.source_audio(clock);
+                            }
+                            // If it's a node, eval its leaves, then eval
+                            // its nodes, then process the result.
+                            BoxedEntity::Effect(_) => {
+                                // Tell us to process sum.
+                                stack.push(StackEntry::CollectResultFor(uid));
+                                if let Some(source_uids) = self.store.patches(uid) {
+                                    let source_uids = source_uids.to_vec();
+                                    // Eval leaves
+                                    for source_uid in &source_uids {
+                                        if let Some(entity) = self.store.get_mut(*source_uid) {
+                                            match entity {
+                                                BoxedEntity::Controller(_) => {}
+                                                BoxedEntity::Effect(_) => {}
+                                                BoxedEntity::Instrument(e) => {
+                                                    sum += e.source_audio(clock);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    stack.push(StackEntry::Result(sum));
+                                    sum = MONO_SAMPLE_SILENCE;
+
+                                    // Eval nodes
+                                    for source_uid in &source_uids {
+                                        if let Some(entity) = self.store.get_mut(*source_uid) {
+                                            match entity {
+                                                BoxedEntity::Controller(_) => {}
+                                                BoxedEntity::Effect(_) => {
+                                                    stack.push(StackEntry::ToVisit(*source_uid))
+                                                }
+                                                BoxedEntity::Instrument(_) => {}
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // an effect is at the end of a chain.
+                                    // This should be harmless (but probably
+                                    // confusing for the end user; might
+                                    // want to flag it).
+                                }
+                            }
+                            BoxedEntity::Controller(_) => {}
+                        }
+                    }
+                }
+                StackEntry::Result(sample) => sum += sample,
+                StackEntry::CollectResultFor(uid) => {
+                    if let Some(entity) = self.store.get_mut(uid) {
+                        match entity {
+                            BoxedEntity::Instrument(_) => {}
+                            BoxedEntity::Effect(entity) => {
+                                stack.push(StackEntry::Result(entity.transform_audio(clock, sum)));
+                                sum = MONO_SAMPLE_SILENCE;
+                            }
+                            BoxedEntity::Controller(_) => {}
+                        }
+                    }
+                }
+            }
+        }
+        sum
+    }
+
+    pub(crate) fn connect_midi_upstream(&self, source_uid: usize) {
+        dbg!(&source_uid);
+    }
+
+    pub(crate) fn connect_midi_downstream(
+        &mut self,
+        receiver_uid: usize,
+        receiver_midi_channel: MidiChannel,
+    ) {
+        self.store
+            .connect_midi_receiver(receiver_uid, receiver_midi_channel);
+    }
+
+    pub(crate) fn disconnect_midi_downstream(
+        &mut self,
+        receiver_uid: usize,
+        receiver_midi_channel: MidiChannel,
+    ) {
+        self.store
+            .disconnect_midi_receiver(receiver_uid, receiver_midi_channel);
+    }
+}
+impl<M: MessageBounds> Default for Orchestrator<M> {
+    fn default() -> Self {
+        let mut r = Self {
+            uid: Default::default(),
+            store: Default::default(),
+            main_mixer_uid: Default::default(),
+        };
+        let main_mixer = Box::new(Mixer::default());
+        r.main_mixer_uid = r.add(BoxedEntity::Effect(main_mixer));
+        r
+    }
+}
+impl Orchestrator<GrooveMessage> {
+    fn send_control_f32(&mut self, clock: &Clock, uid: usize, value: f32) {
+        if let Some(links) = self.store.control_links(uid) {
+            let links = links.to_vec();
+            for (target_uid, param) in links {
+                if let Some(target) = self.store.get_mut(target_uid) {
+                    match target {
+                        // TODO: everyone is the same...
+                        BoxedEntity::Controller(e) => {
+                            e.update(clock, GrooveMessage::UpdateF32(param, value));
+                        }
+                        BoxedEntity::Instrument(e) => {
+                            e.update(clock, GrooveMessage::UpdateF32(param, value));
+                        }
+                        BoxedEntity::Effect(e) => {
+                            e.update(clock, GrooveMessage::UpdateF32(param, value));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+impl NewUpdateable for Orchestrator<GrooveMessage> {}
+
+#[derive(Debug, Default)]
+pub struct GrooveRunner {}
+impl GrooveRunner {
+    pub fn run(
+        &mut self,
+        orchestrator: &mut Box<Orchestrator<GrooveMessage>>,
+        clock: &mut Clock,
+        run_until_completion: bool,
+    ) -> Vec<MonoSample> {
+        let mut samples = Vec::<MonoSample>::new();
+        loop {
+            let command = orchestrator.update(clock, GrooveMessage::Tick);
+            match command.0 {
+                Internal::None => {}
+                Internal::Single(message) => {
+                    self.handle_message(orchestrator, clock, message);
+                }
+                Internal::Batch(messages) => {
+                    for message in messages {
+                        self.handle_message(orchestrator, clock, message);
+                    }
+                }
+            }
+            if orchestrator.are_all_finished() {
+                break;
+            }
+            samples.push(orchestrator.gather_audio(clock));
+            clock.tick();
+            if !run_until_completion {
+                break;
+            }
+        }
+        samples
+    }
+
+    fn handle_message(
+        &mut self,
+        orchestrator: &mut Orchestrator<GrooveMessage>,
+        clock: &Clock,
+        message: GrooveMessage,
+    ) {
+        match message {
+            GrooveMessage::ControlF32(uid, value) => {
+                self.handle_msg_control_f32(orchestrator, clock, uid, value)
+            }
+            GrooveMessage::Midi(channel, message) => {
+                self.handle_msg_midi(orchestrator, clock, channel, message)
+            }
+            _ => todo!(),
+        }
+    }
+
+    fn handle_msg_control_f32(
+        &mut self,
+        orchestrator: &mut Orchestrator<GrooveMessage>,
+        clock: &Clock,
+        uid: usize,
+        value: f32,
+    ) {
+        if let Some(e) = orchestrator.store.control_links(uid) {
+            // TODO: is this clone() necessary? I got lazy because its' a
+            // mut borrow of orchestrator inside a non-mut block.
+            for (target_uid, param_id) in e.clone() {
+                self.send_msg_update_f32(orchestrator, clock, target_uid, param_id, value);
+            }
+        }
+    }
+
+    fn send_msg_update_f32(
+        &mut self,
+        orchestrator: &mut Orchestrator<GrooveMessage>,
+        clock: &Clock,
+        target_uid: usize,
+        param_id: usize,
+        value: f32,
+    ) {
+        self.send_msg(
+            orchestrator,
+            clock,
+            target_uid,
+            GrooveMessage::UpdateF32(param_id, value),
+        );
+    }
+
+    fn send_msg(
+        &mut self,
+        orchestrator: &mut Orchestrator<GrooveMessage>,
+        clock: &Clock,
+        target_uid: usize,
+        message: GrooveMessage,
+    ) {
+        if let Some(target) = orchestrator.store.get_mut(target_uid) {
+            match target {
+                // TODO: everyone is the same...
+                BoxedEntity::Controller(e) => {
+                    e.update(clock, message);
+                }
+                BoxedEntity::Instrument(e) => {
+                    e.update(clock, message);
+                }
+                BoxedEntity::Effect(e) => {
+                    e.update(clock, message);
+                }
+            }
+        }
+    }
+
+    fn handle_msg_midi(
+        &mut self,
+        orchestrator: &mut Orchestrator<GrooveMessage>,
+        clock: &Clock,
+        channel: u8,
+        message: MidiMessage,
+    ) {
+        if let Some(receiver_uids) = orchestrator.store.midi_receivers(channel) {
+            for receiver_uid in receiver_uids.to_vec() {
+                // TODO: can this loop?
+                if let Some(target) = orchestrator.store.get_mut(receiver_uid) {
+                    let message = GrooveMessage::Midi(channel, message);
+                    match target {
+                        BoxedEntity::Controller(e) => {
+                            e.update(clock, message);
+                        }
+                        BoxedEntity::Instrument(e) => {
+                            e.update(clock, message);
+                        }
+                        BoxedEntity::Effect(e) => {
+                            e.update(clock, message);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn send_msg_enable(
+        &mut self,
+        orchestrator: &mut Orchestrator<GrooveMessage>,
+        clock: &Clock,
+        target_uid: usize,
+        enabled: bool,
+    ) {
+        self.send_msg(
+            orchestrator,
+            clock,
+            target_uid,
+            GrooveMessage::Enable(enabled),
+        );
+    }
 }
 
 #[derive(Debug, Default)]
@@ -475,5 +914,191 @@ impl OldOrchestrator {
 
     pub fn mixer(&self) -> &Mixer<GrooveMessage> {
         &self.main_mixer
+    }
+}
+
+#[cfg(test)]
+
+pub mod tests {
+    use midly::MidiMessage;
+
+    use crate::{
+        clock::Clock,
+        common::MonoSample,
+        messages::tests::TestMessage,
+        traits::{BoxedEntity, Internal, NewIsEffect, NewUpdateable},
+    };
+
+    use super::Orchestrator;
+
+    #[derive(Debug, Default)]
+    pub struct Runner {
+        // state_checker is an optional IsEffect that verifies expected state
+        // after all each loop iteration's commands have been acted upon.
+        //
+        // It is an effect because it is intended to monitor another thing's
+        // output, which is more like an effect than a controller or an
+        // instrument.
+        state_checker: Option<Box<dyn NewIsEffect<Message = TestMessage>>>,
+    }
+    impl Runner {
+        pub fn run(
+            &mut self,
+            orchestrator: &mut Box<Orchestrator<TestMessage>>,
+            clock: &mut Clock,
+            run_until_completion: bool,
+        ) -> Vec<MonoSample> {
+            let mut samples = Vec::<MonoSample>::new();
+            loop {
+                let command = orchestrator.update(clock, TestMessage::Tick);
+                match command.0 {
+                    Internal::None => {}
+                    Internal::Single(message) => {
+                        self.handle_message(orchestrator, clock, message);
+                    }
+                    Internal::Batch(messages) => {
+                        for message in messages {
+                            self.handle_message(orchestrator, clock, message);
+                        }
+                    }
+                }
+                if let Some(checker) = &mut self.state_checker {
+                    // This one is treated specially in that it is guaranteed to
+                    // run after everyone else's update() calls for this tick.
+                    checker.update(clock, TestMessage::Tick);
+                }
+                if orchestrator.are_all_finished() {
+                    break;
+                }
+                samples.push(orchestrator.gather_audio(clock));
+                clock.tick();
+                if !run_until_completion {
+                    break;
+                }
+            }
+            samples
+        }
+
+        fn handle_message(
+            &mut self,
+            orchestrator: &mut Orchestrator<TestMessage>,
+            clock: &Clock,
+            message: TestMessage,
+        ) {
+            match message {
+                TestMessage::ControlF32(uid, value) => {
+                    self.handle_msg_control_f32(orchestrator, clock, uid, value)
+                }
+                TestMessage::Midi(channel, message) => {
+                    self.handle_msg_midi(orchestrator, clock, channel, message)
+                }
+                _ => todo!(),
+            }
+        }
+
+        fn handle_msg_control_f32(
+            &mut self,
+            orchestrator: &mut Orchestrator<TestMessage>,
+            clock: &Clock,
+            uid: usize,
+            value: f32,
+        ) {
+            if let Some(e) = orchestrator.store().control_links(uid) {
+                // TODO: is this clone() necessary? I got lazy because its' a
+                // mut borrow of orchestrator inside a non-mut block.
+                for (target_uid, param_id) in e.clone() {
+                    self.send_msg_update_f32(orchestrator, clock, target_uid, param_id, value);
+                }
+            }
+        }
+
+        fn send_msg_update_f32(
+            &mut self,
+            orchestrator: &mut Orchestrator<TestMessage>,
+            clock: &Clock,
+            target_uid: usize,
+            param_id: usize,
+            value: f32,
+        ) {
+            self.send_msg(
+                orchestrator,
+                clock,
+                target_uid,
+                TestMessage::UpdateF32(param_id, value),
+            );
+        }
+
+        fn send_msg(
+            &mut self,
+            orchestrator: &mut Orchestrator<TestMessage>,
+            clock: &Clock,
+            target_uid: usize,
+            message: TestMessage,
+        ) {
+            if let Some(target) = orchestrator.store_mut().get_mut(target_uid) {
+                match target {
+                    // TODO: everyone is the same...
+                    BoxedEntity::Controller(e) => {
+                        e.update(clock, message);
+                    }
+                    BoxedEntity::Instrument(e) => {
+                        e.update(clock, message);
+                    }
+                    BoxedEntity::Effect(e) => {
+                        e.update(clock, message);
+                    }
+                }
+            }
+        }
+
+        fn handle_msg_midi(
+            &mut self,
+            orchestrator: &mut Orchestrator<TestMessage>,
+            clock: &Clock,
+            channel: u8,
+            message: MidiMessage,
+        ) {
+            if let Some(receiver_uids) = orchestrator.store().midi_receivers(channel) {
+                for receiver_uid in receiver_uids.to_vec() {
+                    // TODO: can this loop?
+                    if let Some(target) = orchestrator.store_mut().get_mut(receiver_uid) {
+                        let message = TestMessage::Midi(channel, message);
+                        match target {
+                            BoxedEntity::Controller(e) => {
+                                e.update(clock, message);
+                            }
+                            BoxedEntity::Instrument(e) => {
+                                e.update(clock, message);
+                            }
+                            BoxedEntity::Effect(e) => {
+                                e.update(clock, message);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        pub fn send_msg_enable(
+            &mut self,
+            orchestrator: &mut Orchestrator<TestMessage>,
+            clock: &Clock,
+            target_uid: usize,
+            enabled: bool,
+        ) {
+            self.send_msg(
+                orchestrator,
+                clock,
+                target_uid,
+                TestMessage::Enable(enabled),
+            );
+        }
+
+        pub(crate) fn add_state_checker(
+            &mut self,
+            state_checker: Box<dyn NewIsEffect<Message = TestMessage>>,
+        ) {
+            self.state_checker = Some(state_checker);
+        }
     }
 }

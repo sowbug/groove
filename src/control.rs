@@ -4,7 +4,7 @@ use crate::effects::{
     limiter::Limiter, mixer::Mixer,
 };
 use crate::settings::control::ControlStep;
-use crate::traits::{Message, SinksUpdates, Terminates, WatchesClock};
+use crate::traits::{MessageBounds, SinksUpdates, Terminates, WatchesClock};
 use crate::{clock::BeatValue, settings::control::ControlPathSettings};
 use crate::{
     envelopes::{AdsrEnvelope, EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
@@ -347,7 +347,7 @@ impl SinksUpdates for Limiter {
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum MixerControlParams {}
 
-impl<M: Message> SinksUpdates for Mixer<M> {
+impl<M: MessageBounds> SinksUpdates for Mixer<M> {
     fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
         panic!("unrecognized parameter name: {}", param_name);
     }

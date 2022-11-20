@@ -10,7 +10,7 @@ use crate::{
         sequencers::BeatSequencer,
     },
     synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
-    traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, Message, SinksAudio},
+    traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, MessageBounds, SinksAudio},
     OldOrchestrator,
 };
 use iced::{
@@ -198,7 +198,7 @@ pub trait IsViewable: Debug {
     }
 }
 
-impl<M: Message> IsViewable for Mixer<M> {
+impl<M: MessageBounds> IsViewable for Mixer<M> {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<ViewableMessage> {
@@ -221,7 +221,7 @@ impl<M: Message> IsViewable for Mixer<M> {
     }
 }
 
-impl<M: Message> MakesIsViewable for Mixer<M> {
+impl<M: MessageBounds> MakesIsViewable for Mixer<M> {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         None
     }
@@ -719,10 +719,10 @@ impl MakesIsViewable for Arpeggiator {
 }
 
 #[derive(Debug)]
-pub struct BeatSequencerViewableResponder<M: Message> {
+pub struct BeatSequencerViewableResponder<M: MessageBounds> {
     target: Ww<BeatSequencer<M>>,
 }
-impl<M: Message> IsViewable for BeatSequencerViewableResponder<M> {
+impl<M: MessageBounds> IsViewable for BeatSequencerViewableResponder<M> {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -755,7 +755,7 @@ impl<M: Message> IsViewable for BeatSequencerViewableResponder<M> {
     }
 }
 
-impl<M: Message> MakesIsViewable for BeatSequencer<M> {
+impl<M: MessageBounds> MakesIsViewable for BeatSequencer<M> {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         if self.me.strong_count() != 0 {
             Some(Box::new(BeatSequencerViewableResponder {

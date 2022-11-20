@@ -1,4 +1,4 @@
-use crate::{midi::MidiChannel, traits::Message};
+use crate::{midi::MidiChannel, traits::MessageBounds};
 use midly::MidiMessage;
 
 #[derive(Clone, Debug, Default)]
@@ -11,13 +11,13 @@ pub enum GrooveMessage {
     Midi(MidiChannel, MidiMessage),
     Enable(bool),
 }
-impl Message for GrooveMessage {}
+impl MessageBounds for GrooveMessage {}
 
 #[cfg(test)]
 pub mod tests {
     use midly::MidiMessage;
 
-    use crate::{midi::MidiChannel, traits::Message};
+    use crate::{midi::MidiChannel, traits::MessageBounds};
 
     #[derive(Clone, Debug, Default)]
     pub enum TestMessage {
@@ -29,5 +29,5 @@ pub mod tests {
         Midi(MidiChannel, MidiMessage),
         Enable(bool),
     }
-    impl Message for TestMessage {}
+    impl MessageBounds for TestMessage {}
 }

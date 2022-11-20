@@ -4,7 +4,7 @@ use crate::{
     clock::{MidiTicks, PerfectTimeUnit},
     common::Rrc,
     messages::GrooveMessage,
-    traits::Message,
+    traits::MessageBounds,
     TimeSignature,
 };
 use midly::{MidiMessage, TrackEventKind};
@@ -99,14 +99,14 @@ impl MidiSmfReader {
 }
 
 #[derive(Debug)]
-pub struct PatternProgrammer<M: Message> {
+pub struct PatternProgrammer<M: MessageBounds> {
     time_signature: TimeSignature,
     cursor_beats: PerfectTimeUnit,
 
     _phantom: PhantomData<M>,
 }
 
-impl<M: Message> PatternProgrammer<M> {
+impl<M: MessageBounds> PatternProgrammer<M> {
     const CURSOR_BEGIN: PerfectTimeUnit = PerfectTimeUnit(0.0);
 
     pub fn new_with(time_signature: &TimeSignature) -> Self {
