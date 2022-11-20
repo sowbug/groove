@@ -3,7 +3,7 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SourcesAudio, TransformsAudio,
+        HasUid, NewIsEffect, NewUpdateable, SourcesAudio, TransformsAudio,
     },
 };
 
@@ -11,7 +11,7 @@ use crate::{
 pub(crate) struct Gain {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
+
 
     ceiling: f32,
 }
@@ -74,15 +74,7 @@ impl Gain {
         self.ceiling = pct;
     }
 }
-impl HasOverhead for Gain {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
 
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
 
 #[cfg(test)]
 mod tests {

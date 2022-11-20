@@ -7,8 +7,7 @@ use crate::{
     messages::GrooveMessage,
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
     traits::{
-        HasOverhead, HasUid, NewIsController, NewUpdateable, Overhead, SinksMidi, SourcesMidi,
-        Terminates, WatchesClock,
+        HasUid, NewIsController, NewUpdateable, SinksMidi, SourcesMidi, Terminates, WatchesClock,
     },
 };
 use std::collections::HashMap;
@@ -17,7 +16,7 @@ use std::collections::HashMap;
 pub struct Arpeggiator {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
+
     midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,
     beat_sequencer: BeatSequencer<GrooveMessage>,
@@ -70,9 +69,7 @@ impl SinksMidi for Arpeggiator {
             MidiMessage::ChannelAftertouch { vel } => todo!(),
             MidiMessage::PitchBend { bend } => todo!(),
         }
-        self.beat_sequencer
-            .overhead_mut()
-            .set_enabled(self.is_device_playing);
+        self.beat_sequencer.enable(self.is_device_playing);
     }
 
     fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
@@ -202,16 +199,6 @@ impl Arpeggiator {
             key + 11,
             vel,
         );
-    }
-}
-
-impl HasOverhead for Arpeggiator {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
-
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
     }
 }
 

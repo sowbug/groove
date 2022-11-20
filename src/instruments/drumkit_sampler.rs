@@ -3,16 +3,12 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
     messages::GrooveMessage,
     midi::{GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{
-        HasOverhead, HasUid, NewIsInstrument, NewUpdateable, Overhead, SinksMidi, SourcesAudio,
-    },
+    traits::{HasUid, NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio},
 };
 use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 struct Voice {
-    overhead: Overhead,
-
     samples: Vec<MonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
@@ -93,21 +89,11 @@ impl SourcesAudio for Voice {
         }
     }
 }
-impl HasOverhead for Voice {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
-
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct Sampler {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
 
     midi_channel: MidiChannel,
     note_to_voice: HashMap<u8, Voice>,
@@ -117,10 +103,6 @@ pub struct Sampler {
 impl NewIsInstrument for Sampler {}
 impl SourcesAudio for Sampler {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        if !self.overhead().is_enabled() || self.overhead().is_muted() {
-            return MONO_SAMPLE_SILENCE;
-        }
-
         self.note_to_voice
             .values_mut()
             .map(|v| v.source_audio(clock))
@@ -232,16 +214,6 @@ impl SinksMidi for Sampler {
             MidiMessage::ChannelAftertouch { vel } => todo!(),
             MidiMessage::PitchBend { bend } => todo!(),
         }
-    }
-}
-
-impl HasOverhead for Sampler {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
-
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
     }
 }
 

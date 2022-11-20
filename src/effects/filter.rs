@@ -3,7 +3,7 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SourcesAudio, TransformsAudio,
+        HasUid, NewIsEffect, NewUpdateable, SourcesAudio, TransformsAudio,
     },
 };
 use std::f64::consts::PI;
@@ -92,7 +92,7 @@ struct CoefficientSet {
 pub struct BiQuadFilter {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
+
 
     sample_rate: usize,
     filter_type: FilterType,
@@ -184,7 +184,7 @@ impl BiQuadFilter {
         Self {
             uid: usize::default(),
             me: Default::default(),
-            overhead: Default::default(),
+            
             filter_type: Default::default(),
             sample_rate: Default::default(),
             cutoff: Default::default(),
@@ -463,15 +463,7 @@ impl BiQuadFilter {
     }
 }
 
-impl HasOverhead for BiQuadFilter {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
 
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
 
 #[cfg(test)]
 mod tests {

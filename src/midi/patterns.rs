@@ -1,7 +1,4 @@
-use crate::{
-    clock::{BeatValue, PerfectTimeUnit},
-    traits::{HasOverhead, Overhead},
-};
+use crate::clock::{BeatValue, PerfectTimeUnit};
 use std::fmt::Debug;
 
 #[derive(Clone, Debug, Default)]
@@ -57,8 +54,6 @@ impl Pattern<Note> {
 
 #[derive(Clone, Debug, Default)]
 pub struct PatternManager {
-    overhead: Overhead,
-
     patterns: Vec<Pattern<Note>>,
 }
 
@@ -78,14 +73,5 @@ impl PatternManager {
     // TODO: this seems weird that we can give back a &mut to the slice.
     pub(crate) fn patterns_mut(&mut self) -> &mut [Pattern<Note>] {
         &mut self.patterns
-    }
-}
-
-impl HasOverhead for PatternManager {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
     }
 }

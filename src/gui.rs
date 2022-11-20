@@ -10,7 +10,7 @@ use crate::{
         patterns::{Note, Pattern, PatternManager},
         sequencers::BeatSequencer,
     },
-    traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, MessageBounds, },
+    traits::{HasEnable, HasMute, MakesIsViewable, MessageBounds},
     GrooveOrchestrator,
 };
 use iced::{
@@ -93,13 +93,9 @@ pub struct GuiStuff<'a, Message> {
 }
 
 impl<'a, Message: 'a> GuiStuff<'a, Message> {
-    pub fn titled_container(
-        device: Option<Rrc<dyn HasOverhead>>,
-        title: &str,
-        contents: Element<'a, Message>,
-    ) -> Element<'a, Message> {
+    pub fn titled_container(title: &str, contents: Element<'a, Message>) -> Element<'a, Message> {
         container(column![
-            Self::titled_container_title(device, title),
+            Self::titled_container_title(title),
             container(contents).padding(2)
         ])
         .padding(0)
@@ -108,10 +104,7 @@ impl<'a, Message: 'a> GuiStuff<'a, Message> {
     }
 
     #[allow(unused_variables)]
-    pub fn titled_container_title(
-        device: Option<Rrc<dyn HasOverhead>>,
-        title: &str,
-    ) -> Element<'a, Message> {
+    pub fn titled_container_title(title: &str) -> Element<'a, Message> {
         // let checkboxes = container(if let Some(device) = device {
         //     row![
         //         checkbox(
@@ -179,7 +172,6 @@ pub trait IsViewable: Debug {
 
     fn view(&self) -> Element<'_, Self::Message, iced::Renderer> {
         GuiStuff::titled_container(
-            None,
             "Untitled",
             text("under construction")
                 .horizontal_alignment(Horizontal::Center)
@@ -204,16 +196,16 @@ impl<M: MessageBounds> IsViewable for Mixer<M> {
     fn view(&self) -> Element<ViewableMessage> {
         let title = "MIXER";
         let contents = format!("sources: {}", 227);
-        GuiStuff::titled_container(None, title, GuiStuff::container_text(contents.as_str()))
+        GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             ViewableMessage::MutePressed(is_muted) => {
-                self.set_muted(is_muted);
+                //                self.set_muted(is_muted);
             }
             ViewableMessage::EnablePressed(is_enabled) => {
-                self.set_enabled(is_enabled);
+                //             self.set_enabled(is_enabled);
             }
             _ => todo!(),
         };
@@ -238,11 +230,7 @@ impl IsViewable for SamplerViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Sampler>();
             let contents = format!("name: {}", target.borrow().filename);
-            GuiStuff::titled_container(
-                Some(target),
-                title,
-                GuiStuff::container_text(contents.as_str()),
-            )
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             GuiStuff::missing_target_container()
         }
@@ -252,10 +240,10 @@ impl IsViewable for SamplerViewableResponder {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
-                    target.borrow_mut().set_muted(is_muted);
+                    // target.borrow_mut().set_muted(is_muted);
                 }
                 ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled);
+                    //    target.borrow_mut().set_enabled(is_enabled);
                 }
                 _ => todo!(),
             };
@@ -291,11 +279,7 @@ impl IsViewable for DrumkitSamplerViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<DrumkitSampler>();
             let contents = format!("kit name: {}", target.borrow().kit_name);
-            GuiStuff::titled_container(
-                Some(target),
-                title,
-                GuiStuff::container_text(contents.as_str()),
-            )
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             GuiStuff::missing_target_container()
         }
@@ -305,10 +289,10 @@ impl IsViewable for DrumkitSamplerViewableResponder {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
-                    target.borrow_mut().set_muted(is_muted);
+                    //      target.borrow_mut().set_muted(is_muted);
                 }
                 ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled);
+                    //    target.borrow_mut().set_enabled(is_enabled);
                 }
                 _ => todo!(),
             };
@@ -344,11 +328,7 @@ impl IsViewable for SynthViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Synth>();
             let contents = format!("name: {}", target.borrow().preset.name);
-            GuiStuff::titled_container(
-                Some(target),
-                title,
-                GuiStuff::container_text(contents.as_str()),
-            )
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             GuiStuff::missing_target_container()
         }
@@ -358,10 +338,10 @@ impl IsViewable for SynthViewableResponder {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
-                    target.borrow_mut().set_muted(is_muted);
+                    //     target.borrow_mut().set_muted(is_muted);
                 }
                 ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled);
+                    //   target.borrow_mut().set_enabled(is_enabled);
                 }
                 _ => todo!(),
             };
@@ -420,7 +400,7 @@ impl IsViewable for GainViewableResponder {
                 .width(iced::Length::FillPortion(1)),
             ])
             .padding(20);
-            GuiStuff::titled_container(Some(target), title, contents.into())
+            GuiStuff::titled_container(title, contents.into())
         } else {
             GuiStuff::missing_target_container()
         }
@@ -430,10 +410,10 @@ impl IsViewable for GainViewableResponder {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
-                    target.borrow_mut().set_muted(is_muted);
+                    //    target.borrow_mut().set_muted(is_muted);
                 }
                 ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled);
+                    //  target.borrow_mut().set_enabled(is_enabled);
                 }
                 Self::Message::GainLevelChangedAsU8Percentage(ceiling) => {
                     // TODO: we need input sanitizers 0..=100 0.0..=1.0
@@ -481,11 +461,7 @@ impl IsViewable for BitcrusherViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Bitcrusher>();
             let contents = format!("bits to crush: {}", target.borrow().bits_to_crush());
-            GuiStuff::titled_container(
-                Some(target),
-                title,
-                GuiStuff::container_text(contents.as_str()),
-            )
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             GuiStuff::missing_target_container()
         }
@@ -495,10 +471,10 @@ impl IsViewable for BitcrusherViewableResponder {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
-                    target.borrow_mut().set_muted(is_muted);
+                    //    target.borrow_mut().set_muted(is_muted);
                 }
                 ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled);
+                    //      target.borrow_mut().set_enabled(is_enabled);
                 }
 
                 Self::Message::BitcrusherValueChanged(new_value) => {
@@ -542,11 +518,7 @@ impl IsViewable for LimiterViewableResponder {
                 target.borrow().min(),
                 target.borrow().max()
             );
-            GuiStuff::titled_container(
-                Some(target),
-                title,
-                GuiStuff::container_text(contents.as_str()),
-            )
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             GuiStuff::missing_target_container()
         }
@@ -556,10 +528,10 @@ impl IsViewable for LimiterViewableResponder {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
-                    target.borrow_mut().set_muted(is_muted);
+                    //      target.borrow_mut().set_muted(is_muted);
                 }
                 ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled);
+                    //        target.borrow_mut().set_enabled(is_enabled);
                 }
                 ViewableMessage::LimiterMinChanged(new_value) => {
                     if let Some(target) = self.target.upgrade() {
@@ -614,7 +586,7 @@ impl IsViewable for FilterViewableResponder {
                 ))
                 .width(iced::Length::FillPortion(1))
             ];
-            GuiStuff::titled_container(Some(target), title, contents.into())
+            GuiStuff::titled_container(title, contents.into())
         } else {
             GuiStuff::missing_target_container()
         }
@@ -624,10 +596,10 @@ impl IsViewable for FilterViewableResponder {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
-                    target.borrow_mut().set_muted(is_muted);
+                    //           target.borrow_mut().set_muted(is_muted);
                 }
                 ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled);
+                    //          target.borrow_mut().set_enabled(is_enabled);
                 }
                 ViewableMessage::FilterCutoffChangedAsF32(new_value) => {
                     if let Some(target) = self.target.upgrade() {
@@ -673,11 +645,7 @@ impl IsViewable for ArpeggiatorViewableResponder {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Arpeggiator>();
             let contents = format!("cutoff: {}", target.borrow().nothing());
-            GuiStuff::titled_container(
-                Some(target),
-                title,
-                GuiStuff::container_text(contents.as_str()),
-            )
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             GuiStuff::missing_target_container()
         }
@@ -687,10 +655,10 @@ impl IsViewable for ArpeggiatorViewableResponder {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
-                    target.borrow_mut().set_muted(is_muted);
+                    //            target.borrow_mut().set_muted(is_muted);
                 }
                 ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled);
+                    //          target.borrow_mut().set_enabled(is_enabled);
                 }
                 ViewableMessage::ArpeggiatorChanged(new_value) => {
                     target.borrow_mut().set_nothing(new_value as f32);
@@ -729,11 +697,7 @@ impl<M: MessageBounds> IsViewable for BeatSequencerViewableResponder<M> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<BeatSequencer<GrooveMessage>>();
             let contents = format!("cursor point: {}", "tOdO");
-            GuiStuff::titled_container(
-                Some(target),
-                title,
-                GuiStuff::container_text(contents.as_str()),
-            )
+            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             GuiStuff::missing_target_container()
         }
@@ -743,10 +707,10 @@ impl<M: MessageBounds> IsViewable for BeatSequencerViewableResponder<M> {
         if let Some(target) = self.target.upgrade() {
             match message {
                 ViewableMessage::MutePressed(is_muted) => {
-                    target.borrow_mut().set_muted(is_muted);
+                    //          target.borrow_mut().set_muted(is_muted);
                 }
                 ViewableMessage::EnablePressed(is_enabled) => {
-                    target.borrow_mut().set_enabled(is_enabled);
+                    //          target.borrow_mut().set_enabled(is_enabled);
                 }
                 _ => todo!(),
             };
@@ -819,7 +783,7 @@ impl IsViewable for PatternManager {
             });
             column(pattern_views.collect())
         };
-        GuiStuff::titled_container(None, title, contents.into())
+        GuiStuff::titled_container(title, contents.into())
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {

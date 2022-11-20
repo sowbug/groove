@@ -4,7 +4,7 @@ use crate::{
     messages::GrooveMessage,
     midi::{MidiChannel, MidiMessage},
     traits::{
-        HasOverhead, HasUid, NewIsInstrument, NewUpdateable, Overhead, SinksMidi, SourcesAudio,
+        HasUid, NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio,
     },
 };
 
@@ -13,7 +13,7 @@ use crate::{
 pub struct Sampler {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
+
 
     midi_channel: MidiChannel,
     samples: Vec<MonoSample>,
@@ -125,15 +125,7 @@ impl SinksMidi for Sampler {
         // and voices
     }
 }
-impl HasOverhead for Sampler {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
 
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
 
 #[cfg(test)]
 mod tests {

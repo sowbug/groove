@@ -4,7 +4,7 @@ use crate::{
     common::{rrc, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     settings::patches::EnvelopeSettings,
-    traits::{HasOverhead, HasUid, NewIsInstrument, NewUpdateable, Overhead, SourcesAudio},
+    traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio},
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{fmt::Debug, ops::Range};
@@ -65,7 +65,7 @@ impl EnvelopeStep {
 
 #[derive(Debug, Default)]
 pub struct SteppedEnvelope {
-    overhead: Overhead,
+
     time_unit: ClockTimeUnit,
     steps: Vec<EnvelopeStep>,
 }
@@ -214,15 +214,7 @@ impl SourcesAudio for SteppedEnvelope {
         self.value_for_step_at_time(step, time)
     }
 }
-impl HasOverhead for SteppedEnvelope {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
 
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
 
 #[derive(Debug, Default)]
 enum AdsrEnvelopeStepName {
@@ -239,7 +231,7 @@ enum AdsrEnvelopeStepName {
 pub struct AdsrEnvelope {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
+
     preset: EnvelopeSettings,
 
     envelope: SteppedEnvelope,
@@ -273,7 +265,7 @@ impl Default for AdsrEnvelope {
         Self {
             uid: usize::default(),
             me: weak_new(),
-            overhead: Overhead::default(),
+            
             preset: EnvelopeSettings::default(),
             envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
@@ -562,15 +554,7 @@ impl AdsrEnvelope {
         }
     }
 }
-impl HasOverhead for AdsrEnvelope {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
 
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
 
 #[cfg(test)]
 mod tests {

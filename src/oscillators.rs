@@ -2,7 +2,7 @@ use super::clock::Clock;
 use crate::{
     common::{rrc, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{HasOverhead, Overhead, SourcesAudio},
+    traits::{SourcesAudio},
 };
 use std::f32::consts::PI;
 
@@ -10,7 +10,7 @@ use std::f32::consts::PI;
 pub struct Oscillator {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
+
 
     waveform: WaveformType,
 
@@ -43,7 +43,7 @@ impl Default for Oscillator {
             // sound. Principle of Least Astonishment prevails.
             uid: usize::default(),
             me: weak_new(),
-            overhead: Overhead::default(),
+            
             waveform: WaveformType::Sine,
             frequency: 440.0,
             fixed_frequency: 0.0,
@@ -155,15 +155,7 @@ impl SourcesAudio for Oscillator {
         }
     }
 }
-impl HasOverhead for Oscillator {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
 
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
 
 #[cfg(test)]
 mod tests {

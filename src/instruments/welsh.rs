@@ -7,10 +7,7 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{
-        HasOverhead, HasUid, NewIsInstrument, NewUpdateable, Overhead, SinksMidi, SourcesAudio,
-        TransformsAudio,
-    },
+    traits::{HasUid, NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio, TransformsAudio},
     {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
 use convert_case::{Case, Casing};
@@ -522,8 +519,6 @@ impl Synth {
 
 #[derive(Debug, Default)]
 pub struct Voice {
-    overhead: Overhead,
-
     midi_channel: MidiChannel,
     oscillators: Vec<Oscillator>,
     osc_mix: Vec<f32>,
@@ -668,21 +663,11 @@ impl SourcesAudio for Voice {
         filtered_mix * self.amp_envelope.source_audio(clock) * lfo_amplitude_modulation
     }
 }
-impl HasOverhead for Voice {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
-
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
 
 #[derive(Clone, Debug)]
 pub struct Synth {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
 
     midi_channel: MidiChannel,
     sample_rate: usize,
@@ -694,9 +679,6 @@ pub struct Synth {
 impl NewIsInstrument for Synth {}
 impl SourcesAudio for Synth {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        if !self.overhead().is_enabled() || self.overhead().is_muted() {
-            return MONO_SAMPLE_SILENCE;
-        }
         if clock.seconds() == self.debug_last_seconds {
             panic!("We were called twice with the same time slice. Should this be OK?");
         } else {
@@ -733,7 +715,7 @@ impl Default for Synth {
         Self {
             uid: Default::default(),
             me: weak_new(),
-            overhead: Overhead::default(),
+
             midi_channel: MidiChannel::default(),
             sample_rate: usize::default(),
             preset: SynthPatch::default(),
@@ -829,15 +811,6 @@ impl SinksMidi for Synth {
             MidiMessage::ChannelAftertouch { vel } => todo!(),
             MidiMessage::PitchBend { bend } => todo!(),
         }
-    }
-}
-impl HasOverhead for Synth {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
-
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
     }
 }
 

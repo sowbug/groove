@@ -188,9 +188,9 @@ pub mod tests {
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, MessageBounds, NewIsController,
-            NewIsEffect, NewIsInstrument, NewUpdateable, Overhead, SinksMidi,
-            SinksUpdates, SourcesAudio, SourcesMidi, Terminates, TransformsAudio, WatchesClock,
+            BoxedEntity, EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewIsEffect,
+            NewIsInstrument, NewUpdateable, SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi,
+            Terminates, TransformsAudio, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -945,7 +945,6 @@ pub mod tests {
     pub struct TestMidiSink<M: MessageBounds> {
         uid: usize,
         pub(crate) me: Ww<Self>,
-        overhead: Overhead,
 
         pub is_playing: bool,
         midi_channel: MidiChannel,
@@ -1036,15 +1035,6 @@ pub mod tests {
             self.value
         }
     }
-    impl<M: MessageBounds> HasOverhead for TestMidiSink<M> {
-        fn overhead(&self) -> &Overhead {
-            &self.overhead
-        }
-
-        fn overhead_mut(&mut self) -> &mut Overhead {
-            &mut self.overhead
-        }
-    }
     impl<M: MessageBounds> SinksUpdates for TestMidiSink<M> {
         fn update(&mut self, _clock: &Clock, message: SmallMessage) {
             match message {
@@ -1066,7 +1056,6 @@ pub mod tests {
     pub struct TestInstrument<M: MessageBounds> {
         uid: usize,
         pub(crate) me: Ww<Self>,
-        overhead: Overhead,
 
         sound_source: Oscillator,
         pub is_playing: bool,
@@ -1119,7 +1108,7 @@ pub mod tests {
             Self {
                 uid: Default::default(),
                 me: Default::default(),
-                overhead: Default::default(),
+
                 sound_source: Default::default(),
                 is_playing: Default::default(),
                 midi_channel: Self::TEST_MIDI_CHANNEL,
@@ -1226,15 +1215,6 @@ pub mod tests {
             } else {
                 MONO_SAMPLE_SILENCE
             }
-        }
-    }
-    impl<M: MessageBounds> HasOverhead for TestInstrument<M> {
-        fn overhead(&self) -> &Overhead {
-            &self.overhead
-        }
-
-        fn overhead_mut(&mut self) -> &mut Overhead {
-            &mut self.overhead
         }
     }
 

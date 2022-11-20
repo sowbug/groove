@@ -1,17 +1,13 @@
 use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{
-        HasOverhead, HasUid, MessageBounds, NewIsEffect, NewUpdateable, Overhead, SourcesAudio,
-        TransformsAudio,
-    },
+    traits::{HasUid, MessageBounds, NewIsEffect, NewUpdateable, SourcesAudio, TransformsAudio},
 };
 
 #[derive(Clone, Debug, Default)]
 pub struct Mixer<M: MessageBounds> {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
 }
 impl<M: MessageBounds> NewIsEffect for Mixer<M> {}
 impl<M: MessageBounds> TransformsAudio for Mixer<M> {
@@ -41,15 +37,6 @@ impl<M: MessageBounds> Mixer<M> {
         let wrapped = rrc(Self::new());
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
-    }
-}
-impl<M: MessageBounds> HasOverhead for Mixer<M> {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
-
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
     }
 }
 

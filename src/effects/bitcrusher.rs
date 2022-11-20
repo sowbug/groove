@@ -3,7 +3,7 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SourcesAudio, TransformsAudio,
+        HasUid, NewIsEffect, NewUpdateable, SourcesAudio, TransformsAudio,
     },
 };
 
@@ -11,7 +11,7 @@ use crate::{
 pub struct Bitcrusher {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
+
 
     bits_to_crush: u8,
 }
@@ -74,15 +74,7 @@ impl Bitcrusher {
         self.set_bits_to_crush((pct * 15.0) as u8);
     }
 }
-impl HasOverhead for Bitcrusher {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
-    }
 
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
-    }
-}
 
 #[cfg(test)]
 mod tests {

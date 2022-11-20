@@ -238,55 +238,6 @@ pub trait WatchesClock: std::fmt::Debug + Terminates {
     // TODO: should be Box<> so stuff gets handed over more cheaply
 }
 
-/// Convenience struct that devices can use to populate fields that mini-traits
-/// require.
-#[deprecated]
-#[derive(Clone, Debug, Default)]
-pub struct Overhead {
-    is_muted: bool,
-    is_disabled: bool,
-}
-
-impl Overhead {
-    pub(crate) fn is_muted(&self) -> bool {
-        self.is_muted
-    }
-    pub(crate) fn set_muted(&mut self, is_muted: bool) -> bool {
-        self.is_muted = is_muted;
-        self.is_muted
-    }
-    pub(crate) fn is_enabled(&self) -> bool {
-        !self.is_disabled
-    }
-    pub(crate) fn set_enabled(&mut self, is_enabled: bool) -> bool {
-        self.is_disabled = !is_enabled;
-        !self.is_disabled
-    }
-}
-
-#[deprecated]
-pub trait HasOverhead: HasMute + HasEnable {
-    fn overhead(&self) -> &Overhead;
-    fn overhead_mut(&mut self) -> &mut Overhead;
-}
-impl<T: HasOverhead> HasMute for T {
-    fn is_muted(&self) -> bool {
-        self.overhead().is_muted()
-    }
-    fn set_muted(&mut self, is_muted: bool) -> bool {
-        self.overhead_mut().set_muted(is_muted)
-    }
-}
-impl<T: HasOverhead> HasEnable for T {
-    fn is_enabled(&self) -> bool {
-        self.overhead().is_enabled()
-    }
-    fn set_enabled(&mut self, is_enabled: bool) -> bool {
-        self.overhead_mut().set_enabled(is_enabled);
-        self.overhead().is_enabled()
-    }
-}
-
 /// Some SourcesAudio will need to be called each cycle even if we don't need
 /// their audio (effects, for example). I think (not sure) that it's easier for
 /// individual devices to track whether they're muted, and to make that

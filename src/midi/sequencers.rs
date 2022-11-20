@@ -6,9 +6,8 @@ use crate::{
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     orchestrator::OrchestratorMessage,
     traits::{
-        EvenNewerCommand, EvenNewerIsUpdateable, HasOverhead, HasUid, MessageBounds,
-        MessageGeneratorT, NewIsController, NewUpdateable, Overhead, SinksMidi, SourcesMidi,
-        Terminates, WatchesClock,
+        EvenNewerCommand, EvenNewerIsUpdateable, HasUid, MessageBounds, MessageGeneratorT,
+        NewIsController, NewUpdateable, SinksMidi, SourcesMidi, Terminates, WatchesClock,
     },
 };
 use btreemultimap::BTreeMultiMap;
@@ -24,11 +23,12 @@ pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, Mid
 pub struct BeatSequencer<M: MessageBounds> {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
+
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     next_instant: PerfectTimeUnit,
     events: BeatEventsMap,
     last_event_time: PerfectTimeUnit,
+    is_disabled: bool,
 }
 impl<M: MessageBounds> NewIsController for BeatSequencer<M> {}
 impl<M: MessageBounds> NewUpdateable for BeatSequencer<M> {
@@ -62,11 +62,12 @@ impl<M: MessageBounds> Default for BeatSequencer<M> {
         Self {
             uid: usize::default(),
             me: weak_new(),
-            overhead: Overhead::default(),
+
             channels_to_sink_vecs: Default::default(),
             next_instant: Default::default(),
             events: Default::default(),
             last_event_time: Default::default(),
+            is_disabled: Default::default(),
         }
     }
 }
@@ -100,16 +101,13 @@ impl<M: MessageBounds> BeatSequencer<M> {
             self.last_event_time = when;
         }
     }
-}
 
-// TODO: what does it mean for a MIDI device to be muted?
-impl<M: MessageBounds> HasOverhead for BeatSequencer<M> {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
+    pub fn is_enabled(&self) -> bool {
+        !self.is_disabled
     }
 
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
+    pub fn enable(&mut self, is_enabled: bool) {
+        self.is_disabled = !is_enabled;
     }
 }
 
@@ -133,7 +131,7 @@ impl<M: MessageBounds> WatchesClock for BeatSequencer<M> {
     fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
 
-        if self.overhead.is_enabled() {
+        if self.is_enabled() {
             // If the last instant marks a new interval, then we want to include
             // any events scheduled at exactly that time. So the range is
             // inclusive.
@@ -158,7 +156,7 @@ impl<M: MessageBounds> EvenNewerIsUpdateable for BeatSequencer<M> {
             OrchestratorMessage::Tick(clock) => {
                 self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
 
-                if self.overhead.is_enabled() {
+                if self.is_enabled() {
                     // If the last instant marks a new interval, then we want to include
                     // any events scheduled at exactly that time. So the range is
                     // inclusive.
@@ -199,7 +197,7 @@ impl NewUpdateable for BeatSequencer<GrooveMessage> {
             GrooveMessage::Tick => {
                 self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
 
-                return if self.overhead.is_enabled() {
+                return if self.is_enabled() {
                     // If the last instant marks a new interval, then we want to include
                     // any events scheduled at exactly that time. So the range is
                     // inclusive.
@@ -231,11 +229,12 @@ pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiM
 pub struct MidiTickSequencer<M: MessageBounds> {
     uid: usize,
     pub(crate) me: Ww<Self>,
-    overhead: Overhead,
+
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     next_instant: MidiTicks,
     events: MidiTickEventsMap,
     last_event_time: MidiTicks,
+    is_disabled: bool,
 }
 impl<M: MessageBounds> NewIsController for MidiTickSequencer<M> {}
 impl<M: MessageBounds> NewUpdateable for MidiTickSequencer<M> {
@@ -269,11 +268,12 @@ impl<M: MessageBounds> Default for MidiTickSequencer<M> {
         Self {
             uid: usize::default(),
             me: weak_new(),
-            overhead: Overhead::default(),
+
             channels_to_sink_vecs: Default::default(),
             next_instant: MidiTicks::MIN,
             events: Default::default(),
             last_event_time: MidiTicks::MIN,
+            is_disabled: Default::default(),
         }
     }
 }
@@ -305,16 +305,13 @@ impl<M: MessageBounds> MidiTickSequencer<M> {
             self.last_event_time = when;
         }
     }
-}
 
-// TODO: what does it mean for a MIDI device to be muted?
-impl<M: MessageBounds> HasOverhead for MidiTickSequencer<M> {
-    fn overhead(&self) -> &Overhead {
-        &self.overhead
+    pub fn is_enabled(&self) -> bool {
+        !self.is_disabled
     }
 
-    fn overhead_mut(&mut self) -> &mut Overhead {
-        &mut self.overhead
+    pub fn enable(&mut self, is_enabled: bool) {
+        self.is_disabled = !is_enabled;
     }
 }
 
@@ -338,7 +335,7 @@ impl<M: MessageBounds> WatchesClock for MidiTickSequencer<M> {
     fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
 
-        if self.overhead.is_enabled() {
+        if self.is_enabled() {
             // If the last instant marks a new interval, then we want to include
             // any events scheduled at exactly that time. So the range is
             // inclusive.
@@ -366,7 +363,7 @@ impl<M: MessageBounds> EvenNewerIsUpdateable for MidiTickSequencer<M> {
             OrchestratorMessage::Tick(clock) => {
                 self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
 
-                if self.overhead.is_enabled() {
+                if self.is_enabled() {
                     // If the last instant marks a new interval, then we want to include
                     // any events scheduled at exactly that time. So the range is
                     // inclusive.
@@ -408,7 +405,7 @@ impl NewUpdateable for MidiTickSequencer<GrooveMessage> {
             GrooveMessage::Tick => {
                 self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
 
-                if self.overhead.is_enabled() {
+                if self.is_enabled() {
                     // If the last instant marks a new interval, then we want to include
                     // any events scheduled at exactly that time. So the range is
                     // inclusive.
@@ -489,7 +486,7 @@ mod tests {
                 TestMessage::Tick => {
                     self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
 
-                    return if self.overhead.is_enabled() {
+                    return if self.is_enabled() {
                         // If the last instant marks a new interval, then we want to include
                         // any events scheduled at exactly that time. So the range is
                         // inclusive.
@@ -527,7 +524,7 @@ mod tests {
                 TestMessage::Tick => {
                     self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
 
-                    if self.overhead.is_enabled() {
+                    if self.is_enabled() {
                         // If the last instant marks a new interval, then we want to include
                         // any events scheduled at exactly that time. So the range is
                         // inclusive.
