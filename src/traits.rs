@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{MonoSample, Ww, MONO_SAMPLE_SILENCE},
+    common::{MonoSample, Ww},
     controllers::{BigMessage, SmallMessage, SmallMessageGenerator},
     gui::{IsViewable, ViewableMessage},
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
@@ -100,25 +100,6 @@ impl<T> EvenNewerCommand<T> {
         }
 
         Self(Internal::Batch(batch))
-    }
-}
-
-// Convenience generic for effects
-impl<T: HasOverhead + TransformsAudio + std::fmt::Debug> SourcesAudio for T {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let input = MONO_SAMPLE_SILENCE; // TODO REMOVE self.gather_source_audio(clock);
-
-        // It's important for this to happen after the gather_source_audio(),
-        // because we don't know whether the sources are depending on being
-        // called for each time slice.
-        if self.is_muted() {
-            return MONO_SAMPLE_SILENCE;
-        }
-        if self.is_enabled() {
-            self.transform_audio(clock, input)
-        } else {
-            input
-        }
     }
 }
 
