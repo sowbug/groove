@@ -1,16 +1,14 @@
 use super::clock::Clock;
 use crate::{
-    common::{rrc, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
+    common::MonoSample,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{SourcesAudio},
+    traits::SourcesAudio,
 };
 use std::f32::consts::PI;
 
 #[derive(Debug)]
 pub struct Oscillator {
     uid: usize,
-    pub(crate) me: Ww<Self>,
-
 
     waveform: WaveformType,
 
@@ -42,8 +40,7 @@ impl Default for Oscillator {
             // is that a quiet oscillator isn't doing its main job of helping make
             // sound. Principle of Least Astonishment prevails.
             uid: usize::default(),
-            me: weak_new(),
-            
+
             waveform: WaveformType::Sine,
             frequency: 440.0,
             fixed_frequency: 0.0,
@@ -71,13 +68,6 @@ impl Oscillator {
         // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5 is Square.
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn new_wrapped_with(waveform: WaveformType) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(waveform));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
-    }
-
     pub fn new_from_preset(preset: &OscillatorSettings) -> Self {
         Self {
             waveform: preset.waveform,
@@ -92,13 +82,6 @@ impl Oscillator {
             frequency: lfo_preset.frequency,
             ..Default::default()
         }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn new_wrapped() -> Rrc<Self> {
-        let wrapped = rrc(Self::new());
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     pub(crate) fn adjusted_frequency(&self) -> f32 {
@@ -155,7 +138,6 @@ impl SourcesAudio for Oscillator {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

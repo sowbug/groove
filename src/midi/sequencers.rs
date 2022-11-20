@@ -1,9 +1,9 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
-    common::{rrc, rrc_downgrade, weak_new, Rrc, Ww},
+    common::{rrc, rrc_downgrade, Rrc, Ww},
     controllers::BigMessage,
     messages::GrooveMessage,
-    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
+    midi::{MidiChannel, MidiMessage},
     orchestrator::OrchestratorMessage,
     traits::{
         EvenNewerCommand, EvenNewerIsUpdateable, HasUid, MessageBounds, MessageGeneratorT,
@@ -14,21 +14,23 @@ use btreemultimap::BTreeMultiMap;
 use std::{
     collections::HashMap,
     fmt::Debug,
+    marker::PhantomData,
     ops::Bound::{Excluded, Included},
 };
 
 pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BeatSequencer<M: MessageBounds> {
     uid: usize,
-    pub(crate) me: Ww<Self>,
 
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     next_instant: PerfectTimeUnit,
     events: BeatEventsMap,
     last_event_time: PerfectTimeUnit,
     is_disabled: bool,
+
+    _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> NewIsController for BeatSequencer<M> {}
 impl<M: MessageBounds> NewUpdateable for BeatSequencer<M> {
@@ -57,30 +59,9 @@ impl<M: MessageBounds> HasUid for BeatSequencer<M> {
     }
 }
 
-impl<M: MessageBounds> Default for BeatSequencer<M> {
-    fn default() -> Self {
-        Self {
-            uid: usize::default(),
-            me: weak_new(),
-
-            channels_to_sink_vecs: Default::default(),
-            next_instant: Default::default(),
-            events: Default::default(),
-            last_event_time: Default::default(),
-            is_disabled: Default::default(),
-        }
-    }
-}
-
 impl<M: MessageBounds> BeatSequencer<M> {
     pub(crate) fn new() -> Self {
         Self::default()
-    }
-
-    pub(crate) fn new_wrapped() -> Rrc<Self> {
-        let wrapped = rrc(Self::new());
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     pub(crate) fn clear(&mut self) {
@@ -212,13 +193,13 @@ pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiM
 #[derive(Debug)]
 pub struct MidiTickSequencer<M: MessageBounds> {
     uid: usize,
-    pub(crate) me: Ww<Self>,
 
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     next_instant: MidiTicks,
     events: MidiTickEventsMap,
     last_event_time: MidiTicks,
     is_disabled: bool,
+    _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> NewIsController for MidiTickSequencer<M> {}
 impl<M: MessageBounds> NewUpdateable for MidiTickSequencer<M> {
@@ -251,13 +232,13 @@ impl<M: MessageBounds> Default for MidiTickSequencer<M> {
     fn default() -> Self {
         Self {
             uid: usize::default(),
-            me: weak_new(),
 
             channels_to_sink_vecs: Default::default(),
             next_instant: MidiTicks::MIN,
             events: Default::default(),
             last_event_time: MidiTicks::MIN,
             is_disabled: Default::default(),
+            _phantom: Default::default(),
         }
     }
 }
@@ -266,13 +247,6 @@ impl<M: MessageBounds> MidiTickSequencer<M> {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self::default()
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn new_wrapped() -> Rrc<Self> {
-        let wrapped = rrc(Self::new());
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     #[allow(dead_code)]

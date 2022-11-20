@@ -928,7 +928,6 @@ pub mod tests {
     #[derive(Debug, Default)]
     pub struct TestMidiSink<M: MessageBounds> {
         uid: usize,
-        pub(crate) me: Ww<Self>,
 
         pub is_playing: bool,
         midi_channel: MidiChannel,
@@ -937,6 +936,8 @@ pub mod tests {
         pub value: f32,
 
         pub messages: Vec<(f32, MidiChannel, MidiMessage)>,
+
+        _phantom: PhantomData<M>
     }
 
     impl<M: MessageBounds> TestMidiSink<M> {
@@ -948,22 +949,11 @@ pub mod tests {
                 ..Default::default()
             }
         }
-        pub fn new_wrapped() -> Rrc<Self> {
-            let wrapped = rrc(Self::new());
-            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-            wrapped
-        }
         pub fn new_with(midi_channel: MidiChannel) -> Self {
             Self {
                 midi_channel,
                 ..Default::default()
             }
-        }
-        #[allow(dead_code)]
-        pub fn new_wrapped_with(midi_channel: MidiChannel) -> Rrc<Self> {
-            let wrapped = rrc(Self::new_with(midi_channel));
-            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-            wrapped
         }
         #[allow(dead_code)]
         pub fn set_value(&mut self, value: f32) {
@@ -1023,7 +1013,6 @@ pub mod tests {
     #[derive(Debug)]
     pub struct TestInstrument<M: MessageBounds> {
         uid: usize,
-        pub(crate) me: Ww<Self>,
 
         sound_source: Oscillator,
         pub is_playing: bool,
@@ -1032,6 +1021,8 @@ pub mod tests {
         pub handled_count: usize,
 
         pub debug_messages: Vec<(f32, MidiChannel, MidiMessage)>,
+
+        _phantom: PhantomData<M>,
     }
     impl<M: MessageBounds> NewIsInstrument for TestInstrument<M> {}
     impl<M: MessageBounds> NewUpdateable for TestInstrument<M> {
@@ -1075,7 +1066,6 @@ pub mod tests {
         fn default() -> Self {
             Self {
                 uid: Default::default(),
-                me: Default::default(),
 
                 sound_source: Default::default(),
                 is_playing: Default::default(),
@@ -1083,6 +1073,7 @@ pub mod tests {
                 received_count: Default::default(),
                 handled_count: Default::default(),
                 debug_messages: Default::default(),
+                _phantom: Default::default(),
             }
         }
     }
@@ -1095,22 +1086,11 @@ pub mod tests {
                 ..Default::default()
             }
         }
-        pub fn new_wrapped() -> Rrc<Self> {
-            let wrapped = rrc(Self::new());
-            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-            wrapped
-        }
         pub fn new_with(midi_channel: MidiChannel) -> Self {
             Self {
                 midi_channel,
                 ..Default::default()
             }
-        }
-        #[allow(dead_code)]
-        pub fn new_wrapped_with(midi_channel: MidiChannel) -> Rrc<Self> {
-            let wrapped = rrc(Self::new_with(midi_channel));
-            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-            wrapped
         }
 
         #[allow(dead_code)]

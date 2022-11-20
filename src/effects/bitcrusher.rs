@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct Bitcrusher {
     uid: usize,
-    pub(crate) me: Ww<Self>,
+
 
 
     bits_to_crush: u8,
@@ -43,23 +43,11 @@ impl Bitcrusher {
         Self::new_with(8)
     }
 
-    #[deprecated]
-    pub fn new_wrapped() -> Rrc<Self> {
-        Self::new_wrapped_with(8)
-    }
-
     pub(crate) fn new_with(bits_to_crush: u8) -> Self {
         Self {
             bits_to_crush,
             ..Default::default()
         }
-    }
-
-    #[deprecated]
-    pub fn new_wrapped_with(bits_to_crush: u8) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(bits_to_crush));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     pub(crate) fn bits_to_crush(&self) -> u8 {

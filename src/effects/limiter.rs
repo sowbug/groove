@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct Limiter {
     uid: usize,
-    pub(crate) me: Ww<Self>,
+
 
 
     min: MonoSample,
@@ -46,13 +46,6 @@ impl Limiter {
             max,
             ..Default::default()
         }
-    }
-
-    #[deprecated]
-    pub(crate) fn new_wrapped_with(min: MonoSample, max: MonoSample) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(min, max));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     pub(crate) fn min(&self) -> f32 {

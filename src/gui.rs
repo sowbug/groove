@@ -254,17 +254,7 @@ impl IsViewable for SamplerViewableResponder {
 
 impl MakesIsViewable for Sampler {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(SamplerViewableResponder {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
-        }
+        None
     }
 }
 
@@ -303,17 +293,7 @@ impl IsViewable for DrumkitSamplerViewableResponder {
 
 impl MakesIsViewable for DrumkitSampler {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(DrumkitSamplerViewableResponder {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
-        }
+        None
     }
 }
 
@@ -352,17 +332,7 @@ impl IsViewable for SynthViewableResponder {
 
 impl MakesIsViewable for Synth {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(SynthViewableResponder {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
-        }
+        None
     }
 }
 
@@ -438,15 +408,7 @@ pub enum GainMessage {
 }
 impl MakesIsViewable for Gain {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(GainViewableResponder::new(wrc_clone(&self.me))))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
-        }
+        None
     }
 }
 
@@ -489,17 +451,7 @@ impl IsViewable for BitcrusherViewableResponder {
 
 impl MakesIsViewable for Bitcrusher {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(BitcrusherViewableResponder {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
-        }
+        None
     }
 }
 
@@ -550,17 +502,7 @@ impl IsViewable for LimiterViewableResponder {
 
 impl MakesIsViewable for Limiter {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(LimiterViewableResponder {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
-        }
+        None
     }
 }
 
@@ -620,17 +562,7 @@ impl IsViewable for FilterViewableResponder {
 
 impl MakesIsViewable for BiQuadFilter {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(FilterViewableResponder {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
-        }
+        None
     }
 }
 
@@ -672,17 +604,7 @@ impl IsViewable for ArpeggiatorViewableResponder {
 
 impl MakesIsViewable for Arpeggiator {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(ArpeggiatorViewableResponder {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
-        }
+        None
     }
 }
 
@@ -721,17 +643,7 @@ impl<M: MessageBounds> IsViewable for BeatSequencerViewableResponder<M> {
 
 impl<M: MessageBounds> MakesIsViewable for BeatSequencer<M> {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
-        if self.me.strong_count() != 0 {
-            Some(Box::new(BeatSequencerViewableResponder {
-                target: wrc_clone(&self.me),
-            }))
-        } else {
-            println!(
-                "{}: probably forgot to call new_wrapped...()",
-                type_name::<Self>()
-            );
-            None
-        }
+        None
     }
 }
 

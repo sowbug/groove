@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
@@ -7,7 +9,8 @@ use crate::{
 #[derive(Clone, Debug, Default)]
 pub struct Mixer<M: MessageBounds> {
     uid: usize,
-    pub(crate) me: Ww<Self>,
+
+    _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> NewIsEffect for Mixer<M> {}
 impl<M: MessageBounds> TransformsAudio for Mixer<M> {
@@ -33,12 +36,7 @@ impl<M: MessageBounds> Mixer<M> {
             ..Default::default()
         }
     }
-    pub fn new_wrapped() -> Rrc<Self> {
-        let wrapped = rrc(Self::new());
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
-    }
-}
+ }
 
 #[cfg(test)]
 mod tests {

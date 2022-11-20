@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc, rrc_clone, rrc_downgrade, weak_new, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
+    common::{rrc, rrc_clone, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
     effects::filter::{BiQuadFilter, FilterParams},
     messages::GrooveMessage,
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
@@ -667,7 +667,7 @@ impl SourcesAudio for Voice {
 #[derive(Clone, Debug)]
 pub struct Synth {
     uid: usize,
-    pub(crate) me: Ww<Self>,
+
 
     midi_channel: MidiChannel,
     sample_rate: usize,
@@ -714,7 +714,7 @@ impl Default for Synth {
     fn default() -> Self {
         Self {
             uid: Default::default(),
-            me: weak_new(),
+            
 
             midi_channel: MidiChannel::default(),
             sample_rate: usize::default(),
@@ -737,17 +737,6 @@ impl Synth {
             preset,
             ..Default::default()
         }
-    }
-
-    #[deprecated]
-    fn new_wrapped_with(
-        midi_channel: MidiChannel,
-        sample_rate: usize,
-        preset: SynthPatch,
-    ) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(midi_channel, sample_rate, preset));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     fn voice_for_note(&mut self, note: u8) -> Rrc<Voice> {

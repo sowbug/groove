@@ -8,12 +8,11 @@ use crate::{
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
     traits::{HasUid, NewIsController, NewUpdateable, SinksMidi, Terminates, WatchesClock},
 };
-use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct Arpeggiator {
     uid: usize,
-    pub(crate) me: Ww<Self>,
+
 
     midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,
@@ -89,15 +88,6 @@ impl Arpeggiator {
             midi_channel_out,
             ..Default::default()
         }
-    }
-
-    pub fn new_wrapped_with(
-        midi_channel_in: MidiChannel,
-        midi_channel_out: MidiChannel,
-    ) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(midi_channel_in, midi_channel_out));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     // TODO: placeholder for a bunch of knobs and dials

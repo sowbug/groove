@@ -12,7 +12,7 @@ use crate::{
 #[allow(dead_code)]
 pub struct Sampler {
     uid: usize,
-    pub(crate) me: Ww<Self>,
+
 
 
     midi_channel: MidiChannel,
@@ -68,13 +68,6 @@ impl Sampler {
             samples: Vec::with_capacity(buffer_size),
             ..Default::default()
         }
-    }
-
-    #[allow(dead_code)] // TODO: add a setting for Sampler
-    pub fn new_wrapped_with(midi_channel: MidiChannel, buffer_size: usize) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(midi_channel, buffer_size));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     #[allow(dead_code)]

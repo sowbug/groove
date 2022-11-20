@@ -91,7 +91,7 @@ struct CoefficientSet {
 #[derive(Debug)]
 pub struct BiQuadFilter {
     uid: usize,
-    pub(crate) me: Ww<Self>,
+
 
 
     sample_rate: usize,
@@ -183,7 +183,7 @@ impl BiQuadFilter {
     fn default_fields() -> Self {
         Self {
             uid: usize::default(),
-            me: Default::default(),
+           
             
             filter_type: Default::default(),
             sample_rate: Default::default(),
@@ -238,12 +238,6 @@ impl BiQuadFilter {
         }
         r.update_coefficients();
         r
-    }
-
-    pub fn new_wrapped_with(params: &FilterParams, sample_rate: usize) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(params, sample_rate));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     fn update_coefficients(&mut self) {
@@ -632,25 +626,25 @@ mod tests {
             ),
         ];
         for t in tests {
-            let _effect = BiQuadFilter::new_wrapped_with(t.1, SAMPLE_RATE);
-            let mut envelope = Box::new(SteppedEnvelope::new_with_time_unit(
-                crate::clock::ClockTimeUnit::Seconds,
-            ));
-            let (start_value, end_value) = match t.2 {
-                BiQuadFilterControlParams::CutoffPct => (
-                    BiQuadFilter::frequency_to_percent(t.3),
-                    BiQuadFilter::frequency_to_percent(t.4),
-                ),
-                BiQuadFilterControlParams::Q => (t.3, t.4),
-                _ => todo!(),
-            };
-            envelope.push_step(EnvelopeStep::new_with_duration(
-                0.0,
-                2.0,
-                start_value,
-                end_value,
-                crate::envelopes::EnvelopeFunction::Linear,
-            ));
+            // let _effect = BiQuadFilter::new_wrapped_with(t.1, SAMPLE_RATE);
+            // let mut envelope = Box::new(SteppedEnvelope::new_with_time_unit(
+            //     crate::clock::ClockTimeUnit::Seconds,
+            // ));
+            // let (start_value, end_value) = match t.2 {
+            //     BiQuadFilterControlParams::CutoffPct => (
+            //         BiQuadFilter::frequency_to_percent(t.3),
+            //         BiQuadFilter::frequency_to_percent(t.4),
+            //     ),
+            //     BiQuadFilterControlParams::Q => (t.3, t.4),
+            //     _ => todo!(),
+            // };
+            // envelope.push_step(EnvelopeStep::new_with_duration(
+            //     0.0,
+            //     2.0,
+            //     start_value,
+            //     end_value,
+            //     crate::envelopes::EnvelopeFunction::Linear,
+            // ));
             // TODO: re-enable this. I'm too tired to do it right now.
             //
             // let control_sink_opt = effect.borrow_mut().message_for(&t.2.to_string());

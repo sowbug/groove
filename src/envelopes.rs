@@ -228,7 +228,7 @@ enum AdsrEnvelopeStepName {
 #[derive(Debug)]
 pub struct AdsrEnvelope {
     uid: usize,
-    pub(crate) me: Ww<Self>,
+
 
     preset: EnvelopeSettings,
 
@@ -262,7 +262,7 @@ impl Default for AdsrEnvelope {
     fn default() -> Self {
         Self {
             uid: usize::default(),
-            me: weak_new(),
+            
 
             preset: EnvelopeSettings::default(),
             envelope: SteppedEnvelope::default(),
@@ -278,13 +278,6 @@ impl AdsrEnvelope {
         Self {
             ..Default::default()
         }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn new_wrapped_with(preset: &EnvelopeSettings) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(preset));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     pub(crate) fn is_idle(&self, clock: &Clock) -> bool {

@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub(crate) struct Gain {
     uid: usize,
-    pub(crate) me: Ww<Self>,
+
 
 
     ceiling: f32,
@@ -43,25 +43,12 @@ impl Gain {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn new_wrapped() -> Rrc<Self> {
-        let wrapped = rrc(Self::new());
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
-    }
 
     pub fn new_with(ceiling: f32) -> Self {
         Self {
             ceiling,
             ..Default::default()
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn new_wrapped_with(ceiling: f32) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_with(ceiling));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     #[allow(dead_code)]

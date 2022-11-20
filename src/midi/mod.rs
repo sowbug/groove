@@ -6,7 +6,7 @@ pub(crate) mod smf_reader;
 pub use midly::MidiMessage;
 
 use crate::{
-    common::{rrc, rrc_downgrade, weak_new, Rrc, Ww},
+    common::Rrc,
     traits::{HasUid, NewIsController, NewUpdateable, SinksMidi, Terminates},
     GrooveMessage,
 };
@@ -351,7 +351,6 @@ impl std::fmt::Debug for MidiInputHandler {
 
 pub struct MidiOutputHandler {
     uid: usize,
-    pub(crate) me: Ww<Self>,
     conn_out: Option<MidiOutputConnection>,
     stealer: Option<Stealer<(u64, u4, MidiMessage)>>,
     outputs: Vec<(usize, String)>,
@@ -367,7 +366,7 @@ impl Default for MidiOutputHandler {
     fn default() -> Self {
         Self {
             uid: usize::default(),
-            me: weak_new(),
+
             conn_out: None,
             stealer: None,
             outputs: Vec::default(),
@@ -380,12 +379,6 @@ impl MidiOutputHandler {
         Self {
             ..Default::default()
         }
-    }
-
-    pub fn new_wrapped() -> Rrc<Self> {
-        let wrapped = rrc(Self::new());
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {

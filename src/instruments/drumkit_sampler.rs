@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
+    common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     midi::{GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{HasUid, NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio},
@@ -93,7 +93,7 @@ impl SourcesAudio for Voice {
 #[derive(Debug, Default)]
 pub struct Sampler {
     uid: usize,
-    pub(crate) me: Ww<Self>,
+
 
     midi_channel: MidiChannel,
     note_to_voice: HashMap<u8, Voice>,
@@ -171,13 +171,6 @@ impl Sampler {
         }
         r.kit_name = "707".to_string();
         r
-    }
-
-    #[deprecated]
-    pub fn new_wrapped_from_files(midi_channel: MidiChannel) -> Rrc<Self> {
-        let wrapped = rrc(Self::new_from_files(midi_channel));
-        wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-        wrapped
     }
 }
 
