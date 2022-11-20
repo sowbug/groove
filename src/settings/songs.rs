@@ -195,7 +195,7 @@ mod tests {
                 if let Ok(mut orchestrator) = song_settings.instantiate() {
                     let mut runner = GrooveRunner::default();
                     let mut clock = Clock::default();
-                    if let Ok(_performance) = runner.run(&mut orchestrator, &mut clock, true) {
+                    if let Ok(_performance) = runner.run(&mut orchestrator, &mut clock) {
                         // cool
                     } else {
                         dbg!("performance failed");

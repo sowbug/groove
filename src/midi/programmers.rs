@@ -331,7 +331,8 @@ mod tests {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
         let mut o = Orchestrator::<TestMessage>::default();
         let mut sequencer = Box::new(BeatSequencer::default());
-        let mut programmer = PatternProgrammer::new_with(&TimeSignature::new_defaults());
+        let mut programmer =
+            PatternProgrammer::<TestMessage>::new_with(&TimeSignature::new_defaults());
         let mut pattern = Pattern::<Note>::new();
 
         const NOTE_VALUE: BeatValue = BeatValue::Quarter;
@@ -377,7 +378,7 @@ mod tests {
         let _sequencer_uid = o.add(None, BoxedEntity::Controller(sequencer));
 
         let mut r = Runner::default();
-        assert!(r.run(&mut o, &mut clock, true).is_ok());
+        assert!(r.run(&mut o, &mut clock,).is_ok());
 
         // We should have gotten one on and one off for each note in the
         // pattern.
@@ -410,7 +411,7 @@ mod tests {
         // Rewind clock to start.
         clock.reset();
         // This shouldn't explode.
-        assert!(r.run(&mut o, &mut clock, false).is_ok());
+        let (_, _) = r.loop_once(&mut o, &mut clock);
 
         // Only the first time slice's events should have fired.
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
@@ -418,7 +419,7 @@ mod tests {
         // Fast-forward to the end. Nothing else should fire. This is because
         // any tick() should do work for just the slice specified.
         clock.debug_set_seconds(10.0);
-        assert!(r.run(&mut o, &mut clock, false).is_ok());
+        let (_, _) = r.loop_once(&mut o, &mut clock);
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
 
         // Start test recorder over again.
@@ -433,12 +434,12 @@ mod tests {
             None,
             BoxedEntity::Controller(Box::new(Timer::<TestMessage>::new_with(2.0))),
         );
-        assert!(r.run(&mut o, &mut clock, true).is_ok());
+        assert!(r.run(&mut o, &mut clock).is_ok());
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 3);
 
         // Keep ticking through start of second beat. Should see one more event:
         // #3 on.
-        assert!(r.run(&mut o, &mut clock, false).is_ok());
+        assert!(r.run(&mut o, &mut clock).is_ok());
         // TODO dbg!(&midi_recorder.debug_messages);
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 4);
     }

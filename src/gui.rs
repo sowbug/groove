@@ -10,7 +10,8 @@ use crate::{
         patterns::{Note, Pattern, PatternManager},
         sequencers::BeatSequencer,
     },
-    traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, MessageBounds, SinksAudio}, orchestrator::OldOrchestrator,
+    orchestrator::OldOrchestrator,
+    traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, MessageBounds, SinksAudio},
 };
 use iced::{
     alignment::{Horizontal, Vertical},
@@ -889,6 +890,7 @@ mod tests {
         }
     }
 
+    #[ignore]
     #[test]
     fn test_viewables() {
         test_one_viewable(

@@ -122,7 +122,7 @@ impl<M: MessageBounds> Orchestrator<M> {
         &mut self.store
     }
 
-    pub(crate) fn add(&mut self, uvid: Option<&str>, entity: BoxedEntity<M>) -> usize {
+    pub fn add(&mut self, uvid: Option<&str>, entity: BoxedEntity<M>) -> usize {
         self.store.add(uvid, entity)
     }
 
@@ -381,32 +381,42 @@ impl GrooveRunner {
         &mut self,
         orchestrator: &mut Box<Orchestrator<GrooveMessage>>,
         clock: &mut Clock,
-        run_until_completion: bool,
     ) -> anyhow::Result<Vec<MonoSample>> {
         let mut samples = Vec::<MonoSample>::new();
         loop {
-            let command = orchestrator.update(clock, GrooveMessage::Tick);
-            match command.0 {
-                Internal::None => {}
-                Internal::Single(message) => {
-                    self.handle_message(orchestrator, clock, message);
-                }
-                Internal::Batch(messages) => {
-                    for message in messages {
-                        self.handle_message(orchestrator, clock, message);
-                    }
-                }
-            }
-            if orchestrator.are_all_finished() {
+            let (sample, done) = self.loop_once(orchestrator, clock);
+            if done {
                 break;
             }
-            samples.push(orchestrator.gather_audio(clock));
-            clock.tick();
-            if !run_until_completion {
-                break;
-            }
+            samples.push(sample);
         }
         Ok(samples)
+    }
+
+    fn loop_once(
+        &mut self,
+        orchestrator: &mut Box<Orchestrator<GrooveMessage>>,
+        clock: &mut Clock,
+    ) -> (MonoSample, bool) {
+        let command = orchestrator.update(clock, GrooveMessage::Tick);
+        match command.0 {
+            Internal::None => {}
+            Internal::Single(message) => {
+                self.handle_message(orchestrator, clock, message);
+            }
+            Internal::Batch(messages) => {
+                for message in messages {
+                    self.handle_message(orchestrator, clock, message);
+                }
+            }
+        }
+        return if orchestrator.are_all_finished() {
+            (MONO_SAMPLE_SILENCE, true)
+        } else {
+            let sample = orchestrator.gather_audio(clock);
+            clock.tick();
+            (sample, false)
+        };
     }
 
     fn handle_message(
@@ -979,7 +989,7 @@ pub mod tests {
 
     use crate::{
         clock::Clock,
-        common::MonoSample,
+        common::{MonoSample, MONO_SAMPLE_SILENCE},
         messages::tests::TestMessage,
         traits::{BoxedEntity, Internal, NewIsEffect, NewUpdateable},
     };
@@ -1001,37 +1011,47 @@ pub mod tests {
             &mut self,
             orchestrator: &mut Box<Orchestrator<TestMessage>>,
             clock: &mut Clock,
-            run_until_completion: bool,
         ) -> anyhow::Result<Vec<MonoSample>> {
             let mut samples = Vec::<MonoSample>::new();
             loop {
-                let command = orchestrator.update(clock, TestMessage::Tick);
-                match command.0 {
-                    Internal::None => {}
-                    Internal::Single(message) => {
-                        self.handle_message(orchestrator, clock, message);
-                    }
-                    Internal::Batch(messages) => {
-                        for message in messages {
-                            self.handle_message(orchestrator, clock, message);
-                        }
-                    }
-                }
-                if let Some(checker) = &mut self.state_checker {
-                    // This one is treated specially in that it is guaranteed to
-                    // run after everyone else's update() calls for this tick.
-                    checker.update(clock, TestMessage::Tick);
-                }
-                if orchestrator.are_all_finished() {
+                let (sample, done) = self.loop_once(orchestrator, clock);
+                if done {
                     break;
                 }
-                samples.push(orchestrator.gather_audio(clock));
-                clock.tick();
-                if !run_until_completion {
-                    break;
-                }
+                samples.push(sample);
             }
             Ok(samples)
+        }
+
+        pub fn loop_once(
+            &mut self,
+            orchestrator: &mut Box<Orchestrator<TestMessage>>,
+            clock: &mut Clock,
+        ) -> (MonoSample, bool) {
+            let command = orchestrator.update(clock, TestMessage::Tick);
+            match command.0 {
+                Internal::None => {}
+                Internal::Single(message) => {
+                    self.handle_message(orchestrator, clock, message);
+                }
+                Internal::Batch(messages) => {
+                    for message in messages {
+                        self.handle_message(orchestrator, clock, message);
+                    }
+                }
+            }
+            if let Some(checker) = &mut self.state_checker {
+                // This one is treated specially in that it is guaranteed to
+                // run after everyone else's update() calls for this tick.
+                checker.update(clock, TestMessage::Tick);
+            }
+            return if orchestrator.are_all_finished() {
+                (MONO_SAMPLE_SILENCE, true)
+            } else {
+                let sample = orchestrator.gather_audio(clock);
+                clock.tick();
+                (sample, false)
+            };
         }
 
         fn handle_message(

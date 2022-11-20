@@ -6,15 +6,15 @@ pub(crate) mod smf_reader;
 pub use midly::MidiMessage;
 
 use crate::{
-    common::{rrc, rrc_clone, rrc_downgrade, weak_new, Rrc, Ww},
-    orchestrator::OldOrchestrator,
-    traits::{SinksMidi, SourcesMidi},
+    common::{rrc, rrc_downgrade, weak_new, Rrc, Ww},
+    traits::{HasUid, NewIsController, NewUpdateable, SinksMidi, SourcesMidi, Terminates},
+    GrooveMessage,
 };
 use crossbeam::deque::{Stealer, Worker};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
 use midly::{live::LiveEvent, num::u4};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 #[derive(Clone, Copy, Debug, Default)]
 #[allow(dead_code)]
@@ -384,6 +384,15 @@ impl MidiInputHandler {
         &self.inputs
     }
 }
+impl std::fmt::Debug for MidiInputHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MidiInputHandler")
+            .field("conn_in", &0i32)
+            .field("stealer", &self.stealer)
+            .field("inputs", &self.inputs)
+            .finish()
+    }
+}
 
 pub struct MidiOutputHandler {
     uid: usize,
@@ -512,22 +521,36 @@ impl SinksMidi for MidiOutputHandler {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct MidiHandler {
+    uid: usize,
     midi_input: MidiInputHandler,
     midi_output: Rrc<MidiOutputHandler>,
+}
+impl NewIsController for MidiHandler {}
+impl NewUpdateable for MidiHandler {
+    type Message = GrooveMessage;
+}
+impl Terminates for MidiHandler {
+    fn is_finished(&self) -> bool {
+        true
+    }
+}
+impl HasUid for MidiHandler {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
 }
 
 // TODO - this is an ExternalMidi that implements SinksMidi and SourcesMidi, and
 // IOHelper connects it to Orchestrator. I think.
 impl MidiHandler {
-    pub fn new_with(orchestrator: &mut OldOrchestrator) -> Self {
-        let r = Self::default();
-
-        let t = rrc_clone(&r.midi_output);
-        let t: Rrc<dyn SinksMidi> = t;
-        orchestrator.connect_to_downstream_midi_bus(MIDI_CHANNEL_RECEIVE_ALL, rrc_downgrade(&t));
-
-        r
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn available_devices(&self) -> &[(usize, String)] {
@@ -547,15 +570,6 @@ impl MidiHandler {
     pub fn stop(&mut self) {
         self.midi_input.stop();
         self.midi_output.borrow_mut().stop();
-    }
-}
-
-impl Default for MidiHandler {
-    fn default() -> Self {
-        Self {
-            midi_input: MidiInputHandler::new(),
-            midi_output: MidiOutputHandler::new_wrapped(),
-        }
     }
 }
 

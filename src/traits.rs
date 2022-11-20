@@ -13,7 +13,7 @@ pub trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid + std::fmt::Deb
 pub trait MessageBounds: Clone + std::fmt::Debug + Default + 'static {} // TODO: that 'static scares me
 
 #[derive(Debug)]
-pub(crate) enum BoxedEntity<M> {
+pub enum BoxedEntity<M> {
     Controller(Box<dyn NewIsController<Message = M>>),
     Effect(Box<dyn NewIsEffect<Message = M>>),
     Instrument(Box<dyn NewIsInstrument<Message = M>>),
@@ -388,27 +388,19 @@ pub mod tests {
         clock::Clock,
         clock::WatchedClock,
         common::{rrc, rrc_clone, rrc_downgrade},
-        controllers::{AdsrEnvelopeControlParams},
-        effects::{
-            gain::Gain,
-        },
+        controllers::AdsrEnvelopeControlParams,
+        effects::gain::Gain,
         envelopes::AdsrEnvelope,
         messages::tests::TestMessage,
-        midi::{
-            MidiUtils,
-        },
+        midi::MidiUtils,
         oscillators::Oscillator,
         settings::patches::{EnvelopeSettings, WaveformType},
         traits::{SinksUpdates, SourcesUpdates, Terminates},
         utils::{
-            tests::{
-                OldTestOrchestrator,
-                TestClockWatcher, TestSynth,
-            },
+            tests::{OldTestOrchestrator, TestClockWatcher, TestSynth},
             Timer, Trigger,
         },
     };
-    
 
     #[test]
     fn test_orchestration() {

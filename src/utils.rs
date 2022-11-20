@@ -1643,7 +1643,7 @@ pub mod tests {
         // Gather the audio output.
         let mut runner = Runner::default();
         let mut clock = Clock::new();
-        if let Ok(samples_1) = runner.run(&mut o, &mut clock, true) {
+        if let Ok(samples_1) = runner.run(&mut o, &mut clock) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
 
@@ -1653,7 +1653,7 @@ pub mod tests {
             // Run again but without the negating effect in the mix.
             o.unpatch(synth_uid, effect_uid);
             clock.reset();
-            if let Ok(samples_2) = runner.run(&mut o, &mut clock, true) {
+            if let Ok(samples_2) = runner.run(&mut o, &mut clock) {
                 // The sample pairs should cancel each other out.
                 assert!(!samples_2.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
                 samples_1.iter().zip(samples_2.iter()).all(|(a, b)| {
@@ -1698,7 +1698,7 @@ pub mod tests {
         // Gather the audio output.
         let mut runner = Runner::default();
         let mut clock = Clock::new();
-        if let Ok(samples_1) = runner.run(&mut o, &mut clock, true) {
+        if let Ok(samples_1) = runner.run(&mut o, &mut clock) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
 
@@ -1708,7 +1708,7 @@ pub mod tests {
             // Run again after disconnecting the LFO.
             o.unlink_control(lfo_uid, synth_1_uid);
             clock.reset();
-            if let Ok(samples_2) = runner.run(&mut o, &mut clock, true) {
+            if let Ok(samples_2) = runner.run(&mut o, &mut clock) {
                 // The two runs should be different. That's not a great test of what
                 // we're doing here, but it will detect when things are broken.
                 samples_1
@@ -1755,7 +1755,7 @@ pub mod tests {
         // Everything is hooked up. Let's run it and hear what we got.
         let mut runner = Runner::default();
         let mut clock = Clock::new();
-        if let Ok(samples) = runner.run(&mut o, &mut clock, true) {
+        if let Ok(samples) = runner.run(&mut o, &mut clock) {
             // We haven't asked the arpeggiator to start sending anything yet.
             assert!(
                 samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
@@ -1768,7 +1768,7 @@ pub mod tests {
         // Let's turn on the arpeggiator.
         runner.send_msg_enable(&mut o, &clock, arpeggiator_uid, true);
         clock.reset();
-        if let Ok(samples) = runner.run(&mut o, &mut clock, true) {
+        if let Ok(samples) = runner.run(&mut o, &mut clock) {
             assert!(
                 samples.iter().any(|&s| s != MONO_SAMPLE_SILENCE),
                 "Expected some sound because the arpeggiator is now running."
@@ -1790,14 +1790,14 @@ pub mod tests {
         // it. We're just giving the arpeggiator a bit of time to clear out any
         // leftover note.
         clock.reset();
-        if let Ok(_) = runner.run(&mut o, &mut clock, true) {
+        if let Ok(_) = runner.run(&mut o, &mut clock) {
         } else {
             assert!(false, "impossible!");
         }
 
         // But by now it should be silent.
         clock.reset();
-        if let Ok(samples) = runner.run(&mut o, &mut clock, true) {
+        if let Ok(samples) = runner.run(&mut o, &mut clock) {
             assert!(
                 samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
                 "Expected total silence again after disabling the arpeggiator."
@@ -1814,7 +1814,7 @@ pub mod tests {
             TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
         );
         clock.reset();
-        if let Ok(samples) = runner.run(&mut o, &mut clock, true) {
+        if let Ok(samples) = runner.run(&mut o, &mut clock) {
             assert!(
                 samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
                 "Expected total silence after disconnecting the instrument from the MIDI bus."
@@ -1855,7 +1855,7 @@ pub mod tests {
         // Gather the audio output.
         let mut runner = GrooveRunner::default();
         let mut clock = Clock::new();
-        if let Ok(samples_1) = runner.run(&mut o, &mut clock, true) {
+        if let Ok(samples_1) = runner.run(&mut o, &mut clock) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
 
@@ -1865,7 +1865,7 @@ pub mod tests {
             // Run again but without the negating effect in the mix.
             o.unpatch(synth_uid, effect_uid);
             clock.reset();
-            if let Ok(samples_2) = runner.run(&mut o, &mut clock, true) {
+            if let Ok(samples_2) = runner.run(&mut o, &mut clock) {
                 // The sample pairs should cancel each other out.
                 assert!(!samples_2.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
                 samples_1.iter().zip(samples_2.iter()).all(|(a, b)| {

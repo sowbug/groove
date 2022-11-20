@@ -1,5 +1,5 @@
 use crate::{
-    common::MonoSample,
+    common::{MonoSample, MONO_SAMPLE_SILENCE},
     instruments::{
         drumkit_sampler::Sampler,
         welsh::{PatchName, Synth},
@@ -9,7 +9,7 @@ use crate::{
     orchestrator::{OldOrchestrator, Performance},
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     traits::{BoxedEntity, IsMidiInstrument, NewIsInstrument},
-    Orchestrator,
+    GrooveOrchestrator, Orchestrator,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -167,17 +167,18 @@ pub struct IOHelper {}
 impl IOHelper {
     pub async fn fill_audio_buffer(
         buffer_size: usize,
-        orchestrator: &mut OldOrchestrator,
+        _orchestrator: &mut GrooveOrchestrator,
         audio_output: &mut AudioOutput,
-    ) {
+    ) -> bool {
         while audio_output.worker().len() < buffer_size {
-            let (sample, done) = orchestrator.tick();
+            let (sample, done) = (MONO_SAMPLE_SILENCE, true); // TODO BROKEN orchestrator.tick();
             audio_output.worker_mut().push(sample);
             if done {
                 // TODO - this needs to be stickier
-                break;
+                return true;
             }
         }
+        false
     }
 
     pub async fn perform_async(

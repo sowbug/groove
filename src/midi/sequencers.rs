@@ -32,7 +32,15 @@ pub struct BeatSequencer<M: MessageBounds> {
 }
 impl<M: MessageBounds> NewIsController for BeatSequencer<M> {}
 impl<M: MessageBounds> NewUpdateable for BeatSequencer<M> {
-    type Message = M;
+    default type Message = M;
+
+    default fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> EvenNewerCommand<Self::Message> {
+        EvenNewerCommand::none()
+    }
 }
 impl<M: MessageBounds> Terminates for BeatSequencer<M> {
     fn is_finished(&self) -> bool {
@@ -183,6 +191,39 @@ impl<M: MessageBounds> EvenNewerIsUpdateable for BeatSequencer<M> {
         todo!()
     }
 }
+impl NewUpdateable for BeatSequencer<GrooveMessage> {
+    type Message = GrooveMessage;
+
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        match message {
+            GrooveMessage::Tick => {
+                self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
+
+                return if self.overhead.is_enabled() {
+                    // If the last instant marks a new interval, then we want to include
+                    // any events scheduled at exactly that time. So the range is
+                    // inclusive.
+                    let range = (
+                        Included(PerfectTimeUnit(clock.beats())),
+                        Excluded(self.next_instant),
+                    );
+                    EvenNewerCommand::batch(self.events.range(range).into_iter().fold(
+                        Vec::new(),
+                        |mut vec, (_when, event)| {
+                            vec.push(EvenNewerCommand::single(GrooveMessage::Midi(
+                                event.0, event.1,
+                            )));
+                            vec
+                        },
+                    ))
+                } else {
+                    EvenNewerCommand::none()
+                };
+            }
+            _ => todo!(),
+        }
+    }
+}
 
 pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
 
@@ -198,7 +239,15 @@ pub struct MidiTickSequencer<M: MessageBounds> {
 }
 impl<M: MessageBounds> NewIsController for MidiTickSequencer<M> {}
 impl<M: MessageBounds> NewUpdateable for MidiTickSequencer<M> {
-    type Message = GrooveMessage;
+    default type Message = M;
+
+    default fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> EvenNewerCommand<Self::Message> {
+        EvenNewerCommand::none()
+    }
 }
 impl<M: MessageBounds> Terminates for MidiTickSequencer<M> {
     fn is_finished(&self) -> bool {
@@ -351,18 +400,57 @@ impl<M: MessageBounds> EvenNewerIsUpdateable for MidiTickSequencer<M> {
     }
 }
 
+impl NewUpdateable for MidiTickSequencer<GrooveMessage> {
+    type Message = GrooveMessage;
+
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        match message {
+            GrooveMessage::Tick => {
+                self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
+
+                if self.overhead.is_enabled() {
+                    // If the last instant marks a new interval, then we want to include
+                    // any events scheduled at exactly that time. So the range is
+                    // inclusive.
+                    let range = (
+                        Included(MidiTicks(clock.midi_ticks())),
+                        Excluded(self.next_instant),
+                    );
+                    let events = self.events.range(range);
+                    EvenNewerCommand::batch(events.into_iter().fold(
+                        Vec::new(),
+                        |mut vec: Vec<EvenNewerCommand<Self::Message>>,
+                         (_when, (channel, message))| {
+                            vec.push(EvenNewerCommand::single(GrooveMessage::Midi(
+                                *channel, *message,
+                            )));
+                            vec
+                        },
+                    ))
+                } else {
+                    EvenNewerCommand::none()
+                }
+            }
+            _ => todo!(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
-        clock::{Clock, MidiTicks},
+        clock::{Clock, MidiTicks, PerfectTimeUnit},
         common::{rrc, rrc_downgrade},
         messages::tests::TestMessage,
         midi::{MidiNote, MidiUtils},
-        traits::{MessageBounds, SinksMidi, SourcesMidi, WatchesClock},
+        traits::{
+            EvenNewerCommand, MessageBounds, NewUpdateable, SinksMidi, SourcesMidi, WatchesClock,
+        },
         utils::tests::TestMidiSink,
     };
+    use std::ops::Bound::{Excluded, Included};
 
     impl<M: MessageBounds> BeatSequencer<M> {
         pub fn debug_events(&self) -> &BeatEventsMap {
@@ -386,6 +474,84 @@ mod tests {
             //            (clock.settings().bpm() / 60.0);
             let tpb = 960.0 / (clock.settings().bpm() / 60.0); // TODO: who should own the number of ticks/second?
             MidiTicks::from(tpb * beat as f32)
+        }
+    }
+
+    impl NewUpdateable for BeatSequencer<TestMessage> {
+        type Message = TestMessage;
+
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Tick => {
+                    self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
+
+                    return if self.overhead.is_enabled() {
+                        // If the last instant marks a new interval, then we want to include
+                        // any events scheduled at exactly that time. So the range is
+                        // inclusive.
+                        let range = (
+                            Included(PerfectTimeUnit(clock.beats())),
+                            Excluded(self.next_instant),
+                        );
+                        EvenNewerCommand::batch(self.events.range(range).into_iter().fold(
+                            Vec::new(),
+                            |mut vec, (_when, event)| {
+                                vec.push(EvenNewerCommand::single(TestMessage::Midi(
+                                    event.0, event.1,
+                                )));
+                                vec
+                            },
+                        ))
+                    } else {
+                        EvenNewerCommand::none()
+                    };
+                }
+                _ => todo!(),
+            }
+        }
+    }
+
+    impl NewUpdateable for MidiTickSequencer<TestMessage> {
+        type Message = TestMessage;
+
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Tick => {
+                    self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
+
+                    if self.overhead.is_enabled() {
+                        // If the last instant marks a new interval, then we want to include
+                        // any events scheduled at exactly that time. So the range is
+                        // inclusive.
+                        let range = (
+                            Included(MidiTicks(clock.midi_ticks())),
+                            Excluded(self.next_instant),
+                        );
+                        let events = self.events.range(range);
+                        EvenNewerCommand::batch(events.into_iter().fold(
+                            Vec::new(),
+                            |mut vec: Vec<EvenNewerCommand<Self::Message>>,
+                             (_when, (channel, message))| {
+                                vec.push(EvenNewerCommand::single(TestMessage::Midi(
+                                    *channel, *message,
+                                )));
+                                vec
+                            },
+                        ))
+                    } else {
+                        EvenNewerCommand::none()
+                    }
+                }
+                _ => todo!(),
+            }
         }
     }
 

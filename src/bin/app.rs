@@ -4,7 +4,8 @@ use async_std::task::block_on;
 use crossbeam::deque::Steal; // TODO: this leaks into the app. Necessary?
 use groove::{
     gui::{GuiStuff, IsViewable, ViewableMessage, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    AudioOutput, GrooveMessage, IOHelper, MidiHandler, Orchestrator, TimeSignature,
+    traits::BoxedEntity,
+    AudioOutput, Clock, GrooveOrchestrator, IOHelper, MidiHandler, TimeSignature,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -32,12 +33,13 @@ struct GrooveApp {
 
     // Model
     project_name: String,
-    orchestrator: Orchestrator<GrooveMessage>,
+    orchestrator: Box<GrooveOrchestrator>,
+    clock: Clock,
     viewables: Vec<Box<dyn IsViewable<Message = ViewableMessage>>>,
     audio_output: AudioOutput,
 
     // Extra
-    midi: MidiHandler,
+    midi_handler_uid: usize, // MidiHandler
 }
 
 impl Default for GrooveApp {
@@ -50,9 +52,10 @@ impl Default for GrooveApp {
             control_bar: Default::default(),
             project_name: Default::default(),
             orchestrator: Default::default(),
+            clock: Default::default(),
             viewables: Default::default(),
             audio_output: Default::default(),
-            midi: MidiHandler::default(),
+            midi_handler_uid: usize::default(),
         }
     }
 }
@@ -84,22 +87,17 @@ pub enum ControlBarMessage {
 
 #[derive(Debug, Default, Clone)]
 pub struct ControlBar {
-    clock: Clock,
+    gui_clock: GuiClock,
     midi: Midi,
 }
 
 impl ControlBar {
-    pub fn view(
-        &self,
-        orchestrator: &Orchestrator<GrooveMessage>,
-        last_tick: Instant,
-    ) -> Element<Message> {
+    pub fn view(&self, clock: &Clock, last_tick: Instant) -> Element<Message> {
         container(
             row![
                 text_input(
                     "BPM",
-                    "128",
-                    //orchestrator.bpm().round().to_string().as_str(),
+                    clock.settings().bpm().round().to_string().as_str(),
                     Message::ControlBarBpm
                 )
                 .width(Length::Units(60)),
@@ -116,7 +114,7 @@ impl ControlBar {
                 ])
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::FillPortion(1)),
-                container(self.clock.view()).width(Length::FillPortion(1)),
+                container(self.gui_clock.view()).width(Length::FillPortion(1)),
                 container(self.midi.view(last_tick)).width(Length::FillPortion(1)),
             ]
             .padding(8)
@@ -138,13 +136,13 @@ pub enum ClockMessage {
 }
 
 #[derive(Debug, Default, Clone)]
-struct Clock {
+struct GuiClock {
     time_signature: TimeSignature,
     seconds: f32,
     beats: f32,
 }
 
-impl Clock {
+impl GuiClock {
     pub fn update(&mut self, message: ClockMessage) {
         match message {
             ClockMessage::TimeSignature(top, bottom) => {
@@ -282,46 +280,56 @@ impl Application for GrooveApp {
         match message {
             Message::Loaded(Ok(state)) => {
                 let mut orchestrator = state.song_settings.instantiate().unwrap();
-                let viewables = orchestrator
-                    .viewables()
-                    .iter()
-                    .map(|item| {
-                        if let Some(item) = item.upgrade() {
-                            if let Some(responder) = item.borrow_mut().make_is_viewable() {
-                                responder
-                            } else {
-                                panic!("make responder failed. Probably forgot new_wrapped()")
-                            }
-                        } else {
-                            panic!("upgrade failed")
-                        }
-                    })
-                    .collect();
-                let midi = MidiHandler::new_with(&mut orchestrator);
+
+                // TODO BROKEN
+                // let viewables = orchestrator
+                //     .viewables()
+                //     .iter()
+                //     .map(|item| {
+                //         if let Some(item) = item.upgrade() {
+                //             if let Some(responder) = item.borrow_mut().make_is_viewable() {
+                //                 responder
+                //             } else {
+                //                 panic!("make responder failed. Probably forgot new_wrapped()")
+                //             }
+                //         } else {
+                //             panic!("upgrade failed")
+                //         }
+                //     })
+                //     .collect();
+                let midi_handler_uid = orchestrator.add(
+                    None,
+                    BoxedEntity::Controller(Box::new(MidiHandler::default())),
+                );
                 *self = Self {
                     theme: self.theme.clone(),
                     project_name: state.project_name,
                     orchestrator,
-                    viewables,
-                    midi,
+                    viewables: Vec::new(), // viewables, // TODO BROKEN
+                    midi_handler_uid,
                     ..Default::default()
                 };
 
                 self.audio_output.start();
-                match self.midi.start() {
-                    Err(err) => println!("error starting MIDI: {}", err),
-                    _ => {}
-                }
+                // TODO BROKEN
+                // //orchestrator.send_m
+                // match self.midi.start() {
+                //     Err(err) => println!("error starting MIDI: {}", err),
+                //     _ => {}
+                // }
 
                 // TODO: no outputs because MidiOutputHandler is held inside a
                 // RefCell, and thus can't give out addresses to any of its
                 // data. I think the right model here is to make
                 // RefreshMidiDevices and MidiDevicesRefreshed messages, and
                 // then ask for updates when needed.
-                let inputs = self.midi.available_devices();
-                self.control_bar
-                    .midi
-                    .update(MidiControlBarMessage::Inputs(inputs.to_vec()));
+
+                // TODO: this should be via messages
+                // BROKEN RIGHT NOW!
+                // let inputs = self.midi.available_devices();
+                // self.control_bar
+                //     .midi
+                //     .update(MidiControlBarMessage::Inputs(inputs.to_vec()));
             }
             Message::Loaded(Err(_)) => {
                 todo!()
@@ -330,26 +338,31 @@ impl Application for GrooveApp {
                 self.last_tick = now;
                 if let State::Playing = &mut self.state {
                     self.update_clock();
-                    block_on(IOHelper::fill_audio_buffer(
+                    let done = block_on(IOHelper::fill_audio_buffer(
                         self.audio_output.recommended_buffer_size(),
                         &mut self.orchestrator,
                         &mut self.audio_output,
                     ));
-                    if !self.orchestrator.is_playing() {
+                    if done {
                         self.state = State::Idle;
                     }
                 }
-                if let Some(stealer) = &self.midi.input_stealer() {
-                    while !stealer.is_empty() {
-                        if let Steal::Success((stamp, channel, message)) = stealer.steal() {
-                            self.orchestrator
-                                .handle_external_midi(stamp, channel, message);
-                            self.control_bar
-                                .midi
-                                .update(MidiControlBarMessage::Activity(Instant::now()));
-                        }
-                    }
-                }
+                // TODO BROKEN
+                // if let Some(stealer) = &self.midi.input_stealer() {
+                //     while !stealer.is_empty() {
+                //         if let Steal::Success((stamp, channel, message)) = stealer.steal() {
+                //             // TODO: what does "now" mean to Orchestrator?
+                //             let very_bad_temp_hack_clock = Clock::default();
+                //             self.orchestrator.update(
+                //                 &very_bad_temp_hack_clock,
+                //                 GrooveMessage::Midi(channel, message),
+                //             );
+                //             self.control_bar
+                //                 .midi
+                //                 .update(MidiControlBarMessage::Activity(Instant::now()));
+                //         }
+                //     }
+                // }
             }
             Message::ControlBarMessage(message) => match message {
                 // TODO: not sure if we need ticking for now. it's playing OR
@@ -357,7 +370,7 @@ impl Application for GrooveApp {
                 ControlBarMessage::Play => self.state = State::Playing,
                 ControlBarMessage::Stop => match self.state {
                     State::Idle => {
-                        self.orchestrator.reset_clock();
+                        self.clock.reset();
                         self.update_clock();
                     }
                     State::Playing => self.state = State::Idle,
@@ -366,7 +379,7 @@ impl Application for GrooveApp {
             },
             Message::ControlBarBpm(new_value) => {
                 if let Ok(bpm) = new_value.parse() {
-                    self.orchestrator.set_bpm(bpm);
+                    self.clock.settings_mut().set_bpm(bpm);
                 }
             }
             Message::ViewableMessage(i, message) => {
@@ -385,7 +398,7 @@ impl Application for GrooveApp {
                     //
                     // This is needed to stop an ALSA buffer underrun on close
                     dbg!("Close requested. I'm asking everyone to stop.");
-                    self.midi.stop();
+                    // TODO BROKEN self.midi.stop();
                     self.audio_output.stop();
 
                     self.should_exit = true;
@@ -424,7 +437,7 @@ impl Application for GrooveApp {
             State::Playing => {}
         }
 
-        let control_bar = self.control_bar.view(&self.orchestrator, self.last_tick);
+        let control_bar = self.control_bar.view(&self.clock, self.last_tick);
 
         let views: Element<_> = if self.viewables.is_empty() {
             empty_message("nothing yet")
@@ -440,12 +453,13 @@ impl Application for GrooveApp {
                 })
                 .collect();
 
+            // TODO BROKEN
             // Add in the view of the non-IsViewable PatternManager.
-            view_vec.push(
-                self.orchestrator
-                    .view()
-                    .map(move |message| Message::ViewableMessage(999, message)),
-            );
+            // view_vec.push(
+            //     self.orchestrator
+            //         .view()
+            //         .map(move |message| Message::ViewableMessage(999, message)),
+            // );
             column(view_vec).spacing(10).into()
         };
         let scrollable_content = column![views];
@@ -470,11 +484,11 @@ impl GrooveApp {
         // TODO law of demeter - should we be reaching in here, or just tell
         // ControlBar?
         self.control_bar
-            .clock
-            .update(ClockMessage::Time(self.orchestrator.elapsed_seconds()));
+            .gui_clock
+            .update(ClockMessage::Time(self.clock.seconds()));
         self.control_bar
-            .clock
-            .update(ClockMessage::Beats(self.orchestrator.elapsed_beats()));
+            .gui_clock
+            .update(ClockMessage::Beats(self.clock.beats()));
     }
 }
 

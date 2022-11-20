@@ -245,7 +245,7 @@ impl Clock {
         self.midi_ticks = self.midi_ticks_for_sample(self.samples);
     }
 
-    pub(crate) fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.samples = 0;
         self.seconds = 0.0;
         self.beats = 0.0;
