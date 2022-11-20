@@ -6,9 +6,7 @@ use crate::{
     controllers::BigMessage,
     messages::GrooveMessage,
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
-    traits::{
-        HasUid, NewIsController, NewUpdateable, SinksMidi, SourcesMidi, Terminates, WatchesClock,
-    },
+    traits::{HasUid, NewIsController, NewUpdateable, SinksMidi, Terminates, WatchesClock},
 };
 use std::collections::HashMap;
 
@@ -74,24 +72,6 @@ impl SinksMidi for Arpeggiator {
 
     fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
         self.midi_channel_in = midi_channel;
-    }
-}
-
-impl SourcesMidi for Arpeggiator {
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        self.beat_sequencer.midi_sinks_mut()
-    }
-
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        self.beat_sequencer.midi_sinks()
-    }
-
-    fn midi_output_channel(&self) -> MidiChannel {
-        self.midi_channel_out
-    }
-
-    fn set_midi_output_channel(&mut self, midi_channel: MidiChannel) {
-        self.midi_channel_out = midi_channel;
     }
 }
 

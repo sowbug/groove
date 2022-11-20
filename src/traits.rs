@@ -130,37 +130,6 @@ pub trait MakesIsViewable: std::fmt::Debug {
 }
 
 #[deprecated]
-pub trait SourcesMidi {
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>;
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>;
-
-    fn midi_output_channel(&self) -> MidiChannel;
-    fn set_midi_output_channel(&mut self, midi_channel: MidiChannel);
-
-    fn add_midi_sink(&mut self, channel: MidiChannel, sink: Ww<dyn SinksMidi>) {
-        // TODO: is there a good reason for channel != sink.midi_channel()? If
-        // not, why is it a param?
-        self.midi_sinks_mut().entry(channel).or_default().push(sink);
-    }
-    fn issue_midi(&self, clock: &Clock, channel: &MidiChannel, message: &MidiMessage) {
-        if self.midi_sinks().contains_key(&MIDI_CHANNEL_RECEIVE_ALL) {
-            for sink in self.midi_sinks().get(&MIDI_CHANNEL_RECEIVE_ALL).unwrap() {
-                if let Some(sink_up) = sink.upgrade() {
-                    sink_up.borrow_mut().handle_midi(clock, channel, message);
-                }
-            }
-        }
-        if self.midi_sinks().contains_key(channel) {
-            for sink in self.midi_sinks().get(channel).unwrap() {
-                if let Some(sink_up) = sink.upgrade() {
-                    sink_up.borrow_mut().handle_midi(clock, channel, message);
-                }
-            }
-        }
-    }
-}
-
-#[deprecated]
 pub trait SinksMidi: std::fmt::Debug {
     fn midi_channel(&self) -> MidiChannel;
     fn set_midi_channel(&mut self, midi_channel: MidiChannel);

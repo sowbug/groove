@@ -173,8 +173,8 @@ pub mod tests {
         settings::ClockSettings,
         traits::{
             BoxedEntity, EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewIsEffect,
-            NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio, SourcesMidi, Terminates,
-            TransformsAudio, WatchesClock,
+            NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio, Terminates, TransformsAudio,
+            WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -1239,31 +1239,8 @@ pub mod tests {
         is_playing: bool,
         channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     }
-    impl<M: MessageBounds> SourcesMidi for TestArpeggiator<M> {
-        fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-            &self.channels_to_sink_vecs
-        }
-        fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-            &mut self.channels_to_sink_vecs
-        }
-
-        fn midi_output_channel(&self) -> MidiChannel {
-            self.midi_channel_out
-        }
-
-        fn set_midi_output_channel(&mut self, midi_channel: MidiChannel) {
-            self.midi_channel_out = midi_channel;
-        }
-    }
     impl<M: MessageBounds> WatchesClock for TestArpeggiator<M> {
         fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-            // We don't actually pay any attention to self.tempo, but it's easy
-            // enough to see that tempo could have influenced this MIDI message.
-            self.issue_midi(
-                clock,
-                &self.midi_channel_out,
-                &MidiUtils::new_note_on(60, 100),
-            );
             Vec::new()
         }
     }

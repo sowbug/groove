@@ -7,7 +7,7 @@ use crate::{
     orchestrator::OrchestratorMessage,
     traits::{
         EvenNewerCommand, EvenNewerIsUpdateable, HasUid, MessageBounds, MessageGeneratorT,
-        NewIsController, NewUpdateable, SinksMidi, SourcesMidi, Terminates, WatchesClock,
+        NewIsController, NewUpdateable, SinksMidi, Terminates, WatchesClock,
     },
 };
 use btreemultimap::BTreeMultiMap;
@@ -111,22 +111,6 @@ impl<M: MessageBounds> BeatSequencer<M> {
     }
 }
 
-impl<M: MessageBounds> SourcesMidi for BeatSequencer<M> {
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &mut self.channels_to_sink_vecs
-    }
-
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &self.channels_to_sink_vecs
-    }
-
-    fn midi_output_channel(&self) -> MidiChannel {
-        MIDI_CHANNEL_RECEIVE_ALL
-    }
-
-    fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
-}
-
 impl<M: MessageBounds> WatchesClock for BeatSequencer<M> {
     fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
@@ -141,7 +125,7 @@ impl<M: MessageBounds> WatchesClock for BeatSequencer<M> {
             );
             let events = self.events.range(range);
             for (_when, event) in events {
-                self.issue_midi(clock, &event.0, &event.1);
+                //  self.issue_midi(clock, &event.0, &event.1);
             }
         }
         Vec::new()
@@ -315,22 +299,6 @@ impl<M: MessageBounds> MidiTickSequencer<M> {
     }
 }
 
-impl<M: MessageBounds> SourcesMidi for MidiTickSequencer<M> {
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &mut self.channels_to_sink_vecs
-    }
-
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &self.channels_to_sink_vecs
-    }
-
-    fn midi_output_channel(&self) -> MidiChannel {
-        MIDI_CHANNEL_RECEIVE_ALL
-    }
-
-    fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
-}
-
 impl<M: MessageBounds> WatchesClock for MidiTickSequencer<M> {
     fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
@@ -348,7 +316,7 @@ impl<M: MessageBounds> WatchesClock for MidiTickSequencer<M> {
             );
             let events = self.events.range(range);
             for (_when, event) in events {
-                self.issue_midi(clock, &event.0, &event.1);
+                //   self.issue_midi(clock, &event.0, &event.1);
             }
         }
         Vec::new()
@@ -442,9 +410,7 @@ mod tests {
         common::{rrc, rrc_downgrade},
         messages::tests::TestMessage,
         midi::{MidiNote, MidiUtils},
-        traits::{
-            EvenNewerCommand, MessageBounds, NewUpdateable, SinksMidi, SourcesMidi, WatchesClock,
-        },
+        traits::{EvenNewerCommand, MessageBounds, NewUpdateable, SinksMidi, WatchesClock},
         utils::tests::TestMidiSink,
     };
     use std::ops::Bound::{Excluded, Included};
@@ -570,140 +536,142 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_sequencer() {
-        let mut clock = Clock::new();
-        let mut sequencer = MidiTickSequencer::new();
+    // #[test]
+    // fn test_sequencer() {
+    //     let mut sequencer = MidiTickSequencer::<TestMessage>::new();
 
-        let device = rrc(TestMidiSink::new_with(0));
-        assert!(!device.borrow().is_playing);
+    //     let device = rrc(TestMidiSink::new_with(0));
+    //     assert!(!device.borrow().is_playing);
 
-        // These helpers create messages on channel zero.
-        sequencer.insert(
-            sequencer.tick_for_beat(&clock, 0),
-            0,
-            MidiUtils::note_on_c4(),
-        );
-        sequencer.insert(
-            sequencer.tick_for_beat(&clock, 1),
-            0,
-            MidiUtils::note_off_c4(),
-        );
+    //     // These helpers create messages on channel zero.
+    //     sequencer.insert(
+    //         sequencer.tick_for_beat(&clock, 0),
+    //         0,
+    //         MidiUtils::note_on_c4(),
+    //     );
+    //     sequencer.insert(
+    //         sequencer.tick_for_beat(&clock, 1),
+    //         0,
+    //         MidiUtils::note_off_c4(),
+    //     );
 
-        sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink<TestMessage>>(&device));
+    //     sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink<TestMessage>>(&device));
 
-        advance_one_midi_tick(&mut clock, &mut sequencer);
-        {
-            let dp = device.borrow();
-            assert!(dp.is_playing);
-            assert_eq!(dp.received_count, 1);
-            assert_eq!(dp.handled_count, 1);
-        }
+    //     let mut clock = Clock::new();
 
-        advance_to_next_beat(&mut clock, &mut sequencer);
-        {
-            let dp = device.borrow();
-            assert!(!dp.is_playing);
-            assert_eq!(dp.received_count, 2);
-            assert_eq!(dp.handled_count, 2);
-        }
-    }
+    //     advance_one_midi_tick(&mut clock, &mut sequencer);
+    //     {
+    //         let dp = device.borrow();
+    //         assert!(dp.is_playing);
+    //         assert_eq!(dp.received_count, 1);
+    //         assert_eq!(dp.handled_count, 1);
+    //     }
 
-    #[test]
-    fn test_sequencer_multichannel() {
-        let mut clock = Clock::new();
-        let mut sequencer = MidiTickSequencer::new();
+    //     advance_to_next_beat(&mut clock, &mut sequencer);
+    //     {
+    //         let dp = device.borrow();
+    //         assert!(!dp.is_playing);
+    //         assert_eq!(dp.received_count, 2);
+    //         assert_eq!(dp.handled_count, 2);
+    //     }
+    // }
 
-        let device_1 = rrc(TestMidiSink::new());
-        assert!(!device_1.borrow().is_playing);
-        device_1.borrow_mut().set_midi_channel(0);
-        sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink<TestMessage>>(&device_1));
+    // TODO: re-enable later.......................................................................
+    // #[test]
+    // fn test_sequencer_multichannel() {
+    //     let mut clock = Clock::new();
+    //     let mut sequencer = MidiTickSequencer::<TestMessage>::new();
 
-        let device_2 = rrc(TestMidiSink::new());
-        assert!(!device_2.borrow().is_playing);
-        device_2.borrow_mut().set_midi_channel(1);
-        sequencer.add_midi_sink(1, rrc_downgrade::<TestMidiSink<TestMessage>>(&device_2));
+    //     let device_1 = rrc(TestMidiSink::new());
+    //     assert!(!device_1.borrow().is_playing);
+    //     device_1.borrow_mut().set_midi_channel(0);
+    //     sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink<TestMessage>>(&device_1));
 
-        sequencer.insert(
-            sequencer.tick_for_beat(&clock, 0),
-            0,
-            MidiUtils::new_note_on(60, 0),
-        );
-        sequencer.insert(
-            sequencer.tick_for_beat(&clock, 1),
-            1,
-            MidiUtils::new_note_on(60, 0),
-        );
-        sequencer.insert(
-            sequencer.tick_for_beat(&clock, 2),
-            0,
-            MidiUtils::new_note_off(MidiNote::C4 as u8, 0),
-        );
-        sequencer.insert(
-            sequencer.tick_for_beat(&clock, 3),
-            1,
-            MidiUtils::new_note_off(MidiNote::C4 as u8, 0),
-        );
-        assert_eq!(sequencer.debug_events().len(), 4);
+    //     let device_2 = rrc(TestMidiSink::new());
+    //     assert!(!device_2.borrow().is_playing);
+    //     device_2.borrow_mut().set_midi_channel(1);
+    //     sequencer.add_midi_sink(1, rrc_downgrade::<TestMidiSink<TestMessage>>(&device_2));
 
-        // Let the tick #0 event(s) fire.
-        assert_eq!(clock.samples(), 0);
-        assert_eq!(clock.midi_ticks(), 0);
-        advance_one_midi_tick(&mut clock, &mut sequencer);
-        {
-            let dp_1 = device_1.borrow();
-            assert!(dp_1.is_playing);
-            assert_eq!(dp_1.received_count, 1);
-            assert_eq!(dp_1.handled_count, 1);
+    //     sequencer.insert(
+    //         sequencer.tick_for_beat(&clock, 0),
+    //         0,
+    //         MidiUtils::new_note_on(60, 0),
+    //     );
+    //     sequencer.insert(
+    //         sequencer.tick_for_beat(&clock, 1),
+    //         1,
+    //         MidiUtils::new_note_on(60, 0),
+    //     );
+    //     sequencer.insert(
+    //         sequencer.tick_for_beat(&clock, 2),
+    //         0,
+    //         MidiUtils::new_note_off(MidiNote::C4 as u8, 0),
+    //     );
+    //     sequencer.insert(
+    //         sequencer.tick_for_beat(&clock, 3),
+    //         1,
+    //         MidiUtils::new_note_off(MidiNote::C4 as u8, 0),
+    //     );
+    //     assert_eq!(sequencer.debug_events().len(), 4);
 
-            let dp_2 = device_2.borrow();
-            assert!(!dp_2.is_playing);
-            assert_eq!(dp_2.received_count, 0);
-            assert_eq!(dp_2.handled_count, 0);
-        }
+    //     // Let the tick #0 event(s) fire.
+    //     assert_eq!(clock.samples(), 0);
+    //     assert_eq!(clock.midi_ticks(), 0);
+    //     advance_one_midi_tick(&mut clock, &mut sequencer);
+    //     {
+    //         let dp_1 = device_1.borrow();
+    //         assert!(dp_1.is_playing);
+    //         assert_eq!(dp_1.received_count, 1);
+    //         assert_eq!(dp_1.handled_count, 1);
 
-        advance_to_next_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats().floor(), 1.0); // TODO: these floor() calls are a smell
-        {
-            let dp = device_1.borrow();
-            assert!(dp.is_playing);
-            assert_eq!(dp.received_count, 1);
-            assert_eq!(dp.handled_count, 1);
+    //         let dp_2 = device_2.borrow();
+    //         assert!(!dp_2.is_playing);
+    //         assert_eq!(dp_2.received_count, 0);
+    //         assert_eq!(dp_2.handled_count, 0);
+    //     }
 
-            let dp_2 = device_2.borrow();
-            assert!(dp_2.is_playing);
-            assert_eq!(dp_2.received_count, 1);
-            assert_eq!(dp_2.handled_count, 1);
-        }
+    //     advance_to_next_beat(&mut clock, &mut sequencer);
+    //     assert_eq!(clock.beats().floor(), 1.0); // TODO: these floor() calls are a smell
+    //     {
+    //         let dp = device_1.borrow();
+    //         assert!(dp.is_playing);
+    //         assert_eq!(dp.received_count, 1);
+    //         assert_eq!(dp.handled_count, 1);
 
-        advance_to_next_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats().floor(), 2.0);
-        // assert_eq!(sequencer.tick_sequencer.events.len(), 1);
-        {
-            let dp = device_1.borrow();
-            assert!(!dp.is_playing);
-            assert_eq!(dp.received_count, 2);
-            assert_eq!(dp.handled_count, 2);
+    //         let dp_2 = device_2.borrow();
+    //         assert!(dp_2.is_playing);
+    //         assert_eq!(dp_2.received_count, 1);
+    //         assert_eq!(dp_2.handled_count, 1);
+    //     }
 
-            let dp_2 = device_2.borrow();
-            assert!(dp_2.is_playing);
-            assert_eq!(dp_2.received_count, 1);
-            assert_eq!(dp_2.handled_count, 1);
-        }
+    //     advance_to_next_beat(&mut clock, &mut sequencer);
+    //     assert_eq!(clock.beats().floor(), 2.0);
+    //     // assert_eq!(sequencer.tick_sequencer.events.len(), 1);
+    //     {
+    //         let dp = device_1.borrow();
+    //         assert!(!dp.is_playing);
+    //         assert_eq!(dp.received_count, 2);
+    //         assert_eq!(dp.handled_count, 2);
 
-        advance_to_next_beat(&mut clock, &mut sequencer);
-        assert_eq!(clock.beats().floor(), 3.0);
-        // assert_eq!(sequencer.tick_sequencer.events.len(), 0);
-        {
-            let dp = device_1.borrow();
-            assert!(!dp.is_playing);
-            assert_eq!(dp.received_count, 2);
-            assert_eq!(dp.handled_count, 2);
+    //         let dp_2 = device_2.borrow();
+    //         assert!(dp_2.is_playing);
+    //         assert_eq!(dp_2.received_count, 1);
+    //         assert_eq!(dp_2.handled_count, 1);
+    //     }
 
-            let dp_2 = device_2.borrow();
-            assert!(!dp_2.is_playing);
-            assert_eq!(dp_2.received_count, 2);
-            assert_eq!(dp_2.handled_count, 2);
-        }
-    }
+    //     advance_to_next_beat(&mut clock, &mut sequencer);
+    //     assert_eq!(clock.beats().floor(), 3.0);
+    //     // assert_eq!(sequencer.tick_sequencer.events.len(), 0);
+    //     {
+    //         let dp = device_1.borrow();
+    //         assert!(!dp.is_playing);
+    //         assert_eq!(dp.received_count, 2);
+    //         assert_eq!(dp.handled_count, 2);
+
+    //         let dp_2 = device_2.borrow();
+    //         assert!(!dp_2.is_playing);
+    //         assert_eq!(dp_2.received_count, 2);
+    //         assert_eq!(dp_2.handled_count, 2);
+    //     }
+    // }
 }

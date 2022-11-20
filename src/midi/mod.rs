@@ -7,14 +7,14 @@ pub use midly::MidiMessage;
 
 use crate::{
     common::{rrc, rrc_downgrade, weak_new, Rrc, Ww},
-    traits::{HasUid, NewIsController, NewUpdateable, SinksMidi, SourcesMidi, Terminates},
+    traits::{HasUid, NewIsController, NewUpdateable, SinksMidi, Terminates},
     GrooveMessage,
 };
 use crossbeam::deque::{Stealer, Worker};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
 use midly::{live::LiveEvent, num::u4};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug};
+use std::fmt::Debug;
 
 #[derive(Clone, Copy, Debug, Default)]
 #[allow(dead_code)]
@@ -64,51 +64,6 @@ impl MidiUtils {
             MidiMessage::ProgramChange { program } => todo!(),
             MidiMessage::ChannelAftertouch { vel } => todo!(),
             MidiMessage::PitchBend { bend } => todo!(),
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub(crate) struct MidiBus {
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
-}
-impl SinksMidi for MidiBus {
-    fn midi_channel(&self) -> MidiChannel {
-        MIDI_CHANNEL_RECEIVE_ALL
-    }
-
-    fn set_midi_channel(&mut self, _midi_channel: MidiChannel) {}
-
-    fn handle_midi_for_channel(
-        &mut self,
-        clock: &crate::clock::Clock,
-        channel: &MidiChannel,
-        message: &MidiMessage,
-    ) {
-        // send to everyone EXCEPT whoever sent it!
-        self.issue_midi(clock, channel, message);
-    }
-}
-impl SourcesMidi for MidiBus {
-    fn midi_sinks(&self) -> &HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &self.channels_to_sink_vecs
-    }
-
-    fn midi_sinks_mut(&mut self) -> &mut HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>> {
-        &mut self.channels_to_sink_vecs
-    }
-
-    fn midi_output_channel(&self) -> MidiChannel {
-        MIDI_CHANNEL_RECEIVE_ALL
-    }
-
-    fn set_midi_output_channel(&mut self, _midi_channel: MidiChannel) {}
-}
-impl MidiBus {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
         }
     }
 }
@@ -546,7 +501,7 @@ impl HasUid for MidiHandler {
     }
 }
 
-// TODO - this is an ExternalMidi that implements SinksMidi and SourcesMidi, and
+// TODO - this is an ExternalMidi that implements SinksMidi and  and
 // IOHelper connects it to Orchestrator. I think.
 impl MidiHandler {
     pub fn new() -> Self {
