@@ -238,36 +238,6 @@ pub trait WatchesClock: std::fmt::Debug + Terminates {
     // TODO: should be Box<> so stuff gets handed over more cheaply
 }
 
-/// Some SourcesAudio will need to be called each cycle even if we don't need
-/// their audio (effects, for example). I think (not sure) that it's easier for
-/// individual devices to track whether they're muted, and to make that
-/// information externally available, so that we can still call them (and their
-/// children, recursively) but ignore their output, compared to either expecting
-/// them to return silence (which would let muted be an internal-only state), or
-/// to have something up in the sky track everyone who's muted.
-#[deprecated]
-pub trait HasMute {
-    fn is_muted(&self) -> bool;
-    fn set_muted(&mut self, is_muted: bool) -> bool;
-    fn toggle_muted(&mut self) -> bool {
-        self.set_muted(!self.is_muted())
-    }
-}
-
-// Whether this device can be switched on/off at runtime. The difference between
-// muted and enabled is that a muted device kills the sound, even if non-muted
-// devices are inputting sound to it. A disabled device, on the other hand,
-// might pass through sound without changing it. For example, a disabled filter
-// in the middle of a chain would become a passthrough.
-#[deprecated]
-pub trait HasEnable {
-    fn is_enabled(&self) -> bool;
-    fn set_enabled(&mut self, is_enabled: bool) -> bool;
-    fn toggle_enabled(&mut self) -> bool {
-        self.set_enabled(!self.is_enabled())
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
     use super::WatchesClock;

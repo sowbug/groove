@@ -1,5 +1,5 @@
 use crate::{
-    common::{wrc_clone, Rrc, Ww},
+    common::{wrc_clone, Ww},
     effects::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
@@ -10,7 +10,7 @@ use crate::{
         patterns::{Note, Pattern, PatternManager},
         sequencers::BeatSequencer,
     },
-    traits::{HasEnable, HasMute, MakesIsViewable, MessageBounds},
+    traits::{MakesIsViewable, MessageBounds},
     GrooveOrchestrator,
 };
 use iced::{
