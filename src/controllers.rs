@@ -1,23 +1,15 @@
 use crate::clock::{Clock, ClockTimeUnit};
-use crate::effects::{
-    arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
-    limiter::Limiter, mixer::Mixer,
-};
+use crate::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
 use crate::messages::GrooveMessage;
 use crate::settings::control::ControlStep;
 use crate::traits::{
-    EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, SinksUpdates,
-    Terminates, WatchesClock,
+    EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, Terminates,
+    WatchesClock,
 };
 use crate::{clock::BeatValue, settings::control::ControlPathSettings};
-use crate::{
-    envelopes::{AdsrEnvelope, EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
-    oscillators::Oscillator,
-};
 use core::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::str::FromStr;
 use strum_macros::{Display, EnumString};
 
 // https://boydjohnson.dev/blog/impl-debug-for-fn-type/ gave me enough clues to
@@ -232,46 +224,10 @@ pub(crate) enum AdsrEnvelopeControlParams {
     Note,
 }
 
-impl SinksUpdates for AdsrEnvelope {
-    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
-        if let Ok(param) = AdsrEnvelopeControlParams::from_str(param_name) {
-            match param {
-                AdsrEnvelopeControlParams::Note => return Box::new(SmallMessage::ValueChanged),
-            }
-        }
-        panic!("unrecognized parameter name: {}", param_name);
-    }
-
-    fn update(&mut self, clock: &Clock, message: SmallMessage) {
-        match message {
-            SmallMessage::ValueChanged(value) => self.set_note(clock, value),
-            _ => {}
-        }
-    }
-}
-
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum ArpeggiatorControlParams {
     Nothing,
-}
-
-impl SinksUpdates for Arpeggiator {
-    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
-        if let Ok(param) = ArpeggiatorControlParams::from_str(param_name) {
-            match param {
-                ArpeggiatorControlParams::Nothing => return Box::new(SmallMessage::ValueChanged),
-            }
-        }
-        panic!("unrecognized parameter name: {}", param_name);
-    }
-
-    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
-        match message {
-            SmallMessage::ValueChanged(value) => self.set_nothing(value),
-            _ => {}
-        }
-    }
 }
 
 #[derive(Display, Debug, EnumString)]
@@ -284,35 +240,6 @@ pub(crate) enum BiQuadFilterControlParams {
     Q,
 }
 
-impl SinksUpdates for BiQuadFilter {
-    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
-        if let Ok(param) = BiQuadFilterControlParams::from_str(param_name) {
-            match param {
-                BiQuadFilterControlParams::Bandwidth => {
-                    return Box::new(SmallMessage::ValueChanged)
-                }
-                BiQuadFilterControlParams::CutoffPct => {
-                    return Box::new(SmallMessage::SecondValueChanged)
-                }
-                BiQuadFilterControlParams::DbGain => {
-                    return Box::new(SmallMessage::ThirdValueChanged)
-                }
-                BiQuadFilterControlParams::Q => return Box::new(SmallMessage::FourthValueChanged),
-            }
-        }
-        panic!("unrecognized parameter name: {}", param_name);
-    }
-
-    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
-        match message {
-            SmallMessage::ValueChanged(value) => self.set_bandwidth(value),
-            SmallMessage::SecondValueChanged(value) => self.set_cutoff_pct(value),
-            SmallMessage::ThirdValueChanged(value) => self.set_db_gain(value),
-            SmallMessage::FourthValueChanged(value) => self.set_q(value),
-        }
-    }
-}
-
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum BitcrusherControlParams {
@@ -320,48 +247,10 @@ pub(crate) enum BitcrusherControlParams {
     BitsToCrushPct,
 }
 
-impl SinksUpdates for Bitcrusher {
-    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
-        if let Ok(param) = BitcrusherControlParams::from_str(param_name) {
-            match param {
-                BitcrusherControlParams::BitsToCrushPct => {
-                    return Box::new(SmallMessage::ValueChanged)
-                }
-            }
-        }
-        panic!("unrecognized parameter name: {}", param_name);
-    }
-
-    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
-        match message {
-            SmallMessage::ValueChanged(value) => self.set_bits_to_crush_pct(value),
-            _ => {}
-        }
-    }
-}
-
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum GainControlParams {
     Ceiling,
-}
-
-impl SinksUpdates for Gain {
-    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
-        if let Ok(param) = GainControlParams::from_str(param_name) {
-            match param {
-                GainControlParams::Ceiling => return Box::new(SmallMessage::ValueChanged),
-            }
-        }
-        panic!("unrecognized parameter name: {}", param_name);
-    }
-
-    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
-        match message {
-            SmallMessage::ValueChanged(value) => self.set_ceiling(value),
-            _ => {}
-        }
-    }
 }
 
 #[derive(Display, Debug, EnumString)]
@@ -371,60 +260,14 @@ pub(crate) enum LimiterControlParams {
     Min,
 }
 
-impl SinksUpdates for Limiter {
-    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
-        if let Ok(param) = LimiterControlParams::from_str(param_name) {
-            match param {
-                LimiterControlParams::Max => return Box::new(SmallMessage::ValueChanged),
-                LimiterControlParams::Min => return Box::new(SmallMessage::SecondValueChanged),
-            }
-        }
-        panic!("unrecognized parameter name: {}", param_name);
-    }
-
-    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
-        match message {
-            SmallMessage::ValueChanged(value) => self.set_max(value),
-            SmallMessage::SecondValueChanged(value) => self.set_min(value),
-            _ => {}
-        }
-    }
-}
-
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum MixerControlParams {}
-
-impl<M: MessageBounds> SinksUpdates for Mixer<M> {
-    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
-        panic!("unrecognized parameter name: {}", param_name);
-    }
-
-    fn update(&mut self, _clock: &Clock, _message: SmallMessage) {}
-}
 
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum OscillatorControlParams {
     Frequency,
-}
-
-impl SinksUpdates for Oscillator {
-    fn message_for(&self, param_name: &str) -> SmallMessageGenerator {
-        if let Ok(param) = OscillatorControlParams::from_str(param_name) {
-            match param {
-                OscillatorControlParams::Frequency => return Box::new(SmallMessage::ValueChanged),
-            }
-        }
-        panic!("unrecognized parameter name: {}", param_name);
-    }
-
-    fn update(&mut self, _clock: &Clock, message: SmallMessage) {
-        match message {
-            SmallMessage::ValueChanged(value) => self.set_frequency(value),
-            _ => {}
-        }
-    }
 }
 
 // END code generated by util/generate-controllers.py

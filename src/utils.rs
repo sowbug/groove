@@ -3,8 +3,8 @@ use crate::{
     controllers::{BigMessage, SmallMessageGenerator},
     messages::GrooveMessage,
     traits::{
-        EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, SourcesUpdates,
-        Terminates, WatchesClock,
+        EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, Terminates,
+        WatchesClock,
     },
 };
 
@@ -122,29 +122,13 @@ impl<M: MessageBounds> Trigger<M> {
         }
     }
 }
-impl<M: MessageBounds> SourcesUpdates for Trigger<M> {
-    fn target_uids(&self) -> &[usize] {
-        &self.target_uids
-    }
-
-    fn target_uids_mut(&mut self) -> &mut Vec<usize> {
-        &mut self.target_uids
-    }
-
-    fn target_messages(&self) -> &[SmallMessageGenerator] {
-        &self.target_messages
-    }
-
-    fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator> {
-        &mut self.target_messages
-    }
-}
 impl<M: MessageBounds> WatchesClock for Trigger<M> {
     fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
             self.has_triggered = true;
             let value = self.value;
-            self.post_message(value)
+            // SOON self.post_message(value)
+            Vec::default()
         } else {
             Vec::default()
         }
@@ -189,8 +173,8 @@ pub mod tests {
         settings::ClockSettings,
         traits::{
             BoxedEntity, EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewIsEffect,
-            NewIsInstrument, NewUpdateable, SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi,
-            Terminates, TransformsAudio, WatchesClock,
+            NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio, SourcesMidi, Terminates,
+            TransformsAudio, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -1035,22 +1019,6 @@ pub mod tests {
             self.value
         }
     }
-    impl<M: MessageBounds> SinksUpdates for TestMidiSink<M> {
-        fn update(&mut self, _clock: &Clock, message: SmallMessage) {
-            match message {
-                SmallMessage::ValueChanged(value) => {
-                    self.value = value;
-                }
-                _ => {
-                    dbg!(&message);
-                }
-            }
-        }
-
-        fn message_for(&self, _param: &str) -> SmallMessageGenerator {
-            todo!()
-        }
-    }
 
     #[derive(Debug)]
     pub struct TestInstrument<M: MessageBounds> {
@@ -1302,22 +1270,6 @@ pub mod tests {
     impl<M: MessageBounds> Terminates for TestArpeggiator<M> {
         fn is_finished(&self) -> bool {
             true
-        }
-    }
-    impl<M: MessageBounds> SinksUpdates for TestArpeggiator<M> {
-        fn message_for(&self, param: &str) -> SmallMessageGenerator {
-            assert_eq!(
-                TestArpeggiatorControlParams::Tempo.to_string().as_str(),
-                param
-            );
-            Box::new(SmallMessage::ValueChanged)
-        }
-
-        fn update(&mut self, _clock: &Clock, message: SmallMessage) {
-            match message {
-                SmallMessage::ValueChanged(value) => self.tempo = value,
-                _ => todo!(),
-            }
         }
     }
     impl<M: MessageBounds> NewIsController for TestArpeggiator<M> {}

@@ -65,7 +65,6 @@ impl EnvelopeStep {
 
 #[derive(Debug, Default)]
 pub struct SteppedEnvelope {
-
     time_unit: ClockTimeUnit,
     steps: Vec<EnvelopeStep>,
 }
@@ -215,7 +214,6 @@ impl SourcesAudio for SteppedEnvelope {
     }
 }
 
-
 #[derive(Debug, Default)]
 enum AdsrEnvelopeStepName {
     #[default]
@@ -265,7 +263,7 @@ impl Default for AdsrEnvelope {
         Self {
             uid: usize::default(),
             me: weak_new(),
-            
+
             preset: EnvelopeSettings::default(),
             envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
@@ -555,23 +553,12 @@ impl AdsrEnvelope {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::clock::Clock;
     use assert_approx_eq::assert_approx_eq;
     use more_asserts::{assert_gt, assert_lt};
-
-    mod stepped_envelope {
-        use crate::envelopes::SteppedEnvelope;
-
-        fn instance() -> SteppedEnvelope {
-            return SteppedEnvelope::default();
-        }
-
-        include!("test_trait_sources_audio.rs");
-    }
 
     #[test]
     fn test_envelope_mainline() {

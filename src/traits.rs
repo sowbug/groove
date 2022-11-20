@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::{MonoSample, Ww},
-    controllers::{BigMessage, SmallMessage, SmallMessageGenerator},
+    controllers::BigMessage,
     gui::{IsViewable, ViewableMessage},
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
@@ -101,44 +101,6 @@ impl<T> EvenNewerCommand<T> {
 
         Self(Internal::Batch(batch))
     }
-}
-
-// TODO: write tests for these two new traits.
-//
-// TODO: this is probably all wrong. The post_message() part is definitely
-// wrong, now that update() can return Commands containing Messages. I'd like to
-// see whether all this boilerplate can be handled by someone else, either
-// centralized or as a truly effortless generic.
-#[deprecated]
-pub trait SourcesUpdates {
-    fn target_uids(&self) -> &[usize];
-    fn target_uids_mut(&mut self) -> &mut Vec<usize>;
-    fn target_messages(&self) -> &[SmallMessageGenerator];
-    fn target_messages_mut(&mut self) -> &mut Vec<SmallMessageGenerator>;
-    fn add_target(&mut self, target_uid: usize, target_message: SmallMessageGenerator) {
-        self.target_uids_mut().push(target_uid);
-        self.target_messages_mut().push(target_message);
-    }
-    fn post_message(&mut self, value: f32) -> Vec<BigMessage> {
-        let mut v = Vec::new();
-        for uid in self.target_uids() {
-            for message in self.target_messages() {
-                v.push(BigMessage::SmallMessage(*uid, message(value)));
-            }
-        }
-        v
-    }
-}
-
-// TODO: this should have an associated type Message, but I can't figure out how
-// to make it work.
-#[deprecated]
-pub trait SinksUpdates: std::fmt::Debug {
-    // Idea: if someone asks for a message generator, then that's the clue we
-    // need to register our UID. All that could be managed in that central
-    // place.
-    fn message_for(&self, param: &str) -> SmallMessageGenerator;
-    fn update(&mut self, clock: &Clock, message: SmallMessage);
 }
 
 #[deprecated]
@@ -252,7 +214,7 @@ pub mod tests {
         midi::MidiUtils,
         oscillators::Oscillator,
         settings::patches::{EnvelopeSettings, WaveformType},
-        traits::{SinksUpdates, SourcesUpdates, Terminates},
+        traits::Terminates,
         utils::{
             tests::{TestClockWatcher, TestSynth},
             Timer, Trigger,
