@@ -3,8 +3,8 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, IsEffect, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
-        SourcesAudio, TransformsAudio,
+        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SinksAudio, SourcesAudio,
+        TransformsAudio,
     },
 };
 
@@ -17,7 +17,6 @@ pub struct Bitcrusher {
     sources: Vec<Ww<dyn SourcesAudio>>,
     bits_to_crush: u8,
 }
-impl IsEffect for Bitcrusher {}
 impl NewIsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {

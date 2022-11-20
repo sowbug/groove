@@ -4,8 +4,7 @@ use crate::{
     messages::GrooveMessage,
     midi::{MidiChannel, MidiMessage},
     traits::{
-        HasOverhead, HasUid, IsMidiInstrument, NewIsInstrument, NewUpdateable, Overhead, SinksMidi,
-        SourcesAudio,
+        HasOverhead, HasUid, NewIsInstrument, NewUpdateable, Overhead, SinksMidi, SourcesAudio,
     },
 };
 
@@ -25,7 +24,6 @@ pub struct Sampler {
 
     pub(crate) filename: String,
 }
-impl IsMidiInstrument for Sampler {}
 impl NewIsInstrument for Sampler {}
 impl SourcesAudio for Sampler {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {

@@ -8,7 +8,7 @@ use crate::{
     midi::{programmers::MidiSmfReader, sequencers::MidiTickSequencer},
     orchestrator::Performance,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
-    traits::{BoxedEntity, IsMidiInstrument, NewIsInstrument},
+    traits::{BoxedEntity, NewIsInstrument},
     GrooveOrchestrator, Orchestrator,
 };
 use cpal::{

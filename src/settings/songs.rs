@@ -12,7 +12,7 @@ use crate::{
         sequencers::BeatSequencer,
     },
     orchestrator::GrooveOrchestrator,
-    traits::{BoxedEntity, IsEffect, IsMidiInstrument},
+    traits::BoxedEntity,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -68,19 +68,16 @@ impl SongSettings {
                     let (channel, entity) = settings.instantiate(sample_rate);
                     let uid = orchestrator.add(Some(id), BoxedEntity::Instrument(entity));
                     orchestrator.connect_midi_downstream(uid, channel);
-                    // orchestrator.register_viewable(entity);
                 }
                 DeviceSettings::Controller(id, settings) => {
                     let (channel_in, channel_out, entity) = settings.instantiate(sample_rate);
                     let uid = orchestrator.add(Some(id), BoxedEntity::Controller(entity));
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
-                    // orchestrator.register_viewable(midi_instrument);
                 }
                 DeviceSettings::Effect(id, settings) => {
                     let entity = settings.instantiate(sample_rate);
                     let uid = orchestrator.add(Some(id), BoxedEntity::Effect(entity));
-                    // orchestrator.register_viewable(rrc_clone::<dyn IsEffect>(&effect));
                 }
             }
         }
@@ -143,7 +140,6 @@ impl SongSettings {
 
         let sequencer_uid = orchestrator.add(None, BoxedEntity::Controller(sequencer));
         orchestrator.connect_midi_upstream(sequencer_uid);
-        //        orchestrator.register_viewable(sequencer);
     }
 
     fn instantiate_control_trips(&self, orchestrator: &mut GrooveOrchestrator) {
@@ -161,7 +157,7 @@ impl SongSettings {
         }
         for control_trip_settings in &self.trips {
             if let Some(target_uid) = orchestrator.get_uid(&control_trip_settings.target.id) {
-                let mut control_trip = Box::new(ControlTrip::default());
+                let mut control_trip = Box::new(ControlTrip::<GrooveMessage>::default());
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
                         control_trip.add_path(&control_path);

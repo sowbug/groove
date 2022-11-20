@@ -1,15 +1,13 @@
 use crate::{
-    clock::{Clock, WatchedClock},
-    common::{rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
-    controllers::{BigMessage, ControlPath},
+    clock::Clock,
+    common::{MonoSample, MONO_SAMPLE_SILENCE},
     effects::mixer::Mixer,
-    id_store::IdStore,
     messages::GrooveMessage,
-    midi::{patterns::PatternManager, MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
+    midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     traits::{
-        BoxedEntity, EvenNewerCommand, EvenNewerIsUpdateable, HasUid, Internal, IsEffect,
-        IsMidiEffect, MakesIsViewable, MessageBounds, NewIsController, NewUpdateable, SinksAudio,
-        SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi, Terminates, WatchesClock,
+        BoxedEntity, EvenNewerCommand, EvenNewerIsUpdateable, HasUid, Internal, MakesIsViewable,
+        MessageBounds, NewIsController, NewUpdateable, SinksAudio, SinksMidi, SinksUpdates,
+        SourcesAudio, SourcesMidi, Terminates, WatchesClock,
     },
 };
 use anyhow::anyhow;
@@ -45,9 +43,6 @@ pub(crate) enum OrchestratorMessage {
 }
 
 #[allow(dead_code)]
-pub(crate) type BoxedEffect = Box<dyn IsEffect>;
-//pub(crate) type BoxedMidiEffect = Box<dyn IsMidiEffect<Message = OrchestratorMessage>>;
-#[allow(dead_code)]
 pub(crate) type BoxedSourcesAudio = Box<dyn SourcesAudio>;
 #[allow(dead_code)]
 pub(crate) type Updateable = dyn EvenNewerIsUpdateable<Message = OrchestratorMessage>;
@@ -60,7 +55,6 @@ pub(crate) enum Uid {
     OrchestratorUpdateable(usize),
     SourcesAudio(usize),
     IsEffect(usize),
-    IsMidiEffect(usize),
 }
 
 pub type GrooveOrchestrator = Orchestrator<GrooveMessage>;

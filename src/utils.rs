@@ -188,10 +188,9 @@ pub mod tests {
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, IsEffect, MessageBounds,
-            NewIsController, NewIsEffect, NewIsInstrument, NewUpdateable, Overhead, SinksAudio,
-            SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi, Terminates, TransformsAudio,
-            WatchesClock,
+            BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, MessageBounds, NewIsController,
+            NewIsEffect, NewIsInstrument, NewUpdateable, Overhead, SinksAudio, SinksMidi,
+            SinksUpdates, SourcesAudio, SourcesMidi, Terminates, TransformsAudio, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -239,29 +238,31 @@ pub mod tests {
         }
     }
 
-    pub(crate) fn write_source_and_controlled_effect(
-        basename: &str,
-        waveform_type: WaveformType,
-        effect_opt: Option<Rrc<dyn IsEffect>>,
-        control_opt: Option<Rrc<dyn WatchesClock>>,
-    ) {
-        let mut c = WatchedClock::new();
-        let sample_rate = c.inner_clock().sample_rate();
-        let mut o = OldTestOrchestrator::new();
-        let osc = Oscillator::new_wrapped_with(waveform_type);
-        if let Some(effect) = effect_opt {
-            effect
-                .borrow_mut()
-                .add_audio_source(rrc_downgrade::<Oscillator>(&osc));
-            o.add_audio_source(rrc_downgrade::<dyn IsEffect>(&effect));
-        }
-        c.add_watcher(rrc(Timer::<TestMessage>::new_with(2.0)));
-        if let Some(control) = control_opt {
-            c.add_watcher(rrc_clone::<dyn WatchesClock>(&control));
-        }
-        let samples_out = o.run_until_completion(&mut c);
-        write_samples_to_wav_file(basename, sample_rate, &samples_out);
-    }
+    // ```rust
+    // pub(crate) fn write_source_and_controlled_effect(
+    //     basename: &str,
+    //     waveform_type: WaveformType,
+    //     effect_opt: Option<Rrc<dyn IsEffect>>,
+    //     control_opt: Option<Rrc<dyn WatchesClock>>,
+    // ) {
+    //     let mut c = WatchedClock::new();
+    //     let sample_rate = c.inner_clock().sample_rate();
+    //     let mut o = OldTestOrchestrator::new();
+    //     let osc = Oscillator::new_wrapped_with(waveform_type);
+    //     if let Some(effect) = effect_opt {
+    //         effect
+    //             .borrow_mut()
+    //             .add_audio_source(rrc_downgrade::<Oscillator>(&osc));
+    //         o.add_audio_source(rrc_downgrade::<dyn IsEffect>(&effect));
+    //     }
+    //     c.add_watcher(rrc(Timer::<TestMessage>::new_with(2.0)));
+    //     if let Some(control) = control_opt {
+    //         c.add_watcher(rrc_clone::<dyn WatchesClock>(&control));
+    //     }
+    //     let samples_out = o.run_until_completion(&mut c);
+    //     write_samples_to_wav_file(basename, sample_rate, &samples_out);
+    // }
+    // ```
 
     ///////////////////// DEDUPLICATE vvvvv
     pub(crate) fn write_source_to_file(source: &mut dyn SourcesAudio, basename: &str) {
@@ -290,30 +291,32 @@ pub mod tests {
         );
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn write_orchestration_to_file(
-        orchestrator: &mut OldTestOrchestrator,
-        clock: &mut WatchedClock,
-        basename: &str,
-    ) {
-        let samples = orchestrator.run_until_completion(clock);
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: clock.inner_clock().sample_rate() as u32,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
-        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
-        for sample in samples.iter() {
-            let _ = writer.write_sample((sample * AMPLITUDE) as i16);
-        }
-        generate_fft_for_samples(
-            clock.inner_clock().settings(),
-            &samples,
-            &canonicalize_fft_filename(basename),
-        );
-    }
+    // ```rust
+    // #[allow(dead_code)]
+    // pub(crate) fn write_orchestration_to_file(
+    //     orchestrator: &mut OldTestOrchestrator,
+    //     clock: &mut WatchedClock,
+    //     basename: &str,
+    // ) {
+    //     let samples = orchestrator.run_until_completion(clock);
+    //     let spec = hound::WavSpec {
+    //         channels: 1,
+    //         sample_rate: clock.inner_clock().sample_rate() as u32,
+    //         bits_per_sample: 16,
+    //         sample_format: hound::SampleFormat::Int,
+    //     };
+    //     const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
+    //     let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
+    //     for sample in samples.iter() {
+    //         let _ = writer.write_sample((sample * AMPLITUDE) as i16);
+    //     }
+    //     generate_fft_for_samples(
+    //         clock.inner_clock().settings(),
+    //         &samples,
+    //         &canonicalize_fft_filename(basename),
+    //     );
+    // }
+    // ```
 
     // ```rust
     // use std::error::Error;
@@ -602,80 +605,6 @@ pub mod tests {
     }
     impl<M: MessageBounds> NewUpdateable for TestAudioSourceAlwaysVeryQuiet<M> {
         type Message = M;
-    }
-
-    #[derive(Debug)]
-    pub struct OldTestOrchestrator {
-        pub main_mixer: Box<dyn IsEffect>,
-        pub updateables: HashMap<usize, Ww<dyn SinksUpdates>>,
-
-        // The final clock watcher gets to run and test the state resulting from
-        // all the prior clock watchers' ticks.
-        pub final_clock_watcher: Option<Ww<dyn WatchesClock>>,
-    }
-
-    impl Default for OldTestOrchestrator {
-        fn default() -> Self {
-            Self {
-                main_mixer: Box::new(Mixer::<TestMessage>::new()),
-                updateables: Default::default(),
-                final_clock_watcher: None,
-            }
-        }
-    }
-
-    impl OldTestOrchestrator {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-
-        #[allow(dead_code)]
-        pub fn new_with(main_mixer: Box<dyn IsEffect>) -> Self {
-            Self {
-                main_mixer,
-                ..Default::default()
-            }
-        }
-
-        pub fn add_audio_source(&mut self, source: Ww<dyn SourcesAudio>) {
-            self.main_mixer.add_audio_source(source);
-        }
-
-        pub fn add_final_watcher(&mut self, watcher: Rrc<dyn WatchesClock>) {
-            self.final_clock_watcher = Some(rrc_downgrade(&watcher));
-        }
-
-        pub fn run_until_completion(&mut self, clock: &mut WatchedClock) -> Vec<MonoSample> {
-            let mut samples_out = Vec::new();
-            loop {
-                let (mut done, messages) = clock.visit_watchers();
-                if let Some(watcher) = &self.final_clock_watcher {
-                    if let Some(watcher) = watcher.upgrade() {
-                        watcher.borrow_mut().tick(&clock.inner_clock());
-                        done = done && watcher.borrow().is_finished();
-                    }
-                }
-                if done {
-                    break;
-                }
-                for message in messages {
-                    match message {
-                        crate::controllers::BigMessage::SmallMessage(uid, message) => {
-                            if let Some(target) = self.updateables.get_mut(&uid) {
-                                if let Some(target) = target.upgrade() {
-                                    target.borrow_mut().update(clock.inner_clock(), message);
-                                }
-                            }
-                        }
-                    }
-                }
-                samples_out.push(self.main_mixer.source_audio(clock.inner_clock()));
-                clock.tick();
-            }
-            samples_out
-        }
     }
 
     #[derive(Debug, Default)]

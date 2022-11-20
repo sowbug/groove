@@ -3,8 +3,8 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, IsEffect, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
-        SourcesAudio, TransformsAudio,
+        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SinksAudio, SourcesAudio,
+        TransformsAudio,
     },
 };
 
@@ -19,7 +19,6 @@ pub struct Limiter {
     min: MonoSample,
     max: MonoSample,
 }
-impl IsEffect for Limiter {}
 impl NewIsEffect for Limiter {}
 impl TransformsAudio for Limiter {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {

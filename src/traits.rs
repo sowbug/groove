@@ -364,23 +364,6 @@ pub trait HasEnable {
     }
 }
 
-// WORKING ASSERTION: WatchesClock should not also SourcesAudio, because
-// WatchesClock gets a clock tick, whereas SourcesAudio gets a sources_audio(),
-// and both are time slice-y. Be on the lookout for anything that claims to need
-// both.
-#[deprecated]
-pub trait IsMidiInstrument: SourcesAudio + SinksMidi + MakesIsViewable {} // TODO + MakesControlSink
-#[deprecated]
-pub trait IsEffect:
-    SourcesAudio + SinksAudio + TransformsAudio + SinksUpdates + HasOverhead + MakesIsViewable
-{
-}
-
-#[deprecated]
-pub trait IsMidiEffect: SourcesMidi + SinksMidi + WatchesClock + MakesIsViewable {}
-#[deprecated]
-pub trait IsController: SourcesUpdates + WatchesClock {}
-
 #[cfg(test)]
 pub mod tests {
     use super::{SinksAudio, WatchesClock};
@@ -397,96 +380,10 @@ pub mod tests {
         settings::patches::{EnvelopeSettings, WaveformType},
         traits::{SinksUpdates, SourcesUpdates, Terminates},
         utils::{
-            tests::{OldTestOrchestrator, TestClockWatcher, TestSynth},
+            tests::{TestClockWatcher, TestSynth},
             Timer, Trigger,
         },
     };
-
-    #[test]
-    fn test_orchestration() {
-        let mut clock = WatchedClock::new();
-        let mut orchestrator = OldTestOrchestrator::new();
-
-        // Create a synth consisting of an oscillator and envelope.
-        let envelope = AdsrEnvelope::new_wrapped_with(&EnvelopeSettings::default());
-        let mut oscillator = Box::new(Oscillator::new_with(WaveformType::Sine));
-        oscillator.set_frequency(MidiUtils::note_to_frequency(60));
-        let synth = rrc(TestSynth::new_with(
-            oscillator,
-            rrc_clone::<AdsrEnvelope>(&envelope),
-        ));
-
-        // Create a gain effect, and plug the synth's audio output into it.
-        let effect = Gain::new_wrapped();
-        effect
-            .borrow_mut()
-            .add_audio_source(rrc_downgrade::<TestSynth<TestMessage>>(&synth));
-
-        // Then plug the gain effect's audio out into the main mixer.
-        orchestrator.add_audio_source(rrc_downgrade::<Gain>(&effect));
-
-        // Let the system know how to find the gain effect again.
-        const GAIN_UID: usize = 17;
-        orchestrator
-            .updateables
-            .insert(GAIN_UID, rrc_downgrade::<Gain>(&effect));
-
-        // Create a second Oscillator that provides an audio signal.
-        // TestControlSourceContinuous adapts that audio signal to a series of
-        // control events, and then posts messages that the gain effect handles
-        // to adjust its level.
-
-        // TODO: re-enable block below, soon!
-
-        // let mut audio_to_controller =
-        //     TestControlSourceContinuous::<TestMessage>::new_with(Box::new(Oscillator::new()));
-        // let message = effect
-        //     .borrow()
-        //     .message_for(&GainControlParams::Ceiling.to_string());
-        // audio_to_controller.add_target(GAIN_UID, message);
-
-        // Trigger posts a message at a given time. We use it to trigger the
-        // AdsrEnvelope note-on..
-        let mut trigger_on = Trigger::<TestMessage>::new(1.0, 1.0);
-        const ENVELOPE_UID: usize = 42;
-        orchestrator
-            .updateables
-            .insert(ENVELOPE_UID, rrc_downgrade::<AdsrEnvelope>(&envelope));
-        trigger_on.add_target(
-            ENVELOPE_UID,
-            envelope
-                .borrow()
-                .message_for(&AdsrEnvelopeControlParams::Note.to_string()),
-        );
-        clock.add_watcher(rrc(trigger_on));
-
-        // Same thing, except the value sent is zero, which the AdsrEnvelope
-        // interprets as note-off.
-        let mut trigger_off = Trigger::<TestMessage>::new(1.5, 0.0);
-        trigger_off.add_target(
-            ENVELOPE_UID,
-            envelope
-                .borrow()
-                .message_for(&AdsrEnvelopeControlParams::Note.to_string()),
-        );
-        clock.add_watcher(rrc(trigger_off));
-
-        // Tell the orchestrator when to end its loop.
-        let timer = Timer::<TestMessage>::new_with(2.0);
-        clock.add_watcher(rrc(timer));
-
-        // Run everything.
-        let samples = orchestrator.run_until_completion(&mut clock);
-        assert_eq!(samples.len(), 2 * 44100);
-
-        // envelope hasn't been triggered yet
-        assert_eq!(samples[0], 0.0);
-
-        // envelope should be triggered at 1-second mark. We check two
-        // consecutive samples just in case the oscillator happens to cross over
-        // between negative and positive right at that moment.
-        assert!(samples[44100] != 0.0 || samples[44100 + 1] != 0.0);
-    }
 
     #[test]
     fn test_clock_watcher() {

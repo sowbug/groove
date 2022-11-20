@@ -6,14 +6,14 @@ pub(crate) mod songs;
 use self::{effects::EffectSettings, patches::SynthPatch};
 use crate::{
     clock::{BeatValue, TimeSignature},
-    common::{DeviceId, Rrc},
+    common::DeviceId,
     effects::arpeggiator::Arpeggiator,
-    messages::GrooveMessage,
     instruments::{
         drumkit_sampler,
         welsh::{self, PatchName},
     },
-    traits::{BoxedEntity, IsMidiEffect, IsMidiInstrument, NewIsController, NewIsInstrument},
+    messages::GrooveMessage,
+    traits::{NewIsController, NewIsInstrument},
 };
 use serde::{Deserialize, Serialize};
 

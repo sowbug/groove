@@ -8,7 +8,7 @@ use crate::{
         mixer::Mixer,
     },
     messages::GrooveMessage,
-    traits::{IsEffect, NewIsEffect},
+    traits::NewIsEffect,
 };
 use serde::{Deserialize, Serialize};
 

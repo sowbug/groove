@@ -4,8 +4,7 @@ use crate::{
     messages::GrooveMessage,
     midi::{GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{
-        HasOverhead, HasUid, IsMidiInstrument, NewIsInstrument, NewUpdateable, Overhead, SinksMidi,
-        SourcesAudio,
+        HasOverhead, HasUid, NewIsInstrument, NewUpdateable, Overhead, SinksMidi, SourcesAudio,
     },
 };
 use std::collections::HashMap;
@@ -115,7 +114,6 @@ pub struct Sampler {
 
     pub(crate) kit_name: String,
 }
-impl IsMidiInstrument for Sampler {}
 impl NewIsInstrument for Sampler {}
 impl SourcesAudio for Sampler {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {

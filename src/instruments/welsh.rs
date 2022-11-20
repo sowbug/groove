@@ -8,8 +8,8 @@ use crate::{
         LoadError,
     },
     traits::{
-        HasOverhead, HasUid, IsMidiInstrument, NewIsInstrument, NewUpdateable, Overhead, SinksMidi,
-        SourcesAudio, TransformsAudio,
+        HasOverhead, HasUid, NewIsInstrument, NewUpdateable, Overhead, SinksMidi, SourcesAudio,
+        TransformsAudio,
     },
     {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
@@ -691,7 +691,6 @@ pub struct Synth {
 
     debug_last_seconds: f32,
 }
-impl IsMidiInstrument for Synth {}
 impl NewIsInstrument for Synth {}
 impl SourcesAudio for Synth {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
@@ -848,12 +847,12 @@ mod tests {
     use super::*;
     use crate::{
         clock::Clock,
+        instruments::welsh::WaveformType,
         midi::{MidiMessage, MidiUtils, MIDI_CHANNEL_RECEIVE_ALL},
         settings::patches::{
             EnvelopeSettings, FilterPreset, GlideSettings, LfoPreset, LfoRouting,
             OscillatorSettings, PolyphonySettings,
         },
-        instruments::welsh::WaveformType,
         utils::tests::canonicalize_filename,
     };
 

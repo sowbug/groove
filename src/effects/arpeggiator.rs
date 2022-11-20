@@ -7,8 +7,8 @@ use crate::{
     messages::GrooveMessage,
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
     traits::{
-        HasOverhead, HasUid, IsMidiEffect, NewIsController, NewUpdateable, Overhead, SinksMidi,
-        SourcesMidi, Terminates, WatchesClock,
+        HasOverhead, HasUid, NewIsController, NewUpdateable, Overhead, SinksMidi, SourcesMidi,
+        Terminates, WatchesClock,
     },
 };
 use std::collections::HashMap;
@@ -104,8 +104,6 @@ impl WatchesClock for Arpeggiator {
         Vec::new()
     }
 }
-
-impl IsMidiEffect for Arpeggiator {}
 
 impl Arpeggiator {
     pub fn new_with(midi_channel_in: MidiChannel, midi_channel_out: MidiChannel) -> Self {

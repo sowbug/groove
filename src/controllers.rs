@@ -15,6 +15,7 @@ use crate::{
     oscillators::Oscillator,
 };
 use core::fmt::Debug;
+use std::marker::PhantomData;
 use std::ops::Range;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString};
@@ -38,56 +39,33 @@ pub type SmallMessageGenerator = Box<dyn SmallMessageGeneratorT>;
 /// A ControlTrip is one automation track, which can run as long as the whole
 /// song. For now, it controls one parameter of one target.
 #[derive(Debug, Default)]
-pub(crate) struct ControlTrip {
+pub(crate) struct ControlTrip<M: MessageBounds> {
     uid: usize,
     cursor_beats: f32,
-
     current_value: f32,
-
     envelope: SteppedEnvelope,
-
     is_finished: bool,
+
+    _phantom: PhantomData<M>,
 }
-impl NewIsController for ControlTrip {}
-impl NewUpdateable for ControlTrip {
-    type Message = GrooveMessage;
+impl<M: MessageBounds> NewIsController for ControlTrip<M> {}
+impl<M: MessageBounds> NewUpdateable for ControlTrip<M> {
+    default type Message = M;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
-        match message {
-            GrooveMessage::Tick => {
-                let time = self.envelope.time_for_unit(clock);
-                let step = self.envelope.step_for_time(time);
-                if step.interval.contains(&time) {
-                    let value = self.envelope.value_for_step_at_time(step, time);
-
-                    let last_value = self.current_value;
-                    self.current_value = value;
-                    self.is_finished = time >= step.interval.end;
-                    if self.current_value != last_value {
-                        return EvenNewerCommand::single(GrooveMessage::ControlF32(
-                            self.uid,
-                            self.current_value,
-                        ));
-                    }
-                } else {
-                    // This is a drastic response to a tick that's out of range. It
-                    // might be better to limit it to times that are later than the
-                    // covered range. We're likely to hit ControlTrips that start beyond
-                    // time zero.
-                    self.is_finished = true;
-                }
-            }
-            _ => todo!(),
-        }
+    default fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }
 }
-impl Terminates for ControlTrip {
+impl<M: MessageBounds> Terminates for ControlTrip<M> {
     fn is_finished(&self) -> bool {
         self.is_finished
     }
 }
-impl HasUid for ControlTrip {
+impl<M: MessageBounds> HasUid for ControlTrip<M> {
     fn uid(&self) -> usize {
         self.uid
     }
@@ -96,16 +74,17 @@ impl HasUid for ControlTrip {
         self.uid = uid;
     }
 }
-impl ControlTrip {
+impl<M: MessageBounds> ControlTrip<M> {
     const CURSOR_BEGIN: f32 = 0.0;
 
-    pub fn new(target_uid: usize, on_update: SmallMessageGenerator) -> Self {
+    pub fn new() -> Self {
         Self {
             uid: usize::default(),
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f32::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
             is_finished: true,
+            _phantom: Default::default(),
         }
     }
 
@@ -143,6 +122,44 @@ impl ControlTrip {
         }
         self.is_finished = false;
     }
+
+    fn tick(&mut self, clock: &Clock) -> bool {
+        let time = self.envelope.time_for_unit(clock);
+        let step = self.envelope.step_for_time(time);
+        if step.interval.contains(&time) {
+            let value = self.envelope.value_for_step_at_time(step, time);
+
+            let last_value = self.current_value;
+            self.current_value = value;
+            self.is_finished = time >= step.interval.end;
+            self.current_value != last_value
+        } else {
+            // This is a drastic response to a tick that's out of range. It
+            // might be better to limit it to times that are later than the
+            // covered range. We're likely to hit ControlTrips that start beyond
+            // time zero.
+            self.is_finished = true;
+            false
+        }
+    }
+}
+impl NewUpdateable for ControlTrip<GrooveMessage> {
+    type Message = GrooveMessage;
+
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        match message {
+            GrooveMessage::Tick => {
+                if self.tick(clock) {
+                    return EvenNewerCommand::single(GrooveMessage::ControlF32(
+                        self.uid,
+                        self.current_value,
+                    ));
+                }
+            }
+            _ => todo!(),
+        }
+        EvenNewerCommand::none()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -157,7 +174,7 @@ pub enum SmallMessage {
 pub enum BigMessage {
     SmallMessage(usize, SmallMessage),
 }
-impl WatchesClock for ControlTrip {
+impl<M: MessageBounds> WatchesClock for ControlTrip<M> {
     fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         let mut messages = Vec::<BigMessage>::new();
         let time = self.envelope.time_for_unit(clock);
@@ -420,10 +437,36 @@ mod tests {
         clock::WatchedClock,
         common::{rrc, rrc_downgrade},
         messages::tests::TestMessage,
-        utils::tests::{OldTestOrchestrator, TestMidiSink},
+        orchestrator::tests::Runner,
+        traits::BoxedEntity,
+        utils::tests::{TestInstrument, TestMidiSink},
+        Orchestrator,
     };
 
     use super::*;
+
+    impl NewUpdateable for ControlTrip<TestMessage> {
+        type Message = TestMessage;
+
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Tick => {
+                    if self.tick(clock) {
+                        return EvenNewerCommand::single(TestMessage::ControlF32(
+                            self.uid,
+                            self.current_value,
+                        ));
+                    }
+                }
+                _ => todo!(),
+            }
+            EvenNewerCommand::none()
+        }
+    }
 
     #[test]
     fn test_flat_step() {
@@ -438,15 +481,14 @@ mod tests {
             steps: step_vec,
         };
 
-        let mut clock = WatchedClock::new();
-        let mut o = OldTestOrchestrator::new();
-        let target = TestMidiSink::new_wrapped();
-        const UID: usize = 42;
-        o.updateables
-            .insert(UID, rrc_downgrade::<TestMidiSink<TestMessage>>(&target));
-        let trip = rrc(ControlTrip::new(UID, Box::new(SmallMessage::ValueChanged)));
-        trip.borrow_mut().add_path(&path);
-        clock.add_watcher(trip);
+        let mut o = Box::new(Orchestrator::<TestMessage>::default());
+        let target_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(TestInstrument::default())),
+        );
+        let mut trip = ControlTrip::<TestMessage>::new();
+        trip.add_path(&path);
+        o.add(None, BoxedEntity::Controller(Box::new(trip)));
 
         // TODO: this is the whole point of this test, so re-enable soon!
         //
@@ -458,7 +500,9 @@ mod tests {
         //     time_unit: ClockTimeUnit::Beats,
         // }));
 
-        let _ = o.run_until_completion(&mut clock);
+        let mut clock = Clock::new();
+        let mut r = Runner::default();
+        let _ = r.run(&mut o, &mut clock);
     }
 
     #[test]
@@ -475,15 +519,14 @@ mod tests {
             steps: step_vec,
         };
 
-        let mut clock = WatchedClock::new();
-        let mut o = OldTestOrchestrator::new();
-        let target = TestMidiSink::new_wrapped();
-        const UID: usize = 42;
-        o.updateables
-            .insert(UID, rrc_downgrade::<TestMidiSink<TestMessage>>(&target));
-        let trip = rrc(ControlTrip::new(UID, Box::new(SmallMessage::ValueChanged)));
-        trip.borrow_mut().add_path(&path);
-        clock.add_watcher(trip);
+        let mut o = Box::new(Orchestrator::default());
+        let target_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(TestInstrument::new())),
+        );
+        let mut trip = Box::new(ControlTrip::<TestMessage>::new());
+        trip.add_path(&path);
+        let controller_uid = o.add(None, BoxedEntity::Controller(trip));
 
         // TODO: this is the whole point of this test, so re-enable soon!
         //
@@ -495,6 +538,8 @@ mod tests {
         //     time_unit: ClockTimeUnit::Beats,
         // }));
 
-        let _ = o.run_until_completion(&mut clock);
+        let mut clock = Clock::new();
+        let mut r = Runner::default();
+        let _ = r.run(&mut o, &mut clock);
     }
 }

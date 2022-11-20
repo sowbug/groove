@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     traits::{
-        HasOverhead, HasUid, IsEffect, MessageBounds, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
+        HasOverhead, HasUid, MessageBounds, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
         SourcesAudio, TransformsAudio,
     },
 };
@@ -15,7 +15,6 @@ pub struct Mixer<M: MessageBounds> {
 
     sources: Vec<Ww<dyn SourcesAudio>>,
 }
-impl<M: MessageBounds> IsEffect for Mixer<M> {}
 impl<M: MessageBounds> NewIsEffect for Mixer<M> {}
 impl<M: MessageBounds> TransformsAudio for Mixer<M> {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {

@@ -3,8 +3,8 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, IsEffect, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
-        SourcesAudio, TransformsAudio,
+        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SinksAudio, SourcesAudio,
+        TransformsAudio,
     },
 };
 use std::f64::consts::PI;
@@ -109,7 +109,6 @@ pub struct BiQuadFilter {
     output_m1: f64,
     output_m2: f64,
 }
-impl IsEffect for BiQuadFilter {}
 impl NewIsEffect for BiQuadFilter {}
 impl TransformsAudio for BiQuadFilter {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
@@ -493,7 +492,6 @@ mod tests {
         controllers::BiQuadFilterControlParams,
         envelopes::{EnvelopeStep, SteppedEnvelope},
         settings::patches::WaveformType,
-        utils::tests::write_source_and_controlled_effect,
     };
 
     // TODO: these aren't really unit tests. They just spit out files that I
@@ -578,12 +576,13 @@ mod tests {
             ),
         ];
         for t in tests {
-            write_source_and_controlled_effect(
-                t.0,
-                WaveformType::Noise,
-                Some(BiQuadFilter::new_wrapped_with(t.1, SAMPLE_RATE)),
-                None,
-            );
+            // TODO
+            // write_source_and_controlled_effect(
+            //     t.0,
+            //     WaveformType::Noise,
+            //     Some(BiQuadFilter::new_wrapped_with(t.1, SAMPLE_RATE)),
+            //     None,
+            // );
         }
     }
 

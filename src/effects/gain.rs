@@ -3,8 +3,8 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, IsEffect, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
-        SourcesAudio, TransformsAudio,
+        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SinksAudio, SourcesAudio,
+        TransformsAudio,
     },
 };
 
@@ -17,7 +17,6 @@ pub(crate) struct Gain {
     sources: Vec<Ww<dyn SourcesAudio>>,
     ceiling: f32,
 }
-impl IsEffect for Gain {}
 impl NewIsEffect for Gain {}
 impl TransformsAudio for Gain {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
