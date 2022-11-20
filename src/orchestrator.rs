@@ -1,18 +1,18 @@
 use crate::{
     clock::{Clock, WatchedClock},
     common::{rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
-    control::{BigMessage, ControlPath},
+    controllers::{BigMessage, ControlPath},
     effects::mixer::Mixer,
     id_store::IdStore,
     messages::GrooveMessage,
     midi::{patterns::PatternManager, MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{
         BoxedEntity, EvenNewerCommand, EvenNewerIsUpdateable, HasUid, Internal, IsEffect,
-        IsMidiEffect, MakesIsViewable, MessageBounds, NewIsController, NewUpdateable, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
-        SourcesMidi, Terminates, WatchesClock,
+        IsMidiEffect, MakesIsViewable, MessageBounds, NewIsController, NewUpdateable, SinksAudio,
+        SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi, Terminates, WatchesClock,
     },
 };
-use anyhow::{anyhow};
+use anyhow::anyhow;
 use crossbeam::deque::Worker;
 use std::{
     collections::HashMap,
@@ -63,11 +63,14 @@ pub(crate) enum Uid {
     IsMidiEffect(usize),
 }
 
+pub type GrooveOrchestrator = Orchestrator<GrooveMessage>;
+
 #[derive(Debug)]
 pub struct Orchestrator<M: MessageBounds> {
     uid: usize,
     store: Store<M>,
     main_mixer_uid: usize,
+    pattern_manager: PatternManager, // TODO: one of these things is not like the others
 }
 impl<M: MessageBounds> NewIsController for Orchestrator<M> {}
 impl<M: MessageBounds> NewUpdateable for Orchestrator<M> {
@@ -105,6 +108,8 @@ impl<M: MessageBounds> HasUid for Orchestrator<M> {
     }
 }
 impl<M: MessageBounds> Orchestrator<M> {
+    pub const MAIN_MIXER_UVID: &str = "main-mixer";
+
     pub(crate) fn new() -> Self {
         Default::default()
     }
@@ -117,8 +122,16 @@ impl<M: MessageBounds> Orchestrator<M> {
         &mut self.store
     }
 
-    pub(crate) fn add(&mut self, entity: BoxedEntity<M>) -> usize {
-        self.store.add(entity)
+    pub(crate) fn add(&mut self, uvid: Option<&str>, entity: BoxedEntity<M>) -> usize {
+        self.store.add(uvid, entity)
+    }
+
+    pub(crate) fn get(&mut self, uvid: &str) -> Option<&BoxedEntity<M>> {
+        self.store.get_by_uvid(uvid)
+    }
+
+    pub(crate) fn get_uid(&mut self, uvid: &str) -> Option<usize> {
+        self.store.get_uid(uvid)
     }
 
     pub(crate) fn link_control(
@@ -311,6 +324,14 @@ impl<M: MessageBounds> Orchestrator<M> {
         self.store
             .disconnect_midi_receiver(receiver_uid, receiver_midi_channel);
     }
+
+    pub fn pattern_manager(&self) -> &PatternManager {
+        &self.pattern_manager
+    }
+
+    pub fn pattern_manager_mut(&mut self) -> &mut PatternManager {
+        &mut self.pattern_manager
+    }
 }
 impl<M: MessageBounds> Default for Orchestrator<M> {
     fn default() -> Self {
@@ -318,9 +339,13 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
             uid: Default::default(),
             store: Default::default(),
             main_mixer_uid: Default::default(),
+            pattern_manager: Default::default(),
         };
         let main_mixer = Box::new(Mixer::default());
-        r.main_mixer_uid = r.add(BoxedEntity::Effect(main_mixer));
+        r.main_mixer_uid = r.add(
+            Some(Orchestrator::<M>::MAIN_MIXER_UVID),
+            BoxedEntity::Effect(main_mixer),
+        );
         r
     }
 }
@@ -357,7 +382,7 @@ impl GrooveRunner {
         orchestrator: &mut Box<Orchestrator<GrooveMessage>>,
         clock: &mut Clock,
         run_until_completion: bool,
-    ) -> Vec<MonoSample> {
+    ) -> anyhow::Result<Vec<MonoSample>> {
         let mut samples = Vec::<MonoSample>::new();
         loop {
             let command = orchestrator.update(clock, GrooveMessage::Tick);
@@ -381,7 +406,7 @@ impl GrooveRunner {
                 break;
             }
         }
-        samples
+        Ok(samples)
     }
 
     fn handle_message(
@@ -504,13 +529,21 @@ impl GrooveRunner {
 pub struct Store<M> {
     last_uid: usize,
     uid_to_item: HashMap<usize, BoxedEntity<M>>,
+
+    // Linked controls (one entity controls another entity's parameter)
     uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
+
+    // Patch cables
     audio_sink_uid_to_source_uids: HashMap<usize, Vec<usize>>,
+
+    // MIDI connections
     midi_channel_to_receiver_uid: HashMap<MidiChannel, Vec<usize>>,
+
+    uvid_to_uid: HashMap<String, usize>,
 }
 
 impl<M> Store<M> {
-    pub(crate) fn add(&mut self, mut entity: BoxedEntity<M>) -> usize {
+    pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: BoxedEntity<M>) -> usize {
         let uid = self.get_next_uid();
         match entity {
             BoxedEntity::Controller(ref mut e) => e.set_uid(uid),
@@ -519,6 +552,9 @@ impl<M> Store<M> {
         }
 
         self.uid_to_item.insert(uid, entity);
+        if let Some(uvid) = uvid {
+            self.uvid_to_uid.insert(uvid.to_string(), uid);
+        }
         uid
     }
 
@@ -528,6 +564,26 @@ impl<M> Store<M> {
 
     pub(crate) fn get_mut(&mut self, uid: usize) -> Option<&mut BoxedEntity<M>> {
         self.uid_to_item.get_mut(&uid)
+    }
+
+    pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&BoxedEntity<M>> {
+        if let Some(uid) = self.uvid_to_uid.get(uvid) {
+            self.uid_to_item.get(&uid)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity<M>> {
+        if let Some(uid) = self.uvid_to_uid.get(uvid) {
+            self.uid_to_item.get_mut(&uid)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn get_uid(&self, uvid: &str) -> Option<usize> {
+        self.uvid_to_uid.get(uvid).copied()
     }
 
     pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, BoxedEntity<M>> {
@@ -946,7 +1002,7 @@ pub mod tests {
             orchestrator: &mut Box<Orchestrator<TestMessage>>,
             clock: &mut Clock,
             run_until_completion: bool,
-        ) -> Vec<MonoSample> {
+        ) -> anyhow::Result<Vec<MonoSample>> {
             let mut samples = Vec::<MonoSample>::new();
             loop {
                 let command = orchestrator.update(clock, TestMessage::Tick);
@@ -975,7 +1031,7 @@ pub mod tests {
                     break;
                 }
             }
-            samples
+            Ok(samples)
         }
 
         fn handle_message(

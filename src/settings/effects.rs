@@ -1,5 +1,5 @@
 use crate::{
-    common::{MonoSample, Rrc},
+    common::MonoSample,
     effects::{
         bitcrusher::Bitcrusher,
         filter::{BiQuadFilter, FilterParams},
@@ -8,7 +8,7 @@ use crate::{
         mixer::Mixer,
     },
     messages::GrooveMessage,
-    traits::IsEffect,
+    traits::{IsEffect, NewIsEffect},
 };
 use serde::{Deserialize, Serialize};
 
@@ -73,55 +73,46 @@ pub enum EffectSettings {
 }
 
 impl EffectSettings {
-    pub(crate) fn instantiate(&self, sample_rate: usize) -> Rrc<dyn IsEffect> {
+    pub(crate) fn instantiate(
+        &self,
+        sample_rate: usize,
+    ) -> Box<dyn NewIsEffect<Message = GrooveMessage>> {
         match *self {
-            EffectSettings::Mixer {} => Mixer::<GrooveMessage>::new_wrapped(),
+            EffectSettings::Mixer {} => Box::new(Mixer::<GrooveMessage>::new()),
             EffectSettings::Limiter { min, max } => {
-                Limiter::new_wrapped_with(min as MonoSample, max as MonoSample)
+                Box::new(Limiter::new_with(min as MonoSample, max as MonoSample))
             }
-            EffectSettings::Gain { ceiling } => Gain::new_wrapped_with(ceiling),
+            EffectSettings::Gain { ceiling } => Box::new(Gain::new_with(ceiling)),
             EffectSettings::Bitcrusher { bits_to_crush } => {
-                Bitcrusher::new_wrapped_with(bits_to_crush)
+                Box::new(Bitcrusher::new_with(bits_to_crush))
             }
-            EffectSettings::FilterLowPass12db { cutoff, q } => {
-                BiQuadFilter::new_wrapped_with(&FilterParams::LowPass { cutoff, q }, sample_rate)
-            }
-            EffectSettings::FilterHighPass12db { cutoff, q } => {
-                BiQuadFilter::new_wrapped_with(&FilterParams::HighPass { cutoff, q }, sample_rate)
-            }
-            EffectSettings::FilterBandPass12db { cutoff, bandwidth } => {
-                BiQuadFilter::new_wrapped_with(
-                    &FilterParams::BandPass { cutoff, bandwidth },
-                    sample_rate,
-                )
-            }
-            EffectSettings::FilterBandStop12db { cutoff, bandwidth } => {
-                BiQuadFilter::new_wrapped_with(
-                    &FilterParams::BandStop { cutoff, bandwidth },
-                    sample_rate,
-                )
-            }
-            EffectSettings::FilterAllPass12db { cutoff, q } => {
-                BiQuadFilter::new_wrapped_with(&FilterParams::AllPass { cutoff, q }, sample_rate)
-            }
-            EffectSettings::FilterPeakingEq12db { cutoff, db_gain } => {
-                BiQuadFilter::new_wrapped_with(
-                    &FilterParams::PeakingEq { cutoff, db_gain },
-                    sample_rate,
-                )
-            }
-            EffectSettings::FilterLowShelf12db { cutoff, db_gain } => {
-                BiQuadFilter::new_wrapped_with(
-                    &FilterParams::LowShelf { cutoff, db_gain },
-                    sample_rate,
-                )
-            }
-            EffectSettings::FilterHighShelf12db { cutoff, db_gain } => {
-                BiQuadFilter::new_wrapped_with(
-                    &FilterParams::HighShelf { cutoff, db_gain },
-                    sample_rate,
-                )
-            }
+            EffectSettings::FilterLowPass12db { cutoff, q } => Box::new(BiQuadFilter::new_with(
+                &FilterParams::LowPass { cutoff, q },
+                sample_rate,
+            )),
+            EffectSettings::FilterHighPass12db { cutoff, q } => Box::new(BiQuadFilter::new_with(
+                &FilterParams::HighPass { cutoff, q },
+                sample_rate,
+            )),
+            EffectSettings::FilterBandPass12db { cutoff, bandwidth } => Box::new(
+                BiQuadFilter::new_with(&FilterParams::BandPass { cutoff, bandwidth }, sample_rate),
+            ),
+            EffectSettings::FilterBandStop12db { cutoff, bandwidth } => Box::new(
+                BiQuadFilter::new_with(&FilterParams::BandStop { cutoff, bandwidth }, sample_rate),
+            ),
+            EffectSettings::FilterAllPass12db { cutoff, q } => Box::new(BiQuadFilter::new_with(
+                &FilterParams::AllPass { cutoff, q },
+                sample_rate,
+            )),
+            EffectSettings::FilterPeakingEq12db { cutoff, db_gain } => Box::new(
+                BiQuadFilter::new_with(&FilterParams::PeakingEq { cutoff, db_gain }, sample_rate),
+            ),
+            EffectSettings::FilterLowShelf12db { cutoff, db_gain } => Box::new(
+                BiQuadFilter::new_with(&FilterParams::LowShelf { cutoff, db_gain }, sample_rate),
+            ),
+            EffectSettings::FilterHighShelf12db { cutoff, db_gain } => Box::new(
+                BiQuadFilter::new_with(&FilterParams::HighShelf { cutoff, db_gain }, sample_rate),
+            ),
         }
     }
 }

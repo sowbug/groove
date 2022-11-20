@@ -1,6 +1,6 @@
 use crate::{
     common::{rrc_downgrade, wrc_clone, DeviceId, Rrc, Ww},
-    control::ControlPath,
+    controllers::ControlPath,
     traits::{IsEffect, IsMidiEffect, SinksAudio, SourcesAudio, WatchesClock},
 };
 use std::collections::HashMap;

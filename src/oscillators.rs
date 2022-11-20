@@ -8,6 +8,7 @@ use std::f32::consts::PI;
 
 #[derive(Debug)]
 pub struct Oscillator {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
@@ -40,6 +41,7 @@ impl Default for Oscillator {
             // One view is that a default oscillator should be quiet. Another view
             // is that a quiet oscillator isn't doing its main job of helping make
             // sound. Principle of Least Astonishment prevails.
+            uid: usize::default(),
             me: weak_new(),
             overhead: Overhead::default(),
             waveform: WaveformType::Sine,

@@ -1,8 +1,12 @@
 use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
+    messages::GrooveMessage,
     midi::{GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{HasOverhead, IsMidiInstrument, Overhead, SinksMidi, SourcesAudio},
+    traits::{
+        HasOverhead, HasUid, IsMidiInstrument, NewIsInstrument, NewUpdateable, Overhead, SinksMidi,
+        SourcesAudio,
+    },
 };
 use std::collections::HashMap;
 
@@ -102,6 +106,7 @@ impl HasOverhead for Voice {
 
 #[derive(Debug, Default)]
 pub struct Sampler {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
@@ -111,7 +116,31 @@ pub struct Sampler {
     pub(crate) kit_name: String,
 }
 impl IsMidiInstrument for Sampler {}
+impl NewIsInstrument for Sampler {}
+impl SourcesAudio for Sampler {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        if !self.overhead().is_enabled() || self.overhead().is_muted() {
+            return MONO_SAMPLE_SILENCE;
+        }
 
+        self.note_to_voice
+            .values_mut()
+            .map(|v| v.source_audio(clock))
+            .sum()
+    }
+}
+impl NewUpdateable for Sampler {
+    type Message = GrooveMessage;
+}
+impl HasUid for Sampler {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 impl Sampler {
     fn new(midi_channel: MidiChannel) -> Self {
         Self {
@@ -126,7 +155,7 @@ impl Sampler {
         Ok(())
     }
 
-    fn new_from_files(midi_channel: MidiChannel) -> Self {
+    pub(crate) fn new_from_files(midi_channel: MidiChannel) -> Self {
         let mut r = Self::new(midi_channel);
         let samples: [(GeneralMidiPercussionProgram, &str); 21] = [
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
@@ -164,6 +193,7 @@ impl Sampler {
         r
     }
 
+    #[deprecated]
     pub fn new_wrapped_from_files(midi_channel: MidiChannel) -> Rrc<Self> {
         let wrapped = rrc(Self::new_from_files(midi_channel));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
@@ -207,18 +237,6 @@ impl SinksMidi for Sampler {
     }
 }
 
-impl SourcesAudio for Sampler {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        if !self.overhead().is_enabled() || self.overhead().is_muted() {
-            return MONO_SAMPLE_SILENCE;
-        }
-
-        self.note_to_voice
-            .values_mut()
-            .map(|v| v.source_audio(clock))
-            .sum()
-    }
-}
 impl HasOverhead for Sampler {
     fn overhead(&self) -> &Overhead {
         &self.overhead

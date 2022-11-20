@@ -3,15 +3,18 @@ use crate::effects::{
     arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
     limiter::Limiter, mixer::Mixer,
 };
+use crate::messages::GrooveMessage;
 use crate::settings::control::ControlStep;
-use crate::traits::{MessageBounds, SinksUpdates, Terminates, WatchesClock};
+use crate::traits::{
+    EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, SinksUpdates,
+    Terminates, WatchesClock,
+};
 use crate::{clock::BeatValue, settings::control::ControlPathSettings};
 use crate::{
     envelopes::{AdsrEnvelope, EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
     oscillators::Oscillator,
 };
 use core::fmt::Debug;
-use std::fmt;
 use std::ops::Range;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString};
@@ -34,9 +37,9 @@ pub type SmallMessageGenerator = Box<dyn SmallMessageGeneratorT>;
 ///
 /// A ControlTrip is one automation track, which can run as long as the whole
 /// song. For now, it controls one parameter of one target.
+#[derive(Debug, Default)]
 pub(crate) struct ControlTrip {
-    target_uid: usize,
-    target_on_update: Option<SmallMessageGenerator>,
+    uid: usize,
     cursor_beats: f32,
 
     current_value: f32,
@@ -45,27 +48,60 @@ pub(crate) struct ControlTrip {
 
     is_finished: bool,
 }
+impl NewIsController for ControlTrip {}
+impl NewUpdateable for ControlTrip {
+    type Message = GrooveMessage;
 
-impl fmt::Debug for ControlTrip {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ControlTrip")
-            .field("target_uid", &self.target_uid)
-            .field("target_on_update", &self.target_on_update.is_some())
-            .field("cursor_beats", &self.cursor_beats)
-            .field("current_value", &self.current_value)
-            .field("envelope", &self.envelope)
-            .field("is_finished", &self.is_finished)
-            .finish()
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        match message {
+            GrooveMessage::Tick => {
+                let time = self.envelope.time_for_unit(clock);
+                let step = self.envelope.step_for_time(time);
+                if step.interval.contains(&time) {
+                    let value = self.envelope.value_for_step_at_time(step, time);
+
+                    let last_value = self.current_value;
+                    self.current_value = value;
+                    self.is_finished = time >= step.interval.end;
+                    if self.current_value != last_value {
+                        return EvenNewerCommand::single(GrooveMessage::ControlF32(
+                            self.uid,
+                            self.current_value,
+                        ));
+                    }
+                } else {
+                    // This is a drastic response to a tick that's out of range. It
+                    // might be better to limit it to times that are later than the
+                    // covered range. We're likely to hit ControlTrips that start beyond
+                    // time zero.
+                    self.is_finished = true;
+                }
+            }
+            _ => todo!(),
+        }
+        EvenNewerCommand::none()
     }
 }
+impl Terminates for ControlTrip {
+    fn is_finished(&self) -> bool {
+        self.is_finished
+    }
+}
+impl HasUid for ControlTrip {
+    fn uid(&self) -> usize {
+        self.uid
+    }
 
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 impl ControlTrip {
     const CURSOR_BEGIN: f32 = 0.0;
 
     pub fn new(target_uid: usize, on_update: SmallMessageGenerator) -> Self {
         Self {
-            target_uid,
-            target_on_update: Some(on_update),
+            uid: usize::default(),
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f32::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
@@ -132,12 +168,13 @@ impl WatchesClock for ControlTrip {
             let last_value = self.current_value;
             self.current_value = value;
             if self.current_value != last_value {
-                if let Some(f) = &self.target_on_update {
-                    messages.push(BigMessage::SmallMessage(
-                        self.target_uid,
-                        (f)(self.current_value),
-                    ));
-                }
+                // if let Some(f) = &self.target_on_update {
+                //     messages.push(BigMessage::SmallMessage(
+                //         self.target_uid,
+                //         (f)(self.current_value),
+                //     ));
+                // }
+                // TODO: remember, this is why automations are broken right now!
             }
             self.is_finished = time >= step.interval.end;
         } else {
@@ -148,12 +185,6 @@ impl WatchesClock for ControlTrip {
             self.is_finished = true;
         }
         messages
-    }
-}
-
-impl Terminates for ControlTrip {
-    fn is_finished(&self) -> bool {
-        self.is_finished
     }
 }
 
@@ -384,7 +415,6 @@ impl SinksUpdates for Oscillator {
 
 #[cfg(test)]
 mod tests {
-    
 
     use crate::{
         clock::WatchedClock,

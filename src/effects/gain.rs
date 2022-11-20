@@ -1,11 +1,16 @@
 use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
+    messages::GrooveMessage,
+    traits::{
+        HasOverhead, HasUid, IsEffect, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
+        SourcesAudio, TransformsAudio,
+    },
 };
 
 #[derive(Debug, Default)]
 pub(crate) struct Gain {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
@@ -13,6 +18,24 @@ pub(crate) struct Gain {
     ceiling: f32,
 }
 impl IsEffect for Gain {}
+impl NewIsEffect for Gain {}
+impl TransformsAudio for Gain {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+        input_sample * self.ceiling
+    }
+}
+impl NewUpdateable for Gain {
+    type Message = GrooveMessage;
+}
+impl HasUid for Gain {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 
 impl Gain {
     #[allow(dead_code)]
@@ -60,11 +83,6 @@ impl SinksAudio for Gain {
     }
     fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
         &mut self.sources
-    }
-}
-impl TransformsAudio for Gain {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
-        input_sample * self.ceiling
     }
 }
 impl HasOverhead for Gain {

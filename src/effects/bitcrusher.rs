@@ -1,11 +1,16 @@
 use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
+    messages::GrooveMessage,
+    traits::{
+        HasOverhead, HasUid, IsEffect, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
+        SourcesAudio, TransformsAudio,
+    },
 };
 
 #[derive(Debug, Default)]
 pub struct Bitcrusher {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
@@ -13,24 +18,47 @@ pub struct Bitcrusher {
     bits_to_crush: u8,
 }
 impl IsEffect for Bitcrusher {}
+impl NewIsEffect for Bitcrusher {}
+impl TransformsAudio for Bitcrusher {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+        let input_i16 = (input_sample * (i16::MAX as MonoSample)) as i16;
+        let squished = input_i16 >> self.bits_to_crush;
+        let expanded = squished << self.bits_to_crush;
+        expanded as MonoSample / (i16::MAX as MonoSample)
+    }
+}
+impl NewUpdateable for Bitcrusher {
+    type Message = GrooveMessage;
+}
+impl HasUid for Bitcrusher {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
+
 impl Bitcrusher {
     #[allow(dead_code)]
     fn new() -> Self {
         Self::new_with(8)
     }
 
-    #[allow(dead_code)]
+    #[deprecated]
     pub fn new_wrapped() -> Rrc<Self> {
         Self::new_wrapped_with(8)
     }
 
-    fn new_with(bits_to_crush: u8) -> Self {
+    pub(crate) fn new_with(bits_to_crush: u8) -> Self {
         Self {
             bits_to_crush,
             ..Default::default()
         }
     }
 
+    #[deprecated]
     pub fn new_wrapped_with(bits_to_crush: u8) -> Rrc<Self> {
         let wrapped = rrc(Self::new_with(bits_to_crush));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
@@ -55,14 +83,6 @@ impl SinksAudio for Bitcrusher {
     }
     fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
         &mut self.sources
-    }
-}
-impl TransformsAudio for Bitcrusher {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
-        let input_i16 = (input_sample * (i16::MAX as MonoSample)) as i16;
-        let squished = input_i16 >> self.bits_to_crush;
-        let expanded = squished << self.bits_to_crush;
-        expanded as MonoSample / (i16::MAX as MonoSample)
     }
 }
 impl HasOverhead for Bitcrusher {

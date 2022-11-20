@@ -8,11 +8,12 @@ use crate::{
     clock::{BeatValue, TimeSignature},
     common::{DeviceId, Rrc},
     effects::arpeggiator::Arpeggiator,
-    synthesizers::{
+    messages::GrooveMessage,
+    instruments::{
         drumkit_sampler,
         welsh::{self, PatchName},
     },
-    traits::{IsMidiEffect, IsMidiInstrument},
+    traits::{BoxedEntity, IsMidiEffect, IsMidiInstrument, NewIsController, NewIsInstrument},
 };
 use serde::{Deserialize, Serialize};
 
@@ -47,7 +48,7 @@ pub enum InstrumentSettings {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum MidiInstrumentSettings {
+pub enum ControllerSettings {
     #[serde(rename_all = "kebab-case")]
     Arpeggiator {
         #[serde(rename = "midi-in")]
@@ -61,7 +62,7 @@ pub enum MidiInstrumentSettings {
 #[serde(rename_all = "kebab-case")]
 pub enum DeviceSettings {
     Instrument(DeviceId, InstrumentSettings),
-    MidiInstrument(DeviceId, MidiInstrumentSettings),
+    Controller(DeviceId, ControllerSettings),
     Effect(DeviceId, EffectSettings),
 }
 
@@ -167,31 +168,59 @@ impl Default for ClockSettings {
 }
 
 impl InstrumentSettings {
-    pub(crate) fn instantiate(&self, sample_rate: usize) -> Rrc<dyn IsMidiInstrument> {
+    pub(crate) fn instantiate(
+        &self,
+        sample_rate: usize,
+    ) -> (
+        MidiChannel,
+        Box<dyn NewIsInstrument<Message = GrooveMessage>>,
+    ) {
         match self {
             InstrumentSettings::Welsh {
                 midi_input_channel,
                 preset_name,
-            } => welsh::Synth::new_wrapped_with(
+            } => (
                 *midi_input_channel,
-                sample_rate,
-                SynthPatch::by_name(preset_name),
+                Box::new(welsh::Synth::new_with(
+                    *midi_input_channel,
+                    sample_rate,
+                    SynthPatch::by_name(preset_name),
+                )),
             ),
             InstrumentSettings::Drumkit {
                 midi_input_channel,
                 preset_name: _preset,
-            } => drumkit_sampler::Sampler::new_wrapped_from_files(*midi_input_channel),
+            } => (
+                *midi_input_channel,
+                Box::new(drumkit_sampler::Sampler::new_from_files(
+                    *midi_input_channel,
+                )),
+            ),
         }
     }
 }
 
-impl MidiInstrumentSettings {
-    pub(crate) fn instantiate(&self, _sample_rate: usize) -> Rrc<dyn IsMidiEffect> {
+impl ControllerSettings {
+    pub(crate) fn instantiate(
+        &self,
+        _sample_rate: usize,
+    ) -> (
+        MidiChannel,
+        MidiChannel,
+        Box<dyn NewIsController<Message = GrooveMessage>>,
+    ) {
         match *self {
-            MidiInstrumentSettings::Arpeggiator {
+            ControllerSettings::Arpeggiator {
                 midi_input_channel,
                 midi_output_channel,
-            } => Arpeggiator::new_wrapped_with(midi_input_channel, midi_output_channel),
+            } => (
+                midi_input_channel,
+                midi_output_channel,
+                Box::new(Arpeggiator::new_with(
+                    midi_input_channel,
+                    midi_output_channel,
+                )),
+            ),
         }
     }
 }

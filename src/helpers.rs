@@ -1,14 +1,15 @@
 use crate::{
-    common::{rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc},
+    common::MonoSample,
+    instruments::{
+        drumkit_sampler::Sampler,
+        welsh::{PatchName, Synth},
+    },
     messages::GrooveMessage,
     midi::{programmers::MidiSmfReader, sequencers::MidiTickSequencer},
     orchestrator::{OldOrchestrator, Performance},
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
-    synthesizers::{
-        drumkit_sampler::Sampler,
-        welsh::{PatchName, Synth},
-    },
-    traits::IsMidiInstrument,
+    traits::{BoxedEntity, IsMidiInstrument, NewIsInstrument},
+    Orchestrator,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -195,36 +196,30 @@ impl IOHelper {
         Ok(settings)
     }
 
-    pub fn orchestrator_from_midi_file(filename: &str) -> OldOrchestrator {
+    pub fn orchestrator_from_midi_file(filename: &str) -> Box<Orchestrator<GrooveMessage>> {
         let data = std::fs::read(filename).unwrap();
-        let mut orchestrator = OldOrchestrator::new();
+        let mut orchestrator = Box::new(Orchestrator::new());
 
-        let midi_sequencer = rrc(MidiTickSequencer::new());
-        MidiSmfReader::program_sequencer(&data, &mut midi_sequencer.borrow_mut());
-
-        orchestrator.connect_to_upstream_midi_bus(rrc_clone::<MidiTickSequencer<GrooveMessage>>(
-            &midi_sequencer,
-        ));
-        orchestrator.register_clock_watcher(None, midi_sequencer);
+        let mut sequencer = Box::new(MidiTickSequencer::default());
+        MidiSmfReader::program_sequencer(&mut sequencer, &data);
+        let sequencer_uid = orchestrator.add(None, BoxedEntity::Controller(sequencer));
+        orchestrator.connect_midi_upstream(sequencer_uid);
 
         // TODO: this is a hack. We need only the number of channels used in the
         // SMF, but a few idle ones won't hurt for now.
         for channel in 0..16 {
-            let synth: Rrc<dyn IsMidiInstrument> = if channel == 9 {
-                Sampler::new_wrapped_from_files(channel)
+            let synth: Box<dyn NewIsInstrument<Message = GrooveMessage>> = if channel == 9 {
+                Box::new(Sampler::new_from_files(channel))
             } else {
-                Synth::new_wrapped_with(
+                Box::new(Synth::new_with(
                     channel,
                     ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
                     SynthPatch::by_name(&PatchName::Piano),
-                )
+                ))
             };
-            orchestrator.register_audio_source(None, rrc_clone::<dyn IsMidiInstrument>(&synth));
-            orchestrator.connect_to_downstream_midi_bus(
-                channel,
-                rrc_downgrade::<dyn IsMidiInstrument>(&synth),
-            );
-            orchestrator.add_main_mixer_source(rrc_downgrade::<dyn IsMidiInstrument>(&synth));
+            let synth_uid = orchestrator.add(None, BoxedEntity::Instrument(synth));
+            orchestrator.connect_midi_downstream(synth_uid, channel);
+            orchestrator.connect_to_main_mixer(synth_uid);
         }
         orchestrator
     }

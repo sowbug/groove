@@ -1,17 +1,16 @@
 use crate::{
     clock::Clock,
-    control::{BigMessage, SmallMessageGenerator},
+    controllers::{BigMessage, SmallMessageGenerator},
     messages::GrooveMessage,
     traits::{
-        EvenNewerCommand, HasUid, MessageBounds,
-        NewIsController, NewUpdateable, SourcesUpdates,
+        EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, SourcesUpdates,
         Terminates, WatchesClock,
     },
 };
 
 use core::fmt::Debug;
 
-use std::{marker::PhantomData};
+use std::marker::PhantomData;
 
 #[derive(Debug, Default)]
 pub(crate) struct Timer<M: MessageBounds> {
@@ -178,7 +177,7 @@ pub mod tests {
             rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
             MONO_SAMPLE_SILENCE,
         },
-        control::{BigMessage, SmallMessage, SmallMessageGenerator},
+        controllers::{BigMessage, SmallMessage, SmallMessageGenerator},
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
         messages::{tests::TestMessage, GrooveMessage},
@@ -189,9 +188,10 @@ pub mod tests {
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, IsEffect, MessageBounds, NewIsController, NewIsEffect, NewIsInstrument,
-            NewUpdateable, Overhead, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
-            SourcesMidi, Terminates, TransformsAudio, WatchesClock,
+            BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, IsEffect, MessageBounds,
+            NewIsController, NewIsEffect, NewIsInstrument, NewUpdateable, Overhead, SinksAudio,
+            SinksMidi, SinksUpdates, SourcesAudio, SourcesMidi, Terminates, TransformsAudio,
+            WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -662,7 +662,7 @@ pub mod tests {
                 }
                 for message in messages {
                     match message {
-                        crate::control::BigMessage::SmallMessage(uid, message) => {
+                        crate::controllers::BigMessage::SmallMessage(uid, message) => {
                             if let Some(target) = self.updateables.get_mut(&uid) {
                                 if let Some(target) = target.upgrade() {
                                     target.borrow_mut().update(clock.inner_clock(), message);
@@ -1014,6 +1014,7 @@ pub mod tests {
     /// Helper for testing SinksMidi
     #[derive(Debug, Default)]
     pub struct TestMidiSink<M: MessageBounds> {
+        uid: usize,
         pub(crate) me: Ww<Self>,
         overhead: Overhead,
 
@@ -1615,14 +1616,16 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
 
         // A simple audio source.
-        let synth_uid = o.add(BoxedEntity::Instrument(Box::new(
-            TestSynth::<TestMessage>::default(),
-        )));
+        let synth_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(TestSynth::<TestMessage>::default())),
+        );
 
         // A simple effect.
-        let effect_uid = o.add(BoxedEntity::Effect(Box::new(TestNegatingEffect::<
-            TestMessage,
-        >::default())));
+        let effect_uid = o.add(
+            None,
+            BoxedEntity::Effect(Box::new(TestNegatingEffect::<TestMessage>::default())),
+        );
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -1632,31 +1635,32 @@ pub mod tests {
 
         // Run the main loop for a while.
         const SECONDS: usize = 1;
-        let _ = o.add(BoxedEntity::Controller(Box::new(
-            Timer::<TestMessage>::new_with(SECONDS as f32),
-        )));
+        let _ = o.add(
+            None,
+            BoxedEntity::Controller(Box::new(Timer::<TestMessage>::new_with(SECONDS as f32))),
+        );
 
         // Gather the audio output.
         let mut runner = Runner::default();
         let mut clock = Clock::new();
-        let samples_1 = runner.run(&mut o, &mut clock, true);
+        if let Ok(samples_1) = runner.run(&mut o, &mut clock, true) {
+            // We should get exactly the right amount of audio.
+            assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
 
-        // We should get exactly the right amount of audio.
-        assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
+            // It should not all be silence.
+            assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
 
-        // It should not all be silence.
-        assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
-
-        // Run again but without the negating effect in the mix.
-        o.unpatch(synth_uid, effect_uid);
-        clock.reset();
-        let samples_2 = runner.run(&mut o, &mut clock, true);
-
-        // The sample pairs should cancel each other out.
-        assert!(!samples_2.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
-        samples_1.iter().zip(samples_2.iter()).all(|(a, b)| {
-            *a + *b == MONO_SAMPLE_SILENCE && (*a == MONO_SAMPLE_SILENCE || *a != *b)
-        });
+            // Run again but without the negating effect in the mix.
+            o.unpatch(synth_uid, effect_uid);
+            clock.reset();
+            if let Ok(samples_2) = runner.run(&mut o, &mut clock, true) {
+                // The sample pairs should cancel each other out.
+                assert!(!samples_2.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
+                samples_1.iter().zip(samples_2.iter()).all(|(a, b)| {
+                    *a + *b == MONO_SAMPLE_SILENCE && (*a == MONO_SAMPLE_SILENCE || *a != *b)
+                });
+            }
+        }
     }
 
     // TODO: I had a bug for a day where I'd swapped the param_names for the
@@ -1669,12 +1673,13 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
 
         // The synth's frequency is modulated by the LFO.
-        let synth_1_uid = o.add(BoxedEntity::Instrument(Box::new(
-            TestSynth::<TestMessage>::default(),
-        )));
+        let synth_1_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(TestSynth::<TestMessage>::default())),
+        );
         let mut lfo = TestLfo::<TestMessage>::default();
         lfo.set_frequency(2.0);
-        let lfo_uid = o.add(BoxedEntity::Controller(Box::new(lfo)));
+        let lfo_uid = o.add(None, BoxedEntity::Controller(Box::new(lfo)));
         o.link_control(
             lfo_uid,
             synth_1_uid,
@@ -1685,32 +1690,33 @@ pub mod tests {
         o.connect_to_main_mixer(synth_1_uid);
 
         const SECONDS: usize = 1;
-        let _ = o.add(BoxedEntity::Controller(Box::new(
-            Timer::<TestMessage>::new_with(SECONDS as f32),
-        )));
+        let _ = o.add(
+            None,
+            BoxedEntity::Controller(Box::new(Timer::<TestMessage>::new_with(SECONDS as f32))),
+        );
 
         // Gather the audio output.
         let mut runner = Runner::default();
         let mut clock = Clock::new();
-        let samples_1 = runner.run(&mut o, &mut clock, true);
+        if let Ok(samples_1) = runner.run(&mut o, &mut clock, true) {
+            // We should get exactly the right amount of audio.
+            assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
 
-        // We should get exactly the right amount of audio.
-        assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
+            // It should not all be silence.
+            assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
 
-        // It should not all be silence.
-        assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
-
-        // Run again after disconnecting the LFO.
-        o.unlink_control(lfo_uid, synth_1_uid);
-        clock.reset();
-        let samples_2 = runner.run(&mut o, &mut clock, true);
-
-        // The two runs should be different. That's not a great test of what
-        // we're doing here, but it will detect when things are broken.
-        samples_1
-            .iter()
-            .zip(samples_2.iter())
-            .any(|(a, b)| *a != *b);
+            // Run again after disconnecting the LFO.
+            o.unlink_control(lfo_uid, synth_1_uid);
+            clock.reset();
+            if let Ok(samples_2) = runner.run(&mut o, &mut clock, true) {
+                // The two runs should be different. That's not a great test of what
+                // we're doing here, but it will detect when things are broken.
+                samples_1
+                    .iter()
+                    .zip(samples_2.iter())
+                    .any(|(a, b)| *a != *b);
+            }
+        }
     }
 
     #[test]
@@ -1718,14 +1724,16 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
-        let instrument_uid = o.add(BoxedEntity::Instrument(Box::new(TestInstrument::<
-            TestMessage,
-        >::default())));
-        let arpeggiator_uid = o.add(BoxedEntity::Controller(Box::new(TestArpeggiator::<
-            TestMessage,
-        >::new_with(
-            TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
-        ))));
+        let instrument_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(TestInstrument::<TestMessage>::default())),
+        );
+        let arpeggiator_uid = o.add(
+            None,
+            BoxedEntity::Controller(Box::new(TestArpeggiator::<TestMessage>::new_with(
+                TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
+            ))),
+        );
 
         // We'll hear the instrument.
         assert!(o.connect_to_main_mixer(instrument_uid).is_ok());
@@ -1739,29 +1747,35 @@ pub mod tests {
         );
 
         const SECONDS: usize = 1;
-        let _ = o.add(BoxedEntity::Controller(Box::new(
-            Timer::<TestMessage>::new_with(SECONDS as f32),
-        )));
+        let _ = o.add(
+            None,
+            BoxedEntity::Controller(Box::new(Timer::<TestMessage>::new_with(SECONDS as f32))),
+        );
 
         // Everything is hooked up. Let's run it and hear what we got.
         let mut runner = Runner::default();
         let mut clock = Clock::new();
-        let samples = runner.run(&mut o, &mut clock, true);
-
-        // We haven't asked the arpeggiator to start sending anything yet.
-        assert!(
-            samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
-            "Expected total silence because the arpeggiator is not turned on."
-        );
+        if let Ok(samples) = runner.run(&mut o, &mut clock, true) {
+            // We haven't asked the arpeggiator to start sending anything yet.
+            assert!(
+                samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
+                "Expected total silence because the arpeggiator is not turned on."
+            );
+        } else {
+            assert!(false, "impossible!");
+        }
 
         // Let's turn on the arpeggiator.
         runner.send_msg_enable(&mut o, &clock, arpeggiator_uid, true);
         clock.reset();
-        let samples = runner.run(&mut o, &mut clock, true);
-        assert!(
-            samples.iter().any(|&s| s != MONO_SAMPLE_SILENCE),
-            "Expected some sound because the arpeggiator is now running."
-        );
+        if let Ok(samples) = runner.run(&mut o, &mut clock, true) {
+            assert!(
+                samples.iter().any(|&s| s != MONO_SAMPLE_SILENCE),
+                "Expected some sound because the arpeggiator is now running."
+            );
+        } else {
+            assert!(false, "impossible!");
+        }
 
         // The arpeggiator is still running. Let's disable it (taking advantage
         // of the fact that TestInstrument has zero release time, because
@@ -1776,15 +1790,21 @@ pub mod tests {
         // it. We're just giving the arpeggiator a bit of time to clear out any
         // leftover note.
         clock.reset();
-        let _ = runner.run(&mut o, &mut clock, true);
+        if let Ok(_) = runner.run(&mut o, &mut clock, true) {
+        } else {
+            assert!(false, "impossible!");
+        }
 
         // But by now it should be silent.
         clock.reset();
-        let samples = runner.run(&mut o, &mut clock, true);
-        assert!(
-            samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
-            "Expected total silence again after disabling the arpeggiator."
-        );
+        if let Ok(samples) = runner.run(&mut o, &mut clock, true) {
+            assert!(
+                samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
+                "Expected total silence again after disabling the arpeggiator."
+            );
+        } else {
+            assert!(false, "impossible!");
+        }
 
         // Re-enable the arpeggiator but disconnect the instrument's MIDI
         // connection.
@@ -1794,11 +1814,14 @@ pub mod tests {
             TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
         );
         clock.reset();
-        let samples = runner.run(&mut o, &mut clock, true);
-        assert!(
-            samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
-            "Expected total silence after disconnecting the instrument from the MIDI bus."
-        );
+        if let Ok(samples) = runner.run(&mut o, &mut clock, true) {
+            assert!(
+                samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
+                "Expected total silence after disconnecting the instrument from the MIDI bus."
+            );
+        } else {
+            assert!(false, "impossible!");
+        }
     }
 
     #[test]
@@ -1808,12 +1831,13 @@ pub mod tests {
         // A simple audio source.
         let entity_groove =
             BoxedEntity::Instrument(Box::new(TestSynth::<GrooveMessage>::default()));
-        let synth_uid = o.add(entity_groove);
+        let synth_uid = o.add(None, entity_groove);
 
         // A simple effect.
-        let effect_uid = o.add(BoxedEntity::Effect(Box::new(TestNegatingEffect::<
-            GrooveMessage,
-        >::default())));
+        let effect_uid = o.add(
+            None,
+            BoxedEntity::Effect(Box::new(TestNegatingEffect::<GrooveMessage>::default())),
+        );
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -1823,30 +1847,31 @@ pub mod tests {
 
         // Run the main loop for a while.
         const SECONDS: usize = 1;
-        let _ = o.add(BoxedEntity::Controller(Box::new(
-            Timer::<GrooveMessage>::new_with(SECONDS as f32),
-        )));
+        let _ = o.add(
+            None,
+            BoxedEntity::Controller(Box::new(Timer::<GrooveMessage>::new_with(SECONDS as f32))),
+        );
 
         // Gather the audio output.
         let mut runner = GrooveRunner::default();
         let mut clock = Clock::new();
-        let samples_1 = runner.run(&mut o, &mut clock, true);
+        if let Ok(samples_1) = runner.run(&mut o, &mut clock, true) {
+            // We should get exactly the right amount of audio.
+            assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
 
-        // We should get exactly the right amount of audio.
-        assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
+            // It should not all be silence.
+            assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
 
-        // It should not all be silence.
-        assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
-
-        // Run again but without the negating effect in the mix.
-        o.unpatch(synth_uid, effect_uid);
-        clock.reset();
-        let samples_2 = runner.run(&mut o, &mut clock, true);
-
-        // The sample pairs should cancel each other out.
-        assert!(!samples_2.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
-        samples_1.iter().zip(samples_2.iter()).all(|(a, b)| {
-            *a + *b == MONO_SAMPLE_SILENCE && (*a == MONO_SAMPLE_SILENCE || *a != *b)
-        });
+            // Run again but without the negating effect in the mix.
+            o.unpatch(synth_uid, effect_uid);
+            clock.reset();
+            if let Ok(samples_2) = runner.run(&mut o, &mut clock, true) {
+                // The sample pairs should cancel each other out.
+                assert!(!samples_2.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
+                samples_1.iter().zip(samples_2.iter()).all(|(a, b)| {
+                    *a + *b == MONO_SAMPLE_SILENCE && (*a == MONO_SAMPLE_SILENCE || *a != *b)
+                });
+            }
+        }
     }
 }

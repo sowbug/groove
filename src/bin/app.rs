@@ -4,7 +4,7 @@ use async_std::task::block_on;
 use crossbeam::deque::Steal; // TODO: this leaks into the app. Necessary?
 use groove::{
     gui::{GuiStuff, IsViewable, ViewableMessage, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    AudioOutput, IOHelper, MidiHandler, OldOrchestrator, TimeSignature,
+    AudioOutput, GrooveMessage, IOHelper, MidiHandler, Orchestrator, TimeSignature,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -32,7 +32,7 @@ struct GrooveApp {
 
     // Model
     project_name: String,
-    orchestrator: OldOrchestrator,
+    orchestrator: Orchestrator<GrooveMessage>,
     viewables: Vec<Box<dyn IsViewable<Message = ViewableMessage>>>,
     audio_output: AudioOutput,
 
@@ -89,12 +89,17 @@ pub struct ControlBar {
 }
 
 impl ControlBar {
-    pub fn view(&self, orchestrator: &OldOrchestrator, last_tick: Instant) -> Element<Message> {
+    pub fn view(
+        &self,
+        orchestrator: &Orchestrator<GrooveMessage>,
+        last_tick: Instant,
+    ) -> Element<Message> {
         container(
             row![
                 text_input(
                     "BPM",
-                    orchestrator.bpm().round().to_string().as_str(),
+                    "128",
+                    //orchestrator.bpm().round().to_string().as_str(),
                     Message::ControlBarBpm
                 )
                 .width(Length::Units(60)),

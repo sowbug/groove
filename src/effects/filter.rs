@@ -1,6 +1,11 @@
 use crate::{
+    clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
-    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio}, clock::Clock,
+    messages::GrooveMessage,
+    traits::{
+        HasOverhead, HasUid, IsEffect, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
+        SourcesAudio, TransformsAudio,
+    },
 };
 use std::f64::consts::PI;
 
@@ -86,6 +91,7 @@ struct CoefficientSet {
 /// https://en.wikipedia.org/wiki/Digital_biquad_filter
 #[derive(Debug)]
 pub struct BiQuadFilter {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
@@ -104,6 +110,37 @@ pub struct BiQuadFilter {
     output_m2: f64,
 }
 impl IsEffect for BiQuadFilter {}
+impl NewIsEffect for BiQuadFilter {}
+impl TransformsAudio for BiQuadFilter {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+        let s64 = input_sample as f64;
+        let r = (self.coefficients.b0 / self.coefficients.a0) * s64
+            + (self.coefficients.b1 / self.coefficients.a0) * self.sample_m1
+            + (self.coefficients.b2 / self.coefficients.a0) * self.sample_m2
+            - (self.coefficients.a1 / self.coefficients.a0) * self.output_m1
+            - (self.coefficients.a2 / self.coefficients.a0) * self.output_m2;
+
+        // Scroll everything forward in time.
+        self.sample_m2 = self.sample_m1;
+        self.sample_m1 = s64;
+
+        self.output_m2 = self.output_m1;
+        self.output_m1 = r;
+        r as MonoSample
+    }
+}
+impl NewUpdateable for BiQuadFilter {
+    type Message = GrooveMessage;
+}
+impl HasUid for BiQuadFilter {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 
 // We can't derive this because we need to call recalculate_coefficients(). Is
 // there an elegant way to get that done for free without a bunch of repetition?
@@ -149,6 +186,7 @@ impl BiQuadFilter {
     /// Returns a new/default struct without calling update_coefficients().
     fn default_fields() -> Self {
         Self {
+            uid: usize::default(),
             me: Default::default(),
             overhead: Default::default(),
             sources: Default::default(),
@@ -438,24 +476,6 @@ impl SinksAudio for BiQuadFilter {
         &mut self.sources
     }
 }
-impl TransformsAudio for BiQuadFilter {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
-        let s64 = input_sample as f64;
-        let r = (self.coefficients.b0 / self.coefficients.a0) * s64
-            + (self.coefficients.b1 / self.coefficients.a0) * self.sample_m1
-            + (self.coefficients.b2 / self.coefficients.a0) * self.sample_m2
-            - (self.coefficients.a1 / self.coefficients.a0) * self.output_m1
-            - (self.coefficients.a2 / self.coefficients.a0) * self.output_m2;
-
-        // Scroll everything forward in time.
-        self.sample_m2 = self.sample_m1;
-        self.sample_m1 = s64;
-
-        self.output_m2 = self.output_m1;
-        self.output_m1 = r;
-        r as MonoSample
-    }
-}
 impl HasOverhead for BiQuadFilter {
     fn overhead(&self) -> &Overhead {
         &self.overhead
@@ -470,7 +490,7 @@ impl HasOverhead for BiQuadFilter {
 mod tests {
     use super::*;
     use crate::{
-        control::BiQuadFilterControlParams,
+        controllers::BiQuadFilterControlParams,
         envelopes::{EnvelopeStep, SteppedEnvelope},
         settings::patches::WaveformType,
         utils::tests::write_source_and_controlled_effect,

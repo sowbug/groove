@@ -4,14 +4,13 @@ use crate::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
     },
+    instruments::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     messages::GrooveMessage,
     midi::{
         patterns::{Note, Pattern, PatternManager},
         sequencers::BeatSequencer,
     },
-    synthesizers::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
-    traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, MessageBounds, SinksAudio},
-    OldOrchestrator,
+    traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, MessageBounds, SinksAudio}, orchestrator::OldOrchestrator,
 };
 use iced::{
     alignment::{Horizontal, Vertical},
@@ -863,14 +862,14 @@ mod tests {
             gain::Gain,
             limiter::Limiter,
         },
-        messages::tests::TestMessage,
-        midi::sequencers::BeatSequencer,
-        settings::patches::SynthPatch,
-        synthesizers::{
+        instruments::{
             drumkit_sampler::Sampler as DrumkitSampler,
             sampler::Sampler,
             welsh::{PatchName, Synth},
         },
+        messages::tests::TestMessage,
+        midi::sequencers::BeatSequencer,
+        settings::patches::SynthPatch,
         traits::MakesIsViewable,
     };
 
@@ -878,8 +877,8 @@ mod tests {
 
     // There aren't many assertions in this method, but we know it'll panic or
     // spit out debug messages if something's wrong.
-    fn test_one_viewable(factory: Rrc<dyn MakesIsViewable>, message: Option<ViewableMessage>) {
-        let is_viewable = factory.borrow_mut().make_is_viewable();
+    fn test_one_viewable(factory: Box<dyn MakesIsViewable>, message: Option<ViewableMessage>) {
+        let is_viewable = factory.make_is_viewable();
         if let Some(mut viewable) = is_viewable {
             let _ = viewable.view();
             if let Some(message) = message {
@@ -893,40 +892,50 @@ mod tests {
     #[test]
     fn test_viewables() {
         test_one_viewable(
-            Synth::new_wrapped_with(0, 44100, SynthPatch::by_name(&PatchName::Trombone)),
+            Box::new(Synth::new_with(
+                0,
+                44100,
+                SynthPatch::by_name(&PatchName::Trombone),
+            )),
             None,
         );
-        test_one_viewable(DrumkitSampler::new_wrapped_from_files(0), None);
-        test_one_viewable(Sampler::new_wrapped_with(0, 1024), None);
+        Box::new(test_one_viewable(
+            Box::new(DrumkitSampler::new_from_files(0)),
+            None,
+        ));
+        Box::new(test_one_viewable(
+            Box::new(Sampler::new_with(0, 1024)),
+            None,
+        ));
         // TODO - test it! test_one_viewable(Mixer::new_wrapped(), None);
         test_one_viewable(
-            Gain::new_wrapped(),
+            Box::new(Gain::new()),
             Some(ViewableMessage::GainLevelChangedAsU8Percentage(28)),
         );
         test_one_viewable(
-            Bitcrusher::new_wrapped_with(7),
+            Box::new(Bitcrusher::new_with(7)),
             Some(ViewableMessage::BitcrusherValueChanged(4)),
         );
         test_one_viewable(
-            BiQuadFilter::new_wrapped_with(
+            Box::new(BiQuadFilter::new_with(
                 &FilterParams::AllPass {
                     cutoff: 1000.0,
                     q: 2.0,
                 },
                 44100,
-            ),
+            )),
             Some(ViewableMessage::FilterCutoffChangedAsF32(500.0)),
         );
         test_one_viewable(
-            Limiter::new_wrapped_with(0.0, 1.0),
+            Box::new(Limiter::new_with(0.0, 1.0)),
             Some(ViewableMessage::LimiterMinChanged(0.5)),
         );
         test_one_viewable(
-            Arpeggiator::new_wrapped_with(0, 1),
+            Box::new(Arpeggiator::new_with(0, 1)),
             Some(ViewableMessage::ArpeggiatorChanged(42)),
         );
         test_one_viewable(
-            BeatSequencer::<TestMessage>::new_wrapped(),
+            Box::new(BeatSequencer::<TestMessage>::new()),
             Some(ViewableMessage::EnablePressed(false)),
         );
     }

@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use clap::Parser;
-use groove::{IOHelper, OldOrchestrator};
+use groove::{IOHelper, Orchestrator};
 //use groove::ScriptEngine;
 
 #[derive(Parser, Debug, Default)]
@@ -39,17 +39,18 @@ fn main() -> anyhow::Result<()> {
         } else if args.yaml_in.is_some() {
             IOHelper::song_settings_from_yaml_file(args.yaml_in.unwrap().as_str())?.instantiate()?
         } else {
-            OldOrchestrator::new()
+            Box::new(Orchestrator::default())
         };
 
         print!("Performing to queue ");
-        let performance = orchestrator.perform()?;
+        //        let performance = orchestrator.perform()?;
 
         println!("Rendering queue");
-        if let Some(output_filename) = args.wav_out {
-            IOHelper::send_performance_to_file(performance, &output_filename)
-        } else {
-            IOHelper::send_performance_to_output_device(performance)
-        }
+        // if let Some(output_filename) = args.wav_out {
+        //     IOHelper::send_performance_to_file(performance, &output_filename)
+        // } else {
+        //     IOHelper::send_performance_to_output_device(performance)
+        // }
+        Ok(())
     }
 }

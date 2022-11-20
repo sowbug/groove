@@ -1,12 +1,14 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
     common::{rrc, rrc_downgrade, weak_new, Rrc, Ww},
-    control::BigMessage,
+    controllers::BigMessage,
+    messages::GrooveMessage,
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     orchestrator::OrchestratorMessage,
     traits::{
-        EvenNewerCommand, EvenNewerIsUpdateable, HasOverhead, MessageBounds, MessageGeneratorT, Overhead,
-        SinksMidi, SourcesMidi, Terminates, WatchesClock,
+        EvenNewerCommand, EvenNewerIsUpdateable, HasOverhead, HasUid, MessageBounds,
+        MessageGeneratorT, NewIsController, NewUpdateable, Overhead, SinksMidi, SourcesMidi,
+        Terminates, WatchesClock,
     },
 };
 use btreemultimap::BTreeMultiMap;
@@ -20,6 +22,7 @@ pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, Mid
 
 #[derive(Debug)]
 pub struct BeatSequencer<M: MessageBounds> {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
@@ -27,10 +30,29 @@ pub struct BeatSequencer<M: MessageBounds> {
     events: BeatEventsMap,
     last_event_time: PerfectTimeUnit,
 }
+impl<M: MessageBounds> NewIsController for BeatSequencer<M> {}
+impl<M: MessageBounds> NewUpdateable for BeatSequencer<M> {
+    type Message = M;
+}
+impl<M: MessageBounds> Terminates for BeatSequencer<M> {
+    fn is_finished(&self) -> bool {
+        self.next_instant > self.last_event_time
+    }
+}
+impl<M: MessageBounds> HasUid for BeatSequencer<M> {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 
 impl<M: MessageBounds> Default for BeatSequencer<M> {
     fn default() -> Self {
         Self {
+            uid: usize::default(),
             me: weak_new(),
             overhead: Overhead::default(),
             channels_to_sink_vecs: Default::default(),
@@ -120,12 +142,6 @@ impl<M: MessageBounds> WatchesClock for BeatSequencer<M> {
     }
 }
 
-impl<M: MessageBounds> Terminates for BeatSequencer<M> {
-    fn is_finished(&self) -> bool {
-        self.next_instant > self.last_event_time
-    }
-}
-
 impl<M: MessageBounds> EvenNewerIsUpdateable for BeatSequencer<M> {
     type Message = OrchestratorMessage;
 
@@ -172,6 +188,7 @@ pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiM
 
 #[derive(Debug)]
 pub struct MidiTickSequencer<M: MessageBounds> {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
     channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
@@ -179,10 +196,29 @@ pub struct MidiTickSequencer<M: MessageBounds> {
     events: MidiTickEventsMap,
     last_event_time: MidiTicks,
 }
+impl<M: MessageBounds> NewIsController for MidiTickSequencer<M> {}
+impl<M: MessageBounds> NewUpdateable for MidiTickSequencer<M> {
+    type Message = GrooveMessage;
+}
+impl<M: MessageBounds> Terminates for MidiTickSequencer<M> {
+    fn is_finished(&self) -> bool {
+        self.next_instant > self.last_event_time
+    }
+}
+impl<M: MessageBounds> HasUid for MidiTickSequencer<M> {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 
 impl<M: MessageBounds> Default for MidiTickSequencer<M> {
     fn default() -> Self {
         Self {
+            uid: usize::default(),
             me: weak_new(),
             overhead: Overhead::default(),
             channels_to_sink_vecs: Default::default(),
@@ -270,12 +306,6 @@ impl<M: MessageBounds> WatchesClock for MidiTickSequencer<M> {
             }
         }
         Vec::new()
-    }
-}
-
-impl<M: MessageBounds> Terminates for MidiTickSequencer<M> {
-    fn is_finished(&self) -> bool {
-        self.next_instant > self.last_event_time
     }
 }
 

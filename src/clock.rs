@@ -4,7 +4,7 @@ use std::{
     ops::{Add, Mul},
 };
 
-use crate::{common::Rrc, control::BigMessage, settings::ClockSettings, traits::WatchesClock};
+use crate::{common::Rrc, controllers::BigMessage, settings::ClockSettings, traits::WatchesClock};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

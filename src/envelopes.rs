@@ -2,8 +2,9 @@ use super::clock::Clock;
 use crate::{
     clock::ClockTimeUnit,
     common::{rrc, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
+    messages::GrooveMessage,
     settings::patches::EnvelopeSettings,
-    traits::{HasOverhead, Overhead, SourcesAudio},
+    traits::{HasOverhead, HasUid, NewIsInstrument, NewUpdateable, Overhead, SourcesAudio},
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{fmt::Debug, ops::Range};
@@ -236,6 +237,7 @@ enum AdsrEnvelopeStepName {
 
 #[derive(Debug)]
 pub struct AdsrEnvelope {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
     preset: EnvelopeSettings,
@@ -245,10 +247,31 @@ pub struct AdsrEnvelope {
     note_on_time: f32,
     note_off_time: f32,
 }
+impl NewIsInstrument for AdsrEnvelope {}
+impl SourcesAudio for AdsrEnvelope {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let time = self.envelope.time_for_unit(clock);
+        let step = self.envelope.step_for_time(time);
+        self.envelope.value_for_step_at_time(step, time)
+    }
+}
+impl NewUpdateable for AdsrEnvelope {
+    type Message = GrooveMessage;
+}
+impl HasUid for AdsrEnvelope {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 
 impl Default for AdsrEnvelope {
     fn default() -> Self {
         Self {
+            uid: usize::default(),
             me: weak_new(),
             overhead: Overhead::default(),
             preset: EnvelopeSettings::default(),
@@ -537,13 +560,6 @@ impl AdsrEnvelope {
             envelope: SteppedEnvelope::new_with(ClockTimeUnit::Seconds, vec),
             ..Default::default()
         }
-    }
-}
-impl SourcesAudio for AdsrEnvelope {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let time = self.envelope.time_for_unit(clock);
-        let step = self.envelope.step_for_time(time);
-        self.envelope.value_for_step_at_time(step, time)
     }
 }
 impl HasOverhead for AdsrEnvelope {

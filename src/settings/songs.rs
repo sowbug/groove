@@ -3,17 +3,16 @@ use super::{
     ClockSettings, DeviceSettings, PatternSettings, TrackSettings,
 };
 use crate::{
-    clock::WatchedClock,
-    common::{rrc, rrc_clone, rrc_downgrade, DeviceId},
-    control::{ControlPath, ControlTrip},
+    common::DeviceId,
+    controllers::{ControlPath, ControlTrip},
     messages::GrooveMessage,
     midi::{
         patterns::{Note, Pattern},
         programmers::PatternProgrammer,
         sequencers::BeatSequencer,
     },
-    traits::{IsEffect, IsMidiInstrument},
-    OldOrchestrator,
+    orchestrator::GrooveOrchestrator,
+    traits::{BoxedEntity, IsEffect, IsMidiInstrument},
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -50,9 +49,9 @@ impl SongSettings {
         Ok(settings)
     }
 
-    pub fn instantiate(&self) -> Result<OldOrchestrator> {
-        let mut o = OldOrchestrator::new();
-        o.set_watched_clock(WatchedClock::new_with(&self.clock));
+    pub fn instantiate(&self) -> Result<Box<GrooveOrchestrator>> {
+        let mut o = Box::new(GrooveOrchestrator::default());
+        // TODO what do we do with clock settings? new_with(Clock::new_with(&self.clock));
         self.instantiate_devices(&mut o);
         self.instantiate_patch_cables(&mut o);
         self.instantiate_tracks(&mut o);
@@ -60,66 +59,52 @@ impl SongSettings {
         Ok(o)
     }
 
-    fn instantiate_devices(&self, orchestrator: &mut OldOrchestrator) {
+    fn instantiate_devices(&self, orchestrator: &mut GrooveOrchestrator) {
         let sample_rate = self.clock.sample_rate();
 
         for device in &self.devices {
             match device {
-                DeviceSettings::Instrument(id, instrument_settings) => {
-                    let instrument = instrument_settings.instantiate(sample_rate);
-                    let midi_channel = instrument.borrow().midi_channel();
-                    orchestrator.connect_to_downstream_midi_bus(
-                        midi_channel,
-                        rrc_downgrade::<dyn IsMidiInstrument>(&instrument),
-                    );
-                    orchestrator.register_audio_source(
-                        Some(id),
-                        rrc_clone::<dyn IsMidiInstrument>(&instrument),
-                    );
-                    orchestrator.register_viewable(instrument);
+                DeviceSettings::Instrument(id, settings) => {
+                    let (channel, entity) = settings.instantiate(sample_rate);
+                    let uid = orchestrator.add(Some(id), BoxedEntity::Instrument(entity));
+                    orchestrator.connect_midi_downstream(uid, channel);
+                    // orchestrator.register_viewable(entity);
                 }
-                DeviceSettings::MidiInstrument(id, midi_instrument_settings) => {
-                    let midi_instrument = midi_instrument_settings.instantiate(sample_rate);
-                    let midi_channel = midi_instrument.borrow().midi_channel();
-                    orchestrator.register_midi_effect(
-                        Some(id),
-                        rrc_clone(&midi_instrument),
-                        midi_channel,
-                    );
-                    orchestrator.register_viewable(midi_instrument);
+                DeviceSettings::Controller(id, settings) => {
+                    let (channel_in, channel_out, entity) = settings.instantiate(sample_rate);
+                    let uid = orchestrator.add(Some(id), BoxedEntity::Controller(entity));
+                    // TODO: do we care about channel_out?
+                    orchestrator.connect_midi_downstream(uid, channel_in);
+                    // orchestrator.register_viewable(midi_instrument);
                 }
-                DeviceSettings::Effect(id, effect_settings) => {
-                    let effect = effect_settings.instantiate(sample_rate);
-                    orchestrator.register_effect(Some(id), rrc_clone(&effect));
-                    orchestrator.register_updateable(Some(id), rrc_clone::<dyn IsEffect>(&effect));
-                    orchestrator.register_viewable(rrc_clone::<dyn IsEffect>(&effect));
+                DeviceSettings::Effect(id, settings) => {
+                    let entity = settings.instantiate(sample_rate);
+                    let uid = orchestrator.add(Some(id), BoxedEntity::Effect(entity));
+                    // orchestrator.register_viewable(rrc_clone::<dyn IsEffect>(&effect));
                 }
             }
         }
     }
 
-    fn instantiate_patch_cables(&self, orchestrator: &mut OldOrchestrator) {
+    fn instantiate_patch_cables(&self, orchestrator: &mut GrooveOrchestrator) {
         for patch_cable in &self.patch_cables {
             if patch_cable.len() < 2 {
                 dbg!("ignoring patch cable of length < 2");
                 continue;
             }
-            let mut last_device_id: Option<DeviceId> = None;
+            let mut last_device_uvid: Option<DeviceId> = None;
             for device_id in patch_cable {
-                if let Some(ldi) = last_device_id {
-                    if let Ok(output) = orchestrator.audio_source_by(&ldi) {
-                        if device_id == "main-mixer" {
-                            orchestrator.add_main_mixer_source(output);
-                        } else {
-                            if let Ok(input) = orchestrator.audio_sink_by(device_id) {
-                                if let Some(input) = input.upgrade() {
-                                    input.borrow_mut().add_audio_source(output);
-                                }
-                            }
+                if let Some(last_device_uvid) = last_device_uvid {
+                    if let Some(last_device_uid) = orchestrator.get_uid(&last_device_uvid) {
+                        if let Some(device_uid) = orchestrator.get_uid(device_id) {
+                            orchestrator.patch(last_device_uid, device_uid);
                         }
+                        // if device_id == "main-mixer" {
+                        //     orchestrator.add_main_mixer_source(entity);
+                        // } else {
                     }
                 }
-                last_device_id = Some(device_id.to_string());
+                last_device_uvid = Some(device_id.to_string());
             }
         }
     }
@@ -130,19 +115,19 @@ impl SongSettings {
     // a pattern or a TS change...
     //
     // TODO - should PatternSequencers be able to change their base time signature? Probably
-    fn instantiate_tracks(&self, orchestrator: &mut OldOrchestrator) {
+    fn instantiate_tracks(&self, orchestrator: &mut GrooveOrchestrator) {
         if self.tracks.is_empty() {
             return;
         }
 
-        let mut ids_to_patterns: HashMap<String, Pattern<Note>> = HashMap::new();
+        let mut ids_to_patterns = HashMap::new();
         let pattern_manager = orchestrator.pattern_manager_mut();
         for pattern_settings in &self.patterns {
             let pattern = Pattern::<Note>::from_settings(pattern_settings);
             ids_to_patterns.insert(pattern_settings.id.clone(), pattern.clone());
             pattern_manager.register(pattern);
         }
-        let sequencer = BeatSequencer::new_wrapped();
+        let mut sequencer = Box::new(BeatSequencer::new());
         let mut programmer =
             PatternProgrammer::<GrooveMessage>::new_with(&self.clock.time_signature);
 
@@ -151,48 +136,46 @@ impl SongSettings {
             programmer.reset_cursor();
             for pattern_id in &track.pattern_ids {
                 if let Some(pattern) = ids_to_patterns.get(pattern_id) {
-                    programmer.insert_pattern_at_cursor(rrc_clone(&sequencer), &channel, &pattern);
+                    programmer.insert_pattern_at_cursor(&mut sequencer, &channel, &pattern);
                 }
             }
         }
 
-        orchestrator
-            .connect_to_upstream_midi_bus(rrc_clone::<BeatSequencer<GrooveMessage>>(&sequencer));
-        orchestrator
-            .register_clock_watcher(None, rrc_clone::<BeatSequencer<GrooveMessage>>(&sequencer));
-        orchestrator.register_viewable(sequencer);
+        let sequencer_uid = orchestrator.add(None, BoxedEntity::Controller(sequencer));
+        orchestrator.connect_midi_upstream(sequencer_uid);
+        //        orchestrator.register_viewable(sequencer);
     }
 
-    fn instantiate_control_trips(&self, orchestrator: &mut OldOrchestrator) {
+    fn instantiate_control_trips(&self, orchestrator: &mut GrooveOrchestrator) {
         if self.trips.is_empty() {
             // There's no need to instantiate the paths if there are no trips to use them.
             return;
         }
 
+        let mut ids_to_paths = HashMap::new();
         for path_settings in &self.paths {
-            let v = rrc(ControlPath::from_settings(path_settings));
-            orchestrator.register_control_path(Some(&path_settings.id), v);
+            ids_to_paths.insert(
+                path_settings.id.clone(),
+                ControlPath::from_settings(path_settings),
+            );
         }
         for control_trip_settings in &self.trips {
-            if let Ok(uid) = orchestrator.updateable_uid_by(&control_trip_settings.target.id) {
-                if let Ok(updateable) = orchestrator.updateable_by(uid) {
-                    if let Some(updateable) = updateable.upgrade() {
-                        let m = updateable
-                            .borrow()
-                            .message_for(&control_trip_settings.target.param);
-                        let control_trip = rrc(ControlTrip::new(uid, m));
-                        control_trip.borrow_mut().reset_cursor();
-                        for path_id in &control_trip_settings.path_ids {
-                            if let Ok(control_path) = orchestrator.control_path_by(path_id) {
-                                if let Some(control_path) = control_path.upgrade() {
-                                    control_trip.borrow_mut().add_path(&control_path.borrow());
-                                }
-                            }
-                        }
-                        orchestrator
-                            .register_clock_watcher(Some(&control_trip_settings.id), control_trip);
+            if let Some(target_uid) = orchestrator.get_uid(&control_trip_settings.target.id) {
+                let mut control_trip = Box::new(ControlTrip::default());
+                for path_id in &control_trip_settings.path_ids {
+                    if let Some(control_path) = ids_to_paths.get(path_id) {
+                        control_trip.add_path(&control_path);
                     }
                 }
+                let controller_uid = orchestrator.add(
+                    Some(&control_trip_settings.id),
+                    BoxedEntity::Controller(control_trip),
+                );
+                orchestrator.link_control(
+                    controller_uid,
+                    target_uid,
+                    &control_trip_settings.target.param,
+                );
             }
         }
     }
@@ -201,6 +184,8 @@ impl SongSettings {
 #[cfg(test)]
 mod tests {
 
+    use crate::{clock::Clock, orchestrator::GrooveRunner};
+
     use super::SongSettings;
 
     #[test]
@@ -208,7 +193,9 @@ mod tests {
         if let Ok(yaml) = std::fs::read_to_string("test_data/kitchen-sink.yaml") {
             if let Ok(song_settings) = SongSettings::new_from_yaml(yaml.as_str()) {
                 if let Ok(mut orchestrator) = song_settings.instantiate() {
-                    if let Ok(_performance) = orchestrator.perform() {
+                    let mut runner = GrooveRunner::default();
+                    let mut clock = Clock::default();
+                    if let Ok(_performance) = runner.run(&mut orchestrator, &mut clock, true) {
                         // cool
                     } else {
                         dbg!("performance failed");

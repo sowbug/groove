@@ -1,12 +1,16 @@
 use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, weak_new, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
     effects::filter::{BiQuadFilter, FilterParams},
+    messages::GrooveMessage,
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
     settings::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{HasOverhead, IsMidiInstrument, Overhead, SinksMidi, SourcesAudio, TransformsAudio},
+    traits::{
+        HasOverhead, HasUid, IsMidiInstrument, NewIsInstrument, NewUpdateable, Overhead, SinksMidi,
+        SourcesAudio, TransformsAudio,
+    },
     {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
 use convert_case::{Case, Casing};
@@ -676,6 +680,7 @@ impl HasOverhead for Voice {
 
 #[derive(Clone, Debug)]
 pub struct Synth {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
@@ -687,10 +692,47 @@ pub struct Synth {
     debug_last_seconds: f32,
 }
 impl IsMidiInstrument for Synth {}
+impl NewIsInstrument for Synth {}
+impl SourcesAudio for Synth {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        if !self.overhead().is_enabled() || self.overhead().is_muted() {
+            return MONO_SAMPLE_SILENCE;
+        }
+        if clock.seconds() == self.debug_last_seconds {
+            panic!("We were called twice with the same time slice. Should this be OK?");
+        } else {
+            self.debug_last_seconds = clock.seconds();
+        }
+
+        let mut done = true;
+        let mut current_value = 0.0;
+        for (_note, voice) in self.note_to_voice.iter_mut() {
+            current_value += voice.borrow_mut().source_audio(clock);
+            done = done && !voice.borrow().is_playing(clock);
+        }
+        if !self.note_to_voice.is_empty() {
+            current_value /= self.note_to_voice.len() as MonoSample;
+        }
+        current_value
+    }
+}
+impl NewUpdateable for Synth {
+    type Message = GrooveMessage;
+}
+impl HasUid for Synth {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 
 impl Default for Synth {
     fn default() -> Self {
         Self {
+            uid: Default::default(),
             me: weak_new(),
             overhead: Overhead::default(),
             midi_channel: MidiChannel::default(),
@@ -703,7 +745,11 @@ impl Default for Synth {
 }
 
 impl Synth {
-    fn new(midi_channel: MidiChannel, sample_rate: usize, preset: SynthPatch) -> Self {
+    pub(crate) fn new_with(
+        midi_channel: MidiChannel,
+        sample_rate: usize,
+        preset: SynthPatch,
+    ) -> Self {
         Self {
             midi_channel,
             sample_rate,
@@ -712,12 +758,13 @@ impl Synth {
         }
     }
 
-    pub fn new_wrapped_with(
+    #[deprecated]
+    fn new_wrapped_with(
         midi_channel: MidiChannel,
         sample_rate: usize,
         preset: SynthPatch,
     ) -> Rrc<Self> {
-        let wrapped = rrc(Self::new(midi_channel, sample_rate, preset));
+        let wrapped = rrc(Self::new_with(midi_channel, sample_rate, preset));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
@@ -785,29 +832,6 @@ impl SinksMidi for Synth {
         }
     }
 }
-impl SourcesAudio for Synth {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        if !self.overhead().is_enabled() || self.overhead().is_muted() {
-            return MONO_SAMPLE_SILENCE;
-        }
-        if clock.seconds() == self.debug_last_seconds {
-            panic!("We were called twice with the same time slice. Should this be OK?");
-        } else {
-            self.debug_last_seconds = clock.seconds();
-        }
-
-        let mut done = true;
-        let mut current_value = 0.0;
-        for (_note, voice) in self.note_to_voice.iter_mut() {
-            current_value += voice.borrow_mut().source_audio(clock);
-            done = done && !voice.borrow().is_playing(clock);
-        }
-        if !self.note_to_voice.is_empty() {
-            current_value /= self.note_to_voice.len() as MonoSample;
-        }
-        current_value
-    }
-}
 impl HasOverhead for Synth {
     fn overhead(&self) -> &Overhead {
         &self.overhead
@@ -829,7 +853,7 @@ mod tests {
             EnvelopeSettings, FilterPreset, GlideSettings, LfoPreset, LfoRouting,
             OscillatorSettings, PolyphonySettings,
         },
-        synthesizers::welsh::WaveformType,
+        instruments::welsh::WaveformType,
         utils::tests::canonicalize_filename,
     };
 

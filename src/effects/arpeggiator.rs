@@ -3,17 +3,19 @@ use midly::num::u7;
 use crate::{
     clock::{Clock, PerfectTimeUnit},
     common::{rrc, rrc_downgrade, Rrc, Ww},
-    control::BigMessage,
+    controllers::BigMessage,
     messages::GrooveMessage,
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
     traits::{
-        HasOverhead, IsMidiEffect, Overhead, SinksMidi, SourcesMidi, Terminates, WatchesClock,
+        HasOverhead, HasUid, IsMidiEffect, NewIsController, NewUpdateable, Overhead, SinksMidi,
+        SourcesMidi, Terminates, WatchesClock,
     },
 };
 use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct Arpeggiator {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
     midi_channel_in: MidiChannel,
@@ -21,6 +23,24 @@ pub struct Arpeggiator {
     beat_sequencer: BeatSequencer<GrooveMessage>,
 
     is_device_playing: bool,
+}
+impl NewIsController for Arpeggiator {}
+impl NewUpdateable for Arpeggiator {
+    type Message = GrooveMessage;
+}
+impl Terminates for Arpeggiator {
+    fn is_finished(&self) -> bool {
+        true
+    }
+}
+impl HasUid for Arpeggiator {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
 }
 
 impl SinksMidi for Arpeggiator {
@@ -82,12 +102,6 @@ impl WatchesClock for Arpeggiator {
     fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
         self.beat_sequencer.tick(clock); // TODO: loop
         Vec::new()
-    }
-}
-
-impl Terminates for Arpeggiator {
-    fn is_finished(&self) -> bool {
-        true
     }
 }
 

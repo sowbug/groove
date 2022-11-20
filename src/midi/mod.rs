@@ -7,8 +7,8 @@ pub use midly::MidiMessage;
 
 use crate::{
     common::{rrc, rrc_clone, rrc_downgrade, weak_new, Rrc, Ww},
+    orchestrator::OldOrchestrator,
     traits::{SinksMidi, SourcesMidi},
-    OldOrchestrator,
 };
 use crossbeam::deque::{Stealer, Worker};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
@@ -386,6 +386,7 @@ impl MidiInputHandler {
 }
 
 pub struct MidiOutputHandler {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     conn_out: Option<MidiOutputConnection>,
     stealer: Option<Stealer<(u64, u4, MidiMessage)>>,
@@ -401,6 +402,7 @@ impl std::fmt::Debug for MidiOutputHandler {
 impl Default for MidiOutputHandler {
     fn default() -> Self {
         Self {
+            uid: usize::default(),
             me: weak_new(),
             conn_out: None,
             stealer: None,

@@ -1,11 +1,16 @@
 use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
-    traits::{HasOverhead, IsEffect, Overhead, SinksAudio, SourcesAudio, TransformsAudio},
+    messages::GrooveMessage,
+    traits::{
+        HasOverhead, HasUid, IsEffect, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
+        SourcesAudio, TransformsAudio,
+    },
 };
 
 #[derive(Debug, Default)]
 pub struct Limiter {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
@@ -15,13 +20,31 @@ pub struct Limiter {
     max: MonoSample,
 }
 impl IsEffect for Limiter {}
+impl NewIsEffect for Limiter {}
+impl TransformsAudio for Limiter {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+        input_sample.clamp(self.min, self.max)
+    }
+}
+impl NewUpdateable for Limiter {
+    type Message = GrooveMessage;
+}
+impl HasUid for Limiter {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 
 impl Limiter {
     #[allow(dead_code)]
     fn new() -> Self {
         Self::new_with(MONO_SAMPLE_MIN, MONO_SAMPLE_MAX)
     }
-    fn new_with(min: MonoSample, max: MonoSample) -> Self {
+    pub(crate) fn new_with(min: MonoSample, max: MonoSample) -> Self {
         Self {
             min,
             max,
@@ -29,6 +52,7 @@ impl Limiter {
         }
     }
 
+    #[deprecated]
     pub(crate) fn new_wrapped_with(min: MonoSample, max: MonoSample) -> Rrc<Self> {
         let wrapped = rrc(Self::new_with(min, max));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
@@ -57,11 +81,6 @@ impl SinksAudio for Limiter {
     }
     fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
         &mut self.sources
-    }
-}
-impl TransformsAudio for Limiter {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
-        input_sample.clamp(self.min, self.max)
     }
 }
 impl HasOverhead for Limiter {

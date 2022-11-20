@@ -1,13 +1,18 @@
 use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
+    messages::GrooveMessage,
     midi::{MidiChannel, MidiMessage},
-    traits::{HasOverhead, IsMidiInstrument, Overhead, SinksMidi, SourcesAudio},
+    traits::{
+        HasOverhead, HasUid, IsMidiInstrument, NewIsInstrument, NewUpdateable, Overhead, SinksMidi,
+        SourcesAudio,
+    },
 };
 
 #[derive(Debug, Default)]
 #[allow(dead_code)]
 pub struct Sampler {
+    uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
@@ -21,9 +26,45 @@ pub struct Sampler {
     pub(crate) filename: String,
 }
 impl IsMidiInstrument for Sampler {}
+impl NewIsInstrument for Sampler {}
+impl SourcesAudio for Sampler {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        // TODO: when we got rid of WatchesClock, we lost the concept of "done."
+        // Be on the lookout for clipped audio.
+        if self.sample_clock_start > clock.samples() {
+            self.is_playing = false;
+            self.sample_pointer = 0;
+        } else {
+            self.sample_pointer = clock.samples() - self.sample_clock_start;
+            if self.sample_pointer >= self.samples.len() {
+                self.is_playing = false;
+                self.sample_pointer = 0;
+            }
+        }
+
+        if self.is_playing {
+            let sample = *self.samples.get(self.sample_pointer).unwrap_or(&0.0);
+            sample
+        } else {
+            0.0
+        }
+    }
+}
+impl NewUpdateable for Sampler {
+    type Message = GrooveMessage;
+}
+impl HasUid for Sampler {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 
 impl Sampler {
-    fn new(midi_channel: MidiChannel, buffer_size: usize) -> Self {
+    pub(crate) fn new_with(midi_channel: MidiChannel, buffer_size: usize) -> Self {
         Self {
             midi_channel,
             samples: Vec::with_capacity(buffer_size),
@@ -33,7 +74,7 @@ impl Sampler {
 
     #[allow(dead_code)] // TODO: add a setting for Sampler
     pub fn new_wrapped_with(midi_channel: MidiChannel, buffer_size: usize) -> Rrc<Self> {
-        let wrapped = rrc(Self::new(midi_channel, buffer_size));
+        let wrapped = rrc(Self::new_with(midi_channel, buffer_size));
         wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
         wrapped
     }
@@ -41,7 +82,7 @@ impl Sampler {
     #[allow(dead_code)]
     pub fn new_from_file(midi_channel: MidiChannel, filename: &str) -> Self {
         let mut reader = hound::WavReader::open(filename).unwrap();
-        let mut r = Self::new(midi_channel, reader.duration() as usize);
+        let mut r = Self::new_with(midi_channel, reader.duration() as usize);
         for sample in reader.samples::<i16>() {
             r.samples
                 .push(sample.unwrap() as MonoSample / i16::MAX as MonoSample);
@@ -84,29 +125,6 @@ impl SinksMidi for Sampler {
         }
         // TODO: there's way too much duplication across synths and samplers
         // and voices
-    }
-}
-impl SourcesAudio for Sampler {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        // TODO: when we got rid of WatchesClock, we lost the concept of "done."
-        // Be on the lookout for clipped audio.
-        if self.sample_clock_start > clock.samples() {
-            self.is_playing = false;
-            self.sample_pointer = 0;
-        } else {
-            self.sample_pointer = clock.samples() - self.sample_clock_start;
-            if self.sample_pointer >= self.samples.len() {
-                self.is_playing = false;
-                self.sample_pointer = 0;
-            }
-        }
-
-        if self.is_playing {
-            let sample = *self.samples.get(self.sample_pointer).unwrap_or(&0.0);
-            sample
-        } else {
-            0.0
-        }
     }
 }
 impl HasOverhead for Sampler {

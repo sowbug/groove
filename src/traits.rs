@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::{MonoSample, Ww, MONO_SAMPLE_SILENCE},
-    control::{BigMessage, SmallMessage, SmallMessageGenerator},
+    controllers::{BigMessage, SmallMessage, SmallMessageGenerator},
     gui::{IsViewable, ViewableMessage},
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
@@ -22,14 +22,16 @@ pub(crate) enum BoxedEntity<M> {
 pub trait NewUpdateable {
     type Message: MessageBounds;
 
-    fn update(&mut self, _clock: &Clock, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    #[allow(unused_variables)]
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }
-    fn handle_message(&mut self, _clock: &Clock, _message: Self::Message) {
+    #[allow(unused_variables)]
+    fn handle_message(&mut self, clock: &Clock, message: Self::Message) {
         todo!()
     }
-
-    fn param_id_for_name(&self, _param_name: &str) -> usize {
+    #[allow(unused_variables)]
+    fn param_id_for_name(&self, param_name: &str) -> usize {
         usize::MAX
     }
 }
@@ -386,7 +388,7 @@ pub mod tests {
         clock::Clock,
         clock::WatchedClock,
         common::{rrc, rrc_clone, rrc_downgrade},
-        control::{AdsrEnvelopeControlParams},
+        controllers::{AdsrEnvelopeControlParams},
         effects::{
             gain::Gain,
         },
