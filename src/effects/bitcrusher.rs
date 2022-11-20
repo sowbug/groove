@@ -3,8 +3,7 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SinksAudio, SourcesAudio,
-        TransformsAudio,
+        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SourcesAudio, TransformsAudio,
     },
 };
 
@@ -14,7 +13,6 @@ pub struct Bitcrusher {
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
-    sources: Vec<Ww<dyn SourcesAudio>>,
     bits_to_crush: u8,
 }
 impl NewIsEffect for Bitcrusher {}
@@ -76,14 +74,6 @@ impl Bitcrusher {
         self.set_bits_to_crush((pct * 15.0) as u8);
     }
 }
-impl SinksAudio for Bitcrusher {
-    fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
-        &self.sources
-    }
-    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
-        &mut self.sources
-    }
-}
 impl HasOverhead for Bitcrusher {
     fn overhead(&self) -> &Overhead {
         &self.overhead
@@ -97,9 +87,7 @@ impl HasOverhead for Bitcrusher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        clock::Clock, messages::tests::TestMessage, utils::tests::TestAudioSourceOneLevel,
-    };
+    use crate::clock::Clock;
     use std::f32::consts::PI;
 
     const CRUSHED_PI: f32 = 0.14062929;
@@ -108,19 +96,5 @@ mod tests {
     fn test_bitcrusher_basic() {
         let mut fx = Bitcrusher::new_with(8);
         assert_eq!(fx.transform_audio(&Clock::default(), PI - 3.0), CRUSHED_PI);
-    }
-
-    #[test]
-    fn test_bitcrusher_multisource() {
-        let mut fx = Bitcrusher::new_with(8);
-        let source = rrc(TestAudioSourceOneLevel::new_with(PI - 3.0));
-        fx.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-            &source,
-        ));
-        let source = rrc(TestAudioSourceOneLevel::new_with(PI - 3.0));
-        fx.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-            &source,
-        ));
-        assert_eq!(fx.source_audio(&Clock::default()), 2.0 * CRUSHED_PI);
     }
 }

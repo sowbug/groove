@@ -4,7 +4,7 @@
 //     midi::{programmers::MidiSmfReader, sequencers::MidiTickSequencer, MidiChannel},
 //     settings::patches::SynthPatch,
 //     synthesizers::welsh,
-//     traits::{IsMidiInstrument, SinksAudio, SinksMidi, SourcesAudio, SourcesMidi},
+//     traits::{IsMidiInstrument, SinksMidi, SourcesAudio, SourcesMidi},
 //     IOHelper, Orchestrator,
 // };
 // use rhai::{Engine, EvalAltResult};

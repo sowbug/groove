@@ -189,7 +189,7 @@ pub mod tests {
         settings::ClockSettings,
         traits::{
             BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, MessageBounds, NewIsController,
-            NewIsEffect, NewIsInstrument, NewUpdateable, Overhead, SinksAudio, SinksMidi,
+            NewIsEffect, NewIsInstrument, NewUpdateable, Overhead, SinksMidi,
             SinksUpdates, SourcesAudio, SourcesMidi, Terminates, TransformsAudio, WatchesClock,
         },
     };

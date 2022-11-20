@@ -103,38 +103,10 @@ impl<T> EvenNewerCommand<T> {
     }
 }
 
-/// Can do something with audio samples. When it needs to do its work, it asks
-/// its SourcesAudio for their samples.
-#[deprecated]
-pub trait SinksAudio {
-    fn sources(&self) -> &[Ww<dyn SourcesAudio>];
-    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>>;
-
-    fn add_audio_source(&mut self, source: Ww<dyn SourcesAudio>) {
-        self.sources_mut().push(source);
-    }
-
-    fn gather_source_audio(&mut self, clock: &Clock) -> MonoSample {
-        if self.sources_mut().is_empty() {
-            return MONO_SAMPLE_SILENCE;
-        }
-        self.sources_mut()
-            .iter_mut()
-            .map(|source| {
-                if let Some(s) = source.upgrade() {
-                    s.borrow_mut().source_audio(clock) // TODO: find a new home for HasMute
-                } else {
-                    MONO_SAMPLE_SILENCE
-                }
-            })
-            .sum::<f32>()
-    }
-}
-
 // Convenience generic for effects
-impl<T: HasOverhead + SinksAudio + TransformsAudio + std::fmt::Debug> SourcesAudio for T {
+impl<T: HasOverhead + TransformsAudio + std::fmt::Debug> SourcesAudio for T {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let input = self.gather_source_audio(clock);
+        let input = MONO_SAMPLE_SILENCE; // TODO REMOVE self.gather_source_audio(clock);
 
         // It's important for this to happen after the gather_source_audio(),
         // because we don't know whether the sources are depending on being
@@ -366,7 +338,7 @@ pub trait HasEnable {
 
 #[cfg(test)]
 pub mod tests {
-    use super::{SinksAudio, WatchesClock};
+    use super::WatchesClock;
     use crate::{
         clock::Clock,
         clock::WatchedClock,

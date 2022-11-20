@@ -3,8 +3,7 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SinksAudio, SourcesAudio,
-        TransformsAudio,
+        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SourcesAudio, TransformsAudio,
     },
 };
 use std::f64::consts::PI;
@@ -94,8 +93,6 @@ pub struct BiQuadFilter {
     uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
-
-    sources: Vec<Ww<dyn SourcesAudio>>,
 
     sample_rate: usize,
     filter_type: FilterType,
@@ -188,7 +185,6 @@ impl BiQuadFilter {
             uid: usize::default(),
             me: Default::default(),
             overhead: Default::default(),
-            sources: Default::default(),
             filter_type: Default::default(),
             sample_rate: Default::default(),
             cutoff: Default::default(),
@@ -467,14 +463,6 @@ impl BiQuadFilter {
     }
 }
 
-impl SinksAudio for BiQuadFilter {
-    fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
-        &self.sources
-    }
-    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
-        &mut self.sources
-    }
-}
 impl HasOverhead for BiQuadFilter {
     fn overhead(&self) -> &Overhead {
         &self.overhead

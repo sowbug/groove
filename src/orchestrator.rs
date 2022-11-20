@@ -6,7 +6,7 @@ use crate::{
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     traits::{
         BoxedEntity, EvenNewerCommand, EvenNewerIsUpdateable, HasUid, Internal, MakesIsViewable,
-        MessageBounds, NewIsController, NewUpdateable, SinksAudio, SinksMidi, SinksUpdates,
+        MessageBounds, NewIsController, NewUpdateable, SinksMidi, SinksUpdates,
         SourcesAudio, SourcesMidi, Terminates, WatchesClock,
     },
 };

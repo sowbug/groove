@@ -2,8 +2,8 @@ use crate::{
     clock::Clock,
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     traits::{
-        HasOverhead, HasUid, MessageBounds, NewIsEffect, NewUpdateable, Overhead, SinksAudio,
-        SourcesAudio, TransformsAudio,
+        HasOverhead, HasUid, MessageBounds, NewIsEffect, NewUpdateable, Overhead, SourcesAudio,
+        TransformsAudio,
     },
 };
 
@@ -12,8 +12,6 @@ pub struct Mixer<M: MessageBounds> {
     uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
-
-    sources: Vec<Ww<dyn SourcesAudio>>,
 }
 impl<M: MessageBounds> NewIsEffect for Mixer<M> {}
 impl<M: MessageBounds> TransformsAudio for Mixer<M> {
@@ -45,14 +43,6 @@ impl<M: MessageBounds> Mixer<M> {
         wrapped
     }
 }
-impl<M: MessageBounds> SinksAudio for Mixer<M> {
-    fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
-        &self.sources
-    }
-    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
-        &mut self.sources
-    }
-}
 impl<M: MessageBounds> HasOverhead for Mixer<M> {
     fn overhead(&self) -> &Overhead {
         &self.overhead
@@ -65,43 +55,9 @@ impl<M: MessageBounds> HasOverhead for Mixer<M> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        clock::Clock,
-        common::MONO_SAMPLE_SILENCE,
-        messages::tests::TestMessage,
-        utils::tests::{
-            TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSilent, TestAudioSourceOneLevel,
-        },
-    };
-
     #[test]
     fn test_mixer_mainline() {
-        let clock = Clock::new();
-        let mut mixer = Mixer::<TestMessage>::new();
-
-        // Nothing/empty
-        assert_eq!(mixer.source_audio(&clock), MONO_SAMPLE_SILENCE);
-
-        // One always-loud
-        let source = rrc(TestAudioSourceAlwaysLoud::new());
-        mixer.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysLoud<TestMessage>>(
-            &source,
-        ));
-        assert_eq!(mixer.source_audio(&clock), 1.0);
-
-        // One always-loud and one always-quiet
-        let source = rrc(TestAudioSourceAlwaysSilent::new());
-        mixer.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysSilent<TestMessage>>(
-            &source,
-        ));
-        assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0);
-
-        // ... and one in the middle
-        let source = rrc(TestAudioSourceOneLevel::new_with(0.25));
-        mixer.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-            &source,
-        ));
-        assert_eq!(mixer.source_audio(&clock), 1.0 + 0.0 + 0.25);
+        // This could be replaced with a test, elsewhere, showing that
+        // Orchestrator's gather_audio() method can gather audio.
     }
 }

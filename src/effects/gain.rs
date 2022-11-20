@@ -3,8 +3,7 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SinksAudio, SourcesAudio,
-        TransformsAudio,
+        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SourcesAudio, TransformsAudio,
     },
 };
 
@@ -14,7 +13,6 @@ pub(crate) struct Gain {
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
 
-    sources: Vec<Ww<dyn SourcesAudio>>,
     ceiling: f32,
 }
 impl NewIsEffect for Gain {}
@@ -76,14 +74,6 @@ impl Gain {
         self.ceiling = pct;
     }
 }
-impl SinksAudio for Gain {
-    fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
-        &self.sources
-    }
-    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
-        &mut self.sources
-    }
-}
 impl HasOverhead for Gain {
     fn overhead(&self) -> &Overhead {
         &self.overhead
@@ -107,21 +97,13 @@ mod tests {
     #[test]
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(1.1);
-        let source = rrc(TestAudioSourceAlwaysLoud::new());
-        gain.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysLoud<TestMessage>>(
-            &source,
-        ));
-        assert_eq!(gain.source_audio(&Clock::new()), 1.1);
-    }
-
-    #[test]
-    fn test_gain_pola() {
-        // principle of least astonishment: does a default instance adhere?
-        let mut gain = Gain::new();
-        let source = rrc(TestAudioSourceOneLevel::new_with(0.888));
-        gain.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-            &source,
-        ));
-        assert_eq!(gain.source_audio(&Clock::new()), 0.888);
+        let clock = Clock::new();
+        assert_eq!(
+            gain.transform_audio(
+                &clock,
+                TestAudioSourceAlwaysLoud::<TestMessage>::new().source_audio(&clock)
+            ),
+            1.1
+        );
     }
 }

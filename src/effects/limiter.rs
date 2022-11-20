@@ -3,8 +3,7 @@ use crate::{
     common::{rrc, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
     messages::GrooveMessage,
     traits::{
-        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SinksAudio, SourcesAudio,
-        TransformsAudio,
+        HasOverhead, HasUid, NewIsEffect, NewUpdateable, Overhead, SourcesAudio, TransformsAudio,
     },
 };
 
@@ -13,8 +12,6 @@ pub struct Limiter {
     uid: usize,
     pub(crate) me: Ww<Self>,
     overhead: Overhead,
-
-    sources: Vec<Ww<dyn SourcesAudio>>,
 
     min: MonoSample,
     max: MonoSample,
@@ -74,14 +71,6 @@ impl Limiter {
         self.max = value;
     }
 }
-impl SinksAudio for Limiter {
-    fn sources(&self) -> &[Ww<dyn SourcesAudio>] {
-        &self.sources
-    }
-    fn sources_mut(&mut self) -> &mut Vec<Ww<dyn SourcesAudio>> {
-        &mut self.sources
-    }
-}
 impl HasOverhead for Limiter {
     fn overhead(&self) -> &Overhead {
         &self.overhead
@@ -97,75 +86,66 @@ mod tests {
     use super::*;
     use crate::{
         clock::Clock,
-        common::MonoSample,
+        common::MONO_SAMPLE_SILENCE,
         messages::tests::TestMessage,
-        utils::tests::{TestAudioSourceAlwaysTooLoud, TestAudioSourceOneLevel},
+        utils::tests::{
+            TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSilent, TestAudioSourceAlwaysTooLoud,
+            TestAudioSourceAlwaysVeryQuiet,
+        },
     };
-    use assert_approx_eq::assert_approx_eq;
+    use more_asserts::{assert_gt, assert_lt};
 
     #[test]
     fn test_limiter_mainline() {
-        const MAX: MonoSample = 0.9;
-        let mut limiter = Limiter::new_with(0.0, MAX);
-        let source = rrc(TestAudioSourceAlwaysTooLoud::new());
-        limiter.add_audio_source(rrc_downgrade::<TestAudioSourceAlwaysTooLoud<TestMessage>>(
-            &source,
-        ));
-        assert_eq!(limiter.source_audio(&Clock::new()), MAX);
-    }
+        let clock = Clock::default();
 
-    #[test]
-    fn test_limiter() {
-        const MIN: MonoSample = -0.75;
-        const MAX: MonoSample = -MIN;
-        let clock = Clock::new_test();
-        {
-            let mut limiter = Limiter::new_with(MIN, MAX);
-            let source = rrc(TestAudioSourceOneLevel::new_with(0.5));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-                &source,
-            ));
-            assert_eq!(limiter.source_audio(&clock), 0.5);
-        }
-        {
-            let mut limiter = Limiter::new_with(MIN, MAX);
-            let source = rrc(TestAudioSourceOneLevel::new_with(-0.8));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-                &source,
-            ));
-            assert_eq!(limiter.source_audio(&clock), MIN);
-        }
-        {
-            let mut limiter = Limiter::new_with(MIN, MAX);
-            let source = rrc(TestAudioSourceOneLevel::new_with(0.8));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-                &source,
-            ));
-            assert_eq!(limiter.source_audio(&clock), MAX);
-        }
+        // audio sources are at or past boundaries
+        assert_gt!(
+            TestAudioSourceAlwaysTooLoud::<TestMessage>::default().source_audio(&clock),
+            MONO_SAMPLE_MAX
+        );
+        assert_eq!(
+            TestAudioSourceAlwaysLoud::<TestMessage>::default().source_audio(&clock),
+            MONO_SAMPLE_MAX
+        );
+        assert_eq!(
+            TestAudioSourceAlwaysSilent::<TestMessage>::default().source_audio(&clock),
+            MONO_SAMPLE_SILENCE
+        );
+        assert_lt!(
+            TestAudioSourceAlwaysVeryQuiet::<TestMessage>::default().source_audio(&clock),
+            MONO_SAMPLE_SILENCE
+        );
 
-        // multiple sources
-        {
-            let mut limiter = Limiter::new_with(MIN, MAX);
-            let source = rrc(TestAudioSourceOneLevel::new_with(0.2));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-                &source,
-            ));
-            let source = rrc(TestAudioSourceOneLevel::new_with(0.6));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-                &source,
-            ));
-            assert_eq!(limiter.source_audio(&clock), MAX);
-            let source = rrc(TestAudioSourceOneLevel::new_with(-1.0));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-                &source,
-            ));
-            assert_approx_eq!(limiter.source_audio(&clock), -0.2);
-            let source = rrc(TestAudioSourceOneLevel::new_with(-1.0));
-            limiter.add_audio_source(rrc_downgrade::<TestAudioSourceOneLevel<TestMessage>>(
-                &source,
-            ));
-            assert_eq!(limiter.source_audio(&clock), MIN);
-        }
+        // Limiter clamps high and low, and doesn't change values inside the range.
+        let mut limiter = Limiter::new_with(MONO_SAMPLE_SILENCE, MONO_SAMPLE_MAX);
+        assert_eq!(
+            limiter.transform_audio(
+                &clock,
+                TestAudioSourceAlwaysLoud::<TestMessage>::default().source_audio(&clock)
+            ),
+            MONO_SAMPLE_MAX
+        );
+        assert_eq!(
+            limiter.transform_audio(
+                &clock,
+                TestAudioSourceAlwaysTooLoud::<TestMessage>::default().source_audio(&clock)
+            ),
+            MONO_SAMPLE_MAX
+        );
+        assert_eq!(
+            limiter.transform_audio(
+                &clock,
+                TestAudioSourceAlwaysVeryQuiet::<TestMessage>::default().source_audio(&clock)
+            ),
+            MONO_SAMPLE_SILENCE
+        );
+        assert_eq!(
+            limiter.transform_audio(
+                &clock,
+                TestAudioSourceAlwaysSilent::<TestMessage>::default().source_audio(&clock)
+            ),
+            MONO_SAMPLE_SILENCE
+        );
     }
 }
