@@ -22,14 +22,14 @@ pub(crate) enum BoxedEntity<M> {
 pub trait NewUpdateable {
     type Message: MessageBounds;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, _clock: &Clock, _message: Self::Message) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }
-    fn handle_message(&mut self, clock: &Clock, message: Self::Message) {
+    fn handle_message(&mut self, _clock: &Clock, _message: Self::Message) {
         todo!()
     }
 
-    fn param_id_for_name(&self, param_name: &str) -> usize {
+    fn param_id_for_name(&self, _param_name: &str) -> usize {
         usize::MAX
     }
 }
@@ -381,38 +381,32 @@ pub trait IsController: SourcesUpdates + WatchesClock {}
 
 #[cfg(test)]
 pub mod tests {
-    use super::{IsMidiInstrument, SinksAudio, SourcesAudio, WatchesClock};
+    use super::{SinksAudio, WatchesClock};
     use crate::{
         clock::Clock,
         clock::WatchedClock,
-        common::{rrc, rrc_clone, rrc_downgrade, Rrc, MONO_SAMPLE_SILENCE},
-        control::{AdsrEnvelopeControlParams, BigMessage, GainControlParams},
+        common::{rrc, rrc_clone, rrc_downgrade},
+        control::{AdsrEnvelopeControlParams},
         effects::{
-            arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
+            gain::Gain,
         },
         envelopes::AdsrEnvelope,
         messages::tests::TestMessage,
         midi::{
-            sequencers::{BeatSequencer, MidiTickSequencer},
-            MidiChannel, MidiUtils,
+            MidiUtils,
         },
         oscillators::Oscillator,
-        settings::patches::{EnvelopeSettings, SynthPatch, WaveformType},
-        synthesizers::{
-            drumkit_sampler::Sampler as DrumkitSampler,
-            sampler::Sampler,
-            welsh::{PatchName, Synth},
-        },
-        traits::{SinksMidi, SinksUpdates, SourcesMidi, SourcesUpdates, Terminates},
+        settings::patches::{EnvelopeSettings, WaveformType},
+        traits::{SinksUpdates, SourcesUpdates, Terminates},
         utils::{
             tests::{
-                OldTestOrchestrator, TestArpeggiator, TestArpeggiatorControlParams,
-                TestClockWatcher, TestControlSourceContinuous, TestMidiSink, TestSynth,
+                OldTestOrchestrator,
+                TestClockWatcher, TestSynth,
             },
             Timer, Trigger,
         },
     };
-    use rand::random;
+    
 
     #[test]
     fn test_orchestration() {

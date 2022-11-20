@@ -8,12 +8,11 @@ use crate::{
     midi::{patterns::PatternManager, MidiBus, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
     traits::{
         BoxedEntity, EvenNewerCommand, EvenNewerIsUpdateable, HasUid, Internal, IsEffect,
-        IsMidiEffect, MakesIsViewable, MessageBounds, NewIsController, NewIsEffect,
-        NewIsInstrument, NewUpdateable, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
+        IsMidiEffect, MakesIsViewable, MessageBounds, NewIsController, NewUpdateable, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
         SourcesMidi, Terminates, WatchesClock,
     },
 };
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow};
 use crossbeam::deque::Worker;
 use std::{
     collections::HashMap,

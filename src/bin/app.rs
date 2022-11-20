@@ -304,7 +304,7 @@ impl Application for GrooveApp {
 
                 self.audio_output.start();
                 match self.midi.start() {
-                    Err(err) => println!("error starting MIDI: {}", err.to_string()),
+                    Err(err) => println!("error starting MIDI: {}", err),
                     _ => {}
                 }
 

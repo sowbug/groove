@@ -384,13 +384,13 @@ impl SinksUpdates for Oscillator {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::VecDeque;
+    
 
     use crate::{
         clock::WatchedClock,
         common::{rrc, rrc_downgrade},
         messages::tests::TestMessage,
-        utils::tests::{OldTestOrchestrator, TestMidiSink, TestValueChecker},
+        utils::tests::{OldTestOrchestrator, TestMidiSink},
     };
 
     use super::*;
@@ -439,7 +439,7 @@ mod tests {
             ControlStep::new_slope(1.0, 0.0),
             ControlStep::new_slope(0.0, 1.0),
         ];
-        let interpolated_values = vec![0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
+        let _interpolated_values = vec![0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
         let path = ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,

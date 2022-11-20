@@ -1,21 +1,17 @@
 use crate::{
     clock::Clock,
-    common::{MonoSample, MONO_SAMPLE_SILENCE},
     control::{BigMessage, SmallMessageGenerator},
-    effects::mixer::Mixer,
     messages::GrooveMessage,
-    midi::MidiChannel,
-    orchestrator::Store,
     traits::{
-        BoxedEntity, EvenNewerCommand, HasUid, Internal, IsController, MessageBounds,
-        NewIsController, NewIsEffect, NewIsInstrument, NewUpdateable, SourcesAudio, SourcesUpdates,
+        EvenNewerCommand, HasUid, MessageBounds,
+        NewIsController, NewUpdateable, SourcesUpdates,
         Terminates, WatchesClock,
     },
 };
-use anyhow::{anyhow, Result};
+
 use core::fmt::Debug;
-use midly::MidiMessage;
-use std::{collections::HashMap, marker::PhantomData};
+
+use std::{marker::PhantomData};
 
 #[derive(Debug, Default)]
 pub(crate) struct Timer<M: MessageBounds> {
@@ -45,8 +41,8 @@ impl<M: MessageBounds> NewUpdateable for Timer<M> {
 
     default fn update(
         &mut self,
-        clock: &Clock,
-        message: Self::Message,
+        _clock: &Clock,
+        _message: Self::Message,
     ) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }
@@ -98,8 +94,8 @@ impl<M: MessageBounds> NewUpdateable for Trigger<M> {
 
     default fn update(
         &mut self,
-        clock: &Clock,
-        message: Self::Message,
+        _clock: &Clock,
+        _message: Self::Message,
     ) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }
@@ -182,21 +178,20 @@ pub mod tests {
             rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
             MONO_SAMPLE_SILENCE,
         },
-        control::{BigMessage, OscillatorControlParams, SmallMessage, SmallMessageGenerator},
+        control::{BigMessage, SmallMessage, SmallMessageGenerator},
         effects::mixer::Mixer,
         envelopes::AdsrEnvelope,
         messages::{tests::TestMessage, GrooveMessage},
-        midi::{MidiChannel, MidiMessage, MidiNote, MidiUtils, MIDI_CHANNEL_RECEIVE_ALL},
-        orchestrator::{tests::Runner, GrooveRunner, Orchestrator, Store},
+        midi::{MidiChannel, MidiMessage, MidiUtils},
+        orchestrator::{tests::Runner, GrooveRunner, Orchestrator},
         oscillators::Oscillator,
         settings::patches::EnvelopeSettings,
         settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
-            BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, Internal, IsEffect,
-            MakesIsViewable, MessageBounds, NewIsController, NewIsEffect, NewIsInstrument,
+            BoxedEntity, EvenNewerCommand, HasOverhead, HasUid, IsEffect, MessageBounds, NewIsController, NewIsEffect, NewIsInstrument,
             NewUpdateable, Overhead, SinksAudio, SinksMidi, SinksUpdates, SourcesAudio,
-            SourcesMidi, SourcesUpdates, Terminates, TransformsAudio, WatchesClock,
+            SourcesMidi, Terminates, TransformsAudio, WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -735,13 +730,13 @@ pub mod tests {
 
         default fn update(
             &mut self,
-            clock: &Clock,
-            message: Self::Message,
+            _clock: &Clock,
+            _message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             EvenNewerCommand::none()
         }
 
-        default fn param_id_for_name(&self, param_name: &str) -> usize {
+        default fn param_id_for_name(&self, _param_name: &str) -> usize {
             usize::MAX
         }
     }
@@ -864,17 +859,17 @@ pub mod tests {
 
         default fn update(
             &mut self,
-            clock: &Clock,
-            message: Self::Message,
+            _clock: &Clock,
+            _message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             EvenNewerCommand::none()
         }
 
-        default fn handle_message(&mut self, clock: &Clock, message: Self::Message) {
+        default fn handle_message(&mut self, _clock: &Clock, _message: Self::Message) {
             todo!()
         }
 
-        default fn param_id_for_name(&self, param_name: &str) -> usize {
+        default fn param_id_for_name(&self, _param_name: &str) -> usize {
             usize::MAX
         }
     }
@@ -883,7 +878,7 @@ pub mod tests {
 
         fn update(
             &mut self,
-            clock: &Clock,
+            _clock: &Clock,
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
@@ -914,7 +909,7 @@ pub mod tests {
 
         fn update(
             &mut self,
-            clock: &Clock,
+            _clock: &Clock,
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
@@ -964,8 +959,8 @@ pub mod tests {
 
         default fn update(
             &mut self,
-            clock: &Clock,
-            message: Self::Message,
+            _clock: &Clock,
+            _message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             EvenNewerCommand::none()
         }
@@ -1157,8 +1152,8 @@ pub mod tests {
 
         default fn update(
             &mut self,
-            clock: &Clock,
-            message: Self::Message,
+            _clock: &Clock,
+            _message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             EvenNewerCommand::none()
         }
@@ -1242,12 +1237,12 @@ pub mod tests {
             self.received_count += 1;
 
             match message {
-                MidiMessage::NoteOn { key, vel } => {
+                MidiMessage::NoteOn { key, vel: _ } => {
                     self.is_playing = true;
                     self.sound_source
                         .set_frequency(MidiUtils::note_to_frequency(key.as_int()));
                 }
-                MidiMessage::NoteOff { key, vel } => {
+                MidiMessage::NoteOff { key: _, vel: _ } => {
                     self.is_playing = false;
                 }
                 _ => {}
@@ -1421,8 +1416,8 @@ pub mod tests {
 
         default fn update(
             &mut self,
-            clock: &Clock,
-            message: Self::Message,
+            _clock: &Clock,
+            _message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             EvenNewerCommand::none()
         }
@@ -1528,7 +1523,7 @@ pub mod tests {
     }
     impl<M: MessageBounds> NewIsEffect for TestValueChecker<M> {}
     impl<M: MessageBounds> TransformsAudio for TestValueChecker<M> {
-        fn transform_audio(&mut self, clock: &Clock, input_sample: MonoSample) -> MonoSample {
+        fn transform_audio(&mut self, _clock: &Clock, _input_sample: MonoSample) -> MonoSample {
             todo!()
         }
     }
@@ -1537,8 +1532,8 @@ pub mod tests {
 
         default fn update(
             &mut self,
-            clock: &Clock,
-            message: Self::Message,
+            _clock: &Clock,
+            _message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             EvenNewerCommand::none()
         }
