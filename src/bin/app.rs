@@ -331,7 +331,7 @@ impl Application for GrooveApp {
                 //     .midi
                 //     .update(MidiControlBarMessage::Inputs(inputs.to_vec()));
             }
-            Message::Loaded(Err(_)) => {
+            Message::Loaded(Err(e)) => {
                 todo!()
             }
             Message::Tick(now) => {

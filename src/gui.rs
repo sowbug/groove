@@ -10,8 +10,8 @@ use crate::{
         patterns::{Note, Pattern, PatternManager},
         sequencers::BeatSequencer,
     },
-    orchestrator::OldOrchestrator,
     traits::{HasEnable, HasMute, HasOverhead, MakesIsViewable, MessageBounds, SinksAudio},
+    GrooveOrchestrator,
 };
 use iced::{
     alignment::{Horizontal, Vertical},
@@ -835,11 +835,11 @@ impl IsViewable for PatternManager {
     }
 }
 
-impl IsViewable for OldOrchestrator {
+impl IsViewable for GrooveOrchestrator {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<ViewableMessage> {
-        column(vec![self.pattern_manager().view(), self.mixer().view()].into()).into()
+        column(vec![self.pattern_manager().view()].into()).into()
     }
 
     fn name(&self) -> String {

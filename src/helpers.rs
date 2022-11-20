@@ -6,7 +6,7 @@ use crate::{
     },
     messages::GrooveMessage,
     midi::{programmers::MidiSmfReader, sequencers::MidiTickSequencer},
-    orchestrator::{OldOrchestrator, Performance},
+    orchestrator::Performance,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     traits::{BoxedEntity, IsMidiInstrument, NewIsInstrument},
     GrooveOrchestrator, Orchestrator,
@@ -179,16 +179,6 @@ impl IOHelper {
             }
         }
         false
-    }
-
-    pub async fn perform_async(
-        orchestrator: &mut OldOrchestrator,
-    ) -> Result<Performance, &'static str> {
-        if let Ok(performance) = orchestrator.perform() {
-            Ok(performance)
-        } else {
-            Err("perform failed")
-        }
     }
 
     pub fn song_settings_from_yaml_file(filename: &str) -> anyhow::Result<SongSettings> {

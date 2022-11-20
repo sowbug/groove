@@ -26,7 +26,7 @@ devices:
     - drumkit:
         midi-in: 10
         preset: "707"
-  - midi-instrument:
+  - controller:
     - arp-1
     - arpeggiator:
         midi-in: 2
