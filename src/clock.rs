@@ -4,7 +4,7 @@ use std::{
     ops::{Add, Mul},
 };
 
-use crate::{common::Rrc, controllers::BigMessage, settings::ClockSettings, traits::WatchesClock};
+use crate::settings::ClockSettings;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -259,61 +259,6 @@ impl Clock {
             ClockTimeUnit::Samples => todo!(),
             ClockTimeUnit::MidiTicks => todo!(),
         }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct WatchedClock {
-    clock: Clock,
-    watchers: Vec<Rrc<dyn WatchesClock>>,
-}
-
-impl WatchedClock {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
-    pub(crate) fn new_with(clock_settings: &ClockSettings) -> WatchedClock {
-        WatchedClock {
-            clock: Clock::new_with(clock_settings),
-            ..Default::default()
-        }
-    }
-
-    pub fn inner_clock(&self) -> &Clock {
-        &self.clock
-    }
-
-    pub fn inner_clock_mut(&mut self) -> &mut Clock {
-        &mut self.clock
-    }
-
-    pub fn add_watcher(&mut self, watcher: Rrc<dyn WatchesClock>) {
-        self.watchers.push(watcher);
-    }
-
-    /// Calls tick() on every watcher. Returns true if all have reported that
-    /// they're done.
-    pub fn visit_watchers(&mut self) -> (bool, Vec<BigMessage>) {
-        let mut done = true;
-        let mut messages = Vec::<BigMessage>::new();
-        for watcher in self.watchers.iter_mut() {
-            let mut msgs = watcher.borrow_mut().tick(&self.clock);
-            messages.append(&mut msgs);
-            done &= watcher.borrow().is_finished();
-        }
-        (done, messages)
-    }
-
-    pub fn tick(&mut self) {
-        self.clock.tick();
-    }
-
-    pub(crate) fn reset(&mut self) {
-        self.clock.reset()
     }
 }
 

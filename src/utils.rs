@@ -1,11 +1,7 @@
 use crate::{
     clock::Clock,
-    controllers::{BigMessage, SmallMessageGenerator},
     messages::GrooveMessage,
-    traits::{
-        EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, Terminates,
-        WatchesClock,
-    },
+    traits::{EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, Terminates},
 };
 use core::fmt::Debug;
 use std::marker::PhantomData;
@@ -66,12 +62,6 @@ impl<M: MessageBounds> HasUid for Timer<M> {
         self.uid = uid;
     }
 }
-impl<M: MessageBounds> WatchesClock for Timer<M> {
-    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-        self.has_more_work = clock.seconds() < self.time_to_run_seconds;
-        Vec::new()
-    }
-}
 
 #[derive(Debug, Default)]
 pub(crate) struct Trigger<M: MessageBounds> {
@@ -79,9 +69,6 @@ pub(crate) struct Trigger<M: MessageBounds> {
     time_to_trigger_seconds: f32,
     value: f32,
     has_triggered: bool,
-
-    target_uids: Vec<usize>,
-    target_messages: Vec<SmallMessageGenerator>,
 
     _phantom: PhantomData<M>,
 }
@@ -120,18 +107,6 @@ impl<M: MessageBounds> Trigger<M> {
         }
     }
 }
-impl<M: MessageBounds> WatchesClock for Trigger<M> {
-    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-        if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
-            self.has_triggered = true;
-            let value = self.value;
-            // SOON self.post_message(value)
-            Vec::default()
-        } else {
-            Vec::default()
-        }
-    }
-}
 impl NewUpdateable for Trigger<GrooveMessage> {
     type Message = GrooveMessage;
 
@@ -155,11 +130,7 @@ impl NewUpdateable for Trigger<GrooveMessage> {
 pub mod tests {
     use crate::{
         clock::{Clock, ClockTimeUnit},
-        common::{
-            rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
-            MONO_SAMPLE_SILENCE,
-        },
-        controllers::{BigMessage},
+        common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE},
         envelopes::AdsrEnvelope,
         messages::{tests::TestMessage, GrooveMessage},
         midi::{MidiChannel, MidiMessage, MidiUtils},
@@ -170,7 +141,6 @@ pub mod tests {
         traits::{
             BoxedEntity, EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewIsEffect,
             NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio, Terminates, TransformsAudio,
-            WatchesClock,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -1156,37 +1126,6 @@ pub mod tests {
         }
     }
 
-    /// Keeps asking for time slices until end of specified lifetime.
-    #[derive(Debug, Default)]
-    pub struct TestClockWatcher<M: MessageBounds> {
-        has_more_work: bool,
-        lifetime_seconds: f32,
-
-        _phantom: PhantomData<M>,
-    }
-
-    impl<M: MessageBounds> WatchesClock for TestClockWatcher<M> {
-        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-            self.has_more_work = clock.seconds() < self.lifetime_seconds;
-            Vec::new()
-        }
-    }
-
-    impl<M: MessageBounds> Terminates for TestClockWatcher<M> {
-        fn is_finished(&self) -> bool {
-            !self.has_more_work
-        }
-    }
-
-    impl<M: MessageBounds> TestClockWatcher<M> {
-        pub fn new(lifetime_seconds: f32) -> Self {
-            Self {
-                lifetime_seconds,
-                ..Default::default()
-            }
-        }
-    }
-
     #[derive(Display, Debug, EnumString)]
     #[strum(serialize_all = "kebab_case")]
     pub(crate) enum TestArpeggiatorControlParams {
@@ -1208,11 +1147,6 @@ pub mod tests {
         is_enabled: bool,
         is_playing: bool,
         channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
-    }
-    impl<M: MessageBounds> WatchesClock for TestArpeggiator<M> {
-        fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-            Vec::new()
-        }
     }
     impl<M: MessageBounds> Terminates for TestArpeggiator<M> {
         fn is_finished(&self) -> bool {

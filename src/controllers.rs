@@ -4,24 +4,12 @@ use crate::messages::GrooveMessage;
 use crate::settings::control::ControlStep;
 use crate::traits::{
     EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, Terminates,
-    WatchesClock,
 };
 use crate::{clock::BeatValue, settings::control::ControlPathSettings};
 use core::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Range;
 use strum_macros::{Display, EnumString};
-
-// https://boydjohnson.dev/blog/impl-debug-for-fn-type/ gave me enough clues to
-// get through this.
-pub trait SmallMessageGeneratorT: Fn(f32) -> SmallMessage {}
-impl<F> SmallMessageGeneratorT for F where F: Fn(f32) -> SmallMessage {}
-impl std::fmt::Debug for dyn SmallMessageGeneratorT {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SmallMessageGenerator")
-    }
-}
-pub type SmallMessageGenerator = Box<dyn SmallMessageGeneratorT>;
 
 /// ControlTrip, ControlPath, and ControlStep help with
 /// [automation](https://en.wikipedia.org/wiki/Track_automation). Briefly, a
@@ -154,49 +142,6 @@ impl NewUpdateable for ControlTrip<GrooveMessage> {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum SmallMessage {
-    ValueChanged(f32),
-    SecondValueChanged(f32),
-    ThirdValueChanged(f32),
-    FourthValueChanged(f32),
-}
-
-#[derive(Clone, Debug)]
-pub enum BigMessage {
-    SmallMessage(usize, SmallMessage),
-}
-impl<M: MessageBounds> WatchesClock for ControlTrip<M> {
-    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-        let mut messages = Vec::<BigMessage>::new();
-        let time = self.envelope.time_for_unit(clock);
-        let step = self.envelope.step_for_time(time);
-        if step.interval.contains(&time) {
-            let value = self.envelope.value_for_step_at_time(step, time);
-
-            let last_value = self.current_value;
-            self.current_value = value;
-            if self.current_value != last_value {
-                // if let Some(f) = &self.target_on_update {
-                //     messages.push(BigMessage::SmallMessage(
-                //         self.target_uid,
-                //         (f)(self.current_value),
-                //     ));
-                // }
-                // TODO: remember, this is why automations are broken right now!
-            }
-            self.is_finished = time >= step.interval.end;
-        } else {
-            // This is a drastic response to a tick that's out of range. It
-            // might be better to limit it to times that are later than the
-            // covered range. We're likely to hit ControlTrips that start beyond
-            // time zero.
-            self.is_finished = true;
-        }
-        messages
-    }
-}
-
 /// A ControlPath makes it easier to construct sequences of ControlSteps. It's
 /// just like a pattern in a pattern-based sequencer. ControlPaths aren't
 /// required; they just make repetitive sequences less tedious to build.
@@ -277,13 +222,8 @@ pub(crate) enum OscillatorControlParams {
 mod tests {
 
     use crate::{
-        clock::WatchedClock,
-        common::{rrc, },
-        messages::tests::TestMessage,
-        orchestrator::tests::Runner,
-        traits::BoxedEntity,
-        utils::tests::{TestInstrument, TestMidiSink},
-        Orchestrator,
+        messages::tests::TestMessage, orchestrator::tests::Runner, traits::BoxedEntity,
+        utils::tests::TestInstrument, Orchestrator,
     };
 
     use super::*;

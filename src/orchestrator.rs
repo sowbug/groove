@@ -5,17 +5,13 @@ use crate::{
     messages::GrooveMessage,
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     traits::{
-        BoxedEntity, EvenNewerCommand, EvenNewerIsUpdateable, HasUid, Internal, MakesIsViewable,
-        MessageBounds, NewIsController, NewUpdateable, SinksMidi, SourcesAudio, Terminates,
-        WatchesClock,
+        BoxedEntity, EvenNewerCommand, EvenNewerIsUpdateable, HasUid, Internal, MessageBounds,
+        NewIsController, NewUpdateable, SourcesAudio, Terminates,
     },
 };
 use anyhow::anyhow;
 use crossbeam::deque::Worker;
-use std::{
-    collections::HashMap,
-    io::{self, Write},
-};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Performance {
@@ -40,21 +36,6 @@ pub(crate) enum OrchestratorMessage {
     GotAnF32(f32),
     Tick(Clock),
     Midi(Clock, u8, MidiMessage),
-}
-
-#[allow(dead_code)]
-pub(crate) type BoxedSourcesAudio = Box<dyn SourcesAudio>;
-#[allow(dead_code)]
-pub(crate) type Updateable = dyn EvenNewerIsUpdateable<Message = OrchestratorMessage>;
-#[allow(dead_code)]
-pub(crate) type BoxedUpdateable = Box<Updateable>;
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub(crate) enum Uid {
-    OrchestratorUpdateable(usize),
-    SourcesAudio(usize),
-    IsEffect(usize),
 }
 
 pub type GrooveOrchestrator = Orchestrator<GrooveMessage>;
@@ -120,11 +101,15 @@ impl<M: MessageBounds> Orchestrator<M> {
         self.store.add(uvid, entity)
     }
 
-    pub(crate) fn get(&mut self, uvid: &str) -> Option<&BoxedEntity<M>> {
+    pub(crate) fn get(&self, uvid: &str) -> Option<&BoxedEntity<M>> {
         self.store.get_by_uvid(uvid)
     }
 
-    pub(crate) fn get_uid(&mut self, uvid: &str) -> Option<usize> {
+    pub(crate) fn get_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity<M>> {
+        self.store.get_by_uvid_mut(uvid)
+    }
+
+    pub(crate) fn get_uid(&self, uvid: &str) -> Option<usize> {
         self.store.get_uid(uvid)
     }
 

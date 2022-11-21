@@ -1,11 +1,9 @@
 use crate::{
     clock::Clock,
-    common::{MonoSample, Ww},
-    controllers::BigMessage,
+    common::MonoSample,
     gui::{IsViewable, ViewableMessage},
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
-use std::collections::HashMap;
 
 pub trait NewIsController: NewUpdateable + Terminates + HasUid + std::fmt::Debug {}
 pub trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid + std::fmt::Debug {}
@@ -152,142 +150,26 @@ pub trait SinksMidi: std::fmt::Debug {
     );
 }
 
-/// A WatchesClock is something that needs to be called for every time slice.
-/// This sounds like SourcesAudio; indeed SourcesAudio do not (and *cannot*)
-/// implement WatchesClock because they're already called on every time slice to
-/// provide an audio sample. A WatchesClock has no extrinsic reason to be
-/// called, so the trait exists to make sure that whatever intrinsic reason for
-/// being called is satisfied.
-#[deprecated]
-pub trait WatchesClock: std::fmt::Debug + Terminates {
-    // type Message; // TODO: figure out how to do this!
-
-    /// WatchesClock::tick() must be called exactly once for every sample, and
-    /// implementers can assume that they won't be asked to provide any
-    /// information until tick() has been called for the time slice.
-    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage>;
-    // TODO: should be Box<> so stuff gets handed over more cheaply
-}
-
 #[cfg(test)]
 pub mod tests {
-    use super::WatchesClock;
-    use crate::{
-        clock::Clock,
-        clock::WatchedClock,
-        common::{rrc, rrc_clone, },
-        controllers::AdsrEnvelopeControlParams,
-        effects::gain::Gain,
-        envelopes::AdsrEnvelope,
-        messages::tests::TestMessage,
-        midi::MidiUtils,
-        oscillators::Oscillator,
-        settings::patches::{EnvelopeSettings, WaveformType},
-        traits::Terminates,
-        utils::{
-            tests::{TestClockWatcher, TestSynth},
-            Timer, Trigger,
-        },
-    };
 
+    use rand::random;
+
+    use crate::{Clock, utils::tests::TestInstrument, messages::tests::TestMessage};
+
+    use super::SourcesAudio;
+
+    // TODO: restore tests that test basic trait behavior, then figure out how
+    // to run everyone implementing those traits through that behavior. For now,
+    // this one just tests that a generic instrument doesn't panic when accessed
+    // for non-consecutive time slices.
     #[test]
-    fn test_clock_watcher() {
-        let mut clock = Clock::new_test();
-        let mut clock_watcher = TestClockWatcher::<TestMessage>::new(1.0);
-
-        loop {
-            clock.tick();
-            clock_watcher.tick(&clock);
-            if clock_watcher.is_finished() {
-                break;
-            }
+    fn test_sources_audio_random_access() {
+        let mut instrument = TestInstrument::<TestMessage>::default();
+        for _ in 0..100 {
+            let mut clock = Clock::new();
+            clock.debug_set_samples(random());
+            let _ = instrument.source_audio(&clock);
         }
-        assert!(clock.seconds() >= 1.0);
     }
-
-    // #[test]
-    // fn test_clock_watcher_random_access() {
-    //     let mut clock = WatchedClock::new();
-
-    //     let mut watchers = watches_clock_instances_for_testing();
-    //     while !watchers.is_empty() {
-    //         clock.add_watcher(watchers.pop().unwrap());
-    //     }
-
-    //     // Regular start to finish, twice.
-    //     for _ in 0..2 {
-    //         for _ in 0..100 {
-    //             clock.tick();
-    //         }
-    //         clock.reset();
-    //     }
-
-    //     // Backwards.
-    //     clock.reset();
-    //     for t in 0..100 {
-    //         clock.inner_clock_mut().debug_set_samples(t);
-    //         clock.tick();
-    //     }
-
-    //     // Random.
-    //     for _ in 0..100 {
-    //         clock.inner_clock_mut().debug_set_samples(random());
-    //         clock.tick();
-    //     }
-    // }
-
-    // /// Add concrete instances of SourcesAudio here for anyone to use for
-    // /// testing.
-    // fn sources_audio_instances_for_testing() -> Vec<Rrc<dyn SourcesAudio>> {
-    //     const MIDI_CHANNEL: MidiChannel = 0;
-
-    //     // If the instance is meaningfully testable after new(), put it here.
-    //     let mut sources: Vec<Rrc<dyn SourcesAudio>> = vec![
-    //         BiQuadFilter::new_wrapped_with(
-    //             &crate::effects::filter::FilterParams::BandPass {
-    //                 cutoff: 2343.9,
-    //                 bandwidth: 4354.3,
-    //             },
-    //             13245,
-    //         ),
-    //         Gain::new_wrapped_with(0.5),
-    //     ];
-
-    //     // If the instance needs to be told to play a note, put it here.
-    //     let midi_instruments: Vec<Rrc<dyn IsMidiInstrument>> = vec![
-    //         DrumkitSampler::new_wrapped_from_files(MIDI_CHANNEL),
-    //         Sampler::new_wrapped_with(MIDI_CHANNEL, 10000),
-    //         Synth::new_wrapped_with(MIDI_CHANNEL, 44007, SynthPatch::by_name(&PatchName::Piano)),
-    //     ];
-    //     for instrument in midi_instruments {
-    //         instrument.borrow_mut().handle_midi_for_channel(
-    //             &Clock::new(),
-    //             &0,
-    //             &MidiUtils::note_on_c4(),
-    //         );
-    //         sources.push(instrument);
-    //     }
-
-    //     sources
-    // }
-
-    // #[test]
-    // fn test_sources_audio_random_access() {
-    //     let mut orchestrator = TestOrchestrator::new();
-
-    //     let mut sources = sources_audio_instances_for_testing();
-
-    //     while !sources.is_empty() {
-    //         let source = sources.pop();
-    //         if let Some(source) = source {
-    //             orchestrator.add_audio_source(rrc_downgrade(&source));
-    //         }
-    //     }
-
-    //     for _ in 0..100 {
-    //         let mut clock = Clock::new();
-    //         clock.debug_set_samples(random());
-    //         let _ = orchestrator.main_mixer.source_audio(&clock);
-    //     }
-    // }
 }

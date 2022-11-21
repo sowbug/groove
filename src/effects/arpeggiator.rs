@@ -2,10 +2,9 @@ use midly::num::u7;
 
 use crate::{
     clock::{Clock, PerfectTimeUnit},
-    controllers::BigMessage,
     messages::GrooveMessage,
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
-    traits::{HasUid, NewIsController, NewUpdateable, SinksMidi, Terminates, WatchesClock},
+    traits::{HasUid, NewIsController, NewUpdateable, SinksMidi, Terminates},
 };
 
 #[derive(Debug, Default)]
@@ -27,10 +26,7 @@ impl NewUpdateable for Arpeggiator {
         message: Self::Message,
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         match message {
-            GrooveMessage::Nop => todo!(),
             GrooveMessage::Tick => return self.beat_sequencer.update(clock, message),
-            GrooveMessage::ControlF32(_, _) => todo!(),
-            GrooveMessage::UpdateF32(_, _) => todo!(),
             GrooveMessage::Midi(channel, message) => {
                 match message {
                     MidiMessage::NoteOff { key, vel } => self.is_device_playing = false,
@@ -47,7 +43,7 @@ impl NewUpdateable for Arpeggiator {
                 }
                 self.beat_sequencer.enable(self.is_device_playing);
             }
-            GrooveMessage::Enable(_) => todo!(),
+            _ => todo!(),
         }
         crate::traits::EvenNewerCommand::none()
     }
@@ -82,13 +78,6 @@ impl SinksMidi for Arpeggiator {
 
     fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
         self.midi_channel_in = midi_channel;
-    }
-}
-
-impl WatchesClock for Arpeggiator {
-    fn tick(&mut self, clock: &Clock) -> Vec<BigMessage> {
-        self.beat_sequencer.tick(clock); // TODO: loop
-        Vec::new()
     }
 }
 
