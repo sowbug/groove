@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
-    messages::GrooveMessage,
-    traits::{EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, Terminates},
+    messages::{GrooveMessage, MessageBounds},
+    traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, Terminates},
 };
 use core::fmt::Debug;
 use std::marker::PhantomData;
@@ -132,15 +132,15 @@ pub mod tests {
         clock::{Clock, ClockTimeUnit},
         common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE},
         envelopes::AdsrEnvelope,
+        messages::MessageBounds,
         messages::{tests::TestMessage, GrooveMessage},
         midi::{MidiChannel, MidiMessage, MidiUtils},
         orchestrator::{tests::Runner, GrooveRunner, Orchestrator},
         oscillators::Oscillator,
-        settings::patches::EnvelopeSettings,
-        settings::ClockSettings,
+        settings::{patches::EnvelopeSettings, ClockSettings},
         traits::{
-            BoxedEntity, EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewIsEffect,
-            NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio, Terminates, TransformsAudio,
+            BoxedEntity, EvenNewerCommand, HasUid, NewIsController, NewIsEffect, NewIsInstrument,
+            NewUpdateable, SinksMidi, SourcesAudio, Terminates, TransformsAudio,
         },
     };
     use assert_approx_eq::assert_approx_eq;

@@ -2,8 +2,9 @@ use std::marker::PhantomData;
 
 use crate::{
     clock::Clock,
-    common::{rrc, MonoSample, Rrc, Ww},
-    traits::{HasUid, MessageBounds, NewIsEffect, NewUpdateable, SourcesAudio, TransformsAudio},
+    common::MonoSample,
+    messages::MessageBounds,
+    traits::{HasUid, NewIsEffect, NewUpdateable, TransformsAudio},
 };
 
 #[derive(Clone, Debug, Default)]
@@ -36,7 +37,7 @@ impl<M: MessageBounds> Mixer<M> {
             ..Default::default()
         }
     }
- }
+}
 
 #[cfg(test)]
 mod tests {

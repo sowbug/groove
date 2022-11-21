@@ -1,7 +1,8 @@
 use crate::{
     clock::Clock,
     common::MonoSample,
-    traits::{HasUid, MessageBounds, NewIsEffect, NewUpdateable, TransformsAudio},
+    messages::MessageBounds,
+    traits::{HasUid, NewIsEffect, NewUpdateable, TransformsAudio},
 };
 use std::{f64::consts::PI, marker::PhantomData};
 

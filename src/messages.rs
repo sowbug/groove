@@ -1,5 +1,7 @@
-use crate::{midi::MidiChannel, traits::MessageBounds};
+use crate::midi::MidiChannel;
 use midly::MidiMessage;
+
+pub trait MessageBounds: Clone + std::fmt::Debug + Default + 'static {} // TODO: that 'static scares me
 
 #[derive(Clone, Debug, Default)]
 pub enum GrooveMessage {
@@ -15,9 +17,9 @@ impl MessageBounds for GrooveMessage {}
 
 #[cfg(test)]
 pub mod tests {
+    use super::MessageBounds;
+    use crate::midi::MidiChannel;
     use midly::MidiMessage;
-
-    use crate::{midi::MidiChannel, traits::MessageBounds};
 
     #[derive(Clone, Debug, Default)]
     pub enum TestMessage {

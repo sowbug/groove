@@ -2,11 +2,9 @@ use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
     common::Ww,
     messages::GrooveMessage,
+    messages::MessageBounds,
     midi::{MidiChannel, MidiMessage},
-    traits::{
-        EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, SinksMidi,
-        Terminates,
-    },
+    traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, SinksMidi, Terminates},
 };
 use btreemultimap::BTreeMultiMap;
 use std::{
@@ -251,11 +249,9 @@ mod tests {
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         clock::{Clock, MidiTicks, PerfectTimeUnit},
-        messages::tests::TestMessage,
+        messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
-        traits::{
-            BoxedEntity, EvenNewerCommand, MessageBounds, NewIsController, NewUpdateable, SinksMidi,
-        },
+        traits::{BoxedEntity, EvenNewerCommand, NewIsController, NewUpdateable, SinksMidi},
         utils::tests::TestInstrument,
         Orchestrator,
     };

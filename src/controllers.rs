@@ -1,10 +1,8 @@
 use crate::clock::{Clock, ClockTimeUnit};
 use crate::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
-use crate::messages::GrooveMessage;
+use crate::messages::{GrooveMessage, MessageBounds};
 use crate::settings::control::ControlStep;
-use crate::traits::{
-    EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewUpdateable, Terminates,
-};
+use crate::traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, Terminates};
 use crate::{clock::BeatValue, settings::control::ControlPathSettings};
 use core::fmt::Debug;
 use std::marker::PhantomData;

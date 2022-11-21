@@ -5,12 +5,12 @@ use crate::{
         limiter::Limiter, mixer::Mixer,
     },
     instruments::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
-    messages::GrooveMessage,
+    messages::{GrooveMessage, MessageBounds},
     midi::{
         patterns::{Note, Pattern, PatternManager},
         sequencers::BeatSequencer,
     },
-    traits::{MakesIsViewable, MessageBounds},
+    traits::MakesIsViewable,
     GrooveOrchestrator,
 };
 use iced::{
@@ -589,7 +589,7 @@ impl IsViewable for ArpeggiatorViewableResponder {
                     //          target.borrow_mut().set_enabled(is_enabled);
                 }
                 ViewableMessage::ArpeggiatorChanged(new_value) => {
-//                    target.borrow_mut().set_nothing(new_value as f32);
+                    //                    target.borrow_mut().set_nothing(new_value as f32);
                 }
                 _ => todo!(),
             }

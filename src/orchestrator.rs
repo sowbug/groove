@@ -2,11 +2,10 @@ use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_SILENCE},
     effects::mixer::Mixer,
-    messages::GrooveMessage,
+    messages::{GrooveMessage, MessageBounds},
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     traits::{
-        BoxedEntity, EvenNewerCommand, HasUid, Internal, MessageBounds, NewIsController,
-        NewUpdateable, SourcesAudio, Terminates,
+        BoxedEntity, EvenNewerCommand, HasUid, Internal, NewIsController, NewUpdateable, Terminates,
     },
 };
 use anyhow::anyhow;

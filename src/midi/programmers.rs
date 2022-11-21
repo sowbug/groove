@@ -3,7 +3,7 @@ use std::{cmp, marker::PhantomData};
 use crate::{
     clock::{MidiTicks, PerfectTimeUnit},
     messages::GrooveMessage,
-    traits::MessageBounds,
+    messages::MessageBounds,
     TimeSignature,
 };
 use midly::{MidiMessage, TrackEventKind};

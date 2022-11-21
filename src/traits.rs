@@ -2,13 +2,13 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     gui::{IsViewable, ViewableMessage},
+    messages::MessageBounds,
     midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
 
 pub trait NewIsController: NewUpdateable + Terminates + HasUid + std::fmt::Debug {}
 pub trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid + std::fmt::Debug {}
 pub trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid + std::fmt::Debug {}
-pub trait MessageBounds: Clone + std::fmt::Debug + Default + 'static {} // TODO: that 'static scares me
 
 #[derive(Debug)]
 pub enum BoxedEntity<M> {
@@ -133,7 +133,7 @@ pub mod tests {
 
     use rand::random;
 
-    use crate::{Clock, utils::tests::TestInstrument, messages::tests::TestMessage};
+    use crate::{messages::tests::TestMessage, utils::tests::TestInstrument, Clock};
 
     use super::SourcesAudio;
 
