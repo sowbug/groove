@@ -130,9 +130,9 @@ impl Updateable for ControlTrip<GrooveMessage> {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
-            GrooveMessage::Tick => {
+            Self::Message::Tick => {
                 if self.tick(clock) {
-                    return EvenNewerCommand::single(GrooveMessage::ControlF32(
+                    return EvenNewerCommand::single(Self::Message::ControlF32(
                         self.uid,
                         self.current_value,
                     ));
@@ -230,9 +230,9 @@ mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Tick => {
+                Self::Message::Tick => {
                     if self.tick(clock) {
-                        return EvenNewerCommand::single(TestMessage::ControlF32(
+                        return EvenNewerCommand::single(Self::Message::ControlF32(
                             self.uid,
                             self.current_value,
                         ));

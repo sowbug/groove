@@ -162,7 +162,7 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Tick => {
+                Self::Message::Tick => {
                     return match self.what_to_do(clock) {
                         TestControllerAction::Nothing => EvenNewerCommand::none(),
                         TestControllerAction::NoteOn => {
@@ -171,7 +171,7 @@ pub mod tests {
                             // then we still send the off note,
                             if self.is_enabled {
                                 self.is_playing = true;
-                                EvenNewerCommand::single(TestMessage::Midi(
+                                EvenNewerCommand::single(Self::Message::Midi(
                                     self.midi_channel_out,
                                     MidiMessage::NoteOn {
                                         key: 60.into(),
@@ -184,7 +184,7 @@ pub mod tests {
                         }
                         TestControllerAction::NoteOff => {
                             if self.is_playing {
-                                EvenNewerCommand::single(TestMessage::Midi(
+                                EvenNewerCommand::single(Self::Message::Midi(
                                     self.midi_channel_out,
                                     MidiMessage::NoteOff {
                                         key: 60.into(),
@@ -197,7 +197,7 @@ pub mod tests {
                         }
                     };
                 }
-                TestMessage::Enable(enabled) => {
+                Self::Message::Enable(enabled) => {
                     self.is_enabled = enabled;
                     EvenNewerCommand::none()
                 }

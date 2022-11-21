@@ -3,7 +3,7 @@ use crate::{
     messages::GrooveMessage,
     messages::MessageBounds,
     midi::{MidiChannel, MidiMessage},
-    traits::{EvenNewerCommand, HasUid, IsController, Updateable, Terminates},
+    traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable},
 };
 use btreemultimap::BTreeMultiMap;
 use std::{
@@ -89,7 +89,7 @@ impl Updateable for BeatSequencer<GrooveMessage> {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
-            GrooveMessage::Tick => {
+            Self::Message::Tick => {
                 self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
 
                 return if self.is_enabled() {
@@ -103,7 +103,7 @@ impl Updateable for BeatSequencer<GrooveMessage> {
                     EvenNewerCommand::batch(self.events.range(range).into_iter().fold(
                         Vec::new(),
                         |mut vec, (_when, event)| {
-                            vec.push(EvenNewerCommand::single(GrooveMessage::Midi(
+                            vec.push(EvenNewerCommand::single(Self::Message::Midi(
                                 event.0, event.1,
                             )));
                             vec
@@ -205,7 +205,7 @@ impl Updateable for MidiTickSequencer<GrooveMessage> {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
-            GrooveMessage::Tick => {
+            Self::Message::Tick => {
                 self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
 
                 if self.is_enabled() {
@@ -221,7 +221,7 @@ impl Updateable for MidiTickSequencer<GrooveMessage> {
                         Vec::new(),
                         |mut vec: Vec<EvenNewerCommand<Self::Message>>,
                          (_when, (channel, message))| {
-                            vec.push(EvenNewerCommand::single(GrooveMessage::Midi(
+                            vec.push(EvenNewerCommand::single(Self::Message::Midi(
                                 *channel, *message,
                             )));
                             vec
@@ -244,9 +244,7 @@ mod tests {
         clock::{Clock, MidiTicks, PerfectTimeUnit},
         messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
-        traits::{
-            tests::TestInstrument, BoxedEntity, EvenNewerCommand, IsController, Updateable,
-        },
+        traits::{tests::TestInstrument, BoxedEntity, EvenNewerCommand, IsController, Updateable},
         Orchestrator,
     };
     use std::ops::Bound::{Excluded, Included};
@@ -287,7 +285,7 @@ mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Tick => {
+                Self::Message::Tick => {
                     self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
 
                     return if self.is_enabled() {
@@ -301,7 +299,7 @@ mod tests {
                         EvenNewerCommand::batch(self.events.range(range).into_iter().fold(
                             Vec::new(),
                             |mut vec, (_when, event)| {
-                                vec.push(EvenNewerCommand::single(TestMessage::Midi(
+                                vec.push(EvenNewerCommand::single(Self::Message::Midi(
                                     event.0, event.1,
                                 )));
                                 vec
@@ -325,7 +323,7 @@ mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Tick => {
+                Self::Message::Tick => {
                     self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
 
                     if self.is_enabled() {
@@ -341,7 +339,7 @@ mod tests {
                             Vec::new(),
                             |mut vec: Vec<EvenNewerCommand<Self::Message>>,
                              (_when, (channel, message))| {
-                                vec.push(EvenNewerCommand::single(TestMessage::Midi(
+                                vec.push(EvenNewerCommand::single(Self::Message::Midi(
                                     *channel, *message,
                                 )));
                                 vec

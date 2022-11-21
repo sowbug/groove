@@ -10,6 +10,7 @@ use core::fmt::Debug;
 use std::marker::PhantomData;
 use strum_macros::{Display, EnumString};
 
+/// Timer returns true to Terminates::is_finished() after a specified amount of time.
 #[derive(Debug, Default)]
 pub(crate) struct Timer<M: MessageBounds> {
     uid: usize,
@@ -49,7 +50,7 @@ impl Updateable for Timer<GrooveMessage> {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
-            GrooveMessage::Tick => {
+            Self::Message::Tick => {
                 self.has_more_work = clock.seconds() < self.time_to_run_seconds;
             }
             _ => {}
@@ -67,6 +68,7 @@ impl<M: MessageBounds> HasUid for Timer<M> {
     }
 }
 
+/// Trigger issues a ControlF32 message after a specified amount of time.
 #[derive(Debug, Default)]
 pub(crate) struct Trigger<M: MessageBounds> {
     uid: usize,
@@ -117,10 +119,10 @@ impl Updateable for Trigger<GrooveMessage> {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
-            GrooveMessage::Tick => {
+            Self::Message::Tick => {
                 return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
                     self.has_triggered = true;
-                    EvenNewerCommand::single(GrooveMessage::ControlF32(self.uid, self.value))
+                    EvenNewerCommand::single(Self::Message::ControlF32(self.uid, self.value))
                 } else {
                     EvenNewerCommand::none()
                 };
@@ -402,7 +404,7 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Tick => {
+                Self::Message::Tick => {
                     self.has_more_work = clock.seconds() < self.time_to_run_seconds;
                 }
                 _ => {}
@@ -420,11 +422,11 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Tick => {
+                Self::Message::Tick => {
                     return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds
                     {
                         self.has_triggered = true;
-                        EvenNewerCommand::single(TestMessage::ControlF32(self.uid, self.value))
+                        EvenNewerCommand::single(Self::Message::ControlF32(self.uid, self.value))
                     } else {
                         EvenNewerCommand::none()
                     };
@@ -505,9 +507,9 @@ pub mod tests {
             clock: &Clock,
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
-            if let TestMessage::Tick = message {
+            if let Self::Message::Tick = message {
                 let value = self.oscillator.source_audio(&clock);
-                EvenNewerCommand::single(TestMessage::ControlF32(self.uid, value))
+                EvenNewerCommand::single(Self::Message::ControlF32(self.uid, value))
             } else {
                 EvenNewerCommand::none()
             }
@@ -615,7 +617,7 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::UpdateF32(param_index, value) => {
+                Self::Message::UpdateF32(param_index, value) => {
                     if let Some(param) = TestSynthControlParams::from_repr(param_index) {
                         match param {
                             TestSynthControlParams::OscillatorModulation => {
@@ -646,7 +648,7 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                GrooveMessage::UpdateF32(param_index, value) => {
+                Self::Message::UpdateF32(param_index, value) => {
                     if let Some(param) = TestSynthControlParams::from_repr(param_index) {
                         match param {
                             TestSynthControlParams::OscillatorModulation => {
@@ -707,9 +709,9 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Tick => {
+                Self::Message::Tick => {
                     let value = self.source.source_audio(&clock).abs();
-                    EvenNewerCommand::single(TestMessage::ControlF32(self.uid, value))
+                    EvenNewerCommand::single(Self::Message::ControlF32(self.uid, value))
                 }
                 _ => EvenNewerCommand::none(),
             }
@@ -775,7 +777,7 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Tick => {
+                Self::Message::Tick => {
                     if !self.values.is_empty() {
                         if clock.time_for(&self.time_unit) >= self.checkpoint {
                             const SAD_FLOAT_DIFF: f32 = 1.0e-4;
@@ -829,15 +831,6 @@ pub mod tests {
             }
         }
     }
-
-    // GrooveMessage::Nop => {
-    //     dbg!(clock, message);
-    // }
-    // GrooveMessage::Tick => panic!("GrooveMessage::Tick should be sent only by the system"),
-    // GrooveMessage::ControlF32(uid, value) => ,
-    // GrooveMessage::UpdateF32(param_id, value) => panic!(
-    //     "GrooveMessage::UpdateF32({}, {}) should be dispatched by Orchestrator, not received by it",param_id,value            ),
-    // GrooveMessage::Midi(channel, message) => self.send_midi_message(clock, channel, message),
 
     #[test]
     fn test_audio_routing() {

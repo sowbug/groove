@@ -25,8 +25,8 @@ impl Updateable for Arpeggiator {
         message: Self::Message,
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         match message {
-            GrooveMessage::Tick => return self.beat_sequencer.update(clock, message),
-            GrooveMessage::Midi(_channel, message) => {
+            Self::Message::Tick => return self.beat_sequencer.update(clock, message),
+            Self::Message::Midi(_channel, message) => {
                 match message {
                     MidiMessage::NoteOff { key: _, vel: _ } => self.is_device_playing = false,
                     MidiMessage::NoteOn { key, vel } => {

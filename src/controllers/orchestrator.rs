@@ -5,7 +5,7 @@ use crate::{
     messages::{GrooveMessage, MessageBounds},
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     traits::{
-        BoxedEntity, EvenNewerCommand, HasUid, Internal, IsController, Updateable, Terminates,
+        BoxedEntity, EvenNewerCommand, HasUid, Internal, IsController, Terminates, Updateable,
     },
 };
 use anyhow::anyhow;
@@ -325,29 +325,6 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
             BoxedEntity::Effect(main_mixer),
         );
         r
-    }
-}
-impl Orchestrator<GrooveMessage> {
-    fn send_control_f32(&mut self, clock: &Clock, uid: usize, value: f32) {
-        if let Some(links) = self.store.control_links(uid) {
-            let links = links.to_vec();
-            for (target_uid, param) in links {
-                if let Some(target) = self.store.get_mut(target_uid) {
-                    match target {
-                        // TODO: everyone is the same...
-                        BoxedEntity::Controller(e) => {
-                            e.update(clock, GrooveMessage::UpdateF32(param, value));
-                        }
-                        BoxedEntity::Instrument(e) => {
-                            e.update(clock, GrooveMessage::UpdateF32(param, value));
-                        }
-                        BoxedEntity::Effect(e) => {
-                            e.update(clock, GrooveMessage::UpdateF32(param, value));
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 impl Updateable for Orchestrator<GrooveMessage> {}

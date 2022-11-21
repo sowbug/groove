@@ -7,7 +7,7 @@ pub use midly::MidiMessage;
 
 use crate::{
     common::Rrc,
-    traits::{HasUid, IsController, Updateable, Terminates},
+    traits::{HasUid, IsController, Terminates, Updateable},
     GrooveMessage,
 };
 use crossbeam::deque::{Stealer, Worker};
@@ -376,7 +376,7 @@ impl Updateable for MidiOutputHandler {
         message: Self::Message,
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         match message {
-            GrooveMessage::Midi(channel, message) => {
+            Self::Message::Midi(channel, message) => {
                 let event = LiveEvent::Midi {
                     channel: u4::from(channel),
                     message,

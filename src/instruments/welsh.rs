@@ -7,7 +7,7 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{HasUid, IsInstrument, Updateable, SourcesAudio, TransformsAudio},
+    traits::{HasUid, IsInstrument, SourcesAudio, TransformsAudio, Updateable},
     Clock,
 };
 use convert_case::{Case, Casing};
@@ -597,7 +597,7 @@ impl Updateable for Voice {
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
-            GrooveMessage::Midi(channel, message) => match message {
+            Self::Message::Midi(channel, message) => match message {
                 MidiMessage::NoteOff { key, vel } => {
                     self.amp_envelope.handle_note_event(clock, false);
                     self.filter_envelope.handle_note_event(clock, false);
@@ -709,7 +709,7 @@ impl Updateable for Synth {
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
-            GrooveMessage::Midi(channel, midi_message) => match midi_message {
+            Self::Message::Midi(channel, midi_message) => match midi_message {
                 MidiMessage::NoteOff { key, vel } => {
                     let voice = self.voice_for_note(clock, u8::from(key));
                     voice.update(clock, message);

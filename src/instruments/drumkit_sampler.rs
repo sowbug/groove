@@ -3,7 +3,7 @@ use crate::{
     common::MonoSample,
     messages::GrooveMessage,
     midi::{GeneralMidiPercussionProgram, MidiMessage},
-    traits::{HasUid, IsInstrument, Updateable, SourcesAudio},
+    traits::{HasUid, IsInstrument, SourcesAudio, Updateable},
 };
 use std::collections::HashMap;
 
@@ -43,7 +43,7 @@ impl Updateable for Voice {
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
-            GrooveMessage::Midi(_channel, message) => match message {
+            Self::Message::Midi(_channel, message) => match message {
                 MidiMessage::NoteOff { key, vel } => {
                     self.is_playing = false;
                 }
@@ -108,7 +108,7 @@ impl Updateable for Sampler {
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
-            GrooveMessage::Midi(channel, midi_message) => match midi_message {
+            Self::Message::Midi(channel, midi_message) => match midi_message {
                 MidiMessage::NoteOff { key, vel } => {
                     if let Some(voice) = self.note_to_voice.get_mut(&u8::from(key)) {
                         voice.update(clock, message);
