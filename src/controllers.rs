@@ -220,8 +220,10 @@ pub(crate) enum OscillatorControlParams {
 mod tests {
 
     use crate::{
-        messages::tests::TestMessage, orchestrator::tests::Runner, traits::BoxedEntity,
-        utils::tests::TestInstrument, Orchestrator,
+        messages::tests::TestMessage,
+        orchestrator::tests::Runner,
+        traits::{tests::TestInstrument, BoxedEntity},
+        Orchestrator,
     };
 
     use super::*;

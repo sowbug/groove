@@ -65,14 +65,8 @@ impl Limiter {
 mod tests {
     use super::*;
     use crate::{
-        clock::Clock,
-        common::MONO_SAMPLE_SILENCE,
-        messages::tests::TestMessage,
-        traits::SourcesAudio,
-        utils::tests::{
-            TestAudioSourceAlwaysLoud, TestAudioSourceAlwaysSilent, TestAudioSourceAlwaysTooLoud,
-            TestAudioSourceAlwaysVeryQuiet,
-        },
+        clock::Clock, common::MONO_SAMPLE_SILENCE, messages::tests::TestMessage,
+        traits::SourcesAudio, utils::tests::TestAudioSource,
     };
     use more_asserts::{assert_gt, assert_lt};
 
@@ -82,51 +76,72 @@ mod tests {
 
         // audio sources are at or past boundaries
         assert_gt!(
-            TestAudioSourceAlwaysTooLoud::<TestMessage>::default().source_audio(&clock),
+            TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::TOO_LOUD)
+                .source_audio(&clock),
             MONO_SAMPLE_MAX
         );
         assert_eq!(
-            TestAudioSourceAlwaysLoud::<TestMessage>::default().source_audio(&clock),
+            TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::LOUD)
+                .source_audio(&clock),
             MONO_SAMPLE_MAX
         );
         assert_eq!(
-            TestAudioSourceAlwaysSilent::<TestMessage>::default().source_audio(&clock),
+            TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::SILENT)
+                .source_audio(&clock),
             MONO_SAMPLE_SILENCE
+        );
+        assert_eq!(
+            TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::QUIET)
+                .source_audio(&clock),
+            MONO_SAMPLE_MIN
         );
         assert_lt!(
-            TestAudioSourceAlwaysVeryQuiet::<TestMessage>::default().source_audio(&clock),
-            MONO_SAMPLE_SILENCE
+            TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::TOO_QUIET)
+                .source_audio(&clock),
+            MONO_SAMPLE_MIN
         );
 
         // Limiter clamps high and low, and doesn't change values inside the range.
-        let mut limiter = Limiter::new_with(MONO_SAMPLE_SILENCE, MONO_SAMPLE_MAX);
+        let mut limiter = Limiter::new_with(MONO_SAMPLE_MIN, MONO_SAMPLE_MAX);
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                TestAudioSourceAlwaysLoud::<TestMessage>::default().source_audio(&clock)
+                TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::TOO_LOUD)
+                    .source_audio(&clock)
             ),
             MONO_SAMPLE_MAX
         );
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                TestAudioSourceAlwaysTooLoud::<TestMessage>::default().source_audio(&clock)
+                TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::LOUD)
+                    .source_audio(&clock)
             ),
             MONO_SAMPLE_MAX
         );
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                TestAudioSourceAlwaysVeryQuiet::<TestMessage>::default().source_audio(&clock)
+                TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::SILENT)
+                    .source_audio(&clock)
             ),
             MONO_SAMPLE_SILENCE
         );
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                TestAudioSourceAlwaysSilent::<TestMessage>::default().source_audio(&clock)
+                TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::QUIET)
+                    .source_audio(&clock)
             ),
-            MONO_SAMPLE_SILENCE
+            MONO_SAMPLE_MIN
+        );
+        assert_eq!(
+            limiter.transform_audio(
+                &clock,
+                TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::TOO_QUIET)
+                    .source_audio(&clock)
+            ),
+            MONO_SAMPLE_MIN
         );
     }
 }

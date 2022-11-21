@@ -243,8 +243,9 @@ mod tests {
         clock::{Clock, MidiTicks, PerfectTimeUnit},
         messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
-        traits::{BoxedEntity, EvenNewerCommand, NewIsController, NewUpdateable},
-        utils::tests::TestInstrument,
+        traits::{
+            tests::TestInstrument, BoxedEntity, EvenNewerCommand, NewIsController, NewUpdateable,
+        },
         Orchestrator,
     };
     use std::ops::Bound::{Excluded, Included};

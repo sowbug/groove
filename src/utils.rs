@@ -130,15 +130,16 @@ impl NewUpdateable for Trigger<GrooveMessage> {
 pub mod tests {
     use crate::{
         clock::{Clock, ClockTimeUnit},
-        common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE},
+        common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
         envelopes::AdsrEnvelope,
         messages::MessageBounds,
         messages::{tests::TestMessage, GrooveMessage},
-        midi::{MidiChannel, MidiMessage, MidiUtils},
+        midi::{MidiChannel, MidiMessage},
         orchestrator::{tests::Runner, GrooveRunner, Orchestrator},
         oscillators::Oscillator,
         settings::{patches::EnvelopeSettings, ClockSettings},
         traits::{
+            tests::{TestEffect, TestInstrument},
             BoxedEntity, EvenNewerCommand, HasUid, NewIsController, NewIsEffect, NewIsInstrument,
             NewUpdateable, SourcesAudio, Terminates, TransformsAudio,
         },
@@ -383,13 +384,13 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct TestAudioSourceOneLevel<M: MessageBounds> {
+    pub struct TestAudioSource<M: MessageBounds> {
         uid: usize,
         level: MonoSample,
         _phantom: PhantomData<M>,
     }
-    impl<M: MessageBounds> NewIsInstrument for TestAudioSourceOneLevel<M> {}
-    impl<M: MessageBounds> HasUid for TestAudioSourceOneLevel<M> {
+    impl<M: MessageBounds> NewIsInstrument for TestAudioSource<M> {}
+    impl<M: MessageBounds> HasUid for TestAudioSource<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -398,10 +399,16 @@ pub mod tests {
             self.uid = uid;
         }
     }
-    impl<M: MessageBounds> NewUpdateable for TestAudioSourceOneLevel<M> {
+    impl<M: MessageBounds> NewUpdateable for TestAudioSource<M> {
         type Message = M;
     }
-    impl<M: MessageBounds> TestAudioSourceOneLevel<M> {
+    impl<M: MessageBounds> TestAudioSource<M> {
+        pub const TOO_LOUD: MonoSample = 1.1;
+        pub const LOUD: MonoSample = 1.0;
+        pub const SILENT: MonoSample = 0.0;
+        pub const QUIET: MonoSample = -1.0;
+        pub const TOO_QUIET: MonoSample = -1.1;
+
         pub fn new_with(level: MonoSample) -> Self {
             Self {
                 level,
@@ -417,135 +424,10 @@ pub mod tests {
             self.level = level;
         }
     }
-    impl<M: MessageBounds> SourcesAudio for TestAudioSourceOneLevel<M> {
+    impl<M: MessageBounds> SourcesAudio for TestAudioSource<M> {
         fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
             self.level
         }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysLoud<M: MessageBounds> {
-        uid: usize,
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> NewIsInstrument for TestAudioSourceAlwaysLoud<M> {}
-    impl<M: MessageBounds> TestAudioSourceAlwaysLoud<M> {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-    impl<M: MessageBounds> SourcesAudio for TestAudioSourceAlwaysLoud<M> {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            MONO_SAMPLE_MAX
-        }
-    }
-    impl<M: MessageBounds> NewUpdateable for TestAudioSourceAlwaysLoud<M> {
-        type Message = M;
-    }
-    impl<M: MessageBounds> HasUid for TestAudioSourceAlwaysLoud<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysTooLoud<M: MessageBounds> {
-        uid: usize,
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> NewIsInstrument for TestAudioSourceAlwaysTooLoud<M> {}
-    impl<M: MessageBounds> TestAudioSourceAlwaysTooLoud<M> {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-    impl<M: MessageBounds> SourcesAudio for TestAudioSourceAlwaysTooLoud<M> {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            MONO_SAMPLE_MAX + 0.1
-        }
-    }
-    impl<M: MessageBounds> HasUid for TestAudioSourceAlwaysTooLoud<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid
-        }
-    }
-    impl<M: MessageBounds> NewUpdateable for TestAudioSourceAlwaysTooLoud<M> {
-        type Message = M;
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysSilent<M: MessageBounds> {
-        uid: usize,
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> NewIsInstrument for TestAudioSourceAlwaysSilent<M> {}
-    impl<M: MessageBounds> TestAudioSourceAlwaysSilent<M> {
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-    impl<M: MessageBounds> SourcesAudio for TestAudioSourceAlwaysSilent<M> {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            MONO_SAMPLE_SILENCE
-        }
-    }
-    impl<M: MessageBounds> HasUid for TestAudioSourceAlwaysSilent<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid
-        }
-    }
-    impl<M: MessageBounds> NewUpdateable for TestAudioSourceAlwaysSilent<M> {
-        type Message = M;
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAudioSourceAlwaysVeryQuiet<M: MessageBounds> {
-        uid: usize,
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> NewIsInstrument for TestAudioSourceAlwaysVeryQuiet<M> {}
-    impl<M: MessageBounds> TestAudioSourceAlwaysVeryQuiet<M> {
-        #[allow(dead_code)]
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-    impl<M: MessageBounds> SourcesAudio for TestAudioSourceAlwaysVeryQuiet<M> {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            MONO_SAMPLE_MIN
-        }
-    }
-    impl<M: MessageBounds> HasUid for TestAudioSourceAlwaysVeryQuiet<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
-    }
-    impl<M: MessageBounds> NewUpdateable for TestAudioSourceAlwaysVeryQuiet<M> {
-        type Message = M;
     }
 
     #[derive(Debug, Default)]
@@ -644,30 +526,6 @@ pub mod tests {
     impl<M: MessageBounds> TestLfo<M> {
         fn set_frequency(&mut self, frequency_hz: f32) {
             self.oscillator.set_frequency(frequency_hz);
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestNegatingEffect<M: MessageBounds> {
-        uid: usize,
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> NewIsEffect for TestNegatingEffect<M> {}
-    impl<M: MessageBounds> HasUid for TestNegatingEffect<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
-    }
-    impl<M: MessageBounds> NewUpdateable for TestNegatingEffect<M> {
-        type Message = M;
-    }
-    impl<M: MessageBounds> TransformsAudio for TestNegatingEffect<M> {
-        fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
-            -input_sample
         }
     }
 
@@ -875,122 +733,6 @@ pub mod tests {
             }
         }
     }
-    #[derive(Debug)]
-    pub struct TestInstrument<M: MessageBounds> {
-        uid: usize,
-
-        sound_source: Oscillator,
-        pub is_playing: bool,
-        midi_channel: MidiChannel,
-        pub received_count: usize,
-        pub handled_count: usize,
-
-        pub debug_messages: Vec<(f32, MidiChannel, MidiMessage)>,
-
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> NewIsInstrument for TestInstrument<M> {}
-    impl<M: MessageBounds> NewUpdateable for TestInstrument<M> {
-        default type Message = M;
-
-        default fn update(
-            &mut self,
-            _clock: &Clock,
-            _message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            EvenNewerCommand::none()
-        }
-    }
-    impl NewUpdateable for TestInstrument<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                TestMessage::Midi(channel, message) => {
-                    self.new_handle_midi(clock, channel, message);
-                }
-                _ => todo!(),
-            }
-            EvenNewerCommand::none()
-        }
-    }
-    impl<M: MessageBounds> HasUid for TestInstrument<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
-    }
-    impl<M: MessageBounds> Default for TestInstrument<M> {
-        fn default() -> Self {
-            Self {
-                uid: Default::default(),
-
-                sound_source: Default::default(),
-                is_playing: Default::default(),
-                midi_channel: Self::TEST_MIDI_CHANNEL,
-                received_count: Default::default(),
-                handled_count: Default::default(),
-                debug_messages: Default::default(),
-                _phantom: Default::default(),
-            }
-        }
-    }
-    impl<M: MessageBounds> TestInstrument<M> {
-        pub const TEST_MIDI_CHANNEL: u8 = 42;
-
-        pub fn new() -> Self {
-            Self {
-                midi_channel: Self::TEST_MIDI_CHANNEL,
-                ..Default::default()
-            }
-        }
-        pub fn new_with(midi_channel: MidiChannel) -> Self {
-            Self {
-                midi_channel,
-                ..Default::default()
-            }
-        }
-
-        #[allow(dead_code)]
-        pub fn dump_messages(&self) {
-            dbg!(&self.debug_messages);
-        }
-
-        fn new_handle_midi(&mut self, clock: &Clock, channel: MidiChannel, message: MidiMessage) {
-            assert_eq!(self.midi_channel, channel);
-            self.debug_messages.push((clock.beats(), channel, message));
-            self.received_count += 1;
-
-            match message {
-                MidiMessage::NoteOn { key, vel: _ } => {
-                    self.is_playing = true;
-                    self.sound_source
-                        .set_frequency(MidiUtils::note_to_frequency(key.as_int()));
-                }
-                MidiMessage::NoteOff { key: _, vel: _ } => {
-                    self.is_playing = false;
-                }
-                _ => {}
-            }
-        }
-    }
-    impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
-        fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-            if self.is_playing {
-                self.sound_source.source_audio(clock)
-            } else {
-                MONO_SAMPLE_SILENCE
-            }
-        }
-    }
-
     #[derive(Display, Debug, EnumString)]
     #[strum(serialize_all = "kebab_case")]
     pub(crate) enum TestArpeggiatorControlParams {
@@ -1004,7 +746,7 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct TestArpeggiator<M: MessageBounds> {
+    pub struct TestController<M: MessageBounds> {
         uid: usize,
         me: Ww<Self>,
         midi_channel_out: MidiChannel,
@@ -1012,13 +754,13 @@ pub mod tests {
         is_enabled: bool,
         is_playing: bool,
     }
-    impl<M: MessageBounds> Terminates for TestArpeggiator<M> {
+    impl<M: MessageBounds> Terminates for TestController<M> {
         fn is_finished(&self) -> bool {
             true
         }
     }
-    impl<M: MessageBounds> NewIsController for TestArpeggiator<M> {}
-    impl<M: MessageBounds> NewUpdateable for TestArpeggiator<M> {
+    impl<M: MessageBounds> NewIsController for TestController<M> {}
+    impl<M: MessageBounds> NewUpdateable for TestController<M> {
         default type Message = M;
 
         default fn update(
@@ -1029,7 +771,7 @@ pub mod tests {
             EvenNewerCommand::none()
         }
     }
-    impl NewUpdateable for TestArpeggiator<TestMessage> {
+    impl NewUpdateable for TestController<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -1038,41 +780,41 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Tick => match self.what_to_do(clock) {
-                    TestArpeggiatorAction::Nothing => {
-                        return EvenNewerCommand::none();
-                    }
-                    TestArpeggiatorAction::NoteOn => {
-                        // This is elegant, I hope. If the arpeggiator is
-                        // disabled during play, and we were playing a note,
-                        // then we still send the off note,
-                        return if self.is_enabled {
-                            self.is_playing = true;
-                            EvenNewerCommand::single(TestMessage::Midi(
-                                self.midi_channel_out,
-                                MidiMessage::NoteOn {
-                                    key: 60.into(),
-                                    vel: 127.into(),
-                                },
-                            ))
-                        } else {
-                            EvenNewerCommand::none()
-                        };
-                    }
-                    TestArpeggiatorAction::NoteOff => {
-                        return if self.is_playing {
-                            EvenNewerCommand::single(TestMessage::Midi(
-                                self.midi_channel_out,
-                                MidiMessage::NoteOff {
-                                    key: 60.into(),
-                                    vel: 0.into(),
-                                },
-                            ))
-                        } else {
-                            EvenNewerCommand::none()
-                        };
-                    }
-                },
+                TestMessage::Tick => {
+                    return match self.what_to_do(clock) {
+                        TestArpeggiatorAction::Nothing => EvenNewerCommand::none(),
+                        TestArpeggiatorAction::NoteOn => {
+                            // This is elegant, I hope. If the arpeggiator is
+                            // disabled during play, and we were playing a note,
+                            // then we still send the off note,
+                            if self.is_enabled {
+                                self.is_playing = true;
+                                EvenNewerCommand::single(TestMessage::Midi(
+                                    self.midi_channel_out,
+                                    MidiMessage::NoteOn {
+                                        key: 60.into(),
+                                        vel: 127.into(),
+                                    },
+                                ))
+                            } else {
+                                EvenNewerCommand::none()
+                            }
+                        }
+                        TestArpeggiatorAction::NoteOff => {
+                            if self.is_playing {
+                                EvenNewerCommand::single(TestMessage::Midi(
+                                    self.midi_channel_out,
+                                    MidiMessage::NoteOff {
+                                        key: 60.into(),
+                                        vel: 0.into(),
+                                    },
+                                ))
+                            } else {
+                                EvenNewerCommand::none()
+                            }
+                        }
+                    };
+                }
                 TestMessage::Enable(enabled) => {
                     self.is_enabled = enabled;
                     EvenNewerCommand::none()
@@ -1081,7 +823,7 @@ pub mod tests {
             }
         }
     }
-    impl<M: MessageBounds> HasUid for TestArpeggiator<M> {
+    impl<M: MessageBounds> HasUid for TestController<M> {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -1090,7 +832,7 @@ pub mod tests {
             self.uid = uid
         }
     }
-    impl<M: MessageBounds> TestArpeggiator<M> {
+    impl<M: MessageBounds> TestController<M> {
         pub fn new_with(midi_channel_out: MidiChannel) -> Self {
             Self {
                 midi_channel_out,
@@ -1225,7 +967,7 @@ pub mod tests {
         // A simple effect.
         let effect_uid = o.add(
             None,
-            BoxedEntity::Effect(Box::new(TestNegatingEffect::<TestMessage>::default())),
+            BoxedEntity::Effect(Box::new(TestEffect::<TestMessage>::default())),
         );
 
         // Connect the audio's output to the effect's input.
@@ -1331,7 +1073,7 @@ pub mod tests {
         );
         let arpeggiator_uid = o.add(
             None,
-            BoxedEntity::Controller(Box::new(TestArpeggiator::<TestMessage>::new_with(
+            BoxedEntity::Controller(Box::new(TestController::<TestMessage>::new_with(
                 TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
             ))),
         );
@@ -1437,7 +1179,7 @@ pub mod tests {
         // A simple effect.
         let effect_uid = o.add(
             None,
-            BoxedEntity::Effect(Box::new(TestNegatingEffect::<GrooveMessage>::default())),
+            BoxedEntity::Effect(Box::new(TestEffect::<GrooveMessage>::default())),
         );
 
         // Connect the audio's output to the effect's input.

@@ -199,8 +199,8 @@ mod tests {
         messages::tests::TestMessage,
         orchestrator::tests::Runner,
         settings::PatternSettings,
-        traits::BoxedEntity,
-        utils::{tests::TestInstrument, Timer},
+        traits::{BoxedEntity, tests::TestInstrument},
+        utils::Timer,
         Orchestrator,
     };
 
