@@ -3,7 +3,7 @@ use crate::{
     effects::{
         bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain, limiter::Limiter, mixer::Mixer,
     },
-    instruments::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
+    instruments::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::WelshSynth},
     messages::{GrooveMessage, MessageBounds},
     midi::patterns::{Note, Pattern, PatternManager},
     GrooveOrchestrator,
@@ -202,11 +202,11 @@ impl IsViewable for DrumkitSampler {
     }
 }
 
-impl IsViewable for Synth {
+impl IsViewable for WelshSynth {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<Self::Message> {
-        let title = type_name::<Synth>();
+        let title = type_name::<WelshSynth>();
         let contents = format!("name: {}", self.preset.name);
         GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
     }
@@ -364,7 +364,7 @@ mod tests {
         instruments::{
             drumkit_sampler::Sampler as DrumkitSampler,
             sampler::Sampler,
-            welsh::{PatchName, Synth},
+            welsh::{PatchName, WelshSynth},
         },
         messages::tests::TestMessage,
         settings::patches::SynthPatch,
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn test_viewables() {
         test_one_viewable(
-            Box::new(Synth::new_with(
+            Box::new(WelshSynth::new_with(
                 44100,
                 SynthPatch::by_name(&PatchName::Trombone),
             )),

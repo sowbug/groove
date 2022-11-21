@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use clap::Parser;
-use groove::{IOHelper, Orchestrator};
+use groove::{Clock, GrooveRunner, IOHelper, Orchestrator};
 //use groove::ScriptEngine;
 
 #[derive(Parser, Debug, Default)]
@@ -43,14 +43,15 @@ fn main() -> anyhow::Result<()> {
         };
 
         print!("Performing to queue ");
-        //        let performance = orchestrator.perform()?;
+        let mut r = GrooveRunner::default();
+        let mut clock = Clock::new_with(orchestrator.clock_settings());
+        let performance = r.run_performance(&mut orchestrator, &mut clock)?;
 
         println!("Rendering queue");
-        // if let Some(output_filename) = args.wav_out {
-        //     IOHelper::send_performance_to_file(performance, &output_filename)
-        // } else {
-        //     IOHelper::send_performance_to_output_device(performance)
-        // }
-        Ok(())
+        if let Some(output_filename) = args.wav_out {
+            IOHelper::send_performance_to_file(performance, &output_filename)
+        } else {
+            IOHelper::send_performance_to_output_device(performance)
+        }
     }
 }

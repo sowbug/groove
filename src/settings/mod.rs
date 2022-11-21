@@ -181,7 +181,7 @@ impl InstrumentSettings {
                 preset_name,
             } => (
                 *midi_input_channel,
-                Box::new(welsh::Synth::new_with(
+                Box::new(welsh::WelshSynth::new_with(
                     sample_rate,
                     SynthPatch::by_name(preset_name),
                 )),

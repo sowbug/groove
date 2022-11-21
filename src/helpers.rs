@@ -3,7 +3,7 @@ use crate::{
     controllers::{orchestrator::Performance, sequencers::MidiTickSequencer},
     instruments::{
         drumkit_sampler::Sampler,
-        welsh::{PatchName, Synth},
+        welsh::{PatchName, WelshSynth},
     },
     messages::GrooveMessage,
     midi::programmers::MidiSmfReader,
@@ -202,7 +202,7 @@ impl IOHelper {
             let synth: Box<dyn IsInstrument<Message = GrooveMessage>> = if channel == 9 {
                 Box::new(Sampler::new_from_files())
             } else {
-                Box::new(Synth::new_with(
+                Box::new(WelshSynth::new_with(
                     ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
                     SynthPatch::by_name(&PatchName::Piano),
                 ))

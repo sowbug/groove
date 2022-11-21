@@ -4,13 +4,17 @@ use crate::{
     effects::mixer::Mixer,
     messages::{GrooveMessage, MessageBounds},
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
+    settings::ClockSettings,
     traits::{
         BoxedEntity, EvenNewerCommand, HasUid, Internal, IsController, Terminates, Updateable,
     },
 };
 use anyhow::anyhow;
 use crossbeam::deque::Worker;
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    io::{self, Write},
+};
 
 #[derive(Debug)]
 pub struct Performance {
@@ -42,6 +46,7 @@ pub type GrooveOrchestrator = Orchestrator<GrooveMessage>;
 #[derive(Debug)]
 pub struct Orchestrator<M: MessageBounds> {
     uid: usize,
+    clock_settings: ClockSettings,
     store: Store<M>,
     main_mixer_uid: usize,
     pattern_manager: PatternManager, // TODO: one of these things is not like the others
@@ -86,6 +91,14 @@ impl<M: MessageBounds> Orchestrator<M> {
 
     pub(crate) fn new() -> Self {
         Default::default()
+    }
+
+    pub fn clock_settings(&self) -> &ClockSettings {
+        &self.clock_settings
+    }
+
+    pub(crate) fn set_clock_settings(&mut self, clock_settings: &ClockSettings) {
+        self.clock_settings = clock_settings.clone();
     }
 
     pub(crate) fn store(&self) -> &Store<M> {
@@ -315,9 +328,10 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
     fn default() -> Self {
         let mut r = Self {
             uid: Default::default(),
+            clock_settings: Default::default(),
             store: Default::default(),
             main_mixer_uid: Default::default(),
-            pattern_manager: Default::default(),
+            pattern_manager: Default::default(), // TODO: this should be added like main_mixer
         };
         let main_mixer = Box::new(Mixer::default());
         r.main_mixer_uid = r.add(
@@ -346,6 +360,31 @@ impl GrooveRunner {
             samples.push(sample);
         }
         Ok(samples)
+    }
+
+    pub fn run_performance(
+        &mut self,
+        orchestrator: &mut Box<Orchestrator<GrooveMessage>>,
+        clock: &mut Clock,
+    ) -> anyhow::Result<Performance> {
+        let sample_rate = orchestrator.clock_settings().sample_rate();
+        let performance = Performance::new_with(sample_rate);
+        let progress_indicator_quantum: usize = sample_rate / 2;
+        let mut next_progress_indicator: usize = progress_indicator_quantum;
+        clock.reset();
+        loop {
+            let (sample, done) = self.loop_once(orchestrator, clock);
+            if next_progress_indicator <= clock.samples() {
+                print!(".");
+                io::stdout().flush().unwrap();
+                next_progress_indicator += progress_indicator_quantum;
+            }
+            if done {
+                break;
+            }
+            performance.worker.push(sample);
+        }
+        Ok(performance)
     }
 
     fn loop_once(

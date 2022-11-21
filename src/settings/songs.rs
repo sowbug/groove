@@ -51,7 +51,7 @@ impl SongSettings {
 
     pub fn instantiate(&self) -> Result<Box<GrooveOrchestrator>> {
         let mut o = Box::new(GrooveOrchestrator::default());
-        // TODO what do we do with clock settings? new_with(Clock::new_with(&self.clock));
+        o.set_clock_settings(&self.clock);
         self.instantiate_devices(&mut o);
         self.instantiate_patch_cables(&mut o);
         self.instantiate_tracks(&mut o);

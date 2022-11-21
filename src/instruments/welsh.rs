@@ -169,7 +169,7 @@ impl SynthPatch {
     }
 }
 
-impl Synth {
+impl WelshSynth {
     pub fn general_midi_preset(program: &GeneralMidiProgram) -> anyhow::Result<SynthPatch> {
         let mut delegated = false;
         let preset = match program {
@@ -520,7 +520,7 @@ impl Synth {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Voice {
+pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
     osc_mix: Vec<f32>,
     amp_envelope: AdsrEnvelope,
@@ -535,7 +535,7 @@ pub struct Voice {
     filter_envelope: AdsrEnvelope,
 }
 
-impl Voice {
+impl WelshVoice {
     pub fn new(sample_rate: usize, preset: &SynthPatch) -> Self {
         let mut r = Self {
             amp_envelope: AdsrEnvelope::new_with(&preset.amp_envelope),
@@ -583,9 +583,10 @@ impl Voice {
         !self.amp_envelope.is_idle(clock)
     }
 }
-impl Updateable for Voice {
+impl Updateable for WelshVoice {
     // TODO I really wanted this to be MidiMessage, but for now I'm borrowing
-    // midly::MidiMessage, and it's missing at least one trait bound.
+    // midly::MidiMessage, and it's missing at least one requirement of
+    // MessageBounds' trait bounds.
     //
     // type Message = MidiMessage;
     type Message = GrooveMessage;
@@ -619,7 +620,7 @@ impl Updateable for Voice {
     }
 }
 
-impl SourcesAudio for Voice {
+impl SourcesAudio for WelshVoice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         // LFO
         let lfo = self.lfo.source_audio(clock) * self.lfo_depth as MonoSample;
@@ -665,17 +666,17 @@ impl SourcesAudio for Voice {
 }
 
 #[derive(Clone, Debug)]
-pub struct Synth {
+pub struct WelshSynth {
     uid: usize,
     sample_rate: usize,
     pub(crate) preset: SynthPatch,
-    voices: Vec<Voice>,
+    voices: Vec<WelshVoice>,
     note_to_voice_index: HashMap<u8, usize>,
 
     debug_last_seconds: f32,
 }
-impl IsInstrument for Synth {}
-impl SourcesAudio for Synth {
+impl IsInstrument for WelshSynth {}
+impl SourcesAudio for WelshSynth {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         if clock.seconds() == self.debug_last_seconds {
             panic!("We were called twice with the same time slice. Should this be OK?");
@@ -699,7 +700,7 @@ impl SourcesAudio for Synth {
         current_value
     }
 }
-impl Updateable for Synth {
+impl Updateable for WelshSynth {
     type Message = GrooveMessage;
 
     fn update(
@@ -721,7 +722,7 @@ impl Updateable for Synth {
                 }
                 MidiMessage::ProgramChange { program } => {
                     if let Some(program) = GeneralMidiProgram::from_u8(u8::from(program)) {
-                        if let Ok(preset) = Synth::general_midi_preset(&program) {
+                        if let Ok(preset) = WelshSynth::general_midi_preset(&program) {
                             self.preset = preset;
                         } else {
                             println!("unrecognized patch from MIDI program change: {}", &program);
@@ -735,7 +736,7 @@ impl Updateable for Synth {
         crate::traits::EvenNewerCommand::none()
     }
 }
-impl HasUid for Synth {
+impl HasUid for WelshSynth {
     fn uid(&self) -> usize {
         self.uid
     }
@@ -745,7 +746,7 @@ impl HasUid for Synth {
     }
 }
 
-impl Default for Synth {
+impl Default for WelshSynth {
     fn default() -> Self {
         Self {
             uid: Default::default(),
@@ -757,7 +758,7 @@ impl Default for Synth {
         }
     }
 }
-impl Synth {
+impl WelshSynth {
     pub(crate) fn new_with(sample_rate: usize, preset: SynthPatch) -> Self {
         Self {
             sample_rate,
@@ -767,16 +768,21 @@ impl Synth {
     }
 
     // TODO: this has unlimited-voice polyphony. Should we limit to a fixed number?
-    fn voice_for_note(&mut self, clock: &Clock, note: u8) -> &mut Voice {
+    fn voice_for_note(&mut self, clock: &Clock, note: u8) -> &mut WelshVoice {
+        // If we already have a voice for this note, return it.
         if let Some(&index) = self.note_to_voice_index.get(&note) {
             &mut self.voices[index]
         } else {
+            // If there's an empty slot (a voice that's done playing), return that.
             if let Some(index) = self.voices.iter().position(|v| !v.is_playing(clock)) {
+                self.note_to_voice_index.insert(note, index);
                 &mut self.voices[index]
             } else {
-                let voice = Voice::new(self.sample_rate, &self.preset);
-                self.voices.push(voice);
+                // All existing voices are playing. Make a new one.
+                self.voices
+                    .push(WelshVoice::new(self.sample_rate, &self.preset));
                 let index = self.voices.len() - 1;
+                self.note_to_voice_index.insert(note, index);
                 &mut self.voices[index]
             }
         }
@@ -785,7 +791,7 @@ impl Synth {
 
 #[cfg(test)]
 mod tests {
-    use super::Voice;
+    use super::WelshVoice;
     use super::*;
     use crate::{
         clock::Clock,
@@ -798,11 +804,9 @@ mod tests {
         utils::tests::canonicalize_filename,
     };
 
-    const SAMPLE_RATE: usize = 44100;
-
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]
-    fn write_voice(voice: &mut Voice, duration: f32, basename: &str) {
+    fn write_voice(voice: &mut WelshVoice, duration: f32, basename: &str) {
         let mut clock = Clock::new();
 
         let spec = hound::WavSpec {
@@ -879,7 +883,7 @@ mod tests {
 
     // TODO: get rid of this
     fn write_sound(
-        source: &mut Voice,
+        source: &mut WelshVoice,
         clock: &mut Clock,
         duration: f32,
         message: &MidiMessage,
@@ -1007,7 +1011,7 @@ mod tests {
         let message_off = MidiUtils::note_off_c4();
 
         let mut clock = Clock::new();
-        let mut voice = Voice::new(SAMPLE_RATE, &test_patch());
+        let mut voice = WelshVoice::new(clock.sample_rate(), &test_patch());
         voice.update(&clock, GrooveMessage::Midi(0, message_on));
         write_sound(
             &mut voice,
@@ -1025,7 +1029,7 @@ mod tests {
         let message_off = MidiUtils::note_off_c4();
 
         let mut clock = Clock::new();
-        let mut voice = Voice::new(SAMPLE_RATE, &cello_patch());
+        let mut voice = WelshVoice::new(clock.sample_rate(), &cello_patch());
         voice.update(&clock, GrooveMessage::Midi(0, message_on));
         write_sound(
             &mut voice,
