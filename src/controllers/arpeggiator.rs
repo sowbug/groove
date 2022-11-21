@@ -1,11 +1,11 @@
-use midly::num::u7;
-
+use super::sequencers::BeatSequencer;
 use crate::{
     clock::{Clock, PerfectTimeUnit},
     messages::GrooveMessage,
-    midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
+    midi::{MidiChannel, MidiMessage},
     traits::{HasUid, NewIsController, NewUpdateable, Terminates},
 };
+use midly::num::u7;
 
 #[derive(Debug, Default)]
 pub struct Arpeggiator {
@@ -35,7 +35,10 @@ impl NewUpdateable for Arpeggiator {
                         //                self.sequence_start_beats = clock.beats();
                     }
                     MidiMessage::Aftertouch { key: _, vel: _ } => todo!(),
-                    MidiMessage::Controller { controller: _, value: _ } => todo!(),
+                    MidiMessage::Controller {
+                        controller: _,
+                        value: _,
+                    } => todo!(),
                     MidiMessage::ProgramChange { program: _ } => todo!(),
                     MidiMessage::ChannelAftertouch { vel: _ } => todo!(),
                     MidiMessage::PitchBend { bend: _ } => todo!(),

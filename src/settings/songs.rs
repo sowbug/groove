@@ -4,12 +4,11 @@ use super::{
 };
 use crate::{
     common::DeviceId,
-    controllers::{ControlPath, ControlTrip},
+    controllers::{sequencers::BeatSequencer, ControlPath, ControlTrip},
     messages::GrooveMessage,
     midi::{
         patterns::{Note, Pattern},
         programmers::PatternProgrammer,
-        sequencers::BeatSequencer,
     },
     orchestrator::GrooveOrchestrator,
     traits::BoxedEntity,

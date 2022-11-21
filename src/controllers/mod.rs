@@ -1,4 +1,5 @@
 pub(crate) mod arpeggiator;
+pub(crate) mod sequencers;
 
 use crate::clock::{Clock, ClockTimeUnit};
 use crate::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};

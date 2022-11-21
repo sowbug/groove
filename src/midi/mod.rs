@@ -1,6 +1,5 @@
 pub(crate) mod patterns;
 pub(crate) mod programmers;
-pub(crate) mod sequencers;
 pub(crate) mod smf_reader;
 
  // TODO copy and conform to MessageBounds so it can be a trait associated type

@@ -1,6 +1,6 @@
 use crate::{
     common::Ww,
-    controllers::arpeggiator::Arpeggiator,
+    controllers::{arpeggiator::Arpeggiator, sequencers::BeatSequencer},
     effects::{
         bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain, limiter::Limiter, mixer::Mixer,
     },
@@ -8,7 +8,6 @@ use crate::{
     messages::{GrooveMessage, MessageBounds},
     midi::{
         patterns::{Note, Pattern, PatternManager},
-        sequencers::BeatSequencer,
     },
     traits::MakesIsViewable,
     GrooveOrchestrator,
@@ -727,7 +726,7 @@ impl IsViewable for GrooveOrchestrator {
 #[cfg(test)]
 mod tests {
     use crate::{
-        controllers::arpeggiator::Arpeggiator,
+        controllers::{arpeggiator::Arpeggiator, sequencers::BeatSequencer},
         effects::{
             bitcrusher::Bitcrusher,
             filter::{BiQuadFilter, FilterParams},
@@ -740,7 +739,6 @@ mod tests {
             welsh::{PatchName, Synth},
         },
         messages::tests::TestMessage,
-        midi::sequencers::BeatSequencer,
         settings::patches::SynthPatch,
         traits::MakesIsViewable,
     };

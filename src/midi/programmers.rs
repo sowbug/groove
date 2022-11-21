@@ -1,18 +1,16 @@
-use std::{cmp, marker::PhantomData};
-
+use super::{
+    patterns::{Note, Pattern},
+    MidiChannel,
+};
 use crate::{
     clock::{MidiTicks, PerfectTimeUnit},
+    controllers::sequencers::{BeatSequencer, MidiTickSequencer},
     messages::GrooveMessage,
     messages::MessageBounds,
     TimeSignature,
 };
 use midly::{MidiMessage, TrackEventKind};
-
-use super::{
-    patterns::{Note, Pattern},
-    sequencers::{BeatSequencer, MidiTickSequencer},
-    MidiChannel,
-};
+use std::{cmp, marker::PhantomData};
 
 pub struct MidiSmfReader {}
 
@@ -199,7 +197,7 @@ mod tests {
         messages::tests::TestMessage,
         orchestrator::tests::Runner,
         settings::PatternSettings,
-        traits::{BoxedEntity, tests::TestInstrument},
+        traits::{tests::TestInstrument, BoxedEntity},
         utils::Timer,
         Orchestrator,
     };
