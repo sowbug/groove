@@ -8,13 +8,15 @@ use crate::{
         LoadError,
     },
     traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio, TransformsAudio},
-    {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
+    Clock,
 };
 use convert_case::{Case, Casing};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, f32::consts::FRAC_1_SQRT_2};
 use strum_macros::{Display, EnumIter};
+
+use super::{envelopes::AdsrEnvelope, oscillators::Oscillator};
 
 #[derive(Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]

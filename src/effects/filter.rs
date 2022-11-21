@@ -459,7 +459,7 @@ mod tests {
     use super::*;
     use crate::{
         controllers::BiQuadFilterControlParams,
-        envelopes::{EnvelopeStep, SteppedEnvelope},
+        instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
         messages::tests::TestMessage,
         traits::BoxedEntity,
         utils::tests::TestControlSourceContinuous,
@@ -646,7 +646,7 @@ mod tests {
                 2.0,
                 start_value,
                 end_value,
-                crate::envelopes::EnvelopeFunction::Linear,
+                EnvelopeFunction::Linear,
             ));
             let controller_uid = o.add(
                 None,

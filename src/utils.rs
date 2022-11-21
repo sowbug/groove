@@ -131,18 +131,15 @@ pub mod tests {
     use crate::{
         clock::{Clock, ClockTimeUnit},
         common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
-        envelopes::AdsrEnvelope,
         messages::MessageBounds,
         messages::{tests::TestMessage, GrooveMessage},
         midi::{MidiChannel, MidiMessage},
-        orchestrator::{tests::Runner, GrooveRunner, Orchestrator},
-        oscillators::Oscillator,
         settings::{patches::EnvelopeSettings, ClockSettings},
         traits::{
             tests::{TestEffect, TestInstrument},
             BoxedEntity, EvenNewerCommand, HasUid, NewIsController, NewIsEffect, NewIsInstrument,
             NewUpdateable, SourcesAudio, Terminates, TransformsAudio,
-        },
+        }, instruments::{oscillators::Oscillator, envelopes::AdsrEnvelope}, controllers::orchestrator::{Orchestrator, tests::Runner, GrooveRunner},
     };
     use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};

@@ -189,18 +189,17 @@ impl<M: MessageBounds> PatternProgrammer<M> {
 
 #[cfg(test)]
 mod tests {
-    use assert_approx_eq::assert_approx_eq;
-
     use super::*;
     use crate::{
         clock::{BeatValue, Clock, TimeSignature},
+        controllers::orchestrator::tests::Runner,
         messages::tests::TestMessage,
-        orchestrator::tests::Runner,
         settings::PatternSettings,
         traits::{tests::TestInstrument, BoxedEntity},
         utils::Timer,
         Orchestrator,
     };
+    use assert_approx_eq::assert_approx_eq;
 
     #[allow(dead_code)]
     impl Pattern<PerfectTimeUnit> {

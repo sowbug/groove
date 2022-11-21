@@ -112,9 +112,9 @@ pub mod tests {
     };
     use crate::{
         common::{MonoSample, MONO_SAMPLE_SILENCE},
+        instruments::oscillators::Oscillator,
         messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
-        oscillators::Oscillator,
         Clock,
     };
     use midly::MidiMessage;

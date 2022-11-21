@@ -1,13 +1,12 @@
 use crate::{
     common::{MonoSample, MONO_SAMPLE_SILENCE},
-    controllers::sequencers::MidiTickSequencer,
+    controllers::{orchestrator::Performance, sequencers::MidiTickSequencer},
     instruments::{
         drumkit_sampler::Sampler,
         welsh::{PatchName, Synth},
     },
     messages::GrooveMessage,
     midi::programmers::MidiSmfReader,
-    orchestrator::Performance,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     traits::{BoxedEntity, NewIsInstrument},
     GrooveOrchestrator, Orchestrator,

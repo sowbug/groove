@@ -4,13 +4,14 @@ use super::{
 };
 use crate::{
     common::DeviceId,
-    controllers::{sequencers::BeatSequencer, ControlPath, ControlTrip},
+    controllers::{
+        orchestrator::GrooveOrchestrator, sequencers::BeatSequencer, ControlPath, ControlTrip,
+    },
     messages::GrooveMessage,
     midi::{
         patterns::{Note, Pattern},
         programmers::PatternProgrammer,
     },
-    orchestrator::GrooveOrchestrator,
     traits::BoxedEntity,
 };
 use anyhow::Result;
@@ -179,7 +180,7 @@ impl SongSettings {
 #[cfg(test)]
 mod tests {
 
-    use crate::{clock::Clock, orchestrator::GrooveRunner};
+    use crate::{clock::Clock, controllers::orchestrator::GrooveRunner};
 
     use super::SongSettings;
 

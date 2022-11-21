@@ -1,10 +1,10 @@
-use super::clock::Clock;
 use crate::{
     clock::ClockTimeUnit,
     common::MonoSample,
     messages::GrooveMessage,
     settings::patches::EnvelopeSettings,
     traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio},
+    Clock,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{fmt::Debug, ops::Range};

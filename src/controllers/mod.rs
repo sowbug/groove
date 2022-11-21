@@ -1,8 +1,9 @@
 pub(crate) mod arpeggiator;
+pub(crate) mod orchestrator;
 pub(crate) mod sequencers;
 
 use crate::clock::{Clock, ClockTimeUnit};
-use crate::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
+use crate::instruments::envelopes::{SteppedEnvelope, EnvelopeFunction, EnvelopeStep};
 use crate::messages::{GrooveMessage, MessageBounds};
 use crate::settings::control::ControlStep;
 use crate::traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, Terminates};
@@ -224,12 +225,11 @@ mod tests {
 
     use crate::{
         messages::tests::TestMessage,
-        orchestrator::tests::Runner,
         traits::{tests::TestInstrument, BoxedEntity},
         Orchestrator,
     };
 
-    use super::*;
+    use super::{*, orchestrator::tests::Runner};
 
     impl NewUpdateable for ControlTrip<TestMessage> {
         type Message = TestMessage;

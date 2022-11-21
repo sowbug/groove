@@ -1,8 +1,8 @@
-use super::clock::Clock;
 use crate::{
     common::MonoSample,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
     traits::SourcesAudio,
+    Clock,
 };
 use std::f32::consts::PI;
 
