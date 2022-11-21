@@ -5,8 +5,8 @@ use crate::{
     messages::GrooveMessage,
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     traits::{
-        BoxedEntity, EvenNewerCommand, EvenNewerIsUpdateable, HasUid, Internal, MessageBounds,
-        NewIsController, NewUpdateable, SourcesAudio, Terminates,
+        BoxedEntity, EvenNewerCommand, HasUid, Internal, MessageBounds, NewIsController,
+        NewUpdateable, SourcesAudio, Terminates,
     },
 };
 use anyhow::anyhow;

@@ -101,28 +101,6 @@ impl<T> EvenNewerCommand<T> {
     }
 }
 
-#[deprecated]
-pub(crate) trait EvenNewerIsUpdateable: Terminates + std::fmt::Debug {
-    type Message;
-
-    fn update(&mut self, message: Self::Message) -> EvenNewerCommand<Self::Message>;
-
-    // Idea: if someone asks for a message generator, then that's the clue we
-    // need to register our UID. All that could be managed in that central
-    // place.
-    fn message_for(&self, param_name: &str) -> Box<dyn MessageGeneratorT<Self::Message>>;
-}
-
-// https://boydjohnson.dev/blog/impl-debug-for-fn-type/ gave me enough clues to
-// get through this.
-pub trait MessageGeneratorT<M>: Fn(f32) -> M {}
-impl<F, M> MessageGeneratorT<M> for F where F: Fn(f32) -> M {}
-impl<M> std::fmt::Debug for dyn MessageGeneratorT<M> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "MessageGenerator")
-    }
-}
-
 pub trait MakesIsViewable: std::fmt::Debug {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>>;
 }
