@@ -3,7 +3,7 @@ use crate::{
     common::MonoSample,
     messages::{GrooveMessage, MessageBounds},
     traits::{
-        EvenNewerCommand, HasUid, NewIsController, NewIsInstrument, NewUpdateable, SourcesAudio,
+        EvenNewerCommand, HasUid, IsController, IsInstrument, Updateable, SourcesAudio,
         Terminates,
     },
 };
@@ -33,8 +33,8 @@ impl<M: MessageBounds> Terminates for Timer<M> {
         !self.has_more_work
     }
 }
-impl<M: MessageBounds> NewIsController for Timer<M> {}
-impl<M: MessageBounds> NewUpdateable for Timer<M> {
+impl<M: MessageBounds> IsController for Timer<M> {}
+impl<M: MessageBounds> Updateable for Timer<M> {
     default type Message = M;
 
     default fn update(
@@ -45,7 +45,7 @@ impl<M: MessageBounds> NewUpdateable for Timer<M> {
         EvenNewerCommand::none()
     }
 }
-impl NewUpdateable for Timer<GrooveMessage> {
+impl Updateable for Timer<GrooveMessage> {
     type Message = GrooveMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -77,8 +77,8 @@ pub(crate) struct Trigger<M: MessageBounds> {
 
     _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> NewIsController for Trigger<M> {}
-impl<M: MessageBounds> NewUpdateable for Trigger<M> {
+impl<M: MessageBounds> IsController for Trigger<M> {}
+impl<M: MessageBounds> Updateable for Trigger<M> {
     default type Message = M;
 
     default fn update(
@@ -113,7 +113,7 @@ impl<M: MessageBounds> Trigger<M> {
         }
     }
 }
-impl NewUpdateable for Trigger<GrooveMessage> {
+impl Updateable for Trigger<GrooveMessage> {
     type Message = GrooveMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -144,7 +144,7 @@ pub struct AudioSource<M: MessageBounds> {
     level: MonoSample,
     _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> NewIsInstrument for AudioSource<M> {}
+impl<M: MessageBounds> IsInstrument for AudioSource<M> {}
 impl<M: MessageBounds> HasUid for AudioSource<M> {
     fn uid(&self) -> usize {
         self.uid
@@ -154,7 +154,7 @@ impl<M: MessageBounds> HasUid for AudioSource<M> {
         self.uid = uid;
     }
 }
-impl<M: MessageBounds> NewUpdateable for AudioSource<M> {
+impl<M: MessageBounds> Updateable for AudioSource<M> {
     type Message = M;
 }
 #[allow(dead_code)]
@@ -199,8 +199,8 @@ pub mod tests {
         settings::{patches::EnvelopeSettings, ClockSettings},
         traits::{
             tests::{TestEffect, TestInstrument},
-            BoxedEntity, EvenNewerCommand, HasUid, NewIsController, NewIsEffect, NewIsInstrument,
-            NewUpdateable, SourcesAudio, Terminates, TransformsAudio,
+            BoxedEntity, EvenNewerCommand, HasUid, IsController, IsEffect, IsInstrument,
+            Updateable, SourcesAudio, Terminates, TransformsAudio,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -395,7 +395,7 @@ pub mod tests {
 
     /// /////////////////
 
-    impl NewUpdateable for Timer<TestMessage> {
+    impl Updateable for Timer<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -413,7 +413,7 @@ pub mod tests {
         }
     }
 
-    impl NewUpdateable for Trigger<TestMessage> {
+    impl Updateable for Trigger<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -443,7 +443,7 @@ pub mod tests {
 
         _phantom: PhantomData<M>,
     }
-    impl<M: MessageBounds> NewIsEffect for TestMixer<M> {}
+    impl<M: MessageBounds> IsEffect for TestMixer<M> {}
     impl<M: MessageBounds> HasUid for TestMixer<M> {
         fn uid(&self) -> usize {
             self.uid
@@ -458,7 +458,7 @@ pub mod tests {
             input_sample
         }
     }
-    impl<M: MessageBounds> NewUpdateable for TestMixer<M> {
+    impl<M: MessageBounds> Updateable for TestMixer<M> {
         type Message = M;
     }
 
@@ -474,7 +474,7 @@ pub mod tests {
         oscillator: Oscillator,
         _phantom: PhantomData<M>,
     }
-    impl<M: MessageBounds> NewIsController for TestLfo<M> {}
+    impl<M: MessageBounds> IsController for TestLfo<M> {}
     impl<M: MessageBounds> HasUid for TestLfo<M> {
         fn uid(&self) -> usize {
             self.uid
@@ -484,7 +484,7 @@ pub mod tests {
             self.uid = uid;
         }
     }
-    impl<M: MessageBounds> NewUpdateable for TestLfo<M> {
+    impl<M: MessageBounds> Updateable for TestLfo<M> {
         default type Message = M;
 
         default fn update(
@@ -499,7 +499,7 @@ pub mod tests {
             usize::MAX
         }
     }
-    impl NewUpdateable for TestLfo<TestMessage> {
+    impl Updateable for TestLfo<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -588,8 +588,8 @@ pub mod tests {
         }
     }
 
-    impl<M: MessageBounds> NewIsInstrument for TestSynth<M> {}
-    impl<M: MessageBounds> NewUpdateable for TestSynth<M> {
+    impl<M: MessageBounds> IsInstrument for TestSynth<M> {}
+    impl<M: MessageBounds> Updateable for TestSynth<M> {
         default type Message = M;
 
         default fn update(
@@ -608,7 +608,7 @@ pub mod tests {
             usize::MAX
         }
     }
-    impl NewUpdateable for TestSynth<TestMessage> {
+    impl Updateable for TestSynth<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -639,7 +639,7 @@ pub mod tests {
             }
         }
     }
-    impl NewUpdateable for TestSynth<GrooveMessage> {
+    impl Updateable for TestSynth<GrooveMessage> {
         type Message = GrooveMessage;
 
         fn update(
@@ -688,8 +688,8 @@ pub mod tests {
 
         _phantom: PhantomData<M>,
     }
-    impl<M: MessageBounds> NewIsController for TestControlSourceContinuous<M> {}
-    impl<M: MessageBounds> NewUpdateable for TestControlSourceContinuous<M> {
+    impl<M: MessageBounds> IsController for TestControlSourceContinuous<M> {}
+    impl<M: MessageBounds> Updateable for TestControlSourceContinuous<M> {
         default type Message = M;
 
         default fn update(
@@ -700,7 +700,7 @@ pub mod tests {
             EvenNewerCommand::none()
         }
     }
-    impl NewUpdateable for TestControlSourceContinuous<TestMessage> {
+    impl Updateable for TestControlSourceContinuous<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -767,8 +767,8 @@ pub mod tests {
             true
         }
     }
-    impl<M: MessageBounds> NewIsController for TestController<M> {}
-    impl<M: MessageBounds> NewUpdateable for TestController<M> {
+    impl<M: MessageBounds> IsController for TestController<M> {}
+    impl<M: MessageBounds> Updateable for TestController<M> {
         default type Message = M;
 
         default fn update(
@@ -779,7 +779,7 @@ pub mod tests {
             EvenNewerCommand::none()
         }
     }
-    impl NewUpdateable for TestController<TestMessage> {
+    impl Updateable for TestController<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -873,13 +873,13 @@ pub mod tests {
         pub time_unit: ClockTimeUnit,
         _phantom: PhantomData<M>,
     }
-    impl<M: MessageBounds> NewIsEffect for TestValueChecker<M> {}
+    impl<M: MessageBounds> IsEffect for TestValueChecker<M> {}
     impl<M: MessageBounds> TransformsAudio for TestValueChecker<M> {
         fn transform_audio(&mut self, _clock: &Clock, _input_sample: MonoSample) -> MonoSample {
             todo!()
         }
     }
-    impl<M: MessageBounds> NewUpdateable for TestValueChecker<M> {
+    impl<M: MessageBounds> Updateable for TestValueChecker<M> {
         default type Message = M;
 
         default fn update(
@@ -890,7 +890,7 @@ pub mod tests {
             EvenNewerCommand::none()
         }
     }
-    impl NewUpdateable for TestValueChecker<TestMessage> {
+    impl Updateable for TestValueChecker<TestMessage> {
         type Message = TestMessage;
 
         fn update(

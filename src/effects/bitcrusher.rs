@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::GrooveMessage,
-    traits::{HasUid, NewIsEffect, NewUpdateable, TransformsAudio},
+    traits::{HasUid, IsEffect, Updateable, TransformsAudio},
 };
 
 #[derive(Debug, Default)]
@@ -10,7 +10,7 @@ pub struct Bitcrusher {
     uid: usize,
     bits_to_crush: u8,
 }
-impl NewIsEffect for Bitcrusher {}
+impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         let input_i16 = (input_sample * (i16::MAX as MonoSample)) as i16;
@@ -19,7 +19,7 @@ impl TransformsAudio for Bitcrusher {
         expanded as MonoSample / (i16::MAX as MonoSample)
     }
 }
-impl NewUpdateable for Bitcrusher {
+impl Updateable for Bitcrusher {
     type Message = GrooveMessage;
 
     fn update(

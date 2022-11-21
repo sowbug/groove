@@ -5,7 +5,7 @@ use crate::{
     messages::{GrooveMessage, MessageBounds},
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     traits::{
-        BoxedEntity, EvenNewerCommand, HasUid, Internal, NewIsController, NewUpdateable, Terminates,
+        BoxedEntity, EvenNewerCommand, HasUid, Internal, IsController, Updateable, Terminates,
     },
 };
 use anyhow::anyhow;
@@ -46,8 +46,8 @@ pub struct Orchestrator<M: MessageBounds> {
     main_mixer_uid: usize,
     pattern_manager: PatternManager, // TODO: one of these things is not like the others
 }
-impl<M: MessageBounds> NewIsController for Orchestrator<M> {}
-impl<M: MessageBounds> NewUpdateable for Orchestrator<M> {
+impl<M: MessageBounds> IsController for Orchestrator<M> {}
+impl<M: MessageBounds> Updateable for Orchestrator<M> {
     type Message = M;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -350,7 +350,7 @@ impl Orchestrator<GrooveMessage> {
         }
     }
 }
-impl NewUpdateable for Orchestrator<GrooveMessage> {}
+impl Updateable for Orchestrator<GrooveMessage> {}
 
 #[derive(Debug, Default)]
 pub struct GrooveRunner {}
@@ -656,7 +656,7 @@ pub mod tests {
         clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
         messages::tests::TestMessage,
-        traits::{BoxedEntity, Internal, NewIsEffect, NewUpdateable},
+        traits::{BoxedEntity, Internal, IsEffect, Updateable},
     };
     use midly::MidiMessage;
 
@@ -668,7 +668,7 @@ pub mod tests {
         // It is an effect because it is intended to monitor another thing's
         // output, which is more like an effect than a controller or an
         // instrument.
-        state_checker: Option<Box<dyn NewIsEffect<Message = TestMessage>>>,
+        state_checker: Option<Box<dyn IsEffect<Message = TestMessage>>>,
     }
     impl Runner {
         pub fn run(
@@ -835,7 +835,7 @@ pub mod tests {
 
         pub(crate) fn add_state_checker(
             &mut self,
-            state_checker: Box<dyn NewIsEffect<Message = TestMessage>>,
+            state_checker: Box<dyn IsEffect<Message = TestMessage>>,
         ) {
             self.state_checker = Some(state_checker);
         }

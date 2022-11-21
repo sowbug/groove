@@ -1,7 +1,7 @@
 use crate::{
     common::MonoSample,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio},
+    traits::{HasUid, IsInstrument, Updateable, SourcesAudio},
     Clock, GrooveMessage,
 };
 use std::f32::consts::PI;
@@ -27,7 +27,7 @@ pub struct Oscillator {
     noise_x1: u32,
     noise_x2: u32,
 }
-impl NewIsInstrument for Oscillator {}
+impl IsInstrument for Oscillator {}
 impl SourcesAudio for Oscillator {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let phase_normalized = (self.adjusted_frequency() * clock.seconds()) as MonoSample;
@@ -61,7 +61,7 @@ impl SourcesAudio for Oscillator {
         }
     }
 }
-impl NewUpdateable for Oscillator {
+impl Updateable for Oscillator {
     type Message = GrooveMessage;
 }
 impl HasUid for Oscillator {

@@ -1,10 +1,22 @@
+use strum_macros::Display;
+
 use crate::{
     clock::Clock,
     common::MonoSample,
     messages::MessageBounds,
-    traits::{HasUid, NewIsEffect, NewUpdateable, TransformsAudio},
+    traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
-use std::{f64::consts::PI, marker::PhantomData};
+use std::{f64::consts::PI, marker::PhantomData, str::FromStr};
+
+#[derive(Display, Debug, strum_macros::EnumString)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum BiQuadFilterControlParams {
+    Bandwidth,
+    #[strum(serialize = "cutoff", serialize = "cutoff-pct")]
+    CutoffPct,
+    DbGain,
+    Q,
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {
@@ -104,7 +116,7 @@ pub struct BiQuadFilter<M: MessageBounds> {
 
     _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> NewIsEffect for BiQuadFilter<M> {}
+impl<M: MessageBounds> IsEffect for BiQuadFilter<M> {}
 impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         let s64 = input_sample as f64;
@@ -123,8 +135,16 @@ impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
         r as MonoSample
     }
 }
-impl<M: MessageBounds> NewUpdateable for BiQuadFilter<M> {
+impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
     type Message = M;
+
+    fn param_id_for_name(&self, name: &str) -> usize {
+        if let Ok(param) = BiQuadFilterControlParams::from_str(name) {
+            param as usize
+        } else {
+            usize::MAX
+        }
+    }
 
     // ViewableMessage::FilterCutoffChangedAsF32(new_value) => {
     //     if let Some(target) = self.target.upgrade() {
@@ -469,7 +489,6 @@ impl<M: MessageBounds> BiQuadFilter<M> {
 mod tests {
     use super::*;
     use crate::{
-        controllers::BiQuadFilterControlParams,
         instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
         messages::tests::TestMessage,
         traits::BoxedEntity,

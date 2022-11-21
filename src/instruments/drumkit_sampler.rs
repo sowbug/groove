@@ -3,7 +3,7 @@ use crate::{
     common::MonoSample,
     messages::GrooveMessage,
     midi::{GeneralMidiPercussionProgram, MidiMessage},
-    traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio},
+    traits::{HasUid, IsInstrument, Updateable, SourcesAudio},
 };
 use std::collections::HashMap;
 
@@ -33,7 +33,7 @@ impl Voice {
         r
     }
 }
-impl NewUpdateable for Voice {
+impl Updateable for Voice {
     type Message = GrooveMessage; // TODO
 
     fn update(
@@ -89,7 +89,7 @@ pub struct Sampler {
     note_to_voice: HashMap<u8, Voice>,
     pub(crate) kit_name: String,
 }
-impl NewIsInstrument for Sampler {}
+impl IsInstrument for Sampler {}
 impl SourcesAudio for Sampler {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         self.note_to_voice
@@ -98,7 +98,7 @@ impl SourcesAudio for Sampler {
             .sum()
     }
 }
-impl NewUpdateable for Sampler {
+impl Updateable for Sampler {
     type Message = GrooveMessage;
 
     fn update(

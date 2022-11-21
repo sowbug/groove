@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
     messages::GrooveMessage,
-    traits::{HasUid, NewIsEffect, NewUpdateable, TransformsAudio},
+    traits::{HasUid, IsEffect, Updateable, TransformsAudio},
 };
 
 #[derive(Debug, Default)]
@@ -12,13 +12,13 @@ pub struct Limiter {
     min: MonoSample,
     max: MonoSample,
 }
-impl NewIsEffect for Limiter {}
+impl IsEffect for Limiter {}
 impl TransformsAudio for Limiter {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         input_sample.clamp(self.min, self.max)
     }
 }
-impl NewUpdateable for Limiter {
+impl Updateable for Limiter {
     type Message = GrooveMessage;
 
     // match message {

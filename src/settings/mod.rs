@@ -13,7 +13,7 @@ use crate::{
         welsh::{self, PatchName},
     },
     messages::GrooveMessage,
-    traits::{NewIsController, NewIsInstrument},
+    traits::{IsController, IsInstrument},
 };
 use serde::{Deserialize, Serialize};
 
@@ -173,7 +173,7 @@ impl InstrumentSettings {
         sample_rate: usize,
     ) -> (
         MidiChannel,
-        Box<dyn NewIsInstrument<Message = GrooveMessage>>,
+        Box<dyn IsInstrument<Message = GrooveMessage>>,
     ) {
         match self {
             InstrumentSettings::Welsh {
@@ -204,7 +204,7 @@ impl ControllerSettings {
     ) -> (
         MidiChannel,
         MidiChannel,
-        Box<dyn NewIsController<Message = GrooveMessage>>,
+        Box<dyn IsController<Message = GrooveMessage>>,
     ) {
         match *self {
             ControllerSettings::Arpeggiator {

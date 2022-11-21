@@ -6,7 +6,7 @@ use crate::clock::{Clock, ClockTimeUnit};
 use crate::instruments::envelopes::{SteppedEnvelope, EnvelopeFunction, EnvelopeStep};
 use crate::messages::{GrooveMessage, MessageBounds};
 use crate::settings::control::ControlStep;
-use crate::traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, Terminates};
+use crate::traits::{EvenNewerCommand, HasUid, IsController, Updateable, Terminates};
 use crate::{clock::BeatValue, settings::control::ControlPathSettings};
 use core::fmt::Debug;
 use std::marker::PhantomData;
@@ -30,8 +30,8 @@ pub(crate) struct ControlTrip<M: MessageBounds> {
 
     _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> NewIsController for ControlTrip<M> {}
-impl<M: MessageBounds> NewUpdateable for ControlTrip<M> {
+impl<M: MessageBounds> IsController for ControlTrip<M> {}
+impl<M: MessageBounds> Updateable for ControlTrip<M> {
     default type Message = M;
 
     default fn update(
@@ -125,7 +125,7 @@ impl<M: MessageBounds> ControlTrip<M> {
         }
     }
 }
-impl NewUpdateable for ControlTrip<GrooveMessage> {
+impl Updateable for ControlTrip<GrooveMessage> {
     type Message = GrooveMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -179,16 +179,6 @@ pub(crate) enum ArpeggiatorControlParams {
 
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
-pub(crate) enum BiQuadFilterControlParams {
-    Bandwidth,
-    #[strum(serialize = "cutoff", serialize = "cutoff-pct")]
-    CutoffPct,
-    DbGain,
-    Q,
-}
-
-#[derive(Display, Debug, EnumString)]
-#[strum(serialize_all = "kebab_case")]
 pub(crate) enum BitcrusherControlParams {
     #[strum(serialize = "bits-to-crush", serialize = "bits-to-crush-pct")]
     BitsToCrushPct,
@@ -231,7 +221,7 @@ mod tests {
 
     use super::{*, orchestrator::tests::Runner};
 
-    impl NewUpdateable for ControlTrip<TestMessage> {
+    impl Updateable for ControlTrip<TestMessage> {
         type Message = TestMessage;
 
         fn update(

@@ -3,7 +3,7 @@ use crate::{
     common::MonoSample,
     messages::GrooveMessage,
     settings::patches::EnvelopeSettings,
-    traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio},
+    traits::{HasUid, IsInstrument, Updateable, SourcesAudio},
     Clock,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -234,7 +234,7 @@ pub struct AdsrEnvelope {
     note_on_time: f32,
     note_off_time: f32,
 }
-impl NewIsInstrument for AdsrEnvelope {}
+impl IsInstrument for AdsrEnvelope {}
 impl SourcesAudio for AdsrEnvelope {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let time = self.envelope.time_for_unit(clock);
@@ -242,7 +242,7 @@ impl SourcesAudio for AdsrEnvelope {
         self.envelope.value_for_step_at_time(step, time)
     }
 }
-impl NewUpdateable for AdsrEnvelope {
+impl Updateable for AdsrEnvelope {
     type Message = GrooveMessage;
 }
 impl HasUid for AdsrEnvelope {

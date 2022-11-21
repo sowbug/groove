@@ -3,7 +3,7 @@ use crate::{
     common::MonoSample,
     messages::GrooveMessage,
     midi::MidiMessage,
-    traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio},
+    traits::{HasUid, IsInstrument, Updateable, SourcesAudio},
 };
 
 #[derive(Debug, Default)]
@@ -18,7 +18,7 @@ pub struct Sampler {
 
     pub(crate) filename: String,
 }
-impl NewIsInstrument for Sampler {}
+impl IsInstrument for Sampler {}
 impl SourcesAudio for Sampler {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         // TODO: when we got rid of WatchesClock, we lost the concept of "done."
@@ -42,7 +42,7 @@ impl SourcesAudio for Sampler {
         }
     }
 }
-impl NewUpdateable for Sampler {
+impl Updateable for Sampler {
     type Message = GrooveMessage;
 
     fn update(

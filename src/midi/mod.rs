@@ -7,7 +7,7 @@ pub use midly::MidiMessage;
 
 use crate::{
     common::Rrc,
-    traits::{HasUid, NewIsController, NewUpdateable, Terminates},
+    traits::{HasUid, IsController, Updateable, Terminates},
     GrooveMessage,
 };
 use crossbeam::deque::{Stealer, Worker};
@@ -366,8 +366,8 @@ impl Default for MidiOutputHandler {
         }
     }
 }
-impl NewIsController for MidiOutputHandler {}
-impl NewUpdateable for MidiOutputHandler {
+impl IsController for MidiOutputHandler {}
+impl Updateable for MidiOutputHandler {
     type Message = GrooveMessage;
 
     fn update(
@@ -485,8 +485,8 @@ pub struct MidiHandler {
     midi_input: MidiInputHandler,
     midi_output: Rrc<MidiOutputHandler>,
 }
-impl NewIsController for MidiHandler {}
-impl NewUpdateable for MidiHandler {
+impl IsController for MidiHandler {}
+impl Updateable for MidiHandler {
     type Message = GrooveMessage;
 }
 impl Terminates for MidiHandler {

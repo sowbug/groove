@@ -1,6 +1,6 @@
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
-    traits::{HasUid, NewIsController, NewUpdateable, Terminates},
+    traits::{HasUid, IsController, Updateable, Terminates},
     GrooveMessage,
 };
 use std::fmt::Debug;
@@ -61,8 +61,8 @@ pub struct PatternManager {
     uid: usize,
     patterns: Vec<Pattern<Note>>,
 }
-impl NewIsController for PatternManager {}
-impl NewUpdateable for PatternManager {
+impl IsController for PatternManager {}
+impl Updateable for PatternManager {
     type Message = GrooveMessage;
 
     // fn update(&mut self, message: Self::Message) -> Command<Self::Message> {

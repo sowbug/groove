@@ -4,7 +4,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::MessageBounds,
-    traits::{HasUid, NewIsEffect, NewUpdateable, TransformsAudio},
+    traits::{HasUid, IsEffect, Updateable, TransformsAudio},
 };
 
 #[derive(Clone, Debug, Default)]
@@ -13,13 +13,13 @@ pub struct Mixer<M: MessageBounds> {
 
     _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> NewIsEffect for Mixer<M> {}
+impl<M: MessageBounds> IsEffect for Mixer<M> {}
 impl<M: MessageBounds> TransformsAudio for Mixer<M> {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         input_sample
     }
 }
-impl<M: MessageBounds> NewUpdateable for Mixer<M> {
+impl<M: MessageBounds> Updateable for Mixer<M> {
     type Message = M;
 }
 impl<M: MessageBounds> HasUid for Mixer<M> {

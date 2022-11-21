@@ -1,17 +1,17 @@
 use crate::{clock::Clock, common::MonoSample, messages::MessageBounds};
 
-pub trait NewIsController: NewUpdateable + Terminates + HasUid + std::fmt::Debug {}
-pub trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid + std::fmt::Debug {}
-pub trait NewIsInstrument: SourcesAudio + NewUpdateable + HasUid + std::fmt::Debug {}
+pub trait IsController: Updateable + Terminates + HasUid + std::fmt::Debug {}
+pub trait IsEffect: TransformsAudio + Updateable + HasUid + std::fmt::Debug {}
+pub trait IsInstrument: SourcesAudio + Updateable + HasUid + std::fmt::Debug {}
 
 #[derive(Debug)]
 pub enum BoxedEntity<M> {
-    Controller(Box<dyn NewIsController<Message = M>>),
-    Effect(Box<dyn NewIsEffect<Message = M>>),
-    Instrument(Box<dyn NewIsInstrument<Message = M>>),
+    Controller(Box<dyn IsController<Message = M>>),
+    Effect(Box<dyn IsEffect<Message = M>>),
+    Instrument(Box<dyn IsInstrument<Message = M>>),
 }
 
-pub trait NewUpdateable {
+pub trait Updateable {
     type Message: MessageBounds;
 
     #[allow(unused_variables)]
@@ -98,7 +98,7 @@ impl<T> EvenNewerCommand<T> {
 #[cfg(test)]
 pub mod tests {
     use super::{
-        EvenNewerCommand, HasUid, NewIsEffect, NewIsInstrument, NewUpdateable, SourcesAudio,
+        EvenNewerCommand, HasUid, IsEffect, IsInstrument, Updateable, SourcesAudio,
         TransformsAudio,
     };
     use crate::{
@@ -141,8 +141,8 @@ pub mod tests {
 
         _phantom: PhantomData<M>,
     }
-    impl<M: MessageBounds> NewIsInstrument for TestInstrument<M> {}
-    impl<M: MessageBounds> NewUpdateable for TestInstrument<M> {
+    impl<M: MessageBounds> IsInstrument for TestInstrument<M> {}
+    impl<M: MessageBounds> Updateable for TestInstrument<M> {
         default type Message = M;
 
         default fn update(
@@ -161,7 +161,7 @@ pub mod tests {
             }
         }
     }
-    impl NewUpdateable for TestInstrument<TestMessage> {
+    impl Updateable for TestInstrument<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -279,13 +279,13 @@ pub mod tests {
         uid: usize,
         _phantom: PhantomData<M>,
     }
-    impl<M: MessageBounds> NewIsEffect for TestEffect<M> {}
+    impl<M: MessageBounds> IsEffect for TestEffect<M> {}
     impl<M: MessageBounds> TransformsAudio for TestEffect<M> {
         fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
             -input_sample
         }
     }
-    impl<M: MessageBounds> NewUpdateable for TestEffect<M> {
+    impl<M: MessageBounds> Updateable for TestEffect<M> {
         type Message = M;
     }
     impl<M: MessageBounds> HasUid for TestEffect<M> {

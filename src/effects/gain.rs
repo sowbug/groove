@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::GrooveMessage,
-    traits::{HasUid, NewIsEffect, NewUpdateable, TransformsAudio},
+    traits::{HasUid, IsEffect, Updateable, TransformsAudio},
 };
 
 #[derive(Debug, Default)]
@@ -11,13 +11,13 @@ pub(crate) struct Gain {
 
     ceiling: f32,
 }
-impl NewIsEffect for Gain {}
+impl IsEffect for Gain {}
 impl TransformsAudio for Gain {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         input_sample * self.ceiling
     }
 }
-impl NewUpdateable for Gain {
+impl Updateable for Gain {
     type Message = GrooveMessage;
 }
 impl HasUid for Gain {

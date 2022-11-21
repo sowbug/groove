@@ -8,7 +8,7 @@ use crate::{
         mixer::Mixer,
     },
     messages::GrooveMessage,
-    traits::NewIsEffect,
+    traits::IsEffect,
 };
 use serde::{Deserialize, Serialize};
 
@@ -76,7 +76,7 @@ impl EffectSettings {
     pub(crate) fn instantiate(
         &self,
         sample_rate: usize,
-    ) -> Box<dyn NewIsEffect<Message = GrooveMessage>> {
+    ) -> Box<dyn IsEffect<Message = GrooveMessage>> {
         match *self {
             EffectSettings::Mixer {} => Box::new(Mixer::<GrooveMessage>::new()),
             EffectSettings::Limiter { min, max } => {

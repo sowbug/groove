@@ -3,7 +3,7 @@ use crate::{
     messages::GrooveMessage,
     messages::MessageBounds,
     midi::{MidiChannel, MidiMessage},
-    traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, Terminates},
+    traits::{EvenNewerCommand, HasUid, IsController, Updateable, Terminates},
 };
 use btreemultimap::BTreeMultiMap;
 use std::{
@@ -24,8 +24,8 @@ pub struct BeatSequencer<M: MessageBounds> {
 
     _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> NewIsController for BeatSequencer<M> {}
-impl<M: MessageBounds> NewUpdateable for BeatSequencer<M> {
+impl<M: MessageBounds> IsController for BeatSequencer<M> {}
+impl<M: MessageBounds> Updateable for BeatSequencer<M> {
     default type Message = M;
 
     default fn update(
@@ -84,7 +84,7 @@ impl<M: MessageBounds> BeatSequencer<M> {
     }
 }
 
-impl NewUpdateable for BeatSequencer<GrooveMessage> {
+impl Updateable for BeatSequencer<GrooveMessage> {
     type Message = GrooveMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -129,8 +129,8 @@ pub struct MidiTickSequencer<M: MessageBounds> {
     is_disabled: bool,
     _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> NewIsController for MidiTickSequencer<M> {}
-impl<M: MessageBounds> NewUpdateable for MidiTickSequencer<M> {
+impl<M: MessageBounds> IsController for MidiTickSequencer<M> {}
+impl<M: MessageBounds> Updateable for MidiTickSequencer<M> {
     default type Message = M;
 
     default fn update(
@@ -200,7 +200,7 @@ impl<M: MessageBounds> MidiTickSequencer<M> {
     }
 }
 
-impl NewUpdateable for MidiTickSequencer<GrooveMessage> {
+impl Updateable for MidiTickSequencer<GrooveMessage> {
     type Message = GrooveMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
@@ -245,7 +245,7 @@ mod tests {
         messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
         traits::{
-            tests::TestInstrument, BoxedEntity, EvenNewerCommand, NewIsController, NewUpdateable,
+            tests::TestInstrument, BoxedEntity, EvenNewerCommand, IsController, Updateable,
         },
         Orchestrator,
     };
@@ -278,7 +278,7 @@ mod tests {
         }
     }
 
-    impl NewUpdateable for BeatSequencer<TestMessage> {
+    impl Updateable for BeatSequencer<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -316,7 +316,7 @@ mod tests {
         }
     }
 
-    impl NewUpdateable for MidiTickSequencer<TestMessage> {
+    impl Updateable for MidiTickSequencer<TestMessage> {
         type Message = TestMessage;
 
         fn update(
@@ -358,7 +358,7 @@ mod tests {
 
     fn advance_to_next_beat(
         clock: &mut Clock,
-        sequencer: &mut Box<dyn NewIsController<Message = TestMessage>>,
+        sequencer: &mut Box<dyn IsController<Message = TestMessage>>,
     ) {
         let next_beat = clock.beats().floor() + 1.0;
         while clock.beats() < next_beat {
@@ -374,7 +374,7 @@ mod tests {
     // See Clock::next_slice_in_midi_ticks().
     fn advance_one_midi_tick(
         clock: &mut Clock,
-        sequencer: &mut Box<dyn NewIsController<Message = TestMessage>>,
+        sequencer: &mut Box<dyn IsController<Message = TestMessage>>,
     ) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {

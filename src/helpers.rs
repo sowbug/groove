@@ -8,7 +8,7 @@ use crate::{
     messages::GrooveMessage,
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
-    traits::{BoxedEntity, NewIsInstrument},
+    traits::{BoxedEntity, IsInstrument},
     GrooveOrchestrator, Orchestrator,
 };
 use cpal::{
@@ -199,7 +199,7 @@ impl IOHelper {
         // TODO: this is a hack. We need only the number of channels used in the
         // SMF, but a few idle ones won't hurt for now.
         for channel in 0..16 {
-            let synth: Box<dyn NewIsInstrument<Message = GrooveMessage>> = if channel == 9 {
+            let synth: Box<dyn IsInstrument<Message = GrooveMessage>> = if channel == 9 {
                 Box::new(Sampler::new_from_files())
             } else {
                 Box::new(Synth::new_with(

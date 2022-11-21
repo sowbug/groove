@@ -7,7 +7,7 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio, TransformsAudio},
+    traits::{HasUid, IsInstrument, Updateable, SourcesAudio, TransformsAudio},
     Clock,
 };
 use convert_case::{Case, Casing};
@@ -583,7 +583,7 @@ impl Voice {
         !self.amp_envelope.is_idle(clock)
     }
 }
-impl NewUpdateable for Voice {
+impl Updateable for Voice {
     // TODO I really wanted this to be MidiMessage, but for now I'm borrowing
     // midly::MidiMessage, and it's missing at least one trait bound.
     //
@@ -674,7 +674,7 @@ pub struct Synth {
 
     debug_last_seconds: f32,
 }
-impl NewIsInstrument for Synth {}
+impl IsInstrument for Synth {}
 impl SourcesAudio for Synth {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         if clock.seconds() == self.debug_last_seconds {
@@ -699,7 +699,7 @@ impl SourcesAudio for Synth {
         current_value
     }
 }
-impl NewUpdateable for Synth {
+impl Updateable for Synth {
     type Message = GrooveMessage;
 
     fn update(

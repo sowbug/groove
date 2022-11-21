@@ -3,7 +3,7 @@ use crate::{
     clock::{Clock, PerfectTimeUnit},
     messages::GrooveMessage,
     midi::{MidiChannel, MidiMessage},
-    traits::{HasUid, NewIsController, NewUpdateable, Terminates},
+    traits::{HasUid, IsController, Updateable, Terminates},
 };
 use midly::num::u7;
 
@@ -15,8 +15,8 @@ pub struct Arpeggiator {
 
     is_device_playing: bool,
 }
-impl NewIsController for Arpeggiator {}
-impl NewUpdateable for Arpeggiator {
+impl IsController for Arpeggiator {}
+impl Updateable for Arpeggiator {
     type Message = GrooveMessage;
 
     fn update(
