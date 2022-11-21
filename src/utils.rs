@@ -7,9 +7,7 @@ use crate::{
         WatchesClock,
     },
 };
-
 use core::fmt::Debug;
-
 use std::marker::PhantomData;
 
 #[derive(Debug, Default)]
@@ -156,20 +154,18 @@ impl NewUpdateable for Trigger<GrooveMessage> {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        clock::{Clock, ClockTimeUnit, WatchedClock},
+        clock::{Clock, ClockTimeUnit},
         common::{
-            rrc, rrc_clone, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
+            rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
             MONO_SAMPLE_SILENCE,
         },
-        controllers::{BigMessage, SmallMessage, SmallMessageGenerator},
-        effects::mixer::Mixer,
+        controllers::{BigMessage},
         envelopes::AdsrEnvelope,
         messages::{tests::TestMessage, GrooveMessage},
         midi::{MidiChannel, MidiMessage, MidiUtils},
         orchestrator::{tests::Runner, GrooveRunner, Orchestrator},
         oscillators::Oscillator,
         settings::patches::EnvelopeSettings,
-        settings::patches::WaveformType,
         settings::ClockSettings,
         traits::{
             BoxedEntity, EvenNewerCommand, HasUid, MessageBounds, NewIsController, NewIsEffect,
@@ -222,17 +218,12 @@ pub mod tests {
         }
     }
 
-    // ```rust
-    // pub(crate) fn write_source_and_controlled_effect(
+    // pub(crate) fn write_orchestration_to_file<M: MessageBounds>(
     //     basename: &str,
     //     waveform_type: WaveformType,
-    //     effect_opt: Option<Rrc<dyn IsEffect>>,
-    //     control_opt: Option<Rrc<dyn WatchesClock>>,
+    //     orchestrator: &mut Orchestrator<M>,
     // ) {
-    //     let mut c = WatchedClock::new();
-    //     let sample_rate = c.inner_clock().sample_rate();
-    //     let mut o = OldTestOrchestrator::new();
-    //     let osc = Oscillator::new_wrapped_with(waveform_type);
+    //     let osc = Oscillator::new_with(waveform_type);
     //     if let Some(effect) = effect_opt {
     //         effect
     //             .borrow_mut()
@@ -246,7 +237,6 @@ pub mod tests {
     //     let samples_out = o.run_until_completion(&mut c);
     //     write_samples_to_wav_file(basename, sample_rate, &samples_out);
     // }
-    // ```
 
     ///////////////////// DEDUPLICATE vvvvv
     pub(crate) fn write_source_to_file(source: &mut dyn SourcesAudio, basename: &str) {

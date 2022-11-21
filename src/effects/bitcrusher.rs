@@ -1,18 +1,13 @@
 use crate::{
     clock::Clock,
-    common::{rrc, MonoSample, Rrc, Ww},
+    common::MonoSample,
     messages::GrooveMessage,
-    traits::{
-        HasUid, NewIsEffect, NewUpdateable, SourcesAudio, TransformsAudio,
-    },
+    traits::{HasUid, NewIsEffect, NewUpdateable, TransformsAudio},
 };
 
 #[derive(Debug, Default)]
 pub struct Bitcrusher {
     uid: usize,
-
-
-
     bits_to_crush: u8,
 }
 impl NewIsEffect for Bitcrusher {}
@@ -62,7 +57,6 @@ impl Bitcrusher {
         self.set_bits_to_crush((pct * 15.0) as u8);
     }
 }
-
 
 #[cfg(test)]
 mod tests {

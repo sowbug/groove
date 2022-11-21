@@ -16,7 +16,7 @@ use crate::{
 use iced::{
     alignment::{Horizontal, Vertical},
     theme,
-    widget::{button, column, container, row, slider, text, text_input},
+    widget::{button, column, container, row, slider, text},
     Color, Command, Element, Font, Theme,
 };
 use std::{any::type_name, fmt::Debug, marker::PhantomData};
@@ -504,14 +504,14 @@ impl MakesIsViewable for Limiter {
 
 #[derive(Debug)]
 pub struct FilterViewableResponder {
-    target: Ww<BiQuadFilter>,
+    target: Ww<BiQuadFilter<GrooveMessage>>,
 }
 impl IsViewable for FilterViewableResponder {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
-            let title = type_name::<BiQuadFilter>();
+            let title = type_name::<BiQuadFilter<GrooveMessage>>();
             let contents = row![
                 container(slider(
                     0..=100,
@@ -556,7 +556,7 @@ impl IsViewable for FilterViewableResponder {
     }
 }
 
-impl MakesIsViewable for BiQuadFilter {
+impl MakesIsViewable for BiQuadFilter<GrooveMessage> {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>> {
         None
     }
@@ -572,7 +572,7 @@ impl IsViewable for ArpeggiatorViewableResponder {
     fn view(&self) -> Element<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             let title = type_name::<Arpeggiator>();
-            let contents = format!("cutoff: {}", target.borrow().nothing());
+            let contents = format!("cutoff: {}", "Foo TODO");
             GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         } else {
             GuiStuff::missing_target_container()
@@ -589,7 +589,7 @@ impl IsViewable for ArpeggiatorViewableResponder {
                     //          target.borrow_mut().set_enabled(is_enabled);
                 }
                 ViewableMessage::ArpeggiatorChanged(new_value) => {
-                    target.borrow_mut().set_nothing(new_value as f32);
+//                    target.borrow_mut().set_nothing(new_value as f32);
                 }
                 _ => todo!(),
             }
@@ -727,7 +727,6 @@ impl IsViewable for GrooveOrchestrator {
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::Rrc,
         effects::{
             arpeggiator::Arpeggiator,
             bitcrusher::Bitcrusher,

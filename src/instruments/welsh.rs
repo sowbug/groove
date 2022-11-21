@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc, rrc_clone, MonoSample, Rrc, Ww},
+    common::{rrc, rrc_clone, MonoSample, Rrc},
     effects::filter::{BiQuadFilter, FilterParams},
     messages::GrooveMessage,
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
@@ -528,7 +528,7 @@ pub struct Voice {
     lfo_routing: LfoRouting,
     lfo_depth: f32,
 
-    filter: BiQuadFilter,
+    filter: BiQuadFilter<GrooveMessage>,
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
     filter_envelope: AdsrEnvelope,
@@ -551,7 +551,9 @@ impl Voice {
                 },
                 sample_rate,
             ),
-            filter_cutoff_start: BiQuadFilter::frequency_to_percent(preset.filter_type_12db.cutoff),
+            filter_cutoff_start: BiQuadFilter::<GrooveMessage>::frequency_to_percent(
+                preset.filter_type_12db.cutoff,
+            ),
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: AdsrEnvelope::new_with(&preset.filter_envelope),
             ..Default::default()
@@ -668,7 +670,6 @@ impl SourcesAudio for Voice {
 pub struct Synth {
     uid: usize,
 
-
     midi_channel: MidiChannel,
     sample_rate: usize,
     pub(crate) preset: SynthPatch,
@@ -714,7 +715,6 @@ impl Default for Synth {
     fn default() -> Self {
         Self {
             uid: Default::default(),
-            
 
             midi_channel: MidiChannel::default(),
             sample_rate: usize::default(),

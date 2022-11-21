@@ -1,12 +1,9 @@
 use crate::{
     clock::Clock,
-    common::{rrc, MonoSample, Rrc, Ww},
-    messages::GrooveMessage,
-    traits::{
-        HasUid, NewIsEffect, NewUpdateable, SourcesAudio, TransformsAudio,
-    },
+    common::MonoSample,
+    traits::{HasUid, MessageBounds, NewIsEffect, NewUpdateable, TransformsAudio},
 };
-use std::f64::consts::PI;
+use std::{f64::consts::PI, marker::PhantomData};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {
@@ -89,10 +86,8 @@ struct CoefficientSet {
 
 /// https://en.wikipedia.org/wiki/Digital_biquad_filter
 #[derive(Debug)]
-pub struct BiQuadFilter {
+pub struct BiQuadFilter<M: MessageBounds> {
     uid: usize,
-
-
 
     sample_rate: usize,
     filter_type: FilterType,
@@ -105,9 +100,11 @@ pub struct BiQuadFilter {
     sample_m2: f64,
     output_m1: f64,
     output_m2: f64,
+
+    _phantom: PhantomData<M>,
 }
-impl NewIsEffect for BiQuadFilter {}
-impl TransformsAudio for BiQuadFilter {
+impl<M: MessageBounds> NewIsEffect for BiQuadFilter<M> {}
+impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         let s64 = input_sample as f64;
         let r = (self.coefficients.b0 / self.coefficients.a0) * s64
@@ -125,10 +122,10 @@ impl TransformsAudio for BiQuadFilter {
         r as MonoSample
     }
 }
-impl NewUpdateable for BiQuadFilter {
-    type Message = GrooveMessage;
+impl<M: MessageBounds> NewUpdateable for BiQuadFilter<M> {
+    type Message = M;
 }
-impl HasUid for BiQuadFilter {
+impl<M: MessageBounds> HasUid for BiQuadFilter<M> {
     fn uid(&self) -> usize {
         self.uid
     }
@@ -140,7 +137,7 @@ impl HasUid for BiQuadFilter {
 
 // We can't derive this because we need to call recalculate_coefficients(). Is
 // there an elegant way to get that done for free without a bunch of repetition?
-impl Default for BiQuadFilter {
+impl<M: MessageBounds> Default for BiQuadFilter<M> {
     fn default() -> Self {
         let mut r = Self::default_fields();
         r.update_coefficients();
@@ -150,7 +147,7 @@ impl Default for BiQuadFilter {
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
-impl BiQuadFilter {
+impl<M: MessageBounds> BiQuadFilter<M> {
     pub const FREQUENCY_TO_LINEAR_BASE: f32 = 800.0;
     pub const FREQUENCY_TO_LINEAR_COEFFICIENT: f32 = 25.0;
 
@@ -183,8 +180,6 @@ impl BiQuadFilter {
     fn default_fields() -> Self {
         Self {
             uid: usize::default(),
-           
-            
             filter_type: Default::default(),
             sample_rate: Default::default(),
             cutoff: Default::default(),
@@ -194,6 +189,7 @@ impl BiQuadFilter {
             sample_m2: Default::default(),
             output_m1: Default::default(),
             output_m2: Default::default(),
+            _phantom: Default::default(),
         }
     }
 
@@ -429,7 +425,7 @@ impl BiQuadFilter {
     fn rbj_low_shelf_coefficients(&self) -> CoefficientSet {
         let a = 10f64.powf(self.param2 as f64 / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
+            BiQuadFilter::<M>::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
 
         CoefficientSet {
             a0: (a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
@@ -444,7 +440,7 @@ impl BiQuadFilter {
     fn rbj_high_shelf_coefficients(&self) -> CoefficientSet {
         let a = 10f64.powf(self.param2 as f64 / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
+            BiQuadFilter::<M>::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
 
         CoefficientSet {
             a0: (a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
@@ -457,15 +453,16 @@ impl BiQuadFilter {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         controllers::BiQuadFilterControlParams,
         envelopes::{EnvelopeStep, SteppedEnvelope},
-        settings::patches::WaveformType,
+        messages::tests::TestMessage,
+        traits::BoxedEntity,
+        utils::tests::TestControlSourceContinuous,
+        Orchestrator,
     };
 
     // TODO: these aren't really unit tests. They just spit out files that I
@@ -554,7 +551,7 @@ mod tests {
             // write_source_and_controlled_effect(
             //     t.0,
             //     WaveformType::Noise,
-            //     Some(BiQuadFilter::new_wrapped_with(t.1, SAMPLE_RATE)),
+            //     Some(BiQuadFilter::new_with(t.1, SAMPLE_RATE)),
             //     None,
             // );
         }
@@ -626,30 +623,35 @@ mod tests {
             ),
         ];
         for t in tests {
-            // let _effect = BiQuadFilter::new_wrapped_with(t.1, SAMPLE_RATE);
-            // let mut envelope = Box::new(SteppedEnvelope::new_with_time_unit(
-            //     crate::clock::ClockTimeUnit::Seconds,
-            // ));
-            // let (start_value, end_value) = match t.2 {
-            //     BiQuadFilterControlParams::CutoffPct => (
-            //         BiQuadFilter::frequency_to_percent(t.3),
-            //         BiQuadFilter::frequency_to_percent(t.4),
-            //     ),
-            //     BiQuadFilterControlParams::Q => (t.3, t.4),
-            //     _ => todo!(),
-            // };
-            // envelope.push_step(EnvelopeStep::new_with_duration(
-            //     0.0,
-            //     2.0,
-            //     start_value,
-            //     end_value,
-            //     crate::envelopes::EnvelopeFunction::Linear,
-            // ));
-            // TODO: re-enable this. I'm too tired to do it right now.
-            //
-            // let control_sink_opt = effect.borrow_mut().message_for(&t.2.to_string());
-            // let controller = rrc(TestControlSourceContinuous::new_with(envelope));
-            // controller.borrow_mut().add_control_sink(control_sink);
+            let mut o = Orchestrator::<TestMessage>::default();
+            let effect_uid = o.add(
+                None,
+                BoxedEntity::Effect(Box::new(BiQuadFilter::new_with(t.1, SAMPLE_RATE))),
+            );
+            let mut envelope = Box::new(SteppedEnvelope::new_with_time_unit(
+                crate::clock::ClockTimeUnit::Seconds,
+            ));
+            let (start_value, end_value) = match t.2 {
+                BiQuadFilterControlParams::CutoffPct => (
+                    BiQuadFilter::<TestMessage>::frequency_to_percent(t.3),
+                    BiQuadFilter::<TestMessage>::frequency_to_percent(t.4),
+                ),
+                BiQuadFilterControlParams::Q => (t.3, t.4),
+                _ => todo!(),
+            };
+            envelope.push_step(EnvelopeStep::new_with_duration(
+                0.0,
+                2.0,
+                start_value,
+                end_value,
+                crate::envelopes::EnvelopeFunction::Linear,
+            ));
+            let controller_uid = o.add(
+                None,
+                BoxedEntity::Controller(Box::new(TestControlSourceContinuous::new_with(envelope))),
+            );
+            o.link_control(controller_uid, effect_uid, &t.2.to_string());
+            // TODO: I got tired and stopped working on this.
             // write_source_and_controlled_effect(
             //     t.0,
             //     WaveformType::Sawtooth,

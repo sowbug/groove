@@ -2,7 +2,6 @@ use midly::num::u7;
 
 use crate::{
     clock::{Clock, PerfectTimeUnit},
-    common::{rrc, Rrc, Ww},
     controllers::BigMessage,
     messages::GrooveMessage,
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
@@ -12,8 +11,6 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct Arpeggiator {
     uid: usize,
-
-
     midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,
     beat_sequencer: BeatSequencer<GrooveMessage>,
@@ -23,6 +20,37 @@ pub struct Arpeggiator {
 impl NewIsController for Arpeggiator {}
 impl NewUpdateable for Arpeggiator {
     type Message = GrooveMessage;
+
+    fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        match message {
+            GrooveMessage::Nop => todo!(),
+            GrooveMessage::Tick => return self.beat_sequencer.update(clock, message),
+            GrooveMessage::ControlF32(_, _) => todo!(),
+            GrooveMessage::UpdateF32(_, _) => todo!(),
+            GrooveMessage::Midi(channel, message) => {
+                match message {
+                    MidiMessage::NoteOff { key, vel } => self.is_device_playing = false,
+                    MidiMessage::NoteOn { key, vel } => {
+                        self.rebuild_sequence(clock, key.as_int(), vel.as_int());
+                        self.is_device_playing = true;
+                        //                self.sequence_start_beats = clock.beats();
+                    }
+                    MidiMessage::Aftertouch { key, vel } => todo!(),
+                    MidiMessage::Controller { controller, value } => todo!(),
+                    MidiMessage::ProgramChange { program } => todo!(),
+                    MidiMessage::ChannelAftertouch { vel } => todo!(),
+                    MidiMessage::PitchBend { bend } => todo!(),
+                }
+                self.beat_sequencer.enable(self.is_device_playing);
+            }
+            GrooveMessage::Enable(_) => todo!(),
+        }
+        crate::traits::EvenNewerCommand::none()
+    }
 }
 impl Terminates for Arpeggiator {
     fn is_finished(&self) -> bool {
@@ -50,23 +78,6 @@ impl SinksMidi for Arpeggiator {
         _channel: &MidiChannel,
         message: &MidiMessage,
     ) {
-        // TODO: we'll need clock to do cool things like schedule note change on
-        // next bar... maybe
-        #[allow(unused_variables)]
-        match message {
-            MidiMessage::NoteOff { key, vel } => self.is_device_playing = false,
-            MidiMessage::NoteOn { key, vel } => {
-                self.rebuild_sequence(clock, key.as_int(), vel.as_int());
-                self.is_device_playing = true;
-                //                self.sequence_start_beats = clock.beats();
-            }
-            MidiMessage::Aftertouch { key, vel } => todo!(),
-            MidiMessage::Controller { controller, value } => todo!(),
-            MidiMessage::ProgramChange { program } => todo!(),
-            MidiMessage::ChannelAftertouch { vel } => todo!(),
-            MidiMessage::PitchBend { bend } => todo!(),
-        }
-        self.beat_sequencer.enable(self.is_device_playing);
     }
 
     fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
@@ -89,14 +100,6 @@ impl Arpeggiator {
             ..Default::default()
         }
     }
-
-    // TODO: placeholder for a bunch of knobs and dials
-    pub(crate) fn nothing(&self) -> f32 {
-        0.0
-    }
-
-    // this is a placeholder to get the trait requirements satisfied
-    pub(crate) fn set_nothing(&mut self, _value: f32) {}
 
     fn insert_one_note(
         &mut self,
