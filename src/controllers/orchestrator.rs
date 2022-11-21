@@ -341,14 +341,14 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
         r
     }
 }
-impl Updateable for Orchestrator<GrooveMessage> {}
+impl Updateable for GrooveOrchestrator {}
 
 #[derive(Debug, Default)]
 pub struct GrooveRunner {}
 impl GrooveRunner {
     pub fn run(
         &mut self,
-        orchestrator: &mut Box<Orchestrator<GrooveMessage>>,
+        orchestrator: &mut Box<GrooveOrchestrator>,
         clock: &mut Clock,
     ) -> anyhow::Result<Vec<MonoSample>> {
         let mut samples = Vec::<MonoSample>::new();
@@ -364,7 +364,7 @@ impl GrooveRunner {
 
     pub fn run_performance(
         &mut self,
-        orchestrator: &mut Box<Orchestrator<GrooveMessage>>,
+        orchestrator: &mut Box<GrooveOrchestrator>,
         clock: &mut Clock,
     ) -> anyhow::Result<Performance> {
         let sample_rate = orchestrator.clock_settings().sample_rate();
@@ -389,7 +389,7 @@ impl GrooveRunner {
 
     fn loop_once(
         &mut self,
-        orchestrator: &mut Box<Orchestrator<GrooveMessage>>,
+        orchestrator: &mut Box<GrooveOrchestrator>,
         clock: &mut Clock,
     ) -> (MonoSample, bool) {
         let command = orchestrator.update(clock, GrooveMessage::Tick);
@@ -415,7 +415,7 @@ impl GrooveRunner {
 
     fn handle_message(
         &mut self,
-        orchestrator: &mut Orchestrator<GrooveMessage>,
+        orchestrator: &mut GrooveOrchestrator,
         clock: &Clock,
         message: GrooveMessage,
     ) {
@@ -432,7 +432,7 @@ impl GrooveRunner {
 
     fn handle_msg_control_f32(
         &mut self,
-        orchestrator: &mut Orchestrator<GrooveMessage>,
+        orchestrator: &mut GrooveOrchestrator,
         clock: &Clock,
         uid: usize,
         value: f32,
@@ -448,7 +448,7 @@ impl GrooveRunner {
 
     fn send_msg_update_f32(
         &mut self,
-        orchestrator: &mut Orchestrator<GrooveMessage>,
+        orchestrator: &mut GrooveOrchestrator,
         clock: &Clock,
         target_uid: usize,
         param_id: usize,
@@ -464,7 +464,7 @@ impl GrooveRunner {
 
     fn send_msg(
         &mut self,
-        orchestrator: &mut Orchestrator<GrooveMessage>,
+        orchestrator: &mut GrooveOrchestrator,
         clock: &Clock,
         target_uid: usize,
         message: GrooveMessage,
@@ -487,7 +487,7 @@ impl GrooveRunner {
 
     fn handle_msg_midi(
         &mut self,
-        orchestrator: &mut Orchestrator<GrooveMessage>,
+        orchestrator: &mut GrooveOrchestrator,
         clock: &Clock,
         channel: u8,
         message: MidiMessage,
@@ -515,7 +515,7 @@ impl GrooveRunner {
 
     fn send_msg_enable(
         &mut self,
-        orchestrator: &mut Orchestrator<GrooveMessage>,
+        orchestrator: &mut GrooveOrchestrator,
         clock: &Clock,
         target_uid: usize,
         enabled: bool,

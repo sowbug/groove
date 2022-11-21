@@ -187,7 +187,7 @@ impl IOHelper {
         Ok(settings)
     }
 
-    pub fn orchestrator_from_midi_file(filename: &str) -> Box<Orchestrator<GrooveMessage>> {
+    pub fn orchestrator_from_midi_file(filename: &str) -> Box<GrooveOrchestrator> {
         let data = std::fs::read(filename).unwrap();
         let mut orchestrator = Box::new(Orchestrator::new());
 
