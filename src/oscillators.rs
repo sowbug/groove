@@ -6,7 +6,7 @@ use crate::{
 };
 use std::f32::consts::PI;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Oscillator {
     uid: usize,
 

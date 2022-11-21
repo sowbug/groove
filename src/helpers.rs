@@ -200,7 +200,7 @@ impl IOHelper {
         // SMF, but a few idle ones won't hurt for now.
         for channel in 0..16 {
             let synth: Box<dyn NewIsInstrument<Message = GrooveMessage>> = if channel == 9 {
-                Box::new(Sampler::new_from_files(channel))
+                Box::new(Sampler::new_from_files())
             } else {
                 Box::new(Synth::new_with(
                     channel,

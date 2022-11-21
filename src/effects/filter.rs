@@ -75,7 +75,7 @@ impl FilterParams {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct CoefficientSet {
     a0: f64,
     a1: f64,
@@ -86,7 +86,7 @@ struct CoefficientSet {
 }
 
 /// https://en.wikipedia.org/wiki/Digital_biquad_filter
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BiQuadFilter<M: MessageBounds> {
     uid: usize,
 
@@ -547,6 +547,7 @@ mod tests {
                 },
             ),
         ];
+        #[allow(unused_variables)]
         for t in tests {
             // TODO
             // write_source_and_controlled_effect(

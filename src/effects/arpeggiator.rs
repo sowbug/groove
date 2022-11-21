@@ -4,7 +4,7 @@ use crate::{
     clock::{Clock, PerfectTimeUnit},
     messages::GrooveMessage,
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},
-    traits::{HasUid, NewIsController, NewUpdateable, SinksMidi, Terminates},
+    traits::{HasUid, NewIsController, NewUpdateable, Terminates},
 };
 
 #[derive(Debug, Default)]
@@ -60,24 +60,6 @@ impl HasUid for Arpeggiator {
 
     fn set_uid(&mut self, uid: usize) {
         self.uid = uid;
-    }
-}
-
-impl SinksMidi for Arpeggiator {
-    fn midi_channel(&self) -> MidiChannel {
-        self.midi_channel_in
-    }
-
-    fn handle_midi_for_channel(
-        &mut self,
-        clock: &Clock,
-        _channel: &MidiChannel,
-        message: &MidiMessage,
-    ) {
-    }
-
-    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-        self.midi_channel_in = midi_channel;
     }
 }
 

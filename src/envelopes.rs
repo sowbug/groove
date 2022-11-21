@@ -1,7 +1,7 @@
 use super::clock::Clock;
 use crate::{
     clock::ClockTimeUnit,
-    common::{rrc, MonoSample, Rrc, Ww},
+    common::MonoSample,
     messages::GrooveMessage,
     settings::patches::EnvelopeSettings,
     traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio},
@@ -9,7 +9,7 @@ use crate::{
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{fmt::Debug, ops::Range};
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub enum EnvelopeFunction {
     #[default]
     Linear,
@@ -17,7 +17,7 @@ pub enum EnvelopeFunction {
     Exponential,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct EnvelopeStep {
     pub interval: Range<f32>,
     pub start_value: MonoSample,
@@ -63,7 +63,7 @@ impl EnvelopeStep {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SteppedEnvelope {
     time_unit: ClockTimeUnit,
     steps: Vec<EnvelopeStep>,
@@ -225,15 +225,11 @@ enum AdsrEnvelopeStepName {
     FinalIdle,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AdsrEnvelope {
     uid: usize,
-
-
     preset: EnvelopeSettings,
-
     envelope: SteppedEnvelope,
-
     note_on_time: f32,
     note_off_time: f32,
 }
@@ -262,7 +258,6 @@ impl Default for AdsrEnvelope {
     fn default() -> Self {
         Self {
             uid: usize::default(),
-            
 
             preset: EnvelopeSettings::default(),
             envelope: SteppedEnvelope::default(),

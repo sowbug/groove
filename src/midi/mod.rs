@@ -3,11 +3,12 @@ pub(crate) mod programmers;
 pub(crate) mod sequencers;
 pub(crate) mod smf_reader;
 
+ // TODO copy and conform to MessageBounds so it can be a trait associated type
 pub use midly::MidiMessage;
 
 use crate::{
     common::Rrc,
-    traits::{HasUid, NewIsController, NewUpdateable, SinksMidi, Terminates},
+    traits::{HasUid, NewIsController, NewUpdateable, Terminates},
     GrooveMessage,
 };
 use crossbeam::deque::{Stealer, Worker};
@@ -373,6 +374,56 @@ impl Default for MidiOutputHandler {
         }
     }
 }
+impl NewIsController for MidiOutputHandler {}
+impl NewUpdateable for MidiOutputHandler {
+    type Message = GrooveMessage;
+
+    fn update(
+        &mut self,
+        clock: &crate::Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        match message {
+            GrooveMessage::Midi(channel, message) => {
+                let event = LiveEvent::Midi {
+                    channel: u4::from(channel),
+                    message,
+                };
+
+                // TODO: this seems like a lot of work
+                let mut buf = Vec::new();
+                event.write(&mut buf).unwrap();
+                if self.send(&buf).is_err() {
+                    // TODO
+                }
+            }
+            _ => todo!(),
+        }
+        crate::traits::EvenNewerCommand::none()
+    }
+
+    fn handle_message(&mut self, clock: &crate::Clock, message: Self::Message) {
+        todo!()
+    }
+
+    fn param_id_for_name(&self, param_name: &str) -> usize {
+        usize::MAX
+    }
+}
+impl Terminates for MidiOutputHandler {
+    fn is_finished(&self) -> bool {
+        true
+    }
+}
+impl HasUid for MidiOutputHandler {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
 
 impl MidiOutputHandler {
     fn new() -> Self {
@@ -439,33 +490,6 @@ impl MidiOutputHandler {
     #[allow(dead_code)]
     pub fn outputs(&self) -> &[(usize, String)] {
         &self.outputs
-    }
-}
-
-impl SinksMidi for MidiOutputHandler {
-    fn midi_channel(&self) -> MidiChannel {
-        MIDI_CHANNEL_RECEIVE_ALL
-    }
-
-    fn set_midi_channel(&mut self, _midi_channel: MidiChannel) {}
-
-    fn handle_midi_for_channel(
-        &mut self,
-        _clock: &crate::clock::Clock,
-        channel: &MidiChannel,
-        message: &MidiMessage,
-    ) {
-        let event = LiveEvent::Midi {
-            channel: u4::from(*channel),
-            message: *message,
-        };
-
-        // TODO: this seems like a lot of work
-        let mut buf = Vec::new();
-        event.write(&mut buf).unwrap();
-        if self.send(&buf).is_err() {
-            // TODO
-        }
     }
 }
 

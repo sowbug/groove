@@ -130,7 +130,7 @@ impl Default for TimeSignature {
 }
 
 // A way to specify a time unit that Clock tracks.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub enum ClockTimeUnit {
     #[default]
     Seconds,

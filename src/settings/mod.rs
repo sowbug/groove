@@ -192,9 +192,7 @@ impl InstrumentSettings {
                 preset_name: _preset,
             } => (
                 *midi_input_channel,
-                Box::new(drumkit_sampler::Sampler::new_from_files(
-                    *midi_input_channel,
-                )),
+                Box::new(drumkit_sampler::Sampler::new_from_files()),
             ),
         }
     }

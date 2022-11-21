@@ -165,69 +165,8 @@ pub struct FilterPreset {
 
 #[cfg(test)]
 mod tests {
+    use crate::settings::patches::OscillatorSettings;
     use assert_approx_eq::assert_approx_eq;
-
-    use crate::{
-        clock::Clock,
-        midi::{MidiChannel, MidiMessage},
-        settings::patches::OscillatorSettings,
-        traits::SinksMidi,
-    };
-
-    #[derive(Debug, Default)]
-    pub struct NullDevice {
-        pub is_playing: bool,
-        midi_channel: MidiChannel,
-        pub midi_messages_received: usize,
-        pub midi_messages_handled: usize,
-    }
-
-    impl NullDevice {
-        #[allow(dead_code)]
-        pub fn new() -> Self {
-            Self {
-                ..Default::default()
-            }
-        }
-    }
-
-    impl SinksMidi for NullDevice {
-        fn midi_channel(&self) -> MidiChannel {
-            self.midi_channel
-        }
-
-        fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-            self.midi_channel = midi_channel;
-        }
-
-        fn handle_midi_for_channel(
-            &mut self,
-            _clock: &Clock,
-            _channel: &MidiChannel,
-            message: &MidiMessage,
-        ) {
-            self.midi_messages_received += 1;
-
-            #[allow(unused_variables)]
-            match message {
-                MidiMessage::NoteOff { key, vel } => {
-                    self.is_playing = false;
-                    self.midi_messages_handled += 1;
-                }
-                MidiMessage::NoteOn { key, vel } => {
-                    self.is_playing = true;
-                    self.midi_messages_handled += 1;
-                }
-                MidiMessage::Aftertouch { key, vel } => todo!(),
-                MidiMessage::Controller { controller, value } => todo!(),
-                MidiMessage::ProgramChange { program } => {
-                    self.midi_messages_handled += 1;
-                }
-                MidiMessage::ChannelAftertouch { vel } => todo!(),
-                MidiMessage::PitchBend { bend } => todo!(),
-            }
-        }
-    }
 
     #[test]
     fn test_oscillator_tuning_helpers() {

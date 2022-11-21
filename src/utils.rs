@@ -140,7 +140,7 @@ pub mod tests {
         settings::{patches::EnvelopeSettings, ClockSettings},
         traits::{
             BoxedEntity, EvenNewerCommand, HasUid, NewIsController, NewIsEffect, NewIsInstrument,
-            NewUpdateable, SinksMidi, SourcesAudio, Terminates, TransformsAudio,
+            NewUpdateable, SourcesAudio, Terminates, TransformsAudio,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -151,10 +151,7 @@ pub mod tests {
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
     };
-    use std::{
-        collections::{HashMap, VecDeque},
-        str::FromStr,
-    };
+    use std::{collections::VecDeque, str::FromStr};
     use std::{fs, marker::PhantomData};
     use strum_macros::{Display, EnumString};
 
@@ -878,98 +875,6 @@ pub mod tests {
             }
         }
     }
-    #[derive(Display, Debug, EnumString)]
-    #[strum(serialize_all = "kebab_case")]
-    pub(crate) enum TestMidiSinkControlParams {
-        Param,
-    }
-
-    /// Helper for testing SinksMidi
-    #[derive(Debug, Default)]
-    pub struct TestMidiSink<M: MessageBounds> {
-        uid: usize,
-
-        pub is_playing: bool,
-        midi_channel: MidiChannel,
-        pub received_count: usize,
-        pub handled_count: usize,
-        pub value: f32,
-
-        pub messages: Vec<(f32, MidiChannel, MidiMessage)>,
-
-        _phantom: PhantomData<M>,
-    }
-
-    impl<M: MessageBounds> TestMidiSink<M> {
-        pub const TEST_MIDI_CHANNEL: u8 = 42;
-
-        pub fn new() -> Self {
-            Self {
-                midi_channel: Self::TEST_MIDI_CHANNEL,
-                ..Default::default()
-            }
-        }
-        pub fn new_with(midi_channel: MidiChannel) -> Self {
-            Self {
-                midi_channel,
-                ..Default::default()
-            }
-        }
-        #[allow(dead_code)]
-        pub fn set_value(&mut self, value: f32) {
-            self.value = value;
-        }
-
-        #[allow(dead_code)]
-        pub fn dump_messages(&self) {
-            dbg!(&self.messages);
-        }
-    }
-
-    impl<M: MessageBounds> SinksMidi for TestMidiSink<M> {
-        fn midi_channel(&self) -> MidiChannel {
-            self.midi_channel
-        }
-
-        fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-            self.midi_channel = midi_channel;
-        }
-        fn handle_midi_for_channel(
-            &mut self,
-            clock: &Clock,
-            channel: &MidiChannel,
-            message: &MidiMessage,
-        ) {
-            assert_eq!(self.midi_channel, *channel);
-            self.messages.push((clock.beats(), *channel, *message));
-            self.received_count += 1;
-
-            #[allow(unused_variables)]
-            match message {
-                MidiMessage::NoteOff { key, vel } => {
-                    self.is_playing = false;
-                    self.handled_count += 1;
-                }
-                MidiMessage::NoteOn { key, vel } => {
-                    self.is_playing = true;
-                    self.handled_count += 1;
-                }
-                MidiMessage::Aftertouch { key, vel } => todo!(),
-                MidiMessage::Controller { controller, value } => todo!(),
-                MidiMessage::ProgramChange { program } => {
-                    self.handled_count += 1;
-                }
-                MidiMessage::ChannelAftertouch { vel } => todo!(),
-                MidiMessage::PitchBend { bend } => todo!(),
-            }
-        }
-    }
-    impl<M: MessageBounds> SourcesAudio for TestMidiSink<M> {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            self.value
-        }
-    }
-
     #[derive(Debug)]
     pub struct TestInstrument<M: MessageBounds> {
         uid: usize,
@@ -1076,46 +981,6 @@ pub mod tests {
             }
         }
     }
-
-    impl<M: MessageBounds> SinksMidi for TestInstrument<M> {
-        fn midi_channel(&self) -> MidiChannel {
-            self.midi_channel
-        }
-
-        fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-            self.midi_channel = midi_channel;
-        }
-        fn handle_midi_for_channel(
-            &mut self,
-            clock: &Clock,
-            channel: &MidiChannel,
-            message: &MidiMessage,
-        ) {
-            assert_eq!(self.midi_channel, *channel);
-            self.debug_messages
-                .push((clock.beats(), *channel, *message));
-            self.received_count += 1;
-
-            #[allow(unused_variables)]
-            match message {
-                MidiMessage::NoteOff { key, vel } => {
-                    self.is_playing = false;
-                    self.handled_count += 1;
-                }
-                MidiMessage::NoteOn { key, vel } => {
-                    self.is_playing = true;
-                    self.handled_count += 1;
-                }
-                MidiMessage::Aftertouch { key, vel } => todo!(),
-                MidiMessage::Controller { controller, value } => todo!(),
-                MidiMessage::ProgramChange { program } => {
-                    self.handled_count += 1;
-                }
-                MidiMessage::ChannelAftertouch { vel } => todo!(),
-                MidiMessage::PitchBend { bend } => todo!(),
-            }
-        }
-    }
     impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
         fn source_audio(&mut self, clock: &Clock) -> MonoSample {
             if self.is_playing {
@@ -1146,7 +1011,6 @@ pub mod tests {
         pub tempo: f32,
         is_enabled: bool,
         is_playing: bool,
-        channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     }
     impl<M: MessageBounds> Terminates for TestArpeggiator<M> {
         fn is_finished(&self) -> bool {

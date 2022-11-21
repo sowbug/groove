@@ -1,14 +1,12 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
-    common::Ww,
     messages::GrooveMessage,
     messages::MessageBounds,
     midi::{MidiChannel, MidiMessage},
-    traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, SinksMidi, Terminates},
+    traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, Terminates},
 };
 use btreemultimap::BTreeMultiMap;
 use std::{
-    collections::HashMap,
     fmt::Debug,
     marker::PhantomData,
     ops::Bound::{Excluded, Included},
@@ -19,8 +17,6 @@ pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, Mid
 #[derive(Debug, Default)]
 pub struct BeatSequencer<M: MessageBounds> {
     uid: usize,
-
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     next_instant: PerfectTimeUnit,
     events: BeatEventsMap,
     last_event_time: PerfectTimeUnit,
@@ -127,8 +123,6 @@ pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiM
 #[derive(Debug)]
 pub struct MidiTickSequencer<M: MessageBounds> {
     uid: usize,
-
-    channels_to_sink_vecs: HashMap<MidiChannel, Vec<Ww<dyn SinksMidi>>>,
     next_instant: MidiTicks,
     events: MidiTickEventsMap,
     last_event_time: MidiTicks,
@@ -166,8 +160,6 @@ impl<M: MessageBounds> Default for MidiTickSequencer<M> {
     fn default() -> Self {
         Self {
             uid: usize::default(),
-
-            channels_to_sink_vecs: Default::default(),
             next_instant: MidiTicks::MIN,
             events: Default::default(),
             last_event_time: MidiTicks::MIN,
@@ -251,7 +243,7 @@ mod tests {
         clock::{Clock, MidiTicks, PerfectTimeUnit},
         messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
-        traits::{BoxedEntity, EvenNewerCommand, NewIsController, NewUpdateable, SinksMidi},
+        traits::{BoxedEntity, EvenNewerCommand, NewIsController, NewUpdateable},
         utils::tests::TestInstrument,
         Orchestrator,
     };

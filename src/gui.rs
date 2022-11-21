@@ -773,13 +773,10 @@ mod tests {
             None,
         );
         Box::new(test_one_viewable(
-            Box::new(DrumkitSampler::new_from_files(0)),
+            Box::new(DrumkitSampler::new_from_files()),
             None,
         ));
-        Box::new(test_one_viewable(
-            Box::new(Sampler::new_with(0, 1024)),
-            None,
-        ));
+        Box::new(test_one_viewable(Box::new(Sampler::new_with(1024)), None));
         // TODO - test it! test_one_viewable(Mixer::new_wrapped(), None);
         test_one_viewable(
             Box::new(Gain::new()),

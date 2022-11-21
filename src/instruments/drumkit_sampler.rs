@@ -1,9 +1,9 @@
 use crate::{
     clock::Clock,
-    common::{rrc, MonoSample, Rrc, Ww},
+    common::MonoSample,
     messages::GrooveMessage,
-    midi::{GeneralMidiPercussionProgram, MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL},
-    traits::{HasUid, NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio},
+    midi::{GeneralMidiPercussionProgram, MidiMessage},
+    traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio},
 };
 use std::collections::HashMap;
 
@@ -33,37 +33,30 @@ impl Voice {
         r
     }
 }
+impl NewUpdateable for Voice {
+    type Message = GrooveMessage; // TODO
 
-impl SinksMidi for Voice {
-    fn midi_channel(&self) -> MidiChannel {
-        MIDI_CHANNEL_RECEIVE_ALL
-    }
-
-    #[allow(unused_variables)]
-    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {}
-
-    fn handle_midi_for_channel(
+    fn update(
         &mut self,
         clock: &Clock,
-        _channel: &MidiChannel,
-        message: &MidiMessage,
-    ) {
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
-            MidiMessage::NoteOff { key, vel } => {
-                self.is_playing = false;
-            }
-            MidiMessage::NoteOn { key, vel } => {
-                self.sample_pointer = 0;
-                self.sample_clock_start = clock.samples();
-                self.is_playing = true;
-            }
-            MidiMessage::Aftertouch { key, vel } => todo!(),
-            MidiMessage::Controller { controller, value } => todo!(),
-            MidiMessage::ProgramChange { program } => todo!(),
-            MidiMessage::ChannelAftertouch { vel } => todo!(),
-            MidiMessage::PitchBend { bend } => todo!(),
+            GrooveMessage::Midi(_channel, message) => match message {
+                MidiMessage::NoteOff { key, vel } => {
+                    self.is_playing = false;
+                }
+                MidiMessage::NoteOn { key, vel } => {
+                    self.sample_pointer = 0;
+                    self.sample_clock_start = clock.samples();
+                    self.is_playing = true;
+                }
+                _ => {}
+            },
+            _ => {}
         }
+        crate::traits::EvenNewerCommand::none()
     }
 }
 impl SourcesAudio for Voice {
@@ -93,11 +86,7 @@ impl SourcesAudio for Voice {
 #[derive(Debug, Default)]
 pub struct Sampler {
     uid: usize,
-
-
-    midi_channel: MidiChannel,
     note_to_voice: HashMap<u8, Voice>,
-
     pub(crate) kit_name: String,
 }
 impl NewIsInstrument for Sampler {}
@@ -111,6 +100,36 @@ impl SourcesAudio for Sampler {
 }
 impl NewUpdateable for Sampler {
     type Message = GrooveMessage;
+
+    fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        #[allow(unused_variables)]
+        match message {
+            GrooveMessage::Midi(channel, midi_message) => match midi_message {
+                MidiMessage::NoteOff { key, vel } => {
+                    if let Some(voice) = self.note_to_voice.get_mut(&u8::from(key)) {
+                        voice.update(clock, message);
+                    }
+                }
+                MidiMessage::NoteOn { key, vel } => {
+                    if let Some(voice) = self.note_to_voice.get_mut(&u8::from(key)) {
+                        voice.update(clock, message);
+                    }
+                }
+                MidiMessage::Aftertouch { key, vel } => {
+                    if let Some(voice) = self.note_to_voice.get_mut(&u8::from(key)) {
+                        voice.update(clock, message);
+                    }
+                }
+                _ => todo!(),
+            },
+            _ => todo!(),
+        }
+        crate::traits::EvenNewerCommand::none()
+    }
 }
 impl HasUid for Sampler {
     fn uid(&self) -> usize {
@@ -122,11 +141,8 @@ impl HasUid for Sampler {
     }
 }
 impl Sampler {
-    fn new(midi_channel: MidiChannel) -> Self {
-        Self {
-            midi_channel,
-            ..Default::default()
-        }
+    fn new() -> Self {
+        Default::default()
     }
 
     pub fn add_sample_for_note(&mut self, note: u8, filename: &str) -> anyhow::Result<()> {
@@ -135,8 +151,8 @@ impl Sampler {
         Ok(())
     }
 
-    pub(crate) fn new_from_files(midi_channel: MidiChannel) -> Self {
-        let mut r = Self::new(midi_channel);
+    pub(crate) fn new_from_files() -> Self {
+        let mut r = Self::new();
         let samples: [(GeneralMidiPercussionProgram, &str); 21] = [
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
             (GeneralMidiPercussionProgram::ElectricBassDrum, "BD B"),
@@ -174,48 +190,12 @@ impl Sampler {
     }
 }
 
-impl SinksMidi for Sampler {
-    fn midi_channel(&self) -> MidiChannel {
-        self.midi_channel
-    }
-
-    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-        self.midi_channel = midi_channel;
-    }
-
-    fn handle_midi_for_channel(
-        &mut self,
-        clock: &Clock,
-        channel: &MidiChannel,
-        message: &MidiMessage,
-    ) {
-        #[allow(unused_variables)]
-        match message {
-            MidiMessage::NoteOff { key, vel } => {
-                if let Some(voice) = self.note_to_voice.get_mut(&u8::from(*key)) {
-                    voice.handle_midi_for_channel(clock, channel, message);
-                }
-            }
-            MidiMessage::NoteOn { key, vel } => {
-                if let Some(voice) = self.note_to_voice.get_mut(&u8::from(*key)) {
-                    voice.handle_midi_for_channel(clock, channel, message);
-                }
-            }
-            MidiMessage::Aftertouch { key, vel } => todo!(),
-            MidiMessage::Controller { controller, value } => todo!(),
-            MidiMessage::ProgramChange { program } => todo!(),
-            MidiMessage::ChannelAftertouch { vel } => todo!(),
-            MidiMessage::PitchBend { bend } => todo!(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_loading() {
-        let _ = Sampler::new_from_files(MIDI_CHANNEL_RECEIVE_ALL);
+        let _ = Sampler::new_from_files();
     }
 }

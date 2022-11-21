@@ -1,21 +1,15 @@
 use crate::{
     clock::Clock,
-    common::{rrc, MonoSample, Rrc, Ww},
+    common::MonoSample,
     messages::GrooveMessage,
-    midi::{MidiChannel, MidiMessage},
-    traits::{
-        HasUid, NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio,
-    },
+    midi::MidiMessage,
+    traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio},
 };
 
 #[derive(Debug, Default)]
 #[allow(dead_code)]
 pub struct Sampler {
     uid: usize,
-
-
-
-    midi_channel: MidiChannel,
     samples: Vec<MonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
@@ -50,6 +44,29 @@ impl SourcesAudio for Sampler {
 }
 impl NewUpdateable for Sampler {
     type Message = GrooveMessage;
+
+    fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        #[allow(unused_variables)]
+        match message {
+            GrooveMessage::Midi(channel, message) => match message {
+                MidiMessage::NoteOff { key, vel } => {
+                    self.is_playing = false;
+                }
+                MidiMessage::NoteOn { key, vel } => {
+                    self.sample_pointer = 0;
+                    self.sample_clock_start = clock.samples();
+                    self.is_playing = true;
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+        crate::traits::EvenNewerCommand::none()
+    }
 }
 impl HasUid for Sampler {
     fn uid(&self) -> usize {
@@ -62,18 +79,17 @@ impl HasUid for Sampler {
 }
 
 impl Sampler {
-    pub(crate) fn new_with(midi_channel: MidiChannel, buffer_size: usize) -> Self {
+    pub(crate) fn new_with(buffer_size: usize) -> Self {
         Self {
-            midi_channel,
             samples: Vec::with_capacity(buffer_size),
             ..Default::default()
         }
     }
 
     #[allow(dead_code)]
-    pub fn new_from_file(midi_channel: MidiChannel, filename: &str) -> Self {
+    pub fn new_from_file(filename: &str) -> Self {
         let mut reader = hound::WavReader::open(filename).unwrap();
-        let mut r = Self::new_with(midi_channel, reader.duration() as usize);
+        let mut r = Self::new_with(reader.duration() as usize);
         for sample in reader.samples::<i16>() {
             r.samples
                 .push(sample.unwrap() as MonoSample / i16::MAX as MonoSample);
@@ -83,51 +99,12 @@ impl Sampler {
     }
 }
 
-impl SinksMidi for Sampler {
-    fn midi_channel(&self) -> MidiChannel {
-        self.midi_channel
-    }
-
-    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-        self.midi_channel = midi_channel;
-    }
-
-    fn handle_midi_for_channel(
-        &mut self,
-        clock: &Clock,
-        _channel: &MidiChannel,
-        message: &MidiMessage,
-    ) {
-        #[allow(unused_variables)]
-        match message {
-            MidiMessage::NoteOff { key, vel } => {
-                self.is_playing = false;
-            }
-            MidiMessage::NoteOn { key, vel } => {
-                self.sample_pointer = 0;
-                self.sample_clock_start = clock.samples();
-                self.is_playing = true;
-            }
-            MidiMessage::Aftertouch { key, vel } => todo!(),
-            MidiMessage::Controller { controller, value } => todo!(),
-            MidiMessage::ProgramChange { program } => todo!(),
-            MidiMessage::ChannelAftertouch { vel } => todo!(),
-            MidiMessage::PitchBend { bend } => todo!(),
-        }
-        // TODO: there's way too much duplication across synths and samplers
-        // and voices
-    }
-}
-
-
 #[cfg(test)]
 mod tests {
-    use crate::midi::MIDI_CHANNEL_RECEIVE_NONE;
-
     use super::*;
 
     #[test]
     fn test_loading() {
-        let _ = Sampler::new_from_file(MIDI_CHANNEL_RECEIVE_NONE, "samples/test.wav");
+        let _ = Sampler::new_from_file("samples/test.wav");
     }
 }

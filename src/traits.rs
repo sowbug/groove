@@ -3,7 +3,6 @@ use crate::{
     common::MonoSample,
     gui::{IsViewable, ViewableMessage},
     messages::MessageBounds,
-    midi::{MidiChannel, MidiMessage, MIDI_CHANNEL_RECEIVE_ALL, MIDI_CHANNEL_RECEIVE_NONE},
 };
 
 pub trait NewIsController: NewUpdateable + Terminates + HasUid + std::fmt::Debug {}
@@ -103,29 +102,6 @@ impl<T> EvenNewerCommand<T> {
 
 pub trait MakesIsViewable: std::fmt::Debug {
     fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>>;
-}
-
-#[deprecated]
-pub trait SinksMidi: std::fmt::Debug {
-    fn midi_channel(&self) -> MidiChannel;
-    fn set_midi_channel(&mut self, midi_channel: MidiChannel);
-
-    fn handle_midi(&mut self, clock: &Clock, channel: &MidiChannel, message: &MidiMessage) {
-        if self.midi_channel() == MIDI_CHANNEL_RECEIVE_NONE {
-            return;
-        }
-        if self.midi_channel() == MIDI_CHANNEL_RECEIVE_ALL || self.midi_channel() == *channel {
-            // TODO: SourcesMidi is already going through trouble to respect
-            // channels. Is this redundant?
-            self.handle_midi_for_channel(clock, channel, message);
-        }
-    }
-    fn handle_midi_for_channel(
-        &mut self,
-        clock: &Clock,
-        channel: &MidiChannel,
-        message: &MidiMessage,
-    );
 }
 
 #[cfg(test)]

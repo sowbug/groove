@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc, rrc_clone, MonoSample, Rrc},
+    common::MonoSample,
     effects::filter::{BiQuadFilter, FilterParams},
     messages::GrooveMessage,
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
@@ -7,7 +7,7 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{HasUid, NewIsInstrument, NewUpdateable, SinksMidi, SourcesAudio, TransformsAudio},
+    traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio, TransformsAudio},
     {clock::Clock, envelopes::AdsrEnvelope, oscillators::Oscillator},
 };
 use convert_case::{Case, Casing};
@@ -517,9 +517,8 @@ impl Synth {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Voice {
-    midi_channel: MidiChannel,
     oscillators: Vec<Oscillator>,
     osc_mix: Vec<f32>,
     amp_envelope: AdsrEnvelope,
@@ -535,9 +534,8 @@ pub struct Voice {
 }
 
 impl Voice {
-    pub fn new(midi_channel: MidiChannel, sample_rate: usize, preset: &SynthPatch) -> Self {
+    pub fn new(sample_rate: usize, preset: &SynthPatch) -> Self {
         let mut r = Self {
-            midi_channel,
             amp_envelope: AdsrEnvelope::new_with(&preset.amp_envelope),
 
             lfo: Oscillator::new_lfo(&preset.lfo),
@@ -583,44 +581,50 @@ impl Voice {
         !self.amp_envelope.is_idle(clock)
     }
 }
+impl NewUpdateable for Voice {
+    // TODO I really wanted this to be MidiMessage, but for now I'm borrowing
+    // midly::MidiMessage, and it's missing at least one trait bound.
+    //
+    // type Message = MidiMessage;
+    type Message = GrooveMessage;
 
-impl SinksMidi for Voice {
-    fn midi_channel(&self) -> MidiChannel {
-        self.midi_channel
-    }
-
-    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-        self.midi_channel = midi_channel;
-    }
-
-    fn handle_midi_for_channel(
+    fn update(
         &mut self,
         clock: &Clock,
-        _channel: &MidiChannel,
-        message: &MidiMessage,
-    ) {
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
-            MidiMessage::NoteOff { key, vel } => {
-                self.amp_envelope.handle_note_event(clock, false);
-                self.filter_envelope.handle_note_event(clock, false);
-            }
-            MidiMessage::NoteOn { key, vel } => {
-                let frequency = MidiUtils::message_to_frequency(message);
-                for o in self.oscillators.iter_mut() {
-                    o.set_frequency(frequency);
+            GrooveMessage::Midi(channel, message) => match message {
+                MidiMessage::NoteOff { key, vel } => {
+                    self.amp_envelope.handle_note_event(clock, false);
+                    self.filter_envelope.handle_note_event(clock, false);
                 }
-                self.amp_envelope.handle_note_event(clock, true);
-                self.filter_envelope.handle_note_event(clock, true);
-            }
-            MidiMessage::Aftertouch { key, vel } => todo!(),
-            MidiMessage::Controller { controller, value } => todo!(),
-            MidiMessage::ProgramChange { program } => todo!(),
-            MidiMessage::ChannelAftertouch { vel } => todo!(),
-            MidiMessage::PitchBend { bend } => todo!(),
+                MidiMessage::NoteOn { key, vel } => {
+                    let frequency = MidiUtils::message_to_frequency(&message);
+                    for o in self.oscillators.iter_mut() {
+                        o.set_frequency(frequency);
+                    }
+                    self.amp_envelope.handle_note_event(clock, true);
+                    self.filter_envelope.handle_note_event(clock, true);
+                }
+                _ => {}
+            },
+            _ => {}
         }
+
+        crate::traits::EvenNewerCommand::none()
+    }
+
+    fn handle_message(&mut self, clock: &Clock, message: Self::Message) {
+        todo!()
+    }
+
+    fn param_id_for_name(&self, param_name: &str) -> usize {
+        usize::MAX
     }
 }
+
 impl SourcesAudio for Voice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         // LFO
@@ -673,7 +677,7 @@ pub struct Synth {
     midi_channel: MidiChannel,
     sample_rate: usize,
     pub(crate) preset: SynthPatch,
-    note_to_voice: HashMap<u8, Rrc<Voice>>,
+    note_to_voice: HashMap<u8, Voice>,
 
     debug_last_seconds: f32,
 }
@@ -689,8 +693,8 @@ impl SourcesAudio for Synth {
         let mut done = true;
         let mut current_value = 0.0;
         for (_note, voice) in self.note_to_voice.iter_mut() {
-            current_value += voice.borrow_mut().source_audio(clock);
-            done = done && !voice.borrow().is_playing(clock);
+            current_value += voice.source_audio(clock);
+            done = done && !voice.is_playing(clock);
         }
         if !self.note_to_voice.is_empty() {
             current_value /= self.note_to_voice.len() as MonoSample;
@@ -700,6 +704,46 @@ impl SourcesAudio for Synth {
 }
 impl NewUpdateable for Synth {
     type Message = GrooveMessage;
+
+    fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        #[allow(unused_variables)]
+        match message {
+            GrooveMessage::Midi(channel, midi_message) => {
+                match midi_message {
+                    MidiMessage::NoteOff { key, vel } => {
+                        let voice = self.voice_for_note(u8::from(key));
+                        voice.update(clock, message);
+
+                        // TODO: this is incorrect because it kills voices before release is complete
+                        self.note_to_voice.remove(&u8::from(key));
+                    }
+                    MidiMessage::NoteOn { key, vel } => {
+                        let voice = self.voice_for_note(u8::from(key));
+                        voice.update(clock, message);
+                    }
+                    MidiMessage::ProgramChange { program } => {
+                        if let Some(program) = GeneralMidiProgram::from_u8(u8::from(program)) {
+                            if let Ok(preset) = Synth::general_midi_preset(&program) {
+                                self.preset = preset;
+                            } else {
+                                println!(
+                                    "unrecognized patch from MIDI program change: {}",
+                                    &program
+                                );
+                            }
+                        }
+                    }
+                    _ => todo!(),
+                }
+            }
+            _ => todo!(),
+        }
+        crate::traits::EvenNewerCommand::none()
+    }
 }
 impl HasUid for Synth {
     fn uid(&self) -> usize {
@@ -724,7 +768,6 @@ impl Default for Synth {
         }
     }
 }
-
 impl Synth {
     pub(crate) fn new_with(
         midi_channel: MidiChannel,
@@ -739,66 +782,14 @@ impl Synth {
         }
     }
 
-    fn voice_for_note(&mut self, note: u8) -> Rrc<Voice> {
+    fn voice_for_note(&mut self, note: u8) -> &mut Voice {
         let opt = self.note_to_voice.get(&note);
-        if let Some(voice) = opt {
-            rrc_clone(voice)
+        if let Some(mut voice) = opt {
+            &mut voice
         } else {
-            let voice = rrc(Voice::new(
-                self.midi_channel(),
-                self.sample_rate,
-                &self.preset,
-            ));
-            self.note_to_voice.insert(note, rrc_clone(&voice));
-            voice
-        }
-    }
-}
-impl SinksMidi for Synth {
-    fn midi_channel(&self) -> MidiChannel {
-        self.midi_channel
-    }
-
-    fn set_midi_channel(&mut self, midi_channel: MidiChannel) {
-        self.midi_channel = midi_channel;
-    }
-
-    fn handle_midi_for_channel(
-        &mut self,
-        clock: &Clock,
-        channel: &MidiChannel,
-        message: &MidiMessage,
-    ) {
-        #[allow(unused_variables)]
-        match message {
-            MidiMessage::NoteOff { key, vel } => {
-                let voice = self.voice_for_note(u8::from(*key));
-                voice
-                    .borrow_mut()
-                    .handle_midi_for_channel(clock, channel, message);
-
-                // TODO: this is incorrect because it kills voices before release is complete
-                self.note_to_voice.remove(&u8::from(*key));
-            }
-            MidiMessage::NoteOn { key, vel } => {
-                let voice = self.voice_for_note(u8::from(*key));
-                voice
-                    .borrow_mut()
-                    .handle_midi_for_channel(clock, channel, message);
-            }
-            MidiMessage::Aftertouch { key, vel } => todo!(),
-            MidiMessage::Controller { controller, value } => todo!(),
-            MidiMessage::ProgramChange { program } => {
-                if let Some(program) = GeneralMidiProgram::from_u8(u8::from(*program)) {
-                    if let Ok(preset) = Synth::general_midi_preset(&program) {
-                        self.preset = preset;
-                    } else {
-                        println!("unrecognized patch from MIDI program change: {}", &program);
-                    }
-                }
-            }
-            MidiMessage::ChannelAftertouch { vel } => todo!(),
-            MidiMessage::PitchBend { bend } => todo!(),
+            let voice = Voice::new(self.sample_rate, &self.preset);
+            self.note_to_voice.insert(note, voice);
+            &mut voice
         }
     }
 }
@@ -810,7 +801,7 @@ mod tests {
     use crate::{
         clock::Clock,
         instruments::welsh::WaveformType,
-        midi::{MidiMessage, MidiUtils, MIDI_CHANNEL_RECEIVE_ALL},
+        midi::{MidiMessage, MidiUtils},
         settings::patches::{
             EnvelopeSettings, FilterPreset, GlideSettings, LfoPreset, LfoRouting,
             OscillatorSettings, PolyphonySettings,
@@ -842,11 +833,11 @@ mod tests {
         while clock.seconds() < duration {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
-                voice.handle_midi_for_channel(&clock, &0, &midi_on);
+                voice.update(&clock, GrooveMessage::Midi(0, midi_on));
             } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
             {
                 last_recognized_time_point = clock.seconds();
-                voice.handle_midi_for_channel(&clock, &0, &midi_off);
+                voice.update(&clock, GrooveMessage::Midi(0, midi_off));
             }
 
             let sample = voice.source_audio(&clock);
@@ -919,7 +910,7 @@ mod tests {
         while clock.seconds() < duration {
             if when <= clock.seconds() && !is_message_sent {
                 is_message_sent = true;
-                source.handle_midi_for_channel(clock, &0, message);
+                source.update(clock, GrooveMessage::Midi(0, *message));
             }
             let sample = source.source_audio(clock);
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
@@ -1027,8 +1018,8 @@ mod tests {
         let message_off = MidiUtils::note_off_c4();
 
         let mut clock = Clock::new();
-        let mut voice = Voice::new(MIDI_CHANNEL_RECEIVE_ALL, SAMPLE_RATE, &test_patch());
-        voice.handle_midi_for_channel(&clock, &0, &message_on);
+        let mut voice = Voice::new(SAMPLE_RATE, &test_patch());
+        voice.update(&clock, GrooveMessage::Midi(0, message_on));
         write_sound(
             &mut voice,
             &mut clock,
@@ -1045,8 +1036,8 @@ mod tests {
         let message_off = MidiUtils::note_off_c4();
 
         let mut clock = Clock::new();
-        let mut voice = Voice::new(MIDI_CHANNEL_RECEIVE_ALL, SAMPLE_RATE, &cello_patch());
-        voice.handle_midi_for_channel(&clock, &0, &message_on);
+        let mut voice = Voice::new(SAMPLE_RATE, &cello_patch());
+        voice.update(&clock, GrooveMessage::Midi(0, message_on));
         write_sound(
             &mut voice,
             &mut clock,
