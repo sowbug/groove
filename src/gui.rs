@@ -1,8 +1,8 @@
 use crate::{
     common::Ww,
+    controllers::arpeggiator::Arpeggiator,
     effects::{
-        arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
-        limiter::Limiter, mixer::Mixer,
+        bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain, limiter::Limiter, mixer::Mixer,
     },
     instruments::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     messages::{GrooveMessage, MessageBounds},
@@ -727,8 +727,8 @@ impl IsViewable for GrooveOrchestrator {
 #[cfg(test)]
 mod tests {
     use crate::{
+        controllers::arpeggiator::Arpeggiator,
         effects::{
-            arpeggiator::Arpeggiator,
             bitcrusher::Bitcrusher,
             filter::{BiQuadFilter, FilterParams},
             gain::Gain,

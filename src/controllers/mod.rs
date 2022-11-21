@@ -1,3 +1,5 @@
+pub(crate) mod arpeggiator;
+
 use crate::clock::{Clock, ClockTimeUnit};
 use crate::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
 use crate::messages::{GrooveMessage, MessageBounds};

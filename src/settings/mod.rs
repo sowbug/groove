@@ -7,7 +7,7 @@ use self::{effects::EffectSettings, patches::SynthPatch};
 use crate::{
     clock::{BeatValue, TimeSignature},
     common::DeviceId,
-    effects::arpeggiator::Arpeggiator,
+    controllers::arpeggiator::Arpeggiator,
     instruments::{
         drumkit_sampler,
         welsh::{self, PatchName},

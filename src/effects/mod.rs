@@ -1,4 +1,3 @@
-pub(crate) mod arpeggiator;
 pub(crate) mod bitcrusher;
 pub(crate) mod filter;
 pub(crate) mod gain;
