@@ -98,8 +98,8 @@ impl<T> EvenNewerCommand<T> {
 #[cfg(test)]
 pub mod tests {
     use super::{
-        EvenNewerCommand, HasUid, IsEffect, IsInstrument, Updateable, SourcesAudio,
-        TransformsAudio,
+        EvenNewerCommand, HasUid, IsEffect, IsInstrument, SourcesAudio, Terminates,
+        TransformsAudio, Updateable, IsController,
     };
     use crate::{
         common::{MonoSample, MONO_SAMPLE_SILENCE},
@@ -113,6 +113,153 @@ pub mod tests {
     use rand::random;
     use std::{marker::PhantomData, str::FromStr};
     use strum_macros::{Display, EnumString};
+
+    #[derive(Display, Debug, EnumString)]
+    #[strum(serialize_all = "kebab_case")]
+    pub(crate) enum TestControllerControlParams {
+        Tempo,
+    }
+
+    enum TestControllerAction {
+        Nothing,
+        NoteOn,
+        NoteOff,
+    }
+
+    #[derive(Debug, Default)]
+    pub struct TestController<M: MessageBounds> {
+        uid: usize,
+        midi_channel_out: MidiChannel,
+        pub tempo: f32,
+        is_enabled: bool,
+        is_playing: bool,
+
+        _phantom: PhantomData<M>,
+    }
+    impl<M: MessageBounds> IsController for TestController<M> {}
+    impl<M: MessageBounds> Terminates for TestController<M> {
+        fn is_finished(&self) -> bool {
+            true
+        }
+    }
+    impl<M: MessageBounds> Updateable for TestController<M> {
+        default type Message = M;
+
+        default fn update(
+            &mut self,
+            _clock: &Clock,
+            _message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            EvenNewerCommand::none()
+        }
+    }
+    impl Updateable for TestController<TestMessage> {
+        type Message = TestMessage;
+
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            match message {
+                TestMessage::Tick => {
+                    return match self.what_to_do(clock) {
+                        TestControllerAction::Nothing => EvenNewerCommand::none(),
+                        TestControllerAction::NoteOn => {
+                            // This is elegant, I hope. If the arpeggiator is
+                            // disabled during play, and we were playing a note,
+                            // then we still send the off note,
+                            if self.is_enabled {
+                                self.is_playing = true;
+                                EvenNewerCommand::single(TestMessage::Midi(
+                                    self.midi_channel_out,
+                                    MidiMessage::NoteOn {
+                                        key: 60.into(),
+                                        vel: 127.into(),
+                                    },
+                                ))
+                            } else {
+                                EvenNewerCommand::none()
+                            }
+                        }
+                        TestControllerAction::NoteOff => {
+                            if self.is_playing {
+                                EvenNewerCommand::single(TestMessage::Midi(
+                                    self.midi_channel_out,
+                                    MidiMessage::NoteOff {
+                                        key: 60.into(),
+                                        vel: 0.into(),
+                                    },
+                                ))
+                            } else {
+                                EvenNewerCommand::none()
+                            }
+                        }
+                    };
+                }
+                TestMessage::Enable(enabled) => {
+                    self.is_enabled = enabled;
+                    EvenNewerCommand::none()
+                }
+                _ => todo!(),
+            }
+        }
+    }
+    impl<M: MessageBounds> HasUid for TestController<M> {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid
+        }
+    }
+    impl<M: MessageBounds> TestController<M> {
+        pub fn new_with(midi_channel_out: MidiChannel) -> Self {
+            Self {
+                midi_channel_out,
+                ..Default::default()
+            }
+        }
+
+        fn what_to_do(&self, clock: &Clock) -> TestControllerAction {
+            let beat_slice_start = clock.beats();
+            let beat_slice_end = clock.next_slice_in_beats();
+            let next_exact_beat = beat_slice_start.floor();
+            let next_exact_half_beat = next_exact_beat + 0.5;
+            if next_exact_beat >= beat_slice_start && next_exact_beat < beat_slice_end {
+                return TestControllerAction::NoteOn;
+            }
+            if next_exact_half_beat >= beat_slice_start && next_exact_half_beat < beat_slice_end {
+                return TestControllerAction::NoteOff;
+            }
+            return TestControllerAction::Nothing;
+        }
+    }
+
+    #[derive(Debug, Default)]
+    pub struct TestEffect<M: MessageBounds> {
+        uid: usize,
+        _phantom: PhantomData<M>,
+    }
+    impl<M: MessageBounds> IsEffect for TestEffect<M> {}
+    impl<M: MessageBounds> TransformsAudio for TestEffect<M> {
+        fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+            -input_sample
+        }
+    }
+    impl<M: MessageBounds> Updateable for TestEffect<M> {
+        type Message = M;
+    }
+    impl<M: MessageBounds> HasUid for TestEffect<M> {
+        fn uid(&self) -> usize {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: usize) {
+            self.uid = uid;
+        }
+    }
 
     #[derive(Display, Debug, EnumString)]
     #[strum(serialize_all = "kebab_case")]
@@ -271,30 +418,6 @@ pub mod tests {
             } else {
                 MONO_SAMPLE_SILENCE
             }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestEffect<M: MessageBounds> {
-        uid: usize,
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> IsEffect for TestEffect<M> {}
-    impl<M: MessageBounds> TransformsAudio for TestEffect<M> {
-        fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
-            -input_sample
-        }
-    }
-    impl<M: MessageBounds> Updateable for TestEffect<M> {
-        type Message = M;
-    }
-    impl<M: MessageBounds> HasUid for TestEffect<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
         }
     }
 

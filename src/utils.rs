@@ -3,8 +3,7 @@ use crate::{
     common::MonoSample,
     messages::{GrooveMessage, MessageBounds},
     traits::{
-        EvenNewerCommand, HasUid, IsController, IsInstrument, Updateable, SourcesAudio,
-        Terminates,
+        EvenNewerCommand, HasUid, IsController, IsInstrument, SourcesAudio, Terminates, Updateable,
     },
 };
 use core::fmt::Debug;
@@ -195,12 +194,11 @@ pub mod tests {
         instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
         messages::MessageBounds,
         messages::{tests::TestMessage, GrooveMessage},
-        midi::{MidiChannel, MidiMessage},
         settings::{patches::EnvelopeSettings, ClockSettings},
         traits::{
-            tests::{TestEffect, TestInstrument},
+            tests::{TestController, TestEffect, TestInstrument},
             BoxedEntity, EvenNewerCommand, HasUid, IsController, IsEffect, IsInstrument,
-            Updateable, SourcesAudio, Terminates, TransformsAudio,
+            SourcesAudio, Terminates, TransformsAudio, Updateable,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -738,128 +736,6 @@ pub mod tests {
                 source,
                 _phantom: PhantomData::default(),
             }
-        }
-    }
-    #[derive(Display, Debug, EnumString)]
-    #[strum(serialize_all = "kebab_case")]
-    pub(crate) enum TestArpeggiatorControlParams {
-        Tempo,
-    }
-
-    enum TestArpeggiatorAction {
-        Nothing,
-        NoteOn,
-        NoteOff,
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestController<M: MessageBounds> {
-        uid: usize,
-        midi_channel_out: MidiChannel,
-        pub tempo: f32,
-        is_enabled: bool,
-        is_playing: bool,
-
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> Terminates for TestController<M> {
-        fn is_finished(&self) -> bool {
-            true
-        }
-    }
-    impl<M: MessageBounds> IsController for TestController<M> {}
-    impl<M: MessageBounds> Updateable for TestController<M> {
-        default type Message = M;
-
-        default fn update(
-            &mut self,
-            _clock: &Clock,
-            _message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            EvenNewerCommand::none()
-        }
-    }
-    impl Updateable for TestController<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                TestMessage::Tick => {
-                    return match self.what_to_do(clock) {
-                        TestArpeggiatorAction::Nothing => EvenNewerCommand::none(),
-                        TestArpeggiatorAction::NoteOn => {
-                            // This is elegant, I hope. If the arpeggiator is
-                            // disabled during play, and we were playing a note,
-                            // then we still send the off note,
-                            if self.is_enabled {
-                                self.is_playing = true;
-                                EvenNewerCommand::single(TestMessage::Midi(
-                                    self.midi_channel_out,
-                                    MidiMessage::NoteOn {
-                                        key: 60.into(),
-                                        vel: 127.into(),
-                                    },
-                                ))
-                            } else {
-                                EvenNewerCommand::none()
-                            }
-                        }
-                        TestArpeggiatorAction::NoteOff => {
-                            if self.is_playing {
-                                EvenNewerCommand::single(TestMessage::Midi(
-                                    self.midi_channel_out,
-                                    MidiMessage::NoteOff {
-                                        key: 60.into(),
-                                        vel: 0.into(),
-                                    },
-                                ))
-                            } else {
-                                EvenNewerCommand::none()
-                            }
-                        }
-                    };
-                }
-                TestMessage::Enable(enabled) => {
-                    self.is_enabled = enabled;
-                    EvenNewerCommand::none()
-                }
-                _ => todo!(),
-            }
-        }
-    }
-    impl<M: MessageBounds> HasUid for TestController<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid
-        }
-    }
-    impl<M: MessageBounds> TestController<M> {
-        pub fn new_with(midi_channel_out: MidiChannel) -> Self {
-            Self {
-                midi_channel_out,
-                ..Default::default()
-            }
-        }
-
-        fn what_to_do(&self, clock: &Clock) -> TestArpeggiatorAction {
-            let beat_slice_start = clock.beats();
-            let beat_slice_end = clock.next_slice_in_beats();
-            let next_exact_beat = beat_slice_start.floor();
-            let next_exact_half_beat = next_exact_beat + 0.5;
-            if next_exact_beat >= beat_slice_start && next_exact_beat < beat_slice_end {
-                return TestArpeggiatorAction::NoteOn;
-            }
-            if next_exact_half_beat >= beat_slice_start && next_exact_half_beat < beat_slice_end {
-                return TestArpeggiatorAction::NoteOff;
-            }
-            return TestArpeggiatorAction::Nothing;
         }
     }
 
