@@ -162,6 +162,17 @@ mod tests {
         utils::tests::write_source_to_file,
     };
 
+    impl Oscillator {
+        #[allow(dead_code)]
+        pub fn waveform(&self) -> WaveformType {
+            self.waveform
+        }
+
+        pub fn set_waveform(&mut self, waveform: WaveformType) {
+            self.waveform = waveform;
+        }
+    }
+
     fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> Oscillator {
         let mut oscillator = Oscillator::new_from_preset(&OscillatorSettings {
             waveform,

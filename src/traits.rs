@@ -23,8 +23,8 @@ pub trait NewUpdateable {
         todo!()
     }
     #[allow(unused_variables)]
-    fn param_id_for_name(&self, param_name: &str) -> usize {
-        usize::MAX
+    fn param_id_for_name(&self, name: &str) -> usize {
+        todo!()
     }
 }
 pub trait HasUid {
@@ -106,17 +106,32 @@ pub mod tests {
         instruments::oscillators::Oscillator,
         messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
+        settings::patches::WaveformType,
         Clock,
     };
     use midly::MidiMessage;
     use rand::random;
-    use std::marker::PhantomData;
+    use std::{marker::PhantomData, str::FromStr};
+    use strum_macros::{Display, EnumString};
 
+    #[derive(Display, Debug, EnumString)]
+    #[strum(serialize_all = "kebab_case")]
+    pub(crate) enum TestInstrumentControlParams {
+        // -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
+        Waveform,
+    }
+
+    /// A simple implementation of IsInstrument that's useful for testing and
+    /// debugging. Uses a default Oscillator to produce sound, and its
+    /// "envelope" is just a boolean that responds to MIDI NoteOn/NoteOff.
+    ///
+    /// To act as a controller target, it has one parameter: Oscillator
+    /// waveform.
     #[derive(Debug)]
     pub struct TestInstrument<M: MessageBounds> {
         uid: usize,
 
-        sound_source: Oscillator,
+        oscillator: Oscillator,
         pub is_playing: bool,
         midi_channel: MidiChannel,
         pub received_count: usize,
@@ -137,6 +152,14 @@ pub mod tests {
         ) -> EvenNewerCommand<Self::Message> {
             EvenNewerCommand::none()
         }
+
+        fn param_id_for_name(&self, param_name: &str) -> usize {
+            if let Ok(param) = TestInstrumentControlParams::from_str(param_name) {
+                param as usize
+            } else {
+                usize::MAX
+            }
+        }
     }
     impl NewUpdateable for TestInstrument<TestMessage> {
         type Message = TestMessage;
@@ -147,8 +170,11 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                TestMessage::Midi(channel, message) => {
-                    self.new_handle_midi(clock, channel, message);
+                Self::Message::UpdateF32(_param_id, value) => {
+                    self.set_waveform(value);
+                }
+                Self::Message::Midi(channel, message) => {
+                    self.handle_midi(clock, channel, message);
                 }
                 _ => todo!(),
             }
@@ -169,7 +195,7 @@ pub mod tests {
             Self {
                 uid: Default::default(),
 
-                sound_source: Default::default(),
+                oscillator: Default::default(),
                 is_playing: Default::default(),
                 midi_channel: Self::TEST_MIDI_CHANNEL,
                 received_count: Default::default(),
@@ -200,7 +226,7 @@ pub mod tests {
             dbg!(&self.debug_messages);
         }
 
-        fn new_handle_midi(&mut self, clock: &Clock, channel: MidiChannel, message: MidiMessage) {
+        fn handle_midi(&mut self, clock: &Clock, channel: MidiChannel, message: MidiMessage) {
             assert_eq!(self.midi_channel, channel);
             self.debug_messages.push((clock.beats(), channel, message));
             self.received_count += 1;
@@ -208,7 +234,7 @@ pub mod tests {
             match message {
                 MidiMessage::NoteOn { key, vel: _ } => {
                     self.is_playing = true;
-                    self.sound_source
+                    self.oscillator
                         .set_frequency(MidiUtils::note_to_frequency(key.as_int()));
                 }
                 MidiMessage::NoteOff { key: _, vel: _ } => {
@@ -217,11 +243,31 @@ pub mod tests {
                 _ => {}
             }
         }
+
+        fn waveform(&self) -> f32 {
+            match self.oscillator.waveform() {
+                WaveformType::Sawtooth => -1.0,
+                WaveformType::Square => 1.0,
+                _ => 0.0,
+            }
+        }
+
+        fn set_waveform(&mut self, value: f32) {
+            self.oscillator.set_waveform(if value == -1.0 {
+                WaveformType::Sawtooth
+            } else {
+                if value == 1.0 {
+                    WaveformType::Square
+                } else {
+                    WaveformType::Sine
+                }
+            });
+        }
     }
     impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
         fn source_audio(&mut self, clock: &Clock) -> MonoSample {
             if self.is_playing {
-                self.sound_source.source_audio(clock)
+                self.oscillator.source_audio(clock)
             } else {
                 MONO_SAMPLE_SILENCE
             }
