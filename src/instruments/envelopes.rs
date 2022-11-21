@@ -87,6 +87,7 @@ impl SteppedEnvelope {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn new_with_time_unit(time_unit: ClockTimeUnit) -> Self {
         Self {
             time_unit,
@@ -296,6 +297,7 @@ impl AdsrEnvelope {
 
     // This method exists to make it easier to adapt to IsUpdatable's generated
     // update() code.
+    #[allow(dead_code)]
     pub(crate) fn set_note(&mut self, clock: &Clock, value: f32) {
         self.handle_note_event(clock, value == 1.0);
     }

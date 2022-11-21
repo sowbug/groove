@@ -473,7 +473,7 @@ mod tests {
         const Q_10: f32 = 10.0;
         const ONE_OCTAVE: f32 = 1.0;
         const SIX_DB: f32 = 6.0;
-        const SAMPLE_RATE: usize = 44100;
+        //        const SAMPLE_RATE: usize = 44100;
 
         let tests = vec![
             (

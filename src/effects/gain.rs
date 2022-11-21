@@ -62,8 +62,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        clock::Clock, messages::tests::TestMessage, traits::SourcesAudio,
-        utils::tests::TestAudioSource,
+        clock::Clock, messages::tests::TestMessage, traits::SourcesAudio, utils::AudioSource,
     };
 
     #[test]
@@ -73,7 +72,7 @@ mod tests {
         assert_eq!(
             gain.transform_audio(
                 &clock,
-                TestAudioSource::<TestMessage>::new_with(TestAudioSource::<TestMessage>::LOUD)
+                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
                     .source_audio(&clock)
             ),
             1.1

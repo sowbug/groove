@@ -6,12 +6,6 @@ use std::{
 type Refcounted<T> = Rc<T>;
 pub(crate) type Rrc<T> = Refcounted<RefCell<T>>;
 pub(crate) type Ww<T> = Weak<RefCell<T>>;
-pub(crate) fn rrc<T>(t: T) -> Rrc<T> {
-    Refcounted::new(RefCell::new(t))
-}
-pub(crate) fn rrc_clone<T: ?Sized>(t: &Rrc<T>) -> Rrc<T> {
-    Refcounted::clone(t)
-}
 
 pub type MonoSample = f32;
 #[allow(dead_code)]

@@ -1,8 +1,8 @@
 use crate::{
     common::MonoSample,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::SourcesAudio,
-    Clock,
+    traits::{HasUid, NewIsInstrument, NewUpdateable, SourcesAudio},
+    Clock, GrooveMessage,
 };
 use std::f32::consts::PI;
 
@@ -26,6 +26,52 @@ pub struct Oscillator {
 
     noise_x1: u32,
     noise_x2: u32,
+}
+impl NewIsInstrument for Oscillator {}
+impl SourcesAudio for Oscillator {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        let phase_normalized = (self.adjusted_frequency() * clock.seconds()) as MonoSample;
+        match self.waveform {
+            WaveformType::None => 0.0,
+            // https://en.wikipedia.org/wiki/Sine_wave
+            WaveformType::Sine => (phase_normalized * 2.0 * PI).sin(),
+            // https://en.wikipedia.org/wiki/Square_wave
+            //Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
+            WaveformType::Square => (0.5 - (phase_normalized - phase_normalized.floor())).signum(),
+            WaveformType::PulseWidth(duty_cycle) => (duty_cycle as MonoSample
+                - (phase_normalized - phase_normalized.floor()))
+            .signum() as MonoSample,
+            // https://en.wikipedia.org/wiki/Triangle_wave
+            WaveformType::Triangle => {
+                4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
+            }
+            // https://en.wikipedia.org/wiki/Sawtooth_wave
+            WaveformType::Sawtooth => 2.0 * (phase_normalized - (0.5 + phase_normalized).floor()),
+            // https://www.musicdsp.org/en/latest/Synthesis/216-fast-whitenoise-generator.html
+            WaveformType::Noise => {
+                // TODO: this is stateful, so random access will sound different from sequential, as will different sample rates.
+                // It also makes this method require mut. Is there a noise algorithm that can modulate on time_seconds? (It's a
+                // complicated question, potentially.)
+                self.noise_x1 ^= self.noise_x2;
+                let tmp = 2.0 * (self.noise_x2 as MonoSample - (u32::MAX as MonoSample / 2.0))
+                    / u32::MAX as MonoSample;
+                (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);
+                tmp
+            }
+        }
+    }
+}
+impl NewUpdateable for Oscillator {
+    type Message = GrooveMessage;
+}
+impl HasUid for Oscillator {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
 }
 
 impl Default for Oscillator {
@@ -102,40 +148,6 @@ impl Oscillator {
 
     pub(crate) fn set_frequency_modulation(&mut self, frequency_modulation: f32) {
         self.frequency_modulation = frequency_modulation;
-    }
-}
-
-impl SourcesAudio for Oscillator {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let phase_normalized = (self.adjusted_frequency() * clock.seconds()) as MonoSample;
-        match self.waveform {
-            WaveformType::None => 0.0,
-            // https://en.wikipedia.org/wiki/Sine_wave
-            WaveformType::Sine => (phase_normalized * 2.0 * PI).sin(),
-            // https://en.wikipedia.org/wiki/Square_wave
-            //Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
-            WaveformType::Square => (0.5 - (phase_normalized - phase_normalized.floor())).signum(),
-            WaveformType::PulseWidth(duty_cycle) => (duty_cycle as MonoSample
-                - (phase_normalized - phase_normalized.floor()))
-            .signum() as MonoSample,
-            // https://en.wikipedia.org/wiki/Triangle_wave
-            WaveformType::Triangle => {
-                4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
-            }
-            // https://en.wikipedia.org/wiki/Sawtooth_wave
-            WaveformType::Sawtooth => 2.0 * (phase_normalized - (0.5 + phase_normalized).floor()),
-            // https://www.musicdsp.org/en/latest/Synthesis/216-fast-whitenoise-generator.html
-            WaveformType::Noise => {
-                // TODO: this is stateful, so random access will sound different from sequential, as will different sample rates.
-                // It also makes this method require mut. Is there a noise algorithm that can modulate on time_seconds? (It's a
-                // complicated question, potentially.)
-                self.noise_x1 ^= self.noise_x2;
-                let tmp = 2.0 * (self.noise_x2 as MonoSample - (u32::MAX as MonoSample / 2.0))
-                    / u32::MAX as MonoSample;
-                (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);
-                tmp
-            }
-        }
     }
 }
 

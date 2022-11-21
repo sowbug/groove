@@ -53,6 +53,7 @@ impl Bitcrusher {
         self.bits_to_crush = n;
     }
 
+    #[allow(dead_code)]
     pub(crate) fn set_bits_to_crush_pct(&mut self, pct: f32) {
         self.set_bits_to_crush((pct * 15.0) as u8);
     }

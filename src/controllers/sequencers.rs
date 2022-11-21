@@ -194,6 +194,7 @@ impl<M: MessageBounds> MidiTickSequencer<M> {
         !self.is_disabled
     }
 
+    #[allow(dead_code)]
     pub fn enable(&mut self, is_enabled: bool) {
         self.is_disabled = !is_enabled;
     }
@@ -255,12 +256,14 @@ mod tests {
             &self.events
         }
 
+        #[allow(dead_code)]
         pub fn debug_dump_events(&self) {
             println!("{:?}", self.events);
         }
     }
 
     impl<M: MessageBounds> MidiTickSequencer<M> {
+        #[allow(dead_code)]
         pub(crate) fn debug_events(&self) -> &MidiTickEventsMap {
             &self.events
         }

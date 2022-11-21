@@ -134,6 +134,7 @@ impl Default for TimeSignature {
 pub enum ClockTimeUnit {
     #[default]
     Seconds,
+    #[allow(dead_code)]
     Beats,
     #[allow(dead_code)]
     Samples,

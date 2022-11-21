@@ -6,9 +6,7 @@ use crate::{
     },
     instruments::{drumkit_sampler::Sampler as DrumkitSampler, sampler::Sampler, welsh::Synth},
     messages::{GrooveMessage, MessageBounds},
-    midi::{
-        patterns::{Note, Pattern, PatternManager},
-    },
+    midi::patterns::{Note, Pattern, PatternManager},
     traits::MakesIsViewable,
     GrooveOrchestrator,
 };
@@ -338,6 +336,7 @@ impl MakesIsViewable for Synth {
 #[derive(Debug)]
 pub struct GainViewableResponder {}
 impl GainViewableResponder {
+    #[allow(dead_code)]
     fn new(_me: Ww<Gain>) -> Self {
         Self {}
     }
@@ -769,11 +768,8 @@ mod tests {
             )),
             None,
         );
-        Box::new(test_one_viewable(
-            Box::new(DrumkitSampler::new_from_files()),
-            None,
-        ));
-        Box::new(test_one_viewable(Box::new(Sampler::new_with(1024)), None));
+        test_one_viewable(Box::new(DrumkitSampler::new_from_files()), None);
+        test_one_viewable(Box::new(Sampler::new_with(1024)), None);
         // TODO - test it! test_one_viewable(Mixer::new_wrapped(), None);
         test_one_viewable(
             Box::new(Gain::new()),

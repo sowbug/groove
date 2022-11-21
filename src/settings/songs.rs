@@ -94,7 +94,7 @@ impl SongSettings {
                 if let Some(last_device_uvid) = last_device_uvid {
                     if let Some(last_device_uid) = orchestrator.get_uid(&last_device_uvid) {
                         if let Some(device_uid) = orchestrator.get_uid(device_id) {
-                            orchestrator.patch(last_device_uid, device_uid);
+                            let _ = orchestrator.patch(last_device_uid, device_uid);
                         }
                         // if device_id == "main-mixer" {
                         //     orchestrator.add_main_mixer_source(entity);

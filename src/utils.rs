@@ -1,10 +1,15 @@
 use crate::{
     clock::Clock,
+    common::MonoSample,
     messages::{GrooveMessage, MessageBounds},
-    traits::{EvenNewerCommand, HasUid, NewIsController, NewUpdateable, Terminates},
+    traits::{
+        EvenNewerCommand, HasUid, NewIsController, NewIsInstrument, NewUpdateable, SourcesAudio,
+        Terminates,
+    },
 };
 use core::fmt::Debug;
 use std::marker::PhantomData;
+use strum_macros::{Display, EnumString};
 
 #[derive(Debug, Default)]
 pub(crate) struct Timer<M: MessageBounds> {
@@ -99,6 +104,7 @@ impl<M: MessageBounds> HasUid for Trigger<M> {
     }
 }
 impl<M: MessageBounds> Trigger<M> {
+    #[allow(dead_code)]
     pub fn new(time_to_trigger_seconds: f32, value: f32) -> Self {
         Self {
             time_to_trigger_seconds,
@@ -126,11 +132,67 @@ impl NewUpdateable for Trigger<GrooveMessage> {
     }
 }
 
+#[derive(Display, Debug, EnumString)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum TestAudioSourceSetLevelControlParams {
+    Level,
+}
+
+#[derive(Debug, Default)]
+pub struct AudioSource<M: MessageBounds> {
+    uid: usize,
+    level: MonoSample,
+    _phantom: PhantomData<M>,
+}
+impl<M: MessageBounds> NewIsInstrument for AudioSource<M> {}
+impl<M: MessageBounds> HasUid for AudioSource<M> {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
+impl<M: MessageBounds> NewUpdateable for AudioSource<M> {
+    type Message = M;
+}
+#[allow(dead_code)]
+impl<M: MessageBounds> AudioSource<M> {
+    pub const TOO_LOUD: MonoSample = 1.1;
+    pub const LOUD: MonoSample = 1.0;
+    pub const SILENT: MonoSample = 0.0;
+    pub const QUIET: MonoSample = -1.0;
+    pub const TOO_QUIET: MonoSample = -1.1;
+
+    pub fn new_with(level: MonoSample) -> Self {
+        Self {
+            level,
+            ..Default::default()
+        }
+    }
+
+    pub fn level(&self) -> f32 {
+        self.level
+    }
+
+    pub fn set_level(&mut self, level: MonoSample) {
+        self.level = level;
+    }
+}
+impl<M: MessageBounds> SourcesAudio for AudioSource<M> {
+    fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
+        self.level
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use crate::{
         clock::{Clock, ClockTimeUnit},
-        common::{rrc, MonoSample, Rrc, Ww, MONO_SAMPLE_SILENCE},
+        common::{MonoSample, MONO_SAMPLE_SILENCE},
+        controllers::orchestrator::{tests::Runner, GrooveRunner, Orchestrator},
+        instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
         messages::MessageBounds,
         messages::{tests::TestMessage, GrooveMessage},
         midi::{MidiChannel, MidiMessage},
@@ -139,7 +201,7 @@ pub mod tests {
             tests::{TestEffect, TestInstrument},
             BoxedEntity, EvenNewerCommand, HasUid, NewIsController, NewIsEffect, NewIsInstrument,
             NewUpdateable, SourcesAudio, Terminates, TransformsAudio,
-        }, instruments::{oscillators::Oscillator, envelopes::AdsrEnvelope}, controllers::orchestrator::{Orchestrator, tests::Runner, GrooveRunner},
+        },
     };
     use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};
@@ -169,6 +231,7 @@ pub mod tests {
         format!("{OUT_DIR}/{snake_filename}-spectrum")
     }
 
+    #[allow(dead_code)]
     fn write_samples_to_wav_file(basename: &str, sample_rate: usize, samples: &[MonoSample]) {
         let spec = hound::WavSpec {
             channels: 1,
@@ -374,59 +437,6 @@ pub mod tests {
         }
     }
 
-    #[derive(Display, Debug, EnumString)]
-    #[strum(serialize_all = "kebab_case")]
-    pub(crate) enum TestAudioSourceSetLevelControlParams {
-        Level,
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestAudioSource<M: MessageBounds> {
-        uid: usize,
-        level: MonoSample,
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> NewIsInstrument for TestAudioSource<M> {}
-    impl<M: MessageBounds> HasUid for TestAudioSource<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
-    }
-    impl<M: MessageBounds> NewUpdateable for TestAudioSource<M> {
-        type Message = M;
-    }
-    impl<M: MessageBounds> TestAudioSource<M> {
-        pub const TOO_LOUD: MonoSample = 1.1;
-        pub const LOUD: MonoSample = 1.0;
-        pub const SILENT: MonoSample = 0.0;
-        pub const QUIET: MonoSample = -1.0;
-        pub const TOO_QUIET: MonoSample = -1.1;
-
-        pub fn new_with(level: MonoSample) -> Self {
-            Self {
-                level,
-                ..Default::default()
-            }
-        }
-
-        pub fn level(&self) -> f32 {
-            self.level
-        }
-
-        pub fn set_level(&mut self, level: MonoSample) {
-            self.level = level;
-        }
-    }
-    impl<M: MessageBounds> SourcesAudio for TestAudioSource<M> {
-        fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
-            self.level
-        }
-    }
-
     #[derive(Debug, Default)]
     pub struct TestMixer<M: MessageBounds> {
         uid: usize,
@@ -537,7 +547,7 @@ pub mod tests {
         uid: usize,
 
         oscillator: Box<Oscillator>,
-        envelope: Rrc<dyn SourcesAudio>,
+        envelope: Box<dyn SourcesAudio>,
         _phantom: PhantomData<M>,
     }
 
@@ -550,10 +560,10 @@ pub mod tests {
         fn new() -> Self {
             Self::new_with(
                 Box::new(Oscillator::new()),
-                rrc(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
+                Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
             )
         }
-        pub fn new_with(oscillator: Box<Oscillator>, envelope: Rrc<dyn SourcesAudio>) -> Self {
+        pub fn new_with(oscillator: Box<Oscillator>, envelope: Box<dyn SourcesAudio>) -> Self {
             Self {
                 oscillator,
                 envelope,
@@ -566,7 +576,7 @@ pub mod tests {
             Self {
                 uid: 0,
                 oscillator: Box::new(Oscillator::new()),
-                envelope: rrc(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
+                envelope: Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
                 _phantom: Default::default(),
             }
         }
@@ -574,7 +584,7 @@ pub mod tests {
 
     impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
         fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-            self.oscillator.source_audio(clock) * self.envelope.borrow_mut().source_audio(clock)
+            self.oscillator.source_audio(clock) * self.envelope.source_audio(clock)
         }
     }
 
@@ -745,11 +755,12 @@ pub mod tests {
     #[derive(Debug, Default)]
     pub struct TestController<M: MessageBounds> {
         uid: usize,
-        me: Ww<Self>,
         midi_channel_out: MidiChannel,
         pub tempo: f32,
         is_enabled: bool,
         is_playing: bool,
+
+        _phantom: PhantomData<M>,
     }
     impl<M: MessageBounds> Terminates for TestController<M> {
         fn is_finished(&self) -> bool {
@@ -924,6 +935,7 @@ pub mod tests {
         }
     }
     impl<M: MessageBounds> TestValueChecker<M> {
+        #[allow(dead_code)]
         pub(crate) fn new_with(
             values: &[f32],
             target_uid: usize,
@@ -971,7 +983,7 @@ pub mod tests {
         assert!(o.patch(synth_uid, effect_uid).is_ok());
 
         // And patch the effect into the main mixer.
-        o.connect_to_main_mixer(effect_uid);
+        let _ = o.connect_to_main_mixer(effect_uid);
 
         // Run the main loop for a while.
         const SECONDS: usize = 1;
@@ -1027,7 +1039,7 @@ pub mod tests {
         );
 
         // We'll hear the synth's audio output.
-        o.connect_to_main_mixer(synth_1_uid);
+        let _ = o.connect_to_main_mixer(synth_1_uid);
 
         const SECONDS: usize = 1;
         let _ = o.add(
@@ -1183,7 +1195,7 @@ pub mod tests {
         assert!(o.patch(synth_uid, effect_uid).is_ok());
 
         // And patch the effect into the main mixer.
-        o.connect_to_main_mixer(effect_uid);
+        let _ = o.connect_to_main_mixer(effect_uid);
 
         // Run the main loop for a while.
         const SECONDS: usize = 1;

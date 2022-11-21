@@ -2,7 +2,7 @@ pub(crate) mod patterns;
 pub(crate) mod programmers;
 pub(crate) mod smf_reader;
 
- // TODO copy and conform to MessageBounds so it can be a trait associated type
+// TODO copy and conform to MessageBounds so it can be a trait associated type
 pub use midly::MidiMessage;
 
 use crate::{
@@ -30,7 +30,6 @@ pub enum MidiNote {
 }
 
 pub type MidiChannel = u8;
-pub const MIDI_CHANNEL_RECEIVE_NONE: MidiChannel = 254;
 pub const MIDI_CHANNEL_RECEIVE_ALL: MidiChannel = 255;
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Copy, Default)]
@@ -265,12 +264,6 @@ pub struct MidiInputHandler {
 }
 
 impl MidiInputHandler {
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
     pub fn start(&mut self) -> anyhow::Result<()> {
         if let Ok(mut midi_in) = MidiInput::new("Groove MIDI input") {
             midi_in.ignore(Ignore::None);
@@ -425,12 +418,6 @@ impl HasUid for MidiOutputHandler {
 }
 
 impl MidiOutputHandler {
-    fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
     pub fn start(&mut self) -> anyhow::Result<()> {
         if let Ok(midi_out) = MidiOutput::new("Groove MIDI output") {
             let out_ports = midi_out.ports();
