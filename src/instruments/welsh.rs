@@ -2,7 +2,7 @@ use crate::{
     common::MonoSample,
     effects::filter::{BiQuadFilter, FilterParams},
     messages::GrooveMessage,
-    midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
+    midi::{GeneralMidiProgram, MidiMessage, MidiUtils},
     settings::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,

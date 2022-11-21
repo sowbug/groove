@@ -380,7 +380,7 @@ impl NewUpdateable for MidiOutputHandler {
 
     fn update(
         &mut self,
-        clock: &crate::Clock,
+        _clock: &crate::Clock,
         message: Self::Message,
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         match message {
@@ -402,11 +402,11 @@ impl NewUpdateable for MidiOutputHandler {
         crate::traits::EvenNewerCommand::none()
     }
 
-    fn handle_message(&mut self, clock: &crate::Clock, message: Self::Message) {
+    fn handle_message(&mut self, _clock: &crate::Clock, _message: Self::Message) {
         todo!()
     }
 
-    fn param_id_for_name(&self, param_name: &str) -> usize {
+    fn param_id_for_name(&self, _param_name: &str) -> usize {
         usize::MAX
     }
 }

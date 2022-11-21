@@ -32,8 +32,8 @@ impl<M: MessageBounds> NewUpdateable for ControlTrip<M> {
 
     default fn update(
         &mut self,
-        clock: &Clock,
-        message: Self::Message,
+        _clock: &Clock,
+        _message: Self::Message,
     ) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }

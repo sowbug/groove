@@ -201,10 +201,10 @@ impl<M: MessageBounds> IsViewable for Mixer<M> {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            ViewableMessage::MutePressed(is_muted) => {
+            ViewableMessage::MutePressed(_is_muted) => {
                 //                self.set_muted(is_muted);
             }
-            ViewableMessage::EnablePressed(is_enabled) => {
+            ViewableMessage::EnablePressed(_is_enabled) => {
                 //             self.set_enabled(is_enabled);
             }
             _ => todo!(),
@@ -237,12 +237,12 @@ impl IsViewable for SamplerViewableResponder {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        if let Some(target) = self.target.upgrade() {
+        if let Some(_target) = self.target.upgrade() {
             match message {
-                ViewableMessage::MutePressed(is_muted) => {
+                ViewableMessage::MutePressed(_is_muted) => {
                     // target.borrow_mut().set_muted(is_muted);
                 }
-                ViewableMessage::EnablePressed(is_enabled) => {
+                ViewableMessage::EnablePressed(_is_enabled) => {
                     //    target.borrow_mut().set_enabled(is_enabled);
                 }
                 _ => todo!(),
@@ -276,12 +276,12 @@ impl IsViewable for DrumkitSamplerViewableResponder {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        if let Some(target) = self.target.upgrade() {
+        if let Some(_target) = self.target.upgrade() {
             match message {
-                ViewableMessage::MutePressed(is_muted) => {
+                ViewableMessage::MutePressed(_is_muted) => {
                     //      target.borrow_mut().set_muted(is_muted);
                 }
-                ViewableMessage::EnablePressed(is_enabled) => {
+                ViewableMessage::EnablePressed(_is_enabled) => {
                     //    target.borrow_mut().set_enabled(is_enabled);
                 }
                 _ => todo!(),
@@ -315,12 +315,12 @@ impl IsViewable for SynthViewableResponder {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        if let Some(target) = self.target.upgrade() {
+        if let Some(_target) = self.target.upgrade() {
             match message {
-                ViewableMessage::MutePressed(is_muted) => {
+                ViewableMessage::MutePressed(_is_muted) => {
                     //     target.borrow_mut().set_muted(is_muted);
                 }
-                ViewableMessage::EnablePressed(is_enabled) => {
+                ViewableMessage::EnablePressed(_is_enabled) => {
                     //   target.borrow_mut().set_enabled(is_enabled);
                 }
                 _ => todo!(),
@@ -339,7 +339,7 @@ impl MakesIsViewable for Synth {
 #[derive(Debug)]
 pub struct GainViewableResponder {}
 impl GainViewableResponder {
-    fn new(me: Ww<Gain>) -> Self {
+    fn new(_me: Ww<Gain>) -> Self {
         Self {}
     }
 }
@@ -372,7 +372,7 @@ impl IsViewable for GainViewableResponder {
         // }
     }
 
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+    fn update(&mut self, _message: Self::Message) -> Command<Self::Message> {
         // if let Some(target) = self.target.upgrade() {
         //     match message {
         //         ViewableMessage::MutePressed(is_muted) => {
@@ -428,10 +428,10 @@ impl IsViewable for BitcrusherViewableResponder {
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
-                ViewableMessage::MutePressed(is_muted) => {
+                ViewableMessage::MutePressed(_is_muted) => {
                     //    target.borrow_mut().set_muted(is_muted);
                 }
-                ViewableMessage::EnablePressed(is_enabled) => {
+                ViewableMessage::EnablePressed(_is_enabled) => {
                     //      target.borrow_mut().set_enabled(is_enabled);
                 }
 
@@ -475,10 +475,10 @@ impl IsViewable for LimiterViewableResponder {
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
-                ViewableMessage::MutePressed(is_muted) => {
+                ViewableMessage::MutePressed(_is_muted) => {
                     //      target.borrow_mut().set_muted(is_muted);
                 }
-                ViewableMessage::EnablePressed(is_enabled) => {
+                ViewableMessage::EnablePressed(_is_enabled) => {
                     //        target.borrow_mut().set_enabled(is_enabled);
                 }
                 ViewableMessage::LimiterMinChanged(new_value) => {
@@ -533,10 +533,10 @@ impl IsViewable for FilterViewableResponder {
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         if let Some(target) = self.target.upgrade() {
             match message {
-                ViewableMessage::MutePressed(is_muted) => {
+                ViewableMessage::MutePressed(_is_muted) => {
                     //           target.borrow_mut().set_muted(is_muted);
                 }
-                ViewableMessage::EnablePressed(is_enabled) => {
+                ViewableMessage::EnablePressed(_is_enabled) => {
                     //          target.borrow_mut().set_enabled(is_enabled);
                 }
                 ViewableMessage::FilterCutoffChangedAsF32(new_value) => {
@@ -570,7 +570,7 @@ impl IsViewable for ArpeggiatorViewableResponder {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<Self::Message> {
-        if let Some(target) = self.target.upgrade() {
+        if let Some(_target) = self.target.upgrade() {
             let title = type_name::<Arpeggiator>();
             let contents = format!("cutoff: {}", "Foo TODO");
             GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
@@ -580,15 +580,15 @@ impl IsViewable for ArpeggiatorViewableResponder {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        if let Some(target) = self.target.upgrade() {
+        if let Some(_target) = self.target.upgrade() {
             match message {
-                ViewableMessage::MutePressed(is_muted) => {
+                ViewableMessage::MutePressed(_is_muted) => {
                     //            target.borrow_mut().set_muted(is_muted);
                 }
-                ViewableMessage::EnablePressed(is_enabled) => {
+                ViewableMessage::EnablePressed(_is_enabled) => {
                     //          target.borrow_mut().set_enabled(is_enabled);
                 }
-                ViewableMessage::ArpeggiatorChanged(new_value) => {
+                ViewableMessage::ArpeggiatorChanged(_new_value) => {
                     //                    target.borrow_mut().set_nothing(new_value as f32);
                 }
                 _ => todo!(),
@@ -612,7 +612,7 @@ impl<M: MessageBounds> IsViewable for BeatSequencerViewableResponder<M> {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<Self::Message> {
-        if let Some(target) = self.target.upgrade() {
+        if let Some(_target) = self.target.upgrade() {
             let title = type_name::<BeatSequencer<GrooveMessage>>();
             let contents = format!("cursor point: {}", "tOdO");
             GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
@@ -622,12 +622,12 @@ impl<M: MessageBounds> IsViewable for BeatSequencerViewableResponder<M> {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        if let Some(target) = self.target.upgrade() {
+        if let Some(_target) = self.target.upgrade() {
             match message {
-                ViewableMessage::MutePressed(is_muted) => {
+                ViewableMessage::MutePressed(_is_muted) => {
                     //          target.borrow_mut().set_muted(is_muted);
                 }
-                ViewableMessage::EnablePressed(is_enabled) => {
+                ViewableMessage::EnablePressed(_is_enabled) => {
                     //          target.borrow_mut().set_enabled(is_enabled);
                 }
                 _ => todo!(),

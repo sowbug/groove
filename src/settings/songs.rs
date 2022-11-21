@@ -70,14 +70,14 @@ impl SongSettings {
                     orchestrator.connect_midi_downstream(uid, channel);
                 }
                 DeviceSettings::Controller(id, settings) => {
-                    let (channel_in, channel_out, entity) = settings.instantiate(sample_rate);
+                    let (channel_in, _channel_out, entity) = settings.instantiate(sample_rate);
                     let uid = orchestrator.add(Some(id), BoxedEntity::Controller(entity));
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
                 }
                 DeviceSettings::Effect(id, settings) => {
                     let entity = settings.instantiate(sample_rate);
-                    let uid = orchestrator.add(Some(id), BoxedEntity::Effect(entity));
+                    let _uid = orchestrator.add(Some(id), BoxedEntity::Effect(entity));
                 }
             }
         }

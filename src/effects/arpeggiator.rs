@@ -26,19 +26,19 @@ impl NewUpdateable for Arpeggiator {
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         match message {
             GrooveMessage::Tick => return self.beat_sequencer.update(clock, message),
-            GrooveMessage::Midi(channel, message) => {
+            GrooveMessage::Midi(_channel, message) => {
                 match message {
-                    MidiMessage::NoteOff { key, vel } => self.is_device_playing = false,
+                    MidiMessage::NoteOff { key: _, vel: _ } => self.is_device_playing = false,
                     MidiMessage::NoteOn { key, vel } => {
                         self.rebuild_sequence(clock, key.as_int(), vel.as_int());
                         self.is_device_playing = true;
                         //                self.sequence_start_beats = clock.beats();
                     }
-                    MidiMessage::Aftertouch { key, vel } => todo!(),
-                    MidiMessage::Controller { controller, value } => todo!(),
-                    MidiMessage::ProgramChange { program } => todo!(),
-                    MidiMessage::ChannelAftertouch { vel } => todo!(),
-                    MidiMessage::PitchBend { bend } => todo!(),
+                    MidiMessage::Aftertouch { key: _, vel: _ } => todo!(),
+                    MidiMessage::Controller { controller: _, value: _ } => todo!(),
+                    MidiMessage::ProgramChange { program: _ } => todo!(),
+                    MidiMessage::ChannelAftertouch { vel: _ } => todo!(),
+                    MidiMessage::PitchBend { bend: _ } => todo!(),
                 }
                 self.beat_sequencer.enable(self.is_device_playing);
             }

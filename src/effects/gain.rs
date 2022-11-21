@@ -1,17 +1,13 @@
 use crate::{
     clock::Clock,
-    common::{rrc, MonoSample, Rrc, Ww},
+    common::MonoSample,
     messages::GrooveMessage,
-    traits::{
-        HasUid, NewIsEffect, NewUpdateable, SourcesAudio, TransformsAudio,
-    },
+    traits::{HasUid, NewIsEffect, NewUpdateable, TransformsAudio},
 };
 
 #[derive(Debug, Default)]
 pub(crate) struct Gain {
     uid: usize,
-
-
 
     ceiling: f32,
 }
@@ -43,7 +39,6 @@ impl Gain {
         }
     }
 
-
     pub fn new_with(ceiling: f32) -> Self {
         Self {
             ceiling,
@@ -62,15 +57,13 @@ impl Gain {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
 
     use super::*;
     use crate::{
-        clock::Clock,
-        messages::tests::TestMessage,
-        utils::tests::{TestAudioSourceAlwaysLoud, TestAudioSourceOneLevel},
+        clock::Clock, messages::tests::TestMessage, traits::SourcesAudio,
+        utils::tests::TestAudioSourceAlwaysLoud,
     };
 
     #[test]

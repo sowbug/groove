@@ -30,8 +30,8 @@ impl<M: MessageBounds> NewUpdateable for BeatSequencer<M> {
 
     default fn update(
         &mut self,
-        clock: &Clock,
-        message: Self::Message,
+        _clock: &Clock,
+        _message: Self::Message,
     ) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }
@@ -135,8 +135,8 @@ impl<M: MessageBounds> NewUpdateable for MidiTickSequencer<M> {
 
     default fn update(
         &mut self,
-        clock: &Clock,
-        message: Self::Message,
+        _clock: &Clock,
+        _message: Self::Message,
     ) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }

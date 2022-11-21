@@ -331,7 +331,7 @@ impl Application for GrooveApp {
                 //     .midi
                 //     .update(MidiControlBarMessage::Inputs(inputs.to_vec()));
             }
-            Message::Loaded(Err(e)) => {
+            Message::Loaded(Err(_e)) => {
                 todo!()
             }
             Message::Tick(now) => {
@@ -443,7 +443,7 @@ impl Application for GrooveApp {
             empty_message("nothing yet")
         } else {
             // Start the views from the IsViewables views.
-            let mut view_vec: Vec<Element<Message>> = self
+            let view_vec: Vec<Element<Message>> = self
                 .viewables
                 .iter()
                 .enumerate()
