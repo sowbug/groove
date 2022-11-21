@@ -766,7 +766,6 @@ mod tests {
     fn test_viewables() {
         test_one_viewable(
             Box::new(Synth::new_with(
-                0,
                 44100,
                 SynthPatch::by_name(&PatchName::Trombone),
             )),
@@ -801,7 +800,7 @@ mod tests {
             Some(ViewableMessage::LimiterMinChanged(0.5)),
         );
         test_one_viewable(
-            Box::new(Arpeggiator::new_with(0, 1)),
+            Box::new(Arpeggiator::new_with(1)),
             Some(ViewableMessage::ArpeggiatorChanged(42)),
         );
         test_one_viewable(

@@ -10,7 +10,6 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct Arpeggiator {
     uid: usize,
-    midi_channel_in: MidiChannel,
     midi_channel_out: MidiChannel,
     beat_sequencer: BeatSequencer<GrooveMessage>,
 
@@ -64,9 +63,8 @@ impl HasUid for Arpeggiator {
 }
 
 impl Arpeggiator {
-    pub fn new_with(midi_channel_in: MidiChannel, midi_channel_out: MidiChannel) -> Self {
+    pub fn new_with(midi_channel_out: MidiChannel) -> Self {
         Self {
-            midi_channel_in,
             midi_channel_out,
             ..Default::default()
         }

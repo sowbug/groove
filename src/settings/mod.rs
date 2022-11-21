@@ -182,7 +182,6 @@ impl InstrumentSettings {
             } => (
                 *midi_input_channel,
                 Box::new(welsh::Synth::new_with(
-                    *midi_input_channel,
                     sample_rate,
                     SynthPatch::by_name(preset_name),
                 )),
@@ -214,10 +213,7 @@ impl ControllerSettings {
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                Box::new(Arpeggiator::new_with(
-                    midi_input_channel,
-                    midi_output_channel,
-                )),
+                Box::new(Arpeggiator::new_with(midi_output_channel)),
             ),
         }
     }

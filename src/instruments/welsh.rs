@@ -615,14 +615,6 @@ impl NewUpdateable for Voice {
 
         crate::traits::EvenNewerCommand::none()
     }
-
-    fn handle_message(&mut self, clock: &Clock, message: Self::Message) {
-        todo!()
-    }
-
-    fn param_id_for_name(&self, param_name: &str) -> usize {
-        usize::MAX
-    }
 }
 
 impl SourcesAudio for Voice {
@@ -673,11 +665,10 @@ impl SourcesAudio for Voice {
 #[derive(Clone, Debug)]
 pub struct Synth {
     uid: usize,
-
-    midi_channel: MidiChannel,
     sample_rate: usize,
     pub(crate) preset: SynthPatch,
-    note_to_voice: HashMap<u8, Voice>,
+    voices: Vec<Voice>,
+    note_to_voice_index: HashMap<u8, usize>,
 
     debug_last_seconds: f32,
 }
@@ -692,12 +683,16 @@ impl SourcesAudio for Synth {
 
         let mut done = true;
         let mut current_value = 0.0;
-        for (_note, voice) in self.note_to_voice.iter_mut() {
+        for voice in self.voices.iter_mut() {
             current_value += voice.source_audio(clock);
             done = done && !voice.is_playing(clock);
         }
-        if !self.note_to_voice.is_empty() {
-            current_value /= self.note_to_voice.len() as MonoSample;
+        if !self.voices.is_empty() {
+            // TODO: I'm not sure this is right. It means that 8 voices
+            // simultaneously will have the same total volume as a single solo
+            // voice. But is that what you really want? Should two notes be
+            // twice as loud as one?
+            current_value /= self.voices.len() as MonoSample;
         }
         current_value
     }
@@ -712,34 +707,27 @@ impl NewUpdateable for Synth {
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
-            GrooveMessage::Midi(channel, midi_message) => {
-                match midi_message {
-                    MidiMessage::NoteOff { key, vel } => {
-                        let voice = self.voice_for_note(u8::from(key));
-                        voice.update(clock, message);
-
-                        // TODO: this is incorrect because it kills voices before release is complete
-                        self.note_to_voice.remove(&u8::from(key));
-                    }
-                    MidiMessage::NoteOn { key, vel } => {
-                        let voice = self.voice_for_note(u8::from(key));
-                        voice.update(clock, message);
-                    }
-                    MidiMessage::ProgramChange { program } => {
-                        if let Some(program) = GeneralMidiProgram::from_u8(u8::from(program)) {
-                            if let Ok(preset) = Synth::general_midi_preset(&program) {
-                                self.preset = preset;
-                            } else {
-                                println!(
-                                    "unrecognized patch from MIDI program change: {}",
-                                    &program
-                                );
-                            }
+            GrooveMessage::Midi(channel, midi_message) => match midi_message {
+                MidiMessage::NoteOff { key, vel } => {
+                    let voice = self.voice_for_note(clock, u8::from(key));
+                    voice.update(clock, message);
+                    self.note_to_voice_index.remove(&u8::from(key));
+                }
+                MidiMessage::NoteOn { key, vel } => {
+                    let voice = self.voice_for_note(clock, u8::from(key));
+                    voice.update(clock, message);
+                }
+                MidiMessage::ProgramChange { program } => {
+                    if let Some(program) = GeneralMidiProgram::from_u8(u8::from(program)) {
+                        if let Ok(preset) = Synth::general_midi_preset(&program) {
+                            self.preset = preset;
+                        } else {
+                            println!("unrecognized patch from MIDI program change: {}", &program);
                         }
                     }
-                    _ => todo!(),
                 }
-            }
+                _ => todo!(),
+            },
             _ => todo!(),
         }
         crate::traits::EvenNewerCommand::none()
@@ -759,37 +747,36 @@ impl Default for Synth {
     fn default() -> Self {
         Self {
             uid: Default::default(),
-
-            midi_channel: MidiChannel::default(),
             sample_rate: usize::default(),
             preset: SynthPatch::default(),
-            note_to_voice: HashMap::default(),
+            voices: Vec::default(),
+            note_to_voice_index: Default::default(),
             debug_last_seconds: -1.0,
         }
     }
 }
 impl Synth {
-    pub(crate) fn new_with(
-        midi_channel: MidiChannel,
-        sample_rate: usize,
-        preset: SynthPatch,
-    ) -> Self {
+    pub(crate) fn new_with(sample_rate: usize, preset: SynthPatch) -> Self {
         Self {
-            midi_channel,
             sample_rate,
             preset,
             ..Default::default()
         }
     }
 
-    fn voice_for_note(&mut self, note: u8) -> &mut Voice {
-        let opt = self.note_to_voice.get(&note);
-        if let Some(mut voice) = opt {
-            &mut voice
+    // TODO: this has unlimited-voice polyphony. Should we limit to a fixed number?
+    fn voice_for_note(&mut self, clock: &Clock, note: u8) -> &mut Voice {
+        if let Some(&index) = self.note_to_voice_index.get(&note) {
+            &mut self.voices[index]
         } else {
-            let voice = Voice::new(self.sample_rate, &self.preset);
-            self.note_to_voice.insert(note, voice);
-            &mut voice
+            if let Some(index) = self.voices.iter().position(|v| !v.is_playing(clock)) {
+                &mut self.voices[index]
+            } else {
+                let voice = Voice::new(self.sample_rate, &self.preset);
+                self.voices.push(voice);
+                let index = self.voices.len() - 1;
+                &mut self.voices[index]
+            }
         }
     }
 }

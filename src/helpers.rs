@@ -203,14 +203,13 @@ impl IOHelper {
                 Box::new(Sampler::new_from_files())
             } else {
                 Box::new(Synth::new_with(
-                    channel,
                     ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
                     SynthPatch::by_name(&PatchName::Piano),
                 ))
             };
             let synth_uid = orchestrator.add(None, BoxedEntity::Instrument(synth));
             orchestrator.connect_midi_downstream(synth_uid, channel);
-            orchestrator.connect_to_main_mixer(synth_uid);
+            let _ = orchestrator.connect_to_main_mixer(synth_uid);
         }
         orchestrator
     }
