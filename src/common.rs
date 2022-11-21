@@ -1,11 +1,7 @@
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+use std::{cell::RefCell, rc::Rc};
 
 type Refcounted<T> = Rc<T>;
 pub(crate) type Rrc<T> = Refcounted<RefCell<T>>;
-pub(crate) type Ww<T> = Weak<RefCell<T>>;
 
 pub type MonoSample = f32;
 #[allow(dead_code)]

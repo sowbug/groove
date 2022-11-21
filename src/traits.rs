@@ -1,9 +1,4 @@
-use crate::{
-    clock::Clock,
-    common::MonoSample,
-    gui::{IsViewable, ViewableMessage},
-    messages::MessageBounds,
-};
+use crate::{clock::Clock, common::MonoSample, messages::MessageBounds};
 
 pub trait NewIsController: NewUpdateable + Terminates + HasUid + std::fmt::Debug {}
 pub trait NewIsEffect: TransformsAudio + NewUpdateable + HasUid + std::fmt::Debug {}
@@ -98,10 +93,6 @@ impl<T> EvenNewerCommand<T> {
 
         Self(Internal::Batch(batch))
     }
-}
-
-pub trait MakesIsViewable: std::fmt::Debug {
-    fn make_is_viewable(&self) -> Option<Box<dyn IsViewable<Message = ViewableMessage>>>;
 }
 
 #[cfg(test)]

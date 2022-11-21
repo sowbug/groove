@@ -1,4 +1,8 @@
-use crate::clock::{BeatValue, PerfectTimeUnit};
+use crate::{
+    clock::{BeatValue, PerfectTimeUnit},
+    traits::{HasUid, NewIsController, NewUpdateable, Terminates},
+    GrooveMessage,
+};
 use std::fmt::Debug;
 
 #[derive(Clone, Debug, Default)]
@@ -54,7 +58,38 @@ impl Pattern<Note> {
 
 #[derive(Clone, Debug, Default)]
 pub struct PatternManager {
+    uid: usize,
     patterns: Vec<Pattern<Note>>,
+}
+impl NewIsController for PatternManager {}
+impl NewUpdateable for PatternManager {
+    type Message = GrooveMessage;
+
+    // fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+    //     match message {
+    //         ViewableMessage::PatternMessage(i, message) => {
+    //             self.patterns_mut()[i].update(message);
+    //         }
+    //         _ => {
+    //             dbg!(&message);
+    //         }
+    //     }
+    //     Command::none()
+    // }
+}
+impl Terminates for PatternManager {
+    fn is_finished(&self) -> bool {
+        true
+    }
+}
+impl HasUid for PatternManager {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
 }
 
 impl PatternManager {

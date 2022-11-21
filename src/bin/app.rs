@@ -383,13 +383,13 @@ impl Application for GrooveApp {
                 }
             }
             Message::ViewableMessage(i, message) => {
-                if i == 999 {
-                    // TODO: short-term hack!
-                    self.orchestrator.pattern_manager_mut().update(message);
-                } else {
-                    let _ = self.viewables[i].update(message);
-                    // TODO: deal with this command after wrapping it.
-                }
+                // if i == 999 {
+                //     // TODO: short-term hack!
+                //     self.orchestrator.pattern_manager_mut().update(message);
+                // } else {
+                //     let _ = self.viewables[i].update(message);
+                //     // TODO: deal with this command after wrapping it.
+                // }
             }
             Message::EventOccurred(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {

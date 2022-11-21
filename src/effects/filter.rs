@@ -125,6 +125,17 @@ impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
 }
 impl<M: MessageBounds> NewUpdateable for BiQuadFilter<M> {
     type Message = M;
+
+    // ViewableMessage::FilterCutoffChangedAsF32(new_value) => {
+    //     if let Some(target) = self.target.upgrade() {
+    //         target.borrow_mut().set_cutoff_hz(new_value);
+    //     }
+    // }
+    // ViewableMessage::FilterCutoffChangedAsU8Percentage(new_value) => {
+    //     target
+    //         .borrow_mut()
+    //         .set_cutoff_pct((new_value as f32) / 100.0);
+    // }
 }
 impl<M: MessageBounds> HasUid for BiQuadFilter<M> {
     fn uid(&self) -> usize {

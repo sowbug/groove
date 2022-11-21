@@ -20,6 +20,19 @@ impl TransformsAudio for Limiter {
 }
 impl NewUpdateable for Limiter {
     type Message = GrooveMessage;
+
+    // match message {
+    //     ViewableMessage::LimiterMinChanged(new_value) => {
+    //         if let Some(target) = self.target.upgrade() {
+    //             target.borrow_mut().set_min(new_value);
+    //         }
+    //     }
+    //     ViewableMessage::LimiterMaxChanged(new_value) => {
+    //         target.borrow_mut().set_max(new_value);
+    //     }
+    //     _ => todo!(),
+    // }
+
 }
 impl HasUid for Limiter {
     fn uid(&self) -> usize {

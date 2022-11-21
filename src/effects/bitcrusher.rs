@@ -21,6 +21,15 @@ impl TransformsAudio for Bitcrusher {
 }
 impl NewUpdateable for Bitcrusher {
     type Message = GrooveMessage;
+
+    fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        //TODO        Self::Message::BitcrusherValueChanged(new_value)
+        crate::traits::EvenNewerCommand::none()
+    }
 }
 impl HasUid for Bitcrusher {
     fn uid(&self) -> usize {
