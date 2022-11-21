@@ -1,5 +1,5 @@
 use crate::{
-    common::{wrc_clone, Ww},
+    common::Ww,
     effects::{
         arpeggiator::Arpeggiator, bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain,
         limiter::Limiter, mixer::Mixer,
@@ -337,67 +337,63 @@ impl MakesIsViewable for Synth {
 }
 
 #[derive(Debug)]
-pub struct GainViewableResponder {
-    target: Ww<Gain>,
-}
+pub struct GainViewableResponder {}
 impl GainViewableResponder {
     fn new(me: Ww<Gain>) -> Self {
-        Self {
-            target: wrc_clone(&me),
-        }
+        Self {}
     }
 }
 impl IsViewable for GainViewableResponder {
     type Message = ViewableMessage;
 
     fn view(&self) -> Element<Self::Message> {
-        if let Some(target) = self.target.upgrade() {
-            let level = target.borrow().ceiling();
-            let level_percent: u8 = (level * 100.0) as u8;
-            let title = "Gain";
-            let contents = container(row![
-                container(slider(
-                    0..=100,
-                    level_percent,
-                    Self::Message::GainLevelChangedAsU8Percentage
-                ))
-                .width(iced::Length::FillPortion(1)),
-                text_input(
-                    "%",
-                    level_percent.to_string().as_str(),
-                    Self::Message::GainLevelChangedAsString,
-                )
-                .width(iced::Length::FillPortion(1)),
-            ])
-            .padding(20);
-            GuiStuff::titled_container(title, contents.into())
-        } else {
-            GuiStuff::missing_target_container()
-        }
+        // if let Some(target) = self.target.upgrade() {
+        //     let level = target.borrow().ceiling();
+        //     let level_percent: u8 = (level * 100.0) as u8;
+        //     let title = "Gain";
+        //     let contents = container(row![
+        //         container(slider(
+        //             0..=100,
+        //             level_percent,
+        //             Self::Message::GainLevelChangedAsU8Percentage
+        //         ))
+        //         .width(iced::Length::FillPortion(1)),
+        //         text_input(
+        //             "%",
+        //             level_percent.to_string().as_str(),
+        //             Self::Message::GainLevelChangedAsString,
+        //         )
+        //         .width(iced::Length::FillPortion(1)),
+        //     ])
+        //     .padding(20);
+        //     GuiStuff::titled_container(title, contents.into())
+        // } else {
+        GuiStuff::missing_target_container()
+        // }
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        if let Some(target) = self.target.upgrade() {
-            match message {
-                ViewableMessage::MutePressed(is_muted) => {
-                    //    target.borrow_mut().set_muted(is_muted);
-                }
-                ViewableMessage::EnablePressed(is_enabled) => {
-                    //  target.borrow_mut().set_enabled(is_enabled);
-                }
-                Self::Message::GainLevelChangedAsU8Percentage(ceiling) => {
-                    // TODO: we need input sanitizers 0..=100 0.0..=1.0
-                    // -1.0..=1.0
-                    target.borrow_mut().set_ceiling((ceiling as f32) / 100.0);
-                }
-                Self::Message::GainLevelChangedAsString(ceiling) => {
-                    if let Ok(ceiling) = ceiling.parse() {
-                        target.borrow_mut().set_ceiling(ceiling);
-                    }
-                }
-                _ => todo!(),
-            }
-        }
+        // if let Some(target) = self.target.upgrade() {
+        //     match message {
+        //         ViewableMessage::MutePressed(is_muted) => {
+        //             //    target.borrow_mut().set_muted(is_muted);
+        //         }
+        //         ViewableMessage::EnablePressed(is_enabled) => {
+        //             //  target.borrow_mut().set_enabled(is_enabled);
+        //         }
+        //         Self::Message::GainLevelChangedAsU8Percentage(ceiling) => {
+        //             // TODO: we need input sanitizers 0..=100 0.0..=1.0
+        //             // -1.0..=1.0
+        //             target.borrow_mut().set_ceiling((ceiling as f32) / 100.0);
+        //         }
+        //         Self::Message::GainLevelChangedAsString(ceiling) => {
+        //             if let Ok(ceiling) = ceiling.parse() {
+        //                 target.borrow_mut().set_ceiling(ceiling);
+        //             }
+        //         }
+        //         _ => todo!(),
+        //     }
+        // }
         Command::none()
     }
 }

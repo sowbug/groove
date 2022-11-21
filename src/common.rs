@@ -9,17 +9,8 @@ pub(crate) type Ww<T> = Weak<RefCell<T>>;
 pub(crate) fn rrc<T>(t: T) -> Rrc<T> {
     Refcounted::new(RefCell::new(t))
 }
-pub(crate) fn rrc_downgrade<T: ?Sized>(t: &Rrc<T>) -> Ww<T> {
-    Refcounted::downgrade(t)
-}
 pub(crate) fn rrc_clone<T: ?Sized>(t: &Rrc<T>) -> Rrc<T> {
     Refcounted::clone(t)
-}
-pub(crate) fn wrc_clone<T: ?Sized>(t: &Ww<T>) -> Ww<T> {
-    Weak::clone(t)
-}
-pub(crate) fn weak_new<T>() -> Weak<T> {
-    Weak::<T>::new()
 }
 
 pub type MonoSample = f32;

@@ -2,7 +2,7 @@ use midly::num::u7;
 
 use crate::{
     clock::{Clock, PerfectTimeUnit},
-    common::{rrc, rrc_downgrade, Rrc, Ww},
+    common::{rrc, Rrc, Ww},
     controllers::BigMessage,
     messages::GrooveMessage,
     midi::{sequencers::BeatSequencer, MidiChannel, MidiMessage},

@@ -1,6 +1,6 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
-    common::{rrc, rrc_downgrade, Rrc, Ww},
+    common::{rrc, Rrc, Ww},
     controllers::BigMessage,
     messages::GrooveMessage,
     midi::{MidiChannel, MidiMessage},
@@ -381,11 +381,8 @@ mod tests {
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         clock::{Clock, MidiTicks, PerfectTimeUnit},
-        common::{rrc, rrc_downgrade},
         messages::tests::TestMessage,
-        midi::{MidiNote, MidiUtils},
         traits::{EvenNewerCommand, MessageBounds, NewUpdateable, SinksMidi, WatchesClock},
-        utils::tests::TestMidiSink,
     };
     use std::ops::Bound::{Excluded, Included};
 

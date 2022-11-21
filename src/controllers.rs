@@ -278,7 +278,7 @@ mod tests {
 
     use crate::{
         clock::WatchedClock,
-        common::{rrc, rrc_downgrade},
+        common::{rrc, },
         messages::tests::TestMessage,
         orchestrator::tests::Runner,
         traits::BoxedEntity,

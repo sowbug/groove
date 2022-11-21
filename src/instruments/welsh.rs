@@ -1,5 +1,5 @@
 use crate::{
-    common::{rrc, rrc_clone, rrc_downgrade, weak_new, MonoSample, Rrc, Ww},
+    common::{rrc, rrc_clone, MonoSample, Rrc, Ww},
     effects::filter::{BiQuadFilter, FilterParams},
     messages::GrooveMessage,
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},

@@ -175,7 +175,7 @@ pub mod tests {
     use crate::{
         clock::Clock,
         clock::WatchedClock,
-        common::{rrc, rrc_clone, rrc_downgrade},
+        common::{rrc, rrc_clone, },
         controllers::AdsrEnvelopeControlParams,
         effects::gain::Gain,
         envelopes::AdsrEnvelope,

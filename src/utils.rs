@@ -158,7 +158,7 @@ pub mod tests {
     use crate::{
         clock::{Clock, ClockTimeUnit, WatchedClock},
         common::{
-            rrc, rrc_clone, rrc_downgrade, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
+            rrc, rrc_clone, MonoSample, Rrc, Ww, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN,
             MONO_SAMPLE_SILENCE,
         },
         controllers::{BigMessage, SmallMessage, SmallMessageGenerator},
@@ -937,7 +937,7 @@ pub mod tests {
 
         pub messages: Vec<(f32, MidiChannel, MidiMessage)>,
 
-        _phantom: PhantomData<M>
+        _phantom: PhantomData<M>,
     }
 
     impl<M: MessageBounds> TestMidiSink<M> {
@@ -1308,11 +1308,6 @@ pub mod tests {
                 midi_channel_out,
                 ..Default::default()
             }
-        }
-        pub fn new_wrapped_with(midi_channel_out: MidiChannel) -> Rrc<Self> {
-            let wrapped = rrc(Self::new_with(midi_channel_out));
-            wrapped.borrow_mut().me = rrc_downgrade(&wrapped);
-            wrapped
         }
 
         fn what_to_do(&self, clock: &Clock) -> TestArpeggiatorAction {
