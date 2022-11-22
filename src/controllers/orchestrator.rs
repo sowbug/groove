@@ -12,10 +12,8 @@ use crate::{
 use anyhow::anyhow;
 use crossbeam::deque::Worker;
 use dipstick::{stats_all, AtomicBucket, Input, InputScope, Marker, Stream, Timer};
-use std::{
-    collections::HashMap,
-    io::{self, Write},
-};
+use rustc_hash::FxHashMap;
+use std::io::{self, Write};
 
 #[derive(Debug)]
 pub struct Performance {
@@ -41,7 +39,7 @@ struct DipstickWrapper {
     gather_audio_fn_timer: Timer,
     mark_stack_loop_entry: Marker,
     mark_stack_loop_iteration: Marker,
-    entity_audio_times: HashMap<usize, Timer>,
+    entity_audio_times: FxHashMap<usize, Timer>,
 }
 impl Debug for DipstickWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -295,8 +293,10 @@ impl<M: MessageBounds> Orchestrator<M> {
                                                 BoxedEntity::Controller(_) => {}
                                                 BoxedEntity::Effect(_) => {}
                                                 BoxedEntity::Instrument(entity) => {
-                                                    if let Some(timer) =
-                                                        self.metrics.entity_audio_times.get(&uid)
+                                                    if let Some(timer) = self
+                                                        .metrics
+                                                        .entity_audio_times
+                                                        .get(&source_uid)
                                                     {
                                                         let start_time = timer.start();
                                                         sum += entity.source_audio(clock);
@@ -618,18 +618,18 @@ impl GrooveRunner {
 #[derive(Debug, Default)]
 pub struct Store<M> {
     last_uid: usize,
-    uid_to_item: HashMap<usize, BoxedEntity<M>>,
+    uid_to_item: FxHashMap<usize, BoxedEntity<M>>,
 
     // Linked controls (one entity controls another entity's parameter)
-    uid_to_control: HashMap<usize, Vec<(usize, usize)>>,
+    uid_to_control: FxHashMap<usize, Vec<(usize, usize)>>,
 
     // Patch cables
-    audio_sink_uid_to_source_uids: HashMap<usize, Vec<usize>>,
+    audio_sink_uid_to_source_uids: FxHashMap<usize, Vec<usize>>,
 
     // MIDI connections
-    midi_channel_to_receiver_uid: HashMap<MidiChannel, Vec<usize>>,
+    midi_channel_to_receiver_uid: FxHashMap<MidiChannel, Vec<usize>>,
 
-    uvid_to_uid: HashMap<String, usize>,
+    uvid_to_uid: FxHashMap<String, usize>,
 }
 
 impl<M> Store<M> {

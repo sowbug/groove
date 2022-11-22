@@ -67,12 +67,14 @@ fn main() -> anyhow::Result<()> {
         );
         println!(" Sample count: {:?}", performance.worker.len());
         println!(
-            " Samples per msec: {:.2?}",
-            performance.worker.len() as f32 / start_instant.elapsed().as_millis() as f32
+            " Samples per msec: {:.2?} (goal >{:.2?})",
+            performance.worker.len() as f32 / start_instant.elapsed().as_millis() as f32,
+            performance.sample_rate as f32 / 1000.0
         );
         println!(
-            " (Real time is at least {:.2?})",
-            performance.sample_rate as f32 / 1000.0
+            " usec per sample: {:.2?} (goal <{:.2?})",
+            start_instant.elapsed().as_micros() as f32 / performance.worker.len() as f32,
+            1000000.0 / performance.sample_rate as f32
         );
 
         println!("Rendering queue");
