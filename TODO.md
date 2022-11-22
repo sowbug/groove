@@ -114,3 +114,79 @@
   schema](https://dev.to/brpaz/how-to-create-your-own-auto-completion-for-json-and-yaml-files-on-vs-code-with-the-help-of-json-schema-k1i)
   for editors to handle autocompletion
 - [ ] Pick a serialization format. TOML, YAML, JSON...
+
+## Scrapbook
+
+```text
+gain-1         : 7
+bassline       : 3
+main-mixer     : 1
+piano-1        : 2
+low-pass-1     : 11
+arp-1          : 6
+synth-1        : 4
+trip-1         : 13
+gain-2         : 8
+gain-3         : 9
+bitcrusher-1   : 10
+drum-1         : 5
+    stack.push(StackEntry::ToVisit(self.main_mixer_uid=1));
+LOOP #0
+stack.pop() -> ToVisit(1)
+    source_audio(5)
+                LOOP #1
+                stack.pop() -> ToVisit(9)
+                    source_audio(4)
+                    LOOP #2
+                    stack.pop() -> Result 0
+                LOOP #3
+                stack.pop() -> CollectResultFor(9)
+                transform_audio(9)
+                LOOP #4
+                stack.pop() -> Result -0
+            LOOP #5
+            stack.pop() -> ToVisit(8)
+                source_audio(3)
+                LOOP #6
+                stack.pop() -> Result 0
+            LOOP #7
+            stack.pop() -> CollectResultFor(8)
+            transform_audio(8)
+            LOOP #8
+            stack.pop() -> Result -0
+        LOOP #9
+        stack.pop() -> ToVisit(7)
+                LOOP #10
+                stack.pop() -> ToVisit(11)
+                        LOOP #11
+                        stack.pop() -> ToVisit(10)
+                            source_audio(2)
+                            LOOP #12
+                            stack.pop() -> Result 0
+                        LOOP #13
+                        stack.pop() -> CollectResultFor(10)
+                        transform_audio(10)
+                        LOOP #14
+                        stack.pop() -> Result -0
+                    LOOP #15
+                    stack.pop() -> Result 0
+                LOOP #16
+                stack.pop() -> CollectResultFor(11)
+                transform_audio(11)
+                LOOP #17
+                stack.pop() -> Result -0
+            LOOP #18
+            stack.pop() -> Result 0
+        LOOP #19
+        stack.pop() -> CollectResultFor(7)
+        transform_audio(7)
+        LOOP #20
+        stack.pop() -> Result -0
+    LOOP #21
+    stack.pop() -> Result 0
+LOOP #22
+stack.pop() -> CollectResultFor(1)
+transform_audio(1)
+LOOP #23
+stack.pop() -> Result 0
+```
