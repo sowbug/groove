@@ -1,0 +1,66 @@
+---
+clock:
+  sample-rate: 44100
+  bpm: 128.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+      - instrument-1
+      - test:
+          midi-in: 1
+  - controller:
+      - controller-1
+      - test:
+          midi-in: 2
+          midi-out: 3
+  - effect:
+      - effect-1
+      - test: []
+
+patch-cables:
+  - [instrument-1, effect-1, main-mixer]
+patterns:
+  - id: basic-1
+    note-value: eighth
+    notes:
+      - [60, 60, 60, 60, 67, 67, 67, 67]
+tracks:
+  - id: track-1
+    midi-channel: 1
+    patterns: [basic-1]
+paths:
+  - id: path-flat-1
+    note-value: whole
+    steps:
+      - flat:
+          - 0.0
+      - flat:
+          - 0.1
+      - flat:
+          - 0.5
+      - flat:
+          - 1.0
+  - id: path-slope-1
+    note-value: whole
+    steps:
+      - slope:
+          start: 0.0
+          end: 0.1
+      - slope:
+          start: 0.1
+          end: 0.5
+      - slope:
+          start: 0.5
+          end: 0.0
+      - slope:
+          start: 0.0
+          end: 1.0
+trips:
+  - id: trip-1
+    target:
+      id: instrument-1
+      param: todo
+    start-measure: 1
+    paths: [path-flat-1, path-slope-1]

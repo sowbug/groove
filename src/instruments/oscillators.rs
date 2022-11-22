@@ -1,7 +1,7 @@
 use crate::{
     common::MonoSample,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{HasUid, IsInstrument, Updateable, SourcesAudio},
+    traits::{HasUid, IsInstrument, SourcesAudio, Updateable},
     Clock, GrooveMessage,
 };
 use std::f32::consts::PI;
@@ -149,6 +149,14 @@ impl Oscillator {
     pub(crate) fn set_frequency_modulation(&mut self, frequency_modulation: f32) {
         self.frequency_modulation = frequency_modulation;
     }
+
+    pub fn waveform(&self) -> WaveformType {
+        self.waveform
+    }
+
+    pub fn set_waveform(&mut self, waveform: WaveformType) {
+        self.waveform = waveform;
+    }
 }
 
 #[cfg(test)]
@@ -161,17 +169,6 @@ mod tests {
         traits::SourcesAudio,
         utils::tests::write_source_to_file,
     };
-
-    impl Oscillator {
-        #[allow(dead_code)]
-        pub fn waveform(&self) -> WaveformType {
-            self.waveform
-        }
-
-        pub fn set_waveform(&mut self, waveform: WaveformType) {
-            self.waveform = waveform;
-        }
-    }
 
     fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> Oscillator {
         let mut oscillator = Oscillator::new_from_preset(&OscillatorSettings {

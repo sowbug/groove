@@ -1,19 +1,15 @@
-pub(crate) mod control;
+pub(crate) mod controllers;
 pub(crate) mod effects;
+pub(crate) mod instruments;
 pub(crate) mod patches;
 pub(crate) mod songs;
 
-use self::{effects::EffectSettings, patches::SynthPatch};
+use self::{
+    controllers::ControllerSettings, effects::EffectSettings, instruments::InstrumentSettings,
+};
 use crate::{
     clock::{BeatValue, TimeSignature},
     common::DeviceId,
-    controllers::arpeggiator::Arpeggiator,
-    instruments::{
-        drumkit_sampler,
-        welsh::{self, PatchName},
-    },
-    messages::GrooveMessage,
-    traits::{IsController, IsInstrument},
 };
 use serde::{Deserialize, Serialize};
 
@@ -24,38 +20,6 @@ pub enum LoadError {
     #[allow(dead_code)]
     FileError,
     FormatError,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum InstrumentSettings {
-    #[serde(rename_all = "kebab-case")]
-    Welsh {
-        #[serde(rename = "midi-in")]
-        midi_input_channel: MidiChannel,
-        #[serde(rename = "preset")]
-        preset_name: PatchName,
-    },
-    #[serde(rename_all = "kebab-case")]
-    Drumkit {
-        #[serde(rename = "midi-in")]
-        midi_input_channel: MidiChannel,
-        #[serde(rename = "preset")]
-        preset_name: String,
-    },
-    // TODO Sampler
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum ControllerSettings {
-    #[serde(rename_all = "kebab-case")]
-    Arpeggiator {
-        #[serde(rename = "midi-in")]
-        midi_input_channel: MidiChannel,
-        #[serde(rename = "midi-out")]
-        midi_output_channel: MidiChannel,
-    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -163,58 +127,6 @@ impl Default for ClockSettings {
             beats_per_minute: 128.0,
             time_signature: TimeSignature { top: 4, bottom: 4 },
             midi_ticks_per_second: 960,
-        }
-    }
-}
-
-impl InstrumentSettings {
-    pub(crate) fn instantiate(
-        &self,
-        sample_rate: usize,
-    ) -> (
-        MidiChannel,
-        Box<dyn IsInstrument<Message = GrooveMessage>>,
-    ) {
-        match self {
-            InstrumentSettings::Welsh {
-                midi_input_channel,
-                preset_name,
-            } => (
-                *midi_input_channel,
-                Box::new(welsh::WelshSynth::new_with(
-                    sample_rate,
-                    SynthPatch::by_name(preset_name),
-                )),
-            ),
-            InstrumentSettings::Drumkit {
-                midi_input_channel,
-                preset_name: _preset,
-            } => (
-                *midi_input_channel,
-                Box::new(drumkit_sampler::Sampler::new_from_files()),
-            ),
-        }
-    }
-}
-
-impl ControllerSettings {
-    pub(crate) fn instantiate(
-        &self,
-        _sample_rate: usize,
-    ) -> (
-        MidiChannel,
-        MidiChannel,
-        Box<dyn IsController<Message = GrooveMessage>>,
-    ) {
-        match *self {
-            ControllerSettings::Arpeggiator {
-                midi_input_channel,
-                midi_output_channel,
-            } => (
-                midi_input_channel,
-                midi_output_channel,
-                Box::new(Arpeggiator::new_with(midi_output_channel)),
-            ),
         }
     }
 }

@@ -196,11 +196,12 @@ pub mod tests {
         instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
         messages::MessageBounds,
         messages::{tests::TestMessage, GrooveMessage},
+        midi::MidiChannel,
         settings::{patches::EnvelopeSettings, ClockSettings},
         traits::{
-            tests::{TestController, TestEffect, TestInstrument},
             BoxedEntity, EvenNewerCommand, HasUid, IsController, IsEffect, IsInstrument,
-            SourcesAudio, Terminates, TransformsAudio, Updateable,
+            SourcesAudio, Terminates, TestController, TestEffect, TestInstrument, TransformsAudio,
+            Updateable,
         },
     };
     use assert_approx_eq::assert_approx_eq;
@@ -942,6 +943,7 @@ pub mod tests {
 
     #[test]
     fn test_midi_routing() {
+        const TEST_MIDI_CHANNEL: MidiChannel = 7;
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
@@ -951,9 +953,7 @@ pub mod tests {
         );
         let arpeggiator_uid = o.add(
             None,
-            BoxedEntity::Controller(Box::new(TestController::<TestMessage>::new_with(
-                TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
-            ))),
+            BoxedEntity::Controller(Box::new(TestController::<TestMessage>::default())),
         );
 
         // We'll hear the instrument.
@@ -962,10 +962,7 @@ pub mod tests {
         // This might not be necessary. We will automatically get every MIDI
         // message sent.
         o.connect_midi_upstream(arpeggiator_uid);
-        o.connect_midi_downstream(
-            instrument_uid,
-            TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
-        );
+        o.connect_midi_downstream(instrument_uid, TEST_MIDI_CHANNEL);
 
         const SECONDS: usize = 1;
         let _ = o.add(
@@ -1030,10 +1027,7 @@ pub mod tests {
         // Re-enable the arpeggiator but disconnect the instrument's MIDI
         // connection.
         runner.send_msg_enable(&mut o, &clock, arpeggiator_uid, true);
-        o.disconnect_midi_downstream(
-            instrument_uid,
-            TestInstrument::<TestMessage>::TEST_MIDI_CHANNEL,
-        );
+        o.disconnect_midi_downstream(instrument_uid, TEST_MIDI_CHANNEL);
         clock.reset();
         if let Ok(samples) = runner.run(&mut o, &mut clock) {
             assert!(

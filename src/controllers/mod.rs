@@ -3,11 +3,11 @@ pub(crate) mod orchestrator;
 pub(crate) mod sequencers;
 
 use crate::clock::{Clock, ClockTimeUnit};
-use crate::instruments::envelopes::{SteppedEnvelope, EnvelopeFunction, EnvelopeStep};
+use crate::instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
 use crate::messages::{GrooveMessage, MessageBounds};
-use crate::settings::control::ControlStep;
-use crate::traits::{EvenNewerCommand, HasUid, IsController, Updateable, Terminates};
-use crate::{clock::BeatValue, settings::control::ControlPathSettings};
+use crate::settings::controllers::ControlStep;
+use crate::traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable};
+use crate::{clock::BeatValue, settings::controllers::ControlPathSettings};
 use core::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Range;
@@ -59,6 +59,7 @@ impl<M: MessageBounds> HasUid for ControlTrip<M> {
 impl<M: MessageBounds> ControlTrip<M> {
     const CURSOR_BEGIN: f32 = 0.0;
 
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             uid: usize::default(),
@@ -70,6 +71,7 @@ impl<M: MessageBounds> ControlTrip<M> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn reset_cursor(&mut self) {
         self.cursor_beats = Self::CURSOR_BEGIN;
     }
@@ -215,11 +217,11 @@ mod tests {
 
     use crate::{
         messages::tests::TestMessage,
-        traits::{tests::TestInstrument, BoxedEntity},
+        traits::{BoxedEntity, TestInstrument},
         Orchestrator,
     };
 
-    use super::{*, orchestrator::tests::Runner};
+    use super::{orchestrator::tests::Runner, *};
 
     impl Updateable for ControlTrip<TestMessage> {
         type Message = TestMessage;
@@ -260,7 +262,7 @@ mod tests {
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
         let target_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(TestInstrument::default())),
+            BoxedEntity::Instrument(Box::new(TestInstrument::<TestMessage>::default())),
         );
         let mut trip = ControlTrip::<TestMessage>::new();
         trip.add_path(&path);
@@ -298,7 +300,7 @@ mod tests {
         let mut o = Box::new(Orchestrator::default());
         let target_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(TestInstrument::new())),
+            BoxedEntity::Instrument(Box::new(TestInstrument::<TestMessage>::new())),
         );
         let mut trip = Box::new(ControlTrip::<TestMessage>::new());
         trip.add_path(&path);

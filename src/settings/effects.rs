@@ -8,13 +8,14 @@ use crate::{
         mixer::Mixer,
     },
     messages::GrooveMessage,
-    traits::IsEffect,
+    traits::{IsEffect, TestEffect},
 };
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectSettings {
+    Test {},
     Mixer {},
     Gain {
         ceiling: f32,
@@ -78,6 +79,7 @@ impl EffectSettings {
         sample_rate: usize,
     ) -> Box<dyn IsEffect<Message = GrooveMessage>> {
         match *self {
+            EffectSettings::Test {} => Box::new(TestEffect::<GrooveMessage>::default()),
             EffectSettings::Mixer {} => Box::new(Mixer::<GrooveMessage>::new()),
             EffectSettings::Limiter { min, max } => {
                 Box::new(Limiter::new_with(min as MonoSample, max as MonoSample))

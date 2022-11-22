@@ -663,6 +663,23 @@ impl<M> Store<M> {
             .or_default()
             .retain(|&uid| uid != receiver_uid);
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn debug_dump_profiling(&self) {
+        println!("last_uid: {}", self.last_uid);
+        println!("uid_to_item: {}", self.uid_to_item.len());
+        println!("uid_to_control: {}", self.uid_to_control.len());
+        println!(
+            "audio_sink_uid_to_source_uids: {}",
+            self.audio_sink_uid_to_source_uids.len()
+        );
+        println!(
+            "midi_channel_to_receiver_uid: {}",
+            self.midi_channel_to_receiver_uid.len()
+        );
+        println!("uvid_to_uid: {}", self.uvid_to_uid.len());
+    }
+
 }
 
 #[cfg(test)]

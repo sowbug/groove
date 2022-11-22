@@ -697,6 +697,9 @@ impl SourcesAudio for WelshSynth {
             // twice as loud as one?
             current_value /= self.voices.len() as MonoSample;
         }
+        // for (i, v) in self.voices.iter().enumerate() {
+        //     if !v.is_playing(clock) {}
+        // }
         current_value
     }
 }

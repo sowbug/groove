@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::GrooveMessage,
-    traits::{HasUid, IsEffect, Updateable, TransformsAudio},
+    traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
 
 #[derive(Debug, Default)]
@@ -22,6 +22,7 @@ impl TransformsAudio for Bitcrusher {
 impl Updateable for Bitcrusher {
     type Message = GrooveMessage;
 
+    #[allow(unused_variables)]
     fn update(
         &mut self,
         clock: &Clock,

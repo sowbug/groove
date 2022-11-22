@@ -1,5 +1,5 @@
 use super::{
-    control::{ControlPathSettings, ControlTripSettings},
+    controllers::{ControlPathSettings, ControlTripSettings},
     ClockSettings, DeviceSettings, PatternSettings, TrackSettings,
 };
 use crate::{
@@ -180,9 +180,8 @@ impl SongSettings {
 #[cfg(test)]
 mod tests {
 
-    use crate::{clock::Clock, controllers::orchestrator::GrooveRunner};
-
     use super::SongSettings;
+    use crate::{clock::Clock, controllers::orchestrator::GrooveRunner};
 
     #[test]
     fn test_yaml_loads_and_parses() {

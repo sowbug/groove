@@ -244,7 +244,7 @@ mod tests {
         clock::{Clock, MidiTicks, PerfectTimeUnit},
         messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
-        traits::{tests::TestInstrument, BoxedEntity, EvenNewerCommand, IsController, Updateable},
+        traits::{BoxedEntity, EvenNewerCommand, IsController, TestInstrument, Updateable},
         Orchestrator,
     };
     use std::ops::Bound::{Excluded, Included};
@@ -387,7 +387,7 @@ mod tests {
         let mut clock = Clock::default();
         let mut o = Orchestrator::<TestMessage>::default();
         let mut sequencer = Box::new(MidiTickSequencer::<TestMessage>::default());
-        let instrument = Box::new(TestInstrument::default());
+        let instrument = Box::new(TestInstrument::<TestMessage>::default());
         let device_uid = o.add(None, BoxedEntity::Instrument(instrument));
 
         sequencer.insert(
