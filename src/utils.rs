@@ -953,14 +953,16 @@ pub mod tests {
         );
         let arpeggiator_uid = o.add(
             None,
-            BoxedEntity::Controller(Box::new(TestController::<TestMessage>::default())),
+            BoxedEntity::Controller(Box::new(TestController::<TestMessage>::new_with(
+                TEST_MIDI_CHANNEL,
+            ))),
         );
 
         // We'll hear the instrument.
         assert!(o.connect_to_main_mixer(instrument_uid).is_ok());
 
-        // This might not be necessary. We will automatically get every MIDI
-        // message sent.
+        // This might not be necessary. Orchestrator will automatically get
+        // every MIDI message sent.
         o.connect_midi_upstream(arpeggiator_uid);
         o.connect_midi_downstream(instrument_uid, TEST_MIDI_CHANNEL);
 
