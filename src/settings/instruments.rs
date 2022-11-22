@@ -38,7 +38,26 @@ impl InstrumentSettings {
     pub(crate) fn instantiate(
         &self,
         sample_rate: usize,
+        load_only_test_entities: bool,
     ) -> (MidiChannel, Box<dyn IsInstrument<Message = GrooveMessage>>) {
+        if load_only_test_entities {
+            #[allow(unused_variables)]
+            let midi_input_channel = match self {
+                InstrumentSettings::Test { midi_input_channel } => *midi_input_channel,
+                InstrumentSettings::Welsh {
+                    midi_input_channel,
+                    preset_name,
+                } => *midi_input_channel,
+                InstrumentSettings::Drumkit {
+                    midi_input_channel,
+                    preset_name,
+                } => *midi_input_channel,
+            };
+            return (
+                midi_input_channel,
+                Box::new(TestInstrument::<GrooveMessage>::default()),
+            );
+        }
         match self {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,

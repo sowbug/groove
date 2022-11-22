@@ -279,7 +279,7 @@ impl Application for GrooveApp {
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::Loaded(Ok(state)) => {
-                let mut orchestrator = state.song_settings.instantiate().unwrap();
+                let mut orchestrator = state.song_settings.instantiate(false).unwrap();
 
                 // TODO BROKEN
                 // let viewables = orchestrator

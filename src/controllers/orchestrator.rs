@@ -73,6 +73,7 @@ pub struct Orchestrator<M: MessageBounds> {
     pattern_manager: PatternManager, // TODO: one of these things is not like the others
 
     metrics: DipstickWrapper,
+    enable_dev_experiment: bool,
 }
 impl<M: MessageBounds> IsController for Orchestrator<M> {}
 impl<M: MessageBounds> Updateable for Orchestrator<M> {
@@ -395,6 +396,10 @@ impl<M: MessageBounds> Orchestrator<M> {
     pub fn pattern_manager_mut(&mut self) -> &mut PatternManager {
         &mut self.pattern_manager
     }
+
+    pub fn set_enable_dev_experiment(&mut self, enabled: bool) {
+        self.enable_dev_experiment = enabled;
+    }
 }
 impl<M: MessageBounds> Default for Orchestrator<M> {
     fn default() -> Self {
@@ -405,6 +410,7 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
             main_mixer_uid: Default::default(),
             pattern_manager: Default::default(), // TODO: this should be added like main_mixer
             metrics: Default::default(),
+            enable_dev_experiment: Default::default(),
         };
         let main_mixer = Box::new(Mixer::default());
         r.main_mixer_uid = r.add(

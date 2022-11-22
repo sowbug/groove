@@ -26,6 +26,10 @@ struct Args {
     /// Output filename
     #[clap(short, long, value_parser)]
     wav_out: Option<String>,
+
+    /// Whether to run the current debug/dev experiment
+    #[clap(short, long, value_parser)]
+    experiment: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -40,7 +44,7 @@ fn main() -> anyhow::Result<()> {
         } else if args.yaml_in.is_some() {
             let start_instant = Instant::now();
             let r = IOHelper::song_settings_from_yaml_file(args.yaml_in.unwrap().as_str())?
-                .instantiate()?;
+                .instantiate(args.experiment)?;
             println!(
                 "Orchestrator instantiation time: {:.2?}",
                 start_instant.elapsed()
@@ -49,6 +53,8 @@ fn main() -> anyhow::Result<()> {
         } else {
             Box::new(Orchestrator::default())
         };
+
+        orchestrator.set_enable_dev_experiment(args.experiment);
 
         print!("Performing to queue ");
         let mut r = GrooveRunner::default();

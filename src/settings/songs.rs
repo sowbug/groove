@@ -49,34 +49,40 @@ impl SongSettings {
         Ok(settings)
     }
 
-    pub fn instantiate(&self) -> Result<Box<GrooveOrchestrator>> {
+    pub fn instantiate(&self, load_only_test_entities: bool) -> Result<Box<GrooveOrchestrator>> {
         let mut o = Box::new(GrooveOrchestrator::default());
         o.set_clock_settings(&self.clock);
-        self.instantiate_devices(&mut o);
+        self.instantiate_devices(&mut o, load_only_test_entities);
         self.instantiate_patch_cables(&mut o);
         self.instantiate_tracks(&mut o);
         self.instantiate_control_trips(&mut o);
         Ok(o)
     }
 
-    fn instantiate_devices(&self, orchestrator: &mut GrooveOrchestrator) {
+    fn instantiate_devices(
+        &self,
+        orchestrator: &mut GrooveOrchestrator,
+        load_only_test_entities: bool,
+    ) {
         let sample_rate = self.clock.sample_rate();
 
         for device in &self.devices {
             match device {
                 DeviceSettings::Instrument(id, settings) => {
-                    let (channel, entity) = settings.instantiate(sample_rate);
+                    let (channel, entity) =
+                        settings.instantiate(sample_rate, load_only_test_entities);
                     let uid = orchestrator.add(Some(id), BoxedEntity::Instrument(entity));
                     orchestrator.connect_midi_downstream(uid, channel);
                 }
                 DeviceSettings::Controller(id, settings) => {
-                    let (channel_in, _channel_out, entity) = settings.instantiate(sample_rate);
+                    let (channel_in, _channel_out, entity) =
+                        settings.instantiate(load_only_test_entities);
                     let uid = orchestrator.add(Some(id), BoxedEntity::Controller(entity));
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
                 }
                 DeviceSettings::Effect(id, settings) => {
-                    let entity = settings.instantiate(sample_rate);
+                    let entity = settings.instantiate(sample_rate, load_only_test_entities);
                     let _uid = orchestrator.add(Some(id), BoxedEntity::Effect(entity));
                 }
             }
@@ -187,7 +193,7 @@ mod tests {
     fn test_yaml_loads_and_parses() {
         if let Ok(yaml) = std::fs::read_to_string("test_data/kitchen-sink.yaml") {
             if let Ok(song_settings) = SongSettings::new_from_yaml(yaml.as_str()) {
-                if let Ok(mut orchestrator) = song_settings.instantiate() {
+                if let Ok(mut orchestrator) = song_settings.instantiate(false) {
                     let mut runner = GrooveRunner::default();
                     let mut clock = Clock::default();
                     if let Ok(_performance) = runner.run(&mut orchestrator, &mut clock) {

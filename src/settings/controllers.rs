@@ -103,12 +103,31 @@ pub enum ControllerSettings {
 impl ControllerSettings {
     pub(crate) fn instantiate(
         &self,
-        _sample_rate: usize,
+        load_only_test_entities: bool,
     ) -> (
         MidiChannel,
         MidiChannel,
         Box<dyn IsController<Message = GrooveMessage>>,
     ) {
+        if load_only_test_entities {
+            let (midi_input_channel, midi_output_channel) = match self {
+                ControllerSettings::Test {
+                    midi_input_channel,
+                    midi_output_channel,
+                } => (midi_input_channel, midi_output_channel),
+                ControllerSettings::Arpeggiator {
+                    midi_input_channel,
+                    midi_output_channel,
+                } => (midi_input_channel, midi_output_channel),
+            };
+            return (
+                *midi_input_channel,
+                *midi_output_channel,
+                Box::new(TestController::<GrooveMessage>::new_with(
+                    *midi_output_channel,
+                )),
+            );
+        }
         match *self {
             ControllerSettings::Test {
                 midi_input_channel,

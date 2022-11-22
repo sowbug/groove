@@ -381,10 +381,13 @@ impl Updateable for TestController<GrooveMessage> {
             }
             Self::Message::Enable(enabled) => {
                 self.is_enabled = enabled;
-                EvenNewerCommand::none()
+            }
+            GrooveMessage::Midi(channel, message) => {
+                dbg!(&channel, &message);
             }
             _ => todo!(),
         }
+        EvenNewerCommand::none()
     }
 }
 
