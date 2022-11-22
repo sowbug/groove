@@ -398,7 +398,7 @@ mod tests {
         test_one_viewable(Box::new(Sampler::new_with(1024)), None);
         // TODO - test it! test_one_viewable(Mixer::new_wrapped(), None);
         test_one_viewable(
-            Box::new(Gain::new()),
+            Box::new(Gain::default()),
             Some(ViewableMessage::GainLevelChangedAsU8Percentage(28)),
         );
         test_one_viewable(
@@ -424,7 +424,7 @@ mod tests {
             Some(ViewableMessage::ArpeggiatorChanged(42)),
         );
         test_one_viewable(
-            Box::new(BeatSequencer::<TestMessage>::new()),
+            Box::new(BeatSequencer::<TestMessage>::default()),
             Some(ViewableMessage::EnablePressed(false)),
         );
     }

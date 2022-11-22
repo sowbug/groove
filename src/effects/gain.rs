@@ -68,7 +68,7 @@ mod tests {
     #[test]
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(1.1);
-        let clock = Clock::new();
+        let clock = Clock::default();
         assert_eq!(
             gain.transform_audio(
                 &clock,

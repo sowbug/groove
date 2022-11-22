@@ -434,15 +434,15 @@ mod tests {
     // TODO: re-enable later.......................................................................
     // #[test]
     // fn test_sequencer_multichannel() {
-    //     let mut clock = Clock::new();
-    //     let mut sequencer = MidiTickSequencer::<TestMessage>::new();
+    //     let mut clock = Clock::default();
+    //     let mut sequencer = MidiTickSequencer::<TestMessage>::default();
 
-    //     let device_1 = rrc(TestMidiSink::new());
+    //     let device_1 = rrc(TestMidiSink::default());
     //     assert!(!device_1.borrow().is_playing);
     //     device_1.borrow_mut().set_midi_channel(0);
     //     sequencer.add_midi_sink(0, rrc_downgrade::<TestMidiSink<TestMessage>>(&device_1));
 
-    //     let device_2 = rrc(TestMidiSink::new());
+    //     let device_2 = rrc(TestMidiSink::default());
     //     assert!(!device_2.borrow().is_playing);
     //     device_2.borrow_mut().set_midi_channel(1);
     //     sequencer.add_midi_sink(1, rrc_downgrade::<TestMidiSink<TestMessage>>(&device_2));

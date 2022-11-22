@@ -644,7 +644,7 @@ mod tests {
 
         // Press a key at time zero to make arithmetic easier. Attack should be
         // complete at expected time.
-        envelope.handle_note_event(&Clock::new(), true);
+        envelope.handle_note_event(&Clock::default(), true);
         assert_eq!(
             envelope.source_audio(&Clock::debug_new_with_time(ep.attack)),
             1.0
@@ -698,7 +698,7 @@ mod tests {
 
         // Press a key at time zero to make arithmetic easier. Attack should be
         // complete at expected time.
-        envelope.handle_note_event(&Clock::new(), true);
+        envelope.handle_note_event(&Clock::default(), true);
 
         // We release the key mid-decay. Release should
         // commence as of wherever the amplitude was at that point.
@@ -744,7 +744,7 @@ mod tests {
         const START_VALUE: f32 = 1.0;
         const END_VALUE: f32 = 1.0 + 10.0;
 
-        let mut envelope = SteppedEnvelope::new();
+        let mut envelope = SteppedEnvelope::default();
         // This envelope is here just to offset the one we're testing,
         // to catch bugs where we assumed the start time was 0.0.
         envelope.push_step(EnvelopeStep::new_with_duration(
@@ -777,7 +777,7 @@ mod tests {
             END_VALUE
         );
 
-        let mut envelope = SteppedEnvelope::new();
+        let mut envelope = SteppedEnvelope::default();
         envelope.push_step(EnvelopeStep::new_with_duration(
             0.0,
             START_TIME,
@@ -807,7 +807,7 @@ mod tests {
             END_VALUE
         );
 
-        let mut envelope = SteppedEnvelope::new();
+        let mut envelope = SteppedEnvelope::default();
         envelope.push_step(EnvelopeStep::new_with_duration(
             0.0,
             START_TIME,

@@ -810,7 +810,7 @@ mod tests {
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]
     fn write_voice(voice: &mut WelshVoice, duration: f32, basename: &str) {
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
 
         let spec = hound::WavSpec {
             channels: 1,
@@ -1013,7 +1013,7 @@ mod tests {
         let message_on = MidiUtils::note_on_c4();
         let message_off = MidiUtils::note_off_c4();
 
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
         let mut voice = WelshVoice::new(clock.sample_rate(), &test_patch());
         voice.update(&clock, GrooveMessage::Midi(0, message_on));
         write_sound(
@@ -1031,7 +1031,7 @@ mod tests {
         let message_on = MidiUtils::note_on_c4();
         let message_off = MidiUtils::note_off_c4();
 
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
         let mut voice = WelshVoice::new(clock.sample_rate(), &cello_patch());
         voice.update(&clock, GrooveMessage::Midi(0, message_on));
         write_sound(

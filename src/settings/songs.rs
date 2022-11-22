@@ -124,7 +124,7 @@ impl SongSettings {
             ids_to_patterns.insert(pattern_settings.id.clone(), pattern.clone());
             pattern_manager.register(pattern);
         }
-        let mut sequencer = Box::new(BeatSequencer::new());
+        let mut sequencer = Box::new(BeatSequencer::default());
         let mut programmer =
             PatternProgrammer::<GrooveMessage>::new_with(&self.clock.time_signature);
 

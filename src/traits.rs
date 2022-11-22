@@ -538,7 +538,7 @@ pub mod tests {
     fn test_sources_audio_random_access() {
         let mut instrument = TestInstrument::<TestMessage>::default();
         for _ in 0..100 {
-            let mut clock = Clock::new();
+            let mut clock = Clock::default();
             clock.debug_set_samples(random());
             let _ = instrument.source_audio(&clock);
         }

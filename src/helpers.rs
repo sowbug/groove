@@ -189,7 +189,7 @@ impl IOHelper {
 
     pub fn orchestrator_from_midi_file(filename: &str) -> Box<GrooveOrchestrator> {
         let data = std::fs::read(filename).unwrap();
-        let mut orchestrator = Box::new(Orchestrator::new());
+        let mut orchestrator = Box::new(Orchestrator::default());
 
         let mut sequencer = Box::new(MidiTickSequencer::default());
         MidiSmfReader::program_sequencer(&mut sequencer, &data);

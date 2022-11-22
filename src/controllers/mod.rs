@@ -264,7 +264,7 @@ mod tests {
             None,
             BoxedEntity::Instrument(Box::new(TestInstrument::<TestMessage>::default())),
         );
-        let mut trip = ControlTrip::<TestMessage>::new();
+        let mut trip = ControlTrip::<TestMessage>::default();
         trip.add_path(&path);
         o.add(None, BoxedEntity::Controller(Box::new(trip)));
 
@@ -278,7 +278,7 @@ mod tests {
         //     time_unit: ClockTimeUnit::Beats,
         // }));
 
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
         let mut r = Runner::default();
         let _ = r.run(&mut o, &mut clock);
     }
@@ -300,9 +300,9 @@ mod tests {
         let mut o = Box::new(Orchestrator::default());
         let target_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(TestInstrument::<TestMessage>::new())),
+            BoxedEntity::Instrument(Box::new(TestInstrument::<TestMessage>::default())),
         );
-        let mut trip = Box::new(ControlTrip::<TestMessage>::new());
+        let mut trip = Box::new(ControlTrip::<TestMessage>::default());
         trip.add_path(&path);
         let controller_uid = o.add(None, BoxedEntity::Controller(trip));
 
@@ -316,7 +316,7 @@ mod tests {
         //     time_unit: ClockTimeUnit::Beats,
         // }));
 
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
         let mut r = Runner::default();
         let _ = r.run(&mut o, &mut clock);
     }

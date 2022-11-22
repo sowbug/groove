@@ -446,7 +446,7 @@ mod tests {
 
     #[test]
     fn test_time_signature_valid() {
-        let ts = TimeSignature::new();
+        let ts = TimeSignature::default();
         assert_eq!(ts.top, 4);
         assert_eq!(ts.bottom, 4);
 

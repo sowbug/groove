@@ -80,7 +80,7 @@ impl EffectSettings {
     ) -> Box<dyn IsEffect<Message = GrooveMessage>> {
         match *self {
             EffectSettings::Test {} => Box::new(TestEffect::<GrooveMessage>::default()),
-            EffectSettings::Mixer {} => Box::new(Mixer::<GrooveMessage>::new()),
+            EffectSettings::Mixer {} => Box::new(Mixer::<GrooveMessage>::default()),
             EffectSettings::Limiter { min, max } => {
                 Box::new(Limiter::new_with(min as MonoSample, max as MonoSample))
             }

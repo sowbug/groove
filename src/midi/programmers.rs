@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn test_pattern() {
         let time_signature = TimeSignature::new_defaults();
-        let mut sequencer = BeatSequencer::new();
+        let mut sequencer = BeatSequencer::default();
         let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
@@ -263,7 +263,7 @@ mod tests {
     #[test]
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8);
-        let mut sequencer = BeatSequencer::new();
+        let mut sequencer = BeatSequencer::default();
         let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4);
-        let mut sequencer = BeatSequencer::new();
+        let mut sequencer = BeatSequencer::default();
         let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
         let pattern = Pattern::<Note>::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
@@ -330,7 +330,7 @@ mod tests {
         let mut sequencer = Box::new(BeatSequencer::default());
         let mut programmer =
             PatternProgrammer::<TestMessage>::new_with(&TimeSignature::new_defaults());
-        let mut pattern = Pattern::<Note>::new();
+        let mut pattern = Pattern::<Note>::default();
 
         const NOTE_VALUE: BeatValue = BeatValue::Quarter;
         pattern.note_value = Some(NOTE_VALUE);
@@ -369,7 +369,7 @@ mod tests {
         // Test recorder has seen nothing to start with.
         // TODO assert!(midi_recorder.debug_messages.is_empty());
 
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
         let sample_rate = clock.sample_rate();
         let mut o = Box::new(Orchestrator::default());
         let _sequencer_uid = o.add(None, BoxedEntity::Controller(sequencer));

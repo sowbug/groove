@@ -560,7 +560,7 @@ pub mod tests {
         #[allow(dead_code)]
         fn new() -> Self {
             Self::new_with(
-                Box::new(Oscillator::new()),
+                Box::new(Oscillator::default()),
                 Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
             )
         }
@@ -576,7 +576,7 @@ pub mod tests {
         fn default() -> Self {
             Self {
                 uid: 0,
-                oscillator: Box::new(Oscillator::new()),
+                oscillator: Box::new(Oscillator::default()),
                 envelope: Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
                 _phantom: Default::default(),
             }
@@ -864,7 +864,7 @@ pub mod tests {
 
         // Gather the audio output.
         let mut runner = Runner::default();
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
         if let Ok(samples_1) = runner.run(&mut o, &mut clock) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
@@ -919,7 +919,7 @@ pub mod tests {
 
         // Gather the audio output.
         let mut runner = Runner::default();
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
         if let Ok(samples_1) = runner.run(&mut o, &mut clock) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
@@ -974,7 +974,7 @@ pub mod tests {
 
         // Everything is hooked up. Let's run it and hear what we got.
         let mut runner = Runner::default();
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
         if let Ok(samples) = runner.run(&mut o, &mut clock) {
             // We haven't asked the arpeggiator to start sending anything yet.
             assert!(
@@ -1071,7 +1071,7 @@ pub mod tests {
 
         // Gather the audio output.
         let mut runner = GrooveRunner::default();
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
         if let Ok(samples_1) = runner.run(&mut o, &mut clock) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
