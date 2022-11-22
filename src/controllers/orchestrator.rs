@@ -11,6 +11,7 @@ use crate::{
 };
 use anyhow::anyhow;
 use crossbeam::deque::Worker;
+use dipstick::{stats_all, AtomicBucket, Input, InputScope, Marker, Stream, Timer};
 use std::{
     collections::HashMap,
     io::{self, Write},
@@ -31,17 +32,37 @@ impl Performance {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Debug, Default)]
-pub(crate) enum OrchestratorMessage {
-    #[default]
-    None,
-    GotAnF32(f32),
-    Tick(Clock),
-    Midi(Clock, u8, MidiMessage),
-}
-
 pub type GrooveOrchestrator = Orchestrator<GrooveMessage>;
+use std::fmt::Debug;
+
+struct DipstickWrapper {
+    pub bucket: AtomicBucket,
+    entity_count: Marker,
+    gather_audio_fn_timer: Timer,
+    mark_stack_loop_entry: Marker,
+    mark_stack_loop_iteration: Marker,
+    entity_audio_times: HashMap<usize, Timer>,
+}
+impl Debug for DipstickWrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DipstickWrapper")
+            .field("metrics", &false)
+            .finish()
+    }
+}
+impl Default for DipstickWrapper {
+    fn default() -> Self {
+        let bucket = AtomicBucket::default();
+        Self {
+            entity_count: bucket.marker("total entities"),
+            gather_audio_fn_timer: bucket.timer("gather_audio"),
+            mark_stack_loop_entry: bucket.marker("mark_stack_loop_entry"),
+            mark_stack_loop_iteration: bucket.marker("mark_stack_loop_iteration"),
+            entity_audio_times: Default::default(),
+            bucket, // hehe do this last
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct Orchestrator<M: MessageBounds> {
@@ -50,6 +71,8 @@ pub struct Orchestrator<M: MessageBounds> {
     store: Store<M>,
     main_mixer_uid: usize,
     pattern_manager: PatternManager, // TODO: one of these things is not like the others
+
+    metrics: DipstickWrapper,
 }
 impl<M: MessageBounds> IsController for Orchestrator<M> {}
 impl<M: MessageBounds> Updateable for Orchestrator<M> {
@@ -110,8 +133,18 @@ impl<M: MessageBounds> Orchestrator<M> {
         &mut self.store
     }
 
+    fn install_entity_metric(&mut self, uvid: Option<&str>, uid: usize) {
+        let name = format!("entity {}", uvid.unwrap_or(format!("uid {}", uid).as_str()));
+        self.metrics
+            .entity_audio_times
+            .insert(uid, self.metrics.bucket.timer(name.as_str()));
+    }
+
     pub fn add(&mut self, uvid: Option<&str>, entity: BoxedEntity<M>) -> usize {
-        self.store.add(uvid, entity)
+        self.metrics.entity_count.mark();
+        let uid = self.store.add(uvid, entity);
+        self.install_entity_metric(uvid, uid);
+        uid
     }
 
     pub(crate) fn get(&self, uvid: &str) -> Option<&BoxedEntity<M>> {
@@ -207,21 +240,29 @@ impl<M: MessageBounds> Orchestrator<M> {
 
     // This (probably) embarrassing method is supposed to be a naturally
     // recursive algorithm expressed iteratively. Yeah, just like the Google
-    // interview question. The reason functional recursion wouldn't fly is
-    // that the Rust borrow checker won't let us call ourselves if we've
-    // already borrowed ourselves &mut, which goes for any of our fields.
+    // interview question. The reason functional recursion wouldn't fly is that
+    // the Rust borrow checker won't let us call ourselves if we've already
+    // borrowed ourselves &mut, which goes for any of our fields.
+    //
     // TODO: simplify
+    //
+    // TODO: this loop never changes unless the Orchestrator composition does.
+    // We should snapshot it the first time and then just whiz through the
+    // snapshot the other million times.
     pub(crate) fn gather_audio(&mut self, clock: &mut Clock) -> MonoSample {
         enum StackEntry {
             ToVisit(usize),
             CollectResultFor(usize),
             Result(MonoSample),
         }
+        let gather_audio_start_time = self.metrics.gather_audio_fn_timer.start();
         let mut stack = Vec::new();
         let mut sum = MONO_SAMPLE_SILENCE;
         stack.push(StackEntry::ToVisit(self.main_mixer_uid));
 
+        self.metrics.mark_stack_loop_entry.mark();
         while let Some(entry) = stack.pop() {
+            self.metrics.mark_stack_loop_iteration.mark();
             match entry {
                 StackEntry::ToVisit(uid) => {
                     // We've never seen this node before.
@@ -230,7 +271,13 @@ impl<M: MessageBounds> Orchestrator<M> {
                             // If it's a leaf, eval it now and add it to the
                             // running sum.
                             BoxedEntity::Instrument(entity) => {
-                                sum += entity.source_audio(clock);
+                                if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
+                                    let start_time = timer.start();
+                                    sum += entity.source_audio(clock);
+                                    timer.stop(start_time);
+                                } else {
+                                    sum += entity.source_audio(clock);
+                                }
                             }
                             // If it's a node, eval its leaves, then eval
                             // its nodes, then process the result.
@@ -241,12 +288,21 @@ impl<M: MessageBounds> Orchestrator<M> {
                                     let source_uids = source_uids.to_vec();
                                     // Eval leaves
                                     for source_uid in &source_uids {
+                                        debug_assert!(*source_uid != uid);
                                         if let Some(entity) = self.store.get_mut(*source_uid) {
                                             match entity {
                                                 BoxedEntity::Controller(_) => {}
                                                 BoxedEntity::Effect(_) => {}
-                                                BoxedEntity::Instrument(e) => {
-                                                    sum += e.source_audio(clock);
+                                                BoxedEntity::Instrument(entity) => {
+                                                    if let Some(timer) =
+                                                        self.metrics.entity_audio_times.get(&uid)
+                                                    {
+                                                        let start_time = timer.start();
+                                                        sum += entity.source_audio(clock);
+                                                        timer.stop(start_time);
+                                                    } else {
+                                                        sum += entity.source_audio(clock);
+                                                    }
                                                 }
                                             }
                                         }
@@ -260,6 +316,9 @@ impl<M: MessageBounds> Orchestrator<M> {
                                             match entity {
                                                 BoxedEntity::Controller(_) => {}
                                                 BoxedEntity::Effect(_) => {
+                                                    debug_assert!(
+                                                        *source_uid != self.main_mixer_uid
+                                                    );
                                                     stack.push(StackEntry::ToVisit(*source_uid))
                                                 }
                                                 BoxedEntity::Instrument(_) => {}
@@ -283,7 +342,17 @@ impl<M: MessageBounds> Orchestrator<M> {
                         match entity {
                             BoxedEntity::Instrument(_) => {}
                             BoxedEntity::Effect(entity) => {
-                                stack.push(StackEntry::Result(entity.transform_audio(clock, sum)));
+                                let value = if let Some(timer) =
+                                    self.metrics.entity_audio_times.get(&uid)
+                                {
+                                    let start_time = timer.start();
+                                    let transform_audio = entity.transform_audio(clock, sum);
+                                    timer.stop(start_time);
+                                    transform_audio
+                                } else {
+                                    entity.transform_audio(clock, sum)
+                                };
+                                stack.push(StackEntry::Result(value));
                                 sum = MONO_SAMPLE_SILENCE;
                             }
                             BoxedEntity::Controller(_) => {}
@@ -292,9 +361,13 @@ impl<M: MessageBounds> Orchestrator<M> {
                 }
             }
         }
+        self.metrics
+            .gather_audio_fn_timer
+            .stop(gather_audio_start_time);
         sum
     }
 
+    #[allow(unused_variables)]
     pub(crate) fn connect_midi_upstream(&self, source_uid: usize) {}
 
     pub(crate) fn connect_midi_downstream(
@@ -331,6 +404,7 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
             store: Default::default(),
             main_mixer_uid: Default::default(),
             pattern_manager: Default::default(), // TODO: this should be added like main_mixer
+            metrics: Default::default(),
         };
         let main_mixer = Box::new(Mixer::default());
         r.main_mixer_uid = r.add(
@@ -383,6 +457,13 @@ impl GrooveRunner {
             }
             performance.worker.push(sample);
         }
+        println!();
+        orchestrator.metrics.bucket.stats(stats_all);
+        orchestrator
+            .metrics
+            .bucket
+            .flush_to(&Stream::write_to_stdout().metrics())
+            .unwrap();
         Ok(performance)
     }
 
