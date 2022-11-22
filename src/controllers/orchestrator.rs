@@ -295,9 +295,7 @@ impl<M: MessageBounds> Orchestrator<M> {
         sum
     }
 
-    pub(crate) fn connect_midi_upstream(&self, source_uid: usize) {
-        dbg!(&source_uid);
-    }
+    pub(crate) fn connect_midi_upstream(&self, source_uid: usize) {}
 
     pub(crate) fn connect_midi_downstream(
         &mut self,
@@ -680,7 +678,6 @@ impl<M> Store<M> {
         );
         println!("uvid_to_uid: {}", self.uvid_to_uid.len());
     }
-
 }
 
 #[cfg(test)]
