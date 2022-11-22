@@ -3,9 +3,16 @@ use crate::{
     clock::{Clock, PerfectTimeUnit},
     messages::GrooveMessage,
     midi::{MidiChannel, MidiMessage},
-    traits::{HasUid, IsController, Updateable, Terminates},
+    traits::{HasUid, IsController, Terminates, Updateable},
 };
 use midly::num::u7;
+use strum_macros::{Display, EnumString, FromRepr};
+
+#[derive(Display, Debug, EnumString, FromRepr)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum ArpeggiatorControlParams {
+    Nothing,
+}
 
 #[derive(Debug, Default)]
 pub struct Arpeggiator {
@@ -44,6 +51,13 @@ impl Updateable for Arpeggiator {
                     MidiMessage::PitchBend { bend: _ } => todo!(),
                 }
                 self.beat_sequencer.enable(self.is_device_playing);
+            }
+            Self::Message::UpdateF32(param_id, _value) => {
+                if let Some(param) = ArpeggiatorControlParams::from_repr(param_id) {
+                    match param {
+                        ArpeggiatorControlParams::Nothing => todo!(),
+                    }
+                }
             }
             _ => todo!(),
         }

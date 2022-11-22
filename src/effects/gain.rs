@@ -2,8 +2,15 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::GrooveMessage,
-    traits::{HasUid, IsEffect, Updateable, TransformsAudio},
+    traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
+use strum_macros::{Display, EnumString, FromRepr};
+
+#[derive(Display, Debug, EnumString, FromRepr)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum GainControlParams {
+    Ceiling,
+}
 
 #[derive(Debug, Default)]
 pub(crate) struct Gain {
@@ -19,6 +26,24 @@ impl TransformsAudio for Gain {
 }
 impl Updateable for Gain {
     type Message = GrooveMessage;
+
+    fn update(
+        &mut self,
+        _clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        match message {
+            Self::Message::UpdateF32(param_id, value) => {
+                if let Some(param) = GainControlParams::from_repr(param_id) {
+                    match param {
+                        GainControlParams::Ceiling => self.set_ceiling(value),
+                    }
+                }
+            }
+            _ => todo!(),
+        }
+        crate::traits::EvenNewerCommand::none()
+    }
 }
 impl HasUid for Gain {
     fn uid(&self) -> usize {

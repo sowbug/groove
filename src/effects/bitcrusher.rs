@@ -4,6 +4,14 @@ use crate::{
     messages::GrooveMessage,
     traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
+use strum_macros::{Display, EnumString, FromRepr};
+
+#[derive(Display, Debug, EnumString, FromRepr)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum BitcrusherControlParams {
+    #[strum(serialize = "bits-to-crush", serialize = "bits-to-crush-pct")]
+    BitsToCrushPct,
+}
 
 #[derive(Debug, Default)]
 pub struct Bitcrusher {
@@ -28,6 +36,18 @@ impl Updateable for Bitcrusher {
         clock: &Clock,
         message: Self::Message,
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        match message {
+            Self::Message::UpdateF32(param_id, value) => {
+                if let Some(param) = BitcrusherControlParams::from_repr(param_id) {
+                    match param {
+                        BitcrusherControlParams::BitsToCrushPct => {
+                            self.set_bits_to_crush_pct(value)
+                        }
+                    }
+                }
+            }
+            _ => todo!(),
+        }
         //TODO        Self::Message::BitcrusherValueChanged(new_value)
         crate::traits::EvenNewerCommand::none()
     }

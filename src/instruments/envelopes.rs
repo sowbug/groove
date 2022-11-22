@@ -3,11 +3,12 @@ use crate::{
     common::MonoSample,
     messages::GrooveMessage,
     settings::patches::EnvelopeSettings,
-    traits::{HasUid, IsInstrument, Updateable, SourcesAudio},
+    traits::{HasUid, IsInstrument, SourcesAudio, Updateable},
     Clock,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{fmt::Debug, ops::Range};
+use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Clone, Debug, Default)]
 pub enum EnvelopeFunction {
@@ -215,6 +216,12 @@ impl SourcesAudio for SteppedEnvelope {
     }
 }
 
+#[derive(Display, Debug, EnumString, FromRepr)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum AdsrEnvelopeControlParams {
+    Note,
+}
+
 #[derive(Debug, Default)]
 enum AdsrEnvelopeStepName {
     #[default]
@@ -244,6 +251,24 @@ impl SourcesAudio for AdsrEnvelope {
 }
 impl Updateable for AdsrEnvelope {
     type Message = GrooveMessage;
+
+    fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        match message {
+            Self::Message::UpdateF32(param_id, value) => {
+                if let Some(param) = AdsrEnvelopeControlParams::from_repr(param_id) {
+                    match param {
+                        AdsrEnvelopeControlParams::Note => self.set_note(clock, value),
+                    }
+                }
+            }
+            _ => todo!(),
+        }
+        crate::traits::EvenNewerCommand::none()
+    }
 }
 impl HasUid for AdsrEnvelope {
     fn uid(&self) -> usize {

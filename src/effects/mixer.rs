@@ -1,11 +1,15 @@
-use std::marker::PhantomData;
-
 use crate::{
     clock::Clock,
     common::MonoSample,
     messages::MessageBounds,
-    traits::{HasUid, IsEffect, Updateable, TransformsAudio},
+    traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
+use std::marker::PhantomData;
+use strum_macros::{Display, EnumString, FromRepr};
+
+#[derive(Display, Debug, EnumString, FromRepr)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum MixerControlParams {}
 
 #[derive(Clone, Debug, Default)]
 pub struct Mixer<M: MessageBounds> {
@@ -32,6 +36,7 @@ impl<M: MessageBounds> HasUid for Mixer<M> {
     }
 }
 impl<M: MessageBounds> Mixer<M> {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             ..Default::default()

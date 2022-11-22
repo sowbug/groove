@@ -89,6 +89,7 @@ impl<M: MessageBounds> HasUid for Orchestrator<M> {
 impl<M: MessageBounds> Orchestrator<M> {
     pub const MAIN_MIXER_UVID: &str = "main-mixer";
 
+    #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Default::default()
     }

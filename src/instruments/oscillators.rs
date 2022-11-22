@@ -5,6 +5,16 @@ use crate::{
     Clock, GrooveMessage,
 };
 use std::f32::consts::PI;
+use strum_macros::{Display, EnumString, FromRepr};
+
+#[derive(Display, Debug, EnumString, FromRepr)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum OscillatorControlParams {
+    // TODO: it's implied that this is 0.0f32..=1.0f32, which doesn't make a
+    // whole lot of sense for something that should be in Hz and range
+    // ~10f32..22050f32
+    Frequency,
+}
 
 #[derive(Clone, Debug)]
 pub struct Oscillator {
@@ -63,6 +73,24 @@ impl SourcesAudio for Oscillator {
 }
 impl Updateable for Oscillator {
     type Message = GrooveMessage;
+
+    fn update(
+        &mut self,
+        _clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        match message {
+            Self::Message::UpdateF32(param_id, value) => {
+                if let Some(param) = OscillatorControlParams::from_repr(param_id) {
+                    match param {
+                        OscillatorControlParams::Frequency => self.set_frequency(value),
+                    }
+                }
+            }
+            _ => todo!(),
+        }
+        crate::traits::EvenNewerCommand::none()
+    }
 }
 impl HasUid for Oscillator {
     fn uid(&self) -> usize {

@@ -1,9 +1,17 @@
+use strum_macros::{Display, EnumString, FromRepr};
 use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
     messages::GrooveMessage,
-    traits::{HasUid, IsEffect, Updateable, TransformsAudio},
+    traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
+
+#[derive(Display, Debug, EnumString, FromRepr)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum LimiterControlParams {
+    Max,
+    Min,
+}
 
 #[derive(Debug, Default)]
 pub struct Limiter {
@@ -21,18 +29,24 @@ impl TransformsAudio for Limiter {
 impl Updateable for Limiter {
     type Message = GrooveMessage;
 
-    // match message {
-    //     ViewableMessage::LimiterMinChanged(new_value) => {
-    //         if let Some(target) = self.target.upgrade() {
-    //             target.borrow_mut().set_min(new_value);
-    //         }
-    //     }
-    //     ViewableMessage::LimiterMaxChanged(new_value) => {
-    //         target.borrow_mut().set_max(new_value);
-    //     }
-    //     _ => todo!(),
-    // }
-
+    fn update(
+        &mut self,
+        _clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        match message {
+            Self::Message::UpdateF32(param_id, value) => {
+                if let Some(param) = LimiterControlParams::from_repr(param_id) {
+                    match param {
+                        LimiterControlParams::Max => self.set_max(value),
+                        LimiterControlParams::Min => self.set_min(value),
+                    }
+                }
+            }
+            _ => todo!(),
+        }
+        crate::traits::EvenNewerCommand::none()
+    }
 }
 impl HasUid for Limiter {
     fn uid(&self) -> usize {

@@ -7,7 +7,7 @@ use crate::{
 };
 use midly::MidiMessage;
 use std::{marker::PhantomData, str::FromStr};
-use strum_macros::{Display, EnumString};
+use strum_macros::{Display, EnumString, FromRepr};
 
 pub trait IsController: Updateable + Terminates + HasUid + std::fmt::Debug {}
 pub trait IsEffect: TransformsAudio + Updateable + HasUid + std::fmt::Debug {}
@@ -224,7 +224,7 @@ impl<M: MessageBounds> HasUid for TestEffect<M> {
     }
 }
 
-#[derive(Display, Debug, EnumString)]
+#[derive(Display, Debug, EnumString, FromRepr)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum TestInstrumentControlParams {
     // -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
@@ -413,8 +413,12 @@ impl Updateable for TestInstrument<GrooveMessage> {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
-            Self::Message::UpdateF32(_param_id, value) => {
-                self.set_waveform(value);
+            Self::Message::UpdateF32(param_id, value) => {
+                if let Some(param) = TestInstrumentControlParams::from_repr(param_id) {
+                    match param {
+                        TestInstrumentControlParams::Waveform => self.set_waveform(value),
+                    }
+                }
             }
             Self::Message::Midi(channel, message) => {
                 self.handle_midi(clock, channel, message);

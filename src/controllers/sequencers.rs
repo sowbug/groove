@@ -52,6 +52,7 @@ impl<M: MessageBounds> HasUid for BeatSequencer<M> {
 }
 
 impl<M: MessageBounds> BeatSequencer<M> {
+    #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self::default()
     }

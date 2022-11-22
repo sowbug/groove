@@ -1,6 +1,6 @@
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
-    traits::{HasUid, IsController, Updateable, Terminates},
+    traits::{HasUid, IsController, Terminates, Updateable},
     GrooveMessage,
 };
 use std::fmt::Debug;
@@ -64,18 +64,6 @@ pub struct PatternManager {
 impl IsController for PatternManager {}
 impl Updateable for PatternManager {
     type Message = GrooveMessage;
-
-    // fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-    //     match message {
-    //         ViewableMessage::PatternMessage(i, message) => {
-    //             self.patterns_mut()[i].update(message);
-    //         }
-    //         _ => {
-    //             dbg!(&message);
-    //         }
-    //     }
-    //     Command::none()
-    // }
 }
 impl Terminates for PatternManager {
     fn is_finished(&self) -> bool {
