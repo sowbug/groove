@@ -1,6 +1,5 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
-    gui::Viewable,
     messages::GrooveMessage,
     messages::MessageBounds,
     midi::{MidiChannel, MidiMessage},

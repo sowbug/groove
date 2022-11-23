@@ -88,7 +88,7 @@ impl EffectSettings {
             EffectSettings::Limiter { min, max } => {
                 Box::new(Limiter::new_with(min as MonoSample, max as MonoSample))
             }
-            EffectSettings::Gain { ceiling } => Box::new(Gain::new_with(ceiling)),
+            EffectSettings::Gain { ceiling } => Box::new(Gain::<GrooveMessage>::new_with(ceiling)),
             EffectSettings::Bitcrusher { bits_to_crush } => {
                 Box::new(Bitcrusher::new_with(bits_to_crush))
             }

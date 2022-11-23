@@ -124,10 +124,12 @@ impl<M: MessageBounds> Orchestrator<M> {
         self.clock_settings = clock_settings.clone();
     }
 
+    #[allow(dead_code)]
     pub(crate) fn store(&self) -> &Store<M> {
         &self.store
     }
 
+    #[allow(dead_code)]
     pub(crate) fn store_mut(&mut self) -> &mut Store<M> {
         &mut self.store
     }
@@ -146,10 +148,12 @@ impl<M: MessageBounds> Orchestrator<M> {
         uid
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get(&self, uvid: &str) -> Option<&BoxedEntity<M>> {
         self.store.get_by_uvid(uvid)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity<M>> {
         self.store.get_by_uvid_mut(uvid)
     }
@@ -181,6 +185,7 @@ impl<M: MessageBounds> Orchestrator<M> {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn unlink_control(&mut self, controller_uid: usize, target_uid: usize) {
         self.store.unlink_control(controller_uid, target_uid);
     }
@@ -220,6 +225,7 @@ impl<M: MessageBounds> Orchestrator<M> {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) {
         self.store.unpatch(output_uid, input_uid);
     }
@@ -380,6 +386,7 @@ impl<M: MessageBounds> Orchestrator<M> {
             .connect_midi_receiver(receiver_uid, receiver_midi_channel);
     }
 
+    #[allow(dead_code)]
     pub(crate) fn disconnect_midi_downstream(
         &mut self,
         receiver_uid: usize,
@@ -597,21 +604,6 @@ impl GrooveRunner {
                 }
             }
         }
-    }
-
-    fn send_msg_enable(
-        &mut self,
-        orchestrator: &mut GrooveOrchestrator,
-        clock: &Clock,
-        target_uid: usize,
-        enabled: bool,
-    ) {
-        self.send_msg(
-            orchestrator,
-            clock,
-            target_uid,
-            GrooveMessage::Enable(enabled),
-        );
     }
 }
 
@@ -951,6 +943,7 @@ pub mod tests {
             );
         }
 
+        #[allow(dead_code)]
         pub(crate) fn add_state_checker(
             &mut self,
             state_checker: Box<dyn IsEffect<Message = TestMessage, ViewMessage = TestMessage>>,

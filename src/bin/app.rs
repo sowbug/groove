@@ -3,7 +3,7 @@ mod gui;
 use async_std::task::block_on;
 use crossbeam::deque::Steal; // TODO: this leaks into the app. Necessary?
 use groove::{
-    gui::{GuiStuff, Viewable, GrooveMessage, NUMBERS_FONT, NUMBERS_FONT_SIZE},
+    gui::{GuiStuff, Viewable, NUMBERS_FONT, NUMBERS_FONT_SIZE},
     traits::{BoxedEntity, Updateable},
     AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, IOHelper, MidiHandler, TimeSignature,
 };
@@ -71,8 +71,7 @@ pub enum AppMessage {
     ControlBarMessage(ControlBarMessage),
     ControlBarBpm(String),
     GrooveMessage(GrooveMessage),
-   // ViewableMessage(usize, ViewableMessage),
-
+    // ViewableMessage(usize, ViewableMessage),
     Tick(Instant),
     EventOccurred(iced::Event),
 }
@@ -365,15 +364,15 @@ impl Application for GrooveApp {
                     self.clock.settings_mut().set_bpm(bpm);
                 }
             }
-            AppMessage::ViewableMessage(i, message) => {
-                // if i == 999 {
-                //     // TODO: short-term hack!
-                //     self.orchestrator.pattern_manager_mut().update(message);
-                // } else {
-                //     let _ = self.viewables[i].update(message);
-                //     // TODO: deal with this command after wrapping it.
-                // }
-            }
+            // AppMessage::ViewableMessage(i, message) => {
+            //     // if i == 999 {
+            //     //     // TODO: short-term hack!
+            //     //     self.orchestrator.pattern_manager_mut().update(message);
+            //     // } else {
+            //     //     let _ = self.viewables[i].update(message);
+            //     //     // TODO: deal with this command after wrapping it.
+            //     // }
+            // }
             AppMessage::EventOccurred(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {
                     // See https://github.com/iced-rs/iced/pull/804 and
@@ -473,18 +472,4 @@ pub fn main() -> iced::Result {
         exit_on_close_request: false,
         ..Settings::default()
     })
-}
-
-fn empty_message(message: &str) -> Element<'_, AppMessage> {
-    container(
-        text(message)
-            .width(Length::Fill)
-            .size(25)
-            .horizontal_alignment(alignment::Horizontal::Center)
-            .style(Color::from([0.7, 0.7, 0.7])),
-    )
-    .width(Length::Fill)
-    .height(Length::Units(200))
-    .center_y()
-    .into()
 }

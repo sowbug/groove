@@ -383,6 +383,7 @@ impl Updateable for TestController<GrooveMessage> {
             Self::Message::Enable(enabled) => {
                 self.is_enabled = enabled;
             }
+            #[allow(unused_variables)]
             GrooveMessage::Midi(channel, message) => {
                 //dbg!(&channel, &message);
             }
