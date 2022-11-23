@@ -1,5 +1,6 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
+    gui::Viewable,
     messages::GrooveMessage,
     messages::MessageBounds,
     midi::{MidiChannel, MidiMessage},
@@ -357,7 +358,7 @@ mod tests {
 
     fn advance_to_next_beat(
         clock: &mut Clock,
-        sequencer: &mut Box<dyn IsController<Message = TestMessage>>,
+        sequencer: &mut Box<dyn IsController<Message = TestMessage, ViewMessage = TestMessage>>,
     ) {
         let next_beat = clock.beats().floor() + 1.0;
         while clock.beats() < next_beat {
@@ -373,7 +374,7 @@ mod tests {
     // See Clock::next_slice_in_midi_ticks().
     fn advance_one_midi_tick(
         clock: &mut Clock,
-        sequencer: &mut Box<dyn IsController<Message = TestMessage>>,
+        sequencer: &mut Box<dyn IsController<Message = TestMessage, ViewMessage = TestMessage>>,
     ) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {

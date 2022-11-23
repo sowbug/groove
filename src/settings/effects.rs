@@ -78,7 +78,7 @@ impl EffectSettings {
         &self,
         sample_rate: usize,
         load_only_test_entities: bool,
-    ) -> Box<dyn IsEffect<Message = GrooveMessage>> {
+    ) -> Box<dyn IsEffect<Message = GrooveMessage, ViewMessage = GrooveMessage>> {
         if load_only_test_entities {
             return Box::new(TestEffect::<GrooveMessage>::default());
         }

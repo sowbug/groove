@@ -199,14 +199,15 @@ impl IOHelper {
         // TODO: this is a hack. We need only the number of channels used in the
         // SMF, but a few idle ones won't hurt for now.
         for channel in 0..16 {
-            let synth: Box<dyn IsInstrument<Message = GrooveMessage>> = if channel == 9 {
-                Box::new(Sampler::new_from_files())
-            } else {
-                Box::new(WelshSynth::new_with(
-                    ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
-                    SynthPatch::by_name(&PatchName::Piano),
-                ))
-            };
+            let synth: Box<dyn IsInstrument<Message = GrooveMessage, ViewMessage = GrooveMessage>> =
+                if channel == 9 {
+                    Box::new(Sampler::new_from_files())
+                } else {
+                    Box::new(WelshSynth::new_with(
+                        ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
+                        SynthPatch::by_name(&PatchName::Piano),
+                    ))
+                };
             let synth_uid = orchestrator.add(None, BoxedEntity::Instrument(synth));
             orchestrator.connect_midi_downstream(synth_uid, channel);
             let _ = orchestrator.connect_to_main_mixer(synth_uid);

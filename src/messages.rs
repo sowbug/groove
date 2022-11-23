@@ -1,4 +1,4 @@
-use crate::midi::MidiChannel;
+use crate::{midi::MidiChannel, gui::PatternMessage};
 use midly::MidiMessage;
 
 pub trait MessageBounds: Clone + std::fmt::Debug + Default + 'static {} // TODO: that 'static scares me
@@ -12,6 +12,7 @@ pub enum GrooveMessage {
     UpdateF32(usize, f32),  // sent by system, (param_id, new value)
     Midi(MidiChannel, MidiMessage),
     Enable(bool),
+    PatternMessage(usize, PatternMessage),
 }
 impl MessageBounds for GrooveMessage {}
 

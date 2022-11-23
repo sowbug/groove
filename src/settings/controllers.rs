@@ -107,7 +107,7 @@ impl ControllerSettings {
     ) -> (
         MidiChannel,
         MidiChannel,
-        Box<dyn IsController<Message = GrooveMessage>>,
+        Box<dyn IsController<Message = GrooveMessage, ViewMessage = GrooveMessage>>,
     ) {
         if load_only_test_entities {
             let (midi_input_channel, midi_output_channel) = match self {

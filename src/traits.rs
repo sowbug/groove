@@ -1,3 +1,4 @@
+use crate::gui::Viewable;
 use crate::{clock::Clock, common::MonoSample, messages::MessageBounds, GrooveMessage};
 use crate::{
     common::MONO_SAMPLE_SILENCE,
@@ -9,15 +10,15 @@ use midly::MidiMessage;
 use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
-pub trait IsController: Updateable + Terminates + HasUid + std::fmt::Debug {}
-pub trait IsEffect: TransformsAudio + Updateable + HasUid + std::fmt::Debug {}
-pub trait IsInstrument: SourcesAudio + Updateable + HasUid + std::fmt::Debug {}
+pub trait IsController: Updateable + Terminates + HasUid + Viewable + std::fmt::Debug {}
+pub trait IsEffect: TransformsAudio + Updateable + HasUid + Viewable + std::fmt::Debug {}
+pub trait IsInstrument: SourcesAudio + Updateable + HasUid + Viewable + std::fmt::Debug {}
 
 #[derive(Debug)]
 pub enum BoxedEntity<M> {
-    Controller(Box<dyn IsController<Message = M>>),
-    Effect(Box<dyn IsEffect<Message = M>>),
-    Instrument(Box<dyn IsInstrument<Message = M>>),
+    Controller(Box<dyn IsController<Message = M, ViewMessage = M>>),
+    Effect(Box<dyn IsEffect<Message = M, ViewMessage = M>>),
+    Instrument(Box<dyn IsInstrument<Message = M, ViewMessage = M>>),
 }
 
 pub trait Updateable {

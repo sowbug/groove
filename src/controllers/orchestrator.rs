@@ -786,7 +786,7 @@ pub mod tests {
         // It is an effect because it is intended to monitor another thing's
         // output, which is more like an effect than a controller or an
         // instrument.
-        state_checker: Option<Box<dyn IsEffect<Message = TestMessage>>>,
+        state_checker: Option<Box<dyn IsEffect<Message = TestMessage, ViewMessage = TestMessage>>>,
     }
     impl Runner {
         pub fn run(
@@ -953,7 +953,7 @@ pub mod tests {
 
         pub(crate) fn add_state_checker(
             &mut self,
-            state_checker: Box<dyn IsEffect<Message = TestMessage>>,
+            state_checker: Box<dyn IsEffect<Message = TestMessage, ViewMessage = TestMessage>>,
         ) {
             self.state_checker = Some(state_checker);
         }

@@ -670,7 +670,6 @@ pub mod tests {
             }
         }
     }
-
     impl<M: MessageBounds> HasUid for TestSynth<M> {
         fn uid(&self) -> usize {
             self.uid

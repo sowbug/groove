@@ -3,9 +3,9 @@ mod gui;
 use async_std::task::block_on;
 use crossbeam::deque::Steal; // TODO: this leaks into the app. Necessary?
 use groove::{
-    gui::{GuiStuff, IsViewable, ViewableMessage, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    traits::BoxedEntity,
-    AudioOutput, Clock, GrooveOrchestrator, IOHelper, MidiHandler, TimeSignature,
+    gui::{GuiStuff, Viewable, GrooveMessage, NUMBERS_FONT, NUMBERS_FONT_SIZE},
+    traits::{BoxedEntity, Updateable},
+    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, IOHelper, MidiHandler, TimeSignature,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -35,7 +35,6 @@ struct GrooveApp {
     project_name: String,
     orchestrator: Box<GrooveOrchestrator>,
     clock: Clock,
-    viewables: Vec<Box<dyn IsViewable<Message = ViewableMessage>>>,
     audio_output: AudioOutput,
 
     // Extra
@@ -53,7 +52,6 @@ impl Default for GrooveApp {
             project_name: Default::default(),
             orchestrator: Default::default(),
             clock: Default::default(),
-            viewables: Default::default(),
             audio_output: Default::default(),
             midi_handler_uid: usize::default(),
         }
@@ -68,11 +66,12 @@ enum State {
 }
 
 #[derive(Debug, Clone)]
-pub enum Message {
+pub enum AppMessage {
     Loaded(Result<SavedState, LoadError>),
     ControlBarMessage(ControlBarMessage),
     ControlBarBpm(String),
-    ViewableMessage(usize, ViewableMessage),
+    GrooveMessage(GrooveMessage),
+   // ViewableMessage(usize, ViewableMessage),
 
     Tick(Instant),
     EventOccurred(iced::Event),
@@ -92,25 +91,27 @@ pub struct ControlBar {
 }
 
 impl ControlBar {
-    pub fn view(&self, clock: &Clock, last_tick: Instant) -> Element<Message> {
+    pub fn view(&self, clock: &Clock, last_tick: Instant) -> Element<AppMessage> {
         container(
             row![
                 text_input(
                     "BPM",
                     clock.settings().bpm().round().to_string().as_str(),
-                    Message::ControlBarBpm
+                    AppMessage::ControlBarBpm
                 )
                 .width(Length::Units(60)),
                 container(row![
                     button(skip_to_prev_icon())
                         .width(Length::Units(32))
-                        .on_press(Message::ControlBarMessage(ControlBarMessage::SkipToStart)),
+                        .on_press(AppMessage::ControlBarMessage(
+                            ControlBarMessage::SkipToStart
+                        )),
                     button(play_icon())
                         .width(Length::Units(32))
-                        .on_press(Message::ControlBarMessage(ControlBarMessage::Play)),
+                        .on_press(AppMessage::ControlBarMessage(ControlBarMessage::Play)),
                     button(stop_icon())
                         .width(Length::Units(32))
-                        .on_press(Message::ControlBarMessage(ControlBarMessage::Stop))
+                        .on_press(AppMessage::ControlBarMessage(ControlBarMessage::Stop))
                 ])
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::FillPortion(1)),
@@ -161,7 +162,7 @@ impl GuiClock {
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self) -> Element<AppMessage> {
         let time_counter = {
             let minutes: u8 = (self.seconds / 60.0).floor() as u8;
             let seconds = self.seconds as usize % 60;
@@ -172,7 +173,7 @@ impl GuiClock {
                     .size(NUMBERS_FONT_SIZE),
             )
             .style(theme::Container::Custom(
-                GuiStuff::<Message>::number_box_style(&Theme::Dark),
+                GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
             ))
         };
 
@@ -195,7 +196,7 @@ impl GuiClock {
                     .size(NUMBERS_FONT_SIZE),
             )
             .style(theme::Container::Custom(
-                GuiStuff::<Message>::number_box_style(&Theme::Dark),
+                GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
             ))
         };
         row![time_counter, time_signature, beat_counter].into()
@@ -233,7 +234,7 @@ impl Midi {
         }
     }
 
-    pub fn view(&self, last_tick: Instant) -> Element<Message> {
+    pub fn view(&self, last_tick: Instant) -> Element<AppMessage> {
         let mut s = String::new();
         for input in self.inputs.iter() {
             s = format!("{s} {}", input.1);
@@ -252,19 +253,19 @@ impl Midi {
 }
 
 impl Application for GrooveApp {
-    type Message = Message;
+    type Message = AppMessage;
     type Theme = Theme;
     type Executor = executor::Default;
     type Flags = ();
 
-    fn new(_flags: ()) -> (GrooveApp, Command<Message>) {
+    fn new(_flags: ()) -> (GrooveApp, Command<AppMessage>) {
         (
             GrooveApp {
                 theme: Theme::Dark,
                 last_tick: Instant::now(),
                 ..Default::default()
             },
-            Command::perform(SavedState::load(), Message::Loaded),
+            Command::perform(SavedState::load(), AppMessage::Loaded),
         )
     }
 
@@ -276,27 +277,10 @@ impl Application for GrooveApp {
         String::from(&self.project_name)
     }
 
-    fn update(&mut self, message: Message) -> Command<Message> {
+    fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
         match message {
-            Message::Loaded(Ok(state)) => {
+            AppMessage::Loaded(Ok(state)) => {
                 let mut orchestrator = state.song_settings.instantiate(false).unwrap();
-
-                // TODO BROKEN
-                // let viewables = orchestrator
-                //     .viewables()
-                //     .iter()
-                //     .map(|item| {
-                //         if let Some(item) = item.upgrade() {
-                //             if let Some(responder) = item.borrow_mut().make_is_viewable() {
-                //                 responder
-                //             } else {
-                //                 panic!("make responder failed. Probably forgot new_wrapped()")
-                //             }
-                //         } else {
-                //             panic!("upgrade failed")
-                //         }
-                //     })
-                //     .collect();
                 let midi_handler_uid = orchestrator.add(
                     None,
                     BoxedEntity::Controller(Box::new(MidiHandler::default())),
@@ -305,7 +289,6 @@ impl Application for GrooveApp {
                     theme: self.theme.clone(),
                     project_name: state.project_name,
                     orchestrator,
-                    viewables: Vec::new(), // viewables, // TODO BROKEN
                     midi_handler_uid,
                     ..Default::default()
                 };
@@ -331,10 +314,10 @@ impl Application for GrooveApp {
                 //     .midi
                 //     .update(MidiControlBarMessage::Inputs(inputs.to_vec()));
             }
-            Message::Loaded(Err(_e)) => {
+            AppMessage::Loaded(Err(_e)) => {
                 todo!()
             }
-            Message::Tick(now) => {
+            AppMessage::Tick(now) => {
                 self.last_tick = now;
                 if let State::Playing = &mut self.state {
                     self.update_clock();
@@ -364,7 +347,7 @@ impl Application for GrooveApp {
                 //     }
                 // }
             }
-            Message::ControlBarMessage(message) => match message {
+            AppMessage::ControlBarMessage(message) => match message {
                 // TODO: not sure if we need ticking for now. it's playing OR
                 // midi
                 ControlBarMessage::Play => self.state = State::Playing,
@@ -377,12 +360,12 @@ impl Application for GrooveApp {
                 },
                 ControlBarMessage::SkipToStart => todo!(),
             },
-            Message::ControlBarBpm(new_value) => {
+            AppMessage::ControlBarBpm(new_value) => {
                 if let Ok(bpm) = new_value.parse() {
                     self.clock.settings_mut().set_bpm(bpm);
                 }
             }
-            Message::ViewableMessage(i, message) => {
+            AppMessage::ViewableMessage(i, message) => {
                 // if i == 999 {
                 //     // TODO: short-term hack!
                 //     self.orchestrator.pattern_manager_mut().update(message);
@@ -391,7 +374,7 @@ impl Application for GrooveApp {
                 //     // TODO: deal with this command after wrapping it.
                 // }
             }
-            Message::EventOccurred(event) => {
+            AppMessage::EventOccurred(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {
                     // See https://github.com/iced-rs/iced/pull/804 and
                     // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
@@ -404,19 +387,28 @@ impl Application for GrooveApp {
                     self.should_exit = true;
                 }
             }
+            AppMessage::GrooveMessage(message) => {
+                // TODO: we're swallowing the EvenNewerCommands we're getting
+                // from update()
+                //
+                // TODO: is this clock the right one to base everything off?
+                self.orchestrator.update(&self.clock, message);
+            }
         }
 
         Command::none()
     }
 
-    fn subscription(&self) -> Subscription<Message> {
+    fn subscription(&self) -> Subscription<AppMessage> {
         Subscription::batch([
-            iced_native::subscription::events().map(Message::EventOccurred),
+            iced_native::subscription::events().map(AppMessage::EventOccurred),
             // This is duplicative because I think we'll want different activity
             // levels depending on whether we're playing
             match self.state {
-                State::Idle => time::every(Duration::from_millis(10)).map(Message::Tick),
-                State::Playing { .. } => time::every(Duration::from_millis(10)).map(Message::Tick),
+                State::Idle => time::every(Duration::from_millis(10)).map(AppMessage::Tick),
+                State::Playing { .. } => {
+                    time::every(Duration::from_millis(10)).map(AppMessage::Tick)
+                }
             },
         ])
     }
@@ -431,38 +423,18 @@ impl Application for GrooveApp {
         self.should_exit
     }
 
-    fn view(&self) -> Element<Message> {
+    fn view(&self) -> Element<AppMessage> {
         match self.state {
             State::Idle => {}
             State::Playing => {}
         }
 
         let control_bar = self.control_bar.view(&self.clock, self.last_tick);
-
-        let views: Element<_> = if self.viewables.is_empty() {
-            empty_message("nothing yet")
-        } else {
-            // Start the views from the IsViewables views.
-            let view_vec: Vec<Element<Message>> = self
-                .viewables
-                .iter()
-                .enumerate()
-                .map(|(i, item)| {
-                    item.view()
-                        .map(move |message| Message::ViewableMessage(i, message))
-                })
-                .collect();
-
-            // TODO BROKEN
-            // Add in the view of the non-IsViewable PatternManager.
-            // view_vec.push(
-            //     self.orchestrator
-            //         .view()
-            //         .map(move |message| Message::ViewableMessage(999, message)),
-            // );
-            column(view_vec).spacing(10).into()
-        };
-        let scrollable_content = column![views];
+        let project_view = self
+            .orchestrator
+            .view()
+            .map(move |message| Self::Message::GrooveMessage(message));
+        let scrollable_content = column![project_view];
         let under_construction = text("Under Construction").width(Length::FillPortion(1));
         let scrollable = container(scrollable(scrollable_content)).width(Length::FillPortion(1));
         let main_workspace = row![under_construction, scrollable];
@@ -503,7 +475,7 @@ pub fn main() -> iced::Result {
     })
 }
 
-fn empty_message(message: &str) -> Element<'_, Message> {
+fn empty_message(message: &str) -> Element<'_, AppMessage> {
     container(
         text(message)
             .width(Length::Fill)

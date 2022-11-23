@@ -39,7 +39,7 @@ impl InstrumentSettings {
         &self,
         sample_rate: usize,
         load_only_test_entities: bool,
-    ) -> (MidiChannel, Box<dyn IsInstrument<Message = GrooveMessage>>) {
+    ) -> (MidiChannel, Box<dyn IsInstrument<Message = GrooveMessage, ViewMessage = GrooveMessage>>) {
         if load_only_test_entities {
             #[allow(unused_variables)]
             let midi_input_channel = match self {
