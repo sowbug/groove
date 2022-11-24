@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::MonoSample,
-    messages::GrooveMessage,
+    messages::EntityMessage,
     traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
 use strum_macros::{Display, EnumString, FromRepr};
@@ -28,7 +28,7 @@ impl TransformsAudio for Bitcrusher {
     }
 }
 impl Updateable for Bitcrusher {
-    type Message = GrooveMessage;
+    type Message = EntityMessage;
 
     #[allow(unused_variables)]
     fn update(

@@ -7,7 +7,7 @@ use crate::{
     controllers::{
         orchestrator::GrooveOrchestrator, sequencers::BeatSequencer, ControlPath, ControlTrip,
     },
-    messages::GrooveMessage,
+    messages::EntityMessage,
     midi::{
         patterns::{Note, Pattern},
         programmers::PatternProgrammer,
@@ -132,7 +132,7 @@ impl SongSettings {
         }
         let mut sequencer = Box::new(BeatSequencer::default());
         let mut programmer =
-            PatternProgrammer::<GrooveMessage>::new_with(&self.clock.time_signature);
+            PatternProgrammer::<EntityMessage>::new_with(&self.clock.time_signature);
 
         for track in &self.tracks {
             let channel = track.midi_channel;
@@ -163,7 +163,7 @@ impl SongSettings {
         }
         for control_trip_settings in &self.trips {
             if let Some(target_uid) = orchestrator.get_uid(&control_trip_settings.target.id) {
-                let mut control_trip = Box::new(ControlTrip::<GrooveMessage>::default());
+                let mut control_trip = Box::new(ControlTrip::<EntityMessage>::default());
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
                         control_trip.add_path(&control_path);

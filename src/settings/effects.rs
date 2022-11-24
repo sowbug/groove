@@ -7,7 +7,7 @@ use crate::{
         limiter::Limiter,
         mixer::Mixer,
     },
-    messages::GrooveMessage,
+    messages::EntityMessage,
     traits::{IsEffect, TestEffect},
 };
 use serde::{Deserialize, Serialize};
@@ -78,17 +78,17 @@ impl EffectSettings {
         &self,
         sample_rate: usize,
         load_only_test_entities: bool,
-    ) -> Box<dyn IsEffect<Message = GrooveMessage, ViewMessage = GrooveMessage>> {
+    ) -> Box<dyn IsEffect<Message = EntityMessage, ViewMessage = EntityMessage>> {
         if load_only_test_entities {
-            return Box::new(TestEffect::<GrooveMessage>::default());
+            return Box::new(TestEffect::<EntityMessage>::default());
         }
         match *self {
-            EffectSettings::Test {} => Box::new(TestEffect::<GrooveMessage>::default()),
-            EffectSettings::Mixer {} => Box::new(Mixer::<GrooveMessage>::default()),
+            EffectSettings::Test {} => Box::new(TestEffect::<EntityMessage>::default()),
+            EffectSettings::Mixer {} => Box::new(Mixer::<EntityMessage>::default()),
             EffectSettings::Limiter { min, max } => {
                 Box::new(Limiter::new_with(min as MonoSample, max as MonoSample))
             }
-            EffectSettings::Gain { ceiling } => Box::new(Gain::<GrooveMessage>::new_with(ceiling)),
+            EffectSettings::Gain { ceiling } => Box::new(Gain::<EntityMessage>::new_with(ceiling)),
             EffectSettings::Bitcrusher { bits_to_crush } => {
                 Box::new(Bitcrusher::new_with(bits_to_crush))
             }

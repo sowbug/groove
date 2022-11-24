@@ -1,14 +1,12 @@
-use serde::{Deserialize, Serialize};
-
+use super::MidiChannel;
 use crate::{
     clock::BeatValue,
     common::DeviceId,
     controllers::arpeggiator::Arpeggiator,
+    messages::EntityMessage,
     traits::{IsController, TestController},
-    GrooveMessage,
 };
-
-use super::MidiChannel;
+use serde::{Deserialize, Serialize};
 
 /// A ControlTrip contains successive ControlSteps. A ControlStep describes how
 /// to get from point A in time to point B in time, while controlling/automating
@@ -107,7 +105,7 @@ impl ControllerSettings {
     ) -> (
         MidiChannel,
         MidiChannel,
-        Box<dyn IsController<Message = GrooveMessage, ViewMessage = GrooveMessage>>,
+        Box<dyn IsController<Message = EntityMessage, ViewMessage = EntityMessage>>,
     ) {
         if load_only_test_entities {
             let (midi_input_channel, midi_output_channel) = match self {
@@ -123,7 +121,7 @@ impl ControllerSettings {
             return (
                 *midi_input_channel,
                 *midi_output_channel,
-                Box::new(TestController::<GrooveMessage>::new_with(
+                Box::new(TestController::<EntityMessage>::new_with(
                     *midi_output_channel,
                 )),
             );
@@ -135,7 +133,7 @@ impl ControllerSettings {
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                Box::new(TestController::<GrooveMessage>::new_with(
+                Box::new(TestController::<EntityMessage>::new_with(
                     midi_output_channel,
                 )),
             ),

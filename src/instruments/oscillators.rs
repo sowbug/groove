@@ -2,7 +2,7 @@ use crate::{
     common::MonoSample,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
     traits::{HasUid, IsInstrument, SourcesAudio, Updateable},
-    Clock, GrooveMessage,
+    Clock, messages::EntityMessage,
 };
 use std::f32::consts::PI;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -72,7 +72,7 @@ impl SourcesAudio for Oscillator {
     }
 }
 impl Updateable for Oscillator {
-    type Message = GrooveMessage;
+    type Message = EntityMessage;
 
     fn update(
         &mut self,

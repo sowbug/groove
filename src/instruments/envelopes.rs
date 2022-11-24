@@ -1,7 +1,7 @@
 use crate::{
     clock::ClockTimeUnit,
     common::MonoSample,
-    messages::GrooveMessage,
+    messages::EntityMessage,
     settings::patches::EnvelopeSettings,
     traits::{HasUid, IsInstrument, SourcesAudio, Updateable},
     Clock,
@@ -250,7 +250,7 @@ impl SourcesAudio for AdsrEnvelope {
     }
 }
 impl Updateable for AdsrEnvelope {
-    type Message = GrooveMessage;
+    type Message = EntityMessage;
 
     fn update(
         &mut self,

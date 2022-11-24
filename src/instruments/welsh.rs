@@ -1,7 +1,7 @@
 use crate::{
     common::MonoSample,
     effects::filter::{BiQuadFilter, FilterParams},
-    messages::GrooveMessage,
+    messages::EntityMessage,
     midi::{GeneralMidiProgram, MidiMessage, MidiUtils},
     settings::{
         patches::{LfoRouting, SynthPatch, WaveformType},
@@ -529,7 +529,7 @@ pub struct WelshVoice {
     lfo_routing: LfoRouting,
     lfo_depth: f32,
 
-    filter: BiQuadFilter<GrooveMessage>,
+    filter: BiQuadFilter<EntityMessage>,
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
     filter_envelope: AdsrEnvelope,
@@ -551,7 +551,7 @@ impl WelshVoice {
                 },
                 sample_rate,
             ),
-            filter_cutoff_start: BiQuadFilter::<GrooveMessage>::frequency_to_percent(
+            filter_cutoff_start: BiQuadFilter::<EntityMessage>::frequency_to_percent(
                 preset.filter_type_12db.cutoff,
             ),
             filter_cutoff_end: preset.filter_envelope_weight,
@@ -589,7 +589,7 @@ impl Updateable for WelshVoice {
     // MessageBounds' trait bounds.
     //
     // type Message = MidiMessage;
-    type Message = GrooveMessage;
+    type Message = EntityMessage;
 
     fn update(
         &mut self,
@@ -704,7 +704,7 @@ impl SourcesAudio for WelshSynth {
     }
 }
 impl Updateable for WelshSynth {
-    type Message = GrooveMessage;
+    type Message = EntityMessage;
 
     fn update(
         &mut self,
@@ -829,11 +829,11 @@ mod tests {
         while clock.seconds() < duration {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
-                voice.update(&clock, GrooveMessage::Midi(0, midi_on));
+                voice.update(&clock, EntityMessage::Midi(0, midi_on));
             } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
             {
                 last_recognized_time_point = clock.seconds();
-                voice.update(&clock, GrooveMessage::Midi(0, midi_off));
+                voice.update(&clock, EntityMessage::Midi(0, midi_off));
             }
 
             let sample = voice.source_audio(&clock);
@@ -906,7 +906,7 @@ mod tests {
         while clock.seconds() < duration {
             if when <= clock.seconds() && !is_message_sent {
                 is_message_sent = true;
-                source.update(clock, GrooveMessage::Midi(0, *message));
+                source.update(clock, EntityMessage::Midi(0, *message));
             }
             let sample = source.source_audio(clock);
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
@@ -1015,7 +1015,7 @@ mod tests {
 
         let mut clock = Clock::default();
         let mut voice = WelshVoice::new(clock.sample_rate(), &test_patch());
-        voice.update(&clock, GrooveMessage::Midi(0, message_on));
+        voice.update(&clock, EntityMessage::Midi(0, message_on));
         write_sound(
             &mut voice,
             &mut clock,
@@ -1033,7 +1033,7 @@ mod tests {
 
         let mut clock = Clock::default();
         let mut voice = WelshVoice::new(clock.sample_rate(), &cello_patch());
-        voice.update(&clock, GrooveMessage::Midi(0, message_on));
+        voice.update(&clock, EntityMessage::Midi(0, message_on));
         write_sound(
             &mut voice,
             &mut clock,

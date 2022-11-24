@@ -1,7 +1,7 @@
 use super::sequencers::BeatSequencer;
 use crate::{
     clock::{Clock, PerfectTimeUnit},
-    messages::GrooveMessage,
+    messages::EntityMessage,
     midi::{MidiChannel, MidiMessage},
     traits::{HasUid, IsController, Terminates, Updateable},
 };
@@ -18,13 +18,13 @@ pub(crate) enum ArpeggiatorControlParams {
 pub struct Arpeggiator {
     uid: usize,
     midi_channel_out: MidiChannel,
-    beat_sequencer: BeatSequencer<GrooveMessage>,
+    beat_sequencer: BeatSequencer<EntityMessage>,
 
     is_device_playing: bool,
 }
 impl IsController for Arpeggiator {}
 impl Updateable for Arpeggiator {
-    type Message = GrooveMessage;
+    type Message = EntityMessage;
 
     fn update(
         &mut self,

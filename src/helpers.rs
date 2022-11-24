@@ -5,7 +5,7 @@ use crate::{
         drumkit_sampler::Sampler,
         welsh::{PatchName, WelshSynth},
     },
-    messages::GrooveMessage,
+    messages::EntityMessage,
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     traits::{BoxedEntity, IsInstrument},
@@ -199,7 +199,7 @@ impl IOHelper {
         // TODO: this is a hack. We need only the number of channels used in the
         // SMF, but a few idle ones won't hurt for now.
         for channel in 0..16 {
-            let synth: Box<dyn IsInstrument<Message = GrooveMessage, ViewMessage = GrooveMessage>> =
+            let synth: Box<dyn IsInstrument<Message = EntityMessage, ViewMessage = EntityMessage>> =
                 if channel == 9 {
                     Box::new(Sampler::new_from_files())
                 } else {

@@ -24,6 +24,7 @@ pub(crate) mod effects;
 pub(crate) mod helpers;
 pub(crate) mod instruments;
 pub(crate) mod messages;
+pub(crate) mod metrics;
 pub(crate) mod midi;
 pub(crate) mod scripting;
 pub(crate) mod settings;

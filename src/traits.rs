@@ -1,5 +1,6 @@
 use crate::gui::Viewable;
-use crate::{clock::Clock, common::MonoSample, messages::MessageBounds, GrooveMessage};
+use crate::messages::EntityMessage;
+use crate::{clock::Clock, common::MonoSample, messages::MessageBounds};
 use crate::{
     common::MONO_SAMPLE_SILENCE,
     instruments::oscillators::Oscillator,
@@ -104,6 +105,11 @@ impl<T> EvenNewerCommand<T> {
         Self(Internal::Batch(batch))
     }
 }
+
+// NOTE: The Test... entities are in the non-tests module because they're
+// sometimes useful as simple real entities to substitute in for production
+// ones, for example if we're trying to determine whether an entity is
+// responsible for a performance issue.
 
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
@@ -340,8 +346,8 @@ impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
     }
 }
 
-impl Updateable for TestController<GrooveMessage> {
-    type Message = GrooveMessage;
+impl Updateable for TestController<EntityMessage> {
+    type Message = EntityMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
@@ -384,7 +390,7 @@ impl Updateable for TestController<GrooveMessage> {
                 self.is_enabled = enabled;
             }
             #[allow(unused_variables)]
-            GrooveMessage::Midi(channel, message) => {
+            Self::Message::Midi(channel, message) => {
                 //dbg!(&channel, &message);
             }
             _ => todo!(),
@@ -393,8 +399,8 @@ impl Updateable for TestController<GrooveMessage> {
     }
 }
 
-impl Updateable for TestEffect<GrooveMessage> {
-    type Message = GrooveMessage;
+impl Updateable for TestEffect<EntityMessage> {
+    type Message = EntityMessage;
 
     fn update(
         &mut self,
@@ -413,8 +419,8 @@ impl Updateable for TestEffect<GrooveMessage> {
     }
 }
 
-impl Updateable for TestInstrument<GrooveMessage> {
-    type Message = GrooveMessage;
+impl Updateable for TestInstrument<EntityMessage> {
+    type Message = EntityMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
@@ -436,108 +442,11 @@ impl Updateable for TestInstrument<GrooveMessage> {
 
 #[cfg(test)]
 pub mod tests {
-    use std::str::FromStr;
-
-    use super::{EvenNewerCommand, SourcesAudio, TestEffect, TestEffectControlParams, Updateable};
-    use super::{TestController, TestControllerAction, TestInstrument};
+    use super::SourcesAudio;
+    use super::TestInstrument;
     use crate::clock::Clock;
     use crate::messages::tests::TestMessage;
-    use midly::MidiMessage;
     use rand::random;
-
-    impl Updateable for TestController<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                Self::Message::Tick => {
-                    return match self.what_to_do(clock) {
-                        TestControllerAction::Nothing => EvenNewerCommand::none(),
-                        TestControllerAction::NoteOn => {
-                            // This is elegant, I hope. If the arpeggiator is
-                            // disabled during play, and we were playing a note,
-                            // then we still send the off note,
-                            if self.is_enabled {
-                                self.is_playing = true;
-                                EvenNewerCommand::single(Self::Message::Midi(
-                                    self.midi_channel_out,
-                                    MidiMessage::NoteOn {
-                                        key: 60.into(),
-                                        vel: 127.into(),
-                                    },
-                                ))
-                            } else {
-                                EvenNewerCommand::none()
-                            }
-                        }
-                        TestControllerAction::NoteOff => {
-                            if self.is_playing {
-                                EvenNewerCommand::single(Self::Message::Midi(
-                                    self.midi_channel_out,
-                                    MidiMessage::NoteOff {
-                                        key: 60.into(),
-                                        vel: 0.into(),
-                                    },
-                                ))
-                            } else {
-                                EvenNewerCommand::none()
-                            }
-                        }
-                    };
-                }
-                Self::Message::Enable(enabled) => {
-                    self.is_enabled = enabled;
-                    EvenNewerCommand::none()
-                }
-                _ => todo!(),
-            }
-        }
-    }
-
-    impl Updateable for TestEffect<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            _clock: &Clock,
-            _message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            EvenNewerCommand::none()
-        }
-
-        fn param_id_for_name(&self, param_name: &str) -> usize {
-            if let Ok(param) = TestEffectControlParams::from_str(param_name) {
-                param as usize
-            } else {
-                usize::MAX
-            }
-        }
-    }
-
-    impl Updateable for TestInstrument<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                Self::Message::UpdateF32(_param_id, value) => {
-                    self.set_waveform(value);
-                }
-                Self::Message::Midi(channel, message) => {
-                    self.handle_midi(clock, channel, message);
-                }
-                _ => todo!(),
-            }
-            EvenNewerCommand::none()
-        }
-    }
 
     // TODO: restore tests that test basic trait behavior, then figure out how
     // to run everyone implementing those traits through that behavior. For now,

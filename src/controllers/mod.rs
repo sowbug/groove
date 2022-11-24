@@ -4,7 +4,7 @@ pub(crate) mod sequencers;
 
 use crate::clock::{Clock, ClockTimeUnit};
 use crate::instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
-use crate::messages::{GrooveMessage, MessageBounds};
+use crate::messages::{EntityMessage, MessageBounds};
 use crate::settings::controllers::ControlStep;
 use crate::traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable};
 use crate::{clock::BeatValue, settings::controllers::ControlPathSettings};
@@ -126,35 +126,19 @@ impl<M: MessageBounds> ControlTrip<M> {
         }
     }
 }
-impl Updateable for ControlTrip<GrooveMessage> {
-    type Message = GrooveMessage;
+impl Updateable for ControlTrip<EntityMessage> {
+    type Message = EntityMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::Tick => {
                 if self.tick(clock) {
-                    return EvenNewerCommand::single(Self::Message::ControlF32(
-                        self.uid,
-                        self.current_value,
-                    ));
+                    // tick() tells us that our value has changed, so let's tell
+                    // the world about that.
+                    return EvenNewerCommand::single(Self::Message::ControlF32(self.current_value));
                 }
             }
-            GrooveMessage::Nop => todo!(),
-            GrooveMessage::ControlF32(_, _) => todo!(),
-            GrooveMessage::UpdateF32(_, _) => todo!(),
-            GrooveMessage::Midi(_, _) => todo!(),
-            GrooveMessage::Enable(_) => todo!(),
-            GrooveMessage::PatternMessage(_, _) => todo!(),
-            GrooveMessage::MutePressed(_) => todo!(),
-            GrooveMessage::EnablePressed(_) => todo!(),
-            GrooveMessage::ArpeggiatorChanged(_) => todo!(),
-            GrooveMessage::BitcrusherValueChanged(_) => todo!(),
-            GrooveMessage::FilterCutoffChangedAsF32(_) => todo!(),
-            GrooveMessage::FilterCutoffChangedAsU8Percentage(_) => todo!(),
-            GrooveMessage::GainLevelChangedAsString(_) => todo!(),
-            GrooveMessage::GainLevelChangedAsU8Percentage(_) => todo!(),
-            GrooveMessage::LimiterMinChanged(_) => todo!(),
-            GrooveMessage::LimiterMaxChanged(_) => todo!(),
+            _ => todo!(),
         }
         EvenNewerCommand::none()
     }
@@ -188,28 +172,27 @@ mod tests {
         Orchestrator,
     };
 
-    impl Updateable for ControlTrip<TestMessage> {
-        type Message = TestMessage;
+    // impl Updateable for ControlTrip<TestMessage> {
+    //     type Message = TestMessage;
 
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                Self::Message::Tick => {
-                    if self.tick(clock) {
-                        return EvenNewerCommand::single(Self::Message::ControlF32(
-                            self.uid,
-                            self.current_value,
-                        ));
-                    }
-                }
-                _ => todo!(),
-            }
-            EvenNewerCommand::none()
-        }
-    }
+    //     fn update(
+    //         &mut self,
+    //         clock: &Clock,
+    //         message: Self::Message,
+    //     ) -> EvenNewerCommand<Self::Message> {
+    //         match message {
+    //             Self::Message::Tick => {
+    //                 if self.tick(clock) {
+    //                     return EvenNewerCommand::single(EntityMessage::ControlF32(
+    //                         self.current_value,
+    //                     ));
+    //                 }
+    //             }
+    //             _ => todo!(),
+    //         }
+    //         EvenNewerCommand::none()
+    //     }
+    // }
 
     #[test]
     fn test_flat_step() {
@@ -227,9 +210,9 @@ mod tests {
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
         let target_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(TestInstrument::<TestMessage>::default())),
+            BoxedEntity::Instrument(Box::new(TestInstrument::<EntityMessage>::default())),
         );
-        let mut trip = ControlTrip::<TestMessage>::default();
+        let mut trip = ControlTrip::<EntityMessage>::default();
         trip.add_path(&path);
         o.add(None, BoxedEntity::Controller(Box::new(trip)));
 
@@ -265,9 +248,9 @@ mod tests {
         let mut o = Box::new(Orchestrator::default());
         let target_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(TestInstrument::<TestMessage>::default())),
+            BoxedEntity::Instrument(Box::new(TestInstrument::<EntityMessage>::default())),
         );
-        let mut trip = Box::new(ControlTrip::<TestMessage>::default());
+        let mut trip = Box::new(ControlTrip::<EntityMessage>::default());
         trip.add_path(&path);
         let controller_uid = o.add(None, BoxedEntity::Controller(trip));
 

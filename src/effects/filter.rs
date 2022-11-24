@@ -491,6 +491,7 @@ mod tests {
     use crate::{
         instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
         messages::tests::TestMessage,
+        messages::EntityMessage,
         traits::BoxedEntity,
         utils::tests::TestControlSourceContinuous,
         Orchestrator,
@@ -665,8 +666,8 @@ mod tests {
             ));
             let (start_value, end_value) = match t.2 {
                 BiQuadFilterControlParams::CutoffPct => (
-                    BiQuadFilter::<TestMessage>::frequency_to_percent(t.3),
-                    BiQuadFilter::<TestMessage>::frequency_to_percent(t.4),
+                    BiQuadFilter::<EntityMessage>::frequency_to_percent(t.3),
+                    BiQuadFilter::<EntityMessage>::frequency_to_percent(t.4),
                 ),
                 BiQuadFilterControlParams::Q => (t.3, t.4),
                 _ => todo!(),
@@ -680,7 +681,9 @@ mod tests {
             ));
             let controller_uid = o.add(
                 None,
-                BoxedEntity::Controller(Box::new(TestControlSourceContinuous::new_with(envelope))),
+                BoxedEntity::Controller(Box::new(
+                    TestControlSourceContinuous::<EntityMessage>::new_with(envelope),
+                )),
             );
             o.link_control(controller_uid, effect_uid, &t.2.to_string());
             // TODO: I got tired and stopped working on this.

@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::MonoSample,
-    messages::{GrooveMessage, MessageBounds},
+    messages::{EntityMessage, MessageBounds},
     traits::{
         EvenNewerCommand, HasUid, IsController, IsInstrument, SourcesAudio, Terminates, Updateable,
     },
@@ -45,8 +45,8 @@ impl<M: MessageBounds> Updateable for Timer<M> {
         EvenNewerCommand::none()
     }
 }
-impl Updateable for Timer<GrooveMessage> {
-    type Message = GrooveMessage;
+impl Updateable for Timer<EntityMessage> {
+    type Message = EntityMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
@@ -114,15 +114,15 @@ impl<M: MessageBounds> Trigger<M> {
         }
     }
 }
-impl Updateable for Trigger<GrooveMessage> {
-    type Message = GrooveMessage;
+impl Updateable for Trigger<EntityMessage> {
+    type Message = EntityMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::Tick => {
                 return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
                     self.has_triggered = true;
-                    EvenNewerCommand::single(Self::Message::ControlF32(self.uid, self.value))
+                    EvenNewerCommand::single(Self::Message::ControlF32(self.value))
                 } else {
                     EvenNewerCommand::none()
                 };
@@ -194,8 +194,8 @@ pub mod tests {
         common::{MonoSample, MONO_SAMPLE_SILENCE},
         controllers::orchestrator::{tests::Runner, GrooveRunner, Orchestrator},
         instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
-        messages::MessageBounds,
-        messages::{tests::TestMessage, GrooveMessage},
+        messages::{tests::TestMessage, EntityMessage},
+        messages::{GrooveMessage, MessageBounds},
         midi::MidiChannel,
         settings::{patches::EnvelopeSettings, ClockSettings},
         traits::{
@@ -208,7 +208,7 @@ pub mod tests {
     use convert_case::{Case, Casing};
     use strum_macros::FromRepr;
     // use plotters::prelude::*;
-    use super::{Timer, Trigger};
+    use super::Timer;
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
     };
@@ -414,30 +414,6 @@ pub mod tests {
         }
     }
 
-    impl Updateable for Trigger<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                Self::Message::Tick => {
-                    return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds
-                    {
-                        self.has_triggered = true;
-                        EvenNewerCommand::single(Self::Message::ControlF32(self.uid, self.value))
-                    } else {
-                        EvenNewerCommand::none()
-                    };
-                }
-                _ => {}
-            }
-            EvenNewerCommand::none()
-        }
-    }
-
     #[derive(Debug, Default)]
     pub struct TestMixer<M: MessageBounds> {
         uid: usize,
@@ -500,8 +476,8 @@ pub mod tests {
             usize::MAX
         }
     }
-    impl Updateable for TestLfo<TestMessage> {
-        type Message = TestMessage;
+    impl Updateable for TestLfo<EntityMessage> {
+        type Message = EntityMessage;
 
         fn update(
             &mut self,
@@ -510,7 +486,7 @@ pub mod tests {
         ) -> EvenNewerCommand<Self::Message> {
             if let Self::Message::Tick = message {
                 let value = self.oscillator.source_audio(&clock);
-                EvenNewerCommand::single(Self::Message::ControlF32(self.uid, value))
+                EvenNewerCommand::single(Self::Message::ControlF32(value))
             } else {
                 EvenNewerCommand::none()
             }
@@ -609,39 +585,8 @@ pub mod tests {
             usize::MAX
         }
     }
-    impl Updateable for TestSynth<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            _clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                Self::Message::UpdateF32(param_index, value) => {
-                    if let Some(param) = TestSynthControlParams::from_repr(param_index) {
-                        match param {
-                            TestSynthControlParams::OscillatorModulation => {
-                                self.oscillator.set_frequency_modulation(value);
-                            }
-                        }
-                    }
-                }
-                _ => todo!(),
-            }
-            EvenNewerCommand::none()
-        }
-
-        fn param_id_for_name(&self, param_name: &str) -> usize {
-            if let Ok(param) = TestSynthControlParams::from_str(param_name) {
-                param as usize
-            } else {
-                0
-            }
-        }
-    }
-    impl Updateable for TestSynth<GrooveMessage> {
-        type Message = GrooveMessage;
+    impl Updateable for TestSynth<EntityMessage> {
+        type Message = EntityMessage;
 
         fn update(
             &mut self,
@@ -700,8 +645,8 @@ pub mod tests {
             EvenNewerCommand::none()
         }
     }
-    impl Updateable for TestControlSourceContinuous<TestMessage> {
-        type Message = TestMessage;
+    impl Updateable for TestControlSourceContinuous<EntityMessage> {
+        type Message = EntityMessage;
 
         fn update(
             &mut self,
@@ -711,7 +656,7 @@ pub mod tests {
             match message {
                 Self::Message::Tick => {
                     let value = self.source.source_audio(&clock).abs();
-                    EvenNewerCommand::single(Self::Message::ControlF32(self.uid, value))
+                    EvenNewerCommand::single(Self::Message::ControlF32(value))
                 }
                 _ => EvenNewerCommand::none(),
             }
@@ -839,13 +784,13 @@ pub mod tests {
         // A simple audio source.
         let synth_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(TestSynth::<TestMessage>::default())),
+            BoxedEntity::Instrument(Box::new(TestSynth::default())),
         );
 
         // A simple effect.
         let effect_uid = o.add(
             None,
-            BoxedEntity::Effect(Box::new(TestEffect::<TestMessage>::default())),
+            BoxedEntity::Effect(Box::new(TestEffect::<EntityMessage>::default())),
         );
 
         // Connect the audio's output to the effect's input.
@@ -858,7 +803,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Controller(Box::new(Timer::<TestMessage>::new_with(SECONDS as f32))),
+            BoxedEntity::Controller(Box::new(Timer::new_with(SECONDS as f32))),
         );
 
         // Gather the audio output.
@@ -896,9 +841,9 @@ pub mod tests {
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(TestSynth::<TestMessage>::default())),
+            BoxedEntity::Instrument(Box::new(TestSynth::default())),
         );
-        let mut lfo = TestLfo::<TestMessage>::default();
+        let mut lfo = TestLfo::default();
         lfo.set_frequency(2.0);
         let lfo_uid = o.add(None, BoxedEntity::Controller(Box::new(lfo)));
         o.link_control(
@@ -913,7 +858,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Controller(Box::new(Timer::<TestMessage>::new_with(SECONDS as f32))),
+            BoxedEntity::Controller(Box::new(Timer::new_with(SECONDS as f32))),
         );
 
         // Gather the audio output.
@@ -948,13 +893,11 @@ pub mod tests {
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(TestInstrument::<TestMessage>::default())),
+            BoxedEntity::Instrument(Box::new(TestInstrument::default())),
         );
         let arpeggiator_uid = o.add(
             None,
-            BoxedEntity::Controller(Box::new(TestController::<TestMessage>::new_with(
-                TEST_MIDI_CHANNEL,
-            ))),
+            BoxedEntity::Controller(Box::new(TestController::new_with(TEST_MIDI_CHANNEL))),
         );
 
         // We'll hear the instrument.
@@ -968,7 +911,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Controller(Box::new(Timer::<TestMessage>::new_with(SECONDS as f32))),
+            BoxedEntity::Controller(Box::new(Timer::new_with(SECONDS as f32))),
         );
 
         // Everything is hooked up. Let's run it and hear what we got.
@@ -1045,15 +988,11 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::<GrooveMessage>::default());
 
         // A simple audio source.
-        let entity_groove =
-            BoxedEntity::Instrument(Box::new(TestSynth::<GrooveMessage>::default()));
+        let entity_groove = BoxedEntity::Instrument(Box::new(TestSynth::default()));
         let synth_uid = o.add(None, entity_groove);
 
         // A simple effect.
-        let effect_uid = o.add(
-            None,
-            BoxedEntity::Effect(Box::new(TestEffect::<GrooveMessage>::default())),
-        );
+        let effect_uid = o.add(None, BoxedEntity::Effect(Box::new(TestEffect::default())));
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -1065,7 +1004,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Controller(Box::new(Timer::<GrooveMessage>::new_with(SECONDS as f32))),
+            BoxedEntity::Controller(Box::new(Timer::new_with(SECONDS as f32))),
         );
 
         // Gather the audio output.

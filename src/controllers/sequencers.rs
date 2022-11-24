@@ -1,6 +1,6 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
-    messages::GrooveMessage,
+    messages::EntityMessage,
     messages::MessageBounds,
     midi::{MidiChannel, MidiMessage},
     traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable},
@@ -85,8 +85,8 @@ impl<M: MessageBounds> BeatSequencer<M> {
     }
 }
 
-impl Updateable for BeatSequencer<GrooveMessage> {
-    type Message = GrooveMessage;
+impl Updateable for BeatSequencer<EntityMessage> {
+    type Message = EntityMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
@@ -201,8 +201,8 @@ impl<M: MessageBounds> MidiTickSequencer<M> {
     }
 }
 
-impl Updateable for MidiTickSequencer<GrooveMessage> {
-    type Message = GrooveMessage;
+impl Updateable for MidiTickSequencer<EntityMessage> {
+    type Message = EntityMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
@@ -242,13 +242,13 @@ mod tests {
 
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
-        clock::{Clock, MidiTicks, PerfectTimeUnit},
+        clock::{Clock, MidiTicks},
+        messages::EntityMessage,
         messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
-        traits::{BoxedEntity, EvenNewerCommand, IsController, TestInstrument, Updateable},
+        traits::{BoxedEntity, IsController, TestInstrument},
         Orchestrator,
     };
-    use std::ops::Bound::{Excluded, Included};
 
     impl<M: MessageBounds> BeatSequencer<M> {
         pub fn debug_events(&self) -> &BeatEventsMap {
@@ -277,94 +277,16 @@ mod tests {
         }
     }
 
-    impl Updateable for BeatSequencer<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                Self::Message::Tick => {
-                    self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
-
-                    return if self.is_enabled() {
-                        // If the last instant marks a new interval, then we want to include
-                        // any events scheduled at exactly that time. So the range is
-                        // inclusive.
-                        let range = (
-                            Included(PerfectTimeUnit(clock.beats())),
-                            Excluded(self.next_instant),
-                        );
-                        EvenNewerCommand::batch(self.events.range(range).into_iter().fold(
-                            Vec::new(),
-                            |mut vec, (_when, event)| {
-                                vec.push(EvenNewerCommand::single(Self::Message::Midi(
-                                    event.0, event.1,
-                                )));
-                                vec
-                            },
-                        ))
-                    } else {
-                        EvenNewerCommand::none()
-                    };
-                }
-                _ => todo!(),
-            }
-        }
-    }
-
-    impl Updateable for MidiTickSequencer<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                Self::Message::Tick => {
-                    self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
-
-                    if self.is_enabled() {
-                        // If the last instant marks a new interval, then we want to include
-                        // any events scheduled at exactly that time. So the range is
-                        // inclusive.
-                        let range = (
-                            Included(MidiTicks(clock.midi_ticks())),
-                            Excluded(self.next_instant),
-                        );
-                        let events = self.events.range(range);
-                        EvenNewerCommand::batch(events.into_iter().fold(
-                            Vec::new(),
-                            |mut vec: Vec<EvenNewerCommand<Self::Message>>,
-                             (_when, (channel, message))| {
-                                vec.push(EvenNewerCommand::single(Self::Message::Midi(
-                                    *channel, *message,
-                                )));
-                                vec
-                            },
-                        ))
-                    } else {
-                        EvenNewerCommand::none()
-                    }
-                }
-                _ => todo!(),
-            }
-        }
-    }
-
     fn advance_to_next_beat(
         clock: &mut Clock,
-        sequencer: &mut Box<dyn IsController<Message = TestMessage, ViewMessage = TestMessage>>,
+        sequencer: &mut Box<dyn IsController<Message = EntityMessage, ViewMessage = EntityMessage>>,
     ) {
         let next_beat = clock.beats().floor() + 1.0;
         while clock.beats() < next_beat {
             // TODO: a previous version of this utility function had
             // clock.tick() first, meaning that the sequencer never got the 0th
             // (first) tick. No test ever cared, apparently. Fix this.
-            let _ = sequencer.update(&clock, TestMessage::Tick);
+            let _ = sequencer.update(&clock, EntityMessage::Tick);
             clock.tick();
         }
     }
@@ -373,11 +295,11 @@ mod tests {
     // See Clock::next_slice_in_midi_ticks().
     fn advance_one_midi_tick(
         clock: &mut Clock,
-        sequencer: &mut Box<dyn IsController<Message = TestMessage, ViewMessage = TestMessage>>,
+        sequencer: &mut Box<dyn IsController<Message = EntityMessage, ViewMessage = EntityMessage>>,
     ) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
-            let _ = sequencer.update(&clock, TestMessage::Tick);
+            let _ = sequencer.update(&clock, EntityMessage::Tick);
             clock.tick();
         }
     }
@@ -387,8 +309,8 @@ mod tests {
         const DEVICE_MIDI_CHANNEL: MidiChannel = 7;
         let mut clock = Clock::default();
         let mut o = Orchestrator::<TestMessage>::default();
-        let mut sequencer = Box::new(MidiTickSequencer::<TestMessage>::default());
-        let instrument = Box::new(TestInstrument::<TestMessage>::default());
+        let mut sequencer = Box::new(MidiTickSequencer::<EntityMessage>::default());
+        let instrument = Box::new(TestInstrument::<EntityMessage>::default());
         let device_uid = o.add(None, BoxedEntity::Instrument(instrument));
 
         sequencer.insert(

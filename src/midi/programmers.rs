@@ -5,7 +5,7 @@ use super::{
 use crate::{
     clock::{MidiTicks, PerfectTimeUnit},
     controllers::sequencers::{BeatSequencer, MidiTickSequencer},
-    messages::GrooveMessage,
+    messages::EntityMessage,
     messages::MessageBounds,
     TimeSignature,
 };
@@ -15,7 +15,7 @@ use std::{cmp, marker::PhantomData};
 pub struct MidiSmfReader {}
 
 impl MidiSmfReader {
-    pub fn program_sequencer(sequencer: &mut MidiTickSequencer<GrooveMessage>, data: &[u8]) {
+    pub fn program_sequencer(sequencer: &mut MidiTickSequencer<EntityMessage>, data: &[u8]) {
         let parse_result = midly::Smf::parse(data).unwrap();
 
         struct MetaInfo {
@@ -327,9 +327,9 @@ mod tests {
     fn test_random_access() {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
         let mut o = Orchestrator::<TestMessage>::default();
-        let mut sequencer = Box::new(BeatSequencer::default());
+        let mut sequencer = Box::new(BeatSequencer::<EntityMessage>::default());
         let mut programmer =
-            PatternProgrammer::<TestMessage>::new_with(&TimeSignature::new_defaults());
+            PatternProgrammer::<EntityMessage>::new_with(&TimeSignature::new_defaults());
         let mut pattern = Pattern::<Note>::default();
 
         const NOTE_VALUE: BeatValue = BeatValue::Quarter;
@@ -362,7 +362,7 @@ mod tests {
         ]);
         programmer.insert_pattern_at_cursor(&mut sequencer, &INSTRUMENT_MIDI_CHANNEL, &pattern);
 
-        let midi_recorder = Box::new(TestInstrument::<TestMessage>::default());
+        let midi_recorder = Box::new(TestInstrument::default());
         let midi_recorder_uid = o.add(None, BoxedEntity::Instrument(midi_recorder));
         o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
 
@@ -429,7 +429,7 @@ mod tests {
         // first note off (not on!) and the second note on/off.
         let _ = o.add(
             None,
-            BoxedEntity::Controller(Box::new(Timer::<TestMessage>::new_with(2.0))),
+            BoxedEntity::Controller(Box::new(Timer::new_with(2.0))),
         );
         assert!(r.run(&mut o, &mut clock).is_ok());
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 3);

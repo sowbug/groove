@@ -11,7 +11,7 @@ use crate::{
         drumkit_sampler::Sampler as DrumkitSampler, envelopes::AdsrEnvelope,
         oscillators::Oscillator, sampler::Sampler, welsh::WelshSynth,
     },
-    messages::{GrooveMessage, MessageBounds},
+    messages::{EntityMessage, GrooveMessage, MessageBounds},
     midi::{
         patterns::{Note, Pattern, PatternManager},
         MidiOutputHandler,
@@ -180,7 +180,7 @@ impl<M: MessageBounds> Viewable for Mixer<M> {
 }
 
 impl Viewable for Sampler {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let title = type_name::<Sampler>();
@@ -190,7 +190,7 @@ impl Viewable for Sampler {
 }
 
 impl Viewable for DrumkitSampler {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let title = type_name::<DrumkitSampler>();
@@ -200,7 +200,7 @@ impl Viewable for DrumkitSampler {
 }
 
 impl Viewable for WelshSynth {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let title = type_name::<WelshSynth>();
@@ -222,8 +222,8 @@ impl<M: MessageBounds> Viewable for Gain<M> {
         )
     }
 }
-impl Viewable for Gain<GrooveMessage> {
-    type ViewMessage = GrooveMessage;
+impl Viewable for Gain<EntityMessage> {
+    type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let level = self.ceiling();
@@ -249,7 +249,7 @@ impl Viewable for Gain<GrooveMessage> {
 }
 
 impl Viewable for Bitcrusher {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let title = type_name::<Bitcrusher>();
@@ -259,7 +259,7 @@ impl Viewable for Bitcrusher {
 }
 
 impl Viewable for Limiter {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let title = type_name::<Limiter>();
@@ -268,8 +268,8 @@ impl Viewable for Limiter {
     }
 }
 
-impl Viewable for BiQuadFilter<GrooveMessage> {
-    type ViewMessage = GrooveMessage;
+impl Viewable for BiQuadFilter<EntityMessage> {
+    type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let title = type_name::<BiQuadFilter<Self::ViewMessage>>();
@@ -277,7 +277,7 @@ impl Viewable for BiQuadFilter<GrooveMessage> {
             container(slider(
                 0..=100,
                 (self.cutoff_pct() * 100.0) as u8,
-                GrooveMessage::FilterCutoffChangedAsU8Percentage
+                Self::ViewMessage::FilterCutoffChangedAsU8Percentage
             ))
             .width(iced::Length::FillPortion(1)),
             container(GuiStuff::container_text(
@@ -290,7 +290,7 @@ impl Viewable for BiQuadFilter<GrooveMessage> {
 }
 
 impl Viewable for Arpeggiator {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let title = type_name::<Arpeggiator>();
@@ -309,11 +309,11 @@ impl<M: MessageBounds> Viewable for BeatSequencer<M> {
     }
 }
 
-impl Viewable for BeatSequencer<GrooveMessage> {
-    type ViewMessage = GrooveMessage;
+impl Viewable for BeatSequencer<EntityMessage> {
+    type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
-        let title = type_name::<BeatSequencer<GrooveMessage>>();
+        let title = type_name::<BeatSequencer<EntityMessage>>();
         let contents = format!("cursor point: {}", "tOdO");
         GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
     }
@@ -348,7 +348,7 @@ impl Pattern<Note> {
 }
 
 impl Viewable for PatternManager {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let title = type_name::<PatternManager>();
@@ -364,28 +364,47 @@ impl Viewable for PatternManager {
 }
 
 impl<M: MessageBounds> Viewable for Orchestrator<M> {
-    type ViewMessage = M;
+    default type ViewMessage = M;
+
+    default fn view(&self) -> Element<Self::ViewMessage> {
+        container(text("not implemented")).into()
+    }
+}
+
+impl Viewable for Orchestrator<GrooveMessage> {
+    type ViewMessage = GrooveMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let views = self
             .store()
-            .values()
-            .into_iter()
-            .fold(Vec::new(), |mut v, e| match e {
-                crate::traits::BoxedEntity::Controller(controller) => {
-                    v.push(controller.view());
+            .iter()
+            .fold(Vec::new(), |mut v, (uid, e)| match e {
+                crate::traits::BoxedEntity::Controller(entity) => {
+                    v.push(
+                        entity
+                            .view()
+                            .map(move |message| GrooveMessage::EntityMessage(*uid, message)),
+                    );
                     v
                 }
-                crate::traits::BoxedEntity::Effect(effect) => {
-                    v.push(effect.view());
+                crate::traits::BoxedEntity::Effect(entity) => {
+                    v.push(
+                        entity
+                            .view()
+                            .map(move |message| GrooveMessage::EntityMessage(*uid, message)),
+                    );
                     v
                 }
-                crate::traits::BoxedEntity::Instrument(instrument) => {
-                    v.push(instrument.view());
+                crate::traits::BoxedEntity::Instrument(entity) => {
+                    v.push(
+                        entity
+                            .view()
+                            .map(move |message| GrooveMessage::EntityMessage(*uid, message)),
+                    );
                     v
                 }
             });
-//        let pattern_view = self.pattern_manager().view();
+        //        let pattern_view = self.pattern_manager().view();
         column(views.into()).into()
     }
 }
@@ -394,7 +413,7 @@ impl<M: MessageBounds> Viewable for ControlTrip<M> {
     type ViewMessage = M;
 }
 impl Viewable for Oscillator {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 }
 impl<M: MessageBounds> Viewable for TestController<M> {
     type ViewMessage = M;
@@ -415,10 +434,10 @@ impl<M: MessageBounds> Viewable for AudioSource<M> {
     type ViewMessage = M;
 }
 impl Viewable for MidiOutputHandler {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 }
 impl Viewable for MidiHandler {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 }
 impl<M: MessageBounds> Viewable for MidiTickSequencer<M> {
     type ViewMessage = M;
@@ -437,7 +456,7 @@ impl<M: MessageBounds> Viewable for BiQuadFilter<M> {
     }
 }
 impl Viewable for AdsrEnvelope {
-    type ViewMessage = GrooveMessage;
+    type ViewMessage = EntityMessage;
 }
 
 #[cfg(test)]
@@ -445,7 +464,7 @@ mod tests {
     use std::any::type_name;
 
     use iced::{
-        widget::{container, row, slider, text, text_input},
+        widget::{container, text},
         Element,
     };
 
@@ -459,7 +478,7 @@ mod tests {
             filter::{BiQuadFilter, FilterParams},
             gain::Gain,
         },
-        messages::{tests::TestMessage, MessageBounds},
+        messages::{tests::TestMessage, EntityMessage, MessageBounds},
     };
 
     impl<M: MessageBounds> Viewable for TestSynth<M> {
@@ -493,31 +512,6 @@ mod tests {
             GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
         }
     }
-    impl Viewable for Gain<TestMessage> {
-        type ViewMessage = TestMessage;
-
-        fn view(&self) -> Element<Self::ViewMessage> {
-            let level = self.ceiling();
-            let level_percent: u8 = (level * 100.0) as u8;
-            let title = "Gain";
-            let contents = container(row![
-                container(slider(
-                    0..=100,
-                    level_percent,
-                    Self::ViewMessage::GainLevelChangedAsU8Percentage
-                ))
-                .width(iced::Length::FillPortion(1)),
-                text_input(
-                    "%",
-                    level_percent.to_string().as_str(),
-                    Self::ViewMessage::GainLevelChangedAsString,
-                )
-                .width(iced::Length::FillPortion(1)),
-            ])
-            .padding(20);
-            GuiStuff::titled_container(title, contents.into())
-        }
-    }
 
     // impl Viewable for PatternManager {
     //     type ViewMessage = GrooveMessage;
@@ -538,8 +532,8 @@ mod tests {
     // There aren't many assertions in this method, but we know it'll panic or
     // spit out debug messages if something's wrong.
     fn test_one_viewable(
-        viewable: Box<dyn Viewable<ViewMessage = TestMessage>>,
-        message: Option<TestMessage>,
+        viewable: Box<dyn Viewable<ViewMessage = EntityMessage>>,
+        message: Option<EntityMessage>,
     ) {
         let _ = viewable.view();
         if let Some(_message) = message {
@@ -565,22 +559,22 @@ mod tests {
         // test_one_viewable(Box::new(Sampler::new_with(1024)), None);
         // TODO - test it! test_one_viewable(Mixer::new_wrapped(), None);
         test_one_viewable(
-            Box::new(Gain::<TestMessage>::default()),
-            Some(TestMessage::GainLevelChangedAsU8Percentage(28)),
+            Box::new(Gain::<EntityMessage>::default()),
+            Some(EntityMessage::GainLevelChangedAsU8Percentage(28)),
         );
         // test_one_viewable(
         //     Box::new(Bitcrusher::new_with(7)),
         //     Some(GrooveMessage::BitcrusherValueChanged(4)),
         // );
         test_one_viewable(
-            Box::new(BiQuadFilter::<TestMessage>::new_with(
+            Box::new(BiQuadFilter::<EntityMessage>::new_with(
                 &FilterParams::AllPass {
                     cutoff: 1000.0,
                     q: 2.0,
                 },
                 44100,
             )),
-            Some(TestMessage::FilterCutoffChangedAsF32(500.0)),
+            Some(EntityMessage::FilterCutoffChangedAsF32(500.0)),
         );
         // test_one_viewable(
         //     Box::new(Limiter::new_with(0.0, 1.0)),
@@ -591,8 +585,8 @@ mod tests {
         //     Some(GrooveMessage::ArpeggiatorChanged(42)),
         // );
         test_one_viewable(
-            Box::new(BeatSequencer::<TestMessage>::default()),
-            Some(TestMessage::EnablePressed(false)),
+            Box::new(BeatSequencer::<EntityMessage>::default()),
+            Some(EntityMessage::EnablePressed(false)),
         );
     }
 }

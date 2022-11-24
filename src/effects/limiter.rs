@@ -2,7 +2,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
-    messages::GrooveMessage,
+    messages::EntityMessage,
     traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
 
@@ -27,7 +27,7 @@ impl TransformsAudio for Limiter {
     }
 }
 impl Updateable for Limiter {
-    type Message = GrooveMessage;
+    type Message = EntityMessage;
 
     fn update(
         &mut self,

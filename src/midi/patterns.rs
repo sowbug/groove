@@ -1,7 +1,7 @@
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
+    messages::EntityMessage,
     traits::{HasUid, IsController, Terminates, Updateable},
-    GrooveMessage,
 };
 use std::fmt::Debug;
 
@@ -63,7 +63,7 @@ pub struct PatternManager {
 }
 impl IsController for PatternManager {}
 impl Updateable for PatternManager {
-    type Message = GrooveMessage;
+    type Message = EntityMessage;
 }
 impl Terminates for PatternManager {
     fn is_finished(&self) -> bool {

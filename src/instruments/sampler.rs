@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::MonoSample,
-    messages::GrooveMessage,
+    messages::EntityMessage,
     midi::MidiMessage,
     traits::{HasUid, IsInstrument, SourcesAudio, Updateable},
 };
@@ -43,7 +43,7 @@ impl SourcesAudio for Sampler {
     }
 }
 impl Updateable for Sampler {
-    type Message = GrooveMessage;
+    type Message = EntityMessage;
 
     fn update(
         &mut self,

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crate::{
     clock::Clock,
     common::MonoSample,
-    messages::{GrooveMessage, MessageBounds},
+    messages::{EntityMessage, MessageBounds},
     traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
 use strum_macros::{Display, EnumString, FromRepr};
@@ -38,8 +38,8 @@ impl<M: MessageBounds> Updateable for Gain<M> {
         crate::traits::EvenNewerCommand::none()
     }
 }
-impl Updateable for Gain<GrooveMessage> {
-    type Message = GrooveMessage;
+impl Updateable for Gain<EntityMessage> {
+    type Message = EntityMessage;
 
     fn update(
         &mut self,
@@ -104,31 +104,9 @@ mod tests {
         clock::Clock, messages::tests::TestMessage, traits::SourcesAudio, utils::AudioSource,
     };
 
-    impl Updateable for Gain<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            _clock: &Clock,
-            message: Self::Message,
-        ) -> crate::traits::EvenNewerCommand<Self::Message> {
-            match message {
-                Self::Message::UpdateF32(param_id, value) => {
-                    if let Some(param) = GainControlParams::from_repr(param_id) {
-                        match param {
-                            GainControlParams::Ceiling => self.set_ceiling(value),
-                        }
-                    }
-                }
-                _ => todo!(),
-            }
-            crate::traits::EvenNewerCommand::none()
-        }
-    }
-
     #[test]
     fn test_gain_mainline() {
-        let mut gain = Gain::<TestMessage>::new_with(1.1);
+        let mut gain = Gain::<EntityMessage>::new_with(1.1);
         let clock = Clock::default();
         assert_eq!(
             gain.transform_audio(

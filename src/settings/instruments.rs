@@ -4,8 +4,8 @@ use crate::{
         drumkit_sampler,
         welsh::{self, PatchName},
     },
+    messages::EntityMessage,
     traits::{IsInstrument, TestInstrument},
-    GrooveMessage,
 };
 use serde::{Deserialize, Serialize};
 
@@ -39,7 +39,10 @@ impl InstrumentSettings {
         &self,
         sample_rate: usize,
         load_only_test_entities: bool,
-    ) -> (MidiChannel, Box<dyn IsInstrument<Message = GrooveMessage, ViewMessage = GrooveMessage>>) {
+    ) -> (
+        MidiChannel,
+        Box<dyn IsInstrument<Message = EntityMessage, ViewMessage = EntityMessage>>,
+    ) {
         if load_only_test_entities {
             #[allow(unused_variables)]
             let midi_input_channel = match self {
@@ -55,13 +58,13 @@ impl InstrumentSettings {
             };
             return (
                 midi_input_channel,
-                Box::new(TestInstrument::<GrooveMessage>::default()),
+                Box::new(TestInstrument::<EntityMessage>::default()),
             );
         }
         match self {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,
-                Box::new(TestInstrument::<GrooveMessage>::default()),
+                Box::new(TestInstrument::<EntityMessage>::default()),
             ),
             InstrumentSettings::Welsh {
                 midi_input_channel,

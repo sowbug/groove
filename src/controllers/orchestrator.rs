@@ -2,7 +2,8 @@ use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_SILENCE},
     effects::mixer::Mixer,
-    messages::{GrooveMessage, MessageBounds},
+    messages::{EntityMessage, GrooveMessage, MessageBounds},
+    metrics::DipstickWrapper,
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     settings::ClockSettings,
     traits::{
@@ -11,9 +12,12 @@ use crate::{
 };
 use anyhow::anyhow;
 use crossbeam::deque::Worker;
-use dipstick::{stats_all, AtomicBucket, Input, InputScope, Marker, Stream, Timer};
+use dipstick::InputScope;
 use rustc_hash::FxHashMap;
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    marker::PhantomData,
+};
 
 #[derive(Debug)]
 pub struct Performance {
@@ -31,52 +35,25 @@ impl Performance {
 }
 
 pub type GrooveOrchestrator = Orchestrator<GrooveMessage>;
-use std::fmt::Debug;
-
-struct DipstickWrapper {
-    pub bucket: AtomicBucket,
-    entity_count: Marker,
-    gather_audio_fn_timer: Timer,
-    mark_stack_loop_entry: Marker,
-    mark_stack_loop_iteration: Marker,
-    entity_audio_times: FxHashMap<usize, Timer>,
-}
-impl Debug for DipstickWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DipstickWrapper")
-            .field("metrics", &false)
-            .finish()
-    }
-}
-impl Default for DipstickWrapper {
-    fn default() -> Self {
-        let bucket = AtomicBucket::default();
-        Self {
-            entity_count: bucket.marker("total entities"),
-            gather_audio_fn_timer: bucket.timer("gather_audio"),
-            mark_stack_loop_entry: bucket.marker("mark_stack_loop_entry"),
-            mark_stack_loop_iteration: bucket.marker("mark_stack_loop_iteration"),
-            entity_audio_times: Default::default(),
-            bucket, // hehe do this last
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct Orchestrator<M: MessageBounds> {
     uid: usize,
     clock_settings: ClockSettings,
-    store: Store<M>,
+    store: Store<EntityMessage>,
     main_mixer_uid: usize,
     pattern_manager: PatternManager, // TODO: one of these things is not like the others
 
     metrics: DipstickWrapper,
     enable_dev_experiment: bool,
+
+    _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsController for Orchestrator<M> {}
 impl<M: MessageBounds> Updateable for Orchestrator<M> {
     default type Message = M;
 
+    #[allow(unused_variables)]
     default fn update(
         &mut self,
         clock: &Clock,
@@ -116,12 +93,12 @@ impl<M: MessageBounds> Orchestrator<M> {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn store(&self) -> &Store<M> {
+    pub(crate) fn store(&self) -> &Store<EntityMessage> {
         &self.store
     }
 
     #[allow(dead_code)]
-    pub(crate) fn store_mut(&mut self) -> &mut Store<M> {
+    pub(crate) fn store_mut(&mut self) -> &mut Store<EntityMessage> {
         &mut self.store
     }
 
@@ -132,7 +109,7 @@ impl<M: MessageBounds> Orchestrator<M> {
             .insert(uid, self.metrics.bucket.timer(name.as_str()));
     }
 
-    pub fn add(&mut self, uvid: Option<&str>, entity: BoxedEntity<M>) -> usize {
+    pub fn add(&mut self, uvid: Option<&str>, entity: BoxedEntity<EntityMessage>) -> usize {
         self.metrics.entity_count.mark();
         let uid = self.store.add(uvid, entity);
         self.install_entity_metric(uvid, uid);
@@ -140,12 +117,12 @@ impl<M: MessageBounds> Orchestrator<M> {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get(&self, uvid: &str) -> Option<&BoxedEntity<M>> {
+    pub(crate) fn get(&self, uvid: &str) -> Option<&BoxedEntity<EntityMessage>> {
         self.store.get_by_uvid(uvid)
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity<M>> {
+    pub(crate) fn get_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity<EntityMessage>> {
         self.store.get_by_uvid_mut(uvid)
     }
 
@@ -409,6 +386,7 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
             pattern_manager: Default::default(), // TODO: this should be added like main_mixer
             metrics: Default::default(),
             enable_dev_experiment: Default::default(),
+            _phantom: Default::default(),
         };
         let main_mixer = Box::new(Mixer::default());
         r.main_mixer_uid = r.add(
@@ -429,30 +407,68 @@ impl Updateable for GrooveOrchestrator {
                 |mut vec: Vec<EvenNewerCommand<Self::Message>>, item| {
                     match item {
                         BoxedEntity::Controller(entity) => {
-                            let command = entity.update(clock, message.clone());
+                            let command = entity.update(clock, EntityMessage::Tick);
 
-                            vec.push(command);
+                            match command.0 {
+                                Internal::None => vec.push(EvenNewerCommand::none()),
+                                Internal::Single(action) => {
+                                    let command = EvenNewerCommand::single(
+                                        Self::Message::EntityMessage(entity.uid(), action),
+                                    );
+                                    vec.push(command);
+                                }
+                                Internal::Batch(actions) => {
+                                    let commands = actions.iter().map(|message| {
+                                        EvenNewerCommand::single(Self::Message::EntityMessage(
+                                            entity.uid(),
+                                            message.clone(),
+                                        ))
+                                    });
+                                    vec.push(EvenNewerCommand::batch(commands.into_iter()));
+                                }
+                            }
                         }
                         _ => {}
                     }
                     vec
                 },
             )),
-            Self::Message::ControlF32(_, _) => todo!(),
-            Self::Message::UpdateF32(_, _) => todo!(),
-            Self::Message::Midi(_, _) => todo!(),
-            Self::Message::Enable(_) => todo!(),
-            Self::Message::PatternMessage(_, _) => todo!(),
-            Self::Message::MutePressed(_) => todo!(),
-            Self::Message::EnablePressed(_) => todo!(),
-            Self::Message::ArpeggiatorChanged(_) => todo!(),
-            Self::Message::BitcrusherValueChanged(_) => todo!(),
-            Self::Message::FilterCutoffChangedAsF32(_) => todo!(),
-            Self::Message::FilterCutoffChangedAsU8Percentage(_) => todo!(),
-            Self::Message::GainLevelChangedAsString(_) => todo!(),
-            Self::Message::GainLevelChangedAsU8Percentage(_) => todo!(),
-            Self::Message::LimiterMinChanged(_) => todo!(),
-            Self::Message::LimiterMaxChanged(_) => todo!(),
+            Self::Message::EntityMessage(uid, message) => {
+                if let Some(entity) = self.store.get_mut(uid) {
+                    let (uid, command) = match entity {
+                        BoxedEntity::Controller(entity) => {
+                            (entity.uid(), entity.update(clock, message))
+                        }
+                        BoxedEntity::Effect(entity) => {
+                            (entity.uid(), entity.update(clock, message))
+                        }
+                        BoxedEntity::Instrument(entity) => {
+                            (entity.uid(), entity.update(clock, message))
+                        }
+                    };
+                    let mut vec = Vec::new();
+                    match command.0 {
+                        Internal::None => vec.push(EvenNewerCommand::none()),
+                        Internal::Single(action) => vec.push(EvenNewerCommand::single(
+                            GrooveMessage::EntityMessage(uid, action),
+                        )),
+                        Internal::Batch(actions) => vec.push(EvenNewerCommand::batch(
+                            actions
+                                .iter()
+                                .map(|message| {
+                                    EvenNewerCommand::single(GrooveMessage::EntityMessage(
+                                        uid,
+                                        message.clone(),
+                                    ))
+                                })
+                                .into_iter(),
+                        )),
+                    }
+                    EvenNewerCommand::batch(vec)
+                } else {
+                    EvenNewerCommand::none()
+                }
+            }
         }
     }
 }
@@ -499,12 +515,7 @@ impl GrooveRunner {
             performance.worker.push(sample);
         }
         println!();
-        orchestrator.metrics.bucket.stats(stats_all);
-        orchestrator
-            .metrics
-            .bucket
-            .flush_to(&Stream::write_to_stdout().metrics())
-            .unwrap();
+        orchestrator.metrics.report();
         Ok(performance)
     }
 
@@ -541,13 +552,17 @@ impl GrooveRunner {
         message: GrooveMessage,
     ) {
         match message {
-            GrooveMessage::ControlF32(uid, value) => {
-                self.handle_msg_control_f32(orchestrator, clock, uid, value)
-            }
-            GrooveMessage::Midi(channel, message) => {
-                self.handle_msg_midi(orchestrator, clock, channel, message)
-            }
-            _ => todo!(),
+            GrooveMessage::Nop => todo!(),
+            GrooveMessage::Tick => todo!(),
+            GrooveMessage::EntityMessage(uid, message) => match message {
+                EntityMessage::ControlF32(value) => {
+                    self.handle_msg_control_f32(orchestrator, clock, uid, value)
+                }
+                EntityMessage::Midi(channel, message) => {
+                    self.handle_msg_midi(orchestrator, clock, channel, message)
+                }
+                _ => todo!(),
+            },
         }
     }
 
@@ -579,7 +594,7 @@ impl GrooveRunner {
             orchestrator,
             clock,
             target_uid,
-            GrooveMessage::UpdateF32(param_id, value),
+            EntityMessage::UpdateF32(param_id, value),
         );
     }
 
@@ -588,7 +603,7 @@ impl GrooveRunner {
         orchestrator: &mut GrooveOrchestrator,
         clock: &Clock,
         target_uid: usize,
-        message: GrooveMessage,
+        message: EntityMessage,
     ) {
         if let Some(target) = orchestrator.store.get_mut(target_uid) {
             match target {
@@ -617,7 +632,7 @@ impl GrooveRunner {
             for receiver_uid in receiver_uids.to_vec() {
                 // TODO: can this loop?
                 if let Some(target) = orchestrator.store.get_mut(receiver_uid) {
-                    let message = GrooveMessage::Midi(channel, message);
+                    let message = EntityMessage::Midi(channel, message);
                     match target {
                         BoxedEntity::Controller(e) => {
                             e.update(clock, message);
@@ -694,6 +709,10 @@ impl<M> Store<M> {
 
     pub(crate) fn get_uid(&self, uvid: &str) -> Option<usize> {
         self.uvid_to_uid.get(uvid).copied()
+    }
+
+    pub(crate) fn iter(&self) -> std::collections::hash_map::Iter<usize, BoxedEntity<M>> {
+        self.uid_to_item.iter()
     }
 
     pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, BoxedEntity<M>> {
@@ -793,7 +812,7 @@ pub mod tests {
     use crate::{
         clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
-        messages::tests::TestMessage,
+        messages::{tests::TestMessage, EntityMessage},
         traits::{BoxedEntity, EvenNewerCommand, Internal, IsEffect, Updateable},
     };
     use midly::MidiMessage;
@@ -807,36 +826,22 @@ pub mod tests {
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
             match message {
-                Self::Message::Nop => EvenNewerCommand::none(),
-                Self::Message::Tick => EvenNewerCommand::batch(self.store.values_mut().fold(
-                    Vec::new(),
-                    |mut vec: Vec<EvenNewerCommand<Self::Message>>, item| {
-                        match item {
-                            BoxedEntity::Controller(entity) => {
-                                let command = entity.update(clock, message.clone());
+                //     Self::Message::Nop => EvenNewerCommand::none(),
+                //     Self::Message::Tick => EvenNewerCommand::batch(self.store.values_mut().fold(
+                //         Vec::new(),
+                //         |mut vec: Vec<EvenNewerCommand<Self::Message>>, item| {
+                //             match item {
+                //                 BoxedEntity::Controller(entity) => {
+                //                     let command = entity.update(clock, message.clone());
 
-                                vec.push(command);
-                            }
-                            _ => {}
-                        }
-                        vec
-                    },
-                )),
-                Self::Message::ControlF32(_, _) => todo!(),
-                Self::Message::UpdateF32(_, _) => todo!(),
-                Self::Message::Midi(_, _) => todo!(),
-                Self::Message::Enable(_) => todo!(),
-                Self::Message::PatternMessage(_, _) => todo!(),
-                Self::Message::MutePressed(_) => todo!(),
-                Self::Message::EnablePressed(_) => todo!(),
-                Self::Message::ArpeggiatorChanged(_) => todo!(),
-                Self::Message::BitcrusherValueChanged(_) => todo!(),
-                Self::Message::FilterCutoffChangedAsF32(_) => todo!(),
-                Self::Message::FilterCutoffChangedAsU8Percentage(_) => todo!(),
-                Self::Message::GainLevelChangedAsString(_) => todo!(),
-                Self::Message::GainLevelChangedAsU8Percentage(_) => todo!(),
-                Self::Message::LimiterMinChanged(_) => todo!(),
-                Self::Message::LimiterMaxChanged(_) => todo!(),
+                //                     vec.push(command);
+                //                 }
+                //                 _ => {}
+                //             }
+                //             vec
+                //         },
+                //     )),
+                _ => EvenNewerCommand::none(),
             }
         }
     }
@@ -906,13 +911,9 @@ pub mod tests {
             message: TestMessage,
         ) {
             match message {
-                TestMessage::ControlF32(uid, value) => {
-                    self.handle_msg_control_f32(orchestrator, clock, uid, value)
-                }
-                TestMessage::Midi(channel, message) => {
-                    self.handle_msg_midi(orchestrator, clock, channel, message)
-                }
-                _ => todo!(),
+                TestMessage::Nop => todo!(),
+                TestMessage::Tick => todo!(),
+                TestMessage::EntityMessage(_, _) => todo!(),
             }
         }
 
@@ -944,7 +945,7 @@ pub mod tests {
                 orchestrator,
                 clock,
                 target_uid,
-                TestMessage::UpdateF32(param_id, value),
+                EntityMessage::UpdateF32(param_id, value),
             );
         }
 
@@ -953,7 +954,7 @@ pub mod tests {
             orchestrator: &mut Orchestrator<TestMessage>,
             clock: &Clock,
             target_uid: usize,
-            message: TestMessage,
+            message: EntityMessage,
         ) {
             if let Some(target) = orchestrator.store_mut().get_mut(target_uid) {
                 match target {
@@ -982,7 +983,7 @@ pub mod tests {
                 for receiver_uid in receiver_uids.to_vec() {
                     // TODO: can this loop?
                     if let Some(target) = orchestrator.store_mut().get_mut(receiver_uid) {
-                        let message = TestMessage::Midi(channel, message);
+                        let message = EntityMessage::Midi(channel, message);
                         match target {
                             BoxedEntity::Controller(e) => {
                                 e.update(clock, message);
@@ -1010,7 +1011,7 @@ pub mod tests {
                 orchestrator,
                 clock,
                 target_uid,
-                TestMessage::Enable(enabled),
+                EntityMessage::Enable(enabled),
             );
         }
 
