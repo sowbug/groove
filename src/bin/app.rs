@@ -1,6 +1,7 @@
 mod gui;
 
 use async_std::task::block_on;
+#[allow(unused_imports)]
 use crossbeam::deque::Steal; // TODO: this leaks into the app. Necessary?
 use groove::{
     gui::{GuiStuff, Viewable, NUMBERS_FONT, NUMBERS_FONT_SIZE},
@@ -16,7 +17,7 @@ use iced::{
     theme::{self, Theme},
     time,
     widget::{button, column, container, row, scrollable, text, text_input},
-    Alignment, Application, Color, Command, Element, Length, Settings, Subscription,
+    Alignment, Application, Command, Element, Length, Settings, Subscription,
 };
 use iced_native::{window, Event};
 use std::time::{Duration, Instant};
@@ -38,6 +39,7 @@ struct GrooveApp {
     audio_output: AudioOutput,
 
     // Extra
+    #[allow(dead_code)]
     midi_handler_uid: usize, // MidiHandler
 }
 
@@ -224,6 +226,7 @@ impl Default for Midi {
 }
 
 impl Midi {
+    #[allow(dead_code)]
     pub fn update(&mut self, message: MidiControlBarMessage) {
         match message {
             MidiControlBarMessage::Inputs(inputs) => {

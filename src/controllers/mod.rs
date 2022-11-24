@@ -172,28 +172,6 @@ mod tests {
         Orchestrator,
     };
 
-    // impl Updateable for ControlTrip<TestMessage> {
-    //     type Message = TestMessage;
-
-    //     fn update(
-    //         &mut self,
-    //         clock: &Clock,
-    //         message: Self::Message,
-    //     ) -> EvenNewerCommand<Self::Message> {
-    //         match message {
-    //             Self::Message::Tick => {
-    //                 if self.tick(clock) {
-    //                     return EvenNewerCommand::single(EntityMessage::ControlF32(
-    //                         self.current_value,
-    //                     ));
-    //                 }
-    //             }
-    //             _ => todo!(),
-    //         }
-    //         EvenNewerCommand::none()
-    //     }
-    // }
-
     #[test]
     fn test_flat_step() {
         let step_vec = vec![
@@ -208,7 +186,7 @@ mod tests {
         };
 
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
-        let target_uid = o.add(
+        let _target_uid = o.add(
             None,
             BoxedEntity::Instrument(Box::new(TestInstrument::<EntityMessage>::default())),
         );
@@ -246,13 +224,13 @@ mod tests {
         };
 
         let mut o = Box::new(Orchestrator::default());
-        let target_uid = o.add(
+        let _target_uid = o.add(
             None,
             BoxedEntity::Instrument(Box::new(TestInstrument::<EntityMessage>::default())),
         );
         let mut trip = Box::new(ControlTrip::<EntityMessage>::default());
         trip.add_path(&path);
-        let controller_uid = o.add(None, BoxedEntity::Controller(trip));
+        let _controller_uid = o.add(None, BoxedEntity::Controller(trip));
 
         // TODO: this is the whole point of this test, so re-enable soon!
         //

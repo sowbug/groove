@@ -92,9 +92,4 @@ impl PatternManager {
     pub(crate) fn patterns(&self) -> &[Pattern<Note>] {
         &self.patterns
     }
-
-    // TODO: this seems weird that we can give back a &mut to the slice.
-    pub(crate) fn patterns_mut(&mut self) -> &mut [Pattern<Note>] {
-        &mut self.patterns
-    }
 }
