@@ -54,6 +54,8 @@ impl Updateable for Gain<EntityMessage> {
                     }
                 }
             }
+            EntityMessage::UpdateParam0F32(value) => self.set_ceiling(value),
+            EntityMessage::UpdateParam0U8(value) => self.set_ceiling(value as f32 / 100.0),
             _ => todo!(),
         }
         crate::traits::EvenNewerCommand::none()

@@ -233,13 +233,13 @@ impl Viewable for Gain<EntityMessage> {
             container(slider(
                 0..=100,
                 level_percent,
-                Self::ViewMessage::GainLevelChangedAsU8Percentage
+                Self::ViewMessage::UpdateParam0U8,
             ))
             .width(iced::Length::FillPortion(1)),
             text_input(
                 "%",
                 level_percent.to_string().as_str(),
-                Self::ViewMessage::GainLevelChangedAsString,
+                Self::ViewMessage::UpdateParam0String,
             )
             .width(iced::Length::FillPortion(1)),
         ])
@@ -277,7 +277,7 @@ impl Viewable for BiQuadFilter<EntityMessage> {
             container(slider(
                 0..=100,
                 (self.cutoff_pct() * 100.0) as u8,
-                Self::ViewMessage::FilterCutoffChangedAsU8Percentage
+                Self::ViewMessage::UpdateParam1U8 // CutoffPct
             ))
             .width(iced::Length::FillPortion(1)),
             container(GuiStuff::container_text(
@@ -560,7 +560,7 @@ mod tests {
         // TODO - test it! test_one_viewable(Mixer::new_wrapped(), None);
         test_one_viewable(
             Box::new(Gain::<EntityMessage>::default()),
-            Some(EntityMessage::GainLevelChangedAsU8Percentage(28)),
+            Some(EntityMessage::UpdateParam0U8(28)),
         );
         // test_one_viewable(
         //     Box::new(Bitcrusher::new_with(7)),
@@ -574,7 +574,7 @@ mod tests {
                 },
                 44100,
             )),
-            Some(EntityMessage::FilterCutoffChangedAsF32(500.0)),
+            Some(EntityMessage::UpdateParam1F32(500.0)),
         );
         // test_one_viewable(
         //     Box::new(Limiter::new_with(0.0, 1.0)),

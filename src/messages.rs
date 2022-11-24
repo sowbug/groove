@@ -67,6 +67,19 @@ pub enum EntityMessage {
     /// for now most parameter updates are representable by a plain old float.
     UpdateF32(usize, f32),
 
+    /// A series of UpdateF32-like messages that are (hopefully) placeholders
+    /// until I figure out how to send a Msg(_, _) to a thing that wants a
+    /// Msg(_). If that isn't a Rust thing, I think I can ask someone up the
+    /// chain to do it for me.
+    /// 
+    /// For sanity, please make sure the ParamN corresponds to the
+    /// ___ControlParams enum.
+    UpdateParam0F32(f32),
+    UpdateParam0String(String),
+    UpdateParam0U8(u8),
+    UpdateParam1F32(f32),
+    UpdateParam1U8(u8),
+
     /// Enable or disable the recipient.
     Enable(bool),
 
@@ -76,14 +89,6 @@ pub enum EntityMessage {
     // Temp things
     MutePressed(bool),
     EnablePressed(bool),
-    ArpeggiatorChanged(u8),
-    BitcrusherValueChanged(u8),
-    FilterCutoffChangedAsF32(f32),
-    FilterCutoffChangedAsU8Percentage(u8),
-    GainLevelChangedAsString(String),
-    GainLevelChangedAsU8Percentage(u8),
-    LimiterMinChanged(f32),
-    LimiterMaxChanged(f32),
 }
 impl MessageBounds for EntityMessage {}
 
