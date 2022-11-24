@@ -1,14 +1,13 @@
-use strum_macros::Display;
-
 use crate::{
     clock::Clock,
     common::MonoSample,
-    messages::MessageBounds,
-    traits::{HasUid, IsEffect, TransformsAudio, Updateable},
+    messages::{EntityMessage, MessageBounds},
+    traits::{EvenNewerCommand, HasUid, IsEffect, TransformsAudio, Updateable},
 };
 use std::{f64::consts::PI, marker::PhantomData, str::FromStr};
+use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Display, Debug, strum_macros::EnumString)]
+#[derive(Display, Debug, EnumString, FromRepr)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum BiQuadFilterControlParams {
     Bandwidth,
@@ -136,7 +135,16 @@ impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
     }
 }
 impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
-    type Message = M;
+    default type Message = M;
+
+    #[allow(unused_variables)]
+    default fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        EvenNewerCommand::none()
+    }
 
     fn param_id_for_name(&self, name: &str) -> usize {
         if let Ok(param) = BiQuadFilterControlParams::from_str(name) {
@@ -146,16 +154,43 @@ impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
         }
     }
 
-    // ViewableMessage::FilterCutoffChangedAsF32(new_value) => {
-    //     if let Some(target) = self.target.upgrade() {
-    //         target.borrow_mut().set_cutoff_hz(new_value);
-    //     }
-    // }
-    // ViewableMessage::FilterCutoffChangedAsU8Percentage(new_value) => {
-    //     target
-    //         .borrow_mut()
-    //         .set_cutoff_pct((new_value as f32) / 100.0);
-    // }
+    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
+        if let Some(param) = BiQuadFilterControlParams::from_repr(index) {
+            match param {
+                BiQuadFilterControlParams::Bandwidth => self.set_bandwidth(value),
+                BiQuadFilterControlParams::CutoffPct => self.set_cutoff_pct(value),
+                BiQuadFilterControlParams::DbGain => self.set_db_gain(value),
+                BiQuadFilterControlParams::Q => self.set_q(value),
+            }
+        } else {
+            todo!()
+        }
+    }
+}
+impl Updateable for BiQuadFilter<EntityMessage> {
+    type Message = EntityMessage;
+
+    #[allow(unused_variables)]
+    fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        match message {
+            Self::Message::UpdateF32(param_id, value) => {
+                self.set_indexed_param_f32(param_id, value);
+            }
+
+            Self::Message::UpdateParam1U8(value) => {
+                self.set_indexed_param_f32(
+                    BiQuadFilterControlParams::CutoffPct as usize,
+                    value as f32 / 100.0,
+                );
+            }
+            _ => todo!(),
+        }
+        EvenNewerCommand::none()
+    }
 }
 impl<M: MessageBounds> HasUid for BiQuadFilter<M> {
     fn uid(&self) -> usize {

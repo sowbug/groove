@@ -37,6 +37,16 @@ impl<M: MessageBounds> Updateable for Gain<M> {
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         crate::traits::EvenNewerCommand::none()
     }
+
+    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
+        if let Some(param) = GainControlParams::from_repr(index) {
+            match param {
+                GainControlParams::Ceiling => self.set_ceiling(value),
+            }
+        } else {
+            todo!()
+        }
+    }
 }
 impl Updateable for Gain<EntityMessage> {
     type Message = EntityMessage;
@@ -48,14 +58,17 @@ impl Updateable for Gain<EntityMessage> {
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
-                if let Some(param) = GainControlParams::from_repr(param_id) {
-                    match param {
-                        GainControlParams::Ceiling => self.set_ceiling(value),
-                    }
-                }
+                self.set_indexed_param_f32(param_id, value);
             }
-            EntityMessage::UpdateParam0F32(value) => self.set_ceiling(value),
-            EntityMessage::UpdateParam0U8(value) => self.set_ceiling(value as f32 / 100.0),
+            Self::Message::UpdateParam0F32(value) => {
+                self.set_indexed_param_f32(GainControlParams::Ceiling as usize, value);
+            }
+            Self::Message::UpdateParam0U8(value) => {
+                self.set_indexed_param_f32(
+                    GainControlParams::Ceiling as usize,
+                    value as f32 / 100.0,
+                );
+            }
             _ => todo!(),
         }
         crate::traits::EvenNewerCommand::none()

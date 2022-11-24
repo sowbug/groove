@@ -38,18 +38,21 @@ impl Updateable for Bitcrusher {
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
-                if let Some(param) = BitcrusherControlParams::from_repr(param_id) {
-                    match param {
-                        BitcrusherControlParams::BitsToCrushPct => {
-                            self.set_bits_to_crush_pct(value)
-                        }
-                    }
-                }
+                self.set_indexed_param_f32(param_id, value);
             }
             _ => todo!(),
         }
-        //TODO        Self::Message::BitcrusherValueChanged(new_value)
         crate::traits::EvenNewerCommand::none()
+    }
+
+    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
+        if let Some(param) = BitcrusherControlParams::from_repr(index) {
+            match param {
+                BitcrusherControlParams::BitsToCrushPct => self.set_bits_to_crush_pct(value),
+            }
+        } else {
+            todo!()
+        }
     }
 }
 impl HasUid for Bitcrusher {

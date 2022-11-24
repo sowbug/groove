@@ -37,6 +37,10 @@ pub trait Updateable {
     fn param_id_for_name(&self, name: &str) -> usize {
         todo!()
     }
+    #[allow(unused_variables)]
+    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
+        todo!()
+    }
 }
 pub trait HasUid {
     fn uid(&self) -> usize;

@@ -52,16 +52,22 @@ impl Updateable for Arpeggiator {
                 }
                 self.beat_sequencer.enable(self.is_device_playing);
             }
-            Self::Message::UpdateF32(param_id, _value) => {
-                if let Some(param) = ArpeggiatorControlParams::from_repr(param_id) {
-                    match param {
-                        ArpeggiatorControlParams::Nothing => todo!(),
-                    }
-                }
+            Self::Message::UpdateF32(param_id, value) => {
+                self.set_indexed_param_f32(param_id, value);
             }
             _ => todo!(),
         }
         crate::traits::EvenNewerCommand::none()
+    }
+
+    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
+        if let Some(param) = ArpeggiatorControlParams::from_repr(index) {
+            match param {
+                ArpeggiatorControlParams::Nothing => {}
+            }
+        } else {
+            todo!()
+        }
     }
 }
 impl Terminates for Arpeggiator {

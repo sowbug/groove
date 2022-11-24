@@ -1,10 +1,10 @@
-use strum_macros::{Display, EnumString, FromRepr};
 use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
     messages::EntityMessage,
     traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
+use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Display, Debug, EnumString, FromRepr)]
 #[strum(serialize_all = "kebab_case")]
@@ -36,16 +36,22 @@ impl Updateable for Limiter {
     ) -> crate::traits::EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
-                if let Some(param) = LimiterControlParams::from_repr(param_id) {
-                    match param {
-                        LimiterControlParams::Max => self.set_max(value),
-                        LimiterControlParams::Min => self.set_min(value),
-                    }
-                }
+                self.set_indexed_param_f32(param_id, value);
             }
             _ => todo!(),
         }
         crate::traits::EvenNewerCommand::none()
+    }
+
+    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
+        if let Some(param) = LimiterControlParams::from_repr(index) {
+            match param {
+                LimiterControlParams::Max => self.set_max(value),
+                LimiterControlParams::Min => self.set_min(value),
+            }
+        } else {
+            todo!()
+        }
     }
 }
 impl HasUid for Limiter {
