@@ -139,7 +139,22 @@ impl Updateable for ControlTrip<GrooveMessage> {
                     ));
                 }
             }
-            _ => todo!(),
+            GrooveMessage::Nop => todo!(),
+            GrooveMessage::ControlF32(_, _) => todo!(),
+            GrooveMessage::UpdateF32(_, _) => todo!(),
+            GrooveMessage::Midi(_, _) => todo!(),
+            GrooveMessage::Enable(_) => todo!(),
+            GrooveMessage::PatternMessage(_, _) => todo!(),
+            GrooveMessage::MutePressed(_) => todo!(),
+            GrooveMessage::EnablePressed(_) => todo!(),
+            GrooveMessage::ArpeggiatorChanged(_) => todo!(),
+            GrooveMessage::BitcrusherValueChanged(_) => todo!(),
+            GrooveMessage::FilterCutoffChangedAsF32(_) => todo!(),
+            GrooveMessage::FilterCutoffChangedAsU8Percentage(_) => todo!(),
+            GrooveMessage::GainLevelChangedAsString(_) => todo!(),
+            GrooveMessage::GainLevelChangedAsU8Percentage(_) => todo!(),
+            GrooveMessage::LimiterMinChanged(_) => todo!(),
+            GrooveMessage::LimiterMaxChanged(_) => todo!(),
         }
         EvenNewerCommand::none()
     }

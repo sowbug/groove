@@ -75,23 +75,14 @@ pub struct Orchestrator<M: MessageBounds> {
 }
 impl<M: MessageBounds> IsController for Orchestrator<M> {}
 impl<M: MessageBounds> Updateable for Orchestrator<M> {
-    type Message = M;
+    default type Message = M;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::batch(self.store.values_mut().fold(
-            Vec::new(),
-            |mut vec: Vec<EvenNewerCommand<Self::Message>>, item| {
-                match item {
-                    BoxedEntity::Controller(entity) => {
-                        let command = entity.update(clock, message.clone());
-
-                        vec.push(command);
-                    }
-                    _ => {}
-                }
-                vec
-            },
-        ))
+    default fn update(
+        &mut self,
+        clock: &Clock,
+        message: Self::Message,
+    ) -> EvenNewerCommand<Self::Message> {
+        todo!()
     }
 }
 impl<M: MessageBounds> Terminates for Orchestrator<M> {
@@ -427,7 +418,44 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
         r
     }
 }
-impl Updateable for GrooveOrchestrator {}
+impl Updateable for GrooveOrchestrator {
+    type Message = GrooveMessage;
+
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        match message {
+            Self::Message::Nop => EvenNewerCommand::none(),
+            Self::Message::Tick => EvenNewerCommand::batch(self.store.values_mut().fold(
+                Vec::new(),
+                |mut vec: Vec<EvenNewerCommand<Self::Message>>, item| {
+                    match item {
+                        BoxedEntity::Controller(entity) => {
+                            let command = entity.update(clock, message.clone());
+
+                            vec.push(command);
+                        }
+                        _ => {}
+                    }
+                    vec
+                },
+            )),
+            Self::Message::ControlF32(_, _) => todo!(),
+            Self::Message::UpdateF32(_, _) => todo!(),
+            Self::Message::Midi(_, _) => todo!(),
+            Self::Message::Enable(_) => todo!(),
+            Self::Message::PatternMessage(_, _) => todo!(),
+            Self::Message::MutePressed(_) => todo!(),
+            Self::Message::EnablePressed(_) => todo!(),
+            Self::Message::ArpeggiatorChanged(_) => todo!(),
+            Self::Message::BitcrusherValueChanged(_) => todo!(),
+            Self::Message::FilterCutoffChangedAsF32(_) => todo!(),
+            Self::Message::FilterCutoffChangedAsU8Percentage(_) => todo!(),
+            Self::Message::GainLevelChangedAsString(_) => todo!(),
+            Self::Message::GainLevelChangedAsU8Percentage(_) => todo!(),
+            Self::Message::LimiterMinChanged(_) => todo!(),
+            Self::Message::LimiterMaxChanged(_) => todo!(),
+        }
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct GrooveRunner {}
@@ -766,9 +794,52 @@ pub mod tests {
         clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
         messages::tests::TestMessage,
-        traits::{BoxedEntity, Internal, IsEffect, Updateable},
+        traits::{BoxedEntity, EvenNewerCommand, Internal, IsEffect, Updateable},
     };
     use midly::MidiMessage;
+
+    impl Updateable for Orchestrator<TestMessage> {
+        type Message = TestMessage;
+
+        fn update(
+            &mut self,
+            clock: &Clock,
+            message: Self::Message,
+        ) -> EvenNewerCommand<Self::Message> {
+            match message {
+                Self::Message::Nop => EvenNewerCommand::none(),
+                Self::Message::Tick => EvenNewerCommand::batch(self.store.values_mut().fold(
+                    Vec::new(),
+                    |mut vec: Vec<EvenNewerCommand<Self::Message>>, item| {
+                        match item {
+                            BoxedEntity::Controller(entity) => {
+                                let command = entity.update(clock, message.clone());
+
+                                vec.push(command);
+                            }
+                            _ => {}
+                        }
+                        vec
+                    },
+                )),
+                Self::Message::ControlF32(_, _) => todo!(),
+                Self::Message::UpdateF32(_, _) => todo!(),
+                Self::Message::Midi(_, _) => todo!(),
+                Self::Message::Enable(_) => todo!(),
+                Self::Message::PatternMessage(_, _) => todo!(),
+                Self::Message::MutePressed(_) => todo!(),
+                Self::Message::EnablePressed(_) => todo!(),
+                Self::Message::ArpeggiatorChanged(_) => todo!(),
+                Self::Message::BitcrusherValueChanged(_) => todo!(),
+                Self::Message::FilterCutoffChangedAsF32(_) => todo!(),
+                Self::Message::FilterCutoffChangedAsU8Percentage(_) => todo!(),
+                Self::Message::GainLevelChangedAsString(_) => todo!(),
+                Self::Message::GainLevelChangedAsU8Percentage(_) => todo!(),
+                Self::Message::LimiterMinChanged(_) => todo!(),
+                Self::Message::LimiterMaxChanged(_) => todo!(),
+            }
+        }
+    }
 
     #[derive(Debug, Default)]
     pub struct Runner {

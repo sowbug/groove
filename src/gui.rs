@@ -367,26 +367,26 @@ impl<M: MessageBounds> Viewable for Orchestrator<M> {
     type ViewMessage = M;
 
     fn view(&self) -> Element<Self::ViewMessage> {
-        // let views = self
-        //     .store()
-        //     .values()
-        //     .into_iter()
-        //     .fold(Vec::new(), |v, e| match e {
-        //         crate::traits::BoxedEntity::Controller(controller) => {
-        //             v.push(e.view());
-        //             v
-        //         }
-        //         crate::traits::BoxedEntity::Effect(effect) => {
-        //             v.push(e.view());
-        //             v
-        //         }
-        //         crate::traits::BoxedEntity::Instrument(instrument) => {
-        //             v.push(e.view());
-        //             v
-        //         }
-        //     });
-        let pattern_view = self.pattern_manager().view();
-        column(vec![].into()).into()
+        let views = self
+            .store()
+            .values()
+            .into_iter()
+            .fold(Vec::new(), |mut v, e| match e {
+                crate::traits::BoxedEntity::Controller(controller) => {
+                    v.push(controller.view());
+                    v
+                }
+                crate::traits::BoxedEntity::Effect(effect) => {
+                    v.push(effect.view());
+                    v
+                }
+                crate::traits::BoxedEntity::Instrument(instrument) => {
+                    v.push(instrument.view());
+                    v
+                }
+            });
+//        let pattern_view = self.pattern_manager().view();
+        column(views.into()).into()
     }
 }
 
