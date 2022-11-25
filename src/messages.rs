@@ -27,6 +27,12 @@ pub enum GrooveMessage {
     /// A wrapped EntityMessage that contains the uid of the receipient in
     /// addition to the EntityMessage.
     EntityMessage(usize, EntityMessage),
+
+    /// A MIDI message sent to a channel. There is an identical message type in
+    /// EntityMessage. This one is for MIDI messages coming from outside Groove,
+    /// for example from a MIDI hardware instrument.  
+    Midi(MidiChannel, MidiMessage),
+
 }
 impl MessageBounds for GrooveMessage {}
 

@@ -253,13 +253,15 @@ pub enum GeneralMidiPercussionProgram {
     OpenTriangle = 81,
 }
 
+pub type MidiInputStealer = Stealer<(u64, u8, MidiMessage)>;
+
 /// Handles MIDI input coming from outside Groove. For example, if you have a
 /// MIDI keyboard plugged into your computer's USB, you should be able to use
 /// that keyboard to input notes into Groove, and MidiInputHandler manages that.
 #[derive(Default)]
 pub struct MidiInputHandler {
     conn_in: Option<MidiInputConnection<()>>,
-    pub stealer: Option<Stealer<(u64, u8, MidiMessage)>>,
+    pub stealer: Option<MidiInputStealer>,
     inputs: Vec<(usize, String)>,
 }
 
@@ -515,8 +517,13 @@ impl MidiHandler {
         self.midi_input.inputs()
     }
 
-    pub fn input_stealer(&self) -> &Option<Stealer<(u64, u8, MidiMessage)>> {
-        &self.midi_input.stealer
+    pub fn input_stealer(&self) -> Box<MidiInputStealer> {
+        if let Some(stealer) = &self.midi_input.stealer {
+            // It's OK to clone the stealer, according to documentation
+            Box::new(stealer.clone())
+        } else {
+            panic!("Should always have a stealer")
+        }
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {

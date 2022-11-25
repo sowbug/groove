@@ -3,16 +3,16 @@
 #![allow(incomplete_features)]
 
 //pub use crate::scripting::ScriptEngine;
-pub use crate::clock::Clock;
-pub use crate::clock::TimeSignature;
-pub use crate::controllers::orchestrator::GrooveRunner;
-pub use crate::controllers::orchestrator::{GrooveOrchestrator, Orchestrator};
-pub use crate::helpers::AudioOutput;
-pub use crate::helpers::IOHelper;
-pub use crate::messages::GrooveMessage;
-pub use crate::midi::MidiHandler;
-pub use crate::midi::MIDI_CHANNEL_RECEIVE_ALL;
-pub use crate::settings::songs::SongSettings;
+pub use crate::clock::{Clock, TimeSignature};
+pub use crate::{
+    controllers::orchestrator::{GrooveOrchestrator, GrooveRunner, Orchestrator},
+    helpers::{AudioOutput, IOHelper},
+    messages::GrooveMessage,
+};
+pub use crate::{
+    midi::{MidiHandler, MidiInputStealer, MIDI_CHANNEL_RECEIVE_ALL},
+    settings::songs::SongSettings,
+};
 
 pub mod gui;
 pub mod traits;

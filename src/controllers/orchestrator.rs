@@ -469,6 +469,10 @@ impl Updateable for GrooveOrchestrator {
                     EvenNewerCommand::none()
                 }
             }
+            GrooveMessage::Midi(channel, message) => {
+                dbg!(&channel, &message);
+                EvenNewerCommand::none()
+            }
         }
     }
 }
@@ -563,6 +567,9 @@ impl GrooveRunner {
                 }
                 _ => todo!(),
             },
+            GrooveMessage::Midi(channel, message) => {
+                self.handle_msg_midi(orchestrator, clock, channel, message)
+            }
         }
     }
 
@@ -1038,7 +1045,7 @@ pub mod tests {
                 target_uid,
                 EntityMessage::UpdateF32(param_id, value),
             );
-        }    
+        }
 
         fn send_msg(
             &mut self,
