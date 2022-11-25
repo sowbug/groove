@@ -73,9 +73,8 @@ pub enum AppMessage {
     ControlBarMessage(ControlBarMessage),
     ControlBarBpm(String),
     GrooveMessage(GrooveMessage),
-    // ViewableMessage(usize, ViewableMessage),
     Tick(Instant),
-    EventOccurred(iced::Event),
+    Event(iced::Event),
 }
 
 #[derive(Debug, Clone)]
@@ -296,8 +295,6 @@ impl Application for GrooveApp {
                 };
 
                 self.audio_output.start();
-                // TODO BROKEN
-                // //orchestrator.send_m
                 // match self.midi.start() {
                 //     Err(err) => println!("error starting MIDI: {}", err),
                 //     _ => {}
@@ -326,6 +323,7 @@ impl Application for GrooveApp {
                     let done = block_on(IOHelper::fill_audio_buffer(
                         self.audio_output.recommended_buffer_size(),
                         &mut self.orchestrator,
+                        &mut self.clock,
                         &mut self.audio_output,
                     ));
                     if done {
@@ -367,16 +365,7 @@ impl Application for GrooveApp {
                     self.clock.settings_mut().set_bpm(bpm);
                 }
             }
-            // AppMessage::ViewableMessage(i, message) => {
-            //     // if i == 999 {
-            //     //     // TODO: short-term hack!
-            //     //     self.orchestrator.pattern_manager_mut().update(message);
-            //     // } else {
-            //     //     let _ = self.viewables[i].update(message);
-            //     //     // TODO: deal with this command after wrapping it.
-            //     // }
-            // }
-            AppMessage::EventOccurred(event) => {
+            AppMessage::Event(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {
                     // See https://github.com/iced-rs/iced/pull/804 and
                     // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
@@ -403,7 +392,7 @@ impl Application for GrooveApp {
 
     fn subscription(&self) -> Subscription<AppMessage> {
         Subscription::batch([
-            iced_native::subscription::events().map(AppMessage::EventOccurred),
+            iced_native::subscription::events().map(AppMessage::Event),
             // This is duplicative because I think we'll want different activity
             // levels depending on whether we're playing
             match self.state {

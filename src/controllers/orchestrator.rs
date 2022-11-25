@@ -519,7 +519,7 @@ impl GrooveRunner {
         Ok(performance)
     }
 
-    fn loop_once(
+    pub fn loop_once(
         &mut self,
         orchestrator: &mut Box<GrooveOrchestrator>,
         clock: &mut Clock,

@@ -1,5 +1,5 @@
 use crate::{
-    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    common::MonoSample,
     controllers::{orchestrator::Performance, sequencers::MidiTickSequencer},
     instruments::{
         drumkit_sampler::Sampler,
@@ -9,7 +9,7 @@ use crate::{
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     traits::{BoxedEntity, IsInstrument},
-    GrooveOrchestrator, Orchestrator,
+    Clock, GrooveOrchestrator, GrooveRunner, Orchestrator,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -167,16 +167,19 @@ pub struct IOHelper {}
 impl IOHelper {
     pub async fn fill_audio_buffer(
         buffer_size: usize,
-        _orchestrator: &mut GrooveOrchestrator,
+        orchestrator: &mut Box<GrooveOrchestrator>,
+        clock: &mut Clock,
         audio_output: &mut AudioOutput,
     ) -> bool {
+        let mut runner = GrooveRunner::default();
         while audio_output.worker().len() < buffer_size {
-            let (sample, done) = (MONO_SAMPLE_SILENCE, true); // TODO BROKEN orchestrator.tick();
-            audio_output.worker_mut().push(sample);
+            let (sample, done) = runner.loop_once(orchestrator, clock);
             if done {
                 // TODO - this needs to be stickier
+                // TODO weeks later: I don't understand the previous TODO
                 return true;
             }
+            audio_output.worker_mut().push(sample);
         }
         false
     }
