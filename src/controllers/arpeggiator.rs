@@ -60,7 +60,7 @@ impl Updateable for Arpeggiator {
         crate::traits::EvenNewerCommand::none()
     }
 
-    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
+    fn set_indexed_param_f32(&mut self, index: usize, _value: f32) {
         if let Some(param) = ArpeggiatorControlParams::from_repr(index) {
             match param {
                 ArpeggiatorControlParams::Nothing => {}
