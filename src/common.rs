@@ -1,8 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
-type Refcounted<T> = Rc<T>;
-pub(crate) type Rrc<T> = Refcounted<RefCell<T>>;
-
 pub type MonoSample = f32;
 #[allow(dead_code)]
 pub type StereoSample = (MonoSample, MonoSample);

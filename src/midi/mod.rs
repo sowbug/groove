@@ -6,7 +6,6 @@ pub(crate) mod smf_reader;
 pub use midly::MidiMessage;
 
 use crate::{
-    common::Rrc,
     messages::EntityMessage,
     traits::{HasUid, IsController, Terminates, Updateable},
 };
@@ -485,7 +484,7 @@ impl MidiOutputHandler {
 pub struct MidiHandler {
     uid: usize,
     midi_input: MidiInputHandler,
-    midi_output: Rrc<MidiOutputHandler>,
+    midi_output: MidiOutputHandler,
 }
 impl IsController for MidiHandler {}
 impl Updateable for MidiHandler {
@@ -528,13 +527,13 @@ impl MidiHandler {
 
     pub fn start(&mut self) -> anyhow::Result<()> {
         self.midi_input.start()?;
-        self.midi_output.borrow_mut().start()?;
+        self.midi_output.start()?;
         Ok(())
     }
 
     pub fn stop(&mut self) {
         self.midi_input.stop();
-        self.midi_output.borrow_mut().stop();
+        self.midi_output.stop();
     }
 }
 

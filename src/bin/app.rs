@@ -4,9 +4,8 @@ use async_std::task::block_on;
 use crossbeam::deque::Steal; // TODO: this leaks into the app. Necessary?
 use groove::{
     gui::{GuiStuff, Viewable, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    traits::{BoxedEntity, Updateable},
-    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, IOHelper, MidiHandler, MidiInputStealer,
-    TimeSignature,
+    traits::Updateable,
+    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, IOHelper, MidiHandler, TimeSignature,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -38,9 +37,8 @@ struct GrooveApp {
     clock: Clock,
     audio_output: AudioOutput,
 
-    // Extra
-    midi_handler_uid: usize, // MidiHandler
-    midi_input_stealer: Option<Box<MidiInputStealer>>,
+    // External interfaces
+    midi_handler: Box<MidiHandler>,
 }
 
 impl Default for GrooveApp {
@@ -55,8 +53,8 @@ impl Default for GrooveApp {
             orchestrator: Default::default(),
             clock: Default::default(),
             audio_output: Default::default(),
-            midi_handler_uid: Default::default(),
-            midi_input_stealer: Default::default(),
+            midi_handler: Default::default(),
+            //            midi_input_stealer: Default::default(),
         }
     }
 }
@@ -282,42 +280,24 @@ impl Application for GrooveApp {
     fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
         match message {
             AppMessage::Loaded(Ok(state)) => {
-                let mut orchestrator = state.song_settings.instantiate(false).unwrap();
-
-                let mut midi_handler = Box::new(MidiHandler::default());
-
-                // TODO: think about any risk to starting this before we finish
-                // setting up the loaded state.
-                match midi_handler.start() {
-                    Err(err) => println!("error starting MIDI: {}", err),
-                    _ => {}
-                }
-                let midi_input_stealer = midi_handler.input_stealer();
-                let midi_handler_uid =
-                    orchestrator.add(None, BoxedEntity::Controller(midi_handler));
-
                 *self = Self {
                     theme: self.theme.clone(),
                     project_name: state.project_name,
-                    orchestrator,
-                    midi_handler_uid,
-                    midi_input_stealer: Some(midi_input_stealer),
+                    orchestrator: state.song_settings.instantiate(false).unwrap(),
+                    midi_handler: Default::default(),
                     ..Default::default()
                 };
                 self.audio_output.start();
-
-                // TODO: no outputs because MidiOutputHandler is held inside a
-                // RefCell, and thus can't give out addresses to any of its
-                // data. I think the right model here is to make
-                // RefreshMidiDevices and MidiDevicesRefreshed messages, and
-                // then ask for updates when needed.
+                match self.midi_handler.start() {
+                    Err(err) => println!("error starting MIDI: {}", err),
+                    _ => {}
+                }
 
                 // TODO: this should be via messages
-                // BROKEN RIGHT NOW!
-                // let inputs = self.midi.available_devices();
-                // self.control_bar
-                //     .midi
-                //     .update(MidiControlBarMessage::Inputs(inputs.to_vec()));
+                let inputs = self.midi_handler.available_devices();
+                self.control_bar
+                    .midi
+                    .update(MidiControlBarMessage::Inputs(inputs.to_vec()));
             }
             AppMessage::Loaded(Err(_e)) => {
                 todo!()
@@ -336,16 +316,16 @@ impl Application for GrooveApp {
                         self.state = State::Idle;
                     }
                 }
-                if let Some(stealer) = &self.midi_input_stealer {
-                    while !stealer.is_empty() {
-                        if let Steal::Success((_stamp, channel, message)) = stealer.steal() {
-                            // TODO: what does "now" mean to Orchestrator?
-                            self.orchestrator
-                                .update(&self.clock, GrooveMessage::Midi(channel, message));
-                            self.control_bar
-                                .midi
-                                .update(MidiControlBarMessage::Activity(Instant::now()));
-                        }
+                while !self.midi_handler.input_stealer().is_empty() {
+                    if let Steal::Success((_stamp, channel, message)) =
+                        self.midi_handler.input_stealer().steal()
+                    {
+                        // TODO: what does "now" mean to Orchestrator?
+                        self.orchestrator
+                            .update(&self.clock, GrooveMessage::Midi(channel, message));
+                        self.control_bar
+                            .midi
+                            .update(MidiControlBarMessage::Activity(Instant::now()));
                     }
                 }
             }
