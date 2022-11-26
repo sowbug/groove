@@ -54,7 +54,6 @@ impl Default for GrooveApp {
             clock: Default::default(),
             audio_output: Default::default(),
             midi_handler: Default::default(),
-            //            midi_input_stealer: Default::default(),
         }
     }
 }
