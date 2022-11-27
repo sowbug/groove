@@ -33,6 +33,9 @@ pub enum GrooveMessage {
     /// for example from a MIDI hardware instrument.  
     Midi(MidiChannel, MidiMessage),
 
+    /// A MIDI message that has arrived from outside Groove, typically from
+    /// MidiInputHandler.
+    ExternalMidi(MidiChannel, MidiMessage),
 }
 impl MessageBounds for GrooveMessage {}
 
@@ -77,7 +80,7 @@ pub enum EntityMessage {
     /// until I figure out how to send a Msg(_, _) to a thing that wants a
     /// Msg(_). If that isn't a Rust thing, I think I can ask someone up the
     /// chain to do it for me.
-    /// 
+    ///
     /// For sanity, please make sure the ParamN corresponds to the
     /// ___ControlParams enum.
     UpdateParam0F32(f32),

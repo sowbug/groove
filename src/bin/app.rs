@@ -1,11 +1,11 @@
 mod gui;
 
 use async_std::task::block_on;
-use crossbeam::deque::Steal; // TODO: this leaks into the app. Necessary?
 use groove::{
     gui::{GuiStuff, Viewable, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    traits::Updateable,
-    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, IOHelper, MidiHandler, TimeSignature,
+    traits::{Internal, Updateable},
+    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, IOHelper, MidiHandler,
+    MidiHandlerMessage, TimeSignature,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -242,7 +242,7 @@ impl Midi {
             if last_tick.duration_since(self.activity_tick) > Duration::from_millis(250) {
                 " "
             } else {
-                "x"
+                "•"
             },
         ))
         .width(Length::FillPortion(1));
@@ -292,11 +292,9 @@ impl Application for GrooveApp {
                     _ => {}
                 }
 
-                // TODO: this should be via messages
-                let inputs = self.midi_handler.available_devices();
-                self.control_bar
-                    .midi
-                    .update(MidiControlBarMessage::Inputs(inputs.to_vec()));
+                self.midi_handler.refresh();
+                // self.orchestrator
+                //     .update(&self.clock, GrooveMessage::RefreshMidiDevices);
             }
             AppMessage::Loaded(Err(_e)) => {
                 todo!()
@@ -315,16 +313,40 @@ impl Application for GrooveApp {
                         self.state = State::Idle;
                     }
                 }
-                while !self.midi_handler.input_stealer().is_empty() {
-                    if let Steal::Success((_stamp, channel, message)) =
-                        self.midi_handler.input_stealer().steal()
-                    {
-                        // TODO: what does "now" mean to Orchestrator?
-                        self.orchestrator
-                            .update(&self.clock, GrooveMessage::Midi(channel, message));
-                        self.control_bar
-                            .midi
-                            .update(MidiControlBarMessage::Activity(Instant::now()));
+                // TODO: decide what a Tick means. The app thinks it's 10
+                // milliseconds. Orchestrator thinks it's 1/sample rate.
+
+                // TODO: these conversion routines are getting tedious. I'm not
+                // yet convinced they're in the right place, rather than just
+                // being a very expensive band-aid to patch holes.
+                match self
+                    .midi_handler
+                    .update(&self.clock, MidiHandlerMessage::Tick)
+                    .0
+                {
+                    Internal::None => {}
+                    Internal::Single(message) => match message {
+                        MidiHandlerMessage::Nop => todo!(),
+                        MidiHandlerMessage::Tick => todo!(),
+                        MidiHandlerMessage::Midi(_, _) => todo!(),
+                        MidiHandlerMessage::Refresh => todo!(),
+                        MidiHandlerMessage::Refreshed(_, _) => todo!(),
+                    },
+                    Internal::Batch(messages) => {
+                        for message in messages {
+                            match message {
+                                MidiHandlerMessage::Midi(channel, message) => {
+                                    self.orchestrator.update(
+                                        &self.clock,
+                                        GrooveMessage::ExternalMidi(channel, message),
+                                    );
+                                    self.control_bar
+                                        .midi
+                                        .update(MidiControlBarMessage::Activity(Instant::now()));
+                                }
+                                _ => todo!(),
+                            }
+                        }
                     }
                 }
             }
@@ -360,6 +382,12 @@ impl Application for GrooveApp {
                 }
             }
             AppMessage::GrooveMessage(message) => {
+                match message {
+                    GrooveMessage::Midi(channel, message) => {
+                        dbg!(&channel, &message);
+                    }
+                    _ => {}
+                }
                 // TODO: we're swallowing the EvenNewerCommands we're getting
                 // from update()
                 //

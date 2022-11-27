@@ -9,6 +9,7 @@ use crate::{
     traits::{
         BoxedEntity, EvenNewerCommand, HasUid, Internal, IsController, Terminates, Updateable,
     },
+    MIDI_CHANNEL_RECEIVE_ALL,
 };
 use anyhow::anyhow;
 use crossbeam::deque::Worker;
@@ -345,7 +346,7 @@ impl<M: MessageBounds> Orchestrator<M> {
     #[allow(unused_variables)]
     pub(crate) fn connect_midi_upstream(&self, source_uid: usize) {}
 
-    pub(crate) fn connect_midi_downstream(
+    pub fn connect_midi_downstream(
         &mut self,
         receiver_uid: usize,
         receiver_midi_channel: MidiChannel,
@@ -375,6 +376,80 @@ impl<M: MessageBounds> Orchestrator<M> {
     pub fn set_enable_dev_experiment(&mut self, enabled: bool) {
         self.enable_dev_experiment = enabled;
     }
+
+    fn dispatch_entity_message_and_wrap(
+        clock: &Clock,
+        message: &EntityMessage,
+        entity: &mut BoxedEntity<EntityMessage>,
+    ) -> EvenNewerCommand<GrooveMessage> {
+        let (uid, command) = match entity {
+            BoxedEntity::Controller(entity) => {
+                (entity.uid(), entity.update(clock, message.clone()))
+            }
+            BoxedEntity::Effect(entity) => (
+                entity.uid(),
+                match message {
+                    EntityMessage::Tick => {
+                        // Effects don't get tick messages
+                        EvenNewerCommand::none()
+                    }
+                    _ => entity.update(clock, message.clone()),
+                },
+            ),
+            BoxedEntity::Instrument(entity) => (
+                entity.uid(),
+                match message {
+                    EntityMessage::Tick => {
+                        // Instruments don't get tick messages
+                        EvenNewerCommand::none()
+                    }
+                    _ => entity.update(clock, message.clone()),
+                },
+            ),
+        };
+        match command.0 {
+            Internal::None => EvenNewerCommand::none(),
+            Internal::Single(action) => {
+                EvenNewerCommand::single(GrooveMessage::EntityMessage(uid, action))
+            }
+            Internal::Batch(actions) => EvenNewerCommand::batch(
+                actions
+                    .iter()
+                    .map(|message| {
+                        EvenNewerCommand::single(GrooveMessage::EntityMessage(uid, message.clone()))
+                    })
+                    .into_iter(),
+            ),
+        }
+    }
+
+    fn handle_msg_midi(&mut self, clock: &Clock, channel: u8, message: MidiMessage) {
+        let mut receiver_uids = Vec::new();
+        if let Some(receiver_all_uids) = self.store.midi_receivers(MIDI_CHANNEL_RECEIVE_ALL) {
+            receiver_uids.extend(receiver_all_uids);
+        }
+        if let Some(receiver_channel_uids) = self.store.midi_receivers(channel) {
+            receiver_uids.extend(receiver_channel_uids);
+        }
+        receiver_uids.dedup();
+        for receiver_uid in receiver_uids.to_vec() {
+            // TODO: can this loop?
+            if let Some(target) = self.store.get_mut(receiver_uid) {
+                let message = EntityMessage::Midi(channel, message);
+                match target {
+                    BoxedEntity::Controller(e) => {
+                        e.update(clock, message);
+                    }
+                    BoxedEntity::Instrument(e) => {
+                        e.update(clock, message);
+                    }
+                    BoxedEntity::Effect(e) => {
+                        e.update(clock, message);
+                    }
+                }
+            }
+        }
+    }
 }
 impl<M: MessageBounds> Default for Orchestrator<M> {
     fn default() -> Self {
@@ -402,75 +477,33 @@ impl Updateable for GrooveOrchestrator {
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::Nop => EvenNewerCommand::none(),
-            Self::Message::Tick => EvenNewerCommand::batch(self.store.values_mut().fold(
-                Vec::new(),
-                |mut vec: Vec<EvenNewerCommand<Self::Message>>, item| {
-                    match item {
-                        BoxedEntity::Controller(entity) => {
-                            let command = entity.update(clock, EntityMessage::Tick);
-
-                            match command.0 {
-                                Internal::None => vec.push(EvenNewerCommand::none()),
-                                Internal::Single(action) => {
-                                    let command = EvenNewerCommand::single(
-                                        Self::Message::EntityMessage(entity.uid(), action),
-                                    );
-                                    vec.push(command);
-                                }
-                                Internal::Batch(actions) => {
-                                    let commands = actions.iter().map(|message| {
-                                        EvenNewerCommand::single(Self::Message::EntityMessage(
-                                            entity.uid(),
-                                            message.clone(),
-                                        ))
-                                    });
-                                    vec.push(EvenNewerCommand::batch(commands.into_iter()));
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                    vec
-                },
-            )),
+            Self::Message::Tick => {
+                let entities = self.store.values_mut();
+                EvenNewerCommand::batch(
+                    entities
+                        .map(|entity| {
+                            Self::dispatch_entity_message_and_wrap(
+                                clock,
+                                &EntityMessage::Tick,
+                                entity,
+                            )
+                        })
+                        .into_iter(),
+                )
+            }
             Self::Message::EntityMessage(uid, message) => {
                 if let Some(entity) = self.store.get_mut(uid) {
-                    let (uid, command) = match entity {
-                        BoxedEntity::Controller(entity) => {
-                            (entity.uid(), entity.update(clock, message))
-                        }
-                        BoxedEntity::Effect(entity) => {
-                            (entity.uid(), entity.update(clock, message))
-                        }
-                        BoxedEntity::Instrument(entity) => {
-                            (entity.uid(), entity.update(clock, message))
-                        }
-                    };
-                    let mut vec = Vec::new();
-                    match command.0 {
-                        Internal::None => vec.push(EvenNewerCommand::none()),
-                        Internal::Single(action) => vec.push(EvenNewerCommand::single(
-                            Self::Message::EntityMessage(uid, action),
-                        )),
-                        Internal::Batch(actions) => vec.push(EvenNewerCommand::batch(
-                            actions
-                                .iter()
-                                .map(|message| {
-                                    EvenNewerCommand::single(Self::Message::EntityMessage(
-                                        uid,
-                                        message.clone(),
-                                    ))
-                                })
-                                .into_iter(),
-                        )),
-                    }
-                    EvenNewerCommand::batch(vec)
+                    Self::dispatch_entity_message_and_wrap(clock, &message, entity)
                 } else {
                     EvenNewerCommand::none()
                 }
             }
-            GrooveMessage::Midi(channel, message) => {
+            Self::Message::Midi(channel, message) => {
                 dbg!(&channel, &message);
+                EvenNewerCommand::none()
+            }
+            GrooveMessage::ExternalMidi(channel, message) => {
+                self.handle_msg_midi(clock, channel, message);
                 EvenNewerCommand::none()
             }
         }
@@ -529,17 +562,7 @@ impl GrooveRunner {
         clock: &mut Clock,
     ) -> (MonoSample, bool) {
         let command = orchestrator.update(clock, GrooveMessage::Tick);
-        match command.0 {
-            Internal::None => {}
-            Internal::Single(message) => {
-                self.handle_message(orchestrator, clock, message);
-            }
-            Internal::Batch(messages) => {
-                for message in messages {
-                    self.handle_message(orchestrator, clock, message);
-                }
-            }
-        }
+        self.handle_command(orchestrator, clock, command);
         return if orchestrator.are_all_finished() {
             (MONO_SAMPLE_SILENCE, true)
         } else {
@@ -549,111 +572,45 @@ impl GrooveRunner {
         };
     }
 
+    fn handle_command(
+        &mut self,
+        orchestrator: &mut Box<Orchestrator<GrooveMessage>>,
+        clock: &mut Clock,
+        command: EvenNewerCommand<GrooveMessage>,
+    ) {
+        let mut command = command;
+        loop {
+            match command.0 {
+                Internal::None => {
+                    break;
+                }
+                Internal::Single(message) => {
+                    command = self.handle_message(orchestrator, clock, message);
+                }
+                Internal::Batch(messages) => {
+                    if messages.is_empty() {
+                        break;
+                    }
+                    command = EvenNewerCommand::batch(
+                        messages
+                            .iter()
+                            .map(|message| {
+                                self.handle_message(orchestrator, clock, message.clone())
+                            })
+                            .into_iter(),
+                    );
+                }
+            }
+        }
+    }
+
     fn handle_message(
         &mut self,
-        orchestrator: &mut GrooveOrchestrator,
-        clock: &Clock,
-        message: GrooveMessage,
-    ) {
-        match message {
-            GrooveMessage::Nop => todo!(),
-            GrooveMessage::Tick => todo!(),
-            GrooveMessage::EntityMessage(uid, message) => match message {
-                EntityMessage::ControlF32(value) => {
-                    self.handle_msg_control_f32(orchestrator, clock, uid, value)
-                }
-                EntityMessage::Midi(channel, message) => {
-                    self.handle_msg_midi(orchestrator, clock, channel, message)
-                }
-                _ => todo!(),
-            },
-            GrooveMessage::Midi(channel, message) => {
-                self.handle_msg_midi(orchestrator, clock, channel, message)
-            }
-        }
-    }
-
-    fn handle_msg_control_f32(
-        &mut self,
-        orchestrator: &mut GrooveOrchestrator,
-        clock: &Clock,
-        uid: usize,
-        value: f32,
-    ) {
-        if let Some(e) = orchestrator.store.control_links(uid) {
-            // TODO: is this clone() necessary? I got lazy because its' a
-            // mut borrow of orchestrator inside a non-mut block.
-            for (target_uid, param_id) in e.clone() {
-                self.send_msg_update_f32(orchestrator, clock, target_uid, param_id, value);
-            }
-        }
-    }
-
-    fn handle_msg_midi(
-        &mut self,
-        orchestrator: &mut GrooveOrchestrator,
-        clock: &Clock,
-        channel: u8,
-        message: MidiMessage,
-    ) {
-        if let Some(receiver_uids) = orchestrator.store.midi_receivers(channel) {
-            for receiver_uid in receiver_uids.to_vec() {
-                // TODO: can this loop?
-                if let Some(target) = orchestrator.store.get_mut(receiver_uid) {
-                    let message = EntityMessage::Midi(channel, message);
-                    match target {
-                        BoxedEntity::Controller(e) => {
-                            e.update(clock, message);
-                        }
-                        BoxedEntity::Instrument(e) => {
-                            e.update(clock, message);
-                        }
-                        BoxedEntity::Effect(e) => {
-                            e.update(clock, message);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    fn send_msg_update_f32(
-        &mut self,
-        orchestrator: &mut GrooveOrchestrator,
-        clock: &Clock,
-        target_uid: usize,
-        param_id: usize,
-        value: f32,
-    ) {
-        self.send_msg(
-            orchestrator,
-            clock,
-            target_uid,
-            EntityMessage::UpdateF32(param_id, value),
-        );
-    }
-
-    fn send_msg(
-        &mut self,
-        orchestrator: &mut GrooveOrchestrator,
-        clock: &Clock,
-        target_uid: usize,
-        message: EntityMessage,
-    ) {
-        if let Some(target) = orchestrator.store.get_mut(target_uid) {
-            match target {
-                // TODO: everyone is the same...
-                BoxedEntity::Controller(e) => {
-                    e.update(clock, message);
-                }
-                BoxedEntity::Instrument(e) => {
-                    e.update(clock, message);
-                }
-                BoxedEntity::Effect(e) => {
-                    e.update(clock, message);
-                }
-            }
-        }
+        _orchestrator: &mut GrooveOrchestrator,
+        _clock: &Clock,
+        _message: GrooveMessage,
+    ) -> EvenNewerCommand<GrooveMessage> {
+        panic!("I don't think GrooveRunner should be handling any messages. Change my mind.");
     }
 }
 
@@ -756,6 +713,7 @@ impl<M> Store<M> {
             .retain(|(uid, _)| *uid != target_uid);
     }
 
+    #[allow(dead_code)]
     pub(crate) fn control_links(&self, controller_uid: usize) -> Option<&Vec<(usize, usize)>> {
         self.uid_to_control.get(&controller_uid)
     }

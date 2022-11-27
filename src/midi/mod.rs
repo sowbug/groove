@@ -2,15 +2,14 @@ pub(crate) mod patterns;
 pub(crate) mod programmers;
 pub(crate) mod smf_reader;
 
+use crate::{
+    messages::{EntityMessage, MessageBounds},
+    traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable},
+};
+use crossbeam::deque::{Steal, Stealer, Worker};
+use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
 // TODO copy and conform to MessageBounds so it can be a trait associated type
 pub use midly::MidiMessage;
-
-use crate::{
-    messages::EntityMessage,
-    traits::{HasUid, IsController, Terminates, Updateable},
-};
-use crossbeam::deque::{Stealer, Worker};
-use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
 use midly::{live::LiveEvent, num::u4};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -480,6 +479,26 @@ impl MidiOutputHandler {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub enum MidiHandlerMessage {
+    /// "no operation" $EA, exists only as a default. Nobody should do anything
+    /// in response to this message; in fact, it's probably OK to panic.
+    #[default]
+    Nop,
+
+    Tick,
+
+    /// A MIDI message sent to a channel.  
+    Midi(MidiChannel, MidiMessage),
+
+    /// Refresh the list of MIDI inputs/outputs.
+    Refresh,
+
+    /// Response to Refresh containing enumerated lists of inputs and outputs.
+    Refreshed(Vec<(usize, String)>, Vec<(usize, String)>),
+}
+impl MessageBounds for MidiHandlerMessage {}
+
 #[derive(Debug, Default)]
 pub struct MidiHandler {
     uid: usize,
@@ -488,7 +507,41 @@ pub struct MidiHandler {
 }
 impl IsController for MidiHandler {}
 impl Updateable for MidiHandler {
-    type Message = EntityMessage;
+    type Message = MidiHandlerMessage;
+
+    fn update(
+        &mut self,
+        _clock: &crate::Clock,
+        message: Self::Message,
+    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+        match message {
+            Self::Message::Tick => {
+                let mut commands = Vec::new();
+                while !self.input_stealer().is_empty() {
+                    if let Steal::Success((_stamp, channel, message)) = self.input_stealer().steal()
+                    {
+                        commands.push(EvenNewerCommand::single(Self::Message::Midi(
+                            channel, message,
+                        )));
+                    }
+                }
+                if commands.is_empty() {
+                    EvenNewerCommand::none()
+                } else {
+                    EvenNewerCommand::batch(commands)
+                }
+            }
+            Self::Message::Refresh => {
+                let inputs = self.midi_input.inputs();
+                let outputs = self.midi_output.outputs();
+                EvenNewerCommand::single(MidiHandlerMessage::Refreshed(
+                    inputs.to_vec(),
+                    outputs.to_vec(),
+                ))
+            }
+            _ => EvenNewerCommand::none(),
+        }
+    }
 }
 impl Terminates for MidiHandler {
     fn is_finished(&self) -> bool {
@@ -511,6 +564,8 @@ impl MidiHandler {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn refresh(&mut self) {}
 
     pub fn available_devices(&self) -> &[(usize, String)] {
         self.midi_input.inputs()

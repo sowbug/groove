@@ -8,6 +8,7 @@ pub use crate::{
     controllers::orchestrator::{GrooveOrchestrator, GrooveRunner, Orchestrator},
     helpers::{AudioOutput, IOHelper},
     messages::GrooveMessage,
+    midi::MidiHandlerMessage,
 };
 pub use crate::{
     midi::{MidiHandler, MidiInputStealer, MIDI_CHANNEL_RECEIVE_ALL},
