@@ -5,7 +5,7 @@ use crate::{
     midi::{GeneralMidiPercussionProgram, MidiMessage},
     traits::{EvenNewerCommand, HasUid, IsInstrument, SourcesAudio, Updateable},
 };
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 #[derive(Debug, Default)]
 struct Voice {
@@ -82,7 +82,7 @@ impl SourcesAudio for Voice {
 #[derive(Debug, Default)]
 pub struct Sampler {
     uid: usize,
-    note_to_voice: HashMap<u8, Voice>,
+    note_to_voice: FxHashMap<u8, Voice>,
     pub(crate) kit_name: String,
 }
 impl IsInstrument for Sampler {}

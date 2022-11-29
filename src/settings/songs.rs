@@ -15,8 +15,8 @@ use crate::{
     traits::BoxedEntity,
 };
 use anyhow::Result;
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 type PatchCable = Vec<DeviceId>; // first is source, last is sink
 
@@ -123,7 +123,7 @@ impl SongSettings {
             return;
         }
 
-        let mut ids_to_patterns = HashMap::new();
+        let mut ids_to_patterns = FxHashMap::default();
         let pattern_manager = orchestrator.pattern_manager_mut();
         for pattern_settings in &self.patterns {
             let pattern = Pattern::<Note>::from_settings(pattern_settings);
@@ -154,7 +154,7 @@ impl SongSettings {
             return;
         }
 
-        let mut ids_to_paths = HashMap::new();
+        let mut ids_to_paths = FxHashMap::default();
         for path_settings in &self.paths {
             ids_to_paths.insert(
                 path_settings.id.clone(),

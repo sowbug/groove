@@ -2,8 +2,6 @@ pub(crate) mod arpeggiator;
 pub(crate) mod orchestrator;
 pub(crate) mod sequencers;
 
-use crossbeam::deque::Worker;
-
 use crate::clock::{Clock, ClockTimeUnit};
 use crate::common::MonoSample;
 use crate::instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
@@ -12,6 +10,7 @@ use crate::settings::controllers::ControlStep;
 use crate::traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable};
 use crate::{clock::BeatValue, settings::controllers::ControlPathSettings};
 use core::fmt::Debug;
+use crossbeam::deque::Worker;
 use std::marker::PhantomData;
 use std::ops::Range;
 

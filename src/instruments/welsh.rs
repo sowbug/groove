@@ -7,13 +7,14 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{HasUid, IsInstrument, SourcesAudio, TransformsAudio, Updateable, EvenNewerCommand},
+    traits::{EvenNewerCommand, HasUid, IsInstrument, SourcesAudio, TransformsAudio, Updateable},
     Clock,
 };
 use convert_case::{Case, Casing};
 use num_traits::FromPrimitive;
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, f32::consts::FRAC_1_SQRT_2};
+use std::f32::consts::FRAC_1_SQRT_2;
 use strum_macros::{Display, EnumIter};
 
 use super::{envelopes::AdsrEnvelope, oscillators::Oscillator};
@@ -591,11 +592,7 @@ impl Updateable for WelshVoice {
     // type Message = MidiMessage;
     type Message = EntityMessage;
 
-    fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
             Self::Message::Midi(channel, message) => match message {
@@ -671,7 +668,7 @@ pub struct WelshSynth {
     sample_rate: usize,
     pub(crate) preset: SynthPatch,
     voices: Vec<WelshVoice>,
-    note_to_voice_index: HashMap<u8, usize>,
+    note_to_voice_index: FxHashMap<u8, usize>,
 
     debug_last_seconds: f32,
 }
@@ -706,22 +703,18 @@ impl SourcesAudio for WelshSynth {
 impl Updateable for WelshSynth {
     type Message = EntityMessage;
 
-    fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
             Self::Message::Midi(channel, midi_message) => match midi_message {
+                MidiMessage::NoteOn { key, vel } => {
+                    let voice = self.voice_for_note(clock, u8::from(key));
+                    voice.update(clock, message);
+                }
                 MidiMessage::NoteOff { key, vel } => {
                     let voice = self.voice_for_note(clock, u8::from(key));
                     voice.update(clock, message);
                     self.note_to_voice_index.remove(&u8::from(key));
-                }
-                MidiMessage::NoteOn { key, vel } => {
-                    let voice = self.voice_for_note(clock, u8::from(key));
-                    voice.update(clock, message);
                 }
                 MidiMessage::ProgramChange { program } => {
                     if let Some(program) = GeneralMidiProgram::from_u8(u8::from(program)) {
