@@ -3,8 +3,9 @@ pub(crate) mod programmers;
 pub(crate) mod smf_reader;
 
 use crate::{
-    messages::{EntityMessage, MessageBounds},
+    messages::MessageBounds,
     traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable},
+    Clock,
 };
 use crossbeam::deque::{Steal, Stealer, Worker};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
@@ -342,7 +343,7 @@ impl std::fmt::Debug for MidiInputHandler {
     }
 }
 
-/// Outputs MIDI messages to external MIDI devices. 
+/// Outputs MIDI messages to external MIDI devices.
 pub struct MidiOutputHandler {
     uid: usize,
     conn_out: Option<MidiOutputConnection>,
@@ -369,15 +370,15 @@ impl Default for MidiOutputHandler {
 }
 impl IsController for MidiOutputHandler {}
 impl Updateable for MidiOutputHandler {
-    type Message = EntityMessage;
+    type Message = MidiHandlerMessage;
 
     fn update(
         &mut self,
-        _clock: &crate::Clock,
+        _clock: &Clock,
         message: Self::Message,
     ) -> EvenNewerCommand<Self::Message> {
         match message {
-            Self::Message::Midi(channel, message) => {
+            Self::Message::MidiToExternal(channel, message) => {
                 let event = LiveEvent::Midi {
                     channel: u4::from(channel),
                     message,
@@ -395,7 +396,7 @@ impl Updateable for MidiOutputHandler {
         EvenNewerCommand::none()
     }
 
-    fn handle_message(&mut self, _clock: &crate::Clock, _message: Self::Message) {
+    fn handle_message(&mut self, _clock: &Clock, _message: Self::Message) {
         todo!()
     }
 
@@ -511,11 +512,7 @@ impl IsController for MidiHandler {}
 impl Updateable for MidiHandler {
     type Message = MidiHandlerMessage;
 
-    fn update(
-        &mut self,
-        _clock: &crate::Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::Tick => {
                 let mut commands = Vec::new();
@@ -540,6 +537,10 @@ impl Updateable for MidiHandler {
                     inputs.to_vec(),
                     outputs.to_vec(),
                 ))
+            }
+            Self::Message::MidiToExternal(_, _) => {
+                self.midi_output.update(clock, message);
+                EvenNewerCommand::none()
             }
             _ => EvenNewerCommand::none(),
         }

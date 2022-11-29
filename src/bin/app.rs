@@ -303,7 +303,7 @@ impl Application for GrooveApp {
                 self.last_tick = now;
                 if let State::Playing = &mut self.state {
                     self.update_clock();
-                    let done = block_on(IOHelper::fill_audio_buffer(
+                    let (messages, done) = block_on(IOHelper::fill_audio_buffer(
                         self.audio_output.recommended_buffer_size(),
                         &mut self.orchestrator,
                         &mut self.clock,
@@ -312,6 +312,14 @@ impl Application for GrooveApp {
                     if done {
                         self.state = State::Idle;
                     }
+                    messages.iter().for_each(|m| {
+                        if let GrooveMessage::MidiToExternal(channel, message) = *m {
+                            self.midi_handler.update(
+                                &self.clock,
+                                MidiHandlerMessage::MidiToExternal(channel, message),
+                            );
+                        }
+                    });
                 }
                 // TODO: decide what a Tick means. The app thinks it's 10
                 // milliseconds. Orchestrator thinks it's 1/sample rate.
@@ -493,7 +501,11 @@ impl GrooveApp {
                     .handle_message(clock, MidiHandlerMessage::MidiToExternal(channel, message));
                 Command::none()
             }
-            GrooveMessage::AudioOutput(_, _) => {
+            GrooveMessage::AudioOutput(_) => {
+                // IOHelper::fill_audio_buffer() should have already looked at this
+                Command::none()
+            }
+            GrooveMessage::OutputComplete => {
                 // IOHelper::fill_audio_buffer() should have already looked at this
                 Command::none()
             }

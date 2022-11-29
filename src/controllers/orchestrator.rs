@@ -458,8 +458,11 @@ impl Updateable for GrooveOrchestrator {
                     Self::Message::MidiToExternal(_, _) => {
                         panic!("Orchestrator should not handle MidiToExternal");
                     }
-                    Self::Message::AudioOutput(_, _) => {
+                    Self::Message::AudioOutput(_) => {
                         panic!("AudioOutput shouldn't exist at this point in the pipeline");
+                    }
+                    Self::Message::OutputComplete => {
+                        panic!("OutputComplete shouldn't exist at this point in the pipeline");
                     }
                 }
             }
@@ -467,8 +470,10 @@ impl Updateable for GrooveOrchestrator {
         if let GrooveMessage::Tick = message {
             unhandled_commands.push(EvenNewerCommand::single(GrooveMessage::AudioOutput(
                 self.gather_audio(clock),
-                self.are_all_finished(),
             )));
+            if self.are_all_finished() {
+                unhandled_commands.push(EvenNewerCommand::single(GrooveMessage::OutputComplete));
+            }
         }
         EvenNewerCommand::batch(unhandled_commands)
     }
@@ -597,7 +602,7 @@ impl GrooveRunner {
             // TODO: maybe this should be Commands, with one as a sample, and an
             // occasional one as a done message.
             let command = self.loop_once(orchestrator, clock);
-            let (sample, done) = self.peek_command(command);
+            let (sample, done) = self.peek_command(&command);
             if done {
                 break;
             }
@@ -618,7 +623,7 @@ impl GrooveRunner {
         clock.reset();
         loop {
             let command = self.loop_once(orchestrator, clock);
-            let (sample, done) = self.peek_command(command);
+            let (sample, done) = self.peek_command(&command);
             if next_progress_indicator <= clock.samples() {
                 print!(".");
                 io::stdout().flush().unwrap();
@@ -644,11 +649,11 @@ impl GrooveRunner {
         command
     }
 
-    pub fn peek_command(&mut self, command: EvenNewerCommand<GrooveMessage>) -> (MonoSample, bool) {
+    pub fn peek_command(&self, command: &EvenNewerCommand<GrooveMessage>) -> (MonoSample, bool) {
         let mut debug_matched_audio_output = false;
         let mut sample = MONO_SAMPLE_SILENCE;
         let mut done = false;
-        match command.0 {
+        match &(*command).0 {
             Internal::None => {}
             Internal::Single(message) => match message {
                 // GrooveMessage::Nop => todo!(),
@@ -665,19 +670,23 @@ impl GrooveRunner {
                 // GrooveMessage::AudioOutput(_, _) => {
                 //     // let app handle it
                 // }
-                GrooveMessage::AudioOutput(msg_sample, msg_done) => {
+                GrooveMessage::AudioOutput(msg_sample) => {
                     debug_matched_audio_output = true;
-                    sample = msg_sample;
-                    done = msg_done;
+                    sample = *msg_sample;
+                }
+                GrooveMessage::OutputComplete => {
+                    done = true;
                 }
                 _ => {}
             },
             Internal::Batch(messages) => {
                 messages.iter().for_each(|message| match message {
-                    GrooveMessage::AudioOutput(msg_sample, msg_done) => {
+                    GrooveMessage::AudioOutput(msg_sample) => {
                         debug_matched_audio_output = true;
                         sample = *msg_sample;
-                        done = *msg_done;
+                    }
+                    GrooveMessage::OutputComplete => {
+                        done = true;
                     }
                     _ => {}
                 });

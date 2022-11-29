@@ -35,9 +35,13 @@ pub enum GrooveMessage {
     /// A MIDI message that should be routed from Groove to outside.
     MidiToExternal(MidiChannel, MidiMessage),
 
-    /// Tick has produced an audio sample for the current time slice, along with
-    /// an indicator whether the performance is complete.
-    AudioOutput(MonoSample, bool),
+    /// An audio sample for the current time slice. Intended to be sent in
+    /// response to a downstream Tick, and consumed by the application.
+    AudioOutput(MonoSample),
+
+    /// If sent, then the Orchestrator performance is done. Intended to be sent
+    /// in response to a downstream Tick, and consumed by the application.
+    OutputComplete,
 }
 impl MessageBounds for GrooveMessage {}
 

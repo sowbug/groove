@@ -9,7 +9,7 @@ use crate::{
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     traits::{BoxedEntity, IsInstrument},
-    Clock, GrooveOrchestrator, GrooveRunner, Orchestrator,
+    Clock, GrooveMessage, GrooveOrchestrator, GrooveRunner, Orchestrator,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -170,19 +170,42 @@ impl IOHelper {
         orchestrator: &mut Box<GrooveOrchestrator>,
         clock: &mut Clock,
         audio_output: &mut AudioOutput,
-    ) -> bool {
+    ) -> (Vec<GrooveMessage>, bool) {
+        let mut is_done = false;
         let mut runner = GrooveRunner::default();
+        let mut v = Vec::new();
         while audio_output.worker().len() < buffer_size {
-            let command =  runner.loop_once(orchestrator, clock);
-            let (sample, done) = runner.peek_command(command);
+            let command = runner.loop_once(orchestrator, clock);
+            let (sample, done) = runner.peek_command(&command);
+            match command.0 {
+                crate::traits::Internal::None => {}
+                crate::traits::Internal::Single(message) => {
+                    if let GrooveMessage::MidiToExternal(_, _) = message {
+                        v.push(message);
+                    }
+                }
+                crate::traits::Internal::Batch(messages) => {
+                    for message in messages {
+                        match message {
+                            GrooveMessage::MidiToExternal(_, _) => v.push(message),
+                            GrooveMessage::AudioOutput(_) => {}
+                            GrooveMessage::OutputComplete => {}
+                            _ => {
+                                panic!("Hmmm, unexpected {:?}", message)
+                            }
+                        }
+                    }
+                }
+            }
             if done {
+                is_done = true;
                 // TODO - this needs to be stickier
                 // TODO weeks later: I don't understand the previous TODO
-                return true;
+                break;
             }
             audio_output.worker_mut().push(sample);
         }
-        false
+        (v, is_done)
     }
 
     pub fn song_settings_from_yaml_file(filename: &str) -> anyhow::Result<SongSettings> {
