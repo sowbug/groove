@@ -342,6 +342,7 @@ impl std::fmt::Debug for MidiInputHandler {
     }
 }
 
+/// Outputs MIDI messages to external MIDI devices. 
 pub struct MidiOutputHandler {
     uid: usize,
     conn_out: Option<MidiOutputConnection>,
@@ -374,7 +375,7 @@ impl Updateable for MidiOutputHandler {
         &mut self,
         _clock: &crate::Clock,
         message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    ) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::Midi(channel, message) => {
                 let event = LiveEvent::Midi {
@@ -391,7 +392,7 @@ impl Updateable for MidiOutputHandler {
             }
             _ => todo!(),
         }
-        crate::traits::EvenNewerCommand::none()
+        EvenNewerCommand::none()
     }
 
     fn handle_message(&mut self, _clock: &crate::Clock, _message: Self::Message) {
@@ -488,8 +489,9 @@ pub enum MidiHandlerMessage {
 
     Tick,
 
-    /// A MIDI message sent to a channel.  
-    Midi(MidiChannel, MidiMessage),
+    /// A MIDI message sent by Groove to MidiHandler for output to external MIDI
+    /// devices.
+    MidiToExternal(MidiChannel, MidiMessage),
 
     /// Refresh the list of MIDI inputs/outputs.
     Refresh,
@@ -513,14 +515,14 @@ impl Updateable for MidiHandler {
         &mut self,
         _clock: &crate::Clock,
         message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    ) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::Tick => {
                 let mut commands = Vec::new();
                 while !self.input_stealer().is_empty() {
                     if let Steal::Success((_stamp, channel, message)) = self.input_stealer().steal()
                     {
-                        commands.push(EvenNewerCommand::single(Self::Message::Midi(
+                        commands.push(EvenNewerCommand::single(Self::Message::MidiToExternal(
                             channel, message,
                         )));
                     }

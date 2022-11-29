@@ -1,7 +1,7 @@
 use crate::{
     common::MonoSample,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{HasUid, IsInstrument, SourcesAudio, Updateable},
+    traits::{HasUid, IsInstrument, SourcesAudio, Updateable, EvenNewerCommand},
     Clock, messages::EntityMessage,
 };
 use std::f32::consts::PI;
@@ -78,7 +78,7 @@ impl Updateable for Oscillator {
         &mut self,
         _clock: &Clock,
         message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    ) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 if let Some(param) = OscillatorControlParams::from_repr(param_id) {
@@ -89,7 +89,7 @@ impl Updateable for Oscillator {
             }
             _ => todo!(),
         }
-        crate::traits::EvenNewerCommand::none()
+        EvenNewerCommand::none()
     }
 }
 impl HasUid for Oscillator {

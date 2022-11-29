@@ -328,17 +328,17 @@ impl Application for GrooveApp {
                     Internal::Single(message) => match message {
                         MidiHandlerMessage::Nop => todo!(),
                         MidiHandlerMessage::Tick => todo!(),
-                        MidiHandlerMessage::Midi(_, _) => todo!(),
+                        MidiHandlerMessage::MidiToExternal(_, _) => todo!(),
                         MidiHandlerMessage::Refresh => todo!(),
                         MidiHandlerMessage::Refreshed(_, _) => todo!(),
                     },
                     Internal::Batch(messages) => {
                         for message in messages {
                             match message {
-                                MidiHandlerMessage::Midi(channel, message) => {
+                                MidiHandlerMessage::MidiToExternal(channel, message) => {
                                     self.orchestrator.update(
                                         &self.clock,
-                                        GrooveMessage::ExternalMidi(channel, message),
+                                        GrooveMessage::MidiFromExternal(channel, message),
                                     );
                                     self.control_bar
                                         .midi
@@ -382,17 +382,11 @@ impl Application for GrooveApp {
                 }
             }
             AppMessage::GrooveMessage(message) => {
-                match message {
-                    GrooveMessage::Midi(channel, message) => {
-                        dbg!(&channel, &message);
-                    }
-                    _ => {}
-                }
                 // TODO: we're swallowing the EvenNewerCommands we're getting
                 // from update()
                 //
                 // TODO: is this clock the right one to base everything off?
-                self.orchestrator.update(&self.clock, message);
+                self.dispatch_groove_message(message);
             }
         }
 
@@ -461,6 +455,31 @@ impl GrooveApp {
         self.control_bar
             .gui_clock
             .update(ClockMessage::Beats(self.clock.beats()));
+    }
+
+    /// GrooveMessages returned in Orchestrator update() calls have made it all
+    /// the way up to us. Let's look at them and decide what to do. If we have
+    /// any work to do, we'll emit it in the form of one or more AppMessages.
+    fn dispatch_groove_message(&mut self, message: GrooveMessage) -> Command<AppMessage> {
+        let mut v = Vec::new();
+        match self.orchestrator.update(&self.clock, message).0 {
+            Internal::None => {}
+            Internal::Single(action) => v.push(self.handle_groove_message(action)),
+            Internal::Batch(actions) => {
+                for action in actions {
+                    v.push(self.handle_groove_message(action))
+                }
+            }
+        }
+        Command::batch(v)
+    }
+    fn handle_groove_message(&mut self, message: GrooveMessage) -> Command<AppMessage> {
+        match message {
+            GrooveMessage::Nop => panic!(),
+            GrooveMessage::Tick => panic!(),
+            GrooveMessage::EntityMessage(_, _) => panic!(),
+            GrooveMessage::MidiFromExternal(_, _) => panic!(),
+        }
     }
 }
 

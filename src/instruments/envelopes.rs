@@ -3,7 +3,7 @@ use crate::{
     common::MonoSample,
     messages::EntityMessage,
     settings::patches::EnvelopeSettings,
-    traits::{HasUid, IsInstrument, SourcesAudio, Updateable},
+    traits::{HasUid, IsInstrument, SourcesAudio, Updateable, EvenNewerCommand},
     Clock,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -256,7 +256,7 @@ impl Updateable for AdsrEnvelope {
         &mut self,
         clock: &Clock,
         message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    ) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 if let Some(param) = AdsrEnvelopeControlParams::from_repr(param_id) {
@@ -267,7 +267,7 @@ impl Updateable for AdsrEnvelope {
             }
             _ => todo!(),
         }
-        crate::traits::EvenNewerCommand::none()
+        EvenNewerCommand::none()
     }
 }
 impl HasUid for AdsrEnvelope {

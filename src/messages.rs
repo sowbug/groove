@@ -28,14 +28,9 @@ pub enum GrooveMessage {
     /// addition to the EntityMessage.
     EntityMessage(usize, EntityMessage),
 
-    /// A MIDI message sent to a channel. There is an identical message type in
-    /// EntityMessage. This one is for MIDI messages coming from outside Groove,
-    /// for example from a MIDI hardware instrument.  
-    Midi(MidiChannel, MidiMessage),
-
     /// A MIDI message that has arrived from outside Groove, typically from
     /// MidiInputHandler.
-    ExternalMidi(MidiChannel, MidiMessage),
+    MidiFromExternal(MidiChannel, MidiMessage),
 }
 impl MessageBounds for GrooveMessage {}
 
@@ -60,17 +55,17 @@ pub enum EntityMessage {
 
     /// (new controller_value)
     ///
-    /// Sent by controller. Indicates "My value has changed to \[value\], and
-    /// I'd like subscribers to know about that." The recipient will typically
-    /// turn this into one or more UpdateF32 messages, each going to a target
-    /// controlled by the controller.
+    /// Sent by controller. Handled by system. Indicates "My value has changed
+    /// to \[value\], and I'd like subscribers to know about that." The
+    /// recipient will typically turn this into one or more UpdateF32 messages,
+    /// each going to a target controlled by the controller.
     ControlF32(f32),
 
     /// (param_id, new value)
     ///
-    /// Sent by the system to targets of controllers. They should respond by
-    /// mapping the param_id to one of their internal controllable parameters,
-    /// and then set it to the updated f32 value.
+    /// Sent by the system, handled by targets of controllers. They should
+    /// respond by mapping the param_id to one of their internal controllable
+    /// parameters, and then set it to the updated f32 value.
     ///
     /// In the future we'll add richer types for the new_value parameter, but
     /// for now most parameter updates are representable by a plain old float.

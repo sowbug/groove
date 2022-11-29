@@ -3,7 +3,7 @@ use crate::{
     common::MonoSample,
     messages::EntityMessage,
     midi::{GeneralMidiPercussionProgram, MidiMessage},
-    traits::{HasUid, IsInstrument, SourcesAudio, Updateable},
+    traits::{EvenNewerCommand, HasUid, IsInstrument, SourcesAudio, Updateable},
 };
 use std::collections::HashMap;
 
@@ -36,11 +36,7 @@ impl Voice {
 impl Updateable for Voice {
     type Message = EntityMessage; // TODO
 
-    fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
             Self::Message::Midi(_channel, message) => match message {
@@ -56,7 +52,7 @@ impl Updateable for Voice {
             },
             _ => {}
         }
-        crate::traits::EvenNewerCommand::none()
+        EvenNewerCommand::none()
     }
 }
 impl SourcesAudio for Voice {
@@ -101,11 +97,7 @@ impl SourcesAudio for Sampler {
 impl Updateable for Sampler {
     type Message = EntityMessage;
 
-    fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
             Self::Message::Midi(channel, midi_message) => match midi_message {
@@ -128,7 +120,7 @@ impl Updateable for Sampler {
             },
             _ => todo!(),
         }
-        crate::traits::EvenNewerCommand::none()
+        EvenNewerCommand::none()
     }
 }
 impl HasUid for Sampler {

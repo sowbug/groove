@@ -3,7 +3,7 @@ use crate::{
     common::MonoSample,
     messages::EntityMessage,
     midi::MidiMessage,
-    traits::{HasUid, IsInstrument, SourcesAudio, Updateable},
+    traits::{HasUid, IsInstrument, SourcesAudio, Updateable, EvenNewerCommand},
 };
 
 #[derive(Debug, Default)]
@@ -49,7 +49,7 @@ impl Updateable for Sampler {
         &mut self,
         clock: &Clock,
         message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    ) -> EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
             Self::Message::Midi(channel, message) => match message {
@@ -65,7 +65,7 @@ impl Updateable for Sampler {
             },
             _ => {}
         }
-        crate::traits::EvenNewerCommand::none()
+        EvenNewerCommand::none()
     }
 }
 impl HasUid for Sampler {

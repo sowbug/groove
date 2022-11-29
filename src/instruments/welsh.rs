@@ -7,7 +7,7 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{HasUid, IsInstrument, SourcesAudio, TransformsAudio, Updateable},
+    traits::{HasUid, IsInstrument, SourcesAudio, TransformsAudio, Updateable, EvenNewerCommand},
     Clock,
 };
 use convert_case::{Case, Casing};
@@ -595,7 +595,7 @@ impl Updateable for WelshVoice {
         &mut self,
         clock: &Clock,
         message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    ) -> EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
             Self::Message::Midi(channel, message) => match message {
@@ -616,7 +616,7 @@ impl Updateable for WelshVoice {
             _ => {}
         }
 
-        crate::traits::EvenNewerCommand::none()
+        EvenNewerCommand::none()
     }
 }
 
@@ -710,7 +710,7 @@ impl Updateable for WelshSynth {
         &mut self,
         clock: &Clock,
         message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    ) -> EvenNewerCommand<Self::Message> {
         #[allow(unused_variables)]
         match message {
             Self::Message::Midi(channel, midi_message) => match midi_message {
@@ -736,7 +736,7 @@ impl Updateable for WelshSynth {
             },
             _ => todo!(),
         }
-        crate::traits::EvenNewerCommand::none()
+        EvenNewerCommand::none()
     }
 }
 impl HasUid for WelshSynth {

@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::EntityMessage,
-    traits::{HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{EvenNewerCommand, HasUid, IsEffect, TransformsAudio, Updateable},
 };
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -31,18 +31,14 @@ impl Updateable for Bitcrusher {
     type Message = EntityMessage;
 
     #[allow(unused_variables)]
-    fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 self.set_indexed_param_f32(param_id, value);
             }
             _ => todo!(),
         }
-        crate::traits::EvenNewerCommand::none()
+        EvenNewerCommand::none()
     }
 
     fn set_indexed_param_f32(&mut self, index: usize, value: f32) {

@@ -142,7 +142,7 @@ impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
         &mut self,
         clock: &Clock,
         message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    ) -> EvenNewerCommand<Self::Message> {
         EvenNewerCommand::none()
     }
 
@@ -175,7 +175,7 @@ impl Updateable for BiQuadFilter<EntityMessage> {
         &mut self,
         clock: &Clock,
         message: Self::Message,
-    ) -> crate::traits::EvenNewerCommand<Self::Message> {
+    ) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 self.set_indexed_param_f32(param_id, value);
