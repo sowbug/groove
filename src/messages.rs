@@ -31,6 +31,9 @@ pub enum GrooveMessage {
     /// A MIDI message that has arrived from outside Groove, typically from
     /// MidiInputHandler.
     MidiFromExternal(MidiChannel, MidiMessage),
+
+    /// A MIDI message that should be routed from Groove to outside.
+    MidiToExternal(MidiChannel, MidiMessage),
 }
 impl MessageBounds for GrooveMessage {}
 

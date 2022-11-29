@@ -386,7 +386,8 @@ impl Application for GrooveApp {
                 // from update()
                 //
                 // TODO: is this clock the right one to base everything off?
-                self.dispatch_groove_message(message);
+                // TODO: aaaargh so much cloning
+                self.dispatch_groove_message(&self.clock.clone(), message.clone());
             }
         }
 
@@ -460,25 +461,38 @@ impl GrooveApp {
     /// GrooveMessages returned in Orchestrator update() calls have made it all
     /// the way up to us. Let's look at them and decide what to do. If we have
     /// any work to do, we'll emit it in the form of one or more AppMessages.
-    fn dispatch_groove_message(&mut self, message: GrooveMessage) -> Command<AppMessage> {
+    fn dispatch_groove_message(
+        &mut self,
+        clock: &Clock,
+        message: GrooveMessage,
+    ) -> Command<AppMessage> {
         let mut v = Vec::new();
         match self.orchestrator.update(&self.clock, message).0 {
             Internal::None => {}
-            Internal::Single(action) => v.push(self.handle_groove_message(action)),
+            Internal::Single(action) => v.push(self.handle_groove_message(clock, action)),
             Internal::Batch(actions) => {
                 for action in actions {
-                    v.push(self.handle_groove_message(action))
+                    v.push(self.handle_groove_message(clock, action))
                 }
             }
         }
         Command::batch(v)
     }
-    fn handle_groove_message(&mut self, message: GrooveMessage) -> Command<AppMessage> {
+    fn handle_groove_message(
+        &mut self,
+        clock: &Clock,
+        message: GrooveMessage,
+    ) -> Command<AppMessage> {
         match message {
             GrooveMessage::Nop => panic!(),
             GrooveMessage::Tick => panic!(),
             GrooveMessage::EntityMessage(_, _) => panic!(),
             GrooveMessage::MidiFromExternal(_, _) => panic!(),
+            GrooveMessage::MidiToExternal(channel, message) => {
+                self.midi_handler
+                    .handle_message(clock, MidiHandlerMessage::MidiToExternal(channel, message));
+                Command::none()
+            }
         }
     }
 }
