@@ -1,6 +1,6 @@
 use crate::{
     common::MonoSample,
-    controllers::{orchestrator::Performance, sequencers::MidiTickSequencer},
+    controllers::{sequencers::MidiTickSequencer, Performance},
     instruments::{
         drumkit_sampler::Sampler,
         welsh::{PatchName, WelshSynth},

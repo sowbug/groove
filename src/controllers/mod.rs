@@ -2,7 +2,10 @@ pub(crate) mod arpeggiator;
 pub(crate) mod orchestrator;
 pub(crate) mod sequencers;
 
+use crossbeam::deque::Worker;
+
 use crate::clock::{Clock, ClockTimeUnit};
+use crate::common::MonoSample;
 use crate::instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
 use crate::messages::{EntityMessage, MessageBounds};
 use crate::settings::controllers::ControlStep;
@@ -11,6 +14,22 @@ use crate::{clock::BeatValue, settings::controllers::ControlPathSettings};
 use core::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Range;
+
+/// A Performance holds the output of an Orchestrator run.
+#[derive(Debug)]
+pub struct Performance {
+    pub sample_rate: usize,
+    pub worker: Worker<MonoSample>,
+}
+
+impl Performance {
+    pub fn new_with(sample_rate: usize) -> Self {
+        Self {
+            sample_rate,
+            worker: Worker::<MonoSample>::new_fifo(),
+        }
+    }
+}
 
 /// ControlTrip, ControlPath, and ControlStep help with
 /// [automation](https://en.wikipedia.org/wiki/Track_automation). Briefly, a
