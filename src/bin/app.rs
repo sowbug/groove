@@ -493,6 +493,10 @@ impl GrooveApp {
                     .handle_message(clock, MidiHandlerMessage::MidiToExternal(channel, message));
                 Command::none()
             }
+            GrooveMessage::AudioOutput(_, _) => {
+                // IOHelper::fill_audio_buffer() should have already looked at this
+                Command::none()
+            }
         }
     }
 }

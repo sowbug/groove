@@ -1,4 +1,4 @@
-use crate::{gui::PatternMessage, midi::MidiChannel};
+use crate::{common::MonoSample, gui::PatternMessage, midi::MidiChannel};
 use midly::MidiMessage;
 
 pub trait MessageBounds: Clone + std::fmt::Debug + Default + 'static {} // TODO: that 'static scares me
@@ -34,6 +34,10 @@ pub enum GrooveMessage {
 
     /// A MIDI message that should be routed from Groove to outside.
     MidiToExternal(MidiChannel, MidiMessage),
+
+    /// Tick has produced an audio sample for the current time slice, along with
+    /// an indicator whether the performance is complete.
+    AudioOutput(MonoSample, bool),
 }
 impl MessageBounds for GrooveMessage {}
 

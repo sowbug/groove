@@ -173,7 +173,8 @@ impl IOHelper {
     ) -> bool {
         let mut runner = GrooveRunner::default();
         while audio_output.worker().len() < buffer_size {
-            let (sample, done) = runner.loop_once(orchestrator, clock);
+            let command =  runner.loop_once(orchestrator, clock);
+            let (sample, done) = runner.peek_command(command);
             if done {
                 // TODO - this needs to be stickier
                 // TODO weeks later: I don't understand the previous TODO

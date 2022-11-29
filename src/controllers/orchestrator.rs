@@ -223,7 +223,7 @@ impl<M: MessageBounds> Orchestrator<M> {
     // TODO: this loop never changes unless the Orchestrator composition does.
     // We should snapshot it the first time and then just whiz through the
     // snapshot the other million times.
-    pub(crate) fn gather_audio(&mut self, clock: &mut Clock) -> MonoSample {
+    fn gather_audio(&mut self, clock: &Clock) -> MonoSample {
         enum StackEntry {
             ToVisit(usize),
             CollectResultFor(usize),
@@ -405,7 +405,7 @@ impl Updateable for GrooveOrchestrator {
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         let mut unhandled_commands = Vec::new();
         let mut commands = Vec::new();
-        commands.push(EvenNewerCommand::single(message));
+        commands.push(EvenNewerCommand::single(message.clone()));
         while let Some(command) = commands.pop() {
             let mut messages = Vec::new();
             match command.0 {
@@ -416,7 +416,9 @@ impl Updateable for GrooveOrchestrator {
             while let Some(message) = messages.pop() {
                 match message {
                     Self::Message::Nop => {}
-                    Self::Message::Tick => commands.push(self.handle_tick(clock)),
+                    Self::Message::Tick => {
+                        commands.push(self.handle_tick(clock));
+                    }
                     Self::Message::EntityMessage(uid, message) => match message {
                         EntityMessage::Nop => panic!("this should never be sent"),
                         EntityMessage::Midi(channel, message) => {
@@ -454,10 +456,19 @@ impl Updateable for GrooveOrchestrator {
                         commands.push(self.broadcast_midi_message(clock, channel, message));
                     }
                     Self::Message::MidiToExternal(_, _) => {
-                        panic!("this message should remain unhandled by Orchestrator");
+                        panic!("Orchestrator should not handle MidiToExternal");
+                    }
+                    Self::Message::AudioOutput(_, _) => {
+                        panic!("AudioOutput shouldn't exist at this point in the pipeline");
                     }
                 }
             }
+        }
+        if let GrooveMessage::Tick = message {
+            unhandled_commands.push(EvenNewerCommand::single(GrooveMessage::AudioOutput(
+                self.gather_audio(clock),
+                self.are_all_finished(),
+            )));
         }
         EvenNewerCommand::batch(unhandled_commands)
     }
@@ -585,7 +596,8 @@ impl GrooveRunner {
         loop {
             // TODO: maybe this should be Commands, with one as a sample, and an
             // occasional one as a done message.
-            let (sample, done) = self.loop_once(orchestrator, clock);
+            let command = self.loop_once(orchestrator, clock);
+            let (sample, done) = self.peek_command(command);
             if done {
                 break;
             }
@@ -605,7 +617,8 @@ impl GrooveRunner {
         let mut next_progress_indicator: usize = progress_indicator_quantum;
         clock.reset();
         loop {
-            let (sample, done) = self.loop_once(orchestrator, clock);
+            let command = self.loop_once(orchestrator, clock);
+            let (sample, done) = self.peek_command(command);
             if next_progress_indicator <= clock.samples() {
                 print!(".");
                 io::stdout().flush().unwrap();
@@ -625,70 +638,53 @@ impl GrooveRunner {
         &mut self,
         orchestrator: &mut Box<GrooveOrchestrator>,
         clock: &mut Clock,
-    ) -> (MonoSample, bool) {
-        let command = orchestrator.update(clock, GrooveMessage::Tick);
-        self.handle_command(orchestrator, clock, command);
-        return if orchestrator.are_all_finished() {
-            (MONO_SAMPLE_SILENCE, true)
-        } else {
-            let sample = orchestrator.gather_audio(clock);
-            clock.tick();
-            (sample, false)
-        };
-    }
-
-    fn handle_command(
-        &mut self,
-        orchestrator: &mut Box<Orchestrator<GrooveMessage>>,
-        clock: &mut Clock,
-        command: EvenNewerCommand<GrooveMessage>,
-    ) {
-        // TODO: this is wrong - we need to sift through the messages we're not
-        // meant to handle, and bubble them up the chain.
-        let mut command = command;
-        loop {
-            match command.0 {
-                Internal::None => {
-                    break;
-                }
-                Internal::Single(message) => {
-                    command = self.handle_message(orchestrator, clock, message);
-                }
-                Internal::Batch(messages) => {
-                    if messages.is_empty() {
-                        break;
-                    }
-                    command = EvenNewerCommand::batch(
-                        messages
-                            .iter()
-                            .map(|message| {
-                                self.handle_message(orchestrator, clock, message.clone())
-                            })
-                            .into_iter(),
-                    );
-                }
-            }
-        }
-    }
-
-    #[allow(unused_variables)]
-    fn handle_message(
-        &mut self,
-        orchestrator: &mut GrooveOrchestrator,
-        clock: &Clock,
-        message: GrooveMessage,
     ) -> EvenNewerCommand<GrooveMessage> {
-        match message {
-            GrooveMessage::Nop => todo!(),
-            GrooveMessage::Tick => panic!("Ticks should go only downstream"),
-            GrooveMessage::EntityMessage(_, _) => {
-                panic!("EntityMessages shouldn't escape from Orchestrator")
+        let command = orchestrator.update(clock, GrooveMessage::Tick);
+        clock.tick();
+        command
+    }
+
+    pub fn peek_command(&mut self, command: EvenNewerCommand<GrooveMessage>) -> (MonoSample, bool) {
+        let mut debug_matched_audio_output = false;
+        let mut sample = MONO_SAMPLE_SILENCE;
+        let mut done = false;
+        match command.0 {
+            Internal::None => {}
+            Internal::Single(message) => match message {
+                // GrooveMessage::Nop => todo!(),
+                // GrooveMessage::Tick => panic!("Ticks should go only downstream"),
+                // GrooveMessage::EntityMessage(_, _) => {
+                //     panic!("EntityMessages shouldn't escape from Orchestrator")
+                // }
+                // GrooveMessage::MidiFromExternal(_, _) => {
+                //     panic!("MidiFromExternal should go only downstream")
+                // }
+                // GrooveMessage::MidiToExternal(_, _) => {
+                //     // this is fine, ignore and let app handle it
+                // }
+                // GrooveMessage::AudioOutput(_, _) => {
+                //     // let app handle it
+                // }
+                GrooveMessage::AudioOutput(msg_sample, msg_done) => {
+                    debug_matched_audio_output = true;
+                    sample = msg_sample;
+                    done = msg_done;
+                }
+                _ => {}
+            },
+            Internal::Batch(messages) => {
+                messages.iter().for_each(|message| match message {
+                    GrooveMessage::AudioOutput(msg_sample, msg_done) => {
+                        debug_matched_audio_output = true;
+                        sample = *msg_sample;
+                        done = *msg_done;
+                    }
+                    _ => {}
+                });
             }
-            GrooveMessage::MidiFromExternal(_, _) => {
-                panic!("MidiFromExternal should go only downstream")
-            }
-            GrooveMessage::MidiToExternal(_, _) => EvenNewerCommand::single(message.clone()),
         }
+        debug_assert!(debug_matched_audio_output);
+        (sample, done)
     }
 }
 
