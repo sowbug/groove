@@ -681,11 +681,12 @@ impl SourcesAudio for WelshSynth {
             self.debug_last_seconds = clock.seconds();
         }
 
-        let mut done = true;
         let mut current_value = 0.0;
         for voice in self.voices.iter_mut() {
-            current_value += voice.source_audio(clock);
-            done = done && !voice.is_playing(clock);
+            let is_playing = voice.is_playing(clock);
+            if is_playing {
+                current_value += voice.source_audio(clock);
+            }
         }
         if !self.voices.is_empty() {
             // TODO: I'm not sure this is right. It means that 8 voices
