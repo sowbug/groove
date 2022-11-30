@@ -469,9 +469,7 @@ mod tests {
     };
 
     use super::{GuiStuff, Viewable};
-    use crate::utils::tests::{
-        TestControlSourceContinuous, TestLfo, TestMixer, TestSynth, TestValueChecker,
-    };
+    use crate::utils::tests::{TestControlSourceContinuous, TestLfo, TestMixer, TestSynth};
     use crate::{
         controllers::sequencers::BeatSequencer,
         effects::{
@@ -488,9 +486,6 @@ mod tests {
         type ViewMessage = M;
     }
     impl<M: MessageBounds> Viewable for TestLfo<M> {
-        type ViewMessage = M;
-    }
-    impl<M: MessageBounds> Viewable for TestValueChecker<M> {
         type ViewMessage = M;
     }
     impl<M: MessageBounds> Viewable for TestControlSourceContinuous<M> {

@@ -190,7 +190,7 @@ impl<M: MessageBounds> SourcesAudio for AudioSource<M> {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        clock::{Clock, ClockTimeUnit},
+        clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
         controllers::orchestrator::{tests::Runner, GrooveRunner, Orchestrator},
         instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
@@ -204,7 +204,6 @@ pub mod tests {
             Updateable,
         },
     };
-    use assert_approx_eq::assert_approx_eq;
     use convert_case::{Case, Casing};
     use strum_macros::FromRepr;
     // use plotters::prelude::*;
@@ -212,7 +211,7 @@ pub mod tests {
     use spectrum_analyzer::{
         samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
     };
-    use std::{collections::VecDeque, str::FromStr};
+    use std::str::FromStr;
     use std::{fs, marker::PhantomData};
     use strum_macros::{Display, EnumString};
 
@@ -682,97 +681,6 @@ pub mod tests {
                 uid: usize::default(),
                 source,
                 _phantom: PhantomData::default(),
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestValueChecker<M: MessageBounds> {
-        uid: usize,
-        pub values: VecDeque<f32>,
-        pub target_uid: usize,
-        pub checkpoint: f32,
-        pub checkpoint_delta: f32,
-        pub time_unit: ClockTimeUnit,
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> IsEffect for TestValueChecker<M> {}
-    impl<M: MessageBounds> TransformsAudio for TestValueChecker<M> {
-        fn transform_audio(&mut self, _clock: &Clock, _input_sample: MonoSample) -> MonoSample {
-            todo!()
-        }
-    }
-    impl<M: MessageBounds> Updateable for TestValueChecker<M> {
-        default type Message = M;
-
-        default fn update(
-            &mut self,
-            _clock: &Clock,
-            _message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            EvenNewerCommand::none()
-        }
-    }
-    impl Updateable for TestValueChecker<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                Self::Message::Tick => {
-                    if !self.values.is_empty() {
-                        if clock.time_for(&self.time_unit) >= self.checkpoint {
-                            const SAD_FLOAT_DIFF: f32 = 1.0e-4;
-                            assert_approx_eq!(
-                                1000.0, // TODO TODO
-                                //      self.target_uid.source_audio(clock),
-                                self.values[0],
-                                SAD_FLOAT_DIFF
-                            );
-                            self.checkpoint += self.checkpoint_delta;
-                            self.values.pop_front();
-                        }
-                    }
-                }
-                _ => todo!(),
-            }
-            EvenNewerCommand::none()
-        }
-    }
-    impl<M: MessageBounds> HasUid for TestValueChecker<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
-    }
-
-    impl<M: MessageBounds> Terminates for TestValueChecker<M> {
-        fn is_finished(&self) -> bool {
-            self.values.is_empty()
-        }
-    }
-    impl<M: MessageBounds> TestValueChecker<M> {
-        #[allow(dead_code)]
-        pub(crate) fn new_with(
-            values: &[f32],
-            target_uid: usize,
-            checkpoint: f32,
-            checkpoint_delta: f32,
-            time_unit: ClockTimeUnit,
-        ) -> Self {
-            Self {
-                values: VecDeque::from(Vec::from(values)),
-                target_uid,
-                checkpoint,
-                checkpoint_delta,
-                time_unit,
-                ..Default::default()
             }
         }
     }

@@ -1,3 +1,4 @@
+use crate::clock::ClockTimeUnit;
 use crate::gui::Viewable;
 use crate::messages::EntityMessage;
 use crate::{clock::Clock, common::MonoSample, messages::MessageBounds};
@@ -7,7 +8,9 @@ use crate::{
     midi::{MidiChannel, MidiUtils},
     settings::patches::WaveformType,
 };
+use assert_approx_eq::assert_approx_eq;
 use midly::MidiMessage;
+use std::collections::VecDeque;
 use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -115,6 +118,28 @@ impl<T> EvenNewerCommand<T> {
 // ones, for example if we're trying to determine whether an entity is
 // responsible for a performance issue.
 
+pub trait TestsValues {
+    fn check_values(&mut self, clock: &Clock) {
+        // If we've been asked to assert values at checkpoints, do so.
+        if self.has_checkpoint_values() {
+            if clock.time_for(&self.time_unit()) >= self.checkpoint_time() {
+                const SAD_FLOAT_DIFF: f32 = 1.0e-4;
+                if let Some(value) = self.pop_checkpoint_value() {
+                    assert_approx_eq!(self.value_to_check(), value, SAD_FLOAT_DIFF);
+                }
+                self.advance_checkpoint_time();
+            }
+        }
+    }
+
+    fn has_checkpoint_values(&self) -> bool;
+    fn time_unit(&self) -> &ClockTimeUnit;
+    fn checkpoint_time(&self) -> f32;
+    fn advance_checkpoint_time(&mut self);
+    fn value_to_check(&self) -> f32;
+    fn pop_checkpoint_value(&mut self) -> Option<f32>;
+}
+
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum TestControllerControlParams {
@@ -134,6 +159,11 @@ pub struct TestController<M: MessageBounds> {
     pub tempo: f32,
     is_enabled: bool,
     is_playing: bool,
+
+    pub checkpoint_values: VecDeque<f32>,
+    pub checkpoint: f32,
+    pub checkpoint_delta: f32,
+    pub time_unit: ClockTimeUnit,
 
     _phantom: PhantomData<M>,
 }
@@ -171,6 +201,23 @@ impl<M: MessageBounds> TestController<M> {
         }
     }
 
+    pub fn new_with_test_values(
+        midi_channel_out: MidiChannel,
+        values: &[f32],
+        checkpoint: f32,
+        checkpoint_delta: f32,
+        time_unit: ClockTimeUnit,
+    ) -> Self {
+        Self {
+            midi_channel_out,
+            checkpoint_values: VecDeque::from(Vec::from(values)),
+            checkpoint,
+            checkpoint_delta,
+            time_unit,
+            ..Default::default()
+        }
+    }
+
     fn what_to_do(&self, clock: &Clock) -> TestControllerAction {
         let beat_slice_start = clock.beats();
         let beat_slice_end = clock.next_slice_in_beats();
@@ -185,21 +232,54 @@ impl<M: MessageBounds> TestController<M> {
         return TestControllerAction::Nothing;
     }
 }
+impl<M: MessageBounds> TestsValues for TestController<M> {
+    fn has_checkpoint_values(&self) -> bool {
+        !self.checkpoint_values.is_empty()
+    }
 
-#[derive(Display, Debug, EnumString)]
+    fn time_unit(&self) -> &ClockTimeUnit {
+        &self.time_unit
+    }
+
+    fn checkpoint_time(&self) -> f32 {
+        self.checkpoint
+    }
+
+    fn advance_checkpoint_time(&mut self) {
+        self.checkpoint += self.checkpoint_delta;
+    }
+
+    fn value_to_check(&self) -> f32 {
+        self.tempo
+    }
+
+    fn pop_checkpoint_value(&mut self) -> Option<f32> {
+        self.checkpoint_values.pop_front()
+    }
+}
+
+#[derive(Display, Debug, EnumString, FromRepr)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum TestEffectControlParams {
-    Todo,
+    MyValue,
 }
 
 #[derive(Debug, Default)]
 pub struct TestEffect<M: MessageBounds> {
     uid: usize,
+    my_value: f32,
+
+    pub checkpoint_values: VecDeque<f32>,
+    pub checkpoint: f32,
+    pub checkpoint_delta: f32,
+    pub time_unit: ClockTimeUnit,
+
     _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsEffect for TestEffect<M> {}
 impl<M: MessageBounds> TransformsAudio for TestEffect<M> {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, clock: &Clock, input_sample: MonoSample) -> MonoSample {
+        self.check_values(clock);
         -input_sample
     }
 }
@@ -234,20 +314,72 @@ impl<M: MessageBounds> HasUid for TestEffect<M> {
         self.uid = uid;
     }
 }
+impl<M: MessageBounds> TestsValues for TestEffect<M> {
+    fn has_checkpoint_values(&self) -> bool {
+        !self.checkpoint_values.is_empty()
+    }
+
+    fn time_unit(&self) -> &ClockTimeUnit {
+        &self.time_unit
+    }
+
+    fn checkpoint_time(&self) -> f32 {
+        self.checkpoint
+    }
+
+    fn advance_checkpoint_time(&mut self) {
+        self.checkpoint += self.checkpoint_delta;
+    }
+
+    fn value_to_check(&self) -> f32 {
+        self.my_value()
+    }
+
+    fn pop_checkpoint_value(&mut self) -> Option<f32> {
+        self.checkpoint_values.pop_front()
+    }
+}
+impl<M: MessageBounds> TestEffect<M> {
+    pub fn new_with_test_values(
+        values: &[f32],
+        checkpoint: f32,
+        checkpoint_delta: f32,
+        time_unit: ClockTimeUnit,
+    ) -> Self {
+        Self {
+            checkpoint_values: VecDeque::from(Vec::from(values)),
+            checkpoint,
+            checkpoint_delta,
+            time_unit,
+            ..Default::default()
+        }
+    }
+
+    pub fn set_my_value(&mut self, my_value: f32) {
+        self.my_value = my_value;
+    }
+
+    pub fn my_value(&self) -> f32 {
+        self.my_value
+    }
+}
 
 #[derive(Display, Debug, EnumString, FromRepr)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum TestInstrumentControlParams {
     // -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
     Waveform,
+
+    // A fake adjustable number.
+    FakeValue,
 }
 
 /// A simple implementation of IsInstrument that's useful for testing and
-/// debugging. Uses a default Oscillator to produce sound, and its
-/// "envelope" is just a boolean that responds to MIDI NoteOn/NoteOff.
+/// debugging. Uses a default Oscillator to produce sound, and its "envelope" is
+/// just a boolean that responds to MIDI NoteOn/NoteOff.
 ///
-/// To act as a controller target, it has one parameter: Oscillator
-/// waveform.
+/// To act as a controller target, it has two parameters: Oscillator waveform
+/// and frequency.
 #[derive(Debug, Default)]
 pub struct TestInstrument<M: MessageBounds> {
     uid: usize,
@@ -256,6 +388,12 @@ pub struct TestInstrument<M: MessageBounds> {
     pub is_playing: bool,
     pub received_count: usize,
     pub handled_count: usize,
+
+    pub fake_value: f32,
+    pub checkpoint_values: VecDeque<f32>,
+    pub checkpoint: f32,
+    pub checkpoint_delta: f32,
+    pub time_unit: ClockTimeUnit,
 
     pub debug_messages: Vec<(f32, MidiChannel, MidiMessage)>,
 
@@ -290,9 +428,49 @@ impl<M: MessageBounds> HasUid for TestInstrument<M> {
         self.uid = uid;
     }
 }
+impl<M: MessageBounds> TestsValues for TestInstrument<M> {
+    fn has_checkpoint_values(&self) -> bool {
+        !self.checkpoint_values.is_empty()
+    }
+
+    fn time_unit(&self) -> &ClockTimeUnit {
+        &self.time_unit
+    }
+
+    fn checkpoint_time(&self) -> f32 {
+        self.checkpoint
+    }
+
+    fn advance_checkpoint_time(&mut self) {
+        self.checkpoint += self.checkpoint_delta;
+    }
+
+    fn value_to_check(&self) -> f32 {
+        self.fake_value
+    }
+
+    fn pop_checkpoint_value(&mut self) -> Option<f32> {
+        self.checkpoint_values.pop_front()
+    }
+}
 impl<M: MessageBounds> TestInstrument<M> {
     pub fn new() -> Self {
         Self {
+            ..Default::default()
+        }
+    }
+
+    pub fn new_with_test_values(
+        values: &[f32],
+        checkpoint: f32,
+        checkpoint_delta: f32,
+        time_unit: ClockTimeUnit,
+    ) -> Self {
+        Self {
+            checkpoint_values: VecDeque::from(Vec::from(values)),
+            checkpoint,
+            checkpoint_delta,
+            time_unit,
             ..Default::default()
         }
     }
@@ -339,9 +517,27 @@ impl<M: MessageBounds> TestInstrument<M> {
             }
         });
     }
+
+    pub fn set_fake_value(&mut self, fake_value: f32) {
+        self.fake_value = fake_value;
+    }
+
+    pub fn fake_value(&self) -> f32 {
+        self.fake_value
+    }
 }
+
 impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        // If we've been asked to assert values at checkpoints, do so.
+        if !self.checkpoint_values.is_empty() {
+            if clock.time_for(&self.time_unit) >= self.checkpoint {
+                const SAD_FLOAT_DIFF: f32 = 1.0e-2;
+                assert_approx_eq!(self.fake_value, self.checkpoint_values[0], SAD_FLOAT_DIFF);
+                self.checkpoint += self.checkpoint_delta;
+                self.checkpoint_values.pop_front();
+            }
+        }
         if self.is_playing {
             self.oscillator.source_audio(clock)
         } else {
@@ -356,6 +552,7 @@ impl Updateable for TestController<EntityMessage> {
     fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::Tick => {
+                self.check_values(clock);
                 return match self.what_to_do(clock) {
                     TestControllerAction::Nothing => EvenNewerCommand::none(),
                     TestControllerAction::NoteOn => {
@@ -406,11 +603,17 @@ impl Updateable for TestController<EntityMessage> {
 impl Updateable for TestEffect<EntityMessage> {
     type Message = EntityMessage;
 
-    fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, _clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+        match message {
+            Self::Message::UpdateF32(param_id, value) => {
+                if let Some(param) = TestEffectControlParams::from_repr(param_id) {
+                    match param {
+                        TestEffectControlParams::MyValue => self.set_my_value(value),
+                    }
+                }
+            }
+            _ => todo!(),
+        }
         EvenNewerCommand::none()
     }
 
@@ -432,6 +635,7 @@ impl Updateable for TestInstrument<EntityMessage> {
                 if let Some(param) = TestInstrumentControlParams::from_repr(param_id) {
                     match param {
                         TestInstrumentControlParams::Waveform => self.set_waveform(value),
+                        TestInstrumentControlParams::FakeValue => self.set_fake_value(value),
                     }
                 }
             }

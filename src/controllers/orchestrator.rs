@@ -849,7 +849,7 @@ pub mod tests {
         clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
         messages::{tests::TestMessage, EntityMessage},
-        traits::{BoxedEntity, EvenNewerCommand, Internal, IsEffect, Updateable},
+        traits::{BoxedEntity, EvenNewerCommand, Internal, Updateable},
     };
 
     pub type TestOrchestrator = Orchestrator<TestMessage>;
@@ -936,15 +936,7 @@ pub mod tests {
     }
 
     #[derive(Debug, Default)]
-    pub struct Runner {
-        // state_checker is an optional IsEffect that verifies expected state
-        // after all each loop iteration's commands have been acted upon.
-        //
-        // It is an effect because it is intended to monitor another thing's
-        // output, which is more like an effect than a controller or an
-        // instrument.
-        state_checker: Option<Box<dyn IsEffect<Message = TestMessage, ViewMessage = TestMessage>>>,
-    }
+    pub struct Runner {}
     impl Runner {
         pub fn run(
             &mut self,
@@ -978,11 +970,6 @@ pub mod tests {
                         self.handle_message(orchestrator, clock, message);
                     }
                 }
-            }
-            if let Some(checker) = &mut self.state_checker {
-                // This one is treated specially in that it is guaranteed to
-                // run after everyone else's update() calls for this tick.
-                checker.update(clock, TestMessage::Tick);
             }
             return if orchestrator.are_all_finished() {
                 (MONO_SAMPLE_SILENCE, true)
@@ -1105,14 +1092,6 @@ pub mod tests {
                 target_uid,
                 EntityMessage::Enable(enabled),
             );
-        }
-
-        #[allow(dead_code)]
-        pub(crate) fn add_state_checker(
-            &mut self,
-            state_checker: Box<dyn IsEffect<Message = TestMessage, ViewMessage = TestMessage>>,
-        ) {
-            self.state_checker = Some(state_checker);
         }
     }
 }

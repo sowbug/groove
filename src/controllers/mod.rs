@@ -8,6 +8,7 @@ use crate::instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvel
 use crate::messages::{EntityMessage, MessageBounds};
 use crate::settings::controllers::ControlStep;
 use crate::traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable};
+use crate::TimeSignature;
 use crate::{clock::BeatValue, settings::controllers::ControlPathSettings};
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
@@ -37,7 +38,7 @@ impl Performance {
 ///
 /// A ControlTrip is one automation track, which can run as long as the whole
 /// song. For now, it controls one parameter of one target.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct ControlTrip<M: MessageBounds> {
     uid: usize,
     cursor_beats: f32,
@@ -73,10 +74,14 @@ impl<M: MessageBounds> HasUid for ControlTrip<M> {
         self.uid = uid;
     }
 }
+impl<M: MessageBounds> Default for ControlTrip<M> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl<M: MessageBounds> ControlTrip<M> {
     const CURSOR_BEGIN: f32 = 0.0;
 
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             uid: usize::default(),
@@ -95,7 +100,20 @@ impl<M: MessageBounds> ControlTrip<M> {
 
     // TODO: assert that these are added in time order, as SteppedEnvelope
     // currently isn't smart enough to handle out-of-order construction
-    pub fn add_path(&mut self, path: &ControlPath) {
+    pub fn add_path(&mut self, time_signature: &TimeSignature, path: &ControlPath) {
+        // TODO: this is duplicated in programmers.rs. Refactor.
+        let path_note_value = if path.note_value.is_some() {
+            path.note_value.as_ref().unwrap().clone()
+        } else {
+            time_signature.beat_value()
+        };
+
+        // If the time signature is 4/4 and the path is also quarter-notes, then
+        // the multiplier is 1.0 because no correction is needed.
+        //
+        // If it's 4/4 and eighth notes, for example, the multiplier is 0.5,
+        // because each path step represents only a half-beat.
+        let path_multiplier = time_signature.beat_value().divisor() / path_note_value.divisor();
         for step in path.steps.clone() {
             let (start_value, end_value, step_function) = match step {
                 ControlStep::Flat { value } => (value, value, EnvelopeFunction::Linear),
@@ -113,13 +131,13 @@ impl<M: MessageBounds> ControlTrip<M> {
             self.envelope.push_step(EnvelopeStep {
                 interval: Range {
                     start: self.cursor_beats,
-                    end: self.cursor_beats + 1.0,
+                    end: self.cursor_beats + path_multiplier,
                 },
                 start_value,
                 end_value,
                 step_function,
             });
-            self.cursor_beats += 1.0; // TODO: respect note_value
+            self.cursor_beats += path_multiplier;
         }
         self.is_finished = false;
     }
@@ -182,16 +200,21 @@ impl ControlPath {
 
 #[cfg(test)]
 mod tests {
+    use more_asserts::{assert_gt, assert_le};
 
     use super::{orchestrator::tests::Runner, *};
     use crate::{
         messages::tests::TestMessage,
-        traits::{BoxedEntity, TestInstrument},
+        traits::{
+            BoxedEntity, TestEffect, TestEffectControlParams, TestInstrument,
+            TestInstrumentControlParams,
+        },
         Orchestrator,
     };
 
     #[test]
     fn test_flat_step() {
+        let mut clock = Clock::default();
         let step_vec = vec![
             ControlStep::Flat { value: 0.9 },
             ControlStep::Flat { value: 0.1 },
@@ -204,63 +227,74 @@ mod tests {
         };
 
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
-        let _target_uid = o.add(
+        let effect_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(TestInstrument::<EntityMessage>::default())),
+            BoxedEntity::Effect(Box::new(TestEffect::<EntityMessage>::new_with_test_values(
+                &[0.9, 0.1, 0.2, 0.3],
+                0.0,
+                1.0,
+                ClockTimeUnit::Beats,
+            ))),
         );
         let mut trip = ControlTrip::<EntityMessage>::default();
-        trip.add_path(&path);
-        o.add(None, BoxedEntity::Controller(Box::new(trip)));
+        trip.add_path(&clock.settings().time_signature(), &path);
+        let controller_uid = o.add(None, BoxedEntity::Controller(Box::new(trip)));
 
-        // TODO: this is the whole point of this test, so re-enable soon!
-        //
-        // o.add_final_watcher(rrc(TestValueChecker::<TestMessage> {
-        //     values: VecDeque::from(vec![0.9, 0.1, 0.2, 0.3]),
-        //     target,
-        //     checkpoint: 0.0,
-        //     checkpoint_delta: 1.0,
-        //     time_unit: ClockTimeUnit::Beats,
-        // }));
+        // TODO: hmmm, effect with no audio source plugged into its input!
+        let _ = o.connect_to_main_mixer(effect_uid);
 
-        let mut clock = Clock::default();
+        let _ = o.link_control(
+            controller_uid,
+            effect_uid,
+            &TestEffectControlParams::MyValue.to_string(),
+        );
+
         let mut r = Runner::default();
         let _ = r.run(&mut o, &mut clock);
+
+        let expected_final_sample = 1 + (4.0f32 * (60.0 / 128.0) * 44100.0).floor() as usize;
+        assert_eq!(clock.samples(), expected_final_sample);
+
+        // Orchestrator should end on the time slice after the ControlTrip's
+        // fourth step.
+        assert_gt!(clock.beats(), 4.0);
+        assert_le!(clock.beats(), 4.0 + (1.0 / 44100.0) * (128.0 / 60.0));
+        assert_gt!(clock.seconds(), 4.0 * (60.0 / 128.0));
     }
 
     #[test]
     fn test_slope_step() {
+        let mut clock = Clock::default();
         let step_vec = vec![
             ControlStep::new_slope(0.0, 1.0),
             ControlStep::new_slope(1.0, 0.5),
             ControlStep::new_slope(1.0, 0.0),
             ControlStep::new_slope(0.0, 1.0),
         ];
-        let _interpolated_values = vec![0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
+        const INTERPOLATED_VALUES: &[f32] = &[0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
         let path = ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
         };
 
         let mut o = Box::new(Orchestrator::default());
-        let _target_uid = o.add(
-            None,
-            BoxedEntity::Instrument(Box::new(TestInstrument::<EntityMessage>::default())),
-        );
+        let instrument = Box::new(TestInstrument::<EntityMessage>::new_with_test_values(
+            INTERPOLATED_VALUES,
+            0.0,
+            0.5,
+            ClockTimeUnit::Beats,
+        ));
+        let instrument_uid = o.add(None, BoxedEntity::Instrument(instrument));
+        let _ = o.connect_to_main_mixer(instrument_uid);
         let mut trip = Box::new(ControlTrip::<EntityMessage>::default());
-        trip.add_path(&path);
-        let _controller_uid = o.add(None, BoxedEntity::Controller(trip));
+        trip.add_path(&clock.settings().time_signature(), &path);
+        let controller_uid = o.add(None, BoxedEntity::Controller(trip));
+        o.link_control(
+            controller_uid,
+            instrument_uid,
+            &TestInstrumentControlParams::FakeValue.to_string(),
+        );
 
-        // TODO: this is the whole point of this test, so re-enable soon!
-        //
-        // o.add_final_watcher(rrc(TestValueChecker {
-        //     values: VecDeque::from(interpolated_values),
-        //     target,
-        //     checkpoint: 0.0,
-        //     checkpoint_delta: 0.5,
-        //     time_unit: ClockTimeUnit::Beats,
-        // }));
-
-        let mut clock = Clock::default();
         let mut r = Runner::default();
         let _ = r.run(&mut o, &mut clock);
     }

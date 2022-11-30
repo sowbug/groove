@@ -13,6 +13,7 @@ use crate::{
         programmers::PatternProgrammer,
     },
     traits::BoxedEntity,
+    TimeSignature,
 };
 use anyhow::Result;
 use rustc_hash::FxHashMap;
@@ -55,7 +56,7 @@ impl SongSettings {
         self.instantiate_devices(&mut o, load_only_test_entities);
         self.instantiate_patch_cables(&mut o);
         self.instantiate_tracks(&mut o);
-        self.instantiate_control_trips(&mut o);
+        self.instantiate_control_trips(&mut o, &self.clock.time_signature());
         Ok(o)
     }
 
@@ -148,7 +149,11 @@ impl SongSettings {
         orchestrator.connect_midi_upstream(sequencer_uid);
     }
 
-    fn instantiate_control_trips(&self, orchestrator: &mut GrooveOrchestrator) {
+    fn instantiate_control_trips(
+        &self,
+        orchestrator: &mut GrooveOrchestrator,
+        time_signature: &TimeSignature,
+    ) {
         if self.trips.is_empty() {
             // There's no need to instantiate the paths if there are no trips to use them.
             return;
@@ -166,7 +171,7 @@ impl SongSettings {
                 let mut control_trip = Box::new(ControlTrip::<EntityMessage>::default());
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
-                        control_trip.add_path(&control_path);
+                        control_trip.add_path(time_signature, &control_path);
                     }
                 }
                 let controller_uid = orchestrator.add(
