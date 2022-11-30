@@ -58,7 +58,6 @@ impl<M: MessageBounds> BeatSequencer<M> {
     }
 
     pub(crate) fn clear(&mut self) {
-        // TODO: should this also disconnect sinks? I don't think so
         self.events.clear();
         self.next_instant = PerfectTimeUnit::default();
         self.last_event_time = PerfectTimeUnit::default();
