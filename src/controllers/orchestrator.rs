@@ -628,6 +628,7 @@ impl GrooveRunner {
             // TODO: maybe this should be Commands, with one as a sample, and an
             // occasional one as a done message.
             let command = orchestrator.update(clock, GrooveMessage::Tick);
+            clock.tick();
             let (sample, done) = Orchestrator::peek_command(&command);
             if done {
                 break;
@@ -649,6 +650,7 @@ impl GrooveRunner {
         clock.reset();
         loop {
             let command = orchestrator.update(clock, GrooveMessage::Tick);
+            clock.tick();
             let (sample, done) = Orchestrator::peek_command(&command);
             if next_progress_indicator <= clock.samples() {
                 print!(".");
