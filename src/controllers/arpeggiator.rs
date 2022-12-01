@@ -20,13 +20,12 @@ pub struct Arpeggiator {
     midi_channel_out: MidiChannel,
     beat_sequencer: BeatSequencer<EntityMessage>,
 
-    // current_note tracks which base note the device is playing, so that
-    // note-off events that overlap with the current note don't cause it to shut
-    // off. Example is a legato playing-style of the MIDI instrument that
-    // controls the arpeggiator. If we turned on and off solely by the last
-    // note-on/off we received, then the arpeggiator would frequently get
-    // clipped. 
-    current_note: u7,
+    // A poor-man's semaphore that allows note-off events to overlap with the
+    // current note without causing it to shut off. Example is a legato
+    // playing-style of the MIDI instrument that controls the arpeggiator. If we
+    // turned on and off solely by the last note-on/off we received, then the
+    // arpeggiator would frequently get clipped.
+    note_semaphore: i16,
 }
 impl IsController for Arpeggiator {}
 impl Updateable for Arpeggiator {
@@ -40,13 +39,14 @@ impl Updateable for Arpeggiator {
             Self::Message::Midi(_channel, message) => {
                 match message {
                     MidiMessage::NoteOff { key, vel: _ } => {
-                        if self.current_note == key {
-                            self.beat_sequencer.enable(false);
-                            self.current_note = 0.into();
+                        self.note_semaphore -= 1;
+                        if self.note_semaphore < 0 {
+                            self.note_semaphore = 0;
                         }
+                        self.beat_sequencer.enable(self.note_semaphore > 0);
                     }
                     MidiMessage::NoteOn { key, vel } => {
-                        self.current_note = key;
+                        self.note_semaphore += 1;
                         self.rebuild_sequence(clock, key.as_int(), vel.as_int());
                         self.beat_sequencer.enable(true);
                         //                self.sequence_start_beats = clock.beats();

@@ -169,10 +169,7 @@ impl<M: MessageBounds> PatternProgrammer<M> {
                 // expression correctly, rather than continuing to hardcode 0.49
                 // as the duration.
                 sequencer.insert(
-                    note_start
-                        + note.duration
-                            * PerfectTimeUnit(pattern_multiplier)
-                            * PerfectTimeUnit(0.9999f32), // TODO sigh. We were cutting off the arp
+                    note_start + note.duration * PerfectTimeUnit(pattern_multiplier),
                     channel,
                     MidiMessage::NoteOff {
                         key: note.key.into(),
