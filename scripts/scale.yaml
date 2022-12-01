@@ -1,0 +1,26 @@
+---
+clock:
+  sample-rate: 44100
+  bpm: 60.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+    - instrument-1
+    - welsh:
+        midi-in: 0
+        preset: piano
+patch-cables:
+  - [instrument-1, main-mixer]
+patterns:
+  - id: basic-1
+    note-value: eighth
+    notes:
+      #- [60, 00, 62, 00, 64, 00, 65, 00, 67, 00, 69, 00, 71, 00, 72, 00]
+      #- [60, 00, 62, 00, 64, 00, 65, 00, 67, 00, 69, 00, 71, 00, 72, 00]
+      - [60, 62, 64, 65, 67, 69, 71, 72]
+tracks:
+  - id: track-1
+    midi-channel: 0
+    patterns: [basic-1]

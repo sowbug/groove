@@ -46,6 +46,50 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "YAML, just a piano scale",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove-cli",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove-cli",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--yaml-in",
+        "scripts/scale.yaml"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "YAML, just a piano scale (to file)",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove-cli",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove-cli",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--yaml-in",
+        "scripts/scale.yaml",
+        "--wav-out",
+        "out.wav"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "YAML to speaker",
       "cargo": {
         "args": [

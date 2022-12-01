@@ -3,7 +3,7 @@ use crate::{
     common::MonoSample,
     messages::EntityMessage,
     settings::patches::EnvelopeSettings,
-    traits::{HasUid, IsInstrument, SourcesAudio, Updateable, EvenNewerCommand},
+    traits::{EvenNewerCommand, HasUid, IsInstrument, SourcesAudio, Updateable},
     Clock,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -252,11 +252,7 @@ impl SourcesAudio for AdsrEnvelope {
 impl Updateable for AdsrEnvelope {
     type Message = EntityMessage;
 
-    fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 if let Some(param) = AdsrEnvelopeControlParams::from_repr(param_id) {
@@ -313,8 +309,13 @@ impl AdsrEnvelope {
             self.note_off_time = f32::MAX;
             self.handle_state_change();
         } else {
-            // We don't touch the note-on time because that's still important
-            // to build the right envelope shape.
+            // We don't touch the note-on time because that's still important to
+            // build the right envelope shape, unless we got a note-off without
+            // a prior note-on (which can happen), and in that case we'll fix it
+            // up to now.
+            if self.note_on_time == f32::MAX {
+                self.note_on_time = self.envelope.time_for_unit(clock);
+            }
             self.note_off_time = self.envelope.time_for_unit(clock);
             self.handle_state_change();
         }
