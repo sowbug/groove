@@ -234,16 +234,20 @@ impl<M: MessageBounds> Orchestrator<M> {
     // the Rust borrow checker won't let us call ourselves if we've already
     // borrowed ourselves &mut, which goes for any of our fields.
     //
-    // TODO: simplify
-    //
     // TODO: this loop never changes unless the Orchestrator composition does.
     // We should snapshot it the first time and then just whiz through the
     // snapshot the other million times.
+    //
+    // The basic idea: start by pushing the root node as a to-visit onto the
+    // stack. Then loop and process the top item on the stack. For a to-visit,
+    // either it's a leaf (eval add to the running sum), or it's a node (push a
+    // marker with the current sum, then push the children as to-visit). When a
+    // marker pops up, eval with the current sum (nodes are effects, so they
+    // take an input), then add to the running sum.
     fn gather_audio(&mut self, clock: &Clock) -> MonoSample {
         enum StackEntry {
             ToVisit(usize),
-            CollectResultFor(usize),
-            Result(MonoSample),
+            CollectResultFor(usize, MonoSample),
         }
         let gather_audio_start_time = self.metrics.gather_audio_fn_timer.start();
         let mut stack = Vec::new();
@@ -269,83 +273,43 @@ impl<M: MessageBounds> Orchestrator<M> {
                                     sum += entity.source_audio(clock);
                                 }
                             }
-                            // If it's a node, eval its leaves, then eval
-                            // its nodes, then process the result.
+                            // If it's a node, push its children on the stack, then evaluate the result.
                             BoxedEntity::Effect(_) => {
                                 // Tell us to process sum.
-                                stack.push(StackEntry::CollectResultFor(uid));
+                                stack.push(StackEntry::CollectResultFor(uid, sum));
+                                sum = MONO_SAMPLE_SILENCE;
                                 if let Some(source_uids) = self.store.patches(uid) {
-                                    let source_uids = source_uids.to_vec();
-                                    // Eval leaves
-                                    for source_uid in &source_uids {
-                                        debug_assert!(*source_uid != uid);
-                                        if let Some(entity) = self.store.get_mut(*source_uid) {
-                                            match entity {
-                                                BoxedEntity::Controller(_) => {}
-                                                BoxedEntity::Effect(_) => {}
-                                                BoxedEntity::Instrument(entity) => {
-                                                    if let Some(timer) = self
-                                                        .metrics
-                                                        .entity_audio_times
-                                                        .get(&source_uid)
-                                                    {
-                                                        let start_time = timer.start();
-                                                        sum += entity.source_audio(clock);
-                                                        timer.stop(start_time);
-                                                    } else {
-                                                        sum += entity.source_audio(clock);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    stack.push(StackEntry::Result(sum));
-                                    sum = MONO_SAMPLE_SILENCE;
-
-                                    // Eval nodes
-                                    for source_uid in &source_uids {
-                                        if let Some(entity) = self.store.get_mut(*source_uid) {
-                                            match entity {
-                                                BoxedEntity::Controller(_) => {}
-                                                BoxedEntity::Effect(_) => {
-                                                    debug_assert!(
-                                                        *source_uid != self.main_mixer_uid
-                                                    );
-                                                    stack.push(StackEntry::ToVisit(*source_uid))
-                                                }
-                                                BoxedEntity::Instrument(_) => {}
-                                            }
-                                        }
+                                    for &source_uid in &source_uids.to_vec() {
+                                        debug_assert!(source_uid != uid);
+                                        stack.push(StackEntry::ToVisit(source_uid));
                                     }
                                 } else {
-                                    // an effect is at the end of a chain.
-                                    // This should be harmless (but probably
-                                    // confusing for the end user; might
-                                    // want to flag it).
+                                    // an effect is at the end of a chain. This
+                                    // should be harmless (but probably
+                                    // confusing for the end user; might want to
+                                    // flag it).
                                 }
                             }
                             BoxedEntity::Controller(_) => {}
                         }
                     }
                 }
-                StackEntry::Result(sample) => sum += sample,
-                StackEntry::CollectResultFor(uid) => {
+                // We're returning to this node after evaluating its children.
+                StackEntry::CollectResultFor(uid, accumulated_sum) => {
                     if let Some(entity) = self.store.get_mut(uid) {
                         match entity {
                             BoxedEntity::Instrument(_) => {}
                             BoxedEntity::Effect(entity) => {
-                                let value = if let Some(timer) =
-                                    self.metrics.entity_audio_times.get(&uid)
-                                {
-                                    let start_time = timer.start();
-                                    let transform_audio = entity.transform_audio(clock, sum);
-                                    timer.stop(start_time);
-                                    transform_audio
-                                } else {
-                                    entity.transform_audio(clock, sum)
-                                };
-                                stack.push(StackEntry::Result(value));
-                                sum = MONO_SAMPLE_SILENCE;
+                                sum = accumulated_sum
+                                    + if let Some(timer) = self.metrics.entity_audio_times.get(&uid)
+                                    {
+                                        let start_time = timer.start();
+                                        let transform_audio = entity.transform_audio(clock, sum);
+                                        timer.stop(start_time);
+                                        transform_audio
+                                    } else {
+                                        entity.transform_audio(clock, sum)
+                                    };
                             }
                             BoxedEntity::Controller(_) => {}
                         }
@@ -883,7 +847,7 @@ pub mod tests {
     use crate::{
         clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
-        effects::gain::Gain,
+        effects::{gain::Gain, mixer::Mixer},
         messages::{tests::TestMessage, EntityMessage},
         traits::{BoxedEntity, EvenNewerCommand, Internal, Updateable},
         utils::AudioSource,
@@ -1136,6 +1100,36 @@ pub mod tests {
     }
 
     #[test]
+    fn test_orchestrator_gather_audio_basic() {
+        let mut o = Orchestrator::<GrooveMessage>::default();
+        let level_1_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.1))),
+        );
+        let level_2_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.2))),
+        );
+
+        let clock = Clock::default();
+
+        // Nothing connected: should output silence.
+        assert_eq!(o.gather_audio(&clock), MONO_SAMPLE_SILENCE);
+
+        assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
+        assert_eq!(o.gather_audio(&clock), 0.1);
+
+        assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
+        assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
+        assert_eq!(o.gather_audio(&clock), 0.2);
+
+        assert!(o.unpatch_all().is_ok());
+        assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
+        assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
+        assert_eq!(o.gather_audio(&clock), 0.1 + 0.2);
+    }
+
+    #[test]
     fn test_orchestrator_gather_audio() {
         let mut o = Orchestrator::<GrooveMessage>::default();
         let level_1_uid = o.add(
@@ -1158,39 +1152,33 @@ pub mod tests {
         let clock = Clock::default();
 
         // Nothing connected: should output silence.
-        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
-        assert_eq!(sample, MONO_SAMPLE_SILENCE);
+        assert_eq!(o.gather_audio(&clock), MONO_SAMPLE_SILENCE);
 
         // Just the single-level instrument; should get that.
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
-        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
-        assert_eq!(sample, 0.1);
+        assert_eq!(o.gather_audio(&clock), 0.1);
 
         // Gain alone; that's weird, but it shouldn't explode.
         assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(gain_1_uid).is_ok());
-        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
-        assert_eq!(sample, MONO_SAMPLE_SILENCE);
+        assert_eq!(o.gather_audio(&clock), MONO_SAMPLE_SILENCE);
 
         // Disconnect/reconnect and connect just the single-level instrument again.
         assert!(o.disconnect_from_main_mixer(gain_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
-        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
-        assert_eq!(sample, 0.1);
+        assert_eq!(o.gather_audio(&clock), 0.1);
 
         // Instrument to gain should result in (instrument x gain).
         assert!(o.unpatch_all().is_ok());
         assert!(o
             .patch_chain_to_main_mixer(&vec![level_1_uid, gain_1_uid])
             .is_ok());
-        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
-        assert_approx_eq!(sample, 0.1 * 0.5);
+        assert_approx_eq!(o.gather_audio(&clock), 0.1 * 0.5);
 
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_3_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_4_uid).is_ok());
-        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
-        assert_approx_eq!(sample, 0.1 * 0.5 + 0.2 + 0.3 + 0.4);
+        assert_approx_eq!(o.gather_audio(&clock), 0.1 * 0.5 + 0.2 + 0.3 + 0.4);
 
         // Same thing, but inverted order.
         assert!(o.unpatch_all().is_ok());
@@ -1200,8 +1188,117 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&vec![level_1_uid, gain_1_uid])
             .is_ok());
-        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
-        assert_approx_eq!(sample, 0.1 * 0.5 + 0.2 + 0.3 + 0.4);
+        assert_approx_eq!(o.gather_audio(&clock), 0.1 * 0.5 + 0.2 + 0.3 + 0.4);
+    }
 
+    #[test]
+    fn test_orchestrator_gather_audio_2() {
+        let clock = Clock::default();
+        let mut o = Orchestrator::<GrooveMessage>::default();
+        let piano_1_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.1))),
+        );
+        let low_pass_1_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.2))));
+        let gain_1_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.4))));
+
+        let bassline_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.3))),
+        );
+        let gain_2_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.6))));
+
+        let synth_1_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.5))),
+        );
+        let gain_3_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.8))));
+
+        let drum_1_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.7))),
+        );
+
+        // First chain.
+        assert!(o
+            .patch_chain_to_main_mixer(&vec![piano_1_uid, low_pass_1_uid, gain_1_uid])
+            .is_ok());
+        let sample_chain_1 = o.gather_audio(&clock);
+        assert_approx_eq!(sample_chain_1, 0.1 * 0.2 * 0.4);
+
+        // Second chain.
+        assert!(o.unpatch_all().is_ok());
+        assert!(o
+            .patch_chain_to_main_mixer(&vec![bassline_uid, gain_2_uid])
+            .is_ok());
+        let sample_chain_2 = o.gather_audio(&clock);
+        assert_approx_eq!(sample_chain_2, 0.3 * 0.6);
+
+        // Third.
+        assert!(o.unpatch_all().is_ok());
+        assert!(o
+            .patch_chain_to_main_mixer(&vec![synth_1_uid, gain_3_uid])
+            .is_ok());
+        let sample_chain_3 = o.gather_audio(&clock);
+        assert_approx_eq!(sample_chain_3, 0.5 * 0.8);
+
+        // Fourth.
+        assert!(o.unpatch_all().is_ok());
+        assert!(o.patch_chain_to_main_mixer(&vec![drum_1_uid]).is_ok());
+        let sample_chain_4 = o.gather_audio(&clock);
+        assert_approx_eq!(sample_chain_4, 0.7);
+
+        println!("start reading here");
+        // Now start over and successively add. This is first and second chains together.
+        assert!(o.unpatch_all().is_ok());
+        assert!(o
+            .patch_chain_to_main_mixer(&vec![piano_1_uid, low_pass_1_uid, gain_1_uid])
+            .is_ok());
+        assert!(o
+            .patch_chain_to_main_mixer(&vec![bassline_uid, gain_2_uid])
+            .is_ok());
+        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
+        assert_approx_eq!(o.gather_audio(&clock), sample_chain_1 + sample_chain_2);
+
+        // Plus third.
+        assert!(o
+            .patch_chain_to_main_mixer(&vec![synth_1_uid, gain_3_uid])
+            .is_ok());
+        assert_approx_eq!(
+            o.gather_audio(&clock),
+            sample_chain_1 + sample_chain_2 + sample_chain_3
+        );
+
+        // Plus fourth.
+        assert!(o.patch_chain_to_main_mixer(&vec![drum_1_uid]).is_ok());
+        assert_approx_eq!(
+            o.gather_audio(&clock),
+            sample_chain_1 + sample_chain_2 + sample_chain_3 + sample_chain_4
+        );
+    }
+
+    #[test]
+    fn test_orchestrator_gather_audio_with_branches() {
+        let clock = Clock::default();
+        let mut o = Orchestrator::<GrooveMessage>::default();
+        let instrument_1_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.1))),
+        );
+        let instrument_2_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.3))),
+        );
+        let instrument_3_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.5))),
+        );
+        let effect_1_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.5))));
+
+        assert!(o.patch_chain_to_main_mixer(&vec![instrument_1_uid]).is_ok());
+        assert!(o.patch_chain_to_main_mixer(&vec![effect_1_uid]).is_ok());
+        assert!(o.patch(instrument_2_uid, effect_1_uid).is_ok());
+        assert!(o.patch(instrument_3_uid, effect_1_uid).is_ok());
+        assert_eq!(o.gather_audio(&clock), 0.1 + 0.5 * (0.3 + 0.5));
     }
 }
