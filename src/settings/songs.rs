@@ -190,18 +190,16 @@ impl SongSettings {
 
 #[cfg(test)]
 mod tests {
-
     use super::SongSettings;
-    use crate::{clock::Clock, controllers::orchestrator::GrooveRunner};
+    use crate::clock::Clock;
 
     #[test]
     fn test_yaml_loads_and_parses() {
         if let Ok(yaml) = std::fs::read_to_string("test_data/kitchen-sink.yaml") {
             if let Ok(song_settings) = SongSettings::new_from_yaml(yaml.as_str()) {
                 if let Ok(mut orchestrator) = song_settings.instantiate(false) {
-                    let mut runner = GrooveRunner::default();
                     let mut clock = Clock::default();
-                    if let Ok(_performance) = runner.run(&mut orchestrator, &mut clock) {
+                    if let Ok(_performance) = orchestrator.run(&mut clock) {
                         // cool
                     } else {
                         dbg!("performance failed");

@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use clap::Parser;
-use groove::{Clock, GrooveRunner, IOHelper, Orchestrator};
+use groove::{Clock, IOHelper, Orchestrator};
 use std::time::Instant;
 //use groove::ScriptEngine;
 
@@ -57,10 +57,9 @@ fn main() -> anyhow::Result<()> {
         orchestrator.set_enable_dev_experiment(args.experiment);
 
         print!("Performing to queue ");
-        let mut r = GrooveRunner::default();
         let mut clock = Clock::new_with(orchestrator.clock_settings());
         let start_instant = Instant::now();
-        let performance = r.run_performance(&mut orchestrator, &mut clock)?;
+        let performance = orchestrator.run_performance(&mut clock)?;
         println!(
             "\n Orchestrator performance time: {:.2?}",
             start_instant.elapsed()

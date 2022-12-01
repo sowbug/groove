@@ -200,9 +200,9 @@ impl ControlPath {
 
 #[cfg(test)]
 mod tests {
-    use more_asserts::{assert_gt, assert_le};
+    use more_asserts::assert_le;
 
-    use super::{orchestrator::tests::Runner, *};
+    use super::*;
     use crate::{
         messages::tests::TestMessage,
         traits::{
@@ -221,6 +221,7 @@ mod tests {
             ControlStep::Flat { value: 0.2 },
             ControlStep::Flat { value: 0.3 },
         ];
+        let step_vec_len = step_vec.len();
         let path = ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
@@ -249,17 +250,15 @@ mod tests {
             &TestEffectControlParams::MyValue.to_string(),
         );
 
-        let mut r = Runner::default();
-        let _ = r.run(&mut o, &mut clock);
+        let _ = o.run(&mut clock);
 
-        let expected_final_sample = 1 + (4.0f32 * (60.0 / 128.0) * 44100.0).floor() as usize;
-        assert_eq!(clock.samples(), expected_final_sample);
-
-        // Orchestrator should end on the time slice after the ControlTrip's
-        // fourth step.
-        assert_gt!(clock.beats(), 4.0);
-        assert_le!(clock.beats(), 4.0 + (1.0 / 44100.0) * (128.0 / 60.0));
-        assert_gt!(clock.seconds(), 4.0 * (60.0 / 128.0));
+        // We advance the clock one slice before checking whether the loop is
+        // done, so the clock actually should be one slice beyond the number of
+        // samples we actually get.
+        let expected_final_sample =
+            (step_vec_len as f32 * (60.0 / clock.settings().bpm()) * clock.sample_rate() as f32)
+                .ceil() as usize;
+        assert_eq!(clock.samples(), expected_final_sample + 1);
     }
 
     #[test]
@@ -271,13 +270,14 @@ mod tests {
             ControlStep::new_slope(1.0, 0.0),
             ControlStep::new_slope(0.0, 1.0),
         ];
+        let step_vec_len = step_vec.len();
         const INTERPOLATED_VALUES: &[f32] = &[0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
         let path = ControlPath {
             note_value: Some(BeatValue::Quarter),
             steps: step_vec,
         };
 
-        let mut o = Box::new(Orchestrator::default());
+        let mut o = Box::new(Orchestrator::<TestMessage>::default());
         let instrument = Box::new(TestInstrument::<EntityMessage>::new_with_test_values(
             INTERPOLATED_VALUES,
             0.0,
@@ -295,7 +295,11 @@ mod tests {
             &TestInstrumentControlParams::FakeValue.to_string(),
         );
 
-        let mut r = Runner::default();
-        let _ = r.run(&mut o, &mut clock);
+        let _ = o.run(&mut clock);
+
+        let expected_final_sample =
+            (step_vec_len as f32 * (60.0 / clock.settings().bpm()) * clock.sample_rate() as f32)
+                .ceil() as usize;
+        assert_eq!(clock.samples(), expected_final_sample + 1);
     }
 }

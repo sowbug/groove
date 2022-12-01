@@ -110,22 +110,19 @@ impl MessageBounds for EntityMessage {}
 #[cfg(test)]
 pub mod tests {
     use super::{EntityMessage, MessageBounds};
+    use crate::{common::MonoSample, midi::MidiChannel};
+    use midly::MidiMessage;
 
     #[derive(Clone, Debug, Default)]
     pub enum TestMessage {
         #[default]
-        Nop, // "no-op"
-
-        /// It's time to do a slice of work. Since update() includes a Clock
-        /// parameter, Tick is just a message without time information. We assume
-        /// that anyone getting a Tick got it via update(), directly or indirectly,
-        /// so it's the responsibility of the message handler to pass time
-        /// information when needed.
+        Nop,
         Tick,
-
-        /// A wrapped EntityMessage that contains the uid of the receipient in
-        /// addition to the EntityMessage.
         EntityMessage(usize, EntityMessage),
+        MidiFromExternal(MidiChannel, MidiMessage),
+        MidiToExternal(MidiChannel, MidiMessage),
+        AudioOutput(MonoSample),
+        OutputComplete,
     }
     impl MessageBounds for TestMessage {}
 }

@@ -176,7 +176,7 @@ impl IOHelper {
         while audio_output.worker().len() < buffer_size {
             let command = orchestrator.update(clock, GrooveMessage::Tick);
             clock.tick();
-            let (sample, done) = Orchestrator::peek_command(&command);
+            let (sample, done) = Orchestrator::<GrooveMessage>::peek_command(&command);
             match command.0 {
                 crate::traits::Internal::None => {}
                 crate::traits::Internal::Single(message) => {

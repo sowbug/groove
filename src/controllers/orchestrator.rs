@@ -613,23 +613,24 @@ impl GrooveOrchestrator {
         debug_assert!(debug_matched_audio_output);
         (sample, done)
     }
-}
 
-#[derive(Debug, Default)]
-pub struct GrooveRunner {}
-impl GrooveRunner {
-    pub fn run(
-        &mut self,
-        orchestrator: &mut Box<GrooveOrchestrator>,
-        clock: &mut Clock,
-    ) -> anyhow::Result<Vec<MonoSample>> {
+    // TODO: we're not very crisp about what "done" means. I think the current
+    // ordering in this loop is correct so that all the following are true:
+    //
+    // - It's possible to have a zero-length song (no samples returned)
+    // - Calling run() twice won't hand back the same sample, because the clock
+    //   always advances.
+    //
+    // The lack of crispness is that I'm not sure everyone agrees when they
+    // should return true in the Terminates trait.
+    //
+    // TODO: unit-test it!
+    pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<MonoSample>> {
         let mut samples = Vec::<MonoSample>::new();
         loop {
-            // TODO: maybe this should be Commands, with one as a sample, and an
-            // occasional one as a done message.
-            let command = orchestrator.update(clock, GrooveMessage::Tick);
+            let command = self.update(clock, GrooveMessage::Tick);
+            let (sample, done) = Self::peek_command(&command);
             clock.tick();
-            let (sample, done) = Orchestrator::peek_command(&command);
             if done {
                 break;
             }
@@ -638,32 +639,28 @@ impl GrooveRunner {
         Ok(samples)
     }
 
-    pub fn run_performance(
-        &mut self,
-        orchestrator: &mut Box<GrooveOrchestrator>,
-        clock: &mut Clock,
-    ) -> anyhow::Result<Performance> {
-        let sample_rate = orchestrator.clock_settings().sample_rate();
+    pub fn run_performance(&mut self, clock: &mut Clock) -> anyhow::Result<Performance> {
+        let sample_rate = clock.sample_rate();
         let performance = Performance::new_with(sample_rate);
         let progress_indicator_quantum: usize = sample_rate / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
         clock.reset();
         loop {
-            let command = orchestrator.update(clock, GrooveMessage::Tick);
-            clock.tick();
-            let (sample, done) = Orchestrator::peek_command(&command);
+            let command = self.update(clock, GrooveMessage::Tick);
+            let (sample, done) = Orchestrator::<GrooveMessage>::peek_command(&command);
             if next_progress_indicator <= clock.samples() {
                 print!(".");
                 io::stdout().flush().unwrap();
                 next_progress_indicator += progress_indicator_quantum;
             }
+            clock.tick();
             if done {
                 break;
             }
             performance.worker.push(sample);
         }
         println!();
-        orchestrator.metrics.report();
+        self.metrics.report();
         Ok(performance)
     }
 }
@@ -858,7 +855,7 @@ pub mod tests {
         messages::{tests::TestMessage, EntityMessage},
         traits::{BoxedEntity, EvenNewerCommand, Internal, Updateable},
         utils::AudioSource,
-        GrooveMessage,
+        GrooveMessage, MIDI_CHANNEL_RECEIVE_ALL,
     };
     use assert_approx_eq::assert_approx_eq;
     use midly::MidiMessage;
@@ -873,90 +870,93 @@ pub mod tests {
             clock: &Clock,
             message: Self::Message,
         ) -> EvenNewerCommand<Self::Message> {
-            match message {
-                Self::Message::Nop => EvenNewerCommand::none(),
-                Self::Message::Tick => EvenNewerCommand::batch(self.store.values_mut().fold(
-                    Vec::new(),
-                    |mut vec: Vec<EvenNewerCommand<Self::Message>>, item| {
-                        match item {
-                            BoxedEntity::Controller(entity) => {
-                                let command = entity.update(clock, EntityMessage::Tick);
-
-                                match command.0 {
-                                    Internal::None => vec.push(EvenNewerCommand::none()),
-                                    Internal::Single(action) => {
-                                        let command = EvenNewerCommand::single(
-                                            Self::Message::EntityMessage(entity.uid(), action),
-                                        );
-                                        vec.push(command);
-                                    }
-                                    Internal::Batch(actions) => {
-                                        let commands = actions.iter().map(|message| {
-                                            EvenNewerCommand::single(Self::Message::EntityMessage(
-                                                entity.uid(),
-                                                message.clone(),
-                                            ))
-                                        });
-                                        vec.push(EvenNewerCommand::batch(commands.into_iter()));
-                                    }
-                                }
-                            }
-                            _ => {}
+            let mut unhandled_commands = Vec::new();
+            let mut commands = Vec::new();
+            commands.push(EvenNewerCommand::single(message.clone()));
+            while let Some(command) = commands.pop() {
+                let mut messages = Vec::new();
+                match command.0 {
+                    Internal::None => {}
+                    Internal::Single(action) => messages.push(action),
+                    Internal::Batch(actions) => messages.extend(actions),
+                }
+                while let Some(message) = messages.pop() {
+                    match message {
+                        Self::Message::Nop => {}
+                        Self::Message::Tick => {
+                            commands.push(self.handle_tick(clock));
                         }
-                        vec
-                    },
-                )),
-                Self::Message::EntityMessage(uid, message) => {
-                    if let Some(entity) = self.store.get_mut(uid) {
-                        let (uid, command) = match entity {
-                            BoxedEntity::Controller(entity) => {
-                                (entity.uid(), entity.update(clock, message))
+                        Self::Message::EntityMessage(uid, message) => match message {
+                            EntityMessage::Nop => panic!("this should never be sent"),
+                            EntityMessage::Midi(channel, message) => {
+                                // We could have pushed this onto the regular
+                                // commands vector, and then instead of panicking on
+                                // the MidiToExternal match, handle it by pushing it
+                                // onto the other vector. It is slightly simpler, if
+                                // less elegant, to do it this way.
+                                unhandled_commands.push(EvenNewerCommand::single(
+                                    Self::Message::MidiToExternal(channel, message),
+                                ));
+                                commands.push(self.broadcast_midi_message(clock, channel, message));
                             }
-                            BoxedEntity::Effect(entity) => {
-                                (entity.uid(), entity.update(clock, message))
+                            EntityMessage::ControlF32(value) => {
+                                commands.push(self.dispatch_control_f32(clock, uid, value));
                             }
-                            BoxedEntity::Instrument(entity) => {
-                                (entity.uid(), entity.update(clock, message))
+                            EntityMessage::UpdateF32(_, _) => {
+                                self.send_unhandled_entity_message(clock, uid, message);
                             }
-                        };
-                        let mut vec = Vec::new();
-                        match command.0 {
-                            Internal::None => vec.push(EvenNewerCommand::none()),
-                            Internal::Single(action) => vec.push(EvenNewerCommand::single(
-                                Self::Message::EntityMessage(uid, action),
-                            )),
-                            Internal::Batch(actions) => vec.push(EvenNewerCommand::batch(
-                                actions
-                                    .iter()
-                                    .map(|message| {
-                                        EvenNewerCommand::single(Self::Message::EntityMessage(
-                                            uid,
-                                            message.clone(),
-                                        ))
-                                    })
-                                    .into_iter(),
-                            )),
+                            EntityMessage::UpdateParam0F32(_) => todo!(),
+                            EntityMessage::UpdateParam0String(_) => todo!(),
+                            EntityMessage::UpdateParam0U8(_) => todo!(),
+                            EntityMessage::UpdateParam1F32(_) => todo!(),
+                            EntityMessage::UpdateParam1U8(_) => todo!(),
+                            EntityMessage::Enable(_) => todo!(),
+                            EntityMessage::PatternMessage(_, _) => todo!(),
+                            EntityMessage::MutePressed(_) => todo!(),
+                            EntityMessage::EnablePressed(_) => todo!(),
+                            _ => {
+                                // EntityMessage::Tick
+                                commands.push(
+                                    self.dispatch_and_wrap_entity_message(clock, uid, message),
+                                );
+                            }
+                        },
+                        Self::Message::MidiFromExternal(channel, message) => {
+                            commands.push(self.broadcast_midi_message(clock, channel, message));
                         }
-                        EvenNewerCommand::batch(vec)
-                    } else {
-                        EvenNewerCommand::none()
+                        Self::Message::MidiToExternal(_, _) => {
+                            panic!("Orchestrator should not handle MidiToExternal");
+                        }
+                        Self::Message::AudioOutput(_) => {
+                            panic!("AudioOutput shouldn't exist at this point in the pipeline");
+                        }
+                        Self::Message::OutputComplete => {
+                            panic!("OutputComplete shouldn't exist at this point in the pipeline");
+                        }
                     }
                 }
             }
+            if let Self::Message::Tick = message {
+                unhandled_commands.push(EvenNewerCommand::single(Self::Message::AudioOutput(
+                    self.gather_audio(clock),
+                )));
+                if self.are_all_finished() {
+                    unhandled_commands
+                        .push(EvenNewerCommand::single(Self::Message::OutputComplete));
+                }
+            }
+            EvenNewerCommand::batch(unhandled_commands)
         }
     }
-
-    #[derive(Debug, Default)]
-    pub struct Runner {}
-    impl Runner {
-        pub fn run(
-            &mut self,
-            orchestrator: &mut Box<TestOrchestrator>,
-            clock: &mut Clock,
-        ) -> anyhow::Result<Vec<MonoSample>> {
+    impl Orchestrator<TestMessage> {
+        pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<MonoSample>> {
             let mut samples = Vec::<MonoSample>::new();
             loop {
-                let (sample, done) = self.loop_once(orchestrator, clock);
+                // TODO: maybe this should be Commands, with one as a sample, and an
+                // occasional one as a done message.
+                let command = self.update(clock, TestMessage::Tick);
+                let (sample, done) = Self::peek_command(&command);
+                clock.tick();
                 if done {
                     break;
                 }
@@ -965,144 +965,129 @@ pub mod tests {
             Ok(samples)
         }
 
-        pub fn loop_once(
-            &mut self,
-            orchestrator: &mut Box<TestOrchestrator>,
-            clock: &mut Clock,
-        ) -> (MonoSample, bool) {
-            let command = orchestrator.update(clock, TestMessage::Tick);
-            match command.0 {
-                Internal::None => {}
-                Internal::Single(message) => {
-                    self.handle_message(orchestrator, clock, message);
-                }
-                Internal::Batch(messages) => {
-                    for message in messages {
-                        self.handle_message(orchestrator, clock, message);
-                    }
-                }
-            }
-            return if orchestrator.are_all_finished() {
-                (MONO_SAMPLE_SILENCE, true)
-            } else {
-                let sample = orchestrator.gather_audio(clock);
-                clock.tick();
-                (sample, false)
-            };
-        }
-
-        fn handle_message(
-            &mut self,
-            orchestrator: &mut TestOrchestrator,
-            clock: &Clock,
-            message: TestMessage,
-        ) {
-            match message {
-                TestMessage::Nop => todo!(),
-                TestMessage::Tick => todo!(),
-                TestMessage::EntityMessage(uid, message) => match message {
-                    EntityMessage::ControlF32(value) => {
-                        self.handle_msg_control_f32(orchestrator, clock, uid, value)
-                    }
-                    EntityMessage::Midi(channel, message) => {
-                        self.handle_msg_midi(orchestrator, clock, channel, message)
-                    }
-                    _ => todo!(),
+        // Send a tick to every Controller and return their responses.
+        fn handle_tick(&mut self, clock: &Clock) -> EvenNewerCommand<TestMessage> {
+            EvenNewerCommand::batch(self.store().controller_uids().fold(
+                Vec::new(),
+                |mut v, uid| {
+                    v.push(self.dispatch_and_wrap_entity_message(clock, uid, EntityMessage::Tick));
+                    v
                 },
-            }
+            ))
         }
 
-        fn handle_msg_control_f32(
+        fn dispatch_and_wrap_entity_message(
             &mut self,
-            orchestrator: &mut TestOrchestrator,
             clock: &Clock,
             uid: usize,
-            value: f32,
-        ) {
-            let vec = orchestrator.store.control_links(uid).clone();
-            for (target_uid, param_id) in vec {
-                self.send_msg_update_f32(orchestrator, clock, target_uid, param_id, value);
+            message: EntityMessage,
+        ) -> EvenNewerCommand<TestMessage> {
+            Self::entity_command_to_groove_command(
+                uid,
+                self.send_unhandled_entity_message(clock, uid, message),
+            )
+        }
+
+        fn entity_command_to_groove_command(
+            uid: usize,
+            command: EvenNewerCommand<EntityMessage>,
+        ) -> EvenNewerCommand<TestMessage> {
+            match command.0 {
+                Internal::None => EvenNewerCommand::none(),
+                Internal::Single(message) => {
+                    EvenNewerCommand::single(TestMessage::EntityMessage(uid, message))
+                }
+                Internal::Batch(messages) => {
+                    EvenNewerCommand::batch(messages.iter().map(move |message| {
+                        EvenNewerCommand::single(TestMessage::EntityMessage(uid, message.clone()))
+                    }))
+                }
             }
         }
 
-        fn handle_msg_midi(
+        fn broadcast_midi_message(
             &mut self,
-            orchestrator: &mut TestOrchestrator,
             clock: &Clock,
             channel: u8,
             message: MidiMessage,
-        ) {
-            for receiver_uid in orchestrator.store.midi_receivers(channel).to_vec() {
-                // TODO: can this loop?
-                if let Some(target) = orchestrator.store.get_mut(receiver_uid) {
-                    let message = EntityMessage::Midi(channel, message);
-                    match target {
-                        BoxedEntity::Controller(e) => {
-                            e.update(clock, message);
-                        }
-                        BoxedEntity::Instrument(e) => {
-                            e.update(clock, message);
-                        }
-                        BoxedEntity::Effect(e) => {
-                            e.update(clock, message);
-                        }
-                    }
-                }
+        ) -> EvenNewerCommand<TestMessage> {
+            let mut receiver_uids = Vec::new();
+            receiver_uids.extend(self.store.midi_receivers(MIDI_CHANNEL_RECEIVE_ALL));
+            receiver_uids.extend(self.store.midi_receivers(channel));
+            receiver_uids.dedup();
+            if receiver_uids.is_empty() {
+                return EvenNewerCommand::none();
             }
+            EvenNewerCommand::batch(receiver_uids.iter().fold(Vec::new(), |mut v, uid| {
+                v.push(self.dispatch_and_wrap_entity_message(
+                    clock,
+                    *uid,
+                    EntityMessage::Midi(channel, message),
+                ));
+                v
+            }))
         }
 
-        fn send_msg_update_f32(
+        // NOTE! This returns only Command::none(). Let's see if we can live with
+        // UpdateF32 being terminal.
+        fn dispatch_control_f32(
             &mut self,
-            orchestrator: &mut TestOrchestrator,
             clock: &Clock,
-            target_uid: usize,
-            param_id: usize,
+            uid: usize,
             value: f32,
-        ) {
-            self.send_msg(
-                orchestrator,
-                clock,
-                target_uid,
-                EntityMessage::UpdateF32(param_id, value),
-            );
+        ) -> EvenNewerCommand<TestMessage> {
+            let control_links = self.store.control_links(uid).clone();
+            for (target_uid, param_id) in control_links {
+                self.dispatch_and_wrap_entity_message(
+                    clock,
+                    target_uid,
+                    EntityMessage::UpdateF32(param_id, value),
+                );
+            }
+            EvenNewerCommand::none()
         }
 
-        fn send_msg(
-            &mut self,
-            orchestrator: &mut TestOrchestrator,
-            clock: &Clock,
-            target_uid: usize,
-            message: EntityMessage,
-        ) {
-            if let Some(target) = orchestrator.store_mut().get_mut(target_uid) {
-                match target {
-                    // TODO: everyone is the same...
-                    BoxedEntity::Controller(e) => {
-                        e.update(clock, message);
+        pub fn peek_command(command: &EvenNewerCommand<TestMessage>) -> (MonoSample, bool) {
+            let mut debug_matched_audio_output = false;
+            let mut sample = MONO_SAMPLE_SILENCE;
+            let mut done = false;
+            match &(*command).0 {
+                Internal::None => {}
+                Internal::Single(message) => match message {
+                    // Message::Nop - never sent
+                    // Message::Tick - Ticks should go only downstream
+                    // Message::EntityMessage - shouldn't escape from Orchestrator
+                    // Message::MidiFromExternal - should go only downstream
+                    // Message::MidiToExternal - ignore and let app handle it
+                    // Message::AudioOutput - let app handle it
+                    TestMessage::AudioOutput(msg_sample) => {
+                        debug_matched_audio_output = true;
+                        sample = *msg_sample;
                     }
-                    BoxedEntity::Instrument(e) => {
-                        e.update(clock, message);
+                    TestMessage::OutputComplete => {
+                        done = true;
                     }
-                    BoxedEntity::Effect(e) => {
-                        e.update(clock, message);
-                    }
+                    _ => {}
+                },
+                Internal::Batch(messages) => {
+                    messages.iter().for_each(|message| match message {
+                        TestMessage::AudioOutput(msg_sample) => {
+                            debug_matched_audio_output = true;
+                            sample = *msg_sample;
+                        }
+                        TestMessage::OutputComplete => {
+                            done = true;
+                        }
+                        _ => {}
+                    });
                 }
             }
+            debug_assert!(debug_matched_audio_output);
+            (sample, done)
         }
 
-        pub fn send_msg_enable(
-            &mut self,
-            orchestrator: &mut TestOrchestrator,
-            clock: &Clock,
-            target_uid: usize,
-            enabled: bool,
-        ) {
-            self.send_msg(
-                orchestrator,
-                clock,
-                target_uid,
-                EntityMessage::Enable(enabled),
-            );
+        pub fn debug_send_msg_enable(&mut self, clock: &Clock, uid: usize, enabled: bool) {
+            self.send_unhandled_entity_message(clock, uid, EntityMessage::Enable(enabled));
         }
     }
 
