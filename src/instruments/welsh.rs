@@ -537,7 +537,7 @@ pub struct WelshVoice {
 }
 
 impl WelshVoice {
-    pub fn new(sample_rate: usize, preset: &SynthPatch) -> Self {
+    pub fn new_with(sample_rate: usize, preset: &SynthPatch) -> Self {
         let mut r = Self {
             amp_envelope: AdsrEnvelope::new_with(&preset.amp_envelope),
 
@@ -668,7 +668,7 @@ pub struct WelshSynth {
     sample_rate: usize,
     pub(crate) preset: SynthPatch,
     voices: Vec<WelshVoice>,
-    note_to_voice_index: FxHashMap<u8, usize>,
+    notes_to_voice_indexes: FxHashMap<u8, usize>,
 
     debug_last_seconds: f32,
 }
@@ -681,24 +681,15 @@ impl SourcesAudio for WelshSynth {
             self.debug_last_seconds = clock.seconds();
         }
 
-        let mut current_value = 0.0;
-        for voice in self.voices.iter_mut() {
-            let is_playing = voice.is_playing(clock);
-            if is_playing {
-                current_value += voice.source_audio(clock);
-            }
-        }
-        if !self.voices.is_empty() {
-            // TODO: I'm not sure this is right. It means that 8 voices
-            // simultaneously will have the same total volume as a single solo
-            // voice. But is that what you really want? Should two notes be
-            // twice as loud as one?
-            current_value /= self.voices.len() as MonoSample;
-        }
-        // for (i, v) in self.voices.iter().enumerate() {
-        //     if !v.is_playing(clock) {}
-        // }
-        current_value
+        // We previously scaled the sum to account for either all voices or all
+        // voices that were playing. This led to icky discontinuities as that
+        // number changed. As it is now, if you play a bunch of notes at once,
+        // it's going to be very loud.
+        self.voices
+            .iter_mut()
+            .filter(|v| v.is_playing(clock))
+            .map(|v| v.source_audio(clock))
+            .sum()
     }
 }
 impl Updateable for WelshSynth {
@@ -715,7 +706,6 @@ impl Updateable for WelshSynth {
                 MidiMessage::NoteOff { key, vel } => {
                     let voice = self.voice_for_note(clock, u8::from(key));
                     voice.update(clock, message);
-                    self.note_to_voice_index.remove(&u8::from(key));
                 }
                 MidiMessage::ProgramChange { program } => {
                     if let Some(program) = GeneralMidiProgram::from_u8(u8::from(program)) {
@@ -749,40 +739,57 @@ impl Default for WelshSynth {
             uid: Default::default(),
             sample_rate: usize::default(),
             preset: SynthPatch::default(),
-            voices: Vec::default(),
-            note_to_voice_index: Default::default(),
+            voices: Default::default(),
+            notes_to_voice_indexes: Default::default(),
             debug_last_seconds: -1.0,
         }
     }
 }
 impl WelshSynth {
     pub(crate) fn new_with(sample_rate: usize, preset: SynthPatch) -> Self {
-        Self {
-            sample_rate,
-            preset,
-            ..Default::default()
-        }
+        let mut r = Self::default();
+        r.sample_rate = sample_rate;
+        r.preset = preset;
+        r
     }
+
+    // // TODO: this has unlimited-voice polyphony. Should we limit to a fixed number?
+    // fn voice_for_note_old(&mut self, clock: &Clock, note: u8) -> &mut WelshVoice {
+    //     // If we already have a voice for this note, return it.
+    //     if let Some(&index) = self.note_to_voice_index.get(&note) {
+    //         &mut self.voices[index]
+    //     } else {
+    //         // If there's an empty slot (a voice that's done playing), return that.
+    //         if let Some(index) = self.voices.iter().position(|v| !v.is_playing(clock)) {
+    //             self.note_to_voice_index.insert(note, index);
+    //             &mut self.voices[index]
+    //         } else {
+    //             // All existing voices are playing. Make a new one.
+    //             self.voices
+    //                 .push(WelshVoice::new(self.sample_rate, &self.preset));
+    //             let index = self.voices.len() - 1;
+    //             self.note_to_voice_index.insert(note, index);
+    //             &mut self.voices[index]
+    //         }
+    //     }
+    // }
 
     // TODO: this has unlimited-voice polyphony. Should we limit to a fixed number?
     fn voice_for_note(&mut self, clock: &Clock, note: u8) -> &mut WelshVoice {
-        // If we already have a voice for this note, return it.
-        if let Some(&index) = self.note_to_voice_index.get(&note) {
-            &mut self.voices[index]
-        } else {
-            // If there's an empty slot (a voice that's done playing), return that.
-            if let Some(index) = self.voices.iter().position(|v| !v.is_playing(clock)) {
-                self.note_to_voice_index.insert(note, index);
-                &mut self.voices[index]
-            } else {
-                // All existing voices are playing. Make a new one.
-                self.voices
-                    .push(WelshVoice::new(self.sample_rate, &self.preset));
-                let index = self.voices.len() - 1;
-                self.note_to_voice_index.insert(note, index);
-                &mut self.voices[index]
+        if let Some(&index) = self.notes_to_voice_indexes.get(&note) {
+            return &mut self.voices[index];
+        }
+        for (index, voice) in self.voices.iter().enumerate() {
+            if !voice.is_playing(clock) {
+                self.notes_to_voice_indexes.insert(note, index);
+                return &mut self.voices[index];
             }
         }
+        self.voices
+            .push(WelshVoice::new_with(self.sample_rate, &self.preset));
+        let index = self.voices.len() - 1;
+        self.notes_to_voice_indexes.insert(note, index);
+        return &mut self.voices[index];
     }
 }
 
@@ -1008,7 +1015,7 @@ mod tests {
         let message_off = MidiUtils::note_off_c4();
 
         let mut clock = Clock::default();
-        let mut voice = WelshVoice::new(clock.sample_rate(), &test_patch());
+        let mut voice = WelshVoice::new_with(clock.sample_rate(), &test_patch());
         voice.update(&clock, EntityMessage::Midi(0, message_on));
         write_sound(
             &mut voice,
@@ -1026,7 +1033,7 @@ mod tests {
         let message_off = MidiUtils::note_off_c4();
 
         let mut clock = Clock::default();
-        let mut voice = WelshVoice::new(clock.sample_rate(), &cello_patch());
+        let mut voice = WelshVoice::new_with(clock.sample_rate(), &cello_patch());
         voice.update(&clock, EntityMessage::Midi(0, message_on));
         write_sound(
             &mut voice,
