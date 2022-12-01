@@ -176,7 +176,7 @@ impl IOHelper {
         let mut v = Vec::new();
         while audio_output.worker().len() < buffer_size {
             let command = runner.loop_once(orchestrator, clock);
-            let (sample, done) = runner.peek_command(&command);
+            let (sample, done) = Orchestrator::peek_command(&command);
             match command.0 {
                 crate::traits::Internal::None => {}
                 crate::traits::Internal::Single(message) => {

@@ -178,13 +178,45 @@ impl<M: MessageBounds> Orchestrator<M> {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) {
+    /// Given a slice of entity_uids, patches them as a chain to the main mixer,
+    /// with the first item being the farthest from the mixer, and the last's
+    /// output plugged directly into the mixer.
+    ///
+    /// TODO: when we get more interactive, we'll need to think more
+    /// transactionally, and validate the whole chain before plugging in
+    /// anything.
+    pub(crate) fn patch_chain_to_main_mixer(
+        &mut self,
+        entity_uids: &[usize],
+    ) -> anyhow::Result<()> {
+        let mut previous_entity_uid = None;
+        for &entity_uid in entity_uids {
+            if let Some(previous_uid) = previous_entity_uid {
+                self.patch(previous_uid, entity_uid)?;
+            }
+            previous_entity_uid = Some(entity_uid);
+        }
+        if let Some(previous_uid) = previous_entity_uid {
+            self.patch(previous_uid, self.main_mixer_uid)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
         self.store.unpatch(output_uid, input_uid);
+        Ok(()) // TODO: do we ever care about this result?
     }
 
     pub(crate) fn connect_to_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
         self.patch(source_uid, self.main_mixer_uid)
+    }
+
+    pub(crate) fn disconnect_from_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
+        self.unpatch(source_uid, self.main_mixer_uid)
+    }
+
+    pub(crate) fn unpatch_all(&mut self) -> anyhow::Result<()> {
+        self.store.unpatch_all()
     }
 
     pub(crate) fn are_all_finished(&mut self) -> bool {
@@ -563,69 +595,8 @@ impl GrooveOrchestrator {
         }
         EvenNewerCommand::none()
     }
-}
 
-#[derive(Debug, Default)]
-pub struct GrooveRunner {}
-impl GrooveRunner {
-    pub fn run(
-        &mut self,
-        orchestrator: &mut Box<GrooveOrchestrator>,
-        clock: &mut Clock,
-    ) -> anyhow::Result<Vec<MonoSample>> {
-        let mut samples = Vec::<MonoSample>::new();
-        loop {
-            // TODO: maybe this should be Commands, with one as a sample, and an
-            // occasional one as a done message.
-            let command = self.loop_once(orchestrator, clock);
-            let (sample, done) = self.peek_command(&command);
-            if done {
-                break;
-            }
-            samples.push(sample);
-        }
-        Ok(samples)
-    }
-
-    pub fn run_performance(
-        &mut self,
-        orchestrator: &mut Box<GrooveOrchestrator>,
-        clock: &mut Clock,
-    ) -> anyhow::Result<Performance> {
-        let sample_rate = orchestrator.clock_settings().sample_rate();
-        let performance = Performance::new_with(sample_rate);
-        let progress_indicator_quantum: usize = sample_rate / 2;
-        let mut next_progress_indicator: usize = progress_indicator_quantum;
-        clock.reset();
-        loop {
-            let command = self.loop_once(orchestrator, clock);
-            let (sample, done) = self.peek_command(&command);
-            if next_progress_indicator <= clock.samples() {
-                print!(".");
-                io::stdout().flush().unwrap();
-                next_progress_indicator += progress_indicator_quantum;
-            }
-            if done {
-                break;
-            }
-            performance.worker.push(sample);
-        }
-        println!();
-        orchestrator.metrics.report();
-        Ok(performance)
-    }
-
-    pub fn loop_once(
-        &mut self,
-        orchestrator: &mut Box<GrooveOrchestrator>,
-        clock: &mut Clock,
-    ) -> EvenNewerCommand<GrooveMessage> {
-        let command = orchestrator.update(clock, GrooveMessage::Tick);
-        clock.tick();
-        command
-    }
-
-    pub fn peek_command(&self, command: &EvenNewerCommand<GrooveMessage>) -> (MonoSample, bool) {
+    pub fn peek_command(command: &EvenNewerCommand<GrooveMessage>) -> (MonoSample, bool) {
         let mut debug_matched_audio_output = false;
         let mut sample = MONO_SAMPLE_SILENCE;
         let mut done = false;
@@ -662,6 +633,67 @@ impl GrooveRunner {
         }
         debug_assert!(debug_matched_audio_output);
         (sample, done)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct GrooveRunner {}
+impl GrooveRunner {
+    pub fn run(
+        &mut self,
+        orchestrator: &mut Box<GrooveOrchestrator>,
+        clock: &mut Clock,
+    ) -> anyhow::Result<Vec<MonoSample>> {
+        let mut samples = Vec::<MonoSample>::new();
+        loop {
+            // TODO: maybe this should be Commands, with one as a sample, and an
+            // occasional one as a done message.
+            let command = self.loop_once(orchestrator, clock);
+            let (sample, done) = Orchestrator::peek_command(&command);
+            if done {
+                break;
+            }
+            samples.push(sample);
+        }
+        Ok(samples)
+    }
+
+    pub fn run_performance(
+        &mut self,
+        orchestrator: &mut Box<GrooveOrchestrator>,
+        clock: &mut Clock,
+    ) -> anyhow::Result<Performance> {
+        let sample_rate = orchestrator.clock_settings().sample_rate();
+        let performance = Performance::new_with(sample_rate);
+        let progress_indicator_quantum: usize = sample_rate / 2;
+        let mut next_progress_indicator: usize = progress_indicator_quantum;
+        clock.reset();
+        loop {
+            let command = self.loop_once(orchestrator, clock);
+            let (sample, done) = Orchestrator::peek_command(&command);
+            if next_progress_indicator <= clock.samples() {
+                print!(".");
+                io::stdout().flush().unwrap();
+                next_progress_indicator += progress_indicator_quantum;
+            }
+            if done {
+                break;
+            }
+            performance.worker.push(sample);
+        }
+        println!();
+        orchestrator.metrics.report();
+        Ok(performance)
+    }
+
+    pub fn loop_once(
+        &mut self,
+        orchestrator: &mut Box<GrooveOrchestrator>,
+        clock: &mut Clock,
+    ) -> EvenNewerCommand<GrooveMessage> {
+        let command = orchestrator.update(clock, GrooveMessage::Tick);
+        clock.tick();
+        command
     }
 }
 
@@ -799,6 +831,11 @@ impl<M> Store<M> {
             .retain(|&uid| uid != output_uid);
     }
 
+    fn unpatch_all(&mut self) -> Result<(), anyhow::Error> {
+        self.audio_sink_uid_to_source_uids.clear();
+        Ok(())
+    }
+
     pub(crate) fn patches(&self, input_uid: usize) -> Option<&Vec<usize>> {
         self.audio_sink_uid_to_source_uids.get(&input_uid)
     }
@@ -842,15 +879,18 @@ impl<M> Store<M> {
 
 #[cfg(test)]
 pub mod tests {
-    use midly::MidiMessage;
-
     use super::Orchestrator;
     use crate::{
         clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
+        effects::gain::Gain,
         messages::{tests::TestMessage, EntityMessage},
         traits::{BoxedEntity, EvenNewerCommand, Internal, Updateable},
+        utils::AudioSource,
+        GrooveMessage,
     };
+    use assert_approx_eq::assert_approx_eq;
+    use midly::MidiMessage;
 
     pub type TestOrchestrator = Orchestrator<TestMessage>;
 
@@ -1093,5 +1133,75 @@ pub mod tests {
                 EntityMessage::Enable(enabled),
             );
         }
+    }
+
+    #[test]
+    fn test_orchestrator_gather_audio() {
+        let mut o = Orchestrator::<GrooveMessage>::default();
+        let level_1_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.1))),
+        );
+        let gain_1_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.5))));
+        let level_2_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.2))),
+        );
+        let level_3_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.3))),
+        );
+        let level_4_uid = o.add(
+            None,
+            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.4))),
+        );
+        let clock = Clock::default();
+
+        // Nothing connected: should output silence.
+        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
+        assert_eq!(sample, MONO_SAMPLE_SILENCE);
+
+        // Just the single-level instrument; should get that.
+        assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
+        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
+        assert_eq!(sample, 0.1);
+
+        // Gain alone; that's weird, but it shouldn't explode.
+        assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
+        assert!(o.connect_to_main_mixer(gain_1_uid).is_ok());
+        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
+        assert_eq!(sample, MONO_SAMPLE_SILENCE);
+
+        // Disconnect/reconnect and connect just the single-level instrument again.
+        assert!(o.disconnect_from_main_mixer(gain_1_uid).is_ok());
+        assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
+        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
+        assert_eq!(sample, 0.1);
+
+        // Instrument to gain should result in (instrument x gain).
+        assert!(o.unpatch_all().is_ok());
+        assert!(o
+            .patch_chain_to_main_mixer(&vec![level_1_uid, gain_1_uid])
+            .is_ok());
+        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
+        assert_approx_eq!(sample, 0.1 * 0.5);
+
+        assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
+        assert!(o.connect_to_main_mixer(level_3_uid).is_ok());
+        assert!(o.connect_to_main_mixer(level_4_uid).is_ok());
+        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
+        assert_approx_eq!(sample, 0.1 * 0.5 + 0.2 + 0.3 + 0.4);
+
+        // Same thing, but inverted order.
+        assert!(o.unpatch_all().is_ok());
+        assert!(o.connect_to_main_mixer(level_4_uid).is_ok());
+        assert!(o.connect_to_main_mixer(level_3_uid).is_ok());
+        assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
+        assert!(o
+            .patch_chain_to_main_mixer(&vec![level_1_uid, gain_1_uid])
+            .is_ok());
+        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
+        assert_approx_eq!(sample, 0.1 * 0.5 + 0.2 + 0.3 + 0.4);
+
     }
 }
