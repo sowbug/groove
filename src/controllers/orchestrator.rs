@@ -185,6 +185,7 @@ impl<M: MessageBounds> Orchestrator<M> {
     /// TODO: when we get more interactive, we'll need to think more
     /// transactionally, and validate the whole chain before plugging in
     /// anything.
+    #[allow(dead_code)]
     pub(crate) fn patch_chain_to_main_mixer(
         &mut self,
         entity_uids: &[usize],
@@ -202,6 +203,7 @@ impl<M: MessageBounds> Orchestrator<M> {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
         self.store.unpatch(output_uid, input_uid);
         Ok(()) // TODO: do we ever care about this result?
@@ -211,10 +213,12 @@ impl<M: MessageBounds> Orchestrator<M> {
         self.patch(source_uid, self.main_mixer_uid)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn disconnect_from_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
         self.unpatch(source_uid, self.main_mixer_uid)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn unpatch_all(&mut self) -> anyhow::Result<()> {
         self.store.unpatch_all()
     }
@@ -260,6 +264,12 @@ impl<M: MessageBounds> Orchestrator<M> {
             match entry {
                 StackEntry::ToVisit(uid) => {
                     // We've never seen this node before.
+                    //
+                    // I thought about checking for patch cables to determine
+                    // whether it's an instrument (leaf) or effect (node). The
+                    // hope was to avoid an entity lookup. But we have to look
+                    // up the patch cables. So I think it's six of one, a
+                    // half-dozen of another.
                     if let Some(entity) = self.store.get_mut(uid) {
                         match entity {
                             // If it's a leaf, eval it now and add it to the
@@ -295,6 +305,11 @@ impl<M: MessageBounds> Orchestrator<M> {
                     }
                 }
                 // We're returning to this node after evaluating its children.
+                // TODO: it's a shame we have to look up the node twice. I still
+                // think it's better to look it up once to avoid the patch-cable
+                // lookup for instruments and controllers. And if we're going to
+                // optimize for avoiding lookups, we might as well unroll the
+                // whole tree and zip through it, as mentioned earlier.
                 StackEntry::CollectResultFor(uid, accumulated_sum) => {
                     if let Some(entity) = self.store.get_mut(uid) {
                         match entity {
@@ -847,7 +862,7 @@ pub mod tests {
     use crate::{
         clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
-        effects::{gain::Gain, mixer::Mixer},
+        effects::gain::Gain,
         messages::{tests::TestMessage, EntityMessage},
         traits::{BoxedEntity, EvenNewerCommand, Internal, Updateable},
         utils::AudioSource,
@@ -1248,7 +1263,6 @@ pub mod tests {
         let sample_chain_4 = o.gather_audio(&clock);
         assert_approx_eq!(sample_chain_4, 0.7);
 
-        println!("start reading here");
         // Now start over and successively add. This is first and second chains together.
         assert!(o.unpatch_all().is_ok());
         assert!(o
@@ -1257,7 +1271,6 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&vec![bassline_uid, gain_2_uid])
             .is_ok());
-        let (sample, _) = Orchestrator::peek_command(&o.update(&clock, GrooveMessage::Tick));
         assert_approx_eq!(o.gather_audio(&clock), sample_chain_1 + sample_chain_2);
 
         // Plus third.
