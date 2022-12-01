@@ -38,7 +38,7 @@ impl Updateable for Arpeggiator {
             }
             Self::Message::Midi(_channel, message) => {
                 match message {
-                    MidiMessage::NoteOff { key, vel: _ } => {
+                    MidiMessage::NoteOff { key: _, vel: _ } => {
                         self.note_semaphore -= 1;
                         if self.note_semaphore < 0 {
                             self.note_semaphore = 0;
