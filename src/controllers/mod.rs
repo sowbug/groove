@@ -200,8 +200,6 @@ impl ControlPath {
 
 #[cfg(test)]
 mod tests {
-    use more_asserts::assert_le;
-
     use super::*;
     use crate::{
         messages::tests::TestMessage,
