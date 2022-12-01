@@ -42,7 +42,7 @@ devices:
   - effect:
     - gain-3
     - gain:
-        ceiling: 0.125
+        ceiling: 0.15
   - effect:
     - bitcrusher-1
     - bitcrusher:
