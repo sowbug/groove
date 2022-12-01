@@ -725,7 +725,7 @@ pub mod tests {
             assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
 
             // Run again but without the negating effect in the mix.
-            o.unpatch(synth_uid, effect_uid);
+            assert!(o.unpatch(synth_uid, effect_uid).is_ok());
             clock.reset();
             if let Ok(samples_2) = runner.run(&mut o, &mut clock) {
                 // The sample pairs should cancel each other out.
@@ -926,7 +926,7 @@ pub mod tests {
             assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
 
             // Run again but without the negating effect in the mix.
-            o.unpatch(synth_uid, effect_uid);
+            assert!(o.unpatch(synth_uid, effect_uid).is_ok());
             clock.reset();
             if let Ok(samples_2) = runner.run(&mut o, &mut clock) {
                 // The sample pairs should cancel each other out.

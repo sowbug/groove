@@ -627,7 +627,7 @@ impl GrooveRunner {
         loop {
             // TODO: maybe this should be Commands, with one as a sample, and an
             // occasional one as a done message.
-            let command = self.loop_once(orchestrator, clock);
+            let command = orchestrator.update(clock, GrooveMessage::Tick);
             let (sample, done) = Orchestrator::peek_command(&command);
             if done {
                 break;
@@ -648,7 +648,7 @@ impl GrooveRunner {
         let mut next_progress_indicator: usize = progress_indicator_quantum;
         clock.reset();
         loop {
-            let command = self.loop_once(orchestrator, clock);
+            let command = orchestrator.update(clock, GrooveMessage::Tick);
             let (sample, done) = Orchestrator::peek_command(&command);
             if next_progress_indicator <= clock.samples() {
                 print!(".");
@@ -663,16 +663,6 @@ impl GrooveRunner {
         println!();
         orchestrator.metrics.report();
         Ok(performance)
-    }
-
-    pub fn loop_once(
-        &mut self,
-        orchestrator: &mut Box<GrooveOrchestrator>,
-        clock: &mut Clock,
-    ) -> EvenNewerCommand<GrooveMessage> {
-        let command = orchestrator.update(clock, GrooveMessage::Tick);
-        clock.tick();
-        command
     }
 }
 

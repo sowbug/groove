@@ -8,8 +8,8 @@ use crate::{
     messages::EntityMessage,
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
-    traits::{BoxedEntity, IsInstrument},
-    Clock, GrooveMessage, GrooveOrchestrator, GrooveRunner, Orchestrator,
+    traits::{BoxedEntity, IsInstrument, Updateable},
+    Clock, GrooveMessage, GrooveOrchestrator, Orchestrator,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -172,10 +172,10 @@ impl IOHelper {
         audio_output: &mut AudioOutput,
     ) -> (Vec<GrooveMessage>, bool) {
         let mut is_done = false;
-        let mut runner = GrooveRunner::default();
         let mut v = Vec::new();
         while audio_output.worker().len() < buffer_size {
-            let command = runner.loop_once(orchestrator, clock);
+            let command = orchestrator.update(clock, GrooveMessage::Tick);
+            clock.tick();
             let (sample, done) = Orchestrator::peek_command(&command);
             match command.0 {
                 crate::traits::Internal::None => {}
