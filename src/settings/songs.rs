@@ -93,7 +93,7 @@ impl SongSettings {
     fn instantiate_patch_cables(&self, orchestrator: &mut GrooveOrchestrator) {
         for patch_cable in &self.patch_cables {
             if patch_cable.len() < 2 {
-                dbg!("ignoring patch cable of length < 2");
+                eprintln!("Warning: ignoring patch cable with only one ID.");
                 continue;
             }
             let mut last_device_uvid: Option<DeviceId> = None;
@@ -102,10 +102,11 @@ impl SongSettings {
                     if let Some(last_device_uid) = orchestrator.get_uid(&last_device_uvid) {
                         if let Some(device_uid) = orchestrator.get_uid(device_id) {
                             let _ = orchestrator.patch(last_device_uid, device_uid);
+                        } else {
+                            eprintln!("Warning: input patch ID '{}' not found.", device_id);
                         }
-                        // if device_id == "main-mixer" {
-                        //     orchestrator.add_main_mixer_source(entity);
-                        // } else {
+                    } else {
+                        eprintln!("Warning: output patch ID '{}' not found.", last_device_uvid);
                     }
                 }
                 last_device_uvid = Some(device_id.to_string());
