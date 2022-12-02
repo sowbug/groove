@@ -261,6 +261,15 @@ impl Updateable for AdsrEnvelope {
                     }
                 }
             }
+            Self::Message::Midi(_, message) => match message {
+                midly::MidiMessage::NoteOff { key: _, vel: _ } => {
+                    self.handle_note_event(clock, false)
+                }
+                midly::MidiMessage::NoteOn { key: _, vel: _ } => {
+                    self.handle_note_event(clock, true)
+                }
+                _ => {}
+            },
             _ => todo!(),
         }
         Response::none()
