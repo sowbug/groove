@@ -846,7 +846,7 @@ pub mod tests {
         effects::gain::Gain,
         messages::{tests::TestMessage, EntityMessage},
         traits::{BoxedEntity, Internal, Response, Updateable},
-        utils::AudioSource,
+        utils::{AudioSource, Timer},
         GrooveMessage, MIDI_CHANNEL_RECEIVE_ALL,
     };
     use assert_approx_eq::assert_approx_eq;
@@ -1280,5 +1280,20 @@ pub mod tests {
         assert!(o.patch(instrument_2_uid, effect_1_uid).is_ok());
         assert!(o.patch(instrument_3_uid, effect_1_uid).is_ok());
         assert_eq!(o.gather_audio(&clock), 0.1 + 0.5 * (0.3 + 0.5));
+    }
+
+    #[test]
+    fn test_orchestrator_sample_count_is_accurate() {
+        let mut o = Orchestrator::<GrooveMessage>::default();
+        let _ = o.add(
+            None,
+            BoxedEntity::Controller(Box::new(Timer::new_with(1.0))),
+        );
+        let mut clock = Clock::default();
+        if let Ok(samples) = o.run(&mut clock) {
+            assert_eq!(samples.len(), 44100);
+        } else {
+            panic!("run failed");
+        }
     }
 }
