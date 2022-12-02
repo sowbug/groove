@@ -1,0 +1,47 @@
+---
+title: "Low-pass 12db filter, cutoff sweeping over noise from 100% to 0%"
+clock:
+  sample-rate: 44100
+  bpm: 128.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+    - instrument-1
+    - oscillator:
+        midi-in: 0
+        waveform: noise
+        frequency: 0.0
+  - effect:
+    - filter-1
+    - filter-low-pass-12db:
+        cutoff: 0.0
+        q: 1.0
+patch-cables:
+  - [instrument-1, filter-1, main-mixer]
+patterns:
+  - id: basic-1
+    note-value: whole
+    notes:
+      - [60]
+  - id: silent-measure-1
+    notes:
+      - [0]
+tracks:
+  - id: track-1
+    midi-channel: 0
+    patterns: [basic-1]
+paths:
+  - id: path-1
+    note-value: whole
+    steps:
+      - slope:
+          start: 1.0
+          end: 0.0
+trips:
+  - id: trip-1
+    target:
+      id: filter-1
+      param: cutoff
+    paths: [path-1]

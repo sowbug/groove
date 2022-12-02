@@ -46,6 +46,27 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "YAML: current task",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove-cli",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove-cli",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--yaml-in",
+        "scripts/square.yaml"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "YAML, just a piano scale",
       "cargo": {
         "args": [
