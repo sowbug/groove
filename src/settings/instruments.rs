@@ -1,7 +1,12 @@
-use super::{patches::SynthPatch, MidiChannel};
+use super::{
+    patches::{EnvelopeSettings, SynthPatch, WaveformType},
+    MidiChannel,
+};
 use crate::{
     instruments::{
         drumkit_sampler,
+        envelopes::AdsrEnvelope,
+        oscillators::Oscillator,
         welsh::{self, PatchName},
     },
     messages::EntityMessage,
@@ -31,6 +36,22 @@ pub enum InstrumentSettings {
         #[serde(rename = "preset")]
         preset_name: String,
     },
+    #[serde(rename_all = "kebab-case")]
+    Oscillator {
+        #[serde(rename = "midi-in")]
+        midi_input_channel: MidiChannel,
+        waveform: WaveformType,
+        frequency: f32,
+    },
+    #[serde(rename_all = "kebab-case")]
+    Envelope {
+        #[serde(rename = "midi-in")]
+        midi_input_channel: MidiChannel,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32,
+    },
     // TODO Sampler
 }
 
@@ -54,6 +75,18 @@ impl InstrumentSettings {
                 InstrumentSettings::Drumkit {
                     midi_input_channel,
                     preset_name,
+                } => *midi_input_channel,
+                InstrumentSettings::Oscillator {
+                    midi_input_channel,
+                    waveform,
+                    frequency,
+                } => *midi_input_channel,
+                InstrumentSettings::Envelope {
+                    midi_input_channel,
+                    attack,
+                    decay,
+                    sustain,
+                    release,
                 } => *midi_input_channel,
             };
             return (
@@ -82,6 +115,31 @@ impl InstrumentSettings {
             } => (
                 *midi_input_channel,
                 Box::new(drumkit_sampler::Sampler::new_from_files()),
+            ),
+            InstrumentSettings::Oscillator {
+                midi_input_channel,
+                waveform,
+                frequency,
+            } => (
+                *midi_input_channel,
+                Box::new(Oscillator::new_with_type_and_frequency(
+                    *waveform, *frequency,
+                )),
+            ),
+            InstrumentSettings::Envelope {
+                midi_input_channel,
+                attack,
+                decay,
+                sustain,
+                release,
+            } => (
+                *midi_input_channel,
+                Box::new(AdsrEnvelope::new_with(&EnvelopeSettings {
+                    attack: *attack,
+                    decay: *decay,
+                    sustain: *sustain,
+                    release: *release,
+                })),
             ),
         }
     }
