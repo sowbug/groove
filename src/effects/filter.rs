@@ -314,8 +314,10 @@ impl<M: MessageBounds> BiQuadFilter<M> {
     }
 
     pub(crate) fn set_cutoff_hz(&mut self, hz: f32) {
-        self.cutoff = hz;
-        self.update_coefficients();
+        if self.cutoff != hz {
+            self.cutoff = hz;
+            self.update_coefficients();
+        }
     }
 
     pub(crate) fn cutoff_pct(&self) -> f32 {
@@ -326,30 +328,36 @@ impl<M: MessageBounds> BiQuadFilter<M> {
         self.set_cutoff_hz(Self::percent_to_frequency(percent));
     }
 
-    // Note that these three are all alises for the same field: param2. This was
-    // easier, for now, than some kind of fancy impl per filter type.
+    // Note that these three are all aliases for the same field: param2. This
+    // was easier, for now, than some kind of fancy impl per filter type.
     pub fn q(&self) -> f32 {
         self.param2
     }
-    pub fn set_q(&mut self, param2: f32) {
-        self.param2 = param2;
-        self.update_coefficients();
+    pub fn set_q(&mut self, q: f32) {
+        if self.param2 != q {
+            self.param2 = q;
+            self.update_coefficients();
+        }
     }
 
     pub fn db_gain(&self) -> f32 {
         self.param2
     }
-    pub fn set_db_gain(&mut self, param2: f32) {
-        self.param2 = param2;
-        self.update_coefficients();
+    pub fn set_db_gain(&mut self, db_gain: f32) {
+        if self.param2 != db_gain {
+            self.param2 = db_gain;
+            self.update_coefficients();
+        }
     }
 
     pub fn bandwidth(&self) -> f32 {
         self.param2
     }
-    pub fn set_bandwidth(&mut self, param2: f32) {
-        self.param2 = param2;
-        self.update_coefficients();
+    pub fn set_bandwidth(&mut self, bandwidth: f32) {
+        if self.param2 != bandwidth {
+            self.param2 = bandwidth;
+            self.update_coefficients();
+        }
     }
     fn rbj_none_coefficients(&self) -> CoefficientSet {
         CoefficientSet {
