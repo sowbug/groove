@@ -254,7 +254,7 @@ mod tests {
         // done, so the clock actually should be one slice beyond the number of
         // samples we actually get.
         let expected_final_sample =
-            (step_vec_len as f32 * (60.0 / clock.settings().bpm()) * clock.sample_rate() as f32)
+            (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32)
                 .ceil() as usize;
         assert_eq!(clock.samples(), expected_final_sample + 1);
     }
@@ -296,7 +296,7 @@ mod tests {
         let _ = o.run(&mut clock);
 
         let expected_final_sample =
-            (step_vec_len as f32 * (60.0 / clock.settings().bpm()) * clock.sample_rate() as f32)
+            (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32)
                 .ceil() as usize;
         assert_eq!(clock.samples(), expected_final_sample + 1);
     }

@@ -194,6 +194,9 @@ impl Clock {
     pub fn sample_rate(&self) -> usize {
         self.settings().sample_rate()
     }
+    pub fn bpm(&self) -> f32 {
+        self.settings().bpm()
+    }
 
     /// The next_slice_in_ methods return the start of the next time slice, in
     /// whatever unit is requested. The usage is to accurately identify the

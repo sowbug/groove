@@ -94,7 +94,7 @@ impl ControlBar {
             row![
                 text_input(
                     "BPM",
-                    clock.settings().bpm().round().to_string().as_str(),
+                    clock.bpm().round().to_string().as_str(),
                     AppMessage::ControlBarBpm
                 )
                 .width(Length::Units(60)),
