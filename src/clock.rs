@@ -97,13 +97,6 @@ pub struct TimeSignature {
 }
 
 impl TimeSignature {
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
     pub fn new_with(top: usize, bottom: usize) -> Self {
         if top == 0 {
             panic!("Time signature top number can't be zero.");
@@ -115,11 +108,6 @@ impl TimeSignature {
     #[allow(dead_code)]
     pub fn beat_value(&self) -> BeatValue {
         BeatValue::from_divisor(self.bottom as f32)
-    }
-
-    #[allow(dead_code)]
-    pub fn new_defaults() -> Self {
-        Self::new_with(4, 4)
     }
 }
 

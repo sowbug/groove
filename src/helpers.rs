@@ -140,7 +140,6 @@ impl AudioOutput {
         &mut self.worker
     }
 
-    #[allow(dead_code)]
     fn sample_from_queue<T: cpal::Sample>(
         stealer: &Stealer<MonoSample>,
         sync_pair: &Arc<(Mutex<bool>, Condvar)>,

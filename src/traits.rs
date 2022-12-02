@@ -474,11 +474,6 @@ impl<M: MessageBounds> TestInstrument<M> {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn dump_messages(&self) {
-        dbg!(&self.debug_messages);
-    }
-
     pub fn handle_midi(&mut self, clock: &Clock, channel: MidiChannel, message: MidiMessage) {
         self.debug_messages.push((clock.beats(), channel, message));
         self.received_count += 1;
@@ -652,6 +647,7 @@ pub mod tests {
     use super::SourcesAudio;
     use super::TestInstrument;
     use crate::clock::Clock;
+    use crate::messages::MessageBounds;
     use crate::messages::tests::TestMessage;
     use rand::random;
 
@@ -666,6 +662,12 @@ pub mod tests {
             let mut clock = Clock::default();
             clock.debug_set_samples(random());
             let _ = instrument.source_audio(&clock);
+        }
+    }
+
+    impl<M: MessageBounds> TestInstrument<M> {
+        pub fn dump_messages(&self) {
+            dbg!(&self.debug_messages);
         }
     }
 }

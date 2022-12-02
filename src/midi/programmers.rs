@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_pattern() {
-        let time_signature = TimeSignature::new_defaults();
+        let time_signature = TimeSignature::default();
         let mut sequencer = BeatSequencer::default();
         let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
 
@@ -265,7 +265,7 @@ mod tests {
     // A pattern of all zeroes should last as long as a pattern of nonzeroes.
     #[test]
     fn test_empty_pattern() {
-        let time_signature = TimeSignature::new_defaults();
+        let time_signature = TimeSignature::default();
         let mut sequencer = Box::new(BeatSequencer::<EntityMessage>::default());
         let mut programmer = PatternProgrammer::<EntityMessage>::new_with(&time_signature);
 
@@ -368,7 +368,7 @@ mod tests {
         let mut o = Orchestrator::<TestMessage>::default();
         let mut sequencer = Box::new(BeatSequencer::<EntityMessage>::default());
         let mut programmer =
-            PatternProgrammer::<EntityMessage>::new_with(&TimeSignature::new_defaults());
+            PatternProgrammer::<EntityMessage>::new_with(&TimeSignature::default());
         let mut pattern = Pattern::<Note>::default();
 
         const NOTE_VALUE: BeatValue = BeatValue::Quarter;
