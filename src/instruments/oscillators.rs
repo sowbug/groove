@@ -84,7 +84,11 @@ impl Updateable for Oscillator {
                     }
                 }
             }
-            _ => todo!(),
+            _ => {
+                // Oscillators just oscillate. For now, at least, we'll leave
+                // any control like MIDI to the owning instrument. Otherwise, we
+                // just emit sound nonstop.
+            },
         }
         Response::none()
     }
@@ -151,6 +155,14 @@ impl Oscillator {
         Self {
             waveform: lfo_preset.waveform,
             frequency: lfo_preset.frequency,
+            ..Default::default()
+        }
+    }
+
+    pub(crate) fn new_with_type_and_frequency(waveform: WaveformType, frequency: f32) -> Self {
+        Self {
+            waveform,
+            frequency,
             ..Default::default()
         }
     }
