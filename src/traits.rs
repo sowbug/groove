@@ -29,8 +29,8 @@ pub trait Updateable {
     type Message: MessageBounds;
 
     #[allow(unused_variables)]
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+        Response::none()
     }
     #[allow(unused_variables)]
     fn handle_message(&mut self, clock: &Clock, message: Self::Message) {
@@ -80,7 +80,7 @@ pub trait Terminates: std::fmt::Debug {
 }
 
 #[derive(Debug)]
-pub struct EvenNewerCommand<T>(pub Internal<T>);
+pub struct Response<T>(pub Internal<T>);
 
 #[derive(Debug)]
 pub enum Internal<T> {
@@ -89,7 +89,7 @@ pub enum Internal<T> {
     Batch(Vec<T>),
 }
 
-impl<T> EvenNewerCommand<T> {
+impl<T> Response<T> {
     pub const fn none() -> Self {
         Self(Internal::None)
     }
@@ -98,18 +98,21 @@ impl<T> EvenNewerCommand<T> {
         Self(Internal::Single(action))
     }
 
-    pub fn batch(commands: impl IntoIterator<Item = EvenNewerCommand<T>>) -> Self {
+    pub fn batch(commands: impl IntoIterator<Item = Response<T>>) -> Self {
         let mut batch = Vec::new();
 
-        for EvenNewerCommand(command) in commands {
+        for Response(command) in commands {
             match command {
                 Internal::None => {}
                 Internal::Single(command) => batch.push(command),
                 Internal::Batch(commands) => batch.extend(commands),
             }
         }
-
-        Self(Internal::Batch(batch))
+        if batch.is_empty() {
+            Self(Internal::None)
+        } else {
+            Self(Internal::Batch(batch))
+        }
     }
 }
 
@@ -180,8 +183,8 @@ impl<M: MessageBounds> Updateable for TestController<M> {
         &mut self,
         _clock: &Clock,
         _message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    ) -> Response<Self::Message> {
+        Response::none()
     }
 }
 impl<M: MessageBounds> HasUid for TestController<M> {
@@ -287,12 +290,8 @@ impl<M: MessageBounds> Updateable for TestEffect<M> {
     default type Message = M;
 
     #[allow(unused_variables)]
-    default fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+        Response::none()
     }
 
     #[allow(unused_variables)]
@@ -407,8 +406,8 @@ impl<M: MessageBounds> Updateable for TestInstrument<M> {
         &mut self,
         _clock: &Clock,
         _message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    ) -> Response<Self::Message> {
+        Response::none()
     }
 
     fn param_id_for_name(&self, param_name: &str) -> usize {
@@ -549,19 +548,19 @@ impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
 impl Updateable for TestController<EntityMessage> {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
                 self.check_values(clock);
                 return match self.what_to_do(clock) {
-                    TestControllerAction::Nothing => EvenNewerCommand::none(),
+                    TestControllerAction::Nothing => Response::none(),
                     TestControllerAction::NoteOn => {
                         // This is elegant, I hope. If the arpeggiator is
                         // disabled during play, and we were playing a note,
                         // then we still send the off note,
                         if self.is_enabled {
                             self.is_playing = true;
-                            EvenNewerCommand::single(Self::Message::Midi(
+                            Response::single(Self::Message::Midi(
                                 self.midi_channel_out,
                                 MidiMessage::NoteOn {
                                     key: 60.into(),
@@ -569,12 +568,12 @@ impl Updateable for TestController<EntityMessage> {
                                 },
                             ))
                         } else {
-                            EvenNewerCommand::none()
+                            Response::none()
                         }
                     }
                     TestControllerAction::NoteOff => {
                         if self.is_playing {
-                            EvenNewerCommand::single(Self::Message::Midi(
+                            Response::single(Self::Message::Midi(
                                 self.midi_channel_out,
                                 MidiMessage::NoteOff {
                                     key: 60.into(),
@@ -582,7 +581,7 @@ impl Updateable for TestController<EntityMessage> {
                                 },
                             ))
                         } else {
-                            EvenNewerCommand::none()
+                            Response::none()
                         }
                     }
                 };
@@ -596,14 +595,14 @@ impl Updateable for TestController<EntityMessage> {
             }
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 }
 
 impl Updateable for TestEffect<EntityMessage> {
     type Message = EntityMessage;
 
-    fn update(&mut self, _clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 if let Some(param) = TestEffectControlParams::from_repr(param_id) {
@@ -614,7 +613,7 @@ impl Updateable for TestEffect<EntityMessage> {
             }
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 
     fn param_id_for_name(&self, param_name: &str) -> usize {
@@ -629,7 +628,7 @@ impl Updateable for TestEffect<EntityMessage> {
 impl Updateable for TestInstrument<EntityMessage> {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 if let Some(param) = TestInstrumentControlParams::from_repr(param_id) {
@@ -644,7 +643,7 @@ impl Updateable for TestInstrument<EntityMessage> {
             }
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 }
 

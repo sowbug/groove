@@ -7,7 +7,7 @@ use crate::common::MonoSample;
 use crate::instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
 use crate::messages::{EntityMessage, MessageBounds};
 use crate::settings::controllers::ControlStep;
-use crate::traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable};
+use crate::traits::{HasUid, IsController, Response, Terminates, Updateable};
 use crate::TimeSignature;
 use crate::{clock::BeatValue, settings::controllers::ControlPathSettings};
 use core::fmt::Debug;
@@ -56,8 +56,8 @@ impl<M: MessageBounds> Updateable for ControlTrip<M> {
         &mut self,
         _clock: &Clock,
         _message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    ) -> Response<Self::Message> {
+        Response::none()
     }
 }
 impl<M: MessageBounds> Terminates for ControlTrip<M> {
@@ -165,18 +165,18 @@ impl<M: MessageBounds> ControlTrip<M> {
 impl Updateable for ControlTrip<EntityMessage> {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
                 if self.tick(clock) {
                     // tick() tells us that our value has changed, so let's tell
                     // the world about that.
-                    return EvenNewerCommand::single(Self::Message::ControlF32(self.current_value));
+                    return Response::single(Self::Message::ControlF32(self.current_value));
                 }
             }
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 }
 

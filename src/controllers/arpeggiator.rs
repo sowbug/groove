@@ -3,7 +3,7 @@ use crate::{
     clock::{Clock, PerfectTimeUnit},
     messages::EntityMessage,
     midi::{MidiChannel, MidiMessage},
-    traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable},
+    traits::{HasUid, IsController, Response, Terminates, Updateable},
 };
 use midly::num::u7;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -31,7 +31,7 @@ impl IsController for Arpeggiator {}
 impl Updateable for Arpeggiator {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
                 return self.beat_sequencer.update(clock, message);
@@ -78,7 +78,7 @@ impl Updateable for Arpeggiator {
             }
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 
     fn set_indexed_param_f32(&mut self, index: usize, _value: f32) {

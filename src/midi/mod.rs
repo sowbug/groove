@@ -4,7 +4,7 @@ pub(crate) mod smf_reader;
 
 use crate::{
     messages::MessageBounds,
-    traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable},
+    traits::{HasUid, IsController, Response, Terminates, Updateable},
     Clock,
 };
 use crossbeam::deque::{Steal, Stealer, Worker};
@@ -372,11 +372,7 @@ impl IsController for MidiOutputHandler {}
 impl Updateable for MidiOutputHandler {
     type Message = MidiHandlerMessage;
 
-    fn update(
-        &mut self,
-        _clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::MidiToExternal(channel, message) => {
                 let event = LiveEvent::Midi {
@@ -393,7 +389,7 @@ impl Updateable for MidiOutputHandler {
             }
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 
     fn handle_message(&mut self, _clock: &Clock, _message: Self::Message) {
@@ -512,37 +508,37 @@ impl IsController for MidiHandler {}
 impl Updateable for MidiHandler {
     type Message = MidiHandlerMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
                 let mut commands = Vec::new();
                 while !self.input_stealer().is_empty() {
                     if let Steal::Success((_stamp, channel, message)) = self.input_stealer().steal()
                     {
-                        commands.push(EvenNewerCommand::single(Self::Message::MidiToExternal(
+                        commands.push(Response::single(Self::Message::MidiToExternal(
                             channel, message,
                         )));
                     }
                 }
                 if commands.is_empty() {
-                    EvenNewerCommand::none()
+                    Response::none()
                 } else {
-                    EvenNewerCommand::batch(commands)
+                    Response::batch(commands)
                 }
             }
             Self::Message::Refresh => {
                 let inputs = self.midi_input.inputs();
                 let outputs = self.midi_output.outputs();
-                EvenNewerCommand::single(MidiHandlerMessage::Refreshed(
+                Response::single(MidiHandlerMessage::Refreshed(
                     inputs.to_vec(),
                     outputs.to_vec(),
                 ))
             }
             Self::Message::MidiToExternal(_, _) => {
                 self.midi_output.update(clock, message);
-                EvenNewerCommand::none()
+                Response::none()
             }
-            _ => EvenNewerCommand::none(),
+            _ => Response::none(),
         }
     }
 }

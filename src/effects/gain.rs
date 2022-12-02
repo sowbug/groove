@@ -4,7 +4,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::{EntityMessage, MessageBounds},
-    traits::{HasUid, IsEffect, TransformsAudio, Updateable, EvenNewerCommand},
+    traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -30,12 +30,8 @@ impl<M: MessageBounds> Updateable for Gain<M> {
     default type Message = M;
 
     #[allow(unused_variables)]
-    default fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+        Response::none()
     }
 
     fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
@@ -51,11 +47,7 @@ impl<M: MessageBounds> Updateable for Gain<M> {
 impl Updateable for Gain<EntityMessage> {
     type Message = EntityMessage;
 
-    fn update(
-        &mut self,
-        _clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 self.set_indexed_param_f32(param_id, value);
@@ -71,7 +63,7 @@ impl Updateable for Gain<EntityMessage> {
             }
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 }
 impl<M: MessageBounds> HasUid for Gain<M> {

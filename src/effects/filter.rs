@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::{EntityMessage, MessageBounds},
-    traits::{EvenNewerCommand, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
 use std::{f64::consts::PI, marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
@@ -138,12 +138,8 @@ impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
     default type Message = M;
 
     #[allow(unused_variables)]
-    default fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+        Response::none()
     }
 
     fn param_id_for_name(&self, name: &str) -> usize {
@@ -171,11 +167,7 @@ impl Updateable for BiQuadFilter<EntityMessage> {
     type Message = EntityMessage;
 
     #[allow(unused_variables)]
-    fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 self.set_indexed_param_f32(param_id, value);
@@ -189,7 +181,7 @@ impl Updateable for BiQuadFilter<EntityMessage> {
             }
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 }
 impl<M: MessageBounds> HasUid for BiQuadFilter<M> {

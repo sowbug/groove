@@ -3,7 +3,7 @@ use crate::{
     common::MonoSample,
     messages::EntityMessage,
     midi::{GeneralMidiPercussionProgram, MidiMessage},
-    traits::{EvenNewerCommand, HasUid, IsInstrument, SourcesAudio, Updateable},
+    traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
 };
 use rustc_hash::FxHashMap;
 
@@ -36,7 +36,7 @@ impl Voice {
 impl Updateable for Voice {
     type Message = EntityMessage; // TODO
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         #[allow(unused_variables)]
         match message {
             Self::Message::Midi(_channel, message) => match message {
@@ -52,7 +52,7 @@ impl Updateable for Voice {
             },
             _ => {}
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 }
 impl SourcesAudio for Voice {
@@ -97,7 +97,7 @@ impl SourcesAudio for Sampler {
 impl Updateable for Sampler {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         #[allow(unused_variables)]
         match message {
             Self::Message::Midi(channel, midi_message) => match midi_message {
@@ -116,11 +116,13 @@ impl Updateable for Sampler {
                         voice.update(clock, message);
                     }
                 }
-                _ => todo!(),
+                _ => {
+                    println!("FYI - ignoring MIDI command {:?}", midi_message);
+                }
             },
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 }
 impl HasUid for Sampler {

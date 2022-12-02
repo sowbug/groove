@@ -2,9 +2,7 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::{EntityMessage, MessageBounds},
-    traits::{
-        EvenNewerCommand, HasUid, IsController, IsInstrument, SourcesAudio, Terminates, Updateable,
-    },
+    traits::{HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates, Updateable},
 };
 use core::fmt::Debug;
 use std::marker::PhantomData;
@@ -41,21 +39,21 @@ impl<M: MessageBounds> Updateable for Timer<M> {
         &mut self,
         _clock: &Clock,
         _message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    ) -> Response<Self::Message> {
+        Response::none()
     }
 }
 impl Updateable for Timer<EntityMessage> {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
                 self.has_more_work = clock.seconds() < self.time_to_run_seconds;
             }
             _ => {}
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 }
 impl<M: MessageBounds> HasUid for Timer<M> {
@@ -86,8 +84,8 @@ impl<M: MessageBounds> Updateable for Trigger<M> {
         &mut self,
         _clock: &Clock,
         _message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    ) -> Response<Self::Message> {
+        Response::none()
     }
 }
 impl<M: MessageBounds> Terminates for Trigger<M> {
@@ -117,19 +115,19 @@ impl<M: MessageBounds> Trigger<M> {
 impl Updateable for Trigger<EntityMessage> {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
                 return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
                     self.has_triggered = true;
-                    EvenNewerCommand::single(Self::Message::ControlF32(self.value))
+                    Response::single(Self::Message::ControlF32(self.value))
                 } else {
-                    EvenNewerCommand::none()
+                    Response::none()
                 };
             }
             _ => {}
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 }
 
@@ -199,9 +197,8 @@ pub mod tests {
         midi::MidiChannel,
         settings::{patches::EnvelopeSettings, ClockSettings},
         traits::{
-            BoxedEntity, EvenNewerCommand, HasUid, IsController, IsEffect, IsInstrument,
-            SourcesAudio, Terminates, TestController, TestEffect, TestInstrument, TransformsAudio,
-            Updateable,
+            BoxedEntity, HasUid, IsController, IsEffect, IsInstrument, Response, SourcesAudio,
+            Terminates, TestController, TestEffect, TestInstrument, TransformsAudio, Updateable,
         },
     };
     use convert_case::{Case, Casing};
@@ -398,18 +395,14 @@ pub mod tests {
     impl Updateable for Timer<TestMessage> {
         type Message = TestMessage;
 
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
+        fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
             match message {
                 Self::Message::Tick => {
                     self.has_more_work = clock.seconds() < self.time_to_run_seconds;
                 }
                 _ => {}
             }
-            EvenNewerCommand::none()
+            Response::none()
         }
     }
 
@@ -467,8 +460,8 @@ pub mod tests {
             &mut self,
             _clock: &Clock,
             _message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            EvenNewerCommand::none()
+        ) -> Response<Self::Message> {
+            Response::none()
         }
 
         default fn param_id_for_name(&self, _param_name: &str) -> usize {
@@ -478,16 +471,12 @@ pub mod tests {
     impl Updateable for TestLfo<EntityMessage> {
         type Message = EntityMessage;
 
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
+        fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
             if let Self::Message::Tick = message {
                 let value = self.oscillator.source_audio(&clock);
-                EvenNewerCommand::single(Self::Message::ControlF32(value))
+                Response::single(Self::Message::ControlF32(value))
             } else {
-                EvenNewerCommand::none()
+                Response::none()
             }
         }
 
@@ -572,8 +561,8 @@ pub mod tests {
             &mut self,
             _clock: &Clock,
             _message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            EvenNewerCommand::none()
+        ) -> Response<Self::Message> {
+            Response::none()
         }
 
         default fn handle_message(&mut self, _clock: &Clock, _message: Self::Message) {
@@ -587,11 +576,7 @@ pub mod tests {
     impl Updateable for TestSynth<EntityMessage> {
         type Message = EntityMessage;
 
-        fn update(
-            &mut self,
-            _clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
+        fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
             match message {
                 Self::Message::UpdateF32(param_index, value) => {
                     if let Some(param) = TestSynthControlParams::from_repr(param_index) {
@@ -604,7 +589,7 @@ pub mod tests {
                 }
                 _ => todo!(),
             }
-            EvenNewerCommand::none()
+            Response::none()
         }
         fn param_id_for_name(&self, param_name: &str) -> usize {
             if let Ok(param) = TestSynthControlParams::from_str(param_name) {
@@ -640,24 +625,20 @@ pub mod tests {
             &mut self,
             _clock: &Clock,
             _message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
-            EvenNewerCommand::none()
+        ) -> Response<Self::Message> {
+            Response::none()
         }
     }
     impl Updateable for TestControlSourceContinuous<EntityMessage> {
         type Message = EntityMessage;
 
-        fn update(
-            &mut self,
-            clock: &Clock,
-            message: Self::Message,
-        ) -> EvenNewerCommand<Self::Message> {
+        fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
             match message {
                 Self::Message::Tick => {
                     let value = self.source.source_audio(&clock).abs();
-                    EvenNewerCommand::single(Self::Message::ControlF32(value))
+                    Response::single(Self::Message::ControlF32(value))
                 }
-                _ => EvenNewerCommand::none(),
+                _ => Response::none(),
             }
         }
     }
@@ -864,7 +845,7 @@ pub mod tests {
 
         // But by now it should be silent.
         clock.reset();
-        if let Ok(samples) = o.run( &mut clock) {
+        if let Ok(samples) = o.run(&mut clock) {
             assert!(
                 samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
                 "Expected total silence again after disabling the arpeggiator."

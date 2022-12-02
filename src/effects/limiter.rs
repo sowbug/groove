@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
     messages::EntityMessage,
-    traits::{EvenNewerCommand, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -29,18 +29,14 @@ impl TransformsAudio for Limiter {
 impl Updateable for Limiter {
     type Message = EntityMessage;
 
-    fn update(
-        &mut self,
-        _clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 self.set_indexed_param_f32(param_id, value);
             }
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 
     fn set_indexed_param_f32(&mut self, index: usize, value: f32) {

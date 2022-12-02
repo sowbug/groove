@@ -1,8 +1,9 @@
 use crate::{
     common::MonoSample,
+    messages::EntityMessage,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{HasUid, IsInstrument, SourcesAudio, Updateable, EvenNewerCommand},
-    Clock, messages::EntityMessage,
+    traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    Clock,
 };
 use std::f32::consts::PI;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -74,11 +75,7 @@ impl SourcesAudio for Oscillator {
 impl Updateable for Oscillator {
     type Message = EntityMessage;
 
-    fn update(
-        &mut self,
-        _clock: &Clock,
-        message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::UpdateF32(param_id, value) => {
                 if let Some(param) = OscillatorControlParams::from_repr(param_id) {
@@ -89,7 +86,7 @@ impl Updateable for Oscillator {
             }
             _ => todo!(),
         }
-        EvenNewerCommand::none()
+        Response::none()
     }
 }
 impl HasUid for Oscillator {

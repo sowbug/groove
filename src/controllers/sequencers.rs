@@ -3,7 +3,7 @@ use crate::{
     messages::EntityMessage,
     messages::MessageBounds,
     midi::{MidiChannel, MidiMessage},
-    traits::{EvenNewerCommand, HasUid, IsController, Terminates, Updateable},
+    traits::{HasUid, IsController, Response, Terminates, Updateable},
 };
 use btreemultimap::BTreeMultiMap;
 use std::{
@@ -32,8 +32,8 @@ impl<M: MessageBounds> Updateable for BeatSequencer<M> {
         &mut self,
         _clock: &Clock,
         _message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    ) -> Response<Self::Message> {
+        Response::none()
     }
 }
 impl<M: MessageBounds> Terminates for BeatSequencer<M> {
@@ -87,7 +87,7 @@ impl<M: MessageBounds> BeatSequencer<M> {
 impl Updateable for BeatSequencer<EntityMessage> {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
                 self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
@@ -100,17 +100,15 @@ impl Updateable for BeatSequencer<EntityMessage> {
                         Included(PerfectTimeUnit(clock.beats())),
                         Excluded(self.next_instant),
                     );
-                    EvenNewerCommand::batch(self.events.range(range).into_iter().fold(
+                    Response::batch(self.events.range(range).into_iter().fold(
                         Vec::new(),
                         |mut vec, (_when, event)| {
-                            vec.push(EvenNewerCommand::single(Self::Message::Midi(
-                                event.0, event.1,
-                            )));
+                            vec.push(Response::single(Self::Message::Midi(event.0, event.1)));
                             vec
                         },
                     ))
                 } else {
-                    EvenNewerCommand::none()
+                    Response::none()
                 };
             }
             _ => todo!(),
@@ -137,8 +135,8 @@ impl<M: MessageBounds> Updateable for MidiTickSequencer<M> {
         &mut self,
         _clock: &Clock,
         _message: Self::Message,
-    ) -> EvenNewerCommand<Self::Message> {
-        EvenNewerCommand::none()
+    ) -> Response<Self::Message> {
+        Response::none()
     }
 }
 impl<M: MessageBounds> Terminates for MidiTickSequencer<M> {
@@ -203,7 +201,7 @@ impl<M: MessageBounds> MidiTickSequencer<M> {
 impl Updateable for MidiTickSequencer<EntityMessage> {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> EvenNewerCommand<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
                 self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
@@ -217,18 +215,15 @@ impl Updateable for MidiTickSequencer<EntityMessage> {
                         Excluded(self.next_instant),
                     );
                     let events = self.events.range(range);
-                    EvenNewerCommand::batch(events.into_iter().fold(
+                    Response::batch(events.into_iter().fold(
                         Vec::new(),
-                        |mut vec: Vec<EvenNewerCommand<Self::Message>>,
-                         (_when, (channel, message))| {
-                            vec.push(EvenNewerCommand::single(Self::Message::Midi(
-                                *channel, *message,
-                            )));
+                        |mut vec: Vec<Response<Self::Message>>, (_when, (channel, message))| {
+                            vec.push(Response::single(Self::Message::Midi(*channel, *message)));
                             vec
                         },
                     ))
                 } else {
-                    EvenNewerCommand::none()
+                    Response::none()
                 }
             }
             _ => todo!(),
