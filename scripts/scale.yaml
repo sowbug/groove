@@ -20,7 +20,10 @@ patterns:
       #- [60, 00, 62, 00, 64, 00, 65, 00, 67, 00, 69, 00, 71, 00, 72, 00]
       #- [60, 00, 62, 00, 64, 00, 65, 00, 67, 00, 69, 00, 71, 00, 72, 00]
       - [60, 62, 64, 65, 67, 69, 71, 72]
+  - id: silent-measure-1
+    notes:
+      - [0]
 tracks:
   - id: track-1
     midi-channel: 0
-    patterns: [basic-1]
+    patterns: [basic-1, silent-measure-1]

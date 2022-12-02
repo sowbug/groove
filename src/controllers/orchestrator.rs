@@ -30,6 +30,7 @@ pub struct Orchestrator<M: MessageBounds> {
 
     metrics: DipstickWrapper,
     enable_dev_experiment: bool,
+    should_output_perf: bool,
 
     _phantom: PhantomData<M>,
 }
@@ -383,6 +384,10 @@ impl<M: MessageBounds> Orchestrator<M> {
     pub fn set_enable_dev_experiment(&mut self, enabled: bool) {
         self.enable_dev_experiment = enabled;
     }
+
+    pub fn set_should_output_perf(&mut self, value: bool) {
+        self.should_output_perf = value;
+    }
 }
 impl<M: MessageBounds> Default for Orchestrator<M> {
     fn default() -> Self {
@@ -394,6 +399,7 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
             pattern_manager: Default::default(), // TODO: this should be added like main_mixer
             metrics: Default::default(),
             enable_dev_experiment: Default::default(),
+            should_output_perf: Default::default(),
             _phantom: Default::default(),
         };
         let main_mixer = Box::new(Mixer::default());
@@ -631,7 +637,11 @@ impl GrooveOrchestrator {
         Ok(samples)
     }
 
-    pub fn run_performance(&mut self, clock: &mut Clock) -> anyhow::Result<Performance> {
+    pub fn run_performance(
+        &mut self,
+        clock: &mut Clock,
+        quiet: bool,
+    ) -> anyhow::Result<Performance> {
         let sample_rate = clock.sample_rate();
         let performance = Performance::new_with(sample_rate);
         let progress_indicator_quantum: usize = sample_rate / 2;
@@ -641,8 +651,10 @@ impl GrooveOrchestrator {
             let command = self.update(clock, GrooveMessage::Tick);
             let (sample, done) = Orchestrator::<GrooveMessage>::peek_command(&command);
             if next_progress_indicator <= clock.samples() {
-                print!(".");
-                io::stdout().flush().unwrap();
+                if !quiet {
+                    print!(".");
+                    io::stdout().flush().unwrap();
+                }
                 next_progress_indicator += progress_indicator_quantum;
             }
             clock.tick();
@@ -651,8 +663,12 @@ impl GrooveOrchestrator {
             }
             performance.worker.push(sample);
         }
-        println!();
-        self.metrics.report();
+        if !quiet {
+            println!();
+        }
+        if self.should_output_perf {
+            self.metrics.report();
+        }
         Ok(performance)
     }
 }
@@ -1296,7 +1312,6 @@ pub mod tests {
             panic!("run failed");
         }
     }
-
 
     #[test]
     fn test_patch_fails_with_bad_id() {

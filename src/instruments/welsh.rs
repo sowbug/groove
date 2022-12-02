@@ -135,6 +135,8 @@ pub enum PatchName {
     SpaceAttack,
     Toad,
     Wind,
+    // -------------------- Custom
+    Square,
 }
 
 // TODO: cache these as they're loaded

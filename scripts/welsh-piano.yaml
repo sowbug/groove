@@ -17,7 +17,7 @@ devices:
     - gain:
         ceiling: 0.8
 patch-cables:
-  - [piano-1, gain-1 main-mixer]
+  - [piano-1, gain-1, main-mixer]
 patterns:
   - id: basic-1
     note-value: eighth
