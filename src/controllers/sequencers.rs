@@ -82,6 +82,16 @@ impl<M: MessageBounds> BeatSequencer<M> {
     pub fn enable(&mut self, is_enabled: bool) {
         self.is_disabled = !is_enabled;
     }
+
+    // In the case of a silent pattern, we don't ask the sequencer to insert any
+    // notes, yet we do want the sequencer to run until the end of the measure.
+    // So we provide a facility to advance the end-time marker (which might be a
+    // no-op if it's already later than requested).
+    pub fn set_min_end_time(&mut self, when: PerfectTimeUnit) {
+        if self.last_event_time < when {
+            self.last_event_time = when;
+        }
+    }
 }
 
 impl Updateable for BeatSequencer<EntityMessage> {
@@ -265,8 +275,8 @@ mod tests {
     impl<M: MessageBounds> MidiTickSequencer<M> {
         pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: usize) -> MidiTicks {
             //            let tpb = self.midi_ticks_per_second.0 as f32 /
-            //            (clock.settings().bpm() / 60.0);
-            let tpb = 960.0 / (clock.settings().bpm() / 60.0); // TODO: who should own the number of ticks/second?
+            //            (clock.bpm() / 60.0);
+            let tpb = 960.0 / (clock.bpm() / 60.0); // TODO: who should own the number of ticks/second?
             MidiTicks::from(tpb * beat as f32)
         }
     }

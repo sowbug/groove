@@ -1296,4 +1296,11 @@ pub mod tests {
             panic!("run failed");
         }
     }
+
+
+    #[test]
+    fn test_patch_fails_with_bad_id() {
+        let mut o = Orchestrator::<GrooveMessage>::default();
+        assert!(o.patch(3, 2).is_err());
+    }
 }

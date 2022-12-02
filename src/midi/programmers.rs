@@ -179,11 +179,13 @@ impl<M: MessageBounds> PatternProgrammer<M> {
             }
         }
 
-        // Round up to full measure and advance cursor
+        // Round up to full measure, advance cursor, and make sure sequencer
+        // knows we have filled this space.
         let rounded_max_pattern_len =
             (max_track_len as f32 * pattern_multiplier / self.time_signature.top as f32).ceil()
                 * self.time_signature.top as f32;
         self.cursor_beats = self.cursor_beats + PerfectTimeUnit::from(rounded_max_pattern_len);
+        sequencer.set_min_end_time(self.cursor_beats);
     }
 }
 
@@ -192,6 +194,7 @@ mod tests {
     use super::*;
     use crate::{
         clock::{BeatValue, Clock, TimeSignature},
+        controllers::orchestrator::tests::TestOrchestrator,
         messages::tests::TestMessage,
         settings::PatternSettings,
         traits::{BoxedEntity, TestInstrument, Updateable},
@@ -257,6 +260,43 @@ mod tests {
             PerfectTimeUnit::from(2 * time_signature.top)
         );
         assert_eq!(sequencer.debug_events().len(), expected_note_count * 2); // one on, one off
+    }
+
+    // A pattern of all zeroes should last as long as a pattern of nonzeroes.
+    #[test]
+    fn test_empty_pattern() {
+        let time_signature = TimeSignature::new_defaults();
+        let mut sequencer = Box::new(BeatSequencer::<EntityMessage>::default());
+        let mut programmer = PatternProgrammer::<EntityMessage>::new_with(&time_signature);
+
+        let note_pattern = vec!["0".to_string()];
+        let pattern_settings = PatternSettings {
+            id: String::from("test-pattern"),
+            note_value: Some(BeatValue::Quarter),
+            notes: vec![note_pattern],
+        };
+
+        let pattern = Pattern::from_settings(&pattern_settings);
+
+        assert_eq!(pattern.notes.len(), 1); // one track of notes
+        assert_eq!(pattern.notes[0].len(), 1); // one note in track
+
+        programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
+        assert_eq!(
+            programmer.cursor(),
+            PerfectTimeUnit::from(1 * time_signature.top)
+        );
+        assert_eq!(sequencer.debug_events().len(), 0);
+
+        let mut o = TestOrchestrator::default();
+        let _ = o.add(None, BoxedEntity::Controller(sequencer));
+        let mut clock = Clock::default();
+        if let Ok(result) = o.run(&mut clock) {
+            assert_eq!(
+                result.len(),
+                ((60.0 * 4.0 / clock.bpm()) * clock.sample_rate() as f32) as usize
+            );
+        }
     }
 
     #[test]
@@ -385,11 +425,15 @@ mod tests {
 
         // TODO sequencer.debug_dump_events();
 
-        // The clock should stop at the last note-off, which is 1.01 beats past
-        // the start of the third note, which started at 2.0. Since the fourth
-        // note is zero-duration, it actually ends at 3.0, before the third
-        // note's note-off event happens.
-        let last_beat = 3.01;
+        // The comment below is incorrect; it was true when the beat sequencer
+        // ended after sending the last note event, rather than thinking in
+        // terms of full measures.
+        //
+        // WRONG: The clock should stop at the last note-off, which is 1.01
+        // WRONG: beats past the start of the third note, which started at 2.0.
+        // WRONG: Since the fourth note is zero-duration, it actually ends at 3.0,
+        // WRONG: before the third note's note-off event happens.
+        let last_beat = 4.0;
         assert_approx_eq!(
             clock.beats(),
             last_beat,
