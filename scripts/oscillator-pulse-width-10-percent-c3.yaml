@@ -1,5 +1,5 @@
 ---
-title: "Pulse-width, 25%, 440Hz"
+title: "Oscillator, pulse-width 10% duty cycle, C3"
 clock:
   sample-rate: 44100
   bpm: 128.0
@@ -12,8 +12,8 @@ devices:
       - oscillator:
           midi-in: 0
           waveform:
-            pulse-width: 0.25
-          frequency: 440.0
+            pulse-width: 0.10
+          frequency: 130.81
 patch-cables:
   - [oscillator-1, main-mixer]
 patterns:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from os import listdir
-from os.path import isfile, join
+from os.path import basename, splitext
 import subprocess
 
 script_files = [f for f in listdir("./scripts/") if f.endswith(".yaml")]
@@ -9,12 +9,14 @@ script_files = [f for f in listdir("./scripts/") if f.endswith(".yaml")]
 subprocess.run(["cargo", "build", "--release"])
 output_filenames = []
 for filename in script_files:
-    output_filename = "%s.wav" % filename
+    (base, ext) = splitext(basename(filename))
+    output_filename = "%s.wav" % base
     output_filenames.append(output_filename)
     output_filename = "out/" + output_filename
     subprocess.run(["./target/release/groove-cli", "-q", "-y",
                    "scripts/%s" % filename, "-w", output_filename])
 
+output_filenames.sort()
 calculator_cmd = ["shasum"]
 calculator_cmd.extend(output_filenames)
 subprocess.run(calculator_cmd, cwd="./out")

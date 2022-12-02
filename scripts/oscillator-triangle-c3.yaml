@@ -1,5 +1,5 @@
 ---
-title: "Pure sine wave, 440Hz"
+title: "Oscillator, triangle waveform, C3"
 clock:
   sample-rate: 44100
   bpm: 128.0
@@ -8,11 +8,11 @@ clock:
     - 4
 devices:
   - instrument:
-    - oscillator-1
-    - oscillator:
-        midi-in: 0
-        waveform: sine
-        frequency: 440.0
+      - oscillator-1
+      - oscillator:
+          midi-in: 0
+          waveform: triangle
+          frequency: 130.81
 patch-cables:
   - [oscillator-1, main-mixer]
 patterns:

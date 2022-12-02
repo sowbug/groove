@@ -187,6 +187,7 @@ impl<M: MessageBounds> SourcesAudio for AudioSource<M> {
 
 #[cfg(test)]
 pub mod tests {
+    use super::Timer;
     use crate::{
         clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
@@ -195,21 +196,16 @@ pub mod tests {
         messages::{tests::TestMessage, EntityMessage},
         messages::{GrooveMessage, MessageBounds},
         midi::MidiChannel,
-        settings::{patches::EnvelopeSettings, ClockSettings},
+        settings::patches::EnvelopeSettings,
         traits::{
             BoxedEntity, HasUid, IsController, IsEffect, IsInstrument, Response, SourcesAudio,
             Terminates, TestController, TestEffect, TestInstrument, TransformsAudio, Updateable,
         },
     };
     use convert_case::{Case, Casing};
-    use strum_macros::FromRepr;
-    // use plotters::prelude::*;
-    use super::Timer;
-    use spectrum_analyzer::{
-        samples_fft_to_spectrum, scaling::divide_by_N, windows::hann_window, FrequencyLimit,
-    };
     use std::str::FromStr;
     use std::{fs, marker::PhantomData};
+    use strum_macros::FromRepr;
     use strum_macros::{Display, EnumString};
 
     pub fn canonicalize_filename(filename: &str) -> String {
@@ -221,176 +217,6 @@ pub mod tests {
         let snake_filename = filename.to_case(Case::Snake);
         format!("{OUT_DIR}/{snake_filename}.wav")
     }
-
-    pub fn canonicalize_fft_filename(filename: &str) -> String {
-        const OUT_DIR: &str = "out";
-        let snake_filename = filename.to_case(Case::Snake);
-        format!("{OUT_DIR}/{snake_filename}-spectrum")
-    }
-
-    #[allow(dead_code)]
-    fn write_samples_to_wav_file(basename: &str, sample_rate: usize, samples: &[MonoSample]) {
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: sample_rate as u32,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
-        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
-        for sample in samples.iter() {
-            let _ = writer.write_sample((sample * AMPLITUDE) as i16);
-        }
-    }
-
-    // pub(crate) fn write_orchestration_to_file<M: MessageBounds>(
-    //     basename: &str,
-    //     waveform_type: WaveformType,
-    //     orchestrator: &mut Orchestrator<M>,
-    // ) {
-    //     let osc = Oscillator::new_with(waveform_type);
-    //     if let Some(effect) = effect_opt {
-    //         effect
-    //             .borrow_mut()
-    //             .add_audio_source(rrc_downgrade::<Oscillator>(&osc));
-    //         o.add_audio_source(rrc_downgrade::<dyn IsEffect>(&effect));
-    //     }
-    //     c.add_watcher(rrc(Timer::<TestMessage>::new_with(2.0)));
-    //     if let Some(control) = control_opt {
-    //         c.add_watcher(rrc_clone::<dyn WatchesClock>(&control));
-    //     }
-    //     let samples_out = o.run_until_completion(&mut c);
-    //     write_samples_to_wav_file(basename, sample_rate, &samples_out);
-    // }
-
-    ///////////////////// DEDUPLICATE vvvvv
-    pub(crate) fn write_source_to_file(source: &mut dyn SourcesAudio, basename: &str) {
-        let clock_settings = ClockSettings::new_defaults();
-        let mut samples = Vec::<MonoSample>::new();
-        let mut clock = Clock::new_with(&clock_settings);
-        while clock.seconds() < 2.0 {
-            samples.push(source.source_audio(&clock));
-            clock.tick();
-        }
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: clock.sample_rate() as u32,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
-        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
-        for sample in samples.iter() {
-            let _ = writer.write_sample((sample * AMPLITUDE) as i16);
-        }
-        generate_fft_for_samples(
-            &clock_settings,
-            &samples,
-            &canonicalize_fft_filename(basename),
-        );
-    }
-
-    // ```rust
-    // #[allow(dead_code)]
-    // pub(crate) fn write_orchestration_to_file(
-    //     orchestrator: &mut OldTestOrchestrator,
-    //     clock: &mut WatchedClock,
-    //     basename: &str,
-    // ) {
-    //     let samples = orchestrator.run_until_completion(clock);
-    //     let spec = hound::WavSpec {
-    //         channels: 1,
-    //         sample_rate: clock.inner_clock().sample_rate() as u32,
-    //         bits_per_sample: 16,
-    //         sample_format: hound::SampleFormat::Int,
-    //     };
-    //     const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
-    //     let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
-    //     for sample in samples.iter() {
-    //         let _ = writer.write_sample((sample * AMPLITUDE) as i16);
-    //     }
-    //     generate_fft_for_samples(
-    //         clock.inner_clock().settings(),
-    //         &samples,
-    //         &canonicalize_fft_filename(basename),
-    //     );
-    // }
-    // ```
-
-    // ```rust
-    // use std::error::Error;
-    // fn generate_chart(
-    //     data: &Vec<(f32, f32)>,
-    //     min_domain: f32,
-    //     max_domain: f32,
-    //     min_range: f32,
-    //     max_range: f32,
-    //     filename: &str,
-    // ) -> Result<(), Box<dyn Error>> {
-    //     let out_filename = format!("{}.png", filename);
-    //     let root = BitMapBackend::new(out_filename.as_str(), (640, 360)).into_drawing_area();
-    //     root.fill(&WHITE)?;
-
-    //     let mut chart = ChartBuilder::on(&root) .margin(0)
-    //         .x_label_area_size(20) .y_label_area_size(0) .build_cartesian_2d(
-    //         IntoLogRange::log_scale(min_domain..max_domain),
-    //         IntoLogRange::log_scale(min_range..max_range), )?;
-    //         chart.configure_mesh().disable_mesh().draw()?;
-    //             chart.draw_series(LineSeries::new(data.iter().map(|t| (t.0,
-    //             t.1)), &BLUE))?;
-
-    //     root.present()?;
-
-    //     Ok(())
-    // }
-    // ```
-
-    pub(crate) fn generate_fft_for_samples(
-        clock_settings: &ClockSettings,
-        samples: &Vec<f32>,
-        _filename: &str,
-    ) {
-        const HANN_WINDOW_LENGTH: usize = 2048;
-        assert!(samples.len() >= HANN_WINDOW_LENGTH);
-        let hann_window = hann_window(&samples[0..HANN_WINDOW_LENGTH]);
-        let spectrum_hann_window = samples_fft_to_spectrum(
-            &hann_window,
-            clock_settings.sample_rate() as u32,
-            FrequencyLimit::All,
-            Some(&divide_by_N),
-        )
-        .unwrap();
-
-        let mut min_y = f32::MAX;
-        let mut max_y = f32::MIN;
-        let mut data = Vec::<(f32, f32)>::new();
-        for hwd in spectrum_hann_window.data().iter() {
-            let mut y = hwd.1.val();
-            if y == 0.0 {
-                y = f32::EPSILON;
-            }
-            data.push((hwd.0.val(), y));
-            if y < min_y {
-                min_y = y;
-            }
-            if y > max_y {
-                max_y = y;
-            }
-        }
-
-        // ```rust
-        // let _ = generate_chart(
-        //     &data,
-        //     0.0,
-        //     clock_settings.sample_rate() as f32 / 2.0,
-        //     min_y,
-        //     max_y,
-        //     filename,
-        // );
-        // ```
-    }
-
-    /// /////////////////
 
     impl Updateable for Timer<TestMessage> {
         type Message = TestMessage;

@@ -1,0 +1,25 @@
+---
+title: "Oscillator, sawtooth waveform, C3"
+clock:
+  sample-rate: 44100
+  bpm: 128.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+      - oscillator-1
+      - oscillator:
+          midi-in: 0
+          waveform: sawtooth
+          frequency: 130.81
+patch-cables:
+  - [oscillator-1, main-mixer]
+patterns:
+  - id: silent-measure-1
+    notes:
+      - [0]
+tracks:
+  - id: track-1
+    midi-channel: 0
+    patterns: [silent-measure-1]

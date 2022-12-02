@@ -1,5 +1,5 @@
 ---
-title: "An ADSR envelope, 0.1/0.2/1.0/0.3"
+title: "Envelope, ADSR, 0.1/0.2/1.0/0.3"
 clock:
   sample-rate: 44100
   bpm: 128.0

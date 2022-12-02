@@ -1,5 +1,5 @@
 ---
-title: "Pure square wave, 440Hz"
+title: "Oscillator, no waveform"
 clock:
   sample-rate: 44100
   bpm: 128.0
@@ -11,8 +11,8 @@ devices:
       - oscillator-1
       - oscillator:
           midi-in: 0
-          waveform: square
-          frequency: 440.0
+          waveform: noise
+          frequency: 0.0
 patch-cables:
   - [oscillator-1, main-mixer]
 patterns:

@@ -88,7 +88,7 @@ impl Updateable for Oscillator {
                 // Oscillators just oscillate. For now, at least, we'll leave
                 // any control like MIDI to the owning instrument. Otherwise, we
                 // just emit sound nonstop.
-            },
+            }
         }
         Response::none()
     }
@@ -204,7 +204,6 @@ mod tests {
         midi::{MidiNote, MidiUtils},
         settings::patches::OscillatorSettings,
         traits::SourcesAudio,
-        utils::tests::write_source_to_file,
     };
 
     fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> Oscillator {
@@ -225,122 +224,63 @@ mod tests {
         assert_ne!(0.0, oscillator.source_audio(&clock));
     }
 
-    #[test]
-    fn test_oscillator_basic_waveforms() {
-        //
-        // TODO: why is this one different from the rest in this test?
-        //
-        // let mut orchestrator = TestOrchestrator::default();
-        // let oscillator = rrc(create_oscillator(
-        //     WaveformType::Sine,
-        //     OscillatorSettings::NATURAL_TUNING,
-        //     MidiNote::C4,
-        // ));
-        // orchestrator.add_audio_source(rrc_downgrade::<Oscillator>(&oscillator));
-        // let mut clock = WatchedClock::default();
-        // clock.add_watcher(rrc(TestTimer::new_with(2.0)));
-        // write_orchestration_to_file(&mut orchestrator, &mut clock, "oscillator_sine_c3");
+    // #[test]
+    // fn test_oscillator_tuned() {
+    //     let mut oscillator = create_oscillator(
+    //         WaveformType::Sine,
+    //         OscillatorSettings::octaves(0.0),
+    //         MidiNote::C4,
+    //     );
+    //     assert_eq!(
+    //         oscillator.adjusted_frequency(),
+    //         MidiUtils::note_type_to_frequency(MidiNote::C4)
+    //     );
+    //     write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_zero_octave");
 
-        let mut oscillator = create_oscillator(
-            WaveformType::Square,
-            OscillatorSettings::NATURAL_TUNING,
-            MidiNote::C4,
-        );
-        write_source_to_file(&mut oscillator, "oscillator_square_c3");
+    //     let mut oscillator = create_oscillator(
+    //         WaveformType::Sine,
+    //         OscillatorSettings::octaves(1.0),
+    //         MidiNote::C4,
+    //     );
+    //     assert_eq!(
+    //         oscillator.adjusted_frequency(),
+    //         MidiUtils::note_type_to_frequency(MidiNote::C4) * 2.0
+    //     );
+    //     write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_1_octave");
 
-        let mut oscillator = create_oscillator(
-            WaveformType::PulseWidth(0.1),
-            OscillatorSettings::NATURAL_TUNING,
-            MidiNote::C4,
-        );
-        write_source_to_file(&mut oscillator, "oscillator_pulse_width_10_percent_c3");
+    //     let mut oscillator = create_oscillator(
+    //         WaveformType::Sine,
+    //         OscillatorSettings::octaves(-1.0),
+    //         MidiNote::C4,
+    //     );
+    //     assert_eq!(
+    //         oscillator.adjusted_frequency(),
+    //         MidiUtils::note_type_to_frequency(MidiNote::C4) / 2.0
+    //     );
+    //     write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1_octave");
 
-        let mut oscillator = create_oscillator(
-            WaveformType::Triangle,
-            OscillatorSettings::NATURAL_TUNING,
-            MidiNote::C4,
-        );
-        write_source_to_file(&mut oscillator, "oscillator_triangle_c3");
+    //     let mut oscillator = create_oscillator(
+    //         WaveformType::Sine,
+    //         OscillatorSettings::semis_and_cents(12.0, 0.0),
+    //         MidiNote::C4,
+    //     );
+    //     assert_eq!(
+    //         oscillator.adjusted_frequency(),
+    //         MidiUtils::note_type_to_frequency(MidiNote::C4) * 2.0
+    //     );
+    //     write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_12_semitone");
 
-        let mut oscillator = create_oscillator(
-            WaveformType::Sawtooth,
-            OscillatorSettings::NATURAL_TUNING,
-            MidiNote::C4,
-        );
-        write_source_to_file(&mut oscillator, "oscillator_sawtooth_c3");
-
-        let mut oscillator = create_oscillator(
-            WaveformType::Noise,
-            OscillatorSettings::NATURAL_TUNING,
-            MidiNote::None,
-        );
-        write_source_to_file(&mut oscillator, "oscillator_noise");
-
-        let mut oscillator = create_oscillator(
-            WaveformType::None,
-            OscillatorSettings::NATURAL_TUNING,
-            MidiNote::None,
-        );
-        write_source_to_file(&mut oscillator, "oscillator_none");
-    }
-
-    #[test]
-    fn test_oscillator_tuned() {
-        let mut oscillator = create_oscillator(
-            WaveformType::Sine,
-            OscillatorSettings::octaves(0.0),
-            MidiNote::C4,
-        );
-        assert_eq!(
-            oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C4)
-        );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_zero_octave");
-
-        let mut oscillator = create_oscillator(
-            WaveformType::Sine,
-            OscillatorSettings::octaves(1.0),
-            MidiNote::C4,
-        );
-        assert_eq!(
-            oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C4) * 2.0
-        );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_1_octave");
-
-        let mut oscillator = create_oscillator(
-            WaveformType::Sine,
-            OscillatorSettings::octaves(-1.0),
-            MidiNote::C4,
-        );
-        assert_eq!(
-            oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C4) / 2.0
-        );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1_octave");
-
-        let mut oscillator = create_oscillator(
-            WaveformType::Sine,
-            OscillatorSettings::semis_and_cents(12.0, 0.0),
-            MidiNote::C4,
-        );
-        assert_eq!(
-            oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C4) * 2.0
-        );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c4_plus_12_semitone");
-
-        let mut oscillator = create_oscillator(
-            WaveformType::Sine,
-            OscillatorSettings::semis_and_cents(0.0, -1200.0),
-            MidiNote::C4,
-        );
-        assert_eq!(
-            oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C4) / 2.0
-        );
-        write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1200_cents");
-    }
+    //     let mut oscillator = create_oscillator(
+    //         WaveformType::Sine,
+    //         OscillatorSettings::semis_and_cents(0.0, -1200.0),
+    //         MidiNote::C4,
+    //     );
+    //     assert_eq!(
+    //         oscillator.adjusted_frequency(),
+    //         MidiUtils::note_type_to_frequency(MidiNote::C4) / 2.0
+    //     );
+    //     write_source_to_file(&mut oscillator, "oscillator_sine_c4_minus_1200_cents");
+    // }
 
     #[test]
     fn test_oscillator_modulated() {
