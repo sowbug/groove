@@ -1,0 +1,51 @@
+---
+title: "Delay"
+clock:
+  sample-rate: 44100
+  bpm: 128.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+      - bass-1
+      - welsh:
+          midi-in: 0
+          preset: digital-bass
+  - instrument:
+      - pluck-1
+      - welsh:
+          midi-in: 1
+          preset: banjo
+  - instrument:
+      - pluck-2
+      - welsh:
+          midi-in: 2
+          preset: banjo
+  - effect:
+      - delay-1
+      - delay:
+          delay: 0.1
+patch-cables:
+  - [bass-1, main-mixer]
+  - [pluck-1, main-mixer]
+  - [pluck-2, delay-1, main-mixer]
+patterns:
+  - id: boop-beep
+    note-value: quarter
+    notes:
+      - [60, 72, 60, 72]
+  - id: silence
+    note-value: whole
+    notes:
+      - [0]
+tracks:
+  - id: bassline
+    midi-channel: 0
+    patterns: [boop-beep, boop-beep, silence]
+  - id: top
+    midi-channel: 1
+    patterns: [boop-beep, silence]
+  - id: top-delay
+    midi-channel: 2
+    patterns: [silence, boop-beep]

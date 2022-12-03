@@ -2,6 +2,7 @@ use crate::{
     common::MonoSample,
     effects::{
         bitcrusher::Bitcrusher,
+        delay::Delay,
         filter::{BiQuadFilter, FilterParams},
         gain::Gain,
         limiter::Limiter,
@@ -24,9 +25,12 @@ pub enum EffectSettings {
         min: f32,
         max: f32,
     },
-    #[serde(rename_all = "kebab-case")]
     Bitcrusher {
         bits_to_crush: u8,
+    },
+    #[serde(rename_all = "kebab-case")]
+    Delay {
+        delay: f32,
     },
     #[serde(rename = "filter-low-pass-12db")]
     FilterLowPass12db {
@@ -119,6 +123,7 @@ impl EffectSettings {
             EffectSettings::FilterHighShelf12db { cutoff, db_gain } => Box::new(
                 BiQuadFilter::new_with(&FilterParams::HighShelf { cutoff, db_gain }, sample_rate),
             ),
+            EffectSettings::Delay { delay } => Box::new(Delay::new_with(sample_rate, delay)),
         }
     }
 }

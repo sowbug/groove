@@ -5,7 +5,8 @@ use crate::{
         ControlTrip,
     },
     effects::{
-        bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain, limiter::Limiter, mixer::Mixer,
+        bitcrusher::Bitcrusher, delay::Delay, filter::BiQuadFilter, gain::Gain, limiter::Limiter,
+        mixer::Mixer,
     },
     instruments::{
         drumkit_sampler::Sampler as DrumkitSampler, envelopes::AdsrEnvelope,
@@ -286,6 +287,16 @@ impl Viewable for BiQuadFilter<EntityMessage> {
             .width(iced::Length::FillPortion(1))
         ];
         GuiStuff::titled_container(title, contents.into())
+    }
+}
+
+impl Viewable for Delay {
+    type ViewMessage = EntityMessage;
+
+    fn view(&self) -> Element<Self::ViewMessage> {
+        let title = "dElAy";
+        let contents = format!("delay in seconds: {}", self.delay_seconds());
+        GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
     }
 }
 
