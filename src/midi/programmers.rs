@@ -3,7 +3,7 @@ use super::{
     MidiChannel,
 };
 use crate::{
-    clock::{MidiTicks, PerfectTimeUnit},
+    clock::{BeatValue, MidiTicks, PerfectTimeUnit},
     controllers::sequencers::{BeatSequencer, MidiTickSequencer},
     messages::EntityMessage,
     messages::MessageBounds,
@@ -141,8 +141,8 @@ impl<M: MessageBounds> PatternProgrammer<M> {
         //
         // If it's 4/4 and eighth notes, for example, the multiplier is 0.5,
         // because each pattern note represents only a half-beat.
-        let pattern_multiplier =
-            self.time_signature.beat_value().divisor() / pattern_note_value.divisor();
+        let pattern_multiplier = BeatValue::divisor(self.time_signature.beat_value())
+            / BeatValue::divisor(pattern_note_value);
 
         let channel = *channel;
         let mut max_track_len = 0;

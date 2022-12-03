@@ -113,7 +113,8 @@ impl<M: MessageBounds> ControlTrip<M> {
         //
         // If it's 4/4 and eighth notes, for example, the multiplier is 0.5,
         // because each path step represents only a half-beat.
-        let path_multiplier = time_signature.beat_value().divisor() / path_note_value.divisor();
+        let path_multiplier =
+            BeatValue::divisor(time_signature.beat_value()) / BeatValue::divisor(path_note_value);
         for step in path.steps.clone() {
             let (start_value, end_value, step_function) = match step {
                 ControlStep::Flat { value } => (value, value, EnvelopeFunction::Linear),
@@ -254,8 +255,8 @@ mod tests {
         // done, so the clock actually should be one slice beyond the number of
         // samples we actually get.
         let expected_final_sample =
-            (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32)
-                .ceil() as usize;
+            (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32).ceil()
+                as usize;
         assert_eq!(clock.samples(), expected_final_sample + 1);
     }
 
@@ -296,8 +297,8 @@ mod tests {
         let _ = o.run(&mut clock);
 
         let expected_final_sample =
-            (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32)
-                .ceil() as usize;
+            (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32).ceil()
+                as usize;
         assert_eq!(clock.samples(), expected_final_sample + 1);
     }
 }

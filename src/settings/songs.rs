@@ -173,6 +173,11 @@ impl SongSettings {
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
                         control_trip.add_path(time_signature, &control_path);
+                    } else {
+                        eprintln!(
+                            "Warning: trip {} refers to nonexistent path {}",
+                            control_trip_settings.id, path_id
+                        );
                     }
                 }
                 let controller_uid = orchestrator.add(
@@ -183,6 +188,11 @@ impl SongSettings {
                     controller_uid,
                     target_uid,
                     &control_trip_settings.target.param,
+                );
+            } else {
+                eprintln!(
+                    "Warning: trip {} controls nonexistent entity {}",
+                    control_trip_settings.id, control_trip_settings.target.id
                 );
             }
         }

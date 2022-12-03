@@ -483,6 +483,7 @@ pub mod tests {
         }
     }
     impl<M: MessageBounds> TestControlSourceContinuous<M> {
+        #[allow(dead_code)]
         pub fn new_with(source: Box<dyn SourcesAudio>) -> Self {
             Self {
                 uid: usize::default(),

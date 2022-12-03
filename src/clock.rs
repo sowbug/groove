@@ -6,55 +6,35 @@ use std::{
 
 use crate::settings::ClockSettings;
 use serde::{Deserialize, Serialize};
+use strum_macros::FromRepr;
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, FromRepr, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum BeatValue {
-    Whole,
-    Half,
+    Octuple = 128,   // large/maxima
+    Quadruple = 256, // long
+    Double = 512,    // breve
+    Whole = 1024,    // semibreve
+    Half = 2048,     // minim
     #[default]
-    Quarter,
-    Eighth,
-    Sixteenth,
-    ThirtySecond,
-    SixtyFourth,
-    OneHundredTwentyEighth,
-    TwoHundredFiftySixth,
-    FiveHundredTwelfth,
+    Quarter = 4096, // crotchet
+    Eighth = 8192,   // quaver
+    Sixteenth = 16384, // semiquaver
+    ThirtySecond = 32768, // demisemiquaver
+    SixtyFourth = 65536, // hemidemisemiquaver
+    OneHundredTwentyEighth = 131072, // semihemidemisemiquaver / quasihemidemisemiquaver
+    TwoHundredFiftySixth = 262144, // demisemihemidemisemiquaver
+    FiveHundredTwelfth = 524288, // winner winner chicken dinner
 }
 
 impl BeatValue {
-    pub fn divisor(&self) -> f32 {
-        match self {
-            BeatValue::Whole => 1.0,
-            BeatValue::Half => 2.0,
-            BeatValue::Quarter => 4.0,
-            BeatValue::Eighth => 8.0,
-            BeatValue::Sixteenth => 16.0,
-            BeatValue::ThirtySecond => 32.0,
-            BeatValue::SixtyFourth => 64.0,
-            BeatValue::OneHundredTwentyEighth => 128.0,
-            BeatValue::TwoHundredFiftySixth => 256.0,
-            BeatValue::FiveHundredTwelfth => 512.0,
-        }
+    pub fn divisor(value: BeatValue) -> f32 {
+        value as u32 as f32 / 1024.0
     }
 
     pub fn from_divisor(divisor: f32) -> Self {
-        match divisor as u32 {
-            1 => BeatValue::Whole,
-            2 => BeatValue::Half,
-            4 => BeatValue::Quarter,
-            8 => BeatValue::Eighth,
-            16 => BeatValue::Sixteenth,
-            32 => BeatValue::ThirtySecond,
-            64 => BeatValue::SixtyFourth,
-            128 => BeatValue::OneHundredTwentyEighth,
-            256 => BeatValue::TwoHundredFiftySixth,
-            512 => BeatValue::FiveHundredTwelfth,
-            _ => {
-                panic!("unrecognized divisor for time signature: {divisor}");
-            }
-        }
+        BeatValue::from_repr((divisor * 1024.0) as usize)
+            .unwrap_or_else(|| panic!("unrecognized divisor for time signature: {divisor}"))
     }
 }
 
@@ -472,7 +452,7 @@ mod tests {
         // 2^10 = 1024
         TimeSignature::new_with(
             4,
-            BeatValue::from_divisor(2.0f32.powi(10)).divisor() as usize,
+            BeatValue::divisor(BeatValue::from_divisor(2.0f32.powi(10))) as usize,
         );
     }
 }
