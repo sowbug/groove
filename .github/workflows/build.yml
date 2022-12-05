@@ -7,33 +7,36 @@ on:
 
 jobs:
   build-linux:
-    name: Build for Linux
+    name: Build for x86_64-unknown-linux-musl
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - name: apt update
-        run: sudo apt update
-      - name: Install dependencies
-        run: sudo apt -y install libasound2-dev fontconfig libfontconfig-dev pkg-config
       - name: Install latest Rust nightly
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
-      - name: Build
+      - name: apt update
+        run: sudo apt update
+      - name: Install dependencies
+        run: sudo apt -y install libasound2-dev fontconfig libfontconfig-dev pkg-config
+      - name: Compile and release
         id: compile
         uses: rust-build/rust-build.action@v1.4.0
         env:
-          TOOLCHAIN_VERSION: nightly
-      - name: Upload artifact
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          RUSTTARGET: x86_64-unknown-linux-musl
+          EXTRA_FILES: "README.md"
+      - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: groove-linux
           path: |
-            ${{ steps.compile.outputs.BUILT_ARCHIVE }}
-            ${{ steps.compile.outputs.BUILT_CHECKSUM }}
+            target/release/groove-cli
+            target/release/groove-gui
   build-win:
-    name: Build for Windows
+    name: Build for x86_64-pc-windows-msvc
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@master
@@ -51,5 +54,5 @@ jobs:
         with:
           name: groove-win
           path: |
-            ${{ steps.compile.outputs.BUILT_ARCHIVE }}
-            ${{ steps.compile.outputs.BUILT_CHECKSUM }}
+            target/release/groove-cli.exe
+            target/release/groove-gui.exe
