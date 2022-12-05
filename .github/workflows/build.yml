@@ -19,7 +19,8 @@ jobs:
       - name: apt update
         run: sudo apt update
       - name: Install dependencies
-        run: sudo apt -y install build-essentials gcc cmake pkg-config libfontconfig-dev librust-alsa-sys-dev
+        # also needed: build-essentials gcc cmake, but GitHub barfs on at least one of those
+        run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
       - name: Compile and release
         id: compile
         uses: rust-build/rust-build.action@v1.4.0
