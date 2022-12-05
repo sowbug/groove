@@ -1,4 +1,3 @@
-# https://github.com/rust-build/rust-build.action
 name: Release
 
 on:
@@ -6,37 +5,25 @@ on:
     types: [created]
 
 jobs:
-  release:
-    name: release ${{ matrix.target }}
+  release-linux:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-pc-windows-gnu
-            archive: zip
-          - target: x86_64-unknown-linux-musl
-            archive: tar.gz tar.xz
-          - target: x86_64-apple-darwin
-            archive: zip
     steps:
       - uses: actions/checkout@v3
-      - name: Update apt
+      - name: apt update
         run: sudo apt update
-      - name: Install Linux dependencies
-        run: sudo apt -y install libasound2-dev fontconfig libfontconfig-dev pkg-config
-      - name: Install OSX dependencies
-        run: sudo apt -y install libclang-dev
+      - name: Install dependencies
+        # also needed: build-essentials gcc cmake, but GitHub barfs on at least one of those
+        run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
-      - name: Compile and release
-        uses: rust-build/rust-build.action@v1.4.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TOOLCHAIN_VERSION: nightly
+      - name: Build
+        run: cargo build --release --all
+      - name: Run tests
+        run: cargo test --verbose
+      - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
+          bin: groove-gui,groove-cli
+          token: ${{ secrets.GITHUB_TOKEN }}
