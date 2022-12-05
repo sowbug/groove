@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 mod gui;
 
 use async_std::task::block_on;
