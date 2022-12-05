@@ -21,14 +21,8 @@ jobs:
       - name: Install dependencies
         # also needed: build-essentials gcc cmake, but GitHub barfs on at least one of those
         run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
-      - name: Compile and release
-        id: compile
-        uses: rust-build/rust-build.action@v1.4.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          RUSTTARGET: x86_64-unknown-linux-musl
-          EXTRA_FILES: "README.md"
+      - name: Build
+        run: cargo build --verbose
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
