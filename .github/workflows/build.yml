@@ -18,7 +18,7 @@ jobs:
       - name: Update apt
         run: sudo apt update
       - name: Install dependencies
-        run: sudo apt -y install libasound2-dev libfontconfig-dev pkg-config
+        run: sudo apt -y install libasound2-dev libfontconfig libfontconfig-dev fontconfig pkg-config
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
