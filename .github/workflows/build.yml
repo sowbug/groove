@@ -19,7 +19,7 @@ jobs:
       - name: apt update
         run: sudo apt update
       - name: Install dependencies
-        run: sudo apt -y install libasound2-dev fontconfig libfontconfig-dev pkg-config
+        run: sudo apt -y install pkg-config librust-alsa-sys-dev libasound2-dev fontconfig libfontconfig-dev 
       - name: Compile and release
         id: compile
         uses: rust-build/rust-build.action@v1.4.0
