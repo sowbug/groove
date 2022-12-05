@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
         if let Some(output_filename) = args.wav_out {
             IOHelper::send_performance_to_file(performance, &output_filename)
         } else {
-            IOHelper::send_performance_to_output_device(performance)
+            IOHelper::send_performance_to_output_device(&performance)
         }
     }
 }

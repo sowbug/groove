@@ -270,7 +270,7 @@ impl IOHelper {
         }
     }
 
-    pub fn send_performance_to_output_device(performance: Performance) -> anyhow::Result<()> {
+    pub fn send_performance_to_output_device(performance: &Performance) -> anyhow::Result<()> {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
