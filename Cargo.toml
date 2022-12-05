@@ -47,3 +47,7 @@ path = "src/bin/app.rs"
 [lib]
 name = "groove"
 path = "src/lib.rs"
+
+[profile.release]
+strip = "symbols"
+lto = "true"
