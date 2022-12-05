@@ -1,14 +1,24 @@
-# .github/workflows/build.yml
-name: Build for win/osx/linux
+name: Build and test for win/osx/linux
 
 on:
   push:
-    branches: [main]
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  build-linux:
-    name: Build for x86_64-unknown-linux-musl
-    runs-on: ubuntu-latest
+  build-all:
+    name: Build/Test
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@master
       - name: Install latest Rust nightly
@@ -18,55 +28,19 @@ jobs:
           override: true
       - name: apt update
         run: sudo apt update
+        if: startsWith(matrix.os, 'ubuntu')
       - name: Install dependencies
         # also needed: build-essentials gcc cmake, but GitHub barfs on at least one of those
         run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
+        if: startsWith(matrix.os, 'ubuntu')
       - name: Build
-        run: cargo build --all --release
+        run: cargo build --all
+      - name: Run tests
+        run: cargo test --verbose
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: groove-linux
+          name: groove-${{ matrix.target }}
           path: |
-            target/release/groove-cli
-            target/release/groove-gui
-  build-win:
-    name: Build for x86_64-pc-windows-msvc
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: Install latest Rust nightly
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: Build
-        run: cargo build --all --release
-        env:
-          TOOLCHAIN_VERSION: nightly
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: groove-win
-          path: |
-            target/release/groove-cli.exe
-            target/release/groove-gui.exe
-  build-osx:
-    name: Build for x86_64-apple-darwin
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: Install latest Rust nightly
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: Build
-        run: cargo build --all --release
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: groove-osx
-          path: |
-            target/release/groove-cli
-            target/release/groove-gui
+            target/debug/groove-cli*
+            target/debug/groove-gui*
