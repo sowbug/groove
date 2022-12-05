@@ -60,7 +60,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts/square.yaml"
+        "scripts${pathSeparator}square.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -81,7 +81,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts/scale.yaml"
+        "scripts${pathSeparator}scale-c4-major.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -102,7 +102,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts/scale.yaml",
+        "scripts${pathSeparator}scale-c4-major.yaml",
         "--wav-out",
         "out.wav"
       ],
@@ -125,7 +125,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts/everything.yaml"
+        "scripts${pathSeparator}everything.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -146,7 +146,7 @@
       },
       "args": [
         "--yaml-in",
-        "test_data/kitchen-sink.yaml"
+        "test_data${pathSeparator}kitchen-sink.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -167,7 +167,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts/everything.yaml",
+        "scripts${pathSeparator}everything.yaml",
         "--wav-out",
         "everything.wav"
       ],
@@ -190,7 +190,7 @@
       },
       "args": [
         "--script-in",
-        "scripts/test.grv"
+        "scripts${pathSeparator}test.grv"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -231,7 +231,7 @@
       },
       "args": [
         "--midi-in",
-        "midi_files/major-scale-spaced-notes.mid"
+        "midi_files${pathSeparator}major-scale-spaced-notes.mid"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -252,7 +252,7 @@
       },
       "args": [
         "--midi-in",
-        "midi_files/major-scale-spaced-notes.mid",
+        "midi_files${pathSeparator}major-scale-spaced-notes.mid",
         "--wav-out",
         "major-scale-cello.wav"
       ],
@@ -275,7 +275,7 @@
       },
       "args": [
         "--midi-in",
-        "midi_files/d-gonnamakeyousweat.mid"
+        "midi_files${pathSeparator}d-gonnamakeyousweat.mid"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -296,7 +296,7 @@
       },
       "args": [
         "--midi-in",
-        "midi_files/d-gonnamakeyousweat.mid",
+        "midi_files${pathSeparator}d-gonnamakeyousweat.mid",
         "--wav-out",
         "Gonna_Make_You_Sweat.wav"
       ],
@@ -319,7 +319,7 @@
       },
       "args": [
         "--midi-in",
-        "midi_files/multi-channel.mid",
+        "midi_files${pathSeparator}multi-channel.mid",
         "--wav-out",
         "multi-channel.wav"
       ],
