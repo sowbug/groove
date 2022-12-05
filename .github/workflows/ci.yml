@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Install dependencies
-      run: sudo apt -y install libasound2-dev libfontconfig-dev pkg-config
+      run: sudo apt -y install libasound2-dev fontconfig libfontconfig-dev pkg-config
     - name: Install latest nightly
       uses: actions-rs/toolchain@v1
       with:

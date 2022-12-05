@@ -18,7 +18,7 @@ jobs:
       - name: Update apt
         run: sudo apt update
       - name: Install Linux dependencies
-        run: sudo apt -y install libasound2-dev libfontconfig libfontconfig-dev pkg-config
+        run: sudo apt -y install libasound2-dev fontconfig libfontconfig-dev pkg-config
       - name: Install OSX dependencies
         run: sudo apt -y install libclang-dev
       - name: Install latest nightly
