@@ -16,15 +16,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectSettings {
+    #[serde(rename_all = "kebab-case")]
     Test {},
+    #[serde(rename_all = "kebab-case")]
     Mixer {},
+    #[serde(rename_all = "kebab-case")]
     Gain {
         ceiling: f32,
     },
+    #[serde(rename_all = "kebab-case")]
     Limiter {
         min: f32,
         max: f32,
     },
+    #[serde(rename_all = "kebab-case")]
     Bitcrusher {
         bits_to_crush: u8,
     },
