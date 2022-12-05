@@ -5,26 +5,46 @@ on:
     types: [created]
 
 jobs:
-  release-linux:
-    runs-on: ubuntu-latest
+  release-all:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: x86_64-unknown-linux-musl
+            os: windows-latest
+          - target: x86_64-unknown-linux-musl
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - name: apt update
-        run: sudo apt update
-      - name: Install dependencies
-        # also needed: build-essentials gcc cmake, but GitHub barfs on at least one of those
-        run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
-      - name: Install latest nightly
+      - uses: actions/checkout@master
+      - name: Install latest Rust nightly
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
+      - name: apt update
+        run: sudo apt update
+        if: startsWith(matrix.os, 'ubuntu')
+      - name: Install dependencies
+        # also needed: build-essentials gcc cmake, but GitHub barfs on at least one of those
+        run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
+        if: startsWith(matrix.os, 'ubuntu')
       - name: Build
         run: cargo build --release --all
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --release --verbose
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: groove-${{ matrix.target }}
+          path: |
+            target/release/groove-cli*
+            target/release/groove-gui*
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: groove-gui,groove-cli
-          archive: groove-$target
+          include: README.md,LICENSE.txt,resources,samples,scripts
+          leading_dir: true
+          archive: groove-$tag-$target
           token: ${{ secrets.GITHUB_TOKEN }}
