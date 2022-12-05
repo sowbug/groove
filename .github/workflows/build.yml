@@ -52,7 +52,7 @@ jobs:
             target/release/groove-cli.exe
             target/release/groove-gui.exe
   build-osx:
-    name: Build for OSX
+    name: Build for x86_64-apple-darwin
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@master
