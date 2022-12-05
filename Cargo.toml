@@ -50,4 +50,4 @@ path = "src/lib.rs"
 
 [profile.release]
 strip = "symbols"
-lto = "true"
+lto = true
