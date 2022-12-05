@@ -22,7 +22,7 @@ jobs:
         # also needed: build-essentials gcc cmake, but GitHub barfs on at least one of those
         run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
       - name: Build
-        run: cargo build --verbose
+        run: cargo build --all --release
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -51,3 +51,22 @@ jobs:
           path: |
             target/release/groove-cli.exe
             target/release/groove-gui.exe
+  build-osx:
+    name: Build for OSX
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Install latest Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: Build
+        run: cargo build --all --release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: groove-osx
+          path: |
+            target/release/groove-cli
+            target/release/groove-gui
