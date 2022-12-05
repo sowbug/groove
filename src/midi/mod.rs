@@ -260,7 +260,7 @@ pub type MidiInputStealer = Stealer<(u64, u8, MidiMessage)>;
 #[derive(Default)]
 pub struct MidiInputHandler {
     conn_in: Option<MidiInputConnection<()>>,
-    pub stealer: Option<MidiInputStealer>,
+    stealer: Option<MidiInputStealer>,
     inputs: Vec<(usize, String)>,
 }
 
@@ -511,19 +511,24 @@ impl Updateable for MidiHandler {
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
-                let mut commands = Vec::new();
-                while !self.input_stealer().is_empty() {
-                    if let Steal::Success((_stamp, channel, message)) = self.input_stealer().steal()
-                    {
-                        commands.push(Response::single(Self::Message::MidiToExternal(
-                            channel, message,
-                        )));
+                if let Some(input_stealer) = &self.midi_input.stealer {
+                    let mut commands = Vec::new();
+                    while !input_stealer.is_empty() {
+                        if let Steal::Success((_stamp, channel, message)) =
+                            input_stealer.steal()
+                        {
+                            commands.push(Response::single(Self::Message::MidiToExternal(
+                                channel, message,
+                            )));
+                        }
                     }
-                }
-                if commands.is_empty() {
-                    Response::none()
+                    if commands.is_empty() {
+                        Response::none()
+                    } else {
+                        Response::batch(commands)
+                    }
                 } else {
-                    Response::batch(commands)
+                    Response::none()
                 }
             }
             Self::Message::Refresh => {
@@ -557,8 +562,6 @@ impl HasUid for MidiHandler {
     }
 }
 
-// TODO - this is an ExternalMidi that implements SinksMidi and  and
-// IOHelper connects it to Orchestrator. I think.
 impl MidiHandler {
     pub fn new() -> Self {
         Self::default()
@@ -568,15 +571,6 @@ impl MidiHandler {
 
     pub fn available_devices(&self) -> &[(usize, String)] {
         self.midi_input.inputs()
-    }
-
-    pub fn input_stealer(&self) -> Box<MidiInputStealer> {
-        if let Some(stealer) = &self.midi_input.stealer {
-            // It's OK to clone the stealer, according to documentation
-            Box::new(stealer.clone())
-        } else {
-            panic!("Should always have a stealer")
-        }
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {
