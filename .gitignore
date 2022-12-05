@@ -2,3 +2,5 @@
 Cargo.lock
 /*.wav
 /out/
+groove-cli.exe
+groove-gui.exe
