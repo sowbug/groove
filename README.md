@@ -2,59 +2,32 @@
 
 A digital audio workstation (DAW) engine.
 
-## The big vision
+## Getting started (music producers)
 
-I'm a software engineer in my day job. I also dabble in music production. I find
-the collaborative workflow in major DAWs today to be confusing. People more or
-less email around project files. So sharing a project is all-or-nothing. There
-isn't any [source or version
-control](https://en.wikipedia.org/wiki/Version_control). In fact, there isn't
-even any source in the way software engineers usually think of it. If you wanted
-to show someone else how you did something, the state of the art appears to be
-typing out what you did in English ("select the 24db low-pass filter, then drag
-the thingie until it sounds like bwaaaap") or making a 10-minute YouTube video
-to show 10 seconds of mouse clicks. And if you want to checkpoint a version of
-your song project, you quit your DAW, make a copy of the project file(s), and
-rename the copy. It's crude and error-prone.
-
-I know that coding and music production are different, and the workflows
-_should_ be different. Moreover, the businesses are very different, and the
-notion of "open-source music" isn't as common as "open-source software." I don't
-have a problem with this difference, but I'd like to see whether a solution to a
-software-engineering problem could also apply to music engineering/production
-(and whether using that solution would be attractive to at least some music
-producers).
-
-I imagine a desktop app with two side-by-side panels. The right looks a lot like
-a modern DAW: an arrangement view with horizonal tracks, and a detail view
-showing effect chains and spectrum analyzers. The left looks a lot like a
-software IDE: it's a bunch of tabs with indented code. When you move a dial or
-drag a pattern on the right side of the screen, a block of code on the left side
-of the screen is highlighted, and parts of it might even update automatically to
-stay consistent. Likewise, editing the code on the left causes immediate changes
-to the GUI representation on the right. Either panel is optional to get the job
-done, but if you find it easier to express an idea in text vs. graphical
-widgets, you can do so without breaking your flow.
-
-The text on the left is the truth. It's what you save when you save your project
-file. And if you want to share a technique with someone, it might be as simple
-as pasting a few lines of text into a messaging app. If you want to merge two
-versions of a collaborative project, you can use [any of the many excellent
-tools](https://en.wikipedia.org/wiki/Comparison_of_file_comparison_tools) that
-exist for that purpose. You can check your song into Git and know that the
-commit diffs will always be meaningful. And for larger projects that include
-songs as part of their media, hopefully this style will fit better into their
-version-controlled workflows.
+1. Don't get your hopes up.
+2. Download the [release](./groove/releases) for your OS and unzip it somewhere.
+3. Using the command line, `cd` to the directory you just unzipped.
+4. Try `./groove-cli -y projects/drum-track.yaml` (adapt that for your OS, e.g.,
+   Windows uses backslashes for path separators). You should hear a 707 beat
+   through a rising low-pass filter. If you don't, file a bug.
+5. Open `projects/drum-track.yaml` in your favorite text editor, and change
+   `bpm: 128.0` to `bpm: 200.0`. Play the track again. Congratulations, you're
+   now a caricature of a [DnB](https://en.wikipedia.org/wiki/Drum_and_bass)
+   producer.
+6. Just for fun, launch the `groove-gui` executable. It won't do anything
+   useful, but you should see a DAW-ish window appear. If not, please file a bug
+   so I can be aware of GUI problems on different OSes.
 
 ## High-level project status
 
-- Producing a song is possible only with the CLI, as the GUI doesn't allow
-  editing. I expect it would be a tedious experience, to say the least.
-- Aside from the workflow being difficult, there aren't many components -- just
-  a couple instruments, a few effects, and a controller (automation) system. So
-  even if you liked the workflow, you don't have a rich library of tools to work
-  with.
-- A proof-of-concept GUI exists.
+- There are a CLI (command-line interface) and GUI (graphical user interface).
+  The CLI is theoretically capable of producing a song, if tediously. The GUI
+  mostly proves that I know how to write a GUI, but it's useless for anything
+  else right now.
+- Aside from the CLI workflow being difficult, there aren't many components --
+  just a couple instruments, a few effects, and a controller (automation)
+  system. So even if you liked the workflow, you don't have a rich library of
+  tools to work with.
 
 ## Current Features
 
@@ -66,16 +39,16 @@ version-controlled workflows.
 - Sampler. Doesn't yet know anything about tones; in other words, it just plays
   back WAV data at the original speed, which works fine for a drumkit but not so
   well for tonal sounds that you expect to use melodically.
-- Sequencer with a MIDI SMF reader.
+- Sequencer with a MIDI SMF reader (the MIDI reader is broken right now).
 - A declarative project language, which makes it easy to produce songs in YAML
   or JSON format (JSON only in theory, but we get it for free thanks to
   [serde](https://serde.rs/)).
 - A few audio effects (gain, limiter, bitcrusher, filters).
 - Basic automation.
 - Output to WAV file or speaker.
-- A very simple [Iced](https://iced.rs/)-based GUI, which isn't useful for much
-  of anything yet, but has been useful to keep the architecture something that
-  can eventually be integrated with a GUI.
+- A very simple [Iced](https://iced.rs/)-based GUI, which doesn't do much yet,
+  but has been useful to constrain the architecture to something that can
+  eventually be integrated with a GUI.
 - Plenty of bugs.
 
 ## On the roadmap
@@ -87,7 +60,9 @@ version-controlled workflows.
   that can be used throughout the system.
 - Scripting. Currently I'm experimenting with [rhai](https://rhai.rs/), but I
   don't know whether a JavaScript-y language is right for this domain.
-- MIDI input/output.
+- MIDI input/output (this works very crudely right now; all MIDI notes are
+  routed externally, and a small white dot appears in the GUI when it detects
+  any MIDI input).
 - A GUI that at a minimum provides visual feedback on the project (read-only),
   and ideally also allows editing of the project (interactive).
 - Audio tools. Visualizing audio in a frequency-domain format is top priority.
@@ -116,18 +91,12 @@ version-controlled workflows.
 - [Glicol](https://github.com/chaosprint/glicol) is consistent with the vision.
 - [Sonic Pi](https://sonic-pi.net/), which I somehow missed until just now.
 
-## Installation for development
+## Getting started (developers)
 
-I use VSCode for development.
+I use VSCode on Ubuntu 20.04 for development.
 
-- `curl https://sh.rustup.rs -sSf | sh`
-- `rustup default nightly` (until [trait
-  upcasting](https://doc.rust-lang.org/beta/unstable-book/language-features/trait-upcasting.html)
-  is stable)
-- `apt install pkg-config libasound2-dev libfontconfig-dev`
-
-## Coding conventions (WIP, subject to change and caprice)
-
-- For structs that exist primarily because of traits, the trait implementations
-  should come first, and then the struct-specific implementations should come
-  after that.
+- Visit https://rustup.rs/ to install the Rust toolchain.
+- `rustup default nightly` (we're using trait upcasting and specialization).
+- `apt install` the packages listed in `.github/workflows/build.yml`
+- `cargo build`, and then try the command listed in the other Getting Started
+  section.
