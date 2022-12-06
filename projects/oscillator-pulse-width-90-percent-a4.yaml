@@ -1,5 +1,5 @@
 ---
-title: "Oscillator, sawtooth waveform, C3"
+title: "Oscillator, pulse-width 90% duty cycle, C3"
 clock:
   sample-rate: 44100
   bpm: 128.0
@@ -11,8 +11,9 @@ devices:
       - oscillator-1
       - oscillator:
           midi-in: 0
-          waveform: sawtooth
-          frequency: 130.81
+          waveform:
+            pulse-width: 0.90
+          frequency: 440.0
 patch-cables:
   - [oscillator-1, main-mixer]
 patterns:

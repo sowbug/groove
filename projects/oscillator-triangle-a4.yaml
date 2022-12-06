@@ -12,7 +12,7 @@ devices:
       - oscillator:
           midi-in: 0
           waveform: triangle
-          frequency: 130.81
+          frequency: 440.0
 patch-cables:
   - [oscillator-1, main-mixer]
 patterns:

@@ -13,7 +13,7 @@ devices:
           midi-in: 0
           waveform:
             pulse-width: 0.10
-          frequency: 130.81
+          frequency: 440.0
 patch-cables:
   - [oscillator-1, main-mixer]
 patterns:
