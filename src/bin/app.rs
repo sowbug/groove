@@ -421,7 +421,7 @@ impl Application for GrooveApp {
             // I think that self.midi or self.audio_output are causing the app
             // to hang randomly on exit. I'm going to keep this here to be
             // certain that the close code is really running.
-            dbg!("I'm trying to exit!", self.should_exit);
+            dbg!("Exiting now!");
         }
         self.should_exit
     }

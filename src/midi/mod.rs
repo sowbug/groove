@@ -1,3 +1,4 @@
+pub(crate) mod gui;
 pub(crate) mod patterns;
 pub(crate) mod programmers;
 pub(crate) mod smf_reader;

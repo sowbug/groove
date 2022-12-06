@@ -4,6 +4,7 @@ use crate::{
     messages::EntityMessage,
     traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
+use iced_audio::{IntRange, Normal};
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Display, Debug, EnumString, FromRepr)]
@@ -17,6 +18,8 @@ pub(crate) enum BitcrusherControlParams {
 pub struct Bitcrusher {
     uid: usize,
     bits_to_crush: u8,
+
+    pub(super) int_range: IntRange,
 }
 impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
@@ -36,6 +39,9 @@ impl Updateable for Bitcrusher {
             Self::Message::UpdateF32(param_id, value) => {
                 self.set_indexed_param_f32(param_id, value);
             }
+            EntityMessage::HSliderInt(value) => {
+                self.set_bits_to_crush(self.int_range.unmap_to_value(value) as u8);
+            }
             _ => todo!(),
         }
         Response::none()
@@ -44,7 +50,9 @@ impl Updateable for Bitcrusher {
     fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
         if let Some(param) = BitcrusherControlParams::from_repr(index) {
             match param {
-                BitcrusherControlParams::BitsToCrushPct => self.set_bits_to_crush_pct(value),
+                BitcrusherControlParams::BitsToCrushPct => {
+                    self.set_bits_to_crush(self.int_range.unmap_to_value(Normal::new(value)) as u8);
+                }
             }
         } else {
             todo!()
@@ -70,6 +78,7 @@ impl Bitcrusher {
     pub(crate) fn new_with(bits_to_crush: u8) -> Self {
         Self {
             bits_to_crush,
+            int_range: IntRange::new(0, 15),
             ..Default::default()
         }
     }
@@ -80,11 +89,6 @@ impl Bitcrusher {
 
     pub(crate) fn set_bits_to_crush(&mut self, n: u8) {
         self.bits_to_crush = n;
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn set_bits_to_crush_pct(&mut self, pct: f32) {
-        self.set_bits_to_crush((pct * 15.0) as u8);
     }
 }
 
