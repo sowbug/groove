@@ -146,7 +146,7 @@
       },
       "args": [
         "--yaml-in",
-        "test_data${pathSeparator}kitchen-sink.yaml"
+        "projects${pathSeparator}kitchen-sink.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },

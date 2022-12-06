@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn test_yaml_loads_and_parses() {
-        if let Ok(yaml) = std::fs::read_to_string("test_data/kitchen-sink.yaml") {
+        if let Ok(yaml) = std::fs::read_to_string("projects/kitchen-sink.yaml") {
             if let Ok(song_settings) = SongSettings::new_from_yaml(yaml.as_str()) {
                 if let Ok(mut orchestrator) = song_settings.instantiate(false) {
                     let mut clock = Clock::default();
