@@ -1,4 +1,5 @@
 use crate::{common::MonoSample, gui::PatternMessage, midi::MidiChannel};
+use iced_audio::Normal;
 use midly::MidiMessage;
 
 pub trait MessageBounds: Clone + std::fmt::Debug + Default + 'static {} // TODO: that 'static scares me
@@ -100,6 +101,9 @@ pub enum EntityMessage {
 
     /// Wrapper for PatternMessages.
     PatternMessage(usize, PatternMessage),
+
+    /// iced_audio convention.
+    HSliderInt(Normal),
 
     // Temp things
     MutePressed(bool),

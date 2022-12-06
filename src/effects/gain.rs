@@ -61,6 +61,9 @@ impl Updateable for Gain<EntityMessage> {
                     value as f32 / 100.0,
                 );
             }
+            EntityMessage::HSliderInt(value) => {
+                self.set_indexed_param_f32(GainControlParams::Ceiling as usize, value.as_f32())
+            }
             _ => todo!(),
         }
         Response::none()

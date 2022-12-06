@@ -18,8 +18,8 @@ directories-next = "2.0"
 enum-primitive-derive = "0.2.2"
 hound = "3.4"
 iced = { version = "0.5", features = ["smol"] }
-iced_native = { version = "0.6" }
-#iced_audio = "0.8.0"
+iced_audio = { git = "https://github.com/iced-rs/iced_audio", rev = "89b7686f4538c0b0db14c5e04185ab997737d7ee" }
+iced_native = "0.6.1"
 midir = "0.8.0"
 midly = "0.5.2"
 more-asserts = "0.3.1"

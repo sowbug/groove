@@ -27,6 +27,7 @@ use iced::{
     widget::{button, column, container, row, slider, text, text_input},
     Color, Element, Font, Theme,
 };
+use iced_audio::{HSlider, Normal, NormalParam};
 use std::{any::type_name, fmt::Debug, marker::PhantomData};
 
 pub const SMALL_FONT_SIZE: u16 = 16;
@@ -227,25 +228,16 @@ impl Viewable for Gain<EntityMessage> {
     type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
-        let level = self.ceiling();
-        let level_percent: u8 = (level * 100.0) as u8;
-        let title = "Gain";
-        let contents = container(row![
-            container(slider(
-                0..=100,
-                level_percent,
-                Self::ViewMessage::UpdateParam0U8,
-            ))
-            .width(iced::Length::FillPortion(1)),
-            text_input(
-                "%",
-                level_percent.to_string().as_str(),
-                Self::ViewMessage::UpdateParam0String,
-            )
-            .width(iced::Length::FillPortion(1)),
-        ])
+        let title = format!("Gain: {}", self.ceiling()).to_string();
+        let contents = container(row![HSlider::new(
+            NormalParam {
+                value: Normal::new(self.ceiling()),
+                default: Normal::new(1.0)
+            },
+            Self::ViewMessage::HSliderInt
+        )])
         .padding(20);
-        GuiStuff::titled_container(title, contents.into())
+        GuiStuff::titled_container(&title, contents.into())
     }
 }
 
