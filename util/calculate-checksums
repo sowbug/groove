@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 
+# ./util/calculate-checksums > checksums.txt
+#
+# This utility renders all the projects in the root of the projects directory,
+# and then calculates the SHA-1 checksums for the resulting WAV files. It's a
+# quick-and-dirty way to flag any unexpected changes in the rendering pipeline,
+# without having to store all the bulky WAV files in the repo.
+
 from os import listdir
 from os.path import basename, splitext
 import subprocess
 
-script_files = [f for f in listdir("./scripts/") if f.endswith(".yaml")]
+project_files = [f for f in listdir("./projects/") if f.endswith(".yaml")]
 
 subprocess.run(["cargo", "build", "--release"])
 output_filenames = []
-for filename in script_files:
+for filename in project_files:
     (base, ext) = splitext(basename(filename))
     output_filename = "%s.wav" % base
     output_filenames.append(output_filename)
