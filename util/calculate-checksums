@@ -11,7 +11,8 @@ from os import listdir
 from os.path import basename, splitext
 import subprocess
 
-project_files = [f for f in listdir("./projects/") if f.endswith(".yaml")]
+DIR="./projects"
+project_files = [f for f in listdir(DIR + "/") if f.endswith(".yaml")]
 
 subprocess.run(["cargo", "build", "--release"])
 output_filenames = []
@@ -21,7 +22,7 @@ for filename in project_files:
     output_filenames.append(output_filename)
     output_filename = "out/" + output_filename
     subprocess.run(["./target/release/groove-cli", "-q", "-y",
-                   "scripts/%s" % filename, "-w", output_filename])
+                   DIR + "/" + "%s" % filename, "-w", output_filename])
 
 output_filenames.sort()
 calculator_cmd = ["shasum"]
