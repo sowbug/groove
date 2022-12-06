@@ -1,0 +1,46 @@
+---
+title: "Drum track"
+clock:
+  sample-rate: 44100
+  bpm: 128.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+      - drum-1
+      - drumkit:
+          midi-in: 10
+          preset: "707"
+  - effect:
+      - low-pass-1
+      - filter-low-pass-12db:
+          cutoff: 1200.0
+          q: 1.0
+patch-cables:
+  - [drum-1, low-pass-1, main-mixer]
+patterns:
+  - id: four-on-the-floor
+    note-value: sixteenth
+    notes:
+      - [42, 44, 42, 44, 42, 44, 42, 44, 42, 44, 42, 44, 42, 44, 42, 44]
+      - [00, 00, 00, 00, 38, 00, 00, 00, 00, 00, 00, 00, 38, 00, 00, 00]
+      - [35, 00, 00, 00, 35, 00, 00, 00, 35, 00, 00, 00, 35, 00, 00, 00]
+tracks:
+  - id: drum-1
+    midi-channel: 10
+    patterns: [four-on-the-floor, four-on-the-floor]
+paths:
+  - id: path-slope-1
+    note-value: double
+    steps:
+      - exponential:
+          start: 0.0
+          end: 1.0
+trips:
+  - id: trip-1
+    target:
+      id: low-pass-1
+      param: cutoff
+    start-measure: 2 # TODO: this is ignored
+    paths: [path-slope-1]
