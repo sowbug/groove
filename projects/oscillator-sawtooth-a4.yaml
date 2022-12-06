@@ -1,8 +1,8 @@
 ---
-title: "Oscillator, sawtooth waveform, C3"
+title: "Oscillator, sawtooth waveform, A4"
 clock:
   sample-rate: 44100
-  bpm: 128.0
+  bpm: 240.0
   time-signature:
     - 4
     - 4

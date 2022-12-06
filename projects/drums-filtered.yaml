@@ -1,5 +1,5 @@
 ---
-title: "Drum track"
+title: "Drum track, rising low-pass filter"
 clock:
   sample-rate: 44100
   bpm: 128.0
