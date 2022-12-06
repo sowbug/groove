@@ -49,5 +49,7 @@ name = "groove"
 path = "src/lib.rs"
 
 [profile.release]
-strip = "symbols"
+strip = true
 lto = true
+codegen-units = 1
+panic = "abort"
