@@ -25,6 +25,7 @@ jobs:
         with:
           toolchain: nightly
           override: true
+          target: ${{ matrix.target }}
       - name: apt update
         run: sudo apt update
         if: startsWith(matrix.os, 'ubuntu')
