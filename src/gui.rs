@@ -24,7 +24,7 @@ use crate::{
 use iced::{
     alignment::{Horizontal, Vertical},
     theme,
-    widget::{button, column, container, row, slider, text, text_input},
+    widget::{button, column, container, row, slider, text},
     Color, Element, Font, Theme,
 };
 use iced_audio::{HSlider, Normal, NormalParam};
