@@ -60,7 +60,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts${pathSeparator}square.yaml"
+        "projects${pathSeparator}square.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -81,7 +81,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts${pathSeparator}scale-c4-major.yaml"
+        "projects${pathSeparator}scale-c4-major.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -102,7 +102,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts${pathSeparator}scale-c4-major.yaml",
+        "projects${pathSeparator}scale-c4-major.yaml",
         "--wav-out",
         "out.wav"
       ],
@@ -125,7 +125,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts${pathSeparator}everything.yaml"
+        "projects${pathSeparator}everything.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -167,7 +167,7 @@
       },
       "args": [
         "--yaml-in",
-        "scripts${pathSeparator}everything.yaml",
+        "projects${pathSeparator}everything.yaml",
         "--wav-out",
         "everything.wav"
       ],
@@ -190,7 +190,7 @@
       },
       "args": [
         "--script-in",
-        "scripts${pathSeparator}test.grv"
+        "projects${pathSeparator}test.grv"
       ],
       "cwd": "${workspaceFolder}"
     },

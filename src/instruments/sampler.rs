@@ -47,8 +47,8 @@ impl Updateable for Sampler {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         #[allow(unused_variables)]
-        match message {
-            Self::Message::Midi(channel, message) => match message {
+        if let Self::Message::Midi(channel, message) = message {
+            match message {
                 MidiMessage::NoteOff { key, vel } => {
                     self.is_playing = false;
                 }
@@ -58,8 +58,7 @@ impl Updateable for Sampler {
                     self.is_playing = true;
                 }
                 _ => {}
-            },
-            _ => {}
+            }
         }
         Response::none()
     }
@@ -101,6 +100,6 @@ mod tests {
 
     #[test]
     fn test_loading() {
-        let _ = Sampler::new_from_file("samples/test.wav");
+        let _ = Sampler::new_from_file("assets/samples/test.wav");
     }
 }

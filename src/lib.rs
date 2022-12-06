@@ -1,6 +1,7 @@
 #![feature(specialization)]
 #![feature(trait_upcasting)]
 #![allow(incomplete_features)]
+#![allow(clippy::box_default)]
 
 //pub use crate::scripting::ScriptEngine;
 pub use crate::clock::{Clock, TimeSignature};

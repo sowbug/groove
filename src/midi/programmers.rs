@@ -284,7 +284,7 @@ mod tests {
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
         assert_eq!(
             programmer.cursor(),
-            PerfectTimeUnit::from(1 * time_signature.top)
+            PerfectTimeUnit::from(time_signature.top)
         );
         assert_eq!(sequencer.debug_events().len(), 0);
 

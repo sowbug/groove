@@ -100,7 +100,6 @@ impl SteppedEnvelope {
         let r = Self {
             time_unit,
             steps: vec,
-            ..Default::default()
         };
         r.debug_validate_steps();
         r

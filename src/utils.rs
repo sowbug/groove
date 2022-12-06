@@ -47,11 +47,8 @@ impl Updateable for Timer<EntityMessage> {
     type Message = EntityMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            Self::Message::Tick => {
-                self.has_more_work = clock.seconds() < self.time_to_run_seconds;
-            }
-            _ => {}
+        if let Self::Message::Tick = message {
+            self.has_more_work = clock.seconds() < self.time_to_run_seconds;
         }
         Response::none()
     }
@@ -116,16 +113,13 @@ impl Updateable for Trigger<EntityMessage> {
     type Message = EntityMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            Self::Message::Tick => {
-                return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
-                    self.has_triggered = true;
-                    Response::single(Self::Message::ControlF32(self.value))
-                } else {
-                    Response::none()
-                };
-            }
-            _ => {}
+        if let Self::Message::Tick = message {
+            return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
+                self.has_triggered = true;
+                Response::single(Self::Message::ControlF32(self.value))
+            } else {
+                Response::none()
+            };
         }
         Response::none()
     }
@@ -222,11 +216,8 @@ pub mod tests {
         type Message = TestMessage;
 
         fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-            match message {
-                Self::Message::Tick => {
-                    self.has_more_work = clock.seconds() < self.time_to_run_seconds;
-                }
-                _ => {}
+            if let Self::Message::Tick = message {
+                self.has_more_work = clock.seconds() < self.time_to_run_seconds;
             }
             Response::none()
         }
@@ -299,7 +290,7 @@ pub mod tests {
 
         fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
             if let Self::Message::Tick = message {
-                let value = self.oscillator.source_audio(&clock);
+                let value = self.oscillator.source_audio(clock);
                 Response::single(Self::Message::ControlF32(value))
             } else {
                 Response::none()
@@ -461,7 +452,7 @@ pub mod tests {
         fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
             match message {
                 Self::Message::Tick => {
-                    let value = self.source.source_audio(&clock).abs();
+                    let value = self.source.source_audio(clock).abs();
                     Response::single(Self::Message::ControlF32(value))
                 }
                 _ => Response::none(),
@@ -637,7 +628,7 @@ pub mod tests {
                 "Expected total silence because the arpeggiator is not turned on."
             );
         } else {
-            assert!(false, "impossible!");
+            panic!("impossible!");
         }
 
         // Let's turn on the arpeggiator.
@@ -649,7 +640,7 @@ pub mod tests {
                 "Expected some sound because the arpeggiator is now running."
             );
         } else {
-            assert!(false, "impossible!");
+            panic!("impossible!");
         }
 
         // The arpeggiator is still running. Let's disable it (taking advantage
@@ -665,9 +656,8 @@ pub mod tests {
         // it. We're just giving the arpeggiator a bit of time to clear out any
         // leftover note.
         clock.reset();
-        if let Ok(_) = o.run(&mut clock) {
-        } else {
-            assert!(false, "impossible!");
+        if o.run(&mut clock).is_err() {
+            panic!("impossible!");
         }
 
         // But by now it should be silent.
@@ -678,7 +668,7 @@ pub mod tests {
                 "Expected total silence again after disabling the arpeggiator."
             );
         } else {
-            assert!(false, "impossible!");
+            panic!("impossible!");
         }
 
         // Re-enable the arpeggiator but disconnect the instrument's MIDI
@@ -692,7 +682,7 @@ pub mod tests {
                 "Expected total silence after disconnecting the instrument from the MIDI bus."
             );
         } else {
-            assert!(false, "impossible!");
+            panic!("impossible!");
         }
     }
 

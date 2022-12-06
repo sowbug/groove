@@ -344,6 +344,7 @@ impl std::fmt::Debug for MidiInputHandler {
 }
 
 /// Outputs MIDI messages to external MIDI devices.
+#[derive(Default)]
 pub struct MidiOutputHandler {
     uid: usize,
     conn_out: Option<MidiOutputConnection>,
@@ -357,17 +358,6 @@ impl std::fmt::Debug for MidiOutputHandler {
     }
 }
 
-impl Default for MidiOutputHandler {
-    fn default() -> Self {
-        Self {
-            uid: usize::default(),
-
-            conn_out: None,
-            stealer: None,
-            outputs: Vec::default(),
-        }
-    }
-}
 impl IsController for MidiOutputHandler {}
 impl Updateable for MidiOutputHandler {
     type Message = MidiHandlerMessage;
@@ -514,9 +504,7 @@ impl Updateable for MidiHandler {
                 if let Some(input_stealer) = &self.midi_input.stealer {
                     let mut commands = Vec::new();
                     while !input_stealer.is_empty() {
-                        if let Steal::Success((_stamp, channel, message)) =
-                            input_stealer.steal()
-                        {
+                        if let Steal::Success((_stamp, channel, message)) = input_stealer.steal() {
                             commands.push(Response::single(Self::Message::MidiToExternal(
                                 channel, message,
                             )));

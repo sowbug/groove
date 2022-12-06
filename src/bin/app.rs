@@ -289,9 +289,8 @@ impl Application for GrooveApp {
                     ..Default::default()
                 };
                 self.audio_output.start();
-                match self.midi_handler.start() {
-                    Err(err) => println!("error starting MIDI: {}", err),
-                    _ => {}
+                if let Err(err) = self.midi_handler.start() {
+                    println!("error starting MIDI: {}", err)
                 }
 
                 self.midi_handler.refresh();
@@ -384,7 +383,6 @@ impl Application for GrooveApp {
                     // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
                     //
                     // This is needed to stop an ALSA buffer underrun on close
-                    dbg!("Close requested. I'm asking everyone to stop.");
                     // TODO BROKEN self.midi.stop();
                     self.audio_output.stop();
 
@@ -397,7 +395,7 @@ impl Application for GrooveApp {
                 //
                 // TODO: is this clock the right one to base everything off?
                 // TODO: aaaargh so much cloning
-                self.dispatch_groove_message(&self.clock.clone(), message.clone());
+                self.dispatch_groove_message(&self.clock.clone(), message);
             }
         }
 
@@ -435,10 +433,7 @@ impl Application for GrooveApp {
         }
 
         let control_bar = self.control_bar.view(&self.clock, self.last_tick);
-        let project_view = self
-            .orchestrator
-            .view()
-            .map(move |message| Self::Message::GrooveMessage(message));
+        let project_view = self.orchestrator.view().map(Self::Message::GrooveMessage);
         let scrollable_content = column![project_view];
         let under_construction = text("Under Construction").width(Length::FillPortion(1));
         let scrollable = container(scrollable(scrollable_content)).width(Length::FillPortion(1));

@@ -243,7 +243,7 @@ mod tests {
         // TODO: hmmm, effect with no audio source plugged into its input!
         let _ = o.connect_to_main_mixer(effect_uid);
 
-        let _ = o.link_control(
+        o.link_control(
             controller_uid,
             effect_uid,
             &TestEffectControlParams::MyValue.to_string(),

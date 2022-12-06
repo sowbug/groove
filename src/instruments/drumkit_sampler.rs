@@ -38,8 +38,8 @@ impl Updateable for Voice {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         #[allow(unused_variables)]
-        match message {
-            Self::Message::Midi(_channel, message) => match message {
+        if let Self::Message::Midi(_channel, message) = message {
+            match message {
                 MidiMessage::NoteOff { key, vel } => {
                     self.is_playing = false;
                 }
@@ -49,8 +49,7 @@ impl Updateable for Voice {
                     self.is_playing = true;
                 }
                 _ => {}
-            },
-            _ => {}
+            }
         }
         Response::none()
     }

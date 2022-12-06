@@ -290,7 +290,7 @@ mod tests {
             // TODO: a previous version of this utility function had
             // clock.tick() first, meaning that the sequencer never got the 0th
             // (first) tick. No test ever cared, apparently. Fix this.
-            let _ = sequencer.update(&clock, EntityMessage::Tick);
+            let _ = sequencer.update(clock, EntityMessage::Tick);
             clock.tick();
         }
     }
@@ -303,7 +303,7 @@ mod tests {
     ) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
-            let _ = sequencer.update(&clock, EntityMessage::Tick);
+            let _ = sequencer.update(clock, EntityMessage::Tick);
             clock.tick();
         }
     }
@@ -335,25 +335,21 @@ mod tests {
         // inside Store, and their type information has been erased. Maybe we
         // can send messages asking for state. Maybe we can send things that the
         // entities themselves assert.
-        if let Some(sequencer) = o.get_mut(SEQUENCER_ID) {
-            if let BoxedEntity::Controller(sequencer) = sequencer {
-                advance_one_midi_tick(&mut clock, sequencer);
-                {
-                    // assert!(instrument.is_playing);
-                    // assert_eq!(instrument.received_count, 1);
-                    // assert_eq!(instrument.handled_count, 1);
-                }
+        if let Some(BoxedEntity::Controller(sequencer)) = o.get_mut(SEQUENCER_ID) {
+            advance_one_midi_tick(&mut clock, sequencer);
+            {
+                // assert!(instrument.is_playing);
+                // assert_eq!(instrument.received_count, 1);
+                // assert_eq!(instrument.handled_count, 1);
             }
         }
 
-        if let Some(sequencer) = o.get_mut(SEQUENCER_ID) {
-            if let BoxedEntity::Controller(sequencer) = sequencer {
-                advance_to_next_beat(&mut clock, sequencer);
-                {
-                    // assert!(!instrument.is_playing);
-                    // assert_eq!(instrument.received_count, 2);
-                    // assert_eq!(&instrument.handled_count, &2);
-                }
+        if let Some(BoxedEntity::Controller(sequencer)) = o.get_mut(SEQUENCER_ID) {
+            advance_to_next_beat(&mut clock, sequencer);
+            {
+                // assert!(!instrument.is_playing);
+                // assert_eq!(instrument.received_count, 2);
+                // assert_eq!(&instrument.handled_count, &2);
             }
         }
     }

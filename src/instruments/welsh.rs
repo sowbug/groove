@@ -594,8 +594,8 @@ impl Updateable for WelshVoice {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         #[allow(unused_variables)]
-        match message {
-            Self::Message::Midi(channel, message) => match message {
+        if let Self::Message::Midi(channel, message) = message {
+            match message {
                 MidiMessage::NoteOff { key, vel } => {
                     self.amp_envelope.handle_note_event(clock, false);
                     self.filter_envelope.handle_note_event(clock, false);
@@ -609,8 +609,7 @@ impl Updateable for WelshVoice {
                     self.filter_envelope.handle_note_event(clock, true);
                 }
                 _ => {}
-            },
-            _ => {}
+            }
         }
 
         Response::none()
@@ -749,10 +748,11 @@ impl Default for WelshSynth {
 }
 impl WelshSynth {
     pub(crate) fn new_with(sample_rate: usize, preset: SynthPatch) -> Self {
-        let mut r = Self::default();
-        r.sample_rate = sample_rate;
-        r.preset = preset;
-        r
+        Self {
+            sample_rate,
+            preset,
+            ..Default::default()
+        }
     }
 
     // // TODO: this has unlimited-voice polyphony. Should we limit to a fixed number?
@@ -791,7 +791,7 @@ impl WelshSynth {
             .push(WelshVoice::new_with(self.sample_rate, &self.preset));
         let index = self.voices.len() - 1;
         self.notes_to_voice_indexes.insert(note, index);
-        return &mut self.voices[index];
+        &mut self.voices[index]
     }
 }
 

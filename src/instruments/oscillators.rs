@@ -76,18 +76,14 @@ impl Updateable for Oscillator {
     type Message = EntityMessage;
 
     fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            Self::Message::UpdateF32(param_id, value) => {
-                if let Some(param) = OscillatorControlParams::from_repr(param_id) {
-                    match param {
-                        OscillatorControlParams::Frequency => self.set_frequency(value),
-                    }
+        // Oscillators just oscillate. For now, at least, we'll leave any
+        // control like MIDI to the owning instrument. Otherwise, we just emit
+        // sound nonstop.
+        if let Self::Message::UpdateF32(param_id, value) = message {
+            if let Some(param) = OscillatorControlParams::from_repr(param_id) {
+                match param {
+                    OscillatorControlParams::Frequency => self.set_frequency(value),
                 }
-            }
-            _ => {
-                // Oscillators just oscillate. For now, at least, we'll leave
-                // any control like MIDI to the owning instrument. Otherwise, we
-                // just emit sound nonstop.
             }
         }
         Response::none()

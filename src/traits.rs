@@ -124,14 +124,14 @@ impl<T> Response<T> {
 pub trait TestsValues {
     fn check_values(&mut self, clock: &Clock) {
         // If we've been asked to assert values at checkpoints, do so.
-        if self.has_checkpoint_values() {
-            if clock.time_for(&self.time_unit()) >= self.checkpoint_time() {
-                const SAD_FLOAT_DIFF: f32 = 1.0e-4;
-                if let Some(value) = self.pop_checkpoint_value() {
-                    assert_approx_eq!(self.value_to_check(), value, SAD_FLOAT_DIFF);
-                }
-                self.advance_checkpoint_time();
+        if self.has_checkpoint_values()
+            && clock.time_for(self.time_unit()) >= self.checkpoint_time()
+        {
+            const SAD_FLOAT_DIFF: f32 = 1.0e-4;
+            if let Some(value) = self.pop_checkpoint_value() {
+                assert_approx_eq!(self.value_to_check(), value, SAD_FLOAT_DIFF);
             }
+            self.advance_checkpoint_time();
         }
     }
 
@@ -232,7 +232,7 @@ impl<M: MessageBounds> TestController<M> {
         if next_exact_half_beat >= beat_slice_start && next_exact_half_beat < beat_slice_end {
             return TestControllerAction::NoteOff;
         }
-        return TestControllerAction::Nothing;
+        TestControllerAction::Nothing
     }
 }
 impl<M: MessageBounds> TestsValues for TestController<M> {
@@ -503,12 +503,10 @@ impl<M: MessageBounds> TestInstrument<M> {
     pub fn set_waveform(&mut self, value: f32) {
         self.oscillator.set_waveform(if value == -1.0 {
             WaveformType::Sawtooth
+        } else if value == 1.0 {
+            WaveformType::Square
         } else {
-            if value == 1.0 {
-                WaveformType::Square
-            } else {
-                WaveformType::Sine
-            }
+            WaveformType::Sine
         });
     }
 
@@ -524,13 +522,12 @@ impl<M: MessageBounds> TestInstrument<M> {
 impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         // If we've been asked to assert values at checkpoints, do so.
-        if !self.checkpoint_values.is_empty() {
-            if clock.time_for(&self.time_unit) >= self.checkpoint {
-                const SAD_FLOAT_DIFF: f32 = 1.0e-2;
-                assert_approx_eq!(self.fake_value, self.checkpoint_values[0], SAD_FLOAT_DIFF);
-                self.checkpoint += self.checkpoint_delta;
-                self.checkpoint_values.pop_front();
-            }
+        if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
+        {
+            const SAD_FLOAT_DIFF: f32 = 1.0e-2;
+            assert_approx_eq!(self.fake_value, self.checkpoint_values[0], SAD_FLOAT_DIFF);
+            self.checkpoint += self.checkpoint_delta;
+            self.checkpoint_values.pop_front();
         }
         if self.is_playing {
             self.oscillator.source_audio(clock)
@@ -647,8 +644,8 @@ pub mod tests {
     use super::SourcesAudio;
     use super::TestInstrument;
     use crate::clock::Clock;
-    use crate::messages::MessageBounds;
     use crate::messages::tests::TestMessage;
+    use crate::messages::MessageBounds;
     use rand::random;
 
     // TODO: restore tests that test basic trait behavior, then figure out how

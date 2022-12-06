@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use clap::Parser;
-use groove::{Clock, IOHelper, Orchestrator};
+use groove::{Clock, IOHelper};
 use std::time::Instant;
 //use groove::ScriptEngine;
 
@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
             }
             r
         } else {
-            Box::new(Orchestrator::default())
+            Box::<groove::Orchestrator<groove::GrooveMessage>>::default()
         };
 
         orchestrator.set_enable_dev_experiment(args.experiment);

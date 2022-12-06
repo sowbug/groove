@@ -264,7 +264,7 @@ mod tests {
                 _ => panic!(),
             };
         } else {
-            assert!(false, "command wasn't Batch type");
+            panic!("command wasn't Batch type");
         }
     }
 }

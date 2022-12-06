@@ -228,7 +228,7 @@ impl Viewable for Gain<EntityMessage> {
     type ViewMessage = EntityMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
-        let title = format!("Gain: {}", self.ceiling()).to_string();
+        let title = format!("Gain: {}", self.ceiling());
         let contents = container(row![HSlider::new(
             NormalParam {
                 value: Normal::new(self.ceiling()),
@@ -408,7 +408,7 @@ impl Viewable for Orchestrator<GrooveMessage> {
                 }
             });
         //        let pattern_view = self.pattern_manager().view();
-        column(views.into()).into()
+        column(views).into()
     }
 }
 

@@ -141,7 +141,7 @@ impl SongSettings {
             programmer.reset_cursor();
             for pattern_id in &track.pattern_ids {
                 if let Some(pattern) = ids_to_patterns.get(pattern_id) {
-                    programmer.insert_pattern_at_cursor(&mut sequencer, &channel, &pattern);
+                    programmer.insert_pattern_at_cursor(&mut sequencer, &channel, pattern);
                 }
             }
         }
@@ -172,7 +172,7 @@ impl SongSettings {
                 let mut control_trip = Box::new(ControlTrip::<EntityMessage>::default());
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
-                        control_trip.add_path(time_signature, &control_path);
+                        control_trip.add_path(time_signature, control_path);
                     } else {
                         eprintln!(
                             "Warning: trip {} refers to nonexistent path {}",

@@ -124,11 +124,9 @@ impl<M: MessageBounds> Orchestrator<M> {
                 BoxedEntity::Instrument(e) => e.param_id_for_name(param_name),
             };
 
-            if let Some(controller) = self.store.get(controller_uid) {
-                if let BoxedEntity::Controller(_controller) = controller {
-                    self.store
-                        .link_control(controller_uid, target_uid, param_id);
-                }
+            if let Some(BoxedEntity::Controller(_controller)) = self.store.get(controller_uid) {
+                self.store
+                    .link_control(controller_uid, target_uid, param_id);
             }
         }
     }
@@ -158,11 +156,8 @@ impl<M: MessageBounds> Orchestrator<M> {
 
         // Validate that source_uid refers to something that outputs audio
         if let Some(output) = self.store.get(output_uid) {
-            match output {
-                BoxedEntity::Controller(_) => {
-                    return Err(anyhow!("Item {:?} doesn't output audio", output));
-                }
-                _ => {}
+            if let BoxedEntity::Controller(_) = output {
+                return Err(anyhow!("Item {:?} doesn't output audio", output));
             }
         } else {
             return Err(anyhow!("Couldn't find output_uid {}", output_uid));
@@ -577,7 +572,7 @@ impl GrooveOrchestrator {
         let mut debug_matched_audio_output = false;
         let mut sample = MONO_SAMPLE_SILENCE;
         let mut done = false;
-        match &(*command).0 {
+        match &command.0 {
             Internal::None => {}
             Internal::Single(message) => match message {
                 // GrooveMessage::Nop - never sent
@@ -716,7 +711,7 @@ impl<M> Store<M> {
 
     pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&BoxedEntity<M>> {
         if let Some(uid) = self.uvid_to_uid.get(uvid) {
-            self.uid_to_item.get(&uid)
+            self.uid_to_item.get(uid)
         } else {
             None
         }
@@ -724,7 +719,7 @@ impl<M> Store<M> {
 
     pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity<M>> {
         if let Some(uid) = self.uvid_to_uid.get(uvid) {
-            self.uid_to_item.get_mut(&uid)
+            self.uid_to_item.get_mut(uid)
         } else {
             None
         }
@@ -1057,7 +1052,7 @@ pub mod tests {
             let mut debug_matched_audio_output = false;
             let mut sample = MONO_SAMPLE_SILENCE;
             let mut done = false;
-            match &(*command).0 {
+            match &command.0 {
                 Internal::None => {}
                 Internal::Single(message) => match message {
                     // Message::Nop - never sent
@@ -1169,7 +1164,7 @@ pub mod tests {
         // Instrument to gain should result in (instrument x gain).
         assert!(o.unpatch_all().is_ok());
         assert!(o
-            .patch_chain_to_main_mixer(&vec![level_1_uid, gain_1_uid])
+            .patch_chain_to_main_mixer(&[level_1_uid, gain_1_uid])
             .is_ok());
         assert_approx_eq!(o.gather_audio(&clock), 0.1 * 0.5);
 
@@ -1184,7 +1179,7 @@ pub mod tests {
         assert!(o.connect_to_main_mixer(level_3_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
         assert!(o
-            .patch_chain_to_main_mixer(&vec![level_1_uid, gain_1_uid])
+            .patch_chain_to_main_mixer(&[level_1_uid, gain_1_uid])
             .is_ok());
         assert_approx_eq!(o.gather_audio(&clock), 0.1 * 0.5 + 0.2 + 0.3 + 0.4);
     }
@@ -1219,7 +1214,7 @@ pub mod tests {
 
         // First chain.
         assert!(o
-            .patch_chain_to_main_mixer(&vec![piano_1_uid, low_pass_1_uid, gain_1_uid])
+            .patch_chain_to_main_mixer(&[piano_1_uid, low_pass_1_uid, gain_1_uid])
             .is_ok());
         let sample_chain_1 = o.gather_audio(&clock);
         assert_approx_eq!(sample_chain_1, 0.1 * 0.2 * 0.4);
@@ -1227,7 +1222,7 @@ pub mod tests {
         // Second chain.
         assert!(o.unpatch_all().is_ok());
         assert!(o
-            .patch_chain_to_main_mixer(&vec![bassline_uid, gain_2_uid])
+            .patch_chain_to_main_mixer(&[bassline_uid, gain_2_uid])
             .is_ok());
         let sample_chain_2 = o.gather_audio(&clock);
         assert_approx_eq!(sample_chain_2, 0.3 * 0.6);
@@ -1235,30 +1230,30 @@ pub mod tests {
         // Third.
         assert!(o.unpatch_all().is_ok());
         assert!(o
-            .patch_chain_to_main_mixer(&vec![synth_1_uid, gain_3_uid])
+            .patch_chain_to_main_mixer(&[synth_1_uid, gain_3_uid])
             .is_ok());
         let sample_chain_3 = o.gather_audio(&clock);
         assert_approx_eq!(sample_chain_3, 0.5 * 0.8);
 
         // Fourth.
         assert!(o.unpatch_all().is_ok());
-        assert!(o.patch_chain_to_main_mixer(&vec![drum_1_uid]).is_ok());
+        assert!(o.patch_chain_to_main_mixer(&[drum_1_uid]).is_ok());
         let sample_chain_4 = o.gather_audio(&clock);
         assert_approx_eq!(sample_chain_4, 0.7);
 
         // Now start over and successively add. This is first and second chains together.
         assert!(o.unpatch_all().is_ok());
         assert!(o
-            .patch_chain_to_main_mixer(&vec![piano_1_uid, low_pass_1_uid, gain_1_uid])
+            .patch_chain_to_main_mixer(&[piano_1_uid, low_pass_1_uid, gain_1_uid])
             .is_ok());
         assert!(o
-            .patch_chain_to_main_mixer(&vec![bassline_uid, gain_2_uid])
+            .patch_chain_to_main_mixer(&[bassline_uid, gain_2_uid])
             .is_ok());
         assert_approx_eq!(o.gather_audio(&clock), sample_chain_1 + sample_chain_2);
 
         // Plus third.
         assert!(o
-            .patch_chain_to_main_mixer(&vec![synth_1_uid, gain_3_uid])
+            .patch_chain_to_main_mixer(&[synth_1_uid, gain_3_uid])
             .is_ok());
         assert_approx_eq!(
             o.gather_audio(&clock),
@@ -1266,7 +1261,7 @@ pub mod tests {
         );
 
         // Plus fourth.
-        assert!(o.patch_chain_to_main_mixer(&vec![drum_1_uid]).is_ok());
+        assert!(o.patch_chain_to_main_mixer(&[drum_1_uid]).is_ok());
         assert_approx_eq!(
             o.gather_audio(&clock),
             sample_chain_1 + sample_chain_2 + sample_chain_3 + sample_chain_4
@@ -1291,8 +1286,8 @@ pub mod tests {
         );
         let effect_1_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.5))));
 
-        assert!(o.patch_chain_to_main_mixer(&vec![instrument_1_uid]).is_ok());
-        assert!(o.patch_chain_to_main_mixer(&vec![effect_1_uid]).is_ok());
+        assert!(o.patch_chain_to_main_mixer(&[instrument_1_uid]).is_ok());
+        assert!(o.patch_chain_to_main_mixer(&[effect_1_uid]).is_ok());
         assert!(o.patch(instrument_2_uid, effect_1_uid).is_ok());
         assert!(o.patch(instrument_3_uid, effect_1_uid).is_ok());
         assert_eq!(o.gather_audio(&clock), 0.1 + 0.5 * (0.3 + 0.5));
