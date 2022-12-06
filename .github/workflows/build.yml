@@ -27,19 +27,24 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-          override: true
           target: ${{ matrix.target }}
+          override: true
       - name: apt update
         run: sudo apt update
         if: startsWith(matrix.os, 'ubuntu')
-      - name: Install dependencies
-        # also needed: build-essentials gcc cmake, but GitHub barfs on at least one of those
+      - name: Install dependencies # also needed: build-essentials gcc cmake, but GitHub barfs on at least one of those
         run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
         if: startsWith(matrix.os, 'ubuntu')
-      - name: Build
-        run: cargo build --all
-      - name: Run tests
-        run: cargo test --verbose
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --target ${{ matrix.target }}
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: test
+          args: --verbose
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
