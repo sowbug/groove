@@ -37,7 +37,7 @@ impl SavedState {
 
         // serde_json::from_str(&contents).map_err(|_| LoadError::FormatError)
 
-        let filename = "scripts/everything.yaml";
+        let filename = "projects/everything.yaml";
         match IOHelper::song_settings_from_yaml_file(filename) {
             Ok(song_settings) => Ok(SavedState {
                 project_name: "Woop Woop Woop".to_string(),
