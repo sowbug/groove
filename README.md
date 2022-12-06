@@ -5,7 +5,8 @@ A digital audio workstation (DAW) engine.
 ## Getting started (music producers)
 
 1. Don't get your hopes up.
-2. Download the [release](./groove/releases) for your OS and unzip it somewhere.
+2. Download the [release](https://github.com/sowbug/groove/releases) for your OS
+   and unzip it somewhere.
 3. Using the command line, `cd` to the directory you just unzipped.
 4. Try `./groove-cli -y projects/drum-track.yaml` (adapt that for your OS, e.g.,
    Windows uses backslashes for path separators). You should hear a 707 beat
