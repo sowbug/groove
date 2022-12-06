@@ -44,7 +44,7 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: groove-gui,groove-cli
-          include: README.md,LICENSE.txt,resources,samples,scripts
+          include: README.md,LICENSE.txt,assets,projects
           leading_dir: true
           archive: groove-$tag-$target
           token: ${{ secrets.GITHUB_TOKEN }}

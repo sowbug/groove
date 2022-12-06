@@ -152,7 +152,7 @@ impl SynthPatch {
 
     pub fn by_name(name: &PatchName) -> Self {
         let filename = format!(
-            "resources/patches/welsh/{}.yaml",
+            "assets/patches/welsh/{}.yaml",
             Self::patch_name_to_settings_name(name.to_string().as_str())
         );
         if let Ok(contents) = std::fs::read_to_string(filename) {

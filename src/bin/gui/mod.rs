@@ -4,10 +4,9 @@ use iced::widget::text;
 use iced::widget::Text;
 use iced::{alignment, Font, Length};
 
-// Fonts
 const ICONS: Font = Font::External {
     name: "Icons",
-    bytes: include_bytes!("../../../resources/fonts/MaterialIcons-Regular.ttf"),
+    bytes: include_bytes!("../../../res/fonts/MaterialIcons-Regular.ttf"),
 };
 
 fn icon<'a>(unicode: char) -> Text<'a> {

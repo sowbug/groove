@@ -32,19 +32,19 @@ use std::{any::type_name, fmt::Debug, marker::PhantomData};
 pub const SMALL_FONT_SIZE: u16 = 16;
 pub const SMALL_FONT: Font = Font::External {
     name: "Small Font",
-    bytes: include_bytes!("../resources/fonts/SourceSansPro-Regular.ttf"),
+    bytes: include_bytes!("../res/fonts/SourceSansPro-Regular.ttf"),
 };
 
 pub const LARGE_FONT_SIZE: u16 = 20;
 pub const LARGE_FONT: Font = Font::External {
     name: "Large Font",
-    bytes: include_bytes!("../resources/fonts/SourceSansPro-Regular.ttf"),
+    bytes: include_bytes!("../res/fonts/SourceSansPro-Regular.ttf"),
 };
 
 pub const NUMBERS_FONT_SIZE: u16 = 32;
 pub const NUMBERS_FONT: Font = Font::External {
     name: "Numbers Font",
-    bytes: include_bytes!("../resources/fonts/NotoSansMono-Regular.ttf"),
+    bytes: include_bytes!("../res/fonts/NotoSansMono-Regular.ttf"),
 };
 
 pub trait Viewable {

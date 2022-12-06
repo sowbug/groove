@@ -173,7 +173,7 @@ impl Sampler {
         for (program, filename) in samples {
             let result = r.add_sample_for_note(
                 program as u8,
-                format!("samples/707/{filename} 707.wav").as_str(),
+                format!("assets/samples/707/{filename} 707.wav").as_str(),
             );
             if result.is_err() {
                 panic!("failed to load a sample: {filename}");
