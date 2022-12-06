@@ -14,37 +14,26 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-20.04 # TODO: change to 22.04 when 20.04 is EOL
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-20.04
           - target: x86_64-pc-windows-msvc
             os: windows-latest
           - target: x86_64-apple-darwin
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
+      - run: sudo apt update
+        if: startsWith(matrix.os, 'ubuntu')
+      - run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
+        if: startsWith(matrix.os, 'ubuntu')
+
       - uses: actions/checkout@master
       - name: Install latest Rust nightly
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-          target: ${{ matrix.target }}
           override: true
-      - name: apt update
-        run: sudo apt update
-        if: startsWith(matrix.os, 'ubuntu')
-      - name: Install dependencies # also needed: build-essentials gcc cmake, but GitHub barfs on at least one of those
-        run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
-        if: startsWith(matrix.os, 'ubuntu')
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --target ${{ matrix.target }}
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: test
-          args: --verbose
+          target: ${{ matrix.target }}
+      - run: cargo build
+      - run: cargo test --verbose
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
