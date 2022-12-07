@@ -8,9 +8,9 @@ A digital audio workstation (DAW) engine.
 2. Download the [release](https://github.com/sowbug/groove/releases) for your OS
    and unzip it somewhere.
 3. Using the command line, `cd` to the directory you just unzipped.
-4. Render `projects/drum-filtered.yaml` with `groove-cli`. For Windows, that's
-   `groove-cli projects\drum-filtered.yaml`, and for Linux/OSX it's
-   `./groove-cli projects/drum-filtered.yaml`). You should hear a 707 beat
+4. Render `projects/drums-filtered.yaml` with `groove-cli`. For Windows, that's
+   `groove-cli projects\drums-filtered.yaml`, and for Linux/OSX it's
+   `./groove-cli projects/drums-filtered.yaml`). You should hear a 707 beat
    through a rising low-pass filter. If you don't, file a bug.
 5. Open `projects/drum-filtered.yaml` in your favorite text editor, and change
    `bpm: 128.0` to `bpm: 200.0`. Play the track again. Congratulations, you're
