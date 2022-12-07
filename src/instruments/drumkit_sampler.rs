@@ -4,6 +4,7 @@ use crate::{
     messages::EntityMessage,
     midi::{GeneralMidiPercussionProgram, MidiMessage},
     traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    utils::Paths,
 };
 use rustc_hash::FxHashMap;
 
@@ -169,13 +170,16 @@ impl Sampler {
             (GeneralMidiPercussionProgram::HighAgogo, "Tom Hi"),
             (GeneralMidiPercussionProgram::LowAgogo, "Tom Lo"),
         ];
-        for (program, filename) in samples {
-            let result = r.add_sample_for_note(
-                program as u8,
-                format!("assets/samples/707/{filename} 707.wav").as_str(),
-            );
+        let mut base_dir = Paths::asset_path();
+        base_dir.push("samples");
+        base_dir.push("707");
+
+        for (program, asset_name) in samples {
+            let mut path = base_dir.clone();
+            path.push(format!("{asset_name} 707.wav").as_str());
+            let result = r.add_sample_for_note(program as u8, path.to_str().unwrap());
             if result.is_err() {
-                panic!("failed to load a sample: {filename}");
+                panic!("failed to load a sample: {asset_name}");
             }
         }
         r.kit_name = "707".to_string();

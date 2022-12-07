@@ -202,11 +202,13 @@ impl SongSettings {
 #[cfg(test)]
 mod tests {
     use super::SongSettings;
-    use crate::{clock::Clock, IOHelper};
+    use crate::{clock::Clock, IOHelper, Paths};
 
     #[test]
     fn test_yaml_loads_and_parses() {
-        let yaml = std::fs::read_to_string("projects/kitchen-sink.yaml")
+        let mut path = Paths::project_path();
+        path.push("kitchen-sink.yaml");
+        let yaml = std::fs::read_to_string(path)
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
         let song_settings = SongSettings::new_from_yaml(yaml.as_str())
             .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
@@ -217,6 +219,8 @@ mod tests {
         let performance = orchestrator
             .run_performance(&mut clock, false)
             .unwrap_or_else(|err| panic!("performance failed: {:?}", err));
+
+        // TODO: maybe make a Paths:: function for out/
         assert!(IOHelper::send_performance_to_file(
             performance,
             "out/test_yaml_loads_and_parses-kitchen-sink.wav",

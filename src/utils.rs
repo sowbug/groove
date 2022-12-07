@@ -5,7 +5,11 @@ use crate::{
     traits::{HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates, Updateable},
 };
 use core::fmt::Debug;
-use std::marker::PhantomData;
+use std::{
+    env::{current_dir, current_exe},
+    marker::PhantomData,
+    path::PathBuf,
+};
 use strum_macros::{Display, EnumString};
 
 /// Timer returns true to Terminates::is_finished() after a specified amount of time.
@@ -176,6 +180,45 @@ impl<M: MessageBounds> AudioSource<M> {
 impl<M: MessageBounds> SourcesAudio for AudioSource<M> {
     fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
         self.level
+    }
+}
+
+pub struct Paths {}
+impl Paths {
+    const ASSETS: &str = "assets";
+    const PROJECTS: &str = "projects";
+
+    pub fn asset_path() -> PathBuf {
+        let mut path_buf = Paths::cwd();
+        path_buf.push(Self::ASSETS);
+        path_buf
+    }
+
+    pub fn project_path() -> PathBuf {
+        let mut path_buf = Paths::cwd();
+        path_buf.push(Self::PROJECTS);
+        path_buf
+    }
+
+    pub(crate) fn cwd() -> PathBuf {
+        PathBuf::from(
+            current_dir()
+                .ok()
+                .map(PathBuf::into_os_string)
+                .and_then(|exe| exe.into_string().ok())
+                .unwrap(),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn exe_path() -> PathBuf {
+        PathBuf::from(
+            current_exe()
+                .ok()
+                .map(PathBuf::into_os_string)
+                .and_then(|exe| exe.into_string().ok())
+                .unwrap(),
+        )
     }
 }
 

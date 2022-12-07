@@ -5,6 +5,7 @@
 
 //pub use crate::scripting::ScriptEngine;
 pub use crate::clock::{Clock, TimeSignature};
+pub use crate::utils::Paths;
 pub use crate::{
     controllers::orchestrator::{GrooveOrchestrator, Orchestrator},
     helpers::{AudioOutput, IOHelper},

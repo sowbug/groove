@@ -97,9 +97,13 @@ impl Sampler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::Paths;
 
     #[test]
     fn test_loading() {
-        let _ = Sampler::new_from_file("assets/samples/test.wav");
+        let mut filename = Paths::asset_path();
+        filename.push("samples");
+        filename.push("test.wav");
+        let _ = Sampler::new_from_file(filename.to_str().unwrap());
     }
 }

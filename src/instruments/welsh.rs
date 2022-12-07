@@ -8,6 +8,7 @@ use crate::{
         LoadError,
     },
     traits::{HasUid, IsInstrument, Response, SourcesAudio, TransformsAudio, Updateable},
+    utils::Paths,
     Clock,
 };
 use convert_case::{Case, Casing};
@@ -151,10 +152,13 @@ impl SynthPatch {
     }
 
     pub fn by_name(name: &PatchName) -> Self {
-        let filename = format!(
-            "assets/patches/welsh/{}.yaml",
+        let mut filename = Paths::asset_path();
+        filename.push("patches");
+        filename.push("welsh");
+        filename.push(format!(
+            "{}.yaml",
             Self::patch_name_to_settings_name(name.to_string().as_str())
-        );
+        ));
         if let Ok(contents) = std::fs::read_to_string(filename) {
             match Self::new_from_yaml(&contents) {
                 Ok(patch) => patch,

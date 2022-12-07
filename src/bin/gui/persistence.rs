@@ -1,4 +1,5 @@
 use groove::IOHelper;
+use groove::Paths;
 use groove::SongSettings;
 use serde::{Deserialize, Serialize};
 
@@ -37,8 +38,9 @@ impl SavedState {
 
         // serde_json::from_str(&contents).map_err(|_| LoadError::FormatError)
 
-        let filename = "projects/everything.yaml";
-        match IOHelper::song_settings_from_yaml_file(filename) {
+        let mut path = Paths::project_path();
+        path.push("everything.yaml");
+        match IOHelper::song_settings_from_yaml_file(path.to_str().unwrap()) {
             Ok(song_settings) => Ok(SavedState {
                 project_name: "Woop Woop Woop".to_string(),
                 song_settings,
