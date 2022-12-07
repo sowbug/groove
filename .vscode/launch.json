@@ -60,7 +60,7 @@
       },
       "args": [
         "--yaml-in",
-        "projects${pathSeparator}square.yaml"
+        "projects${pathSeparator}drums-reverb.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },

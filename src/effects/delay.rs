@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_SILENCE},
@@ -8,6 +6,171 @@ use crate::{
 };
 use strum_macros::{Display, EnumString, FromRepr};
 
+pub(super) trait Delays {
+    fn peek_output(&self) -> MonoSample;
+    fn pop_output(&mut self, input: MonoSample) -> MonoSample;
+}
+
+#[derive(Debug, Default)]
+struct DelayLine {
+    sample_rate: usize,
+    delay_seconds: f32,
+    decay: f32,
+
+    buffer_size: usize,
+    buffer_pointer: usize,
+    buffer: Vec<MonoSample>,
+}
+impl DelayLine {
+    pub(super) fn new_with(sample_rate: usize, delay_seconds: f32, decay: f32) -> Self {
+        let mut r = Self {
+            sample_rate,
+            delay_seconds,
+            decay,
+
+            buffer_size: Default::default(),
+            buffer_pointer: 0,
+            buffer: Default::default(),
+        };
+        r.resize_buffer();
+        r
+    }
+
+    pub(super) fn delay_seconds(&self) -> f32 {
+        self.delay_seconds
+    }
+
+    pub(super) fn set_delay_seconds(&mut self, delay_seconds: f32) {
+        if delay_seconds != self.delay_seconds {
+            self.delay_seconds = delay_seconds;
+            self.resize_buffer();
+        }
+    }
+
+    fn resize_buffer(&mut self) {
+        self.buffer_size = (self.sample_rate as f32 * self.delay_seconds) as usize;
+        self.buffer = Vec::with_capacity(self.buffer_size);
+        self.buffer.resize(self.buffer_size, MONO_SAMPLE_SILENCE);
+        self.buffer_pointer = 0;
+    }
+
+    pub(super) fn decay(&self) -> f32 {
+        self.decay
+    }
+}
+impl Delays for DelayLine {
+    fn peek_output(&self) -> MonoSample {
+        if self.buffer_size == 0 {
+            0.0
+        } else {
+            self.decay * self.buffer[self.buffer_pointer]
+        }
+    }
+
+    fn pop_output(&mut self, input: MonoSample) -> MonoSample {
+        if self.buffer_size == 0 {
+            input
+        } else {
+            let out = self.peek_output();
+            self.buffer[self.buffer_pointer] = input;
+            self.buffer_pointer += 1;
+            if self.buffer_pointer >= self.buffer_size {
+                self.buffer_pointer = 0;
+            }
+            out
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RecirculatingDelayLine {
+    delay: DelayLine,
+}
+impl Default for RecirculatingDelayLine {
+    fn default() -> Self {
+        Self {
+            delay: DelayLine::default(),
+        }
+    }
+}
+impl RecirculatingDelayLine {
+    pub(super) fn new_with(
+        sample_rate: usize,
+        delay_seconds: f32,
+        decay_seconds: f32,
+        final_amplitude: f32,
+        peak_amplitude: f32,
+    ) -> Self {
+        Self {
+            delay: DelayLine::new_with(
+                sample_rate,
+                delay_seconds,
+                (peak_amplitude * final_amplitude).powf(delay_seconds / decay_seconds),
+            ),
+        }
+    }
+
+    pub(super) fn decay(&self) -> f32 {
+        self.delay.decay()
+    }
+}
+impl Delays for RecirculatingDelayLine {
+    fn peek_output(&self) -> MonoSample {
+        self.delay.peek_output()
+    }
+
+    fn pop_output(&mut self, input: MonoSample) -> MonoSample {
+        let output = self.peek_output();
+        self.delay.pop_output(input + output);
+        output
+    }
+}
+
+#[derive(Debug)]
+pub(super) struct AllPassDelayLine {
+    delay: RecirculatingDelayLine,
+}
+impl Default for AllPassDelayLine {
+    fn default() -> Self {
+        Self {
+            delay: Default::default(),
+        }
+    }
+}
+impl AllPassDelayLine {
+    pub(super) fn new_with(
+        sample_rate: usize,
+        delay_seconds: f32,
+        decay_seconds: f32,
+        final_amplitude: f32,
+        peak_amplitude: f32,
+    ) -> Self {
+        Self {
+            delay: RecirculatingDelayLine::new_with(
+                sample_rate,
+                delay_seconds,
+                decay_seconds,
+                final_amplitude,
+                peak_amplitude,
+            ),
+        }
+    }
+}
+
+impl Delays for AllPassDelayLine {
+    fn peek_output(&self) -> MonoSample {
+        panic!("AllPassDelay doesn't allow peeking")
+    }
+
+    fn pop_output(&mut self, input: MonoSample) -> MonoSample {
+        let decay = self.delay.decay();
+        let vm = self.delay.peek_output();
+        let vn = input - (vm * decay);
+        self.delay.pop_output(vn);
+        vm + vn * decay
+    }
+}
+
 #[derive(Display, Debug, EnumString, FromRepr)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum DelayControlParams {
@@ -15,27 +178,15 @@ pub(crate) enum DelayControlParams {
     DelaySeconds,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Delay {
     uid: usize,
-    sample_rate: usize,
-    delay_seconds: f32,
-    buffer_size: usize,
-    buffer: VecDeque<MonoSample>,
+    delay: DelayLine,
 }
 impl IsEffect for Delay {}
 impl TransformsAudio for Delay {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
-        if self.buffer_size == 0 {
-            input_sample
-        } else {
-            self.buffer.push_back(input_sample);
-            if self.buffer.len() == self.buffer_size {
-                self.buffer.pop_front().unwrap_or(MONO_SAMPLE_SILENCE)
-            } else {
-                MONO_SAMPLE_SILENCE
-            }
-        }
+        self.delay.pop_output(input_sample)
     }
 }
 impl Updateable for Delay {
@@ -55,7 +206,7 @@ impl Updateable for Delay {
     fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
         if let Some(param) = DelayControlParams::from_repr(index) {
             match param {
-                DelayControlParams::DelaySeconds => self.set_delay_seconds(value),
+                DelayControlParams::DelaySeconds => self.delay.set_delay_seconds(value),
             }
         } else {
             todo!()
@@ -71,13 +222,6 @@ impl HasUid for Delay {
         self.uid = uid;
     }
 }
-impl Default for Delay {
-    fn default() -> Self {
-        let mut r = Self::default_without_alloc();
-        r.set_delay_seconds(0.5);
-        r
-    }
-}
 
 impl Delay {
     #[allow(dead_code)]
@@ -85,46 +229,26 @@ impl Delay {
         Self::default()
     }
 
-    // This exists because we want both DRY and efficiency. We set the defaults
-    // in one place (here), but new_with() doesn't cause one gigantic
-    // ring-buffer allocation that's immediately thrown away and replaced with a
-    // new one.
-    fn default_without_alloc() -> Self {
+    pub(crate) fn new_with(sample_rate: usize, delay_seconds: f32) -> Self {
         Self {
             uid: Default::default(),
-            sample_rate: Clock::default().sample_rate(),
-            delay_seconds: 0.0,
-            buffer_size: 0,
-            buffer: Default::default(),
+            delay: DelayLine::new_with(sample_rate, delay_seconds, 1.0),
         }
-    }
-
-    pub(crate) fn new_with(sample_rate: usize, delay_seconds: f32) -> Self {
-        let mut r = Self::default_without_alloc();
-        r.sample_rate = sample_rate;
-        r.set_delay_seconds(delay_seconds);
-        r
     }
 
     pub fn delay_seconds(&self) -> f32 {
-        self.delay_seconds
+        self.delay.delay_seconds()
     }
 
-    pub fn set_delay_seconds(&mut self, delay_seconds: f32) {
-        if delay_seconds != self.delay_seconds {
-            self.delay_seconds = delay_seconds;
-            self.resize_buffer();
-        }
-    }
-
-    fn resize_buffer(&mut self) {
-        self.buffer_size = (self.sample_rate as f32 * self.delay_seconds) as usize;
-        self.buffer = VecDeque::with_capacity(self.buffer_size);
-    }
+    // pub fn set_delay_seconds(&mut self, delay_seconds: f32) {
+    //     self.delay.set_delay_seconds(delay_seconds);
+    // }
 }
 
 #[cfg(test)]
 mod tests {
+    use assert_approx_eq::assert_approx_eq;
+    use more_asserts::{assert_gt, assert_lt};
     use rand::random;
 
     use super::*;
@@ -136,11 +260,11 @@ mod tests {
         let mut fx = Delay::new_with(clock.sample_rate(), 1.0);
 
         // Add a unique first sample.
-        assert_eq!(fx.transform_audio(&clock, 0.5), 0.0,);
+        assert_eq!(fx.transform_audio(&clock, 0.5), 0.0);
         clock.tick();
 
         // Push a whole bunch more.
-        for i in 0..clock.sample_rate() - 2 {
+        for i in 0..clock.sample_rate() - 1 {
             assert_eq!(
                 fx.transform_audio(&clock, 1.0),
                 0.0,
@@ -176,5 +300,44 @@ mod tests {
             );
             clock.tick();
         }
+    }
+
+    #[test]
+    fn test_delay_line() {
+        // It's very simple: it should return an input sample, attenuated, after
+        // the specified delay.
+        let mut delay = DelayLine::new_with(3, 1.0, 0.3);
+        assert_eq!(delay.pop_output(0.5), 0.0);
+        assert_eq!(delay.pop_output(0.4), 0.0);
+        assert_eq!(delay.pop_output(0.3), 0.0);
+        assert_eq!(delay.pop_output(0.2), 0.5 * 0.3);
+    }
+
+    #[test]
+    fn test_recirculating_delay_line() {
+        // Recirculating means that the input value is added to the value at the
+        // back of the buffer, rather than replacing that value. So if we put in
+        // a single value, we should expect to get it back, usually quieter,
+        // each time it cycles through the buffer.
+        let mut delay = RecirculatingDelayLine::new_with(3, 1.0, 1.5, 0.001, 1.0);
+        assert_eq!(delay.pop_output(0.5), 0.0);
+        assert_eq!(delay.pop_output(0.0), 0.0);
+        assert_eq!(delay.pop_output(0.0), 0.0);
+        assert_approx_eq!(delay.pop_output(0.0), 0.5 * 0.01, 0.001);
+        assert_eq!(delay.pop_output(0.0), 0.0);
+        assert_eq!(delay.pop_output(0.0), 0.0);
+        assert_approx_eq!(delay.pop_output(0.0), 0.5 * 0.01 * 0.01, 0.001);
+        assert_eq!(delay.pop_output(0.0), 0.0);
+        assert_eq!(delay.pop_output(0.0), 0.0);
+    }
+
+    #[test]
+    fn test_allpass_delay_line() {
+        // TODO: I'm not sure what this delay line is supposed to do.
+        let mut delay = AllPassDelayLine::new_with(3, 1.0, 1.5, 0.001, 1.0);
+        assert_lt!(delay.pop_output(0.5), 0.5);
+        assert_eq!(delay.pop_output(0.0), 0.0);
+        assert_eq!(delay.pop_output(0.0), 0.0);
+        assert_gt!(delay.pop_output(0.0), 0.0); // Note! > not =
     }
 }

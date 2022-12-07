@@ -5,3 +5,4 @@ pub(crate) mod gain;
 pub(crate) mod gui;
 pub(crate) mod limiter;
 pub(crate) mod mixer;
+pub(crate) mod reverb;

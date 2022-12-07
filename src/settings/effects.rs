@@ -7,6 +7,7 @@ use crate::{
         gain::Gain,
         limiter::Limiter,
         mixer::Mixer,
+        reverb::Reverb,
     },
     messages::EntityMessage,
     traits::{IsEffect, TestEffect},
@@ -21,65 +22,38 @@ pub enum EffectSettings {
     #[serde(rename_all = "kebab-case")]
     Mixer {},
     #[serde(rename_all = "kebab-case")]
-    Gain {
-        ceiling: f32,
-    },
+    Gain { ceiling: f32 },
     #[serde(rename_all = "kebab-case")]
-    Limiter {
-        min: f32,
-        max: f32,
-    },
+    Limiter { min: f32, max: f32 },
     #[serde(rename_all = "kebab-case")]
-    Bitcrusher {
-        bits_to_crush: u8,
-    },
+    Bitcrusher { bits_to_crush: u8 },
     #[serde(rename_all = "kebab-case")]
-    Delay {
-        delay: f32,
+    Delay { delay: f32 },
+    #[serde(rename_all = "kebab-case")]
+    Reverb {
+        dry_pct: f32,
+        attenuation: f32,
+        reverb_seconds: f32,
     },
     #[serde(rename = "filter-low-pass-12db")]
-    FilterLowPass12db {
-        cutoff: f32,
-        q: f32,
-    },
+    FilterLowPass12db { cutoff: f32, q: f32 },
     #[serde(rename = "filter-high-pass-12db")]
-    FilterHighPass12db {
-        cutoff: f32,
-        q: f32,
-    },
+    FilterHighPass12db { cutoff: f32, q: f32 },
     #[serde(rename = "filter-band-pass-12db")]
-    FilterBandPass12db {
-        cutoff: f32,
-        bandwidth: f32,
-    },
+    FilterBandPass12db { cutoff: f32, bandwidth: f32 },
     #[serde(rename = "filter-band-stop-12db")]
-    FilterBandStop12db {
-        cutoff: f32,
-        bandwidth: f32,
-    },
+    FilterBandStop12db { cutoff: f32, bandwidth: f32 },
     #[serde(rename = "filter-all-pass-12db")]
-    FilterAllPass12db {
-        cutoff: f32,
-        q: f32,
-    },
+    FilterAllPass12db { cutoff: f32, q: f32 },
     #[serde(rename = "filter-peaking-eq-12db")]
     #[serde(rename_all = "kebab-case")]
-    FilterPeakingEq12db {
-        cutoff: f32,
-        db_gain: f32,
-    },
+    FilterPeakingEq12db { cutoff: f32, db_gain: f32 },
     #[serde(rename = "filter-low-shelf-12db")]
     #[serde(rename_all = "kebab-case")]
-    FilterLowShelf12db {
-        cutoff: f32,
-        db_gain: f32,
-    },
+    FilterLowShelf12db { cutoff: f32, db_gain: f32 },
     #[serde(rename = "filter-high-shelf-12db")]
     #[serde(rename_all = "kebab-case")]
-    FilterHighShelf12db {
-        cutoff: f32,
-        db_gain: f32,
-    },
+    FilterHighShelf12db { cutoff: f32, db_gain: f32 },
 }
 
 impl EffectSettings {
@@ -129,6 +103,16 @@ impl EffectSettings {
                 BiQuadFilter::new_with(&FilterParams::HighShelf { cutoff, db_gain }, sample_rate),
             ),
             EffectSettings::Delay { delay } => Box::new(Delay::new_with(sample_rate, delay)),
+            EffectSettings::Reverb {
+                dry_pct,
+                attenuation,
+                reverb_seconds,
+            } => Box::new(Reverb::new_with(
+                sample_rate,
+                dry_pct,
+                attenuation,
+                reverb_seconds,
+            )),
         }
     }
 }

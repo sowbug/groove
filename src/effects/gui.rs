@@ -1,3 +1,4 @@
+use super::reverb::Reverb;
 use super::{
     bitcrusher::Bitcrusher, delay::Delay, filter::BiQuadFilter, gain::Gain, limiter::Limiter,
     mixer::Mixer,
@@ -62,6 +63,16 @@ impl Viewable for Limiter {
     fn view(&self) -> Element<Self::ViewMessage> {
         let title = type_name::<Limiter>();
         let contents = format!("min: {} max: {}", self.min(), self.max());
+        GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
+    }
+}
+
+impl Viewable for Reverb {
+    type ViewMessage = EntityMessage;
+
+    fn view(&self) -> Element<Self::ViewMessage> {
+        let title = type_name::<Reverb>();
+        let contents = format!("TODO");
         GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
     }
 }
