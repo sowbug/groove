@@ -15,7 +15,7 @@ pub(crate) enum ReverbControlParams {
 }
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
-/// two serial all-pass delay lines.
+/// a series of two all-pass delay lines.
 #[derive(Debug, Default)]
 pub(crate) struct Reverb {
     uid: usize,
@@ -39,11 +39,9 @@ impl TransformsAudio for Reverb {
             + self.recirc_delay_lines[1].pop_output(input)
             + self.recirc_delay_lines[2].pop_output(input)
             + self.recirc_delay_lines[3].pop_output(input);
-        // let adl_0_out = self.allpass_delay_lines[0].pop_output(recirc_output);
-        // self.allpass_delay_lines[1].pop_output(adl_0_out);
-        //
-        // TODO: these lines are deadening the sound
-        (1.0 - self.dry_pct) * recirc_output + self.dry_pct * input
+        let adl_0_out = self.allpass_delay_lines[0].pop_output(recirc_output);
+        (1.0 - self.dry_pct) * self.allpass_delay_lines[1].pop_output(adl_0_out)
+            + self.dry_pct * input
     }
 }
 impl Updateable for Reverb {

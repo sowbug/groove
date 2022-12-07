@@ -7,7 +7,7 @@ use crate::{
 use strum_macros::{Display, EnumString, FromRepr};
 
 pub(super) trait Delays {
-    fn peek_output(&self) -> MonoSample;
+    fn peek_output(&self, apply_decay: bool) -> MonoSample;
     fn pop_output(&mut self, input: MonoSample) -> MonoSample;
 }
 
@@ -15,18 +15,18 @@ pub(super) trait Delays {
 struct DelayLine {
     sample_rate: usize,
     delay_seconds: f32,
-    decay: f32,
+    decay_factor: f32,
 
     buffer_size: usize,
     buffer_pointer: usize,
     buffer: Vec<MonoSample>,
 }
 impl DelayLine {
-    pub(super) fn new_with(sample_rate: usize, delay_seconds: f32, decay: f32) -> Self {
+    pub(super) fn new_with(sample_rate: usize, delay_seconds: f32, decay_factor: f32) -> Self {
         let mut r = Self {
             sample_rate,
             delay_seconds,
-            decay,
+            decay_factor,
 
             buffer_size: Default::default(),
             buffer_pointer: 0,
@@ -54,16 +54,20 @@ impl DelayLine {
         self.buffer_pointer = 0;
     }
 
-    pub(super) fn decay(&self) -> f32 {
-        self.decay
+    pub(super) fn decay_factor(&self) -> f32 {
+        self.decay_factor
     }
 }
 impl Delays for DelayLine {
-    fn peek_output(&self) -> MonoSample {
+    fn peek_output(&self, apply_decay: bool) -> MonoSample {
         if self.buffer_size == 0 {
             0.0
         } else {
-            self.decay * self.buffer[self.buffer_pointer]
+            if apply_decay {
+                self.decay_factor() * self.buffer[self.buffer_pointer]
+            } else {
+                self.buffer[self.buffer_pointer]
+            }
         }
     }
 
@@ -71,7 +75,7 @@ impl Delays for DelayLine {
         if self.buffer_size == 0 {
             input
         } else {
-            let out = self.peek_output();
+            let out = self.peek_output(true);
             self.buffer[self.buffer_pointer] = input;
             self.buffer_pointer += 1;
             if self.buffer_pointer >= self.buffer_size {
@@ -110,17 +114,17 @@ impl RecirculatingDelayLine {
         }
     }
 
-    pub(super) fn decay(&self) -> f32 {
-        self.delay.decay()
+    pub(super) fn decay_factor(&self) -> f32 {
+        self.delay.decay_factor()
     }
 }
 impl Delays for RecirculatingDelayLine {
-    fn peek_output(&self) -> MonoSample {
-        self.delay.peek_output()
+    fn peek_output(&self, apply_decay: bool) -> MonoSample {
+        self.delay.peek_output(apply_decay)
     }
 
     fn pop_output(&mut self, input: MonoSample) -> MonoSample {
-        let output = self.peek_output();
+        let output = self.peek_output(true);
         self.delay.pop_output(input + output);
         output
     }
@@ -158,16 +162,16 @@ impl AllPassDelayLine {
 }
 
 impl Delays for AllPassDelayLine {
-    fn peek_output(&self) -> MonoSample {
+    fn peek_output(&self, _apply_decay: bool) -> MonoSample {
         panic!("AllPassDelay doesn't allow peeking")
     }
 
     fn pop_output(&mut self, input: MonoSample) -> MonoSample {
-        let decay = self.delay.decay();
-        let vm = self.delay.peek_output();
-        let vn = input - (vm * decay);
+        let decay_factor = self.delay.decay_factor();
+        let vm = self.delay.peek_output(false);
+        let vn = input - (vm * decay_factor);
         self.delay.pop_output(vn);
-        vm + vn * decay
+        vm + vn * decay_factor
     }
 }
 
