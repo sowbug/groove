@@ -1,0 +1,30 @@
+---
+title: "Arpeggiator"
+clock:
+  sample-rate: 44100
+  bpm: 60.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+    - instrument-1
+    - welsh:
+        midi-in: 0
+        preset: organ
+  - controller:
+    - arp-1
+    - arpeggiator: # TODO: there are no options yet
+        midi-in: 1
+        midi-out: 0
+patch-cables:
+  - [instrument-1, main-mixer]
+patterns:
+  - id: one-note-1
+    note-value: whole
+    notes:
+      - [72]
+tracks:
+  - id: track-1
+    midi-channel: 1
+    patterns: [one-note-1]
