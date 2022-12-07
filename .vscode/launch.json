@@ -125,7 +125,7 @@
       },
       "args": [
         "--yaml-in",
-        "projects${pathSeparator}everything.yaml"
+        "projects${pathSeparator}dev-loop.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -167,9 +167,9 @@
       },
       "args": [
         "--yaml-in",
-        "projects${pathSeparator}everything.yaml",
+        "projects${pathSeparator}dev-loop.yaml",
         "--wav-out",
-        "everything.wav"
+        "dev-loop.wav"
       ],
       "cwd": "${workspaceFolder}"
     },
