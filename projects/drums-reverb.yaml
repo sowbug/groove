@@ -15,7 +15,7 @@ devices:
   - effect:
       - effect-1
       - reverb:
-          dry-pct: 0.05        # what percentage of input skips the effect
+          dry-pct: 0.0         # what percentage of input skips the effect
           attenuation: 0.95    # how much the effect quiets the input
           reverb-seconds: 1.25 # how big the room is!
 patch-cables:
