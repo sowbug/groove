@@ -1,11 +1,10 @@
-use std::marker::PhantomData;
-
 use crate::{
     clock::Clock,
     common::MonoSample,
     messages::{EntityMessage, MessageBounds},
     traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
+use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Display, Debug, EnumString, FromRepr)]
@@ -32,6 +31,14 @@ impl<M: MessageBounds> Updateable for Gain<M> {
     #[allow(unused_variables)]
     default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         Response::none()
+    }
+
+    fn param_id_for_name(&self, name: &str) -> usize {
+        if let Ok(param) = GainControlParams::from_str(name) {
+            param as usize
+        } else {
+            usize::MAX
+        }
     }
 
     fn set_indexed_param_f32(&mut self, index: usize, value: f32) {

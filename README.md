@@ -8,23 +8,36 @@ A digital audio workstation (DAW) engine.
 2. Download the [release](https://github.com/sowbug/groove/releases) for your OS
    and unzip it somewhere.
 3. Using the command line, `cd` to the directory you just unzipped.
-4. Try `./groove-cli -y projects/drum-track.yaml` (adapt that for your OS, e.g.,
-   Windows uses backslashes for path separators). You should hear a 707 beat
+4. Render `projects/drum-filtered.yaml` with `groove-cli`. For Windows, that's
+   `groove-cli projects\drum-filtered.yaml`, and for Linux/OSX it's
+   `./groove-cli projects/drum-filtered.yaml`). You should hear a 707 beat
    through a rising low-pass filter. If you don't, file a bug.
-5. Open `projects/drum-track.yaml` in your favorite text editor, and change
+5. Open `projects/drum-filtered.yaml` in your favorite text editor, and change
    `bpm: 128.0` to `bpm: 200.0`. Play the track again. Congratulations, you're
-   now a caricature of a [DnB](https://en.wikipedia.org/wiki/Drum_and_bass)
+   now the world's newest [DnB](https://en.wikipedia.org/wiki/Drum_and_bass)
    producer.
-6. Just for fun, launch the `groove-gui` executable. It won't do anything
-   useful, but you should see a DAW-ish window appear. If not, please file a bug
-   so I can be aware of GUI problems on different OSes.
+6. Take a look at all the other projects in the `projects` directory. Render
+   them, tweak them, and make new ones!
+6. Launch the `groove-gui` executable. It won't do anything useful, but you
+   should see a DAW-ish window appear. If not, please file a bug so I can be
+   aware of GUI problems on different OSes.
+
+## Getting started (developers)
+
+I use VSCode on Ubuntu 20.04 for development.
+
+- Visit <https://rustup.rs/> to install the Rust toolchain.
+- `rustup default nightly` (we're using trait upcasting and specialization).
+- `apt install` the packages listed in `.github/workflows/build.yml`
+- `cargo build`, and then try the command listed in the other Getting Started
+  section.
 
 ## High-level project status
 
-- There are a CLI (command-line interface) and GUI (graphical user interface).
-  The CLI is theoretically capable of producing a song, if tediously. The GUI
-  mostly proves that I know how to write a GUI, but it's useless for anything
-  else right now.
+- There are CLI (command-line interface) and GUI (graphical user interface)
+  versions of the app. The CLI is theoretically capable of producing a song, if
+  tediously. The GUI mostly proves that I know how to write a GUI, but it's
+  useless for anything else right now.
 - Aside from the CLI workflow being difficult, there aren't many components --
   just a couple instruments, a few effects, and a controller (automation)
   system. So even if you liked the workflow, you don't have a rich library of
@@ -91,13 +104,3 @@ A digital audio workstation (DAW) engine.
 - [SynthLab](https://www.willpirkle.com/synthlab-landing/)
 - [Glicol](https://github.com/chaosprint/glicol) is consistent with the vision.
 - [Sonic Pi](https://sonic-pi.net/), which I somehow missed until just now.
-
-## Getting started (developers)
-
-I use VSCode on Ubuntu 20.04 for development.
-
-- Visit https://rustup.rs/ to install the Rust toolchain.
-- `rustup default nightly` (we're using trait upcasting and specialization).
-- `apt install` the packages listed in `.github/workflows/build.yml`
-- `cargo build`, and then try the command listed in the other Getting Started
-  section.

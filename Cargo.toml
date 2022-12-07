@@ -9,7 +9,7 @@ anyhow = "1.0.12"
 assert_approx_eq = "1.1.0"
 async-std = "1.0"
 btreemultimap = "0.1.0"
-clap = { version = "3.2.6", features = ["derive"] }
+clap = { version = "4.0", features = ["derive"] }
 convert_case = "0.1.0"
 cpal = "0.13.5"
 crossbeam = "0.8"
@@ -26,6 +26,7 @@ more-asserts = "0.3.1"
 num-traits = "0.2"
 #plotters = "0.3.4"
 rand = "0.8.5"
+regex = "1.7.0"
 #rhai = "1.10.1"
 rustc-hash = "1.1.0"
 serde = { version = "1.0", features = ["derive"] }

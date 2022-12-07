@@ -1,4 +1,5 @@
 ---
+title: "A dumping ground to make sure components load properly. Listen at your own risk."
 clock:
   sample-rate: 44100
   bpm: 128.0
@@ -27,62 +28,68 @@ devices:
           midi-in: 2
           midi-out: 3
   - effect:
-    - gain-1
-    - gain:
-        ceiling: 0.01
+      - gain-1
+      - gain:
+          ceiling: 0.01
   - effect:
-    - gain-2
-    - gain:
-        ceiling: 0.9
+      - gain-2
+      - gain:
+          ceiling: 0.9
   - effect:
-    - limiter-1
-    - limiter:
-        max: 0.03
-        min: 0.02
+      - limiter-1
+      - limiter:
+          max: 0.03
+          min: 0.02
   - effect:
-    - bitcrusher-1
-    - bitcrusher:
-        bits-to-crush: 8
+      - reverb-1
+      - reverb:
+          dry-pct: 0.4
+          attenuation: 0.8
+          reverb-seconds: 0.4
   - effect:
-    - filter-low-pass-12db-1
-    - filter-low-pass-12db:
-        cutoff: 0.04
-        q: 0.05
+      - bitcrusher-1
+      - bitcrusher:
+          bits-to-crush: 8
   - effect:
-    - filter-high-pass-12db-1
-    - filter-high-pass-12db:
-        cutoff: 0.06
-        q: 0.07
+      - filter-low-pass-12db-1
+      - filter-low-pass-12db:
+          cutoff: 0.04
+          q: 0.05
   - effect:
-    - filter-band-pass-12db-1
-    - filter-band-pass-12db:
-        bandwidth: 0.09
-        cutoff: 0.08
+      - filter-high-pass-12db-1
+      - filter-high-pass-12db:
+          cutoff: 0.06
+          q: 0.07
   - effect:
-    - filter-band-stop-12db-1
-    - filter-band-stop-12db:
-        bandwidth: 0.1
-        cutoff: 0.1
+      - filter-band-pass-12db-1
+      - filter-band-pass-12db:
+          bandwidth: 0.09
+          cutoff: 0.08
   - effect:
-    - filter-all-pass-12db-1
-    - filter-all-pass-12db:
-        cutoff: 0.11
-        q: 0.12
+      - filter-band-stop-12db-1
+      - filter-band-stop-12db:
+          bandwidth: 0.1
+          cutoff: 0.1
   - effect:
-    - filter-peaking-eq-12db-1
-    - filter-peaking-eq-12db:
-        cutoff: 0.13
-        db-gain: 0.15
+      - filter-all-pass-12db-1
+      - filter-all-pass-12db:
+          cutoff: 0.11
+          q: 0.12
   - effect:
-    - filter-low-shelf-12db-1
-    - filter-low-shelf-12db:
-        cutoff: 0.16
-        db-gain: 0.17
+      - filter-peaking-eq-12db-1
+      - filter-peaking-eq-12db:
+          cutoff: 0.13
+          db-gain: 0.15
   - effect:
-    - filter-high-shelf-12db-1
-    - filter-high-shelf-12db:
-        cutoff: 0.18
-        db-gain: 0.19
+      - filter-low-shelf-12db-1
+      - filter-low-shelf-12db:
+          cutoff: 0.16
+          db-gain: 0.17
+  - effect:
+      - filter-high-shelf-12db-1
+      - filter-high-shelf-12db:
+          cutoff: 0.18
+          db-gain: 0.19
 patch-cables:
   - [piano-1, bitcrusher-1, filter-low-pass-12db-1, gain-1, main-mixer]
   - [bassline, gain-2, main-mixer]
@@ -132,140 +139,140 @@ paths:
 trips:
   - id: trip-1
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: gain-1
       param: ceiling
   - id: trip-2
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: limiter-1
       param: min
   - id: trip-3
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: limiter-1
       param: max
   - id: trip-4
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: bitcrusher-1
       param: bits-to-crush
   - id: trip-5
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-low-pass-12db-1
       param: cutoff
   - id: trip-6
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-low-pass-12db-1
       param: q
   - id: trip-7
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-high-pass-12db-1
       param: cutoff
   - id: trip-8
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-high-pass-12db-1
       param: q
   - id: trip-9
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-band-pass-12db-1
       param: cutoff
   - id: trip-10
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-band-pass-12db-1
       param: bandwidth
   - id: trip-11
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-band-stop-12db-1
       param: cutoff
   - id: trip-12
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-band-stop-12db-1
       param: bandwidth
   - id: trip-13
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-all-pass-12db-1
       param: cutoff
   - id: trip-14
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-all-pass-12db-1
       param: q
   - id: trip-15
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-peaking-eq-12db-1
       param: cutoff
   - id: trip-16
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-peaking-eq-12db-1
       param: db-gain
   - id: trip-17
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-low-shelf-12db-1
       param: cutoff
   - id: trip-18
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-low-shelf-12db-1
       param: db-gain
   - id: trip-19
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-high-shelf-12db-1
       param: cutoff
   - id: trip-20
     paths:
-    - auto-1
+      - auto-1
     start-measure: 7
     target:
       id: filter-high-shelf-12db-1

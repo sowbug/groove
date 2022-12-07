@@ -1,59 +1,54 @@
 use anyhow::Ok;
 use clap::Parser;
 use groove::{Clock, IOHelper};
+use regex::Regex;
 use std::time::Instant;
 //use groove::ScriptEngine;
 
 #[derive(Parser, Debug, Default)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    /// MIDI filename
-    #[clap(short, long, value_parser)]
-    midi_in: Option<String>,
+    /// Names of files to process. Can be YAML, MIDI, or scripts.
+    input: Vec<String>,
 
-    /// Script to execute
-    #[clap(short, long, value_parser)]
-    script_in: Option<String>,
+    /// Render as WAVE file(s) (file will appear next to source file)
+    #[clap(short = 'w', long, value_parser)]
+    wav: bool,
 
-    /// YAML to execute
-    #[clap(short, long, value_parser)]
-    yaml_in: Option<String>,
+    /// Render as MP3 file(s) (not yet implemented)
+    #[clap(short = 'm', long, value_parser)]
+    mp3: bool,
 
-    /// Whether to use an external MIDI controller
-    #[clap(short, long, parse(from_flag))]
-    use_midi_controller: bool,
+    /// Enable debug mode
+    #[clap(short = 'd', long, value_parser)]
+    debug: bool,
 
-    /// Output filename
-    #[clap(short, long, value_parser)]
-    wav_out: Option<String>,
+    /// Output perf information
+    #[clap(short = 'p', long, value_parser)]
+    perf: bool,
 
-    /// Whether to run the current debug/dev experiment
-    #[clap(short, long, value_parser)]
-    experiment: bool,
-
-    /// Whether to output perf information
-    #[clap(short, long, value_parser)]
-    output_perf: bool,
-
-    /// Whether to suppress status updates during processing
-    #[clap(short, long, value_parser)]
+    /// Suppress status updates while processing
+    #[clap(short = 'q', long, value_parser)]
     quiet: bool,
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    if args.script_in.is_some() {
-        //let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
-        Ok(())
-    } else {
-        let mut orchestrator = if args.midi_in.is_some() {
-            IOHelper::orchestrator_from_midi_file(args.midi_in.unwrap().as_str())
-        } else if args.yaml_in.is_some() {
+    for input_filename in args.input {
+        let mut orchestrator = if input_filename.ends_with(".nscr") {
+            //let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
+
+            // TODO: this is temporary, to return the right type
+            Box::<groove::Orchestrator<groove::GrooveMessage>>::default()
+        } else if input_filename.ends_with(".yaml")
+            || input_filename.ends_with(".yml")
+            || input_filename.ends_with(".nsn")
+        {
             let start_instant = Instant::now();
-            let r = IOHelper::song_settings_from_yaml_file(args.yaml_in.unwrap().as_str())?
-                .instantiate(args.experiment)?;
-            if args.output_perf {
+            let r = IOHelper::song_settings_from_yaml_file(input_filename.as_str())?
+                .instantiate(args.debug)?;
+            if args.perf {
                 println!(
                     "Orchestrator instantiation time: {:.2?}",
                     start_instant.elapsed()
@@ -64,8 +59,8 @@ fn main() -> anyhow::Result<()> {
             Box::<groove::Orchestrator<groove::GrooveMessage>>::default()
         };
 
-        orchestrator.set_enable_dev_experiment(args.experiment);
-        orchestrator.set_should_output_perf(args.output_perf);
+        orchestrator.set_enable_dev_experiment(args.debug);
+        orchestrator.set_should_output_perf(args.perf);
 
         if !args.quiet {
             print!("Performing to queue ");
@@ -73,7 +68,7 @@ fn main() -> anyhow::Result<()> {
         let mut clock = Clock::new_with(orchestrator.clock_settings());
         let start_instant = Instant::now();
         let performance = orchestrator.run_performance(&mut clock, args.quiet)?;
-        if args.output_perf {
+        if args.perf {
             println!(
                 "\n Orchestrator performance time: {:.2?}",
                 start_instant.elapsed()
@@ -93,10 +88,16 @@ fn main() -> anyhow::Result<()> {
         if !args.quiet {
             println!("Rendering queue");
         }
-        if let Some(output_filename) = args.wav_out {
-            IOHelper::send_performance_to_file(performance, &output_filename)
+        if args.wav {
+            let re = Regex::new(r"\.ya?ml$").unwrap();
+            let output_filename = re.replace(&input_filename, ".wav");
+            if input_filename == output_filename {
+                panic!("would overwrite input file; couldn't generate output filename");
+            }
+            IOHelper::send_performance_to_file(performance, &output_filename)?;
         } else {
-            IOHelper::send_performance_to_output_device(&performance)
+            IOHelper::send_performance_to_output_device(&performance)?;
         }
     }
+    Ok(())
 }

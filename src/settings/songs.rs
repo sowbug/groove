@@ -202,27 +202,25 @@ impl SongSettings {
 #[cfg(test)]
 mod tests {
     use super::SongSettings;
-    use crate::clock::Clock;
+    use crate::{clock::Clock, IOHelper};
 
     #[test]
     fn test_yaml_loads_and_parses() {
-        if let Ok(yaml) = std::fs::read_to_string("projects/kitchen-sink.yaml") {
-            if let Ok(song_settings) = SongSettings::new_from_yaml(yaml.as_str()) {
-                if let Ok(mut orchestrator) = song_settings.instantiate(false) {
-                    let mut clock = Clock::default();
-                    if let Ok(_performance) = orchestrator.run(&mut clock) {
-                        // cool
-                    } else {
-                        dbg!("performance failed");
-                    }
-                } else {
-                    dbg!("instantiation failed");
-                }
-            } else {
-                dbg!("parsing settings failed");
-            }
-        } else {
-            dbg!("loading YAML failed");
-        }
+        let yaml = std::fs::read_to_string("projects/kitchen-sink.yaml")
+            .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
+        let song_settings = SongSettings::new_from_yaml(yaml.as_str())
+            .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
+        let mut orchestrator = song_settings
+            .instantiate(false)
+            .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
+        let mut clock = Clock::default();
+        let performance = orchestrator
+            .run_performance(&mut clock, false)
+            .unwrap_or_else(|err| panic!("performance failed: {:?}", err));
+        assert!(IOHelper::send_performance_to_file(
+            performance,
+            "out/test_yaml_loads_and_parses-kitchen-sink.wav",
+        )
+        .is_ok());
     }
 }

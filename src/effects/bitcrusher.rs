@@ -5,6 +5,7 @@ use crate::{
     traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
 use iced_audio::{IntRange, Normal};
+use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Display, Debug, EnumString, FromRepr)]
@@ -45,6 +46,14 @@ impl Updateable for Bitcrusher {
             _ => todo!(),
         }
         Response::none()
+    }
+
+    fn param_id_for_name(&self, name: &str) -> usize {
+        if let Ok(param) = BitcrusherControlParams::from_str(name) {
+            param as usize
+        } else {
+            usize::MAX
+        }
     }
 
     fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
