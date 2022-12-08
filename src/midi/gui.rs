@@ -5,19 +5,25 @@ use super::{
 use crate::{
     gui::{GuiStuff, Viewable},
     messages::EntityMessage,
-    MidiHandler,
+    MidiHandler, MidiHandlerMessage,
 };
 use iced::{
-    widget::{button, column, row, text},
+    widget::{button, column, container, pick_list, row, text},
     Element,
 };
 use std::any::type_name;
 
 impl Viewable for MidiOutputHandler {
-    type ViewMessage = EntityMessage;
+    type ViewMessage = MidiHandlerMessage;
 }
 impl Viewable for MidiHandler {
-    type ViewMessage = EntityMessage;
+    type ViewMessage = MidiHandlerMessage;
+
+    fn view(&self) -> Element<'_, Self::ViewMessage, iced::Renderer> {
+        let (selected, options) = self.midi_input.as_ref().unwrap().input_labels();
+        let input_menu = pick_list(options, selected.clone(), MidiHandlerMessage::InputSelected);
+        GuiStuff::titled_container("MIDI", container(input_menu).into())
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -9,7 +9,7 @@ use crate::{
     Clock,
 };
 use crossbeam::deque::{Steal, Stealer, Worker};
-use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
+use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
 // TODO copy and conform to MessageBounds so it can be a trait associated type
 pub use midly::MidiMessage;
 use midly::{live::LiveEvent, num::u4};
@@ -255,83 +255,133 @@ pub enum GeneralMidiPercussionProgram {
 
 pub type MidiInputStealer = Stealer<(u64, u8, MidiMessage)>;
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MidiInputLabel {
+    index: usize,
+    name: String,
+}
+
+impl std::fmt::Display for MidiInputLabel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
 /// Handles MIDI input coming from outside Groove. For example, if you have a
 /// MIDI keyboard plugged into your computer's USB, you should be able to use
 /// that keyboard to input notes into Groove, and MidiInputHandler manages that.
-#[derive(Default)]
 pub struct MidiInputHandler {
+    midi_input: Option<MidiInput>,
+    active_port: Option<MidiInputLabel>,
+    input_labels: Vec<MidiInputLabel>,
     conn_in: Option<MidiInputConnection<()>>,
     stealer: Option<MidiInputStealer>,
-    inputs: Vec<(usize, String)>,
 }
-
 impl MidiInputHandler {
-    pub fn start(&mut self) -> anyhow::Result<()> {
-        if let Ok(mut midi_in) = MidiInput::new("Groove MIDI input") {
-            midi_in.ignore(Ignore::None);
-
-            let in_ports = midi_in.ports();
-            let in_port = match in_ports.len() {
-                0 => return Err(anyhow::Error::msg("no input port found")),
-                1 => {
-                    println!(
-                        "Choosing the only available input port: {}",
-                        midi_in.port_name(&in_ports[0]).unwrap()
-                    );
-                    &in_ports[0]
-                }
-                _ => {
-                    for port in in_ports.iter() {
-                        println!("{}", midi_in.port_name(port).unwrap());
-                    }
-                    //                panic!("there are multiple MIDI input
-                    //                devices, and that's scary");
-                    &in_ports[1]
-                }
-            };
-
-            self.inputs.clear();
-            for (i, port) in in_ports.iter().enumerate() {
-                self.inputs.push((i, midi_in.port_name(port).unwrap()));
-            }
-
-            let _in_port_name = midi_in.port_name(in_port)?;
-
-            let worker = Worker::<(u64, u8, MidiMessage)>::new_fifo();
-            self.stealer = Some(worker.stealer());
-            match midi_in.connect(
-                in_port,
-                "Groove input",
-                move |stamp, event, _| {
-                    let event = LiveEvent::parse(event).unwrap();
-                    #[allow(clippy::single_match)]
-                    match event {
-                        LiveEvent::Midi { channel, message } => {
-                            worker.push((stamp, u8::from(channel), message));
-                        }
-                        _ => {}
-                    }
-                },
-                (),
-            ) {
-                Ok(conn) => {
-                    self.conn_in = Some(conn);
-                    Ok(())
-                }
-                Err(err) => Err(anyhow::Error::msg(err.to_string())),
-            }
+    pub fn new() -> anyhow::Result<Self> {
+        if let Ok(midi_input) = MidiInput::new("Groove MIDI input") {
+            Ok(Self {
+                midi_input: Some(midi_input),
+                active_port: Default::default(),
+                input_labels: Default::default(),
+                conn_in: Default::default(),
+                stealer: Default::default(),
+            })
         } else {
-            Err(anyhow::Error::msg("couldn't create MidiInput"))
+            Err(anyhow::Error::msg("Couldn't create MIDI input"))
+        }
+    }
+
+    pub fn start(&mut self) -> anyhow::Result<()> {
+        self.refresh_ports();
+        Ok(())
+    }
+
+    fn refresh_ports(&mut self) {
+        if self.midi_input.is_some() {
+            let ports = self.midi_input.as_ref().unwrap().ports();
+            self.input_labels = ports
+                .iter()
+                .enumerate()
+                .map(|(index, port)| MidiInputLabel {
+                    index,
+                    name: self
+                        .midi_input
+                        .as_ref()
+                        .unwrap()
+                        .port_name(port)
+                        .unwrap_or("[unnamed input]".to_string()),
+                })
+                .collect();
+        }
+    }
+
+    // TODO: there's a race condition here. The label indexes are not
+    // necessarily in sync with the current list of ports. I need to investigate
+    // whether there's a more stable way to refer to individual ports.
+    pub fn select_port(&mut self, index: usize) -> anyhow::Result<()> {
+        if self.midi_input.is_none() {
+            self.stop();
+            if self.midi_input.is_none() {
+                return Err(anyhow::Error::msg(format!("MIDI input is not active")));
+            }
+        }
+        let ports = self.midi_input.as_ref().unwrap().ports();
+        if index >= ports.len() {
+            return Err(anyhow::Error::msg(format!(
+                "MIDI input port #{} is no longer valid",
+                index
+            )));
+        }
+        self.stop();
+        self.active_port = None;
+
+        let worker = Worker::<(u64, u8, MidiMessage)>::new_fifo();
+        self.stealer = Some(worker.stealer());
+        let selected_port = &ports[index];
+        let selected_port_name = &self
+            .midi_input
+            .as_ref()
+            .unwrap()
+            .port_name(&ports[index])
+            .unwrap_or("[unknown]".to_string());
+        let selected_port_label = MidiInputLabel {
+            index,
+            name: selected_port_name.clone(),
+        };
+        match self.midi_input.take().unwrap().connect(
+            selected_port,
+            "Groove input",
+            move |stamp, event, _| {
+                let event = LiveEvent::parse(event).unwrap();
+                #[allow(clippy::single_match)]
+                match event {
+                    LiveEvent::Midi { channel, message } => {
+                        worker.push((stamp, u8::from(channel), message));
+                    }
+                    _ => {}
+                }
+            },
+            (),
+        ) {
+            Ok(conn) => {
+                self.conn_in = Some(conn);
+                self.active_port = Some(selected_port_label);
+                Ok(())
+            }
+            Err(err) => Err(anyhow::Error::msg(err.to_string())),
         }
     }
 
     pub fn stop(&mut self) {
-        self.conn_in = None;
+        if self.conn_in.is_some() {
+            let close_result = self.conn_in.take().unwrap().close();
+            self.midi_input = Some(close_result.0);
+        }
     }
 
-    // TODO: no idea when this gets refreshed
-    pub fn inputs(&self) -> &[(usize, String)] {
-        &self.inputs
+    pub fn input_labels(&self) -> (&Option<MidiInputLabel>, Vec<MidiInputLabel>) {
+        (&self.active_port, self.input_labels.clone()) // TODO aaaaargh
     }
 }
 impl std::fmt::Debug for MidiInputHandler {
@@ -339,7 +389,6 @@ impl std::fmt::Debug for MidiInputHandler {
         f.debug_struct("MidiInputHandler")
             .field("conn_in", &0i32)
             .field("stealer", &self.stealer)
-            .field("inputs", &self.inputs)
             .finish()
     }
 }
@@ -481,18 +530,15 @@ pub enum MidiHandlerMessage {
     /// devices.
     MidiToExternal(MidiChannel, MidiMessage),
 
-    /// Refresh the list of MIDI inputs/outputs.
-    Refresh,
-
-    /// Response to Refresh containing enumerated lists of inputs and outputs.
-    Refreshed(Vec<(usize, String)>, Vec<(usize, String)>),
+    // A new MIDI input has been selected in the UI.
+    InputSelected(MidiInputLabel),
 }
 impl MessageBounds for MidiHandlerMessage {}
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MidiHandler {
     uid: usize,
-    midi_input: MidiInputHandler,
+    midi_input: Option<MidiInputHandler>,
     midi_output: MidiOutputHandler,
 }
 impl IsController for MidiHandler {}
@@ -502,31 +548,24 @@ impl Updateable for MidiHandler {
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
-                if let Some(input_stealer) = &self.midi_input.stealer {
-                    let mut commands = Vec::new();
-                    while !input_stealer.is_empty() {
-                        if let Steal::Success((_stamp, channel, message)) = input_stealer.steal() {
-                            commands.push(Response::single(Self::Message::MidiToExternal(
-                                channel, message,
-                            )));
+                if let Some(midi_input) = &self.midi_input {
+                    if let Some(input_stealer) = &midi_input.stealer {
+                        let mut commands = Vec::new();
+                        while !input_stealer.is_empty() {
+                            if let Steal::Success((_stamp, channel, message)) =
+                                input_stealer.steal()
+                            {
+                                commands.push(Response::single(Self::Message::MidiToExternal(
+                                    channel, message,
+                                )));
+                            }
+                        }
+                        if !commands.is_empty() {
+                            return Response::batch(commands);
                         }
                     }
-                    if commands.is_empty() {
-                        Response::none()
-                    } else {
-                        Response::batch(commands)
-                    }
-                } else {
-                    Response::none()
                 }
-            }
-            Self::Message::Refresh => {
-                let inputs = self.midi_input.inputs();
-                let outputs = self.midi_output.outputs();
-                Response::single(MidiHandlerMessage::Refreshed(
-                    inputs.to_vec(),
-                    outputs.to_vec(),
-                ))
+                Response::none()
             }
             Self::Message::MidiToExternal(_, _) => {
                 self.midi_output.update(clock, message);
@@ -556,21 +595,43 @@ impl MidiHandler {
         Self::default()
     }
 
-    pub fn refresh(&mut self) {}
-
-    pub fn available_devices(&self) -> &[(usize, String)] {
-        self.midi_input.inputs()
-    }
-
     pub fn start(&mut self) -> anyhow::Result<()> {
-        self.midi_input.start()?;
+        if self.midi_input.is_some() {
+            self.midi_input.as_mut().unwrap().start()?;
+        }
         self.midi_output.start()?;
         Ok(())
     }
 
     pub fn stop(&mut self) {
-        self.midi_input.stop();
+        if self.midi_input.is_some() {
+            self.midi_input.as_mut().unwrap().stop();
+        }
+
         self.midi_output.stop();
+    }
+
+    pub fn select_input(&mut self, input: MidiInputLabel) {
+        if self.midi_input.is_some() {
+            if self
+                .midi_input
+                .as_mut()
+                .unwrap()
+                .select_port(input.index)
+                .is_ok()
+            {
+                // swallow failure
+            }
+        }
+    }
+}
+impl Default for MidiHandler {
+    fn default() -> Self {
+        Self {
+            uid: Default::default(),
+            midi_input: MidiInputHandler::new().ok(),
+            midi_output: Default::default(),
+        }
     }
 }
 

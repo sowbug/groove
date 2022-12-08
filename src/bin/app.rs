@@ -73,6 +73,7 @@ pub enum AppMessage {
     ControlBarMessage(ControlBarMessage),
     ControlBarBpm(String),
     GrooveMessage(GrooveMessage),
+    MidiHandlerMessage(MidiHandlerMessage),
     Tick(Instant),
     Event(iced::Event),
 }
@@ -292,10 +293,6 @@ impl Application for GrooveApp {
                 if let Err(err) = self.midi_handler.start() {
                     println!("error starting MIDI: {}", err)
                 }
-
-                self.midi_handler.refresh();
-                // self.orchestrator
-                //     .update(&self.clock, GrooveMessage::RefreshMidiDevices);
             }
             AppMessage::Loaded(Err(_e)) => {
                 todo!()
@@ -334,13 +331,9 @@ impl Application for GrooveApp {
                     .0
                 {
                     Internal::None => {}
-                    Internal::Single(message) => match message {
-                        MidiHandlerMessage::Nop => todo!(),
-                        MidiHandlerMessage::Tick => todo!(),
-                        MidiHandlerMessage::MidiToExternal(_, _) => todo!(),
-                        MidiHandlerMessage::Refresh => todo!(),
-                        MidiHandlerMessage::Refreshed(_, _) => todo!(),
-                    },
+                    Internal::Single(_) => {
+                        // This doesn't happen, currently
+                    }
                     Internal::Batch(messages) => {
                         for message in messages {
                             match message {
@@ -397,6 +390,10 @@ impl Application for GrooveApp {
                 // TODO: aaaargh so much cloning
                 self.dispatch_groove_message(&self.clock.clone(), message);
             }
+            AppMessage::MidiHandlerMessage(message) => match message {
+                MidiHandlerMessage::InputSelected(input) => self.midi_handler.select_input(input),
+                _ => todo!(),
+            },
         }
 
         Command::none()
@@ -434,7 +431,11 @@ impl Application for GrooveApp {
 
         let control_bar = self.control_bar.view(&self.clock, self.last_tick);
         let project_view = self.orchestrator.view().map(Self::Message::GrooveMessage);
-        let scrollable_content = column![project_view];
+        let midi_view = self
+            .midi_handler
+            .view()
+            .map(Self::Message::MidiHandlerMessage);
+        let scrollable_content = column![midi_view, project_view];
         let under_construction = text("Under Construction").width(Length::FillPortion(1));
         let scrollable = container(scrollable(scrollable_content)).width(Length::FillPortion(1));
         let main_workspace = row![under_construction, scrollable];
