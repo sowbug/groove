@@ -39,8 +39,18 @@ struct GrooveApp {
     clock: Clock,
     audio_output: AudioOutput,
 
+    // This is true when playback went all the way to the end of the song. The
+    // reason it's nice to track this is that after pressing play and listening
+    // to the song, the user can press play again without manually resetting the
+    // clock to the start. But we don't want to just reset the clock at the end
+    // of playback, because that means the clock would read zero at the end of
+    // playback, which is undesirable because it's natural to want to know how
+    // long the song was after listening, and it's nice to be able to glance at
+    // the stopped clock and get that answer.
+    reached_end_of_playback: bool,
+
     // External interfaces
-    midi_handler: Box<MidiHandler>,
+    midi: Box<MidiHandler>,
 }
 
 impl Default for GrooveApp {
@@ -55,7 +65,8 @@ impl Default for GrooveApp {
             orchestrator: Default::default(),
             clock: Default::default(),
             audio_output: Default::default(),
-            midi_handler: Default::default(),
+            reached_end_of_playback: Default::default(),
+            midi: Default::default(),
         }
     }
 }
@@ -286,11 +297,11 @@ impl Application for GrooveApp {
                     theme: self.theme.clone(),
                     project_name: state.project_name,
                     orchestrator: state.song_settings.instantiate(false).unwrap(),
-                    midi_handler: Default::default(),
+                    midi: Default::default(),
                     ..Default::default()
                 };
                 self.audio_output.start();
-                if let Err(err) = self.midi_handler.start() {
+                if let Err(err) = self.midi.start() {
                     println!("error starting MIDI: {}", err)
                 }
             }
@@ -308,11 +319,12 @@ impl Application for GrooveApp {
                         &mut self.audio_output,
                     ));
                     if done {
+                        self.reached_end_of_playback = true;
                         self.state = State::Idle;
                     }
                     messages.iter().for_each(|m| {
                         if let GrooveMessage::MidiToExternal(channel, message) = *m {
-                            self.midi_handler.update(
+                            self.midi.update(
                                 &self.clock,
                                 MidiHandlerMessage::MidiToExternal(channel, message),
                             );
@@ -325,11 +337,7 @@ impl Application for GrooveApp {
                 // TODO: these conversion routines are getting tedious. I'm not
                 // yet convinced they're in the right place, rather than just
                 // being a very expensive band-aid to patch holes.
-                match self
-                    .midi_handler
-                    .update(&self.clock, MidiHandlerMessage::Tick)
-                    .0
-                {
+                match self.midi.update(&self.clock, MidiHandlerMessage::Tick).0 {
                     Internal::None => {}
                     Internal::Single(_) => {
                         // This doesn't happen, currently
@@ -355,14 +363,23 @@ impl Application for GrooveApp {
             AppMessage::ControlBarMessage(message) => match message {
                 // TODO: not sure if we need ticking for now. it's playing OR
                 // midi
-                ControlBarMessage::Play => self.state = State::Playing,
-                ControlBarMessage::Stop => match self.state {
-                    State::Idle => {
+                ControlBarMessage::Play => {
+                    if self.reached_end_of_playback {
                         self.clock.reset();
-                        self.update_clock();
+                        self.reached_end_of_playback = false;
                     }
-                    State::Playing => self.state = State::Idle,
-                },
+                    self.state = State::Playing
+                }
+                ControlBarMessage::Stop => {
+                    self.reached_end_of_playback = false;
+                    match self.state {
+                        State::Idle => {
+                            self.clock.reset();
+                            self.update_clock();
+                        }
+                        State::Playing => self.state = State::Idle,
+                    }
+                }
                 ControlBarMessage::SkipToStart => todo!(),
             },
             AppMessage::ControlBarBpm(new_value) => {
@@ -391,7 +408,8 @@ impl Application for GrooveApp {
                 self.dispatch_groove_message(&self.clock.clone(), message);
             }
             AppMessage::MidiHandlerMessage(message) => match message {
-                MidiHandlerMessage::InputSelected(input) => self.midi_handler.select_input(input),
+                MidiHandlerMessage::InputSelected(which) => self.midi.select_input(which),
+                MidiHandlerMessage::OutputSelected(which) => self.midi.select_output(which),
                 _ => todo!(),
             },
         }
@@ -431,10 +449,7 @@ impl Application for GrooveApp {
 
         let control_bar = self.control_bar.view(&self.clock, self.last_tick);
         let project_view = self.orchestrator.view().map(Self::Message::GrooveMessage);
-        let midi_view = self
-            .midi_handler
-            .view()
-            .map(Self::Message::MidiHandlerMessage);
+        let midi_view = self.midi.view().map(Self::Message::MidiHandlerMessage);
         let scrollable_content = column![midi_view, project_view];
         let under_construction = text("Under Construction").width(Length::FillPortion(1));
         let scrollable = container(scrollable(scrollable_content)).width(Length::FillPortion(1));
@@ -495,7 +510,7 @@ impl GrooveApp {
             GrooveMessage::EntityMessage(_, _) => panic!(),
             GrooveMessage::MidiFromExternal(_, _) => panic!(),
             GrooveMessage::MidiToExternal(channel, message) => {
-                self.midi_handler
+                self.midi
                     .handle_message(clock, MidiHandlerMessage::MidiToExternal(channel, message));
                 Command::none()
             }
