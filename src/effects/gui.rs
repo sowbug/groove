@@ -32,7 +32,7 @@ impl<M: MessageBounds> Viewable for Gain<M> {
 
     default fn view(&self) -> Element<'_, Self::ViewMessage, iced::Renderer> {
         GuiStuff::titled_container(
-            "Untitled",
+            &type_name::<Self>().to_string(),
             text("under construction")
                 .horizontal_alignment(Horizontal::Center)
                 .vertical_alignment(Vertical::Center)
@@ -123,7 +123,7 @@ impl<M: MessageBounds> Viewable for BiQuadFilter<M> {
 
     default fn view(&self) -> Element<'_, Self::ViewMessage, iced::Renderer> {
         GuiStuff::titled_container(
-            "Untitled",
+            &type_name::<Self>().to_string(),
             text("under construction")
                 .horizontal_alignment(Horizontal::Center)
                 .vertical_alignment(Vertical::Center)

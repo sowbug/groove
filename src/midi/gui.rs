@@ -21,17 +21,25 @@ impl Viewable for MidiHandler {
 
     fn view(&self) -> Element<'_, Self::ViewMessage, iced::Renderer> {
         let (input_selected, input_options) = self.midi_input.as_ref().unwrap().labels();
-        let input_menu = pick_list(
-            input_options,
-            input_selected.clone(),
-            MidiHandlerMessage::InputSelected,
-        );
+        let input_menu = row![
+            text("Input").width(iced::Length::FillPortion(1)),
+            pick_list(
+                input_options,
+                input_selected.clone(),
+                MidiHandlerMessage::InputSelected,
+            )
+            .width(iced::Length::FillPortion(3))
+        ];
         let (output_selected, output_options) = self.midi_output.as_ref().unwrap().labels();
-        let output_menu = pick_list(
-            output_options,
-            output_selected.clone(),
-            MidiHandlerMessage::OutputSelected,
-        );
+        let output_menu = row![
+            text("Output").width(iced::Length::FillPortion(1)),
+            pick_list(
+                output_options,
+                output_selected.clone(),
+                MidiHandlerMessage::OutputSelected,
+            )
+            .width(iced::Length::FillPortion(3))
+        ];
         GuiStuff::titled_container("MIDI", container(column![input_menu, output_menu]).into())
     }
 }
