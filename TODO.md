@@ -2,7 +2,7 @@
 
 ## Architecture proofs
 
-- [ ] Solve whether refcounting/interior mutability is required. This is a
+- [x] Solve whether refcounting/interior mutability is required. This is a
   prerequisite for scaling up effects/instruments. Refcounting is especially
   needed for embedded/no_std.
 - [x] An external thread (MIDI input) can inject events
@@ -16,9 +16,11 @@
   enabled, disabled, playing
 - [ ] Organized view: it's clear what makes an audio "lane" work. This might be
   in terms of audio sources (with orphans) or MIDI routes.
-- [ ] What's the real engineering cost of adding a new device?
-- [ ] Verify that capable instruments can generate same events
-  backwards/forwards.
+- [x] What's the real engineering cost of adding a new device?
+- [ ] Create a definition of random-access capability and write tests to enforce
+  it. The point is that everything should behave well if the user skips around
+  in the GUI during playback. To a lesser extent, well-defined behavior in this
+  respect will also allow more parallelization across CPU cores later on.
 
 ## Table stakes
 
@@ -27,25 +29,29 @@
 - [X] MIDI input
 - [X] MIDI output
 - [ ] Swing
-- [ ] Interactivity: I shouldn't have to keep pressing play and listening to the
-  whole song
+- [ ] Interactive playback: I shouldn't have to keep pressing play and listening
+  to the whole song
+- [ ] Interactive recording: It should be easier to get new data into a project
 
 ## Batteries included
 
 - [ ] Instrument: FM synth
 - [ ] Instrument: tunable sampler
-- [ ] Effect: reverb
+- [ ] Instrument: Wavetables instead of algorithmically generated waveforms
+- [ ] Instrument: Complete Welsh library
+- [ ] Controller: Arpeggiator
+- [ ] Controller: Sidechaining
 - [ ] Effect: chorus
 - [ ] Effect: ping-pong
 - [ ] Effect: compression
 - [ ] Effect: arithmetic operations - add (mix), subtract, add a constant.. what
   else?
-- [ ] Effect: delay
 - [ ] Effect: 24db filters
-- [ ] MIDI Instrument: Arpeggiator
-- [ ] Wavetables instead of algorithmically generated waveforms
-- [ ] Sidechaining
-- [ ] Complete Welsh library
+- [x] Effect: reverb
+- [x] Effect: delay
+- [ ] GUI: a browser for everything, allowing quick demoing and instantiation
+- [ ] Infrastructure: it should be easy to pull other files into your project
+  source
 
 ## Advanced features
 
@@ -67,7 +73,8 @@
 - [ ] Story for collaboration
 - [ ] A converter for MIDI SMF -> native
 - [ ] Other notation formats: not everything wants to be a pattern
-- [ ] GUI: Sandbox to hear snippets of source
+- [ ] GUI: Sandbox to hear snippets of source (don't go overboard; most people
+  will use VSCode or their favorite IDE)
 
 ## Misc applications
 
@@ -90,14 +97,9 @@
 - [x] Come up with a better TODO than `panic!()`. Get comfortable with handling
   `Result<>`.
 
-## Random thoughts
+## Ideas
 
-- [ ] Is SourcesAudio actually multiple things? Some things like Oscillators are
-  pure functions, mostly functions of time. Others, like a filter, maintain lots
-  of internal state and can't be accessed randomly. While a distinction
-  expressed in terms of traits might not change the program flow very much,
-  having the knowledge of which is which might allow some optimizations later
-  down the road.
+- [ ] .
 
 ## Bugs
 
@@ -114,79 +116,3 @@
   schema](https://dev.to/brpaz/how-to-create-your-own-auto-completion-for-json-and-yaml-files-on-vs-code-with-the-help-of-json-schema-k1i)
   for editors to handle autocompletion
 - [ ] Pick a serialization format. TOML, YAML, JSON...
-
-## Scrapbook
-
-```text
-gain-1         : 7
-bassline       : 3
-main-mixer     : 1
-piano-1        : 2
-low-pass-1     : 11
-arp-1          : 6
-synth-1        : 4
-trip-1         : 13
-gain-2         : 8
-gain-3         : 9
-bitcrusher-1   : 10
-drum-1         : 5
-    stack.push(StackEntry::ToVisit(self.main_mixer_uid=1));
-LOOP #0
-stack.pop() -> ToVisit(1)
-    source_audio(5)
-                LOOP #1
-                stack.pop() -> ToVisit(9)
-                    source_audio(4)
-                    LOOP #2
-                    stack.pop() -> Result 0
-                LOOP #3
-                stack.pop() -> CollectResultFor(9)
-                transform_audio(9)
-                LOOP #4
-                stack.pop() -> Result -0
-            LOOP #5
-            stack.pop() -> ToVisit(8)
-                source_audio(3)
-                LOOP #6
-                stack.pop() -> Result 0
-            LOOP #7
-            stack.pop() -> CollectResultFor(8)
-            transform_audio(8)
-            LOOP #8
-            stack.pop() -> Result -0
-        LOOP #9
-        stack.pop() -> ToVisit(7)
-                LOOP #10
-                stack.pop() -> ToVisit(11)
-                        LOOP #11
-                        stack.pop() -> ToVisit(10)
-                            source_audio(2)
-                            LOOP #12
-                            stack.pop() -> Result 0
-                        LOOP #13
-                        stack.pop() -> CollectResultFor(10)
-                        transform_audio(10)
-                        LOOP #14
-                        stack.pop() -> Result -0
-                    LOOP #15
-                    stack.pop() -> Result 0
-                LOOP #16
-                stack.pop() -> CollectResultFor(11)
-                transform_audio(11)
-                LOOP #17
-                stack.pop() -> Result -0
-            LOOP #18
-            stack.pop() -> Result 0
-        LOOP #19
-        stack.pop() -> CollectResultFor(7)
-        transform_audio(7)
-        LOOP #20
-        stack.pop() -> Result -0
-    LOOP #21
-    stack.pop() -> Result 0
-LOOP #22
-stack.pop() -> CollectResultFor(1)
-transform_audio(1)
-LOOP #23
-stack.pop() -> Result 0
-```
