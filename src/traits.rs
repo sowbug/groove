@@ -14,10 +14,41 @@ use std::collections::VecDeque;
 use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
+/// An IsController creates events that drive other things in the system.
+/// Examples are sequencers and arpeggiators. They get called on each time slice
+/// so that they can do work and send any needed messages. An IsController
+/// implements Terminates, which indicates that it's done emitting events (and,
+/// in the case of timers and sequencers, done waiting for other work in the
+/// system to complete).
 pub trait IsController: Updateable + Terminates + HasUid + Viewable + std::fmt::Debug {}
+
+/// An IsEffect transforms audio. It takes audio inputs and produces audio
+/// output. It does not get called unless there is audio input to provide to it
+/// (which can include silence, e.g., in the case of a muted instrument).
+///
+/// IsEffects don't terminate in the Terminates sense. This might become an
+/// issue in the future, for example if a composition's end is determined by the
+/// amount of time it takes for an effect to finish processing inputs (e.g., a
+/// delay effect), and it turns out to be inconvenient for an IsController to
+/// track the end. In this case, we might add a Terminates bound for IsEffect.
+/// But right now I'm not sure that's the right solution.
 pub trait IsEffect: TransformsAudio + Updateable + HasUid + Viewable + std::fmt::Debug {}
+
+/// An IsInstrument produces audio, usually upon request from MIDI or
+/// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
+/// because it continues to create audio as long as asked.
 pub trait IsInstrument: SourcesAudio + Updateable + HasUid + Viewable + std::fmt::Debug {}
 
+/// A future fourth trait might be named something like IsWidget or
+/// IsGuiElement. These exist only to interact with the user of a GUI app, but
+/// don't actually create or control audio.
+
+/// BoxedEntity wraps any of the major trait types to allow us to store them in
+/// a single big list. This was done for convenience at first, and it's unclear
+/// how much benefit it provides over keeping the types in separate lists and
+/// trying not to mix them up. In practice, we haven't needed to discover an
+/// entity's major type in any way that wouldn't have also been doable with
+/// separate lists.
 #[derive(Debug)]
 pub enum BoxedEntity<M> {
     Controller(Box<dyn IsController<Message = M, ViewMessage = M>>),
@@ -25,16 +56,17 @@ pub enum BoxedEntity<M> {
     Instrument(Box<dyn IsInstrument<Message = M, ViewMessage = M>>),
 }
 
+/// An Updateable accepts new information through update() (i.e., Messages) or
+/// control parameters.
+/// 
+/// Methods and messages are isomorphic, and everything could have been done
+/// through update(), but sometimes a direct method is the right solution.
 pub trait Updateable {
     type Message: MessageBounds;
 
     #[allow(unused_variables)]
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         Response::none()
-    }
-    #[allow(unused_variables)]
-    fn handle_message(&mut self, clock: &Clock, message: Self::Message) {
-        todo!()
     }
     #[allow(unused_variables)]
     fn param_id_for_name(&self, name: &str) -> usize {
@@ -45,32 +77,38 @@ pub trait Updateable {
         todo!()
     }
 }
+
+/// A HasUid has an ephemeral but globally unique numeric identifier, which is
+/// useful for one entity to refer to another without getting into icky Rust
+/// ownership questions. It's the foundation of any ECS
+/// (entity/component/system) design.
 pub trait HasUid {
     fn uid(&self) -> usize;
     fn set_uid(&mut self, uid: usize);
 }
 
-/// Provides audio in the form of digital samples.
+/// A SourcesAudio provides audio in the form of digital samples.
 pub trait SourcesAudio: std::fmt::Debug {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample;
 }
 
-/// TransformsAudio can be thought of as SourcesAudio + SinksAudio, but it's an
-/// important third trait because it exposes the business logic that happens
-/// between the sinking and sourcing, which is useful for testing.
+/// A TransformsAudio takes input audio, which is typically produced by
+/// SourcesAudio, does something to it, and then outputs it. It's what effects
+/// do.
 pub trait TransformsAudio: std::fmt::Debug {
     fn transform_audio(&mut self, clock: &Clock, input_sample: MonoSample) -> MonoSample;
 }
 
-// Something that Terminates has a point in time where it would be OK never
-// being called or continuing to exist.
+// A Terminates has a point in time where it would be OK never being called or
+// continuing to exist.
 //
 // If you're required to implement Terminates, but you don't know when you need
 // to terminate, then you should always return true. For example, an arpeggiator
-// is a WatchesClock, which means it is also a Terminates, but it would be happy
-// to keep responding to MIDI input forever. It should return true.
+// would be happy to keep responding to MIDI input forever. Which is (a little
+// strangely) the same as saying it would be happy to quit at any time. Thus it
+// should always return true.
 //
-// The reason to choose true rather than false is that the caller uses
+// The reason to choose true rather than false is that the system uses
 // is_finished() to determine whether a song is complete. If a Terminates never
 // returns true, the loop will never end. Thus, "is_finished" is more like "is
 // unaware of any reason to continue existing" rather than "is certain there is
@@ -292,11 +330,6 @@ impl<M: MessageBounds> Updateable for TestEffect<M> {
     #[allow(unused_variables)]
     default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         Response::none()
-    }
-
-    #[allow(unused_variables)]
-    default fn handle_message(&mut self, clock: &Clock, message: Self::Message) {
-        todo!()
     }
 
     #[allow(unused_variables)]

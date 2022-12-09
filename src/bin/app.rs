@@ -254,58 +254,10 @@ impl Application for GrooveApp {
                 todo!()
             }
             AppMessage::Tick(_now) => {
-                if let State::Playing = &mut self.state {
-                    self.update_clock();
-                    let (messages, done) = block_on(IOHelper::fill_audio_buffer(
-                        self.audio_output.recommended_buffer_size(),
-                        &mut self.orchestrator,
-                        &mut self.clock,
-                        &mut self.audio_output,
-                    ));
-                    if done {
-                        self.reached_end_of_playback = true;
-                        self.state = State::Idle;
-                    }
-                    messages.iter().for_each(|m| {
-                        if let GrooveMessage::MidiToExternal(channel, message) = *m {
-                            self.midi.update(
-                                &self.clock,
-                                MidiHandlerMessage::MidiToExternal(channel, message),
-                            );
-                        }
-                    });
-                }
                 // TODO: decide what a Tick means. The app thinks it's 10
                 // milliseconds. Orchestrator thinks it's 1/sample rate.
-
-                // TODO: these conversion routines are getting tedious. I'm not
-                // yet convinced they're in the right place, rather than just
-                // being a very expensive band-aid to patch holes.
-                match self.midi.update(&self.clock, MidiHandlerMessage::Tick).0 {
-                    Internal::None => {}
-                    Internal::Single(_) => {
-                        // This doesn't happen, currently
-                    }
-                    Internal::Batch(messages) => {
-                        let mut saw_midi_message = false;
-                        for message in messages {
-                            match message {
-                                MidiHandlerMessage::MidiToExternal(channel, message) => {
-                                    self.orchestrator.update(
-                                        &self.clock,
-                                        GrooveMessage::MidiFromExternal(channel, message),
-                                    );
-                                    saw_midi_message = true;
-                                }
-                                _ => todo!(),
-                            }
-                        }
-                        if saw_midi_message {
-                            self.midi
-                                .update(&self.clock, MidiHandlerMessage::Activity(Instant::now()));
-                        }
-                    }
-                }
+                self.send_orchestrator_tick();
+                self.send_midi_handler_tick();
             }
             AppMessage::ControlBarMessage(message) => match message {
                 // TODO: not sure if we need ticking for now. it's playing OR
@@ -347,8 +299,8 @@ impl Application for GrooveApp {
                 }
             }
             AppMessage::GrooveMessage(message) => {
-                // TODO: we're swallowing the EvenNewerCommands we're getting
-                // from update()
+                // TODO: we're swallowing the Responses we're getting from
+                // update()
                 //
                 // TODO: is this clock the right one to base everything off?
                 // TODO: aaaargh so much cloning
@@ -429,26 +381,28 @@ impl GrooveApp {
     /// GrooveMessages returned in Orchestrator update() calls have made it all
     /// the way up to us. Let's look at them and decide what to do. If we have
     /// any work to do, we'll emit it in the form of one or more AppMessages.
+    ///
+    /// TODO: Should Orchestrator be handling these? Why did it give us commands
+    /// to hand back to it?
     fn dispatch_groove_message(
         &mut self,
         clock: &Clock,
         message: GrooveMessage,
     ) -> Command<AppMessage> {
-        let mut v = Vec::new();
-        match self.orchestrator.update(&self.clock, message).0 {
-            Internal::None => {}
-            Internal::Single(action) => v.push(self.handle_groove_message(clock, action)),
-            Internal::Batch(actions) => {
-                for action in actions {
-                    v.push(self.handle_groove_message(clock, action))
-                }
+        match self.orchestrator.update(clock, message).0 {
+            Internal::None => Command::none(),
+            Internal::Single(message) => self.handle_groove_message(clock, message),
+            Internal::Batch(messages) => {
+                Command::batch(messages.iter().fold(Vec::new(), |mut v, m| {
+                    v.push(self.handle_groove_message(clock, m.clone()));
+                    v
+                }))
             }
         }
-        Command::batch(v)
     }
     fn handle_groove_message(
         &mut self,
-        clock: &Clock,
+        _clock: &Clock,
         message: GrooveMessage,
     ) -> Command<AppMessage> {
         match message {
@@ -456,18 +410,76 @@ impl GrooveApp {
             GrooveMessage::Tick => panic!(),
             GrooveMessage::EntityMessage(_, _) => panic!(),
             GrooveMessage::MidiFromExternal(_, _) => panic!(),
-            GrooveMessage::MidiToExternal(channel, message) => {
-                self.midi
-                    .handle_message(clock, MidiHandlerMessage::MidiToExternal(channel, message));
-                Command::none()
+            GrooveMessage::MidiToExternal(_channel, _message) => {
+                panic!("This is handled in send_midi_handler_tick()")
             }
             GrooveMessage::AudioOutput(_) => {
-                // IOHelper::fill_audio_buffer() should have already looked at this
-                Command::none()
+                // IOHelper::fill_audio_buffer() should have already looked at
+                // this
             }
             GrooveMessage::OutputComplete => {
-                // IOHelper::fill_audio_buffer() should have already looked at this
-                Command::none()
+                // IOHelper::fill_audio_buffer() should have already looked at
+                // this
+            }
+        }
+        Command::none()
+    }
+
+    fn send_orchestrator_tick(&mut self) {
+        if let State::Playing = &mut self.state {
+            self.update_clock();
+            let (messages, done) = block_on(IOHelper::fill_audio_buffer(
+                self.audio_output.recommended_buffer_size(),
+                &mut self.orchestrator,
+                &mut self.clock,
+                &mut self.audio_output,
+            ));
+            if done {
+                self.reached_end_of_playback = true;
+                self.state = State::Idle;
+            }
+
+            // TODO: why are we handling messages here? Why not let them pass
+            // through and get handled normally?
+            messages.iter().for_each(|m| {
+                if let GrooveMessage::MidiToExternal(channel, message) = *m {
+                    self.midi.update(
+                        &self.clock,
+                        MidiHandlerMessage::MidiToExternal(channel, message),
+                    );
+                }
+            });
+        }
+    }
+
+    // TODO: these conversion routines are getting tedious. I'm not yet
+    // convinced they're in the right place, rather than just being a very
+    // expensive band-aid to patch holes.
+    fn send_midi_handler_tick(&mut self) {
+        match self.midi.update(&self.clock, MidiHandlerMessage::Tick).0 {
+            Internal::None => {}
+            Internal::Single(_) => {
+                // This doesn't happen, currently
+                panic!("maybe it does happen after all");
+            }
+            Internal::Batch(messages) => {
+                let mut saw_midi_message = false;
+                for message in messages {
+                    match message {
+                        MidiHandlerMessage::MidiToExternal(channel, message) => {
+                            self.orchestrator.update(
+                                &self.clock,
+                                GrooveMessage::MidiFromExternal(channel, message),
+                            );
+                            saw_midi_message = true;
+                        }
+                        _ => todo!(),
+                    }
+                }
+                if saw_midi_message {
+                    self.midi
+                        .update(&self.clock, MidiHandlerMessage::Activity(Instant::now()));
+                }
             }
         }
     }

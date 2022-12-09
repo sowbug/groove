@@ -433,10 +433,6 @@ impl Updateable for MidiOutputHandler {
         Response::none()
     }
 
-    fn handle_message(&mut self, _clock: &Clock, _message: Self::Message) {
-        todo!()
-    }
-
     fn param_id_for_name(&self, _param_name: &str) -> usize {
         usize::MAX
     }
