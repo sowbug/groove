@@ -37,9 +37,11 @@ fn main() -> anyhow::Result<()> {
 
     for input_filename in args.input {
         let mut orchestrator = if input_filename.ends_with(".nscr") {
-            //let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
+            #[cfg(feature = "scripting")]
+            let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
 
             // TODO: this is temporary, to return the right type
+            #[cfg(not(feature = "scripting"))]
             Box::<groove::Orchestrator<groove::GrooveMessage>>::default()
         } else if input_filename.ends_with(".yaml")
             || input_filename.ends_with(".yml")

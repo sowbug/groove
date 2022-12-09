@@ -45,14 +45,14 @@ impl Viewable for Gain<EntityMessage> {
 
     fn view(&self) -> Element<Self::ViewMessage> {
         let title = format!("Gain: {}", self.ceiling());
-        let contents = container(row![HSlider::new(
+        let slider = HSlider::new(
             NormalParam {
-                value: Normal::new(self.ceiling()),
-                default: Normal::new(1.0)
+                value: Normal::from_clipped(self.ceiling()),
+                default: Normal::from_clipped(1.0),
             },
-            Self::ViewMessage::HSliderInt
-        )])
-        .padding(20);
+            Self::ViewMessage::HSliderInt,
+        );
+        let contents = container(row![slider]).padding(20);
         GuiStuff::titled_container(&title, contents.into())
     }
 }

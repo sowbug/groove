@@ -60,7 +60,7 @@ impl Updateable for Bitcrusher {
         if let Some(param) = BitcrusherControlParams::from_repr(index) {
             match param {
                 BitcrusherControlParams::BitsToCrushPct => {
-                    self.set_bits_to_crush(self.int_range.unmap_to_value(Normal::new(value)) as u8);
+                    self.set_bits_to_crush(self.int_range.unmap_to_value(Normal::from_clipped(value)) as u8);
                 }
             }
         } else {

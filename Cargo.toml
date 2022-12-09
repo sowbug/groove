@@ -10,16 +10,16 @@ assert_approx_eq = "1.1.0"
 async-std = "1.0"
 btreemultimap = "0.1.0"
 clap = { version = "4.0", features = ["derive"] }
-convert_case = "0.1.0"
-cpal = "0.13.5"
+convert_case = "0.6.0"
+cpal = "0.14.2"
 crossbeam = "0.8"
 dipstick = "0.9.0"
 directories-next = "2.0"
 enum-primitive-derive = "0.2.2"
 hound = "3.4"
-iced = { version = "0.5", features = ["smol"] }
-iced_audio = { git = "https://github.com/iced-rs/iced_audio", rev = "89b7686f4538c0b0db14c5e04185ab997737d7ee" }
-iced_native = "0.6.1"
+iced = { version = "0.6.0", features = ["smol"] }
+iced_audio = { git = "https://github.com/iced-rs/iced_audio", rev = "03ff8e94d63eafcc8a7d34569763a4c741688730" }
+iced_native = "0.7.0"
 midir = "0.8.0"
 midly = "0.5.2"
 more-asserts = "0.3.1"
@@ -27,7 +27,7 @@ num-traits = "0.2"
 #plotters = "0.3.4"
 rand = "0.8.5"
 regex = "1.7.0"
-#rhai = "1.10.1"
+rhai = { version = "1.10.1", optional = true }
 rustc-hash = "1.1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.86"
@@ -54,3 +54,6 @@ strip = true
 lto = true
 codegen-units = 1
 panic = "abort"
+
+[features]
+scripting = ["dep:rhai"]

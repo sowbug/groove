@@ -3,7 +3,6 @@
 #![allow(incomplete_features)]
 #![allow(clippy::box_default)]
 
-//pub use crate::scripting::ScriptEngine;
 pub use crate::clock::{Clock, TimeSignature};
 pub use crate::utils::Paths;
 pub use crate::{
@@ -29,6 +28,10 @@ pub(crate) mod instruments;
 pub(crate) mod messages;
 pub(crate) mod metrics;
 pub(crate) mod midi;
-pub(crate) mod scripting;
 pub(crate) mod settings;
 pub(crate) mod utils;
+
+#[cfg(feature = "scripting")]
+pub(crate) mod scripting;
+#[cfg(feature = "scripting")]
+pub use crate::scripting::ScriptEngine;
