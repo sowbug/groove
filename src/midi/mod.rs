@@ -14,7 +14,7 @@ use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, Se
 pub use midly::MidiMessage;
 use midly::{live::LiveEvent, num::u4};
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, time::Instant};
 
 #[derive(Clone, Copy, Debug, Default)]
 #[allow(dead_code)]
@@ -572,6 +572,9 @@ pub enum MidiHandlerMessage {
 
     Tick,
 
+    // Incoming MIDI traffic happened
+    Activity(Instant),
+
     /// A MIDI message sent by Groove to MidiHandler for output to external MIDI
     /// devices.
     MidiToExternal(MidiChannel, MidiMessage),
@@ -587,6 +590,8 @@ pub struct MidiHandler {
     uid: usize,
     midi_input: Option<MidiInputHandler>,
     midi_output: Option<MidiOutputHandler>,
+
+    activity_tick: Instant,
 }
 impl IsController for MidiHandler {}
 impl Updateable for MidiHandler {
@@ -612,16 +617,18 @@ impl Updateable for MidiHandler {
                         }
                     }
                 }
-                Response::none()
+            }
+            Self::Message::Activity(now) => {
+                self.activity_tick = now;
             }
             Self::Message::MidiToExternal(_, _) => {
                 if self.midi_output.is_some() {
                     self.midi_output.as_mut().unwrap().update(clock, message);
                 }
-                Response::none()
             }
-            _ => Response::none(),
+            _ => {}
         }
+        Response::none()
     }
 }
 impl Terminates for MidiHandler {
@@ -697,6 +704,7 @@ impl Default for MidiHandler {
             uid: Default::default(),
             midi_input: MidiInputHandler::new().ok(),
             midi_output: MidiOutputHandler::new().ok(),
+            activity_tick: Instant::now(),
         }
     }
 }

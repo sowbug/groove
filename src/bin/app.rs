@@ -28,7 +28,6 @@ struct GrooveApp {
     theme: Theme,
     state: State,
     should_exit: bool,
-    last_tick: Instant, // A monotonically increasing value to tell when things have happened
 
     // UI components
     control_bar: ControlBar,
@@ -59,7 +58,6 @@ impl Default for GrooveApp {
             theme: Default::default(),
             state: Default::default(),
             should_exit: Default::default(),
-            last_tick: Instant::now(),
             control_bar: Default::default(),
             project_name: Default::default(),
             orchestrator: Default::default(),
@@ -99,11 +97,10 @@ pub enum ControlBarMessage {
 #[derive(Debug, Default, Clone)]
 pub struct ControlBar {
     gui_clock: GuiClock,
-    midi: Midi,
 }
 
 impl ControlBar {
-    pub fn view(&self, clock: &Clock, last_tick: Instant) -> Element<AppMessage> {
+    pub fn view(&self, clock: &Clock) -> Element<AppMessage> {
         container(
             row![
                 text_input(
@@ -128,7 +125,6 @@ impl ControlBar {
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::FillPortion(1)),
                 container(self.gui_clock.view()).width(Length::FillPortion(1)),
-                container(self.midi.view(last_tick)).width(Length::FillPortion(1)),
             ]
             .padding(8)
             .spacing(4)
@@ -215,56 +211,6 @@ impl GuiClock {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum MidiControlBarMessage {
-    Inputs(Vec<(usize, String)>),
-    Activity(Instant),
-}
-
-#[derive(Debug, Clone)]
-struct Midi {
-    inputs: Vec<(usize, String)>,
-    activity_tick: Instant,
-}
-
-impl Default for Midi {
-    fn default() -> Self {
-        Self {
-            inputs: Vec::default(),
-            activity_tick: Instant::now(),
-        }
-    }
-}
-
-impl Midi {
-    #[allow(dead_code)]
-    pub fn update(&mut self, message: MidiControlBarMessage) {
-        match message {
-            MidiControlBarMessage::Inputs(inputs) => {
-                self.inputs = inputs;
-            }
-            MidiControlBarMessage::Activity(now) => self.activity_tick = now,
-        }
-    }
-
-    pub fn view(&self, last_tick: Instant) -> Element<AppMessage> {
-        let mut s = String::new();
-        for input in self.inputs.iter() {
-            s = format!("{s} {}", input.1);
-        }
-        let input_dropdown = container(text(
-            if last_tick.duration_since(self.activity_tick) > Duration::from_millis(250) {
-                " "
-            } else {
-                "•"
-            },
-        ))
-        .width(Length::FillPortion(1));
-        let activity_indicator = container(text(s)).width(Length::FillPortion(7));
-        row![input_dropdown, activity_indicator].into()
-    }
-}
-
 impl Application for GrooveApp {
     type Message = AppMessage;
     type Theme = Theme;
@@ -275,7 +221,6 @@ impl Application for GrooveApp {
         (
             GrooveApp {
                 theme: Theme::Dark,
-                last_tick: Instant::now(),
                 ..Default::default()
             },
             Command::perform(SavedState::load(), AppMessage::Loaded),
@@ -308,8 +253,7 @@ impl Application for GrooveApp {
             AppMessage::Loaded(Err(_e)) => {
                 todo!()
             }
-            AppMessage::Tick(now) => {
-                self.last_tick = now;
+            AppMessage::Tick(_now) => {
                 if let State::Playing = &mut self.state {
                     self.update_clock();
                     let (messages, done) = block_on(IOHelper::fill_audio_buffer(
@@ -343,6 +287,7 @@ impl Application for GrooveApp {
                         // This doesn't happen, currently
                     }
                     Internal::Batch(messages) => {
+                        let mut saw_midi_message = false;
                         for message in messages {
                             match message {
                                 MidiHandlerMessage::MidiToExternal(channel, message) => {
@@ -350,12 +295,14 @@ impl Application for GrooveApp {
                                         &self.clock,
                                         GrooveMessage::MidiFromExternal(channel, message),
                                     );
-                                    self.control_bar
-                                        .midi
-                                        .update(MidiControlBarMessage::Activity(Instant::now()));
+                                    saw_midi_message = true;
                                 }
                                 _ => todo!(),
                             }
+                        }
+                        if saw_midi_message {
+                            self.midi
+                                .update(&self.clock, MidiHandlerMessage::Activity(Instant::now()));
                         }
                     }
                 }
@@ -393,7 +340,7 @@ impl Application for GrooveApp {
                     // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
                     //
                     // This is needed to stop an ALSA buffer underrun on close
-                    // TODO BROKEN self.midi.stop();
+                    self.midi.stop();
                     self.audio_output.stop();
 
                     self.should_exit = true;
@@ -447,7 +394,7 @@ impl Application for GrooveApp {
             State::Playing => {}
         }
 
-        let control_bar = self.control_bar.view(&self.clock, self.last_tick);
+        let control_bar = self.control_bar.view(&self.clock);
         let project_view = self.orchestrator.view().map(Self::Message::GrooveMessage);
         let midi_view = self.midi.view().map(Self::Message::MidiHandlerMessage);
         let scrollable_content = column![midi_view, project_view];

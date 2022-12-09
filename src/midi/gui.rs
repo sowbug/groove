@@ -11,7 +11,10 @@ use iced::{
     widget::{button, column, container, pick_list, row, text},
     Element,
 };
-use std::any::type_name;
+use std::{
+    any::type_name,
+    time::{Duration, Instant},
+};
 
 impl Viewable for MidiOutputHandler {
     type ViewMessage = MidiHandlerMessage;
@@ -20,6 +23,14 @@ impl Viewable for MidiHandler {
     type ViewMessage = MidiHandlerMessage;
 
     fn view(&self) -> Element<'_, Self::ViewMessage, iced::Renderer> {
+        let activity_text = container(text(
+            if Instant::now().duration_since(self.activity_tick) > Duration::from_millis(250) {
+                " "
+            } else {
+                "•"
+            },
+        ))
+        .width(iced::Length::FillPortion(1));
         let (input_selected, input_options) = self.midi_input.as_ref().unwrap().labels();
         let input_menu = row![
             text("Input").width(iced::Length::FillPortion(1)),
@@ -40,7 +51,9 @@ impl Viewable for MidiHandler {
             )
             .width(iced::Length::FillPortion(3))
         ];
-        GuiStuff::titled_container("MIDI", container(column![input_menu, output_menu]).into())
+        let port_menus =
+            container(column![input_menu, output_menu]).width(iced::Length::FillPortion(7));
+        GuiStuff::titled_container("MIDI", container(row![activity_text, port_menus]).into())
     }
 }
 
