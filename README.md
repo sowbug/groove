@@ -96,11 +96,18 @@ I use VSCode on Ubuntu 20.04 for development.
 
 ## Other projects/resources of interest
 
+- [BasicSynth](https://basicsynth.com/)
+- [Bela](https://bela.io/)
+- [Dirtywave M8](https://dirtywave.com/)
+- [Electro-Smith Daisy](https://www.electro-smith.com/daisy)
+- [Glicol](https://github.com/chaosprint/glicol) is consistent with the vision.
+- [LMN 3](https://github.com/FundamentalFrequency) and [Tracktion](https://github.com/Tracktion/tracktion_engine)
 - [MiniDexed](https://github.com/probonopd/MiniDexed)
 - [minisynth](https://github.com/rsta2/minisynth)
-- [Dirtywave M8](https://dirtywave.com/)
-- [BasicSynth](https://basicsynth.com/)
-- [Welsh's Synthesizer Cookbook](https://synthesizer-cookbook.com/)
-- [SynthLab](https://www.willpirkle.com/synthlab-landing/)
-- [Glicol](https://github.com/chaosprint/glicol) is consistent with the vision.
+- [MicroDexed](https://www.parasitstudio.de/) and [MicroDexed-touch](https://codeberg.org/positionhigh/MicroDexed-touch)
+- [mt32-pi](https://github.com/dwhinham/mt32-pi)
 - [Sonic Pi](https://sonic-pi.net/), which I somehow missed until just now.
+- [Synth6581](https://www.raspberrypi.com/news/commodore-64-raspberry-pi-4-synth6581/)
+- [SunVox](https://www.warmplace.ru/soft/sunvox/)
+- [SynthLab](https://www.willpirkle.com/synthlab-landing/)
+- [Welsh's Synthesizer Cookbook](https://synthesizer-cookbook.com/)
