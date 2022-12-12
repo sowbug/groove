@@ -59,7 +59,6 @@
         }
       },
       "args": [
-        "--yaml-in",
         "projects${pathSeparator}drums-reverb.yaml"
       ],
       "cwd": "${workspaceFolder}"
@@ -80,7 +79,6 @@
         }
       },
       "args": [
-        "--yaml-in",
         "projects${pathSeparator}scale-c4-major.yaml"
       ],
       "cwd": "${workspaceFolder}"
@@ -101,9 +99,8 @@
         }
       },
       "args": [
-        "--yaml-in",
         "projects${pathSeparator}scale-c4-major.yaml",
-        "--wav-out",
+        "--wav",
         "out.wav"
       ],
       "cwd": "${workspaceFolder}"
@@ -124,7 +121,6 @@
         }
       },
       "args": [
-        "--yaml-in",
         "projects${pathSeparator}dev-loop.yaml"
       ],
       "cwd": "${workspaceFolder}"
@@ -145,7 +141,6 @@
         }
       },
       "args": [
-        "--yaml-in",
         "projects${pathSeparator}kitchen-sink.yaml"
       ],
       "cwd": "${workspaceFolder}"
@@ -166,9 +161,8 @@
         }
       },
       "args": [
-        "--yaml-in",
         "projects${pathSeparator}dev-loop.yaml",
-        "--wav-out",
+        "--wav",
         "dev-loop.wav"
       ],
       "cwd": "${workspaceFolder}"
@@ -189,28 +183,7 @@
         }
       },
       "args": [
-        "--script-in",
         "projects${pathSeparator}test.grv"
-      ],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
-      "name": "Speaker: MIDI controller",
-      "cargo": {
-        "args": [
-          "build",
-          "--bin=groove-cli",
-          "--package=groove"
-        ],
-        "filter": {
-          "name": "groove-cli",
-          "kind": "bin"
-        }
-      },
-      "args": [
-        "--use-midi-controller"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -230,7 +203,6 @@
         }
       },
       "args": [
-        "--midi-in",
         "midi_files${pathSeparator}major-scale-spaced-notes.mid"
       ],
       "cwd": "${workspaceFolder}"
@@ -251,9 +223,8 @@
         }
       },
       "args": [
-        "--midi-in",
         "midi_files${pathSeparator}major-scale-spaced-notes.mid",
-        "--wav-out",
+        "--wav",
         "major-scale-cello.wav"
       ],
       "cwd": "${workspaceFolder}"
@@ -274,7 +245,6 @@
         }
       },
       "args": [
-        "--midi-in",
         "midi_files${pathSeparator}d-gonnamakeyousweat.mid"
       ],
       "cwd": "${workspaceFolder}"
@@ -295,9 +265,8 @@
         }
       },
       "args": [
-        "--midi-in",
         "midi_files${pathSeparator}d-gonnamakeyousweat.mid",
-        "--wav-out",
+        "--wav",
         "Gonna_Make_You_Sweat.wav"
       ],
       "cwd": "${workspaceFolder}"
@@ -318,9 +287,8 @@
         }
       },
       "args": [
-        "--midi-in",
         "midi_files${pathSeparator}multi-channel.mid",
-        "--wav-out",
+        "--wav",
         "multi-channel.wav"
       ],
       "cwd": "${workspaceFolder}"
