@@ -123,11 +123,16 @@ pub struct Clock {
 
     // Typically 960 ticks per second
     midi_ticks: usize,
+
+    // True if anything unusual happened since the last tick, or there was no
+    // last tick because this is the first.
+    was_reset: bool,
 }
 
 impl Clock {
     pub fn new() -> Self {
         Self {
+            was_reset: true,
             ..Default::default()
         }
     }
@@ -135,6 +140,7 @@ impl Clock {
     pub fn new_with(settings: &ClockSettings) -> Self {
         Self {
             settings: settings.clone(),
+            was_reset: true,
             ..Default::default()
         }
     }
@@ -145,6 +151,10 @@ impl Clock {
 
     pub fn settings_mut(&mut self) -> &mut ClockSettings {
         &mut self.settings
+    }
+
+    pub fn was_reset(&self) -> bool {
+        self.was_reset
     }
 
     pub fn samples(&self) -> usize {
@@ -197,6 +207,7 @@ impl Clock {
     }
 
     pub fn tick(&mut self) {
+        self.was_reset = false;
         self.samples += 1;
         self.update();
     }
@@ -218,6 +229,7 @@ impl Clock {
     }
 
     pub fn reset(&mut self) {
+        self.was_reset = true;
         self.samples = 0;
         self.seconds = 0.0;
         self.beats = 0.0;
@@ -353,16 +365,19 @@ mod tests {
         }
 
         pub fn debug_set_samples(&mut self, value: usize) {
+            self.was_reset = true;
             self.samples = value;
             self.update();
         }
 
         pub fn debug_set_seconds(&mut self, value: f32) {
+            self.was_reset = true;
             self.samples = (self.sample_rate() as f32 * value) as usize;
             self.update();
         }
 
         pub fn debug_set_beats(&mut self, value: f32) {
+            self.was_reset = true;
             self.samples =
                 (self.sample_rate() as f32 * (60.0 * value / self.settings().bpm())) as usize;
             self.update();

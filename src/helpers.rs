@@ -130,7 +130,17 @@ impl AudioOutput {
         cvar.notify_one();
     }
 
-    pub fn pause(&mut self) {}
+    pub fn pause(&mut self) {
+        if let Some(stream) = &self.stream {
+            let _ = stream.pause();
+        }
+    }
+
+    pub fn play(&mut self) {
+        if let Some(stream) = &self.stream {
+            let _ = stream.play();
+        }
+    }
 
     pub fn worker(&self) -> &Worker<f32> {
         &self.worker
@@ -170,6 +180,13 @@ impl IOHelper {
         clock: &mut Clock,
         audio_output: &mut AudioOutput,
     ) -> (Vec<GrooveMessage>, bool) {
+        let must_restart_playback =
+            if clock.was_reset() && audio_output.worker().len() < buffer_size {
+                audio_output.pause();
+                true
+            } else {
+                false
+            };
         let mut is_done = false;
         let mut v = Vec::new();
         while audio_output.worker().len() < buffer_size {
@@ -203,6 +220,9 @@ impl IOHelper {
                 break;
             }
             audio_output.worker_mut().push(sample);
+        }
+        if must_restart_playback {
+            audio_output.play();
         }
         (v, is_done)
     }
