@@ -238,10 +238,13 @@ impl Application for GrooveApp {
     fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
         match message {
             AppMessage::Loaded(Ok(state)) => {
+                let orchestrator = state.song_settings.instantiate(false).unwrap();
+                let clock = Clock::new_with(orchestrator.clock_settings());
                 *self = Self {
                     theme: self.theme.clone(),
                     project_name: state.project_name,
-                    orchestrator: state.song_settings.instantiate(false).unwrap(),
+                    orchestrator,
+                    clock,
                     midi: Default::default(),
                     ..Default::default()
                 };
