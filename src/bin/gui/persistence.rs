@@ -39,7 +39,7 @@ impl SavedState {
         // serde_json::from_str(&contents).map_err(|_| LoadError::FormatError)
 
         let mut path = Paths::project_path();
-        path.push("dev-loop.yaml");
+        path.push("low-cpu.yaml");
         match IOHelper::song_settings_from_yaml_file(path.to_str().unwrap()) {
             Ok(song_settings) => Ok(SavedState {
                 project_name: "Woop Woop Woop".to_string(),
