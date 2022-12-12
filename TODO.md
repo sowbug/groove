@@ -2,10 +2,7 @@
 
 ## Architecture proofs
 
-- [x] Solve whether refcounting/interior mutability is required. This is a
-  prerequisite for scaling up effects/instruments. Refcounting is especially
-  needed for embedded/no_std.
-- [x] An external thread (MIDI input) can inject events
+- [ ] Async/multithreaded
 - [ ] Live play: keyboard plays sounds, patterns can play one-off or loop on
   command
 - [ ] Interactive code editing: we can update the project during play,
@@ -16,11 +13,15 @@
   enabled, disabled, playing
 - [ ] Organized view: it's clear what makes an audio "lane" work. This might be
   in terms of audio sources (with orphans) or MIDI routes.
-- [x] What's the real engineering cost of adding a new device?
 - [ ] Create a definition of random-access capability and write tests to enforce
   it. The point is that everything should behave well if the user skips around
   in the GUI during playback. To a lesser extent, well-defined behavior in this
   respect will also allow more parallelization across CPU cores later on.
+- [x] Solve whether refcounting/interior mutability is required. This is a
+  prerequisite for scaling up effects/instruments. An answer on refcounting is
+  especially needed for embedded/no_std.
+- [x] An external thread (MIDI input) can inject events
+- [x] What's the real engineering cost of adding a new device?
 
 ## Table stakes
 
