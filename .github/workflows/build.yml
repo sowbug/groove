@@ -34,10 +34,10 @@ jobs:
           target: ${{ matrix.target }}
       - run: cargo build
       - run: cargo test --verbose
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: groove-${{ matrix.target }}
-          path: |
-            target/debug/groove-cli*
-            target/debug/groove-gui*
+      # - name: Upload artifacts
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: groove-${{ matrix.target }}
+      #     path: |
+      #       target/debug/groove-cli*
+      #       target/debug/groove-gui*
