@@ -181,26 +181,27 @@ impl<M: MessageBounds> Viewable for AudioSource<M> {
 
 enum State {
     Start,
-    Ready(JoinHandle<()>, mpsc::Receiver<GrooveMessage>),
+    Ready(JoinHandle<()>, mpsc::Receiver<GrooveEvent>),
     Ending(JoinHandle<()>),
     Idle,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum GrooveInput {
-    Start,
-    Tick,
-    EntityMessage(usize, EntityMessage),
-    MidiFromExternal(MidiChannel, MidiMessage),
+pub enum GrooveInput {
+    LoadProject(String),
+    Play,
+    Pause,
+    Restart,
+    Midi(MidiChannel, MidiMessage),
     Quit,
 }
 
 #[derive(Clone, Debug)]
 pub enum GrooveEvent {
-    Ready(mpsc::Sender<GrooveMessage>, Arc<Mutex<GrooveOrchestrator>>),
-    GrooveMessage(GrooveMessage),
+    Ready(mpsc::Sender<GrooveInput>, Arc<Mutex<GrooveOrchestrator>>),
     ProgressReport(i32),
     MidiToExternal(MidiChannel, MidiMessage),
+    ProjectLoaded(String),
     AudioOutput(MonoSample),
     OutputComplete,
     Quit,
@@ -210,15 +211,15 @@ struct Runner {
     orchestrator: Arc<Mutex<GrooveOrchestrator>>,
     clock: Clock,
     messages: Vec<GrooveMessage>,
-    sender: mpsc::Sender<GrooveMessage>,
-    receiver: mpsc::Receiver<GrooveMessage>,
+    sender: mpsc::Sender<GrooveEvent>,
+    receiver: mpsc::Receiver<GrooveInput>,
     audio_output: Option<AudioOutput>,
 }
 impl Runner {
     pub fn new_with(
         orchestrator: Arc<Mutex<GrooveOrchestrator>>,
-        sender: mpsc::Sender<GrooveMessage>,
-        receiver: mpsc::Receiver<GrooveMessage>,
+        sender: mpsc::Sender<GrooveEvent>,
+        receiver: mpsc::Receiver<GrooveInput>,
     ) -> Self {
         Self {
             orchestrator,
@@ -242,22 +243,29 @@ impl Runner {
         }
     }
 
-    /// Processes any queued-up messages that we can handle, and sends the rest
-    /// to the app.
+    fn post_event(&mut self, event: GrooveEvent) {
+        let _ = self.sender.try_send(event);
+    }
+
+    /// Processes any queued-up messages that we can handle, and sends what's
+    /// left to the app.
     ///
     /// Returns an audio sample if found, and returns true if the orchestrator
     /// has indicated that it's done with its work.
-    fn send_pending_messages(&mut self) -> (MonoSample, bool) {
+    fn handle_pending_messages(&mut self) -> (MonoSample, bool) {
         let mut sample: MonoSample = MONO_SAMPLE_SILENCE;
         let mut done = false;
         while let Some(message) = self.messages.pop() {
             match message {
                 GrooveMessage::AudioOutput(output_sample) => sample = output_sample,
                 GrooveMessage::OutputComplete => done = true,
-                _ => {
-                    // Any unmatched message is OK to send to the app.
-                    let _ = self.sender.try_send(message);
+                GrooveMessage::MidiToExternal(channel, message) => {
+                    self.post_event(GrooveEvent::MidiToExternal(channel, message))
                 }
+                GrooveMessage::LoadedProject(filename) => {
+                    self.post_event(GrooveEvent::ProjectLoaded(filename))
+                }
+                _ => todo!(),
             }
         }
         (sample, done)
@@ -270,10 +278,37 @@ impl Runner {
     }
 
     pub fn do_loop(&mut self) {
+        let mut is_playing = false;
         loop {
-            // Send any pending received messages to Orchestrator before asking
-            // it to handle Tick.
-            while let Ok(Some(message)) = self.receiver.try_next() {
+            // Handle any received messages before asking Orchestrator to handle
+            // Tick.
+            let mut messages = Vec::new();
+            while let Ok(Some(input)) = self.receiver.try_next() {
+                println!("{:?}", input);
+                match input {
+                    GrooveInput::LoadProject(filename) => {
+                        self.clock.reset();
+                        is_playing = false;
+                        messages.push(GrooveMessage::LoadProject(filename));
+                    }
+                    GrooveInput::Play => is_playing = true,
+                    GrooveInput::Pause => is_playing = false,
+                    GrooveInput::Restart => {
+                        self.clock.reset();
+                        is_playing = true;
+                    }
+                    GrooveInput::Midi(channel, message) => {
+                        messages.push(GrooveMessage::MidiFromExternal(channel, message))
+                    }
+                    GrooveInput::Quit => break,
+                }
+            }
+
+            // Forward any messages that were meant for Orchestrator.
+            // Any responses we get at this point are to messages that aren't
+            // Tick, so we can ignore the return values from
+            // send_pending_messages().
+            while let Some(message) = messages.pop() {
                 let response = if let Ok(mut o) = self.orchestrator.lock() {
                     o.update(&mut self.clock, message)
                 } else {
@@ -281,35 +316,36 @@ impl Runner {
                 };
                 self.push_response(response);
             }
-            // Any responses we get at this point are to messages that aren't
-            // Tick, so we can ignore the return values from
-            // send_pending_messages().
-            let (_, _) = self.send_pending_messages();
+            let (_, _) = self.handle_pending_messages();
 
-            // Send Tick to Orchestrator so it can do the bulk of its work for
-            // the loop.
-            let response = if let Ok(mut o) = self.orchestrator.lock() {
-                o.update(&mut self.clock, GrooveMessage::Tick)
-            } else {
-                Response::none()
-            };
-            self.push_response(response);
+            if is_playing {
+                // Send Tick to Orchestrator so it can do the bulk of its work for
+                // the loop.
+                let response = if let Ok(mut o) = self.orchestrator.lock() {
+                    o.update(&mut self.clock, GrooveMessage::Tick)
+                } else {
+                    Response::none()
+                };
+                self.push_response(response);
 
-            // Since this is a response to a Tick, we know that we got an
-            // AudioOutput and maybe an OutputComplete. Thus the return values
-            // we get here are meaningful.
-            let (sample, done) = self.send_pending_messages();
+                // Since this is a response to a Tick, we know that we got an
+                // AudioOutput and maybe an OutputComplete. Thus the return values
+                // we get here are meaningful.
+                let (sample, done) = self.handle_pending_messages();
+                if done {
+                    // TODO: I think we need to identify the edge between not done
+                    // and done, and advance the clock one more time. Or maybe what
+                    // we really need is to have two clocks, one driving the
+                    // automated note events, and the other driving the audio
+                    // processing.
+                    is_playing = false;
+                }
 
-            self.clock.tick();
-            if done {
-                println!("we're exiting!");
-                // break;
+                if is_playing {
+                    self.clock.tick();
+                    self.dispatch_sample(sample);
+                }
             }
-
-            // If everyone thought we were done on this spin of the loop, then
-            // the audio sample that was returned is garbage, so we dispatch the
-            // sample only after exiting on done.
-            self.dispatch_sample(sample);
         }
     }
 
@@ -332,11 +368,11 @@ impl GrooveSubscription {
                         // This channel lets the app send us messages.
                         //
                         // TODO: what's the right number for the buffer size?
-                        let (app_sender, app_receiver) = mpsc::channel::<GrooveMessage>(1024);
+                        let (app_sender, app_receiver) = mpsc::channel::<GrooveInput>(1024);
 
                         // This channel surfaces event messages from
                         // Runner/Orchestrator as subscription events.
-                        let (thread_sender, thread_receiver) = mpsc::channel::<GrooveMessage>(1024);
+                        let (thread_sender, thread_receiver) = mpsc::channel::<GrooveEvent>(1024);
 
                         let orchestrator = Arc::new(Mutex::new(Orchestrator::default()));
                         let orchestrator_for_app = Arc::clone(&orchestrator);
@@ -358,26 +394,19 @@ impl GrooveSubscription {
                         let event = receiver.select_next_some().await;
                         let mut done = false;
                         match event {
-                            GrooveMessage::OutputComplete => {
-                                println!("Subscription peeked at GrooveMessage::OutputComplete");
+                            GrooveEvent::Quit => {
                                 done = true;
                             }
-                            _ => {
-                                println!("I'm ignoring {:?}", &event);
-                            }
+                            GrooveEvent::MidiToExternal(_, _) => {}
+                            GrooveEvent::ProjectLoaded(_) => {}
+                            _ => todo!(),
                         }
 
                         if done {
                             println!("Subscription is forwarding GrooveEvent::Quit to app");
-                            (
-                                Some(GrooveEvent::Quit),
-                                State::Ending(handler),
-                            )
+                            (Some(GrooveEvent::Quit), State::Ending(handler))
                         } else {
-                            (
-                                Some(GrooveEvent::GrooveMessage(event)),
-                                State::Ready(handler, receiver),
-                            )
+                            (Some(event), State::Ready(handler, receiver))
                         }
                     }
                     State::Ending(handler) => {

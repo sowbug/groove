@@ -597,15 +597,12 @@ pub struct MidiHandler {
 
     sender: mpsc::Sender<MidiHandlerEvent>,
     receiver: mpsc::Receiver<MidiHandlerInput>,
-    messages: Vec<MidiHandlerMessage>,
+    events: Vec<MidiHandlerEvent>,
 }
-impl IsController for MidiHandler {}
-impl Updateable for MidiHandler {
-    type Message = MidiHandlerMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+impl MidiHandler {
+    fn update(&mut self, clock: &Clock, message: MidiHandlerMessage) -> Response<MidiHandlerEvent> {
         match message {
-            Self::Message::Tick => {
+            MidiHandlerMessage::Tick => {
                 if let Some(midi_input) = &self.midi_input {
                     if let Some(input_stealer) = &midi_input.stealer {
                         let mut commands = Vec::new();
@@ -613,7 +610,7 @@ impl Updateable for MidiHandler {
                             if let Steal::Success((_stamp, channel, message)) =
                                 input_stealer.steal()
                             {
-                                commands.push(Response::single(Self::Message::MidiToExternal(
+                                commands.push(Response::single(MidiHandlerEvent::MidiMessage(
                                     channel, message,
                                 )));
                             }
@@ -624,10 +621,7 @@ impl Updateable for MidiHandler {
                     }
                 }
             }
-            Self::Message::Activity(now) => {
-                self.activity_tick = now;
-            }
-            Self::Message::MidiToExternal(_, _) => {
+            MidiHandlerMessage::MidiToExternal(_, _) => {
                 if self.midi_output.is_some() {
                     self.midi_output.as_mut().unwrap().update(clock, message);
                 }
@@ -636,35 +630,21 @@ impl Updateable for MidiHandler {
         }
         Response::none()
     }
-}
-impl Terminates for MidiHandler {
-    fn is_finished(&self) -> bool {
-        true
-    }
-}
-impl HasUid for MidiHandler {
-    fn uid(&self) -> usize {
-        self.uid
-    }
 
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
-
-impl MidiHandler {
     pub fn new_with(
         sender: mpsc::Sender<MidiHandlerEvent>,
         receiver: mpsc::Receiver<MidiHandlerInput>,
     ) -> Self {
+        let midi_input = MidiInputHandler::new().ok();
+        let midi_output = MidiOutputHandler::new().ok();
         Self {
             uid: Default::default(),
-            midi_input: Default::default(),
-            midi_output: Default::default(),
+            midi_input,
+            midi_output,
             activity_tick: Instant::now(),
             sender,
             receiver,
-            messages: Default::default(),
+            events: Default::default(),
         }
     }
 
@@ -715,28 +695,21 @@ impl MidiHandler {
         }
     }
 
-    fn push_response(&mut self, response: Response<MidiHandlerMessage>) {
+    fn push_response(&mut self, response: Response<MidiHandlerEvent>) {
         match response.0 {
             crate::traits::Internal::None => {}
             crate::traits::Internal::Single(message) => {
-                self.messages.push(message);
+                self.events.push(message);
             }
             crate::traits::Internal::Batch(messages) => {
-                self.messages.extend(messages);
+                self.events.extend(messages);
             }
         }
     }
 
     fn send_pending_messages(&mut self) {
-        while let Some(message) = self.messages.pop() {
-            match message {
-                MidiHandlerMessage::MidiToExternal(channel, message) => {
-                    let _ = self
-                        .sender
-                        .try_send(MidiHandlerEvent::MidiMessage(channel, message));
-                }
-                _ => {}
-            }
+        while let Some(message) = self.events.pop() {
+            let _ = self.sender.try_send(message);
         }
     }
 
@@ -756,6 +729,9 @@ impl MidiHandler {
                         self.update(&clock, MidiHandlerMessage::MidiToExternal(channel, message));
                     }
                     MidiHandlerInput::QuitRequested => {
+                        println!("MidiHandlerInput::QuitRequested");
+                        self.push_response(Response::single(MidiHandlerEvent::Quit));
+                        self.send_pending_messages();
                         break;
                     }
                 }
@@ -764,6 +740,20 @@ impl MidiHandler {
             // TODO: convert this to select on either self.receiver or midi input
             std::thread::sleep(Duration::from_millis(10));
         }
+    }
+}
+impl Terminates for MidiHandler {
+    fn is_finished(&self) -> bool {
+        true
+    }
+}
+impl HasUid for MidiHandler {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
     }
 }
 

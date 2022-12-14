@@ -476,14 +476,20 @@ impl GrooveOrchestrator {
                         panic!("OutputComplete shouldn't exist at this point in the pipeline");
                     }
                     GrooveMessage::LoadProject(filename) => {
-                        println!("yup, I got it! {}", filename);
                         let mut path = Paths::project_path();
-                        path.push(filename);
+                        path.push(filename.clone());
                         if let Ok(settings) =
                             IOHelper::song_settings_from_yaml_file(path.to_str().unwrap())
                         {
-                            *self = settings.instantiate(false).unwrap();
+                            if let Ok(instance) = settings.instantiate(false) {
+                                *self = instance;
+                                unhandled_commands
+                                    .push(Response::single(GrooveMessage::LoadedProject(filename)));
+                            }
                         }
+                    }
+                    GrooveMessage::LoadedProject(_) => {
+                        panic!("this is only sent by us, never received")
                     }
                 }
             }

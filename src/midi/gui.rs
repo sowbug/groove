@@ -153,9 +153,9 @@ impl MidiSubscription {
                     State::Ready(handler, mut receiver) => {
                         use iced_native::futures::StreamExt;
 
-                        let input = receiver.select_next_some().await;
+                        let event = receiver.select_next_some().await;
                         let mut done = false;
-                        match input {
+                        match event {
                             MidiHandlerEvent::Ready(_) => todo!(),
                             MidiHandlerEvent::MidiMessage(_, _) => todo!(),
                             MidiHandlerEvent::Quit => {
@@ -164,7 +164,7 @@ impl MidiSubscription {
                         }
 
                         (
-                            Some(input),
+                            Some(event),
                             if done {
                                 State::Ending(handler)
                             } else {

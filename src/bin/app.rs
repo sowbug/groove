@@ -3,9 +3,9 @@
 mod gui;
 
 use groove::{
-    gui::{GrooveEvent, GuiStuff, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, GrooveSubscription, MidiHandlerEvent,
-    MidiHandlerInput, MidiHandlerMessage, MidiSubscription, TimeSignature,
+    gui::{GrooveEvent, GrooveInput, GuiStuff, NUMBERS_FONT, NUMBERS_FONT_SIZE},
+    Clock, GrooveOrchestrator, GrooveSubscription, MidiHandlerEvent, MidiHandlerInput,
+    MidiHandlerMessage, MidiSubscription, TimeSignature,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -36,7 +36,7 @@ struct GrooveApp {
 
     // Model
     project_name: String,
-    sender: Option<mpsc::Sender<GrooveMessage>>,
+    orchestrator_sender: Option<mpsc::Sender<GrooveInput>>,
     orchestrator: Arc<Mutex<GrooveOrchestrator>>,
     clock_mirror: Clock, // this clock is just a cache of the real clock in Orchestrator.
 
@@ -61,7 +61,7 @@ impl Default for GrooveApp {
             should_exit: Default::default(),
             control_bar: Default::default(),
             project_name: Default::default(),
-            sender: Default::default(),
+            orchestrator_sender: Default::default(),
             orchestrator: Default::default(),
             clock_mirror: Default::default(),
             reached_end_of_playback: Default::default(),
@@ -82,12 +82,11 @@ pub enum AppMessage {
     Loaded(Result<SavedState, LoadError>),
     ControlBarMessage(ControlBarMessage),
     ControlBarBpm(String),
-    GrooveMessage(GrooveMessage),
+    GrooveEvent(GrooveEvent),
     MidiHandlerMessage(MidiHandlerMessage),
     MidiHandlerEvent(MidiHandlerEvent),
     Tick(Instant),
     Event(iced::Event),
-    GrooveEvent(GrooveEvent),
 }
 
 #[derive(Debug, Clone)]
@@ -235,7 +234,7 @@ impl Application for GrooveApp {
     }
 
     fn title(&self) -> String {
-        String::from(&self.project_name)
+        self.project_name.clone()
     }
 
     fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
@@ -249,6 +248,7 @@ impl Application for GrooveApp {
                     theme: self.theme.clone(),
                     project_name: state.project_name,
                     orchestrator: Arc::new(Mutex::new(orchestrator)),
+                    clock_mirror: clock,
                     ..Default::default()
                 };
             }
@@ -268,16 +268,19 @@ impl Application for GrooveApp {
                 // midi
                 ControlBarMessage::Play => {
                     if self.reached_end_of_playback {
-                        // self.clock.reset();
+                        self.post_to_orchestrator(GrooveInput::Restart);
                         self.reached_end_of_playback = false;
+                    } else {
+                        self.post_to_orchestrator(GrooveInput::Play);
                     }
                     self.state = State::Playing
                 }
                 ControlBarMessage::Stop => {
+                    self.post_to_orchestrator(GrooveInput::Pause);
                     self.reached_end_of_playback = false;
                     match self.state {
                         State::Idle => {
-                            // self.clock.reset();
+                            self.post_to_orchestrator(GrooveInput::Restart);
                             self.update_clock();
                         }
                         State::Playing => self.state = State::Idle,
@@ -297,22 +300,19 @@ impl Application for GrooveApp {
                     //
                     // This is needed to stop an ALSA buffer underrun on close
 
-                    // TODO
-                    // self.midi.stop();
-                    // self.audio_output.stop();
-
+                    self.post_to_midi_handler(MidiHandlerInput::QuitRequested);
                     self.should_exit = true;
                 }
             }
-            AppMessage::GrooveMessage(message) => {
-                // TODO: we're swallowing the Responses we're getting from
-                // update()
-                //
-                // TODO: is this clock the right one to base everything off?
-                // TODO: aaaargh so much cloning
-                self.dispatch_groove_message(&self.clock_mirror.clone(), message);
-                todo!();
-            }
+            // AppMessage::GrooveMessage(message) => {
+            //     // TODO: we're swallowing the Responses we're getting from
+            //     // update()
+            //     //
+            //     // TODO: is this clock the right one to base everything off?
+            //     // TODO: aaaargh so much cloning
+            //     self.dispatch_groove_message(&self.clock_mirror.clone(), message);
+            //     todo!();
+            // }
             AppMessage::MidiHandlerMessage(message) => match message {
                 // MidiHandlerMessage::InputSelected(which) => self.midi.select_input(which),
                 // MidiHandlerMessage::OutputSelected(which) => self.midi.select_output(which),
@@ -320,42 +320,29 @@ impl Application for GrooveApp {
             },
             AppMessage::GrooveEvent(event) => match event {
                 GrooveEvent::Ready(sender, orchestrator) => {
-                    self.sender = Some(sender);
+                    self.orchestrator_sender = Some(sender);
                     self.orchestrator = orchestrator;
 
-                    if let Some(sender) = self.sender.as_mut() {
-                        sender.try_send(GrooveMessage::LoadProject("low-cpu.yaml".to_string()));
-                    }
-                }
-                GrooveEvent::GrooveMessage(message) => {
-                    match message {
-                        GrooveMessage::Nop => todo!(),
-                        GrooveMessage::Tick => todo!(),
-                        GrooveMessage::EntityMessage(_, _) => todo!(),
-                        GrooveMessage::MidiFromExternal(_, _) => todo!(),
-                        GrooveMessage::MidiToExternal(channel, message) => {
-                            if let Some(sender) = self.midi_handler_sender.as_mut() {
-                                sender.try_send(MidiHandlerInput::MidiMessage(channel, message));
-                            }
-                        }
-                        GrooveMessage::AudioOutput(_) => todo!(),
-                        GrooveMessage::OutputComplete => todo!(),
-                        GrooveMessage::LoadProject(_) => todo!(),
-                    }
-                    println!("I'm the app, and I'm ignoring {:?}", message);
+                    self.post_to_orchestrator(GrooveInput::LoadProject("low-cpu.yaml".to_string()));
                 }
                 GrooveEvent::ProgressReport(_) => todo!(),
-                GrooveEvent::MidiToExternal(_, _) => todo!(),
+                GrooveEvent::MidiToExternal(channel, message) => {
+                    self.post_to_midi_handler(MidiHandlerInput::MidiMessage(channel, message));
+                }
                 GrooveEvent::AudioOutput(_) => todo!(),
                 GrooveEvent::OutputComplete => todo!(),
                 GrooveEvent::Quit => todo!(),
+                GrooveEvent::ProjectLoaded(filename) => self.project_name = filename,
             },
             AppMessage::MidiHandlerEvent(event) => match event {
                 MidiHandlerEvent::Ready(sender) => {
                     self.midi_handler_sender = Some(sender);
+                    // TODO: now that we can talk to the midi handler, we should ask it for inputs and outputs.
                 }
                 MidiHandlerEvent::MidiMessage(_, _) => todo!(),
-                MidiHandlerEvent::Quit => todo!(),
+                MidiHandlerEvent::Quit => {
+                    todo!("If we were waiting for this to shut down, then record that we're ready");
+                }
             },
         }
 
@@ -426,87 +413,17 @@ impl GrooveApp {
             .update(ClockMessage::Beats(self.clock_mirror.beats()));
     }
 
-    /// GrooveMessages returned in Orchestrator update() calls have made it all
-    /// the way up to us. Let's look at them and decide what to do. If we have
-    /// any work to do, we'll emit it in the form of one or more AppMessages.
-    ///
-    /// TODO: Should Orchestrator be handling these? Why did it give us commands
-    /// to hand back to it?
-    fn dispatch_groove_message(
-        &mut self,
-        clock: &Clock,
-        message: GrooveMessage,
-    ) -> Command<AppMessage> {
-        todo!();
-        // match self.orchestrator.update(clock, message).0 {
-        //     Internal::None => Command::none(),
-        //     Internal::Single(message) => self.handle_groove_message(clock, message),
-        //     Internal::Batch(messages) => {
-        //         Command::batch(messages.iter().fold(Vec::new(), |mut v, m| {
-        //             v.push(self.handle_groove_message(clock, m.clone()));
-        //             v
-        //         }))
-        //     }
-        // }
-    }
-    fn handle_groove_message(
-        &mut self,
-        _clock: &Clock,
-        message: GrooveMessage,
-    ) -> Command<AppMessage> {
-        match message {
-            GrooveMessage::Nop => panic!(),
-            GrooveMessage::Tick => panic!(),
-            GrooveMessage::EntityMessage(_, _) => panic!(),
-            GrooveMessage::MidiFromExternal(_, _) => panic!(),
-            GrooveMessage::MidiToExternal(_channel, _message) => {
-                panic!("This is handled in send_midi_handler_tick()")
-            }
-            GrooveMessage::AudioOutput(_) => {
-                // IOHelper::fill_audio_buffer() should have already looked at
-                // this
-            }
-            GrooveMessage::OutputComplete => {
-                // IOHelper::fill_audio_buffer() should have already looked at
-                // this
-            }
-            GrooveMessage::LoadProject(_) => todo!(),
+    fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
+        if let Some(sender) = self.midi_handler_sender.as_mut() {
+            sender.try_send(input);
         }
-        Command::none()
     }
 
-    // // TODO: these conversion routines are getting tedious. I'm not yet
-    // // convinced they're in the right place, rather than just being a very
-    // // expensive band-aid to patch holes.
-    // fn send_midi_handler_tick(&mut self) {
-    //     match self.midi.update(&self.clock, MidiHandlerMessage::Tick).0 {
-    //         Internal::None => {}
-    //         Internal::Single(_) => {
-    //             // This doesn't happen, currently
-    //             panic!("maybe it does happen after all");
-    //         }
-    //         Internal::Batch(messages) => {
-    //             let mut saw_midi_message = false;
-    //             for message in messages {
-    //                 match message {
-    //                     MidiHandlerMessage::MidiToExternal(channel, message) => {
-    //                         // self.orchestrator.update(
-    //                         //     &self.clock,
-    //                         //     GrooveMessage::MidiFromExternal(channel, message),
-    //                         // );
-    //                         todo!();
-    //                         saw_midi_message = true;
-    //                     }
-    //                     _ => todo!(),
-    //                 }
-    //             }
-    //             if saw_midi_message {
-    //                 self.midi
-    //                     .update(&self.clock, MidiHandlerMessage::Activity(Instant::now()));
-    //             }
-    //         }
-    //     }
-    //}
+    fn post_to_orchestrator(&mut self, input: GrooveInput) {
+        if let Some(sender) = self.orchestrator_sender.as_mut() {
+            sender.try_send(input);
+        }
+    }
 }
 
 pub fn main() -> iced::Result {
