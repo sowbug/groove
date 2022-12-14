@@ -8,7 +8,7 @@ use crate::{
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     settings::ClockSettings,
     traits::{BoxedEntity, HasUid, Internal, IsController, Response, Terminates, Updateable},
-    MIDI_CHANNEL_RECEIVE_ALL,
+    IOHelper, Paths, MIDI_CHANNEL_RECEIVE_ALL,
 };
 use anyhow::anyhow;
 use dipstick::InputScope;
@@ -34,15 +34,15 @@ pub struct Orchestrator<M: MessageBounds> {
 
     _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsController for Orchestrator<M> {}
-impl<M: MessageBounds> Updateable for Orchestrator<M> {
-    default type Message = M;
+//impl<M: MessageBounds> IsController for Orchestrator<M> {}
+// impl<M: MessageBounds> Updateable for Orchestrator<M> {
+//     default type Message = M;
 
-    #[allow(unused_variables)]
-    default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        todo!()
-    }
-}
+//     #[allow(unused_variables)]
+//     default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+//         todo!()
+//     }
+// }
 impl<M: MessageBounds> Terminates for Orchestrator<M> {
     fn is_finished(&self) -> bool {
         true
@@ -405,10 +405,14 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
         r
     }
 }
-impl Updateable for GrooveOrchestrator {
-    type Message = GrooveMessage;
+impl GrooveOrchestrator {
+    //type Message = GrooveMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+    pub(crate) fn update(
+        &mut self,
+        clock: &Clock,
+        message: GrooveMessage,
+    ) -> Response<GrooveMessage> {
         let mut unhandled_commands = Vec::new();
         let mut commands = Vec::new();
         commands.push(Response::single(message.clone()));
@@ -421,11 +425,11 @@ impl Updateable for GrooveOrchestrator {
             }
             while let Some(message) = messages.pop() {
                 match message {
-                    Self::Message::Nop => {}
-                    Self::Message::Tick => {
+                    GrooveMessage::Nop => {}
+                    GrooveMessage::Tick => {
                         commands.push(self.handle_tick(clock));
                     }
-                    Self::Message::EntityMessage(uid, message) => match message {
+                    GrooveMessage::EntityMessage(uid, message) => match message {
                         EntityMessage::Nop => panic!("this should never be sent"),
                         EntityMessage::Midi(channel, message) => {
                             // We could have pushed this onto the regular
@@ -459,17 +463,25 @@ impl Updateable for GrooveOrchestrator {
                                 .push(self.dispatch_and_wrap_entity_message(clock, uid, message));
                         }
                     },
-                    Self::Message::MidiFromExternal(channel, message) => {
+                    GrooveMessage::MidiFromExternal(channel, message) => {
                         commands.push(self.broadcast_midi_message(clock, channel, message));
                     }
-                    Self::Message::MidiToExternal(_, _) => {
+                    GrooveMessage::MidiToExternal(_, _) => {
                         panic!("Orchestrator should not handle MidiToExternal");
                     }
-                    Self::Message::AudioOutput(_) => {
+                    GrooveMessage::AudioOutput(_) => {
                         panic!("AudioOutput shouldn't exist at this point in the pipeline");
                     }
-                    Self::Message::OutputComplete => {
+                    GrooveMessage::OutputComplete => {
                         panic!("OutputComplete shouldn't exist at this point in the pipeline");
+                    }
+                    GrooveMessage::LoadProject(filename) => {
+                        println!("yup, I got it! {}", filename);
+                        let mut path = Paths::project_path();
+                        path.push(filename);
+                        if let Ok(settings) = IOHelper::song_settings_from_yaml_file(path.to_str().unwrap()) {
+                            *self = settings.instantiate(false).unwrap();
+                        }
                     }
                 }
             }

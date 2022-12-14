@@ -1,11 +1,16 @@
+use std::sync::{Arc, Mutex};
+
 use crate::{
     common::MonoSample,
+    gui::GrooveEvent,
     midi::{gui::PatternMessage, MidiChannel},
+    GrooveOrchestrator,
 };
+use iced::futures::channel::mpsc;
 use iced_audio::Normal;
 use midly::MidiMessage;
 
-pub trait MessageBounds: Clone + std::fmt::Debug + Default + 'static {} // TODO: that 'static scares me
+pub trait MessageBounds: Clone + std::fmt::Debug + Default + Send + 'static {} // TODO: that 'static scares me
 
 // How do you decide what's a GrooveMessage and what's an EntityMessage? Some
 // rules (I'll add as I go):
@@ -46,6 +51,8 @@ pub enum GrooveMessage {
     /// If sent, then the Orchestrator performance is done. Intended to be sent
     /// in response to a downstream Tick, and consumed by the application.
     OutputComplete,
+
+    LoadProject(String),
 }
 impl MessageBounds for GrooveMessage {}
 

@@ -3,17 +3,15 @@
 #![allow(incomplete_features)]
 #![allow(clippy::box_default)]
 
-pub use crate::clock::{Clock, TimeSignature};
-pub use crate::utils::Paths;
 pub use crate::{
+    clock::{Clock, TimeSignature},
     controllers::orchestrator::{GrooveOrchestrator, Orchestrator},
+    gui::GrooveSubscription,
     helpers::{AudioOutput, IOHelper},
     messages::GrooveMessage,
-    midi::MidiHandlerMessage,
-};
-pub use crate::{
-    midi::{MidiHandler, MidiInputStealer, MIDI_CHANNEL_RECEIVE_ALL},
+    midi::{MidiHandler, MidiHandlerMessage, MidiInputStealer, MIDI_CHANNEL_RECEIVE_ALL},
     settings::songs::SongSettings,
+    utils::Paths,
 };
 
 pub mod gui;

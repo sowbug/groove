@@ -50,8 +50,8 @@ impl SongSettings {
         Ok(settings)
     }
 
-    pub fn instantiate(&self, load_only_test_entities: bool) -> Result<Box<GrooveOrchestrator>> {
-        let mut o = Box::new(GrooveOrchestrator::default());
+    pub fn instantiate(&self, load_only_test_entities: bool) -> Result<GrooveOrchestrator> {
+        let mut o = GrooveOrchestrator::default();
         o.set_clock_settings(&self.clock);
         self.instantiate_devices(&mut o, load_only_test_entities);
         self.instantiate_patch_cables(&mut o);

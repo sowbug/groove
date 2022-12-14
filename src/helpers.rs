@@ -8,7 +8,7 @@ use crate::{
     messages::EntityMessage,
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
-    traits::{BoxedEntity, IsInstrument, Updateable},
+    traits::{BoxedEntity, IsInstrument},
     Clock, GrooveMessage, GrooveOrchestrator, Orchestrator,
 };
 use cpal::{
@@ -39,6 +39,8 @@ impl Default for AudioOutput {
     }
 }
 
+// TODO: make this smart and not start playing audio until it has enough samples
+// buffered up.
 impl AudioOutput {
     pub fn new() -> Self {
         Self::default()
