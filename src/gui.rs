@@ -20,7 +20,7 @@ use iced::{
 };
 use iced_native::subscription::{self, Subscription};
 use midly::MidiMessage;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, time::Instant};
 use std::{
     sync::{Arc, Mutex},
     thread::JoinHandle,
@@ -199,7 +199,7 @@ pub enum GrooveInput {
 #[derive(Clone, Debug)]
 pub enum GrooveEvent {
     Ready(mpsc::Sender<GrooveInput>, Arc<Mutex<GrooveOrchestrator>>),
-    ProgressReport(i32),
+    ClockUpdate(usize),
     MidiToExternal(MidiChannel, MidiMessage),
     ProjectLoaded(String),
     AudioOutput(MonoSample),
@@ -210,6 +210,8 @@ pub enum GrooveEvent {
 struct Runner {
     orchestrator: Arc<Mutex<GrooveOrchestrator>>,
     clock: Clock,
+    last_clock_update: Instant,
+
     messages: Vec<GrooveMessage>,
     sender: mpsc::Sender<GrooveEvent>,
     receiver: mpsc::Receiver<GrooveInput>,
@@ -224,6 +226,7 @@ impl Runner {
         Self {
             orchestrator,
             clock: Default::default(),
+            last_clock_update: Instant::now(),
             messages: Default::default(),
             sender,
             receiver,
@@ -280,6 +283,8 @@ impl Runner {
     pub fn do_loop(&mut self) {
         let mut is_playing = false;
         loop {
+            self.publish_clock_update();
+
             // Handle any received messages before asking Orchestrator to handle
             // Tick.
             let mut messages = Vec::new();
@@ -349,6 +354,15 @@ impl Runner {
         }
     }
 
+    /// Periodically sends out an event telling the app what time we think it is.
+    fn publish_clock_update(&mut self) {
+        let now = Instant::now();
+        if now.duration_since(self.last_clock_update).as_millis() > 15 {
+            self.post_event(GrooveEvent::ClockUpdate(self.clock.samples()));
+            self.last_clock_update = now;
+        }
+    }
+
     pub fn start_audio(&mut self) {
         let mut audio_output = AudioOutput::default();
         audio_output.start();
@@ -393,12 +407,17 @@ impl GrooveSubscription {
 
                         let event = receiver.select_next_some().await;
                         let mut done = false;
+
+                        // TODO: when you're more confident you're aware of
+                        // everything that escapes, change this to an if let
+                        // Quit
                         match event {
+                            GrooveEvent::ClockUpdate(_) => {}
+                            GrooveEvent::MidiToExternal(_, _) => {}
+                            GrooveEvent::ProjectLoaded(_) => {}
                             GrooveEvent::Quit => {
                                 done = true;
                             }
-                            GrooveEvent::MidiToExternal(_, _) => {}
-                            GrooveEvent::ProjectLoaded(_) => {}
                             _ => todo!(),
                         }
 

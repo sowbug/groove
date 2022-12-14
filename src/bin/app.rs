@@ -5,7 +5,7 @@ mod gui;
 use groove::{
     gui::{GrooveEvent, GrooveInput, GuiStuff, NUMBERS_FONT, NUMBERS_FONT_SIZE},
     Clock, GrooveOrchestrator, GrooveSubscription, MidiHandlerEvent, MidiHandlerInput,
-    MidiHandlerMessage, MidiSubscription, TimeSignature,
+    MidiHandlerMessage, MidiSubscription,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -126,7 +126,7 @@ impl ControlBar {
                 ])
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::FillPortion(1)),
-                container(self.gui_clock.view()).width(Length::FillPortion(1)),
+                container(self.gui_clock.view(clock)).width(Length::FillPortion(1)),
             ]
             .padding(8)
             .spacing(4)
@@ -139,44 +139,15 @@ impl ControlBar {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum ClockMessage {
-    TimeSignature(u8, u8),
-    Time(f32),
-    Beats(f32),
-}
-
 #[derive(Debug, Default, Clone)]
-struct GuiClock {
-    time_signature: TimeSignature,
-    seconds: f32,
-    beats: f32,
-}
+struct GuiClock {}
 
 impl GuiClock {
-    pub fn update(&mut self, message: ClockMessage) {
-        match message {
-            ClockMessage::TimeSignature(top, bottom) => {
-                // TODO: nobody sends this message. In order to send this
-                // message correctly, either Clock needs a live pointer to
-                // orchestrator, or we need to look into some way to subscribe
-                // to orchestrator changes.
-                self.time_signature = TimeSignature::new_with(top.into(), bottom.into());
-            }
-            ClockMessage::Time(value) => {
-                self.seconds = value;
-            }
-            ClockMessage::Beats(value) => {
-                self.beats = value;
-            }
-        }
-    }
-
-    pub fn view(&self) -> Element<AppMessage> {
+    pub fn view(&self, clock: &Clock) -> Element<AppMessage> {
         let time_counter = {
-            let minutes: u8 = (self.seconds / 60.0).floor() as u8;
-            let seconds = self.seconds as usize % 60;
-            let thousandths = (self.seconds.fract() * 1000.0) as u16;
+            let minutes: u8 = (clock.seconds() / 60.0).floor() as u8;
+            let seconds = clock.seconds() as usize % 60;
+            let thousandths = (clock.seconds().fract() * 1000.0) as u16;
             container(
                 text(format!("{minutes:02}:{seconds:02}:{thousandths:03}"))
                     .font(NUMBERS_FONT)
@@ -187,19 +158,20 @@ impl GuiClock {
             ))
         };
 
-        let time_signature = {
+        let time_signature = clock.settings().time_signature();
+        let time_signature_view = {
             container(column![
-                text(format!("{}", self.time_signature.top)),
-                text(format!("{}", self.time_signature.bottom))
+                text(format!("{}", time_signature.top)),
+                text(format!("{}", time_signature.bottom))
             ])
         };
 
         let beat_counter = {
-            let denom = self.time_signature.top as f32;
+            let denom = time_signature.top as f32;
 
-            let measures = (self.beats / denom) as usize;
-            let beats = (self.beats % denom) as usize;
-            let fractional = (self.beats.fract() * 10000.0) as usize;
+            let measures = (clock.beats() / denom) as usize;
+            let beats = (clock.beats() % denom) as usize;
+            let fractional = (clock.beats().fract() * 10000.0) as usize;
             container(
                 text(format!("{measures:04}m{beats:02}b{fractional:03}"))
                     .font(NUMBERS_FONT)
@@ -209,7 +181,7 @@ impl GuiClock {
                 GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
             ))
         };
-        row![time_counter, time_signature, beat_counter].into()
+        row![time_counter, time_signature_view, beat_counter].into()
     }
 }
 
@@ -281,14 +253,13 @@ impl Application for GrooveApp {
                     match self.state {
                         State::Idle => {
                             self.post_to_orchestrator(GrooveInput::Restart);
-                            self.update_clock();
                         }
                         State::Playing => self.state = State::Idle,
                     }
                 }
                 ControlBarMessage::SkipToStart => todo!(),
             },
-            AppMessage::ControlBarBpm(new_value) => {
+            AppMessage::ControlBarBpm(_new_value) => {
                 // if let Ok(bpm) = new_value.parse() {
                 //     // self.clock.settings_mut().set_bpm(bpm);
                 // }
@@ -325,7 +296,7 @@ impl Application for GrooveApp {
 
                     self.post_to_orchestrator(GrooveInput::LoadProject("low-cpu.yaml".to_string()));
                 }
-                GrooveEvent::ProgressReport(_) => todo!(),
+                GrooveEvent::ClockUpdate(samples) => self.clock_mirror.set_samples(samples),
                 GrooveEvent::MidiToExternal(channel, message) => {
                     self.post_to_midi_handler(MidiHandlerInput::MidiMessage(channel, message));
                 }
@@ -402,26 +373,17 @@ impl Application for GrooveApp {
 }
 
 impl GrooveApp {
-    fn update_clock(&mut self) {
-        // TODO law of demeter - should we be reaching in here, or just tell
-        // ControlBar?
-        self.control_bar
-            .gui_clock
-            .update(ClockMessage::Time(self.clock_mirror.seconds()));
-        self.control_bar
-            .gui_clock
-            .update(ClockMessage::Beats(self.clock_mirror.beats()));
-    }
-
     fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
         if let Some(sender) = self.midi_handler_sender.as_mut() {
-            sender.try_send(input);
+            // TODO: deal with this
+            let _ = sender.try_send(input);
         }
     }
 
     fn post_to_orchestrator(&mut self, input: GrooveInput) {
         if let Some(sender) = self.orchestrator_sender.as_mut() {
-            sender.try_send(input);
+            // TODO: deal with this
+            let _ = sender.try_send(input);
         }
     }
 }

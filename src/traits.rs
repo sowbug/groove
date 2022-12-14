@@ -699,7 +699,7 @@ pub mod tests {
         let mut instrument = TestInstrument::<TestMessage>::default();
         for _ in 0..100 {
             let mut clock = Clock::default();
-            clock.debug_set_samples(random());
+            clock.set_samples(random());
             let _ = instrument.source_audio(&clock);
         }
     }

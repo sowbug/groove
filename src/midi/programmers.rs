@@ -465,7 +465,7 @@ mod tests {
         // TODO midi_recorder.debug_messages.clear();
 
         // Move just past first note.
-        clock.debug_set_samples(1);
+        clock.set_samples(1);
 
         // Keep going until just before half of second beat. We should see the
         // first note off (not on!) and the second note on/off.

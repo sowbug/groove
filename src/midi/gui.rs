@@ -157,7 +157,7 @@ impl MidiSubscription {
                         let mut done = false;
                         match event {
                             MidiHandlerEvent::Ready(_) => todo!(),
-                            MidiHandlerEvent::MidiMessage(_, _) => todo!(),
+                            MidiHandlerEvent::MidiMessage(_, _) => {}
                             MidiHandlerEvent::Quit => {
                                 done = true;
                             }

@@ -176,6 +176,12 @@ impl Clock {
         self.settings().bpm()
     }
 
+    pub fn set_samples(&mut self, value: usize) {
+        self.was_reset = true;
+        self.samples = value;
+        self.update();
+    }
+
     /// The next_slice_in_ methods return the start of the next time slice, in
     /// whatever unit is requested. The usage is to accurately identify the
     /// range of times that a given time slice includes, rather than just doing
@@ -362,12 +368,6 @@ mod tests {
             let mut r = Self::new();
             r.debug_set_seconds(time);
             r
-        }
-
-        pub fn debug_set_samples(&mut self, value: usize) {
-            self.was_reset = true;
-            self.samples = value;
-            self.update();
         }
 
         pub fn debug_set_seconds(&mut self, value: f32) {
