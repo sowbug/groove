@@ -15,7 +15,10 @@ use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, Se
 pub use midly::MidiMessage;
 use midly::{live::LiveEvent, num::u4};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, time::{Instant, Duration}};
+use std::{
+    fmt::Debug,
+    time::{Duration, Instant},
+};
 
 #[derive(Clone, Copy, Debug, Default)]
 #[allow(dead_code)]
@@ -594,6 +597,7 @@ pub struct MidiHandler {
 
     sender: mpsc::Sender<MidiHandlerEvent>,
     receiver: mpsc::Receiver<MidiHandlerInput>,
+    messages: Vec<MidiHandlerMessage>,
 }
 impl IsController for MidiHandler {}
 impl Updateable for MidiHandler {
@@ -660,6 +664,7 @@ impl MidiHandler {
             activity_tick: Instant::now(),
             sender,
             receiver,
+            messages: Default::default(),
         }
     }
 
@@ -710,8 +715,53 @@ impl MidiHandler {
         }
     }
 
-    fn do_loop(&self) {
+    fn push_response(&mut self, response: Response<MidiHandlerMessage>) {
+        match response.0 {
+            crate::traits::Internal::None => {}
+            crate::traits::Internal::Single(message) => {
+                self.messages.push(message);
+            }
+            crate::traits::Internal::Batch(messages) => {
+                self.messages.extend(messages);
+            }
+        }
+    }
+
+    fn send_pending_messages(&mut self) {
+        while let Some(message) = self.messages.pop() {
+            match message {
+                MidiHandlerMessage::MidiToExternal(channel, message) => {
+                    let _ = self
+                        .sender
+                        .try_send(MidiHandlerEvent::MidiMessage(channel, message));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn do_loop(&mut self) {
+        let clock = Clock::default();
         loop {
+            let response = self.update(&clock, MidiHandlerMessage::Tick);
+            self.push_response(response);
+            self.send_pending_messages();
+            if let Ok(Some(input)) = self.receiver.try_next() {
+                match input {
+                    MidiHandlerInput::ChangeTheChannel => todo!(),
+                    MidiHandlerInput::MidiMessage(channel, message) => {
+                        // TODO: this is crazy right now, during this refactor,
+                        // because we're wrapping and re-wrapping messages. Get
+                        // the story straight.
+                        self.update(&clock, MidiHandlerMessage::MidiToExternal(channel, message));
+                    }
+                    MidiHandlerInput::QuitRequested => {
+                        break;
+                    }
+                }
+            }
+
+            // TODO: convert this to select on either self.receiver or midi input
             std::thread::sleep(Duration::from_millis(10));
         }
     }
