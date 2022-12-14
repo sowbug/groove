@@ -1,6 +1,6 @@
 use super::{
     patterns::{Note, Pattern, PatternManager},
-    MidiOutputHandler,
+    MidiChannel, MidiOutputHandler,
 };
 use crate::{
     gui::{GuiStuff, Viewable},
@@ -8,11 +8,15 @@ use crate::{
     MidiHandler, MidiHandlerMessage,
 };
 use iced::{
+    futures::channel::mpsc,
+    subscription,
     widget::{button, column, container, pick_list, row, text},
-    Element,
+    Element, Subscription,
 };
+use midly::MidiMessage;
 use std::{
     any::type_name,
+    thread::JoinHandle,
     time::{Duration, Instant},
 };
 
@@ -98,5 +102,94 @@ impl Viewable for PatternManager {
             column(pattern_views.collect())
         };
         GuiStuff::titled_container(title, contents.into())
+    }
+}
+
+enum State {
+    Start,
+    Ready(JoinHandle<()>, mpsc::Receiver<MidiHandlerEvent>),
+    Ending(JoinHandle<()>),
+    Idle,
+}
+
+#[derive(Clone, Debug)]
+pub enum MidiHandlerInput {
+    ChangeTheChannel,
+    MidiMessage(MidiChannel, MidiMessage),
+    QuitRequested,
+}
+
+#[derive(Clone, Debug)]
+pub enum MidiHandlerEvent {
+    Ready(mpsc::Sender<MidiHandlerInput>),
+    MidiMessage(MidiChannel, MidiMessage),
+    Quit,
+}
+
+pub struct MidiSubscription {}
+impl MidiSubscription {
+    pub fn subscription() -> Subscription<MidiHandlerEvent> {
+        subscription::unfold(
+            std::any::TypeId::of::<MidiSubscription>(),
+            State::Start,
+            |state| async move {
+                match state {
+                    State::Start => {
+                        let (app_sender, app_receiver) = mpsc::channel::<MidiHandlerInput>(1024);
+                        let (thread_sender, thread_receiver) =
+                            mpsc::channel::<MidiHandlerEvent>(1024);
+
+                        let handler = std::thread::spawn(move || {
+                            let mut midi_handler =
+                                MidiHandler::new_with(thread_sender, app_receiver);
+                            midi_handler.do_loop();
+                        });
+
+                        (
+                            Some(MidiHandlerEvent::Ready(app_sender)),
+                            State::Ready(handler, thread_receiver),
+                        )
+                    }
+                    State::Ready(handler, mut receiver) => {
+                        use iced_native::futures::StreamExt;
+
+                        let input = receiver.select_next_some().await;
+                        let mut done = false;
+                        match input {
+                            MidiHandlerEvent::Ready(_) => todo!(),
+                            MidiHandlerEvent::MidiMessage(_, _) => todo!(),
+                            MidiHandlerEvent::Quit => {
+                                done = true;
+                            }
+                        }
+
+                        (
+                            Some(input),
+                            if done {
+                                State::Ending(handler)
+                            } else {
+                                State::Ready(handler, receiver)
+                            },
+                        )
+                    }
+                    State::Ending(handler) => {
+                        if let Ok(_) = handler.join() {
+                            println!("Subscription handler.join()");
+                        }
+                        // See https://github.com/iced-rs/iced/issues/1348
+                        return (None, State::Idle);
+                    }
+                    State::Idle => {
+                        // I took this line from
+                        // https://github.com/iced-rs/iced/issues/336, but I
+                        // don't understand why it helps. I think it's necessary
+                        // for the system to get a chance to process all the
+                        // subscription results.
+                        let _: () = iced::futures::future::pending().await;
+                        (None, State::Idle)
+                    }
+                }
+            },
+        )
     }
 }

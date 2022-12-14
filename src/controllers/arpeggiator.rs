@@ -195,7 +195,7 @@ mod tests {
         controllers::sequencers::BeatSequencer,
         messages::EntityMessage,
         midi::MidiChannel,
-        traits::{Internal, TestInstrument, Updateable},
+        traits::{Internal, TestInstrument},
         Clock, GrooveMessage, Orchestrator,
     };
 

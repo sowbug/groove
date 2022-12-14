@@ -7,7 +7,7 @@ use crate::{
     metrics::DipstickWrapper,
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     settings::ClockSettings,
-    traits::{BoxedEntity, HasUid, Internal, IsController, Response, Terminates, Updateable},
+    traits::{BoxedEntity, HasUid, Internal, Response, Terminates},
     IOHelper, Paths, MIDI_CHANNEL_RECEIVE_ALL,
 };
 use anyhow::anyhow;
@@ -479,7 +479,9 @@ impl GrooveOrchestrator {
                         println!("yup, I got it! {}", filename);
                         let mut path = Paths::project_path();
                         path.push(filename);
-                        if let Ok(settings) = IOHelper::song_settings_from_yaml_file(path.to_str().unwrap()) {
+                        if let Ok(settings) =
+                            IOHelper::song_settings_from_yaml_file(path.to_str().unwrap())
+                        {
                             *self = settings.instantiate(false).unwrap();
                         }
                     }

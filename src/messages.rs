@@ -1,12 +1,7 @@
-use std::sync::{Arc, Mutex};
-
 use crate::{
     common::MonoSample,
-    gui::GrooveEvent,
     midi::{gui::PatternMessage, MidiChannel},
-    GrooveOrchestrator,
 };
-use iced::futures::channel::mpsc;
 use iced_audio::Normal;
 use midly::MidiMessage;
 

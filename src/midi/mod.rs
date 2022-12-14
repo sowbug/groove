@@ -9,12 +9,13 @@ use crate::{
     Clock,
 };
 use crossbeam::deque::{Steal, Stealer, Worker};
+use iced::futures::channel::mpsc;
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
 // TODO copy and conform to MessageBounds so it can be a trait associated type
 pub use midly::MidiMessage;
 use midly::{live::LiveEvent, num::u4};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, time::Instant};
+use std::{fmt::Debug, time::{Instant, Duration}};
 
 #[derive(Clone, Copy, Debug, Default)]
 #[allow(dead_code)]
@@ -69,6 +70,8 @@ impl MidiUtils {
 
 use enum_primitive_derive::Primitive;
 use strum_macros::Display;
+
+use self::gui::{MidiHandlerEvent, MidiHandlerInput};
 
 #[derive(Display, Primitive, Debug)]
 pub enum GeneralMidiProgram {
@@ -588,6 +591,9 @@ pub struct MidiHandler {
     midi_output: Option<MidiOutputHandler>,
 
     activity_tick: Instant,
+
+    sender: mpsc::Sender<MidiHandlerEvent>,
+    receiver: mpsc::Receiver<MidiHandlerInput>,
 }
 impl IsController for MidiHandler {}
 impl Updateable for MidiHandler {
@@ -643,8 +649,18 @@ impl HasUid for MidiHandler {
 }
 
 impl MidiHandler {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new_with(
+        sender: mpsc::Sender<MidiHandlerEvent>,
+        receiver: mpsc::Receiver<MidiHandlerInput>,
+    ) -> Self {
+        Self {
+            uid: Default::default(),
+            midi_input: Default::default(),
+            midi_output: Default::default(),
+            activity_tick: Instant::now(),
+            sender,
+            receiver,
+        }
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {
@@ -693,14 +709,10 @@ impl MidiHandler {
             }
         }
     }
-}
-impl Default for MidiHandler {
-    fn default() -> Self {
-        Self {
-            uid: Default::default(),
-            midi_input: MidiInputHandler::new().ok(),
-            midi_output: MidiOutputHandler::new().ok(),
-            activity_tick: Instant::now(),
+
+    fn do_loop(&self) {
+        loop {
+            std::thread::sleep(Duration::from_millis(10));
         }
     }
 }

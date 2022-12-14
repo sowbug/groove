@@ -179,7 +179,7 @@ impl<M: MessageBounds> Viewable for AudioSource<M> {
     type ViewMessage = M;
 }
 
-enum GrooveSubscriptionState {
+enum State {
     Start,
     Ready(JoinHandle<()>, mpsc::Receiver<GrooveMessage>),
     Ending(JoinHandle<()>),
@@ -325,10 +325,10 @@ impl GrooveSubscription {
     pub fn subscription() -> Subscription<GrooveEvent> {
         subscription::unfold(
             std::any::TypeId::of::<GrooveSubscription>(),
-            GrooveSubscriptionState::Start,
+            State::Start,
             |state| async move {
                 match state {
-                    GrooveSubscriptionState::Start => {
+                    State::Start => {
                         // This channel lets the app send us messages.
                         //
                         // TODO: what's the right number for the buffer size?
@@ -349,10 +349,10 @@ impl GrooveSubscription {
 
                         (
                             Some(GrooveEvent::Ready(app_sender, orchestrator_for_app)),
-                            GrooveSubscriptionState::Ready(handler, thread_receiver),
+                            State::Ready(handler, thread_receiver),
                         )
                     }
-                    GrooveSubscriptionState::Ready(handler, mut receiver) => {
+                    State::Ready(handler, mut receiver) => {
                         use iced_native::futures::StreamExt;
 
                         let event = receiver.select_next_some().await;
@@ -371,24 +371,24 @@ impl GrooveSubscription {
                             println!("Subscription is forwarding GrooveEvent::Quit to app");
                             (
                                 Some(GrooveEvent::Quit),
-                                GrooveSubscriptionState::Ending(handler),
+                                State::Ending(handler),
                             )
                         } else {
                             (
                                 Some(GrooveEvent::GrooveMessage(event)),
-                                GrooveSubscriptionState::Ready(handler, receiver),
+                                State::Ready(handler, receiver),
                             )
                         }
                     }
-                    GrooveSubscriptionState::Ending(handler) => {
+                    State::Ending(handler) => {
                         println!("Subscription ThingState::Ending");
                         if let Ok(_) = handler.join() {
                             println!("Subscription handler.join()");
                         }
                         // See https://github.com/iced-rs/iced/issues/1348
-                        return (None, GrooveSubscriptionState::Idle);
+                        return (None, State::Idle);
                     }
-                    GrooveSubscriptionState::Idle => {
+                    State::Idle => {
                         println!("Subscription ThingState::Idle");
 
                         // I took this line from
@@ -397,7 +397,7 @@ impl GrooveSubscription {
                         // for the system to get a chance to process all the
                         // subscription results.
                         let _: () = iced::futures::future::pending().await;
-                        (None, GrooveSubscriptionState::Idle)
+                        (None, State::Idle)
                     }
                 }
             },
