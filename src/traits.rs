@@ -20,7 +20,10 @@ use strum_macros::{Display, EnumString, FromRepr};
 /// implements Terminates, which indicates that it's done emitting events (and,
 /// in the case of timers and sequencers, done waiting for other work in the
 /// system to complete).
-pub trait IsController: Updateable + Terminates + HasUid + Viewable + std::fmt::Debug {}
+pub trait IsController:
+    Updateable + Terminates + HasUid + Viewable + Send + std::fmt::Debug
+{
+}
 
 /// An IsEffect transforms audio. It takes audio inputs and produces audio
 /// output. It does not get called unless there is audio input to provide to it
@@ -32,33 +35,26 @@ pub trait IsController: Updateable + Terminates + HasUid + Viewable + std::fmt::
 /// delay effect), and it turns out to be inconvenient for an IsController to
 /// track the end. In this case, we might add a Terminates bound for IsEffect.
 /// But right now I'm not sure that's the right solution.
-pub trait IsEffect: TransformsAudio + Updateable + HasUid + Viewable + std::fmt::Debug {}
+pub trait IsEffect:
+    TransformsAudio + Updateable + HasUid + Viewable + Send + std::fmt::Debug
+{
+}
 
 /// An IsInstrument produces audio, usually upon request from MIDI or
 /// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
 /// because it continues to create audio as long as asked.
-pub trait IsInstrument: SourcesAudio + Updateable + HasUid + Viewable + std::fmt::Debug {}
+pub trait IsInstrument:
+    SourcesAudio + Updateable + HasUid + Viewable + Send + std::fmt::Debug
+{
+}
 
 /// A future fourth trait might be named something like IsWidget or
 /// IsGuiElement. These exist only to interact with the user of a GUI app, but
 /// don't actually create or control audio.
 
-/// BoxedEntity wraps any of the major trait types to allow us to store them in
-/// a single big list. This was done for convenience at first, and it's unclear
-/// how much benefit it provides over keeping the types in separate lists and
-/// trying not to mix them up. In practice, we haven't needed to discover an
-/// entity's major type in any way that wouldn't have also been doable with
-/// separate lists.
-#[derive(Debug)]
-pub enum BoxedEntity<M> {
-    Controller(Box<dyn IsController<Message = M, ViewMessage = M>>),
-    Effect(Box<dyn IsEffect<Message = M, ViewMessage = M>>),
-    Instrument(Box<dyn IsInstrument<Message = M, ViewMessage = M>>),
-}
-
 /// An Updateable accepts new information through update() (i.e., Messages) or
 /// control parameters.
-/// 
+///
 /// Methods and messages are isomorphic, and everything could have been done
 /// through update(), but sometimes a direct method is the right solution.
 pub trait Updateable {
@@ -88,7 +84,7 @@ pub trait HasUid {
 }
 
 /// A SourcesAudio provides audio in the form of digital samples.
-pub trait SourcesAudio: std::fmt::Debug {
+pub trait SourcesAudio: std::fmt::Debug + Send {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample;
 }
 
@@ -690,7 +686,7 @@ pub mod tests {
         let mut instrument = TestInstrument::<TestMessage>::default();
         for _ in 0..100 {
             let mut clock = Clock::default();
-            clock.debug_set_samples(random());
+            clock.set_samples(random());
             let _ = instrument.source_audio(&clock);
         }
     }

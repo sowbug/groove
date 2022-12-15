@@ -1,16 +1,30 @@
 use crate::{
+    common::{MonoSample, MONO_SAMPLE_SILENCE},
     instruments::oscillators::Oscillator,
     messages::{EntityMessage, MessageBounds},
-    traits::{TestController, TestEffect, TestInstrument},
-    utils::{AudioSource, Timer, Trigger},
+    midi::MidiChannel,
+    traits::{Response, TestController, TestEffect, TestInstrument},
+    utils::{AudioSource, TestLfo, TestSynth, Timer, Trigger},
+    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, Orchestrator, TimeSignature,
 };
 use iced::{
     alignment::{Horizontal, Vertical},
+    futures::channel::mpsc,
     theme,
-    widget::{column, container, row, text},
-    Color, Element, Font, Theme,
+    widget::row,
+    Color, Element, Font,
 };
-use std::marker::PhantomData;
+use iced::{
+    widget::{column, container, text},
+    Theme,
+};
+use iced_native::subscription::{self, Subscription};
+use midly::MidiMessage;
+use std::{marker::PhantomData, time::Instant};
+use std::{
+    sync::{Arc, Mutex},
+    thread::JoinHandle,
+};
 
 pub const SMALL_FONT_SIZE: u16 = 16;
 pub const SMALL_FONT: Font = Font::External {
@@ -95,22 +109,12 @@ impl<'a, Message: 'a> GuiStuff<'a, Message> {
 
     #[allow(unused_variables)]
     pub fn titled_container_title(title: &str) -> Element<'a, Message> {
-        // let checkboxes = container(if let Some(device) = device {
-        //     row![
-        //         checkbox(
-        //             "Enabled".to_string(),
-        //             device.borrow().is_enabled(),
-        //             ViewableMessage::EnablePressed
-        //         ),
-        //         checkbox(
-        //             "Muted".to_string(),
-        //             device.borrow().is_muted(),
-        //             ViewableMessage::MutePressed
-        //         )
-        //     ]
-        // } else {
-        //     row![text("".to_string())]
-        // });
+        // let checkboxes = container(if let Some(device) = device { row![
+        //     checkbox( "Enabled".to_string(), device.borrow().is_enabled(),
+        //         ViewableMessage::EnablePressed ), checkbox(
+        //             "Muted".to_string(), device.borrow().is_muted(),
+        //             ViewableMessage::MutePressed ) ] } else {
+        //             row![text("".to_string())] });
         container(row![
             text(title.to_string())
                 .font(SMALL_FONT)
@@ -165,6 +169,12 @@ impl<M: MessageBounds> Viewable for TestEffect<M> {
 impl<M: MessageBounds> Viewable for TestInstrument<M> {
     type ViewMessage = M;
 }
+impl<M: MessageBounds> Viewable for TestLfo<M> {
+    type ViewMessage = M;
+}
+impl<M: MessageBounds> Viewable for TestSynth<M> {
+    type ViewMessage = M;
+}
 impl<M: MessageBounds> Viewable for Timer<M> {
     type ViewMessage = M;
 }
@@ -175,17 +185,299 @@ impl<M: MessageBounds> Viewable for AudioSource<M> {
     type ViewMessage = M;
 }
 
+enum State {
+    Start,
+    Ready(JoinHandle<()>, mpsc::Receiver<GrooveEvent>),
+    Ending(JoinHandle<()>),
+    Idle,
+}
+
+#[derive(Clone, Debug)]
+pub enum GrooveInput {
+    LoadProject(String),
+    Play,
+    Pause,
+    Restart,
+    Midi(MidiChannel, MidiMessage),
+    SetBpm(f32),
+    SetTimeSignature(TimeSignature),
+    QuitRequested,
+}
+
+#[derive(Clone, Debug)]
+pub enum GrooveEvent {
+    Ready(mpsc::Sender<GrooveInput>, Arc<Mutex<GrooveOrchestrator>>),
+    SetClock(usize),
+    SetBpm(f32),
+    SetTimeSignature(TimeSignature),
+    MidiToExternal(MidiChannel, MidiMessage),
+    ProjectLoaded(String),
+    AudioOutput(MonoSample),
+    OutputComplete,
+    Quit,
+}
+
+struct Runner {
+    orchestrator: Arc<Mutex<GrooveOrchestrator>>,
+    clock: Clock,
+    last_clock_update: Instant,
+
+    messages: Vec<GrooveMessage>,
+    sender: mpsc::Sender<GrooveEvent>,
+    receiver: mpsc::Receiver<GrooveInput>,
+    audio_output: Option<AudioOutput>,
+}
+impl Runner {
+    pub fn new_with(
+        orchestrator: Arc<Mutex<GrooveOrchestrator>>,
+        sender: mpsc::Sender<GrooveEvent>,
+        receiver: mpsc::Receiver<GrooveInput>,
+    ) -> Self {
+        Self {
+            orchestrator,
+            clock: Default::default(),
+            last_clock_update: Instant::now(),
+            messages: Default::default(),
+            sender,
+            receiver,
+            audio_output: None,
+        }
+    }
+
+    fn push_response(&mut self, response: Response<GrooveMessage>) {
+        match response.0 {
+            crate::traits::Internal::None => {}
+            crate::traits::Internal::Single(message) => {
+                self.messages.push(message);
+            }
+            crate::traits::Internal::Batch(messages) => {
+                self.messages.extend(messages);
+            }
+        }
+    }
+
+    fn post_event(&mut self, event: GrooveEvent) {
+        let _ = self.sender.try_send(event);
+    }
+
+    /// Processes any queued-up messages that we can handle, and sends what's
+    /// left to the app.
+    ///
+    /// Returns an audio sample if found, and returns true if the orchestrator
+    /// has indicated that it's done with its work.
+    fn handle_pending_messages(&mut self) -> (MonoSample, bool) {
+        let mut sample: MonoSample = MONO_SAMPLE_SILENCE;
+        let mut done = false;
+        while let Some(message) = self.messages.pop() {
+            match message {
+                GrooveMessage::AudioOutput(output_sample) => sample = output_sample,
+                GrooveMessage::OutputComplete => done = true,
+                GrooveMessage::MidiToExternal(channel, message) => {
+                    self.post_event(GrooveEvent::MidiToExternal(channel, message))
+                }
+                GrooveMessage::LoadedProject(filename) => {
+                    self.post_event(GrooveEvent::ProjectLoaded(filename))
+                }
+                _ => todo!(),
+            }
+        }
+        (sample, done)
+    }
+
+    fn dispatch_sample(&mut self, sample: f32) {
+        if let Some(output) = self.audio_output.as_mut() {
+            output.worker_mut().push(sample);
+        }
+    }
+
+    pub fn do_loop(&mut self) {
+        let mut is_playing = false;
+        loop {
+            self.publish_clock_update();
+
+            // Handle any received messages before asking Orchestrator to handle
+            // Tick.
+            let mut messages = Vec::new();
+            while let Ok(Some(input)) = self.receiver.try_next() {
+                match input {
+                    // TODO: many of these are in the wrong place. This loop
+                    // should be tight and dumb.
+                    GrooveInput::LoadProject(filename) => {
+                        self.clock.reset();
+                        is_playing = false;
+                        messages.push(GrooveMessage::LoadProject(filename));
+                    }
+                    GrooveInput::Play => is_playing = true,
+                    GrooveInput::Pause => is_playing = false,
+                    GrooveInput::Restart => {
+                        self.clock.reset();
+                        is_playing = true;
+                    }
+                    GrooveInput::Midi(channel, message) => {
+                        messages.push(GrooveMessage::MidiFromExternal(channel, message))
+                    }
+                    GrooveInput::QuitRequested => break,
+                    GrooveInput::SetBpm(bpm) => {
+                        if bpm != self.clock.bpm() {
+                            self.clock.set_bpm(bpm);
+                            self.publish_bpm_update();
+                        }
+                    }
+                    GrooveInput::SetTimeSignature(time_signature) => {
+                        if time_signature != self.clock.settings().time_signature() {
+                            self.clock.set_time_signature(time_signature);
+                            self.publish_time_signature_update();
+                        }
+                    }
+                }
+            }
+
+            // Forward any messages that were meant for Orchestrator.
+            // Any responses we get at this point are to messages that aren't
+            // Tick, so we can ignore the return values from
+            // send_pending_messages().
+            while let Some(message) = messages.pop() {
+                let response = if let Ok(mut o) = self.orchestrator.lock() {
+                    o.update(&mut self.clock, message)
+                } else {
+                    Response::none()
+                };
+                self.push_response(response);
+            }
+            let (_, _) = self.handle_pending_messages();
+
+            if is_playing {
+                // Send Tick to Orchestrator so it can do the bulk of its work for
+                // the loop.
+                let response = if let Ok(mut o) = self.orchestrator.lock() {
+                    o.update(&mut self.clock, GrooveMessage::Tick)
+                } else {
+                    Response::none()
+                };
+                self.push_response(response);
+
+                // Since this is a response to a Tick, we know that we got an
+                // AudioOutput and maybe an OutputComplete. Thus the return values
+                // we get here are meaningful.
+                let (sample, done) = self.handle_pending_messages();
+                if done {
+                    // TODO: I think we need to identify the edge between not done
+                    // and done, and advance the clock one more time. Or maybe what
+                    // we really need is to have two clocks, one driving the
+                    // automated note events, and the other driving the audio
+                    // processing.
+                    is_playing = false;
+                }
+
+                if is_playing {
+                    self.clock.tick();
+                    self.dispatch_sample(sample);
+                }
+            }
+        }
+    }
+
+    /// Periodically sends out an event telling the app what time we think it is.
+    fn publish_clock_update(&mut self) {
+        let now = Instant::now();
+        if now.duration_since(self.last_clock_update).as_millis() > 15 {
+            self.post_event(GrooveEvent::SetClock(self.clock.samples()));
+            self.last_clock_update = now;
+        }
+    }
+
+    fn publish_bpm_update(&mut self) {
+        self.post_event(GrooveEvent::SetBpm(self.clock.bpm()));
+    }
+
+    fn publish_time_signature_update(&mut self) {
+        self.post_event(GrooveEvent::SetTimeSignature(
+            self.clock.settings().time_signature(),
+        ));
+    }
+
+    pub fn start_audio(&mut self) {
+        let mut audio_output = AudioOutput::default();
+        audio_output.start();
+        self.audio_output = Some(audio_output);
+    }
+
+    pub fn stop_audio(&mut self) {
+        let mut audio_output = AudioOutput::default();
+        audio_output.stop();
+        self.audio_output = None;
+    }
+}
+
+pub struct GrooveSubscription {}
+impl GrooveSubscription {
+    pub fn subscription() -> Subscription<GrooveEvent> {
+        subscription::unfold(
+            std::any::TypeId::of::<GrooveSubscription>(),
+            State::Start,
+            |state| async move {
+                match state {
+                    State::Start => {
+                        // This channel lets the app send us messages.
+                        //
+                        // TODO: what's the right number for the buffer size?
+                        let (app_sender, app_receiver) = mpsc::channel::<GrooveInput>(1024);
+
+                        // This channel surfaces event messages from
+                        // Runner/Orchestrator as subscription events.
+                        let (thread_sender, thread_receiver) = mpsc::channel::<GrooveEvent>(1024);
+
+                        let orchestrator = Arc::new(Mutex::new(Orchestrator::default()));
+                        let orchestrator_for_app = Arc::clone(&orchestrator);
+                        let handler = std::thread::spawn(move || {
+                            let mut runner =
+                                Runner::new_with(orchestrator, thread_sender, app_receiver);
+                            runner.start_audio();
+                            runner.do_loop();
+                            runner.stop_audio();
+                        });
+
+                        (
+                            Some(GrooveEvent::Ready(app_sender, orchestrator_for_app)),
+                            State::Ready(handler, thread_receiver),
+                        )
+                    }
+                    State::Ready(handler, mut receiver) => {
+                        use iced_native::futures::StreamExt;
+
+                        if let GrooveEvent::Quit = receiver.select_next_some().await {
+                            (Some(GrooveEvent::Quit), State::Ending(handler))
+                        } else {
+                            (
+                                Some(receiver.select_next_some().await),
+                                State::Ready(handler, receiver),
+                            )
+                        }
+                    }
+                    State::Ending(handler) => {
+                        let _ = handler.join();
+                        // See https://github.com/iced-rs/iced/issues/1348
+                        return (None, State::Idle);
+                    }
+                    State::Idle => {
+                        // I took this line from
+                        // https://github.com/iced-rs/iced/issues/336, but I
+                        // don't understand why it helps. I think it's necessary
+                        // for the system to get a chance to process all the
+                        // subscription results.
+                        let _: () = iced::futures::future::pending().await;
+                        (None, State::Idle)
+                    }
+                }
+            },
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::any::type_name;
-
-    use iced::{
-        widget::{container, text},
-        Element,
-    };
-
     use super::{GuiStuff, Viewable};
-    use crate::utils::tests::{TestControlSourceContinuous, TestLfo, TestMixer, TestSynth};
+    use crate::utils::tests::{TestControlSourceContinuous, TestMixer};
     use crate::{
         controllers::sequencers::BeatSequencer,
         effects::{
@@ -194,14 +486,13 @@ mod tests {
         },
         messages::{tests::TestMessage, EntityMessage, MessageBounds},
     };
+    use iced::{
+        widget::{container, text},
+        Element,
+    };
+    use std::any::type_name;
 
-    impl<M: MessageBounds> Viewable for TestSynth<M> {
-        type ViewMessage = M;
-    }
     impl<M: MessageBounds> Viewable for TestMixer<M> {
-        type ViewMessage = M;
-    }
-    impl<M: MessageBounds> Viewable for TestLfo<M> {
         type ViewMessage = M;
     }
     impl<M: MessageBounds> Viewable for TestControlSourceContinuous<M> {
@@ -224,20 +515,15 @@ mod tests {
         }
     }
 
-    // impl Viewable for PatternManager {
-    //     type ViewMessage = GrooveMessage;
+    // impl Viewable for PatternManager { type ViewMessage = GrooveMessage;
 
-    //     fn view(&self) -> Element<Self::ViewMessage> {
-    //         let title = type_name::<PatternManager>();
-    //         let contents = {
-    //             let pattern_views = self.patterns().iter().enumerate().map(|(i, item)| {
-    //                 item.view()
-    //                     .map(move |message| Self::ViewMessage::PatternMessage(i, message))
-    //             });
-    //             column(pattern_views.collect())
-    //         };
-    //         GuiStuff::titled_container(title, contents.into())
-    //     }
+    //     fn view(&self) -> Element<Self::ViewMessage> { let title =
+    //         type_name::<PatternManager>(); let contents = { let pattern_views
+    //         = self.patterns().iter().enumerate().map(|(i, item)| {
+    //             item.view() .map(move |message|
+    //                 Self::ViewMessage::PatternMessage(i, message)) });
+    //                     column(pattern_views.collect()) };
+    //             GuiStuff::titled_container(title, contents.into()) }
     // }
 
     // There aren't many assertions in this method, but we know it'll panic or
@@ -257,26 +543,21 @@ mod tests {
     fn test_viewables_of_generic_entities() {
         // TODO: some of these commented-out entities could be made generic, but
         // it's a maintenance cost, and I don't know for sure if they're even
-        // useful being able to respond to TestMessaage. I think I know how to genericize entities pretty well now, so it's not
+        // useful being able to respond to TestMessaage. I think I know how to
+        // genericize entities pretty well now, so it's not
 
-        // test_one_viewable(
-        //     Box::new(WelshSynth::new_with(
-        //         44100,
-        //         SynthPatch::by_name(&PatchName::Trombone),
-        //     )),
-        //     None,
-        // );
-        // test_one_viewable(Box::new(DrumkitSampler::new_from_files()), None);
-        // test_one_viewable(Box::new(Sampler::new_with(1024)), None);
-        // TODO - test it! test_one_viewable(Mixer::new_wrapped(), None);
+        // test_one_viewable( Box::new(WelshSynth::new_with( 44100,
+        //     SynthPatch::by_name(&PatchName::Trombone), )), None, );
+        //         test_one_viewable(Box::new(DrumkitSampler::new_from_files()),
+        //         None); test_one_viewable(Box::new(Sampler::new_with(1024)),
+        //     None); TODO - test it! test_one_viewable(Mixer::new_wrapped(),
+        //     None);
         test_one_viewable(
             Box::new(Gain::<EntityMessage>::default()),
             Some(EntityMessage::UpdateParam0U8(28)),
         );
-        // test_one_viewable(
-        //     Box::new(Bitcrusher::new_with(7)),
-        //     Some(GrooveMessage::BitcrusherValueChanged(4)),
-        // );
+        // test_one_viewable( Box::new(Bitcrusher::new_with(7)),
+        //     Some(GrooveMessage::BitcrusherValueChanged(4)), );
         test_one_viewable(
             Box::new(BiQuadFilter::<EntityMessage>::new_with(
                 &FilterParams::AllPass {
@@ -287,14 +568,10 @@ mod tests {
             )),
             Some(EntityMessage::UpdateParam1F32(500.0)),
         );
-        // test_one_viewable(
-        //     Box::new(Limiter::new_with(0.0, 1.0)),
-        //     Some(GrooveMessage::LimiterMinChanged(0.5)),
-        // );
-        // test_one_viewable(
-        //     Box::new(Arpeggiator::new_with(1)),
-        //     Some(GrooveMessage::ArpeggiatorChanged(42)),
-        // );
+        // test_one_viewable( Box::new(Limiter::new_with(0.0, 1.0)),
+        //     Some(GrooveMessage::LimiterMinChanged(0.5)), );
+        //     test_one_viewable( Box::new(Arpeggiator::new_with(1)),
+        // Some(GrooveMessage::ArpeggiatorChanged(42)), );
         test_one_viewable(
             Box::new(BeatSequencer::<EntityMessage>::default()),
             Some(EntityMessage::EnablePressed(false)),

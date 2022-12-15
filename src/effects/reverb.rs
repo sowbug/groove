@@ -20,7 +20,7 @@ pub(crate) enum ReverbControlParams {
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
 #[derive(Debug, Default)]
-pub(crate) struct Reverb {
+pub struct Reverb {
     uid: usize,
 
     // How much the effect should attenuate the input.

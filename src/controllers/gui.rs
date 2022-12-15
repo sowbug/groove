@@ -6,7 +6,7 @@ use super::{
 use crate::{
     gui::{GuiStuff, Viewable},
     messages::{EntityMessage, GrooveMessage, MessageBounds},
-    Orchestrator,
+    GrooveOrchestrator, Orchestrator,
 };
 use iced::{
     widget::{column, container, text},
@@ -52,39 +52,18 @@ impl<M: MessageBounds> Viewable for Orchestrator<M> {
     }
 }
 
-impl Viewable for Orchestrator<GrooveMessage> {
+impl Viewable for GrooveOrchestrator {
     type ViewMessage = GrooveMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
-        let views = self
-            .store()
-            .iter()
-            .fold(Vec::new(), |mut v, (uid, e)| match e {
-                crate::traits::BoxedEntity::Controller(entity) => {
-                    v.push(
-                        entity
-                            .view()
-                            .map(move |message| GrooveMessage::EntityMessage(*uid, message)),
-                    );
-                    v
-                }
-                crate::traits::BoxedEntity::Effect(entity) => {
-                    v.push(
-                        entity
-                            .view()
-                            .map(move |message| GrooveMessage::EntityMessage(*uid, message)),
-                    );
-                    v
-                }
-                crate::traits::BoxedEntity::Instrument(entity) => {
-                    v.push(
-                        entity
-                            .view()
-                            .map(move |message| GrooveMessage::EntityMessage(*uid, message)),
-                    );
-                    v
-                }
-            });
+        let views = self.store().iter().fold(Vec::new(), |mut v, (uid, e)| {
+            let e = e.as_viewable();
+            v.push(
+                e.view()
+                    .map(move |message| GrooveMessage::EntityMessage(*uid, message)),
+            );
+            v
+        });
         //        let pattern_view = self.pattern_manager().view();
         column(views).into()
     }

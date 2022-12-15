@@ -2,12 +2,12 @@
 
 mod gui;
 
-use async_std::task::block_on;
 use groove::{
-    gui::{GuiStuff, Viewable, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    traits::{Internal, Updateable},
-    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, IOHelper, MidiHandler,
-    MidiHandlerMessage, TimeSignature,
+    gui::{GrooveEvent, GrooveInput, GuiStuff, NUMBERS_FONT, NUMBERS_FONT_SIZE},
+    traits::{HasUid, TestController, TestEffect, TestInstrument},
+    BeatSequencer, BoxedEntity, Clock, EntityMessage, GrooveMessage, GrooveOrchestrator,
+    GrooveSubscription, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
+    TestLfo, TestSynth, Timer,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -15,13 +15,17 @@ use gui::{
 };
 use iced::{
     alignment, executor,
+    futures::channel::mpsc,
     theme::{self, Theme},
     time,
-    widget::{button, column, container, row, scrollable, text, text_input},
+    widget::{button, column, container, pick_list, row, scrollable, text, text_input},
     Alignment, Application, Command, Element, Length, Settings, Subscription,
 };
 use iced_native::{window, Event};
-use std::time::{Duration, Instant};
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 struct GrooveApp {
     // Overhead
@@ -29,14 +33,11 @@ struct GrooveApp {
     state: State,
     should_exit: bool,
 
-    // UI components
-    control_bar: ControlBar,
-
     // Model
     project_name: String,
-    orchestrator: Box<GrooveOrchestrator>,
-    clock: Clock,
-    audio_output: AudioOutput,
+    orchestrator_sender: Option<mpsc::Sender<GrooveInput>>,
+    orchestrator: Arc<Mutex<GrooveOrchestrator>>,
+    clock_mirror: Clock, // this clock is just a cache of the real clock in Orchestrator.
 
     // This is true when playback went all the way to the end of the song. The
     // reason it's nice to track this is that after pressing play and listening
@@ -48,8 +49,7 @@ struct GrooveApp {
     // the stopped clock and get that answer.
     reached_end_of_playback: bool,
 
-    // External interfaces
-    midi: Box<MidiHandler>,
+    midi_handler_sender: Option<mpsc::Sender<MidiHandlerInput>>,
 }
 
 impl Default for GrooveApp {
@@ -58,13 +58,12 @@ impl Default for GrooveApp {
             theme: Default::default(),
             state: Default::default(),
             should_exit: Default::default(),
-            control_bar: Default::default(),
             project_name: Default::default(),
+            orchestrator_sender: Default::default(),
             orchestrator: Default::default(),
-            clock: Default::default(),
-            audio_output: Default::default(),
+            clock_mirror: Default::default(),
             reached_end_of_playback: Default::default(),
-            midi: Default::default(),
+            midi_handler_sender: Default::default(),
         }
     }
 }
@@ -80,9 +79,10 @@ enum State {
 pub enum AppMessage {
     Loaded(Result<SavedState, LoadError>),
     ControlBarMessage(ControlBarMessage),
-    ControlBarBpm(String),
     GrooveMessage(GrooveMessage),
+    GrooveEvent(GrooveEvent),
     MidiHandlerMessage(MidiHandlerMessage),
+    MidiHandlerEvent(MidiHandlerEvent),
     Tick(Instant),
     Event(iced::Event),
 }
@@ -92,123 +92,7 @@ pub enum ControlBarMessage {
     Play,
     Stop,
     SkipToStart,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct ControlBar {
-    gui_clock: GuiClock,
-}
-
-impl ControlBar {
-    pub fn view(&self, clock: &Clock) -> Element<AppMessage> {
-        container(
-            row![
-                text_input(
-                    "BPM",
-                    clock.bpm().round().to_string().as_str(),
-                    AppMessage::ControlBarBpm
-                )
-                .width(Length::Units(60)),
-                container(row![
-                    button(skip_to_prev_icon())
-                        .width(Length::Units(32))
-                        .on_press(AppMessage::ControlBarMessage(
-                            ControlBarMessage::SkipToStart
-                        )),
-                    button(play_icon())
-                        .width(Length::Units(32))
-                        .on_press(AppMessage::ControlBarMessage(ControlBarMessage::Play)),
-                    button(stop_icon())
-                        .width(Length::Units(32))
-                        .on_press(AppMessage::ControlBarMessage(ControlBarMessage::Stop))
-                ])
-                .align_x(alignment::Horizontal::Center)
-                .width(Length::FillPortion(1)),
-                container(self.gui_clock.view()).width(Length::FillPortion(1)),
-            ]
-            .padding(8)
-            .spacing(4)
-            .align_items(Alignment::Center),
-        )
-        .width(Length::Fill)
-        .padding(4)
-        .style(theme::Container::Box)
-        .into()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum ClockMessage {
-    TimeSignature(u8, u8),
-    Time(f32),
-    Beats(f32),
-}
-
-#[derive(Debug, Default, Clone)]
-struct GuiClock {
-    time_signature: TimeSignature,
-    seconds: f32,
-    beats: f32,
-}
-
-impl GuiClock {
-    pub fn update(&mut self, message: ClockMessage) {
-        match message {
-            ClockMessage::TimeSignature(top, bottom) => {
-                // TODO: nobody sends this message. In order to send this
-                // message correctly, either Clock needs a live pointer to
-                // orchestrator, or we need to look into some way to subscribe
-                // to orchestrator changes.
-                self.time_signature = TimeSignature::new_with(top.into(), bottom.into());
-            }
-            ClockMessage::Time(value) => {
-                self.seconds = value;
-            }
-            ClockMessage::Beats(value) => {
-                self.beats = value;
-            }
-        }
-    }
-
-    pub fn view(&self) -> Element<AppMessage> {
-        let time_counter = {
-            let minutes: u8 = (self.seconds / 60.0).floor() as u8;
-            let seconds = self.seconds as usize % 60;
-            let thousandths = (self.seconds.fract() * 1000.0) as u16;
-            container(
-                text(format!("{minutes:02}:{seconds:02}:{thousandths:03}"))
-                    .font(NUMBERS_FONT)
-                    .size(NUMBERS_FONT_SIZE),
-            )
-            .style(theme::Container::Custom(
-                GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
-            ))
-        };
-
-        let time_signature = {
-            container(column![
-                text(format!("{}", self.time_signature.top)),
-                text(format!("{}", self.time_signature.bottom))
-            ])
-        };
-
-        let beat_counter = {
-            let denom = self.time_signature.top as f32;
-
-            let measures = (self.beats / denom) as usize;
-            let beats = (self.beats % denom) as usize;
-            let fractional = (self.beats.fract() * 10000.0) as usize;
-            container(
-                text(format!("{measures:04}m{beats:02}b{fractional:03}"))
-                    .font(NUMBERS_FONT)
-                    .size(NUMBERS_FONT_SIZE),
-            )
-            .style(theme::Container::Custom(
-                GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
-            ))
-        };
-        row![time_counter, time_signature, beat_counter].into()
-    }
+    Bpm(String),
 }
 
 impl Application for GrooveApp {
@@ -232,26 +116,23 @@ impl Application for GrooveApp {
     }
 
     fn title(&self) -> String {
-        String::from(&self.project_name)
+        self.project_name.clone()
     }
 
     fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
         match message {
             AppMessage::Loaded(Ok(state)) => {
-                let orchestrator = state.song_settings.instantiate(false).unwrap();
+                // TODO: these are (probably) temporary until the project is
+                // loaded. Make sure they really need to be instantiated.
+                let orchestrator = GrooveOrchestrator::default();
                 let clock = Clock::new_with(orchestrator.clock_settings());
                 *self = Self {
                     theme: self.theme.clone(),
                     project_name: state.project_name,
-                    orchestrator,
-                    clock,
-                    midi: Default::default(),
+                    orchestrator: Arc::new(Mutex::new(orchestrator)),
+                    clock_mirror: clock,
                     ..Default::default()
                 };
-                self.audio_output.start();
-                if let Err(err) = self.midi.start() {
-                    println!("error starting MIDI: {}", err)
-                }
             }
             AppMessage::Loaded(Err(_e)) => {
                 todo!()
@@ -259,60 +140,99 @@ impl Application for GrooveApp {
             AppMessage::Tick(_now) => {
                 // TODO: decide what a Tick means. The app thinks it's 10
                 // milliseconds. Orchestrator thinks it's 1/sample rate.
-                self.send_orchestrator_tick();
-                self.send_midi_handler_tick();
+
+                //                self.send_midi_handler_tick();
+
+                // TODO: do we still need a tick?
             }
             AppMessage::ControlBarMessage(message) => match message {
                 // TODO: not sure if we need ticking for now. it's playing OR
                 // midi
                 ControlBarMessage::Play => {
                     if self.reached_end_of_playback {
-                        self.clock.reset();
+                        self.post_to_orchestrator(GrooveInput::Restart);
                         self.reached_end_of_playback = false;
+                    } else {
+                        self.post_to_orchestrator(GrooveInput::Play);
                     }
                     self.state = State::Playing
                 }
                 ControlBarMessage::Stop => {
+                    self.post_to_orchestrator(GrooveInput::Pause);
                     self.reached_end_of_playback = false;
                     match self.state {
                         State::Idle => {
-                            self.clock.reset();
-                            self.update_clock();
+                            self.post_to_orchestrator(GrooveInput::Restart);
                         }
                         State::Playing => self.state = State::Idle,
                     }
                 }
                 ControlBarMessage::SkipToStart => todo!(),
-            },
-            AppMessage::ControlBarBpm(new_value) => {
-                if let Ok(bpm) = new_value.parse() {
-                    self.clock.settings_mut().set_bpm(bpm);
+                ControlBarMessage::Bpm(value) => {
+                    if let Ok(bpm) = value.parse() {
+                        self.post_to_orchestrator(GrooveInput::SetBpm(bpm));
+                    }
                 }
-            }
+            },
             AppMessage::Event(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {
                     // See https://github.com/iced-rs/iced/pull/804 and
                     // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
                     //
                     // This is needed to stop an ALSA buffer underrun on close
-                    self.midi.stop();
-                    self.audio_output.stop();
 
+                    self.post_to_midi_handler(MidiHandlerInput::QuitRequested);
+                    self.post_to_orchestrator(GrooveInput::QuitRequested);
                     self.should_exit = true;
                 }
             }
-            AppMessage::GrooveMessage(message) => {
-                // TODO: we're swallowing the Responses we're getting from
-                // update()
-                //
-                // TODO: is this clock the right one to base everything off?
-                // TODO: aaaargh so much cloning
-                self.dispatch_groove_message(&self.clock.clone(), message);
-            }
             AppMessage::MidiHandlerMessage(message) => match message {
-                MidiHandlerMessage::InputSelected(which) => self.midi.select_input(which),
-                MidiHandlerMessage::OutputSelected(which) => self.midi.select_output(which),
+                // MidiHandlerMessage::InputSelected(which) => self.midi.select_input(which),
+                // MidiHandlerMessage::OutputSelected(which) => self.midi.select_output(which),
                 _ => todo!(),
+            },
+            AppMessage::GrooveEvent(event) => match event {
+                GrooveEvent::Ready(sender, orchestrator) => {
+                    self.orchestrator_sender = Some(sender);
+                    self.orchestrator = orchestrator;
+
+                    self.post_to_orchestrator(GrooveInput::LoadProject("low-cpu.yaml".to_string()));
+                }
+                GrooveEvent::SetClock(samples) => self.clock_mirror.set_samples(samples),
+                GrooveEvent::SetBpm(bpm) => self.clock_mirror.set_bpm(bpm),
+                GrooveEvent::SetTimeSignature(time_signature) => {
+                    self.clock_mirror.set_time_signature(time_signature)
+                }
+                GrooveEvent::MidiToExternal(channel, message) => {
+                    self.post_to_midi_handler(MidiHandlerInput::MidiMessage(channel, message));
+                }
+                GrooveEvent::AudioOutput(_) => todo!(),
+                GrooveEvent::OutputComplete => todo!(),
+                GrooveEvent::Quit => todo!(),
+                GrooveEvent::ProjectLoaded(filename) => self.project_name = filename,
+            },
+            AppMessage::MidiHandlerEvent(event) => match event {
+                MidiHandlerEvent::Ready(sender) => {
+                    self.midi_handler_sender = Some(sender);
+                    // TODO: now that we can talk to the midi handler, we should ask it for inputs and outputs.
+                }
+                MidiHandlerEvent::MidiMessage(_, _) => todo!("we got a MIDI message from outside"),
+                MidiHandlerEvent::Quit => {
+                    todo!("If we were waiting for this to shut down, then record that we're ready");
+                }
+            },
+            AppMessage::GrooveMessage(message) => match message {
+                GrooveMessage::Nop => todo!(),
+                GrooveMessage::Tick => todo!(),
+                GrooveMessage::EntityMessage(uid, message) => {
+                    self.update_entity(uid, message);
+                }
+                GrooveMessage::MidiFromExternal(_, _) => todo!(),
+                GrooveMessage::MidiToExternal(_, _) => todo!(),
+                GrooveMessage::AudioOutput(_) => todo!(),
+                GrooveMessage::OutputComplete => todo!(),
+                GrooveMessage::LoadProject(_) => todo!(),
+                GrooveMessage::LoadedProject(_) => todo!(),
             },
         }
 
@@ -322,6 +242,8 @@ impl Application for GrooveApp {
     fn subscription(&self) -> Subscription<AppMessage> {
         Subscription::batch([
             iced_native::subscription::events().map(AppMessage::Event),
+            GrooveSubscription::subscription().map(AppMessage::GrooveEvent),
+            MidiSubscription::subscription().map(AppMessage::MidiHandlerEvent),
             // This is duplicative because I think we'll want different activity
             // levels depending on whether we're playing
             match self.state {
@@ -349,9 +271,10 @@ impl Application for GrooveApp {
             State::Playing => {}
         }
 
-        let control_bar = self.control_bar.view(&self.clock);
-        let project_view = self.orchestrator.view().map(Self::Message::GrooveMessage);
-        let midi_view = self.midi.view().map(Self::Message::MidiHandlerMessage);
+        let control_bar = self.control_bar_view().map(AppMessage::ControlBarMessage);
+        let project_view: Element<AppMessage> =
+            self.orchestrator_view().map(AppMessage::GrooveMessage);
+        let midi_view: Element<AppMessage> = self.midi_view().map(AppMessage::MidiHandlerMessage);
         let scrollable_content = column![midi_view, project_view];
         let under_construction = text("Under Construction").width(Length::FillPortion(1));
         let scrollable = container(scrollable(scrollable_content)).width(Length::FillPortion(1));
@@ -370,121 +293,211 @@ impl Application for GrooveApp {
 }
 
 impl GrooveApp {
-    fn update_clock(&mut self) {
-        // TODO law of demeter - should we be reaching in here, or just tell
-        // ControlBar?
-        self.control_bar
-            .gui_clock
-            .update(ClockMessage::Time(self.clock.seconds()));
-        self.control_bar
-            .gui_clock
-            .update(ClockMessage::Beats(self.clock.beats()));
+    fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
+        if let Some(sender) = self.midi_handler_sender.as_mut() {
+            // TODO: deal with this
+            let _ = sender.try_send(input);
+        }
     }
 
-    /// GrooveMessages returned in Orchestrator update() calls have made it all
-    /// the way up to us. Let's look at them and decide what to do. If we have
-    /// any work to do, we'll emit it in the form of one or more AppMessages.
-    ///
-    /// TODO: Should Orchestrator be handling these? Why did it give us commands
-    /// to hand back to it?
-    fn dispatch_groove_message(
-        &mut self,
-        clock: &Clock,
-        message: GrooveMessage,
-    ) -> Command<AppMessage> {
-        match self.orchestrator.update(clock, message).0 {
-            Internal::None => Command::none(),
-            Internal::Single(message) => self.handle_groove_message(clock, message),
-            Internal::Batch(messages) => {
-                Command::batch(messages.iter().fold(Vec::new(), |mut v, m| {
-                    v.push(self.handle_groove_message(clock, m.clone()));
-                    v
-                }))
+    fn post_to_orchestrator(&mut self, input: GrooveInput) {
+        if let Some(sender) = self.orchestrator_sender.as_mut() {
+            // TODO: deal with this
+            let _ = sender.try_send(input);
+        }
+    }
+
+    fn update_entity(&mut self, uid: usize, message: EntityMessage) {
+        if let Ok(mut o) = self.orchestrator.lock() {
+            if let Some(entity) = o.store_mut().get_mut(uid) {
+                // TODO: we don't have a real clock here... solve this.
+                entity
+                    .as_updateable_mut()
+                    .update(&self.clock_mirror, message);
             }
         }
     }
-    fn handle_groove_message(
-        &mut self,
-        _clock: &Clock,
-        message: GrooveMessage,
-    ) -> Command<AppMessage> {
-        match message {
-            GrooveMessage::Nop => panic!(),
-            GrooveMessage::Tick => panic!(),
-            GrooveMessage::EntityMessage(_, _) => panic!(),
-            GrooveMessage::MidiFromExternal(_, _) => panic!(),
-            GrooveMessage::MidiToExternal(_channel, _message) => {
-                panic!("This is handled in send_midi_handler_tick()")
-            }
-            GrooveMessage::AudioOutput(_) => {
-                // IOHelper::fill_audio_buffer() should have already looked at
-                // this
-            }
-            GrooveMessage::OutputComplete => {
-                // IOHelper::fill_audio_buffer() should have already looked at
-                // this
-            }
-        }
-        Command::none()
-    }
 
-    fn send_orchestrator_tick(&mut self) {
-        if let State::Playing = &mut self.state {
-            self.update_clock();
-            let (messages, done) = block_on(IOHelper::fill_audio_buffer(
-                self.audio_output.recommended_buffer_size(),
-                &mut self.orchestrator,
-                &mut self.clock,
-                &mut self.audio_output,
-            ));
-            if done {
-                self.reached_end_of_playback = true;
-                self.state = State::Idle;
-            }
-
-            // TODO: why are we handling messages here? Why not let them pass
-            // through and get handled normally?
-            messages.iter().for_each(|m| {
-                if let GrooveMessage::MidiToExternal(channel, message) = *m {
-                    self.midi.update(
-                        &self.clock,
-                        MidiHandlerMessage::MidiToExternal(channel, message),
+    fn orchestrator_view(&self) -> Element<GrooveMessage> {
+        if let Ok(orchestrator) = self.orchestrator.lock() {
+            let views = orchestrator
+                .store()
+                .iter()
+                .fold(Vec::new(), |mut v, (&uid, e)| {
+                    v.push(
+                        self.entity_view(e)
+                            .map(move |message| GrooveMessage::EntityMessage(uid, message)),
                     );
-                }
-            });
+                    v
+                });
+            column(views).into()
+        } else {
+            panic!()
+        }
+        //        let pattern_view = self.pattern_manager().view();
+    }
+
+    fn entity_view(&self, entity: &BoxedEntity) -> Element<EntityMessage> {
+        match entity {
+            BoxedEntity::AdsrEnvelope(e) => todo!(),
+            BoxedEntity::Arpeggiator(_) => todo!(),
+            BoxedEntity::AudioSource(_) => todo!(),
+            BoxedEntity::BeatSequencer(e) => self.beat_sequencer_view(e),
+            BoxedEntity::BiQuadFilter(_) => todo!(),
+            BoxedEntity::Bitcrusher(_) => todo!(),
+            BoxedEntity::ControlTrip(_) => todo!(),
+            BoxedEntity::Delay(_) => todo!(),
+            BoxedEntity::DrumkitSampler(_) => todo!(),
+            BoxedEntity::Gain(_) => todo!(),
+            BoxedEntity::Limiter(_) => todo!(),
+            BoxedEntity::MidiTickSequencer(_) => todo!(),
+            BoxedEntity::Mixer(e) => {
+                container(text(format!("Mixer {} coming soon", e.uid()))).into()
+            }
+            BoxedEntity::Oscillator(_) => todo!(),
+            BoxedEntity::PatternManager(_) => todo!(),
+            BoxedEntity::Reverb(_) => todo!(),
+            BoxedEntity::Sampler(_) => todo!(),
+            BoxedEntity::TestController(e) => self.test_controller_view(e),
+            BoxedEntity::TestEffect(e) => self.test_effect_view(e),
+            BoxedEntity::TestInstrument(e) => self.test_instrument_view(e),
+            BoxedEntity::TestLfo(e) => self.test_lfo_view(e),
+            BoxedEntity::TestSynth(e) => self.test_synth_view(e),
+            BoxedEntity::Timer(e) => self.timer_view(e),
+            BoxedEntity::WelshSynth(e) => {
+                let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
+                container(column![
+                    text(format!("Welsh {} {} coming soon", e.uid(), e.preset_name())),
+                    pick_list(options, None, EntityMessage::PickListSelected,)
+                ])
+                .into()
+            }
+            _ => container(text("Coming soon")).into(),
         }
     }
 
-    // TODO: these conversion routines are getting tedious. I'm not yet
-    // convinced they're in the right place, rather than just being a very
-    // expensive band-aid to patch holes.
-    fn send_midi_handler_tick(&mut self) {
-        match self.midi.update(&self.clock, MidiHandlerMessage::Tick).0 {
-            Internal::None => {}
-            Internal::Single(_) => {
-                // This doesn't happen, currently
-                panic!("maybe it does happen after all");
-            }
-            Internal::Batch(messages) => {
-                let mut saw_midi_message = false;
-                for message in messages {
-                    match message {
-                        MidiHandlerMessage::MidiToExternal(channel, message) => {
-                            self.orchestrator.update(
-                                &self.clock,
-                                GrooveMessage::MidiFromExternal(channel, message),
-                            );
-                            saw_midi_message = true;
-                        }
-                        _ => todo!(),
-                    }
-                }
-                if saw_midi_message {
-                    self.midi
-                        .update(&self.clock, MidiHandlerMessage::Activity(Instant::now()));
-                }
-            }
-        }
+    fn midi_view(&self) -> Element<MidiHandlerMessage> {
+        container(text("MIDI coming soon")).into()
+    }
+
+    fn control_bar_view(&self) -> Element<ControlBarMessage> {
+        container(
+            row![
+                text_input(
+                    "BPM",
+                    self.clock_mirror.bpm().round().to_string().as_str(),
+                    ControlBarMessage::Bpm
+                )
+                .width(Length::Units(60)),
+                container(row![
+                    button(skip_to_prev_icon())
+                        .width(Length::Units(32))
+                        .on_press(ControlBarMessage::SkipToStart),
+                    button(play_icon())
+                        .width(Length::Units(32))
+                        .on_press(ControlBarMessage::Play),
+                    button(stop_icon())
+                        .width(Length::Units(32))
+                        .on_press(ControlBarMessage::Stop)
+                ])
+                .align_x(alignment::Horizontal::Center)
+                .width(Length::FillPortion(1)),
+                container(self.clock_view()).width(Length::FillPortion(1)),
+            ]
+            .padding(8)
+            .spacing(4)
+            .align_items(Alignment::Center),
+        )
+        .width(Length::Fill)
+        .padding(4)
+        .style(theme::Container::Box)
+        .into()
+    }
+
+    fn clock_view(&self) -> Element<ControlBarMessage> {
+        let time_counter = {
+            let minutes: u8 = (self.clock_mirror.seconds() / 60.0).floor() as u8;
+            let seconds = self.clock_mirror.seconds() as usize % 60;
+            let thousandths = (self.clock_mirror.seconds().fract() * 1000.0) as u16;
+            container(
+                text(format!("{minutes:02}:{seconds:02}:{thousandths:03}"))
+                    .font(NUMBERS_FONT)
+                    .size(NUMBERS_FONT_SIZE),
+            )
+            .style(theme::Container::Custom(
+                GuiStuff::<ControlBarMessage>::number_box_style(&Theme::Dark),
+            ))
+        };
+
+        let time_signature = self.clock_mirror.settings().time_signature();
+        let time_signature_view = {
+            container(column![
+                text(format!("{}", time_signature.top)),
+                text(format!("{}", time_signature.bottom))
+            ])
+        };
+
+        let beat_counter = {
+            let denom = time_signature.top as f32;
+
+            let measures = (self.clock_mirror.beats() / denom) as usize;
+            let beats = (self.clock_mirror.beats() % denom) as usize;
+            let fractional = (self.clock_mirror.beats().fract() * 10000.0) as usize;
+            container(
+                text(format!("{measures:04}m{beats:02}b{fractional:03}"))
+                    .font(NUMBERS_FONT)
+                    .size(NUMBERS_FONT_SIZE),
+            )
+            .style(theme::Container::Custom(
+                GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
+            ))
+        };
+        row![time_counter, time_signature_view, beat_counter].into()
+    }
+
+    fn beat_sequencer_view(&self, e: &BeatSequencer<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container("Sequencer", text(format!("{}", e.next_instant())).into())
+    }
+
+    fn test_controller_view(&self, e: &TestController<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container("TestController", text(format!("Tempo: {}", e.tempo)).into())
+    }
+
+    fn test_effect_view(&self, e: &TestEffect<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            "TestEffect",
+            text(format!("Value: {}", e.my_value())).into(),
+        )
+    }
+
+    fn test_instrument_view(&self, e: &TestInstrument<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            "TestInstrument",
+            text(format!("Fake value: {}", e.fake_value())).into(),
+        )
+    }
+
+    fn test_lfo_view(&self, e: &TestLfo<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            "TestLfo",
+            text(format!(
+                "Frequency: {} current value: {}",
+                e.frequency(),
+                e.value()
+            ))
+            .into(),
+        )
+    }
+
+    fn test_synth_view(&self, e: &TestSynth<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container("TestSynth", text(format!("Nothing")).into())
+    }
+
+    fn timer_view(&self, e: &Timer<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            "Timer",
+            text(format!("Runtime: {}", e.time_to_run_seconds())).into(),
+        )
     }
 }
 

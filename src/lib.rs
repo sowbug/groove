@@ -3,17 +3,22 @@
 #![allow(incomplete_features)]
 #![allow(clippy::box_default)]
 
-pub use crate::clock::{Clock, TimeSignature};
-pub use crate::utils::Paths;
 pub use crate::{
-    controllers::orchestrator::{GrooveOrchestrator, Orchestrator},
+    clock::{Clock, TimeSignature},
+    controllers::{
+        orchestrator::{GrooveOrchestrator, Orchestrator},
+        sequencers::BeatSequencer,
+    },
+    entities::BoxedEntity,
+    gui::GrooveSubscription,
     helpers::{AudioOutput, IOHelper},
-    messages::GrooveMessage,
-    midi::MidiHandlerMessage,
-};
-pub use crate::{
-    midi::{MidiHandler, MidiInputStealer, MIDI_CHANNEL_RECEIVE_ALL},
+    messages::{EntityMessage, GrooveMessage},
+    midi::{
+        gui::{MidiHandlerEvent, MidiHandlerInput, MidiSubscription},
+        MidiHandler, MidiHandlerMessage, MidiInputStealer, MIDI_CHANNEL_RECEIVE_ALL,
+    },
     settings::songs::SongSettings,
+    utils::{Paths, TestLfo, TestSynth, Timer},
 };
 
 pub mod gui;
@@ -23,6 +28,7 @@ pub(crate) mod clock;
 pub(crate) mod common;
 pub(crate) mod controllers;
 pub(crate) mod effects;
+pub(crate) mod entities;
 pub(crate) mod helpers;
 pub(crate) mod instruments;
 pub(crate) mod messages;

@@ -92,6 +92,10 @@ impl<M: MessageBounds> BeatSequencer<M> {
             self.last_event_time = when;
         }
     }
+
+    pub fn next_instant(&self) -> PerfectTimeUnit {
+        self.next_instant
+    }
 }
 
 impl Updateable for BeatSequencer<EntityMessage> {
@@ -247,10 +251,11 @@ mod tests {
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         clock::{Clock, MidiTicks},
+        entities::BoxedEntity,
         messages::EntityMessage,
         messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
-        traits::{BoxedEntity, IsController, TestInstrument},
+        traits::{IsController, TestInstrument},
         Orchestrator,
     };
 
@@ -283,7 +288,7 @@ mod tests {
 
     fn advance_to_next_beat(
         clock: &mut Clock,
-        sequencer: &mut Box<dyn IsController<Message = EntityMessage, ViewMessage = EntityMessage>>,
+        sequencer: &mut dyn IsController<Message = EntityMessage, ViewMessage = EntityMessage>,
     ) {
         let next_beat = clock.beats().floor() + 1.0;
         while clock.beats() < next_beat {
@@ -299,7 +304,7 @@ mod tests {
     // See Clock::next_slice_in_midi_ticks().
     fn advance_one_midi_tick(
         clock: &mut Clock,
-        sequencer: &mut Box<dyn IsController<Message = EntityMessage, ViewMessage = EntityMessage>>,
+        sequencer: &mut dyn IsController<Message = EntityMessage, ViewMessage = EntityMessage>,
     ) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
@@ -315,7 +320,7 @@ mod tests {
         let mut o = Orchestrator::<TestMessage>::default();
         let mut sequencer = Box::new(MidiTickSequencer::<EntityMessage>::default());
         let instrument = Box::new(TestInstrument::<EntityMessage>::default());
-        let device_uid = o.add(None, BoxedEntity::Instrument(instrument));
+        let device_uid = o.add(None, BoxedEntity::TestInstrument(instrument));
 
         sequencer.insert(
             sequencer.tick_for_beat(&clock, 0),
@@ -328,28 +333,35 @@ mod tests {
             MidiUtils::note_off_c4(),
         );
         const SEQUENCER_ID: &str = "seq";
-        let _sequencer_uid = o.add(Some(SEQUENCER_ID), BoxedEntity::Controller(sequencer));
+        let _sequencer_uid = o.add(
+            Some(SEQUENCER_ID),
+            BoxedEntity::MidiTickSequencer(sequencer),
+        );
         o.connect_midi_downstream(device_uid, DEVICE_MIDI_CHANNEL);
 
         // TODO: figure out a reasonable way to test these things once they're
         // inside Store, and their type information has been erased. Maybe we
         // can send messages asking for state. Maybe we can send things that the
         // entities themselves assert.
-        if let Some(BoxedEntity::Controller(sequencer)) = o.get_mut(SEQUENCER_ID) {
-            advance_one_midi_tick(&mut clock, sequencer);
-            {
-                // assert!(instrument.is_playing);
-                // assert_eq!(instrument.received_count, 1);
-                // assert_eq!(instrument.handled_count, 1);
+        if let Some(entity) = o.get_mut(SEQUENCER_ID) {
+            if let Some(sequencer) = entity.as_is_controller_mut() {
+                advance_one_midi_tick(&mut clock, sequencer);
+                {
+                    // assert!(instrument.is_playing);
+                    // assert_eq!(instrument.received_count, 1);
+                    // assert_eq!(instrument.handled_count, 1);
+                }
             }
         }
 
-        if let Some(BoxedEntity::Controller(sequencer)) = o.get_mut(SEQUENCER_ID) {
-            advance_to_next_beat(&mut clock, sequencer);
-            {
-                // assert!(!instrument.is_playing);
-                // assert_eq!(instrument.received_count, 2);
-                // assert_eq!(&instrument.handled_count, &2);
+        if let Some(entity) = o.get_mut(SEQUENCER_ID) {
+            if let Some(sequencer) = entity.as_is_controller_mut() {
+                advance_to_next_beat(&mut clock, sequencer);
+                {
+                    // assert!(!instrument.is_playing);
+                    // assert_eq!(instrument.received_count, 2);
+                    // assert_eq!(&instrument.handled_count, &2);
+                }
             }
         }
     }

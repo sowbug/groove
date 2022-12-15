@@ -80,13 +80,13 @@ impl SourcesAudio for Voice {
 }
 
 #[derive(Debug, Default)]
-pub struct Sampler {
+pub struct DrumkitSampler {
     uid: usize,
     note_to_voice: FxHashMap<u8, Voice>,
     pub(crate) kit_name: String,
 }
-impl IsInstrument for Sampler {}
-impl SourcesAudio for Sampler {
+impl IsInstrument for DrumkitSampler {}
+impl SourcesAudio for DrumkitSampler {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         self.note_to_voice
             .values_mut()
@@ -94,7 +94,7 @@ impl SourcesAudio for Sampler {
             .sum()
     }
 }
-impl Updateable for Sampler {
+impl Updateable for DrumkitSampler {
     type Message = EntityMessage;
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
@@ -125,7 +125,7 @@ impl Updateable for Sampler {
         Response::none()
     }
 }
-impl HasUid for Sampler {
+impl HasUid for DrumkitSampler {
     fn uid(&self) -> usize {
         self.uid
     }
@@ -134,7 +134,7 @@ impl HasUid for Sampler {
         self.uid = uid;
     }
 }
-impl Sampler {
+impl DrumkitSampler {
     fn new() -> Self {
         Default::default()
     }
@@ -193,6 +193,6 @@ mod tests {
 
     #[test]
     fn test_loading() {
-        let _ = Sampler::new_from_files();
+        let _ = DrumkitSampler::new_from_files();
     }
 }

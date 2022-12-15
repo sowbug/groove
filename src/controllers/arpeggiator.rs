@@ -195,8 +195,8 @@ mod tests {
         controllers::sequencers::BeatSequencer,
         messages::EntityMessage,
         midi::MidiChannel,
-        traits::{Internal, TestInstrument, Updateable},
-        Clock, GrooveMessage, Orchestrator,
+        traits::{Internal, TestInstrument},
+        Clock, GrooveMessage, Orchestrator, entities::BoxedEntity,
     };
 
     use super::Arpeggiator;
@@ -233,11 +233,11 @@ mod tests {
             },
         );
 
-        let arpeggiator_uid = o.add(None, crate::traits::BoxedEntity::Controller(arpeggiator));
+        let arpeggiator_uid = o.add(None, BoxedEntity::Arpeggiator(arpeggiator));
         o.connect_midi_downstream(arpeggiator_uid, MIDI_CHANNEL_SEQUENCER_TO_ARP);
-        let instrument_uid = o.add(None, crate::traits::BoxedEntity::Instrument(instrument));
+        let instrument_uid = o.add(None, BoxedEntity::TestInstrument(instrument));
         o.connect_midi_downstream(instrument_uid, MIDI_CHANNEL_ARP_TO_INSTRUMENT);
-        let _sequencer_uid = o.add(None, crate::traits::BoxedEntity::Controller(sequencer));
+        let _sequencer_uid = o.add(None, BoxedEntity::BeatSequencer(sequencer));
 
         let clock = Clock::default();
         let command = o.update(&clock, GrooveMessage::Tick);

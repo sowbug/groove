@@ -3,12 +3,13 @@ use crate::{
     clock::Clock,
     common::{MonoSample, MONO_SAMPLE_SILENCE},
     effects::mixer::Mixer,
+    entities::BoxedEntity,
     messages::{EntityMessage, GrooveMessage, MessageBounds},
     metrics::DipstickWrapper,
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     settings::ClockSettings,
-    traits::{BoxedEntity, HasUid, Internal, IsController, Response, Terminates, Updateable},
-    MIDI_CHANNEL_RECEIVE_ALL,
+    traits::{HasUid, Internal, Response, Terminates},
+    IOHelper, Paths, MIDI_CHANNEL_RECEIVE_ALL,
 };
 use anyhow::anyhow;
 use dipstick::InputScope;
@@ -24,7 +25,7 @@ pub type GrooveOrchestrator = Orchestrator<GrooveMessage>;
 pub struct Orchestrator<M: MessageBounds> {
     uid: usize,
     clock_settings: ClockSettings,
-    store: Store<EntityMessage>,
+    store: Store,
     main_mixer_uid: usize,
     pattern_manager: PatternManager, // TODO: one of these things is not like the others
 
@@ -34,15 +35,15 @@ pub struct Orchestrator<M: MessageBounds> {
 
     _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsController for Orchestrator<M> {}
-impl<M: MessageBounds> Updateable for Orchestrator<M> {
-    default type Message = M;
+//impl<M: MessageBounds> IsController for Orchestrator<M> {}
+// impl<M: MessageBounds> Updateable for Orchestrator<M> {
+//     default type Message = M;
 
-    #[allow(unused_variables)]
-    default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        todo!()
-    }
-}
+//     #[allow(unused_variables)]
+//     default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+//         todo!()
+//     }
+// }
 impl<M: MessageBounds> Terminates for Orchestrator<M> {
     fn is_finished(&self) -> bool {
         true
@@ -73,13 +74,11 @@ impl<M: MessageBounds> Orchestrator<M> {
         self.clock_settings = clock_settings.clone();
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn store(&self) -> &Store<EntityMessage> {
+    pub fn store(&self) -> &Store {
         &self.store
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn store_mut(&mut self) -> &mut Store<EntityMessage> {
+    pub fn store_mut(&mut self) -> &mut Store {
         &mut self.store
     }
 
@@ -90,7 +89,7 @@ impl<M: MessageBounds> Orchestrator<M> {
             .insert(uid, self.metrics.bucket.timer(name.as_str()));
     }
 
-    pub fn add(&mut self, uvid: Option<&str>, entity: BoxedEntity<EntityMessage>) -> usize {
+    pub fn add(&mut self, uvid: Option<&str>, entity: BoxedEntity) -> usize {
         self.metrics.entity_count.mark();
         let uid = self.store.add(uvid, entity);
         self.install_entity_metric(uvid, uid);
@@ -98,12 +97,12 @@ impl<M: MessageBounds> Orchestrator<M> {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get(&self, uvid: &str) -> Option<&BoxedEntity<EntityMessage>> {
+    pub(crate) fn get(&self, uvid: &str) -> Option<&BoxedEntity> {
         self.store.get_by_uvid(uvid)
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity<EntityMessage>> {
+    pub(crate) fn get_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity> {
         self.store.get_by_uvid_mut(uvid)
     }
 
@@ -118,15 +117,13 @@ impl<M: MessageBounds> Orchestrator<M> {
         param_name: &str,
     ) {
         if let Some(target) = self.store.get(target_uid) {
-            let param_id = match target {
-                BoxedEntity::Controller(e) => e.param_id_for_name(param_name),
-                BoxedEntity::Effect(e) => e.param_id_for_name(param_name),
-                BoxedEntity::Instrument(e) => e.param_id_for_name(param_name),
-            };
+            let param_id = target.as_updateable().param_id_for_name(param_name);
 
-            if let Some(BoxedEntity::Controller(_controller)) = self.store.get(controller_uid) {
-                self.store
-                    .link_control(controller_uid, target_uid, param_id);
+            if let Some(entity) = self.store.get(controller_uid) {
+                if entity.as_is_controller().is_some() {
+                    self.store
+                        .link_control(controller_uid, target_uid, param_id);
+                }
             }
         }
     }
@@ -141,14 +138,11 @@ impl<M: MessageBounds> Orchestrator<M> {
 
         // Validate that input_uid refers to something that has audio input
         if let Some(input) = self.store.get(input_uid) {
-            match input {
-                // TODO: there could be things that have audio input but
-                // don't transform, like an audio recorder (or technically a
-                // main mixer).
-                BoxedEntity::Effect(_) => {}
-                _ => {
-                    return Err(anyhow!("Item {:?} doesn't transform audio", input));
-                }
+            // TODO: there could be things that have audio input but
+            // don't transform, like an audio recorder (or technically a
+            // main mixer).
+            if input.as_is_effect().is_none() {
+                return Err(anyhow!("Item {:?} doesn't transform audio", input));
             }
         } else {
             return Err(anyhow!("Couldn't find input_uid {}", input_uid));
@@ -156,7 +150,7 @@ impl<M: MessageBounds> Orchestrator<M> {
 
         // Validate that source_uid refers to something that outputs audio
         if let Some(output) = self.store.get(output_uid) {
-            if let BoxedEntity::Controller(_) = output {
+            if output.as_is_controller().is_some() {
                 return Err(anyhow!("Item {:?} doesn't output audio", output));
             }
         } else {
@@ -214,11 +208,12 @@ impl<M: MessageBounds> Orchestrator<M> {
     }
 
     pub(crate) fn are_all_finished(&mut self) -> bool {
-        self.store.values().all(|item| match item {
-            // TODO: seems like just one kind needs this
-            BoxedEntity::Controller(entity) => entity.is_finished(),
-            BoxedEntity::Effect(_) => true,
-            BoxedEntity::Instrument(_) => true,
+        self.store.values().all(|item| {
+            if let Some(item) = item.as_terminates() {
+                item.is_finished()
+            } else {
+                true
+            }
         })
     }
 
@@ -261,36 +256,34 @@ impl<M: MessageBounds> Orchestrator<M> {
                     // up the patch cables. So I think it's six of one, a
                     // half-dozen of another.
                     if let Some(entity) = self.store.get_mut(uid) {
-                        match entity {
-                            // If it's a leaf, eval it now and add it to the
-                            // running sum.
-                            BoxedEntity::Instrument(entity) => {
-                                if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
-                                    let start_time = timer.start();
-                                    sum += entity.source_audio(clock);
-                                    timer.stop(start_time);
-                                } else {
-                                    sum += entity.source_audio(clock);
-                                }
+                        // If it's a leaf, eval it now and add it to the
+                        // running sum.
+                        if let Some(entity) = entity.as_is_instrument_mut() {
+                            if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
+                                let start_time = timer.start();
+                                sum += entity.source_audio(clock);
+                                timer.stop(start_time);
+                            } else {
+                                sum += entity.source_audio(clock);
                             }
-                            // If it's a node, push its children on the stack, then evaluate the result.
-                            BoxedEntity::Effect(_) => {
-                                // Tell us to process sum.
-                                stack.push(StackEntry::CollectResultFor(uid, sum));
-                                sum = MONO_SAMPLE_SILENCE;
-                                if let Some(source_uids) = self.store.patches(uid) {
-                                    for &source_uid in &source_uids.to_vec() {
-                                        debug_assert!(source_uid != uid);
-                                        stack.push(StackEntry::ToVisit(source_uid));
-                                    }
-                                } else {
-                                    // an effect is at the end of a chain. This
-                                    // should be harmless (but probably
-                                    // confusing for the end user; might want to
-                                    // flag it).
+                        } else if entity.as_is_effect().is_some() {
+                            // If it's a node, push its children on the stack,
+                            // then evaluate the result.
+
+                            // Tell us to process sum.
+                            stack.push(StackEntry::CollectResultFor(uid, sum));
+                            sum = MONO_SAMPLE_SILENCE;
+                            if let Some(source_uids) = self.store.patches(uid) {
+                                for &source_uid in &source_uids.to_vec() {
+                                    debug_assert!(source_uid != uid);
+                                    stack.push(StackEntry::ToVisit(source_uid));
                                 }
+                            } else {
+                                // an effect is at the end of a chain. This
+                                // should be harmless (but probably
+                                // confusing for the end user; might want to
+                                // flag it).
                             }
-                            BoxedEntity::Controller(_) => {}
                         }
                     }
                 }
@@ -302,21 +295,16 @@ impl<M: MessageBounds> Orchestrator<M> {
                 // whole tree and zip through it, as mentioned earlier.
                 StackEntry::CollectResultFor(uid, accumulated_sum) => {
                     if let Some(entity) = self.store.get_mut(uid) {
-                        match entity {
-                            BoxedEntity::Instrument(_) => {}
-                            BoxedEntity::Effect(entity) => {
-                                sum = accumulated_sum
-                                    + if let Some(timer) = self.metrics.entity_audio_times.get(&uid)
-                                    {
-                                        let start_time = timer.start();
-                                        let transform_audio = entity.transform_audio(clock, sum);
-                                        timer.stop(start_time);
-                                        transform_audio
-                                    } else {
-                                        entity.transform_audio(clock, sum)
-                                    };
-                            }
-                            BoxedEntity::Controller(_) => {}
+                        if let Some(entity) = entity.as_is_effect_mut() {
+                            sum = accumulated_sum
+                                + if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
+                                    let start_time = timer.start();
+                                    let transform_audio = entity.transform_audio(clock, sum);
+                                    timer.stop(start_time);
+                                    transform_audio
+                                } else {
+                                    entity.transform_audio(clock, sum)
+                                };
                         }
                     }
                 }
@@ -335,12 +323,7 @@ impl<M: MessageBounds> Orchestrator<M> {
         message: EntityMessage,
     ) -> Response<EntityMessage> {
         if let Some(target) = self.store.get_mut(uid) {
-            match target {
-                // TODO: everyone is the same...
-                BoxedEntity::Controller(e) => e.update(clock, message),
-                BoxedEntity::Instrument(e) => e.update(clock, message),
-                BoxedEntity::Effect(e) => e.update(clock, message),
-            }
+            target.as_updateable_mut().update(clock, message)
         } else {
             Response::none()
         }
@@ -400,15 +383,19 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
         let main_mixer = Box::new(Mixer::default());
         r.main_mixer_uid = r.add(
             Some(Orchestrator::<M>::MAIN_MIXER_UVID),
-            BoxedEntity::Effect(main_mixer),
+            BoxedEntity::Mixer(main_mixer),
         );
         r
     }
 }
-impl Updateable for GrooveOrchestrator {
-    type Message = GrooveMessage;
+impl GrooveOrchestrator {
+    //type Message = GrooveMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+    pub(crate) fn update(
+        &mut self,
+        clock: &Clock,
+        message: GrooveMessage,
+    ) -> Response<GrooveMessage> {
         let mut unhandled_commands = Vec::new();
         let mut commands = Vec::new();
         commands.push(Response::single(message.clone()));
@@ -421,11 +408,11 @@ impl Updateable for GrooveOrchestrator {
             }
             while let Some(message) = messages.pop() {
                 match message {
-                    Self::Message::Nop => {}
-                    Self::Message::Tick => {
+                    GrooveMessage::Nop => {}
+                    GrooveMessage::Tick => {
                         commands.push(self.handle_tick(clock));
                     }
-                    Self::Message::EntityMessage(uid, message) => match message {
+                    GrooveMessage::EntityMessage(uid, message) => match message {
                         EntityMessage::Nop => panic!("this should never be sent"),
                         EntityMessage::Midi(channel, message) => {
                             // We could have pushed this onto the regular
@@ -459,17 +446,33 @@ impl Updateable for GrooveOrchestrator {
                                 .push(self.dispatch_and_wrap_entity_message(clock, uid, message));
                         }
                     },
-                    Self::Message::MidiFromExternal(channel, message) => {
+                    GrooveMessage::MidiFromExternal(channel, message) => {
                         commands.push(self.broadcast_midi_message(clock, channel, message));
                     }
-                    Self::Message::MidiToExternal(_, _) => {
+                    GrooveMessage::MidiToExternal(_, _) => {
                         panic!("Orchestrator should not handle MidiToExternal");
                     }
-                    Self::Message::AudioOutput(_) => {
+                    GrooveMessage::AudioOutput(_) => {
                         panic!("AudioOutput shouldn't exist at this point in the pipeline");
                     }
-                    Self::Message::OutputComplete => {
+                    GrooveMessage::OutputComplete => {
                         panic!("OutputComplete shouldn't exist at this point in the pipeline");
+                    }
+                    GrooveMessage::LoadProject(filename) => {
+                        let mut path = Paths::project_path();
+                        path.push(filename.clone());
+                        if let Ok(settings) =
+                            IOHelper::song_settings_from_yaml_file(path.to_str().unwrap())
+                        {
+                            if let Ok(instance) = settings.instantiate(false) {
+                                *self = instance;
+                                unhandled_commands
+                                    .push(Response::single(GrooveMessage::LoadedProject(filename)));
+                            }
+                        }
+                    }
+                    GrooveMessage::LoadedProject(_) => {
+                        panic!("this is only sent by us, never received")
                     }
                 }
             }
@@ -669,9 +672,9 @@ impl GrooveOrchestrator {
 }
 
 #[derive(Debug, Default)]
-pub struct Store<M> {
+pub struct Store {
     last_uid: usize,
-    uid_to_item: FxHashMap<usize, BoxedEntity<M>>,
+    uid_to_item: FxHashMap<usize, BoxedEntity>,
 
     // Linked controls (one entity controls another entity's parameter)
     uid_to_control: FxHashMap<usize, Vec<(usize, usize)>>,
@@ -685,14 +688,10 @@ pub struct Store<M> {
     uvid_to_uid: FxHashMap<String, usize>,
 }
 
-impl<M> Store<M> {
-    pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: BoxedEntity<M>) -> usize {
+impl Store {
+    pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: BoxedEntity) -> usize {
         let uid = self.get_next_uid();
-        match entity {
-            BoxedEntity::Controller(ref mut e) => e.set_uid(uid),
-            BoxedEntity::Effect(ref mut e) => e.set_uid(uid),
-            BoxedEntity::Instrument(ref mut e) => e.set_uid(uid),
-        }
+        entity.as_has_uid_mut().set_uid(uid);
 
         self.uid_to_item.insert(uid, entity);
         if let Some(uvid) = uvid {
@@ -701,15 +700,15 @@ impl<M> Store<M> {
         uid
     }
 
-    pub(crate) fn get(&self, uid: usize) -> Option<&BoxedEntity<M>> {
+    pub(crate) fn get(&self, uid: usize) -> Option<&BoxedEntity> {
         self.uid_to_item.get(&uid)
     }
 
-    pub(crate) fn get_mut(&mut self, uid: usize) -> Option<&mut BoxedEntity<M>> {
+    pub fn get_mut(&mut self, uid: usize) -> Option<&mut BoxedEntity> {
         self.uid_to_item.get_mut(&uid)
     }
 
-    pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&BoxedEntity<M>> {
+    pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&BoxedEntity> {
         if let Some(uid) = self.uvid_to_uid.get(uvid) {
             self.uid_to_item.get(uid)
         } else {
@@ -717,7 +716,7 @@ impl<M> Store<M> {
         }
     }
 
-    pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity<M>> {
+    pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity> {
         if let Some(uid) = self.uvid_to_uid.get(uvid) {
             self.uid_to_item.get_mut(uid)
         } else {
@@ -729,18 +728,18 @@ impl<M> Store<M> {
         self.uvid_to_uid.get(uvid).copied()
     }
 
-    pub(crate) fn iter(&self) -> std::collections::hash_map::Iter<usize, BoxedEntity<M>> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<usize, BoxedEntity> {
         self.uid_to_item.iter()
     }
 
-    pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, BoxedEntity<M>> {
+    pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, BoxedEntity> {
         self.uid_to_item.values()
     }
 
     #[allow(dead_code)]
     pub(crate) fn values_mut(
         &mut self,
-    ) -> std::collections::hash_map::ValuesMut<usize, BoxedEntity<M>> {
+    ) -> std::collections::hash_map::ValuesMut<usize, BoxedEntity> {
         self.uid_to_item.values_mut()
     }
 
@@ -748,12 +747,8 @@ impl<M> Store<M> {
         self.uid_to_item
             .values()
             .fold(Vec::new(), |mut v, e| {
-                match e {
-                    BoxedEntity::Controller(e) => {
-                        v.push(e.uid());
-                    }
-                    BoxedEntity::Effect(_) => {}
-                    BoxedEntity::Instrument(_) => {}
+                if e.as_is_controller().is_some() {
+                    v.push(e.as_has_uid().uid());
                 };
                 v
             })
@@ -855,8 +850,9 @@ pub mod tests {
         clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
         effects::gain::Gain,
+        entities::BoxedEntity,
         messages::{tests::TestMessage, EntityMessage},
-        traits::{BoxedEntity, Internal, Response, Updateable},
+        traits::{Internal, Response, Updateable},
         utils::{AudioSource, Timer},
         GrooveMessage, MIDI_CHANNEL_RECEIVE_ALL,
     };
@@ -1097,11 +1093,11 @@ pub mod tests {
         let mut o = Orchestrator::<GrooveMessage>::default();
         let level_1_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.1))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
         );
         let level_2_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.2))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.2))),
         );
 
         let clock = Clock::default();
@@ -1127,20 +1123,20 @@ pub mod tests {
         let mut o = Orchestrator::<GrooveMessage>::default();
         let level_1_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.1))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
         );
-        let gain_1_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.5))));
+        let gain_1_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.5))));
         let level_2_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.2))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.2))),
         );
         let level_3_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.3))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.3))),
         );
         let level_4_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.4))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.4))),
         );
         let clock = Clock::default();
 
@@ -1190,26 +1186,26 @@ pub mod tests {
         let mut o = Orchestrator::<GrooveMessage>::default();
         let piano_1_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.1))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
         );
-        let low_pass_1_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.2))));
-        let gain_1_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.4))));
+        let low_pass_1_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.2))));
+        let gain_1_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.4))));
 
         let bassline_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.3))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.3))),
         );
-        let gain_2_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.6))));
+        let gain_2_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.6))));
 
         let synth_1_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.5))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.5))),
         );
-        let gain_3_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.8))));
+        let gain_3_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.8))));
 
         let drum_1_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.7))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.7))),
         );
 
         // First chain.
@@ -1274,17 +1270,17 @@ pub mod tests {
         let mut o = Orchestrator::<GrooveMessage>::default();
         let instrument_1_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.1))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
         );
         let instrument_2_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.3))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.3))),
         );
         let instrument_3_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(AudioSource::new_with(0.5))),
+            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.5))),
         );
-        let effect_1_uid = o.add(None, BoxedEntity::Effect(Box::new(Gain::new_with(0.5))));
+        let effect_1_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.5))));
 
         assert!(o.patch_chain_to_main_mixer(&[instrument_1_uid]).is_ok());
         assert!(o.patch_chain_to_main_mixer(&[effect_1_uid]).is_ok());
@@ -1296,10 +1292,7 @@ pub mod tests {
     #[test]
     fn test_orchestrator_sample_count_is_accurate() {
         let mut o = Orchestrator::<GrooveMessage>::default();
-        let _ = o.add(
-            None,
-            BoxedEntity::Controller(Box::new(Timer::new_with(1.0))),
-        );
+        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(1.0))));
         let mut clock = Clock::default();
         if let Ok(samples) = o.run(&mut clock) {
             assert_eq!(samples.len(), 44100);

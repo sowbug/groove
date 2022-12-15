@@ -1,10 +1,7 @@
 use super::MidiChannel;
 use crate::{
-    clock::BeatValue,
-    common::DeviceId,
-    controllers::arpeggiator::Arpeggiator,
-    messages::EntityMessage,
-    traits::{IsController, TestController},
+    clock::BeatValue, common::DeviceId, controllers::arpeggiator::Arpeggiator,
+    entities::BoxedEntity, messages::EntityMessage, traits::TestController,
 };
 use serde::{Deserialize, Serialize};
 
@@ -103,11 +100,7 @@ impl ControllerSettings {
     pub(crate) fn instantiate(
         &self,
         load_only_test_entities: bool,
-    ) -> (
-        MidiChannel,
-        MidiChannel,
-        Box<dyn IsController<Message = EntityMessage, ViewMessage = EntityMessage>>,
-    ) {
+    ) -> (MidiChannel, MidiChannel, BoxedEntity) {
         if load_only_test_entities {
             let (midi_input_channel, midi_output_channel) = match self {
                 ControllerSettings::Test {
@@ -122,9 +115,9 @@ impl ControllerSettings {
             return (
                 *midi_input_channel,
                 *midi_output_channel,
-                Box::new(TestController::<EntityMessage>::new_with(
+                BoxedEntity::TestController(Box::new(TestController::<EntityMessage>::new_with(
                     *midi_output_channel,
-                )),
+                ))),
             );
         }
         match *self {
@@ -134,9 +127,9 @@ impl ControllerSettings {
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                Box::new(TestController::<EntityMessage>::new_with(
+                BoxedEntity::TestController(Box::new(TestController::<EntityMessage>::new_with(
                     midi_output_channel,
-                )),
+                ))),
             ),
             ControllerSettings::Arpeggiator {
                 midi_input_channel,
@@ -144,7 +137,7 @@ impl ControllerSettings {
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                Box::new(Arpeggiator::new_with(midi_output_channel)),
+                BoxedEntity::Arpeggiator(Box::new(Arpeggiator::new_with(midi_output_channel))),
             ),
         }
     }

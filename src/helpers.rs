@@ -1,14 +1,13 @@
 use crate::{
     common::MonoSample,
     controllers::{sequencers::MidiTickSequencer, Performance},
+    entities::BoxedEntity,
     instruments::{
-        drumkit_sampler::Sampler,
+        drumkit_sampler::DrumkitSampler,
         welsh::{PatchName, WelshSynth},
     },
-    messages::EntityMessage,
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
-    traits::{BoxedEntity, IsInstrument, Updateable},
     Clock, GrooveMessage, GrooveOrchestrator, Orchestrator,
 };
 use cpal::{
@@ -39,6 +38,8 @@ impl Default for AudioOutput {
     }
 }
 
+// TODO: make this smart and not start playing audio until it has enough samples
+// buffered up.
 impl AudioOutput {
     pub fn new() -> Self {
         Self::default()
@@ -239,22 +240,23 @@ impl IOHelper {
 
         let mut sequencer = Box::new(MidiTickSequencer::default());
         MidiSmfReader::program_sequencer(&mut sequencer, &data);
-        let sequencer_uid = orchestrator.add(None, BoxedEntity::Controller(sequencer));
+        let sequencer_uid = orchestrator.add(None, BoxedEntity::MidiTickSequencer(sequencer));
         orchestrator.connect_midi_upstream(sequencer_uid);
 
         // TODO: this is a hack. We need only the number of channels used in the
         // SMF, but a few idle ones won't hurt for now.
         for channel in 0..16 {
-            let synth: Box<dyn IsInstrument<Message = EntityMessage, ViewMessage = EntityMessage>> =
+            let synth_uid = orchestrator.add(
+                None,
                 if channel == 9 {
-                    Box::new(Sampler::new_from_files())
+                    BoxedEntity::DrumkitSampler(Box::new(DrumkitSampler::new_from_files()))
                 } else {
-                    Box::new(WelshSynth::new_with(
+                    BoxedEntity::WelshSynth(Box::new(WelshSynth::new_with(
                         ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
                         SynthPatch::by_name(&PatchName::Piano),
-                    ))
-                };
-            let synth_uid = orchestrator.add(None, BoxedEntity::Instrument(synth));
+                    )))
+                },
+            );
             orchestrator.connect_midi_downstream(synth_uid, channel);
             let _ = orchestrator.connect_to_main_mixer(synth_uid);
         }

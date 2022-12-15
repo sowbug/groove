@@ -9,8 +9,9 @@ use crate::{
         mixer::Mixer,
         reverb::Reverb,
     },
+    entities::BoxedEntity,
     messages::EntityMessage,
-    traits::{IsEffect, TestEffect},
+    traits::TestEffect,
 };
 use serde::{Deserialize, Serialize};
 
@@ -61,58 +62,81 @@ impl EffectSettings {
         &self,
         sample_rate: usize,
         load_only_test_entities: bool,
-    ) -> Box<dyn IsEffect<Message = EntityMessage, ViewMessage = EntityMessage>> {
+    ) -> BoxedEntity {
         if load_only_test_entities {
-            return Box::new(TestEffect::<EntityMessage>::default());
+            return BoxedEntity::TestEffect(Box::new(TestEffect::<EntityMessage>::default()));
         }
         match *self {
-            EffectSettings::Test {} => Box::new(TestEffect::<EntityMessage>::default()),
-            EffectSettings::Mixer {} => Box::new(Mixer::<EntityMessage>::default()),
-            EffectSettings::Limiter { min, max } => {
-                Box::new(Limiter::new_with(min as MonoSample, max as MonoSample))
+            EffectSettings::Test {} => {
+                BoxedEntity::TestEffect(Box::new(TestEffect::<EntityMessage>::default()))
             }
-            EffectSettings::Gain { ceiling } => Box::new(Gain::<EntityMessage>::new_with(ceiling)),
+            EffectSettings::Mixer {} => {
+                BoxedEntity::Mixer(Box::new(Mixer::<EntityMessage>::default()))
+            }
+            EffectSettings::Limiter { min, max } => BoxedEntity::Limiter(Box::new(
+                Limiter::new_with(min as MonoSample, max as MonoSample),
+            )),
+            EffectSettings::Gain { ceiling } => {
+                BoxedEntity::Gain(Box::new(Gain::<EntityMessage>::new_with(ceiling)))
+            }
             EffectSettings::Bitcrusher { bits_to_crush } => {
-                Box::new(Bitcrusher::new_with(bits_to_crush))
+                BoxedEntity::Bitcrusher(Box::new(Bitcrusher::new_with(bits_to_crush)))
             }
-            EffectSettings::FilterLowPass12db { cutoff, q } => Box::new(BiQuadFilter::new_with(
-                &FilterParams::LowPass { cutoff, q },
-                sample_rate,
+            EffectSettings::FilterLowPass12db { cutoff, q } => BoxedEntity::BiQuadFilter(Box::new(
+                BiQuadFilter::new_with(&FilterParams::LowPass { cutoff, q }, sample_rate),
             )),
-            EffectSettings::FilterHighPass12db { cutoff, q } => Box::new(BiQuadFilter::new_with(
-                &FilterParams::HighPass { cutoff, q },
-                sample_rate,
+            EffectSettings::FilterHighPass12db { cutoff, q } => {
+                BoxedEntity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+                    &FilterParams::HighPass { cutoff, q },
+                    sample_rate,
+                )))
+            }
+            EffectSettings::FilterBandPass12db { cutoff, bandwidth } => {
+                BoxedEntity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+                    &FilterParams::BandPass { cutoff, bandwidth },
+                    sample_rate,
+                )))
+            }
+            EffectSettings::FilterBandStop12db { cutoff, bandwidth } => {
+                BoxedEntity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+                    &FilterParams::BandStop { cutoff, bandwidth },
+                    sample_rate,
+                )))
+            }
+            EffectSettings::FilterAllPass12db { cutoff, q } => BoxedEntity::BiQuadFilter(Box::new(
+                BiQuadFilter::new_with(&FilterParams::AllPass { cutoff, q }, sample_rate),
             )),
-            EffectSettings::FilterBandPass12db { cutoff, bandwidth } => Box::new(
-                BiQuadFilter::new_with(&FilterParams::BandPass { cutoff, bandwidth }, sample_rate),
-            ),
-            EffectSettings::FilterBandStop12db { cutoff, bandwidth } => Box::new(
-                BiQuadFilter::new_with(&FilterParams::BandStop { cutoff, bandwidth }, sample_rate),
-            ),
-            EffectSettings::FilterAllPass12db { cutoff, q } => Box::new(BiQuadFilter::new_with(
-                &FilterParams::AllPass { cutoff, q },
-                sample_rate,
-            )),
-            EffectSettings::FilterPeakingEq12db { cutoff, db_gain } => Box::new(
-                BiQuadFilter::new_with(&FilterParams::PeakingEq { cutoff, db_gain }, sample_rate),
-            ),
-            EffectSettings::FilterLowShelf12db { cutoff, db_gain } => Box::new(
-                BiQuadFilter::new_with(&FilterParams::LowShelf { cutoff, db_gain }, sample_rate),
-            ),
-            EffectSettings::FilterHighShelf12db { cutoff, db_gain } => Box::new(
-                BiQuadFilter::new_with(&FilterParams::HighShelf { cutoff, db_gain }, sample_rate),
-            ),
-            EffectSettings::Delay { delay } => Box::new(Delay::new_with(sample_rate, delay)),
+            EffectSettings::FilterPeakingEq12db { cutoff, db_gain } => {
+                BoxedEntity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+                    &FilterParams::PeakingEq { cutoff, db_gain },
+                    sample_rate,
+                )))
+            }
+            EffectSettings::FilterLowShelf12db { cutoff, db_gain } => {
+                BoxedEntity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+                    &FilterParams::LowShelf { cutoff, db_gain },
+                    sample_rate,
+                )))
+            }
+            EffectSettings::FilterHighShelf12db { cutoff, db_gain } => {
+                BoxedEntity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+                    &FilterParams::HighShelf { cutoff, db_gain },
+                    sample_rate,
+                )))
+            }
+            EffectSettings::Delay { delay } => {
+                BoxedEntity::Delay(Box::new(Delay::new_with(sample_rate, delay)))
+            }
             EffectSettings::Reverb {
                 dry_pct,
                 attenuation,
                 reverb_seconds,
-            } => Box::new(Reverb::new_with(
+            } => BoxedEntity::Reverb(Box::new(Reverb::new_with(
                 sample_rate,
                 dry_pct,
                 attenuation,
                 reverb_seconds,
-            )),
+            ))),
         }
     }
 }
