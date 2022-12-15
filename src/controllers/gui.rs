@@ -6,7 +6,7 @@ use super::{
 use crate::{
     gui::{GuiStuff, Viewable},
     messages::{EntityMessage, GrooveMessage, MessageBounds},
-    Orchestrator,
+    GrooveOrchestrator, Orchestrator,
 };
 use iced::{
     widget::{column, container, text},
@@ -52,7 +52,7 @@ impl<M: MessageBounds> Viewable for Orchestrator<M> {
     }
 }
 
-impl Viewable for Orchestrator<GrooveMessage> {
+impl Viewable for GrooveOrchestrator {
     type ViewMessage = GrooveMessage;
 
     fn view(&self) -> Element<Self::ViewMessage> {
