@@ -111,6 +111,8 @@ pub enum EntityMessage {
     /// iced_audio convention.
     HSliderInt(Normal),
 
+    PickListSelected(String),
+
     // Temp things
     MutePressed(bool),
     EnablePressed(bool),

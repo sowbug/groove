@@ -1,3 +1,4 @@
+use super::{envelopes::AdsrEnvelope, oscillators::Oscillator};
 use crate::{
     common::MonoSample,
     effects::filter::{BiQuadFilter, FilterParams},
@@ -17,8 +18,6 @@ use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_1_SQRT_2;
 use strum_macros::{Display, EnumIter};
-
-use super::{envelopes::AdsrEnvelope, oscillators::Oscillator};
 
 #[derive(Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -757,6 +756,10 @@ impl WelshSynth {
             preset,
             ..Default::default()
         }
+    }
+
+    pub fn preset_name(&self) -> &str {
+        self.preset.name.as_str()
     }
 
     // // TODO: this has unlimited-voice polyphony. Should we limit to a fixed number?

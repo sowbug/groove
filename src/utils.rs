@@ -32,6 +32,10 @@ impl<M: MessageBounds> Timer<M> {
             ..Default::default()
         }
     }
+
+    pub fn time_to_run_seconds(&self) -> f32 {
+        self.time_to_run_seconds
+    }
 }
 impl<M: MessageBounds> Terminates for Timer<M> {
     fn is_finished(&self) -> bool {
@@ -259,6 +263,10 @@ impl<M: MessageBounds> TestSynth<M> {
             ..Default::default()
         }
     }
+
+    pub fn oscillator_modulation(&self) -> f32 {
+        self.oscillator.frequency_modulation()
+    }
 }
 impl<M: MessageBounds> Default for TestSynth<M> {
     fn default() -> Self {
@@ -273,6 +281,8 @@ impl<M: MessageBounds> Default for TestSynth<M> {
 
 impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        // TODO: I don't think this can play sounds, because I don't see how the
+        // envelope ever gets triggered.
         self.oscillator.source_audio(clock) * self.envelope.source_audio(clock)
     }
 }
@@ -338,6 +348,7 @@ pub(crate) enum TestLfoControlParams {
 #[derive(Debug, Default)]
 pub struct TestLfo<M: MessageBounds> {
     uid: usize,
+    value: MonoSample,
     oscillator: Oscillator,
     _phantom: PhantomData<M>,
 }
@@ -371,8 +382,8 @@ impl Updateable for TestLfo<EntityMessage> {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         if let Self::Message::Tick = message {
-            let value = self.oscillator.source_audio(clock);
-            Response::single(Self::Message::ControlF32(value))
+            self.value = self.oscillator.source_audio(clock);
+            Response::single(Self::Message::ControlF32(self.value))
         } else {
             Response::none()
         }
@@ -394,9 +405,17 @@ impl<M: MessageBounds> Terminates for TestLfo<M> {
     }
 }
 impl<M: MessageBounds> TestLfo<M> {
+    pub fn frequency(&self) -> f32 {
+        self.oscillator.frequency()
+    }
+
     #[allow(dead_code)]
-    fn set_frequency(&mut self, frequency_hz: f32) {
+    pub fn set_frequency(&mut self, frequency_hz: f32) {
         self.oscillator.set_frequency(frequency_hz);
+    }
+
+    pub fn value(&self) -> f32 {
+        self.value
     }
 }
 

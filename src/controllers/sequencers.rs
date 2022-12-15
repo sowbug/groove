@@ -92,6 +92,10 @@ impl<M: MessageBounds> BeatSequencer<M> {
             self.last_event_time = when;
         }
     }
+
+    pub fn next_instant(&self) -> PerfectTimeUnit {
+        self.next_instant
+    }
 }
 
 impl Updateable for BeatSequencer<EntityMessage> {

@@ -74,8 +74,12 @@ impl<M: MessageBounds> Orchestrator<M> {
         self.clock_settings = clock_settings.clone();
     }
 
-    pub(crate) fn store(&self) -> &Store {
+    pub fn store(&self) -> &Store {
         &self.store
+    }
+
+    pub fn store_mut(&mut self) -> &mut Store {
+        &mut self.store
     }
 
     fn install_entity_metric(&mut self, uvid: Option<&str>, uid: usize) {
@@ -700,7 +704,7 @@ impl Store {
         self.uid_to_item.get(&uid)
     }
 
-    pub(crate) fn get_mut(&mut self, uid: usize) -> Option<&mut BoxedEntity> {
+    pub fn get_mut(&mut self, uid: usize) -> Option<&mut BoxedEntity> {
         self.uid_to_item.get_mut(&uid)
     }
 
@@ -724,7 +728,7 @@ impl Store {
         self.uvid_to_uid.get(uvid).copied()
     }
 
-    pub(crate) fn iter(&self) -> std::collections::hash_map::Iter<usize, BoxedEntity> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<usize, BoxedEntity> {
         self.uid_to_item.iter()
     }
 

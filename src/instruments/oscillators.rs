@@ -190,6 +190,14 @@ impl Oscillator {
     pub fn set_waveform(&mut self, waveform: WaveformType) {
         self.waveform = waveform;
     }
+
+    pub fn frequency_modulation(&self) -> f32 {
+        self.frequency_modulation
+    }
+
+    pub fn frequency(&self) -> f32 {
+        self.frequency
+    }
 }
 
 #[cfg(test)]

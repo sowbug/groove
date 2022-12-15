@@ -401,6 +401,12 @@ impl Runner {
         audio_output.start();
         self.audio_output = Some(audio_output);
     }
+
+    pub fn stop_audio(&mut self) {
+        let mut audio_output = AudioOutput::default();
+        audio_output.stop();
+        self.audio_output = None;
+    }
 }
 
 pub struct GrooveSubscription {}
@@ -428,6 +434,7 @@ impl GrooveSubscription {
                                 Runner::new_with(orchestrator, thread_sender, app_receiver);
                             runner.start_audio();
                             runner.do_loop();
+                            runner.stop_audio();
                         });
 
                         (

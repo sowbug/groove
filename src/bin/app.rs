@@ -4,8 +4,10 @@ mod gui;
 
 use groove::{
     gui::{GrooveEvent, GrooveInput, GuiStuff, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    Clock, GrooveMessage, GrooveOrchestrator, GrooveSubscription, MidiHandlerEvent,
-    MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
+    traits::{HasUid, TestController, TestEffect, TestInstrument},
+    BeatSequencer, BoxedEntity, Clock, EntityMessage, GrooveMessage, GrooveOrchestrator,
+    GrooveSubscription, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
+    TestLfo, TestSynth, Timer,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -16,7 +18,7 @@ use iced::{
     futures::channel::mpsc,
     theme::{self, Theme},
     time,
-    widget::{button, column, container, row, scrollable, text, text_input},
+    widget::{button, column, container, pick_list, row, scrollable, text, text_input},
     Alignment, Application, Command, Element, Length, Settings, Subscription,
 };
 use iced_native::{window, Event};
@@ -219,9 +221,19 @@ impl Application for GrooveApp {
                     todo!("If we were waiting for this to shut down, then record that we're ready");
                 }
             },
-            AppMessage::GrooveMessage(message) => {
-                todo!("got {:?}", message)
-            }
+            AppMessage::GrooveMessage(message) => match message {
+                GrooveMessage::Nop => todo!(),
+                GrooveMessage::Tick => todo!(),
+                GrooveMessage::EntityMessage(uid, message) => {
+                    self.update_entity(uid, message);
+                }
+                GrooveMessage::MidiFromExternal(_, _) => todo!(),
+                GrooveMessage::MidiToExternal(_, _) => todo!(),
+                GrooveMessage::AudioOutput(_) => todo!(),
+                GrooveMessage::OutputComplete => todo!(),
+                GrooveMessage::LoadProject(_) => todo!(),
+                GrooveMessage::LoadedProject(_) => todo!(),
+            },
         }
 
         Command::none()
@@ -295,8 +307,73 @@ impl GrooveApp {
         }
     }
 
+    fn update_entity(&mut self, uid: usize, message: EntityMessage) {
+        if let Ok(mut o) = self.orchestrator.lock() {
+            if let Some(entity) = o.store_mut().get_mut(uid) {
+                // TODO: we don't have a real clock here... solve this.
+                entity
+                    .as_updateable_mut()
+                    .update(&self.clock_mirror, message);
+            }
+        }
+    }
+
     fn orchestrator_view(&self) -> Element<GrooveMessage> {
-        container(text("orchestrator coming soon")).into()
+        if let Ok(orchestrator) = self.orchestrator.lock() {
+            let views = orchestrator
+                .store()
+                .iter()
+                .fold(Vec::new(), |mut v, (&uid, e)| {
+                    v.push(
+                        self.entity_view(e)
+                            .map(move |message| GrooveMessage::EntityMessage(uid, message)),
+                    );
+                    v
+                });
+            column(views).into()
+        } else {
+            panic!()
+        }
+        //        let pattern_view = self.pattern_manager().view();
+    }
+
+    fn entity_view(&self, entity: &BoxedEntity) -> Element<EntityMessage> {
+        match entity {
+            BoxedEntity::AdsrEnvelope(e) => todo!(),
+            BoxedEntity::Arpeggiator(_) => todo!(),
+            BoxedEntity::AudioSource(_) => todo!(),
+            BoxedEntity::BeatSequencer(e) => self.beat_sequencer_view(e),
+            BoxedEntity::BiQuadFilter(_) => todo!(),
+            BoxedEntity::Bitcrusher(_) => todo!(),
+            BoxedEntity::ControlTrip(_) => todo!(),
+            BoxedEntity::Delay(_) => todo!(),
+            BoxedEntity::DrumkitSampler(_) => todo!(),
+            BoxedEntity::Gain(_) => todo!(),
+            BoxedEntity::Limiter(_) => todo!(),
+            BoxedEntity::MidiTickSequencer(_) => todo!(),
+            BoxedEntity::Mixer(e) => {
+                container(text(format!("Mixer {} coming soon", e.uid()))).into()
+            }
+            BoxedEntity::Oscillator(_) => todo!(),
+            BoxedEntity::PatternManager(_) => todo!(),
+            BoxedEntity::Reverb(_) => todo!(),
+            BoxedEntity::Sampler(_) => todo!(),
+            BoxedEntity::TestController(e) => self.test_controller_view(e),
+            BoxedEntity::TestEffect(e) => self.test_effect_view(e),
+            BoxedEntity::TestInstrument(e) => self.test_instrument_view(e),
+            BoxedEntity::TestLfo(e) => self.test_lfo_view(e),
+            BoxedEntity::TestSynth(e) => self.test_synth_view(e),
+            BoxedEntity::Timer(e) => self.timer_view(e),
+            BoxedEntity::WelshSynth(e) => {
+                let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
+                container(column![
+                    text(format!("Welsh {} {} coming soon", e.uid(), e.preset_name())),
+                    pick_list(options, None, EntityMessage::PickListSelected,)
+                ])
+                .into()
+            }
+            _ => container(text("Coming soon")).into(),
+        }
     }
 
     fn midi_view(&self) -> Element<MidiHandlerMessage> {
@@ -376,6 +453,51 @@ impl GrooveApp {
             ))
         };
         row![time_counter, time_signature_view, beat_counter].into()
+    }
+
+    fn beat_sequencer_view(&self, e: &BeatSequencer<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container("Sequencer", text(format!("{}", e.next_instant())).into())
+    }
+
+    fn test_controller_view(&self, e: &TestController<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container("TestController", text(format!("Tempo: {}", e.tempo)).into())
+    }
+
+    fn test_effect_view(&self, e: &TestEffect<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            "TestEffect",
+            text(format!("Value: {}", e.my_value())).into(),
+        )
+    }
+
+    fn test_instrument_view(&self, e: &TestInstrument<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            "TestInstrument",
+            text(format!("Fake value: {}", e.fake_value())).into(),
+        )
+    }
+
+    fn test_lfo_view(&self, e: &TestLfo<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            "TestLfo",
+            text(format!(
+                "Frequency: {} current value: {}",
+                e.frequency(),
+                e.value()
+            ))
+            .into(),
+        )
+    }
+
+    fn test_synth_view(&self, e: &TestSynth<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container("TestSynth", text(format!("Nothing")).into())
+    }
+
+    fn timer_view(&self, e: &Timer<EntityMessage>) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            "Timer",
+            text(format!("Runtime: {}", e.time_to_run_seconds())).into(),
+        )
     }
 }
 

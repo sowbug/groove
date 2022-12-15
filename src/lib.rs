@@ -5,16 +5,20 @@
 
 pub use crate::{
     clock::{Clock, TimeSignature},
-    controllers::orchestrator::{GrooveOrchestrator, Orchestrator},
+    controllers::{
+        orchestrator::{GrooveOrchestrator, Orchestrator},
+        sequencers::BeatSequencer,
+    },
+    entities::BoxedEntity,
     gui::GrooveSubscription,
     helpers::{AudioOutput, IOHelper},
-    messages::GrooveMessage,
-    midi::gui::MidiHandlerEvent,
-    midi::gui::MidiHandlerInput,
-    midi::gui::MidiSubscription,
-    midi::{MidiHandler, MidiHandlerMessage, MidiInputStealer, MIDI_CHANNEL_RECEIVE_ALL},
+    messages::{EntityMessage, GrooveMessage},
+    midi::{
+        gui::{MidiHandlerEvent, MidiHandlerInput, MidiSubscription},
+        MidiHandler, MidiHandlerMessage, MidiInputStealer, MIDI_CHANNEL_RECEIVE_ALL,
+    },
     settings::songs::SongSettings,
-    utils::Paths,
+    utils::{Paths, TestLfo, TestSynth, Timer},
 };
 
 pub mod gui;
