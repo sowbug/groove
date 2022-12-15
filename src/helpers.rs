@@ -2,7 +2,7 @@ use crate::{
     common::MonoSample,
     controllers::{sequencers::MidiTickSequencer, Performance},
     instruments::{
-        drumkit_sampler::Sampler,
+        drumkit_sampler::DrumkitSampler,
         welsh::{PatchName, WelshSynth},
     },
     messages::EntityMessage,
@@ -249,7 +249,7 @@ impl IOHelper {
         for channel in 0..16 {
             let synth: Box<dyn IsInstrument<Message = EntityMessage, ViewMessage = EntityMessage>> =
                 if channel == 9 {
-                    Box::new(Sampler::new_from_files())
+                    Box::new(DrumkitSampler::new_from_files())
                 } else {
                     Box::new(WelshSynth::new_with(
                         ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
