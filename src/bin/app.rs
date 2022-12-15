@@ -4,8 +4,8 @@ mod gui;
 
 use groove::{
     gui::{GrooveEvent, GrooveInput, GuiStuff, NUMBERS_FONT, NUMBERS_FONT_SIZE},
-    Clock, GrooveOrchestrator, GrooveSubscription, MidiHandlerEvent, MidiHandlerInput,
-    MidiHandlerMessage, MidiSubscription,
+    Clock, GrooveMessage, GrooveOrchestrator, GrooveSubscription, MidiHandlerEvent,
+    MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -82,6 +82,7 @@ pub enum AppMessage {
     Loaded(Result<SavedState, LoadError>),
     ControlBarMessage(ControlBarMessage),
     ControlBarBpm(String),
+    GrooveMessage(GrooveMessage),
     GrooveEvent(GrooveEvent),
     MidiHandlerMessage(MidiHandlerMessage),
     MidiHandlerEvent(MidiHandlerEvent),
@@ -310,11 +311,14 @@ impl Application for GrooveApp {
                     self.midi_handler_sender = Some(sender);
                     // TODO: now that we can talk to the midi handler, we should ask it for inputs and outputs.
                 }
-                MidiHandlerEvent::MidiMessage(_, _) => todo!(),
+                MidiHandlerEvent::MidiMessage(_, _) => todo!("we got a MIDI message from outside"),
                 MidiHandlerEvent::Quit => {
                     todo!("If we were waiting for this to shut down, then record that we're ready");
                 }
             },
+            AppMessage::GrooveMessage(message) => {
+                todo!("got {:?}", message)
+            }
         }
 
         Command::none()
@@ -353,8 +357,10 @@ impl Application for GrooveApp {
         }
 
         let control_bar = self.control_bar.view(&self.clock_mirror);
-        let project_view: Element<AppMessage> = container(text("coming soon")).into(); //self.orchestrator.view().map(Self::Message::GrooveMessage);
-        let midi_view: Element<AppMessage> = container(text("coming soon")).into(); //self.midi.view().map(Self::Message::MidiHandlerMessage);
+        let project_view: Element<AppMessage> =
+            self.orchestrator_view().map(Self::Message::GrooveMessage);
+        let midi_view: Element<AppMessage> =
+            self.midi_view().map(Self::Message::MidiHandlerMessage);
         let scrollable_content = column![midi_view, project_view];
         let under_construction = text("Under Construction").width(Length::FillPortion(1));
         let scrollable = container(scrollable(scrollable_content)).width(Length::FillPortion(1));
@@ -373,6 +379,14 @@ impl Application for GrooveApp {
 }
 
 impl GrooveApp {
+    fn orchestrator_view(&self) -> Element<GrooveMessage> {
+        container(text("orchestrator coming soon")).into()
+    }
+
+    fn midi_view(&self) -> Element<MidiHandlerMessage> {
+        container(text("MIDI coming soon")).into()
+    }
+
     fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
         if let Some(sender) = self.midi_handler_sender.as_mut() {
             // TODO: deal with this
