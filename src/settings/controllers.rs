@@ -16,32 +16,33 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub enum ControlStep {
-    // stairstep
+    /// Stairstep: one value per step.
     Flat {
         value: f32,
     },
-    // linear
+    /// Linear: start at one value and end at another.
     Slope {
         start: f32,
         end: f32,
     },
 
-    // curved, but it starts out fast and ends up slow.
+    /// Curved; starts out changing quickly and ends up changing slowly.
     Logarithmic {
         start: f32,
         end: f32,
     },
 
-    // curved, but it starts out slow and ends up fast.
+    /// Curved; starts out changing slowly and ends up changing quickly.
     Exponential {
         start: f32,
         end: f32,
     },
 
-    // event-driven
+    /// Event-driven (TODO)
     #[allow(dead_code)]
     Triggered {
-        // TODO: if we implement this, then ControlTrips are also ControlSinks.
+        // TODO: if we implement this, then ControlTrips themselves
+        // controllable.
     },
 }
 
