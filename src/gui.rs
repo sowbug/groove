@@ -5,7 +5,7 @@ use crate::{
     midi::MidiChannel,
     traits::{Response, TestController, TestEffect, TestInstrument},
     utils::{AudioSource, TestLfo, TestSynth, Timer, Trigger},
-    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, Orchestrator,
+    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, Orchestrator, TimeSignature,
 };
 use iced::{
     alignment::{Horizontal, Vertical},
@@ -199,13 +199,17 @@ pub enum GrooveInput {
     Pause,
     Restart,
     Midi(MidiChannel, MidiMessage),
-    Quit,
+    SetBpm(f32),
+    SetTimeSignature(TimeSignature),
+    QuitRequested,
 }
 
 #[derive(Clone, Debug)]
 pub enum GrooveEvent {
     Ready(mpsc::Sender<GrooveInput>, Arc<Mutex<GrooveOrchestrator>>),
-    ClockUpdate(usize),
+    SetClock(usize),
+    SetBpm(f32),
+    SetTimeSignature(TimeSignature),
     MidiToExternal(MidiChannel, MidiMessage),
     ProjectLoaded(String),
     AudioOutput(MonoSample),
@@ -295,8 +299,9 @@ impl Runner {
             // Tick.
             let mut messages = Vec::new();
             while let Ok(Some(input)) = self.receiver.try_next() {
-                println!("{:?}", input);
                 match input {
+                    // TODO: many of these are in the wrong place. This loop
+                    // should be tight and dumb.
                     GrooveInput::LoadProject(filename) => {
                         self.clock.reset();
                         is_playing = false;
@@ -311,7 +316,19 @@ impl Runner {
                     GrooveInput::Midi(channel, message) => {
                         messages.push(GrooveMessage::MidiFromExternal(channel, message))
                     }
-                    GrooveInput::Quit => break,
+                    GrooveInput::QuitRequested => break,
+                    GrooveInput::SetBpm(bpm) => {
+                        if bpm != self.clock.bpm() {
+                            self.clock.set_bpm(bpm);
+                            self.publish_bpm_update();
+                        }
+                    }
+                    GrooveInput::SetTimeSignature(time_signature) => {
+                        if time_signature != self.clock.settings().time_signature() {
+                            self.clock.set_time_signature(time_signature);
+                            self.publish_time_signature_update();
+                        }
+                    }
                 }
             }
 
@@ -364,9 +381,19 @@ impl Runner {
     fn publish_clock_update(&mut self) {
         let now = Instant::now();
         if now.duration_since(self.last_clock_update).as_millis() > 15 {
-            self.post_event(GrooveEvent::ClockUpdate(self.clock.samples()));
+            self.post_event(GrooveEvent::SetClock(self.clock.samples()));
             self.last_clock_update = now;
         }
+    }
+
+    fn publish_bpm_update(&mut self) {
+        self.post_event(GrooveEvent::SetBpm(self.clock.bpm()));
+    }
+
+    fn publish_time_signature_update(&mut self) {
+        self.post_event(GrooveEvent::SetTimeSignature(
+            self.clock.settings().time_signature(),
+        ));
     }
 
     pub fn start_audio(&mut self) {
@@ -411,40 +438,21 @@ impl GrooveSubscription {
                     State::Ready(handler, mut receiver) => {
                         use iced_native::futures::StreamExt;
 
-                        let event = receiver.select_next_some().await;
-                        let mut done = false;
-
-                        // TODO: when you're more confident you're aware of
-                        // everything that escapes, change this to an if let
-                        // Quit
-                        match event {
-                            GrooveEvent::ClockUpdate(_) => {}
-                            GrooveEvent::MidiToExternal(_, _) => {}
-                            GrooveEvent::ProjectLoaded(_) => {}
-                            GrooveEvent::Quit => {
-                                done = true;
-                            }
-                            _ => todo!(),
-                        }
-
-                        if done {
-                            println!("Subscription is forwarding GrooveEvent::Quit to app");
+                        if let GrooveEvent::Quit = receiver.select_next_some().await {
                             (Some(GrooveEvent::Quit), State::Ending(handler))
                         } else {
-                            (Some(event), State::Ready(handler, receiver))
+                            (
+                                Some(receiver.select_next_some().await),
+                                State::Ready(handler, receiver),
+                            )
                         }
                     }
                     State::Ending(handler) => {
-                        println!("Subscription ThingState::Ending");
-                        if let Ok(_) = handler.join() {
-                            println!("Subscription handler.join()");
-                        }
+                        let _ = handler.join();
                         // See https://github.com/iced-rs/iced/issues/1348
                         return (None, State::Idle);
                     }
                     State::Idle => {
-                        println!("Subscription ThingState::Idle");
-
                         // I took this line from
                         // https://github.com/iced-rs/iced/issues/336, but I
                         // don't understand why it helps. I think it's necessary

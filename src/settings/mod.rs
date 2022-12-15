@@ -118,6 +118,10 @@ impl ClockSettings {
     pub fn beats_per_sample(&self) -> f32 {
         (self.bpm() / 60.0) / self.sample_rate() as f32
     }
+
+    pub(crate) fn set_time_signature(&mut self, time_signature: TimeSignature) {
+        self.time_signature = time_signature;
+    }
 }
 
 impl Default for ClockSettings {

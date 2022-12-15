@@ -31,9 +31,6 @@ struct GrooveApp {
     state: State,
     should_exit: bool,
 
-    // UI components
-    control_bar: ControlBar,
-
     // Model
     project_name: String,
     orchestrator_sender: Option<mpsc::Sender<GrooveInput>>,
@@ -59,7 +56,6 @@ impl Default for GrooveApp {
             theme: Default::default(),
             state: Default::default(),
             should_exit: Default::default(),
-            control_bar: Default::default(),
             project_name: Default::default(),
             orchestrator_sender: Default::default(),
             orchestrator: Default::default(),
@@ -81,7 +77,6 @@ enum State {
 pub enum AppMessage {
     Loaded(Result<SavedState, LoadError>),
     ControlBarMessage(ControlBarMessage),
-    ControlBarBpm(String),
     GrooveMessage(GrooveMessage),
     GrooveEvent(GrooveEvent),
     MidiHandlerMessage(MidiHandlerMessage),
@@ -95,95 +90,7 @@ pub enum ControlBarMessage {
     Play,
     Stop,
     SkipToStart,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct ControlBar {
-    gui_clock: GuiClock,
-}
-
-impl ControlBar {
-    pub fn view(&self, clock: &Clock) -> Element<AppMessage> {
-        container(
-            row![
-                text_input(
-                    "BPM",
-                    clock.bpm().round().to_string().as_str(),
-                    AppMessage::ControlBarBpm
-                )
-                .width(Length::Units(60)),
-                container(row![
-                    button(skip_to_prev_icon())
-                        .width(Length::Units(32))
-                        .on_press(AppMessage::ControlBarMessage(
-                            ControlBarMessage::SkipToStart
-                        )),
-                    button(play_icon())
-                        .width(Length::Units(32))
-                        .on_press(AppMessage::ControlBarMessage(ControlBarMessage::Play)),
-                    button(stop_icon())
-                        .width(Length::Units(32))
-                        .on_press(AppMessage::ControlBarMessage(ControlBarMessage::Stop))
-                ])
-                .align_x(alignment::Horizontal::Center)
-                .width(Length::FillPortion(1)),
-                container(self.gui_clock.view(clock)).width(Length::FillPortion(1)),
-            ]
-            .padding(8)
-            .spacing(4)
-            .align_items(Alignment::Center),
-        )
-        .width(Length::Fill)
-        .padding(4)
-        .style(theme::Container::Box)
-        .into()
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-struct GuiClock {}
-
-impl GuiClock {
-    pub fn view(&self, clock: &Clock) -> Element<AppMessage> {
-        let time_counter = {
-            let minutes: u8 = (clock.seconds() / 60.0).floor() as u8;
-            let seconds = clock.seconds() as usize % 60;
-            let thousandths = (clock.seconds().fract() * 1000.0) as u16;
-            container(
-                text(format!("{minutes:02}:{seconds:02}:{thousandths:03}"))
-                    .font(NUMBERS_FONT)
-                    .size(NUMBERS_FONT_SIZE),
-            )
-            .style(theme::Container::Custom(
-                GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
-            ))
-        };
-
-        let time_signature = clock.settings().time_signature();
-        let time_signature_view = {
-            container(column![
-                text(format!("{}", time_signature.top)),
-                text(format!("{}", time_signature.bottom))
-            ])
-        };
-
-        let beat_counter = {
-            let denom = time_signature.top as f32;
-
-            let measures = (clock.beats() / denom) as usize;
-            let beats = (clock.beats() % denom) as usize;
-            let fractional = (clock.beats().fract() * 10000.0) as usize;
-            container(
-                text(format!("{measures:04}m{beats:02}b{fractional:03}"))
-                    .font(NUMBERS_FONT)
-                    .size(NUMBERS_FONT_SIZE),
-            )
-            .style(theme::Container::Custom(
-                GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
-            ))
-        };
-        row![time_counter, time_signature_view, beat_counter].into()
-    }
+    Bpm(String),
 }
 
 impl Application for GrooveApp {
@@ -259,12 +166,12 @@ impl Application for GrooveApp {
                     }
                 }
                 ControlBarMessage::SkipToStart => todo!(),
+                ControlBarMessage::Bpm(value) => {
+                    if let Ok(bpm) = value.parse() {
+                        self.post_to_orchestrator(GrooveInput::SetBpm(bpm));
+                    }
+                }
             },
-            AppMessage::ControlBarBpm(_new_value) => {
-                // if let Ok(bpm) = new_value.parse() {
-                //     // self.clock.settings_mut().set_bpm(bpm);
-                // }
-            }
             AppMessage::Event(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {
                     // See https://github.com/iced-rs/iced/pull/804 and
@@ -273,18 +180,10 @@ impl Application for GrooveApp {
                     // This is needed to stop an ALSA buffer underrun on close
 
                     self.post_to_midi_handler(MidiHandlerInput::QuitRequested);
+                    self.post_to_orchestrator(GrooveInput::QuitRequested);
                     self.should_exit = true;
                 }
             }
-            // AppMessage::GrooveMessage(message) => {
-            //     // TODO: we're swallowing the Responses we're getting from
-            //     // update()
-            //     //
-            //     // TODO: is this clock the right one to base everything off?
-            //     // TODO: aaaargh so much cloning
-            //     self.dispatch_groove_message(&self.clock_mirror.clone(), message);
-            //     todo!();
-            // }
             AppMessage::MidiHandlerMessage(message) => match message {
                 // MidiHandlerMessage::InputSelected(which) => self.midi.select_input(which),
                 // MidiHandlerMessage::OutputSelected(which) => self.midi.select_output(which),
@@ -297,7 +196,11 @@ impl Application for GrooveApp {
 
                     self.post_to_orchestrator(GrooveInput::LoadProject("low-cpu.yaml".to_string()));
                 }
-                GrooveEvent::ClockUpdate(samples) => self.clock_mirror.set_samples(samples),
+                GrooveEvent::SetClock(samples) => self.clock_mirror.set_samples(samples),
+                GrooveEvent::SetBpm(bpm) => self.clock_mirror.set_bpm(bpm),
+                GrooveEvent::SetTimeSignature(time_signature) => {
+                    self.clock_mirror.set_time_signature(time_signature)
+                }
                 GrooveEvent::MidiToExternal(channel, message) => {
                     self.post_to_midi_handler(MidiHandlerInput::MidiMessage(channel, message));
                 }
@@ -356,11 +259,10 @@ impl Application for GrooveApp {
             State::Playing => {}
         }
 
-        let control_bar = self.control_bar.view(&self.clock_mirror);
+        let control_bar = self.control_bar_view().map(AppMessage::ControlBarMessage);
         let project_view: Element<AppMessage> =
-            self.orchestrator_view().map(Self::Message::GrooveMessage);
-        let midi_view: Element<AppMessage> =
-            self.midi_view().map(Self::Message::MidiHandlerMessage);
+            self.orchestrator_view().map(AppMessage::GrooveMessage);
+        let midi_view: Element<AppMessage> = self.midi_view().map(AppMessage::MidiHandlerMessage);
         let scrollable_content = column![midi_view, project_view];
         let under_construction = text("Under Construction").width(Length::FillPortion(1));
         let scrollable = container(scrollable(scrollable_content)).width(Length::FillPortion(1));
@@ -379,14 +281,6 @@ impl Application for GrooveApp {
 }
 
 impl GrooveApp {
-    fn orchestrator_view(&self) -> Element<GrooveMessage> {
-        container(text("orchestrator coming soon")).into()
-    }
-
-    fn midi_view(&self) -> Element<MidiHandlerMessage> {
-        container(text("MIDI coming soon")).into()
-    }
-
     fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
         if let Some(sender) = self.midi_handler_sender.as_mut() {
             // TODO: deal with this
@@ -399,6 +293,89 @@ impl GrooveApp {
             // TODO: deal with this
             let _ = sender.try_send(input);
         }
+    }
+
+    fn orchestrator_view(&self) -> Element<GrooveMessage> {
+        container(text("orchestrator coming soon")).into()
+    }
+
+    fn midi_view(&self) -> Element<MidiHandlerMessage> {
+        container(text("MIDI coming soon")).into()
+    }
+
+    fn control_bar_view(&self) -> Element<ControlBarMessage> {
+        container(
+            row![
+                text_input(
+                    "BPM",
+                    self.clock_mirror.bpm().round().to_string().as_str(),
+                    ControlBarMessage::Bpm
+                )
+                .width(Length::Units(60)),
+                container(row![
+                    button(skip_to_prev_icon())
+                        .width(Length::Units(32))
+                        .on_press(ControlBarMessage::SkipToStart),
+                    button(play_icon())
+                        .width(Length::Units(32))
+                        .on_press(ControlBarMessage::Play),
+                    button(stop_icon())
+                        .width(Length::Units(32))
+                        .on_press(ControlBarMessage::Stop)
+                ])
+                .align_x(alignment::Horizontal::Center)
+                .width(Length::FillPortion(1)),
+                container(self.clock_view()).width(Length::FillPortion(1)),
+            ]
+            .padding(8)
+            .spacing(4)
+            .align_items(Alignment::Center),
+        )
+        .width(Length::Fill)
+        .padding(4)
+        .style(theme::Container::Box)
+        .into()
+    }
+
+    fn clock_view(&self) -> Element<ControlBarMessage> {
+        let time_counter = {
+            let minutes: u8 = (self.clock_mirror.seconds() / 60.0).floor() as u8;
+            let seconds = self.clock_mirror.seconds() as usize % 60;
+            let thousandths = (self.clock_mirror.seconds().fract() * 1000.0) as u16;
+            container(
+                text(format!("{minutes:02}:{seconds:02}:{thousandths:03}"))
+                    .font(NUMBERS_FONT)
+                    .size(NUMBERS_FONT_SIZE),
+            )
+            .style(theme::Container::Custom(
+                GuiStuff::<ControlBarMessage>::number_box_style(&Theme::Dark),
+            ))
+        };
+
+        let time_signature = self.clock_mirror.settings().time_signature();
+        let time_signature_view = {
+            container(column![
+                text(format!("{}", time_signature.top)),
+                text(format!("{}", time_signature.bottom))
+            ])
+        };
+
+        let beat_counter = {
+            let denom = time_signature.top as f32;
+
+            let measures = (self.clock_mirror.beats() / denom) as usize;
+            let beats = (self.clock_mirror.beats() % denom) as usize;
+            let fractional = (self.clock_mirror.beats().fract() * 10000.0) as usize;
+            container(
+                text(format!("{measures:04}m{beats:02}b{fractional:03}"))
+                    .font(NUMBERS_FONT)
+                    .size(NUMBERS_FONT_SIZE),
+            )
+            .style(theme::Container::Custom(
+                GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
+            ))
+        };
+        row![time_counter, time_signature_view, beat_counter].into()
     }
 }
 

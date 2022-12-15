@@ -38,7 +38,7 @@ impl BeatValue {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct TimeSignature {
     // The top number of a time signature tells how many beats are in a
@@ -149,10 +149,6 @@ impl Clock {
         &self.settings
     }
 
-    pub fn settings_mut(&mut self) -> &mut ClockSettings {
-        &mut self.settings
-    }
-
     pub fn was_reset(&self) -> bool {
         self.was_reset
     }
@@ -175,10 +171,20 @@ impl Clock {
     pub fn bpm(&self) -> f32 {
         self.settings().bpm()
     }
+    pub fn set_bpm(&mut self, bpm: f32) {
+        self.was_reset = true;
+        self.settings.set_bpm(bpm);
+        self.update();
+    }
 
     pub fn set_samples(&mut self, value: usize) {
         self.was_reset = true;
         self.samples = value;
+        self.update();
+    }
+    pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
+        self.was_reset = true;
+        self.settings.set_time_signature(time_signature);
         self.update();
     }
 
