@@ -173,9 +173,7 @@ impl MidiSubscription {
                         )
                     }
                     State::Ending(handler) => {
-                        if let Ok(_) = handler.join() {
-                            println!("Subscription handler.join()");
-                        }
+                        let _ = handler.join();
                         // See https://github.com/iced-rs/iced/issues/1348
                         return (None, State::Idle);
                     }

@@ -256,12 +256,9 @@ impl Application for GrooveApp {
     }
 
     fn should_exit(&self) -> bool {
-        if self.should_exit {
-            // I think that self.midi or self.audio_output are causing the app
-            // to hang randomly on exit. I'm going to keep this here to be
-            // certain that the close code is really running.
-            dbg!("Exiting now!");
-        }
+        // Ideally we won't set this until all tasks (orchestrator thread, MIDI
+        // interface thread, etc.) have been asked to shut down. If we forget,
+        // then the Iced process hangs after the main window disappears.
         self.should_exit
     }
 

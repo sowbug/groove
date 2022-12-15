@@ -729,7 +729,6 @@ impl MidiHandler {
                         self.update(&clock, MidiHandlerMessage::MidiToExternal(channel, message));
                     }
                     MidiHandlerInput::QuitRequested => {
-                        println!("MidiHandlerInput::QuitRequested");
                         self.push_response(Response::single(MidiHandlerEvent::Quit));
                         self.send_pending_messages();
                         break;
