@@ -14,7 +14,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     SampleRate, Stream, StreamConfig,
 };
-use crossbeam::deque::{Steal, Stealer, Worker};
+use crossbeam::{deque::Stealer, queue::ArrayQueue};
 use std::{
     ops::BitAnd,
     sync::{Arc, Condvar, Mutex},
@@ -22,7 +22,7 @@ use std::{
 
 pub struct AudioOutput {
     sample_rate: usize,
-    worker: Worker<f32>,
+    ring_buffer: Arc<ArrayQueue<f32>>,
     stream: Option<Stream>,
     sync_pair: Arc<(Mutex<bool>, Condvar)>,
 }
@@ -31,7 +31,7 @@ impl Default for AudioOutput {
     fn default() -> Self {
         Self {
             sample_rate: 44100,
-            worker: Worker::<f32>::new_fifo(),
+            ring_buffer: Arc::new(ArrayQueue::new(4096)),
             stream: None,
             sync_pair: Arc::new((Mutex::new(false), Condvar::new())),
         }
@@ -47,6 +47,18 @@ impl AudioOutput {
 
     pub fn recommended_buffer_size(&self) -> usize {
         (self.sample_rate / 20).bitand(usize::MAX - 511)
+    }
+
+    pub fn buffer_len(&self) -> usize {
+        self.ring_buffer.len()
+    }
+
+    pub fn buffer_capacity(&self) -> usize {
+        self.ring_buffer.capacity()
+    }
+
+    pub fn push(&mut self, sample: MonoSample) {
+        self.ring_buffer.force_push(sample);
     }
 
     pub fn start(&mut self) {
@@ -67,16 +79,15 @@ impl AudioOutput {
         let sample_format = supported_config.sample_format();
         let config: StreamConfig = supported_config.into();
 
-        let stealer = self.worker.stealer();
-
         let sync_pair_clone = Arc::clone(&self.sync_pair);
+        let ring_buffer_clone = Arc::clone(&self.ring_buffer);
 
         if let Ok(result) = match sample_format {
             cpal::SampleFormat::F32 => device.build_output_stream(
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<f32>(
-                        &stealer,
+                        &ring_buffer_clone,
                         &sync_pair_clone,
                         data,
                         output_callback_info,
@@ -88,7 +99,7 @@ impl AudioOutput {
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<i16>(
-                        &stealer,
+                        &ring_buffer_clone,
                         &sync_pair_clone,
                         data,
                         output_callback_info,
@@ -100,7 +111,7 @@ impl AudioOutput {
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<u16>(
-                        &stealer,
+                        &ring_buffer_clone,
                         &sync_pair_clone,
                         data,
                         output_callback_info,
@@ -143,16 +154,8 @@ impl AudioOutput {
         }
     }
 
-    pub fn worker(&self) -> &Worker<f32> {
-        &self.worker
-    }
-
-    pub fn worker_mut(&mut self) -> &mut Worker<f32> {
-        &mut self.worker
-    }
-
     fn sample_from_queue<T: cpal::Sample>(
-        stealer: &Stealer<MonoSample>,
+        queue: &Arc<ArrayQueue<MonoSample>>,
         sync_pair: &Arc<(Mutex<bool>, Condvar)>,
         data: &mut [T],
         _info: &cpal::OutputCallbackInfo,
@@ -162,8 +165,8 @@ impl AudioOutput {
             if let Ok(finished) = sync_pair.0.lock() {
                 let finished: bool = *finished;
                 if !finished {
-                    if let Steal::Success(stolen_sample) = stealer.steal() {
-                        sample = stolen_sample;
+                    if let Some(popped_sample) = queue.pop() {
+                        sample = popped_sample;
                     }
                 }
             }
@@ -176,21 +179,22 @@ pub struct IOHelper {}
 
 impl IOHelper {
     pub async fn fill_audio_buffer(
-        buffer_size: usize,
         orchestrator: &mut Box<GrooveOrchestrator>,
         clock: &mut Clock,
         audio_output: &mut AudioOutput,
     ) -> (Vec<GrooveMessage>, bool) {
-        let must_restart_playback =
-            if clock.was_reset() && audio_output.worker().len() < buffer_size {
-                audio_output.pause();
-                true
-            } else {
-                false
-            };
+        let must_restart_playback = false;
+        if clock.was_reset() && audio_output.buffer_len() < audio_output.buffer_capacity() {
+            audio_output.pause();
+            true
+        } else {
+            false
+        };
         let mut is_done = false;
         let mut v = Vec::new();
-        while audio_output.worker().len() < buffer_size {
+
+        // TODO: this might be broken because I modified it without testing it.
+        while audio_output.buffer_len() < audio_output.buffer_capacity() {
             let command = orchestrator.update(clock, GrooveMessage::Tick);
             clock.tick();
             let (sample, done) = Orchestrator::<GrooveMessage>::peek_command(&command);
@@ -220,7 +224,7 @@ impl IOHelper {
                 // TODO weeks later: I don't understand the previous TODO
                 break;
             }
-            audio_output.worker_mut().push(sample);
+            audio_output.push(sample);
         }
         if must_restart_playback {
             audio_output.play();

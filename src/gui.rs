@@ -20,7 +20,10 @@ use iced::{
 };
 use iced_native::subscription::{self, Subscription};
 use midly::MidiMessage;
-use std::{marker::PhantomData, time::Instant};
+use std::{
+    marker::PhantomData,
+    time::{Duration, Instant},
+};
 use std::{
     sync::{Arc, Mutex},
     thread::JoinHandle,
@@ -226,6 +229,8 @@ struct Runner {
     sender: mpsc::Sender<GrooveEvent>,
     receiver: mpsc::Receiver<GrooveInput>,
     audio_output: Option<AudioOutput>,
+
+    buffer_target: usize,
 }
 impl Runner {
     pub fn new_with(
@@ -241,6 +246,8 @@ impl Runner {
             sender,
             receiver,
             audio_output: None,
+
+            buffer_target: 2048,
         }
     }
 
@@ -286,7 +293,7 @@ impl Runner {
 
     fn dispatch_sample(&mut self, sample: f32) {
         if let Some(output) = self.audio_output.as_mut() {
-            output.worker_mut().push(sample);
+            output.push(sample);
         }
     }
 
@@ -372,6 +379,8 @@ impl Runner {
                 if is_playing {
                     self.clock.tick();
                     self.dispatch_sample(sample);
+
+                    self.wait_for_audio_buffer();
                 }
             }
         }
@@ -406,6 +415,28 @@ impl Runner {
         let mut audio_output = AudioOutput::default();
         audio_output.stop();
         self.audio_output = None;
+    }
+
+    // TODO: visualize buffer
+    fn wait_for_audio_buffer(&mut self) {
+        if let Some(output) = self.audio_output.as_ref() {
+            let buffer_len = output.buffer_len();
+            if buffer_len < self.buffer_target / 4 {
+                self.buffer_target *= 2;
+                if self.buffer_target > 4096 {
+                    self.buffer_target = 4096;
+                }
+            } else if buffer_len >= self.buffer_target * 2 {
+                self.buffer_target *= 8;
+                self.buffer_target /= 10;
+            } else if buffer_len >= self.buffer_target {
+                let mut time_to_sleep = 2;
+                while output.buffer_len() >= self.buffer_target {
+                    std::thread::sleep(Duration::from_micros(time_to_sleep));
+                    time_to_sleep *= 2;
+                }
+            }
+        }
     }
 }
 
