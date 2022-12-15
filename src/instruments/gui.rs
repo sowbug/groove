@@ -1,6 +1,5 @@
 use super::{
-    drumkit_sampler::Sampler as DrumkitSampler, envelopes::AdsrEnvelope, sampler::Sampler,
-    welsh::WelshSynth,
+    drumkit_sampler::DrumkitSampler, envelopes::AdsrEnvelope, sampler::Sampler, welsh::WelshSynth,
 };
 use crate::{
     gui::{GuiStuff, Viewable},
