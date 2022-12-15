@@ -114,7 +114,7 @@ impl InstrumentSettings {
                 preset_name: _preset,
             } => (
                 *midi_input_channel,
-                Box::new(drumkit_sampler::Sampler::new_from_files()),
+                Box::new(drumkit_sampler::DrumkitSampler::new_from_files()),
             ),
             InstrumentSettings::Oscillator {
                 midi_input_channel,
