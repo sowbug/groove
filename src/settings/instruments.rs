@@ -3,6 +3,7 @@ use super::{
     MidiChannel,
 };
 use crate::{
+    entities::BoxedEntity,
     instruments::{
         drumkit_sampler,
         envelopes::AdsrEnvelope,
@@ -10,7 +11,7 @@ use crate::{
         welsh::{self, PatchName},
     },
     messages::EntityMessage,
-    traits::{IsInstrument, TestInstrument},
+    traits::TestInstrument,
 };
 use serde::{Deserialize, Serialize};
 
@@ -60,10 +61,7 @@ impl InstrumentSettings {
         &self,
         sample_rate: usize,
         load_only_test_entities: bool,
-    ) -> (
-        MidiChannel,
-        Box<dyn IsInstrument<Message = EntityMessage, ViewMessage = EntityMessage>>,
-    ) {
+    ) -> (MidiChannel, BoxedEntity) {
         if load_only_test_entities {
             #[allow(unused_variables)]
             let midi_input_channel = match self {
@@ -91,30 +89,32 @@ impl InstrumentSettings {
             };
             return (
                 midi_input_channel,
-                Box::new(TestInstrument::<EntityMessage>::default()),
+                BoxedEntity::TestInstrument(Box::new(TestInstrument::<EntityMessage>::default())),
             );
         }
         match self {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,
-                Box::new(TestInstrument::<EntityMessage>::default()),
+                BoxedEntity::TestInstrument(Box::new(TestInstrument::<EntityMessage>::default())),
             ),
             InstrumentSettings::Welsh {
                 midi_input_channel,
                 preset_name,
             } => (
                 *midi_input_channel,
-                Box::new(welsh::WelshSynth::new_with(
+                BoxedEntity::WelshSynth(Box::new(welsh::WelshSynth::new_with(
                     sample_rate,
                     SynthPatch::by_name(preset_name),
-                )),
+                ))),
             ),
             InstrumentSettings::Drumkit {
                 midi_input_channel,
                 preset_name: _preset,
             } => (
                 *midi_input_channel,
-                Box::new(drumkit_sampler::DrumkitSampler::new_from_files()),
+                BoxedEntity::DrumkitSampler(Box::new(
+                    drumkit_sampler::DrumkitSampler::new_from_files(),
+                )),
             ),
             InstrumentSettings::Oscillator {
                 midi_input_channel,
@@ -122,9 +122,9 @@ impl InstrumentSettings {
                 frequency,
             } => (
                 *midi_input_channel,
-                Box::new(Oscillator::new_with_type_and_frequency(
+                BoxedEntity::Oscillator(Box::new(Oscillator::new_with_type_and_frequency(
                     *waveform, *frequency,
-                )),
+                ))),
             ),
             InstrumentSettings::Envelope {
                 midi_input_channel,
@@ -134,12 +134,12 @@ impl InstrumentSettings {
                 release,
             } => (
                 *midi_input_channel,
-                Box::new(AdsrEnvelope::new_with(&EnvelopeSettings {
+                BoxedEntity::AdsrEnvelope(Box::new(AdsrEnvelope::new_with(&EnvelopeSettings {
                     attack: *attack,
                     decay: *decay,
                     sustain: *sustain,
                     release: *release,
-                })),
+                }))),
             ),
         }
     }

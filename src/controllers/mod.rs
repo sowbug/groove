@@ -40,7 +40,7 @@ impl Performance {
 /// A ControlTrip is one automation track, which can run as long as the whole
 /// song. For now, it controls one parameter of one target.
 #[derive(Debug)]
-pub(crate) struct ControlTrip<M: MessageBounds> {
+pub struct ControlTrip<M: MessageBounds> {
     uid: usize,
     cursor_beats: f32,
     current_value: f32,
@@ -204,10 +204,10 @@ impl ControlPath {
 mod tests {
     use super::*;
     use crate::{
+        entities::BoxedEntity,
         messages::tests::TestMessage,
         traits::{
-            BoxedEntity, TestEffect, TestEffectControlParams, TestInstrument,
-            TestInstrumentControlParams,
+            TestEffect, TestEffectControlParams, TestInstrument, TestInstrumentControlParams,
         },
         Orchestrator,
     };
@@ -230,7 +230,7 @@ mod tests {
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
         let effect_uid = o.add(
             None,
-            BoxedEntity::Effect(Box::new(TestEffect::<EntityMessage>::new_with_test_values(
+            BoxedEntity::TestEffect(Box::new(TestEffect::<EntityMessage>::new_with_test_values(
                 &[0.9, 0.1, 0.2, 0.3],
                 0.0,
                 1.0,
@@ -239,7 +239,7 @@ mod tests {
         );
         let mut trip = ControlTrip::<EntityMessage>::default();
         trip.add_path(&clock.settings().time_signature(), &path);
-        let controller_uid = o.add(None, BoxedEntity::Controller(Box::new(trip)));
+        let controller_uid = o.add(None, BoxedEntity::ControlTrip(Box::new(trip)));
 
         // TODO: hmmm, effect with no audio source plugged into its input!
         let _ = o.connect_to_main_mixer(effect_uid);
@@ -284,11 +284,11 @@ mod tests {
             0.5,
             ClockTimeUnit::Beats,
         ));
-        let instrument_uid = o.add(None, BoxedEntity::Instrument(instrument));
+        let instrument_uid = o.add(None, BoxedEntity::TestInstrument(instrument));
         let _ = o.connect_to_main_mixer(instrument_uid);
         let mut trip = Box::new(ControlTrip::<EntityMessage>::default());
         trip.add_path(&clock.settings().time_signature(), &path);
-        let controller_uid = o.add(None, BoxedEntity::Controller(trip));
+        let controller_uid = o.add(None, BoxedEntity::ControlTrip(trip));
         o.link_control(
             controller_uid,
             instrument_uid,

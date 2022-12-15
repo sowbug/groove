@@ -4,7 +4,7 @@ use crate::{
     messages::{EntityMessage, MessageBounds},
     midi::MidiChannel,
     traits::{Response, TestController, TestEffect, TestInstrument},
-    utils::{AudioSource, Timer, Trigger},
+    utils::{AudioSource, TestLfo, TestSynth, Timer, Trigger},
     AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, Orchestrator,
 };
 use iced::{
@@ -167,6 +167,12 @@ impl<M: MessageBounds> Viewable for TestEffect<M> {
     type ViewMessage = M;
 }
 impl<M: MessageBounds> Viewable for TestInstrument<M> {
+    type ViewMessage = M;
+}
+impl<M: MessageBounds> Viewable for TestLfo<M> {
+    type ViewMessage = M;
+}
+impl<M: MessageBounds> Viewable for TestSynth<M> {
     type ViewMessage = M;
 }
 impl<M: MessageBounds> Viewable for Timer<M> {
@@ -455,15 +461,8 @@ impl GrooveSubscription {
 
 #[cfg(test)]
 mod tests {
-    use std::any::type_name;
-
-    use iced::{
-        widget::{container, text},
-        Element,
-    };
-
     use super::{GuiStuff, Viewable};
-    use crate::utils::tests::{TestControlSourceContinuous, TestLfo, TestMixer, TestSynth};
+    use crate::utils::tests::{TestControlSourceContinuous, TestMixer};
     use crate::{
         controllers::sequencers::BeatSequencer,
         effects::{
@@ -472,14 +471,13 @@ mod tests {
         },
         messages::{tests::TestMessage, EntityMessage, MessageBounds},
     };
+    use iced::{
+        widget::{container, text},
+        Element,
+    };
+    use std::any::type_name;
 
-    impl<M: MessageBounds> Viewable for TestSynth<M> {
-        type ViewMessage = M;
-    }
     impl<M: MessageBounds> Viewable for TestMixer<M> {
-        type ViewMessage = M;
-    }
-    impl<M: MessageBounds> Viewable for TestLfo<M> {
         type ViewMessage = M;
     }
     impl<M: MessageBounds> Viewable for TestControlSourceContinuous<M> {

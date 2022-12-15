@@ -52,19 +52,6 @@ pub trait IsInstrument:
 /// IsGuiElement. These exist only to interact with the user of a GUI app, but
 /// don't actually create or control audio.
 
-/// BoxedEntity wraps any of the major trait types to allow us to store them in
-/// a single big list. This was done for convenience at first, and it's unclear
-/// how much benefit it provides over keeping the types in separate lists and
-/// trying not to mix them up. In practice, we haven't needed to discover an
-/// entity's major type in any way that wouldn't have also been doable with
-/// separate lists.
-#[derive(Debug)]
-pub enum BoxedEntity<M> {
-    Controller(Box<dyn IsController<Message = M, ViewMessage = M>>),
-    Effect(Box<dyn IsEffect<Message = M, ViewMessage = M>>),
-    Instrument(Box<dyn IsInstrument<Message = M, ViewMessage = M>>),
-}
-
 /// An Updateable accepts new information through update() (i.e., Messages) or
 /// control parameters.
 ///

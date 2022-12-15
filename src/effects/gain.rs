@@ -14,7 +14,7 @@ pub(crate) enum GainControlParams {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct Gain<M: MessageBounds> {
+pub struct Gain<M: MessageBounds> {
     uid: usize,
     ceiling: f32,
     _phantom: PhantomData<M>,

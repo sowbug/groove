@@ -1,7 +1,9 @@
 use crate::{
     clock::Clock,
     common::MonoSample,
+    instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
     messages::{EntityMessage, MessageBounds},
+    settings::patches::EnvelopeSettings,
     traits::{HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates, Updateable},
 };
 use core::fmt::Debug;
@@ -9,12 +11,13 @@ use std::{
     env::{current_dir, current_exe},
     marker::PhantomData,
     path::PathBuf,
+    str::FromStr,
 };
-use strum_macros::{Display, EnumString};
+use strum_macros::{Display, EnumString, FromRepr};
 
 /// Timer returns true to Terminates::is_finished() after a specified amount of time.
 #[derive(Debug, Default)]
-pub(crate) struct Timer<M: MessageBounds> {
+pub struct Timer<M: MessageBounds> {
     uid: usize,
     has_more_work: bool,
     time_to_run_seconds: f32,
@@ -222,6 +225,181 @@ impl Paths {
     }
 }
 
+#[derive(Display, Debug, EnumString, FromRepr)]
+#[strum(serialize_all = "kebab_case")]
+pub enum TestSynthControlParams {
+    OscillatorModulation,
+}
+
+#[derive(Debug)]
+pub struct TestSynth<M: MessageBounds> {
+    uid: usize,
+
+    oscillator: Box<Oscillator>,
+    envelope: Box<dyn SourcesAudio>,
+    _phantom: PhantomData<M>,
+}
+
+impl<M: MessageBounds> TestSynth<M> {
+    /// You really don't want to call this, because you need a sample rate
+    /// for it to do anything meaningful, and it's a bad practice to
+    /// hardcode a 44.1KHz rate.
+    #[deprecated]
+    #[allow(dead_code)]
+    fn new() -> Self {
+        Self::new_with(
+            Box::new(Oscillator::default()),
+            Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
+        )
+    }
+    pub fn new_with(oscillator: Box<Oscillator>, envelope: Box<dyn SourcesAudio>) -> Self {
+        Self {
+            oscillator,
+            envelope,
+            ..Default::default()
+        }
+    }
+}
+impl<M: MessageBounds> Default for TestSynth<M> {
+    fn default() -> Self {
+        Self {
+            uid: 0,
+            oscillator: Box::new(Oscillator::default()),
+            envelope: Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
+            _phantom: Default::default(),
+        }
+    }
+}
+
+impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        self.oscillator.source_audio(clock) * self.envelope.source_audio(clock)
+    }
+}
+
+impl<M: MessageBounds> IsInstrument for TestSynth<M> {}
+impl<M: MessageBounds> Updateable for TestSynth<M> {
+    default type Message = M;
+
+    default fn update(
+        &mut self,
+        _clock: &Clock,
+        _message: Self::Message,
+    ) -> Response<Self::Message> {
+        Response::none()
+    }
+
+    default fn param_id_for_name(&self, _param_name: &str) -> usize {
+        usize::MAX
+    }
+}
+impl Updateable for TestSynth<EntityMessage> {
+    type Message = EntityMessage;
+
+    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+        match message {
+            Self::Message::UpdateF32(param_index, value) => {
+                if let Some(param) = TestSynthControlParams::from_repr(param_index) {
+                    match param {
+                        TestSynthControlParams::OscillatorModulation => {
+                            self.oscillator.set_frequency_modulation(value);
+                        }
+                    }
+                }
+            }
+            _ => todo!(),
+        }
+        Response::none()
+    }
+    fn param_id_for_name(&self, param_name: &str) -> usize {
+        if let Ok(param) = TestSynthControlParams::from_str(param_name) {
+            param as usize
+        } else {
+            0
+        }
+    }
+}
+impl<M: MessageBounds> HasUid for TestSynth<M> {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
+
+#[derive(Display, Debug, EnumString)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum TestLfoControlParams {
+    Frequency,
+}
+
+#[derive(Debug, Default)]
+pub struct TestLfo<M: MessageBounds> {
+    uid: usize,
+    oscillator: Oscillator,
+    _phantom: PhantomData<M>,
+}
+impl<M: MessageBounds> IsController for TestLfo<M> {}
+impl<M: MessageBounds> HasUid for TestLfo<M> {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
+impl<M: MessageBounds> Updateable for TestLfo<M> {
+    default type Message = M;
+
+    default fn update(
+        &mut self,
+        _clock: &Clock,
+        _message: Self::Message,
+    ) -> Response<Self::Message> {
+        Response::none()
+    }
+
+    default fn param_id_for_name(&self, _param_name: &str) -> usize {
+        usize::MAX
+    }
+}
+impl Updateable for TestLfo<EntityMessage> {
+    type Message = EntityMessage;
+
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+        if let Self::Message::Tick = message {
+            let value = self.oscillator.source_audio(clock);
+            Response::single(Self::Message::ControlF32(value))
+        } else {
+            Response::none()
+        }
+    }
+
+    fn param_id_for_name(&self, param_name: &str) -> usize {
+        if let Ok(param) = TestLfoControlParams::from_str(param_name) {
+            param as usize
+        } else {
+            0
+        }
+    }
+}
+impl<M: MessageBounds> Terminates for TestLfo<M> {
+    // This hardcoded value is OK because an LFO doesn't have a defined
+    // beginning/end. It just keeps going. Yet it truly is a controller.
+    fn is_finished(&self) -> bool {
+        true
+    }
+}
+impl<M: MessageBounds> TestLfo<M> {
+    #[allow(dead_code)]
+    fn set_frequency(&mut self, frequency_hz: f32) {
+        self.oscillator.set_frequency(frequency_hz);
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::Timer;
@@ -229,21 +407,18 @@ pub mod tests {
         clock::Clock,
         common::{MonoSample, MONO_SAMPLE_SILENCE},
         controllers::orchestrator::Orchestrator,
-        instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
+        entities::BoxedEntity,
         messages::{tests::TestMessage, EntityMessage},
         messages::{GrooveMessage, MessageBounds},
         midi::MidiChannel,
-        settings::patches::EnvelopeSettings,
         traits::{
-            BoxedEntity, HasUid, IsController, IsEffect, IsInstrument, Response, SourcesAudio,
-            Terminates, TestController, TestEffect, TestInstrument, TransformsAudio, Updateable,
+            HasUid, IsController, IsEffect, Response, SourcesAudio, Terminates, TestController,
+            TestEffect, TestInstrument, TransformsAudio, Updateable,
         },
+        utils::{TestLfo, TestSynth, TestSynthControlParams},
     };
     use convert_case::{Case, Casing};
-    use std::str::FromStr;
     use std::{fs, marker::PhantomData};
-    use strum_macros::FromRepr;
-    use strum_macros::{Display, EnumString};
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
@@ -289,180 +464,6 @@ pub mod tests {
     }
     impl<M: MessageBounds> Updateable for TestMixer<M> {
         type Message = M;
-    }
-
-    #[derive(Display, Debug, EnumString)]
-    #[strum(serialize_all = "kebab_case")]
-    pub(crate) enum TestLfoControlParams {
-        Frequency,
-    }
-
-    #[derive(Debug, Default)]
-    pub struct TestLfo<M: MessageBounds> {
-        uid: usize,
-        oscillator: Oscillator,
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> IsController for TestLfo<M> {}
-    impl<M: MessageBounds> HasUid for TestLfo<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
-    }
-    impl<M: MessageBounds> Updateable for TestLfo<M> {
-        default type Message = M;
-
-        default fn update(
-            &mut self,
-            _clock: &Clock,
-            _message: Self::Message,
-        ) -> Response<Self::Message> {
-            Response::none()
-        }
-
-        default fn param_id_for_name(&self, _param_name: &str) -> usize {
-            usize::MAX
-        }
-    }
-    impl Updateable for TestLfo<EntityMessage> {
-        type Message = EntityMessage;
-
-        fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-            if let Self::Message::Tick = message {
-                let value = self.oscillator.source_audio(clock);
-                Response::single(Self::Message::ControlF32(value))
-            } else {
-                Response::none()
-            }
-        }
-
-        fn param_id_for_name(&self, param_name: &str) -> usize {
-            if let Ok(param) = TestLfoControlParams::from_str(param_name) {
-                param as usize
-            } else {
-                0
-            }
-        }
-    }
-    impl<M: MessageBounds> Terminates for TestLfo<M> {
-        // This hardcoded value is OK because an LFO doesn't have a defined
-        // beginning/end. It just keeps going. Yet it truly is a controller.
-        fn is_finished(&self) -> bool {
-            true
-        }
-    }
-    impl<M: MessageBounds> TestLfo<M> {
-        fn set_frequency(&mut self, frequency_hz: f32) {
-            self.oscillator.set_frequency(frequency_hz);
-        }
-    }
-
-    #[derive(Display, Debug, EnumString, FromRepr)]
-    #[strum(serialize_all = "kebab_case")]
-    pub enum TestSynthControlParams {
-        OscillatorModulation,
-    }
-
-    #[derive(Debug)]
-    pub struct TestSynth<M: MessageBounds> {
-        uid: usize,
-
-        oscillator: Box<Oscillator>,
-        envelope: Box<dyn SourcesAudio>,
-        _phantom: PhantomData<M>,
-    }
-
-    impl<M: MessageBounds> TestSynth<M> {
-        /// You really don't want to call this, because you need a sample rate
-        /// for it to do anything meaningful, and it's a bad practice to
-        /// hardcode a 44.1KHz rate.
-        #[deprecated]
-        #[allow(dead_code)]
-        fn new() -> Self {
-            Self::new_with(
-                Box::new(Oscillator::default()),
-                Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
-            )
-        }
-        pub fn new_with(oscillator: Box<Oscillator>, envelope: Box<dyn SourcesAudio>) -> Self {
-            Self {
-                oscillator,
-                envelope,
-                ..Default::default()
-            }
-        }
-    }
-    impl<M: MessageBounds> Default for TestSynth<M> {
-        fn default() -> Self {
-            Self {
-                uid: 0,
-                oscillator: Box::new(Oscillator::default()),
-                envelope: Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
-                _phantom: Default::default(),
-            }
-        }
-    }
-
-    impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
-        fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-            self.oscillator.source_audio(clock) * self.envelope.source_audio(clock)
-        }
-    }
-
-    impl<M: MessageBounds> IsInstrument for TestSynth<M> {}
-    impl<M: MessageBounds> Updateable for TestSynth<M> {
-        default type Message = M;
-
-        default fn update(
-            &mut self,
-            _clock: &Clock,
-            _message: Self::Message,
-        ) -> Response<Self::Message> {
-            Response::none()
-        }
-
-        default fn param_id_for_name(&self, _param_name: &str) -> usize {
-            usize::MAX
-        }
-    }
-    impl Updateable for TestSynth<EntityMessage> {
-        type Message = EntityMessage;
-
-        fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-            match message {
-                Self::Message::UpdateF32(param_index, value) => {
-                    if let Some(param) = TestSynthControlParams::from_repr(param_index) {
-                        match param {
-                            TestSynthControlParams::OscillatorModulation => {
-                                self.oscillator.set_frequency_modulation(value);
-                            }
-                        }
-                    }
-                }
-                _ => todo!(),
-            }
-            Response::none()
-        }
-        fn param_id_for_name(&self, param_name: &str) -> usize {
-            if let Ok(param) = TestSynthControlParams::from_str(param_name) {
-                param as usize
-            } else {
-                0
-            }
-        }
-    }
-    impl<M: MessageBounds> HasUid for TestSynth<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
     }
 
     /// Lets a SourcesAudio act like an IsController
@@ -528,15 +529,12 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
 
         // A simple audio source.
-        let synth_uid = o.add(
-            None,
-            BoxedEntity::Instrument(Box::new(TestSynth::default())),
-        );
+        let synth_uid = o.add(None, BoxedEntity::TestSynth(Box::new(TestSynth::default())));
 
         // A simple effect.
         let effect_uid = o.add(
             None,
-            BoxedEntity::Effect(Box::new(TestEffect::<EntityMessage>::default())),
+            BoxedEntity::TestEffect(Box::new(TestEffect::<EntityMessage>::default())),
         );
 
         // Connect the audio's output to the effect's input.
@@ -549,7 +547,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Controller(Box::new(Timer::new_with(SECONDS as f32))),
+            BoxedEntity::Timer(Box::new(Timer::new_with(SECONDS as f32))),
         );
 
         // Gather the audio output.
@@ -584,13 +582,10 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
 
         // The synth's frequency is modulated by the LFO.
-        let synth_1_uid = o.add(
-            None,
-            BoxedEntity::Instrument(Box::new(TestSynth::default())),
-        );
+        let synth_1_uid = o.add(None, BoxedEntity::TestSynth(Box::new(TestSynth::default())));
         let mut lfo = TestLfo::default();
         lfo.set_frequency(2.0);
-        let lfo_uid = o.add(None, BoxedEntity::Controller(Box::new(lfo)));
+        let lfo_uid = o.add(None, BoxedEntity::TestLfo(Box::new(lfo)));
         o.link_control(
             lfo_uid,
             synth_1_uid,
@@ -603,7 +598,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Controller(Box::new(Timer::new_with(SECONDS as f32))),
+            BoxedEntity::Timer(Box::new(Timer::new_with(SECONDS as f32))),
         );
 
         // Gather the audio output.
@@ -637,11 +632,11 @@ pub mod tests {
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
             None,
-            BoxedEntity::Instrument(Box::new(TestInstrument::default())),
+            BoxedEntity::TestInstrument(Box::new(TestInstrument::default())),
         );
         let arpeggiator_uid = o.add(
             None,
-            BoxedEntity::Controller(Box::new(TestController::new_with(TEST_MIDI_CHANNEL))),
+            BoxedEntity::TestController(Box::new(TestController::new_with(TEST_MIDI_CHANNEL))),
         );
 
         // We'll hear the instrument.
@@ -655,7 +650,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Controller(Box::new(Timer::new_with(SECONDS as f32))),
+            BoxedEntity::Timer(Box::new(Timer::new_with(SECONDS as f32))),
         );
 
         // Everything is hooked up. Let's run it and hear what we got.
@@ -730,11 +725,14 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::<GrooveMessage>::default());
 
         // A simple audio source.
-        let entity_groove = BoxedEntity::Instrument(Box::new(TestSynth::default()));
+        let entity_groove = BoxedEntity::TestSynth(Box::new(TestSynth::default()));
         let synth_uid = o.add(None, entity_groove);
 
         // A simple effect.
-        let effect_uid = o.add(None, BoxedEntity::Effect(Box::new(TestEffect::default())));
+        let effect_uid = o.add(
+            None,
+            BoxedEntity::TestEffect(Box::new(TestEffect::default())),
+        );
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -746,7 +744,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Controller(Box::new(Timer::new_with(SECONDS as f32))),
+            BoxedEntity::Timer(Box::new(Timer::new_with(SECONDS as f32))),
         );
 
         // Gather the audio output.

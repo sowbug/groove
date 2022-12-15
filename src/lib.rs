@@ -24,6 +24,7 @@ pub(crate) mod clock;
 pub(crate) mod common;
 pub(crate) mod controllers;
 pub(crate) mod effects;
+pub(crate) mod entities;
 pub(crate) mod helpers;
 pub(crate) mod instruments;
 pub(crate) mod messages;

@@ -12,8 +12,7 @@ use crate::{
         patterns::{Note, Pattern},
         programmers::PatternProgrammer,
     },
-    traits::BoxedEntity,
-    TimeSignature,
+    TimeSignature, entities::BoxedEntity,
 };
 use anyhow::Result;
 use rustc_hash::FxHashMap;
@@ -72,19 +71,19 @@ impl SongSettings {
                 DeviceSettings::Instrument(id, settings) => {
                     let (channel, entity) =
                         settings.instantiate(sample_rate, load_only_test_entities);
-                    let uid = orchestrator.add(Some(id), BoxedEntity::Instrument(entity));
+                    let uid = orchestrator.add(Some(id), entity);
                     orchestrator.connect_midi_downstream(uid, channel);
                 }
                 DeviceSettings::Controller(id, settings) => {
                     let (channel_in, _channel_out, entity) =
                         settings.instantiate(load_only_test_entities);
-                    let uid = orchestrator.add(Some(id), BoxedEntity::Controller(entity));
+                    let uid = orchestrator.add(Some(id), entity);
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
                 }
                 DeviceSettings::Effect(id, settings) => {
                     let entity = settings.instantiate(sample_rate, load_only_test_entities);
-                    let _uid = orchestrator.add(Some(id), BoxedEntity::Effect(entity));
+                    let _uid = orchestrator.add(Some(id), entity);
                 }
             }
         }
@@ -146,7 +145,7 @@ impl SongSettings {
             }
         }
 
-        let sequencer_uid = orchestrator.add(None, BoxedEntity::Controller(sequencer));
+        let sequencer_uid = orchestrator.add(None, BoxedEntity::BeatSequencer(sequencer));
         orchestrator.connect_midi_upstream(sequencer_uid);
     }
 
@@ -182,7 +181,7 @@ impl SongSettings {
                 }
                 let controller_uid = orchestrator.add(
                     Some(&control_trip_settings.id),
-                    BoxedEntity::Controller(control_trip),
+                    BoxedEntity::ControlTrip(control_trip),
                 );
                 orchestrator.link_control(
                     controller_uid,

@@ -195,9 +195,10 @@ mod tests {
     use crate::{
         clock::{BeatValue, Clock, TimeSignature},
         controllers::orchestrator::tests::TestOrchestrator,
+        entities::BoxedEntity,
         messages::tests::TestMessage,
         settings::PatternSettings,
-        traits::{BoxedEntity, TestInstrument, Updateable},
+        traits::{TestInstrument, Updateable},
         utils::Timer,
         Orchestrator,
     };
@@ -289,7 +290,7 @@ mod tests {
         assert_eq!(sequencer.debug_events().len(), 0);
 
         let mut o = TestOrchestrator::default();
-        let _ = o.add(None, BoxedEntity::Controller(sequencer));
+        let _ = o.add(None, BoxedEntity::BeatSequencer(sequencer));
         let mut clock = Clock::default();
         if let Ok(result) = o.run(&mut clock) {
             assert_eq!(
@@ -402,7 +403,7 @@ mod tests {
         programmer.insert_pattern_at_cursor(&mut sequencer, &INSTRUMENT_MIDI_CHANNEL, &pattern);
 
         let midi_recorder = Box::new(TestInstrument::default());
-        let midi_recorder_uid = o.add(None, BoxedEntity::Instrument(midi_recorder));
+        let midi_recorder_uid = o.add(None, BoxedEntity::TestInstrument(midi_recorder));
         o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
 
         // Test recorder has seen nothing to start with.
@@ -411,7 +412,7 @@ mod tests {
         let mut clock = Clock::default();
         let sample_rate = clock.sample_rate();
         let mut o = Box::new(Orchestrator::<TestMessage>::default());
-        let _sequencer_uid = o.add(None, BoxedEntity::Controller(sequencer));
+        let _sequencer_uid = o.add(None, BoxedEntity::BeatSequencer(sequencer));
 
         assert!(o.run(&mut clock,).is_ok());
 
@@ -469,10 +470,7 @@ mod tests {
 
         // Keep going until just before half of second beat. We should see the
         // first note off (not on!) and the second note on/off.
-        let _ = o.add(
-            None,
-            BoxedEntity::Controller(Box::new(Timer::new_with(2.0))),
-        );
+        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(2.0))));
         assert!(o.run(&mut clock).is_ok());
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 3);
 
