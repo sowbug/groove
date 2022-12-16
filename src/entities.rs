@@ -21,240 +21,164 @@ use crate::{
     utils::{AudioSource, TestLfo, TestSynth, Timer},
 };
 
-#[derive(Debug)]
-pub enum BoxedEntity {
-    AdsrEnvelope(Box<AdsrEnvelope>),
-    Arpeggiator(Box<Arpeggiator>),
-    AudioSource(Box<AudioSource<EntityMessage>>),
-    BeatSequencer(Box<BeatSequencer<EntityMessage>>),
-    BiQuadFilter(Box<BiQuadFilter<EntityMessage>>),
-    Bitcrusher(Box<Bitcrusher>),
-    ControlTrip(Box<ControlTrip<EntityMessage>>),
-    Delay(Box<Delay>),
-    DrumkitSampler(Box<DrumkitSampler>),
-    Gain(Box<Gain<EntityMessage>>),
-    Limiter(Box<Limiter>),
-    MidiTickSequencer(Box<MidiTickSequencer<EntityMessage>>),
-    Mixer(Box<Mixer<EntityMessage>>),
-    Oscillator(Box<Oscillator>),
-    PatternManager(Box<PatternManager>),
-    Reverb(Box<Reverb>),
-    Sampler(Box<Sampler>),
-    TestController(Box<TestController<EntityMessage>>),
-    TestEffect(Box<TestEffect<EntityMessage>>),
-    TestInstrument(Box<TestInstrument<EntityMessage>>),
-    TestLfo(Box<TestLfo<EntityMessage>>),
-    TestSynth(Box<TestSynth<EntityMessage>>),
-    Timer(Box<Timer<EntityMessage>>),
-    WelshSynth(Box<WelshSynth>),
+// TODO: when you're REALLY bored, try generating more boilerplate for entities,
+// such as HasUid. You'll need to deal with optional generics, and you'll have
+// to place the code in the right modules.
+
+macro_rules! boxed_entity_enum_and_common_crackers {
+    ($($variant:ident: $type:ty,)*) => {
+        #[derive(Debug)]
+        pub enum BoxedEntity {
+            $( $variant(Box<$type>) ),*
+        }
+
+        impl BoxedEntity {
+            pub fn as_has_uid(&self) -> &dyn HasUid {
+                match self {
+                $( BoxedEntity::$variant(e) => e.as_ref(), )*
+                }
+            }
+            pub fn as_has_uid_mut(&mut self) -> &mut dyn HasUid {
+                match self {
+                $( BoxedEntity::$variant(e) => e.as_mut(), )*
+                }
+            }
+            pub fn as_updateable(&self) -> &dyn Updateable<Message = EntityMessage> {
+                match self {
+                    $( BoxedEntity::$variant(e) => e.as_ref(), )*
+                }
+            }
+            pub fn as_updateable_mut(&mut self) -> &mut dyn Updateable<Message = EntityMessage> {
+                match self {
+                    $( BoxedEntity::$variant(e) => e.as_mut(), )*
+                }
+            }
+        }
+
+    }
 }
 
-impl BoxedEntity {
-    pub fn as_has_uid(&self) -> &dyn HasUid {
-        match self {
-            BoxedEntity::AdsrEnvelope(e) => e.as_ref(),
-            BoxedEntity::Arpeggiator(e) => e.as_ref(),
-            BoxedEntity::AudioSource(e) => e.as_ref(),
-            BoxedEntity::BeatSequencer(e) => e.as_ref(),
-            BoxedEntity::BiQuadFilter(e) => e.as_ref(),
-            BoxedEntity::Bitcrusher(e) => e.as_ref(),
-            BoxedEntity::ControlTrip(e) => e.as_ref(),
-            BoxedEntity::Delay(e) => e.as_ref(),
-            BoxedEntity::DrumkitSampler(e) => e.as_ref(),
-            BoxedEntity::Gain(e) => e.as_ref(),
-            BoxedEntity::Limiter(e) => e.as_ref(),
-            BoxedEntity::MidiTickSequencer(e) => e.as_ref(),
-            BoxedEntity::Mixer(e) => e.as_ref(),
-            BoxedEntity::Oscillator(e) => e.as_ref(),
-            BoxedEntity::PatternManager(e) => e.as_ref(),
-            BoxedEntity::Reverb(e) => e.as_ref(),
-            BoxedEntity::Sampler(e) => e.as_ref(),
-            BoxedEntity::TestController(e) => e.as_ref(),
-            BoxedEntity::TestEffect(e) => e.as_ref(),
-            BoxedEntity::TestInstrument(e) => e.as_ref(),
-            BoxedEntity::TestSynth(e) => e.as_ref(),
-            BoxedEntity::Timer(e) => e.as_ref(),
-            BoxedEntity::WelshSynth(e) => e.as_ref(),
-            BoxedEntity::TestLfo(e) => e.as_ref(),
+boxed_entity_enum_and_common_crackers! {
+    // Controllers
+    Arpeggiator: Arpeggiator,
+    BeatSequencer: BeatSequencer<EntityMessage>,
+    ControlTrip: ControlTrip<EntityMessage>,
+    MidiTickSequencer:MidiTickSequencer<EntityMessage>,
+    PatternManager: PatternManager,
+    TestController: TestController<EntityMessage>,
+    TestLfo: TestLfo<EntityMessage>,
+    Timer: Timer<EntityMessage>,
+
+    // Effects
+    BiQuadFilter: BiQuadFilter<EntityMessage>,
+    Bitcrusher: Bitcrusher,
+    Delay: Delay,
+    Gain: Gain<EntityMessage>,
+    Limiter: Limiter,
+    Mixer: Mixer<EntityMessage>,
+    Reverb: Reverb,
+    TestEffect: TestEffect<EntityMessage>,
+
+    // Instruments
+    AdsrEnvelope: AdsrEnvelope,
+    AudioSource: AudioSource<EntityMessage>,
+    DrumkitSampler: DrumkitSampler,
+    Oscillator: Oscillator,
+    Sampler: Sampler,
+    TestInstrument: TestInstrument<EntityMessage>,
+    TestSynth: TestSynth<EntityMessage>,
+    WelshSynth: WelshSynth,
+}
+
+macro_rules! controller_crackers {
+    ($($type:ident,)*) => {
+        impl BoxedEntity {
+            pub fn as_is_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
+                match self {
+                $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
+                match self {
+                $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_terminates(&self) -> Option<&dyn Terminates> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    _ => None
+                }
+            }
         }
     }
-    pub fn as_has_uid_mut(&mut self) -> &mut dyn HasUid {
-        match self {
-            BoxedEntity::AdsrEnvelope(e) => e.as_mut(),
-            BoxedEntity::Arpeggiator(e) => e.as_mut(),
-            BoxedEntity::AudioSource(e) => e.as_mut(),
-            BoxedEntity::BeatSequencer(e) => e.as_mut(),
-            BoxedEntity::BiQuadFilter(e) => e.as_mut(),
-            BoxedEntity::Bitcrusher(e) => e.as_mut(),
-            BoxedEntity::ControlTrip(e) => e.as_mut(),
-            BoxedEntity::Delay(e) => e.as_mut(),
-            BoxedEntity::DrumkitSampler(e) => e.as_mut(),
-            BoxedEntity::Gain(e) => e.as_mut(),
-            BoxedEntity::Limiter(e) => e.as_mut(),
-            BoxedEntity::MidiTickSequencer(e) => e.as_mut(),
-            BoxedEntity::Mixer(e) => e.as_mut(),
-            BoxedEntity::Oscillator(e) => e.as_mut(),
-            BoxedEntity::PatternManager(e) => e.as_mut(),
-            BoxedEntity::Reverb(e) => e.as_mut(),
-            BoxedEntity::Sampler(e) => e.as_mut(),
-            BoxedEntity::TestController(e) => e.as_mut(),
-            BoxedEntity::TestEffect(e) => e.as_mut(),
-            BoxedEntity::TestInstrument(e) => e.as_mut(),
-            BoxedEntity::TestLfo(e) => e.as_mut(),
-            BoxedEntity::TestSynth(e) => e.as_mut(),
-            BoxedEntity::Timer(e) => e.as_mut(),
-            BoxedEntity::WelshSynth(e) => e.as_mut(),
+}
+controller_crackers! {
+    Arpeggiator,
+    BeatSequencer,
+    ControlTrip,
+    MidiTickSequencer,
+    PatternManager,
+    TestController,
+    TestLfo,
+    Timer,
+}
+
+macro_rules! effect_crackers {
+    ($($type:ident,)*) => {
+        impl BoxedEntity {
+            pub fn as_is_effect(&self) -> Option<&dyn IsEffect<Message = EntityMessage>> {
+                match self {
+                $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn IsEffect<Message = EntityMessage>> {
+                match self {
+                $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
         }
     }
-    pub fn as_updateable(&self) -> &dyn Updateable<Message = EntityMessage> {
-        match self {
-            BoxedEntity::AdsrEnvelope(e) => e.as_ref(),
-            BoxedEntity::Arpeggiator(e) => e.as_ref(),
-            BoxedEntity::AudioSource(e) => e.as_ref(),
-            BoxedEntity::BeatSequencer(e) => e.as_ref(),
-            BoxedEntity::BiQuadFilter(e) => e.as_ref(),
-            BoxedEntity::Bitcrusher(e) => e.as_ref(),
-            BoxedEntity::ControlTrip(e) => e.as_ref(),
-            BoxedEntity::Delay(e) => e.as_ref(),
-            BoxedEntity::DrumkitSampler(e) => e.as_ref(),
-            BoxedEntity::Gain(e) => e.as_ref(),
-            BoxedEntity::Limiter(e) => e.as_ref(),
-            BoxedEntity::MidiTickSequencer(e) => e.as_ref(),
-            BoxedEntity::Mixer(e) => e.as_ref(),
-            BoxedEntity::Oscillator(e) => e.as_ref(),
-            BoxedEntity::PatternManager(e) => e.as_ref(),
-            BoxedEntity::Reverb(e) => e.as_ref(),
-            BoxedEntity::Sampler(e) => e.as_ref(),
-            BoxedEntity::TestController(e) => e.as_ref(),
-            BoxedEntity::TestEffect(e) => e.as_ref(),
-            BoxedEntity::TestInstrument(e) => e.as_ref(),
-            BoxedEntity::TestLfo(e) => e.as_ref(),
-            BoxedEntity::TestSynth(e) => e.as_ref(),
-            BoxedEntity::Timer(e) => e.as_ref(),
-            BoxedEntity::WelshSynth(e) => e.as_ref(),
+}
+effect_crackers! {
+    BiQuadFilter,
+    Bitcrusher,
+    Delay,
+    Gain,
+    Limiter,
+    Mixer,
+    Reverb,
+    TestEffect,
+}
+
+macro_rules! instrument_crackers {
+    ($($type:ident,)*) => {
+        impl BoxedEntity {
+            pub fn as_is_instrument(&self) -> Option<&dyn IsInstrument<Message = EntityMessage>> {
+                match self {
+                $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument<Message = EntityMessage>> {
+                match self {
+                $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
         }
     }
-    pub fn as_updateable_mut(&mut self) -> &mut dyn Updateable<Message = EntityMessage> {
-        match self {
-            BoxedEntity::AdsrEnvelope(e) => e.as_mut(),
-            BoxedEntity::Arpeggiator(e) => e.as_mut(),
-            BoxedEntity::AudioSource(e) => e.as_mut(),
-            BoxedEntity::BeatSequencer(e) => e.as_mut(),
-            BoxedEntity::BiQuadFilter(e) => e.as_mut(),
-            BoxedEntity::Bitcrusher(e) => e.as_mut(),
-            BoxedEntity::ControlTrip(e) => e.as_mut(),
-            BoxedEntity::Delay(e) => e.as_mut(),
-            BoxedEntity::DrumkitSampler(e) => e.as_mut(),
-            BoxedEntity::Gain(e) => e.as_mut(),
-            BoxedEntity::Limiter(e) => e.as_mut(),
-            BoxedEntity::MidiTickSequencer(e) => e.as_mut(),
-            BoxedEntity::Mixer(e) => e.as_mut(),
-            BoxedEntity::Oscillator(e) => e.as_mut(),
-            BoxedEntity::PatternManager(e) => e.as_mut(),
-            BoxedEntity::Reverb(e) => e.as_mut(),
-            BoxedEntity::Sampler(e) => e.as_mut(),
-            BoxedEntity::TestController(e) => e.as_mut(),
-            BoxedEntity::TestEffect(e) => e.as_mut(),
-            BoxedEntity::TestInstrument(e) => e.as_mut(),
-            BoxedEntity::TestLfo(e) => e.as_mut(),
-            BoxedEntity::TestSynth(e) => e.as_mut(),
-            BoxedEntity::Timer(e) => e.as_mut(),
-            BoxedEntity::WelshSynth(e) => e.as_mut(),
-        }
-    }
-    pub fn as_terminates(&self) -> Option<&dyn Terminates> {
-        match self {
-            BoxedEntity::Arpeggiator(e) => Some(e.as_ref()),
-            BoxedEntity::BeatSequencer(e) => Some(e.as_ref()),
-            BoxedEntity::ControlTrip(e) => Some(e.as_ref()),
-            BoxedEntity::MidiTickSequencer(e) => Some(e.as_ref()),
-            BoxedEntity::PatternManager(e) => Some(e.as_ref()),
-            BoxedEntity::TestController(e) => Some(e.as_ref()),
-            BoxedEntity::TestLfo(e) => Some(e.as_ref()),
-            BoxedEntity::Timer(e) => Some(e.as_ref()),
-            _ => None,
-        }
-    }
-    pub fn as_is_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
-        match self {
-            BoxedEntity::Arpeggiator(e) => Some(e.as_ref()),
-            BoxedEntity::BeatSequencer(e) => Some(e.as_ref()),
-            BoxedEntity::ControlTrip(e) => Some(e.as_ref()),
-            BoxedEntity::MidiTickSequencer(e) => Some(e.as_ref()),
-            BoxedEntity::PatternManager(e) => Some(e.as_ref()),
-            BoxedEntity::TestController(e) => Some(e.as_ref()),
-            BoxedEntity::TestLfo(e) => Some(e.as_ref()),
-            BoxedEntity::Timer(e) => Some(e.as_ref()),
-            _ => None,
-        }
-    }
-    pub fn as_is_controller_mut(
-        &mut self,
-    ) -> Option<&mut dyn IsController<Message = EntityMessage>> {
-        match self {
-            BoxedEntity::Arpeggiator(e) => Some(e.as_mut()),
-            BoxedEntity::BeatSequencer(e) => Some(e.as_mut()),
-            BoxedEntity::ControlTrip(e) => Some(e.as_mut()),
-            BoxedEntity::MidiTickSequencer(e) => Some(e.as_mut()),
-            BoxedEntity::PatternManager(e) => Some(e.as_mut()),
-            BoxedEntity::TestController(e) => Some(e.as_mut()),
-            BoxedEntity::TestLfo(e) => Some(e.as_mut()),
-            BoxedEntity::Timer(e) => Some(e.as_mut()),
-            _ => None,
-        }
-    }
-    pub fn as_is_effect(&self) -> Option<&dyn IsEffect<Message = EntityMessage>> {
-        match self {
-            BoxedEntity::BiQuadFilter(e) => Some(e.as_ref()),
-            BoxedEntity::Bitcrusher(e) => Some(e.as_ref()),
-            BoxedEntity::Delay(e) => Some(e.as_ref()),
-            BoxedEntity::Gain(e) => Some(e.as_ref()),
-            BoxedEntity::Limiter(e) => Some(e.as_ref()),
-            BoxedEntity::Mixer(e) => Some(e.as_ref()),
-            BoxedEntity::Reverb(e) => Some(e.as_ref()),
-            BoxedEntity::TestEffect(e) => Some(e.as_ref()),
-            _ => None,
-        }
-    }
-    pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn IsEffect<Message = EntityMessage>> {
-        match self {
-            BoxedEntity::BiQuadFilter(e) => Some(e.as_mut()),
-            BoxedEntity::Bitcrusher(e) => Some(e.as_mut()),
-            BoxedEntity::Delay(e) => Some(e.as_mut()),
-            BoxedEntity::Gain(e) => Some(e.as_mut()),
-            BoxedEntity::Limiter(e) => Some(e.as_mut()),
-            BoxedEntity::Mixer(e) => Some(e.as_mut()),
-            BoxedEntity::Reverb(e) => Some(e.as_mut()),
-            BoxedEntity::TestEffect(e) => Some(e.as_mut()),
-            _ => None,
-        }
-    }
-    pub fn as_is_instrument(&self) -> Option<&dyn IsInstrument<Message = EntityMessage>> {
-        match self {
-            BoxedEntity::AdsrEnvelope(e) => Some(e.as_ref()),
-            BoxedEntity::AudioSource(e) => Some(e.as_ref()),
-            BoxedEntity::DrumkitSampler(e) => Some(e.as_ref()),
-            BoxedEntity::Oscillator(e) => Some(e.as_ref()),
-            BoxedEntity::Sampler(e) => Some(e.as_ref()),
-            BoxedEntity::TestInstrument(e) => Some(e.as_ref()),
-            BoxedEntity::TestSynth(e) => Some(e.as_ref()),
-            BoxedEntity::WelshSynth(e) => Some(e.as_ref()),
-            _ => None,
-        }
-    }
-    pub fn as_is_instrument_mut(
-        &mut self,
-    ) -> Option<&mut dyn IsInstrument<Message = EntityMessage>> {
-        match self {
-            BoxedEntity::AdsrEnvelope(e) => Some(e.as_mut()),
-            BoxedEntity::AudioSource(e) => Some(e.as_mut()),
-            BoxedEntity::DrumkitSampler(e) => Some(e.as_mut()),
-            BoxedEntity::Oscillator(e) => Some(e.as_mut()),
-            BoxedEntity::Sampler(e) => Some(e.as_mut()),
-            BoxedEntity::TestInstrument(e) => Some(e.as_mut()),
-            BoxedEntity::TestSynth(e) => Some(e.as_mut()),
-            BoxedEntity::WelshSynth(e) => Some(e.as_mut()),
-            _ => None,
-        }
-    }
+}
+instrument_crackers! {
+    AdsrEnvelope,
+    AudioSource,
+    DrumkitSampler,
+    Oscillator,
+    Sampler,
+    TestInstrument,
+    TestSynth,
+    WelshSynth,
 }
