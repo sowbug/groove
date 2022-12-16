@@ -309,7 +309,7 @@ impl<M: MessageBounds> BiQuadFilter<M> {
         };
     }
 
-    pub(crate) fn cutoff_hz(&self) -> f32 {
+    pub fn cutoff_hz(&self) -> f32 {
         self.cutoff
     }
 
@@ -320,7 +320,7 @@ impl<M: MessageBounds> BiQuadFilter<M> {
         }
     }
 
-    pub(crate) fn cutoff_pct(&self) -> f32 {
+    pub fn cutoff_pct(&self) -> f32 {
         Self::frequency_to_percent(self.cutoff)
     }
 

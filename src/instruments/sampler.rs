@@ -16,7 +16,7 @@ pub struct Sampler {
     is_playing: bool,
     root_frequency: f32, // TODO: make not dead
 
-    pub(crate) filename: String,
+    filename: String,
 }
 impl IsInstrument for Sampler {}
 impl SourcesAudio for Sampler {
@@ -91,6 +91,10 @@ impl Sampler {
         }
         r.filename = filename.to_string();
         r
+    }
+
+    pub fn filename(&self) -> &str {
+        self.filename.as_ref()
     }
 }
 

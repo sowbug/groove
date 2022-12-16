@@ -1,6 +1,6 @@
 use crate::{
     common::MonoSample,
-    midi::{gui::PatternMessage, MidiChannel},
+    midi::{subscription::PatternMessage, MidiChannel},
 };
 use iced_audio::Normal;
 use midly::MidiMessage;

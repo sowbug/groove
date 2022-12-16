@@ -20,7 +20,7 @@ pub struct Bitcrusher {
     uid: usize,
     bits_to_crush: u8,
 
-    pub(super) int_range: IntRange,
+    int_range: IntRange,
 }
 impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
@@ -60,7 +60,9 @@ impl Updateable for Bitcrusher {
         if let Some(param) = BitcrusherControlParams::from_repr(index) {
             match param {
                 BitcrusherControlParams::BitsToCrushPct => {
-                    self.set_bits_to_crush(self.int_range.unmap_to_value(Normal::from_clipped(value)) as u8);
+                    self.set_bits_to_crush(
+                        self.int_range.unmap_to_value(Normal::from_clipped(value)) as u8,
+                    );
                 }
             }
         } else {
@@ -92,12 +94,17 @@ impl Bitcrusher {
         }
     }
 
-    pub(crate) fn bits_to_crush(&self) -> u8 {
+    pub fn bits_to_crush(&self) -> u8 {
         self.bits_to_crush
     }
 
     pub(crate) fn set_bits_to_crush(&mut self, n: u8) {
         self.bits_to_crush = n;
+    }
+
+    // TODO: this is a temporary and nonsensical name
+    pub fn int_range(&self) -> IntRange {
+        self.int_range
     }
 }
 

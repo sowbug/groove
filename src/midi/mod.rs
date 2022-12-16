@@ -1,7 +1,7 @@
-pub(crate) mod gui;
 pub(crate) mod patterns;
 pub(crate) mod programmers;
 pub(crate) mod smf_reader;
+pub(crate) mod subscription;
 
 use crate::{
     messages::MessageBounds,
@@ -74,7 +74,7 @@ impl MidiUtils {
 use enum_primitive_derive::Primitive;
 use strum_macros::Display;
 
-use self::gui::{MidiHandlerEvent, MidiHandlerInput};
+use self::subscription::{MidiHandlerEvent, MidiHandlerInput};
 
 #[derive(Display, Primitive, Debug)]
 pub enum GeneralMidiProgram {

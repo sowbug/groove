@@ -1,5 +1,4 @@
 use crate::clock::ClockTimeUnit;
-use crate::gui::Viewable;
 use crate::messages::EntityMessage;
 use crate::{clock::Clock, common::MonoSample, messages::MessageBounds};
 use crate::{
@@ -20,10 +19,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 /// implements Terminates, which indicates that it's done emitting events (and,
 /// in the case of timers and sequencers, done waiting for other work in the
 /// system to complete).
-pub trait IsController:
-    Updateable + Terminates + HasUid + Viewable + Send + std::fmt::Debug
-{
-}
+pub trait IsController: Updateable + Terminates + HasUid + Send + std::fmt::Debug {}
 
 /// An IsEffect transforms audio. It takes audio inputs and produces audio
 /// output. It does not get called unless there is audio input to provide to it
@@ -35,18 +31,12 @@ pub trait IsController:
 /// delay effect), and it turns out to be inconvenient for an IsController to
 /// track the end. In this case, we might add a Terminates bound for IsEffect.
 /// But right now I'm not sure that's the right solution.
-pub trait IsEffect:
-    TransformsAudio + Updateable + HasUid + Viewable + Send + std::fmt::Debug
-{
-}
+pub trait IsEffect: TransformsAudio + Updateable + HasUid + Send + std::fmt::Debug {}
 
 /// An IsInstrument produces audio, usually upon request from MIDI or
 /// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
 /// because it continues to create audio as long as asked.
-pub trait IsInstrument:
-    SourcesAudio + Updateable + HasUid + Viewable + Send + std::fmt::Debug
-{
-}
+pub trait IsInstrument: SourcesAudio + Updateable + HasUid + Send + std::fmt::Debug {}
 
 /// A future fourth trait might be named something like IsWidget or
 /// IsGuiElement. These exist only to interact with the user of a GUI app, but

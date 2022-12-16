@@ -82,11 +82,11 @@ impl Limiter {
         }
     }
 
-    pub(crate) fn min(&self) -> f32 {
+    pub fn min(&self) -> f32 {
         self.min
     }
 
-    pub(crate) fn max(&self) -> f32 {
+    pub fn max(&self) -> f32 {
         self.max
     }
 

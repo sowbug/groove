@@ -8,7 +8,6 @@ use crate::{
         bitcrusher::Bitcrusher, delay::Delay, filter::BiQuadFilter, gain::Gain, limiter::Limiter,
         mixer::Mixer, reverb::Reverb,
     },
-    gui::Viewable,
     instruments::{
         drumkit_sampler::DrumkitSampler, envelopes::AdsrEnvelope, oscillators::Oscillator,
         sampler::Sampler, welsh::WelshSynth,
@@ -163,34 +162,6 @@ impl BoxedEntity {
             BoxedEntity::WelshSynth(e) => e.as_mut(),
         }
     }
-    pub fn as_viewable(&self) -> &dyn Viewable<ViewMessage = EntityMessage> {
-        match self {
-            BoxedEntity::AdsrEnvelope(e) => e.as_ref(),
-            BoxedEntity::Arpeggiator(e) => e.as_ref(),
-            BoxedEntity::AudioSource(e) => e.as_ref(),
-            BoxedEntity::BeatSequencer(e) => e.as_ref(),
-            BoxedEntity::BiQuadFilter(e) => e.as_ref(),
-            BoxedEntity::Bitcrusher(e) => e.as_ref(),
-            BoxedEntity::ControlTrip(e) => e.as_ref(),
-            BoxedEntity::Delay(e) => e.as_ref(),
-            BoxedEntity::DrumkitSampler(e) => e.as_ref(),
-            BoxedEntity::Gain(e) => e.as_ref(),
-            BoxedEntity::Limiter(e) => e.as_ref(),
-            BoxedEntity::MidiTickSequencer(e) => e.as_ref(),
-            BoxedEntity::Mixer(e) => e.as_ref(),
-            BoxedEntity::Oscillator(e) => e.as_ref(),
-            BoxedEntity::PatternManager(e) => e.as_ref(),
-            BoxedEntity::Reverb(e) => e.as_ref(),
-            BoxedEntity::Sampler(e) => e.as_ref(),
-            BoxedEntity::TestController(e) => e.as_ref(),
-            BoxedEntity::TestEffect(e) => e.as_ref(),
-            BoxedEntity::TestInstrument(e) => e.as_ref(),
-            BoxedEntity::TestLfo(e) => e.as_ref(),
-            BoxedEntity::TestSynth(e) => e.as_ref(),
-            BoxedEntity::Timer(e) => e.as_ref(),
-            BoxedEntity::WelshSynth(e) => e.as_ref(),
-        }
-    }
     pub fn as_terminates(&self) -> Option<&dyn Terminates> {
         match self {
             BoxedEntity::Arpeggiator(e) => Some(e.as_ref()),
@@ -204,9 +175,7 @@ impl BoxedEntity {
             _ => None,
         }
     }
-    pub fn as_is_controller(
-        &self,
-    ) -> Option<&dyn IsController<Message = EntityMessage, ViewMessage = EntityMessage>> {
+    pub fn as_is_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
         match self {
             BoxedEntity::Arpeggiator(e) => Some(e.as_ref()),
             BoxedEntity::BeatSequencer(e) => Some(e.as_ref()),
@@ -221,7 +190,7 @@ impl BoxedEntity {
     }
     pub fn as_is_controller_mut(
         &mut self,
-    ) -> Option<&mut dyn IsController<Message = EntityMessage, ViewMessage = EntityMessage>> {
+    ) -> Option<&mut dyn IsController<Message = EntityMessage>> {
         match self {
             BoxedEntity::Arpeggiator(e) => Some(e.as_mut()),
             BoxedEntity::BeatSequencer(e) => Some(e.as_mut()),
@@ -234,9 +203,7 @@ impl BoxedEntity {
             _ => None,
         }
     }
-    pub fn as_is_effect(
-        &self,
-    ) -> Option<&dyn IsEffect<Message = EntityMessage, ViewMessage = EntityMessage>> {
+    pub fn as_is_effect(&self) -> Option<&dyn IsEffect<Message = EntityMessage>> {
         match self {
             BoxedEntity::BiQuadFilter(e) => Some(e.as_ref()),
             BoxedEntity::Bitcrusher(e) => Some(e.as_ref()),
@@ -249,9 +216,7 @@ impl BoxedEntity {
             _ => None,
         }
     }
-    pub fn as_is_effect_mut(
-        &mut self,
-    ) -> Option<&mut dyn IsEffect<Message = EntityMessage, ViewMessage = EntityMessage>> {
+    pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn IsEffect<Message = EntityMessage>> {
         match self {
             BoxedEntity::BiQuadFilter(e) => Some(e.as_mut()),
             BoxedEntity::Bitcrusher(e) => Some(e.as_mut()),
@@ -264,9 +229,7 @@ impl BoxedEntity {
             _ => None,
         }
     }
-    pub fn as_is_instrument(
-        &self,
-    ) -> Option<&dyn IsInstrument<Message = EntityMessage, ViewMessage = EntityMessage>> {
+    pub fn as_is_instrument(&self) -> Option<&dyn IsInstrument<Message = EntityMessage>> {
         match self {
             BoxedEntity::AdsrEnvelope(e) => Some(e.as_ref()),
             BoxedEntity::AudioSource(e) => Some(e.as_ref()),
@@ -281,7 +244,7 @@ impl BoxedEntity {
     }
     pub fn as_is_instrument_mut(
         &mut self,
-    ) -> Option<&mut dyn IsInstrument<Message = EntityMessage, ViewMessage = EntityMessage>> {
+    ) -> Option<&mut dyn IsInstrument<Message = EntityMessage>> {
         match self {
             BoxedEntity::AdsrEnvelope(e) => Some(e.as_mut()),
             BoxedEntity::AudioSource(e) => Some(e.as_mut()),

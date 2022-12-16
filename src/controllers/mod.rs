@@ -1,5 +1,4 @@
 pub(crate) mod arpeggiator;
-pub(crate) mod gui;
 pub(crate) mod orchestrator;
 pub(crate) mod sequencers;
 

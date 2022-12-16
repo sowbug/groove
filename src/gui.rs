@@ -1,32 +1,23 @@
 use crate::{
     common::{MonoSample, MONO_SAMPLE_SILENCE},
-    instruments::oscillators::Oscillator,
-    messages::{EntityMessage, MessageBounds},
     midi::MidiChannel,
-    traits::{Response, TestController, TestEffect, TestInstrument},
-    utils::{AudioSource, TestLfo, TestSynth, Timer, Trigger},
+    traits::Response,
     AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, Orchestrator, TimeSignature,
 };
 use iced::{
-    alignment::{Horizontal, Vertical},
+    alignment::Vertical,
     futures::channel::mpsc,
     theme,
-    widget::row,
-    Color, Element, Font,
-};
-use iced::{
-    widget::{column, container, text},
-    Theme,
+    widget::{column, container, row, text},
+    Color, Element, Font, Theme,
 };
 use iced_native::subscription::{self, Subscription};
 use midly::MidiMessage;
 use std::{
     marker::PhantomData,
-    time::{Duration, Instant},
-};
-use std::{
     sync::{Arc, Mutex},
     thread::JoinHandle,
+    time::{Duration, Instant},
 };
 
 pub const SMALL_FONT_SIZE: u16 = 16;
@@ -46,20 +37,6 @@ pub const NUMBERS_FONT: Font = Font::External {
     name: "Numbers Font",
     bytes: include_bytes!("../res/fonts/NotoSansMono-Regular.ttf"),
 };
-
-pub trait Viewable {
-    type ViewMessage;
-
-    fn view(&self) -> Element<'_, Self::ViewMessage, iced::Renderer> {
-        GuiStuff::titled_container(
-            "Untitled",
-            text("under construction")
-                .horizontal_alignment(Horizontal::Center)
-                .vertical_alignment(Vertical::Center)
-                .into(),
-        )
-    }
-}
 
 struct TitledContainerTitleStyle {
     theme: iced::Theme,
@@ -158,34 +135,6 @@ impl<'a, Message: 'a> GuiStuff<'a, Message> {
             _theme: theme.clone(),
         })
     }
-}
-
-impl Viewable for Oscillator {
-    type ViewMessage = EntityMessage;
-}
-impl<M: MessageBounds> Viewable for TestController<M> {
-    type ViewMessage = M;
-}
-impl<M: MessageBounds> Viewable for TestEffect<M> {
-    type ViewMessage = M;
-}
-impl<M: MessageBounds> Viewable for TestInstrument<M> {
-    type ViewMessage = M;
-}
-impl<M: MessageBounds> Viewable for TestLfo<M> {
-    type ViewMessage = M;
-}
-impl<M: MessageBounds> Viewable for TestSynth<M> {
-    type ViewMessage = M;
-}
-impl<M: MessageBounds> Viewable for Timer<M> {
-    type ViewMessage = M;
-}
-impl<M: MessageBounds> Viewable for Trigger<M> {
-    type ViewMessage = M;
-}
-impl<M: MessageBounds> Viewable for AudioSource<M> {
-    type ViewMessage = M;
 }
 
 enum State {
@@ -502,110 +451,5 @@ impl GrooveSubscription {
                 }
             },
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{GuiStuff, Viewable};
-    use crate::utils::tests::{TestControlSourceContinuous, TestMixer};
-    use crate::{
-        controllers::sequencers::BeatSequencer,
-        effects::{
-            filter::{BiQuadFilter, FilterParams},
-            gain::Gain,
-        },
-        messages::{tests::TestMessage, EntityMessage, MessageBounds},
-    };
-    use iced::{
-        widget::{container, text},
-        Element,
-    };
-    use std::any::type_name;
-
-    impl<M: MessageBounds> Viewable for TestMixer<M> {
-        type ViewMessage = M;
-    }
-    impl<M: MessageBounds> Viewable for TestControlSourceContinuous<M> {
-        type ViewMessage = M;
-    }
-    impl Viewable for BiQuadFilter<TestMessage> {
-        type ViewMessage = TestMessage;
-
-        fn view(&self) -> Element<Self::ViewMessage> {
-            container(text("not implemented")).into()
-        }
-    }
-    impl Viewable for BeatSequencer<TestMessage> {
-        type ViewMessage = TestMessage;
-
-        fn view(&self) -> Element<Self::ViewMessage> {
-            let title = type_name::<Self>();
-            let contents = format!("cursor point: {}", "tOdO");
-            GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
-        }
-    }
-
-    // impl Viewable for PatternManager { type ViewMessage = GrooveMessage;
-
-    //     fn view(&self) -> Element<Self::ViewMessage> { let title =
-    //         type_name::<PatternManager>(); let contents = { let pattern_views
-    //         = self.patterns().iter().enumerate().map(|(i, item)| {
-    //             item.view() .map(move |message|
-    //                 Self::ViewMessage::PatternMessage(i, message)) });
-    //                     column(pattern_views.collect()) };
-    //             GuiStuff::titled_container(title, contents.into()) }
-    // }
-
-    // There aren't many assertions in this method, but we know it'll panic or
-    // spit out debug messages if something's wrong.
-    fn test_one_viewable(
-        viewable: Box<dyn Viewable<ViewMessage = EntityMessage>>,
-        message: Option<EntityMessage>,
-    ) {
-        let _ = viewable.view();
-        if let Some(_message) = message {
-            //viewable.update(message);
-        }
-    }
-
-    #[ignore]
-    #[test]
-    fn test_viewables_of_generic_entities() {
-        // TODO: some of these commented-out entities could be made generic, but
-        // it's a maintenance cost, and I don't know for sure if they're even
-        // useful being able to respond to TestMessaage. I think I know how to
-        // genericize entities pretty well now, so it's not
-
-        // test_one_viewable( Box::new(WelshSynth::new_with( 44100,
-        //     SynthPatch::by_name(&PatchName::Trombone), )), None, );
-        //         test_one_viewable(Box::new(DrumkitSampler::new_from_files()),
-        //         None); test_one_viewable(Box::new(Sampler::new_with(1024)),
-        //     None); TODO - test it! test_one_viewable(Mixer::new_wrapped(),
-        //     None);
-        test_one_viewable(
-            Box::new(Gain::<EntityMessage>::default()),
-            Some(EntityMessage::UpdateParam0U8(28)),
-        );
-        // test_one_viewable( Box::new(Bitcrusher::new_with(7)),
-        //     Some(GrooveMessage::BitcrusherValueChanged(4)), );
-        test_one_viewable(
-            Box::new(BiQuadFilter::<EntityMessage>::new_with(
-                &FilterParams::AllPass {
-                    cutoff: 1000.0,
-                    q: 2.0,
-                },
-                44100,
-            )),
-            Some(EntityMessage::UpdateParam1F32(500.0)),
-        );
-        // test_one_viewable( Box::new(Limiter::new_with(0.0, 1.0)),
-        //     Some(GrooveMessage::LimiterMinChanged(0.5)), );
-        //     test_one_viewable( Box::new(Arpeggiator::new_with(1)),
-        // Some(GrooveMessage::ArpeggiatorChanged(42)), );
-        test_one_viewable(
-            Box::new(BeatSequencer::<EntityMessage>::default()),
-            Some(EntityMessage::EnablePressed(false)),
-        );
     }
 }

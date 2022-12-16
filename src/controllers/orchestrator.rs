@@ -9,7 +9,7 @@ use crate::{
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     settings::ClockSettings,
     traits::{HasUid, Internal, Response, Terminates},
-    IOHelper, Paths, MIDI_CHANNEL_RECEIVE_ALL,
+    BeatSequencer, IOHelper, Paths, MIDI_CHANNEL_RECEIVE_ALL,
 };
 use anyhow::anyhow;
 use dipstick::InputScope;
@@ -26,8 +26,10 @@ pub struct Orchestrator<M: MessageBounds> {
     uid: usize,
     clock_settings: ClockSettings,
     store: Store,
+
     main_mixer_uid: usize,
-    pattern_manager: PatternManager, // TODO: one of these things is not like the others
+    pattern_manager_uid: usize,
+    beat_sequencer_uid: usize,
 
     metrics: DipstickWrapper,
     enable_dev_experiment: bool,
@@ -59,7 +61,10 @@ impl<M: MessageBounds> HasUid for Orchestrator<M> {
     }
 }
 impl<M: MessageBounds> Orchestrator<M> {
+    // TODO: prefix these to reserve internal ID namespace
     pub const MAIN_MIXER_UVID: &str = "main-mixer";
+    pub const PATTERN_MANAGER_UVID: &str = "pattern-manager";
+    pub const BEAT_SEQUENCER_UVID: &str = "beat-sequencer";
 
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
@@ -351,20 +356,24 @@ impl<M: MessageBounds> Orchestrator<M> {
             .disconnect_midi_receiver(receiver_uid, receiver_midi_channel);
     }
 
-    pub fn pattern_manager(&self) -> &PatternManager {
-        &self.pattern_manager
-    }
-
-    pub fn pattern_manager_mut(&mut self) -> &mut PatternManager {
-        &mut self.pattern_manager
-    }
-
     pub fn set_enable_dev_experiment(&mut self, enabled: bool) {
         self.enable_dev_experiment = enabled;
     }
 
     pub fn set_should_output_perf(&mut self, value: bool) {
         self.should_output_perf = value;
+    }
+
+    pub fn beat_sequencer_uid(&self) -> usize {
+        self.beat_sequencer_uid
+    }
+
+    pub fn main_mixer_uid(&self) -> usize {
+        self.main_mixer_uid
+    }
+
+    pub fn pattern_manager_uid(&self) -> usize {
+        self.pattern_manager_uid
     }
 }
 impl<M: MessageBounds> Default for Orchestrator<M> {
@@ -374,17 +383,27 @@ impl<M: MessageBounds> Default for Orchestrator<M> {
             clock_settings: Default::default(),
             store: Default::default(),
             main_mixer_uid: Default::default(),
-            pattern_manager: Default::default(), // TODO: this should be added like main_mixer
+            pattern_manager_uid: Default::default(),
+            beat_sequencer_uid: Default::default(),
             metrics: Default::default(),
             enable_dev_experiment: Default::default(),
             should_output_perf: Default::default(),
             _phantom: Default::default(),
         };
-        let main_mixer = Box::new(Mixer::default());
         r.main_mixer_uid = r.add(
             Some(Orchestrator::<M>::MAIN_MIXER_UVID),
-            BoxedEntity::Mixer(main_mixer),
+            BoxedEntity::Mixer(Box::new(Mixer::default())),
         );
+        r.pattern_manager_uid = r.add(
+            Some(Orchestrator::<M>::PATTERN_MANAGER_UVID),
+            BoxedEntity::PatternManager(Box::new(PatternManager::default())),
+        );
+        r.beat_sequencer_uid = r.add(
+            Some(Orchestrator::<M>::BEAT_SEQUENCER_UVID),
+            BoxedEntity::BeatSequencer(Box::new(BeatSequencer::default())),
+        );
+        r.connect_midi_upstream(r.beat_sequencer_uid);
+
         r
     }
 }

@@ -83,7 +83,7 @@ impl SourcesAudio for Voice {
 pub struct DrumkitSampler {
     uid: usize,
     note_to_voice: FxHashMap<u8, Voice>,
-    pub(crate) kit_name: String,
+    kit_name: String,
 }
 impl IsInstrument for DrumkitSampler {}
 impl SourcesAudio for DrumkitSampler {
@@ -184,6 +184,10 @@ impl DrumkitSampler {
         }
         r.kit_name = "707".to_string();
         r
+    }
+
+    pub fn kit_name(&self) -> &str {
+        self.kit_name.as_ref()
     }
 }
 

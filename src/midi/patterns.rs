@@ -7,9 +7,9 @@ use std::fmt::Debug;
 
 #[derive(Clone, Debug, Default)]
 pub struct Note {
-    pub(crate) key: u8,
-    pub(crate) velocity: u8,
-    pub(crate) duration: PerfectTimeUnit, // expressed as multiple of the containing Pattern's note value.
+    pub key: u8,
+    pub velocity: u8,
+    pub duration: PerfectTimeUnit, // expressed as multiple of the containing Pattern's note value.
 }
 
 #[derive(Clone, Debug, Default)]
@@ -89,7 +89,7 @@ impl PatternManager {
         self.patterns.push(pattern);
     }
 
-    pub(crate) fn patterns(&self) -> &[Pattern<Note>] {
+    pub fn patterns(&self) -> &[Pattern<Note>] {
         &self.patterns
     }
 }

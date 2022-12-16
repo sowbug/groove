@@ -4,15 +4,14 @@ use super::{
 };
 use crate::{
     common::DeviceId,
-    controllers::{
-        orchestrator::GrooveOrchestrator, sequencers::BeatSequencer, ControlPath, ControlTrip,
-    },
+    controllers::{orchestrator::GrooveOrchestrator, ControlPath, ControlTrip},
+    entities::BoxedEntity,
     messages::EntityMessage,
     midi::{
         patterns::{Note, Pattern},
         programmers::PatternProgrammer,
     },
-    TimeSignature, entities::BoxedEntity,
+    TimeSignature,
 };
 use anyhow::Result;
 use rustc_hash::FxHashMap;
@@ -125,28 +124,34 @@ impl SongSettings {
         }
 
         let mut ids_to_patterns = FxHashMap::default();
-        let pattern_manager = orchestrator.pattern_manager_mut();
-        for pattern_settings in &self.patterns {
-            let pattern = Pattern::<Note>::from_settings(pattern_settings);
-            ids_to_patterns.insert(pattern_settings.id.clone(), pattern.clone());
-            pattern_manager.register(pattern);
-        }
-        let mut sequencer = Box::new(BeatSequencer::default());
-        let mut programmer =
-            PatternProgrammer::<EntityMessage>::new_with(&self.clock.time_signature);
-
-        for track in &self.tracks {
-            let channel = track.midi_channel;
-            programmer.reset_cursor();
-            for pattern_id in &track.pattern_ids {
-                if let Some(pattern) = ids_to_patterns.get(pattern_id) {
-                    programmer.insert_pattern_at_cursor(&mut sequencer, &channel, pattern);
-                }
+        let pattern_manager_uid = orchestrator.pattern_manager_uid();
+        if let Some(BoxedEntity::PatternManager(pattern_manager)) =
+            orchestrator.store_mut().get_mut(pattern_manager_uid)
+        {
+            for pattern_settings in &self.patterns {
+                let pattern = Pattern::<Note>::from_settings(pattern_settings);
+                ids_to_patterns.insert(pattern_settings.id.clone(), pattern.clone());
+                pattern_manager.register(pattern);
             }
         }
 
-        let sequencer_uid = orchestrator.add(None, BoxedEntity::BeatSequencer(sequencer));
-        orchestrator.connect_midi_upstream(sequencer_uid);
+        let beat_sequencer_uid = orchestrator.beat_sequencer_uid();
+        if let Some(BoxedEntity::BeatSequencer(sequencer)) =
+            orchestrator.store_mut().get_mut(beat_sequencer_uid)
+        {
+            let mut programmer =
+                PatternProgrammer::<EntityMessage>::new_with(&self.clock.time_signature);
+
+            for track in &self.tracks {
+                let channel = track.midi_channel;
+                programmer.reset_cursor();
+                for pattern_id in &track.pattern_ids {
+                    if let Some(pattern) = ids_to_patterns.get(pattern_id) {
+                        programmer.insert_pattern_at_cursor(sequencer, &channel, pattern);
+                    }
+                }
+            }
+        }
     }
 
     fn instantiate_control_trips(
