@@ -5,10 +5,12 @@ mod gui;
 use groove::{
     gui::{GrooveEvent, GrooveInput, GuiStuff, NUMBERS_FONT, NUMBERS_FONT_SIZE},
     traits::{HasUid, TestController, TestEffect, TestInstrument},
-    Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity, Clock,
-    DrumkitSampler, EntityMessage, Gain, GrooveMessage, GrooveOrchestrator, GrooveSubscription,
-    Limiter, MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
-    Note, Pattern, PatternManager, PatternMessage, Sampler, TestLfo, TestSynth, Timer,
+    AdsrEnvelope, Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity,
+    Clock, ControlTrip, Delay, DrumkitSampler, EntityMessage, Gain, GrooveMessage,
+    GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
+    MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Note,
+    Oscillator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, TestLfo, TestSynth,
+    Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -228,6 +230,7 @@ impl Application for GrooveApp {
                     self.midi_handler_sender = Some(sender);
                     self.midi_handler = midi_handler;
                 }
+                #[allow(unused_variables)]
                 MidiHandlerEvent::Midi(channel, event) => {
                     // TODO
                 }
@@ -350,7 +353,7 @@ impl GrooveApp {
     fn entity_view(&self, entity: &BoxedEntity) -> Element<EntityMessage> {
         match entity {
             BoxedEntity::AdsrEnvelope(e) => GuiStuff::titled_container(
-                "AdsrEnvelope",
+                type_name::<AdsrEnvelope>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
             )
             .into(),
@@ -364,12 +367,12 @@ impl GrooveApp {
             BoxedEntity::BiQuadFilter(e) => self.biquad_filter_view(e),
             BoxedEntity::Bitcrusher(e) => self.bitcrusher_view(e),
             BoxedEntity::ControlTrip(e) => GuiStuff::titled_container(
-                "ControlTrip",
+                type_name::<ControlTrip<EntityMessage>>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
             )
             .into(),
             BoxedEntity::Delay(e) => {
-                let title = "dElAy";
+                let title = type_name::<Delay>();
                 let contents = format!("delay in seconds: {}", e.delay_seconds());
                 GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
             }
@@ -385,23 +388,23 @@ impl GrooveApp {
                 GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
             }
             BoxedEntity::MidiTickSequencer(e) => GuiStuff::titled_container(
-                "MidiTickSequencer",
+                type_name::<MidiTickSequencer<EntityMessage>>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
             )
             .into(),
             BoxedEntity::Mixer(e) => GuiStuff::titled_container(
-                "Oscillator",
+                type_name::<Mixer<EntityMessage>>(),
                 text(format!("Mixer {} coming soon", e.uid())).into(),
             )
             .into(),
             BoxedEntity::Oscillator(e) => GuiStuff::titled_container(
-                "Oscillator",
+                type_name::<Oscillator>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
             )
             .into(),
             BoxedEntity::PatternManager(e) => self.pattern_manager_view(e),
             BoxedEntity::Reverb(e) => GuiStuff::titled_container(
-                "Reverb",
+                type_name::<Reverb>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
             )
             .into(),
@@ -419,7 +422,7 @@ impl GrooveApp {
             BoxedEntity::WelshSynth(e) => {
                 let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
                 GuiStuff::titled_container(
-                    "Welsh Synth",
+                    type_name::<WelshSynth>(),
                     container(column![
                         text(format!("Welsh {} {} coming soon", e.uid(), e.preset_name())),
                         pick_list(options, None, EntityMessage::PickListSelected,)
@@ -556,28 +559,28 @@ impl GrooveApp {
 
     fn test_controller_view(&self, e: &TestController<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            "TestController",
+            type_name::<TestController<EntityMessage>>(),
             GuiStuff::container_text(format!("Tempo: {}", e.tempo).as_str()),
         )
     }
 
     fn test_effect_view(&self, e: &TestEffect<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            "TestEffect",
+            type_name::<TestEffect<EntityMessage>>(),
             GuiStuff::container_text(format!("Value: {}", e.my_value()).as_str()),
         )
     }
 
     fn test_instrument_view(&self, e: &TestInstrument<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            "TestInstrument",
+            type_name::<TestInstrument<EntityMessage>>(),
             GuiStuff::container_text(format!("Fake value: {}", e.fake_value()).as_str()),
         )
     }
 
     fn test_lfo_view(&self, e: &TestLfo<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            "TestLfo",
+            type_name::<TestLfo<EntityMessage>>(),
             GuiStuff::container_text(
                 format!("Frequency: {} current value: {}", e.frequency(), e.value()).as_str(),
             ),
@@ -586,14 +589,14 @@ impl GrooveApp {
 
     fn test_synth_view(&self, _: &TestSynth<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            "TestSynth",
+            type_name::<TestSynth<EntityMessage>>(),
             GuiStuff::container_text(format!("Nothing").as_str()),
         )
     }
 
     fn timer_view(&self, e: &Timer<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            "Timer",
+            type_name::<Timer<EntityMessage>>(),
             GuiStuff::container_text(format!("Runtime: {}", e.time_to_run_seconds()).as_str()),
         )
     }
@@ -629,14 +632,14 @@ impl GrooveApp {
     }
     fn audio_source_view(&self, e: &AudioSource<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            "AudioSource",
+            type_name::<AudioSource<EntityMessage>>(),
             GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
         )
         .into()
     }
 
     fn gain_view(&self, e: &Gain<EntityMessage>) -> Element<EntityMessage> {
-        let title = format!("Gain: {}", e.ceiling());
+        let title = format!("{}: {}", type_name::<Gain<EntityMessage>>(), e.ceiling());
         let slider = HSlider::new(
             NormalParam {
                 value: Normal::from_clipped(e.ceiling()),
@@ -666,7 +669,7 @@ impl GrooveApp {
     }
 
     fn bitcrusher_view(&self, e: &Bitcrusher) -> Element<EntityMessage> {
-        let title = format!("Bitcrusher: {}", e.bits_to_crush());
+        let title = format!("{}: {}", type_name::<Bitcrusher>(), e.bits_to_crush());
         let contents = container(row![HSlider::new(
             e.int_range().normal_param(e.bits_to_crush() as i32, 8),
             EntityMessage::HSliderInt

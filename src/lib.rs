@@ -8,13 +8,20 @@ pub use crate::{
     controllers::{
         arpeggiator::Arpeggiator,
         orchestrator::{GrooveOrchestrator, Orchestrator},
-        sequencers::BeatSequencer,
+        sequencers::{BeatSequencer, MidiTickSequencer},
+        ControlTrip,
     },
-    effects::{bitcrusher::Bitcrusher, filter::BiQuadFilter, gain::Gain, limiter::Limiter},
+    effects::{
+        bitcrusher::Bitcrusher, delay::Delay, filter::BiQuadFilter, gain::Gain, limiter::Limiter,
+        mixer::Mixer, reverb::Reverb,
+    },
     entities::BoxedEntity,
     gui::GrooveSubscription,
     helpers::{AudioOutput, IOHelper},
-    instruments::{drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth},
+    instruments::{
+        drumkit_sampler::DrumkitSampler, envelopes::AdsrEnvelope, oscillators::Oscillator,
+        sampler::Sampler, welsh::WelshSynth,
+    },
     messages::{EntityMessage, GrooveMessage},
     midi::{
         patterns::{Note, Pattern, PatternManager},
