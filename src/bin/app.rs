@@ -229,7 +229,7 @@ impl Application for GrooveApp {
                     self.midi_handler = midi_handler;
                 }
                 MidiHandlerEvent::Midi(channel, event) => {
-                    dbg!(&channel, &event);
+                    // TODO
                 }
                 MidiHandlerEvent::Quit => {
                     todo!("If we were waiting for this to shut down, then record that we're ready");
