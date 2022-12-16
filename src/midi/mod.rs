@@ -3,22 +3,22 @@ pub(crate) mod programmers;
 pub(crate) mod smf_reader;
 pub(crate) mod subscription;
 
+// TODO copy and conform MidiMessage to MessageBounds so it can be a trait
+// associated type
+use self::subscription::MidiHandlerEvent;
 use crate::{
     messages::MessageBounds,
     traits::{HasUid, IsController, Response, Terminates, Updateable},
     Clock,
 };
 use crossbeam::deque::{Steal, Stealer, Worker};
-use iced::futures::channel::mpsc;
+use enum_primitive_derive::Primitive;
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
-// TODO copy and conform to MessageBounds so it can be a trait associated type
 pub use midly::MidiMessage;
 use midly::{live::LiveEvent, num::u4};
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::Debug,
-    time::{Duration, Instant},
-};
+use std::{fmt::Debug, time::Instant};
+use strum_macros::Display;
 
 #[derive(Clone, Copy, Debug, Default)]
 #[allow(dead_code)]
@@ -34,7 +34,6 @@ pub enum MidiNote {
 }
 
 pub type MidiChannel = u8;
-pub const MIDI_CHANNEL_RECEIVE_ALL: MidiChannel = 255;
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Copy, Default)]
 pub enum MidiMessageType {
@@ -70,11 +69,6 @@ impl MidiUtils {
         }
     }
 }
-
-use enum_primitive_derive::Primitive;
-use strum_macros::Display;
-
-use self::subscription::{MidiHandlerEvent, MidiHandlerInput};
 
 #[derive(Display, Primitive, Debug)]
 pub enum GeneralMidiProgram {
@@ -419,9 +413,9 @@ impl IsController for MidiOutputHandler {}
 impl Updateable for MidiOutputHandler {
     type Message = MidiHandlerMessage;
 
-    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<MidiHandlerMessage> {
         match message {
-            Self::Message::MidiToExternal(channel, message) => {
+            MidiHandlerMessage::Midi(channel, message) => {
                 let event = LiveEvent::Midi {
                     channel: u4::from(channel),
                     message,
@@ -567,21 +561,15 @@ impl MidiOutputHandler {
 
 #[derive(Clone, Debug, Default)]
 pub enum MidiHandlerMessage {
-    /// "no operation" $EA, exists only as a default. Nobody should do anything
-    /// in response to this message; in fact, it's probably OK to panic.
+    /// It's time to do periodic work.
     #[default]
-    Nop,
-
     Tick,
-
-    // Incoming MIDI traffic happened
-    Activity(Instant),
 
     /// A MIDI message sent by Groove to MidiHandler for output to external MIDI
     /// devices.
-    MidiToExternal(MidiChannel, MidiMessage),
+    Midi(MidiChannel, MidiMessage),
 
-    // A new MIDI input or output has been selected in the UI.
+    /// A new MIDI input or output has been selected in the UI.
     InputSelected(MidiPortLabel),
     OutputSelected(MidiPortLabel),
 }
@@ -594,10 +582,18 @@ pub struct MidiHandler {
     midi_output: Option<MidiOutputHandler>,
 
     activity_tick: Instant,
-
-    sender: mpsc::Sender<MidiHandlerEvent>,
-    receiver: mpsc::Receiver<MidiHandlerInput>,
-    events: Vec<MidiHandlerEvent>,
+}
+impl Default for MidiHandler {
+    fn default() -> Self {
+        let midi_input = MidiInputHandler::new().ok();
+        let midi_output = MidiOutputHandler::new().ok();
+        Self {
+            uid: Default::default(),
+            midi_input,
+            midi_output,
+            activity_tick: Instant::now(),
+        }
+    }
 }
 impl MidiHandler {
     fn update(&mut self, clock: &Clock, message: MidiHandlerMessage) -> Response<MidiHandlerEvent> {
@@ -610,7 +606,8 @@ impl MidiHandler {
                             if let Steal::Success((_stamp, channel, message)) =
                                 input_stealer.steal()
                             {
-                                commands.push(Response::single(MidiHandlerEvent::MidiMessage(
+                                self.activity_tick = Instant::now();
+                                commands.push(Response::single(MidiHandlerEvent::Midi(
                                     channel, message,
                                 )));
                             }
@@ -621,7 +618,7 @@ impl MidiHandler {
                     }
                 }
             }
-            MidiHandlerMessage::MidiToExternal(_, _) => {
+            MidiHandlerMessage::Midi(_, _) => {
                 if self.midi_output.is_some() {
                     self.midi_output.as_mut().unwrap().update(clock, message);
                 }
@@ -629,23 +626,6 @@ impl MidiHandler {
             _ => {}
         }
         Response::none()
-    }
-
-    pub fn new_with(
-        sender: mpsc::Sender<MidiHandlerEvent>,
-        receiver: mpsc::Receiver<MidiHandlerInput>,
-    ) -> Self {
-        let midi_input = MidiInputHandler::new().ok();
-        let midi_output = MidiOutputHandler::new().ok();
-        Self {
-            uid: Default::default(),
-            midi_input,
-            midi_output,
-            activity_tick: Instant::now(),
-            sender,
-            receiver,
-            events: Default::default(),
-        }
     }
 
     pub fn start(&mut self) -> anyhow::Result<()> {
@@ -695,50 +675,16 @@ impl MidiHandler {
         }
     }
 
-    fn push_response(&mut self, response: Response<MidiHandlerEvent>) {
-        match response.0 {
-            crate::traits::Internal::None => {}
-            crate::traits::Internal::Single(message) => {
-                self.events.push(message);
-            }
-            crate::traits::Internal::Batch(messages) => {
-                self.events.extend(messages);
-            }
-        }
+    pub fn activity_tick(&self) -> Instant {
+        self.activity_tick
     }
 
-    fn send_pending_messages(&mut self) {
-        while let Some(message) = self.events.pop() {
-            let _ = self.sender.try_send(message);
-        }
+    pub fn midi_input(&self) -> Option<&MidiInputHandler> {
+        self.midi_input.as_ref()
     }
 
-    fn do_loop(&mut self) {
-        let clock = Clock::default();
-        loop {
-            let response = self.update(&clock, MidiHandlerMessage::Tick);
-            self.push_response(response);
-            self.send_pending_messages();
-            if let Ok(Some(input)) = self.receiver.try_next() {
-                match input {
-                    MidiHandlerInput::ChangeTheChannel => todo!(),
-                    MidiHandlerInput::MidiMessage(channel, message) => {
-                        // TODO: this is crazy right now, during this refactor,
-                        // because we're wrapping and re-wrapping messages. Get
-                        // the story straight.
-                        self.update(&clock, MidiHandlerMessage::MidiToExternal(channel, message));
-                    }
-                    MidiHandlerInput::QuitRequested => {
-                        self.push_response(Response::single(MidiHandlerEvent::Quit));
-                        self.send_pending_messages();
-                        break;
-                    }
-                }
-            }
-
-            // TODO: convert this to select on either self.receiver or midi input
-            std::thread::sleep(Duration::from_millis(10));
-        }
+    pub fn midi_output(&self) -> Option<&MidiOutputHandler> {
+        self.midi_output.as_ref()
     }
 }
 impl Terminates for MidiHandler {

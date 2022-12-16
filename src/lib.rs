@@ -19,7 +19,7 @@ pub use crate::{
     midi::{
         patterns::{Note, Pattern, PatternManager},
         subscription::{MidiHandlerEvent, MidiHandlerInput, MidiSubscription, PatternMessage},
-        MidiHandler, MidiHandlerMessage, MidiInputStealer, MIDI_CHANNEL_RECEIVE_ALL,
+        MidiHandler, MidiHandlerMessage, MidiInputStealer,
     },
     settings::songs::SongSettings,
     utils::{AudioSource, Paths, TestLfo, TestSynth, Timer},

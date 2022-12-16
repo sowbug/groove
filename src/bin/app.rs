@@ -7,8 +7,8 @@ use groove::{
     traits::{HasUid, TestController, TestEffect, TestInstrument},
     Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity, Clock,
     DrumkitSampler, EntityMessage, Gain, GrooveMessage, GrooveOrchestrator, GrooveSubscription,
-    Limiter, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription, Note,
-    Pattern, PatternManager, PatternMessage, Sampler, TestLfo, TestSynth, Timer,
+    Limiter, MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
+    Note, Pattern, PatternManager, PatternMessage, Sampler, TestLfo, TestSynth, Timer,
 };
 use gui::{
     persistence::{LoadError, SavedState},
@@ -53,6 +53,7 @@ struct GrooveApp {
     reached_end_of_playback: bool,
 
     midi_handler_sender: Option<mpsc::Sender<MidiHandlerInput>>,
+    midi_handler: Arc<Mutex<MidiHandler>>,
 }
 
 impl Default for GrooveApp {
@@ -67,6 +68,7 @@ impl Default for GrooveApp {
             clock_mirror: Default::default(),
             reached_end_of_playback: Default::default(),
             midi_handler_sender: Default::default(),
+            midi_handler: Default::default(),
         }
     }
 }
@@ -190,9 +192,16 @@ impl Application for GrooveApp {
                 }
             }
             AppMessage::MidiHandlerMessage(message) => match message {
-                // MidiHandlerMessage::InputSelected(which) => self.midi.select_input(which),
-                // MidiHandlerMessage::OutputSelected(which) => self.midi.select_output(which),
-                _ => todo!(),
+                MidiHandlerMessage::InputSelected(which) => {
+                    self.post_to_midi_handler(MidiHandlerInput::SelectMidiInput(which));
+                }
+                MidiHandlerMessage::OutputSelected(which) => {
+                    self.post_to_midi_handler(MidiHandlerInput::SelectMidiOutput(which));
+                }
+                MidiHandlerMessage::Tick => todo!(),
+                MidiHandlerMessage::Midi(_, _) => {
+                    panic!("We send this. A coding error exists if we receive it.")
+                }
             },
             AppMessage::GrooveEvent(event) => match event {
                 GrooveEvent::Ready(sender, orchestrator) => {
@@ -207,7 +216,7 @@ impl Application for GrooveApp {
                     self.clock_mirror.set_time_signature(time_signature)
                 }
                 GrooveEvent::MidiToExternal(channel, message) => {
-                    self.post_to_midi_handler(MidiHandlerInput::MidiMessage(channel, message));
+                    self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
                 }
                 GrooveEvent::AudioOutput(_) => todo!(),
                 GrooveEvent::OutputComplete => todo!(),
@@ -215,11 +224,13 @@ impl Application for GrooveApp {
                 GrooveEvent::ProjectLoaded(filename) => self.project_name = filename,
             },
             AppMessage::MidiHandlerEvent(event) => match event {
-                MidiHandlerEvent::Ready(sender) => {
+                MidiHandlerEvent::Ready(sender, midi_handler) => {
                     self.midi_handler_sender = Some(sender);
-                    // TODO: now that we can talk to the midi handler, we should ask it for inputs and outputs.
+                    self.midi_handler = midi_handler;
                 }
-                MidiHandlerEvent::MidiMessage(_, _) => todo!("we got a MIDI message from outside"),
+                MidiHandlerEvent::Midi(channel, event) => {
+                    dbg!(&channel, &event);
+                }
                 MidiHandlerEvent::Quit => {
                     todo!("If we were waiting for this to shut down, then record that we're ready");
                 }
@@ -421,38 +432,45 @@ impl GrooveApp {
     }
 
     fn midi_view(&self) -> Element<MidiHandlerMessage> {
-        // let activity_text = container(text(
-        //     if Instant::now().duration_since(self.activity_tick) > Duration::from_millis(250) {
-        //         " "
-        //     } else {
-        //         "•"
-        //     },
-        // ))
-        // .width(iced::Length::FillPortion(1));
-        // let (input_selected, input_options) = self.midi_input.as_ref().unwrap().labels();
-        // let input_menu = row![
-        //     text("Input").width(iced::Length::FillPortion(1)),
-        //     pick_list(
-        //         input_options,
-        //         input_selected.clone(),
-        //         MidiHandlerMessage::InputSelected,
-        //     )
-        //     .width(iced::Length::FillPortion(3))
-        // ];
-        // let (output_selected, output_options) = self.midi_output.as_ref().unwrap().labels();
-        // let output_menu = row![
-        //     text("Output").width(iced::Length::FillPortion(1)),
-        //     pick_list(
-        //         output_options,
-        //         output_selected.clone(),
-        //         MidiHandlerMessage::OutputSelected,
-        //     )
-        //     .width(iced::Length::FillPortion(3))
-        // ];
-        // let port_menus =
-        //     container(column![input_menu, output_menu]).width(iced::Length::FillPortion(7));
-        // GuiStuff::titled_container("MIDI", container(row![activity_text, port_menus]).into())
-        GuiStuff::titled_container("MIDI", GuiStuff::container_text("hi")).into()
+        if let Ok(midi_handler) = self.midi_handler.lock() {
+            let activity_text = container(text(
+                if Instant::now().duration_since(midi_handler.activity_tick())
+                    > Duration::from_millis(250)
+                {
+                    " "
+                } else {
+                    "•"
+                },
+            ))
+            .width(iced::Length::FillPortion(1));
+            let (input_selected, input_options) =
+                midi_handler.midi_input().as_ref().unwrap().labels();
+            let input_menu = row![
+                text("Input").width(iced::Length::FillPortion(1)),
+                pick_list(
+                    input_options,
+                    input_selected.clone(),
+                    MidiHandlerMessage::InputSelected,
+                )
+                .width(iced::Length::FillPortion(3))
+            ];
+            let (output_selected, output_options) =
+                midi_handler.midi_output().as_ref().unwrap().labels();
+            let output_menu = row![
+                text("Output").width(iced::Length::FillPortion(1)),
+                pick_list(
+                    output_options,
+                    output_selected.clone(),
+                    MidiHandlerMessage::OutputSelected,
+                )
+                .width(iced::Length::FillPortion(3))
+            ];
+            let port_menus =
+                container(column![input_menu, output_menu]).width(iced::Length::FillPortion(7));
+            GuiStuff::titled_container("MIDI", container(row![activity_text, port_menus]).into())
+        } else {
+            panic!()
+        }
     }
 
     fn control_bar_view(&self) -> Element<ControlBarMessage> {

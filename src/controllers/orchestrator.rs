@@ -9,7 +9,7 @@ use crate::{
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     settings::ClockSettings,
     traits::{HasUid, Internal, Response, Terminates},
-    BeatSequencer, IOHelper, Paths, MIDI_CHANNEL_RECEIVE_ALL,
+    BeatSequencer, IOHelper, Paths,
 };
 use anyhow::anyhow;
 use dipstick::InputScope;
@@ -37,15 +37,6 @@ pub struct Orchestrator<M: MessageBounds> {
 
     _phantom: PhantomData<M>,
 }
-//impl<M: MessageBounds> IsController for Orchestrator<M> {}
-// impl<M: MessageBounds> Updateable for Orchestrator<M> {
-//     default type Message = M;
-
-//     #[allow(unused_variables)]
-//     default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-//         todo!()
-//     }
-// }
 impl<M: MessageBounds> Terminates for Orchestrator<M> {
     fn is_finished(&self) -> bool {
         true
@@ -65,11 +56,6 @@ impl<M: MessageBounds> Orchestrator<M> {
     pub const MAIN_MIXER_UVID: &str = "main-mixer";
     pub const PATTERN_MANAGER_UVID: &str = "pattern-manager";
     pub const BEAT_SEQUENCER_UVID: &str = "beat-sequencer";
-
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
-        Default::default()
-    }
 
     pub fn clock_settings(&self) -> &ClockSettings {
         &self.clock_settings
@@ -555,7 +541,6 @@ impl GrooveOrchestrator {
         message: MidiMessage,
     ) -> Response<GrooveMessage> {
         let mut receiver_uids = Vec::new();
-        receiver_uids.extend(self.store.midi_receivers(MIDI_CHANNEL_RECEIVE_ALL));
         receiver_uids.extend(self.store.midi_receivers(channel));
         receiver_uids.dedup();
         if receiver_uids.is_empty() {
@@ -873,7 +858,7 @@ pub mod tests {
         messages::{tests::TestMessage, EntityMessage},
         traits::{Internal, Response, Updateable},
         utils::{AudioSource, Timer},
-        GrooveMessage, MIDI_CHANNEL_RECEIVE_ALL,
+        GrooveMessage,
     };
     use assert_approx_eq::assert_approx_eq;
     use midly::MidiMessage;
@@ -1028,7 +1013,6 @@ pub mod tests {
             message: MidiMessage,
         ) -> Response<TestMessage> {
             let mut receiver_uids = Vec::new();
-            receiver_uids.extend(self.store.midi_receivers(MIDI_CHANNEL_RECEIVE_ALL));
             receiver_uids.extend(self.store.midi_receivers(channel));
             receiver_uids.dedup();
             if receiver_uids.is_empty() {
