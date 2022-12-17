@@ -48,8 +48,10 @@ fn main() -> anyhow::Result<()> {
             || input_filename.ends_with(".nsn")
         {
             let start_instant = Instant::now();
-            let r = Box::new(IOHelper::song_settings_from_yaml_file(input_filename.as_str())?
-                .instantiate(args.debug)?);
+            let r = Box::new(
+                IOHelper::song_settings_from_yaml_file(input_filename.as_str())?
+                    .instantiate(args.debug)?,
+            );
             if args.perf {
                 println!(
                     "Orchestrator instantiation time: {:.2?}",
