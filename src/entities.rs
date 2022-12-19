@@ -55,7 +55,7 @@ macro_rules! boxed_entity_enum_and_common_crackers {
             }
         }
 
-    }
+    };
 }
 
 boxed_entity_enum_and_common_crackers! {
@@ -112,7 +112,7 @@ macro_rules! controller_crackers {
                 }
             }
         }
-    }
+    };
 }
 controller_crackers! {
     Arpeggiator,
@@ -141,7 +141,7 @@ macro_rules! effect_crackers {
                 }
             }
         }
-    }
+    };
 }
 effect_crackers! {
     BiQuadFilter,
@@ -170,7 +170,7 @@ macro_rules! instrument_crackers {
                 }
             }
         }
-    }
+    };
 }
 instrument_crackers! {
     AdsrEnvelope,
