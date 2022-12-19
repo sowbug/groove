@@ -8,11 +8,12 @@ use strum_macros::{Display, EnumString, FromRepr};
 
 pub(super) trait Delays {
     fn peek_output(&self, apply_decay: bool) -> MonoSample;
+    fn peek_indexed_output(&self, index: isize) -> MonoSample;
     fn pop_output(&mut self, input: MonoSample) -> MonoSample;
 }
 
 #[derive(Debug, Default)]
-struct DelayLine {
+pub(crate) struct DelayLine {
     sample_rate: usize,
     delay_seconds: f32,
     decay_factor: f32,
@@ -22,6 +23,7 @@ struct DelayLine {
     buffer: Vec<MonoSample>,
 }
 impl DelayLine {
+    /// decay_factor: 1.0 = no decay
     pub(super) fn new_with(sample_rate: usize, delay_seconds: f32, decay_factor: f32) -> Self {
         let mut r = Self {
             sample_rate,
@@ -61,13 +63,25 @@ impl DelayLine {
 impl Delays for DelayLine {
     fn peek_output(&self, apply_decay: bool) -> MonoSample {
         if self.buffer_size == 0 {
-            0.0
+            MONO_SAMPLE_SILENCE
         } else {
             if apply_decay {
                 self.decay_factor() * self.buffer[self.buffer_pointer]
             } else {
                 self.buffer[self.buffer_pointer]
             }
+        }
+    }
+
+    fn peek_indexed_output(&self, index: isize) -> MonoSample {
+        if self.buffer_size == 0 {
+            MONO_SAMPLE_SILENCE
+        } else {
+            let mut index = -index;
+            while index < 0 {
+                index += self.buffer_size as isize;
+            }
+            self.buffer[self.buffer_pointer]
         }
     }
 
@@ -123,6 +137,10 @@ impl Delays for RecirculatingDelayLine {
         self.delay.peek_output(apply_decay)
     }
 
+    fn peek_indexed_output(&self, index: isize) -> MonoSample {
+        self.delay.peek_indexed_output(index)
+    }
+
     fn pop_output(&mut self, input: MonoSample) -> MonoSample {
         let output = self.peek_output(true);
         self.delay.pop_output(input + output);
@@ -163,6 +181,10 @@ impl AllPassDelayLine {
 
 impl Delays for AllPassDelayLine {
     fn peek_output(&self, _apply_decay: bool) -> MonoSample {
+        panic!("AllPassDelay doesn't allow peeking")
+    }
+
+    fn peek_indexed_output(&self, _: isize) -> MonoSample {
         panic!("AllPassDelay doesn't allow peeking")
     }
 

@@ -12,8 +12,8 @@ pub use crate::{
         ControlTrip,
     },
     effects::{
-        bitcrusher::Bitcrusher, delay::Delay, filter::BiQuadFilter, gain::Gain, limiter::Limiter,
-        mixer::Mixer, reverb::Reverb,
+        bitcrusher::Bitcrusher, chorus::Chorus, delay::Delay, filter::BiQuadFilter, gain::Gain,
+        limiter::Limiter, mixer::Mixer, reverb::Reverb,
     },
     entities::BoxedEntity,
     gui::GrooveSubscription,

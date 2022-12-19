@@ -1,3 +1,4 @@
+use crate::has_uid;
 use crate::{
     clock::Clock,
     common::MonoSample,
@@ -23,6 +24,7 @@ pub struct Bitcrusher {
     int_range: IntRange,
 }
 impl IsEffect for Bitcrusher {}
+has_uid!(Bitcrusher);
 impl TransformsAudio for Bitcrusher {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         let input_i16 = (input_sample * (i16::MAX as MonoSample)) as i16;
@@ -68,15 +70,6 @@ impl Updateable for Bitcrusher {
         } else {
             todo!()
         }
-    }
-}
-impl HasUid for Bitcrusher {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 

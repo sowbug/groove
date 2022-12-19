@@ -2,6 +2,7 @@ use crate::{
     common::MonoSample,
     effects::{
         bitcrusher::Bitcrusher,
+        chorus::Chorus,
         delay::Delay,
         filter::{BiQuadFilter, FilterParams},
         gain::Gain,
@@ -28,6 +29,12 @@ pub enum EffectSettings {
     Limiter { min: f32, max: f32 },
     #[serde(rename_all = "kebab-case")]
     Bitcrusher { bits_to_crush: u8 },
+    #[serde(rename_all = "kebab-case")]
+    Chorus {
+        dry_pct: f32,
+        voices: usize,
+        delay_factor: usize,
+    },
     #[serde(rename_all = "kebab-case")]
     Delay { delay: f32 },
     #[serde(rename_all = "kebab-case")]
@@ -136,6 +143,16 @@ impl EffectSettings {
                 dry_pct,
                 attenuation,
                 reverb_seconds,
+            ))),
+            EffectSettings::Chorus {
+                dry_pct,
+                voices,
+                delay_factor,
+            } => BoxedEntity::Chorus(Box::new(Chorus::new_with(
+                sample_rate,
+                dry_pct,
+                voices,
+                delay_factor,
             ))),
         }
     }

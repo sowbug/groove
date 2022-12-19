@@ -6,7 +6,7 @@ use crate::{
     },
     effects::{
         bitcrusher::Bitcrusher, delay::Delay, filter::BiQuadFilter, gain::Gain, limiter::Limiter,
-        mixer::Mixer, reverb::Reverb,
+        mixer::Mixer, reverb::Reverb, chorus::Chorus,
     },
     instruments::{
         drumkit_sampler::DrumkitSampler, envelopes::AdsrEnvelope, oscillators::Oscillator,
@@ -54,7 +54,6 @@ macro_rules! boxed_entity_enum_and_common_crackers {
                 }
             }
         }
-
     };
 }
 
@@ -72,6 +71,7 @@ boxed_entity_enum_and_common_crackers! {
     // Effects
     BiQuadFilter: BiQuadFilter<EntityMessage>,
     Bitcrusher: Bitcrusher,
+    Chorus: Chorus,
     Delay: Delay,
     Gain: Gain<EntityMessage>,
     Limiter: Limiter,
@@ -146,6 +146,7 @@ macro_rules! effect_crackers {
 effect_crackers! {
     BiQuadFilter,
     Bitcrusher,
+    Chorus,
     Delay,
     Gain,
     Limiter,
@@ -181,4 +182,22 @@ instrument_crackers! {
     TestInstrument,
     TestSynth,
     WelshSynth,
+}
+
+// TODO: this should be a derive macro
+#[macro_export]
+macro_rules! has_uid {
+    ($($type:path)*) => {
+    $(
+        impl HasUid for $type {
+            fn uid(&self) -> usize {
+                self.uid
+            }
+
+            fn set_uid(&mut self, uid: usize) {
+                self.uid = uid;
+            }
+        }
+    )*
+    };
 }

@@ -6,7 +6,7 @@ use groove::{
     gui::{GrooveEvent, GrooveInput, GuiStuff, NUMBERS_FONT, NUMBERS_FONT_SIZE},
     traits::{HasUid, TestController, TestEffect, TestInstrument},
     AdsrEnvelope, Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity,
-    Clock, ControlTrip, Delay, DrumkitSampler, EntityMessage, Gain, GrooveMessage,
+    Chorus, Clock, ControlTrip, Delay, DrumkitSampler, EntityMessage, Gain, GrooveMessage,
     GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
     MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Note,
     Oscillator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, TestLfo, TestSynth,
@@ -366,6 +366,11 @@ impl GrooveApp {
             BoxedEntity::BeatSequencer(e) => self.beat_sequencer_view(e),
             BoxedEntity::BiQuadFilter(e) => self.biquad_filter_view(e),
             BoxedEntity::Bitcrusher(e) => self.bitcrusher_view(e),
+            BoxedEntity::Chorus(e) => GuiStuff::titled_container(
+                type_name::<Chorus>(),
+                GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
+            )
+            .into(),
             BoxedEntity::ControlTrip(e) => GuiStuff::titled_container(
                 type_name::<ControlTrip<EntityMessage>>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
