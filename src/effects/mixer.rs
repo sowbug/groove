@@ -20,6 +20,10 @@ pub struct Mixer<M: MessageBounds> {
 impl<M: MessageBounds> IsEffect for Mixer<M> {}
 impl<M: MessageBounds> TransformsAudio for Mixer<M> {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+        // This is a simple pass-through because it's the job of the
+        // infrastructure to provide a sum of all inputs as the input.
+        // Eventually this might turn into a weighted mixer, or we might handle
+        // that by putting `Gain`s in front.
         input_sample
     }
 }
