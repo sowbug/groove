@@ -2,10 +2,7 @@ use crate::{
     common::MonoSample,
     controllers::{sequencers::MidiTickSequencer, Performance},
     entities::BoxedEntity,
-    instruments::{
-        drumkit_sampler::DrumkitSampler,
-        welsh::{PatchName, WelshSynth},
-    },
+    instruments::{drumkit_sampler::DrumkitSampler, welsh::WelshSynth},
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     Clock, GrooveMessage, GrooveOrchestrator, Orchestrator,
@@ -257,7 +254,7 @@ impl IOHelper {
                 } else {
                     BoxedEntity::WelshSynth(Box::new(WelshSynth::new_with(
                         ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
-                        SynthPatch::by_name(&PatchName::Piano),
+                        SynthPatch::by_name("Piano"),
                     )))
                 },
             );

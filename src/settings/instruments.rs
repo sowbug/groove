@@ -8,7 +8,7 @@ use crate::{
         drumkit_sampler,
         envelopes::AdsrEnvelope,
         oscillators::Oscillator,
-        welsh::{self, PatchName},
+        welsh::{self},
     },
     messages::EntityMessage,
     traits::TestInstrument,
@@ -28,7 +28,7 @@ pub enum InstrumentSettings {
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
         #[serde(rename = "preset")]
-        preset_name: PatchName,
+        preset_name: String,
     },
     #[serde(rename_all = "kebab-case")]
     Drumkit {

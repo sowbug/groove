@@ -15,127 +15,7 @@ use crate::{
 use convert_case::{Case, Casing};
 use num_traits::FromPrimitive;
 use rustc_hash::FxHashMap;
-use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_1_SQRT_2;
-use strum_macros::{Display, EnumIter};
-
-#[derive(Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum PatchName {
-    // -------------------- Strings
-    Banjo,
-    Cello,
-    DoubleBass,
-    Dulcimer,
-    GuitarAcoustic,
-    GuitarElectric,
-    Harp,
-    HurdyGurdy,
-    Kora,
-    Lute,
-    Mandocello,
-    Mandolin,
-    Riti,
-    Sitar,
-    StandupBass,
-    Viola,
-    Violin,
-    // -------------------- Woodwinds
-    Bagpipes,
-    BassClarinet,
-    Bassoon,
-    Clarinet,
-    ConchShell,
-    Contrabassoon,
-    Digeridoo,
-    EnglishHorn,
-    Flute,
-    Oboe,
-    Piccolo,
-    // -------------------- Brass
-    FrenchHorn,
-    Harmonica,
-    PennyWhistle,
-    Saxophone,
-    Trombone,
-    Trumpet,
-    Tuba,
-    // -------------------- Keyboards
-    Accordion,
-    Celeste,
-    Clavichord,
-    ElectricPiano,
-    Harpsichord,
-    Organ,
-    Piano,
-    // -------------------- Vocals
-    Angels,
-    Choir,
-    VocalFemale,
-    VocalMale,
-    Whistling,
-    // -------------------- Tuned Percussion
-    Bell,
-    Bongos,
-    Conga,
-    Glockenspiel,
-    Marimba,
-    Timpani,
-    Xylophone,
-    // -------------------- Untuned Percussion
-    BassDrum,
-    Castanets,
-    Clap,
-    Claves,
-    Cowbell,
-    CowbellAnalog,
-    Cymbal,
-    SideStick,
-    SnareDrum,
-    Tambourine,
-    WheelsOfSteel,
-    // -------------------- Leads
-    BrassSection,
-    Mellow70sLead,
-    MonoSolo,
-    NewAgeLead,
-    RAndBSlide,
-    ScreamingSync,
-    StringsPwm,
-    Trance5th,
-    // -------------------- Bass
-    AcidBass,
-    BassOfTheTimeLords,
-    DetroitBass,
-    DeutscheBass,
-    DigitalBass,
-    FunkBass,
-    GrowlingBass,
-    RezBass,
-    // -------------------- Pads
-    AndroidDreams,
-    CelestialWash,
-    DarkCity,
-    Aurora,
-    GalacticCathedral,
-    GalacticChapel,
-    Portus,
-    PostApocalypticSyncSweep,
-    TerraEnceladus,
-    // -------------------- Sound Effects
-    Cat,
-    DigitalAlarmClock,
-    JourneyToTheCore,
-    Kazoo,
-    Laser,
-    Motor,
-    NerdOTron2000,
-    OceanWavesWithFoghorn,
-    PositronicRhythm,
-    SpaceAttack,
-    Toad,
-    Wind,
-}
 
 // TODO: cache these as they're loaded
 impl SynthPatch {
@@ -150,7 +30,7 @@ impl SynthPatch {
         })
     }
 
-    pub fn by_name(name: &PatchName) -> Self {
+    pub fn by_name(name: &str) -> Self {
         let mut filename = Paths::asset_path();
         filename.push("patches");
         filename.push("welsh");
@@ -177,343 +57,343 @@ impl WelshSynth {
     pub fn general_midi_preset(program: &GeneralMidiProgram) -> anyhow::Result<SynthPatch> {
         let mut delegated = false;
         let preset = match program {
-            GeneralMidiProgram::AcousticGrand => PatchName::Piano,
+            GeneralMidiProgram::AcousticGrand => "Piano",
             GeneralMidiProgram::BrightAcoustic => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::ElectricGrand => PatchName::ElectricPiano,
+            GeneralMidiProgram::ElectricGrand => "ElectricPiano",
             GeneralMidiProgram::HonkyTonk => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::ElectricPiano1 => PatchName::ElectricPiano,
-            GeneralMidiProgram::ElectricPiano2 => PatchName::ElectricPiano,
-            GeneralMidiProgram::Harpsichord => PatchName::Harpsichord,
-            GeneralMidiProgram::Clav => PatchName::Clavichord,
-            GeneralMidiProgram::Celesta => PatchName::Celeste,
-            GeneralMidiProgram::Glockenspiel => PatchName::Glockenspiel,
+            GeneralMidiProgram::ElectricPiano1 => "ElectricPiano",
+            GeneralMidiProgram::ElectricPiano2 => "ElectricPiano",
+            GeneralMidiProgram::Harpsichord => "Harpsichord",
+            GeneralMidiProgram::Clav => "Clavichord",
+            GeneralMidiProgram::Celesta => "Celeste",
+            GeneralMidiProgram::Glockenspiel => "Glockenspiel",
             GeneralMidiProgram::MusicBox => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Vibraphone => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::Marimba => PatchName::Marimba,
-            GeneralMidiProgram::Xylophone => PatchName::Xylophone,
-            GeneralMidiProgram::TubularBells => PatchName::Bell,
-            GeneralMidiProgram::Dulcimer => PatchName::Dulcimer,
+            GeneralMidiProgram::Marimba => "Marimba",
+            GeneralMidiProgram::Xylophone => "Xylophone",
+            GeneralMidiProgram::TubularBells => "Bell",
+            GeneralMidiProgram::Dulcimer => "Dulcimer",
             GeneralMidiProgram::DrawbarOrgan => {
-                PatchName::Organ // TODO dup
+                "Organ" // TODO dup
             }
             GeneralMidiProgram::PercussiveOrgan => {
-                PatchName::Organ // TODO dup
+                "Organ" // TODO dup
             }
             GeneralMidiProgram::RockOrgan => {
-                PatchName::Organ // TODO dup
+                "Organ" // TODO dup
             }
             GeneralMidiProgram::ChurchOrgan => {
-                PatchName::Organ // TODO dup
+                "Organ" // TODO dup
             }
             GeneralMidiProgram::ReedOrgan => {
-                PatchName::Organ // TODO dup
+                "Organ" // TODO dup
             }
-            GeneralMidiProgram::Accordion => PatchName::Accordion,
-            GeneralMidiProgram::Harmonica => PatchName::Harmonica,
+            GeneralMidiProgram::Accordion => "Accordion",
+            GeneralMidiProgram::Harmonica => "Harmonica",
             GeneralMidiProgram::TangoAccordion => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::AcousticGuitarNylon => PatchName::GuitarAcoustic,
+            GeneralMidiProgram::AcousticGuitarNylon => "GuitarAcoustic",
             GeneralMidiProgram::AcousticGuitarSteel => {
-                PatchName::GuitarAcoustic // TODO dup
+                "GuitarAcoustic" // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarJazz => {
-                PatchName::GuitarElectric // TODO dup
+                "GuitarElectric" // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarClean => {
-                PatchName::GuitarElectric // TODO dup
+                "GuitarElectric" // TODO dup
             }
             GeneralMidiProgram::ElectricGuitarMuted => {
-                PatchName::GuitarElectric // TODO dup
+                "GuitarElectric" // TODO dup
             }
             GeneralMidiProgram::OverdrivenGuitar => {
-                PatchName::GuitarElectric // TODO dup
+                "GuitarElectric" // TODO dup
             }
             GeneralMidiProgram::DistortionGuitar => {
-                PatchName::GuitarElectric // TODO dup
+                "GuitarElectric" // TODO dup
             }
             GeneralMidiProgram::GuitarHarmonics => {
-                PatchName::GuitarElectric // TODO dup
+                "GuitarElectric" // TODO dup
             }
-            GeneralMidiProgram::AcousticBass => PatchName::DoubleBass,
-            GeneralMidiProgram::ElectricBassFinger => PatchName::StandupBass,
-            GeneralMidiProgram::ElectricBassPick => PatchName::AcidBass,
+            GeneralMidiProgram::AcousticBass => "DoubleBass",
+            GeneralMidiProgram::ElectricBassFinger => "StandupBass",
+            GeneralMidiProgram::ElectricBassPick => "AcidBass",
             GeneralMidiProgram::FretlessBass => {
-                PatchName::DetroitBass // TODO same?
+                "DetroitBass" // TODO same?
             }
-            GeneralMidiProgram::SlapBass1 => PatchName::FunkBass,
-            GeneralMidiProgram::SlapBass2 => PatchName::FunkBass,
-            GeneralMidiProgram::SynthBass1 => PatchName::DigitalBass,
-            GeneralMidiProgram::SynthBass2 => PatchName::DigitalBass,
-            GeneralMidiProgram::Violin => PatchName::Violin,
-            GeneralMidiProgram::Viola => PatchName::Viola,
-            GeneralMidiProgram::Cello => PatchName::Cello,
-            GeneralMidiProgram::Contrabass => PatchName::Contrabassoon,
+            GeneralMidiProgram::SlapBass1 => "FunkBass",
+            GeneralMidiProgram::SlapBass2 => "FunkBass",
+            GeneralMidiProgram::SynthBass1 => "DigitalBass",
+            GeneralMidiProgram::SynthBass2 => "DigitalBass",
+            GeneralMidiProgram::Violin => "Violin",
+            GeneralMidiProgram::Viola => "Viola",
+            GeneralMidiProgram::Cello => "Cello",
+            GeneralMidiProgram::Contrabass => "Contrabassoon",
             GeneralMidiProgram::TremoloStrings => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::PizzicatoStrings => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::OrchestralHarp => PatchName::Harp,
-            GeneralMidiProgram::Timpani => PatchName::Timpani,
+            GeneralMidiProgram::OrchestralHarp => "Harp",
+            GeneralMidiProgram::Timpani => "Timpani",
             GeneralMidiProgram::StringEnsemble1 => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::StringEnsemble2 => {
-                PatchName::StringsPwm // TODO same?
+                "StringsPwm" // TODO same?
             }
-            GeneralMidiProgram::Synthstrings1 => PatchName::StringsPwm, // TODO same?
+            GeneralMidiProgram::Synthstrings1 => "StringsPwm", // TODO same?
 
             GeneralMidiProgram::Synthstrings2 => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::ChoirAahs => PatchName::Angels,
+            GeneralMidiProgram::ChoirAahs => "Angels",
 
-            GeneralMidiProgram::VoiceOohs => PatchName::Choir,
-            GeneralMidiProgram::SynthVoice => PatchName::VocalFemale,
+            GeneralMidiProgram::VoiceOohs => "Choir",
+            GeneralMidiProgram::SynthVoice => "VocalFemale",
 
             GeneralMidiProgram::OrchestraHit => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::Trumpet => PatchName::Trumpet,
-            GeneralMidiProgram::Trombone => PatchName::Trombone,
-            GeneralMidiProgram::Tuba => PatchName::Tuba,
+            GeneralMidiProgram::Trumpet => "Trumpet",
+            GeneralMidiProgram::Trombone => "Trombone",
+            GeneralMidiProgram::Tuba => "Tuba",
             GeneralMidiProgram::MutedTrumpet => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::FrenchHorn => PatchName::FrenchHorn,
+            GeneralMidiProgram::FrenchHorn => "FrenchHorn",
 
-            GeneralMidiProgram::BrassSection => PatchName::BrassSection,
+            GeneralMidiProgram::BrassSection => "BrassSection",
 
             GeneralMidiProgram::Synthbrass1 => {
-                PatchName::BrassSection // TODO dup
+                "BrassSection" // TODO dup
             }
             GeneralMidiProgram::Synthbrass2 => {
-                PatchName::BrassSection // TODO dup
+                "BrassSection" // TODO dup
             }
             GeneralMidiProgram::SopranoSax => {
-                PatchName::Saxophone // TODO dup
+                "Saxophone" // TODO dup
             }
-            GeneralMidiProgram::AltoSax => PatchName::Saxophone,
+            GeneralMidiProgram::AltoSax => "Saxophone",
             GeneralMidiProgram::TenorSax => {
-                PatchName::Saxophone // TODO dup
+                "Saxophone" // TODO dup
             }
             GeneralMidiProgram::BaritoneSax => {
-                PatchName::Saxophone // TODO dup
+                "Saxophone" // TODO dup
             }
-            GeneralMidiProgram::Oboe => PatchName::Oboe,
-            GeneralMidiProgram::EnglishHorn => PatchName::EnglishHorn,
-            GeneralMidiProgram::Bassoon => PatchName::Bassoon,
-            GeneralMidiProgram::Clarinet => PatchName::Clarinet,
-            GeneralMidiProgram::Piccolo => PatchName::Piccolo,
-            GeneralMidiProgram::Flute => PatchName::Flute,
+            GeneralMidiProgram::Oboe => "Oboe",
+            GeneralMidiProgram::EnglishHorn => "EnglishHorn",
+            GeneralMidiProgram::Bassoon => "Bassoon",
+            GeneralMidiProgram::Clarinet => "Clarinet",
+            GeneralMidiProgram::Piccolo => "Piccolo",
+            GeneralMidiProgram::Flute => "Flute",
             GeneralMidiProgram::Recorder => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::PanFlute => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::BlownBottle => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Shakuhachi => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Whistle => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Ocarina => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Lead1Square => {
-                PatchName::MonoSolo // TODO: same?
+                "MonoSolo" // TODO: same?
             }
             GeneralMidiProgram::Lead2Sawtooth => {
-                PatchName::Trance5th // TODO: same?
+                "Trance5th" // TODO: same?
             }
             GeneralMidiProgram::Lead3Calliope => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Lead4Chiff => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Lead5Charang => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Lead6Voice => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Lead7Fifths => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Lead8BassLead => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Pad1NewAge => {
-                PatchName::NewAgeLead // TODO pad or lead?
+                "NewAgeLead" // TODO pad or lead?
             }
             GeneralMidiProgram::Pad2Warm => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Pad3Polysynth => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Pad4Choir => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Pad5Bowed => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Pad6Metallic => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Pad7Halo => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Pad8Sweep => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Fx1Rain => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Fx2Soundtrack => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Fx3Crystal => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Fx4Atmosphere => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Fx5Brightness => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Fx6Goblins => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Fx7Echoes => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Fx8SciFi => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::Sitar => PatchName::Sitar,
-            GeneralMidiProgram::Banjo => PatchName::Banjo,
+            GeneralMidiProgram::Sitar => "Sitar",
+            GeneralMidiProgram::Banjo => "Banjo",
             GeneralMidiProgram::Shamisen => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Koto => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Kalimba => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::Bagpipe => PatchName::Bagpipes,
+            GeneralMidiProgram::Bagpipe => "Bagpipes",
             GeneralMidiProgram::Fiddle => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Shanai => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::TinkleBell => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Agogo => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::SteelDrums => {
-                PatchName::WheelsOfSteel // TODO same?
+                "WheelsOfSteel" // TODO same?
             }
-            GeneralMidiProgram::Woodblock => PatchName::SideStick,
+            GeneralMidiProgram::Woodblock => "SideStick",
             GeneralMidiProgram::TaikoDrum => {
                 // XXXXXXXXXXXXX TMP
-                PatchName::Cello // TODO substitute.....
+                "Cello" // TODO substitute.....
             }
-            GeneralMidiProgram::MelodicTom => PatchName::Bongos,
-            GeneralMidiProgram::SynthDrum => PatchName::SnareDrum,
-            GeneralMidiProgram::ReverseCymbal => PatchName::Cymbal,
+            GeneralMidiProgram::MelodicTom => "Bongos",
+            GeneralMidiProgram::SynthDrum => "SnareDrum",
+            GeneralMidiProgram::ReverseCymbal => "Cymbal",
             GeneralMidiProgram::GuitarFretNoise => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::BreathNoise => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
-            GeneralMidiProgram::Seashore => PatchName::OceanWavesWithFoghorn,
+            GeneralMidiProgram::Seashore => "OceanWavesWithFoghorn",
             GeneralMidiProgram::BirdTweet => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::TelephoneRing => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Helicopter => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Applause => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
             GeneralMidiProgram::Gunshot => {
                 delegated = true;
-                PatchName::Piano
+                "Piano"
             }
         };
         if delegated {
