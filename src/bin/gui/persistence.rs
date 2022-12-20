@@ -27,7 +27,10 @@ impl Preferences {
         let mut path = if let Some(project_dirs) =
             directories_next::ProjectDirs::from("me", "ensnare", "Ensnare")
         {
-            project_dirs.data_dir().into()
+            // Linux: /home/alice/.config/ensnare
+            // Win: C:\Users\Alice\AppData\Roaming\ensnare\Ensnare\config
+            // Mac: /Users/Alice/Library/Application Support/me.ensnare.Ensnare
+            project_dirs.config_dir().into()
         } else {
             std::env::current_dir().unwrap_or_default()
         };
