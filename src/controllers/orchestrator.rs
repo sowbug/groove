@@ -24,6 +24,7 @@ pub type GrooveOrchestrator = Orchestrator<GrooveMessage>;
 #[derive(Debug)]
 pub struct Orchestrator<M: MessageBounds> {
     uid: usize,
+    title: Option<String>,
     clock_settings: ClockSettings,
     store: Store,
 
@@ -361,11 +362,16 @@ impl<M: MessageBounds> Orchestrator<M> {
     pub fn pattern_manager_uid(&self) -> usize {
         self.pattern_manager_uid
     }
+
+    pub(crate) fn set_title(&mut self, title: Option<String>) {
+        self.title = title;
+    }
 }
 impl<M: MessageBounds> Default for Orchestrator<M> {
     fn default() -> Self {
         let mut r = Self {
             uid: Default::default(),
+            title: Some("Untitled".to_string()),
             clock_settings: Default::default(),
             store: Default::default(),
             main_mixer_uid: Default::default(),
@@ -470,13 +476,15 @@ impl GrooveOrchestrator {
                             IOHelper::song_settings_from_yaml_file(path.to_str().unwrap())
                         {
                             if let Ok(instance) = settings.instantiate(false) {
+                                let title = instance.title.clone();
                                 *self = instance;
-                                unhandled_commands
-                                    .push(Response::single(GrooveMessage::LoadedProject(filename)));
+                                unhandled_commands.push(Response::single(
+                                    GrooveMessage::LoadedProject(filename, title),
+                                ));
                             }
                         }
                     }
-                    GrooveMessage::LoadedProject(_) => {
+                    GrooveMessage::LoadedProject(_, _) => {
                         panic!("this is only sent by us, never received")
                     }
                 }

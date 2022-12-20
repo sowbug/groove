@@ -22,16 +22,31 @@ type PatchCable = Vec<DeviceId>; // first is source, last is sink
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct SongSettings {
+    /// The user-visible name of this project
+    pub title: Option<String>,
+
+    /// Information about timing. BPM, time signature, etc.
     pub clock: ClockSettings,
 
+    /// Controllers, Effects, and Instruments
     pub devices: Vec<DeviceSettings>,
+
+    /// Virtual audio cables connecting a series of devices
     pub patch_cables: Vec<PatchCable>,
+
+    /// Tracker-style note patterns
     #[serde(default)]
     pub patterns: Vec<PatternSettings>,
+
+    /// Sequences of Patterns making up a track
     #[serde(default)]
     pub tracks: Vec<TrackSettings>,
+
+    // Patterns for automation
     #[serde(default)]
     pub paths: Vec<ControlPathSettings>,
+
+    // Sequences of automation patterns
     #[serde(default)]
     pub trips: Vec<ControlTripSettings>,
 }
@@ -50,6 +65,7 @@ impl SongSettings {
 
     pub fn instantiate(&self, load_only_test_entities: bool) -> Result<GrooveOrchestrator> {
         let mut o = GrooveOrchestrator::default();
+        o.set_title(self.title.clone());
         o.set_clock_settings(&self.clock);
         self.instantiate_devices(&mut o, load_only_test_entities);
         self.instantiate_patch_cables(&mut o);
@@ -241,12 +257,20 @@ mod tests {
     #[test]
     fn test_garbage_file_fails_with_proper_error() {
         let r = SongSettings::new_from_yaml("da39a3ee5e6b4b0d3255bfef95601890afd80709");
-        assert!(r.unwrap_err().to_string().contains("expected struct SongSettings at line 1 column 1"));
+        assert!(r
+            .unwrap_err()
+            .to_string()
+            .contains("expected struct SongSettings at line 1 column 1"));
     }
 
     #[test]
     fn test_valid_yaml_bad_song_file_fails_with_proper_error() {
-        let r = SongSettings::new_from_yaml("---\ndo: \"a deer, a female deer\"\nre: \"a drop of golden sun\"");
-        assert_eq!(r.unwrap_err().to_string(), "missing field `clock` at line 2 column 3");
+        let r = SongSettings::new_from_yaml(
+            "---\ndo: \"a deer, a female deer\"\nre: \"a drop of golden sun\"",
+        );
+        assert_eq!(
+            r.unwrap_err().to_string(),
+            "missing field `clock` at line 2 column 3"
+        );
     }
 }

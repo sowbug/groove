@@ -1,18 +1,9 @@
-use groove::IOHelper;
-use groove::Paths;
-use groove::SongSettings;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SavedState {
-    pub project_name: String,
-    pub song_settings: SongSettings,
-}
 
 #[derive(Debug, Clone)]
 pub enum LoadError {
-    FileError,
-    FormatError,
+    File,
+    Format,
 }
 
 #[derive(Debug, Clone)]
@@ -22,61 +13,65 @@ pub enum SaveError {
     Format,
 }
 
-impl SavedState {
-    pub async fn load() -> anyhow::Result<SavedState, LoadError> {
-        //  use async_std::prelude::*;
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Preferences {
+    pub selected_midi_input: Option<String>,
+    pub selected_midi_output: Option<String>,
 
-        // let mut contents = String::new();
+    pub should_reload_last_project: bool,
+    pub last_project_filename: Option<String>,
+}
 
-        // let mut file = async_std::fs::File::open(Self::path())
-        //     .await
-        //     .map_err(|_| LoadError::FileError)?;
+impl Preferences {
+    fn path_prefs() -> std::path::PathBuf {
+        let mut path = if let Some(project_dirs) =
+            directories_next::ProjectDirs::from("me", "ensnare", "Ensnare")
+        {
+            project_dirs.data_dir().into()
+        } else {
+            std::env::current_dir().unwrap_or_default()
+        };
 
-        // file.read_to_string(&mut contents)
-        //     .await
-        //     .map_err(|_| LoadError::FileError)?;
+        path.push("preferences.json");
 
-        // serde_json::from_str(&contents).map_err(|_| LoadError::FormatError)
-
-        let mut path = Paths::project_path();
-        path.push("low-cpu.yaml");
-        match IOHelper::song_settings_from_yaml_file(path.to_str().unwrap()) {
-            Ok(song_settings) => Ok(SavedState {
-                project_name: "Woop Woop Woop".to_string(),
-                song_settings,
-            }),
-            Err(err) => {
-                println!("Error: {}", err);
-                Err(LoadError::FileError)
-            }
-        }
+        path
     }
 
-    pub async fn save(self) -> Result<(), SaveError> {
-        // use async_std::prelude::*;
+    pub async fn load_prefs() -> anyhow::Result<Preferences, LoadError> {
+        use async_std::prelude::*;
+        let mut contents = String::new();
+        let mut file = async_std::fs::File::open(Self::path_prefs())
+            .await
+            .map_err(|_| LoadError::File)?;
+        file.read_to_string(&mut contents)
+            .await
+            .map_err(|_| LoadError::File)?;
+        serde_json::from_str(&contents).map_err(|_| LoadError::Format)
+    }
 
-        // let json = serde_json::to_string_pretty(&self).map_err(|_| SaveError::FormatError)?;
+    pub async fn save_prefs(self) -> Result<(), SaveError> {
+        use async_std::prelude::*;
 
-        // let path = Self::path();
+        let json = serde_json::to_string_pretty(&self).map_err(|_| SaveError::Format)?;
+        let path = Self::path_prefs();
+        if let Some(dir) = path.parent() {
+            async_std::fs::create_dir_all(dir)
+                .await
+                .map_err(|_| SaveError::File)?;
+        }
 
-        // if let Some(dir) = path.parent() {
-        //     async_std::fs::create_dir_all(dir)
-        //         .await
-        //         .map_err(|_| SaveError::FileError)?;
-        // }
+        {
+            let mut file = async_std::fs::File::create(path)
+                .await
+                .map_err(|_| SaveError::File)?;
 
-        // {
-        //     let mut file = async_std::fs::File::create(path)
-        //         .await
-        //         .map_err(|_| SaveError::FileError)?;
+            file.write_all(json.as_bytes())
+                .await
+                .map_err(|_| SaveError::Write)?;
+        }
 
-        //     file.write_all(json.as_bytes())
-        //         .await
-        //         .map_err(|_| SaveError::WriteError)?;
-        // }
-
-        // // This is a simple way to save at most once every couple seconds
-        // async_std::task::sleep(std::time::Duration::from_secs(2)).await;
+        // This is a simple way to save at most once every couple seconds
+        async_std::task::sleep(std::time::Duration::from_secs(2)).await;
 
         Ok(())
     }

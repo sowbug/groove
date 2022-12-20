@@ -13,7 +13,7 @@ use groove::{
     Timer, WelshSynth,
 };
 use gui::{
-    persistence::{LoadError, SavedState},
+    persistence::{LoadError, Preferences, SaveError},
     play_icon, skip_to_prev_icon, stop_icon,
 };
 use iced::{
@@ -34,12 +34,14 @@ use std::{
 
 struct GrooveApp {
     // Overhead
+    preferences: Preferences,
+    is_pref_load_complete: bool,
     theme: Theme,
     state: State,
     should_exit: bool,
 
     // Model
-    project_name: String,
+    project_title: Option<String>,
     orchestrator_sender: Option<mpsc::Sender<GrooveInput>>,
     orchestrator: Arc<Mutex<GrooveOrchestrator>>,
     clock_mirror: Clock, // this clock is just a cache of the real clock in Orchestrator.
@@ -60,14 +62,20 @@ struct GrooveApp {
 
 impl Default for GrooveApp {
     fn default() -> Self {
+        // TODO: these are (probably) temporary until the project is
+        // loaded. Make sure they really need to be instantiated.
+        let orchestrator = GrooveOrchestrator::default();
+        let clock = Clock::new_with(orchestrator.clock_settings());
         Self {
+            preferences: Default::default(),
+            is_pref_load_complete: false,
             theme: Default::default(),
             state: Default::default(),
             should_exit: Default::default(),
-            project_name: Default::default(),
+            project_title: None,
             orchestrator_sender: Default::default(),
-            orchestrator: Default::default(),
-            clock_mirror: Default::default(),
+            orchestrator: Arc::new(Mutex::new(orchestrator)),
+            clock_mirror: clock,
             reached_end_of_playback: Default::default(),
             midi_handler_sender: Default::default(),
             midi_handler: Default::default(),
@@ -82,9 +90,10 @@ enum State {
     Playing,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum AppMessage {
-    Loaded(Result<SavedState, LoadError>),
+    PrefsLoaded(Result<Preferences, LoadError>),
+    PrefsSaved(Result<(), SaveError>),
     ControlBarMessage(ControlBarMessage),
     GrooveMessage(GrooveMessage),
     GrooveEvent(GrooveEvent),
@@ -114,7 +123,7 @@ impl Application for GrooveApp {
                 theme: Theme::Dark,
                 ..Default::default()
             },
-            Command::perform(SavedState::load(), AppMessage::Loaded),
+            Command::perform(Preferences::load_prefs(), AppMessage::PrefsLoaded),
         )
     }
 
@@ -123,33 +132,30 @@ impl Application for GrooveApp {
     }
 
     fn title(&self) -> String {
-        self.project_name.clone()
+        if let Some(title) = &self.project_title {
+            title.clone()
+        } else {
+            String::from("New Project")
+        }
     }
 
     fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
         match message {
-            AppMessage::Loaded(Ok(state)) => {
-                // TODO: these are (probably) temporary until the project is
-                // loaded. Make sure they really need to be instantiated.
-                let orchestrator = GrooveOrchestrator::default();
-                let clock = Clock::new_with(orchestrator.clock_settings());
+            AppMessage::PrefsLoaded(Ok(preferences)) => {
                 *self = Self {
+                    preferences,
+                    is_pref_load_complete: true,
                     theme: self.theme.clone(),
-                    project_name: state.project_name,
-                    orchestrator: Arc::new(Mutex::new(orchestrator)),
-                    clock_mirror: clock,
                     ..Default::default()
                 };
             }
-            AppMessage::Loaded(Err(_e)) => {
-                todo!()
+            AppMessage::PrefsLoaded(Err(_)) => {
+                *self = Self {
+                    is_pref_load_complete: true,
+                    ..Default::default()
+                }
             }
             AppMessage::Tick(_now) => {
-                // TODO: decide what a Tick means. The app thinks it's 10
-                // milliseconds. Orchestrator thinks it's 1/sample rate.
-
-                //                self.send_midi_handler_tick();
-
                 // TODO: do we still need a tick?
             }
             AppMessage::ControlBarMessage(message) => match message {
@@ -191,6 +197,15 @@ impl Application for GrooveApp {
                     self.post_to_midi_handler(MidiHandlerInput::QuitRequested);
                     self.post_to_orchestrator(GrooveInput::QuitRequested);
                     self.should_exit = true;
+                    return Command::perform(
+                        Preferences::save_prefs(Preferences {
+                            selected_midi_input: self.preferences.selected_midi_input.clone(),
+                            selected_midi_output: self.preferences.selected_midi_output.clone(),
+                            should_reload_last_project: self.preferences.should_reload_last_project,
+                            last_project_filename: self.preferences.last_project_filename.clone(),
+                        }),
+                        AppMessage::PrefsSaved,
+                    );
                 }
             }
             AppMessage::MidiHandlerMessage(message) => match message {
@@ -210,7 +225,17 @@ impl Application for GrooveApp {
                     self.orchestrator_sender = Some(sender);
                     self.orchestrator = orchestrator;
 
-                    self.post_to_orchestrator(GrooveInput::LoadProject("low-cpu.yaml".to_string()));
+                    // We don't start the GrooveSubscription until prefs are
+                    // done loading, so this boolean and the corresponding
+                    // filename should be set by the time we look at it.
+                    if self.preferences.should_reload_last_project {
+                        if let Some(last_project_filename) = &self.preferences.last_project_filename
+                        {
+                            self.post_to_orchestrator(GrooveInput::LoadProject(
+                                last_project_filename.to_string(),
+                            ));
+                        }
+                    }
                 }
                 GrooveEvent::SetClock(samples) => self.clock_mirror.set_samples(samples),
                 GrooveEvent::SetBpm(bpm) => self.clock_mirror.set_bpm(bpm),
@@ -223,7 +248,10 @@ impl Application for GrooveApp {
                 GrooveEvent::AudioOutput(_) => todo!(),
                 GrooveEvent::OutputComplete => todo!(),
                 GrooveEvent::Quit => todo!(),
-                GrooveEvent::ProjectLoaded(filename) => self.project_name = filename,
+                GrooveEvent::ProjectLoaded(filename, title) => {
+                    self.preferences.last_project_filename = Some(filename);
+                    self.project_title = title;
+                }
             },
             AppMessage::MidiHandlerEvent(event) => match event {
                 MidiHandlerEvent::Ready(sender, midi_handler) => {
@@ -239,27 +267,23 @@ impl Application for GrooveApp {
                 }
             },
             AppMessage::GrooveMessage(message) => match message {
-                GrooveMessage::Nop => todo!(),
-                GrooveMessage::Tick => todo!(),
                 GrooveMessage::EntityMessage(uid, message) => {
                     self.update_entity(uid, message);
                 }
-                GrooveMessage::MidiFromExternal(_, _) => todo!(),
-                GrooveMessage::MidiToExternal(_, _) => todo!(),
-                GrooveMessage::AudioOutput(_) => todo!(),
-                GrooveMessage::OutputComplete => todo!(),
-                GrooveMessage::LoadProject(_) => todo!(),
-                GrooveMessage::LoadedProject(_) => todo!(),
+                _ => todo!(),
             },
+            AppMessage::PrefsSaved(Ok(_)) => {}
+            AppMessage::PrefsSaved(Err(_)) => {
+                todo!()
+            }
         }
 
         Command::none()
     }
 
     fn subscription(&self) -> Subscription<AppMessage> {
-        Subscription::batch([
+        let mut v = vec![
             iced_native::subscription::events().map(AppMessage::Event),
-            GrooveSubscription::subscription().map(AppMessage::GrooveEvent),
             MidiSubscription::subscription().map(AppMessage::MidiHandlerEvent),
             // This is duplicative because I think we'll want different activity
             // levels depending on whether we're playing
@@ -269,7 +293,11 @@ impl Application for GrooveApp {
                     time::every(Duration::from_millis(10)).map(AppMessage::Tick)
                 }
             },
-        ])
+        ];
+        if self.is_pref_load_complete {
+            v.push(GrooveSubscription::subscription().map(AppMessage::GrooveEvent));
+        }
+        Subscription::batch(v)
     }
 
     fn should_exit(&self) -> bool {

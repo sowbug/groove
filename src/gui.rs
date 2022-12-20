@@ -163,7 +163,7 @@ pub enum GrooveEvent {
     SetBpm(f32),
     SetTimeSignature(TimeSignature),
     MidiToExternal(MidiChannel, MidiMessage),
-    ProjectLoaded(String),
+    ProjectLoaded(String, Option<String>),
     AudioOutput(MonoSample),
     OutputComplete,
     Quit,
@@ -231,8 +231,8 @@ impl Runner {
                 GrooveMessage::MidiToExternal(channel, message) => {
                     self.post_event(GrooveEvent::MidiToExternal(channel, message))
                 }
-                GrooveMessage::LoadedProject(filename) => {
-                    self.post_event(GrooveEvent::ProjectLoaded(filename))
+                GrooveMessage::LoadedProject(filename, title) => {
+                    self.post_event(GrooveEvent::ProjectLoaded(filename, title))
                 }
                 _ => todo!(),
             }

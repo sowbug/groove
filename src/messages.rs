@@ -48,7 +48,7 @@ pub enum GrooveMessage {
     OutputComplete,
 
     LoadProject(String),
-    LoadedProject(String),
+    LoadedProject(String, Option<String>),
 }
 impl MessageBounds for GrooveMessage {}
 
