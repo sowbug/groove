@@ -1,7 +1,6 @@
 ---
 title: "bitcrusher_sawtooth_bits-to-crush-13"
 clock:
-  sample-rate: 44100
   bpm: 240.0
   time-signature:
     - 4

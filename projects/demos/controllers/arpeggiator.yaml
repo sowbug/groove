@@ -1,7 +1,6 @@
 ---
 title: "Arpeggiator"
 clock:
-  sample-rate: 44100
   bpm: 60.0
   time-signature:
     - 4

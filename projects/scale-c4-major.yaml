@@ -1,7 +1,6 @@
 ---
 title: "Scale, C4 major"
 clock:
-  sample-rate: 44100
   bpm: 60.0
   time-signature:
     - 4

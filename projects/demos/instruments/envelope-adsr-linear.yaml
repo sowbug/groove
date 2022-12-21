@@ -1,7 +1,6 @@
 ---
 title: "Envelope, ADSR, 0.1/0.2/1.0/0.3"
 clock:
-  sample-rate: 44100
   bpm: 128.0
   time-signature:
     - 4

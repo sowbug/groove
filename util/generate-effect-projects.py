@@ -72,7 +72,6 @@ EFFECTS = [
 TEMPLATE = '''---
 title: "{description}"
 clock:
-  sample-rate: 44100
   bpm: 240.0
   time-signature:
     - 4

@@ -1,7 +1,6 @@
 ---
 title: "limiter_noise_min-0.100_max-0.900"
 clock:
-  sample-rate: 44100
   bpm: 240.0
   time-signature:
     - 4

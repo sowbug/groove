@@ -1,7 +1,6 @@
 ---
 title: "Filter, Low-pass 12db, cutoff sweeping over noise from 100% to 0%"
 clock:
-  sample-rate: 44100
   bpm: 128.0
   time-signature:
     - 4

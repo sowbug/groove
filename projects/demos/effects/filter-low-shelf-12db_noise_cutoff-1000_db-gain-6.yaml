@@ -1,7 +1,6 @@
 ---
 title: "filter-low-shelf-12db_noise_cutoff-1000_db-gain-6"
 clock:
-  sample-rate: 44100
   bpm: 240.0
   time-signature:
     - 4

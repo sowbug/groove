@@ -1,7 +1,6 @@
 ---
 title: "filter-band-stop-12db_sine_cutoff-1000_bandwidth-2000"
 clock:
-  sample-rate: 44100
   bpm: 240.0
   time-signature:
     - 4

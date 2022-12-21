@@ -1,7 +1,6 @@
 ---
 title: "chorus"
 clock:
-  sample-rate: 44100
   bpm: 120.0
   time-signature:
     - 4

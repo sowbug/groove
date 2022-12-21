@@ -1,7 +1,6 @@
 ---
 title: "bitcrusher_triangle_bits-to-crush-8"
 clock:
-  sample-rate: 44100
   bpm: 240.0
   time-signature:
     - 4

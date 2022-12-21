@@ -1,7 +1,6 @@
 ---
 title: "gain_noise_ceiling-0.500"
 clock:
-  sample-rate: 44100
   bpm: 240.0
   time-signature:
     - 4

@@ -1,7 +1,6 @@
 ---
 title: "filter-low-pass-12db_noise_cutoff-1000_q-0.707"
 clock:
-  sample-rate: 44100
   bpm: 240.0
   time-signature:
     - 4

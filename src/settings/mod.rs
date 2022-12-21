@@ -51,7 +51,7 @@ pub struct TrackSettings {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ClockSettings {
-    #[serde(rename = "sample-rate")]
+    #[serde(skip)]
     samples_per_second: usize, // Samples per second; granularity of a tick().
 
     #[serde(rename = "bpm")]
