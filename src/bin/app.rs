@@ -150,10 +150,7 @@ impl Application for GrooveApp {
                 };
             }
             AppMessage::PrefsLoaded(Err(_)) => {
-                *self = Self {
-                    is_pref_load_complete: true,
-                    ..Default::default()
-                }
+                self.is_pref_load_complete = true;
             }
             AppMessage::Tick(_now) => {
                 // TODO: do we still need a tick?
