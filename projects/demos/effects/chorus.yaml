@@ -1,0 +1,45 @@
+---
+title: "chorus"
+clock:
+  sample-rate: 44100
+  bpm: 120.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+    - instrument-1
+    - welsh:
+        midi-in: 0
+        preset: cowbell
+  - effect:
+    - effect-1
+    - chorus:
+        dry-pct: 0.0          # what percentage of input skips the effect
+        voices: 4             # how many versions of the input contribute to the output
+        delay-factor: 40      # Should be at least as big as 2x the number of voices
+patch-cables:
+  - [instrument-1, effect-1, main-mixer]
+patterns:
+  - id: scale
+    note-value: eighth
+    notes:
+      - [60, 62, 64, 65, 67, 69, 71, 72]
+tracks:
+  - id: track-1
+    midi-channel: 0
+    patterns: [scale, scale]
+paths:
+  - id: dry-then-wet
+    note-value: whole
+    steps:
+      - flat:
+          - 1.0
+      - flat:
+          - 0.5
+trips:
+  - id: control-effect
+    target:
+      id: effect-1
+      param: dry-pct
+    paths: [dry-then-wet]
