@@ -117,10 +117,10 @@ impl SongSettings {
                         if let Some(device_uid) = orchestrator.get_uid(device_id) {
                             let _ = orchestrator.patch(last_device_uid, device_uid);
                         } else {
-                            eprintln!("Warning: input patch ID '{}' not found.", device_id);
+                            eprintln!("Warning: input patch ID '{device_id}' not found.");
                         }
                     } else {
-                        eprintln!("Warning: output patch ID '{}' not found.", last_device_uvid);
+                        eprintln!("Warning: output patch ID '{last_device_uvid}' not found.");
                     }
                 }
                 last_device_uvid = Some(device_id.to_string());

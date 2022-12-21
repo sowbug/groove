@@ -64,12 +64,10 @@ impl Delays for DelayLine {
     fn peek_output(&self, apply_decay: bool) -> MonoSample {
         if self.buffer_size == 0 {
             MONO_SAMPLE_SILENCE
+        } else if apply_decay {
+            self.decay_factor() * self.buffer[self.buffer_pointer]
         } else {
-            if apply_decay {
-                self.decay_factor() * self.buffer[self.buffer_pointer]
-            } else {
-                self.buffer[self.buffer_pointer]
-            }
+            self.buffer[self.buffer_pointer]
         }
     }
 
@@ -100,16 +98,9 @@ impl Delays for DelayLine {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RecirculatingDelayLine {
     delay: DelayLine,
-}
-impl Default for RecirculatingDelayLine {
-    fn default() -> Self {
-        Self {
-            delay: DelayLine::default(),
-        }
-    }
 }
 impl RecirculatingDelayLine {
     pub(super) fn new_with(
@@ -148,16 +139,9 @@ impl Delays for RecirculatingDelayLine {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(super) struct AllPassDelayLine {
     delay: RecirculatingDelayLine,
-}
-impl Default for AllPassDelayLine {
-    fn default() -> Self {
-        Self {
-            delay: Default::default(),
-        }
-    }
 }
 impl AllPassDelayLine {
     pub(super) fn new_with(

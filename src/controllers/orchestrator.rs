@@ -75,7 +75,7 @@ impl<M: MessageBounds> Orchestrator<M> {
     }
 
     fn install_entity_metric(&mut self, uvid: Option<&str>, uid: usize) {
-        let name = format!("entity {}", uvid.unwrap_or(format!("uid {}", uid).as_str()));
+        let name = format!("entity {}", uvid.unwrap_or(format!("uid {uid}").as_str()));
         self.metrics
             .entity_audio_times
             .insert(uid, self.metrics.bucket.timer(name.as_str()));

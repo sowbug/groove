@@ -57,7 +57,7 @@ struct GrooveApp {
     reached_end_of_playback: bool,
 
     midi_handler_sender: Option<mpsc::Sender<MidiHandlerInput>>,
-    midi_handler: Arc<Mutex<MidiHandler>>,
+    midi_handler: Option<Arc<Mutex<MidiHandler>>>,
 }
 
 impl Default for GrooveApp {
@@ -142,12 +142,8 @@ impl Application for GrooveApp {
     fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
         match message {
             AppMessage::PrefsLoaded(Ok(preferences)) => {
-                *self = Self {
-                    preferences,
-                    is_pref_load_complete: true,
-                    theme: self.theme.clone(),
-                    ..Default::default()
-                };
+                self.preferences = preferences;
+                self.is_pref_load_complete = true;
             }
             AppMessage::PrefsLoaded(Err(_)) => {
                 self.is_pref_load_complete = true;
@@ -253,7 +249,7 @@ impl Application for GrooveApp {
             AppMessage::MidiHandlerEvent(event) => match event {
                 MidiHandlerEvent::Ready(sender, midi_handler) => {
                     self.midi_handler_sender = Some(sender);
-                    self.midi_handler = midi_handler;
+                    self.midi_handler = Some(midi_handler);
                 }
                 #[allow(unused_variables)]
                 MidiHandlerEvent::Midi(channel, event) => {
@@ -380,8 +376,7 @@ impl GrooveApp {
             BoxedEntity::AdsrEnvelope(e) => GuiStuff::titled_container(
                 type_name::<AdsrEnvelope>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
-            )
-            .into(),
+            ),
             BoxedEntity::Arpeggiator(_) => {
                 let title = type_name::<Arpeggiator>();
                 let contents = "Hello!";
@@ -394,13 +389,11 @@ impl GrooveApp {
             BoxedEntity::Chorus(e) => GuiStuff::titled_container(
                 type_name::<Chorus>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
-            )
-            .into(),
+            ),
             BoxedEntity::ControlTrip(e) => GuiStuff::titled_container(
                 type_name::<ControlTrip<EntityMessage>>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
-            )
-            .into(),
+            ),
             BoxedEntity::Delay(e) => {
                 let title = type_name::<Delay>();
                 let contents = format!("delay in seconds: {}", e.delay_seconds());
@@ -420,24 +413,20 @@ impl GrooveApp {
             BoxedEntity::MidiTickSequencer(e) => GuiStuff::titled_container(
                 type_name::<MidiTickSequencer<EntityMessage>>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
-            )
-            .into(),
+            ),
             BoxedEntity::Mixer(e) => GuiStuff::titled_container(
                 type_name::<Mixer<EntityMessage>>(),
                 text(format!("Mixer {} coming soon", e.uid())).into(),
-            )
-            .into(),
+            ),
             BoxedEntity::Oscillator(e) => GuiStuff::titled_container(
                 type_name::<Oscillator>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
-            )
-            .into(),
+            ),
             BoxedEntity::PatternManager(e) => self.pattern_manager_view(e),
             BoxedEntity::Reverb(e) => GuiStuff::titled_container(
                 type_name::<Reverb>(),
                 GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
-            )
-            .into(),
+            ),
             BoxedEntity::Sampler(e) => {
                 let title = type_name::<Sampler>();
                 let contents = format!("name: {}", e.filename());
@@ -459,50 +448,56 @@ impl GrooveApp {
                     ])
                     .into(),
                 )
-                .into()
             }
         }
     }
 
     fn midi_view(&self) -> Element<MidiHandlerMessage> {
-        if let Ok(midi_handler) = self.midi_handler.lock() {
-            let activity_text = container(text(
-                if Instant::now().duration_since(midi_handler.activity_tick())
-                    > Duration::from_millis(250)
-                {
-                    " "
-                } else {
-                    "•"
-                },
-            ))
-            .width(iced::Length::FillPortion(1));
-            let (input_selected, input_options) =
-                midi_handler.midi_input().as_ref().unwrap().labels();
-            let input_menu = row![
-                text("Input").width(iced::Length::FillPortion(1)),
-                pick_list(
-                    input_options,
-                    input_selected.clone(),
-                    MidiHandlerMessage::InputSelected,
+        if let Some(midi_handler) = &self.midi_handler {
+            if let Ok(midi_handler) = midi_handler.lock() {
+                let activity_text = container(text(
+                    if Instant::now().duration_since(midi_handler.activity_tick())
+                        > Duration::from_millis(250)
+                    {
+                        " "
+                    } else {
+                        "•"
+                    },
+                ))
+                .width(iced::Length::FillPortion(1));
+                let (input_selected, input_options) =
+                    midi_handler.midi_input().as_ref().unwrap().labels();
+                let input_menu = row![
+                    text("Input").width(iced::Length::FillPortion(1)),
+                    pick_list(
+                        input_options,
+                        input_selected.clone(),
+                        MidiHandlerMessage::InputSelected,
+                    )
+                    .width(iced::Length::FillPortion(3))
+                ];
+                let (output_selected, output_options) =
+                    midi_handler.midi_output().as_ref().unwrap().labels();
+                let output_menu = row![
+                    text("Output").width(iced::Length::FillPortion(1)),
+                    pick_list(
+                        output_options,
+                        output_selected.clone(),
+                        MidiHandlerMessage::OutputSelected,
+                    )
+                    .width(iced::Length::FillPortion(3))
+                ];
+                let port_menus =
+                    container(column![input_menu, output_menu]).width(iced::Length::FillPortion(7));
+                GuiStuff::titled_container(
+                    "MIDI",
+                    container(row![activity_text, port_menus]).into(),
                 )
-                .width(iced::Length::FillPortion(3))
-            ];
-            let (output_selected, output_options) =
-                midi_handler.midi_output().as_ref().unwrap().labels();
-            let output_menu = row![
-                text("Output").width(iced::Length::FillPortion(1)),
-                pick_list(
-                    output_options,
-                    output_selected.clone(),
-                    MidiHandlerMessage::OutputSelected,
-                )
-                .width(iced::Length::FillPortion(3))
-            ];
-            let port_menus =
-                container(column![input_menu, output_menu]).width(iced::Length::FillPortion(7));
-            GuiStuff::titled_container("MIDI", container(row![activity_text, port_menus]).into())
+            } else {
+                panic!()
+            }
         } else {
-            panic!()
+            GuiStuff::titled_container("MIDI", GuiStuff::container_text("Initializing..."))
         }
     }
 
@@ -620,7 +615,7 @@ impl GrooveApp {
     fn test_synth_view(&self, _: &TestSynth<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
             type_name::<TestSynth<EntityMessage>>(),
-            GuiStuff::container_text(format!("Nothing").as_str()),
+            GuiStuff::container_text("Nothing"),
         )
     }
 
@@ -665,7 +660,6 @@ impl GrooveApp {
             type_name::<AudioSource<EntityMessage>>(),
             GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
         )
-        .into()
     }
 
     fn gain_view(&self, e: &Gain<EntityMessage>) -> Element<EntityMessage> {

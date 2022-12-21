@@ -103,7 +103,7 @@ impl MidiSubscription {
                     State::Ending(handler) => {
                         let _ = handler.join();
                         // See https://github.com/iced-rs/iced/issues/1348
-                        return (None, State::Idle);
+                        (None, State::Idle)
                     }
                     State::Idle => {
                         // I took this line from

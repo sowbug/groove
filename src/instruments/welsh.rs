@@ -399,7 +399,7 @@ impl WelshSynth {
         if delegated {
             println!("Delegated {program} to {preset}");
         }
-        Ok(SynthPatch::by_name(&preset))
+        Ok(SynthPatch::by_name(preset))
     }
 }
 

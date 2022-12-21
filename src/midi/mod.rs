@@ -323,14 +323,13 @@ impl MidiInputHandler {
         if self.midi.is_none() {
             self.stop();
             if self.midi.is_none() {
-                return Err(anyhow::Error::msg(format!("MIDI input is not active")));
+                return Err(anyhow::Error::msg("MIDI input is not active".to_string()));
             }
         }
         let ports = self.midi.as_ref().unwrap().ports();
         if index >= ports.len() {
             return Err(anyhow::Error::msg(format!(
-                "MIDI input port #{} is no longer valid",
-                index
+                "MIDI input port #{index} is no longer valid"
             )));
         }
         self.stop();
@@ -498,14 +497,13 @@ impl MidiOutputHandler {
         if self.midi.is_none() {
             self.stop();
             if self.midi.is_none() {
-                return Err(anyhow::Error::msg(format!("MIDI output is not active")));
+                return Err(anyhow::Error::msg("MIDI output is not active".to_string()));
             }
         }
         let ports = self.midi.as_ref().unwrap().ports();
         if index >= ports.len() {
             return Err(anyhow::Error::msg(format!(
-                "MIDI output port #{} is no longer valid",
-                index
+                "MIDI output port #{index} is no longer valid"
             )));
         }
         self.stop();
@@ -648,30 +646,28 @@ impl MidiHandler {
     }
 
     pub fn select_input(&mut self, which: MidiPortLabel) {
-        if self.midi_input.is_some() {
-            if self
+        if self.midi_input.is_some()
+            && self
                 .midi_input
                 .as_mut()
                 .unwrap()
                 .select_port(which.index)
                 .is_ok()
-            {
-                // swallow failure
-            }
+        {
+            // swallow failure
         }
     }
 
     pub fn select_output(&mut self, which: MidiPortLabel) {
-        if self.midi_output.is_some() {
-            if self
+        if self.midi_output.is_some()
+            && self
                 .midi_output
                 .as_mut()
                 .unwrap()
                 .select_port(which.index)
                 .is_ok()
-            {
-                // swallow failure
-            }
+        {
+            // swallow failure
         }
     }
 

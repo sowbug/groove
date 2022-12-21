@@ -294,7 +294,7 @@ impl Runner {
             // send_pending_messages().
             while let Some(message) = messages.pop() {
                 let response = if let Ok(mut o) = self.orchestrator.lock() {
-                    o.update(&mut self.clock, message)
+                    o.update(&self.clock, message)
                 } else {
                     Response::none()
                 };
@@ -306,7 +306,7 @@ impl Runner {
                 // Send Tick to Orchestrator so it can do the bulk of its work for
                 // the loop.
                 let response = if let Ok(mut o) = self.orchestrator.lock() {
-                    o.update(&mut self.clock, GrooveMessage::Tick)
+                    o.update(&self.clock, GrooveMessage::Tick)
                 } else {
                     Response::none()
                 };
@@ -437,7 +437,7 @@ impl GrooveSubscription {
                     State::Ending(handler) => {
                         let _ = handler.join();
                         // See https://github.com/iced-rs/iced/issues/1348
-                        return (None, State::Idle);
+                        (None, State::Idle)
                     }
                     State::Idle => {
                         // I took this line from
