@@ -66,6 +66,10 @@ impl<M: MessageBounds> Orchestrator<M> {
         self.clock_settings = clock_settings.clone();
     }
 
+    pub fn set_sample_rate(&mut self, sample_rate: usize) {
+        self.clock_settings.set_sample_rate(sample_rate);
+    }
+
     pub fn store(&self) -> &Store {
         &self.store
     }

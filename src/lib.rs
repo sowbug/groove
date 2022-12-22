@@ -28,7 +28,7 @@ pub use crate::{
         subscription::{MidiHandlerEvent, MidiHandlerInput, MidiSubscription, PatternMessage},
         MidiHandler, MidiHandlerMessage, MidiInputStealer,
     },
-    settings::songs::SongSettings,
+    settings::{songs::SongSettings, ClockSettings},
     utils::{AudioSource, Paths, TestLfo, TestSynth, Timer},
 };
 

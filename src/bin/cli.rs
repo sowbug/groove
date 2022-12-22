@@ -69,7 +69,9 @@ fn main() -> anyhow::Result<()> {
         if !args.quiet {
             print!("Performing to queue ");
         }
-        let mut clock = Clock::new_with(orchestrator.clock_settings());
+        let mut clock_settings = orchestrator.clock_settings().clone();
+        clock_settings.set_sample_rate(if args.wav { 44100 } else { IOHelper::get_output_device_sample_rate() });
+        let mut clock = Clock::new_with(&clock_settings);
         let start_instant = Instant::now();
         let performance = orchestrator.run_performance(&mut clock, args.quiet)?;
         if args.perf {

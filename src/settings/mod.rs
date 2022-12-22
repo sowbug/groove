@@ -93,6 +93,10 @@ impl ClockSettings {
         self.samples_per_second
     }
 
+    pub fn set_sample_rate(&mut self, samples_per_second: usize) {
+        self.samples_per_second = samples_per_second;
+    }
+
     pub fn midi_ticks_per_second(&self) -> usize {
         self.midi_ticks_per_second
     }

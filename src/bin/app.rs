@@ -156,11 +156,11 @@ impl Application for GrooveApp {
                 // midi
                 ControlBarMessage::Play => {
                     if self.reached_end_of_playback {
-                        self.post_to_orchestrator(GrooveInput::Restart);
+                        self.post_to_orchestrator(GrooveInput::SkipToStart);
                         self.reached_end_of_playback = false;
-                    } else {
-                        self.post_to_orchestrator(GrooveInput::Play);
                     }
+                    self.post_to_orchestrator(GrooveInput::Play);
+
                     self.state = State::Playing
                 }
                 ControlBarMessage::Stop => {
@@ -168,7 +168,7 @@ impl Application for GrooveApp {
                     self.reached_end_of_playback = false;
                     match self.state {
                         State::Idle => {
-                            self.post_to_orchestrator(GrooveInput::Restart);
+                            self.post_to_orchestrator(GrooveInput::SkipToStart);
                         }
                         State::Playing => self.state = State::Idle,
                     }

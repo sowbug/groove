@@ -59,7 +59,6 @@ for k, v in EFFECTS.items():
 d = {
     'clock':
     {
-        'sample-rate': 44100,
         'bpm': 128.0,
         'time-signature': [4, 4]
     },

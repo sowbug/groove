@@ -2,7 +2,7 @@ use crate::{
     common::{MonoSample, MONO_SAMPLE_SILENCE},
     midi::MidiChannel,
     traits::Response,
-    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, Orchestrator, TimeSignature,
+    AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, IOHelper, TimeSignature,
 };
 use iced::{
     alignment::Vertical,
@@ -146,13 +146,28 @@ enum State {
 
 #[derive(Clone, Debug)]
 pub enum GrooveInput {
+    /// Load the project at the given file path.
     LoadProject(String),
+
+    /// Start playing at current cursor.
     Play,
+
+    /// Stop playing.
     Pause,
-    Restart,
+
+    /// Reset the cursor to time zero.
+    SkipToStart,
+
+    /// Handle this incoming MIDI message from external.
     Midi(MidiChannel, MidiMessage),
+
+    /// Change BPM.
     SetBpm(f32),
+
+    /// Change time signature.
     SetTimeSignature(TimeSignature),
+
+    /// End this thread.
     QuitRequested,
 }
 
@@ -265,9 +280,8 @@ impl Runner {
                     }
                     GrooveInput::Play => is_playing = true,
                     GrooveInput::Pause => is_playing = false,
-                    GrooveInput::Restart => {
+                    GrooveInput::SkipToStart => {
                         self.clock.reset();
-                        is_playing = true;
                     }
                     GrooveInput::Midi(channel, message) => {
                         messages.push(GrooveMessage::MidiFromExternal(channel, message))
@@ -407,7 +421,10 @@ impl GrooveSubscription {
                         // Runner/Orchestrator as subscription events.
                         let (thread_sender, thread_receiver) = mpsc::channel::<GrooveEvent>(1024);
 
-                        let orchestrator = Arc::new(Mutex::new(Orchestrator::default()));
+                        // TODO: deal with output-device and sample-rate changes.
+                        let mut t = GrooveOrchestrator::default();
+                        t.set_sample_rate(IOHelper::get_output_device_sample_rate());
+                        let orchestrator = Arc::new(Mutex::new(t));
                         let orchestrator_for_app = Arc::clone(&orchestrator);
                         let handler = std::thread::spawn(move || {
                             let mut runner =

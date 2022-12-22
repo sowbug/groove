@@ -1,21 +1,21 @@
 use crate::{
-    common::MonoSample,
+    common::{MonoSample, MONO_SAMPLE_SILENCE},
     controllers::{sequencers::MidiTickSequencer, Performance},
     entities::BoxedEntity,
     instruments::{drumkit_sampler::DrumkitSampler, welsh::WelshSynth},
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
-    Clock, GrooveMessage, GrooveOrchestrator, Orchestrator,
+    GrooveOrchestrator, Orchestrator,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    SampleRate, Stream, StreamConfig,
+    Stream, StreamConfig, SupportedStreamConfig,
 };
-use crossbeam::{deque::Stealer, queue::ArrayQueue};
-use std::{
-    ops::BitAnd,
-    sync::{Arc, Condvar, Mutex},
+use crossbeam::{
+    deque::{Steal, Stealer},
+    queue::ArrayQueue,
 };
+use std::sync::{Arc, Condvar, Mutex};
 
 pub struct AudioOutput {
     sample_rate: usize,
@@ -27,7 +27,7 @@ pub struct AudioOutput {
 impl Default for AudioOutput {
     fn default() -> Self {
         Self {
-            sample_rate: 44100,
+            sample_rate: 0,
             ring_buffer: Arc::new(ArrayQueue::new(4096)),
             stream: None,
             sync_pair: Arc::new((Mutex::new(false), Condvar::new())),
@@ -40,10 +40,6 @@ impl Default for AudioOutput {
 impl AudioOutput {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn recommended_buffer_size(&self) -> usize {
-        (self.sample_rate / 20).bitand(usize::MAX - 511)
     }
 
     pub fn buffer_len(&self) -> usize {
@@ -59,26 +55,16 @@ impl AudioOutput {
     }
 
     pub fn start(&mut self) {
-        let host = cpal::default_host();
-        let device = host
-            .default_output_device()
-            .expect("no output device available");
-
-        let mut supported_configs_range = device
-            .supported_output_configs()
-            .expect("error while querying configs");
-        let supported_config = supported_configs_range
-            .next()
-            .expect("no supported config?!")
-            .with_sample_rate(SampleRate(self.sample_rate as u32));
-
-        let err_fn = |err| eprintln!("an error occurred on the output audio stream: {err}");
-        let sample_format = supported_config.sample_format();
-        let config: StreamConfig = supported_config.into();
+        let device = IOHelper::default_output_device();
+        let config = IOHelper::default_output_config(&device);
+        let sample_format = config.sample_format();
+        let config: StreamConfig = config.into();
+        self.sample_rate = config.sample_rate.0 as usize;
 
         let sync_pair_clone = Arc::clone(&self.sync_pair);
         let ring_buffer_clone = Arc::clone(&self.ring_buffer);
 
+        let err_fn = |err| eprintln!("an error occurred on the output audio stream: {err}");
         if let Ok(result) = match sample_format {
             cpal::SampleFormat::F32 => device.build_output_stream(
                 &config,
@@ -126,6 +112,7 @@ impl AudioOutput {
         }
     }
 
+    /// End the audio output and this thread.
     pub fn stop(&mut self) {
         if let Some(stream) = &self.stream {
             if stream.pause().is_ok() {
@@ -139,12 +126,14 @@ impl AudioOutput {
         cvar.notify_one();
     }
 
+    /// Ask the audio output to stop handling the stream.
     pub fn pause(&mut self) {
         if let Some(stream) = &self.stream {
             let _ = stream.pause();
         }
     }
 
+    /// Ask the audio output to start handling the stream.
     pub fn play(&mut self) {
         if let Some(stream) = &self.stream {
             let _ = stream.play();
@@ -170,63 +159,35 @@ impl AudioOutput {
             *next_sample = cpal::Sample::from(&sample);
         }
     }
+
+    pub fn sample_rate(&self) -> usize {
+        self.sample_rate
+    }
 }
 
 pub struct IOHelper {}
 
 impl IOHelper {
-    pub async fn fill_audio_buffer(
-        orchestrator: &mut Box<GrooveOrchestrator>,
-        clock: &mut Clock,
-        audio_output: &mut AudioOutput,
-    ) -> (Vec<GrooveMessage>, bool) {
-        let must_restart_playback = false;
-        if clock.was_reset() && audio_output.buffer_len() < audio_output.buffer_capacity() {
-            audio_output.pause();
-            true
+    fn default_output_device() -> cpal::Device {
+        if let Some(device) = cpal::default_host().default_output_device() {
+            device
         } else {
-            false
-        };
-        let mut is_done = false;
-        let mut v = Vec::new();
+            panic!("Couldn't get default output device")
+        }
+    }
 
-        // TODO: this might be broken because I modified it without testing it.
-        while audio_output.buffer_len() < audio_output.buffer_capacity() {
-            let command = orchestrator.update(clock, GrooveMessage::Tick);
-            clock.tick();
-            let (sample, done) = Orchestrator::<GrooveMessage>::peek_command(&command);
-            match command.0 {
-                crate::traits::Internal::None => {}
-                crate::traits::Internal::Single(message) => {
-                    if let GrooveMessage::MidiToExternal(_, _) = message {
-                        v.push(message);
-                    }
-                }
-                crate::traits::Internal::Batch(messages) => {
-                    for message in messages {
-                        match message {
-                            GrooveMessage::MidiToExternal(_, _) => v.push(message),
-                            GrooveMessage::AudioOutput(_) => {}
-                            GrooveMessage::OutputComplete => {}
-                            _ => {
-                                panic!("Hmmm, unexpected {:?}", message)
-                            }
-                        }
-                    }
-                }
-            }
-            if done {
-                is_done = true;
-                // TODO - this needs to be stickier
-                // TODO weeks later: I don't understand the previous TODO
-                break;
-            }
-            audio_output.push(sample);
+    fn default_output_config(device: &cpal::Device) -> SupportedStreamConfig {
+        if let Ok(config) = device.default_output_config() {
+            config
+        } else {
+            panic!("Couldn't get default output config")
         }
-        if must_restart_playback {
-            audio_output.play();
-        }
-        (v, is_done)
+    }
+
+    pub fn get_output_device_sample_rate() -> usize {
+        Self::default_output_config(&Self::default_output_device())
+            .sample_rate()
+            .0 as usize
     }
 
     pub fn song_settings_from_yaml_file(filename: &str) -> anyhow::Result<SongSettings> {
@@ -265,6 +226,7 @@ impl IOHelper {
     }
 
     pub fn sample_from_queue<T: cpal::Sample>(
+        audio_is_stereo: bool,
         stealer: &Stealer<MonoSample>,
         sync_pair: &Arc<(Mutex<bool>, Condvar)>,
         data: &mut [T],
@@ -274,18 +236,26 @@ impl IOHelper {
         let cvar = &sync_pair.1;
         let mut finished = lock.lock().unwrap();
 
+        let mut hack_duplicate_mono_for_stereo = false;
+        let mut last_sample = MONO_SAMPLE_SILENCE;
         for next_sample in data.iter_mut() {
-            let sample_option = stealer.steal();
-            let sample: MonoSample = if sample_option.is_success() {
-                sample_option.success().unwrap_or_default()
+            let sample = if audio_is_stereo && hack_duplicate_mono_for_stereo {
+                last_sample
             } else {
-                // TODO(miket): this isn't great, because we don't know whether
-                // the steal failure was because of a spurious error (buffer
-                // underrun) or complete processing.
-                *finished = true;
-                cvar.notify_one();
-                0.
+                if let Steal::Success(sample) = stealer.steal() {
+                    last_sample = sample;
+                    sample
+                } else {
+                    // TODO(miket): this isn't great, because we don't know whether
+                    // the steal failure was because of a spurious error (buffer
+                    // underrun) or complete processing.
+                    *finished = true;
+                    cvar.notify_one();
+                    MONO_SAMPLE_SILENCE
+                }
             };
+            hack_duplicate_mono_for_stereo = !hack_duplicate_mono_for_stereo;
+
             // This is where MonoSample becomes an f32.
             #[allow(clippy::unnecessary_cast)]
             let sample_crossover: f32 = sample as f32;
@@ -294,32 +264,23 @@ impl IOHelper {
     }
 
     pub fn send_performance_to_output_device(performance: &Performance) -> anyhow::Result<()> {
-        let host = cpal::default_host();
-        let device = host
-            .default_output_device()
-            .expect("no output device available");
-
-        let mut supported_configs_range = device
-            .supported_output_configs()
-            .expect("error while querying configs");
-        let supported_config = supported_configs_range
-            .next()
-            .expect("no supported config?!")
-            .with_sample_rate(SampleRate(performance.sample_rate as u32));
-
-        let err_fn = |err| eprintln!("an error occurred on the output audio stream: {err}");
-        let sample_format = supported_config.sample_format();
-        let config: StreamConfig = supported_config.into();
+        let device = Self::default_output_device();
+        let config: SupportedStreamConfig = Self::default_output_config(&device);
+        let audio_is_stereo = config.channels() == 2;
+        let sample_format = config.sample_format();
+        let config: StreamConfig = config.into();
 
         let stealer = performance.worker.stealer();
 
         let sync_pair = Arc::new((Mutex::new(false), Condvar::new()));
         let sync_pair_clone = Arc::clone(&sync_pair);
+        let err_fn = |err| eprintln!("an error occurred on the output audio stream: {err}");
         let stream = match sample_format {
             cpal::SampleFormat::F32 => device.build_output_stream(
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<f32>(
+                        audio_is_stereo,
                         &stealer,
                         &sync_pair_clone,
                         data,
@@ -332,6 +293,7 @@ impl IOHelper {
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<i16>(
+                        audio_is_stereo,
                         &stealer,
                         &sync_pair_clone,
                         data,
@@ -344,6 +306,7 @@ impl IOHelper {
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<u16>(
+                        audio_is_stereo,
                         &stealer,
                         &sync_pair_clone,
                         data,
