@@ -59,7 +59,18 @@ impl SongSettings {
     }
 
     pub fn new_from_yaml(yaml: &str) -> anyhow::Result<Self> {
-        let settings = serde_yaml::from_str(yaml)?;
+        let mut settings: SongSettings = serde_yaml::from_str(yaml)?;
+
+        // TODO: this is a hack that seems to be necessary because if you set a
+        // #[serde(skip)] on a field, then it doesn't seem to pick up the value
+        // from the Default impl. So we were getting 0 as the default sample
+        // rate once we dropped that field from serialization.
+        //
+        // TODO: think (again) about whether Serde structs should be closer or
+        // farther to the heart of the model.
+        if settings.clock.sample_rate() == 0 {
+            settings.clock.set_sample_rate(44100);
+        }
         Ok(settings)
     }
 
