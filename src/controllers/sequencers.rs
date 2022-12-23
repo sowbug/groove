@@ -156,7 +156,6 @@ impl Updateable for BeatSequencer<EntityMessage> {
                                 }
                                 _ => {}
                             }
-                            println!("sending {:?}", &event.1);
                             vec.push(Response::single(Self::Message::Midi(event.0, event.1)));
                             vec
                         },
