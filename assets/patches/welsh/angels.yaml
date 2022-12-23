@@ -2,11 +2,11 @@
 name: angels
 oscillator-1:
   waveform: sawtooth
-  tune: 1.0
+  tune: 0.991946
   mix: 1.0
 oscillator-2:
-  waveform: sine
-  tune: 1.0
+  waveform: sawtooth
+  tune: 1.006956
   mix: 1.0
 oscillator-2-track: true
 oscillator-2-sync: false
@@ -14,18 +14,18 @@ noise: 0.0
 lfo:
   routing: pitch
   waveform: triangle
-  frequency: 2.4
+  frequency: 2.25 # 2.4 in book
   depth: 1.0116194
 glide: "off"
 has-unison: false
 polyphony: multi
 filter-type-24db:
-  cutoff: 900.0
+  cutoff: 705.6
   weight: 0.55
 filter-type-12db:
   cutoff: 900.0
   weight: 0.55
-filter-resonance: 0.7
+filter-resonance: 0.6354
 filter-envelope-weight: 0.0
 filter-envelope:
   attack: 0.0
