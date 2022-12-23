@@ -59,7 +59,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}drums-reverb.yaml"
+        "projects${pathSeparator}demos${pathSeparator}instruments${pathSeparator}welsh-angels.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
