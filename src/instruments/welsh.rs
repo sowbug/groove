@@ -406,7 +406,6 @@ impl WelshSynth {
 #[derive(Clone, Debug, Default)]
 pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
-    osc_mix: Vec<f32>,
     amp_envelope: AdsrEnvelope,
 
     lfo: Oscillator,
@@ -445,7 +444,6 @@ impl WelshVoice {
         if !matches!(preset.oscillator_1.waveform, WaveformType::None) {
             r.oscillators
                 .push(Oscillator::new_from_preset(&preset.oscillator_1));
-            r.osc_mix.push(preset.oscillator_1.mix);
         }
         if !matches!(preset.oscillator_2.waveform, WaveformType::None) {
             let mut o = Oscillator::new_from_preset(&preset.oscillator_2);
@@ -453,18 +451,16 @@ impl WelshVoice {
                 o.set_fixed_frequency(MidiUtils::note_to_frequency(preset.oscillator_2.tune as u8));
             }
             r.oscillators.push(o);
-            r.osc_mix.push(preset.oscillator_2.mix);
         }
         if preset.noise > 0.0 {
             r.oscillators
                 .push(Oscillator::new_with(WaveformType::Noise));
-            r.osc_mix.push(preset.noise);
         }
         r
     }
 
-    pub(crate) fn is_playing(&self, clock: &Clock) -> bool {
-        !self.amp_envelope.is_idle(clock)
+    pub(crate) fn is_playing(&self) -> bool {
+        !self.amp_envelope.is_idle()
     }
 }
 impl Updateable for WelshVoice {
@@ -569,7 +565,7 @@ impl SourcesAudio for WelshSynth {
         // it's going to be very loud.
         self.voices
             .iter_mut()
-            .filter(|v| v.is_playing(clock))
+            .filter(|v| v.is_playing())
             .map(|v| v.source_audio(clock))
             .sum()
     }
@@ -582,11 +578,11 @@ impl Updateable for WelshSynth {
         match message {
             Self::Message::Midi(channel, midi_message) => match midi_message {
                 MidiMessage::NoteOn { key, vel } => {
-                    let voice = self.voice_for_note(clock, u8::from(key));
+                    let voice = self.voice_for_note(u8::from(key));
                     voice.update(clock, message);
                 }
                 MidiMessage::NoteOff { key, vel } => {
-                    let voice = self.voice_for_note(clock, u8::from(key));
+                    let voice = self.voice_for_note(u8::from(key));
                     voice.update(clock, message);
                 }
                 MidiMessage::ProgramChange { program } => {
@@ -664,12 +660,12 @@ impl WelshSynth {
     // }
 
     // TODO: this has unlimited-voice polyphony. Should we limit to a fixed number?
-    fn voice_for_note(&mut self, clock: &Clock, note: u8) -> &mut WelshVoice {
+    fn voice_for_note(&mut self, note: u8) -> &mut WelshVoice {
         if let Some(&index) = self.notes_to_voice_indexes.get(&note) {
             return &mut self.voices[index];
         }
         for (index, voice) in self.voices.iter().enumerate() {
-            if !voice.is_playing(clock) {
+            if !voice.is_playing() {
                 self.notes_to_voice_indexes.insert(note, index);
                 return &mut self.voices[index];
             }

@@ -35,6 +35,9 @@ pub struct Oscillator {
     // [-1, 1] is typical range, with -1 halving the frequency, and 1 doubling it. Designed for LFO and frequent changes.
     frequency_modulation: f32,
 
+    // 0..1.0: volume
+    mix: f32,
+
     noise_x1: u32,
     noise_x2: u32,
 }
@@ -42,7 +45,7 @@ impl IsInstrument for Oscillator {}
 impl SourcesAudio for Oscillator {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let phase_normalized = (self.adjusted_frequency() * clock.seconds()) as MonoSample;
-        match self.waveform {
+        self.mix * match self.waveform {
             WaveformType::None => 0.0,
             // https://en.wikipedia.org/wiki/Sine_wave
             WaveformType::Sine => (phase_normalized * 2.0 * PI).sin(),
@@ -113,6 +116,7 @@ impl Default for Oscillator {
             uid: usize::default(),
 
             waveform: WaveformType::Sine,
+            mix: 1.0,
             frequency: 440.0,
             fixed_frequency: 0.0,
             frequency_tune: 1.0,
@@ -142,6 +146,7 @@ impl Oscillator {
     pub fn new_from_preset(preset: &OscillatorSettings) -> Self {
         Self {
             waveform: preset.waveform,
+            mix: preset.mix,
             frequency_tune: preset.tune,
             ..Default::default()
         }

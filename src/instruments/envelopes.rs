@@ -1,6 +1,6 @@
 use crate::{
     clock::ClockTimeUnit,
-    common::MonoSample,
+    common::{MonoSample, MONO_SAMPLE_SILENCE},
     messages::EntityMessage,
     settings::patches::EnvelopeSettings,
     traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
@@ -239,13 +239,18 @@ pub struct AdsrEnvelope {
     envelope: SteppedEnvelope,
     note_on_time: f32,
     note_off_time: f32,
+    is_idle: bool,
 }
 impl IsInstrument for AdsrEnvelope {}
 impl SourcesAudio for AdsrEnvelope {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let time = self.envelope.time_for_unit(clock);
         let step = self.envelope.step_for_time(time);
-        self.envelope.value_for_step_at_time(step, time)
+        let value = self.envelope.value_for_step_at_time(step, time);
+        self.is_idle = value == MONO_SAMPLE_SILENCE
+            && step.end_value == step.start_value
+            && step.interval.end == f32::MAX;
+        value
     }
 }
 impl Updateable for AdsrEnvelope {
@@ -293,6 +298,7 @@ impl Default for AdsrEnvelope {
             envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
             note_off_time: f32::MAX,
+            is_idle: false,
         }
     }
 }
@@ -305,10 +311,8 @@ impl AdsrEnvelope {
         }
     }
 
-    pub(crate) fn is_idle(&self, clock: &Clock) -> bool {
-        let current_time = self.envelope.time_for_unit(clock);
-        let step = self.envelope.step_for_time(current_time);
-        step.end_value == step.start_value && step.interval.end == f32::MAX
+    pub(crate) fn is_idle(&self) -> bool {
+        self.is_idle
     }
 
     pub(crate) fn handle_note_event(&mut self, clock: &Clock, note_on: bool) {
