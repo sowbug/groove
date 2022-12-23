@@ -521,8 +521,12 @@ impl SourcesAudio for WelshVoice {
         };
 
         // Filters
+        //
+        // https://aempass.blogspot.com/2014/09/analog-and-welshs-synthesizer-cookbook.html
+        // I am not sure this is right.
         let new_cutoff_percentage = self.filter_cutoff_start
-            + (self.filter_cutoff_end - self.filter_cutoff_start)
+            + (1.0 - self.filter_cutoff_start)
+                * self.filter_cutoff_end
                 * self.filter_envelope.source_audio(clock);
         self.filter.set_cutoff_pct(new_cutoff_percentage);
         let filtered_mix = self.filter.transform_audio(clock, osc_sum);
