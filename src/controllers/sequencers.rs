@@ -6,6 +6,8 @@ use crate::{
     traits::{HasUid, IsController, Response, Terminates, Updateable},
 };
 use btreemultimap::BTreeMultiMap;
+use midly::num::u7;
+use rustc_hash::FxHashMap;
 use std::{
     fmt::Debug,
     marker::PhantomData,
@@ -21,6 +23,9 @@ pub struct BeatSequencer<M: MessageBounds> {
     events: BeatEventsMap,
     last_event_time: PerfectTimeUnit,
     is_disabled: bool,
+
+    should_stop_pending_notes: bool,
+    on_notes: FxHashMap<u7, MidiChannel>,
 
     _phantom: PhantomData<M>,
 }
@@ -80,6 +85,9 @@ impl<M: MessageBounds> BeatSequencer<M> {
     }
 
     pub fn enable(&mut self, is_enabled: bool) {
+        if !self.is_disabled && !is_enabled {
+            self.should_stop_pending_notes = true;
+        }
         self.is_disabled = !is_enabled;
     }
 
@@ -96,6 +104,20 @@ impl<M: MessageBounds> BeatSequencer<M> {
     pub fn next_instant(&self) -> PerfectTimeUnit {
         self.next_instant
     }
+
+    fn stop_pending_notes(&mut self) -> Response<EntityMessage> {
+        let mut v = Vec::new();
+        for on_note in &self.on_notes {
+            v.push(Response::single(EntityMessage::Midi(
+                *on_note.1,
+                MidiMessage::NoteOff {
+                    key: *on_note.0,
+                    vel: 0.into(),
+                },
+            )));
+        }
+        Response::batch(v)
+    }
 }
 
 impl Updateable for BeatSequencer<EntityMessage> {
@@ -105,6 +127,11 @@ impl Updateable for BeatSequencer<EntityMessage> {
         match message {
             Self::Message::Tick => {
                 self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
+
+                if self.should_stop_pending_notes {
+                    self.should_stop_pending_notes = false;
+                    return self.stop_pending_notes();
+                }
 
                 return if self.is_enabled() {
                     // If the last instant marks a new interval, then we want to include
@@ -117,6 +144,19 @@ impl Updateable for BeatSequencer<EntityMessage> {
                     Response::batch(self.events.range(range).into_iter().fold(
                         Vec::new(),
                         |mut vec, (_when, event)| {
+                            match event.1 {
+                                MidiMessage::NoteOff { key, vel: _ } => {
+                                    self.on_notes.remove(&key);
+                                }
+                                MidiMessage::NoteOn { key, vel } => {
+                                    if vel == 0 {
+                                        self.on_notes.remove(&key);
+                                    }
+                                    self.on_notes.insert(key, event.0);
+                                }
+                                _ => {}
+                            }
+                            println!("sending {:?}", &event.1);
                             vec.push(Response::single(Self::Message::Midi(event.0, event.1)));
                             vec
                         },

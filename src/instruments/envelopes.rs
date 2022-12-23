@@ -1,6 +1,6 @@
 use crate::{
     clock::ClockTimeUnit,
-    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    common::MonoSample,
     messages::EntityMessage,
     settings::patches::EnvelopeSettings,
     traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
@@ -239,18 +239,14 @@ pub struct AdsrEnvelope {
     envelope: SteppedEnvelope,
     note_on_time: f32,
     note_off_time: f32,
-    is_idle: bool,
+    end_work_time: f32,
 }
 impl IsInstrument for AdsrEnvelope {}
 impl SourcesAudio for AdsrEnvelope {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let time = self.envelope.time_for_unit(clock);
         let step = self.envelope.step_for_time(time);
-        let value = self.envelope.value_for_step_at_time(step, time);
-        self.is_idle = value == MONO_SAMPLE_SILENCE
-            && step.end_value == step.start_value
-            && step.interval.end == f32::MAX;
-        value
+        self.envelope.value_for_step_at_time(step, time)
     }
 }
 impl Updateable for AdsrEnvelope {
@@ -298,7 +294,7 @@ impl Default for AdsrEnvelope {
             envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
             note_off_time: f32::MAX,
-            is_idle: false,
+            end_work_time: f32::MAX,
         }
     }
 }
@@ -311,8 +307,9 @@ impl AdsrEnvelope {
         }
     }
 
-    pub(crate) fn is_idle(&self) -> bool {
-        self.is_idle
+    pub(crate) fn is_idle(&self, clock: &Clock) -> bool {
+        clock.seconds() < self.note_on_time || 
+        clock.seconds() >= self.end_work_time
     }
 
     pub(crate) fn handle_note_event(&mut self, clock: &Clock, note_on: bool) {
@@ -346,6 +343,7 @@ impl AdsrEnvelope {
             // InitialIdle is only state.
             self.envelope.steps[AdsrEnvelopeStepName::InitialIdle as usize] =
                 EnvelopeStep::new_with_duration(0.0, f32::MAX, 0.0, 0.0, EnvelopeFunction::Linear);
+            self.end_work_time = f32::MAX;
             self.envelope.debug_validate_steps();
             return;
         }
@@ -380,6 +378,7 @@ impl AdsrEnvelope {
                     p.sustain,
                     EnvelopeFunction::Linear,
                 );
+            self.end_work_time = f32::MAX;
             self.envelope.debug_validate_steps();
             return;
         }
@@ -418,14 +417,16 @@ impl AdsrEnvelope {
                     0.0,
                     EnvelopeFunction::Linear,
                 );
+            let final_idle_start_time = ut + p.release;
             self.envelope.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
                 EnvelopeStep::new_with_duration(
-                    ut + p.release,
+                    final_idle_start_time,
                     f32::MAX,
                     0.0,
                     0.0,
                     EnvelopeFunction::Linear,
                 );
+            self.end_work_time = final_idle_start_time;
         } else {
             // key-up happened during attack/decay.
             if keydown_duration >= p.attack {
@@ -454,14 +455,16 @@ impl AdsrEnvelope {
                         0.0,
                         EnvelopeFunction::Linear,
                     );
+                let final_idle_start_time = dt + p.attack + p.decay + p.release;
                 self.envelope.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
                     EnvelopeStep::new_with_duration(
-                        dt + p.attack + p.decay + p.release,
+                        final_idle_start_time,
                         f32::MAX,
                         0.0,
                         0.0,
                         EnvelopeFunction::Linear,
                     );
+                self.end_work_time = final_idle_start_time;
             } else {
                 // Attack was interrupted. Pick current amplitude as ceiling, skip rest of attack, and move to decay.
                 // Since we're picking a new ceiling, we'll scale the sustain level along with it so that the
@@ -497,14 +500,16 @@ impl AdsrEnvelope {
                         0.0,
                         EnvelopeFunction::Linear,
                     );
+                let final_idle_start_time = ut + p.decay + p.release;
                 self.envelope.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
                     EnvelopeStep::new_with_duration(
-                        ut + p.decay + p.release,
+                        final_idle_start_time,
                         f32::MAX,
                         0.0,
                         0.0,
                         EnvelopeFunction::Linear,
                     );
+                self.end_work_time = final_idle_start_time;
             }
         }
         self.envelope.debug_validate_steps();
@@ -603,6 +608,7 @@ mod tests {
             let t_f32 = t as f32 / 10.0;
             let clock = Clock::debug_new_with_time(t_f32);
             assert_eq!(envelope.source_audio(&clock), 0.);
+            assert!(envelope.is_idle(&clock));
         }
 
         // Now press a key. Make sure the sustaining part of the envelope is good.
@@ -628,6 +634,13 @@ mod tests {
             envelope.source_audio(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP + 10.0)),
             ep.sustain
         );
+        assert!(envelope.is_idle(&Clock::debug_new_with_time(0.0)));
+        assert!(!envelope.is_idle(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP)));
+        assert!(!envelope.is_idle(&Clock::debug_new_with_time(
+            NOTE_ON_TIMESTAMP + ep.attack + ep.decay
+        )));
+        assert!(!envelope.is_idle(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP + 10.0)));
+        assert!(!envelope.is_idle(&Clock::debug_new_with_time(f32::MAX)));
 
         // Let the key go. Release should work.
         const NOTE_OFF_TIMESTAMP: f32 = 2.0;
@@ -662,6 +675,14 @@ mod tests {
             envelope.source_audio(&Clock::debug_new_with_time(10.0)),
             0.0
         );
+
+        assert!(envelope.is_idle(&Clock::debug_new_with_time(0.0)));
+        assert!(!envelope.is_idle(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP)));
+        assert!(!envelope.is_idle(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP)));
+        assert!(!envelope.is_idle(&Clock::debug_new_with_time(
+            NOTE_OFF_TIMESTAMP + ep.release - 0.01
+        )));
+        assert!(envelope.is_idle(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP + ep.release)));
     }
 
     #[test]
