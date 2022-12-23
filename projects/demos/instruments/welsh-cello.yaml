@@ -1,0 +1,28 @@
+---
+title: "Welsh cello"
+clock:
+  bpm: 120.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+    - lead-1
+    - welsh:
+        midi-in: 0
+        preset: cello
+patch-cables:
+  - [lead-1, main-mixer]
+patterns:
+  - id: basic-1
+    note-value: whole
+    notes:
+      - [48] # C3
+  - id: silent-measure-1
+    note-value: eighth
+    notes:
+      - [0]
+tracks:
+  - id: track-1
+    midi-channel: 0
+    patterns: [basic-1, silent-measure-1]
