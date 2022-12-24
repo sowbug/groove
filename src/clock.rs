@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::settings::ClockSettings;
+use anyhow::{anyhow, Error};
 use serde::{Deserialize, Serialize};
 use strum_macros::FromRepr;
 
@@ -32,9 +33,12 @@ impl BeatValue {
         value as u32 as f32 / 1024.0
     }
 
-    pub fn from_divisor(divisor: f32) -> Self {
-        BeatValue::from_repr((divisor * 1024.0) as usize)
-            .unwrap_or_else(|| panic!("unrecognized divisor for time signature: {divisor}"))
+    pub fn from_divisor(divisor: f32) -> anyhow::Result<Self, anyhow::Error> {
+        if let Some(value) = BeatValue::from_repr((divisor * 1024.0) as usize) {
+            Ok(value)
+        } else {
+            Err(anyhow!("divisor {} is out of range", divisor))
+        }
     }
 }
 
@@ -77,17 +81,22 @@ pub struct TimeSignature {
 }
 
 impl TimeSignature {
-    pub fn new_with(top: usize, bottom: usize) -> Self {
+    pub fn new_with(top: usize, bottom: usize) -> anyhow::Result<Self, Error> {
         if top == 0 {
-            panic!("Time signature top number can't be zero.");
+            Err(anyhow!("Time signature top can't be zero."))
+        } else {
+            if let Ok(_) = BeatValue::from_divisor(bottom as f32) {
+                Ok(Self { top, bottom })
+            } else {
+                Err(anyhow!("Time signature bottom was out of range."))
+            }
         }
-        BeatValue::from_divisor(bottom as f32); // this will panic if number is invalid.
-        Self { top, bottom }
     }
 
-    #[allow(dead_code)]
     pub fn beat_value(&self) -> BeatValue {
-        BeatValue::from_divisor(self.bottom as f32)
+        // It's safe to unwrap because the constructor already blew up if the
+        // bottom were out of range.
+        BeatValue::from_divisor(self.bottom as f32).unwrap()
     }
 }
 
@@ -442,38 +451,30 @@ mod tests {
         assert_eq!(ts.top, 4);
         assert_eq!(ts.bottom, 4);
 
+        let ts = TimeSignature::new_with(ts.top, ts.bottom).ok().unwrap();
         assert!(matches!(ts.beat_value(), BeatValue::Quarter));
     }
 
-    //#[test]
-    #[allow(dead_code)]
-    #[should_panic]
+    #[test]
     fn test_time_signature_invalid_bad_top() {
-        TimeSignature::new_with(0, 4);
+        assert!(TimeSignature::new_with(0, 4).is_err());
     }
 
-    //#[test]
-    #[should_panic]
-    #[allow(dead_code)]
+    #[test]
     fn test_time_signature_invalid_bottom_not_power_of_two() {
-        TimeSignature::new_with(4, 5);
+        assert!(TimeSignature::new_with(4, 5).is_err());
     }
 
-    //#[test]
-    #[should_panic]
-    #[allow(dead_code)]
+    #[test]
     fn test_time_signature_invalid_bottom_below_range() {
-        TimeSignature::new_with(4, 0);
+        assert!(TimeSignature::new_with(4, 0).is_err());
     }
 
-    //#[test]
-    #[should_panic]
-    #[allow(dead_code)]
+    #[test]
     fn test_time_signature_invalid_bottom_above_range() {
-        // 2^10 = 1024
-        TimeSignature::new_with(
-            4,
-            BeatValue::divisor(BeatValue::from_divisor(2.0f32.powi(10))) as usize,
-        );
+        // 2^10 = 1024, 1024 * 1024 = 1048576, which is higher than
+        // BeatValue::FiveHundredTwelfth value of 524288
+        let bv = BeatValue::from_divisor(2.0f32.powi(10));
+        assert!(bv.is_err());
     }
 }

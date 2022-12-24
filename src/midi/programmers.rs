@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_multi_pattern_track() {
-        let time_signature = TimeSignature::new_with(7, 8);
+        let time_signature = TimeSignature::new_with(7, 8).expect("failed");
         let mut sequencer = BeatSequencer::default();
         let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
 
@@ -347,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_pattern_default_note_value() {
-        let time_signature = TimeSignature::new_with(7, 4);
+        let time_signature = TimeSignature::new_with(7, 4).expect("failed");
         let mut sequencer = BeatSequencer::default();
         let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
         let pattern = Pattern::<Note>::from_settings(&PatternSettings {
