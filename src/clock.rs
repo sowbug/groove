@@ -477,4 +477,29 @@ mod tests {
         let bv = BeatValue::from_divisor(2.0f32.powi(10));
         assert!(bv.is_err());
     }
+
+    #[test]
+    fn test_clock_tells_us_when_it_jumps() {
+        let mut clock = Clock::new();
+
+        let mut next_sample = clock.samples();
+        let mut first_time = true;
+
+        for _ in 0..10 {
+            assert_eq!(clock.samples(), next_sample);
+
+            // The first time through, the clock really is reset, because it had no
+            // prior tick.
+            assert!(first_time || !clock.was_reset());
+
+            first_time = false;
+            next_sample = clock.next_slice_in_samples();
+            clock.tick();
+        }
+        clock.set_samples(clock.samples() + 1);
+        assert!(clock.was_reset());
+        assert_eq!(clock.samples(), next_sample + 1);
+        clock.tick();
+        assert!(!clock.was_reset());
+    }
 }
