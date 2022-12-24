@@ -156,7 +156,7 @@ impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
                 BiQuadFilterControlParams::Bandwidth => self.set_bandwidth(value),
                 BiQuadFilterControlParams::CutoffPct => self.set_cutoff_pct(value),
                 BiQuadFilterControlParams::DbGain => self.set_db_gain(value),
-                BiQuadFilterControlParams::Q => self.set_q(value),
+                BiQuadFilterControlParams::Q => self.set_q(Self::denormalize_q(value)),
             }
         } else {
             todo!()
@@ -232,6 +232,12 @@ impl<M: MessageBounds> BiQuadFilter<M> {
         (frequency / Self::FREQUENCY_TO_LINEAR_COEFFICIENT)
             .log(Self::FREQUENCY_TO_LINEAR_BASE)
             .clamp(0.0, 1.0)
+    }
+
+    // A placeholder for an intelligent mapping of 0.0..=1.0 to a reasonable Q
+    // range
+    pub fn denormalize_q(value: f32) -> f32 {
+        value * value * 50.0 + 0.707
     }
 
     /// Returns a new/default struct without calling update_coefficients().

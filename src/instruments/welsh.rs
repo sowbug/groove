@@ -15,7 +15,6 @@ use crate::{
 use convert_case::{Case, Casing};
 use num_traits::FromPrimitive;
 use rustc_hash::FxHashMap;
-use std::f32::consts::FRAC_1_SQRT_2;
 
 // TODO: cache these as they're loaded
 impl SynthPatch {
@@ -430,7 +429,7 @@ impl WelshVoice {
             filter: BiQuadFilter::new_with(
                 &FilterParams::LowPass {
                     cutoff: preset.filter_type_12db.cutoff,
-                    q: FRAC_1_SQRT_2, // TODO: resonance
+                    q: BiQuadFilter::<EntityMessage>::denormalize_q(preset.filter_resonance),
                 },
                 sample_rate,
             ),
@@ -498,14 +497,14 @@ impl Updateable for WelshVoice {
 impl SourcesAudio for WelshVoice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         // LFO
-        let lfo = self.lfo.source_audio(clock) * self.lfo_depth as MonoSample;
+        let lfo = self.lfo.source_audio(clock);
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
-            let lfo_for_pitch = lfo / 10000.0;
-            // TODO: divide by 10,000 until we figure out how pitch depth is supposed to go
-            // TODO: this could leave a side effect if we reuse voices and forget to clean up.
+            let lfo_for_pitch = lfo * self.lfo_depth;
             for o in self.oscillators.iter_mut() {
                 o.set_frequency_modulation(lfo_for_pitch);
             }
+            // TODO - it would make more sense to leave the oscillators on their
+            // own, and then apply pitch mods here. Less mutability to keep track of.
         }
 
         // Oscillators
@@ -536,7 +535,7 @@ impl SourcesAudio for WelshVoice {
         // LFO amplitude modulation
         let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
             // LFO ranges from [-1, 1], so convert to something that can silence or double the volume.
-            lfo + 1.0
+            lfo * self.lfo_depth + 1.0
         } else {
             1.0
         };
