@@ -2,11 +2,11 @@
 name: octave-switch
 oscillator-1:
   waveform: triangle
-  tune: 0.99
+  tune: 0.497407
   mix: 1.0
 oscillator-2:
   waveform: sawtooth
-  tune: 1.02
+  tune: 1.008702
   mix: 0.96
 oscillator-2-track: true
 oscillator-2-sync: false
