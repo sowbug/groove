@@ -375,6 +375,32 @@ impl<M: MessageBounds> BiQuadFilter<M> {
         }
     }
 
+    // Excerpted from Robert Bristow-Johnson's audio cookbook to explain various
+    // parameters
+    //
+    // Fs (the sampling frequency)
+    //
+    // f0 ("wherever it's happenin', man."  Center Frequency or Corner
+    //     Frequency, or shelf midpoint frequency, depending on which filter
+    //     type.  The "significant frequency".)
+    //
+    // dBgain (used only for peaking and shelving filters)
+    //
+    // Q (the EE kind of definition, except for peakingEQ in which A*Q is the
+    // classic EE Q.  That adjustment in definition was made so that a boost of
+    // N dB followed by a cut of N dB for identical Q and f0/Fs results in a
+    // precisely flat unity gain filter or "wire".)
+    //
+    // - _or_ BW, the bandwidth in octaves (between -3 dB frequencies for BPF
+    //     and notch or between midpoint (dBgain/2) gain frequencies for peaking
+    //     EQ)
+    //
+    // - _or_ S, a "shelf slope" parameter (for shelving EQ only).  When S = 1,
+    //     the shelf slope is as steep as it can be and remain monotonically
+    //     increasing or decreasing gain with frequency.  The shelf slope, in
+    //     dB/octave, remains proportional to S for all other values for a fixed
+    //     f0/Fs and dBgain.
+
     fn rbj_intermediates_q(sample_rate: usize, cutoff: f32, q: f32) -> (f64, f64, f64, f64) {
         let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
         let w0cos = w0.cos();

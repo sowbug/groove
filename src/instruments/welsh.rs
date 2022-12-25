@@ -503,8 +503,6 @@ impl SourcesAudio for WelshVoice {
             for o in self.oscillators.iter_mut() {
                 o.set_frequency_modulation(lfo_for_pitch);
             }
-            // TODO - it would make more sense to leave the oscillators on their
-            // own, and then apply pitch mods here. Less mutability to keep track of.
         }
 
         // Oscillators
@@ -533,7 +531,7 @@ impl SourcesAudio for WelshVoice {
         let filtered_mix = self.filter.transform_audio(clock, osc_sum);
 
         // LFO amplitude modulation
-        let lfo_amplitude_modulation = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
+        let lfo_for_amplitude = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
             // LFO ranges from [-1, 1], so convert to something that can silence or double the volume.
             lfo * self.lfo_depth + 1.0
         } else {
@@ -541,7 +539,7 @@ impl SourcesAudio for WelshVoice {
         };
 
         // Final
-        filtered_mix * self.amp_envelope.source_audio(clock) * lfo_amplitude_modulation
+        filtered_mix * self.amp_envelope.source_audio(clock) * lfo_for_amplitude
     }
 }
 
