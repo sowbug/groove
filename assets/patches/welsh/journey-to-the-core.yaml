@@ -22,10 +22,10 @@ oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
 lfo:
-  routing: pitch-osc1-osc2-7-semitones;-pw-osc2-=-100%
+  routing: pitch-7-semitones;-pw-osc2-=-100%
   waveform: sawtooth
   frequency: 7.5
-  depth: 0.0
+  depth: none
 glide: 0
 unison: false
 polyphony: multi
@@ -44,6 +44,6 @@ filter-envelope:
   release: 3.2
 amp-envelope:
   attack: 0.0
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.8

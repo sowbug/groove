@@ -2,7 +2,8 @@
 name: portus
 oscillator-1:
   waveform: triangle
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
@@ -21,7 +22,7 @@ lfo:
   routing: none
   waveform: none
   frequency: 0
-  depth: 0.0
+  depth: none
 glide: 1.5
 unison: false
 polyphony: multi
@@ -35,11 +36,11 @@ filter-resonance: 0.7
 filter-envelope-weight: 0.7
 filter-envelope:
   attack: 1.8
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 2.9
 amp-envelope:
   attack: 1.5
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 3.3

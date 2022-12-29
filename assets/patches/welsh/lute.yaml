@@ -11,7 +11,8 @@ oscillator-1:
   mix-db: 0.0
 oscillator-2:
   waveform: triangle
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 0.85
   mix-db: 0
 oscillator-2-track: true

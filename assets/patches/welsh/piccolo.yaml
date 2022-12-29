@@ -2,7 +2,8 @@
 name: piccolo
 oscillator-1:
   waveform: sawtooth
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 0.8
   mix-db: -9.0
 oscillator-2:
@@ -36,11 +37,11 @@ filter-resonance: 0.5
 filter-envelope-weight: 0.6
 filter-envelope:
   attack: 0.11
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.28
 amp-envelope:
   attack: 0.11
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.28

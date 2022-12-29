@@ -3,12 +3,14 @@ name: cello
 oscillator-1:
   waveform:
     pulse-width: 0.1
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
   waveform: square
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2-track: true
@@ -35,9 +37,9 @@ filter-envelope:
   attack: 0.0
   decay: 3.29
   sustain: 0.78
-  release: -1.0
+  release: 10000.0
 amp-envelope:
   attack: 0.06
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.3

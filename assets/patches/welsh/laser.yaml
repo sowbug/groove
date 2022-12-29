@@ -2,22 +2,24 @@
 name: laser
 oscillator-1:
   waveform: none
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 0.0
   mix-db: -40.0
 oscillator-2:
   waveform: none
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 0.0
   mix-db: 0
 oscillator-2-track: false
 oscillator-2-sync: false
 noise: 1.0
 lfo:
-  routing: ''
+  routing: none
   waveform: none
   frequency: 0
-  depth: 0.0
+  depth: none
 glide: 0
 unison: false
 polyphony: mono

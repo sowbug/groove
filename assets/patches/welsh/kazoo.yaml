@@ -3,13 +3,15 @@ name: kazoo
 oscillator-1:
   waveform:
     pulse-width: 0.15
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
   waveform:
     pulse-width: 0.02
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2-track: true

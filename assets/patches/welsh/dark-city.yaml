@@ -22,7 +22,7 @@ oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
 lfo:
-  routing: pw-osc1-osc2
+  routing: pulse-width
   waveform: triangle-sine
   frequency: 4.0
   depth:

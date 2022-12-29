@@ -40,6 +40,8 @@ pub enum WaveformType {
     Triangle,
     Sawtooth,
     Noise,
+
+    TriangleSine, // TODO
 }
 
 pub type GlideSettings = f32;
@@ -99,14 +101,14 @@ impl Default for OscillatorSettings {
 
 impl OscillatorSettings {
     #[allow(dead_code)]
-    pub fn octaves(num: f32) -> f32 {
-        Self::semis_and_cents(num * 12.0, 0.0)
+    pub fn octaves(num: i16) -> f32 {
+        Self::semis_and_cents(num * 12, 0.0)
     }
 
     #[allow(dead_code)]
-    pub fn semis_and_cents(semitones: f32, cents: f32) -> f32 {
+    pub fn semis_and_cents(semitones: i16, cents: f32) -> f32 {
         // https://en.wikipedia.org/wiki/Cent_(music)
-        2.0f32.powf((semitones * 100.0 + cents) / 1200.0)
+        2.0f32.powf((semitones as f32 * 100.0 + cents) / 1200.0)
     }
 }
 
@@ -147,13 +149,37 @@ pub enum LfoRouting {
     PulseWidth,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LfoDepth {
+    None,
+    Pct(f32),
+    Cents(f32),
+}
+
+impl Default for LfoDepth {
+    fn default() -> Self {
+        LfoDepth::Pct(0.0)
+    }
+}
+
+impl Into<f32> for LfoDepth {
+    fn into(self) -> f32 {
+        match self {
+            LfoDepth::None => 0.0,
+            LfoDepth::Pct(pct) => pct,
+            LfoDepth::Cents(cents) => OscillatorSettings::semis_and_cents(0, cents),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct LfoPreset {
     pub routing: LfoRouting,
     pub waveform: WaveformType,
     pub frequency: f32,
-    pub depth: f32,
+    pub depth: LfoDepth,
 }
 
 impl LfoPreset {
@@ -188,31 +214,31 @@ mod tests {
     #[test]
     fn test_oscillator_tuning_helpers() {
         // tune
-        assert_eq!(OscillatorSettings::octaves(0.0), 1.0);
-        assert_eq!(OscillatorSettings::octaves(1.0), 2.0);
-        assert_eq!(OscillatorSettings::octaves(-1.0), 0.5);
-        assert_eq!(OscillatorSettings::octaves(2.0), 4.0);
-        assert_eq!(OscillatorSettings::octaves(-2.0), 0.25);
+        assert_eq!(OscillatorSettings::octaves(0), 1.0);
+        assert_eq!(OscillatorSettings::octaves(1), 2.0);
+        assert_eq!(OscillatorSettings::octaves(-1), 0.5);
+        assert_eq!(OscillatorSettings::octaves(2), 4.0);
+        assert_eq!(OscillatorSettings::octaves(-2), 0.25);
 
-        assert_eq!(OscillatorSettings::semis_and_cents(0.0, 0.0), 1.0);
-        assert_eq!(OscillatorSettings::semis_and_cents(12.0, 0.0), 2.0);
-        assert_approx_eq!(OscillatorSettings::semis_and_cents(5.0, 0.0), 1.334_839_6); // 349.2282÷261.6256, F4÷C4
+        assert_eq!(OscillatorSettings::semis_and_cents(0, 0.0), 1.0);
+        assert_eq!(OscillatorSettings::semis_and_cents(12, 0.0), 2.0);
+        assert_approx_eq!(OscillatorSettings::semis_and_cents(5, 0.0), 1.334_839_6); // 349.2282÷261.6256, F4÷C4
         assert_eq!(
-            OscillatorSettings::semis_and_cents(0.0, -100.0),
+            OscillatorSettings::semis_and_cents(0, -100.0),
             2.0f32.powf(-100.0 / 1200.0)
         );
 
         assert_eq!(
-            OscillatorSettings::octaves(0.5),
-            OscillatorSettings::semis_and_cents(6.0, 0.0)
+            OscillatorSettings::octaves(1),
+            OscillatorSettings::semis_and_cents(12, 0.0)
         );
         assert_eq!(
-            OscillatorSettings::octaves(1.0),
-            OscillatorSettings::semis_and_cents(0.0, 1200.0)
+            OscillatorSettings::octaves(1),
+            OscillatorSettings::semis_and_cents(0, 1200.0)
         );
         assert_eq!(
-            OscillatorSettings::semis_and_cents(1.0, 0.0),
-            OscillatorSettings::semis_and_cents(0.0, 100.0)
+            OscillatorSettings::semis_and_cents(1, 0.0),
+            OscillatorSettings::semis_and_cents(0, 100.0)
         );
     }
 }

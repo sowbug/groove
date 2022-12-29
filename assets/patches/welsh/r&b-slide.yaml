@@ -23,9 +23,9 @@ oscillator-2-sync: false
 noise: 0.0
 lfo:
   routing: none
-  waveform: ''
+  waveform: none
   frequency: 0
-  depth: 0.0
+  depth: none
 glide: 0.02
 unison: false
 polyphony: mono
@@ -39,11 +39,11 @@ filter-resonance: 0.45
 filter-envelope-weight: 0.65
 filter-envelope:
   attack: 1.2
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 6.3
 amp-envelope:
   attack: 0.02
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.6

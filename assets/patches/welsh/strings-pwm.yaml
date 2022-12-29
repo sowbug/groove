@@ -22,7 +22,7 @@ oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
 lfo:
-  routing: pw-osc1-osc2
+  routing: pulse-width
   waveform: sine
   frequency: 2.0
   depth:
@@ -40,11 +40,11 @@ filter-resonance: 0.0
 filter-envelope-weight: 1.0
 filter-envelope:
   attack: 0.09
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
-  release: -1.0
+  release: 10000.0
 amp-envelope:
   attack: 0.11
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.35

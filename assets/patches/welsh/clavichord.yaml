@@ -2,7 +2,8 @@
 name: clavichord
 oscillator-1:
   waveform: sawtooth
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
@@ -38,7 +39,7 @@ filter-envelope:
   attack: 0.0
   decay: 0.1
   sustain: 0.65
-  release: -1.0
+  release: 10000.0
 amp-envelope:
   attack: 0.0
   decay: 1.9

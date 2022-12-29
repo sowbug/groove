@@ -3,7 +3,8 @@ name: english-horn
 oscillator-1:
   waveform:
     pulse-width: 0.15
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
@@ -37,11 +38,11 @@ filter-resonance: 0.0
 filter-envelope-weight: 0.6
 filter-envelope:
   attack: 0.07
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
-  release: -1.0
+  release: 10000.0
 amp-envelope:
   attack: 0.0
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.37

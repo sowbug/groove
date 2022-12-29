@@ -3,7 +3,8 @@ name: banjo
 oscillator-1:
   waveform:
     pulse-width: 0.2
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
@@ -27,7 +28,8 @@ lfo:
     pct: 0.1
 glide: 0
 unison: false
-polyphony: '5'
+polyphony:
+  multi-limit: 5
 filter-type-24db:
   cutoff-hz: 2900
   cutoff-pct: 0.72

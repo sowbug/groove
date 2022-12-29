@@ -2,12 +2,14 @@
 name: ocean-waves
 oscillator-1:
   waveform: none
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 0.0
   mix-db: -40.0
 oscillator-2:
   waveform: none
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 0.0
   mix-db: 0
 oscillator-2-track: false
@@ -37,6 +39,6 @@ filter-envelope:
   release: 0.0
 amp-envelope:
   attack: 0.4
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 1.0

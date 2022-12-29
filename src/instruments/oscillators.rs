@@ -77,6 +77,10 @@ impl SourcesAudio for Oscillator {
                     (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);
                     tmp
                 }
+                // TODO: figure out whether this was an either-or 
+                WaveformType::TriangleSine => {
+                    4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
+                }
             }
     }
 }

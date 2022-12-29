@@ -2,7 +2,8 @@
 name: kora
 oscillator-1:
   waveform: triangle
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:

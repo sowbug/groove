@@ -10,7 +10,7 @@ devices:
     - instrument-1
     - welsh:
         midi-in: 0
-        preset: acid-bass
+        preset: bell
 patch-cables:
   - [instrument-1, main-mixer]
 patterns:

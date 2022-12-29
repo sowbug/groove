@@ -2,7 +2,8 @@
 name: cowbell
 oscillator-1:
   waveform: square
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
@@ -22,7 +23,7 @@ lfo:
   routing: none
   waveform: none
   frequency: 0
-  depth: 0.0
+  depth: none
 glide: 0
 unison: false
 polyphony: mono
@@ -38,7 +39,7 @@ filter-envelope:
   attack: 0.0
   decay: 0.02
   sustain: 0.65
-  release: -1.0
+  release: 10000.0
 amp-envelope:
   attack: 0.0
   decay: 0.15

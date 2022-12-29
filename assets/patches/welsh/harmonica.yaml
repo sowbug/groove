@@ -3,7 +3,8 @@ name: harmonica
 oscillator-1:
   waveform:
     pulse-width: 0.02
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 0.75
   mix-db: -11.0
 oscillator-2:
@@ -38,7 +39,7 @@ filter-resonance: 0.0
 filter-envelope-weight: 0.65
 filter-envelope:
   attack: 0.16
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.16
 amp-envelope:

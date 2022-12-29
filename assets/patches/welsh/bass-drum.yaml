@@ -25,7 +25,7 @@ lfo:
   routing: none
   waveform: none
   frequency: 0
-  depth: 0.0
+  depth: none
 glide: 0
 unison: false
 polyphony: multi

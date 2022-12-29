@@ -2,7 +2,8 @@
 name: penny-whistle
 oscillator-1:
   waveform: square
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
@@ -36,11 +37,11 @@ filter-resonance: 0.8
 filter-envelope-weight: 0.77
 filter-envelope:
   attack: 0.11
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
-  release: -1.0
+  release: 10000.0
 amp-envelope:
   attack: 0.11
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.57

@@ -25,7 +25,7 @@ lfo:
   routing: lfo-routing-and-depth---pitch-osc1-osc2-=-7-semis;-pw-osc2-=-100%
   waveform: square
   frequency: 4.0
-  depth: 0.0
+  depth: none
 glide: 0
 unison: false
 polyphony: multi
@@ -44,6 +44,6 @@ filter-envelope:
   release: 2.9
 amp-envelope:
   attack: 0.0
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.8

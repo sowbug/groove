@@ -3,7 +3,8 @@ name: mono-solo
 oscillator-1:
   waveform:
     pulse-width: 0.3
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
@@ -20,7 +21,7 @@ oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
 lfo:
-  routing: pitch-osc1-osc2
+  routing: pitch
   waveform: triangle-sine
   frequency: 4.5
   depth:
@@ -43,6 +44,6 @@ filter-envelope:
   release: 1.0
 amp-envelope:
   attack: 0.0
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.02

@@ -424,7 +424,7 @@ impl WelshVoice {
 
             lfo: Oscillator::new_lfo(&preset.lfo),
             lfo_routing: preset.lfo.routing,
-            lfo_depth: preset.lfo.depth,
+            lfo_depth: preset.lfo.depth.into(),
 
             filter: BiQuadFilter::new_with(
                 &FilterParams::LowPass {
@@ -827,7 +827,7 @@ mod tests {
                 routing: LfoRouting::Amplitude,
                 waveform: WaveformType::Sine,
                 frequency: 7.5,
-                depth: LfoPreset::percent(5.0),
+                depth: crate::settings::patches::LfoDepth::Pct(5.0),
             },
             glide: 0.0,
             unison: false,

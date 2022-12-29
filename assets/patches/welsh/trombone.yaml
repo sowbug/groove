@@ -2,7 +2,8 @@
 name: trombone
 oscillator-1:
   waveform: sawtooth
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
@@ -36,11 +37,11 @@ filter-resonance: 0.0
 filter-envelope-weight: 0.3
 filter-envelope:
   attack: 0.11
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.18
 amp-envelope:
   attack: 0.06
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.5

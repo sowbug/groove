@@ -11,7 +11,8 @@ oscillator-1:
   mix-db: 0.0
 oscillator-2:
   waveform: none
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 0.0
   mix-db: -40.0
 oscillator-2-track: false
@@ -25,7 +26,8 @@ lfo:
     cents: 12.0
 glide: 0
 unison: false
-polyphony: '2'
+polyphony:
+  multi-limit: 2
 filter-type-24db:
   cutoff-hz: 500
   cutoff-pct: 0.46
@@ -36,11 +38,11 @@ filter-resonance: 0.0
 filter-envelope-weight: 0.4
 filter-envelope:
   attack: 0.04
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
-  release: -1.0
+  release: 10000.0
 amp-envelope:
   attack: 0.03
-  decay: -1.0
+  decay: 10000.0
   sustain: 1.0
   release: 0.35

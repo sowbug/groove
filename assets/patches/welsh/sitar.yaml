@@ -3,14 +3,15 @@ name: sitar
 oscillator-1:
   waveform:
     pulse-width: 0.1
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
   waveform:
     pulse-width: 0.35
   tune:
-    note: C3
+    note: 48
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2-track: false

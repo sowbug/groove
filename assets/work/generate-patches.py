@@ -47,18 +47,18 @@ def as_envelope(s):
     if s == '':
         return 0.0
     if s == 'max':
-        return -1.0
+        return 10000.0  # special number meaning max
     return float(s)
 
 
 def as_tune(o, s, c, n):
     if n != '':
-        return {"note": n}
+        return {"note": int(n)}
     o = as_int(o)
     s = as_int(s)
     c = as_int(c)
     if o == 0 and s == 0 and c == 0:
-        return 1.0
+        return {'float': 1.0}
     return {
         'osc': {
             'octave': o,
@@ -70,14 +70,14 @@ def as_tune(o, s, c, n):
 
 def as_depth(p, c):
     if p is None or c is None:
-        return 0.0
+        return 'none'
     p = as_pct(p)
     c = as_cents(c)
     if p != 0.0 and c == 0:
         return {'pct': p}
     if p == 0.0 and c != 0:
         return {'cents': c}
-    return 0.0
+    return 'none'
 
 
 def as_kebab(s):
@@ -87,8 +87,24 @@ def as_kebab(s):
 def as_waveform(s):
     if s.startswith("PW"):
         return {"pulse-width": as_pct(s[3:])}
-    else:
+    if s == '':
+        return "none"
+    return as_kebab(s)
+
+
+def as_polyphony(s):
+    try:
+        n = int(s)
+        if n > 0:
+            return {"multi-limit": n}
+    except:
         return as_kebab(s)
+
+
+def as_routing(s):
+    if s == '':
+        return "none"
+    return as_kebab(s)
 
 
 with open("patches.csv") as csvfile:
@@ -114,14 +130,14 @@ with open("patches.csv") as csvfile:
             'oscillator-2-sync': as_bool(row[17]),
             'noise': as_pct(row[19]),
             'lfo': {
-                'routing': as_kebab(row[20]),
+                'routing': as_routing(row[20]),
                 'waveform': as_waveform(row[21]),
                 'frequency': as_float(row[22]),
                 'depth': as_depth(row[23], row[24]),
             },
             'glide': as_float(row[26]),
             'unison': as_bool(row[27]),
-            'polyphony': as_kebab(row[28]),
+            'polyphony': as_polyphony(row[28]),
             'filter-type-24db': {
                 'cutoff-hz': as_int(row[29]),
                 'cutoff-pct': as_pct(row[30]),

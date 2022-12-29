@@ -3,7 +3,8 @@ name: guitar-acoustic
 oscillator-1:
   waveform:
     pulse-width: 0.25
-  tune: 1.0
+  tune:
+    float: 1.0
   mix-pct: 1.0
   mix-db: 0.0
 oscillator-2:
@@ -23,7 +24,7 @@ lfo:
   routing: none
   waveform: none
   frequency: 0
-  depth: 0.0
+  depth: none
 glide: 0
 unison: false
 polyphony: multi
