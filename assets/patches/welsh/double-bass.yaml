@@ -3,12 +3,18 @@ name: double-bass
 oscillator-1:
   waveform:
     pulse-width: 0.45
-  tune: 0.5
-  mix: 1.0
+  tune:
+    osc:
+      octave: -1
+      semi: 0
+      cent: 0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2:
   waveform: square
   tune: 1.0
-  mix: 0.6
+  mix-pct: 0.6
+  mix-db: 0
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
@@ -16,25 +22,26 @@ lfo:
   routing: pitch
   waveform: triangle
   frequency: 5.0
-  depth: 1.0063741
-glide: "off"
-has-unison: false
+  depth:
+    cents: 11.0
+glide: 0
+unison: false
 polyphony: multi
 filter-type-24db:
-  cutoff: 1600.0
-  weight: 0.63
+  cutoff-hz: 1600
+  cutoff-pct: 0.63
 filter-type-12db:
-  cutoff: 750.0
-  weight: 0.52
+  cutoff-hz: 750
+  cutoff-pct: 0.52
 filter-resonance: 0.0
 filter-envelope-weight: 0.0
 filter-envelope:
-  attack: 0.0
+  attack: 0
   decay: 0.0
-  sustain: 1.0
+  sustain: 0.0
   release: 0.0
 amp-envelope:
   attack: 0.35
-  decay: 0.0
+  decay: -1.0
   sustain: 1.0
   release: 0.19

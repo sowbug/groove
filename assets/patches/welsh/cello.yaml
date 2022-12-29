@@ -4,11 +4,13 @@ oscillator-1:
   waveform:
     pulse-width: 0.1
   tune: 1.0
-  mix: 1.0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2:
   waveform: square
   tune: 1.0
-  mix: 1.0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
@@ -16,25 +18,26 @@ lfo:
   routing: amplitude
   waveform: sine
   frequency: 7.5
-  depth: 0.05
-glide: "off"
-has-unison: false
+  depth:
+    pct: 0.05
+glide: 0
+unison: false
 polyphony: multi
 filter-type-24db:
-  cutoff: 40.0
-  weight: 0.1
+  cutoff-hz: 40
+  cutoff-pct: 0.1
 filter-type-12db:
-  cutoff: 40.0
-  weight: 0.1
+  cutoff-hz: 40
+  cutoff-pct: 0.1
 filter-resonance: 0.0
 filter-envelope-weight: 0.9
 filter-envelope:
   attack: 0.0
   decay: 3.29
   sustain: 0.78
-  release: 10000.0
+  release: -1.0
 amp-envelope:
   attack: 0.06
-  decay: 0.0
+  decay: -1.0
   sustain: 1.0
   release: 0.3

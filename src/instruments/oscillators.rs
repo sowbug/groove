@@ -45,34 +45,39 @@ impl IsInstrument for Oscillator {}
 impl SourcesAudio for Oscillator {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         let phase_normalized = (self.adjusted_frequency() * clock.seconds()) as MonoSample;
-        self.mix * match self.waveform {
-            WaveformType::None => 0.0,
-            // https://en.wikipedia.org/wiki/Sine_wave
-            WaveformType::Sine => (phase_normalized * 2.0 * PI).sin(),
-            // https://en.wikipedia.org/wiki/Square_wave
-            //Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
-            WaveformType::Square => (0.5 - (phase_normalized - phase_normalized.floor())).signum(),
-            WaveformType::PulseWidth(duty_cycle) => (duty_cycle as MonoSample
-                - (phase_normalized - phase_normalized.floor()))
-            .signum() as MonoSample,
-            // https://en.wikipedia.org/wiki/Triangle_wave
-            WaveformType::Triangle => {
-                4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
+        self.mix
+            * match self.waveform {
+                WaveformType::None => 0.0,
+                // https://en.wikipedia.org/wiki/Sine_wave
+                WaveformType::Sine => (phase_normalized * 2.0 * PI).sin(),
+                // https://en.wikipedia.org/wiki/Square_wave
+                //Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
+                WaveformType::Square => {
+                    (0.5 - (phase_normalized - phase_normalized.floor())).signum()
+                }
+                WaveformType::PulseWidth(duty_cycle) => (duty_cycle as MonoSample
+                    - (phase_normalized - phase_normalized.floor()))
+                .signum() as MonoSample,
+                // https://en.wikipedia.org/wiki/Triangle_wave
+                WaveformType::Triangle => {
+                    4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
+                }
+                // https://en.wikipedia.org/wiki/Sawtooth_wave
+                WaveformType::Sawtooth => {
+                    2.0 * (phase_normalized - (0.5 + phase_normalized).floor())
+                }
+                // https://www.musicdsp.org/en/latest/Synthesis/216-fast-whitenoise-generator.html
+                WaveformType::Noise => {
+                    // TODO: this is stateful, so random access will sound different from sequential, as will different sample rates.
+                    // It also makes this method require mut. Is there a noise algorithm that can modulate on time_seconds? (It's a
+                    // complicated question, potentially.)
+                    self.noise_x1 ^= self.noise_x2;
+                    let tmp = 2.0 * (self.noise_x2 as MonoSample - (u32::MAX as MonoSample / 2.0))
+                        / u32::MAX as MonoSample;
+                    (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);
+                    tmp
+                }
             }
-            // https://en.wikipedia.org/wiki/Sawtooth_wave
-            WaveformType::Sawtooth => 2.0 * (phase_normalized - (0.5 + phase_normalized).floor()),
-            // https://www.musicdsp.org/en/latest/Synthesis/216-fast-whitenoise-generator.html
-            WaveformType::Noise => {
-                // TODO: this is stateful, so random access will sound different from sequential, as will different sample rates.
-                // It also makes this method require mut. Is there a noise algorithm that can modulate on time_seconds? (It's a
-                // complicated question, potentially.)
-                self.noise_x1 ^= self.noise_x2;
-                let tmp = 2.0 * (self.noise_x2 as MonoSample - (u32::MAX as MonoSample / 2.0))
-                    / u32::MAX as MonoSample;
-                (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);
-                tmp
-            }
-        }
     }
 }
 impl Updateable for Oscillator {
@@ -147,7 +152,7 @@ impl Oscillator {
         Self {
             waveform: preset.waveform,
             mix: preset.mix,
-            frequency_tune: preset.tune,
+            frequency_tune: preset.tune.into(),
             ..Default::default()
         }
     }
@@ -211,11 +216,15 @@ mod tests {
     use crate::{
         clock::Clock,
         midi::{MidiNote, MidiUtils},
-        settings::patches::OscillatorSettings,
+        settings::patches::{OscillatorSettings, OscillatorTune},
         traits::SourcesAudio,
     };
 
-    fn create_oscillator(waveform: WaveformType, tune: f32, note: MidiNote) -> Oscillator {
+    fn create_oscillator(
+        waveform: WaveformType,
+        tune: OscillatorTune,
+        note: MidiNote,
+    ) -> Oscillator {
         let mut oscillator = Oscillator::new_from_preset(&OscillatorSettings {
             waveform,
             tune,
@@ -295,7 +304,11 @@ mod tests {
     fn test_oscillator_modulated() {
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
-            OscillatorSettings::octaves(0.0),
+            OscillatorTune::Osc {
+                octave: 0,
+                semi: 0,
+                cent: 0,
+            },
             MidiNote::C4,
         );
         assert_eq!(

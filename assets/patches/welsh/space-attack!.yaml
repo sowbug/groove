@@ -1,0 +1,50 @@
+---
+name: space-attack!
+oscillator-1:
+  waveform: square
+  tune:
+    osc:
+      octave: -1
+      semi: 0
+      cent: 0
+  mix-pct: 1.0
+  mix-db: 0.0
+oscillator-2:
+  waveform: sawtooth
+  tune:
+    osc:
+      octave: -1
+      semi: 0
+      cent: 0
+  mix-pct: 1.0
+  mix-db: 0.0
+oscillator-2-track: true
+oscillator-2-sync: false
+noise: 0.0
+lfo:
+  routing: pitch-osc1-osc2
+  waveform: sawtooth
+  frequency: 2.5
+  depth:
+    cents: 1200.0
+glide: 0
+unison: false
+polyphony: mono
+filter-type-24db:
+  cutoff-hz: 20000
+  cutoff-pct: 1.0
+filter-type-12db:
+  cutoff-hz: 20000
+  cutoff-pct: 1.0
+filter-resonance: 0.0
+filter-envelope-weight: 0.0
+filter-envelope:
+  attack: 0
+  decay: 0.0
+  sustain: 0.0
+  release: 0.0
+amp-envelope:
+  attack: 0.0
+  decay: -1.0
+  sustain: 1.0
+  release: 2.0

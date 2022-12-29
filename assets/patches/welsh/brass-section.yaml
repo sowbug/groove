@@ -2,39 +2,50 @@
 name: brass-section
 oscillator-1:
   waveform: square
-  tune: 0.9942404
-  mix: 1.0
+  tune:
+    osc:
+      octave: 0
+      semi: 0
+      cent: -10
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2:
   waveform:
     pulse-width: 0.2
-  tune: 2.011586
-  mix: 1.0
+  tune:
+    osc:
+      octave: 1
+      semi: 0
+      cent: 10
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
 lfo:
-  routing: pulse-width
-  waveform: triangle
+  routing: pw-osc1-osc2
+  waveform: triangle-sine
   frequency: 5.5
-  depth: 0.45
-glide: "off"
-has-unison: false
+  depth:
+    pct: 0.45
+glide: 0
+unison: false
 polyphony: multi
 filter-type-24db:
-  cutoff: 40.0
-  weight: 0.1
+  cutoff-hz: 40
+  cutoff-pct: 0.1
 filter-type-12db:
-  cutoff: 40.0
-  weight: 0.1
+  cutoff-hz: 40
+  cutoff-pct: 0.1
 filter-resonance: 0.0
 filter-envelope-weight: 1.0
 filter-envelope:
   attack: 0.03
-  decay: 0.0
+  decay: -1.0
   sustain: 1.0
   release: 0.6
 amp-envelope:
   attack: 0.0
-  decay: 0.0
+  decay: -1.0
   sustain: 1.0
   release: 0.35

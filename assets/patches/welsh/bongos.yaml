@@ -3,29 +3,30 @@ name: bongos
 oscillator-1:
   waveform: triangle
   tune: 1.0
-  mix: 1.0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2:
   waveform: square
   tune: 1.0
-  mix: 0.65
+  mix-pct: 0.65
+  mix-db: -13.9
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
 lfo:
   routing: none
-  waveform: sine
-  frequency: 0.0
+  waveform: none
+  frequency: 0
   depth: 0.0
-glide: "off"
-has-unison: false
-polyphony:
-  multi-limit: 2
+glide: 0
+unison: false
+polyphony: '2'
 filter-type-24db:
-  cutoff: 600.0
-  weight: 0.49
+  cutoff-hz: 600
+  cutoff-pct: 0.49
 filter-type-12db:
-  cutoff: 400.0
-  weight: 0.43
+  cutoff-hz: 400
+  cutoff-pct: 0.43
 filter-resonance: 0.0
 filter-envelope-weight: 0.6
 filter-envelope:

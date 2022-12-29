@@ -1,30 +1,32 @@
 ---
 name: cymbal
 oscillator-1:
-  waveform: sine
+  waveform: none
   tune: 1.0
-  mix: 1.0
+  mix-pct: 0.0
+  mix-db: 0
 oscillator-2:
-  waveform: sine
+  waveform: none
   tune: 1.0
-  mix: 1.0
+  mix-pct: 0.0
+  mix-db: 0
 oscillator-2-track: false
 oscillator-2-sync: false
 noise: 1.0
 lfo:
   routing: none
-  waveform: sine
-  frequency: 0.0
+  waveform: ''
+  frequency: 0
   depth: 0.0
-glide: "off"
-has-unison: false
+glide: 0
+unison: false
 polyphony: mono
 filter-type-24db:
-  cutoff: 9400.0
-  weight: 0.89
+  cutoff-hz: 9400
+  cutoff-pct: 0.89
 filter-type-12db:
-  cutoff: 9400.0
-  weight: 0.89
+  cutoff-hz: 9400
+  cutoff-pct: 0.89
 filter-resonance: 0.5
 filter-envelope-weight: 0.7
 filter-envelope:

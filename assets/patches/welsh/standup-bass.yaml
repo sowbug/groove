@@ -3,12 +3,22 @@ name: standup-bass
 oscillator-1:
   waveform:
     pulse-width: 0.25
-  tune: 0.5
-  mix: 1.0
+  tune:
+    osc:
+      octave: -1
+      semi: 0
+      cent: 0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2:
   waveform: triangle
-  tune: 0.5
-  mix: 1.0
+  tune:
+    osc:
+      octave: -1
+      semi: 0
+      cent: 0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
@@ -16,16 +26,17 @@ lfo:
   routing: amplitude
   waveform: triangle
   frequency: 15.0
-  depth: 0.1
-glide: "off"
-has-unison: false
+  depth:
+    pct: 0.1
+glide: 0
+unison: false
 polyphony: multi
 filter-type-24db:
-  cutoff: 40.0
-  weight: 0.1
+  cutoff-hz: 40
+  cutoff-pct: 0.1
 filter-type-12db:
-  cutoff: 40.0
-  weight: 0.1
+  cutoff-hz: 40
+  cutoff-pct: 0.1
 filter-resonance: 0.0
 filter-envelope-weight: 0.75
 filter-envelope:

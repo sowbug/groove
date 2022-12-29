@@ -2,29 +2,39 @@
 name: digital-bass
 oscillator-1:
   waveform: square
-  tune: 0.5
-  mix: 0.85
+  tune:
+    osc:
+      octave: -1
+      semi: 0
+      cent: 0
+  mix-pct: 0.85
+  mix-db: -6.0
 oscillator-2:
   waveform: sawtooth
-  tune: 0.25
-  mix: 1.0
+  tune:
+    osc:
+      octave: -2
+      semi: 0
+      cent: 0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
 lfo:
   routing: none
-  waveform: sine
-  frequency: 0.0
+  waveform: none
+  frequency: 0
   depth: 0.0
-glide: "off"
-has-unison: false
+glide: 0
+unison: false
 polyphony: mono
 filter-type-24db:
-  cutoff: 122.0
-  weight: 0.26
+  cutoff-hz: 122
+  cutoff-pct: 0.26
 filter-type-12db:
-  cutoff: 75.0
-  weight: 0.19
+  cutoff-hz: 75
+  cutoff-pct: 0.19
 filter-resonance: 0.0
 filter-envelope-weight: 1.0
 filter-envelope:
@@ -34,6 +44,6 @@ filter-envelope:
   release: 0.0
 amp-envelope:
   attack: 0.0
-  decay: 0.0
+  decay: -1.0
   sustain: 1.0
   release: 1.0

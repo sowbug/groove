@@ -60,9 +60,11 @@ def as_tune(o, s, c, n):
     if o == 0 and s == 0 and c == 0:
         return 1.0
     return {
-        'octave': o,
-        'semi': s,
-        'cent': c
+        'osc': {
+            'octave': o,
+            'semi': s,
+            'cent': c
+        }
     }
 
 
@@ -79,7 +81,7 @@ def as_depth(p, c):
 
 
 def as_kebab(s):
-    return s.lower().replace(" ", "-")
+    return s.lower().replace(" ", "-").replace(",", "").replace("/", "-")
 
 
 def as_waveform(s):
@@ -121,12 +123,12 @@ with open("patches.csv") as csvfile:
             'unison': as_bool(row[27]),
             'polyphony': as_kebab(row[28]),
             'filter-type-24db': {
-                'hz': as_int(row[29]),
-                'pct': as_pct(row[30]),
+                'cutoff-hz': as_int(row[29]),
+                'cutoff-pct': as_pct(row[30]),
             },
             'filter-type-12db': {
-                'hz': as_int(row[31]),
-                'pct': as_pct(row[32]),
+                'cutoff-hz': as_int(row[31]),
+                'cutoff-pct': as_pct(row[32]),
             },
             'filter-resonance': as_pct(row[33]),
             'filter-envelope-weight': as_pct(row[34]),

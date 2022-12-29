@@ -3,37 +3,44 @@ name: trance-5th
 oscillator-1:
   waveform: square
   tune: 1.0
-  mix: 1.0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2:
   waveform: square
-  tune: 1.4983071
-  mix: 1.0
+  tune:
+    osc:
+      octave: 0
+      semi: 7
+      cent: 0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
 lfo:
-  routing: pulse-width
-  waveform: triangle
+  routing: pw-osc1-osc2
+  waveform: triangle-sine
   frequency: 6.0
-  depth: 0.8
-glide: "off"
-has-unison: true
+  depth:
+    pct: 0.8
+glide: 0
+unison: false
 polyphony: mono
 filter-type-24db:
-  cutoff: 20000.0
-  weight: 1.0
+  cutoff-hz: 20000
+  cutoff-pct: 1.0
 filter-type-12db:
-  cutoff: 20000.0
-  weight: 1.0
+  cutoff-hz: 20000
+  cutoff-pct: 1.0
 filter-resonance: 0.0
 filter-envelope-weight: 0.0
 filter-envelope:
-  attack: 0.0
+  attack: 0
   decay: 0.0
-  sustain: 1.0
+  sustain: 0.0
   release: 0.0
 amp-envelope:
   attack: 0.0
-  decay: 0.0
+  decay: -1.0
   sustain: 1.0
   release: 0.0

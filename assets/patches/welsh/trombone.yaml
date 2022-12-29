@@ -3,11 +3,17 @@ name: trombone
 oscillator-1:
   waveform: sawtooth
   tune: 1.0
-  mix: 1.0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2:
   waveform: triangle
-  tune: 2.0
-  mix: 1.0
+  tune:
+    osc:
+      octave: 1
+      semi: 0
+      cent: 0
+  mix-pct: 1.0
+  mix-db: 0.0
 oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
@@ -15,25 +21,26 @@ lfo:
   routing: amplitude
   waveform: triangle
   frequency: 5.0
-  depth: 0.05
-glide: "off"
-has-unison: false
+  depth:
+    pct: 0.05
+glide: 0
+unison: false
 polyphony: multi
 filter-type-24db:
-  cutoff: 900.0
-  weight: 0.55
+  cutoff-hz: 900
+  cutoff-pct: 0.55
 filter-type-12db:
-  cutoff: 200.0
-  weight: 0.33
+  cutoff-hz: 200
+  cutoff-pct: 0.33
 filter-resonance: 0.0
 filter-envelope-weight: 0.3
 filter-envelope:
   attack: 0.11
-  decay: 0.0
+  decay: -1.0
   sustain: 1.0
   release: 0.18
 amp-envelope:
   attack: 0.06
-  decay: 0.0
+  decay: -1.0
   sustain: 1.0
   release: 0.5

@@ -428,13 +428,13 @@ impl WelshVoice {
 
             filter: BiQuadFilter::new_with(
                 &FilterParams::LowPass {
-                    cutoff: preset.filter_type_12db.cutoff,
+                    cutoff: preset.filter_type_12db.cutoff_hz,
                     q: BiQuadFilter::<EntityMessage>::denormalize_q(preset.filter_resonance),
                 },
                 sample_rate,
             ),
             filter_cutoff_start: BiQuadFilter::<EntityMessage>::frequency_to_percent(
-                preset.filter_type_12db.cutoff,
+                preset.filter_type_12db.cutoff_hz,
             ),
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: AdsrEnvelope::new_with(&preset.filter_envelope),
@@ -447,7 +447,13 @@ impl WelshVoice {
         if !matches!(preset.oscillator_2.waveform, WaveformType::None) {
             let mut o = Oscillator::new_from_preset(&preset.oscillator_2);
             if !preset.oscillator_2_track {
-                o.set_fixed_frequency(MidiUtils::note_to_frequency(preset.oscillator_2.tune as u8));
+                if let crate::settings::patches::OscillatorTune::Note(note) =
+                    preset.oscillator_2.tune
+                {
+                    o.set_fixed_frequency(MidiUtils::note_to_frequency(note));
+                } else {
+                    panic!("Patch configured without oscillator 2 tracking, but tune is not a note specification");
+                }
             }
             r.oscillators.push(o);
         }
@@ -690,8 +696,8 @@ mod tests {
         instruments::welsh::WaveformType,
         midi::{MidiMessage, MidiUtils},
         settings::patches::{
-            EnvelopeSettings, FilterPreset, GlideSettings, LfoPreset, LfoRouting,
-            OscillatorSettings, PolyphonySettings,
+            EnvelopeSettings, FilterPreset, LfoPreset, LfoRouting, OscillatorSettings,
+            PolyphonySettings,
         },
         utils::tests::canonicalize_filename,
     };
@@ -823,16 +829,16 @@ mod tests {
                 frequency: 7.5,
                 depth: LfoPreset::percent(5.0),
             },
-            glide: GlideSettings::Off,
-            has_unison: false,
+            glide: 0.0,
+            unison: false,
             polyphony: PolyphonySettings::Multi,
             filter_type_24db: FilterPreset {
-                cutoff: 40.0,
-                weight: 0.1,
+                cutoff_hz: 40.0,
+                cutoff_pct: 0.1,
             },
             filter_type_12db: FilterPreset {
-                cutoff: 40.0,
-                weight: 0.1,
+                cutoff_hz: 40.0,
+                cutoff_pct: 0.1,
             },
             filter_resonance: 0.0,
             filter_envelope_weight: 0.9,
@@ -869,16 +875,16 @@ mod tests {
                 routing: LfoRouting::None,
                 ..Default::default()
             },
-            glide: GlideSettings::Off,
-            has_unison: false,
+            glide: 0.0,
+            unison: false,
             polyphony: PolyphonySettings::Multi,
             filter_type_24db: FilterPreset {
-                cutoff: 40.0,
-                weight: 0.1,
+                cutoff_hz: 40.0,
+                cutoff_pct: 0.1,
             },
             filter_type_12db: FilterPreset {
-                cutoff: 20.0,
-                weight: 0.1,
+                cutoff_hz: 20.0,
+                cutoff_pct: 0.05,
             },
             filter_resonance: 0.0,
             filter_envelope_weight: 1.0,

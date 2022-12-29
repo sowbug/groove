@@ -14,7 +14,7 @@ pub struct SynthPatch {
     pub lfo: LfoPreset,
 
     pub glide: GlideSettings,
-    pub has_unison: bool,
+    pub unison: bool,
     pub polyphony: PolyphonySettings,
 
     // There is meant to be only one filter, but the Welsh book
@@ -42,13 +42,7 @@ pub enum WaveformType {
     Noise,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum GlideSettings {
-    #[default]
-    Off,
-    On(f32),
-}
+pub type GlideSettings = f32;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -61,9 +55,31 @@ pub enum PolyphonySettings {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
+pub enum OscillatorTune {
+    Note(u8),
+    Float(f32),
+    Osc { octave: i8, semi: i8, cent: i8 },
+}
+
+impl Into<f32> for OscillatorTune {
+    fn into(self) -> f32 {
+        match self {
+            OscillatorTune::Note(_) => 1.0,
+            OscillatorTune::Float(value) => value,
+            OscillatorTune::Osc { octave, semi, cent } => {
+                2.0f32.powf((octave as f32 * 1200.0 + semi as f32 * 100.0 + cent as f32) / 1200.0)
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct OscillatorSettings {
     pub waveform: WaveformType,
-    pub tune: f32,
+    pub tune: OscillatorTune,
+
+    #[serde(rename = "mix-pct")]
     pub mix: f32,
 }
 
@@ -71,16 +87,17 @@ impl Default for OscillatorSettings {
     fn default() -> Self {
         Self {
             waveform: WaveformType::default(),
-            tune: OscillatorSettings::NATURAL_TUNING,
-            mix: OscillatorSettings::FULL_MIX,
+            tune: OscillatorTune::Osc {
+                octave: 0,
+                semi: 0,
+                cent: 0,
+            },
+            mix: 1.0,
         }
     }
 }
 
 impl OscillatorSettings {
-    pub const NATURAL_TUNING: f32 = 1.0; // tune field
-    pub const FULL_MIX: f32 = 1.0; // mix field
-
     #[allow(dead_code)]
     pub fn octaves(num: f32) -> f32 {
         Self::semis_and_cents(num * 12.0, 0.0)
@@ -159,8 +176,8 @@ impl LfoPreset {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct FilterPreset {
-    pub cutoff: f32,
-    pub weight: f32, // TODO: this is unused because it's just another way to say cutoff
+    pub cutoff_hz: f32,
+    pub cutoff_pct: f32,
 }
 
 #[cfg(test)]
@@ -170,8 +187,6 @@ mod tests {
 
     #[test]
     fn test_oscillator_tuning_helpers() {
-        assert_eq!(OscillatorSettings::NATURAL_TUNING, 1.0);
-
         // tune
         assert_eq!(OscillatorSettings::octaves(0.0), 1.0);
         assert_eq!(OscillatorSettings::octaves(1.0), 2.0);
