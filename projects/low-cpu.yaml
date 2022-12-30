@@ -10,11 +10,11 @@ devices:
     - instrument-1
     - welsh:
         midi-in: 0
-        preset: didgeridoo
+        preset: tuba
   - effect:
     - gain-1
     - gain:
-        ceiling: 0.15
+        ceiling: 0.20
 patch-cables:
   - [instrument-1, gain-1, main-mixer]
 patterns:
@@ -32,4 +32,4 @@ patterns:
 tracks:
   - id: track-1
     midi-channel: 0
-    patterns: [basic-2, silent-measure-1]
+    patterns: [basic-1, silent-measure-1]
