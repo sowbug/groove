@@ -22,7 +22,7 @@ oscillator-2-track: true
 oscillator-2-sync: true
 noise: 0.9
 lfo:
-  routing: pulse-width-45%;-filter-cutoff-10%;-pitch-osc2-3-semis
+  routing: pulse-width # TODO: routing is more complicated
   waveform: triangle
   frequency: 0.25
   depth: none

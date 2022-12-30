@@ -18,10 +18,11 @@ oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
 lfo:
-  routing: none
-  waveform: none
-  frequency: 0
-  depth: none
+  routing: pitch
+  waveform: triangle
+  frequency: 2.4
+  depth:
+    cents: 20.0
 glide: 0
 unison: false
 polyphony: multi
