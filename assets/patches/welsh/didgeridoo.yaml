@@ -17,8 +17,8 @@ oscillator-2:
       octave: 0
       semi: 9
       cent: 0
-  mix-pct: 1.0
-  mix-db: 0.0
+  mix-pct: 0.8
+  mix-db: -7.9
 oscillator-2-track: true
 oscillator-2-sync: true
 noise: 0.0
