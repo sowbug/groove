@@ -16,7 +16,7 @@ oscillator-2:
     osc:
       octave: 0
       semi: 9
-      cent: 0
+      cent: -1
   mix-pct: 0.8
   mix-db: -7.9
 oscillator-2-track: true
@@ -35,8 +35,8 @@ filter-type-24db:
   cutoff-hz: 1500
   cutoff-pct: 0.62
 filter-type-12db:
-  cutoff-hz: 800
-  cutoff-pct: 0.53
+  cutoff-hz: 900
+  cutoff-pct: 0.55
 filter-resonance: 0.8
 filter-envelope-weight: 0.0
 filter-envelope:

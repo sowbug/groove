@@ -10,11 +10,11 @@ devices:
     - instrument-1
     - welsh:
         midi-in: 0
-        preset: bell
+        preset: didgeridoo
   - effect:
     - gain-1
     - gain:
-        ceiling: 0.25
+        ceiling: 0.15
 patch-cables:
   - [instrument-1, gain-1, main-mixer]
 patterns:

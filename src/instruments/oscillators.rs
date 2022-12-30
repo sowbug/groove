@@ -23,28 +23,42 @@ pub struct Oscillator {
 
     waveform: WaveformType,
 
-    // Hertz. Any positive number. 440 = A4
+    /// Hertz. Any positive number. 440 = A4
     frequency: f32,
 
-    // if not zero, then ignores the `frequency` field and uses this one instead.
+    /// if not zero, then ignores the `frequency` field and uses this one instead.
     fixed_frequency: f32,
 
-    // 1.0 is no change. 2.0 doubles the frequency. 0.5 halves it. Designed for pitch correction at construction time.
+    /// 1.0 is no change. 2.0 doubles the frequency. 0.5 halves it. Designed for pitch correction at construction time.
     frequency_tune: f32,
 
-    // [-1, 1] is typical range, with -1 halving the frequency, and 1 doubling it. Designed for LFO and frequent changes.
+    /// [-1, 1] is typical range, with -1 halving the frequency, and 1 doubling it. Designed for LFO and frequent changes.
     frequency_modulation: f32,
 
-    // 0..1.0: volume
+    /// 0..1.0: volume
     mix: f32,
 
     noise_x1: u32,
     noise_x2: u32,
+
+    /// An offset used to sync a secondary oscillator with a primary.
+    phase_shift: f32,
+
+    /// Whether a primary oscillator has begun a new period since the last source_audio()
+    has_period_restarted: bool,
 }
 impl IsInstrument for Oscillator {}
 impl SourcesAudio for Oscillator {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let phase_normalized = (self.adjusted_frequency() * clock.seconds()) as MonoSample;
+        let period = 1.0 / self.adjusted_frequency();
+        let period_position = clock.seconds() - self.phase_shift;
+        if period_position >= period {
+            self.sync(clock);
+        } else {
+            self.has_period_restarted = false;
+        }
+        let phase_normalized =
+            (self.adjusted_frequency() * period_position) as MonoSample;
         self.mix
             * match self.waveform {
                 WaveformType::None => 0.0,
@@ -77,7 +91,7 @@ impl SourcesAudio for Oscillator {
                     (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);
                     tmp
                 }
-                // TODO: figure out whether this was an either-or 
+                // TODO: figure out whether this was an either-or
                 WaveformType::TriangleSine => {
                     4.0 * (phase_normalized - (0.75 + phase_normalized).floor() + 0.25).abs() - 1.0
                 }
@@ -132,6 +146,8 @@ impl Default for Oscillator {
             frequency_modulation: 0.0,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
+            phase_shift: 0.0,
+            has_period_restarted: true,
         }
     }
 }
@@ -211,6 +227,15 @@ impl Oscillator {
 
     pub fn frequency(&self) -> f32 {
         self.frequency
+    }
+
+    pub fn sync(&mut self, clock: &Clock) {
+        self.has_period_restarted = true;
+        self.phase_shift = clock.seconds();
+    }
+
+    pub fn has_period_restarted(&self) -> bool {
+        self.has_period_restarted
     }
 }
 

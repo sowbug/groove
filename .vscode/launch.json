@@ -121,7 +121,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}dev-loop.yaml"
+        "projects${pathSeparator}low-cpu.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },

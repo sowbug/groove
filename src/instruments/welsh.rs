@@ -405,6 +405,7 @@ impl WelshSynth {
 #[derive(Clone, Debug, Default)]
 pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
+    oscillator_2_sync: bool,
     amp_envelope: AdsrEnvelope,
 
     lfo: Oscillator,
@@ -455,6 +456,7 @@ impl WelshVoice {
                     panic!("Patch configured without oscillator 2 tracking, but tune is not a note specification");
                 }
             }
+            r.oscillator_2_sync = preset.oscillator_2_sync;
             r.oscillators.push(o);
         }
         if preset.noise > 0.0 {
@@ -512,15 +514,18 @@ impl SourcesAudio for WelshVoice {
         }
 
         // Oscillators
-        let osc_sum = if self.oscillators.is_empty() {
-            0.0
-        } else {
-            let t: MonoSample = self
-                .oscillators
-                .iter_mut()
-                .map(|o| o.source_audio(clock))
-                .sum();
-            t / self.oscillators.len() as MonoSample
+        let len = self.oscillators.len();
+        let osc_sum = match len {
+            0 => 0.0,
+            1 => self.oscillators[0].source_audio(clock),
+            2 => {
+                let osc_1_val = self.oscillators[0].source_audio(clock);
+                if self.oscillator_2_sync && self.oscillators[0].has_period_restarted() {
+                    self.oscillators[1].sync(clock);
+                }
+                (osc_1_val + self.oscillators[1].source_audio(clock)) / 2.0 as MonoSample
+            }
+            _ => todo!(),
         };
 
         // Filters
