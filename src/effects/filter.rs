@@ -220,7 +220,7 @@ impl<M: MessageBounds> BiQuadFilter<M> {
             (0.0..=1.0).contains(&percentage),
             "Expected range (0.0..=1.0) but got {percentage}",
         );
-        Self::FREQUENCY_TO_LINEAR_BASE * Self::FREQUENCY_TO_LINEAR_COEFFICIENT.powf(percentage)
+        Self::FREQUENCY_TO_LINEAR_COEFFICIENT * Self::FREQUENCY_TO_LINEAR_BASE.powf(percentage)
     }
 
     pub fn frequency_to_percent(frequency: f32) -> f32 {
