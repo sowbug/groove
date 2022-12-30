@@ -71,6 +71,8 @@ def as_tune(o, s, c, n):
 def as_depth(p, c):
     if p is None or c is None:
         return 'none'
+    if p == '10/17%':
+        p = '10%'  # Galactic Chapel
     p = as_pct(p)
     c = as_cents(c)
     if p != 0.0 and c == 0:
@@ -107,6 +109,12 @@ def as_routing(s):
     return as_kebab(s)
 
 
+def as_glide(s):
+    if s == "\"moderate\"":
+        s = 0.1
+    return as_float(s)
+
+
 with open("patches.csv") as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
@@ -135,7 +143,7 @@ with open("patches.csv") as csvfile:
                 'frequency': as_float(row[22]),
                 'depth': as_depth(row[23], row[24]),
             },
-            'glide': as_float(row[26]),
+            'glide': as_glide(row[26]),
             'unison': as_bool(row[27]),
             'polyphony': as_polyphony(row[28]),
             'filter-type-24db': {
