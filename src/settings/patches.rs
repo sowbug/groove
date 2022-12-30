@@ -169,7 +169,7 @@ impl Into<f32> for LfoDepth {
         match self {
             LfoDepth::None => 0.0,
             LfoDepth::Pct(pct) => pct,
-            LfoDepth::Cents(cents) => OscillatorSettings::semis_and_cents(0, cents),
+            LfoDepth::Cents(cents) => 1.0 - OscillatorSettings::semis_and_cents(0, cents),
         }
     }
 }
