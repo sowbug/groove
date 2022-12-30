@@ -11,17 +11,25 @@ devices:
     - welsh:
         midi-in: 0
         preset: bell
+  - effect:
+    - gain-1
+    - gain:
+        ceiling: 0.25
 patch-cables:
-  - [instrument-1, main-mixer]
+  - [instrument-1, gain-1, main-mixer]
 patterns:
   - id: basic-1
     note-value: eighth
     notes:
       - [60, 62, 64, 65, 67, 69, 71, 72]
+  - id: basic-2
+    note-value: whole
+    notes:
+      - [48]
   - id: silent-measure-1
     notes:
       - [0]
 tracks:
   - id: track-1
     midi-channel: 0
-    patterns: [basic-1, silent-measure-1]
+    patterns: [basic-2, silent-measure-1]
