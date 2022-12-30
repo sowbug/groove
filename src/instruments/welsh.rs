@@ -533,6 +533,10 @@ impl SourcesAudio for WelshVoice {
                     * self.filter_cutoff_end
                     * self.filter_envelope.source_audio(clock);
             self.filter.set_cutoff_pct(new_cutoff_percentage);
+        } else if matches!(self.lfo_routing, LfoRouting::FilterCutoff) {
+            let lfo_for_cutoff = lfo * self.lfo_depth;
+            self.filter
+                .set_cutoff_pct(self.filter_cutoff_start * (1.0 + lfo_for_cutoff));
         }
         let filtered_mix = self.filter.transform_audio(clock, osc_sum);
 

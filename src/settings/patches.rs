@@ -147,6 +147,7 @@ pub enum LfoRouting {
     Amplitude,
     Pitch,
     PulseWidth,
+    FilterCutoff,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
