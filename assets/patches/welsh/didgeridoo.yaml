@@ -28,7 +28,7 @@ lfo:
   frequency: 1.0
   depth:
     pct: 0.1
-glide: 0.25
+glide: 0.1
 unison: false
 polyphony: mono
 filter-type-24db:
@@ -46,6 +46,6 @@ filter-envelope:
   release: 0.0
 amp-envelope:
   attack: 0.03
-  decay: 10000.0
+  decay: 0.0
   sustain: 1.0
   release: 0.5

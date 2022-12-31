@@ -47,7 +47,7 @@ def as_envelope(s):
     if s == '':
         return 0.0
     if s == 'max':
-        return 10000.0  # special number meaning max
+        return 0.0  # special number when sustain = 100%
     return float(s)
 
 
@@ -118,6 +118,10 @@ def as_glide(s):
 with open("patches.csv") as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
+        if row[0].startswith("Exception"):
+            continue
+        if row[1] == "103":
+            continue
         name = as_kebab(row[2])
 
         patch = {

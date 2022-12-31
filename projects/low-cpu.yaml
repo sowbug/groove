@@ -10,7 +10,7 @@ devices:
     - instrument-1
     - welsh:
         midi-in: 0
-        preset: tuba
+        preset: mellow-70s-lead
   - effect:
     - gain-1
     - gain:

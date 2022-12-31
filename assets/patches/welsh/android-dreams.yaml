@@ -22,7 +22,7 @@ oscillator-2-track: true
 oscillator-2-sync: true
 noise: 0.9
 lfo:
-  routing: pulse-width # TODO: routing is more complicated
+  routing: pulse-width
   waveform: triangle
   frequency: 0.25
   depth: none
@@ -44,6 +44,6 @@ filter-envelope:
   release: 0.0
 amp-envelope:
   attack: 0.45
-  decay: 10000.0
+  decay: 0.0
   sustain: 1.0
   release: 2.25

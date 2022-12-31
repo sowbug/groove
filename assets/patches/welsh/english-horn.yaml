@@ -38,11 +38,11 @@ filter-resonance: 0.0
 filter-envelope-weight: 0.6
 filter-envelope:
   attack: 0.07
-  decay: 10000.0
+  decay: 0.0
   sustain: 1.0
-  release: 10000.0
+  release: 0.0
 amp-envelope:
   attack: 0.0
-  decay: 10000.0
+  decay: 0.0
   sustain: 1.0
   release: 0.37

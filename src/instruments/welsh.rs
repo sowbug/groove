@@ -37,7 +37,7 @@ impl SynthPatch {
             "{}.yaml",
             Self::patch_name_to_settings_name(name.to_string().as_str())
         ));
-        if let Ok(contents) = std::fs::read_to_string(filename) {
+        if let Ok(contents) = std::fs::read_to_string(&filename) {
             match Self::new_from_yaml(&contents) {
                 Ok(patch) => patch,
                 Err(err) => {
@@ -47,7 +47,7 @@ impl SynthPatch {
                 }
             }
         } else {
-            panic!("couldn't read patch file");
+            panic!("couldn't read patch file named {:?}", &filename);
         }
     }
 }

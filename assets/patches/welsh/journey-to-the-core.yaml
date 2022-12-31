@@ -22,7 +22,7 @@ oscillator-2-track: true
 oscillator-2-sync: false
 noise: 0.0
 lfo:
-  routing: pulse-width # TODO: more complicated than this
+  routing: pulse-width
   waveform: sawtooth
   frequency: 7.5
   depth: none
@@ -44,6 +44,6 @@ filter-envelope:
   release: 3.2
 amp-envelope:
   attack: 0.0
-  decay: 10000.0
+  decay: 0.0
   sustain: 1.0
   release: 0.8
