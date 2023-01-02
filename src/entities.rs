@@ -5,8 +5,8 @@ use crate::{
         ControlTrip,
     },
     effects::{
-        bitcrusher::Bitcrusher, delay::Delay, filter::BiQuadFilter, gain::Gain, limiter::Limiter,
-        mixer::Mixer, reverb::Reverb, chorus::Chorus,
+        bitcrusher::Bitcrusher, chorus::Chorus, delay::Delay, filter::BiQuadFilter, gain::Gain,
+        limiter::Limiter, mixer::Mixer, reverb::Reverb,
     },
     instruments::{
         drumkit_sampler::DrumkitSampler, envelopes::AdsrEnvelope, oscillators::Oscillator,

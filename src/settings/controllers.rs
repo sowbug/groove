@@ -14,26 +14,15 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "kebab-case")]
 pub enum ControlStep {
     /// Stairstep: one value per step.
-    Flat {
-        value: f32,
-    },
+    Flat { value: f32 },
     /// Linear: start at one value and end at another.
-    Slope {
-        start: f32,
-        end: f32,
-    },
+    Slope { start: f32, end: f32 },
 
     /// Curved; starts out changing quickly and ends up changing slowly.
-    Logarithmic {
-        start: f32,
-        end: f32,
-    },
+    Logarithmic { start: f32, end: f32 },
 
     /// Curved; starts out changing slowly and ends up changing quickly.
-    Exponential {
-        start: f32,
-        end: f32,
-    },
+    Exponential { start: f32, end: f32 },
 
     /// Event-driven (TODO)
     #[allow(dead_code)]

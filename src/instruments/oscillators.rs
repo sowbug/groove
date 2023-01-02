@@ -57,8 +57,7 @@ impl SourcesAudio for Oscillator {
         } else {
             self.has_period_restarted = false;
         }
-        let phase_normalized =
-            (self.adjusted_frequency() * period_position) as MonoSample;
+        let phase_normalized = (self.adjusted_frequency() * period_position) as MonoSample;
         self.mix
             * match self.waveform {
                 WaveformType::None => 0.0,

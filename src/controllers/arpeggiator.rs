@@ -193,10 +193,11 @@ mod tests {
     use crate::{
         clock::PerfectTimeUnit,
         controllers::sequencers::BeatSequencer,
+        entities::BoxedEntity,
         messages::EntityMessage,
         midi::MidiChannel,
         traits::{Internal, TestInstrument},
-        Clock, GrooveMessage, Orchestrator, entities::BoxedEntity,
+        Clock, GrooveMessage, Orchestrator,
     };
 
     use super::Arpeggiator;
