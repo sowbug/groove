@@ -32,6 +32,8 @@ jobs:
           toolchain: nightly
           override: true
           target: ${{ matrix.target }}
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
       - run: cargo build
       - run: cargo test --verbose
       # - name: Upload artifacts
@@ -41,3 +43,17 @@ jobs:
       #     path: |
       #       target/debug/groove-cli*
       #       target/debug/groove-gui*
+
+  fmt:
+    name: cargo-fmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Update toolchain & add rustfmt
+        run: |
+          rustup update
+          rustup component add rustfmt
+      - name: Run rustfmt
+        run: cargo fmt --all --check
