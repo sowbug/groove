@@ -377,8 +377,9 @@ impl Runner {
     }
 
     pub fn stop_audio(&mut self) {
-        let mut audio_output = AudioOutput::default();
-        audio_output.stop();
+        if let Some(audio_output) = self.audio_output.as_mut() {
+            audio_output.stop();
+        }
         self.audio_output = None;
     }
 
