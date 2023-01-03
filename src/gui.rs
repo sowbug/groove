@@ -8,8 +8,8 @@ use iced::{
     alignment::Vertical,
     futures::channel::mpsc,
     theme,
-    widget::{column, container, row, text},
-    Color, Element, Font, Theme,
+    widget::{self, column, container, row, text},
+    Color, Element, Font, Renderer, Theme,
 };
 use iced_native::subscription::{self, Subscription};
 use midly::MidiMessage;
@@ -23,19 +23,19 @@ use std::{
 pub const SMALL_FONT_SIZE: u16 = 16;
 pub const SMALL_FONT: Font = Font::External {
     name: "Small Font",
-    bytes: include_bytes!("../res/fonts/SourceSansPro-Regular.ttf"),
+    bytes: include_bytes!("../res/fonts/heebo/static/Heebo-Regular.ttf"),
 };
 
 pub const LARGE_FONT_SIZE: u16 = 20;
 pub const LARGE_FONT: Font = Font::External {
     name: "Large Font",
-    bytes: include_bytes!("../res/fonts/SourceSansPro-Regular.ttf"),
+    bytes: include_bytes!("../res/fonts/heebo/static/Heebo-Regular.ttf"),
 };
 
-pub const NUMBERS_FONT_SIZE: u16 = 32;
+pub const NUMBERS_FONT_SIZE: u16 = 24;
 pub const NUMBERS_FONT: Font = Font::External {
     name: "Numbers Font",
-    bytes: include_bytes!("../res/fonts/NotoSansMono-Regular.ttf"),
+    bytes: include_bytes!("../res/fonts/noto-sans-mono/NotoSansMono-Regular.ttf"),
 };
 
 struct TitledContainerTitleStyle {
@@ -111,13 +111,12 @@ impl<'a, Message: 'a> GuiStuff<'a, Message> {
         .into()
     }
 
-    pub fn container_text(label: &str) -> Element<'a, Message> {
+    pub fn container_text(label: &str) -> widget::Text<'a, Renderer> {
         text(label.to_string())
             .font(LARGE_FONT)
             .size(LARGE_FONT_SIZE)
             .horizontal_alignment(iced::alignment::Horizontal::Left)
             .vertical_alignment(Vertical::Center)
-            .into()
     }
 
     fn titled_container_title_style(

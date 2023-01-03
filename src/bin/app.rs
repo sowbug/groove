@@ -3,7 +3,10 @@
 mod gui;
 
 use groove::{
-    gui::{GrooveEvent, GrooveInput, GuiStuff, NUMBERS_FONT, NUMBERS_FONT_SIZE},
+    gui::{
+        GrooveEvent, GrooveInput, GuiStuff, LARGE_FONT, LARGE_FONT_SIZE, NUMBERS_FONT,
+        NUMBERS_FONT_SIZE, SMALL_FONT, SMALL_FONT_SIZE,
+    },
     traits::{HasUid, TestController, TestEffect, TestInstrument},
     AdsrEnvelope, Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity,
     Chorus, Clock, ControlTrip, Delay, DrumkitSampler, EntityMessage, Gain, GrooveMessage,
@@ -311,7 +314,10 @@ impl Application for GrooveApp {
             self.orchestrator_view().map(AppMessage::GrooveMessage);
         let midi_view: Element<AppMessage> = self.midi_view().map(AppMessage::MidiHandlerMessage);
         let scrollable_content = column![midi_view, project_view];
-        let under_construction = text("Under Construction").width(Length::FillPortion(1));
+        let under_construction = container(GuiStuff::<EntityMessage>::container_text(
+            "Under Construction",
+        ))
+        .width(Length::FillPortion(1));
         let scrollable = container(scrollable(scrollable_content)).width(Length::FillPortion(1));
         let main_workspace = row![under_construction, scrollable];
         let content = column![control_bar, main_workspace]
@@ -375,12 +381,18 @@ impl GrooveApp {
         match entity {
             BoxedEntity::AdsrEnvelope(e) => GuiStuff::titled_container(
                 type_name::<AdsrEnvelope>(),
-                GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
+                GuiStuff::<EntityMessage>::container_text(
+                    format!("Coming soon: {}", e.uid()).as_str(),
+                )
+                .into(),
             ),
             BoxedEntity::Arpeggiator(_) => {
                 let title = type_name::<Arpeggiator>();
                 let contents = "Hello!";
-                GuiStuff::titled_container(title, GuiStuff::container_text(contents))
+                GuiStuff::titled_container(
+                    title,
+                    GuiStuff::<EntityMessage>::container_text(contents).into(),
+                )
             }
             BoxedEntity::AudioSource(e) => self.audio_source_view(e),
             BoxedEntity::BeatSequencer(e) => self.beat_sequencer_view(e),
@@ -388,49 +400,79 @@ impl GrooveApp {
             BoxedEntity::Bitcrusher(e) => self.bitcrusher_view(e),
             BoxedEntity::Chorus(e) => GuiStuff::titled_container(
                 type_name::<Chorus>(),
-                GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
+                GuiStuff::<EntityMessage>::container_text(
+                    format!("Coming soon: {}", e.uid()).as_str(),
+                )
+                .into(),
             ),
             BoxedEntity::ControlTrip(e) => GuiStuff::titled_container(
                 type_name::<ControlTrip<EntityMessage>>(),
-                GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
+                GuiStuff::<EntityMessage>::container_text(
+                    format!("Coming soon: {}", e.uid()).as_str(),
+                )
+                .into(),
             ),
             BoxedEntity::Delay(e) => {
                 let title = type_name::<Delay>();
                 let contents = format!("delay in seconds: {}", e.delay_seconds());
-                GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
+                GuiStuff::titled_container(
+                    title,
+                    GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+                )
             }
             BoxedEntity::DrumkitSampler(e) => {
                 let title = type_name::<DrumkitSampler>();
                 let contents = format!("kit name: {}", e.kit_name());
-                GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
+                GuiStuff::titled_container(
+                    title,
+                    GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+                )
             }
             BoxedEntity::Gain(e) => self.gain_view(e),
             BoxedEntity::Limiter(e) => {
                 let title = type_name::<Limiter>();
                 let contents = format!("min: {} max: {}", e.min(), e.max());
-                GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
+                GuiStuff::titled_container(
+                    title,
+                    GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+                )
             }
             BoxedEntity::MidiTickSequencer(e) => GuiStuff::titled_container(
                 type_name::<MidiTickSequencer<EntityMessage>>(),
-                GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
+                GuiStuff::<EntityMessage>::container_text(
+                    format!("Coming soon: {}", e.uid()).as_str(),
+                )
+                .into(),
             ),
             BoxedEntity::Mixer(e) => GuiStuff::titled_container(
                 type_name::<Mixer<EntityMessage>>(),
-                text(format!("Mixer {} coming soon", e.uid())).into(),
+                GuiStuff::<EntityMessage>::container_text(
+                    format!("Mixer {} coming soon", e.uid()).as_str(),
+                )
+                .into(),
             ),
             BoxedEntity::Oscillator(e) => GuiStuff::titled_container(
                 type_name::<Oscillator>(),
-                GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
+                GuiStuff::<EntityMessage>::container_text(
+                    format!("Coming soon: {}", e.uid()).as_str(),
+                )
+                .into(),
             ),
             BoxedEntity::PatternManager(e) => self.pattern_manager_view(e),
             BoxedEntity::Reverb(e) => GuiStuff::titled_container(
                 type_name::<Reverb>(),
-                GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
+                GuiStuff::<EntityMessage>::container_text(
+                    format!("Coming soon: {}", e.uid()).as_str(),
+                )
+                .into(),
             ),
             BoxedEntity::Sampler(e) => {
                 let title = type_name::<Sampler>();
                 let contents = format!("name: {}", e.filename());
-                GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
+                GuiStuff::titled_container(
+                    title,
+                    GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+                )
             }
             BoxedEntity::TestController(e) => self.test_controller_view(e),
             BoxedEntity::TestEffect(e) => self.test_effect_view(e),
@@ -443,8 +485,10 @@ impl GrooveApp {
                 GuiStuff::titled_container(
                     type_name::<WelshSynth>(),
                     container(column![
-                        text(format!("Welsh {} {} coming soon", e.uid(), e.preset_name())),
-                        pick_list(options, None, EntityMessage::PickListSelected,)
+                        GuiStuff::<EntityMessage>::container_text(
+                            format!("Welsh {} {} coming soon", e.uid(), e.preset_name()).as_str()
+                        ),
+                        pick_list(options, None, EntityMessage::PickListSelected,).font(SMALL_FONT)
                     ])
                     .into(),
                 )
@@ -455,7 +499,7 @@ impl GrooveApp {
     fn midi_view(&self) -> Element<MidiHandlerMessage> {
         if let Some(midi_handler) = &self.midi_handler {
             if let Ok(midi_handler) = midi_handler.lock() {
-                let activity_text = container(text(
+                let activity_text = container(GuiStuff::<EntityMessage>::container_text(
                     if Instant::now().duration_since(midi_handler.activity_tick())
                         > Duration::from_millis(250)
                     {
@@ -468,23 +512,27 @@ impl GrooveApp {
                 let (input_selected, input_options) =
                     midi_handler.midi_input().as_ref().unwrap().labels();
                 let input_menu = row![
-                    text("Input").width(iced::Length::FillPortion(1)),
+                    GuiStuff::<EntityMessage>::container_text("Input")
+                        .width(iced::Length::FillPortion(1)),
                     pick_list(
                         input_options,
                         input_selected.clone(),
                         MidiHandlerMessage::InputSelected,
                     )
+                    .font(SMALL_FONT)
                     .width(iced::Length::FillPortion(3))
                 ];
                 let (output_selected, output_options) =
                     midi_handler.midi_output().as_ref().unwrap().labels();
                 let output_menu = row![
-                    text("Output").width(iced::Length::FillPortion(1)),
+                    GuiStuff::<EntityMessage>::container_text("Output")
+                        .width(iced::Length::FillPortion(1)),
                     pick_list(
                         output_options,
                         output_selected.clone(),
                         MidiHandlerMessage::OutputSelected,
                     )
+                    .font(SMALL_FONT)
                     .width(iced::Length::FillPortion(3))
                 ];
                 let port_menus =
@@ -497,7 +545,10 @@ impl GrooveApp {
                 panic!()
             }
         } else {
-            GuiStuff::titled_container("MIDI", GuiStuff::container_text("Initializing..."))
+            GuiStuff::titled_container(
+                "MIDI",
+                GuiStuff::<EntityMessage>::container_text("Initializing...").into(),
+            )
         }
     }
 
@@ -509,6 +560,8 @@ impl GrooveApp {
                     self.clock_mirror.bpm().round().to_string().as_str(),
                     ControlBarMessage::Bpm
                 )
+                .font(SMALL_FONT)
+                .size(SMALL_FONT_SIZE)
                 .width(Length::Units(60)),
                 container(row![
                     button(skip_to_prev_icon())
@@ -553,8 +606,12 @@ impl GrooveApp {
         let time_signature = self.clock_mirror.settings().time_signature();
         let time_signature_view = {
             container(column![
-                text(format!("{}", time_signature.top)),
+                text(format!("{}", time_signature.top))
+                    .font(SMALL_FONT)
+                    .size(SMALL_FONT_SIZE),
                 text(format!("{}", time_signature.bottom))
+                    .font(SMALL_FONT)
+                    .size(SMALL_FONT_SIZE)
             ])
         };
 
@@ -579,50 +636,62 @@ impl GrooveApp {
     fn beat_sequencer_view(&self, e: &BeatSequencer<EntityMessage>) -> Element<EntityMessage> {
         let title = type_name::<BeatSequencer<EntityMessage>>();
         let contents = format!("{}", e.next_instant());
-        GuiStuff::titled_container(title, GuiStuff::container_text(contents.as_str()))
+        GuiStuff::titled_container(
+            title,
+            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+        )
     }
 
     fn test_controller_view(&self, e: &TestController<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
             type_name::<TestController<EntityMessage>>(),
-            GuiStuff::container_text(format!("Tempo: {}", e.tempo).as_str()),
+            GuiStuff::<EntityMessage>::container_text(format!("Tempo: {}", e.tempo).as_str())
+                .into(),
         )
     }
 
     fn test_effect_view(&self, e: &TestEffect<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
             type_name::<TestEffect<EntityMessage>>(),
-            GuiStuff::container_text(format!("Value: {}", e.my_value()).as_str()),
+            GuiStuff::<EntityMessage>::container_text(format!("Value: {}", e.my_value()).as_str())
+                .into(),
         )
     }
 
     fn test_instrument_view(&self, e: &TestInstrument<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
             type_name::<TestInstrument<EntityMessage>>(),
-            GuiStuff::container_text(format!("Fake value: {}", e.fake_value()).as_str()),
+            GuiStuff::<EntityMessage>::container_text(
+                format!("Fake value: {}", e.fake_value()).as_str(),
+            )
+            .into(),
         )
     }
 
     fn test_lfo_view(&self, e: &TestLfo<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
             type_name::<TestLfo<EntityMessage>>(),
-            GuiStuff::container_text(
+            GuiStuff::<EntityMessage>::container_text(
                 format!("Frequency: {} current value: {}", e.frequency(), e.value()).as_str(),
-            ),
+            )
+            .into(),
         )
     }
 
     fn test_synth_view(&self, _: &TestSynth<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
             type_name::<TestSynth<EntityMessage>>(),
-            GuiStuff::container_text("Nothing"),
+            GuiStuff::<EntityMessage>::container_text("Nothing").into(),
         )
     }
 
     fn timer_view(&self, e: &Timer<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
             type_name::<Timer<EntityMessage>>(),
-            GuiStuff::container_text(format!("Runtime: {}", e.time_to_run_seconds()).as_str()),
+            GuiStuff::<EntityMessage>::container_text(
+                format!("Runtime: {}", e.time_to_run_seconds()).as_str(),
+            )
+            .into(),
         )
     }
     fn pattern_manager_view(&self, e: &PatternManager) -> Element<EntityMessage> {
@@ -641,16 +710,20 @@ impl GrooveApp {
         for track in e.notes.iter() {
             let mut note_row = Vec::new();
             for note in track {
-                let cell = text(format!("{:02} ", note.key).to_string());
+                let cell = text(format!("{:02} ", note.key).to_string())
+                    .font(LARGE_FONT)
+                    .size(LARGE_FONT_SIZE);
                 note_row.push(cell.into());
             }
             let row_note_row = row(note_row).into();
             note_rows.push(row_note_row);
         }
         column(vec![
-            button(text(format!("{:?}", e.note_value)))
-                .on_press(PatternMessage::ButtonPressed)
-                .into(),
+            button(GuiStuff::<EntityMessage>::container_text(
+                format!("{:?}", e.note_value).as_str(),
+            ))
+            .on_press(PatternMessage::ButtonPressed)
+            .into(),
             column(note_rows).into(),
         ])
         .into()
@@ -658,7 +731,8 @@ impl GrooveApp {
     fn audio_source_view(&self, e: &AudioSource<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
             type_name::<AudioSource<EntityMessage>>(),
-            GuiStuff::container_text(format!("Coming soon: {}", e.uid()).as_str()),
+            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
+                .into(),
         )
     }
 
@@ -684,7 +758,7 @@ impl GrooveApp {
                 EntityMessage::UpdateParam1U8 // CutoffPct
             ))
             .width(iced::Length::FillPortion(1)),
-            container(GuiStuff::container_text(
+            container(GuiStuff::<EntityMessage>::container_text(
                 format!("cutoff: {}Hz", e.cutoff_hz()).as_str()
             ))
             .width(iced::Length::FillPortion(1))

@@ -6,7 +6,7 @@ use iced::{alignment, Font, Length};
 
 const ICONS: Font = Font::External {
     name: "Icons",
-    bytes: include_bytes!("../../../res/fonts/MaterialIcons-Regular.ttf"),
+    bytes: include_bytes!("../../../res/fonts/material-icons/MaterialIcons-Regular.ttf"),
 };
 
 fn icon<'a>(unicode: char) -> Text<'a> {
