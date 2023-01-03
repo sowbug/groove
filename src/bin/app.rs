@@ -23,7 +23,6 @@ use iced::{
     alignment, executor,
     futures::channel::mpsc,
     theme::{self, Theme},
-    time,
     widget::{button, column, container, pick_list, row, scrollable, slider, text, text_input},
     Alignment, Application, Command, Element, Length, Settings, Subscription,
 };
