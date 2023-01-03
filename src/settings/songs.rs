@@ -79,7 +79,7 @@ impl SongSettings {
         o.set_title(self.title.clone());
         o.set_clock_settings(&self.clock);
         self.instantiate_devices(&mut o, load_only_test_entities);
-        self.instantiate_patch_cables(&mut o);
+        self.instantiate_patch_cables(&mut o)?;
         self.instantiate_tracks(&mut o);
         self.instantiate_control_trips(&mut o, &self.clock.time_signature());
         Ok(o)
@@ -115,28 +115,39 @@ impl SongSettings {
         }
     }
 
-    fn instantiate_patch_cables(&self, orchestrator: &mut GrooveOrchestrator) {
+    fn instantiate_patch_cables(
+        &self,
+        orchestrator: &mut GrooveOrchestrator,
+    ) -> anyhow::Result<()> {
         for patch_cable in &self.patch_cables {
             if patch_cable.len() < 2 {
                 eprintln!("Warning: ignoring patch cable with only one ID.");
                 continue;
             }
             let mut last_device_uvid: Option<DeviceId> = None;
-            for device_id in patch_cable {
+            for device_uvid in patch_cable {
                 if let Some(last_device_uvid) = last_device_uvid {
-                    if let Some(last_device_uid) = orchestrator.get_uid(&last_device_uvid) {
-                        if let Some(device_uid) = orchestrator.get_uid(device_id) {
-                            let _ = orchestrator.patch(last_device_uid, device_uid);
-                        } else {
-                            eprintln!("Warning: input patch ID '{device_id}' not found.");
+                    match orchestrator.get_uid(&last_device_uvid) {
+                        Some(last_device_uid) => match orchestrator.get_uid(device_uvid) {
+                            Some(device_uid) => {
+                                if let Err(e) = orchestrator.patch(last_device_uid, device_uid) {
+                                    eprintln!("Error when patching input {device_uvid} to output {last_device_uvid}: {e}");
+                                    return Err(e);
+                                }
+                            }
+                            None => {
+                                eprintln!("Warning: input patch ID '{device_uvid}' not found.");
+                            }
+                        },
+                        None => {
+                            eprintln!("Warning: output patch ID '{last_device_uvid}' not found.");
                         }
-                    } else {
-                        eprintln!("Warning: output patch ID '{last_device_uvid}' not found.");
                     }
                 }
-                last_device_uvid = Some(device_id.to_string());
+                last_device_uvid = Some(device_uvid.to_string());
             }
         }
+        Ok(())
     }
 
     // TODO: for now, a track has a single time signature. Each pattern can have its
@@ -282,6 +293,21 @@ mod tests {
         assert_eq!(
             r.unwrap_err().to_string(),
             "missing field `clock` at line 2 column 3"
+        );
+    }
+
+    #[test]
+    fn test_patching_to_device_with_no_input_fails_with_proper_error() {
+        let mut path = Paths::project_path();
+        path.push("tests/instruments-have-no-inputs.yaml");
+        let yaml = std::fs::read_to_string(path)
+            .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
+        let song_settings = SongSettings::new_from_yaml(yaml.as_str())
+            .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
+        let r = song_settings.instantiate(false);
+        assert_eq!(
+            r.unwrap_err().to_string(),
+            "Input device doesn't transform audio and can't be patched from output device"
         );
     }
 }

@@ -138,16 +138,24 @@ impl<M: MessageBounds> Orchestrator<M> {
             // don't transform, like an audio recorder (or technically a
             // main mixer).
             if input.as_is_effect().is_none() {
-                return Err(anyhow!("Item {:?} doesn't transform audio", input));
+                // We don't put the IDs in the error message because they're
+                // internal, rather than UVID (user-visible IDs), and won't be
+                // helpful to understand the problem. It's important for the
+                // caller to produce a meaningful error message with UVIDs.
+                return Err(anyhow!(
+                    "Input device doesn't transform audio and can't be patched from output device"
+                ));
             }
         } else {
-            return Err(anyhow!("Couldn't find input_uid {}", input_uid));
+            return Err(anyhow!("Couldn't find input_uid {input_uid}"));
         }
 
         // Validate that source_uid refers to something that outputs audio
         if let Some(output) = self.store.get(output_uid) {
             if output.as_is_controller().is_some() {
-                return Err(anyhow!("Item {:?} doesn't output audio", output));
+                return Err(anyhow!(
+                    "Output device doesn't output audio and can't be patched into input device"
+                ));
             }
         } else {
             return Err(anyhow!("Couldn't find output_uid {}", output_uid));

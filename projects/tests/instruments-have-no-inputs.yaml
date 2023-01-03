@@ -1,0 +1,26 @@
+---
+title: "Instruments have no inputs"
+clock:
+  bpm: 1.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+    - instrument-1
+    - welsh:
+        midi-in: 0
+        preset: piano
+  - instrument:
+    - instrument-2
+    - welsh:
+        midi-in: 1
+        preset: piano
+patch-cables:
+  # This should fail because an instrument has only outputs, not inputs. If you
+  # want to hear both instruments, you should patch like this instead:
+  #
+  # - [instrument-1, main-mixer]
+  # - [instrument-2, main-mixer]
+  #
+  - [instrument-1, instrument-2, main-mixer]
