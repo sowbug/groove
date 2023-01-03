@@ -241,7 +241,10 @@ impl Runner {
         while let Some(message) = self.messages.pop() {
             match message {
                 GrooveMessage::AudioOutput(output_sample) => sample = output_sample,
-                GrooveMessage::OutputComplete => done = true,
+                GrooveMessage::OutputComplete => {
+                    done = true;
+                    self.post_event(GrooveEvent::OutputComplete);
+                }
                 GrooveMessage::MidiToExternal(channel, message) => {
                     self.post_event(GrooveEvent::MidiToExternal(channel, message))
                 }
@@ -441,13 +444,11 @@ impl GrooveSubscription {
                     State::Ready(handler, mut receiver) => {
                         use iced_native::futures::StreamExt;
 
-                        if let GrooveEvent::Quit = receiver.select_next_some().await {
+                        let groove_event = receiver.select_next_some().await;
+                        if let GrooveEvent::Quit = groove_event {
                             (Some(GrooveEvent::Quit), State::Ending(handler))
                         } else {
-                            (
-                                Some(receiver.select_next_some().await),
-                                State::Ready(handler, receiver),
-                            )
+                            (Some(groove_event), State::Ready(handler, receiver))
                         }
                     }
                     State::Ending(handler) => {

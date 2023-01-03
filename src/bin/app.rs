@@ -163,7 +163,6 @@ impl Application for GrooveApp {
                         self.reached_end_of_playback = false;
                     }
                     self.post_to_orchestrator(GrooveInput::Play);
-
                     self.state = State::Playing
                 }
                 ControlBarMessage::Stop => {
@@ -242,7 +241,10 @@ impl Application for GrooveApp {
                     self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
                 }
                 GrooveEvent::AudioOutput(_) => todo!(),
-                GrooveEvent::OutputComplete => todo!(),
+                GrooveEvent::OutputComplete => {
+                    self.reached_end_of_playback = true;
+                    self.state = State::Idle;
+                }
                 GrooveEvent::Quit => todo!(),
                 GrooveEvent::ProjectLoaded(filename, title) => {
                     self.preferences.last_project_filename = Some(filename);
@@ -281,14 +283,6 @@ impl Application for GrooveApp {
         let mut v = vec![
             iced_native::subscription::events().map(AppMessage::Event),
             MidiSubscription::subscription().map(AppMessage::MidiHandlerEvent),
-            // This is duplicative because I think we'll want different activity
-            // levels depending on whether we're playing
-            match self.state {
-                State::Idle => time::every(Duration::from_millis(10)).map(AppMessage::Tick),
-                State::Playing { .. } => {
-                    time::every(Duration::from_millis(10)).map(AppMessage::Tick)
-                }
-            },
         ];
         if self.is_pref_load_complete {
             v.push(GrooveSubscription::subscription().map(AppMessage::GrooveEvent));
