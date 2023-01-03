@@ -12,14 +12,16 @@ use crate::{
     utils::Paths,
     Clock,
 };
-use convert_case::{Case, Casing};
+use convert_case::{Boundary, Case, Casing};
 use num_traits::FromPrimitive;
 use rustc_hash::FxHashMap;
 
 // TODO: cache these as they're loaded
 impl SynthPatch {
     pub fn patch_name_to_settings_name(name: &str) -> String {
-        name.to_case(Case::Kebab)
+        name.from_case(Case::Camel)
+            .without_boundaries(&[Boundary::DigitLower])
+            .to_case(Case::Kebab)
     }
 
     pub fn new_from_yaml(yaml: &str) -> Result<Self, LoadError> {
