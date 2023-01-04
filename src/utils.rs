@@ -456,7 +456,11 @@ pub mod tests {
         r
     }
 
-    pub fn samples_match_known_good_wav_file(samples: Vec<f32>, filename: &PathBuf, acceptable_deviation: f32) -> bool {
+    pub fn samples_match_known_good_wav_file(
+        samples: Vec<f32>,
+        filename: &PathBuf,
+        acceptable_deviation: f32,
+    ) -> bool {
         let known_good_samples = read_samples_from_mono_wav_file(filename);
         if known_good_samples.len() != samples.len() {
             eprintln!("Provided samples of different length from known-good");
