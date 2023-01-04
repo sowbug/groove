@@ -75,6 +75,18 @@ impl Into<f32> for OscillatorTune {
     }
 }
 
+impl Into<f64> for OscillatorTune {
+    fn into(self) -> f64 {
+        match self {
+            OscillatorTune::Note(_) => 1.0,
+            OscillatorTune::Float(value) => value as f64,
+            OscillatorTune::Osc { octave, semi, cent } => {
+                2.0f64.powf((octave as f64 * 1200.0 + semi as f64 * 100.0 + cent as f64) / 1200.0)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct OscillatorSettings {

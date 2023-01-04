@@ -379,6 +379,15 @@ mod tests {
             Self::new_with(&ClockSettings::new_test())
         }
 
+        pub fn new_with_sample_rate(sample_rate: usize) -> Self {
+            let cs = ClockSettings::default();
+            Self::new_with(&ClockSettings::new(
+                sample_rate,
+                cs.bpm(),
+                (cs.time_signature().top, cs.time_signature().bottom),
+            ))
+        }
+
         pub fn debug_new_with_time(time: f32) -> Self {
             let mut r = Self::new();
             r.debug_set_seconds(time);

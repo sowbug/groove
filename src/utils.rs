@@ -194,6 +194,7 @@ pub struct Paths {}
 impl Paths {
     const ASSETS: &str = "assets";
     const PROJECTS: &str = "projects";
+    const TEST_DATA: &str = "test-data";
 
     pub fn asset_path() -> PathBuf {
         let mut path_buf = Paths::cwd();
@@ -204,6 +205,12 @@ impl Paths {
     pub fn project_path() -> PathBuf {
         let mut path_buf = Paths::cwd();
         path_buf.push(Self::PROJECTS);
+        path_buf
+    }
+
+    pub fn test_data_path() -> PathBuf {
+        let mut path_buf = Paths::cwd();
+        path_buf.push(Self::TEST_DATA);
         path_buf
     }
 
@@ -437,7 +444,35 @@ pub mod tests {
         utils::{TestLfo, TestSynth, TestSynthControlParams},
     };
     use convert_case::{Case, Casing};
-    use std::{fs, marker::PhantomData};
+    use std::{fs, marker::PhantomData, path::PathBuf};
+
+    fn read_samples_from_mono_wav_file(filename: &PathBuf) -> Vec<MonoSample> {
+        let mut reader = hound::WavReader::open(filename).unwrap();
+        let mut r = Vec::default();
+
+        for sample in reader.samples::<i16>() {
+            r.push(sample.unwrap() as MonoSample / i16::MAX as MonoSample);
+        }
+        r
+    }
+
+    pub fn samples_match_known_good_wav_file(samples: Vec<f32>, filename: &PathBuf, acceptable_deviation: f32) -> bool {
+        let known_good_samples = read_samples_from_mono_wav_file(filename);
+        if known_good_samples.len() != samples.len() {
+            eprintln!("Provided samples of different length from known-good");
+            return false;
+        }
+        for i in 0..samples.len() {
+            if (samples[i] - known_good_samples[i]).abs() >= acceptable_deviation {
+                eprintln!(
+                    "Samples differed at position {i}: known-good {}, test {}",
+                    known_good_samples[i], samples[i]
+                );
+                return false;
+            }
+        }
+        true
+    }
 
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
