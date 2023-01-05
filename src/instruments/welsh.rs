@@ -432,7 +432,9 @@ impl WelshVoice {
             filter: BiQuadFilter::new_with(
                 &FilterParams::LowPass24db {
                     cutoff: preset.filter_type_24db.cutoff_hz,
-                    passband_ripple: BiQuadFilter::<EntityMessage>::denormalize_q(preset.filter_resonance),
+                    passband_ripple: BiQuadFilter::<EntityMessage>::denormalize_q(
+                        preset.filter_resonance,
+                    ),
                 },
                 sample_rate,
             ),
