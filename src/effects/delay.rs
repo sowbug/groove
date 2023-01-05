@@ -4,6 +4,7 @@ use crate::{
     messages::EntityMessage,
     traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
+use groove_macros::Uid;
 use strum_macros::{Display, EnumString, FromRepr};
 
 pub(super) trait Delays {
@@ -188,7 +189,7 @@ pub(crate) enum DelayControlParams {
     DelaySeconds,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct Delay {
     uid: usize,
     delay: DelayLine,
@@ -221,15 +222,6 @@ impl Updateable for Delay {
         } else {
             todo!()
         }
-    }
-}
-impl HasUid for Delay {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 

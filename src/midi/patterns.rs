@@ -1,3 +1,5 @@
+use groove_macros::Uid;
+
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
     messages::EntityMessage,
@@ -56,7 +58,7 @@ impl Pattern<Note> {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Uid)]
 pub struct PatternManager {
     uid: usize,
     patterns: Vec<Pattern<Note>>,
@@ -68,15 +70,6 @@ impl Updateable for PatternManager {
 impl Terminates for PatternManager {
     fn is_finished(&self) -> bool {
         true
-    }
-}
-impl HasUid for PatternManager {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 

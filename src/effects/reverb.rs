@@ -5,6 +5,7 @@ use crate::{
     messages::EntityMessage,
     traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
+use groove_macros::Uid;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -20,7 +21,7 @@ pub(crate) enum ReverbControlParams {
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct Reverb {
     uid: usize,
 
@@ -80,15 +81,6 @@ impl Updateable for Reverb {
         } else {
             todo!()
         }
-    }
-}
-impl HasUid for Reverb {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 

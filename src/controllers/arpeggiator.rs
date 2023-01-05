@@ -5,6 +5,7 @@ use crate::{
     midi::{MidiChannel, MidiMessage},
     traits::{HasUid, IsController, Response, Terminates, Updateable},
 };
+use groove_macros::Uid;
 use midly::num::u7;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -14,7 +15,7 @@ pub(crate) enum ArpeggiatorControlParams {
     Nothing,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct Arpeggiator {
     uid: usize,
     midi_channel_out: MidiChannel,
@@ -94,15 +95,6 @@ impl Updateable for Arpeggiator {
 impl Terminates for Arpeggiator {
     fn is_finished(&self) -> bool {
         true
-    }
-}
-impl HasUid for Arpeggiator {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 

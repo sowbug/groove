@@ -12,6 +12,7 @@ use crate::TimeSignature;
 use crate::{clock::BeatValue, settings::controllers::ControlPathSettings};
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
+use groove_macros::Uid;
 use std::marker::PhantomData;
 use std::ops::Range;
 
@@ -38,7 +39,7 @@ impl Performance {
 ///
 /// A ControlTrip is one automation track, which can run as long as the whole
 /// song. For now, it controls one parameter of one target.
-#[derive(Debug)]
+#[derive(Debug, Uid)]
 pub struct ControlTrip<M: MessageBounds> {
     uid: usize,
     cursor_beats: f32,
@@ -63,15 +64,6 @@ impl<M: MessageBounds> Updateable for ControlTrip<M> {
 impl<M: MessageBounds> Terminates for ControlTrip<M> {
     fn is_finished(&self) -> bool {
         self.is_finished
-    }
-}
-impl<M: MessageBounds> HasUid for ControlTrip<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 impl<M: MessageBounds> Default for ControlTrip<M> {

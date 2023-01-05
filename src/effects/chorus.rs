@@ -2,10 +2,10 @@ use super::delay::{DelayLine, Delays};
 use crate::{
     clock::Clock,
     common::MonoSample,
-    has_uid,
     messages::EntityMessage,
     traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
+use groove_macros::Uid;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -18,7 +18,7 @@ pub(crate) enum ChorusControlParams {
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct Chorus {
     uid: usize,
 
@@ -34,7 +34,6 @@ pub struct Chorus {
     delay: DelayLine,
 }
 impl IsEffect for Chorus {}
-has_uid!(Chorus);
 impl TransformsAudio for Chorus {
     fn transform_audio(&mut self, _clock: &Clock, input: MonoSample) -> MonoSample {
         let index_offset = self.delay_factor / self.voice_count;

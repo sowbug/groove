@@ -5,6 +5,7 @@ use crate::{
     traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     Clock,
 };
+use groove_macros::Uid;
 use std::f64::consts::PI;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -17,7 +18,7 @@ pub(crate) enum OscillatorControlParams {
     Frequency,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Uid)]
 pub struct Oscillator {
     uid: usize,
 
@@ -129,16 +130,6 @@ impl Updateable for Oscillator {
         Response::none()
     }
 }
-impl HasUid for Oscillator {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
-
 impl Default for Oscillator {
     fn default() -> Self {
         Self {

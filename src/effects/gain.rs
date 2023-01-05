@@ -4,6 +4,7 @@ use crate::{
     messages::{EntityMessage, MessageBounds},
     traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
+use groove_macros::Uid;
 use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -13,7 +14,7 @@ pub(crate) enum GainControlParams {
     Ceiling,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct Gain<M: MessageBounds> {
     uid: usize,
     ceiling: f32,
@@ -74,15 +75,6 @@ impl Updateable for Gain<EntityMessage> {
             _ => todo!(),
         }
         Response::none()
-    }
-}
-impl<M: MessageBounds> HasUid for Gain<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 

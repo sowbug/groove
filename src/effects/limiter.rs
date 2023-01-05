@@ -4,6 +4,7 @@ use crate::{
     messages::EntityMessage,
     traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
+use groove_macros::Uid;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -14,7 +15,7 @@ pub(crate) enum LimiterControlParams {
     Min,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct Limiter {
     uid: usize,
 
@@ -57,15 +58,6 @@ impl Updateable for Limiter {
         } else {
             todo!()
         }
-    }
-}
-impl HasUid for Limiter {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 

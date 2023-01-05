@@ -6,6 +6,7 @@ use crate::{
     traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     Clock,
 };
+use groove_macros::Uid;
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use std::{fmt::Debug, ops::Range};
 use strum_macros::{Display, EnumString, FromRepr};
@@ -232,7 +233,7 @@ enum AdsrEnvelopeStepName {
     FinalIdle,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Uid)]
 pub struct AdsrEnvelope {
     uid: usize,
     preset: EnvelopeSettings,
@@ -275,16 +276,6 @@ impl Updateable for AdsrEnvelope {
         Response::none()
     }
 }
-impl HasUid for AdsrEnvelope {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
-
 impl Default for AdsrEnvelope {
     fn default() -> Self {
         Self {

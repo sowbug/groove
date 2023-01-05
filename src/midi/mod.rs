@@ -13,6 +13,7 @@ use crate::{
 };
 use crossbeam::deque::{Steal, Stealer, Worker};
 use enum_primitive_derive::Primitive;
+use groove_macros::Uid;
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
 pub use midly::MidiMessage;
 use midly::{live::LiveEvent, num::u4};
@@ -393,6 +394,7 @@ impl std::fmt::Debug for MidiInputHandler {
 }
 
 /// Outputs MIDI messages to external MIDI devices.
+#[derive(Uid)]
 pub struct MidiOutputHandler {
     uid: usize,
     midi: Option<MidiOutput>,
@@ -439,15 +441,6 @@ impl Updateable for MidiOutputHandler {
 impl Terminates for MidiOutputHandler {
     fn is_finished(&self) -> bool {
         true
-    }
-}
-impl HasUid for MidiOutputHandler {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 
@@ -573,7 +566,7 @@ pub enum MidiHandlerMessage {
 }
 impl MessageBounds for MidiHandlerMessage {}
 
-#[derive(Debug)]
+#[derive(Debug, Uid)]
 pub struct MidiHandler {
     uid: usize,
     midi_input: Option<MidiInputHandler>,
@@ -686,15 +679,6 @@ impl MidiHandler {
 impl Terminates for MidiHandler {
     fn is_finished(&self) -> bool {
         true
-    }
-}
-impl HasUid for MidiHandler {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 

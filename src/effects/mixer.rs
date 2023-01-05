@@ -4,6 +4,7 @@ use crate::{
     messages::MessageBounds,
     traits::{HasUid, IsEffect, TransformsAudio, Updateable},
 };
+use groove_macros::Uid;
 use std::marker::PhantomData;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -11,7 +12,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum MixerControlParams {}
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Uid)]
 pub struct Mixer<M: MessageBounds> {
     uid: usize,
 
@@ -29,15 +30,6 @@ impl<M: MessageBounds> TransformsAudio for Mixer<M> {
 }
 impl<M: MessageBounds> Updateable for Mixer<M> {
     type Message = M;
-}
-impl<M: MessageBounds> HasUid for Mixer<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
 }
 impl<M: MessageBounds> Mixer<M> {
     #[allow(dead_code)]

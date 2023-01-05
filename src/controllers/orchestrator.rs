@@ -13,6 +13,7 @@ use crate::{
 };
 use anyhow::anyhow;
 use dipstick::InputScope;
+use groove_macros::Uid;
 use rustc_hash::FxHashMap;
 use std::{
     io::{self, Write},
@@ -21,7 +22,7 @@ use std::{
 
 pub type GrooveOrchestrator = Orchestrator<GrooveMessage>;
 
-#[derive(Debug)]
+#[derive(Debug, Uid)]
 pub struct Orchestrator<M: MessageBounds> {
     uid: usize,
     title: Option<String>,
@@ -41,15 +42,6 @@ pub struct Orchestrator<M: MessageBounds> {
 impl<M: MessageBounds> Terminates for Orchestrator<M> {
     fn is_finished(&self) -> bool {
         true
-    }
-}
-impl<M: MessageBounds> HasUid for Orchestrator<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 impl<M: MessageBounds> Orchestrator<M> {

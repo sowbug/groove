@@ -6,6 +6,7 @@ use crate::{
     traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     utils::Paths,
 };
+use groove_macros::Uid;
 use rustc_hash::FxHashMap;
 
 #[derive(Debug, Default)]
@@ -79,7 +80,7 @@ impl SourcesAudio for Voice {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct DrumkitSampler {
     uid: usize,
     note_to_voice: FxHashMap<u8, Voice>,
@@ -125,15 +126,7 @@ impl Updateable for DrumkitSampler {
         Response::none()
     }
 }
-impl HasUid for DrumkitSampler {
-    fn uid(&self) -> usize {
-        self.uid
-    }
 
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
 impl DrumkitSampler {
     fn new() -> Self {
         Default::default()

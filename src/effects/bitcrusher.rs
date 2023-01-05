@@ -1,10 +1,10 @@
-use crate::has_uid;
 use crate::{
     clock::Clock,
     common::MonoSample,
     messages::EntityMessage,
     traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
+use groove_macros::Uid;
 use iced_audio::{IntRange, Normal};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -16,7 +16,7 @@ pub(crate) enum BitcrusherControlParams {
     BitsToCrushPct,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct Bitcrusher {
     uid: usize,
     bits_to_crush: u8,
@@ -24,7 +24,6 @@ pub struct Bitcrusher {
     int_range: IntRange,
 }
 impl IsEffect for Bitcrusher {}
-has_uid!(Bitcrusher);
 impl TransformsAudio for Bitcrusher {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         let input_i16 = (input_sample * (i16::MAX as MonoSample)) as i16;

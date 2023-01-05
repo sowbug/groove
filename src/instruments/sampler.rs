@@ -1,3 +1,5 @@
+use groove_macros::Uid;
+
 use crate::{
     clock::Clock,
     common::MonoSample,
@@ -6,7 +8,7 @@ use crate::{
     traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 #[allow(dead_code)]
 pub struct Sampler {
     uid: usize,
@@ -61,15 +63,6 @@ impl Updateable for Sampler {
             }
         }
         Response::none()
-    }
-}
-impl HasUid for Sampler {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 

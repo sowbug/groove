@@ -7,6 +7,7 @@ use crate::{
     traits::{HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates, Updateable},
 };
 use core::fmt::Debug;
+use groove_macros::Uid;
 use std::{
     env::{current_dir, current_exe},
     marker::PhantomData,
@@ -16,7 +17,7 @@ use std::{
 use strum_macros::{Display, EnumString, FromRepr};
 
 /// Timer returns true to Terminates::is_finished() after a specified amount of time.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct Timer<M: MessageBounds> {
     uid: usize,
     has_more_work: bool,
@@ -64,18 +65,9 @@ impl Updateable for Timer<EntityMessage> {
         Response::none()
     }
 }
-impl<M: MessageBounds> HasUid for Timer<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
 
 /// Trigger issues a ControlF32 message after a specified amount of time.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub(crate) struct Trigger<M: MessageBounds> {
     uid: usize,
     time_to_trigger_seconds: f32,
@@ -99,15 +91,6 @@ impl<M: MessageBounds> Updateable for Trigger<M> {
 impl<M: MessageBounds> Terminates for Trigger<M> {
     fn is_finished(&self) -> bool {
         self.has_triggered
-    }
-}
-impl<M: MessageBounds> HasUid for Trigger<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 impl<M: MessageBounds> Trigger<M> {
@@ -142,22 +125,13 @@ pub(crate) enum TestAudioSourceSetLevelControlParams {
     Level,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct AudioSource<M: MessageBounds> {
     uid: usize,
     level: MonoSample,
     _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsInstrument for AudioSource<M> {}
-impl<M: MessageBounds> HasUid for AudioSource<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
 impl<M: MessageBounds> Updateable for AudioSource<M> {
     type Message = M;
 }
@@ -242,7 +216,7 @@ pub enum TestSynthControlParams {
     OscillatorModulation,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Uid)]
 pub struct TestSynth<M: MessageBounds> {
     uid: usize,
 
@@ -336,15 +310,6 @@ impl Updateable for TestSynth<EntityMessage> {
         }
     }
 }
-impl<M: MessageBounds> HasUid for TestSynth<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
 
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
@@ -352,7 +317,7 @@ pub(crate) enum TestLfoControlParams {
     Frequency,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct TestLfo<M: MessageBounds> {
     uid: usize,
     value: MonoSample,
@@ -360,15 +325,6 @@ pub struct TestLfo<M: MessageBounds> {
     _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsController for TestLfo<M> {}
-impl<M: MessageBounds> HasUid for TestLfo<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
 impl<M: MessageBounds> Updateable for TestLfo<M> {
     default type Message = M;
 

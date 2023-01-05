@@ -4,6 +4,7 @@ use crate::{
     messages::{EntityMessage, MessageBounds},
     traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
+use groove_macros::Uid;
 use std::{f64::consts::PI, marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -117,7 +118,7 @@ struct CoefficientSet2 {
 }
 
 /// https://en.wikipedia.org/wiki/Digital_biquad_filter
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Uid)]
 pub struct BiQuadFilter<M: MessageBounds> {
     uid: usize,
 
@@ -230,15 +231,6 @@ impl Updateable for BiQuadFilter<EntityMessage> {
             _ => todo!(),
         }
         Response::none()
-    }
-}
-impl<M: MessageBounds> HasUid for BiQuadFilter<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 

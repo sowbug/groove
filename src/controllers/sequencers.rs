@@ -6,6 +6,7 @@ use crate::{
     traits::{HasUid, IsController, Response, Terminates, Updateable},
 };
 use btreemultimap::BTreeMultiMap;
+use groove_macros::Uid;
 use midly::num::u7;
 use rustc_hash::FxHashMap;
 use std::{
@@ -16,7 +17,7 @@ use std::{
 
 pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Uid)]
 pub struct BeatSequencer<M: MessageBounds> {
     uid: usize,
     next_instant: PerfectTimeUnit,
@@ -46,16 +47,6 @@ impl<M: MessageBounds> Terminates for BeatSequencer<M> {
         self.next_instant > self.last_event_time
     }
 }
-impl<M: MessageBounds> HasUid for BeatSequencer<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
-
 impl<M: MessageBounds> BeatSequencer<M> {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
@@ -171,7 +162,7 @@ impl Updateable for BeatSequencer<EntityMessage> {
 
 pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
 
-#[derive(Debug)]
+#[derive(Debug, Uid)]
 pub struct MidiTickSequencer<M: MessageBounds> {
     uid: usize,
     next_instant: MidiTicks,
@@ -197,16 +188,6 @@ impl<M: MessageBounds> Terminates for MidiTickSequencer<M> {
         self.next_instant > self.last_event_time
     }
 }
-impl<M: MessageBounds> HasUid for MidiTickSequencer<M> {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
-
 impl<M: MessageBounds> Default for MidiTickSequencer<M> {
     fn default() -> Self {
         Self {

@@ -183,21 +183,3 @@ instrument_crackers! {
     TestSynth,
     WelshSynth,
 }
-
-// TODO: this should be a derive macro
-#[macro_export]
-macro_rules! has_uid {
-    ($($type:path)*) => {
-    $(
-        impl HasUid for $type {
-            fn uid(&self) -> usize {
-                self.uid
-            }
-
-            fn set_uid(&mut self, uid: usize) {
-                self.uid = uid;
-            }
-        }
-    )*
-    };
-}

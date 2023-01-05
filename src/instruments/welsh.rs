@@ -13,6 +13,7 @@ use crate::{
     Clock,
 };
 use convert_case::{Boundary, Case, Casing};
+use groove_macros::Uid;
 use num_traits::FromPrimitive;
 use rustc_hash::FxHashMap;
 
@@ -562,7 +563,7 @@ impl SourcesAudio for WelshVoice {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Uid)]
 pub struct WelshSynth {
     uid: usize,
     sample_rate: usize,
@@ -623,15 +624,6 @@ impl Updateable for WelshSynth {
             _ => todo!(),
         }
         Response::none()
-    }
-}
-impl HasUid for WelshSynth {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 
