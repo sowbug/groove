@@ -64,6 +64,18 @@ pub trait Updateable {
     }
 }
 
+pub struct F32ControlValue(pub f32);
+pub trait Controllable {
+    #[allow(unused_variables)]
+    fn control_index_for_name(&self, name: &str) -> usize {
+        unimplemented!()
+    }
+    #[allow(unused_variables)]
+    fn set_by_control_index(&mut self, index: usize, value: F32ControlValue) {
+        unimplemented!()
+    }
+}
+
 /// A HasUid has an ephemeral but globally unique numeric identifier, which is
 /// useful for one entity to refer to another without getting into icky Rust
 /// ownership questions. It's the foundation of any ECS

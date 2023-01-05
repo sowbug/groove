@@ -15,8 +15,8 @@ use crate::{
     messages::EntityMessage,
     midi::patterns::PatternManager,
     traits::{
-        HasUid, IsController, IsEffect, IsInstrument, Terminates, TestController, TestEffect,
-        TestInstrument, Updateable,
+        Controllable, HasUid, IsController, IsEffect, IsInstrument, Terminates, TestController,
+        TestEffect, TestInstrument, Updateable,
     },
     utils::{AudioSource, TestLfo, TestSynth, Timer},
 };
@@ -90,18 +90,43 @@ boxed_entity_enum_and_common_crackers! {
     WelshSynth: WelshSynth,
 }
 
+macro_rules! controllable_crackers {
+    ($($type:ident,)*) => {
+        impl BoxedEntity {
+            pub fn as_controllable(&self) -> Option<&dyn Controllable> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
+        }
+    };
+}
+
+controllable_crackers! {
+    Bitcrusher,
+    Chorus,
+    TestSynth,
+}
+
 macro_rules! controller_crackers {
     ($($type:ident,)*) => {
         impl BoxedEntity {
             pub fn as_is_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
                 match self {
-                $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
                 match self {
-                $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }

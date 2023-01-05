@@ -3,34 +3,31 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::EntityMessage,
-    traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    traits::{
+        Controllable, F32ControlValue, HasUid, IsEffect, Response, TransformsAudio, Updateable,
+    },
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum ChorusControlParams {
-    #[strum(serialize = "dry-pct")]
-    DryPct,
-}
-
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
-#[derive(Debug, Default, Uid)]
+#[derive(Control, Debug, Default, Uid)]
 pub struct Chorus {
     uid: usize,
 
     voice_count: usize,
     delay_factor: usize,
 
-    // what percentage should be unprocessed. 0.0 = all effect. 0.0 = all
-    // unchanged.
+    // what percentage of the output should be processed. 0.0 = all dry (no
+    // effect). 1.0 = all wet (100% effect).
     //
     // TODO: maybe handle the wet/dry more centrally. It seems like it'll be
     // repeated a lot.
-    dry_pct: f32,
+    #[controllable]
+    dry_wet_mix: f32,
+
     delay: DelayLine,
 }
 impl IsEffect for Chorus {}
@@ -42,7 +39,7 @@ impl TransformsAudio for Chorus {
             sum += self.delay.peek_indexed_output(i * index_offset as isize);
         }
 
-        (1.0 - self.dry_pct) * sum / self.voice_count as MonoSample + self.dry_pct * input
+        self.dry_wet_mix * sum / self.voice_count as MonoSample + (1.0 - self.dry_wet_mix) * input
     }
 }
 impl Updateable for Chorus {
@@ -70,7 +67,7 @@ impl Updateable for Chorus {
     fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
         if let Some(param) = ChorusControlParams::from_repr(index) {
             match param {
-                ChorusControlParams::DryPct => self.set_dry_pct(value),
+                ChorusControlParams::DryWetMix => self.set_dry_wet_mix(value),
             }
         } else {
             todo!()
@@ -93,15 +90,19 @@ impl Chorus {
         // TODO: the delay_seconds param feels like a hack
         Self {
             uid: Default::default(),
-            dry_pct,
+            dry_wet_mix: dry_pct,
             voice_count,
             delay_factor,
             delay: DelayLine::new_with(sample_rate, delay_factor as f32 / sample_rate as f32, 1.0),
         }
     }
 
-    pub(crate) fn set_dry_pct(&mut self, dry_pct: f32) {
-        self.dry_pct = dry_pct;
+    pub(crate) fn set_dry_wet_mix(&mut self, wet_pct: f32) {
+        self.dry_wet_mix = wet_pct;
+    }
+
+    pub(crate) fn set_control_dry_wet_mix(&mut self, value: F32ControlValue) {
+        self.set_dry_wet_mix(value.0);
     }
 }
 

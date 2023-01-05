@@ -578,6 +578,13 @@ impl GrooveOrchestrator {
     ) -> Response<GrooveMessage> {
         let control_links = self.store.control_links(uid).clone();
         for (target_uid, param_id) in control_links {
+            if let Some(entity) = self.store.get_mut(target_uid) {
+                if let Some(entity) = entity.as_controllable_mut() {
+                    entity.set_by_control_index(param_id, crate::traits::F32ControlValue(value));
+                    continue;
+                }
+            }
+            // TODO: kill this when all are switched over to Controllable
             self.dispatch_and_wrap_entity_message(
                 clock,
                 target_uid,
@@ -1050,6 +1057,14 @@ pub mod tests {
         ) -> Response<TestMessage> {
             let control_links = self.store.control_links(uid).clone();
             for (target_uid, param_id) in control_links {
+                if let Some(entity) = self.store.get_mut(target_uid) {
+                    if let Some(entity) = entity.as_controllable_mut() {
+                        entity
+                            .set_by_control_index(param_id, crate::traits::F32ControlValue(value));
+                        continue;
+                    }
+                }
+                // TODO: kill this when all are switched over to Controllable
                 self.dispatch_and_wrap_entity_message(
                     clock,
                     target_uid,

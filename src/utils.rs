@@ -4,10 +4,13 @@ use crate::{
     instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
     messages::{EntityMessage, MessageBounds},
     settings::patches::EnvelopeSettings,
-    traits::{HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates, Updateable},
+    traits::{
+        Controllable, F32ControlValue, HasUid, IsController, IsInstrument, Response, SourcesAudio,
+        Terminates, Updateable,
+    },
 };
 use core::fmt::Debug;
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use std::{
     env::{current_dir, current_exe},
     marker::PhantomData,
@@ -210,15 +213,12 @@ impl Paths {
     }
 }
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub enum TestSynthControlParams {
-    OscillatorModulation,
-}
-
-#[derive(Debug, Uid)]
+#[derive(Control, Debug, Uid)]
 pub struct TestSynth<M: MessageBounds> {
     uid: usize,
+
+    #[controllable]
+    oscillator_modulation: f32,
 
     oscillator: Box<Oscillator>,
     envelope: Box<dyn SourcesAudio>,
@@ -248,11 +248,22 @@ impl<M: MessageBounds> TestSynth<M> {
     pub fn oscillator_modulation(&self) -> f32 {
         self.oscillator.frequency_modulation()
     }
+
+    pub fn set_oscillator_modulation(&mut self, oscillator_modulation: f32) {
+        self.oscillator_modulation = oscillator_modulation;
+        self.oscillator
+            .set_frequency_modulation(oscillator_modulation);
+    }
+
+    pub fn set_control_oscillator_modulation(&mut self, oscillator_modulation: F32ControlValue) {
+        self.set_oscillator_modulation(oscillator_modulation.0);
+    }
 }
 impl<M: MessageBounds> Default for TestSynth<M> {
     fn default() -> Self {
         Self {
             uid: 0,
+            oscillator_modulation: Default::default(),
             oscillator: Box::new(Oscillator::default()),
             envelope: Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
             _phantom: Default::default(),
@@ -289,15 +300,6 @@ impl Updateable for TestSynth<EntityMessage> {
 
     fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
-            Self::Message::UpdateF32(param_index, value) => {
-                if let Some(param) = TestSynthControlParams::from_repr(param_index) {
-                    match param {
-                        TestSynthControlParams::OscillatorModulation => {
-                            self.oscillator.set_frequency_modulation(value);
-                        }
-                    }
-                }
-            }
             _ => todo!(),
         }
         Response::none()

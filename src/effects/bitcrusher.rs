@@ -2,26 +2,23 @@ use crate::{
     clock::Clock,
     common::MonoSample,
     messages::EntityMessage,
-    traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    traits::{
+        Controllable, F32ControlValue, HasUid, IsEffect, Response, TransformsAudio, Updateable,
+    },
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use iced_audio::{IntRange, Normal};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum BitcrusherControlParams {
-    #[strum(serialize = "bits-to-crush", serialize = "bits-to-crush-pct")]
-    BitsToCrushPct,
-}
-
-#[derive(Debug, Default, Uid)]
+#[derive(Control, Debug, Default, Uid)]
 pub struct Bitcrusher {
     uid: usize,
+
+    #[controllable]
     bits_to_crush: u8,
 
-    int_range: IntRange,
+    bits_to_crush_int_range: IntRange,
 }
 impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
@@ -42,7 +39,7 @@ impl Updateable for Bitcrusher {
                 self.set_indexed_param_f32(param_id, value);
             }
             EntityMessage::HSliderInt(value) => {
-                self.set_bits_to_crush(self.int_range.unmap_to_value(value) as u8);
+                self.set_bits_to_crush(self.bits_to_crush_int_range.unmap_to_value(value) as u8);
             }
             _ => todo!(),
         }
@@ -60,9 +57,11 @@ impl Updateable for Bitcrusher {
     fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
         if let Some(param) = BitcrusherControlParams::from_repr(index) {
             match param {
-                BitcrusherControlParams::BitsToCrushPct => {
+                BitcrusherControlParams::BitsToCrush => {
                     self.set_bits_to_crush(
-                        self.int_range.unmap_to_value(Normal::from_clipped(value)) as u8,
+                        self.bits_to_crush_int_range
+                            .unmap_to_value(Normal::from_clipped(value))
+                            as u8,
                     );
                 }
             }
@@ -81,7 +80,7 @@ impl Bitcrusher {
     pub(crate) fn new_with(bits_to_crush: u8) -> Self {
         Self {
             bits_to_crush,
-            int_range: IntRange::new(0, 15),
+            bits_to_crush_int_range: IntRange::new(0, 15),
             ..Default::default()
         }
     }
@@ -94,9 +93,15 @@ impl Bitcrusher {
         self.bits_to_crush = n;
     }
 
-    // TODO: this is a temporary and nonsensical name
-    pub fn int_range(&self) -> IntRange {
-        self.int_range
+    pub(crate) fn set_control_bits_to_crush(&mut self, value: F32ControlValue) {
+        self.set_bits_to_crush(
+            self.bits_to_crush_int_range
+                .unmap_to_value(Normal::from_clipped(value.0)) as u8,
+        );
+    }
+
+    pub fn bits_to_crush_int_range(&self) -> IntRange {
+        self.bits_to_crush_int_range
     }
 }
 

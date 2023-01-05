@@ -762,7 +762,8 @@ impl GrooveApp {
     fn bitcrusher_view(&self, e: &Bitcrusher) -> Element<EntityMessage> {
         let title = format!("{}: {}", type_name::<Bitcrusher>(), e.bits_to_crush());
         let contents = container(row![HSlider::new(
-            e.int_range().normal_param(e.bits_to_crush() as i32, 8),
+            e.bits_to_crush_int_range()
+                .normal_param(e.bits_to_crush() as i32, 8),
             EntityMessage::HSliderInt
         )])
         .padding(20);
