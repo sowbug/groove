@@ -45,6 +45,8 @@ pub enum EffectSettings {
     },
     #[serde(rename = "filter-low-pass-12db")]
     FilterLowPass12db { cutoff: f32, q: f32 },
+    #[serde(rename = "filter-low-pass-24db", rename_all = "kebab-case")]
+    FilterLowPass24db { cutoff: f32, passband_ripple: f32 },
     #[serde(rename = "filter-high-pass-12db")]
     FilterHighPass12db { cutoff: f32, q: f32 },
     #[serde(rename = "filter-band-pass-12db")]
@@ -90,8 +92,19 @@ impl EffectSettings {
                 BoxedEntity::Bitcrusher(Box::new(Bitcrusher::new_with(bits_to_crush)))
             }
             EffectSettings::FilterLowPass12db { cutoff, q } => BoxedEntity::BiQuadFilter(Box::new(
-                BiQuadFilter::new_with(&FilterParams::LowPass { cutoff, q }, sample_rate),
+                BiQuadFilter::new_with(&FilterParams::LowPass12db { cutoff, q }, sample_rate),
             )),
+            EffectSettings::FilterLowPass24db {
+                cutoff,
+                passband_ripple,
+            } => BoxedEntity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+                &FilterParams::LowPass24db {
+                    cutoff,
+                    passband_ripple,
+                },
+                sample_rate,
+            ))),
+
             EffectSettings::FilterHighPass12db { cutoff, q } => {
                 BoxedEntity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     &FilterParams::HighPass { cutoff, q },

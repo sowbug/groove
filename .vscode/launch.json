@@ -59,7 +59,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}demos${pathSeparator}instruments${pathSeparator}welsh-angels.yaml"
+        "projects${pathSeparator}demos${pathSeparator}effects${pathSeparator}filter-low-pass-24db_noise_cutoff-1000_passband-ripple-sweep.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },

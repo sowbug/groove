@@ -15,13 +15,15 @@ pub(crate) enum BiQuadFilterControlParams {
     CutoffPct,
     DbGain,
     Q,
+    PassbandRipple,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {
     #[default]
     None,
-    LowPass,
+    LowPass12db,
+    LowPass24db,
     HighPass,
     BandPass,
     BandStop,
@@ -35,9 +37,13 @@ pub enum FilterType {
 pub enum FilterParams {
     #[default]
     None,
-    LowPass {
+    LowPass12db {
         cutoff: f32,
         q: f32,
+    },
+    LowPass24db {
+        cutoff: f32,
+        passband_ripple: f32,
     },
     HighPass {
         cutoff: f32,
@@ -74,7 +80,11 @@ impl FilterParams {
         #[allow(unused_variables)]
         match params {
             FilterParams::None => FilterType::None,
-            FilterParams::LowPass { cutoff, q } => FilterType::LowPass,
+            FilterParams::LowPass12db { cutoff, q } => FilterType::LowPass12db,
+            FilterParams::LowPass24db {
+                cutoff,
+                passband_ripple: q,
+            } => FilterType::LowPass24db,
             FilterParams::HighPass { cutoff, q } => FilterType::HighPass,
             FilterParams::BandPass { cutoff, bandwidth } => FilterType::BandPass,
             FilterParams::BandStop { cutoff, bandwidth } => FilterType::BandStop,
@@ -96,6 +106,16 @@ struct CoefficientSet {
     b2: f64,
 }
 
+#[derive(Clone, Debug, Default)]
+struct CoefficientSet2 {
+    // a3 isn't needed right now
+    a4: f64,
+    a5: f64,
+    b3: f64,
+    b4: f64,
+    b5: f64,
+}
+
 /// https://en.wikipedia.org/wiki/Digital_biquad_filter
 #[derive(Clone, Debug)]
 pub struct BiQuadFilter<M: MessageBounds> {
@@ -106,6 +126,7 @@ pub struct BiQuadFilter<M: MessageBounds> {
     cutoff: f32,
     param2: f32, // can represent q, bandwidth, or db_gain
     coefficients: CoefficientSet,
+    coefficients_2: CoefficientSet2,
 
     // Working variables
     sample_m1: f64, // "sample minus two" or x(n-2)
@@ -113,25 +134,49 @@ pub struct BiQuadFilter<M: MessageBounds> {
     output_m1: f64,
     output_m2: f64,
 
+    state_0: f64,
+    state_1: f64,
+    state_2: f64,
+    state_3: f64,
+
     _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsEffect for BiQuadFilter<M> {}
 impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
-        let s64 = input_sample as f64;
-        let r = (self.coefficients.b0 / self.coefficients.a0) * s64
-            + (self.coefficients.b1 / self.coefficients.a0) * self.sample_m1
-            + (self.coefficients.b2 / self.coefficients.a0) * self.sample_m2
-            - (self.coefficients.a1 / self.coefficients.a0) * self.output_m1
-            - (self.coefficients.a2 / self.coefficients.a0) * self.output_m2;
+        match self.filter_type {
+            FilterType::LowPass24db => {
+                // Thanks
+                // https://www.musicdsp.org/en/latest/Filters/229-lpf-24db-oct.html
+                let input = input_sample as f64;
+                let stage_1 = self.coefficients.b0 * input + self.state_0;
+                self.state_0 =
+                    self.coefficients.b1 * input + self.coefficients.a1 * stage_1 + self.state_1;
+                self.state_1 = self.coefficients.b2 * input + self.coefficients.a2 * stage_1;
+                let output = self.coefficients_2.b3 * stage_1 + self.state_2;
+                self.state_2 = self.coefficients_2.b4 * stage_1
+                    + self.coefficients_2.a4 * output
+                    + self.state_3;
+                self.state_3 = self.coefficients_2.b5 * stage_1 + self.coefficients_2.a5 * output;
+                output as MonoSample
+            }
+            _ => {
+                let s64 = input_sample as f64;
+                let r = (self.coefficients.b0 / self.coefficients.a0) * s64
+                    + (self.coefficients.b1 / self.coefficients.a0) * self.sample_m1
+                    + (self.coefficients.b2 / self.coefficients.a0) * self.sample_m2
+                    - (self.coefficients.a1 / self.coefficients.a0) * self.output_m1
+                    - (self.coefficients.a2 / self.coefficients.a0) * self.output_m2;
 
-        // Scroll everything forward in time.
-        self.sample_m2 = self.sample_m1;
-        self.sample_m1 = s64;
+                // Scroll everything forward in time.
+                self.sample_m2 = self.sample_m1;
+                self.sample_m1 = s64;
 
-        self.output_m2 = self.output_m1;
-        self.output_m1 = r;
-        r as MonoSample
+                self.output_m2 = self.output_m1;
+                self.output_m1 = r;
+                r as MonoSample
+            }
+        }
     }
 }
 impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
@@ -157,6 +202,9 @@ impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
                 BiQuadFilterControlParams::CutoffPct => self.set_cutoff_pct(value),
                 BiQuadFilterControlParams::DbGain => self.set_db_gain(value),
                 BiQuadFilterControlParams::Q => self.set_q(Self::denormalize_q(value)),
+                BiQuadFilterControlParams::PassbandRipple => {
+                    self.set_passband_ripple(value * 2.0 * std::f32::consts::PI)
+                }
             }
         } else {
             todo!()
@@ -249,10 +297,16 @@ impl<M: MessageBounds> BiQuadFilter<M> {
             cutoff: Default::default(),
             param2: Default::default(),
             coefficients: CoefficientSet::default(),
+            coefficients_2: CoefficientSet2::default(),
             sample_m1: Default::default(),
             sample_m2: Default::default(),
             output_m1: Default::default(),
             output_m2: Default::default(),
+            state_0: Default::default(),
+            state_1: Default::default(),
+            state_2: Default::default(),
+            state_3: Default::default(),
+
             _phantom: Default::default(),
         }
     }
@@ -263,9 +317,16 @@ impl<M: MessageBounds> BiQuadFilter<M> {
         r.sample_rate = sample_rate;
         match *params {
             FilterParams::None => {}
-            FilterParams::LowPass { cutoff, q } => {
+            FilterParams::LowPass12db { cutoff, q } => {
                 r.cutoff = cutoff;
                 r.param2 = q;
+            }
+            FilterParams::LowPass24db {
+                cutoff,
+                passband_ripple,
+            } => {
+                r.cutoff = cutoff;
+                r.param2 = passband_ripple;
             }
             FilterParams::HighPass { cutoff, q } => {
                 r.cutoff = cutoff;
@@ -303,7 +364,7 @@ impl<M: MessageBounds> BiQuadFilter<M> {
     fn update_coefficients(&mut self) {
         self.coefficients = match self.filter_type {
             FilterType::None => self.rbj_none_coefficients(),
-            FilterType::LowPass => self.rbj_low_pass_coefficients(),
+            FilterType::LowPass12db => self.rbj_low_pass_coefficients(),
             FilterType::HighPass => self.rbj_high_pass_coefficients(),
             FilterType::BandPass => self.rbj_band_pass_coefficients(),
             FilterType::BandStop => self.rbj_band_stop_coefficients(),
@@ -311,7 +372,43 @@ impl<M: MessageBounds> BiQuadFilter<M> {
             FilterType::PeakingEq => self.rbj_peaking_eq_coefficients(),
             FilterType::LowShelf => self.rbj_low_shelf_coefficients(),
             FilterType::HighShelf => self.rbj_high_shelf_coefficients(),
+            _ => self.rbj_none_coefficients(),
         };
+        if matches!(self.filter_type, FilterType::LowPass24db) {
+            let k = (PI * self.cutoff as f64 / self.sample_rate as f64).tan();
+            let p2 = self.param2 as f64;
+            let sg = p2.sinh();
+            let cg = p2.cosh() * p2.cosh();
+
+            let c0 = 1.0 / (cg - 0.85355339059327376220042218105097);
+            let c1 = k * c0 * sg * 1.847759065022573512256366378792;
+            let c2 = 1.0 / (cg - 0.14644660940672623779957781894758);
+            let c3 = k * c2 * sg * 0.76536686473017954345691996806;
+            let k = k * k;
+
+            let a0 = 1.0 / (c1 + k + c0);
+            let a1 = 2.0 * (c0 - k) * a0;
+            let a2 = (c1 - k - c0) * a0;
+            let b0 = a0 * k;
+            let b1 = 2.0 * b0;
+            let b2 = b0;
+            self.coefficients = CoefficientSet {
+                a0,
+                a1,
+                a2,
+                b0,
+                b1,
+                b2,
+            };
+
+            let a3 = 1.0 / (c3 + k + c2);
+            let a4 = 2.0 * (c2 - k) * a3;
+            let a5 = (c3 - k - c2) * a3;
+            let b3 = a3 * k;
+            let b4 = 2.0 * b3;
+            let b5 = b3;
+            self.coefficients_2 = CoefficientSet2 { a4, a5, b3, b4, b5 };
+        }
     }
 
     pub fn cutoff_hz(&self) -> f32 {
@@ -364,6 +461,18 @@ impl<M: MessageBounds> BiQuadFilter<M> {
             self.update_coefficients();
         }
     }
+
+    /// Range is -1..1
+    pub fn passband_ripple(&self) -> f32 {
+        self.param2
+    }
+    pub fn set_passband_ripple(&mut self, passband_ripple: f32) {
+        if self.param2 != passband_ripple {
+            self.param2 = passband_ripple;
+            self.update_coefficients();
+        }
+    }
+
     fn rbj_none_coefficients(&self) -> CoefficientSet {
         CoefficientSet {
             a0: 1.0,

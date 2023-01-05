@@ -430,14 +430,14 @@ impl WelshVoice {
             lfo_depth: preset.lfo.depth.into(),
 
             filter: BiQuadFilter::new_with(
-                &FilterParams::LowPass {
-                    cutoff: preset.filter_type_12db.cutoff_hz,
-                    q: BiQuadFilter::<EntityMessage>::denormalize_q(preset.filter_resonance),
+                &FilterParams::LowPass24db {
+                    cutoff: preset.filter_type_24db.cutoff_hz,
+                    passband_ripple: BiQuadFilter::<EntityMessage>::denormalize_q(preset.filter_resonance),
                 },
                 sample_rate,
             ),
             filter_cutoff_start: BiQuadFilter::<EntityMessage>::frequency_to_percent(
-                preset.filter_type_12db.cutoff_hz,
+                preset.filter_type_24db.cutoff_hz,
             ),
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: AdsrEnvelope::new_with(&preset.filter_envelope),

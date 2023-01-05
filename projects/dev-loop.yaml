@@ -34,7 +34,7 @@ devices:
   - effect:
     - gain-1
     - gain:
-        ceiling: 0.25
+        ceiling: 0.45
   - effect:
     - gain-2
     - gain:
@@ -104,25 +104,25 @@ paths:
       - flat:
         - 0.0
       - flat:
-        - 0.1
-      - flat:
         - 0.5
+      - flat:
+        - 0.7
       - flat:
         - 1.0
   - id: path-slope-1
     note-value: quarter
     steps:
       - slope:
-          start: 0.0
-          end: 0.1
+          start: 0.25
+          end: 0.50
       - slope:
-          start: 0.1
-          end: 0.5
+          start: 0.50
+          end: 0.75
       - slope:
-          start: 0.5
-          end: 0.0
+          start: 0.75
+          end: 0.25
       - slope:
-          start: 0.0
+          start: 0.25
           end: 1.0
 trips:
   - id: trip-1
