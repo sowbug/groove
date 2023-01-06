@@ -9,11 +9,11 @@ use groove::{
     },
     traits::{HasUid, TestController, TestEffect, TestInstrument},
     AdsrEnvelope, Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity,
-    Chorus, Clock, ControlTrip, Delay, DrumkitSampler, EntityMessage, Gain, GrooveMessage,
-    GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
+    Chorus, Clock, Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, Gain,
+    GrooveMessage, GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
     MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Note,
     Oscillator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, TestLfo, TestSynth,
-    Timer, WelshSynth, Compressor,
+    Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
