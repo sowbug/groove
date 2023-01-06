@@ -114,18 +114,11 @@ pub struct BiQuadFilter<M: MessageBounds> {
     sample_rate: usize,
     filter_type: FilterType,
 
-    // The PhantomData fields below are all aliases of this single parameter.
-    param2: f32,
     #[controllable]
     cutoff: f32,
-    #[controllable]
-    q: PhantomData<f32>,
-    #[controllable]
-    bandwidth: PhantomData<f32>,
-    #[controllable]
-    db_gain: PhantomData<f32>,
-    #[controllable]
-    passband_ripple: PhantomData<f32>,
+
+    #[controllable(name="q", name="bandwidth", name="db-gain", name="passband-ripple")]
+    param2: f32,
 
     coefficients: CoefficientSet,
     coefficients_2: CoefficientSet2,
@@ -257,10 +250,6 @@ impl<M: MessageBounds> BiQuadFilter<M> {
             filter_type: Default::default(),
             sample_rate: Default::default(),
             cutoff: Default::default(),
-            q: Default::default(),
-            bandwidth: Default::default(),
-            db_gain: Default::default(),
-            passband_ripple: Default::default(),
             param2: Default::default(),
             coefficients: CoefficientSet::default(),
             coefficients_2: CoefficientSet2::default(),

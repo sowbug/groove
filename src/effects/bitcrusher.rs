@@ -14,7 +14,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 pub struct Bitcrusher {
     uid: usize,
 
-    #[controllable(name = "foo", name = "bar")]
+    #[controllable]
     bits_to_crush: u8,
 
     bits_to_crush_int_range: IntRange,

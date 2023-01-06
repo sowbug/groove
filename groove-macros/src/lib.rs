@@ -1,8 +1,10 @@
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
-use proc_macro2::Ident;
 use quote::{format_ident, quote};
+use syn::Meta;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Generics};
+use syn::{Attribute, Ident};
+use syn::{Lit, NestedMeta};
 
 #[proc_macro_derive(Uid)]
 pub fn uid_derive(input: TokenStream) -> TokenStream {
@@ -39,6 +41,45 @@ pub fn control_derive(input: TokenStream) -> TokenStream {
     ))
 }
 
+fn get_name_values(attr: &Attribute) -> Vec<String> {
+    if let Ok(meta) = attr.parse_meta() {
+        let meta_list = match meta {
+            Meta::List(list) => list,
+            _ => {
+                return Vec::default();
+            }
+        };
+
+        let punctuated = match meta_list.nested.len() {
+            0 => return Vec::default(),
+            _ => &meta_list.nested,
+        };
+
+        let values = punctuated.iter().fold(Vec::default(), |mut v, nested| {
+            if let NestedMeta::Meta(Meta::NameValue(name_value)) = nested {
+                if name_value.path.is_ident("name") {
+                    match &name_value.lit {
+                        Lit::Str(s) => {
+                            v.push(s.value());
+                        }
+                        _ => {
+                            // Err: expected string literal
+                        }
+                    }
+                } else {
+                    // Err: unsupported attribute
+                }
+            } else {
+                // Err: unexpected junk when we were looking for name=v
+            }
+            v
+        });
+        values
+    } else {
+        Vec::default()
+    }
+}
+
 fn parse_control_data(
     struct_name: &Ident,
     generics: &Generics,
@@ -58,19 +99,21 @@ fn parse_control_data(
         }) => &fields.named,
         _ => panic!("this derive macro only works on structs with named fields"),
     };
-    let controllables: Vec<_> = fields
-        .into_iter()
-        .filter(|f| {
-            let attrs: Vec<_> = f
-                .attrs
-                .iter()
-                .filter(|attr| attr.path.is_ident("controllable"))
-                .collect();
-            !attrs.is_empty()
-        })
-        .map(|f| f.ident.as_ref().unwrap().to_string())
-        .collect();
-    //    eprintln!("for {}, {:#?}", &struct_name, &controllables);
+    let controllables: Vec<String> = fields.into_iter().fold(Vec::default(), |mut v, f| {
+        let attrs: Vec<_> = f
+            .attrs
+            .iter()
+            .filter(|attr| attr.path.is_ident("controllable"))
+            .collect();
+        if !attrs.is_empty() {
+            let mut values = get_name_values(&attrs[0]);
+            if values.is_empty() {
+                values.push(f.ident.as_ref().unwrap().to_string());
+            }
+            v.extend(values);
+        }
+        v
+    });
 
     for name in controllables {
         enum_variant_names.push(format_ident!("{}", name.to_case(Case::Pascal)));
@@ -82,7 +125,7 @@ fn parse_control_data(
         // necessarily a bad thing, we're already seeing cases where the
         // controlled value doesn't actually correspond to a struct field (e.g.,
         // BiQuadFilter's param2), and I'm not sure I want to normalize that.
-        setter_names.push(format_ident!("set_control_{}", name));
+        setter_names.push(format_ident!("set_control_{}", name.to_case(Case::Snake)));
     }
 
     let enum_block = quote! {
