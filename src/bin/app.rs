@@ -13,7 +13,7 @@ use groove::{
     GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
     MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Note,
     Oscillator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, TestLfo, TestSynth,
-    Timer, WelshSynth,
+    Timer, WelshSynth, Compressor,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -398,6 +398,7 @@ impl GrooveApp {
                 )
                 .into(),
             ),
+            BoxedEntity::Compressor(e) => self.compressor_view(e),
             BoxedEntity::ControlTrip(e) => GuiStuff::titled_container(
                 type_name::<ControlTrip<EntityMessage>>(),
                 GuiStuff::<EntityMessage>::container_text(
@@ -769,6 +770,19 @@ impl GrooveApp {
             EntityMessage::HSliderInt
         )])
         .padding(20);
+        GuiStuff::titled_container(&title, contents.into())
+    }
+
+    fn compressor_view(&self, e: &Compressor) -> Element<EntityMessage> {
+        let title = format!("{}: {}", type_name::<Compressor>(), e.threshold());
+        let slider = HSlider::new(
+            NormalParam {
+                value: Normal::from_clipped(e.threshold()),
+                default: Normal::from_clipped(1.0),
+            },
+            EntityMessage::HSliderInt,
+        );
+        let contents = container(row![slider]).padding(20);
         GuiStuff::titled_container(&title, contents.into())
     }
 }

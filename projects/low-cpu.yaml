@@ -14,9 +14,16 @@ devices:
   - effect:
     - gain-1
     - gain:
-        ceiling: 0.20
+        ceiling: 0.50
+  - effect:
+    - compressor-1
+    - compressor:
+        threshold: 0.5
+        ratio: 0.5
+        attack: 0.1
+        release: 0.2
 patch-cables:
-  - [instrument-1, gain-1, main-mixer]
+  - [instrument-1, gain-1, compressor-1, main-mixer]
 patterns:
   - id: basic-1
     note-value: eighth

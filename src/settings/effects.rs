@@ -3,6 +3,7 @@ use crate::{
     effects::{
         bitcrusher::Bitcrusher,
         chorus::Chorus,
+        compressor::Compressor,
         delay::Delay,
         filter::{BiQuadFilter, FilterParams},
         gain::Gain,
@@ -34,6 +35,13 @@ pub enum EffectSettings {
         wet_dry_mix: f32,
         voices: usize,
         delay_factor: usize,
+    },
+    #[serde(rename_all = "kebab-case")]
+    Compressor {
+        threshold: f32,
+        ratio: f32,
+        attack: f32,
+        release: f32,
     },
     #[serde(rename_all = "kebab-case")]
     Delay { delay: f32 },
@@ -91,6 +99,14 @@ impl EffectSettings {
             EffectSettings::Bitcrusher { bits_to_crush } => {
                 BoxedEntity::Bitcrusher(Box::new(Bitcrusher::new_with(bits_to_crush)))
             }
+            EffectSettings::Compressor {
+                threshold,
+                ratio,
+                attack,
+                release,
+            } => BoxedEntity::Compressor(Box::new(Compressor::new_with(
+                threshold, ratio, attack, release,
+            ))),
             EffectSettings::FilterLowPass12db { cutoff, q } => BoxedEntity::BiQuadFilter(Box::new(
                 BiQuadFilter::new_with(&FilterParams::LowPass12db { cutoff, q }, sample_rate),
             )),

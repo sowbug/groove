@@ -5,8 +5,8 @@ use crate::{
         ControlTrip,
     },
     effects::{
-        bitcrusher::Bitcrusher, chorus::Chorus, delay::Delay, filter::BiQuadFilter, gain::Gain,
-        limiter::Limiter, mixer::Mixer, reverb::Reverb,
+        bitcrusher::Bitcrusher, chorus::Chorus, compressor::Compressor, delay::Delay,
+        filter::BiQuadFilter, gain::Gain, limiter::Limiter, mixer::Mixer, reverb::Reverb,
     },
     instruments::{
         drumkit_sampler::DrumkitSampler, envelopes::AdsrEnvelope, oscillators::Oscillator,
@@ -20,10 +20,6 @@ use crate::{
     },
     utils::{AudioSource, TestLfo, TestSynth, Timer},
 };
-
-// TODO: when you're REALLY bored, try generating more boilerplate for entities,
-// such as HasUid. You'll need to deal with optional generics, and you'll have
-// to place the code in the right modules.
 
 macro_rules! boxed_entity_enum_and_common_crackers {
     ($($variant:ident: $type:ty,)*) => {
@@ -72,6 +68,7 @@ boxed_entity_enum_and_common_crackers! {
     BiQuadFilter: BiQuadFilter<EntityMessage>,
     Bitcrusher: Bitcrusher,
     Chorus: Chorus,
+    Compressor: Compressor,
     Delay: Delay,
     Gain: Gain<EntityMessage>,
     Limiter: Limiter,
@@ -114,6 +111,7 @@ controllable_crackers! {
     BiQuadFilter,
     Bitcrusher,
     Chorus,
+    Compressor,
     Delay,
     Gain,
     Limiter,
@@ -180,6 +178,7 @@ effect_crackers! {
     BiQuadFilter,
     Bitcrusher,
     Chorus,
+    Compressor,
     Delay,
     Gain,
     Limiter,
