@@ -1,12 +1,13 @@
 use crate::{
     clock::Clock,
+    common::F32ControlValue,
     common::MonoSample,
     instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
     messages::{EntityMessage, MessageBounds},
     settings::patches::EnvelopeSettings,
     traits::{
-        Controllable, F32ControlValue, HasUid, IsController, IsInstrument, Response, SourcesAudio,
-        Terminates, Updateable,
+        Controllable, HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates,
+        Updateable,
     },
 };
 use core::fmt::Debug;
@@ -128,7 +129,7 @@ pub(crate) enum TestAudioSourceSetLevelControlParams {
     Level,
 }
 
-#[derive(Debug, Default, Uid)]
+#[derive(Control, Debug, Default, Uid)]
 pub struct AudioSource<M: MessageBounds> {
     uid: usize,
     level: MonoSample,
@@ -290,10 +291,6 @@ impl<M: MessageBounds> Updateable for TestSynth<M> {
     ) -> Response<Self::Message> {
         Response::none()
     }
-
-    default fn param_id_for_name(&self, _param_name: &str) -> usize {
-        usize::MAX
-    }
 }
 impl Updateable for TestSynth<EntityMessage> {
     type Message = EntityMessage;
@@ -301,14 +298,6 @@ impl Updateable for TestSynth<EntityMessage> {
     fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             _ => todo!(),
-        }
-        Response::none()
-    }
-    fn param_id_for_name(&self, param_name: &str) -> usize {
-        if let Ok(param) = TestSynthControlParams::from_str(param_name) {
-            param as usize
-        } else {
-            0
         }
     }
 }
@@ -337,10 +326,6 @@ impl<M: MessageBounds> Updateable for TestLfo<M> {
     ) -> Response<Self::Message> {
         Response::none()
     }
-
-    default fn param_id_for_name(&self, _param_name: &str) -> usize {
-        usize::MAX
-    }
 }
 impl Updateable for TestLfo<EntityMessage> {
     type Message = EntityMessage;
@@ -351,14 +336,6 @@ impl Updateable for TestLfo<EntityMessage> {
             Response::single(Self::Message::ControlF32(self.value))
         } else {
             Response::none()
-        }
-    }
-
-    fn param_id_for_name(&self, param_name: &str) -> usize {
-        if let Ok(param) = TestLfoControlParams::from_str(param_name) {
-            param as usize
-        } else {
-            0
         }
     }
 }
@@ -392,17 +369,19 @@ pub mod tests {
         common::{MonoSample, MONO_SAMPLE_SILENCE},
         controllers::orchestrator::Orchestrator,
         entities::BoxedEntity,
-        messages::{tests::TestMessage, EntityMessage},
-        messages::{GrooveMessage, MessageBounds},
+        messages::{tests::TestMessage, EntityMessage, GrooveMessage, MessageBounds},
         midi::MidiChannel,
         traits::{
-            HasUid, IsController, IsEffect, Response, SourcesAudio, Terminates, TestController,
-            TestEffect, TestInstrument, TransformsAudio, Updateable,
+            Controllable, HasUid, IsController, IsEffect, Response, SourcesAudio, Terminates,
+            TestController, TestEffect, TestInstrument, TransformsAudio, Updateable,
         },
-        utils::{TestLfo, TestSynth, TestSynthControlParams},
+        utils::{F32ControlValue, TestLfo, TestSynth, TestSynthControlParams},
     };
     use convert_case::{Case, Casing};
+    use groove_macros::Control;
+    use std::str::FromStr;
     use std::{fs, marker::PhantomData, path::PathBuf};
+    use strum_macros::{Display, EnumString, FromRepr};
 
     fn read_samples_from_mono_wav_file(filename: &PathBuf) -> Vec<MonoSample> {
         let mut reader = hound::WavReader::open(filename).unwrap();
@@ -457,7 +436,7 @@ pub mod tests {
         }
     }
 
-    #[derive(Debug, Default)]
+    #[derive(Control, Debug, Default)]
     pub struct TestMixer<M: MessageBounds> {
         uid: usize,
 

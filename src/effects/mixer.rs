@@ -1,18 +1,15 @@
 use crate::{
     clock::Clock,
-    common::MonoSample,
+    common::{F32ControlValue, MonoSample},
     messages::MessageBounds,
-    traits::{HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use std::marker::PhantomData;
+use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum MixerControlParams {}
-
-#[derive(Clone, Debug, Default, Uid)]
+#[derive(Clone, Control, Debug, Default, Uid)]
 pub struct Mixer<M: MessageBounds> {
     uid: usize,
 

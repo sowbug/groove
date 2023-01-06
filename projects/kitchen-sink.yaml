@@ -42,7 +42,7 @@ devices:
   - effect:
       - reverb-1
       - reverb:
-          dry-pct: 0.4
+          wet-dry-mix: 0.6
           attenuation: 0.8
           reverb-seconds: 0.4
   - effect:

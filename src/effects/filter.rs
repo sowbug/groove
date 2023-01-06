@@ -1,23 +1,12 @@
 use crate::{
     clock::Clock,
-    common::MonoSample,
+    common::{F32ControlValue, MonoSample},
     messages::{EntityMessage, MessageBounds},
-    traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use std::{f64::consts::PI, marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
-
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum BiQuadFilterControlParams {
-    Bandwidth,
-    #[strum(serialize = "cutoff", serialize = "cutoff-pct")]
-    CutoffPct,
-    DbGain,
-    Q,
-    PassbandRipple,
-}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {
@@ -118,14 +107,26 @@ struct CoefficientSet2 {
 }
 
 /// https://en.wikipedia.org/wiki/Digital_biquad_filter
-#[derive(Clone, Debug, Uid)]
+#[derive(Control, Clone, Debug, Uid)]
 pub struct BiQuadFilter<M: MessageBounds> {
     uid: usize,
 
     sample_rate: usize,
     filter_type: FilterType,
+
+    // The PhantomData fields below are all aliases of this single parameter.
+    param2: f32,
+    #[controllable]
     cutoff: f32,
-    param2: f32, // can represent q, bandwidth, or db_gain
+    #[controllable]
+    q: PhantomData<f32>,
+    #[controllable]
+    bandwidth: PhantomData<f32>,
+    #[controllable]
+    db_gain: PhantomData<f32>,
+    #[controllable]
+    passband_ripple: PhantomData<f32>,
+
     coefficients: CoefficientSet,
     coefficients_2: CoefficientSet2,
 
@@ -187,30 +188,6 @@ impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
     default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         Response::none()
     }
-
-    fn param_id_for_name(&self, name: &str) -> usize {
-        if let Ok(param) = BiQuadFilterControlParams::from_str(name) {
-            param as usize
-        } else {
-            usize::MAX
-        }
-    }
-
-    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
-        if let Some(param) = BiQuadFilterControlParams::from_repr(index) {
-            match param {
-                BiQuadFilterControlParams::Bandwidth => self.set_bandwidth(value),
-                BiQuadFilterControlParams::CutoffPct => self.set_cutoff_pct(value),
-                BiQuadFilterControlParams::DbGain => self.set_db_gain(value),
-                BiQuadFilterControlParams::Q => self.set_q(Self::denormalize_q(value)),
-                BiQuadFilterControlParams::PassbandRipple => {
-                    self.set_passband_ripple(value * 2.0 * std::f32::consts::PI)
-                }
-            }
-        } else {
-            todo!()
-        }
-    }
 }
 impl Updateable for BiQuadFilter<EntityMessage> {
     type Message = EntityMessage;
@@ -218,15 +195,8 @@ impl Updateable for BiQuadFilter<EntityMessage> {
     #[allow(unused_variables)]
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
-            Self::Message::UpdateF32(param_id, value) => {
-                self.set_indexed_param_f32(param_id, value);
-            }
-
-            Self::Message::UpdateParam1U8(value) => {
-                self.set_indexed_param_f32(
-                    BiQuadFilterControlParams::CutoffPct as usize,
-                    value as f32 / 100.0,
-                );
+            EntityMessage::HSliderInt(value) => {
+                self.set_control_cutoff(F32ControlValue(value.as_f32()));
             }
             _ => todo!(),
         }
@@ -287,6 +257,10 @@ impl<M: MessageBounds> BiQuadFilter<M> {
             filter_type: Default::default(),
             sample_rate: Default::default(),
             cutoff: Default::default(),
+            q: Default::default(),
+            bandwidth: Default::default(),
+            db_gain: Default::default(),
+            passband_ripple: Default::default(),
             param2: Default::default(),
             coefficients: CoefficientSet::default(),
             coefficients_2: CoefficientSet2::default(),
@@ -422,8 +396,13 @@ impl<M: MessageBounds> BiQuadFilter<M> {
         self.set_cutoff_hz(Self::percent_to_frequency(percent));
     }
 
-    // Note that these three are all aliases for the same field: param2. This
-    // was easier, for now, than some kind of fancy impl per filter type.
+    pub fn set_param2(&mut self, value: f32) {
+        if self.param2 != value {
+            self.param2 = value;
+            self.update_coefficients();
+        }
+    }
+
     pub fn q(&self) -> f32 {
         self.param2
     }
@@ -432,6 +411,22 @@ impl<M: MessageBounds> BiQuadFilter<M> {
             self.param2 = q;
             self.update_coefficients();
         }
+    }
+
+    pub(crate) fn set_control_cutoff(&mut self, value: F32ControlValue) {
+        self.set_cutoff_pct(value.0);
+    }
+    pub(crate) fn set_control_q(&mut self, value: F32ControlValue) {
+        self.set_param2(Self::denormalize_q(value.0));
+    }
+    pub(crate) fn set_control_bandwidth(&mut self, value: F32ControlValue) {
+        self.set_param2(value.0);
+    }
+    pub(crate) fn set_control_db_gain(&mut self, value: F32ControlValue) {
+        self.set_param2(value.0);
+    }
+    pub(crate) fn set_control_passband_ripple(&mut self, value: F32ControlValue) {
+        self.set_param2(value.0 * 2.0 * std::f32::consts::PI);
     }
 
     pub fn db_gain(&self) -> f32 {

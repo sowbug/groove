@@ -31,7 +31,7 @@ pub enum EffectSettings {
     Bitcrusher { bits_to_crush: u8 },
     #[serde(rename_all = "kebab-case")]
     Chorus {
-        dry_pct: f32,
+        wet_dry_mix: f32,
         voices: usize,
         delay_factor: usize,
     },
@@ -39,7 +39,7 @@ pub enum EffectSettings {
     Delay { delay: f32 },
     #[serde(rename_all = "kebab-case")]
     Reverb {
-        dry_pct: f32,
+        wet_dry_mix: f32,
         attenuation: f32,
         reverb_seconds: f32,
     },
@@ -148,22 +148,22 @@ impl EffectSettings {
                 BoxedEntity::Delay(Box::new(Delay::new_with(sample_rate, delay)))
             }
             EffectSettings::Reverb {
-                dry_pct,
+                wet_dry_mix,
                 attenuation,
                 reverb_seconds,
             } => BoxedEntity::Reverb(Box::new(Reverb::new_with(
                 sample_rate,
-                dry_pct,
+                wet_dry_mix,
                 attenuation,
                 reverb_seconds,
             ))),
             EffectSettings::Chorus {
-                dry_pct,
+                wet_dry_mix,
                 voices,
                 delay_factor,
             } => BoxedEntity::Chorus(Box::new(Chorus::new_with(
                 sample_rate,
-                dry_pct,
+                wet_dry_mix,
                 voices,
                 delay_factor,
             ))),

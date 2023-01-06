@@ -1,4 +1,5 @@
 use crate::clock::ClockTimeUnit;
+use crate::common::F32ControlValue;
 use crate::messages::EntityMessage;
 use crate::{clock::Clock, common::MonoSample, messages::MessageBounds};
 use crate::{
@@ -8,6 +9,7 @@ use crate::{
     settings::patches::WaveformType,
 };
 use assert_approx_eq::assert_approx_eq;
+use groove_macros::Control;
 use midly::MidiMessage;
 use std::collections::VecDeque;
 use std::{marker::PhantomData, str::FromStr};
@@ -31,12 +33,18 @@ pub trait IsController: Updateable + Terminates + HasUid + Send + std::fmt::Debu
 /// delay effect), and it turns out to be inconvenient for an IsController to
 /// track the end. In this case, we might add a Terminates bound for IsEffect.
 /// But right now I'm not sure that's the right solution.
-pub trait IsEffect: TransformsAudio + Updateable + HasUid + Send + std::fmt::Debug {}
+pub trait IsEffect:
+    TransformsAudio + Updateable + Controllable + HasUid + Send + std::fmt::Debug
+{
+}
 
 /// An IsInstrument produces audio, usually upon request from MIDI or
 /// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
 /// because it continues to create audio as long as asked.
-pub trait IsInstrument: SourcesAudio + Updateable + HasUid + Send + std::fmt::Debug {}
+pub trait IsInstrument:
+    SourcesAudio + Updateable + Controllable + HasUid + Send + std::fmt::Debug
+{
+}
 
 /// A future fourth trait might be named something like IsWidget or
 /// IsGuiElement. These exist only to interact with the user of a GUI app, but
@@ -54,17 +62,8 @@ pub trait Updateable {
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         Response::none()
     }
-    #[allow(unused_variables)]
-    fn param_id_for_name(&self, name: &str) -> usize {
-        todo!()
-    }
-    #[allow(unused_variables)]
-    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
-        todo!()
-    }
 }
 
-pub struct F32ControlValue(pub f32);
 pub trait Controllable {
     #[allow(unused_variables)]
     fn control_index_for_name(&self, name: &str) -> usize {
@@ -297,15 +296,11 @@ impl<M: MessageBounds> TestsValues for TestController<M> {
     }
 }
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum TestEffectControlParams {
-    MyValue,
-}
-
-#[derive(Debug, Default)]
+#[derive(Control, Debug, Default)]
 pub struct TestEffect<M: MessageBounds> {
     uid: usize,
+
+    #[controllable]
     my_value: f32,
 
     pub checkpoint_values: VecDeque<f32>,
@@ -328,11 +323,6 @@ impl<M: MessageBounds> Updateable for TestEffect<M> {
     #[allow(unused_variables)]
     default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         Response::none()
-    }
-
-    #[allow(unused_variables)]
-    default fn param_id_for_name(&self, name: &str) -> usize {
-        todo!()
     }
 }
 impl<M: MessageBounds> HasUid for TestEffect<M> {
@@ -392,16 +382,10 @@ impl<M: MessageBounds> TestEffect<M> {
     pub fn my_value(&self) -> f32 {
         self.my_value
     }
-}
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum TestInstrumentControlParams {
-    // -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
-    Waveform,
-
-    // A fake adjustable number.
-    FakeValue,
+    pub(crate) fn set_control_my_value(&mut self, my_value: F32ControlValue) {
+        self.set_my_value(my_value.0);
+    }
 }
 
 /// A simple implementation of IsInstrument that's useful for testing and
@@ -410,16 +394,22 @@ pub(crate) enum TestInstrumentControlParams {
 ///
 /// To act as a controller target, it has two parameters: Oscillator waveform
 /// and frequency.
-#[derive(Debug, Default)]
+#[derive(Control, Debug, Default)]
 pub struct TestInstrument<M: MessageBounds> {
     uid: usize,
+
+    /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
+    #[controllable]
+    pub waveform: PhantomData<WaveformType>,
+
+    #[controllable]
+    pub fake_value: f32,
 
     oscillator: Oscillator,
     pub is_playing: bool,
     pub received_count: usize,
     pub handled_count: usize,
 
-    pub fake_value: f32,
     pub checkpoint_values: VecDeque<f32>,
     pub checkpoint: f32,
     pub checkpoint_delta: f32,
@@ -439,14 +429,6 @@ impl<M: MessageBounds> Updateable for TestInstrument<M> {
         _message: Self::Message,
     ) -> Response<Self::Message> {
         Response::none()
-    }
-
-    fn param_id_for_name(&self, param_name: &str) -> usize {
-        if let Ok(param) = TestInstrumentControlParams::from_str(param_name) {
-            param as usize
-        } else {
-            usize::MAX
-        }
     }
 }
 impl<M: MessageBounds> HasUid for TestInstrument<M> {
@@ -531,10 +513,10 @@ impl<M: MessageBounds> TestInstrument<M> {
         }
     }
 
-    pub fn set_waveform(&mut self, value: f32) {
-        self.oscillator.set_waveform(if value == -1.0 {
+    pub fn set_control_waveform(&mut self, value: F32ControlValue) {
+        self.oscillator.set_waveform(if value.0 == -1.0 {
             WaveformType::Sawtooth
-        } else if value == 1.0 {
+        } else if value.0 == 1.0 {
             WaveformType::Square
         } else {
             WaveformType::Sine
@@ -547,6 +529,10 @@ impl<M: MessageBounds> TestInstrument<M> {
 
     pub fn fake_value(&self) -> f32 {
         self.fake_value
+    }
+
+    pub(crate) fn set_control_fake_value(&mut self, fake_value: F32ControlValue) {
+        self.set_fake_value(fake_value.0);
     }
 }
 
@@ -627,23 +613,7 @@ impl Updateable for TestEffect<EntityMessage> {
 
     fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
-            Self::Message::UpdateF32(param_id, value) => {
-                if let Some(param) = TestEffectControlParams::from_repr(param_id) {
-                    match param {
-                        TestEffectControlParams::MyValue => self.set_my_value(value),
-                    }
-                }
-            }
             _ => todo!(),
-        }
-        Response::none()
-    }
-
-    fn param_id_for_name(&self, param_name: &str) -> usize {
-        if let Ok(param) = TestEffectControlParams::from_str(param_name) {
-            param as usize
-        } else {
-            usize::MAX
         }
     }
 }
@@ -653,14 +623,6 @@ impl Updateable for TestInstrument<EntityMessage> {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
-            Self::Message::UpdateF32(param_id, value) => {
-                if let Some(param) = TestInstrumentControlParams::from_repr(param_id) {
-                    match param {
-                        TestInstrumentControlParams::Waveform => self.set_waveform(value),
-                        TestInstrumentControlParams::FakeValue => self.set_fake_value(value),
-                    }
-                }
-            }
             Self::Message::Midi(channel, message) => {
                 self.handle_midi(clock, channel, message);
             }

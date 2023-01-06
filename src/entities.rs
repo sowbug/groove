@@ -110,8 +110,16 @@ macro_rules! controllable_crackers {
 }
 
 controllable_crackers! {
+    Arpeggiator,
+    BiQuadFilter,
     Bitcrusher,
     Chorus,
+    Delay,
+    Gain,
+    Limiter,
+    Reverb,
+    TestEffect,
+    TestInstrument,
     TestSynth,
 }
 

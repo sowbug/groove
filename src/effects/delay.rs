@@ -1,10 +1,11 @@
 use crate::{
     clock::Clock,
-    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    common::{F32ControlValue, MonoSample, MONO_SAMPLE_SILENCE},
     messages::EntityMessage,
-    traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
+use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
 pub(super) trait Delays {
@@ -182,16 +183,13 @@ impl Delays for AllPassDelayLine {
     }
 }
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum DelayControlParams {
-    #[strum(serialize = "delay", serialize = "delay-seconds")]
-    DelaySeconds,
-}
-
-#[derive(Debug, Default, Uid)]
+#[derive(Control, Debug, Default, Uid)]
 pub struct Delay {
     uid: usize,
+
+    #[controllable]
+    seconds: PhantomData<f32>,
+
     delay: DelayLine,
 }
 impl IsEffect for Delay {}
@@ -206,21 +204,7 @@ impl Updateable for Delay {
     #[allow(unused_variables)]
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
-            Self::Message::UpdateF32(param_id, value) => {
-                self.set_indexed_param_f32(param_id, value);
-            }
             _ => todo!(),
-        }
-        Response::none()
-    }
-
-    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
-        if let Some(param) = DelayControlParams::from_repr(index) {
-            match param {
-                DelayControlParams::DelaySeconds => self.delay.set_delay_seconds(value),
-            }
-        } else {
-            todo!()
         }
     }
 }
@@ -233,18 +217,22 @@ impl Delay {
 
     pub(crate) fn new_with(sample_rate: usize, delay_seconds: f32) -> Self {
         Self {
-            uid: Default::default(),
             delay: DelayLine::new_with(sample_rate, delay_seconds, 1.0),
+            ..Default::default()
         }
     }
 
-    pub fn delay_seconds(&self) -> f32 {
+    pub fn seconds(&self) -> f32 {
         self.delay.delay_seconds()
     }
 
-    // pub fn set_delay_seconds(&mut self, delay_seconds: f32) {
-    //     self.delay.set_delay_seconds(delay_seconds);
-    // }
+    pub fn set_seconds(&mut self, delay_seconds: f32) {
+        self.delay.set_delay_seconds(delay_seconds);
+    }
+
+    pub(crate) fn set_control_seconds(&mut self, value: F32ControlValue) {
+        self.set_seconds(value.0);
+    }
 }
 
 #[cfg(test)]

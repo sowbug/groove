@@ -433,10 +433,6 @@ impl Updateable for MidiOutputHandler {
         }
         Response::none()
     }
-
-    fn param_id_for_name(&self, _param_name: &str) -> usize {
-        usize::MAX
-    }
 }
 impl Terminates for MidiOutputHandler {
     fn is_finished(&self) -> bool {

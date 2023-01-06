@@ -2,7 +2,7 @@ use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Generics};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Generics};
 
 #[proc_macro_derive(Uid)]
 pub fn uid_derive(input: TokenStream) -> TokenStream {
@@ -48,29 +48,44 @@ fn parse_control_data(
     let (_impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
     let mut enum_variant_names = Vec::default();
     let mut setter_names = Vec::default();
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(ref fields) => {
-                for f in fields.named.iter() {
-                    if let Some(ident) = &f.ident {
-                        if f.attrs.is_empty() {
-                            continue;
-                        }
-                        enum_variant_names
-                            .push(format_ident!("{}", ident.to_string().to_case(Case::Pascal)));
-                        // TODO: this should be an Into-style method for anyone to use to convert from
-                        // normalized control values to the specific variable's needs.
-                        setter_names.push(format_ident!("set_control_{}", ident.to_string()));
-                    }
-                }
-            }
-            Fields::Unnamed(ref _fields) => unimplemented!(),
-            Fields::Unit => unimplemented!(),
-        },
-        Data::Enum(_) | Data::Union(_) => unimplemented!(),
+
+    // Code adapted from https://blog.turbo.fish/proc-macro-error-handling/
+    // Thank you!
+    let fields = match data {
+        Data::Struct(DataStruct {
+            fields: Fields::Named(fields),
+            ..
+        }) => &fields.named,
+        _ => panic!("this derive macro only works on structs with named fields"),
+    };
+    let controllables: Vec<_> = fields
+        .into_iter()
+        .filter(|f| {
+            let attrs: Vec<_> = f
+                .attrs
+                .iter()
+                .filter(|attr| attr.path.is_ident("controllable"))
+                .collect();
+            !attrs.is_empty()
+        })
+        .map(|f| f.ident.as_ref().unwrap().to_string())
+        .collect();
+    //    eprintln!("for {}, {:#?}", &struct_name, &controllables);
+
+    for name in controllables {
+        enum_variant_names.push(format_ident!("{}", name.to_case(Case::Pascal)));
+
+        // TODO: come up with a way to make this kind of method more general. It
+        // would be nice if there were a "convert F32ControlValue to local
+        // value" function that anyone (e.g., UI) could use. But then we'd also
+        // need to know the name of the local setter method. While that's not
+        // necessarily a bad thing, we're already seeing cases where the
+        // controlled value doesn't actually correspond to a struct field (e.g.,
+        // BiQuadFilter's param2), and I'm not sure I want to normalize that.
+        setter_names.push(format_ident!("set_control_{}", name));
     }
+
     let enum_block = quote! {
-        #[automatically_derived]
         #[derive(Display, Debug, EnumString, FromRepr)]
         #[strum(serialize_all = "kebab_case")]
         pub(crate) enum #enum_name {
@@ -78,12 +93,12 @@ fn parse_control_data(
         }
     };
     let controllable_block = quote! {
-        #[automatically_derived]
         impl #generics Controllable for #struct_name #ty_generics {
             fn control_index_for_name(&self, name: &str) -> usize {
                 if let Ok(param) = #enum_name::from_str(name) {
                     param as usize
                 } else {
+                    eprintln!("Unrecognized control param name: {}", name);
                     usize::MAX
                 }
             }
@@ -92,14 +107,15 @@ fn parse_control_data(
                     match param {
                         #( #enum_name::#enum_variant_names => {self.#setter_names(value); } ),*
                     }
-                } else {
-                    todo!()
                 }
             }
         }
     };
     quote! {
+        #[automatically_derived]
         #enum_block
+        #[automatically_derived]
         #controllable_block
+
     }
 }

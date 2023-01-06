@@ -1,14 +1,15 @@
-use groove_macros::Uid;
-
 use crate::{
     clock::Clock,
-    common::MonoSample,
+    common::{F32ControlValue, MonoSample},
     messages::EntityMessage,
     midi::MidiMessage,
-    traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
 };
+use groove_macros::{Control, Uid};
+use std::str::FromStr;
+use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Debug, Default, Uid)]
+#[derive(Control, Debug, Default, Uid)]
 #[allow(dead_code)]
 pub struct Sampler {
     uid: usize,

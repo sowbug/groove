@@ -105,12 +105,13 @@ impl<M: MessageBounds> Orchestrator<M> {
         param_name: &str,
     ) {
         if let Some(target) = self.store.get(target_uid) {
-            let param_id = target.as_updateable().param_id_for_name(param_name);
-
-            if let Some(entity) = self.store.get(controller_uid) {
-                if entity.as_is_controller().is_some() {
-                    self.store
-                        .link_control(controller_uid, target_uid, param_id);
+            if let Some(target) = target.as_controllable() {
+                let param_id = target.control_index_for_name(param_name);
+                if let Some(entity) = self.store.get(controller_uid) {
+                    if entity.as_is_controller().is_some() {
+                        self.store
+                            .link_control(controller_uid, target_uid, param_id);
+                    }
                 }
             }
         }
@@ -441,16 +442,8 @@ impl GrooveOrchestrator {
                             commands.push(self.broadcast_midi_message(clock, channel, message));
                         }
                         EntityMessage::ControlF32(value) => {
-                            commands.push(self.dispatch_control_f32(clock, uid, value));
+                            self.dispatch_control_f32(uid, value);
                         }
-                        EntityMessage::UpdateF32(_, _) => {
-                            self.send_unhandled_entity_message(clock, uid, message);
-                        }
-                        EntityMessage::UpdateParam0F32(_) => todo!(),
-                        EntityMessage::UpdateParam0String(_) => todo!(),
-                        EntityMessage::UpdateParam0U8(_) => todo!(),
-                        EntityMessage::UpdateParam1F32(_) => todo!(),
-                        EntityMessage::UpdateParam1U8(_) => todo!(),
                         EntityMessage::Enable(_) => todo!(),
                         EntityMessage::PatternMessage(_, _) => todo!(),
                         EntityMessage::MutePressed(_) => todo!(),
@@ -568,30 +561,15 @@ impl GrooveOrchestrator {
         }))
     }
 
-    // NOTE! This returns only Command::none(). Let's see if we can live with
-    // UpdateF32 being terminal.
-    fn dispatch_control_f32(
-        &mut self,
-        clock: &Clock,
-        uid: usize,
-        value: f32,
-    ) -> Response<GrooveMessage> {
+    fn dispatch_control_f32(&mut self, uid: usize, value: f32) {
         let control_links = self.store.control_links(uid).clone();
         for (target_uid, param_id) in control_links {
             if let Some(entity) = self.store.get_mut(target_uid) {
                 if let Some(entity) = entity.as_controllable_mut() {
-                    entity.set_by_control_index(param_id, crate::traits::F32ControlValue(value));
-                    continue;
+                    entity.set_by_control_index(param_id, crate::common::F32ControlValue(value));
                 }
             }
-            // TODO: kill this when all are switched over to Controllable
-            self.dispatch_and_wrap_entity_message(
-                clock,
-                target_uid,
-                EntityMessage::UpdateF32(param_id, value),
-            );
         }
-        Response::none()
     }
 
     pub fn peek_command(command: &Response<GrooveMessage>) -> (MonoSample, bool) {
@@ -918,16 +896,8 @@ pub mod tests {
                                 commands.push(self.broadcast_midi_message(clock, channel, message));
                             }
                             EntityMessage::ControlF32(value) => {
-                                commands.push(self.dispatch_control_f32(clock, uid, value));
+                                self.dispatch_control_f32(uid, value);
                             }
-                            EntityMessage::UpdateF32(_, _) => {
-                                self.send_unhandled_entity_message(clock, uid, message);
-                            }
-                            EntityMessage::UpdateParam0F32(_) => todo!(),
-                            EntityMessage::UpdateParam0String(_) => todo!(),
-                            EntityMessage::UpdateParam0U8(_) => todo!(),
-                            EntityMessage::UpdateParam1F32(_) => todo!(),
-                            EntityMessage::UpdateParam1U8(_) => todo!(),
                             EntityMessage::Enable(_) => todo!(),
                             EntityMessage::PatternMessage(_, _) => todo!(),
                             EntityMessage::MutePressed(_) => todo!(),
@@ -1047,31 +1017,16 @@ pub mod tests {
             }))
         }
 
-        // NOTE! This returns only Command::none(). Let's see if we can live with
-        // UpdateF32 being terminal.
-        fn dispatch_control_f32(
-            &mut self,
-            clock: &Clock,
-            uid: usize,
-            value: f32,
-        ) -> Response<TestMessage> {
+        fn dispatch_control_f32(&mut self, uid: usize, value: f32) {
             let control_links = self.store.control_links(uid).clone();
             for (target_uid, param_id) in control_links {
                 if let Some(entity) = self.store.get_mut(target_uid) {
                     if let Some(entity) = entity.as_controllable_mut() {
                         entity
-                            .set_by_control_index(param_id, crate::traits::F32ControlValue(value));
-                        continue;
+                            .set_by_control_index(param_id, crate::common::F32ControlValue(value));
                     }
                 }
-                // TODO: kill this when all are switched over to Controllable
-                self.dispatch_and_wrap_entity_message(
-                    clock,
-                    target_uid,
-                    EntityMessage::UpdateF32(param_id, value),
-                );
             }
-            Response::none()
         }
 
         pub fn peek_command(command: &Response<TestMessage>) -> (MonoSample, bool) {

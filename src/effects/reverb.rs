@@ -1,31 +1,23 @@
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use crate::{
     clock::Clock,
+    common::F32ControlValue,
     common::MonoSample,
     messages::EntityMessage,
-    traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum ReverbControlParams {
-    #[strum(serialize = "attenuation")]
-    Attenuation,
-
-    #[strum(serialize = "dry", serialize = "dry-pct")]
-    DryPct,
-}
-
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
-#[derive(Debug, Default, Uid)]
+#[derive(Control, Debug, Default, Uid)]
 pub struct Reverb {
     uid: usize,
 
     // How much the effect should attenuate the input.
+    #[controllable]
     attenuation: f32,
 
     // what percentage should be unprocessed. 0.0 = all effect. 0.0 = all
@@ -33,7 +25,8 @@ pub struct Reverb {
     //
     // TODO: maybe handle the wet/dry more centrally. It seems like it'll be
     // repeated a lot.
-    dry_pct: f32,
+    #[controllable]
+    wet_dry_mix: f32,
     recirc_delay_lines: Vec<RecirculatingDelayLine>,
     allpass_delay_lines: Vec<AllPassDelayLine>,
 }
@@ -46,8 +39,8 @@ impl TransformsAudio for Reverb {
             + self.recirc_delay_lines[2].pop_output(input_attenuated)
             + self.recirc_delay_lines[3].pop_output(input_attenuated);
         let adl_0_out = self.allpass_delay_lines[0].pop_output(recirc_output);
-        (1.0 - self.dry_pct) * self.allpass_delay_lines[1].pop_output(adl_0_out)
-            + self.dry_pct * input
+        self.wet_dry_mix * self.allpass_delay_lines[1].pop_output(adl_0_out)
+            + (1.0 - self.wet_dry_mix) * input
     }
 }
 impl Updateable for Reverb {
@@ -56,30 +49,7 @@ impl Updateable for Reverb {
     #[allow(unused_variables)]
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
-            Self::Message::UpdateF32(param_id, value) => {
-                self.set_indexed_param_f32(param_id, value);
-            }
             _ => todo!(),
-        }
-        Response::none()
-    }
-
-    fn param_id_for_name(&self, name: &str) -> usize {
-        if let Ok(param) = ReverbControlParams::from_str(name) {
-            param as usize
-        } else {
-            usize::MAX
-        }
-    }
-
-    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
-        if let Some(param) = ReverbControlParams::from_repr(index) {
-            match param {
-                ReverbControlParams::Attenuation => self.set_attenuation(value),
-                ReverbControlParams::DryPct => self.set_dry_pct(value),
-            }
-        } else {
-            todo!()
         }
     }
 }
@@ -92,7 +62,7 @@ impl Reverb {
 
     pub(crate) fn new_with(
         sample_rate: usize,
-        dry_pct: f32,
+        wet_dry_mix: f32,
         attenuation: f32,
         reverb_seconds: f32,
     ) -> Self {
@@ -100,7 +70,7 @@ impl Reverb {
         // constants.
         Self {
             uid: Default::default(),
-            dry_pct,
+            wet_dry_mix,
             attenuation,
             recirc_delay_lines: vec![
                 RecirculatingDelayLine::new_with(sample_rate, 0.0297, reverb_seconds, 0.001, 1.0),
@@ -119,8 +89,16 @@ impl Reverb {
         self.attenuation = attenuation;
     }
 
-    pub(crate) fn set_dry_pct(&mut self, dry_pct: f32) {
-        self.dry_pct = dry_pct;
+    pub(crate) fn set_control_attenuation(&mut self, attenuation: F32ControlValue) {
+        self.set_attenuation(attenuation.0);
+    }
+
+    pub fn set_wet_dry_mix(&mut self, mix: f32) {
+        self.wet_dry_mix = mix;
+    }
+
+    pub(crate) fn set_control_wet_dry_mix(&mut self, mix: F32ControlValue) {
+        self.set_wet_dry_mix(mix.0);
     }
 }
 
@@ -132,7 +110,7 @@ mod tests {
     #[test]
     fn reverb_dry_works() {
         let mut clock = Clock::default();
-        let mut fx = Reverb::new_with(clock.sample_rate(), 1.0, 0.5, 1.5);
+        let mut fx = Reverb::new_with(clock.sample_rate(), 0.0, 0.5, 1.5);
         assert_eq!(fx.transform_audio(&clock, 0.8), 0.8);
         clock.tick();
         assert_eq!(fx.transform_audio(&clock, 0.7), 0.7);
@@ -146,7 +124,7 @@ mod tests {
         // 0.47767496) at samples: 29079, seconds: 0.65938777. This doesn't look
         // wrong, but I couldn't have predicted that exact number.
         let mut clock = Clock::default();
-        let mut fx = Reverb::new_with(clock.sample_rate(), 0.0, 0.9, 0.5);
+        let mut fx = Reverb::new_with(clock.sample_rate(), 1.0, 0.9, 0.5);
         assert_eq!(fx.transform_audio(&clock, 0.8), 0.0);
         clock.debug_set_seconds(0.5);
         let mut s = MONO_SAMPLE_SILENCE;

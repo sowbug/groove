@@ -1,14 +1,15 @@
 use crate::{
     clock::ClockTimeUnit,
-    common::MonoSample,
+    common::{F32ControlValue, MonoSample},
     messages::EntityMessage,
     settings::patches::EnvelopeSettings,
-    traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     Clock,
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use more_asserts::{debug_assert_ge, debug_assert_le};
-use std::{fmt::Debug, ops::Range};
+use std::str::FromStr;
+use std::{fmt::Debug, marker::PhantomData, ops::Range};
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Clone, Debug, Default)]
@@ -216,12 +217,6 @@ impl SourcesAudio for SteppedEnvelope {
     }
 }
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum AdsrEnvelopeControlParams {
-    Note,
-}
-
 #[derive(Debug, Default)]
 enum AdsrEnvelopeStepName {
     #[default]
@@ -233,10 +228,14 @@ enum AdsrEnvelopeStepName {
     FinalIdle,
 }
 
-#[derive(Clone, Debug, Uid)]
+#[derive(Clone, Control, Debug, Uid)]
 pub struct AdsrEnvelope {
     uid: usize,
     preset: EnvelopeSettings,
+
+    #[controllable]
+    note: PhantomData<u8>,
+
     envelope: SteppedEnvelope,
     note_on_time: f32,
     note_off_time: f32,
@@ -255,13 +254,6 @@ impl Updateable for AdsrEnvelope {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
-            Self::Message::UpdateF32(param_id, value) => {
-                if let Some(param) = AdsrEnvelopeControlParams::from_repr(param_id) {
-                    match param {
-                        AdsrEnvelopeControlParams::Note => self.set_note(clock, value),
-                    }
-                }
-            }
             Self::Message::Midi(_, message) => match message {
                 midly::MidiMessage::NoteOff { key: _, vel: _ } => {
                     self.handle_note_event(clock, false)
@@ -282,6 +274,7 @@ impl Default for AdsrEnvelope {
             uid: usize::default(),
 
             preset: EnvelopeSettings::default(),
+            note: Default::default(),
             envelope: SteppedEnvelope::default(),
             note_on_time: f32::MAX,
             note_off_time: f32::MAX,
@@ -320,11 +313,13 @@ impl AdsrEnvelope {
         }
     }
 
-    // This method exists to make it easier to adapt to IsUpdatable's generated
-    // update() code.
-    #[allow(dead_code)]
-    pub(crate) fn set_note(&mut self, clock: &Clock, value: f32) {
-        self.handle_note_event(clock, value == 1.0);
+    // TODO: is this really used anywhere? If yes, then we either need to plumb
+    // clock back through all the control infra, or else we need to figure out a
+    // different way to communicate the control event to this special case,
+    // e.g., storing away the note event and processing it at the next
+    // source_audio(), when we will have a clock.
+    pub(crate) fn set_control_note(&mut self, _value: F32ControlValue) {
+        //        self.handle_note_event(clock, value.0 == 1.0);
     }
 
     fn handle_state_change(&mut self) {

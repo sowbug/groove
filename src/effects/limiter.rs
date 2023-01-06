@@ -1,25 +1,20 @@
 use crate::{
     clock::Clock,
-    common::{MonoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
+    common::{F32ControlValue, MonoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
     messages::EntityMessage,
-    traits::{HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum LimiterControlParams {
-    Max,
-    Min,
-}
-
-#[derive(Debug, Default, Uid)]
+#[derive(Control, Debug, Default, Uid)]
 pub struct Limiter {
     uid: usize,
 
+    #[controllable]
     min: MonoSample,
+    #[controllable]
     max: MonoSample,
 }
 impl IsEffect for Limiter {}
@@ -33,30 +28,7 @@ impl Updateable for Limiter {
 
     fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
-            Self::Message::UpdateF32(param_id, value) => {
-                self.set_indexed_param_f32(param_id, value);
-            }
             _ => todo!(),
-        }
-        Response::none()
-    }
-
-    fn param_id_for_name(&self, name: &str) -> usize {
-        if let Ok(param) = LimiterControlParams::from_str(name) {
-            param as usize
-        } else {
-            usize::MAX
-        }
-    }
-
-    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
-        if let Some(param) = LimiterControlParams::from_repr(index) {
-            match param {
-                LimiterControlParams::Max => self.set_max(value),
-                LimiterControlParams::Min => self.set_min(value),
-            }
-        } else {
-            todo!()
         }
     }
 }
@@ -82,12 +54,20 @@ impl Limiter {
         self.max
     }
 
-    pub(crate) fn set_min(&mut self, value: f32) {
+    pub fn set_min(&mut self, value: f32) {
         self.min = value;
     }
 
-    pub(crate) fn set_max(&mut self, value: f32) {
+    pub fn set_max(&mut self, value: f32) {
         self.max = value;
+    }
+
+    pub(crate) fn set_control_min(&mut self, value: F32ControlValue) {
+        self.set_min(value.0);
+    }
+
+    pub(crate) fn set_control_max(&mut self, value: F32ControlValue) {
+        self.set_max(value.0);
     }
 }
 

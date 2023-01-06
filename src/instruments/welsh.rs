@@ -1,6 +1,6 @@
 use super::{envelopes::AdsrEnvelope, oscillators::Oscillator};
 use crate::{
-    common::MonoSample,
+    common::{F32ControlValue, MonoSample},
     effects::filter::{BiQuadFilter, FilterParams},
     messages::EntityMessage,
     midi::{GeneralMidiProgram, MidiMessage, MidiUtils},
@@ -8,14 +8,18 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{HasUid, IsInstrument, Response, SourcesAudio, TransformsAudio, Updateable},
+    traits::{
+        Controllable, HasUid, IsInstrument, Response, SourcesAudio, TransformsAudio, Updateable,
+    },
     utils::Paths,
     Clock,
 };
 use convert_case::{Boundary, Case, Casing};
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use num_traits::FromPrimitive;
 use rustc_hash::FxHashMap;
+use std::str::FromStr;
+use strum_macros::{Display, EnumString, FromRepr};
 
 // TODO: cache these as they're loaded
 impl SynthPatch {
@@ -563,7 +567,7 @@ impl SourcesAudio for WelshVoice {
     }
 }
 
-#[derive(Clone, Debug, Uid)]
+#[derive(Clone, Control, Debug, Uid)]
 pub struct WelshSynth {
     uid: usize,
     sample_rate: usize,

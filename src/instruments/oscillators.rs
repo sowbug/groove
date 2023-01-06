@@ -1,24 +1,16 @@
 use crate::{
-    common::MonoSample,
+    common::{F32ControlValue, MonoSample},
     messages::EntityMessage,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     Clock,
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use std::f64::consts::PI;
+use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum OscillatorControlParams {
-    // TODO: it's implied that this is 0.0f32..=1.0f32, which doesn't make a
-    // whole lot of sense for something that should be in Hz and range
-    // ~10f32..22050f32
-    Frequency,
-}
-
-#[derive(Clone, Debug, Uid)]
+#[derive(Clone, Control, Debug, Uid)]
 pub struct Oscillator {
     uid: usize,
 
@@ -116,17 +108,7 @@ impl SourcesAudio for Oscillator {
 impl Updateable for Oscillator {
     type Message = EntityMessage;
 
-    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        // Oscillators just oscillate. For now, at least, we'll leave any
-        // control like MIDI to the owning instrument. Otherwise, we just emit
-        // sound nonstop.
-        if let Self::Message::UpdateF32(param_id, value) = message {
-            if let Some(param) = OscillatorControlParams::from_repr(param_id) {
-                match param {
-                    OscillatorControlParams::Frequency => self.set_frequency(value),
-                }
-            }
-        }
+    fn update(&mut self, _clock: &Clock, _message: Self::Message) -> Response<Self::Message> {
         Response::none()
     }
 }

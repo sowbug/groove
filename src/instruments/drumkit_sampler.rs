@@ -1,13 +1,15 @@
 use crate::{
     clock::Clock,
-    common::MonoSample,
+    common::{F32ControlValue, MonoSample},
     messages::EntityMessage,
     midi::{GeneralMidiPercussionProgram, MidiMessage},
-    traits::{HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     utils::Paths,
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use rustc_hash::FxHashMap;
+use std::str::FromStr;
+use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Debug, Default)]
 struct Voice {
@@ -80,7 +82,7 @@ impl SourcesAudio for Voice {
     }
 }
 
-#[derive(Debug, Default, Uid)]
+#[derive(Control, Debug, Default, Uid)]
 pub struct DrumkitSampler {
     uid: usize,
     note_to_voice: FxHashMap<u8, Voice>,

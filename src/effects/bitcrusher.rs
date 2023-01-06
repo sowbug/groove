@@ -1,10 +1,9 @@
 use crate::{
     clock::Clock,
+    common::F32ControlValue,
     common::MonoSample,
     messages::EntityMessage,
-    traits::{
-        Controllable, F32ControlValue, HasUid, IsEffect, Response, TransformsAudio, Updateable,
-    },
+    traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
 use groove_macros::{Control, Uid};
 use iced_audio::{IntRange, Normal};
@@ -15,7 +14,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 pub struct Bitcrusher {
     uid: usize,
 
-    #[controllable]
+    #[controllable(name = "foo", name = "bar")]
     bits_to_crush: u8,
 
     bits_to_crush_int_range: IntRange,
@@ -35,39 +34,12 @@ impl Updateable for Bitcrusher {
     #[allow(unused_variables)]
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
-            Self::Message::UpdateF32(param_id, value) => {
-                self.set_indexed_param_f32(param_id, value);
-            }
             EntityMessage::HSliderInt(value) => {
                 self.set_bits_to_crush(self.bits_to_crush_int_range.unmap_to_value(value) as u8);
             }
             _ => todo!(),
         }
         Response::none()
-    }
-
-    fn param_id_for_name(&self, name: &str) -> usize {
-        if let Ok(param) = BitcrusherControlParams::from_str(name) {
-            param as usize
-        } else {
-            usize::MAX
-        }
-    }
-
-    fn set_indexed_param_f32(&mut self, index: usize, value: f32) {
-        if let Some(param) = BitcrusherControlParams::from_repr(index) {
-            match param {
-                BitcrusherControlParams::BitsToCrush => {
-                    self.set_bits_to_crush(
-                        self.bits_to_crush_int_range
-                            .unmap_to_value(Normal::from_clipped(value))
-                            as u8,
-                    );
-                }
-            }
-        } else {
-            todo!()
-        }
     }
 }
 

@@ -1,21 +1,17 @@
 use super::sequencers::BeatSequencer;
 use crate::{
     clock::{Clock, PerfectTimeUnit},
+    common::F32ControlValue,
     messages::EntityMessage,
     midi::{MidiChannel, MidiMessage},
-    traits::{HasUid, IsController, Response, Terminates, Updateable},
+    traits::{Controllable, HasUid, IsController, Response, Terminates, Updateable},
 };
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use midly::num::u7;
+use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Display, Debug, EnumString, FromRepr)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum ArpeggiatorControlParams {
-    Nothing,
-}
-
-#[derive(Debug, Default, Uid)]
+#[derive(Control, Debug, Default, Uid)]
 pub struct Arpeggiator {
     uid: usize,
     midi_channel_out: MidiChannel,
@@ -74,22 +70,9 @@ impl Updateable for Arpeggiator {
                     MidiMessage::PitchBend { bend: _ } => todo!(),
                 }
             }
-            Self::Message::UpdateF32(param_id, value) => {
-                self.set_indexed_param_f32(param_id, value);
-            }
             _ => todo!(),
         }
         Response::none()
-    }
-
-    fn set_indexed_param_f32(&mut self, index: usize, _value: f32) {
-        if let Some(param) = ArpeggiatorControlParams::from_repr(index) {
-            match param {
-                ArpeggiatorControlParams::Nothing => {}
-            }
-        } else {
-            todo!()
-        }
     }
 }
 impl Terminates for Arpeggiator {

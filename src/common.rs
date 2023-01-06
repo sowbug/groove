@@ -11,3 +11,5 @@ pub const MONO_SAMPLE_MAX: MonoSample = 1.0;
 pub const MONO_SAMPLE_MIN: MonoSample = -1.0;
 
 pub type DeviceId = String;
+
+pub struct F32ControlValue(pub f32);

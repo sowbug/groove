@@ -23,7 +23,7 @@ use iced::{
     alignment, executor,
     futures::channel::mpsc,
     theme::{self, Theme},
-    widget::{button, column, container, pick_list, row, scrollable, slider, text, text_input},
+    widget::{button, column, container, pick_list, row, scrollable, text, text_input},
     Alignment, Application, Command, Element, Length, Settings, Subscription,
 };
 use iced_audio::{HSlider, Normal, NormalParam};
@@ -407,7 +407,7 @@ impl GrooveApp {
             ),
             BoxedEntity::Delay(e) => {
                 let title = type_name::<Delay>();
-                let contents = format!("delay in seconds: {}", e.delay_seconds());
+                let contents = format!("delay in seconds: {}", e.seconds());
                 GuiStuff::titled_container(
                     title,
                     GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
@@ -744,13 +744,15 @@ impl GrooveApp {
 
     fn biquad_filter_view(&self, e: &BiQuadFilter<EntityMessage>) -> Element<EntityMessage> {
         let title = type_name::<BiQuadFilter<EntityMessage>>();
+        let slider = HSlider::new(
+            NormalParam {
+                value: Normal::from_clipped(e.cutoff_pct()),
+                default: Normal::from_clipped(1.0),
+            },
+            EntityMessage::HSliderInt,
+        );
         let contents = row![
-            container(slider(
-                0..=100,
-                (e.cutoff_pct() * 100.0) as u8,
-                EntityMessage::UpdateParam1U8 // CutoffPct
-            ))
-            .width(iced::Length::FillPortion(1)),
+            container(slider).width(iced::Length::FillPortion(1)),
             container(GuiStuff::<EntityMessage>::container_text(
                 format!("cutoff: {}Hz", e.cutoff_hz()).as_str()
             ))

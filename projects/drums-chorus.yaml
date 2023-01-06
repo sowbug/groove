@@ -14,7 +14,7 @@ devices:
   - effect:
       - effect-1
       - chorus:
-          dry-pct: 0.5         # what percentage of input skips the effect
+          wet-dry-mix: 1.0     # what percentage of input is sent to the effect
           voices: 8            # how many versions of the input contribute to the output
           delay-factor: 30     # Should be at least as big as 2x the number of voices
 patch-cables:
@@ -37,11 +37,11 @@ paths:
       - flat:
           - 0.0
       - flat:
-          - 0.5
+          - 1.0
 trips:
   - id: trip-1
     paths:
       - off-then-on
     target:
       id: effect-1
-      param: dry-pct
+      param: wet-dry-mix

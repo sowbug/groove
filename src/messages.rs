@@ -75,32 +75,9 @@ pub enum EntityMessage {
     ///
     /// Sent by controller. Handled by system. Indicates "My value has changed
     /// to \[value\], and I'd like subscribers to know about that." The
-    /// recipient will typically turn this into one or more UpdateF32 messages,
-    /// each going to a target controlled by the controller.
+    /// recipient will typically fan this out to multiple targets controlled by
+    /// the controller.
     ControlF32(f32),
-
-    /// (param_id, new value)
-    ///
-    /// Sent by the system, handled by targets of controllers. They should
-    /// respond by mapping the param_id to one of their internal controllable
-    /// parameters, and then set it to the updated f32 value.
-    ///
-    /// In the future we'll add richer types for the new_value parameter, but
-    /// for now most parameter updates are representable by a plain old float.
-    UpdateF32(usize, f32),
-
-    /// A series of UpdateF32-like messages that are (hopefully) placeholders
-    /// until I figure out how to send a Msg(_, _) to a thing that wants a
-    /// Msg(_). If that isn't a Rust thing, I think I can ask someone up the
-    /// chain to do it for me.
-    ///
-    /// For sanity, please make sure the ParamN corresponds to the
-    /// ___ControlParams enum.
-    UpdateParam0F32(f32),
-    UpdateParam0String(String),
-    UpdateParam0U8(u8),
-    UpdateParam1F32(f32),
-    UpdateParam1U8(u8),
 
     /// Enable or disable the recipient.
     Enable(bool),
