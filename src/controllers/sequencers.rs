@@ -132,7 +132,7 @@ impl Updateable for BeatSequencer<EntityMessage> {
                         Included(PerfectTimeUnit(clock.beats())),
                         Excluded(self.next_instant),
                     );
-                    Response::batch(self.events.range(range).into_iter().fold(
+                    Response::batch(self.events.range(range).fold(
                         Vec::new(),
                         |mut vec, (_when, event)| {
                             match event.1 {

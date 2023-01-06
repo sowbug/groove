@@ -610,12 +610,6 @@ impl Updateable for TestController<EntityMessage> {
 
 impl Updateable for TestEffect<EntityMessage> {
     type Message = EntityMessage;
-
-    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            _ => todo!(),
-        }
-    }
 }
 
 impl Updateable for TestInstrument<EntityMessage> {

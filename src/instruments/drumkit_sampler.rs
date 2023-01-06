@@ -120,7 +120,7 @@ impl Updateable for DrumkitSampler {
                     }
                 }
                 _ => {
-                    println!("FYI - ignoring MIDI command {:?}", midi_message);
+                    println!("FYI - ignoring MIDI command {midi_message:?}");
                 }
             },
             _ => todo!(),

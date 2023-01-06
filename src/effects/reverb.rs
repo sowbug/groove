@@ -4,7 +4,7 @@ use crate::{
     common::F32ControlValue,
     common::MonoSample,
     messages::EntityMessage,
-    traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -45,13 +45,6 @@ impl TransformsAudio for Reverb {
 }
 impl Updateable for Reverb {
     type Message = EntityMessage;
-
-    #[allow(unused_variables)]
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            _ => todo!(),
-        }
-    }
 }
 
 impl Reverb {

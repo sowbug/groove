@@ -63,9 +63,9 @@ pub enum OscillatorTune {
     Osc { octave: i8, semi: i8, cent: i8 },
 }
 
-impl Into<f32> for OscillatorTune {
-    fn into(self) -> f32 {
-        match self {
+impl From<OscillatorTune> for f32 {
+    fn from(val: OscillatorTune) -> Self {
+        match val {
             OscillatorTune::Note(_) => 1.0,
             OscillatorTune::Float(value) => value,
             OscillatorTune::Osc { octave, semi, cent } => {
@@ -75,9 +75,9 @@ impl Into<f32> for OscillatorTune {
     }
 }
 
-impl Into<f64> for OscillatorTune {
-    fn into(self) -> f64 {
-        match self {
+impl From<OscillatorTune> for f64 {
+    fn from(val: OscillatorTune) -> Self {
+        match val {
             OscillatorTune::Note(_) => 1.0,
             OscillatorTune::Float(value) => value as f64,
             OscillatorTune::Osc { octave, semi, cent } => {
@@ -176,9 +176,9 @@ impl Default for LfoDepth {
     }
 }
 
-impl Into<f32> for LfoDepth {
-    fn into(self) -> f32 {
-        match self {
+impl From<LfoDepth> for f32 {
+    fn from(val: LfoDepth) -> Self {
+        match val {
             LfoDepth::None => 0.0,
             LfoDepth::Pct(pct) => pct,
             LfoDepth::Cents(cents) => 1.0 - OscillatorSettings::semis_and_cents(0, cents),

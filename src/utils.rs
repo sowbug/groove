@@ -294,12 +294,6 @@ impl<M: MessageBounds> Updateable for TestSynth<M> {
 }
 impl Updateable for TestSynth<EntityMessage> {
     type Message = EntityMessage;
-
-    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            _ => todo!(),
-        }
-    }
 }
 
 #[derive(Display, Debug, EnumString)]

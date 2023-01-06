@@ -241,18 +241,16 @@ impl IOHelper {
         for next_sample in data.iter_mut() {
             let sample = if audio_is_stereo && hack_duplicate_mono_for_stereo {
                 last_sample
+            } else if let Steal::Success(sample) = stealer.steal() {
+                last_sample = sample;
+                sample
             } else {
-                if let Steal::Success(sample) = stealer.steal() {
-                    last_sample = sample;
-                    sample
-                } else {
-                    // TODO(miket): this isn't great, because we don't know whether
-                    // the steal failure was because of a spurious error (buffer
-                    // underrun) or complete processing.
-                    *finished = true;
-                    cvar.notify_one();
-                    MONO_SAMPLE_SILENCE
-                }
+                // TODO(miket): this isn't great, because we don't know whether
+                // the steal failure was because of a spurious error (buffer
+                // underrun) or complete processing.
+                *finished = true;
+                cvar.notify_one();
+                MONO_SAMPLE_SILENCE
             };
             hack_duplicate_mono_for_stereo = !hack_duplicate_mono_for_stereo;
 

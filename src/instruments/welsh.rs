@@ -50,7 +50,7 @@ impl SynthPatch {
                 Err(err) => {
                     // TODO: this should return a failsafe patch, maybe a boring
                     // square wave
-                    panic!("couldn't parse patch file: {:?}", err);
+                    panic!("couldn't parse patch file: {err:?}");
                 }
             }
         } else {
@@ -622,7 +622,7 @@ impl Updateable for WelshSynth {
                     }
                 }
                 _ => {
-                    println!("FYI - ignoring MIDI command {:?}", midi_message);
+                    println!("FYI - ignoring MIDI command {midi_message:?}");
                 }
             },
             _ => todo!(),

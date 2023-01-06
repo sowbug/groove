@@ -117,7 +117,12 @@ pub struct BiQuadFilter<M: MessageBounds> {
     #[controllable]
     cutoff: f32,
 
-    #[controllable(name="q", name="bandwidth", name="db-gain", name="passband-ripple")]
+    #[controllable(
+        name = "q",
+        name = "bandwidth",
+        name = "db-gain",
+        name = "passband-ripple"
+    )]
     param2: f32,
 
     coefficients: CoefficientSet,
@@ -335,10 +340,10 @@ impl<M: MessageBounds> BiQuadFilter<M> {
             let sg = p2.sinh();
             let cg = p2.cosh() * p2.cosh();
 
-            let c0 = 1.0 / (cg - 0.85355339059327376220042218105097);
-            let c1 = k * c0 * sg * 1.847759065022573512256366378792;
-            let c2 = 1.0 / (cg - 0.14644660940672623779957781894758);
-            let c3 = k * c2 * sg * 0.76536686473017954345691996806;
+            let c0 = 1.0 / (cg - 0.853_553_390_593_273_7);
+            let c1 = k * c0 * sg * 1.847_759_065_022_573_5;
+            let c2 = 1.0 / (cg - 0.146_446_609_406_726_24);
+            let c3 = k * c2 * sg * 0.765_366_864_730_179_6;
             let k = k * k;
 
             let a0 = 1.0 / (c1 + k + c0);

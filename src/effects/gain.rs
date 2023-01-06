@@ -78,7 +78,6 @@ impl<M: MessageBounds> Gain<M> {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::{
         clock::Clock, messages::tests::TestMessage, traits::SourcesAudio, utils::AudioSource,

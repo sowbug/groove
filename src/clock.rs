@@ -84,12 +84,10 @@ impl TimeSignature {
     pub fn new_with(top: usize, bottom: usize) -> anyhow::Result<Self, Error> {
         if top == 0 {
             Err(anyhow!("Time signature top can't be zero."))
+        } else if BeatValue::from_divisor(bottom as f32).is_ok() {
+            Ok(Self { top, bottom })
         } else {
-            if let Ok(_) = BeatValue::from_divisor(bottom as f32) {
-                Ok(Self { top, bottom })
-            } else {
-                Err(anyhow!("Time signature bottom was out of range."))
-            }
+            Err(anyhow!("Time signature bottom was out of range."))
         }
     }
 
