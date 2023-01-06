@@ -189,17 +189,6 @@ impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
 }
 impl Updateable for BiQuadFilter<EntityMessage> {
     type Message = EntityMessage;
-
-    #[allow(unused_variables)]
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            EntityMessage::HSliderInt(value) => {
-                self.set_control_cutoff(F32ControlValue(value.as_f32()));
-            }
-            _ => todo!(),
-        }
-        Response::none()
-    }
 }
 
 // We can't derive this because we need to call recalculate_coefficients(). Is
@@ -386,7 +375,7 @@ impl<M: MessageBounds> BiQuadFilter<M> {
         Self::frequency_to_percent(self.cutoff)
     }
 
-    pub(crate) fn set_cutoff_pct(&mut self, percent: f32) {
+    pub fn set_cutoff_pct(&mut self, percent: f32) {
         self.set_cutoff_hz(Self::percent_to_frequency(percent));
     }
 

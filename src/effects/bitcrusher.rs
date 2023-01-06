@@ -3,7 +3,7 @@ use crate::{
     common::F32ControlValue,
     common::MonoSample,
     messages::EntityMessage,
-    traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
 use groove_macros::{Control, Uid};
 use iced_audio::{IntRange, Normal};
@@ -30,17 +30,6 @@ impl TransformsAudio for Bitcrusher {
 }
 impl Updateable for Bitcrusher {
     type Message = EntityMessage;
-
-    #[allow(unused_variables)]
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            EntityMessage::HSliderInt(value) => {
-                self.set_bits_to_crush(self.bits_to_crush_int_range.unmap_to_value(value) as u8);
-            }
-            _ => todo!(),
-        }
-        Response::none()
-    }
 }
 
 impl Bitcrusher {
@@ -61,7 +50,7 @@ impl Bitcrusher {
         self.bits_to_crush
     }
 
-    pub(crate) fn set_bits_to_crush(&mut self, n: u8) {
+    pub fn set_bits_to_crush(&mut self, n: u8) {
         self.bits_to_crush = n;
     }
 

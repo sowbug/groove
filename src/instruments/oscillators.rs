@@ -2,7 +2,7 @@ use crate::{
     common::{F32ControlValue, MonoSample},
     messages::EntityMessage,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Updateable},
     Clock,
 };
 use groove_macros::{Control, Uid};
@@ -107,10 +107,6 @@ impl SourcesAudio for Oscillator {
 }
 impl Updateable for Oscillator {
     type Message = EntityMessage;
-
-    fn update(&mut self, _clock: &Clock, _message: Self::Message) -> Response<Self::Message> {
-        Response::none()
-    }
 }
 impl Default for Oscillator {
     fn default() -> Self {

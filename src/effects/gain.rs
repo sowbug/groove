@@ -34,16 +34,6 @@ impl<M: MessageBounds> Updateable for Gain<M> {
 }
 impl Updateable for Gain<EntityMessage> {
     type Message = EntityMessage;
-
-    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            EntityMessage::HSliderInt(value) => {
-                self.set_control_ceiling(F32ControlValue(value.as_f32()));
-            }
-            _ => todo!(),
-        }
-        Response::none()
-    }
 }
 
 impl<M: MessageBounds> Gain<M> {

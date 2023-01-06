@@ -37,27 +37,15 @@ pub struct Compressor {
     release: f32,
 
     // TODO
-    #[allow(unused_variables)]
+    #[allow(dead_code)]
     current_gain: f32,
 }
 impl IsEffect for Compressor {}
 impl Updateable for Compressor {
     type Message = EntityMessage;
-
-    fn update(
-        &mut self,
-        clock: &Clock,
-        message: Self::Message,
-    ) -> crate::traits::Response<Self::Message> {
-        match message {
-            EntityMessage::HSliderInt(v) => self.set_threshold(v.as_f32()),
-            _ => todo!(),
-        }
-        crate::traits::Response::none()
-    }
 }
 impl TransformsAudio for Compressor {
-    fn transform_audio(&mut self, clock: &Clock, input_sample: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
         let input_sample_positive = input_sample.abs();
         if input_sample_positive > self.threshold {
             (self.threshold + (input_sample_positive - self.threshold) * self.ratio)
@@ -142,7 +130,7 @@ mod tests {
 
     #[test]
     fn basic_compressor() {
-        let mut clock = Clock::default();
+        let clock = Clock::default();
         const THRESHOLD: f32 = 0.25;
         let mut fx = Compressor::new_with(THRESHOLD, 0.5, 0.0, 0.0);
         assert_eq!(
@@ -153,14 +141,14 @@ mod tests {
 
     #[test]
     fn nothing_compressor() {
-        let mut clock = Clock::default();
+        let clock = Clock::default();
         let mut fx = Compressor::new_with(0.25, 1.0, 0.0, 0.0);
         assert_eq!(fx.transform_audio(&clock, 0.35), 0.35);
     }
 
     #[test]
     fn infinite_compressor() {
-        let mut clock = Clock::default();
+        let clock = Clock::default();
         let mut fx = Compressor::new_with(0.25, 0.0, 0.0, 0.0);
         assert_eq!(fx.transform_audio(&clock, 0.35), 0.25);
     }

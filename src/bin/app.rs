@@ -265,7 +265,7 @@ impl Application for GrooveApp {
             },
             AppMessage::GrooveMessage(message) => match message {
                 GrooveMessage::EntityMessage(uid, message) => {
-                    self.update_entity(uid, message);
+                    self.entity_update(uid, message);
                 }
                 _ => todo!(),
             },
@@ -341,13 +341,41 @@ impl GrooveApp {
         }
     }
 
-    fn update_entity(&mut self, uid: usize, message: EntityMessage) {
+    fn entity_update(&mut self, uid: usize, message: EntityMessage) {
         if let Ok(mut o) = self.orchestrator.lock() {
             if let Some(entity) = o.store_mut().get_mut(uid) {
                 // TODO: we don't have a real clock here... solve this.
-                entity
-                    .as_updateable_mut()
-                    .update(&self.clock_mirror, message);
+                match entity {
+                    BoxedEntity::BiQuadFilter(e) => match message {
+                        EntityMessage::HSliderInt(value) => {
+                            e.set_cutoff_pct(value.as_f32());
+                        }
+                        _ => todo!(),
+                    },
+                    BoxedEntity::Bitcrusher(e) => match message {
+                        EntityMessage::HSliderInt(value) => {
+                            e.set_bits_to_crush(
+                                e.bits_to_crush_int_range().unmap_to_value(value) as u8
+                            );
+                        }
+                        _ => todo!(),
+                    },
+                    BoxedEntity::Compressor(e) => match message {
+                        EntityMessage::HSliderInt(v) => e.set_threshold(v.as_f32()),
+                        _ => todo!(),
+                    },
+                    BoxedEntity::Gain(e) => match message {
+                        EntityMessage::HSliderInt(value) => {
+                            e.set_ceiling(value.as_f32());
+                        }
+                        _ => todo!(),
+                    },
+                    _ => {
+                        entity
+                            .as_updateable_mut()
+                            .update(&self.clock_mirror, message);
+                    }
+                }
             }
         }
     }
