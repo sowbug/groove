@@ -270,27 +270,11 @@ impl Updateable for AdsrEnvelope {
 }
 impl Default for AdsrEnvelope {
     fn default() -> Self {
-        Self {
-            uid: usize::default(),
-
-            preset: EnvelopeSettings::default(),
-            note: Default::default(),
-            envelope: SteppedEnvelope::default(),
-            note_on_time: f32::MAX,
-            note_off_time: f32::MAX,
-            end_work_time: f32::MAX,
-        }
+        Self::new_with(&EnvelopeSettings::default())
     }
 }
 
 impl AdsrEnvelope {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
     pub(crate) fn is_idle(&self, clock: &Clock) -> bool {
         clock.seconds() < self.note_on_time || clock.seconds() >= self.end_work_time
     }
@@ -564,9 +548,13 @@ impl AdsrEnvelope {
             },
         ];
         Self {
+            uid: usize::default(),
             preset: *preset,
+            note: Default::default(),
             envelope: SteppedEnvelope::new_with(ClockTimeUnit::Seconds, vec),
-            ..Default::default()
+            note_on_time: f32::MAX,
+            note_off_time: f32::MAX,
+            end_work_time: f32::MAX,
         }
     }
 }
