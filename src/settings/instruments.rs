@@ -8,7 +8,7 @@ use crate::{
         drumkit_sampler,
         envelopes::AdsrEnvelope,
         oscillators::Oscillator,
-        welsh::{self},
+        welsh::{self}, SimpleSynthesizer,
     },
     messages::EntityMessage,
     traits::TestInstrument,
@@ -20,6 +20,11 @@ use serde::{Deserialize, Serialize};
 pub enum InstrumentSettings {
     #[serde(rename_all = "kebab-case")]
     Test {
+        #[serde(rename = "midi-in")]
+        midi_input_channel: MidiChannel,
+    },
+    #[serde(rename_all = "kebab-case")]
+    SimpleSynth {
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
     },
@@ -66,6 +71,7 @@ impl InstrumentSettings {
             #[allow(unused_variables)]
             let midi_input_channel = match self {
                 InstrumentSettings::Test { midi_input_channel } => *midi_input_channel,
+                InstrumentSettings::SimpleSynth { midi_input_channel } => *midi_input_channel,
                 InstrumentSettings::Welsh {
                     midi_input_channel,
                     preset_name,
@@ -96,6 +102,10 @@ impl InstrumentSettings {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,
                 BoxedEntity::TestInstrument(Box::new(TestInstrument::<EntityMessage>::default())),
+            ),
+            InstrumentSettings::SimpleSynth { midi_input_channel } => (
+                *midi_input_channel,
+                BoxedEntity::SimpleSynthesizer(Box::new(SimpleSynthesizer::default())),
             ),
             InstrumentSettings::Welsh {
                 midi_input_channel,

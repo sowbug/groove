@@ -20,7 +20,7 @@ pub use crate::{
     helpers::{AudioOutput, IOHelper},
     instruments::{
         drumkit_sampler::DrumkitSampler, envelopes::AdsrEnvelope, oscillators::Oscillator,
-        sampler::Sampler, welsh::WelshSynth,
+        sampler::Sampler, welsh::WelshSynth, SimpleSynthesizer,
     },
     messages::{EntityMessage, GrooveMessage},
     midi::{

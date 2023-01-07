@@ -13,7 +13,7 @@ use groove::{
     GrooveMessage, GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
     MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Note,
     Oscillator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, TestLfo, TestSynth,
-    Timer, WelshSynth,
+    Timer, WelshSynth, SimpleSynthesizer,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -491,6 +491,14 @@ impl GrooveApp {
             BoxedEntity::Sampler(e) => {
                 let title = type_name::<Sampler>();
                 let contents = format!("name: {}", e.filename());
+                GuiStuff::titled_container(
+                    title,
+                    GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+                )
+            }
+            BoxedEntity::SimpleSynthesizer(e) => {
+                let title = type_name::<SimpleSynthesizer>();
+                let contents = format!("notes playing: {}", e.notes_playing());
                 GuiStuff::titled_container(
                     title,
                     GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
