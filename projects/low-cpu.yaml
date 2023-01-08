@@ -7,21 +7,21 @@ clock:
     - 4
 devices:
   - instrument:
-    - instrument-1
-    - welsh:
-        midi-in: 0
-        preset: mellow-70s-lead
+      - instrument-1
+      - welsh:
+          midi-in: 0
+          preset: xylophone
   - effect:
-    - gain-1
-    - gain:
-        ceiling: 0.50
+      - gain-1
+      - gain:
+          ceiling: 0.50
   - effect:
-    - compressor-1
-    - compressor:
-        threshold: 0.5
-        ratio: 0.5
-        attack: 0.1
-        release: 0.2
+      - compressor-1
+      - compressor:
+          threshold: 0.5
+          ratio: 0.5
+          attack: 0.1
+          release: 0.2
 patch-cables:
   - [instrument-1, gain-1, compressor-1, main-mixer]
 patterns:
