@@ -9,7 +9,7 @@ use crate::{
         envelopes::AdsrEnvelope,
         oscillators::Oscillator,
         welsh::{self},
-        SimpleSynthesizer,
+        FmSynthesizer, SimpleSynthesizer,
     },
     messages::EntityMessage,
     traits::TestInstrument,
@@ -38,6 +38,13 @@ pub enum InstrumentSettings {
     },
     #[serde(rename_all = "kebab-case")]
     Drumkit {
+        #[serde(rename = "midi-in")]
+        midi_input_channel: MidiChannel,
+        #[serde(rename = "preset")]
+        preset_name: String,
+    },
+    #[serde(rename_all = "kebab-case")]
+    FmSynthesizer {
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
         #[serde(rename = "preset")]
@@ -78,6 +85,10 @@ impl InstrumentSettings {
                     preset_name,
                 } => *midi_input_channel,
                 InstrumentSettings::Drumkit {
+                    midi_input_channel,
+                    preset_name,
+                } => *midi_input_channel,
+                InstrumentSettings::FmSynthesizer {
                     midi_input_channel,
                     preset_name,
                 } => *midi_input_channel,
@@ -126,6 +137,13 @@ impl InstrumentSettings {
                 BoxedEntity::DrumkitSampler(Box::new(
                     drumkit_sampler::DrumkitSampler::new_from_files(),
                 )),
+            ),
+            InstrumentSettings::FmSynthesizer {
+                midi_input_channel,
+                preset_name: _preset,
+            } => (
+                *midi_input_channel,
+                BoxedEntity::FmSynthesizer(Box::new(FmSynthesizer::default())),
             ),
             InstrumentSettings::Oscillator {
                 midi_input_channel,

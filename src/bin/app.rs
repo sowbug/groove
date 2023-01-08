@@ -9,11 +9,11 @@ use groove::{
     },
     traits::{HasUid, TestController, TestEffect, TestInstrument},
     AdsrEnvelope, Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity,
-    Chorus, Clock, Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, Gain,
-    GrooveMessage, GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
-    MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Note,
-    Oscillator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, SimpleSynthesizer,
-    TestLfo, TestSynth, Timer, WelshSynth,
+    Chorus, Clock, Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, FmSynthesizer,
+    Gain, GrooveMessage, GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler,
+    MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer,
+    Mixer, Note, Oscillator, Pattern, PatternManager, PatternMessage, Reverb, Sampler,
+    SimpleSynthesizer, TestLfo, TestSynth, Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -450,6 +450,7 @@ impl GrooveApp {
                     GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
                 )
             }
+            BoxedEntity::FmSynthesizer(e) => self.fm_synthesizer_view(e),
             BoxedEntity::Gain(e) => self.gain_view(e),
             BoxedEntity::Limiter(e) => {
                 let title = type_name::<Limiter>();
@@ -771,6 +772,19 @@ impl GrooveApp {
         let slider = HSlider::new(
             NormalParam {
                 value: Normal::from_clipped(e.ceiling()),
+                default: Normal::from_clipped(1.0),
+            },
+            EntityMessage::HSliderInt,
+        );
+        let contents = container(row![slider]).padding(20);
+        GuiStuff::titled_container(&title, contents.into())
+    }
+
+    fn fm_synthesizer_view(&self, e: &FmSynthesizer) -> Element<EntityMessage> {
+        let title = format!("{}: {}", type_name::<FmSynthesizer>(), 42.0);
+        let slider = HSlider::new(
+            NormalParam {
+                value: Normal::from_clipped(42.0), // TODO
                 default: Normal::from_clipped(1.0),
             },
             EntityMessage::HSliderInt,

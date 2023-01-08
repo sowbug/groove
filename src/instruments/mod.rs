@@ -1,7 +1,7 @@
 use crate::{
     common::{F32ControlValue, MonoSample},
     midi::MidiUtils,
-    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Updateable},
+    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     AdsrEnvelope, Clock, EntityMessage, Oscillator,
 };
 use anyhow::{anyhow, Result};
@@ -178,7 +178,6 @@ impl PlaysNotes for SimpleVoice {
 impl SourcesAudio for SimpleVoice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         self.handle_pending_note_events(clock);
-        self.is_playing = !self.envelope.is_idle(clock);
         self.oscillator.source_audio(clock) * self.envelope.source_audio(clock)
     }
 }
@@ -197,6 +196,7 @@ impl SimpleVoice {
             self.release_is_pending = false;
             self.envelope.handle_note_event(clock, false);
         }
+        self.is_playing = !self.envelope.is_idle(clock);
     }
 }
 
@@ -320,5 +320,135 @@ impl<V: IsVoice> SourcesAudio for VoicePerNoteStore<V> {
 impl<V: IsVoice> VoicePerNoteStore<V> {
     fn add_voice(&mut self, key: u7, voice: Box<V>) {
         self.voices.insert(key, voice);
+    }
+}
+
+#[derive(Debug)]
+pub struct FmVoice {
+    carrier: Oscillator,
+    modulator: Oscillator,
+    modulator_depth: f32,
+    envelope: AdsrEnvelope,
+
+    is_playing: bool,
+    attack_is_pending: bool,
+    attack_velocity: u8,
+    release_is_pending: bool,
+    release_velocity: u8,
+    aftertouch_is_pending: bool,
+    aftertouch_velocity: u8,
+}
+impl IsVoice for FmVoice {}
+impl PlaysNotes for FmVoice {
+    fn is_playing(&self) -> bool {
+        self.is_playing
+    }
+
+    fn set_frequency_hz(&mut self, frequency_hz: f32) {
+        self.carrier.set_frequency(frequency_hz);
+        self.modulator.set_frequency(2000.0);
+    }
+
+    fn attack(&mut self, velocity: u8) {
+        self.attack_is_pending = true;
+        self.attack_velocity = velocity;
+    }
+
+    fn aftertouch(&mut self, velocity: u8) {
+        self.aftertouch_is_pending = true;
+        self.aftertouch_velocity = velocity;
+    }
+
+    fn release(&mut self, velocity: u8) {
+        self.release_is_pending = true;
+        self.release_velocity = velocity;
+    }
+}
+impl SourcesAudio for FmVoice {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        self.handle_pending_note_events(clock);
+        self.carrier
+            .set_frequency_modulation(self.modulator.source_audio(clock) * self.modulator_depth);
+        self.carrier.source_audio(clock) * self.envelope.source_audio(clock)
+    }
+}
+impl Default for FmVoice {
+    fn default() -> Self {
+        Self {
+            carrier: Default::default(),
+            modulator: Default::default(),
+            modulator_depth: 0.2,
+            envelope: Default::default(),
+            is_playing: Default::default(),
+            attack_is_pending: Default::default(),
+            attack_velocity: Default::default(),
+            release_is_pending: Default::default(),
+            release_velocity: Default::default(),
+            aftertouch_is_pending: Default::default(),
+            aftertouch_velocity: Default::default(),
+        }
+    }
+}
+impl FmVoice {
+    fn handle_pending_note_events(&mut self, clock: &Clock) {
+        if self.attack_is_pending {
+            self.attack_is_pending = false;
+            self.envelope.handle_note_event(clock, true);
+        }
+        if self.aftertouch_is_pending {
+            self.aftertouch_is_pending = false;
+            // TODO: do something
+        }
+        if self.release_is_pending {
+            self.release_is_pending = false;
+            self.envelope.handle_note_event(clock, false);
+        }
+        self.is_playing = !self.envelope.is_idle(clock);
+    }
+
+    pub fn modulator_frequency(&self) -> f32 {
+        self.modulator.frequency()
+    }
+}
+
+#[derive(Control, Debug, Uid)]
+pub struct FmSynthesizer {
+    uid: usize,
+    inner_synth: Synthesizer<FmVoice>,
+}
+impl IsInstrument for FmSynthesizer {}
+impl Updateable for FmSynthesizer {
+    type Message = EntityMessage;
+
+    fn update(
+        &mut self,
+        _clock: &Clock,
+        message: Self::Message,
+    ) -> crate::traits::Response<Self::Message> {
+        match message {
+            EntityMessage::Midi(_channel, message) => {
+                self.inner_synth.handle_midi_message(&message)
+            }
+            _ => todo!(),
+        }
+        Response::none()
+    }
+}
+impl SourcesAudio for FmSynthesizer {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        self.inner_synth.source_audio(clock)
+    }
+}
+impl Default for FmSynthesizer {
+    fn default() -> Self {
+        let mut voice_store = Box::new(SimpleVoiceStore::<FmVoice>::default());
+        voice_store.add_voice(Box::new(FmVoice::default()));
+        voice_store.add_voice(Box::new(FmVoice::default()));
+        voice_store.add_voice(Box::new(FmVoice::default()));
+        voice_store.add_voice(Box::new(FmVoice::default()));
+        Self {
+            uid: Default::default(),
+            inner_synth: Synthesizer::<FmVoice>::new_with(voice_store),
+        }
     }
 }
