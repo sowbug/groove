@@ -4,10 +4,11 @@ use crate::{
     traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Updateable},
     AdsrEnvelope, Clock, EntityMessage, Oscillator,
 };
-use anyhow::anyhow;
+use anyhow::{anyhow, Result};
 use groove_macros::{Control, Uid};
 use midly::{num::u7, MidiMessage};
 use std::str::FromStr;
+use std::{collections::HashMap, fmt::Debug};
 use strum_macros::{Display, EnumString, FromRepr};
 
 pub(crate) mod drumkit_sampler;
@@ -33,18 +34,27 @@ pub trait PlaysNotes {
     fn release(&mut self, velocity: u8);
 }
 
+// TODO: I didn't want VoiceStore to know anything about audio (i.e.,
+// SourcesAudio), but I couldn't figure out how to return an IterMut from a
+// HashMap, so I couldn't define a trait method that allowed the implementation
+// to return an iterator from either a Vec or a HashMap.
+pub trait VoiceStore: SourcesAudio + Send + Debug {
+    type Voice;
+
+    fn voice_count(&self) -> usize;
+    fn active_voice_count(&self) -> usize;
+    fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>>;
+}
+
 /// A synthesizer is composed of Voices. Ideally, a synth will know how to
 /// construct Voices, and then handle all the MIDI events properly for them.
-pub trait IsVoice: SourcesAudio + PlaysNotes {}
+pub trait IsVoice: SourcesAudio + PlaysNotes + Send + Default {}
 
 #[derive(Control, Debug, Uid)]
 pub struct Synthesizer<V: IsVoice> {
     uid: usize,
 
-    // These two fields must always have the same number of elements in their
-    // Vecs.
-    voices: Vec<Box<V>>,
-    notes_playing: Vec<u7>,
+    voice_store: Box<dyn VoiceStore<Voice = V>>,
 
     /// Ranges from -1.0..=1.0
     /// Applies to all notes
@@ -62,41 +72,19 @@ impl<V: IsVoice> Updateable for Synthesizer<V> {
 }
 impl<V: IsVoice> SourcesAudio for Synthesizer<V> {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        self.voices.iter_mut().map(|v| v.source_audio(clock)).sum()
-    }
-}
-impl<V: IsVoice> Default for Synthesizer<V> {
-    fn default() -> Self {
-        Self {
-            uid: Default::default(),
-            voices: Default::default(),
-            notes_playing: Default::default(),
-            pitch_bend: Default::default(),
-            channel_aftertouch: Default::default(),
-        }
+        self.voice_store.source_audio(clock)
     }
 }
 
 impl<V: IsVoice> Synthesizer<V> {
-    fn add_voice(&mut self, voice: Box<V>) {
-        self.voices.push(voice);
-        self.notes_playing.push(u7::from(0));
-    }
-
-    fn get_voice(&mut self, key: &midly::num::u7) -> anyhow::Result<usize> {
-        if let Some(index) = self.notes_playing.iter().position(|note| *key == *note) {
-            return Ok(index);
+    fn new_with(voice_store: Box<dyn VoiceStore<Voice = V>>) -> Self {
+        Self {
+            uid: Default::default(),
+            voice_store: voice_store,
+            pitch_bend: Default::default(),
+            channel_aftertouch: Default::default(),
         }
-        for (index, voice) in self.voices.iter().enumerate() {
-            if voice.is_playing() {
-                continue;
-            }
-            self.notes_playing[index] = *key;
-            return Ok(index);
-        }
-        Err(anyhow!("out of voices"))
     }
-
     pub fn set_pitch_bend(&mut self, pitch_bend: f32) {
         self.pitch_bend = pitch_bend;
     }
@@ -122,20 +110,19 @@ impl<V: IsVoice> HandlesMidi for Synthesizer<V> {
     fn handle_midi_message(&mut self, message: &MidiMessage) {
         match message {
             MidiMessage::NoteOff { key, vel } => {
-                if let Ok(index) = self.get_voice(key) {
-                    (&mut self.voices[index]).release(vel.as_int());
+                if let Ok(voice) = self.voice_store.get_voice(key) {
+                    voice.release(vel.as_int());
                 }
             }
             MidiMessage::NoteOn { key, vel } => {
-                if let Ok(index) = self.get_voice(key) {
-                    (&mut self.voices[index])
-                        .set_frequency_hz(MidiUtils::note_to_frequency(key.as_int()));
-                    (&mut self.voices[index]).attack(vel.as_int());
+                if let Ok(voice) = self.voice_store.get_voice(key) {
+                    voice.set_frequency_hz(MidiUtils::note_to_frequency(key.as_int()));
+                    voice.attack(vel.as_int());
                 }
             }
             MidiMessage::Aftertouch { key, vel } => {
-                if let Ok(index) = self.get_voice(key) {
-                    (&mut self.voices[index]).aftertouch(vel.as_int());
+                if let Ok(voice) = self.voice_store.get_voice(key) {
+                    voice.aftertouch(vel.as_int());
                 }
             }
             #[allow(unused_variables)]
@@ -243,19 +230,95 @@ impl SourcesAudio for SimpleSynthesizer {
 }
 impl Default for SimpleSynthesizer {
     fn default() -> Self {
-        let mut r = Self {
+        let mut voice_store = Box::new(SimpleVoiceStore::<SimpleVoice>::default());
+        voice_store.add_voice(Box::new(SimpleVoice::default()));
+        voice_store.add_voice(Box::new(SimpleVoice::default()));
+        voice_store.add_voice(Box::new(SimpleVoice::default()));
+        voice_store.add_voice(Box::new(SimpleVoice::default()));
+        Self {
             uid: Default::default(),
-            inner_synth: Synthesizer::<SimpleVoice>::default(),
-        };
-        r.inner_synth.add_voice(Box::new(SimpleVoice::default()));
-        r.inner_synth.add_voice(Box::new(SimpleVoice::default()));
-        r.inner_synth.add_voice(Box::new(SimpleVoice::default()));
-        r.inner_synth.add_voice(Box::new(SimpleVoice::default()));
-        r
+            inner_synth: Synthesizer::<SimpleVoice>::new_with(voice_store),
+        }
     }
 }
 impl SimpleSynthesizer {
     pub fn notes_playing(&self) -> usize {
         0
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct SimpleVoiceStore<V: IsVoice> {
+    voices: Vec<Box<V>>,
+    notes_playing: Vec<u7>,
+}
+impl<V: IsVoice> VoiceStore for SimpleVoiceStore<V> {
+    type Voice = V;
+
+    fn voice_count(&self) -> usize {
+        self.voices.len()
+    }
+
+    fn active_voice_count(&self) -> usize {
+        self.voices.iter().filter(|v| v.is_playing()).count()
+    }
+
+    fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>> {
+        if let Some(index) = self.notes_playing.iter().position(|note| *key == *note) {
+            return Ok(&mut self.voices[index]);
+        }
+        for (index, voice) in self.voices.iter().enumerate() {
+            if voice.is_playing() {
+                continue;
+            }
+            self.notes_playing[index] = *key;
+            return Ok(&mut self.voices[index]);
+        }
+        Err(anyhow!("out of voices"))
+    }
+}
+impl<V: IsVoice> SourcesAudio for SimpleVoiceStore<V> {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        self.voices.iter_mut().map(|v| v.source_audio(clock)).sum()
+    }
+}
+impl<V: IsVoice> SimpleVoiceStore<V> {
+    fn add_voice(&mut self, voice: Box<V>) {
+        self.voices.push(voice);
+        self.notes_playing.push(u7::from(0));
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct VoicePerNoteStore<V: IsVoice> {
+    voices: HashMap<u7, Box<V>>,
+}
+impl<V: IsVoice> VoiceStore for VoicePerNoteStore<V> {
+    type Voice = V;
+
+    fn voice_count(&self) -> usize {
+        self.voices.len()
+    }
+    fn active_voice_count(&self) -> usize {
+        self.voices.iter().filter(|(_k, v)| v.is_playing()).count()
+    }
+    fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>> {
+        if let Some(voice) = self.voices.get_mut(key) {
+            return Ok(voice);
+        }
+        Err(anyhow!("no voice for key {}", key))
+    }
+}
+impl<V: IsVoice> SourcesAudio for VoicePerNoteStore<V> {
+    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        self.voices
+            .values_mut()
+            .map(|v| v.source_audio(clock))
+            .sum()
+    }
+}
+impl<V: IsVoice> VoicePerNoteStore<V> {
+    fn add_voice(&mut self, key: u7, voice: Box<V>) {
+        self.voices.insert(key, voice);
     }
 }

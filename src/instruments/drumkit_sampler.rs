@@ -1,13 +1,14 @@
+use super::{HandlesMidi, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
 use crate::{
     clock::Clock,
     common::{F32ControlValue, MonoSample},
     messages::EntityMessage,
-    midi::{GeneralMidiPercussionProgram, MidiMessage},
+    midi::GeneralMidiPercussionProgram,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     utils::Paths,
 };
 use groove_macros::{Control, Uid};
-use rustc_hash::FxHashMap;
+use midly::num::u7;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -16,7 +17,39 @@ struct Voice {
     samples: Vec<MonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
+
     is_playing: bool,
+    attack_is_pending: bool,
+    attack_velocity: u8,
+    release_is_pending: bool,
+    release_velocity: u8,
+    aftertouch_is_pending: bool,
+    aftertouch_velocity: u8,
+}
+impl IsVoice for Voice {}
+impl PlaysNotes for Voice {
+    fn is_playing(&self) -> bool {
+        self.is_playing
+    }
+
+    fn set_frequency_hz(&mut self, _frequency_hz: f32) {
+        // not applicable for this kind of sampler
+    }
+
+    fn attack(&mut self, velocity: u8) {
+        self.attack_is_pending = true;
+        self.attack_velocity = velocity;
+    }
+
+    fn aftertouch(&mut self, velocity: u8) {
+        self.aftertouch_is_pending = true;
+        self.aftertouch_velocity = velocity;
+    }
+
+    fn release(&mut self, velocity: u8) {
+        self.release_is_pending = true;
+        self.release_velocity = velocity;
+    }
 }
 
 impl Voice {
@@ -36,30 +69,27 @@ impl Voice {
         }
         r
     }
-}
-impl Updateable for Voice {
-    type Message = EntityMessage; // TODO
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        #[allow(unused_variables)]
-        if let Self::Message::Midi(_channel, message) = message {
-            match message {
-                MidiMessage::NoteOff { key, vel } => {
-                    self.is_playing = false;
-                }
-                MidiMessage::NoteOn { key, vel } => {
-                    self.sample_pointer = 0;
-                    self.sample_clock_start = clock.samples();
-                    self.is_playing = true;
-                }
-                _ => {}
-            }
+    fn handle_pending_note_events(&mut self, clock: &Clock) {
+        if self.attack_is_pending {
+            self.attack_is_pending = false;
+            self.sample_pointer = 0;
+            self.sample_clock_start = clock.samples();
+            self.is_playing = true;
         }
-        Response::none()
+        if self.aftertouch_is_pending {
+            self.aftertouch_is_pending = false;
+            // TODO: do something
+        }
+        if self.release_is_pending {
+            self.release_is_pending = false;
+            self.is_playing = false;
+        }
     }
 }
 impl SourcesAudio for Voice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        self.handle_pending_note_events(clock);
         if self.sample_clock_start > clock.samples() {
             // TODO: this stops the clock-moves-backward explosion.
             // Come up with a more robust way to handle the sample pointer.
@@ -82,47 +112,27 @@ impl SourcesAudio for Voice {
     }
 }
 
-#[derive(Control, Debug, Default, Uid)]
+#[derive(Control, Debug, Uid)]
 pub struct DrumkitSampler {
     uid: usize,
-    note_to_voice: FxHashMap<u8, Voice>,
+    inner_synth: Synthesizer<Voice>,
     kit_name: String,
 }
 impl IsInstrument for DrumkitSampler {}
 impl SourcesAudio for DrumkitSampler {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        self.note_to_voice
-            .values_mut()
-            .map(|v| v.source_audio(clock))
-            .sum()
+        self.inner_synth.source_audio(clock)
     }
 }
 impl Updateable for DrumkitSampler {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         #[allow(unused_variables)]
         match message {
-            Self::Message::Midi(channel, midi_message) => match midi_message {
-                MidiMessage::NoteOff { key, vel } => {
-                    if let Some(voice) = self.note_to_voice.get_mut(&u8::from(key)) {
-                        voice.update(clock, message);
-                    }
-                }
-                MidiMessage::NoteOn { key, vel } => {
-                    if let Some(voice) = self.note_to_voice.get_mut(&u8::from(key)) {
-                        voice.update(clock, message);
-                    }
-                }
-                MidiMessage::Aftertouch { key, vel } => {
-                    if let Some(voice) = self.note_to_voice.get_mut(&u8::from(key)) {
-                        voice.update(clock, message);
-                    }
-                }
-                _ => {
-                    println!("FYI - ignoring MIDI command {midi_message:?}");
-                }
-            },
+            Self::Message::Midi(channel, midi_message) => {
+                self.inner_synth.handle_midi_message(&midi_message);
+            }
             _ => todo!(),
         }
         Response::none()
@@ -130,18 +140,9 @@ impl Updateable for DrumkitSampler {
 }
 
 impl DrumkitSampler {
-    fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn add_sample_for_note(&mut self, note: u8, filename: &str) -> anyhow::Result<()> {
-        self.note_to_voice
-            .insert(note, Voice::new_from_file(filename));
-        Ok(())
-    }
-
     pub(crate) fn new_from_files() -> Self {
-        let mut r = Self::new();
+        let mut voice_store = Box::new(VoicePerNoteStore::<Voice>::default());
+
         let samples: [(GeneralMidiPercussionProgram, &str); 21] = [
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
             (GeneralMidiPercussionProgram::ElectricBassDrum, "BD B"),
@@ -172,17 +173,29 @@ impl DrumkitSampler {
         for (program, asset_name) in samples {
             let mut path = base_dir.clone();
             path.push(format!("{asset_name} 707.wav").as_str());
-            let result = r.add_sample_for_note(program as u8, path.to_str().unwrap());
-            if result.is_err() {
-                panic!("failed to load a sample: {asset_name}");
+
+            if let Some(filename) = path.to_str() {
+                voice_store.add_voice(
+                    u7::from(program as u8),
+                    Box::new(Voice::new_from_file(filename)),
+                );
+            } else {
+                eprintln!("Unable to load sample {asset_name}.");
             }
         }
-        r.kit_name = "707".to_string();
-        r
+        Self::new_with(voice_store, "707")
     }
 
     pub fn kit_name(&self) -> &str {
         self.kit_name.as_ref()
+    }
+
+    fn new_with(voice_store: Box<VoicePerNoteStore<Voice>>, kit_name: &str) -> Self {
+        Self {
+            uid: Default::default(),
+            inner_synth: Synthesizer::<Voice>::new_with(voice_store),
+            kit_name: kit_name.to_string(),
+        }
     }
 }
 
