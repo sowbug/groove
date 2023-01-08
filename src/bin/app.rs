@@ -780,7 +780,7 @@ impl GrooveApp {
         GuiStuff::titled_container(&title, contents.into())
     }
 
-    fn fm_synthesizer_view(&self, e: &FmSynthesizer) -> Element<EntityMessage> {
+    fn fm_synthesizer_view(&self, _e: &FmSynthesizer) -> Element<EntityMessage> {
         let title = format!("{}: {}", type_name::<FmSynthesizer>(), 42.0);
         let slider = HSlider::new(
             NormalParam {

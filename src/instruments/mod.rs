@@ -406,8 +406,14 @@ impl FmVoice {
         self.is_playing = !self.envelope.is_idle(clock);
     }
 
+    #[allow(dead_code)]
     pub fn modulator_frequency(&self) -> f32 {
         self.modulator.frequency()
+    }
+
+    #[allow(dead_code)]
+    pub fn set_modulator_frequency(&mut self, value: f32) {
+        self.modulator.set_frequency(value);
     }
 }
 
