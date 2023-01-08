@@ -12,8 +12,8 @@ use groove::{
     Chorus, Clock, Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, Gain,
     GrooveMessage, GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
     MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Note,
-    Oscillator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, TestLfo, TestSynth,
-    Timer, WelshSynth, SimpleSynthesizer,
+    Oscillator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, SimpleSynthesizer,
+    TestLfo, TestSynth, Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
