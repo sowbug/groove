@@ -1,6 +1,7 @@
 use crate::{
     common::{F32ControlValue, MonoSample},
     midi::MidiUtils,
+    settings::patches::EnvelopeSettings,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     AdsrEnvelope, Clock, EntityMessage, Oscillator,
 };
@@ -378,7 +379,12 @@ impl Default for FmVoice {
             carrier: Default::default(),
             modulator: Default::default(),
             modulator_depth: 0.2,
-            envelope: Default::default(),
+            envelope: AdsrEnvelope::new_with(&EnvelopeSettings {
+                attack: 0.1,
+                decay: 0.1,
+                sustain: 0.8,
+                release: 0.25,
+            }),
             is_playing: Default::default(),
             attack_is_pending: Default::default(),
             attack_velocity: Default::default(),
