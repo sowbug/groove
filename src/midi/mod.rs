@@ -21,11 +21,32 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, time::Instant};
 use strum_macros::Display;
 
+/// There are two different mappings of piano notes to MIDI numbers. They both
+/// agree that Midi note 0 is a C, but they otherwise differ by an octave. I
+/// originally picked C4=60, because that was the top Google search result's
+/// answer, but it seems like a slight majority thinks C3=60. I'm going to leave
+/// it as-is so that I don't have to rename my test data files. I don't think it
+/// matters because we're not actually mapping these to anything user-visible.
+///
+/// These also correspond to https://en.wikipedia.org/wiki/Piano_key_frequencies
 #[derive(Clone, Copy, Debug, Default)]
 #[allow(dead_code)]
 pub enum MidiNote {
     None = 0,
+    C0 = 12,
+    Cs0 = 13,
+    D0 = 14,
+    Ds0 = 15,
+    E0 = 16,
+    F0 = 17,
+    Fs0 = 18,
+    G0 = 19,
+    Gs0 = 20,
     A0 = 21,
+    As0 = 22,
+    B0 = 23,
+    C1 = 24,
+    C2 = 36,
     D3 = 50,
     #[default]
     C4 = 60,
@@ -55,19 +76,6 @@ impl MidiUtils {
     #[allow(dead_code)]
     pub fn note_type_to_frequency(midi_note: MidiNote) -> f32 {
         2.0_f32.powf((midi_note as u8 as f32 - 69.0) / 12.0) * 440.0
-    }
-
-    #[allow(unused_variables)]
-    pub fn message_to_frequency(message: &MidiMessage) -> f32 {
-        match message {
-            MidiMessage::NoteOff { key, vel } => Self::note_to_frequency(u8::from(*key)),
-            MidiMessage::NoteOn { key, vel } => Self::note_to_frequency(u8::from(*key)),
-            MidiMessage::Aftertouch { key, vel } => todo!(),
-            MidiMessage::Controller { controller, value } => todo!(),
-            MidiMessage::ProgramChange { program } => todo!(),
-            MidiMessage::ChannelAftertouch { vel } => todo!(),
-            MidiMessage::PitchBend { bend } => todo!(),
-        }
     }
 }
 
@@ -718,11 +726,8 @@ pub mod tests {
 
     #[test]
     fn test_note_to_frequency() {
-        let message = MidiUtils::new_note_on(MidiNote::C4 as u8, 0);
-        assert_approx_eq!(MidiUtils::message_to_frequency(&message), 261.625_55);
-        let message = MidiUtils::new_note_on(0, 0);
-        assert_approx_eq!(MidiUtils::message_to_frequency(&message), 8.175798);
-        let message = MidiUtils::new_note_on(MidiNote::G9 as u8, 0);
-        assert_approx_eq!(MidiUtils::message_to_frequency(&message), 12543.855);
+        assert_approx_eq!(MidiUtils::note_type_to_frequency(MidiNote::C0), 16.351_597);
+        assert_approx_eq!(MidiUtils::note_type_to_frequency(MidiNote::C4), 261.625_55);
+        assert_approx_eq!(MidiUtils::note_type_to_frequency(MidiNote::G9), 12_543.855);
     }
 }

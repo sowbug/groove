@@ -1,7 +1,11 @@
-use super::{envelopes::AdsrEnvelope, oscillators::Oscillator};
+use super::{
+    envelopes::AdsrEnvelope, oscillators::Oscillator, IsVoice, PlaysNotes, SimpleVoiceStore,
+    Synthesizer,
+};
 use crate::{
     common::{F32ControlValue, MonoSample},
     effects::filter::{BiQuadFilter, FilterParams},
+    instruments::HandlesMidi,
     messages::EntityMessage,
     midi::{GeneralMidiProgram, MidiMessage, MidiUtils},
     settings::{
@@ -17,7 +21,6 @@ use crate::{
 use convert_case::{Boundary, Case, Casing};
 use groove_macros::{Control, Uid};
 use num_traits::FromPrimitive;
-use rustc_hash::FxHashMap;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -409,7 +412,7 @@ impl WelshSynth {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
     oscillator_2_sync: bool,
@@ -423,6 +426,43 @@ pub struct WelshVoice {
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
     filter_envelope: AdsrEnvelope,
+
+    is_playing: bool,
+    attack_is_pending: bool,
+    attack_velocity: u8,
+    release_is_pending: bool,
+    release_velocity: u8,
+    aftertouch_is_pending: bool,
+    aftertouch_velocity: u8,
+}
+impl IsVoice for WelshVoice {}
+impl PlaysNotes for WelshVoice {
+    fn is_playing(&self) -> bool {
+        self.is_playing
+    }
+
+    fn set_frequency_hz(&mut self, frequency_hz: f32) {
+        // It's safe to set the frequency on a fixed-frequency oscillator; the
+        // fixed frequency is stored separately and takes precedence.
+        self.oscillators.iter_mut().for_each(|o| {
+            o.set_frequency(frequency_hz);
+        });
+    }
+
+    fn attack(&mut self, velocity: u8) {
+        self.attack_is_pending = true;
+        self.attack_velocity = velocity;
+    }
+
+    fn aftertouch(&mut self, velocity: u8) {
+        self.aftertouch_is_pending = true;
+        self.aftertouch_velocity = velocity;
+    }
+
+    fn release(&mut self, velocity: u8) {
+        self.release_is_pending = true;
+        self.release_velocity = velocity;
+    }
 }
 
 impl WelshVoice {
@@ -475,44 +515,28 @@ impl WelshVoice {
         r
     }
 
-    pub(crate) fn is_playing(&self, clock: &Clock) -> bool {
-        !self.amp_envelope.is_idle(clock)
-    }
-}
-impl Updateable for WelshVoice {
-    // TODO I really wanted this to be MidiMessage, but for now I'm borrowing
-    // midly::MidiMessage, and it's missing at least one requirement of
-    // MessageBounds' trait bounds.
-    //
-    // type Message = MidiMessage;
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        #[allow(unused_variables)]
-        if let Self::Message::Midi(channel, message) = message {
-            match message {
-                MidiMessage::NoteOff { key, vel } => {
-                    self.amp_envelope.handle_note_event(clock, false);
-                    self.filter_envelope.handle_note_event(clock, false);
-                }
-                MidiMessage::NoteOn { key, vel } => {
-                    let frequency = MidiUtils::message_to_frequency(&message);
-                    for o in self.oscillators.iter_mut() {
-                        o.set_frequency(frequency);
-                    }
-                    self.amp_envelope.handle_note_event(clock, true);
-                    self.filter_envelope.handle_note_event(clock, true);
-                }
-                _ => {}
-            }
+    fn handle_pending_note_events(&mut self, clock: &Clock) {
+        if self.attack_is_pending {
+            self.attack_is_pending = false;
+            self.amp_envelope.handle_note_event(clock, true);
+            self.filter_envelope.handle_note_event(clock, true);
         }
-
-        Response::none()
+        if self.aftertouch_is_pending {
+            self.aftertouch_is_pending = false;
+            // TODO: do something
+        }
+        if self.release_is_pending {
+            self.release_is_pending = false;
+            self.amp_envelope.handle_note_event(clock, false);
+            self.filter_envelope.handle_note_event(clock, false);
+        }
+        self.is_playing = !self.amp_envelope.is_idle(clock);
     }
 }
-
 impl SourcesAudio for WelshVoice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+        self.handle_pending_note_events(clock);
+
         // LFO
         let lfo = self.lfo.source_audio(clock);
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
@@ -578,7 +602,7 @@ impl SourcesAudio for WelshVoice {
         // Here, we're doing an unscalable hack of predicting that we're going
         // inactive, and preemptively fixing up the oscillators.
         //
-        // Any chance the new IsVoice design could handle this problem more
+        // Any chance the new PlaysNotes design could handle this problem more
         // elegantly?
         if !self.amp_envelope.is_idle(clock) {
             self.oscillators.iter_mut().for_each(|o| {
@@ -591,14 +615,10 @@ impl SourcesAudio for WelshVoice {
     }
 }
 
-#[derive(Clone, Control, Debug, Uid)]
+#[derive(Control, Debug, Uid)]
 pub struct WelshSynth {
     uid: usize,
-    sample_rate: usize,
-    pub(crate) preset: SynthPatch,
-    voices: Vec<WelshVoice>,
-    notes_to_voice_indexes: FxHashMap<u8, usize>,
-
+    inner_synth: Synthesizer<WelshVoice>,
     debug_last_seconds: f32,
 }
 impl IsInstrument for WelshSynth {}
@@ -609,44 +629,27 @@ impl SourcesAudio for WelshSynth {
         } else {
             self.debug_last_seconds = clock.seconds();
         }
-
-        // We previously scaled the sum to account for either all voices or all
-        // voices that were playing. This led to icky discontinuities as that
-        // number changed. As it is now, if you play a bunch of notes at once,
-        // it's going to be very loud.
-        self.voices
-            .iter_mut()
-            .filter(|v| v.is_playing(clock))
-            .map(|v| v.source_audio(clock))
-            .sum()
+        self.inner_synth.source_audio(clock)
     }
 }
 impl Updateable for WelshSynth {
     type Message = EntityMessage;
 
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         #[allow(unused_variables)]
         match message {
             Self::Message::Midi(channel, midi_message) => match midi_message {
-                MidiMessage::NoteOn { key, vel } => {
-                    let voice = self.voice_for_note(clock, u8::from(key));
-                    voice.update(clock, message);
-                }
-                MidiMessage::NoteOff { key, vel } => {
-                    let voice = self.voice_for_note(clock, u8::from(key));
-                    voice.update(clock, message);
-                }
                 MidiMessage::ProgramChange { program } => {
                     if let Some(program) = GeneralMidiProgram::from_u8(u8::from(program)) {
                         if let Ok(preset) = WelshSynth::general_midi_preset(&program) {
-                            self.preset = preset;
+                            //  self.preset = preset;
                         } else {
                             println!("unrecognized patch from MIDI program change: {}", &program);
                         }
                     }
                 }
                 _ => {
-                    println!("FYI - ignoring MIDI command {midi_message:?}");
+                    self.inner_synth.handle_midi_message(&midi_message);
                 }
             },
             _ => todo!(),
@@ -655,68 +658,22 @@ impl Updateable for WelshSynth {
     }
 }
 
-impl Default for WelshSynth {
-    fn default() -> Self {
-        Self {
-            uid: Default::default(),
-            sample_rate: usize::default(),
-            preset: SynthPatch::default(),
-            voices: Default::default(),
-            notes_to_voice_indexes: Default::default(),
-            debug_last_seconds: -1.0,
-        }
-    }
-}
 impl WelshSynth {
     pub(crate) fn new_with(sample_rate: usize, preset: SynthPatch) -> Self {
+        let mut voice_store = Box::new(SimpleVoiceStore::<WelshVoice>::default());
+        for _ in 0..8 {
+            voice_store.add_voice(Box::new(WelshVoice::new_with(sample_rate, &preset)));
+        }
         Self {
-            sample_rate,
-            preset,
-            ..Default::default()
+            uid: Default::default(),
+            inner_synth: Synthesizer::<WelshVoice>::new_with(voice_store),
+            debug_last_seconds: -1.0,
         }
     }
 
     pub fn preset_name(&self) -> &str {
-        self.preset.name.as_str()
-    }
-
-    // // TODO: this has unlimited-voice polyphony. Should we limit to a fixed number?
-    // fn voice_for_note_old(&mut self, clock: &Clock, note: u8) -> &mut WelshVoice {
-    //     // If we already have a voice for this note, return it.
-    //     if let Some(&index) = self.note_to_voice_index.get(&note) {
-    //         &mut self.voices[index]
-    //     } else {
-    //         // If there's an empty slot (a voice that's done playing), return that.
-    //         if let Some(index) = self.voices.iter().position(|v| !v.is_playing(clock)) {
-    //             self.note_to_voice_index.insert(note, index);
-    //             &mut self.voices[index]
-    //         } else {
-    //             // All existing voices are playing. Make a new one.
-    //             self.voices
-    //                 .push(WelshVoice::new(self.sample_rate, &self.preset));
-    //             let index = self.voices.len() - 1;
-    //             self.note_to_voice_index.insert(note, index);
-    //             &mut self.voices[index]
-    //         }
-    //     }
-    // }
-
-    // TODO: this has unlimited-voice polyphony. Should we limit to a fixed number?
-    fn voice_for_note(&mut self, clock: &Clock, note: u8) -> &mut WelshVoice {
-        if let Some(&index) = self.notes_to_voice_indexes.get(&note) {
-            return &mut self.voices[index];
-        }
-        for (index, voice) in self.voices.iter().enumerate() {
-            if !voice.is_playing(clock) {
-                self.notes_to_voice_indexes.insert(note, index);
-                return &mut self.voices[index];
-            }
-        }
-        self.voices
-            .push(WelshVoice::new_with(self.sample_rate, &self.preset));
-        let index = self.voices.len() - 1;
-        self.notes_to_voice_indexes.insert(note, index);
-        &mut self.voices[index]
+        "none"
+        //        self.preset.name.as_str()
     }
 }
 
@@ -727,7 +684,7 @@ mod tests {
     use crate::{
         clock::Clock,
         instruments::welsh::WaveformType,
-        midi::{MidiMessage, MidiUtils},
+        midi::{MidiNote, MidiUtils},
         settings::patches::{
             EnvelopeSettings, FilterPreset, LfoPreset, LfoRouting, OscillatorSettings,
             PolyphonySettings,
@@ -749,19 +706,19 @@ mod tests {
         const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
-        let midi_on = MidiUtils::note_on_c4();
-        let midi_off = MidiUtils::note_off_c4();
-
+        voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
         let mut last_recognized_time_point = -1.;
         let time_note_off = duration / 2.0;
         while clock.seconds() < duration {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
-                voice.update(&clock, EntityMessage::Midi(0, midi_on));
+                voice.attack(127);
+                voice.handle_pending_note_events(&clock);
             } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
             {
                 last_recognized_time_point = clock.seconds();
-                voice.update(&clock, EntityMessage::Midi(0, midi_off));
+                voice.release(127);
+                voice.handle_pending_note_events(&clock);
             }
 
             let sample = voice.source_audio(&clock);
@@ -817,7 +774,6 @@ mod tests {
         source: &mut WelshVoice,
         clock: &mut Clock,
         duration: f32,
-        message: &MidiMessage,
         when: f32,
         basename: &str,
     ) {
@@ -834,7 +790,8 @@ mod tests {
         while clock.seconds() < duration {
             if when <= clock.seconds() && !is_message_sent {
                 is_message_sent = true;
-                source.update(clock, EntityMessage::Midi(0, *message));
+                source.release(0);
+                source.handle_pending_note_events(clock);
             }
             let sample = source.source_audio(clock);
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
@@ -938,37 +895,21 @@ mod tests {
 
     #[test]
     fn test_basic_synth_patch() {
-        let message_on = MidiUtils::note_on_c4();
-        let message_off = MidiUtils::note_off_c4();
-
         let mut clock = Clock::default();
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &test_patch());
-        voice.update(&clock, EntityMessage::Midi(0, message_on));
-        write_sound(
-            &mut voice,
-            &mut clock,
-            5.0,
-            &message_off,
-            5.0,
-            "voice_basic_test_c4",
-        );
+        voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
+        voice.attack(127);
+        voice.handle_pending_note_events(&clock);
+        write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
     }
 
     #[test]
     fn test_basic_cello_patch() {
-        let message_on = MidiUtils::note_on_c4();
-        let message_off = MidiUtils::note_off_c4();
-
         let mut clock = Clock::default();
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &cello_patch());
-        voice.update(&clock, EntityMessage::Midi(0, message_on));
-        write_sound(
-            &mut voice,
-            &mut clock,
-            5.0,
-            &message_off,
-            1.0,
-            "voice_cello_c4",
-        );
+        voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
+        voice.attack(127);
+        voice.handle_pending_note_events(&clock);
+        write_sound(&mut voice, &mut clock, 5.0, 1.0, "voice_cello_c4");
     }
 }
