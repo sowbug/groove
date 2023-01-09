@@ -149,6 +149,7 @@ impl Application for GrooveApp {
             }
             AppMessage::PrefsLoaded(Err(_)) => {
                 self.is_pref_load_complete = true;
+                self.preferences = Preferences::default();
             }
             AppMessage::Tick(_now) => {
                 // TODO: do we still need a tick?

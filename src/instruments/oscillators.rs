@@ -45,8 +45,7 @@ impl IsInstrument for Oscillator {}
 impl SourcesAudio for Oscillator {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         if clock.was_reset() {
-            self.phase_shift = 0;
-            self.last_cycle_position = 0.0;
+            self.reset_phase();
         }
         let sample_count = (clock.samples() - self.phase_shift) as f64;
         let sample_rate = clock.sample_rate() as f64;
@@ -221,6 +220,11 @@ impl Oscillator {
 
     pub fn has_period_restarted(&self) -> bool {
         self.has_period_restarted
+    }
+
+    pub(crate) fn reset_phase(&mut self) {
+        self.phase_shift = 0;
+        self.last_cycle_position = 0.0;
     }
 }
 

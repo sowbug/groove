@@ -562,8 +562,32 @@ impl SourcesAudio for WelshVoice {
             1.0
         };
 
+        let amp_envelope_level = self.amp_envelope.source_audio(clock);
+
+        // This feels very flaky. We are trying to deal with a case where a
+        // voice is marked idle, so it no longer gets called with
+        // source_audio(), so it misses the clock.was_reset signal, so it fails
+        // to reset its phase markers, so when the voice gets used again, it
+        // suffers an overflow subtraction (since it's trying to calculate
+        // something after the clock's sample count starts over). This could
+        // mean that the cute clock.was_reset idea is unworkable (since we
+        // forgot to account for things that aren't always called on every
+        // tick()). An alternative could be each entity tracking the prior
+        // sample count, and detecting a reset condition when the nuxt number
+        // isn't prior + 1. Another approach could be always calling everyone.
+        // Here, we're doing an unscalable hack of predicting that we're going
+        // inactive, and preemptively fixing up the oscillators.
+        //
+        // Any chance the new IsVoice design could handle this problem more
+        // elegantly?
+        if !self.amp_envelope.is_idle(clock) {
+            self.oscillators.iter_mut().for_each(|o| {
+                o.reset_phase();
+            });
+        }
+
         // Final
-        filtered_mix * self.amp_envelope.source_audio(clock) * lfo_for_amplitude
+        filtered_mix * amp_envelope_level * lfo_for_amplitude
     }
 }
 

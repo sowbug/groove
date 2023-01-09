@@ -13,13 +13,23 @@ pub enum SaveError {
     Format,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Preferences {
     pub selected_midi_input: Option<String>,
     pub selected_midi_output: Option<String>,
 
     pub should_reload_last_project: bool,
     pub last_project_filename: Option<String>,
+}
+impl Default for Preferences {
+    fn default() -> Self {
+        Self {
+            selected_midi_input: Default::default(),
+            selected_midi_output: Default::default(),
+            should_reload_last_project: true,
+            last_project_filename: Some(String::from("default.yaml")),
+        }
+    }
 }
 
 impl Preferences {
