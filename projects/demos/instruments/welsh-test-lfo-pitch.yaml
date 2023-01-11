@@ -1,5 +1,5 @@
 ---
-title: "Welsh angels"
+title: "Welsh Test LFO Pitch"
 clock:
   bpm: 60
   time-signature:
@@ -10,7 +10,7 @@ devices:
     - instrument-1
     - welsh:
         midi-in: 0
-        preset: angels
+        preset: test-lfo-pitch
   - effect:
     - gain-1
     - gain:
