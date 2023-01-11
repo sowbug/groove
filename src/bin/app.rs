@@ -28,6 +28,7 @@ use iced::{
 };
 use iced_audio::{HSlider, Normal, NormalParam};
 use iced_native::{window, Event};
+use rustc_hash::FxHashMap;
 use std::{
     any::type_name,
     sync::{Arc, Mutex},
@@ -60,6 +61,8 @@ struct GrooveApp {
 
     midi_handler_sender: Option<mpsc::Sender<MidiHandlerInput>>,
     midi_handler: Option<Arc<Mutex<MidiHandler>>>,
+
+    entity_view_states: FxHashMap<usize, EntityViewState>,
 }
 
 impl Default for GrooveApp {
@@ -81,6 +84,7 @@ impl Default for GrooveApp {
             reached_end_of_playback: Default::default(),
             midi_handler_sender: Default::default(),
             midi_handler: Default::default(),
+            entity_view_states: Default::default(),
         }
     }
 }
@@ -92,7 +96,7 @@ enum State {
     Playing,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum AppMessage {
     PrefsLoaded(Result<Preferences, LoadError>),
     PrefsSaved(Result<(), SaveError>),
@@ -265,9 +269,18 @@ impl Application for GrooveApp {
                 }
             },
             AppMessage::GrooveMessage(message) => match message {
-                GrooveMessage::EntityMessage(uid, message) => {
-                    self.entity_update(uid, message);
-                }
+                GrooveMessage::EntityMessage(uid, message) => match message {
+                    EntityMessage::ExpandPressed => {
+                        // Find whoever else is expanded and maybe collapse them
+                        self.set_entity_view_state(uid, EntityViewState::Expanded);
+                    }
+                    EntityMessage::CollapsePressed => {
+                        self.set_entity_view_state(uid, EntityViewState::Collapsed);
+                    }
+                    _ => {
+                        self.entity_update(uid, message);
+                    }
+                },
                 _ => todo!(),
             },
             AppMessage::PrefsSaved(Ok(_)) => {}
@@ -325,6 +338,13 @@ impl Application for GrooveApp {
             .align_y(alignment::Vertical::Top)
             .into()
     }
+}
+
+#[derive(Clone, Default, PartialEq)]
+enum EntityViewState {
+    #[default]
+    Collapsed,
+    Expanded,
 }
 
 impl GrooveApp {
@@ -770,15 +790,31 @@ impl GrooveApp {
 
     fn gain_view(&self, e: &Gain<EntityMessage>) -> Element<EntityMessage> {
         let title = format!("{}: {}", type_name::<Gain<EntityMessage>>(), e.ceiling());
-        let slider = HSlider::new(
-            NormalParam {
-                value: Normal::from_clipped(e.ceiling()),
-                default: Normal::from_clipped(1.0),
-            },
-            EntityMessage::HSliderInt,
-        );
-        let contents = container(row![slider]).padding(20);
-        GuiStuff::titled_container(&title, contents.into())
+        if self.entity_view_state(e.uid()) == EntityViewState::Expanded {
+            let slider = HSlider::new(
+                NormalParam {
+                    value: Normal::from_clipped(e.ceiling()),
+                    default: Normal::from_clipped(1.0),
+                },
+                EntityMessage::HSliderInt,
+            );
+            let contents = container(row![slider]).padding(20);
+            GuiStuff::titled_container(&title, contents.into())
+        } else {
+            GuiStuff::<EntityMessage>::collapsed_container(&title, EntityMessage::ExpandPressed)
+        }
+    }
+
+    fn entity_view_state(&self, uid: usize) -> EntityViewState {
+        if let Some(state) = self.entity_view_states.get(&uid) {
+            state.clone()
+        } else {
+            EntityViewState::default()
+        }
+    }
+
+    fn set_entity_view_state(&mut self, uid: usize, new_state: EntityViewState) {
+        self.entity_view_states.insert(uid, new_state.clone());
     }
 
     fn fm_synthesizer_view(&self, _e: &FmSynthesizer) -> Element<EntityMessage> {

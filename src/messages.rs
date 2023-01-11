@@ -90,6 +90,10 @@ pub enum EntityMessage {
 
     PickListSelected(String),
 
+    // GUI things.
+    ExpandPressed,
+    CollapsePressed,
+
     // Temp things
     MutePressed(bool),
     EnablePressed(bool),

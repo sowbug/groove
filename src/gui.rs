@@ -8,7 +8,7 @@ use iced::{
     alignment::Vertical,
     futures::channel::mpsc,
     theme,
-    widget::{self, column, container, row, text},
+    widget::{self, button, column, container, row, text},
     Color, Element, Font, Renderer, Theme,
 };
 use iced_native::subscription::{self, Subscription};
@@ -76,7 +76,7 @@ pub struct GuiStuff<'a, Message> {
     phantom: PhantomData<&'a Message>,
 }
 
-impl<'a, Message: 'a> GuiStuff<'a, Message> {
+impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
     pub fn titled_container(title: &str, contents: Element<'a, Message>) -> Element<'a, Message> {
         container(column![
             Self::titled_container_title(title),
@@ -133,6 +133,17 @@ impl<'a, Message: 'a> GuiStuff<'a, Message> {
         Box::new(NumberContainerStyle {
             _theme: theme.clone(),
         })
+    }
+
+    pub fn collapsed_container(
+        title: &str,
+        disclosure_triangle_message: Message,
+    ) -> Element<'a, Message> {
+        let button = button(text(">".to_string())).on_press(disclosure_triangle_message);
+        container(column![Self::titled_container_title(title), button,])
+            .padding(0)
+            .style(theme::Container::Box)
+            .into()
     }
 }
 
