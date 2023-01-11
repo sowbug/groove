@@ -637,25 +637,34 @@ mod tests {
             },
             MidiNote::C4,
         );
+        // Default
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiUtils::note_type_to_frequency(MidiNote::C4) as f64
         );
+
+        // Explicitly zero (none)
         oscillator.set_frequency_modulation(0.0);
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiUtils::note_type_to_frequency(MidiNote::C4) as f64
         );
+
+        // Max
         oscillator.set_frequency_modulation(1.0);
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C4) as f64 * 2.0
+            MidiUtils::note_type_to_frequency(MidiNote::C5) as f64
         );
+
+        // Min
         oscillator.set_frequency_modulation(-1.0);
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C4) as f64 / 2.0
+            MidiUtils::note_type_to_frequency(MidiNote::C3) as f64
         );
+
+        // Halfway between zero and max
         oscillator.set_frequency_modulation(0.5);
         assert_eq!(
             oscillator.adjusted_frequency(),

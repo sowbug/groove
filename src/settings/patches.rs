@@ -69,7 +69,8 @@ impl From<OscillatorTune> for f32 {
             OscillatorTune::Note(_) => 1.0,
             OscillatorTune::Float(value) => value,
             OscillatorTune::Osc { octave, semi, cent } => {
-                2.0f32.powf((octave as f32 * 1200.0 + semi as f32 * 100.0 + cent as f32) / 1200.0)
+                OscillatorSettings::semis_and_cents(octave as i16 * 12 + semi as i16, cent as f64)
+                    as f32
             }
         }
     }
@@ -81,7 +82,7 @@ impl From<OscillatorTune> for f64 {
             OscillatorTune::Note(_) => 1.0,
             OscillatorTune::Float(value) => value as f64,
             OscillatorTune::Osc { octave, semi, cent } => {
-                2.0f64.powf((octave as f64 * 1200.0 + semi as f64 * 100.0 + cent as f64) / 1200.0)
+                OscillatorSettings::semis_and_cents(octave as i16 * 12 + semi as i16, cent as f64)
             }
         }
     }
@@ -113,14 +114,13 @@ impl Default for OscillatorSettings {
 
 impl OscillatorSettings {
     #[allow(dead_code)]
-    pub fn octaves(num: i16) -> f32 {
+    pub fn octaves(num: i16) -> f64 {
         Self::semis_and_cents(num * 12, 0.0)
     }
 
-    #[allow(dead_code)]
-    pub fn semis_and_cents(semitones: i16, cents: f32) -> f32 {
+    pub fn semis_and_cents(semitones: i16, cents: f64) -> f64 {
         // https://en.wikipedia.org/wiki/Cent_(music)
-        2.0f32.powf((semitones as f32 * 100.0 + cents) / 1200.0)
+        2.0f64.powf((semitones as f64 * 100.0 + cents) / 1200.0)
     }
 }
 
@@ -169,19 +169,19 @@ pub enum LfoDepth {
     Pct(f32),
     Cents(f32),
 }
-
 impl Default for LfoDepth {
     fn default() -> Self {
         LfoDepth::Pct(0.0)
     }
 }
-
 impl From<LfoDepth> for f32 {
     fn from(val: LfoDepth) -> Self {
         match val {
             LfoDepth::None => 0.0,
             LfoDepth::Pct(pct) => pct,
-            LfoDepth::Cents(cents) => 1.0 - OscillatorSettings::semis_and_cents(0, cents),
+            LfoDepth::Cents(cents) => {
+                1.0 - OscillatorSettings::semis_and_cents(0, cents as f64) as f32
+            }
         }
     }
 }
@@ -193,19 +193,6 @@ pub struct LfoPreset {
     pub waveform: WaveformType,
     pub frequency: f32,
     pub depth: LfoDepth,
-}
-
-impl LfoPreset {
-    #[allow(dead_code)]
-    pub fn percent(num: f32) -> f32 {
-        num / 100.0
-    }
-
-    #[allow(dead_code)]
-    pub fn semis_and_cents(semitones: f32, cents: f32) -> f32 {
-        // https://en.wikipedia.org/wiki/Cent_(music)
-        2.0f32.powf((semitones * 100.0 + cents) / 1200.0)
-    }
 }
 
 // TODO: for Welsh presets, it's understood that they're all low-pass filters.
@@ -238,7 +225,7 @@ mod tests {
         assert_approx_eq!(OscillatorSettings::semis_and_cents(5, 0.0), 1.334_839_6); // 349.2282÷261.6256, F4÷C4
         assert_eq!(
             OscillatorSettings::semis_and_cents(0, -100.0),
-            2.0f32.powf(-100.0 / 1200.0)
+            2.0f64.powf(-100.0 / 1200.0)
         );
 
         assert_eq!(
