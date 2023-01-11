@@ -117,7 +117,7 @@ pub enum ClockTimeUnit {
     MidiTicks,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Clock {
     settings: ClockSettings,
 
@@ -135,19 +135,27 @@ pub struct Clock {
     // last tick because this is the first.
     was_reset: bool,
 }
+impl Default for Clock {
+    fn default() -> Self {
+        Self {
+            settings: Default::default(),
+            samples: Default::default(),
+            seconds: Default::default(),
+            beats: Default::default(),
+            midi_ticks: Default::default(),
+            was_reset: true,
+        }
+    }
+}
 
 impl Clock {
     pub fn new() -> Self {
-        Self {
-            was_reset: true,
-            ..Default::default()
-        }
+        Self::default()
     }
 
     pub fn new_with(settings: &ClockSettings) -> Self {
         Self {
             settings: settings.clone(),
-            was_reset: true,
             ..Default::default()
         }
     }
