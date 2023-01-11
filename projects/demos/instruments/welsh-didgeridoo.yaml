@@ -14,7 +14,7 @@ devices:
   - effect:
     - gain-1
     - gain:
-        ceiling: 0.25
+        ceiling: 0.3
 patch-cables:
   - [instrument-1, gain-1, main-mixer]
 patterns:

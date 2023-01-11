@@ -231,7 +231,7 @@ impl<M: MessageBounds> BiQuadFilter<M> {
     // A placeholder for an intelligent mapping of 0.0..=1.0 to a reasonable Q
     // range
     pub fn denormalize_q(value: f32) -> f32 {
-        value * value * 50.0 + 0.707
+        value * value * 10.0 + 0.707
     }
 
     // A placeholder for an intelligent mapping of 0.0..=1.0 to a reasonable
