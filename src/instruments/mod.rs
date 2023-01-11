@@ -347,7 +347,6 @@ impl PlaysNotes for FmVoice {
 
     fn set_frequency_hz(&mut self, frequency_hz: f32) {
         self.carrier.set_frequency(frequency_hz);
-        self.modulator.set_frequency(2000.0);
     }
 
     fn attack(&mut self, velocity: u8) {
@@ -396,6 +395,14 @@ impl Default for FmVoice {
     }
 }
 impl FmVoice {
+    pub(crate) fn new_with(modulator_frequency: f32) -> Self {
+        let mut modulator = Oscillator::default();
+        modulator.set_frequency(modulator_frequency);
+        Self {
+            modulator,
+            ..Default::default()
+        }
+    }
     fn handle_pending_note_events(&mut self, clock: &Clock) {
         if self.attack_is_pending {
             self.attack_is_pending = false;
@@ -454,13 +461,45 @@ impl SourcesAudio for FmSynthesizer {
 impl Default for FmSynthesizer {
     fn default() -> Self {
         let mut voice_store = Box::new(SimpleVoiceStore::<FmVoice>::default());
-        voice_store.add_voice(Box::new(FmVoice::default()));
-        voice_store.add_voice(Box::new(FmVoice::default()));
-        voice_store.add_voice(Box::new(FmVoice::default()));
-        voice_store.add_voice(Box::new(FmVoice::default()));
+        for _ in 0..4 {
+            voice_store.add_voice(Box::new(FmVoice::default()));
+        }
+        Self::new_with_voice_store(voice_store)
+    }
+}
+impl FmSynthesizer {
+    pub(crate) fn new_with(preset: &FmSynthesizerPreset) -> Self {
+        let voice_store = Box::new(SimpleVoiceStore::<FmVoice>::new_with(preset));
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<FmVoice>::new_with(voice_store),
         }
     }
+
+    pub(crate) fn new_with_voice_store(voice_store: Box<dyn VoiceStore<Voice = FmVoice>>) -> Self {
+        Self {
+            uid: Default::default(),
+            inner_synth: Synthesizer::<FmVoice>::new_with(voice_store),
+        }
+    }
+
+    pub(crate) fn preset_for_name(_name: &str) -> FmSynthesizerPreset {
+        FmSynthesizerPreset {
+            modulator_frequency_hz: 388.0,
+        }
+    }
+}
+
+impl SimpleVoiceStore<FmVoice> {
+    pub(crate) fn new_with(preset: &FmSynthesizerPreset) -> Self {
+        let mut voice_store = SimpleVoiceStore::<FmVoice>::default();
+        for _ in 0..4 {
+            voice_store.add_voice(Box::new(FmVoice::new_with(preset.modulator_frequency_hz)));
+        }
+        voice_store
+    }
+}
+
+pub(crate) struct FmSynthesizerPreset {
+    modulator_frequency_hz: f32,
 }

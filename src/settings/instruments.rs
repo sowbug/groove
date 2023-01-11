@@ -140,10 +140,12 @@ impl InstrumentSettings {
             ),
             InstrumentSettings::FmSynthesizer {
                 midi_input_channel,
-                preset_name: _preset,
+                preset_name: preset,
             } => (
                 *midi_input_channel,
-                BoxedEntity::FmSynthesizer(Box::new(FmSynthesizer::default())),
+                BoxedEntity::FmSynthesizer(Box::new(FmSynthesizer::new_with(
+                    &FmSynthesizer::preset_for_name(preset),
+                ))),
             ),
             InstrumentSettings::Oscillator {
                 midi_input_channel,
