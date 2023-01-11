@@ -213,11 +213,8 @@ impl<M: MessageBounds> BiQuadFilter<M> {
     // Column A is 24db filter percentages from all the patches. Column B is
     // envelope-filter percentages from all the patches.
     pub fn percent_to_frequency(percentage: f32) -> f32 {
-        debug_assert!(
-            (0.0..=1.0).contains(&percentage),
-            "Expected range (0.0..=1.0) but got {percentage}",
-        );
-        Self::FREQUENCY_TO_LINEAR_COEFFICIENT * Self::FREQUENCY_TO_LINEAR_BASE.powf(percentage)
+        Self::FREQUENCY_TO_LINEAR_COEFFICIENT
+            * Self::FREQUENCY_TO_LINEAR_BASE.powf(percentage.clamp(0.0, 1.0))
     }
 
     pub fn frequency_to_percent(frequency: f32) -> f32 {
@@ -235,6 +232,12 @@ impl<M: MessageBounds> BiQuadFilter<M> {
     // range
     pub fn denormalize_q(value: f32) -> f32 {
         value * value * 50.0 + 0.707
+    }
+
+    // A placeholder for an intelligent mapping of 0.0..=1.0 to a reasonable
+    // 24db passband parameter range
+    pub fn convert_passband(value: f32) -> f32 {
+        value * 100.0 + 0.1
     }
 
     /// Returns a new/default struct without calling update_coefficients().

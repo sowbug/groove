@@ -3,7 +3,7 @@ use super::{
     Synthesizer,
 };
 use crate::{
-    common::{F32ControlValue, MonoSample},
+    common::{F32ControlValue, MonoSample, MONO_SAMPLE_SILENCE},
     effects::filter::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
     messages::EntityMessage,
@@ -477,7 +477,7 @@ impl WelshVoice {
             filter: BiQuadFilter::new_with(
                 &FilterParams::LowPass24db {
                     cutoff: preset.filter_type_24db.cutoff_hz,
-                    passband_ripple: BiQuadFilter::<EntityMessage>::denormalize_q(
+                    passband_ripple: BiQuadFilter::<EntityMessage>::convert_passband(
                         preset.filter_resonance,
                     ),
                 },
@@ -536,6 +536,9 @@ impl WelshVoice {
 impl SourcesAudio for WelshVoice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
         self.handle_pending_note_events(clock);
+        if !self.is_playing() {
+            return MONO_SAMPLE_SILENCE;
+        }
 
         // LFO
         let lfo = self.lfo.source_audio(clock);
@@ -553,8 +556,9 @@ impl SourcesAudio for WelshVoice {
             1 => self.oscillators[0].source_audio(clock),
             2 => {
                 let osc_1_val = self.oscillators[0].source_audio(clock);
-                if self.oscillator_2_sync && self.oscillators[0].has_period_restarted() {
-                    self.oscillators[1].sync(clock);
+                let has_cycle_restarted = self.oscillators[0].has_cycle_restarted();
+                if self.oscillator_2_sync && has_cycle_restarted {
+                    self.oscillators[1].sync();
                 }
                 (osc_1_val + self.oscillators[1].source_audio(clock)) / 2.0 as MonoSample
             }
@@ -587,28 +591,6 @@ impl SourcesAudio for WelshVoice {
         };
 
         let amp_envelope_level = self.amp_envelope.source_audio(clock);
-
-        // This feels very flaky. We are trying to deal with a case where a
-        // voice is marked idle, so it no longer gets called with
-        // source_audio(), so it misses the clock.was_reset signal, so it fails
-        // to reset its phase markers, so when the voice gets used again, it
-        // suffers an overflow subtraction (since it's trying to calculate
-        // something after the clock's sample count starts over). This could
-        // mean that the cute clock.was_reset idea is unworkable (since we
-        // forgot to account for things that aren't always called on every
-        // tick()). An alternative could be each entity tracking the prior
-        // sample count, and detecting a reset condition when the nuxt number
-        // isn't prior + 1. Another approach could be always calling everyone.
-        // Here, we're doing an unscalable hack of predicting that we're going
-        // inactive, and preemptively fixing up the oscillators.
-        //
-        // Any chance the new PlaysNotes design could handle this problem more
-        // elegantly?
-        if !self.amp_envelope.is_idle(clock) {
-            self.oscillators.iter_mut().for_each(|o| {
-                o.reset_phase();
-            });
-        }
 
         // Final
         filtered_mix * amp_envelope_level * lfo_for_amplitude

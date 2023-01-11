@@ -19,88 +19,44 @@ pub struct Oscillator {
     /// Hertz. Any positive number. 440 = A4
     frequency: f64,
 
-    /// if not zero, then ignores the `frequency` field and uses this one instead.
+    /// if not zero, then ignores the `frequency` field and uses this one
+    /// instead.
     fixed_frequency: f64,
 
-    /// 1.0 is no change. 2.0 doubles the frequency. 0.5 halves it. Designed for pitch correction at construction time.
+    /// 1.0 is no change. 2.0 doubles the frequency. 0.5 halves it. Designed for
+    /// pitch correction at construction time.
     frequency_tune: f64,
 
-    /// [-1, 1] is typical range, with -1 halving the frequency, and 1 doubling it. Designed for LFO and frequent changes.
+    /// [-1, 1] is typical range, with -1 halving the frequency, and 1 doubling
+    /// it. Designed for LFO and frequent changes.
     frequency_modulation: f64,
 
     /// 0..1.0: volume
     mix: f64,
 
+    // working variables to generate semi-deterministic noise.
     noise_x1: u32,
     noise_x2: u32,
 
-    /// An offset used to sync a secondary oscillator with a primary.
-    phase_shift: usize,
-
-    /// Whether a primary oscillator has begun a new period since the last source_audio()
-    has_period_restarted: bool,
+    // if this oscillator is synced, then it's the owner's job to set this
+    // correctly before calling source_audio(). Otherwise it's calculated
+    // internally.
     last_cycle_position: f64,
+    // if this oscillator is not synced, then this is set true after a
+    // source_audio() in which position_in_cycle's fractional component
+    // overflows (e.g., from 0.99 to 1.01).
+    has_cycle_restarted: bool,
+
+    is_sync_pending: bool,
+    cycle_origin: usize,
 }
 impl IsInstrument for Oscillator {}
 impl SourcesAudio for Oscillator {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        if clock.was_reset() {
-            self.reset_phase();
-        }
-        let sample_count = (clock.samples() - self.phase_shift) as f64;
-        let sample_rate = clock.sample_rate() as f64;
-        let samples_at_frequency = sample_count * self.adjusted_frequency();
-        let position = samples_at_frequency / sample_rate;
-        let position_in_cycle = position.fract();
-        self.has_period_restarted = position_in_cycle < self.last_cycle_position;
-        self.last_cycle_position = position_in_cycle;
-
-        let amplitude = self.mix
-            * match self.waveform {
-                WaveformType::None => 0.0,
-                // https://en.wikipedia.org/wiki/Sine_wave
-                WaveformType::Sine => (position_in_cycle * 2.0 * PI).sin(),
-                // https://en.wikipedia.org/wiki/Square_wave
-                //Waveform::Square => (phase_normalized * 2.0 * PI).sin().signum(),
-                WaveformType::Square => {
-                    if position_in_cycle < 0.5 {
-                        1.0
-                    } else {
-                        -1.0
-                    }
-                }
-                WaveformType::PulseWidth(duty_cycle) => {
-                    if position_in_cycle < duty_cycle as f64 {
-                        1.0
-                    } else {
-                        -1.0
-                    }
-                }
-                // https://en.wikipedia.org/wiki/Triangle_wave
-                WaveformType::Triangle => {
-                    4.0 * (position_in_cycle - (0.5 + position_in_cycle).floor()).abs() - 1.0
-                }
-                // https://en.wikipedia.org/wiki/Sawtooth_wave
-                WaveformType::Sawtooth => {
-                    2.0 * (position_in_cycle - (0.5 + position_in_cycle).floor())
-                }
-                // https://www.musicdsp.org/en/latest/Synthesis/216-fast-whitenoise-generator.html
-                WaveformType::Noise => {
-                    // TODO: this is stateful, so random access will sound different from sequential, as will different sample rates.
-                    // It also makes this method require mut. Is there a noise algorithm that can modulate on time_seconds? (It's a
-                    // complicated question, potentially.)
-                    self.noise_x1 ^= self.noise_x2;
-                    let tmp =
-                        2.0 * (self.noise_x2 as f64 - (u32::MAX as f64 / 2.0)) / u32::MAX as f64;
-                    (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);
-                    tmp
-                }
-                // TODO: figure out whether this was an either-or
-                WaveformType::TriangleSine => {
-                    4.0 * (position_in_cycle - (0.75 + position_in_cycle).floor() + 0.25).abs()
-                        - 1.0
-                }
-            };
+        self.check_for_clock_reset(clock);
+        let cycle_position = self.calculate_cycle_position(clock);
+        let waveform_type = self.waveform;
+        let amplitude = self.mix * self.amplitude_for_position(&waveform_type, cycle_position);
         amplitude as f32
     }
 }
@@ -115,9 +71,9 @@ impl Default for Oscillator {
             // output was silent. The answer was that a default oscillator with
             // waveform None and frequency 0.0 is indeed silent.
             //
-            // One view is that a default oscillator should be quiet. Another view
-            // is that a quiet oscillator isn't doing its main job of helping make
-            // sound. Principle of Least Astonishment prevails.
+            // One view is that a default oscillator should be quiet. Another
+            // view is that a quiet oscillator isn't doing its main job of
+            // helping make sound. Principle of Least Astonishment prevails.
             uid: usize::default(),
 
             waveform: WaveformType::Sine,
@@ -128,9 +84,10 @@ impl Default for Oscillator {
             frequency_modulation: 0.0,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
-            phase_shift: 0,
-            has_period_restarted: true,
             last_cycle_position: 0.0,
+            has_cycle_restarted: true,
+            is_sync_pending: false,
+            cycle_origin: 0,
         }
     }
 }
@@ -148,7 +105,8 @@ impl Oscillator {
             waveform,
             ..Default::default()
         }
-        // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5 is Square.
+        // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5
+        // is Square.
     }
 
     pub fn new_from_preset(preset: &OscillatorSettings) -> Self {
@@ -213,18 +171,84 @@ impl Oscillator {
         self.frequency as f32
     }
 
-    pub fn sync(&mut self, clock: &Clock) {
-        self.has_period_restarted = true;
-        self.phase_shift = clock.samples();
+    pub fn has_cycle_restarted(&self) -> bool {
+        self.has_cycle_restarted
     }
 
-    pub fn has_period_restarted(&self) -> bool {
-        self.has_period_restarted
+    pub(crate) fn sync(&mut self) {
+        self.is_sync_pending = true;
     }
 
-    pub(crate) fn reset_phase(&mut self) {
-        self.phase_shift = 0;
-        self.last_cycle_position = 0.0;
+    fn check_for_clock_reset(&mut self, clock: &Clock) {
+        if clock.was_reset() {
+            self.cycle_origin = 0;
+            self.last_cycle_position = 0.0;
+            self.has_cycle_restarted = true;
+        } else {
+            self.has_cycle_restarted = false;
+        }
+    }
+
+    fn calculate_cycle_position(&mut self, clock: &Clock) -> f64 {
+        if self.is_sync_pending {
+            self.is_sync_pending = false;
+            self.cycle_origin = clock.samples();
+        }
+        let position_in_time = (clock.samples() - self.cycle_origin) as f64
+            * self.adjusted_frequency()
+            / clock.sample_rate() as f64;
+        let position_in_cycle = position_in_time.fract();
+        if position_in_cycle < self.last_cycle_position {
+            self.has_cycle_restarted = true;
+        }
+        self.last_cycle_position = position_in_cycle;
+        position_in_cycle
+    }
+
+    fn amplitude_for_position(&mut self, waveform: &WaveformType, cycle_position: f64) -> f64 {
+        match waveform {
+            WaveformType::None => 0.0,
+            // https://en.wikipedia.org/wiki/Sine_wave
+            WaveformType::Sine => (cycle_position * 2.0 * PI).sin(),
+            // https://en.wikipedia.org/wiki/Square_wave Waveform::Square =>
+            //(phase_normalized * 2.0 * PI).sin().signum(),
+            WaveformType::Square => {
+                if cycle_position < 0.5 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            }
+            WaveformType::PulseWidth(duty_cycle) => {
+                if cycle_position < *duty_cycle as f64 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            }
+            // https://en.wikipedia.org/wiki/Triangle_wave
+            WaveformType::Triangle => {
+                4.0 * (cycle_position - (0.5 + cycle_position).floor()).abs() - 1.0
+            }
+            // https://en.wikipedia.org/wiki/Sawtooth_wave
+            WaveformType::Sawtooth => 2.0 * (cycle_position - (0.5 + cycle_position).floor()),
+            // https://www.musicdsp.org/en/latest/Synthesis/216-fast-whitenoise-generator.html
+            WaveformType::Noise => {
+                // TODO: this is stateful, so random access will sound different
+                // from sequential, as will different sample rates. It also
+                // makes this method require mut. Is there a noise algorithm
+                // that can modulate on time_seconds? (It's a complicated
+                // question, potentially.)
+                self.noise_x1 ^= self.noise_x2;
+                let tmp = 2.0 * (self.noise_x2 as f64 - (u32::MAX as f64 / 2.0)) / u32::MAX as f64;
+                (self.noise_x2, _) = self.noise_x2.overflowing_add(self.noise_x1);
+                tmp
+            }
+            // TODO: figure out whether this was an either-or
+            WaveformType::TriangleSine => {
+                4.0 * (cycle_position - (0.75 + cycle_position).floor() + 0.25).abs() - 1.0
+            }
+        }
     }
 }
 
@@ -603,7 +627,7 @@ mod tests {
     // }
 
     #[test]
-    fn test_oscillator_modulated() {
+    fn oscillator_modulated() {
         let mut oscillator = create_oscillator(
             WaveformType::Sine,
             OscillatorTune::Osc {
@@ -637,5 +661,68 @@ mod tests {
             oscillator.adjusted_frequency(),
             MidiUtils::note_type_to_frequency(MidiNote::C4) as f64 * 2.0f64.sqrt()
         );
+    }
+
+    #[test]
+    fn oscillator_cycle_restarts_on_time() {
+        let mut clock = Clock::default();
+        let mut oscillator = Oscillator::default();
+        const FREQUENCY: f32 = 2.0;
+        const SAMPLE_RATE: usize = 44100;
+        oscillator.set_frequency(FREQUENCY);
+
+        // We're hardcoding 44.1 so we can use a const in the match below.
+        const TICKS_IN_CYCLE: usize = SAMPLE_RATE / FREQUENCY as usize;
+
+        // Before any work happens, the oscillator should flag that any
+        // init/reset work needs to happen.
+        assert!(oscillator.has_cycle_restarted());
+
+        // Now run through and see that we're flagging cycle start at the right
+        // time. Note the = in the for loop range; we're expecting a flag at the
+        // zeroth sample of each cycle.
+        for tick in 0..=TICKS_IN_CYCLE {
+            oscillator.source_audio(&clock);
+            clock.tick();
+
+            let expected = match tick {
+                0 => true,              // zeroth sample of first cycle
+                TICKS_IN_CYCLE => true, // zeroth sample of second cycle
+                _ => false,
+            };
+            assert_eq!(
+                oscillator.has_cycle_restarted(),
+                expected,
+                "expected {expected} at sample #{tick}"
+            );
+        }
+
+        // Let's try again after rewinding the clock. It should recognize
+        // something happened and restart the cycle. First we confirm that it
+        // thinks it's midway through the cycle.
+        oscillator.source_audio(&clock);
+        assert!(!oscillator.has_cycle_restarted());
+        // Then we actually change the clock. We'll pick something we know is
+        // off-cycle. There is a decision to make whether we consider this a
+        // cycle restart or not. Until proven otherwise we're going to say it
+        // is. The reason is that the whole concept of cycle-restarting is for
+        // syncing a secondary oscillator, so we're allowing the secondary to
+        // stay in sync even though it's a short cycle.
+        clock.set_samples(3);
+        oscillator.source_audio(&clock);
+        assert!(oscillator.has_cycle_restarted());
+
+        // Let's run through again, but this time go for a whole second, and
+        // count the number of flags.
+        clock.reset();
+        let mut cycles = 0;
+        for _ in 0..SAMPLE_RATE {
+            oscillator.source_audio(&clock);
+            clock.tick();
+            if oscillator.has_cycle_restarted() {
+                cycles += 1;
+            }
+        }
+        assert_eq!(cycles, FREQUENCY as usize);
     }
 }
