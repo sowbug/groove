@@ -256,8 +256,8 @@ impl Oscillator {
         match waveform {
             WaveformType::None => 0.0,
             WaveformType::Sine => (cycle_position * 2.0 * PI).sin(),
-            WaveformType::Square => (0.5 - cycle_position).signum(),
-            WaveformType::PulseWidth(duty_cycle) => (*duty_cycle as f64 - cycle_position).signum(),
+            WaveformType::Square => -(cycle_position - 0.5).signum(),
+            WaveformType::PulseWidth(duty_cycle) => -(cycle_position - *duty_cycle as f64).signum(),
             WaveformType::Triangle => {
                 4.0 * (cycle_position - (0.5 + cycle_position).floor()).abs() - 1.0
             }
