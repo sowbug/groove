@@ -20,7 +20,7 @@ lfo:
   waveform: triangle
   frequency: 1.0
   depth:
-    cents: 20.0
+    cents: 80.0
 glide: 0
 unison: false
 polyphony: multi
@@ -38,7 +38,7 @@ filter-envelope:
   sustain: 0.0
   release: 0.0
 amp-envelope:
-  attack: 0.0
+  attack: 0.05
   decay: 0.0
   sustain: 1.0
-  release: 0.0
+  release: 0.05
