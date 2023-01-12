@@ -226,14 +226,19 @@ impl Oscillator {
             self.cycle_position = 0.0;
         }
 
-        // Add that to the previous position and mod 1.0.
-        let next_cycle_position = (self.cycle_position + self.delta).fract();
-        // assert_eq!(
-        //     next_cycle_position,
-        //     ((1 + clock.samples()) as f64 * self.delta).fract(),
-        //     "failed at sample {}",
-        //     clock.samples()
-        // );
+        // Add delta to the previous position and mod 1.0.
+        let mut next_cycle_position = (self.cycle_position + self.delta).fract();
+
+        // TODO: this is horrible, but it was necessary to get all square-wave
+        // test cases to pass. It's not needed if we use the (samples *
+        // frequency / sample_rate) formula, which doesn't accumulate tiny
+        // errors each time through. But that method has the disadvantage that
+        // adjustments of the frequency (e.g., LFO) lead to transients (since
+        // it's recalculating the waveform as if the current frequency were
+        // always the frequency).
+        if next_cycle_position > 0.999999999 {
+            next_cycle_position = 0.0;
+        }
 
         // Should we signal to synced oscillators that it's time to sync?
         self.should_sync_after_this_sample = next_cycle_position < self.cycle_position;
