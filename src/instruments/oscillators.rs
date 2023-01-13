@@ -6,6 +6,7 @@ use crate::{
     Clock,
 };
 use groove_macros::{Control, Uid};
+use more_asserts::debug_assert_lt;
 use std::f64::consts::PI;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -46,6 +47,9 @@ pub struct Oscillator {
 
     delta: f64,
     delta_needs_update: bool,
+
+    // https://en.wikipedia.org/wiki/Kahan_summation_algorithm
+    kahan_compensation: f64,
 
     // Whether this oscillator's owner should sync other oscillators to this
     // one. IMPORTANT! Because we return the sample for the current state but
@@ -96,6 +100,7 @@ impl Default for Oscillator {
             cycle_position: 0.0,
             delta: 0.0,
             delta_needs_update: true,
+            kahan_compensation: 0.0,
             should_sync_after_this_sample: false,
             is_sync_pending: false,
         }
@@ -203,6 +208,7 @@ impl Oscillator {
     fn update_delta(&mut self, clock: &Clock) {
         if self.delta_needs_update {
             self.delta = self.adjusted_frequency() / clock.sample_rate() as f64;
+            self.kahan_compensation = 0.0;
             self.delta_needs_update = false;
         }
     }
@@ -226,19 +232,21 @@ impl Oscillator {
             self.cycle_position = 0.0;
         }
 
-        // Add delta to the previous position and mod 1.0.
-        let mut next_cycle_position = (self.cycle_position + self.delta).fract();
+        // Add delta to the previous position and mod 1.0. Needs Kahan summation
+        // algorithm to avoid accumulation of FP errors.
+        let compensated_delta = self.delta - self.kahan_compensation;
+        let next_cycle_position_unrounded = self.cycle_position + compensated_delta;
+        self.kahan_compensation =
+            (next_cycle_position_unrounded - self.cycle_position) - compensated_delta;
 
-        // TODO: this is horrible, but it was necessary to get all square-wave
-        // test cases to pass. It's not needed if we use the (samples *
-        // frequency / sample_rate) formula, which doesn't accumulate tiny
-        // errors each time through. But that method has the disadvantage that
-        // adjustments of the frequency (e.g., LFO) lead to transients (since
-        // it's recalculating the waveform as if the current frequency were
-        // always the frequency).
-        if next_cycle_position > 0.999999999 {
-            next_cycle_position = 0.0;
-        }
+        // This special case is to deal with an FP precision issue that was
+        // causing square waves to flip one sample too late in unit tests.
+        let next_cycle_position = if next_cycle_position_unrounded > 0.999999999999 {
+            debug_assert_lt!(next_cycle_position_unrounded, 2.0);
+            next_cycle_position_unrounded - 1.0
+        } else {
+            next_cycle_position_unrounded.fract()
+        };
 
         // Should we signal to synced oscillators that it's time to sync?
         self.should_sync_after_this_sample = next_cycle_position < self.cycle_position;
