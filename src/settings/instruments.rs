@@ -76,33 +76,23 @@ impl InstrumentSettings {
         load_only_test_entities: bool,
     ) -> (MidiChannel, BoxedEntity) {
         if load_only_test_entities {
-            #[allow(unused_variables)]
             let midi_input_channel = match self {
                 InstrumentSettings::Test { midi_input_channel } => *midi_input_channel,
                 InstrumentSettings::SimpleSynth { midi_input_channel } => *midi_input_channel,
                 InstrumentSettings::Welsh {
-                    midi_input_channel,
-                    preset_name,
+                    midi_input_channel, ..
                 } => *midi_input_channel,
                 InstrumentSettings::Drumkit {
-                    midi_input_channel,
-                    preset_name,
+                    midi_input_channel, ..
                 } => *midi_input_channel,
                 InstrumentSettings::FmSynthesizer {
-                    midi_input_channel,
-                    preset_name,
+                    midi_input_channel, ..
                 } => *midi_input_channel,
                 InstrumentSettings::Oscillator {
-                    midi_input_channel,
-                    waveform,
-                    frequency,
+                    midi_input_channel, ..
                 } => *midi_input_channel,
                 InstrumentSettings::Envelope {
-                    midi_input_channel,
-                    attack,
-                    decay,
-                    sustain,
-                    release,
+                    midi_input_channel, ..
                 } => *midi_input_channel,
             };
             return (
