@@ -4,148 +4,14 @@ use crate::{
     traits::Response,
     AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, IOHelper, TimeSignature,
 };
-use iced::{
-    alignment::Vertical,
-    futures::channel::mpsc,
-    theme,
-    widget::{self, button, column, container, row, text},
-    Color, Element, Font, Renderer, Theme,
-};
+use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
 use midly::MidiMessage;
 use std::{
-    marker::PhantomData,
     sync::{Arc, Mutex},
     thread::JoinHandle,
     time::{Duration, Instant},
 };
-
-pub const SMALL_FONT_SIZE: u16 = 16;
-pub const SMALL_FONT: Font = Font::External {
-    name: "Small Font",
-    bytes: include_bytes!("../res/fonts/heebo/static/Heebo-Regular.ttf"),
-};
-
-pub const LARGE_FONT_SIZE: u16 = 20;
-pub const LARGE_FONT: Font = Font::External {
-    name: "Large Font",
-    bytes: include_bytes!("../res/fonts/heebo/static/Heebo-Regular.ttf"),
-};
-
-pub const NUMBERS_FONT_SIZE: u16 = 24;
-pub const NUMBERS_FONT: Font = Font::External {
-    name: "Numbers Font",
-    bytes: include_bytes!("../res/fonts/noto-sans-mono/NotoSansMono-Regular.ttf"),
-};
-
-struct TitledContainerTitleStyle {
-    theme: iced::Theme,
-}
-
-impl container::StyleSheet for TitledContainerTitleStyle {
-    type Style = Theme;
-
-    fn appearance(&self, _style: &Self::Style) -> container::Appearance {
-        let palette = self.theme.extended_palette();
-        container::Appearance {
-            text_color: Some(palette.background.strong.text),
-            background: Some(palette.background.strong.color.into()),
-            ..Default::default()
-        }
-    }
-}
-
-struct NumberContainerStyle {
-    _theme: iced::Theme,
-}
-
-impl container::StyleSheet for NumberContainerStyle {
-    type Style = Theme;
-
-    fn appearance(&self, _style: &Self::Style) -> container::Appearance {
-        container::Appearance {
-            text_color: Some(Color::from_rgb8(255, 255, 0)),
-            background: Some(iced::Background::Color(Color::BLACK)),
-            ..Default::default()
-        }
-    }
-}
-
-#[derive(Default)]
-pub struct GuiStuff<'a, Message> {
-    phantom: PhantomData<&'a Message>,
-}
-
-impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
-    pub fn titled_container(title: &str, contents: Element<'a, Message>) -> Element<'a, Message> {
-        container(column![
-            Self::titled_container_title(title),
-            container(contents).padding(2)
-        ])
-        .padding(0)
-        .style(theme::Container::Box)
-        .into()
-    }
-
-    #[allow(unused_variables)]
-    pub fn titled_container_title(title: &str) -> Element<'a, Message> {
-        // let checkboxes = container(if let Some(device) = device { row![
-        //     checkbox( "Enabled".to_string(), device.borrow().is_enabled(),
-        //         ViewableMessage::EnablePressed ), checkbox(
-        //             "Muted".to_string(), device.borrow().is_muted(),
-        //             ViewableMessage::MutePressed ) ] } else {
-        //             row![text("".to_string())] });
-        container(row![
-            text(title.to_string())
-                .font(SMALL_FONT)
-                .size(SMALL_FONT_SIZE)
-                .horizontal_alignment(iced::alignment::Horizontal::Left)
-                .vertical_alignment(Vertical::Center),
-            // checkboxes
-        ])
-        .width(iced::Length::Fill)
-        .padding(1)
-        .style(theme::Container::Custom(
-            Self::titled_container_title_style(&Theme::Dark),
-        ))
-        .into()
-    }
-
-    pub fn container_text(label: &str) -> widget::Text<'a, Renderer> {
-        text(label.to_string())
-            .font(LARGE_FONT)
-            .size(LARGE_FONT_SIZE)
-            .horizontal_alignment(iced::alignment::Horizontal::Left)
-            .vertical_alignment(Vertical::Center)
-    }
-
-    fn titled_container_title_style(
-        theme: &iced::Theme,
-    ) -> Box<(dyn iced::widget::container::StyleSheet<Style = Theme>)> {
-        Box::new(TitledContainerTitleStyle {
-            theme: theme.clone(),
-        })
-    }
-
-    pub fn number_box_style(
-        theme: &iced::Theme,
-    ) -> Box<(dyn iced::widget::container::StyleSheet<Style = Theme>)> {
-        Box::new(NumberContainerStyle {
-            _theme: theme.clone(),
-        })
-    }
-
-    pub fn collapsed_container(
-        title: &str,
-        disclosure_triangle_message: Message,
-    ) -> Element<'a, Message> {
-        let button = button(text(">".to_string())).on_press(disclosure_triangle_message);
-        container(column![Self::titled_container_title(title), button,])
-            .padding(0)
-            .style(theme::Container::Box)
-            .into()
-    }
-}
 
 enum State {
     Start,

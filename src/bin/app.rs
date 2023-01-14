@@ -3,10 +3,7 @@
 mod gui;
 
 use groove::{
-    gui::{
-        GrooveEvent, GrooveInput, GuiStuff, LARGE_FONT, LARGE_FONT_SIZE, NUMBERS_FONT,
-        NUMBERS_FONT_SIZE, SMALL_FONT, SMALL_FONT_SIZE,
-    },
+    gui::{GrooveEvent, GrooveInput},
     traits::{HasUid, TestController, TestEffect, TestInstrument},
     AdsrEnvelope, Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity,
     Chorus, Clock, Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, FmSynthesizer,
@@ -17,7 +14,7 @@ use groove::{
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
-    play_icon, skip_to_prev_icon, stop_icon,
+    play_icon, skip_to_prev_icon, stop_icon, GuiStuff,
 };
 use iced::{
     alignment, executor,
@@ -488,13 +485,7 @@ impl GrooveApp {
                 )
                 .into(),
             ),
-            BoxedEntity::Mixer(e) => GuiStuff::titled_container(
-                type_name::<Mixer<EntityMessage>>(),
-                GuiStuff::<EntityMessage>::container_text(
-                    format!("Mixer {} coming soon", e.uid()).as_str(),
-                )
-                .into(),
-            ),
+            BoxedEntity::Mixer(e) => self.mixer_view(e),
             BoxedEntity::Oscillator(e) => GuiStuff::titled_container(
                 type_name::<Oscillator>(),
                 GuiStuff::<EntityMessage>::container_text(
@@ -532,20 +523,29 @@ impl GrooveApp {
             BoxedEntity::TestLfo(e) => self.test_lfo_view(e),
             BoxedEntity::TestSynth(e) => self.test_synth_view(e),
             BoxedEntity::Timer(e) => self.timer_view(e),
-            BoxedEntity::WelshSynth(e) => {
-                let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
-                GuiStuff::titled_container(
-                    type_name::<WelshSynth>(),
-                    container(column![
-                        GuiStuff::<EntityMessage>::container_text(
-                            format!("Welsh {} {} coming soon", e.uid(), e.preset_name()).as_str()
-                        ),
-                        pick_list(options, None, EntityMessage::PickListSelected,).font(SMALL_FONT)
-                    ])
-                    .into(),
-                )
-            }
+            BoxedEntity::WelshSynth(e) => self.welsh_synth_view(e),
         }
+    }
+
+    fn welsh_synth_view(&self, e: &WelshSynth) -> Element<EntityMessage> {
+        self.collapsing_box("Welsh", e.uid(), || {
+            let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
+            container(column![
+                GuiStuff::<EntityMessage>::container_text(
+                    format!("Welsh {} {} coming soon", e.uid(), e.preset_name()).as_str()
+                ),
+                pick_list(options, None, EntityMessage::PickListSelected,).font(gui::SMALL_FONT)
+            ])
+            .into()
+        })
+    }
+    fn mixer_view(&self, e: &Mixer<EntityMessage>) -> Element<EntityMessage> {
+        self.collapsing_box("Mixer", e.uid(), || {
+            GuiStuff::<EntityMessage>::container_text(
+                format!("Mixer {} coming soon", e.uid()).as_str(),
+            )
+            .into()
+        })
     }
 
     fn midi_view(&self) -> Element<MidiHandlerMessage> {
@@ -571,7 +571,7 @@ impl GrooveApp {
                         input_selected.clone(),
                         MidiHandlerMessage::InputSelected,
                     )
-                    .font(SMALL_FONT)
+                    .font(gui::SMALL_FONT)
                     .width(iced::Length::FillPortion(3))
                 ];
                 let (output_selected, output_options) =
@@ -584,7 +584,7 @@ impl GrooveApp {
                         output_selected.clone(),
                         MidiHandlerMessage::OutputSelected,
                     )
-                    .font(SMALL_FONT)
+                    .font(gui::SMALL_FONT)
                     .width(iced::Length::FillPortion(3))
                 ];
                 let port_menus =
@@ -612,8 +612,8 @@ impl GrooveApp {
                     self.clock_mirror.bpm().round().to_string().as_str(),
                     ControlBarMessage::Bpm
                 )
-                .font(SMALL_FONT)
-                .size(SMALL_FONT_SIZE)
+                .font(gui::SMALL_FONT)
+                .size(gui::SMALL_FONT_SIZE)
                 .width(Length::Units(60)),
                 container(row![
                     button(skip_to_prev_icon())
@@ -647,8 +647,8 @@ impl GrooveApp {
             let thousandths = (self.clock_mirror.seconds().fract() * 1000.0) as u16;
             container(
                 text(format!("{minutes:02}:{seconds:02}:{thousandths:03}"))
-                    .font(NUMBERS_FONT)
-                    .size(NUMBERS_FONT_SIZE),
+                    .font(gui::NUMBERS_FONT)
+                    .size(gui::NUMBERS_FONT_SIZE),
             )
             .style(theme::Container::Custom(
                 GuiStuff::<ControlBarMessage>::number_box_style(&Theme::Dark),
@@ -659,11 +659,11 @@ impl GrooveApp {
         let time_signature_view = {
             container(column![
                 text(format!("{}", time_signature.top))
-                    .font(SMALL_FONT)
-                    .size(SMALL_FONT_SIZE),
+                    .font(gui::SMALL_FONT)
+                    .size(gui::SMALL_FONT_SIZE),
                 text(format!("{}", time_signature.bottom))
-                    .font(SMALL_FONT)
-                    .size(SMALL_FONT_SIZE)
+                    .font(gui::SMALL_FONT)
+                    .size(gui::SMALL_FONT_SIZE)
             ])
         };
 
@@ -675,8 +675,8 @@ impl GrooveApp {
             let fractional = (self.clock_mirror.beats().fract() * 10000.0) as usize;
             container(
                 text(format!("{measures:04}m{beats:02}b{fractional:03}"))
-                    .font(NUMBERS_FONT)
-                    .size(NUMBERS_FONT_SIZE),
+                    .font(gui::NUMBERS_FONT)
+                    .size(gui::NUMBERS_FONT_SIZE),
             )
             .style(theme::Container::Custom(
                 GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
@@ -686,12 +686,10 @@ impl GrooveApp {
     }
 
     fn beat_sequencer_view(&self, e: &BeatSequencer<EntityMessage>) -> Element<EntityMessage> {
-        let title = type_name::<BeatSequencer<EntityMessage>>();
-        let contents = format!("{}", e.next_instant());
-        GuiStuff::titled_container(
-            title,
-            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-        )
+        self.collapsing_box("Sequencer", e.uid(), || {
+            let contents = format!("{}", e.next_instant());
+            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into()
+        })
     }
 
     fn test_controller_view(&self, e: &TestController<EntityMessage>) -> Element<EntityMessage> {
@@ -763,8 +761,8 @@ impl GrooveApp {
             let mut note_row = Vec::new();
             for note in track {
                 let cell = text(format!("{:02} ", note.key).to_string())
-                    .font(LARGE_FONT)
-                    .size(LARGE_FONT_SIZE);
+                    .font(gui::LARGE_FONT)
+                    .size(gui::LARGE_FONT_SIZE);
                 note_row.push(cell.into());
             }
             let row_note_row = row(note_row).into();
@@ -788,23 +786,6 @@ impl GrooveApp {
         )
     }
 
-    fn gain_view(&self, e: &Gain<EntityMessage>) -> Element<EntityMessage> {
-        let title = format!("{}: {}", type_name::<Gain<EntityMessage>>(), e.ceiling());
-        if self.entity_view_state(e.uid()) == EntityViewState::Expanded {
-            let slider = HSlider::new(
-                NormalParam {
-                    value: Normal::from_clipped(e.ceiling()),
-                    default: Normal::from_clipped(1.0),
-                },
-                EntityMessage::HSliderInt,
-            );
-            let contents = container(row![slider]).padding(20);
-            GuiStuff::titled_container(&title, contents.into())
-        } else {
-            GuiStuff::<EntityMessage>::collapsed_container(&title, EntityMessage::ExpandPressed)
-        }
-    }
-
     fn entity_view_state(&self, uid: usize) -> EntityViewState {
         if let Some(state) = self.entity_view_states.get(&uid) {
             state.clone()
@@ -817,17 +798,42 @@ impl GrooveApp {
         self.entity_view_states.insert(uid, new_state.clone());
     }
 
-    fn fm_synthesizer_view(&self, _e: &FmSynthesizer) -> Element<EntityMessage> {
-        let title = format!("{}: {}", type_name::<FmSynthesizer>(), 42.0);
-        let slider = HSlider::new(
-            NormalParam {
-                value: Normal::from_clipped(42.0), // TODO
-                default: Normal::from_clipped(1.0),
-            },
-            EntityMessage::HSliderInt,
-        );
-        let contents = container(row![slider]).padding(20);
-        GuiStuff::titled_container(&title, contents.into())
+    fn collapsing_box<F>(&self, title: &str, uid: usize, contents_fn: F) -> Element<EntityMessage>
+    where
+        F: FnOnce() -> Element<'static, EntityMessage>,
+    {
+        if self.entity_view_state(uid) == EntityViewState::Expanded {
+            let contents = contents_fn();
+            GuiStuff::expanded_container(title, EntityMessage::CollapsePressed, contents)
+        } else {
+            GuiStuff::collapsed_container(&title, EntityMessage::ExpandPressed)
+        }
+    }
+
+    fn gain_view(&self, e: &Gain<EntityMessage>) -> Element<EntityMessage> {
+        self.collapsing_box("Gain", e.uid(), || {
+            let slider = HSlider::new(
+                NormalParam {
+                    value: Normal::from_clipped(e.ceiling()),
+                    default: Normal::from_clipped(1.0),
+                },
+                EntityMessage::HSliderInt,
+            );
+            container(row![slider]).padding(20).into()
+        })
+    }
+
+    fn fm_synthesizer_view(&self, e: &FmSynthesizer) -> Element<EntityMessage> {
+        self.collapsing_box("FM", e.uid(), || {
+            let slider = HSlider::new(
+                NormalParam {
+                    value: Normal::from_clipped(42.0), // TODO
+                    default: Normal::from_clipped(1.0),
+                },
+                EntityMessage::HSliderInt,
+            );
+            container(row![slider]).padding(20).into()
+        })
     }
 
     fn biquad_filter_view(&self, e: &BiQuadFilter<EntityMessage>) -> Element<EntityMessage> {
@@ -861,16 +867,16 @@ impl GrooveApp {
     }
 
     fn compressor_view(&self, e: &Compressor) -> Element<EntityMessage> {
-        let title = format!("{}: {}", type_name::<Compressor>(), e.threshold());
-        let slider = HSlider::new(
-            NormalParam {
-                value: Normal::from_clipped(e.threshold()),
-                default: Normal::from_clipped(1.0),
-            },
-            EntityMessage::HSliderInt,
-        );
-        let contents = container(row![slider]).padding(20);
-        GuiStuff::titled_container(&title, contents.into())
+        self.collapsing_box("Compressor", e.uid(), || {
+            let slider = HSlider::new(
+                NormalParam {
+                    value: Normal::from_clipped(e.threshold()),
+                    default: Normal::from_clipped(1.0),
+                },
+                EntityMessage::HSliderInt,
+            );
+            container(row![slider]).padding(20).into()
+        })
     }
 }
 
