@@ -265,6 +265,11 @@ impl Oscillator {
     // https://en.wikipedia.org/wiki/Triangle_wave
     // https://en.wikipedia.org/wiki/Sawtooth_wave
     // https://www.musicdsp.org/en/latest/Synthesis/216-fast-whitenoise-generator.html
+    //
+    // Some of these have seemingly arbitrary phase-shift constants in their
+    // formulas. The reason for them is to ensure that every waveform starts at
+    // amplitude zero, which makes it a lot easier to avoid transients when a
+    // waveform starts up. See Pirkle DSSPC++ p.133 for visualization.
     fn amplitude_for_position(&mut self, waveform: &WaveformType, cycle_position: f64) -> f64 {
         match waveform {
             WaveformType::None => 0.0,
