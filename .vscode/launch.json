@@ -66,6 +66,26 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "YAML: dev loop",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove-cli",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove-cli",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "projects${pathSeparator}dev-loop.yaml"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "YAML, just a piano scale",
       "cargo": {
         "args": [
