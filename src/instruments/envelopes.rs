@@ -21,11 +21,14 @@ use super::oscillators::KahanSummation;
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Unipolar(f64);
 impl Unipolar {
-    fn maximum() -> Unipolar {
+    pub fn maximum() -> Unipolar {
         Unipolar(1.0)
     }
-    fn minimum() -> Unipolar {
+    pub fn minimum() -> Unipolar {
         Unipolar(0.0)
+    }
+    pub fn value(&self) -> f64 {
+        self.0
     }
 }
 impl Add<Unipolar> for Unipolar {
@@ -177,7 +180,9 @@ impl SimpleEnvelope {
     fn handle_current_state(&mut self, clock: &Clock) {
         let seconds = TimeUnit(clock.seconds() as f64);
         match self.state {
-            SimpleEnvelopeState::Idle => {}
+            SimpleEnvelopeState::Idle => {
+                // Nothing to do; we're waiting for a trigger
+            }
             SimpleEnvelopeState::Attack => {
                 self.amplitude.add(self.delta);
                 if self.has_reached_target(seconds) {
@@ -190,7 +195,9 @@ impl SimpleEnvelope {
                     self.set_state_sustain(seconds);
                 }
             }
-            SimpleEnvelopeState::Sustain => {}
+            SimpleEnvelopeState::Sustain => {
+                // Nothing to do; we're waiting for a note-off event
+            }
             SimpleEnvelopeState::Release => {
                 self.amplitude.add(self.delta);
                 if self.has_reached_target(seconds) {
@@ -205,17 +212,17 @@ impl SimpleEnvelope {
             // This is probably a degenerate case, but we don't want to be stuck
             // forever in the current state.
             true
-        } else if self.time_target.0 != 0.0 {
-            // If we have a time target, then we're done even if the amplitude
-            // isn't quite there yet.
-            self.time_target >= current_time
+        } else if self.time_target.0 != 0.0 && current_time >= self.time_target  {
+            // If we have a time target and we've hit it, then we're done even
+            // if the amplitude isn't quite there yet.
+            true
         } else if self.delta > 0.0 {
             // Have we hit or overshot in the increasing direction?
-            self.amplitude.current_sum().0 >= self.amplitude_target.0
+            self.amplitude.current_sum().value() >= self.amplitude_target.value()
         } else {
             // Have we hit or overshot in the decreasing direction?
             debug_assert!(self.delta < 0.0);
-            self.amplitude.current_sum().0 <= self.amplitude_target.0
+            self.amplitude.current_sum().value() <= self.amplitude_target.value()
         };
 
         if has_hit_target {
@@ -225,15 +232,24 @@ impl SimpleEnvelope {
         has_hit_target
     }
 
+    // For all the set_state_() methods, we assume that the prior state actually
+    // happened, and that the amplitude is set to a reasonable value. This
+    // matters, for example, if attack is zero and decay is non-zero. If we jump
+    // straight from idle to decay, then decay is decaying from the idle
+    // amplitude of zero, which is wrong.
+
     fn set_state_idle(&mut self) {
         self.state = SimpleEnvelopeState::Idle;
+        self.amplitude = Default::default();
     }
 
     fn set_state_attack(&mut self, current_time: TimeUnit) {
+        self.state = SimpleEnvelopeState::Attack;
+
         if self.settings.attack as f64 == TimeUnit::zero().0 {
+            self.amplitude.set_sum(Unipolar::maximum());
             self.set_state_decay(current_time);
         } else {
-            self.state = SimpleEnvelopeState::Attack;
             self.set_target(
                 current_time,
                 Unipolar::maximum(),
@@ -243,13 +259,16 @@ impl SimpleEnvelope {
     }
 
     fn set_state_decay(&mut self, current_time: TimeUnit) {
+        self.state = SimpleEnvelopeState::Decay;
+
         if self.settings.decay as f64 == TimeUnit::zero().0 {
+            self.amplitude
+                .set_sum(Unipolar(self.settings.sustain as f64));
             self.set_state_sustain(current_time);
         } else {
-            self.state = SimpleEnvelopeState::Decay;
             self.set_target(
                 current_time,
-                Unipolar::maximum(),
+                Unipolar(self.settings.sustain as f64),
                 TimeUnit(self.settings.decay as f64),
             );
         }
@@ -257,6 +276,7 @@ impl SimpleEnvelope {
 
     fn set_state_sustain(&mut self, current_time: TimeUnit) {
         self.state = SimpleEnvelopeState::Sustain;
+
         self.set_target(
             current_time,
             Unipolar(self.settings.sustain as f64),
@@ -266,6 +286,7 @@ impl SimpleEnvelope {
 
     fn set_state_release(&mut self, current_time: TimeUnit) {
         if self.settings.release as f64 == TimeUnit::zero().0 {
+            self.amplitude.set_sum(Unipolar::maximum());
             self.set_state_idle();
         } else {
             self.state = SimpleEnvelopeState::Release;
@@ -287,7 +308,8 @@ impl SimpleEnvelope {
         if duration != TimeUnit::infinite() {
             self.time_target = current_time + duration;
             self.delta = if duration != TimeUnit::zero() {
-                duration.0 / self.sample_rate
+                (self.amplitude_target - self.amplitude.current_sum()).value()
+                    / (duration.0 * self.sample_rate) as f64
             } else {
                 0.0
             }
