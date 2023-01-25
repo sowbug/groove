@@ -8,9 +8,294 @@ use crate::{
 };
 use groove_macros::{Control, Uid};
 use more_asserts::{debug_assert_ge, debug_assert_le};
-use std::str::FromStr;
-use std::{fmt::Debug, marker::PhantomData, ops::Range};
+use std::{
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Range, Sub},
+};
+use std::{ops::Add, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
+
+use super::oscillators::KahanSummation;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+pub struct Unipolar(f64);
+impl Unipolar {
+    fn maximum() -> Unipolar {
+        Unipolar(1.0)
+    }
+    fn minimum() -> Unipolar {
+        Unipolar(0.0)
+    }
+}
+impl Add<Unipolar> for Unipolar {
+    type Output = Unipolar;
+
+    fn add(self, rhs: Unipolar) -> Self::Output {
+        Unipolar(self.0 + rhs.0)
+    }
+}
+impl Sub<Unipolar> for Unipolar {
+    type Output = Unipolar;
+
+    fn sub(self, rhs: Unipolar) -> Self::Output {
+        Unipolar(self.0 - rhs.0)
+    }
+}
+impl Add<f64> for Unipolar {
+    type Output = Unipolar;
+
+    fn add(self, rhs: f64) -> Self::Output {
+        Unipolar(self.0 + rhs)
+    }
+}
+impl Sub<f64> for Unipolar {
+    type Output = Unipolar;
+
+    fn sub(self, rhs: f64) -> Self::Output {
+        Unipolar(self.0 - rhs)
+    }
+}
+impl From<Unipolar> for f64 {
+    fn from(value: Unipolar) -> Self {
+        value.0
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+pub struct TimeUnit(f64);
+impl TimeUnit {
+    fn zero() -> TimeUnit {
+        TimeUnit(0.0)
+    }
+
+    fn infinite() -> TimeUnit {
+        TimeUnit(-1.0)
+    }
+}
+impl From<f64> for TimeUnit {
+    fn from(value: f64) -> Self {
+        Self { 0: value }
+    }
+}
+impl From<f32> for TimeUnit {
+    fn from(value: f32) -> Self {
+        Self { 0: value as f64 }
+    }
+}
+impl Add<f64> for TimeUnit {
+    type Output = TimeUnit;
+
+    fn add(self, rhs: f64) -> Self::Output {
+        TimeUnit(self.0 + rhs)
+    }
+}
+impl Add<TimeUnit> for TimeUnit {
+    type Output = TimeUnit;
+
+    fn add(self, rhs: TimeUnit) -> Self::Output {
+        TimeUnit(self.0 + rhs.0)
+    }
+}
+
+pub trait Envelope {
+    fn handle_note_on(&mut self);
+    fn handle_note_off(&mut self);
+    fn tick(&mut self, clock: &Clock);
+    fn amplitude(&self) -> Unipolar;
+    fn is_idle(&self) -> bool;
+}
+
+#[derive(Debug, Default)]
+enum SimpleEnvelopeState {
+    #[default]
+    Idle,
+    Attack,
+    Decay,
+    Sustain,
+    Release,
+}
+
+#[derive(Debug, Default)]
+pub struct SimpleEnvelope {
+    settings: EnvelopeSettings,
+    sample_rate: f64,
+    state: SimpleEnvelopeState,
+    amplitude: KahanSummation<Unipolar, f64>,
+    delta: f64,
+
+    amplitude_target: Unipolar,
+    time_target: TimeUnit,
+
+    note_on_pending: bool,
+    note_off_pending: bool,
+}
+impl Envelope for SimpleEnvelope {
+    fn handle_note_on(&mut self) {
+        self.note_on_pending = true;
+    }
+
+    fn handle_note_off(&mut self) {
+        self.note_off_pending = true;
+    }
+
+    fn tick(&mut self, clock: &Clock) {
+        self.handle_pending(clock);
+        self.handle_current_state(clock);
+    }
+
+    fn amplitude(&self) -> Unipolar {
+        self.amplitude.current_sum()
+    }
+
+    fn is_idle(&self) -> bool {
+        matches!(self.state, SimpleEnvelopeState::Idle)
+    }
+}
+impl SimpleEnvelope {
+    fn handle_pending(&mut self, clock: &Clock) {
+        if self.note_on_pending {
+            self.set_state_attack(TimeUnit(clock.seconds() as f64));
+            self.note_on_pending = false;
+        }
+        if self.note_off_pending {
+            self.set_state_release(TimeUnit(clock.seconds() as f64));
+            self.note_off_pending = false;
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn new_with(sample_rate: usize, envelope_settings: &EnvelopeSettings) -> Self {
+        Self {
+            settings: envelope_settings.clone(),
+            sample_rate: sample_rate as f64,
+            state: SimpleEnvelopeState::Idle,
+            ..Default::default()
+        }
+    }
+
+    fn handle_current_state(&mut self, clock: &Clock) {
+        let seconds = TimeUnit(clock.seconds() as f64);
+        match self.state {
+            SimpleEnvelopeState::Idle => {}
+            SimpleEnvelopeState::Attack => {
+                self.amplitude.add(self.delta);
+                if self.has_reached_target(seconds) {
+                    self.set_state_decay(seconds);
+                }
+            }
+            SimpleEnvelopeState::Decay => {
+                self.amplitude.add(self.delta);
+                if self.has_reached_target(seconds) {
+                    self.set_state_sustain(seconds);
+                }
+            }
+            SimpleEnvelopeState::Sustain => {}
+            SimpleEnvelopeState::Release => {
+                self.amplitude.add(self.delta);
+                if self.has_reached_target(seconds) {
+                    self.set_state_idle();
+                }
+            }
+        }
+    }
+
+    fn has_reached_target(&mut self, current_time: TimeUnit) -> bool {
+        let has_hit_target = if self.delta == 0.0 {
+            // This is probably a degenerate case, but we don't want to be stuck
+            // forever in the current state.
+            true
+        } else if self.time_target.0 != 0.0 {
+            // If we have a time target, then we're done even if the amplitude
+            // isn't quite there yet.
+            self.time_target >= current_time
+        } else if self.delta > 0.0 {
+            // Have we hit or overshot in the increasing direction?
+            self.amplitude.current_sum().0 >= self.amplitude_target.0
+        } else {
+            // Have we hit or overshot in the decreasing direction?
+            debug_assert!(self.delta < 0.0);
+            self.amplitude.current_sum().0 <= self.amplitude_target.0
+        };
+
+        if has_hit_target {
+            // Set to the exact amplitude target in case of precision errors.
+            self.amplitude.set_sum(self.amplitude_target);
+        }
+        has_hit_target
+    }
+
+    fn set_state_idle(&mut self) {
+        self.state = SimpleEnvelopeState::Idle;
+    }
+
+    fn set_state_attack(&mut self, current_time: TimeUnit) {
+        if self.settings.attack as f64 == TimeUnit::zero().0 {
+            self.set_state_decay(current_time);
+        } else {
+            self.state = SimpleEnvelopeState::Attack;
+            self.set_target(
+                current_time,
+                Unipolar::maximum(),
+                TimeUnit(self.settings.attack as f64),
+            );
+        }
+    }
+
+    fn set_state_decay(&mut self, current_time: TimeUnit) {
+        if self.settings.decay as f64 == TimeUnit::zero().0 {
+            self.set_state_sustain(current_time);
+        } else {
+            self.state = SimpleEnvelopeState::Decay;
+            self.set_target(
+                current_time,
+                Unipolar::maximum(),
+                TimeUnit(self.settings.decay as f64),
+            );
+        }
+    }
+
+    fn set_state_sustain(&mut self, current_time: TimeUnit) {
+        self.state = SimpleEnvelopeState::Sustain;
+        self.set_target(
+            current_time,
+            Unipolar(self.settings.sustain as f64),
+            TimeUnit::infinite(),
+        );
+    }
+
+    fn set_state_release(&mut self, current_time: TimeUnit) {
+        if self.settings.release as f64 == TimeUnit::zero().0 {
+            self.set_state_idle();
+        } else {
+            self.state = SimpleEnvelopeState::Release;
+            self.set_target(
+                current_time,
+                Unipolar::minimum(),
+                TimeUnit(self.settings.release as f64),
+            );
+        }
+    }
+
+    fn set_target(
+        &mut self,
+        current_time: TimeUnit,
+        amplitude_target: Unipolar,
+        duration: TimeUnit,
+    ) {
+        self.amplitude_target = amplitude_target;
+        if duration != TimeUnit::infinite() {
+            self.time_target = current_time + duration;
+            self.delta = if duration != TimeUnit::zero() {
+                duration.0 / self.sample_rate
+            } else {
+                0.0
+            }
+        } else {
+            self.time_target = TimeUnit::infinite();
+        }
+    }
+}
 
 #[derive(Clone, Debug, Default)]
 pub enum EnvelopeFunction {
@@ -868,5 +1153,33 @@ mod tests {
             envelope.value_for_step_at_time(step, START_TIME + DURATION),
             END_VALUE
         );
+    }
+
+    #[test]
+    fn envelope_mainline() {
+        let envelope_settings = EnvelopeSettings {
+            attack: 0.1,
+            decay: 0.2,
+            sustain: 0.8,
+            release: 0.3,
+        };
+        let mut clock = Clock::default();
+        let mut e = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
+
+        // Should start out idle, and at zero amplitude.
+        assert!(e.is_idle());
+        assert_eq!(e.amplitude(), Unipolar(0.0));
+
+        // If we haven't triggered it, it should remain at zero after a tick.
+        e.tick(&clock);
+        clock.tick();
+        assert_eq!(e.amplitude(), Unipolar(0.0));
+
+        // After we trigger and tick, envelope should start working.
+        e.handle_note_on();
+        e.tick(&clock);
+        clock.tick();
+        assert!(!e.is_idle());
+        assert_gt!(e.amplitude(), Unipolar(0.0));
     }
 }

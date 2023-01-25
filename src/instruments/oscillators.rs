@@ -17,27 +17,42 @@ use strum_macros::{Display, EnumString, FromRepr};
 /// fewer errors in the running sum than standard f32/f64.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct KahanSummation<
-    T: Copy + Default + std::ops::Add<Output = T> + std::ops::Sub<Output = T>,
+    T: Copy
+        + Default
+        + std::ops::Add<Output = T>
+        + std::ops::Sub<Output = T>
+        + std::ops::Add<U, Output = T>
+        + std::ops::Sub<U, Output = T>,
+    U: Copy + Default + std::ops::Add<Output = U> + std::ops::Sub<Output = U>,
 > {
     sum: T,
-    compensation: T,
+    compensation: U,
 }
-impl<T: Copy + Default + std::ops::Add<Output = T> + std::ops::Sub<Output = T>> KahanSummation<T> {
-    fn add(&mut self, rhs: T) -> T {
-        let y: T = rhs - self.compensation;
-        let t: T = self.sum + y;
-        self.compensation = (t - self.sum) - y;
+impl<
+        T: Copy
+            + Default
+            + std::ops::Add<Output = T>
+            + std::ops::Sub<Output = T>
+            + std::ops::Add<U, Output = T>
+            + std::ops::Sub<U, Output = T>,
+        U: Copy + Default + std::ops::Add<Output = U> + std::ops::Sub<Output = U> + From<T>,
+    > KahanSummation<T, U>
+{
+    pub(crate) fn add(&mut self, rhs: U) -> T {
+        let y = rhs - self.compensation;
+        let t = self.sum + y;
+        self.compensation = U::from((t - self.sum) - y);
         self.sum = t;
         t
     }
-    fn sum(&self) -> T {
+    pub(crate) fn current_sum(&self) -> T {
         self.sum
     }
-    fn set_sum(&mut self, sum: T) {
+    pub(crate) fn set_sum(&mut self, sum: T) {
         self.sum = sum;
         self.reset_compensation();
     }
-    fn reset_compensation(&mut self) {
+    pub(crate) fn reset_compensation(&mut self) {
         self.compensation = Default::default();
     }
 }
@@ -76,7 +91,7 @@ pub struct Oscillator {
     // pops, transients, and suckage.
     //
     // Needs Kahan summation algorithm to avoid accumulation of FP errors.
-    cycle_position: KahanSummation<f64>,
+    cycle_position: KahanSummation<f64, f64>,
 
     delta: f64,
     delta_needs_update: bool,
@@ -266,7 +281,7 @@ impl Oscillator {
         // assumed to be set to the start (zero). All the change calculations
         // below are therefore for the *next* result. So we need to save the
         // start value, as that's what we'll report at the end of this method.
-        let current_cycle_position = self.cycle_position.sum();
+        let current_cycle_position = self.cycle_position.current_sum();
 
         // Add delta to the previous position and mod 1.0.
         let next_cycle_position_unrounded = self.cycle_position.add(self.delta);
