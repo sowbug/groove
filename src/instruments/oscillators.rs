@@ -11,6 +11,37 @@ use std::f64::consts::PI;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
+/// https://en.wikipedia.org/wiki/Kahan_summation_algorithm
+///
+/// Given a large number that you want to increase by small numbers, accumulates
+/// fewer errors in the running sum than standard f32/f64.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct KahanSummation<
+    T: Copy + Default + std::ops::Add<Output = T> + std::ops::Sub<Output = T>,
+> {
+    sum: T,
+    compensation: T,
+}
+impl<T: Copy + Default + std::ops::Add<Output = T> + std::ops::Sub<Output = T>> KahanSummation<T> {
+    fn add(&mut self, rhs: T) -> T {
+        let y: T = rhs - self.compensation;
+        let t: T = self.sum + y;
+        self.compensation = (t - self.sum) - y;
+        self.sum = t;
+        t
+    }
+    fn sum(&self) -> T {
+        self.sum
+    }
+    fn set_sum(&mut self, sum: T) {
+        self.sum = sum;
+        self.reset_compensation();
+    }
+    fn reset_compensation(&mut self) {
+        self.compensation = Default::default();
+    }
+}
+
 #[derive(Clone, Control, Debug, Uid)]
 pub struct Oscillator {
     uid: usize,
@@ -43,13 +74,12 @@ pub struct Oscillator {
     // because the frequency can change over time, so recalculating the position
     // as if the current frequency were always the frequency leads to click,
     // pops, transients, and suckage.
-    cycle_position: f64,
+    //
+    // Needs Kahan summation algorithm to avoid accumulation of FP errors.
+    cycle_position: KahanSummation<f64>,
 
     delta: f64,
     delta_needs_update: bool,
-
-    // https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-    kahan_compensation: f64,
 
     // Whether this oscillator's owner should sync other oscillators to this
     // one. IMPORTANT! Because we return the sample for the current state but
@@ -97,10 +127,9 @@ impl Default for Oscillator {
             frequency_modulation: 0.0,
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
-            cycle_position: 0.0,
+            cycle_position: Default::default(),
             delta: 0.0,
             delta_needs_update: true,
-            kahan_compensation: 0.0,
             should_sync_after_this_sample: false,
             is_sync_pending: false,
         }
@@ -201,14 +230,15 @@ impl Oscillator {
         if clock.was_reset() {
             self.update_delta(clock);
 
-            self.cycle_position = (self.delta * clock.samples() as f64).fract();
+            self.cycle_position
+                .set_sum((self.delta * clock.samples() as f64).fract());
         }
     }
 
     fn update_delta(&mut self, clock: &Clock) {
         if self.delta_needs_update {
             self.delta = self.adjusted_frequency() / clock.sample_rate() as f64;
-            self.kahan_compensation = 0.0;
+            self.cycle_position.reset_compensation();
             self.delta_needs_update = false;
         }
     }
@@ -229,35 +259,31 @@ impl Oscillator {
         // important.
         if self.is_sync_pending {
             self.is_sync_pending = false;
-            self.cycle_position = 0.0;
+            self.cycle_position = Default::default();
         }
-
-        // Add delta to the previous position and mod 1.0. Needs Kahan summation
-        // algorithm to avoid accumulation of FP errors.
-        let compensated_delta = self.delta - self.kahan_compensation;
-        let next_cycle_position_unrounded = self.cycle_position + compensated_delta;
-        self.kahan_compensation =
-            (next_cycle_position_unrounded - self.cycle_position) - compensated_delta;
-
-        // This special case is to deal with an FP precision issue that was
-        // causing square waves to flip one sample too late in unit tests.
-        let next_cycle_position = if next_cycle_position_unrounded > 0.999999999999 {
-            debug_assert_lt!(next_cycle_position_unrounded, 2.0);
-            next_cycle_position_unrounded - 1.0
-        } else {
-            next_cycle_position_unrounded.fract()
-        };
-
-        // Should we signal to synced oscillators that it's time to sync?
-        self.should_sync_after_this_sample = next_cycle_position < self.cycle_position;
 
         // On the first call to this method, clock and self.cycle_position are
         // assumed to be set to the start (zero). All the change calculations
-        // are therefore for the *next* result. So we need to save the start
-        // value, as that's what we'll report at the end of this method.
-        let cycle_position = self.cycle_position;
-        self.cycle_position = next_cycle_position;
-        cycle_position
+        // below are therefore for the *next* result. So we need to save the
+        // start value, as that's what we'll report at the end of this method.
+        let current_cycle_position = self.cycle_position.sum();
+
+        // Add delta to the previous position and mod 1.0.
+        let next_cycle_position_unrounded = self.cycle_position.add(self.delta);
+
+        // This special case is to deal with an FP precision issue that was
+        // causing square waves to flip one sample too late in unit tests. We
+        // take advantage of it to also record whether we should signal to
+        // synced oscillators that it's time to sync.
+        self.should_sync_after_this_sample = if next_cycle_position_unrounded > 0.999999999999 {
+            debug_assert_lt!(next_cycle_position_unrounded, 2.0);
+            self.cycle_position.add(-1.0);
+            true
+        } else {
+            false
+        };
+
+        current_cycle_position
     }
 
     // https://en.wikipedia.org/wiki/Sine_wave
