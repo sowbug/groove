@@ -197,7 +197,7 @@ impl SimpleVoice {
             self.release_is_pending = false;
             self.envelope.handle_note_event(clock, false);
         }
-        self.is_playing = !self.envelope.is_idle(clock);
+        self.is_playing = !self.envelope.is_idle_for_time(clock);
     }
 }
 
@@ -416,7 +416,7 @@ impl FmVoice {
             self.release_is_pending = false;
             self.envelope.handle_note_event(clock, false);
         }
-        self.is_playing = !self.envelope.is_idle(clock);
+        self.is_playing = !self.envelope.is_idle_for_time(clock);
     }
 
     #[allow(dead_code)]

@@ -175,14 +175,24 @@ impl GeneratesEnvelope for SimpleEnvelope {
 }
 impl SimpleEnvelope {
     fn handle_pending(&mut self, current_time: TimeUnit) {
-        if self.note_on_pending {
-            self.set_state_attack(current_time);
-            self.note_on_pending = false;
-        }
-        if self.note_off_pending {
+        // We need to be careful when we've been asked to do a note-on and
+        // note-off at the same time. Depending on whether we're active, we
+        // handle this differently.
+        if self.note_on_pending && self.note_off_pending {
+            if self.is_idle() {
+                self.set_state_attack(current_time);
+                self.set_state_release(current_time);
+            } else {
+                self.set_state_release(current_time);
+                self.set_state_attack(current_time);
+            }
+        } else if self.note_off_pending {
             self.set_state_release(current_time);
-            self.note_off_pending = false;
+        } else if self.note_on_pending {
+            self.set_state_attack(current_time);
         }
+        self.note_off_pending = false;
+        self.note_on_pending = false;
     }
 
     #[allow(dead_code)]
@@ -575,6 +585,10 @@ pub struct AdsrEnvelope {
     note_on_time: f32,
     note_off_time: f32,
     end_work_time: f32,
+
+    note_on_pending: bool,
+    note_off_pending: bool,
+    is_idle: bool,
 }
 impl IsInstrument for AdsrEnvelope {}
 impl SourcesAudio for AdsrEnvelope {
@@ -608,9 +622,51 @@ impl Default for AdsrEnvelope {
         Self::new_with(&EnvelopeSettings::default())
     }
 }
+impl GeneratesEnvelope for AdsrEnvelope {
+    fn handle_note_on(&mut self) {
+        self.note_on_pending = true;
+    }
+
+    fn handle_note_off(&mut self) {
+        self.note_off_pending = true;
+    }
+
+    fn tick(&mut self, clock: &Clock) -> Unipolar {
+        self.handle_pending(clock);
+        let time = self.envelope.time_for_unit(clock);
+        let step = self.envelope.step_for_time(time);
+        self.is_idle = self.calculate_is_idle(clock);
+        Unipolar(self.envelope.value_for_step_at_time(step, time) as f64)
+    }
+
+    fn is_idle(&self) -> bool {
+        self.is_idle
+    }
+}
 
 impl AdsrEnvelope {
-    pub(crate) fn is_idle(&self, clock: &Clock) -> bool {
+    fn handle_pending(&mut self, clock: &Clock) {
+        if self.note_on_pending {
+            self.note_on_time = self.envelope.time_for_unit(clock);
+            self.note_off_time = f32::MAX;
+            self.handle_state_change();
+            self.note_on_pending = false;
+        }
+        if self.note_off_pending {
+            if self.note_on_time == f32::MAX {
+                self.note_on_time = self.envelope.time_for_unit(clock);
+            }
+            self.note_off_time = self.envelope.time_for_unit(clock);
+            self.handle_state_change();
+            self.note_off_pending = false;
+        }
+    }
+
+    pub(crate) fn is_idle_for_time(&self, clock: &Clock) -> bool {
+        self.calculate_is_idle(clock)
+    }
+
+    fn calculate_is_idle(&self, clock: &Clock) -> bool {
         clock.seconds() < self.note_on_time || clock.seconds() >= self.end_work_time
     }
 
@@ -890,6 +946,10 @@ impl AdsrEnvelope {
             note_on_time: f32::MAX,
             note_off_time: f32::MAX,
             end_work_time: f32::MAX,
+
+            note_on_pending: false,
+            note_off_pending: false,
+            is_idle: true,
         }
     }
 }
@@ -935,7 +995,7 @@ mod tests {
             let t_f32 = t as f32 / 10.0;
             let clock = Clock::debug_new_with_time(t_f32);
             assert_eq!(envelope.source_audio(&clock), 0.);
-            assert!(envelope.is_idle(&clock));
+            assert!(envelope.is_idle_for_time(&clock));
         }
 
         // Now press a key. Make sure the sustaining part of the envelope is good.
@@ -961,13 +1021,13 @@ mod tests {
             envelope.source_audio(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP + 10.0)),
             ep.sustain
         );
-        assert!(envelope.is_idle(&Clock::debug_new_with_time(0.0)));
-        assert!(!envelope.is_idle(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP)));
-        assert!(!envelope.is_idle(&Clock::debug_new_with_time(
+        assert!(envelope.is_idle_for_time(&Clock::debug_new_with_time(0.0)));
+        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP)));
+        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(
             NOTE_ON_TIMESTAMP + ep.attack + ep.decay
         )));
-        assert!(!envelope.is_idle(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP + 10.0)));
-        assert!(!envelope.is_idle(&Clock::debug_new_with_time(f32::MAX)));
+        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP + 10.0)));
+        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(f32::MAX)));
 
         // Let the key go. Release should work.
         const NOTE_OFF_TIMESTAMP: f32 = 2.0;
@@ -1003,13 +1063,15 @@ mod tests {
             0.0
         );
 
-        assert!(envelope.is_idle(&Clock::debug_new_with_time(0.0)));
-        assert!(!envelope.is_idle(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP)));
-        assert!(!envelope.is_idle(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP)));
-        assert!(!envelope.is_idle(&Clock::debug_new_with_time(
+        assert!(envelope.is_idle_for_time(&Clock::debug_new_with_time(0.0)));
+        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP)));
+        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP)));
+        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(
             NOTE_OFF_TIMESTAMP + ep.release - 0.01
         )));
-        assert!(envelope.is_idle(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP + ep.release)));
+        assert!(
+            envelope.is_idle_for_time(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP + ep.release))
+        );
     }
 
     #[test]
@@ -1397,12 +1459,12 @@ mod tests {
     }
 
     #[test]
-    fn simple_envelope_interrupted_decay() {
-        // These settings are copied from Welsh Piano, which is where I noticed
-        // some unwanted behavior.
+    fn simple_envelope_interrupted_decay_with_second_attack() {
+        // These settings are copied from Welsh Piano's filter envelope, which
+        // is where I noticed some unwanted behavior.
         let envelope_settings = EnvelopeSettings {
             attack: 0.0,
-            decay: 0.67,
+            decay: 5.22,
             sustain: 0.25,
             release: 0.5,
         };
@@ -1421,7 +1483,7 @@ mod tests {
         assert_eq!(
             amplitude,
             Unipolar::maximum(),
-            "Amplitude should begin increasing upon trigger"
+            "Amplitude should reach peak upon trigger"
         );
 
         let amplitude = envelope.tick(&clock);
@@ -1435,8 +1497,29 @@ mod tests {
         // Jump to halfway through decay.
         time_marker += envelope_settings.attack + envelope_settings.decay / 2.0;
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
+        assert_lt!(
+            amplitude,
+            Unipolar::maximum(),
+            "Amplitude should have decayed halfway through decay"
+        );
 
         // Release the trigger.
+        envelope.handle_note_off();
+        let _amplitude = envelope.tick(&clock);
+        clock.tick();
+
+        // And hit it again.
+        envelope.handle_note_on();
+        let amplitude = envelope.tick(&clock);
+        let mut time_marker = clock.seconds();
+        clock.tick();
+        assert_eq!(
+            amplitude,
+            Unipolar::maximum(),
+            "Amplitude should reach peak upon second trigger"
+        );
+
+        // Then release again.
         envelope.handle_note_off();
 
         // Check that we keep decreasing amplitude to zero, not to sustain.
@@ -1462,5 +1545,42 @@ mod tests {
             0.0,
             "Amplitude should be zero when release ends"
         );
+    }
+
+    #[test]
+    fn compare_old_and_new() {
+        // These settings are copied from Welsh Piano's filter envelope, which
+        // is where I noticed some unwanted behavior.
+        let envelope_settings = EnvelopeSettings {
+            attack: 0.0,
+            decay: 5.22,
+            sustain: 0.25,
+            release: 0.5,
+        };
+        let mut clock = Clock::default();
+        let mut old_envelope = AdsrEnvelope::new_with(&envelope_settings);
+        let mut new_envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
+
+        old_envelope.handle_note_on();
+        new_envelope.handle_note_on();
+
+        let time_marker = clock.seconds() + 10.0;
+        let when_to_release = time_marker + 1.0;
+        let mut has_released = false;
+        loop {
+            if clock.seconds() >= when_to_release && !has_released {
+                has_released = true;
+                old_envelope.handle_note_off();
+                new_envelope.handle_note_off();
+            }
+            let old_amplitude = old_envelope.tick(&clock);
+            let new_amplitude = new_envelope.tick(&clock);
+            let should_continue = clock.seconds() < time_marker;
+            assert_approx_eq!(old_amplitude.value(), new_amplitude.value(), 0.001);
+            clock.tick();
+            if !should_continue {
+                break;
+            }
+        }
     }
 }

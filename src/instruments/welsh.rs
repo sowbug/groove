@@ -1,6 +1,7 @@
 use super::{
-    envelopes::AdsrEnvelope, oscillators::Oscillator, IsVoice, PlaysNotes, SimpleVoiceStore,
-    Synthesizer,
+    envelopes::{GeneratesEnvelope, SimpleEnvelope, Unipolar},
+    oscillators::Oscillator,
+    IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
 use crate::{
     common::{F32ControlValue, MonoSample, MONO_SAMPLE_SILENCE},
@@ -416,7 +417,7 @@ impl WelshSynth {
 pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
     oscillator_2_sync: bool,
-    amp_envelope: AdsrEnvelope,
+    amp_envelope: SimpleEnvelope,
 
     lfo: Oscillator,
     lfo_routing: LfoRouting,
@@ -425,7 +426,7 @@ pub struct WelshVoice {
     filter: BiQuadFilter<EntityMessage>,
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
-    filter_envelope: AdsrEnvelope,
+    filter_envelope: SimpleEnvelope,
 
     is_playing: bool,
     attack_is_pending: bool,
@@ -468,7 +469,7 @@ impl PlaysNotes for WelshVoice {
 impl WelshVoice {
     pub fn new_with(sample_rate: usize, preset: &SynthPatch) -> Self {
         let mut r = Self {
-            amp_envelope: AdsrEnvelope::new_with(&preset.amp_envelope),
+            amp_envelope: SimpleEnvelope::new_with(sample_rate, &preset.amp_envelope),
 
             lfo: Oscillator::new_lfo(&preset.lfo),
             lfo_routing: preset.lfo.routing,
@@ -485,7 +486,7 @@ impl WelshVoice {
                 preset.filter_type_12db.cutoff_hz,
             ),
             filter_cutoff_end: preset.filter_envelope_weight,
-            filter_envelope: AdsrEnvelope::new_with(&preset.filter_envelope),
+            filter_envelope: SimpleEnvelope::new_with(sample_rate, &preset.filter_envelope),
             ..Default::default()
         };
         if !matches!(preset.oscillator_1.waveform, WaveformType::None) {
@@ -513,27 +514,60 @@ impl WelshVoice {
         r
     }
 
-    fn handle_pending_note_events(&mut self, clock: &Clock) {
-        if self.attack_is_pending {
-            self.attack_is_pending = false;
-            self.amp_envelope.handle_note_event(clock, true);
-            self.filter_envelope.handle_note_event(clock, true);
-        }
-        if self.aftertouch_is_pending {
-            self.aftertouch_is_pending = false;
-            // TODO: do something
+    fn handle_pending_note_events(&mut self, clock: &Clock) -> (Unipolar, Unipolar) {
+        if self.attack_is_pending && self.release_is_pending {
+            // Handle the case where both are pending at the same time.
+            if self.is_playing {
+                self.handle_release_event();
+                self.handle_attack_event();
+            } else {
+                self.handle_attack_event();
+                self.handle_release_event();
+            }
         }
         if self.release_is_pending {
-            self.release_is_pending = false;
-            self.amp_envelope.handle_note_event(clock, false);
-            self.filter_envelope.handle_note_event(clock, false);
+            self.handle_release_event();
         }
-        self.is_playing = !self.amp_envelope.is_idle(clock);
+        if self.attack_is_pending {
+            self.handle_attack_event();
+        }
+        if self.aftertouch_is_pending {
+            self.handle_aftertouch_event();
+        }
+        // It's important for the envelope tick() methods to be called after
+        // their handle_note_* methods are called, but before we check whether
+        // amp_envelope.is_idle(), because the tick() methods are what determine
+        // the current idle state.
+        //
+        // TODO: this seems like an implementation detail that maybe should be
+        // hidden from the caller.
+        let amp_amplitude = self.amp_envelope.tick(clock);
+        let filter_amplitude = self.filter_envelope.tick(clock);
+
+        self.is_playing = !self.amp_envelope.is_idle();
+        (amp_amplitude, filter_amplitude)
+    }
+
+    fn handle_aftertouch_event(&mut self) {
+        self.aftertouch_is_pending = false;
+        // TODO: do something
+    }
+
+    fn handle_attack_event(&mut self) {
+        self.attack_is_pending = false;
+        self.amp_envelope.handle_note_on();
+        self.filter_envelope.handle_note_on();
+    }
+
+    fn handle_release_event(&mut self) {
+        self.release_is_pending = false;
+        self.amp_envelope.handle_note_off();
+        self.filter_envelope.handle_note_off();
     }
 }
 impl SourcesAudio for WelshVoice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        self.handle_pending_note_events(clock);
+        let (amp_env_amplitude, filter_env_amplitude) = self.handle_pending_note_events(clock);
         if !self.is_playing() {
             return MONO_SAMPLE_SILENCE;
         }
@@ -572,12 +606,11 @@ impl SourcesAudio for WelshVoice {
         // Filters
         //
         // https://aempass.blogspot.com/2014/09/analog-and-welshs-synthesizer-cookbook.html
-        // I am not sure this is right.
         if self.filter_cutoff_end != 0.0 {
             let new_cutoff_percentage = self.filter_cutoff_start
                 + (1.0 - self.filter_cutoff_start)
                     * self.filter_cutoff_end
-                    * self.filter_envelope.source_audio(clock);
+                    * filter_env_amplitude.value() as f32;
             self.filter.set_cutoff_pct(new_cutoff_percentage);
         } else if matches!(self.lfo_routing, LfoRouting::FilterCutoff) {
             let lfo_for_cutoff = lfo * self.lfo_depth;
@@ -594,7 +627,7 @@ impl SourcesAudio for WelshVoice {
             1.0
         };
 
-        let amp_envelope_level = self.amp_envelope.source_audio(clock);
+        let amp_envelope_level = amp_env_amplitude.value() as f32;
 
         // Final
         filtered_mix * amp_envelope_level * lfo_for_amplitude
