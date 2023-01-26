@@ -1392,12 +1392,12 @@ mod tests {
         assert_eq!(
             envelope.debug_amplitude().value(),
             0.0,
-            "Amplitude should be zero when release ends."
+            "Amplitude should be zero when release ends"
         );
     }
 
     #[test]
-    fn simple_envelope_interruptions() {
+    fn simple_envelope_interrupted_decay() {
         // These settings are copied from Welsh Piano, which is where I noticed
         // some unwanted behavior.
         let envelope_settings = EnvelopeSettings {
@@ -1407,20 +1407,60 @@ mod tests {
             release: 0.5,
         };
         let mut clock = Clock::default();
-        let mut e = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
+        let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
 
-        let amplitude = e.tick(&clock);
+        let amplitude = envelope.tick(&clock);
         clock.tick();
 
         assert_eq!(amplitude, Unipolar::minimum());
 
-        e.handle_note_on();
-        let amplitude = e.tick(&clock);
+        envelope.handle_note_on();
+        let amplitude = envelope.tick(&clock);
+        let mut time_marker = clock.seconds();
         clock.tick();
         assert_eq!(
             amplitude,
             Unipolar::maximum(),
             "Amplitude should begin increasing upon trigger"
+        );
+
+        let amplitude = envelope.tick(&clock);
+        clock.tick();
+        assert_lt!(
+            amplitude,
+            Unipolar::maximum(),
+            "Zero-attack amplitude should begin decreasing immediately after peak"
+        );
+
+        // Jump to halfway through decay.
+        time_marker += envelope_settings.attack + envelope_settings.decay / 2.0;
+        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
+
+        // Release the trigger.
+        envelope.handle_note_off();
+
+        // Check that we keep decreasing amplitude to zero, not to sustain.
+        time_marker += envelope_settings.release;
+        let mut last_amplitude = amplitude.value();
+        let _amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
+            assert_lt!(
+                inner_amplitude,
+                last_amplitude,
+                "Amplitude should continue decreasing after note off"
+            );
+            last_amplitude = inner_amplitude;
+        });
+
+        // These assertions are checking the next frame's state, which is right
+        // because we want to test what happens after the release ends.
+        assert!(
+            envelope.is_idle(),
+            "Envelope should be idle when release ends"
+        );
+        assert_eq!(
+            envelope.debug_amplitude().value(),
+            0.0,
+            "Amplitude should be zero when release ends"
         );
     }
 }
