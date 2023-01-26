@@ -40,6 +40,9 @@ pub enum WaveformType {
     Triangle,
     Sawtooth,
     Noise,
+    DebugZero,
+    DebugMax,
+    DebugMin,
 
     TriangleSine, // TODO
 }

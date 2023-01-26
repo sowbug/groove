@@ -336,6 +336,9 @@ impl Oscillator {
             WaveformType::TriangleSine => {
                 4.0 * (cycle_position - (0.75 + cycle_position).floor() + 0.25).abs() - 1.0
             }
+            WaveformType::DebugZero => 0.0,
+            WaveformType::DebugMax => 1.0,
+            WaveformType::DebugMin => -1.0,
         }
     }
 }
