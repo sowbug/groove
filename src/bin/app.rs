@@ -32,6 +32,15 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[derive(Default, Debug)]
+enum MainViews {
+    #[default]
+    Unstructured,
+    Session,
+    Arrangement,
+    Preferences,
+}
+
 struct GrooveApp {
     // Overhead
     preferences: Preferences,
@@ -39,6 +48,9 @@ struct GrooveApp {
     theme: Theme,
     state: State,
     should_exit: bool,
+
+    // View
+    current_view: MainViews,
 
     // Model
     project_title: Option<String>,
@@ -74,6 +86,7 @@ impl Default for GrooveApp {
             theme: Default::default(),
             state: Default::default(),
             should_exit: Default::default(),
+            current_view: Default::default(),
             project_title: None,
             orchestrator_sender: Default::default(),
             orchestrator: Arc::new(Mutex::new(orchestrator)),
@@ -203,6 +216,21 @@ impl Application for GrooveApp {
                         AppMessage::PrefsSaved,
                     );
                 }
+                if let Event::Keyboard(e) = event {
+                    match e {
+                        #[allow(unused_variables)]
+                        iced::keyboard::Event::KeyPressed {
+                            key_code,
+                            modifiers,
+                        } => match key_code {
+                            iced::keyboard::KeyCode::Tab => {
+                                self.switch_main_view();
+                            }
+                            _ => {}
+                        },
+                        _ => {}
+                    }
+                }
             }
             AppMessage::MidiHandlerMessage(message) => match message {
                 MidiHandlerMessage::InputSelected(which) => {
@@ -314,21 +342,38 @@ impl Application for GrooveApp {
         }
 
         let control_bar = self.control_bar_view().map(AppMessage::ControlBarMessage);
-        let project_view: Element<AppMessage> =
-            self.orchestrator_view().map(AppMessage::GrooveMessage);
-        let midi_view: Element<AppMessage> = self.midi_view().map(AppMessage::MidiHandlerMessage);
-        let scrollable_content = column![midi_view, project_view];
         let under_construction = container(GuiStuff::<EntityMessage>::container_text(
             "Under Construction",
         ))
-        .width(Length::FillPortion(1));
-        let scrollable = container(scrollable(scrollable_content)).width(Length::FillPortion(1));
-        let main_workspace = row![under_construction, scrollable];
-        let content = column![control_bar, main_workspace]
+        .width(Length::FillPortion(1))
+        .align_x(alignment::Horizontal::Center)
+        .align_y(alignment::Vertical::Center);
+        let main_content = match self.current_view {
+            MainViews::Unstructured => {
+                let project_view: Element<AppMessage> =
+                    self.orchestrator_view().map(AppMessage::GrooveMessage);
+                let midi_view: Element<AppMessage> =
+                    self.midi_view().map(AppMessage::MidiHandlerMessage);
+                let scrollable_content = column![midi_view, project_view];
+                let scrollable =
+                    container(scrollable(scrollable_content)).width(Length::FillPortion(1));
+                row![under_construction, scrollable]
+            }
+            MainViews::Session => {
+                row![under_construction]
+            }
+            MainViews::Arrangement => {
+                row![under_construction]
+            }
+            MainViews::Preferences => {
+                row![under_construction]
+            }
+        };
+        let full_view = column![control_bar, main_content]
             .align_items(Alignment::Center)
             .spacing(20);
 
-        container(content)
+        container(full_view)
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x()
@@ -877,6 +922,15 @@ impl GrooveApp {
             );
             container(row![slider]).padding(20).into()
         })
+    }
+
+    fn switch_main_view(&mut self) {
+        self.current_view = match self.current_view {
+            MainViews::Unstructured => MainViews::Preferences,
+            MainViews::Session => MainViews::Arrangement,
+            MainViews::Arrangement => MainViews::Session,
+            MainViews::Preferences => MainViews::Unstructured,
+        }
     }
 }
 
