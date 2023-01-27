@@ -32,6 +32,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[derive(Clone, Default, PartialEq)]
+enum EntityViewState {
+    #[default]
+    Collapsed,
+    Expanded,
+}
+
 #[derive(Default, Debug)]
 enum MainViews {
     #[default]
@@ -198,38 +205,10 @@ impl Application for GrooveApp {
             },
             AppMessage::Event(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {
-                    // See https://github.com/iced-rs/iced/pull/804 and
-                    // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
-                    //
-                    // This is needed to stop an ALSA buffer underrun on close
-
-                    self.post_to_midi_handler(MidiHandlerInput::QuitRequested);
-                    self.post_to_orchestrator(GrooveInput::QuitRequested);
-                    self.should_exit = true;
-                    return Command::perform(
-                        Preferences::save_prefs(Preferences {
-                            selected_midi_input: self.preferences.selected_midi_input.clone(),
-                            selected_midi_output: self.preferences.selected_midi_output.clone(),
-                            should_reload_last_project: self.preferences.should_reload_last_project,
-                            last_project_filename: self.preferences.last_project_filename.clone(),
-                        }),
-                        AppMessage::PrefsSaved,
-                    );
+                    return self.handle_close_requested_event();
                 }
                 if let Event::Keyboard(e) = event {
-                    match e {
-                        #[allow(unused_variables)]
-                        iced::keyboard::Event::KeyPressed {
-                            key_code,
-                            modifiers,
-                        } => match key_code {
-                            iced::keyboard::KeyCode::Tab => {
-                                self.switch_main_view();
-                            }
-                            _ => {}
-                        },
-                        _ => {}
-                    }
+                    self.handle_keyboard_event(e);
                 }
             }
             AppMessage::MidiHandlerMessage(message) => match message {
@@ -380,13 +359,6 @@ impl Application for GrooveApp {
             .align_y(alignment::Vertical::Top)
             .into()
     }
-}
-
-#[derive(Clone, Default, PartialEq)]
-enum EntityViewState {
-    #[default]
-    Collapsed,
-    Expanded,
 }
 
 impl GrooveApp {
@@ -930,6 +902,43 @@ impl GrooveApp {
             MainViews::Session => MainViews::Arrangement,
             MainViews::Arrangement => MainViews::Session,
             MainViews::Preferences => MainViews::Unstructured,
+        }
+    }
+
+    fn handle_close_requested_event(&mut self) -> Command<AppMessage> {
+        // See https://github.com/iced-rs/iced/pull/804 and
+        // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
+        //
+        // This is needed to stop an ALSA buffer underrun on close
+
+        self.post_to_midi_handler(MidiHandlerInput::QuitRequested);
+        self.post_to_orchestrator(GrooveInput::QuitRequested);
+        self.should_exit = true;
+        return Command::perform(
+            Preferences::save_prefs(Preferences {
+                selected_midi_input: self.preferences.selected_midi_input.clone(),
+                selected_midi_output: self.preferences.selected_midi_output.clone(),
+                should_reload_last_project: self.preferences.should_reload_last_project,
+                last_project_filename: self.preferences.last_project_filename.clone(),
+            }),
+            AppMessage::PrefsSaved,
+        );
+    }
+
+    fn handle_keyboard_event(&mut self, event: iced::keyboard::Event) {
+        match event {
+            #[allow(unused_variables)]
+            iced::keyboard::Event::KeyPressed {
+                key_code,
+                modifiers,
+            } => match key_code {
+                // https://docs.rs/iced/latest/iced/keyboard/enum.KeyCode.html
+                iced::keyboard::KeyCode::Tab => {
+                    self.switch_main_view();
+                }
+                _ => {}
+            },
+            _ => {}
         }
     }
 }
