@@ -257,7 +257,7 @@ mod tests {
         let mut orchestrator = song_settings
             .instantiate(false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
-        let mut clock = Clock::default();
+        let mut clock = Clock::new_with(orchestrator.clock_settings());
         let performance = orchestrator
             .run_performance(&mut clock, false)
             .unwrap_or_else(|err| panic!("performance failed: {:?}", err));

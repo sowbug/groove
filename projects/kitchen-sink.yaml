@@ -1,7 +1,7 @@
 ---
 title: "A dumping ground to make sure components load properly. Listen at your own risk."
 clock:
-  bpm: 128.0
+  bpm: 1024.0
   time-signature:
     - 4
     - 4
