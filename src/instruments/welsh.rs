@@ -429,10 +429,10 @@ pub struct WelshVoice {
     filter_envelope: SimpleEnvelope,
 
     is_playing: bool,
-    attack_is_pending: bool,
-    attack_velocity: u8,
-    release_is_pending: bool,
-    release_velocity: u8,
+    note_on_is_pending: bool,
+    note_on_velocity: u8,
+    note_off_is_pending: bool,
+    note_off_velocity: u8,
     aftertouch_is_pending: bool,
     aftertouch_velocity: u8,
 }
@@ -440,6 +440,10 @@ impl IsVoice for WelshVoice {}
 impl PlaysNotes for WelshVoice {
     fn is_playing(&self) -> bool {
         self.is_playing
+    }
+
+    fn are_events_pending(&self) -> bool {
+        self.note_on_is_pending || self.note_off_is_pending || self.aftertouch_is_pending
     }
 
     fn set_frequency_hz(&mut self, frequency_hz: f32) {
@@ -450,19 +454,19 @@ impl PlaysNotes for WelshVoice {
         });
     }
 
-    fn attack(&mut self, velocity: u8) {
-        self.attack_is_pending = true;
-        self.attack_velocity = velocity;
+    fn enqueue_note_on(&mut self, velocity: u8) {
+        self.note_on_is_pending = true;
+        self.note_on_velocity = velocity;
     }
 
-    fn aftertouch(&mut self, velocity: u8) {
+    fn enqueue_aftertouch(&mut self, velocity: u8) {
         self.aftertouch_is_pending = true;
         self.aftertouch_velocity = velocity;
     }
 
-    fn release(&mut self, velocity: u8) {
-        self.release_is_pending = true;
-        self.release_velocity = velocity;
+    fn enqueue_note_off(&mut self, velocity: u8) {
+        self.note_off_is_pending = true;
+        self.note_off_velocity = velocity;
     }
 }
 
@@ -515,21 +519,22 @@ impl WelshVoice {
     }
 
     fn handle_pending_note_events(&mut self, clock: &Clock) -> (Unipolar, Unipolar) {
-        if self.attack_is_pending && self.release_is_pending {
+        if self.note_on_is_pending && self.note_off_is_pending {
             // Handle the case where both are pending at the same time.
             if self.is_playing {
-                self.handle_release_event();
-                self.handle_attack_event();
+                self.handle_note_off_event();
+                self.handle_note_on_event();
             } else {
-                self.handle_attack_event();
-                self.handle_release_event();
+                self.handle_note_on_event();
+                self.handle_note_off_event();
             }
-        }
-        if self.release_is_pending {
-            self.handle_release_event();
-        }
-        if self.attack_is_pending {
-            self.handle_attack_event();
+        } else {
+            if self.note_off_is_pending {
+                self.handle_note_off_event();
+            }
+            if self.note_on_is_pending {
+                self.handle_note_on_event();
+            }
         }
         if self.aftertouch_is_pending {
             self.handle_aftertouch_event();
@@ -553,16 +558,16 @@ impl WelshVoice {
         // TODO: do something
     }
 
-    fn handle_attack_event(&mut self) {
-        self.attack_is_pending = false;
-        self.amp_envelope.handle_note_on();
-        self.filter_envelope.handle_note_on();
+    fn handle_note_on_event(&mut self) {
+        self.note_on_is_pending = false;
+        self.amp_envelope.enqueue_attack();
+        self.filter_envelope.enqueue_attack();
     }
 
-    fn handle_release_event(&mut self) {
-        self.release_is_pending = false;
-        self.amp_envelope.handle_note_off();
-        self.filter_envelope.handle_note_off();
+    fn handle_note_off_event(&mut self) {
+        self.note_off_is_pending = false;
+        self.amp_envelope.enqueue_release();
+        self.filter_envelope.enqueue_release();
     }
 }
 impl SourcesAudio for WelshVoice {
@@ -731,12 +736,12 @@ mod tests {
         while clock.seconds() < duration {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
-                voice.attack(127);
+                voice.enqueue_note_on(127);
                 voice.handle_pending_note_events(&clock);
             } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
             {
                 last_recognized_time_point = clock.seconds();
-                voice.release(127);
+                voice.enqueue_note_off(127);
                 voice.handle_pending_note_events(&clock);
             }
 
@@ -809,7 +814,7 @@ mod tests {
         while clock.seconds() < duration {
             if when <= clock.seconds() && !is_message_sent {
                 is_message_sent = true;
-                source.release(0);
+                source.enqueue_note_off(0);
                 source.handle_pending_note_events(clock);
             }
             let sample = source.source_audio(clock);
@@ -917,7 +922,7 @@ mod tests {
         let mut clock = Clock::default();
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &test_patch());
         voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
-        voice.attack(127);
+        voice.enqueue_note_on(127);
         voice.handle_pending_note_events(&clock);
         write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
     }
@@ -927,7 +932,7 @@ mod tests {
         let mut clock = Clock::default();
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &cello_patch());
         voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
-        voice.attack(127);
+        voice.enqueue_note_on(127);
         voice.handle_pending_note_events(&clock);
         write_sound(&mut voice, &mut clock, 5.0, 1.0, "voice_cello_c4");
     }

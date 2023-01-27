@@ -3,7 +3,7 @@ use crate::{
     midi::MidiUtils,
     settings::patches::EnvelopeSettings,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
-    AdsrEnvelope, Clock, EntityMessage, Oscillator,
+    Clock, EntityMessage, Oscillator,
 };
 use anyhow::{anyhow, Result};
 use groove_macros::{Control, Uid};
@@ -11,6 +11,8 @@ use midly::{num::u7, MidiMessage};
 use std::str::FromStr;
 use std::{collections::HashMap, fmt::Debug};
 use strum_macros::{Display, EnumString, FromRepr};
+
+use self::envelopes::{GeneratesEnvelope, SimpleEnvelope};
 
 pub(crate) mod drumkit_sampler;
 pub(crate) mod envelopes;
@@ -29,21 +31,30 @@ pub trait HandlesMidi {
 /// on/off)
 pub trait PlaysNotes {
     fn is_playing(&self) -> bool;
+    fn are_events_pending(&self) -> bool;
     fn set_frequency_hz(&mut self, frequency_hz: f32);
-    fn attack(&mut self, velocity: u8);
-    fn aftertouch(&mut self, velocity: u8);
-    fn release(&mut self, velocity: u8);
+    fn enqueue_note_on(&mut self, velocity: u8);
+    fn enqueue_aftertouch(&mut self, velocity: u8);
+    fn enqueue_note_off(&mut self, velocity: u8);
 }
 
-// TODO: I didn't want VoiceStore to know anything about audio (i.e.,
+// TODO: I didn't want StoresVoices to know anything about audio (i.e.,
 // SourcesAudio), but I couldn't figure out how to return an IterMut from a
 // HashMap, so I couldn't define a trait method that allowed the implementation
 // to return an iterator from either a Vec or a HashMap.
-pub trait VoiceStore: SourcesAudio + Send + Debug {
+pub trait StoresVoices: SourcesAudio + Send + Debug {
     type Voice;
 
+    /// Generally, this value won't change after initialization, because we try
+    /// not to dynamically allocate new voices.
     fn voice_count(&self) -> usize;
+
+    /// The number of voices reporting is_playing() true. Notably, this excludes
+    /// any voice with pending events. So if you call attack() on a voice in the
+    /// store but don't tick it, the voice-store active number won't include it.
     fn active_voice_count(&self) -> usize;
+
+    /// Fails if we run out of idle voices.
     fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>>;
 }
 
@@ -55,15 +66,13 @@ pub trait IsVoice: SourcesAudio + PlaysNotes + Send + Default {}
 pub struct Synthesizer<V: IsVoice> {
     uid: usize,
 
-    voice_store: Box<dyn VoiceStore<Voice = V>>,
+    voice_store: Box<dyn StoresVoices<Voice = V>>,
 
-    /// Ranges from -1.0..=1.0
-    /// Applies to all notes
+    /// Ranges from -1.0..=1.0. Applies to all notes.
     #[controllable]
     pitch_bend: f32,
 
-    /// Ranges from 0..127
-    /// Applies to all notes
+    /// Ranges from 0..127. Applies to all notes.
     #[controllable]
     channel_aftertouch: u8,
 }
@@ -78,7 +87,7 @@ impl<V: IsVoice> SourcesAudio for Synthesizer<V> {
 }
 
 impl<V: IsVoice> Synthesizer<V> {
-    fn new_with(voice_store: Box<dyn VoiceStore<Voice = V>>) -> Self {
+    fn new_with(voice_store: Box<dyn StoresVoices<Voice = V>>) -> Self {
         Self {
             uid: Default::default(),
             voice_store: voice_store,
@@ -112,18 +121,18 @@ impl<V: IsVoice> HandlesMidi for Synthesizer<V> {
         match message {
             MidiMessage::NoteOff { key, vel } => {
                 if let Ok(voice) = self.voice_store.get_voice(key) {
-                    voice.release(vel.as_int());
+                    voice.enqueue_note_off(vel.as_int());
                 }
             }
             MidiMessage::NoteOn { key, vel } => {
                 if let Ok(voice) = self.voice_store.get_voice(key) {
                     voice.set_frequency_hz(MidiUtils::note_to_frequency(key.as_int()));
-                    voice.attack(vel.as_int());
+                    voice.enqueue_note_on(vel.as_int());
                 }
             }
             MidiMessage::Aftertouch { key, vel } => {
                 if let Ok(voice) = self.voice_store.get_voice(key) {
-                    voice.aftertouch(vel.as_int());
+                    voice.enqueue_aftertouch(vel.as_int());
                 }
             }
             #[allow(unused_variables)]
@@ -141,13 +150,13 @@ impl<V: IsVoice> HandlesMidi for Synthesizer<V> {
 #[derive(Debug, Default)]
 pub struct SimpleVoice {
     oscillator: Oscillator,
-    envelope: AdsrEnvelope,
+    envelope: SimpleEnvelope,
 
     is_playing: bool,
-    attack_is_pending: bool,
-    attack_velocity: u8,
-    release_is_pending: bool,
-    release_velocity: u8,
+    note_on_is_pending: bool,
+    note_on_velocity: u8,
+    note_off_is_pending: bool,
+    note_off_velocity: u8,
     aftertouch_is_pending: bool,
     aftertouch_velocity: u8,
 }
@@ -157,47 +166,75 @@ impl PlaysNotes for SimpleVoice {
         self.is_playing
     }
 
+    fn are_events_pending(&self) -> bool {
+        self.note_on_is_pending || self.note_off_is_pending || self.aftertouch_is_pending
+    }
+
     fn set_frequency_hz(&mut self, frequency_hz: f32) {
         self.oscillator.set_frequency(frequency_hz);
     }
 
-    fn attack(&mut self, velocity: u8) {
-        self.attack_is_pending = true;
-        self.attack_velocity = velocity;
+    fn enqueue_note_on(&mut self, velocity: u8) {
+        self.note_on_is_pending = true;
+        self.note_on_velocity = velocity;
     }
 
-    fn aftertouch(&mut self, velocity: u8) {
+    fn enqueue_aftertouch(&mut self, velocity: u8) {
         self.aftertouch_is_pending = true;
         self.aftertouch_velocity = velocity;
     }
 
-    fn release(&mut self, velocity: u8) {
-        self.release_is_pending = true;
-        self.release_velocity = velocity;
+    fn enqueue_note_off(&mut self, velocity: u8) {
+        self.note_off_is_pending = true;
+        self.note_off_velocity = velocity;
     }
 }
 impl SourcesAudio for SimpleVoice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        self.handle_pending_note_events(clock);
-        self.oscillator.source_audio(clock) * self.envelope.source_audio(clock)
+        self.handle_pending_note_events();
+        let r = self.oscillator.source_audio(clock) * self.envelope.tick(clock).value() as f32;
+        self.is_playing = !self.envelope.is_idle();
+        r
     }
 }
 
 impl SimpleVoice {
-    fn handle_pending_note_events(&mut self, clock: &Clock) {
-        if self.attack_is_pending {
-            self.attack_is_pending = false;
-            self.envelope.handle_note_event(clock, true);
+    fn handle_pending_note_events(&mut self) {
+        if self.note_on_is_pending && self.note_off_is_pending {
+            // Handle the case where both are pending at the same time.
+            if self.is_playing {
+                self.handle_note_off_event();
+                self.handle_note_on_event();
+            } else {
+                self.handle_note_on_event();
+                self.handle_note_off_event();
+            }
+        } else {
+            if self.note_off_is_pending {
+                self.handle_note_off_event();
+            }
+            if self.note_on_is_pending {
+                self.handle_note_on_event();
+            }
         }
         if self.aftertouch_is_pending {
-            self.aftertouch_is_pending = false;
-            // TODO: do something
+            self.handle_aftertouch_event();
         }
-        if self.release_is_pending {
-            self.release_is_pending = false;
-            self.envelope.handle_note_event(clock, false);
-        }
-        self.is_playing = !self.envelope.is_idle_for_time(clock);
+    }
+
+    fn handle_note_on_event(&mut self) {
+        self.note_on_is_pending = false;
+        self.envelope.enqueue_attack();
+    }
+
+    fn handle_aftertouch_event(&mut self) {
+        // TODO: do something
+        self.aftertouch_is_pending = false;
+    }
+
+    fn handle_note_off_event(&mut self) {
+        self.note_off_is_pending = false;
+        self.envelope.enqueue_release();
     }
 }
 
@@ -232,10 +269,9 @@ impl SourcesAudio for SimpleSynthesizer {
 impl Default for SimpleSynthesizer {
     fn default() -> Self {
         let mut voice_store = Box::new(SimpleVoiceStore::<SimpleVoice>::default());
-        voice_store.add_voice(Box::new(SimpleVoice::default()));
-        voice_store.add_voice(Box::new(SimpleVoice::default()));
-        voice_store.add_voice(Box::new(SimpleVoice::default()));
-        voice_store.add_voice(Box::new(SimpleVoice::default()));
+        for _ in 0..4 {
+            voice_store.add_voice(Box::new(SimpleVoice::default()));
+        }
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<SimpleVoice>::new_with(voice_store),
@@ -253,7 +289,7 @@ pub struct SimpleVoiceStore<V: IsVoice> {
     voices: Vec<Box<V>>,
     notes_playing: Vec<u7>,
 }
-impl<V: IsVoice> VoiceStore for SimpleVoiceStore<V> {
+impl<V: IsVoice> StoresVoices for SimpleVoiceStore<V> {
     type Voice = V;
 
     fn voice_count(&self) -> usize {
@@ -269,7 +305,7 @@ impl<V: IsVoice> VoiceStore for SimpleVoiceStore<V> {
             return Ok(&mut self.voices[index]);
         }
         for (index, voice) in self.voices.iter().enumerate() {
-            if voice.is_playing() {
+            if voice.is_playing() || voice.are_events_pending() {
                 continue;
             }
             self.notes_playing[index] = *key;
@@ -280,7 +316,13 @@ impl<V: IsVoice> VoiceStore for SimpleVoiceStore<V> {
 }
 impl<V: IsVoice> SourcesAudio for SimpleVoiceStore<V> {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        self.voices.iter_mut().map(|v| v.source_audio(clock)).sum()
+        let r = self.voices.iter_mut().map(|v| v.source_audio(clock)).sum();
+        for (index, voice) in self.voices.iter().enumerate() {
+            if !voice.is_playing() {
+                self.notes_playing[index] = u7::from(0);
+            }
+        }
+        r
     }
 }
 impl<V: IsVoice> SimpleVoiceStore<V> {
@@ -294,7 +336,7 @@ impl<V: IsVoice> SimpleVoiceStore<V> {
 pub struct VoicePerNoteStore<V: IsVoice> {
     voices: HashMap<u7, Box<V>>,
 }
-impl<V: IsVoice> VoiceStore for VoicePerNoteStore<V> {
+impl<V: IsVoice> StoresVoices for VoicePerNoteStore<V> {
     type Voice = V;
 
     fn voice_count(&self) -> usize {
@@ -329,13 +371,13 @@ pub struct FmVoice {
     carrier: Oscillator,
     modulator: Oscillator,
     modulator_depth: f32,
-    envelope: AdsrEnvelope,
+    envelope: SimpleEnvelope,
 
     is_playing: bool,
-    attack_is_pending: bool,
-    attack_velocity: u8,
-    release_is_pending: bool,
-    release_velocity: u8,
+    note_on_is_pending: bool,
+    note_on_velocity: u8,
+    note_off_is_pending: bool,
+    note_off_velocity: u8,
     aftertouch_is_pending: bool,
     aftertouch_velocity: u8,
 }
@@ -345,31 +387,39 @@ impl PlaysNotes for FmVoice {
         self.is_playing
     }
 
+    fn are_events_pending(&self) -> bool {
+        self.note_on_is_pending || self.note_off_is_pending || self.aftertouch_is_pending
+    }
+
     fn set_frequency_hz(&mut self, frequency_hz: f32) {
         self.carrier.set_frequency(frequency_hz);
     }
 
-    fn attack(&mut self, velocity: u8) {
-        self.attack_is_pending = true;
-        self.attack_velocity = velocity;
+    fn enqueue_note_on(&mut self, velocity: u8) {
+        self.note_on_is_pending = true;
+        self.note_on_velocity = velocity;
+        self.envelope.enqueue_attack();
     }
 
-    fn aftertouch(&mut self, velocity: u8) {
+    fn enqueue_aftertouch(&mut self, velocity: u8) {
         self.aftertouch_is_pending = true;
         self.aftertouch_velocity = velocity;
     }
 
-    fn release(&mut self, velocity: u8) {
-        self.release_is_pending = true;
-        self.release_velocity = velocity;
+    fn enqueue_note_off(&mut self, velocity: u8) {
+        self.note_off_is_pending = true;
+        self.note_off_velocity = velocity;
+        self.envelope.enqueue_release();
     }
 }
 impl SourcesAudio for FmVoice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        self.handle_pending_note_events(clock);
+        self.handle_pending_note_events();
         self.carrier
             .set_frequency_modulation(self.modulator.source_audio(clock) * self.modulator_depth);
-        self.carrier.source_audio(clock) * self.envelope.source_audio(clock)
+        let r = self.carrier.source_audio(clock) * self.envelope.tick(clock).value() as f32;
+        self.is_playing = !self.envelope.is_idle();
+        r
     }
 }
 impl Default for FmVoice {
@@ -378,17 +428,20 @@ impl Default for FmVoice {
             carrier: Default::default(),
             modulator: Default::default(),
             modulator_depth: 0.2,
-            envelope: AdsrEnvelope::new_with(&EnvelopeSettings {
-                attack: 0.1,
-                decay: 0.1,
-                sustain: 0.8,
-                release: 0.25,
-            }),
+            envelope: SimpleEnvelope::new_with(
+                Clock::default().sample_rate(),
+                &EnvelopeSettings {
+                    attack: 0.1,
+                    decay: 0.1,
+                    sustain: 0.8,
+                    release: 0.25,
+                },
+            ),
             is_playing: Default::default(),
-            attack_is_pending: Default::default(),
-            attack_velocity: Default::default(),
-            release_is_pending: Default::default(),
-            release_velocity: Default::default(),
+            note_on_is_pending: Default::default(),
+            note_on_velocity: Default::default(),
+            note_off_is_pending: Default::default(),
+            note_off_velocity: Default::default(),
             aftertouch_is_pending: Default::default(),
             aftertouch_velocity: Default::default(),
         }
@@ -403,20 +456,40 @@ impl FmVoice {
             ..Default::default()
         }
     }
-    fn handle_pending_note_events(&mut self, clock: &Clock) {
-        if self.attack_is_pending {
-            self.attack_is_pending = false;
-            self.envelope.handle_note_event(clock, true);
+    fn handle_pending_note_events(&mut self) {
+        if self.note_on_is_pending && self.note_off_is_pending {
+            // Handle the case where both are pending at the same time.
+            if self.is_playing {
+                self.handle_note_off_event();
+                self.handle_note_on_event();
+            } else {
+                self.handle_note_on_event();
+                self.handle_note_off_event();
+            }
+        } else {
+            if self.note_off_is_pending {
+                self.handle_note_off_event();
+            }
+            if self.note_on_is_pending {
+                self.handle_note_on_event();
+            }
         }
         if self.aftertouch_is_pending {
-            self.aftertouch_is_pending = false;
-            // TODO: do something
+            self.handle_aftertouch_event();
         }
-        if self.release_is_pending {
-            self.release_is_pending = false;
-            self.envelope.handle_note_event(clock, false);
-        }
-        self.is_playing = !self.envelope.is_idle_for_time(clock);
+    }
+
+    fn handle_note_on_event(&mut self) {
+        self.note_on_is_pending = false;
+    }
+
+    fn handle_aftertouch_event(&mut self) {
+        // TODO: do something
+        self.aftertouch_is_pending = false;
+    }
+
+    fn handle_note_off_event(&mut self) {
+        self.note_off_is_pending = false;
     }
 
     #[allow(dead_code)]
@@ -476,7 +549,9 @@ impl FmSynthesizer {
         }
     }
 
-    pub(crate) fn new_with_voice_store(voice_store: Box<dyn VoiceStore<Voice = FmVoice>>) -> Self {
+    pub(crate) fn new_with_voice_store(
+        voice_store: Box<dyn StoresVoices<Voice = FmVoice>>,
+    ) -> Self {
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<FmVoice>::new_with(voice_store),
@@ -502,4 +577,147 @@ impl SimpleVoiceStore<FmVoice> {
 
 pub(crate) struct FmSynthesizerPreset {
     modulator_frequency_hz: f32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn voice_store_mainline() {
+        let mut voice_store = SimpleVoiceStore::<SimpleVoice>::default();
+        assert_eq!(voice_store.voice_count(), 0);
+        assert_eq!(voice_store.active_voice_count(), 0);
+
+        for _ in 0..2 {
+            voice_store.add_voice(Box::new(SimpleVoice::default()));
+        }
+        assert_eq!(voice_store.voice_count(), 2);
+        assert_eq!(voice_store.active_voice_count(), 0);
+
+        let clock = Clock::default();
+
+        // Request and start the maximum number of voices.
+        if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
+            assert!(!voice.is_playing());
+            voice.enqueue_note_on(127);
+            voice.source_audio(&clock); // We must ask for the sample to register the trigger.
+            assert!(voice.is_playing());
+        }
+        if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
+            voice.enqueue_note_on(127);
+            voice.source_audio(&clock);
+        }
+
+        // Request a voice for a new note that would exceed the count. Should
+        // fail.
+        assert!(voice_store.get_voice(&u7::from(62)).is_err());
+
+        // Request to get back a voice that's already playing.
+        if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
+            assert!(voice.is_playing());
+            voice.enqueue_note_off(127);
+
+            // All SimpleVoice envelope times are instantaneous, so we know the
+            // release completes after asking for the next sample.
+            voice.source_audio(&clock);
+            assert!(!voice.is_playing());
+        }
+    }
+
+    #[test]
+    fn voice_store_simultaneous_events() {
+        let mut voice_store = SimpleVoiceStore::<SimpleVoice>::default();
+        assert_eq!(voice_store.voice_count(), 0);
+        assert_eq!(voice_store.active_voice_count(), 0);
+
+        for _ in 0..2 {
+            voice_store.add_voice(Box::new(SimpleVoice::default()));
+        }
+        assert_eq!(voice_store.voice_count(), 2);
+        assert_eq!(voice_store.active_voice_count(), 0);
+
+        let clock = Clock::default();
+
+        // Request multiple voices during the same tick.
+        if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
+            // this frequency is not correct for the MIDI note, but it's just to
+            // disambiguate, so that's OK.
+            voice.oscillator.set_frequency(60.0);
+            voice.enqueue_note_on(127);
+            assert!(!voice.is_playing(), "New voice shouldn't be marked is_playing() until both attack() and the next source_audio() have completed");
+        }
+        if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
+            voice.oscillator.set_frequency(61.0);
+            voice.enqueue_note_on(127);
+            assert!(!voice.is_playing(), "New voice shouldn't be marked is_playing() until both attack() and the next source_audio() have completed");
+        }
+
+        // To beat a dead horse, pending operations like attack() and release()
+        // aren't fulfilled until the next tick, which happens as part of
+        // source_audio().
+        assert_eq!(
+            voice_store.active_voice_count(),
+            0,
+            "voices shouldn't be marked as playing until next source_audio()"
+        );
+        let _ = voice_store.source_audio(&clock);
+        assert_eq!(voice_store.active_voice_count(), 2, "voices with pending attacks() should have been handled, and they should now be is_playing()");
+
+        // Now ask for both voices again. Each should be playing and each should
+        // have its individual frequency.
+        if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
+            assert!(voice.is_playing());
+            assert_eq!(
+                voice.oscillator.frequency(),
+                60.0,
+                "we should have gotten back the same voice for the requested note"
+            );
+        }
+        if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
+            assert!(voice.is_playing());
+            assert_eq!(
+                voice.oscillator.frequency(),
+                61.0,
+                "we should have gotten back the same voice for the requested note"
+            );
+        }
+        let _ = voice_store.source_audio(&clock);
+
+        // Finally, mark a note done and then ask for a new one. We should get
+        // assigned the one we just gave up.
+        //
+        // Note that we're taking advantage of the fact that SimpleVoice has
+        // instantaneous envelope parameters, which means we can treat the
+        // release as the same as the note stopping playing. For most voices
+        // with nonzero release, we'd have to wait more time for the voice to
+        // stop on its own. This is also why we need to spin the source_audio()
+        // loop in between the two get_voice() requests; it's actually correct
+        // for the system to consider a voice to still be playing after
+        // release() during the same tick.
+        if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
+            assert_eq!(
+                voice.oscillator.frequency(),
+                60.0,
+                "we should have gotten back the same voice for the requested note"
+            );
+            voice.enqueue_note_off(127);
+        }
+        let _ = voice_store.source_audio(&clock);
+        if let Ok(voice) = voice_store.get_voice(&u7::from(62)) {
+            // This is a bit too cute. We assume that we're getting back the
+            // voice that serviced note #60 because (1) we set up the voice
+            // store with only two voices, and the other one is busy, and (2) we
+            // happen to know that this voice store recycles voices rather than
+            // instantiating new ones. (2) is very likely to remain true for all
+            // voice stores, but it's a little loosey-goosey right now.
+            assert_eq!(
+                voice.oscillator.frequency(),
+                60.0,
+                "we should have gotten the defunct voice for a new note"
+            );
+        } else {
+            panic!("ran out of notes unexpectedly");
+        }
+    }
 }

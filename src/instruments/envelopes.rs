@@ -106,10 +106,10 @@ impl Add<TimeUnit> for TimeUnit {
 /// the note on/off trigger.
 pub trait GeneratesEnvelope {
     /// Triggers the active part of the envelope.
-    fn handle_note_on(&mut self);
+    fn enqueue_attack(&mut self);
 
     /// Signals the end of the active part of the envelope.
-    fn handle_note_off(&mut self);
+    fn enqueue_release(&mut self);
 
     /// Gives the envelope generator time to do work. Must be called on every
     /// sample of the clock. It's not required for any GeneratesEnvelope to look
@@ -152,11 +152,11 @@ pub struct SimpleEnvelope {
     note_off_pending: bool,
 }
 impl GeneratesEnvelope for SimpleEnvelope {
-    fn handle_note_on(&mut self) {
+    fn enqueue_attack(&mut self) {
         self.note_on_pending = true;
     }
 
-    fn handle_note_off(&mut self) {
+    fn enqueue_release(&mut self) {
         self.note_off_pending = true;
     }
 
@@ -632,11 +632,11 @@ impl Default for AdsrEnvelope {
     }
 }
 impl GeneratesEnvelope for AdsrEnvelope {
-    fn handle_note_on(&mut self) {
+    fn enqueue_attack(&mut self) {
         self.note_on_pending = true;
     }
 
-    fn handle_note_off(&mut self) {
+    fn enqueue_release(&mut self) {
         self.note_off_pending = true;
     }
 
@@ -669,10 +669,6 @@ impl AdsrEnvelope {
             self.handle_state_change();
             self.note_off_pending = false;
         }
-    }
-
-    pub(crate) fn is_idle_for_time(&self, clock: &Clock) -> bool {
-        self.calculate_is_idle(clock)
     }
 
     fn calculate_is_idle(&self, clock: &Clock) -> bool {
@@ -986,6 +982,13 @@ mod tests {
         /// updating for the time slice.
         fn debug_amplitude(&self) -> Unipolar {
             self.amplitude.current_sum()
+        }
+    }
+
+    // temp for testing
+    impl AdsrEnvelope {
+        fn is_idle_for_time(&self, clock: &Clock) -> bool {
+            self.calculate_is_idle(clock)
         }
     }
 
@@ -1330,7 +1333,7 @@ mod tests {
     fn generates_envelope_trait_instant_trigger_response() {
         let (_envelope_settings, mut clock, mut e) = get_ge_trait_stuff();
 
-        e.handle_note_on();
+        e.enqueue_attack();
         let amplitude = e.tick(&clock);
         clock.tick();
         assert!(
@@ -1378,7 +1381,7 @@ mod tests {
         let mut clock = Clock::new_with_sample_rate(100);
         let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
 
-        envelope.handle_note_on();
+        envelope.enqueue_attack();
         envelope.tick(&clock);
         let mut time_marker = clock.seconds() + envelope_settings.attack;
         assert!(
@@ -1420,7 +1423,7 @@ mod tests {
         let mut clock = Clock::default();
         let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
 
-        envelope.handle_note_on();
+        envelope.enqueue_attack();
         envelope.tick(&clock);
         let mut time_marker =
             clock.seconds() + envelope_settings.attack + envelope_settings.expected_decay_time();
@@ -1439,7 +1442,7 @@ mod tests {
         })
         .value();
 
-        envelope.handle_note_off();
+        envelope.enqueue_release();
         time_marker += envelope_settings.expected_release_time(amplitude);
         let mut last_amplitude = amplitude;
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
@@ -1483,7 +1486,7 @@ mod tests {
 
         assert_eq!(amplitude, Unipolar::minimum());
 
-        envelope.handle_note_on();
+        envelope.enqueue_attack();
         let amplitude = envelope.tick(&clock);
         let mut time_marker = clock.seconds();
         clock.tick();
@@ -1511,12 +1514,12 @@ mod tests {
         );
 
         // Release the trigger.
-        envelope.handle_note_off();
+        envelope.enqueue_release();
         let _amplitude = envelope.tick(&clock);
         clock.tick();
 
         // And hit it again.
-        envelope.handle_note_on();
+        envelope.enqueue_attack();
         let amplitude = envelope.tick(&clock);
         let mut time_marker = clock.seconds();
         clock.tick();
@@ -1527,7 +1530,7 @@ mod tests {
         );
 
         // Then release again.
-        envelope.handle_note_off();
+        envelope.enqueue_release();
 
         // Check that we keep decreasing amplitude to zero, not to sustain.
         time_marker += envelope_settings.release;
@@ -1571,7 +1574,7 @@ mod tests {
         let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
 
         // Decay after note-on should be shorter than the decay value.
-        envelope.handle_note_on();
+        envelope.enqueue_attack();
         let mut time_marker = clock.seconds() + envelope_settings.expected_decay_time();
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {}).value();
         assert_eq!(amplitude as f32,
@@ -1584,7 +1587,7 @@ mod tests {
         );
 
         // Release after note-off should also be shorter than the release value.
-        envelope.handle_note_off();
+        envelope.enqueue_release();
         let expected_release_time = envelope_settings.expected_release_time(amplitude);
         time_marker += expected_release_time;
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
@@ -1621,8 +1624,8 @@ mod tests {
         let mut old_envelope = AdsrEnvelope::new_with(&envelope_settings);
         let mut new_envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
 
-        old_envelope.handle_note_on();
-        new_envelope.handle_note_on();
+        old_envelope.enqueue_attack();
+        new_envelope.enqueue_attack();
 
         let time_marker = clock.seconds() + 10.0;
         let when_to_release = time_marker + 1.0;
@@ -1630,8 +1633,8 @@ mod tests {
         loop {
             if clock.seconds() >= when_to_release && !has_released {
                 has_released = true;
-                old_envelope.handle_note_off();
-                new_envelope.handle_note_off();
+                old_envelope.enqueue_release();
+                new_envelope.enqueue_release();
             }
             let old_amplitude = old_envelope.tick(&clock);
             let new_amplitude = new_envelope.tick(&clock);

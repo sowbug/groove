@@ -19,10 +19,10 @@ struct Voice {
     sample_pointer: usize,
 
     is_playing: bool,
-    attack_is_pending: bool,
-    attack_velocity: u8,
-    release_is_pending: bool,
-    release_velocity: u8,
+    note_on_is_pending: bool,
+    note_on_velocity: u8,
+    note_off_is_pending: bool,
+    note_off_velocity: u8,
     aftertouch_is_pending: bool,
     aftertouch_velocity: u8,
 }
@@ -32,23 +32,27 @@ impl PlaysNotes for Voice {
         self.is_playing
     }
 
+    fn are_events_pending(&self) -> bool {
+        self.note_on_is_pending || self.aftertouch_is_pending || self.note_off_is_pending
+    }
+
     fn set_frequency_hz(&mut self, _frequency_hz: f32) {
         // not applicable for this kind of sampler
     }
 
-    fn attack(&mut self, velocity: u8) {
-        self.attack_is_pending = true;
-        self.attack_velocity = velocity;
+    fn enqueue_note_on(&mut self, velocity: u8) {
+        self.note_on_is_pending = true;
+        self.note_on_velocity = velocity;
     }
 
-    fn aftertouch(&mut self, velocity: u8) {
+    fn enqueue_aftertouch(&mut self, velocity: u8) {
         self.aftertouch_is_pending = true;
         self.aftertouch_velocity = velocity;
     }
 
-    fn release(&mut self, velocity: u8) {
-        self.release_is_pending = true;
-        self.release_velocity = velocity;
+    fn enqueue_note_off(&mut self, velocity: u8) {
+        self.note_off_is_pending = true;
+        self.note_off_velocity = velocity;
     }
 }
 
@@ -71,8 +75,8 @@ impl Voice {
     }
 
     fn handle_pending_note_events(&mut self, clock: &Clock) {
-        if self.attack_is_pending {
-            self.attack_is_pending = false;
+        if self.note_on_is_pending {
+            self.note_on_is_pending = false;
             self.sample_pointer = 0;
             self.sample_clock_start = clock.samples();
             self.is_playing = true;
@@ -81,8 +85,8 @@ impl Voice {
             self.aftertouch_is_pending = false;
             // TODO: do something
         }
-        if self.release_is_pending {
-            self.release_is_pending = false;
+        if self.note_off_is_pending {
+            self.note_off_is_pending = false;
             self.is_playing = false;
         }
     }
