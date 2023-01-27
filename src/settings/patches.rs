@@ -137,7 +137,6 @@ pub struct EnvelopeSettings {
     pub sustain: f32,
     pub release: f32,
 }
-
 impl Default for EnvelopeSettings {
     fn default() -> Self {
         Self {
@@ -211,8 +210,23 @@ pub struct FilterPreset {
 
 #[cfg(test)]
 mod tests {
+    use super::EnvelopeSettings;
     use crate::settings::patches::OscillatorSettings;
     use assert_approx_eq::assert_approx_eq;
+
+    impl EnvelopeSettings {
+        // Decay and release rates should be determined as if the envelope stages
+        // were operating on a full 1.0..=0.0 amplitude range. Thus, the expected
+        // time for the stage is not necessarily the same as the parameter.
+        pub(crate) fn expected_decay_time(&self) -> f32 {
+            self.decay * (1.0 - self.sustain)
+        }
+
+        pub(crate) fn expected_release_time(&self, current_amplitude: f64) -> f32 {
+            let current_amplitude = current_amplitude as f32;
+            self.release * (current_amplitude)
+        }
+    }
 
     #[test]
     fn test_oscillator_tuning_helpers() {

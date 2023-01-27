@@ -282,6 +282,7 @@ impl SimpleEnvelope {
                 current_time,
                 Unipolar::maximum(),
                 TimeUnit(self.settings.attack as f64),
+                false,
                 true,
             );
         }
@@ -299,6 +300,7 @@ impl SimpleEnvelope {
                 current_time,
                 Unipolar(self.settings.sustain as f64),
                 TimeUnit(self.settings.decay as f64),
+                true,
                 false,
             );
         }
@@ -311,6 +313,7 @@ impl SimpleEnvelope {
             current_time,
             Unipolar(self.settings.sustain as f64),
             TimeUnit::infinite(),
+            false,
             false,
         );
     }
@@ -326,6 +329,7 @@ impl SimpleEnvelope {
                 Unipolar::minimum(),
                 TimeUnit(self.settings.release as f64),
                 true,
+                true,
             );
         }
     }
@@ -335,15 +339,20 @@ impl SimpleEnvelope {
         current_time: TimeUnit,
         amplitude_target: Unipolar,
         duration: TimeUnit,
+        calculate_for_full_amplitude_range: bool,
         fast_reaction: bool,
     ) {
         self.amplitude_target = amplitude_target;
         if duration != TimeUnit::infinite() {
             let fast_reaction_extra_frame = if fast_reaction { 1.0 } else { 0.0 };
+            let range = if calculate_for_full_amplitude_range {
+                -1.0
+            } else {
+                (self.amplitude_target - self.amplitude.current_sum()).value()
+            };
             self.time_target = current_time + duration;
             self.delta = if duration != TimeUnit::zero() {
-                (self.amplitude_target - self.amplitude.current_sum()).value()
-                    / (duration.0 * self.sample_rate + fast_reaction_extra_frame) as f64
+                range / (duration.0 * self.sample_rate + fast_reaction_extra_frame) as f64
             } else {
                 0.0
             };
@@ -1306,11 +1315,6 @@ mod tests {
         let (_envelope_settings, mut clock, mut e) = get_ge_trait_stuff();
 
         assert!(e.is_idle(), "Envelope should be idle on creation.");
-        // assert_eq!(
-        //     e.amplitude().value(),
-        //     0.0,
-        //     "Envelope amplitude should be zero on creation."
-        // );
 
         let amplitude = e.tick(&clock);
         clock.tick();
@@ -1353,11 +1357,11 @@ mod tests {
         loop {
             amplitude = envelope.tick(&clock);
             let should_continue = clock.seconds() < time_marker;
-            test(amplitude.value());
             clock.tick();
             if !should_continue {
                 break;
             }
+            test(amplitude.value());
         }
         amplitude
     }
@@ -1418,7 +1422,8 @@ mod tests {
 
         envelope.handle_note_on();
         envelope.tick(&clock);
-        let mut time_marker = clock.seconds() + envelope_settings.attack + envelope_settings.decay;
+        let mut time_marker =
+            clock.seconds() + envelope_settings.attack + envelope_settings.expected_decay_time();
         clock.tick();
 
         // Skip past attack/decay.
@@ -1431,12 +1436,13 @@ mod tests {
                 amplitude, sustain,
                 "Amplitude should remain at sustain level while note is still triggered"
             );
-        });
+        })
+        .value();
 
         envelope.handle_note_off();
-        time_marker += envelope_settings.release;
-        let mut last_amplitude = amplitude.value();
-        let _amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
+        time_marker += envelope_settings.expected_release_time(amplitude);
+        let mut last_amplitude = amplitude;
+        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
             assert_lt!(
                 inner_amplitude,
                 last_amplitude,
@@ -1449,7 +1455,8 @@ mod tests {
         // because we want to test what happens after the release ends.
         assert!(
             envelope.is_idle(),
-            "Envelope should be idle when release ends"
+            "Envelope should be idle when release ends, but it wasn't (amplitude is {})",
+            amplitude.value()
         );
         assert_eq!(
             envelope.debug_amplitude().value(),
@@ -1547,6 +1554,59 @@ mod tests {
         );
     }
 
+    // Per Pirkle, DSSPC++, p.87-88, decay and release times determine the
+    // *slope* but not necessarily the *duration* of those phases of the
+    // envelope. The slope assumes the specified time across a full 1.0-to-0.0
+    // range. This means that the actual decay and release times for a given
+    // envelope can be shorter than its parameters might suggest.
+    #[test]
+    fn generates_envelope_trait_decay_and_release_based_on_full_amplitude_range() {
+        let envelope_settings = EnvelopeSettings {
+            attack: 0.0,
+            decay: 0.8,
+            sustain: 0.5,
+            release: 0.4,
+        };
+        let mut clock = Clock::default();
+        let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
+
+        // Decay after note-on should be shorter than the decay value.
+        envelope.handle_note_on();
+        let mut time_marker = clock.seconds() + envelope_settings.expected_decay_time();
+        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {}).value();
+        assert_eq!(amplitude as f32,
+            envelope_settings.sustain,
+            "Expected to see sustain level {} at time {} (which is {:.1}% of decay time {}, based on full 1.0..=0.0 amplitude range)",
+            envelope_settings.sustain,
+            time_marker,
+            envelope_settings.decay,
+            100.0 * (1.0 - envelope_settings.sustain)
+        );
+
+        // Release after note-off should also be shorter than the release value.
+        envelope.handle_note_off();
+        let expected_release_time = envelope_settings.expected_release_time(amplitude);
+        time_marker += expected_release_time;
+        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
+            assert_gt!(
+                inner_amplitude,
+                0.0,
+                "We should not reach idle before time {}, but we did.",
+                &expected_release_time,
+            )
+        });
+        let portion_of_full_amplitude_range = envelope_settings.sustain;
+        assert!(
+            envelope.is_idle(),
+            "Expected release to end after time {}, which is {:.1}% of release time {}. Amplitude is {}",
+            expected_release_time,
+            100.0 * portion_of_full_amplitude_range,
+            envelope_settings.release,
+            amplitude.value()
+        );
+    }
+
+    #[ignore]
     #[test]
     fn compare_old_and_new() {
         // These settings are copied from Welsh Piano's filter envelope, which
