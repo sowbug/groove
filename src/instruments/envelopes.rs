@@ -1,6 +1,7 @@
+use super::oscillators::KahanSummation;
 use crate::{
     clock::ClockTimeUnit,
-    common::{F32ControlValue, MonoSample},
+    common::{F32ControlValue, MonoSample, TimeUnit, Unipolar},
     messages::EntityMessage,
     settings::patches::EnvelopeSettings,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
@@ -9,98 +10,9 @@ use crate::{
 };
 use groove_macros::{Control, Uid};
 use more_asserts::{debug_assert_ge, debug_assert_le};
-use std::{
-    fmt::Debug,
-    marker::PhantomData,
-    ops::{Range, Sub},
-};
-use std::{ops::Add, str::FromStr};
+use std::str::FromStr;
+use std::{fmt::Debug, marker::PhantomData, ops::Range};
 use strum_macros::{Display, EnumString, FromRepr};
-
-use super::oscillators::KahanSummation;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
-pub struct Unipolar(f64);
-impl Unipolar {
-    pub fn maximum() -> Unipolar {
-        Unipolar(1.0)
-    }
-    pub fn minimum() -> Unipolar {
-        Unipolar(0.0)
-    }
-    pub fn value(&self) -> f64 {
-        self.0
-    }
-}
-impl Add<Unipolar> for Unipolar {
-    type Output = Unipolar;
-
-    fn add(self, rhs: Unipolar) -> Self::Output {
-        Unipolar(self.0 + rhs.0)
-    }
-}
-impl Sub<Unipolar> for Unipolar {
-    type Output = Unipolar;
-
-    fn sub(self, rhs: Unipolar) -> Self::Output {
-        Unipolar(self.0 - rhs.0)
-    }
-}
-impl Add<f64> for Unipolar {
-    type Output = Unipolar;
-
-    fn add(self, rhs: f64) -> Self::Output {
-        Unipolar(self.0 + rhs)
-    }
-}
-impl Sub<f64> for Unipolar {
-    type Output = Unipolar;
-
-    fn sub(self, rhs: f64) -> Self::Output {
-        Unipolar(self.0 - rhs)
-    }
-}
-impl From<Unipolar> for f64 {
-    fn from(value: Unipolar) -> Self {
-        value.0
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
-pub struct TimeUnit(f64);
-impl TimeUnit {
-    fn zero() -> TimeUnit {
-        TimeUnit(0.0)
-    }
-
-    fn infinite() -> TimeUnit {
-        TimeUnit(-1.0)
-    }
-}
-impl From<f64> for TimeUnit {
-    fn from(value: f64) -> Self {
-        Self { 0: value }
-    }
-}
-impl From<f32> for TimeUnit {
-    fn from(value: f32) -> Self {
-        Self { 0: value as f64 }
-    }
-}
-impl Add<f64> for TimeUnit {
-    type Output = TimeUnit;
-
-    fn add(self, rhs: f64) -> Self::Output {
-        TimeUnit(self.0 + rhs)
-    }
-}
-impl Add<TimeUnit> for TimeUnit {
-    type Output = TimeUnit;
-
-    fn add(self, rhs: TimeUnit) -> Self::Output {
-        TimeUnit(self.0 + rhs.0)
-    }
-}
 
 /// The user-visible parts of an envelope generator, which provides an amplitude
 /// 0.0..=1.0 that changes over time according to its internal parameters and

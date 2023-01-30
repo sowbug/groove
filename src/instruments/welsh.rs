@@ -1,10 +1,10 @@
 use super::{
-    envelopes::{GeneratesEnvelope, SimpleEnvelope, Unipolar},
+    envelopes::{GeneratesEnvelope, SimpleEnvelope},
     oscillators::Oscillator,
     IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
 use crate::{
-    common::{F32ControlValue, MonoSample, MONO_SAMPLE_SILENCE},
+    common::{F32ControlValue, MonoSample, Unipolar, MONO_SAMPLE_SILENCE},
     effects::filter::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
     messages::EntityMessage,
