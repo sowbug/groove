@@ -193,16 +193,16 @@ impl SimpleEnvelope {
         // handle this differently.
         if self.note_on_pending && self.note_off_pending {
             if self.is_idle() {
-                self.set_state_attack(current_time);
-                self.set_state_release(current_time);
+                self.set_state(SimpleEnvelopeState::Attack, current_time);
+                self.set_state(SimpleEnvelopeState::Release, current_time);
             } else {
-                self.set_state_release(current_time);
-                self.set_state_attack(current_time);
+                self.set_state(SimpleEnvelopeState::Release, current_time);
+                self.set_state(SimpleEnvelopeState::Attack, current_time);
             }
         } else if self.note_off_pending {
-            self.set_state_release(current_time);
+            self.set_state(SimpleEnvelopeState::Release, current_time);
         } else if self.note_on_pending {
-            self.set_state_attack(current_time);
+            self.set_state(SimpleEnvelopeState::Attack, current_time);
         }
         self.note_off_pending = false;
         self.note_on_pending = false;
@@ -229,12 +229,12 @@ impl SimpleEnvelope {
             }
             SimpleEnvelopeState::Attack => {
                 if self.has_reached_target(current_time) {
-                    self.set_state_decay(current_time);
+                    self.set_state(SimpleEnvelopeState::Decay, current_time);
                 }
             }
             SimpleEnvelopeState::Decay => {
                 if self.has_reached_target(current_time) {
-                    self.set_state_sustain(current_time);
+                    self.set_state(SimpleEnvelopeState::Sustain, current_time);
                 }
             }
             SimpleEnvelopeState::Sustain => {
@@ -242,7 +242,7 @@ impl SimpleEnvelope {
             }
             SimpleEnvelopeState::Release => {
                 if self.has_reached_target(current_time) {
-                    self.set_state_idle();
+                    self.set_state(SimpleEnvelopeState::Idle, current_time);
                 }
             }
         }
@@ -277,73 +277,72 @@ impl SimpleEnvelope {
     // matters, for example, if attack is zero and decay is non-zero. If we jump
     // straight from idle to decay, then decay is decaying from the idle
     // amplitude of zero, which is wrong.
+    fn set_state(&mut self, new_state: SimpleEnvelopeState, current_time: TimeUnit) {
+        match new_state {
+            SimpleEnvelopeState::Idle => {
+                self.state = SimpleEnvelopeState::Idle;
+                self.amplitude = Default::default();
+                self.delta = 0.0;
+            }
+            SimpleEnvelopeState::Attack => {
+                self.state = SimpleEnvelopeState::Attack;
 
-    fn set_state_idle(&mut self) {
-        self.state = SimpleEnvelopeState::Idle;
-        self.amplitude = Default::default();
-        self.delta = 0.0;
-    }
+                if self.settings.attack as f64 == TimeUnit::zero().0 {
+                    self.amplitude.set_sum(Unipolar::maximum());
+                    self.set_state(SimpleEnvelopeState::Decay, current_time);
+                } else {
+                    self.set_target(
+                        current_time,
+                        Unipolar::maximum(),
+                        TimeUnit(self.settings.attack as f64),
+                        false,
+                        true,
+                    );
+                }
+            }
+            SimpleEnvelopeState::Decay => {
+                self.state = SimpleEnvelopeState::Decay;
 
-    fn set_state_attack(&mut self, current_time: TimeUnit) {
-        self.state = SimpleEnvelopeState::Attack;
+                if self.settings.decay as f64 == TimeUnit::zero().0 {
+                    self.amplitude
+                        .set_sum(Unipolar(self.settings.sustain as f64));
+                    self.set_state(SimpleEnvelopeState::Sustain, current_time);
+                } else {
+                    self.set_target(
+                        current_time,
+                        Unipolar(self.settings.sustain as f64),
+                        TimeUnit(self.settings.decay as f64),
+                        true,
+                        false,
+                    );
+                }
+            }
+            SimpleEnvelopeState::Sustain => {
+                self.state = SimpleEnvelopeState::Sustain;
 
-        if self.settings.attack as f64 == TimeUnit::zero().0 {
-            self.amplitude.set_sum(Unipolar::maximum());
-            self.set_state_decay(current_time);
-        } else {
-            self.set_target(
-                current_time,
-                Unipolar::maximum(),
-                TimeUnit(self.settings.attack as f64),
-                false,
-                true,
-            );
-        }
-    }
-
-    fn set_state_decay(&mut self, current_time: TimeUnit) {
-        self.state = SimpleEnvelopeState::Decay;
-
-        if self.settings.decay as f64 == TimeUnit::zero().0 {
-            self.amplitude
-                .set_sum(Unipolar(self.settings.sustain as f64));
-            self.set_state_sustain(current_time);
-        } else {
-            self.set_target(
-                current_time,
-                Unipolar(self.settings.sustain as f64),
-                TimeUnit(self.settings.decay as f64),
-                true,
-                false,
-            );
-        }
-    }
-
-    fn set_state_sustain(&mut self, current_time: TimeUnit) {
-        self.state = SimpleEnvelopeState::Sustain;
-
-        self.set_target(
-            current_time,
-            Unipolar(self.settings.sustain as f64),
-            TimeUnit::infinite(),
-            false,
-            false,
-        );
-    }
-
-    fn set_state_release(&mut self, current_time: TimeUnit) {
-        if self.settings.release as f64 == TimeUnit::zero().0 {
-            self.amplitude.set_sum(Unipolar::maximum());
-            self.set_state_idle();
-        } else {
-            self.state = SimpleEnvelopeState::Release;
-            self.set_target(
-                current_time,
-                Unipolar::minimum(),
-                TimeUnit(self.settings.release as f64),
-                true,
-                true,
-            );
+                self.set_target(
+                    current_time,
+                    Unipolar(self.settings.sustain as f64),
+                    TimeUnit::infinite(),
+                    false,
+                    false,
+                );
+            }
+            SimpleEnvelopeState::Release => {
+                if self.settings.release as f64 == TimeUnit::zero().0 {
+                    self.amplitude.set_sum(Unipolar::maximum());
+                    self.set_state(SimpleEnvelopeState::Idle, current_time);
+                } else {
+                    self.state = SimpleEnvelopeState::Release;
+                    self.set_target(
+                        current_time,
+                        Unipolar::minimum(),
+                        TimeUnit(self.settings.release as f64),
+                        true,
+                        true,
+                    );
+                }
+            }
         }
     }
 
@@ -1381,7 +1380,7 @@ mod tests {
         // a bit of time before they are apparent. I'm not sure whether this is
         // a good thing; it objectively makes attack laggy (in this case 16
         // samples late!).
-        for x in 0..17 {
+        for _ in 0..17 {
             amplitude = e.tick(&clock);
             clock.tick();
         }
