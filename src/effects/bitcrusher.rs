@@ -22,12 +22,14 @@ pub struct Bitcrusher {
 impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
-        let input_i16 = (input_sample * (i16::MAX as MonoSample)) as i16;
+        let sign = input_sample.signum();
+        let input_i16: i16 = (input_sample.abs() * (i16::MAX as MonoSample)) as i16;
         let squished = input_i16 >> self.bits_to_crush;
         let expanded = squished << self.bits_to_crush;
-        expanded as MonoSample / (i16::MAX as MonoSample)
+        expanded as MonoSample / (i16::MAX as MonoSample) * sign
     }
 }
+
 impl Updateable for Bitcrusher {
     type Message = EntityMessage;
 }
@@ -75,8 +77,18 @@ mod tests {
     const CRUSHED_PI: f32 = 0.14062929;
 
     #[test]
-    fn test_bitcrusher_basic() {
+    fn bitcrusher_basic() {
         let mut fx = Bitcrusher::new_with(8);
         assert_eq!(fx.transform_audio(&Clock::default(), PI - 3.0), CRUSHED_PI);
+    }
+
+    #[test]
+    fn bitcrusher_no_bias() {
+        let mut fx = Bitcrusher::new_with(8);
+        assert_eq!(fx.transform_audio(&Clock::default(), PI - 3.0), CRUSHED_PI);
+        assert_eq!(
+            fx.transform_audio(&Clock::default(), -(PI - 3.0)),
+            -CRUSHED_PI
+        );
     }
 }
