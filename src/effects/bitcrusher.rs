@@ -10,23 +10,32 @@ use iced_audio::{IntRange, Normal};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Control, Debug, Default, Uid)]
+/// TODO: this is a pretty lame bitcrusher. It is hardly noticeable for values
+/// below 13, and it destroys the waveform at 15. It doesn't do any simulation
+/// of sample-rate reduction, either.
+#[derive(Control, Debug, Uid)]
 pub struct Bitcrusher {
     uid: usize,
 
     #[controllable]
     bits_to_crush: u8,
 
+    c: f32,
+
     bits_to_crush_int_range: IntRange,
 }
 impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+        const I16_SCALE: f32 = i16::MAX as f32;
         let sign = input_sample.signum();
-        let input_i16: i16 = (input_sample.abs() * (i16::MAX as MonoSample)) as i16;
-        let squished = input_i16 >> self.bits_to_crush;
-        let expanded = squished << self.bits_to_crush;
-        expanded as MonoSample / (i16::MAX as MonoSample) * sign
+        let input = input_sample.abs() * I16_SCALE;
+        ((input / self.c).floor() * self.c / I16_SCALE) as MonoSample * sign
+    }
+}
+impl Default for Bitcrusher {
+    fn default() -> Self {
+        Self::new_with(8)
     }
 }
 
@@ -35,17 +44,15 @@ impl Updateable for Bitcrusher {
 }
 
 impl Bitcrusher {
-    #[allow(dead_code)]
-    fn new() -> Self {
-        Self::new_with(8)
-    }
-
     pub(crate) fn new_with(bits_to_crush: u8) -> Self {
-        Self {
+        let mut r = Self {
+            uid: Default::default(),
             bits_to_crush,
             bits_to_crush_int_range: IntRange::new(0, 15),
-            ..Default::default()
-        }
+            c: Default::default(),
+        };
+        r.update_c();
+        r
     }
 
     pub fn bits_to_crush(&self) -> u8 {
@@ -54,6 +61,11 @@ impl Bitcrusher {
 
     pub fn set_bits_to_crush(&mut self, n: u8) {
         self.bits_to_crush = n;
+        self.update_c();
+    }
+
+    fn update_c(&mut self) {
+        self.c = 2.0f32.powi(self.bits_to_crush as i32);
     }
 
     pub(crate) fn set_control_bits_to_crush(&mut self, value: F32ControlValue) {
