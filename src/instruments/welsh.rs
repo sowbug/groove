@@ -518,7 +518,7 @@ impl WelshVoice {
         r
     }
 
-    fn handle_pending_note_events(&mut self, clock: &Clock) -> (Unipolar, Unipolar) {
+    fn handle_pending_note_events(&mut self) {
         if self.note_on_is_pending && self.note_off_is_pending {
             // Handle the case where both are pending at the same time.
             if self.is_playing {
@@ -539,17 +539,17 @@ impl WelshVoice {
         if self.aftertouch_is_pending {
             self.handle_aftertouch_event();
         }
-        // It's important for the envelope tick() methods to be called after
-        // their handle_note_* methods are called, but before we check whether
-        // amp_envelope.is_idle(), because the tick() methods are what determine
-        // the current idle state.
-        //
-        // TODO: this seems like an implementation detail that maybe should be
-        // hidden from the caller.
+    }
+
+    fn tick_envelopes(&mut self, clock: &Clock) -> (Unipolar, Unipolar) {
         let amp_amplitude = self.amp_envelope.tick(clock);
         let filter_amplitude = self.filter_envelope.tick(clock);
 
+        // TODO: I think this is setting is_playing a tick too early, but when I
+        // moved it, it broke something else (the synth was deleting the note
+        // because it no longer appeared to be playing). Fragile. Fix.
         self.is_playing = !self.amp_envelope.is_idle();
+
         (amp_amplitude, filter_amplitude)
     }
 
@@ -572,7 +572,16 @@ impl WelshVoice {
 }
 impl SourcesAudio for WelshVoice {
     fn source_audio(&mut self, clock: &Clock) -> MonoSample {
-        let (amp_env_amplitude, filter_env_amplitude) = self.handle_pending_note_events(clock);
+        self.handle_pending_note_events();
+        // It's important for the envelope tick() methods to be called after
+        // their handle_note_* methods are called, but before we check whether
+        // amp_envelope.is_idle(), because the tick() methods are what determine
+        // the current idle state.
+        //
+        // TODO: this seems like an implementation detail that maybe should be
+        // hidden from the caller.
+        let (amp_env_amplitude, filter_env_amplitude) = self.tick_envelopes(clock);
+
         if !self.is_playing() {
             return MONO_SAMPLE_SILENCE;
         }
@@ -737,12 +746,14 @@ mod tests {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
                 voice.enqueue_note_on(127);
-                voice.handle_pending_note_events(&clock);
+                voice.handle_pending_note_events();
+                voice.tick_envelopes(&clock);
             } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
             {
                 last_recognized_time_point = clock.seconds();
                 voice.enqueue_note_off(127);
-                voice.handle_pending_note_events(&clock);
+                voice.handle_pending_note_events();
+                voice.tick_envelopes(&clock);
             }
 
             let sample = voice.source_audio(&clock);
@@ -815,7 +826,8 @@ mod tests {
             if when <= clock.seconds() && !is_message_sent {
                 is_message_sent = true;
                 source.enqueue_note_off(0);
-                source.handle_pending_note_events(clock);
+                source.handle_pending_note_events();
+                source.tick_envelopes(&clock);
             }
             let sample = source.source_audio(clock);
             let _ = writer.write_sample((sample * AMPLITUDE) as i16);
@@ -923,7 +935,8 @@ mod tests {
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &test_patch());
         voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
         voice.enqueue_note_on(127);
-        voice.handle_pending_note_events(&clock);
+        voice.handle_pending_note_events();
+        voice.tick_envelopes(&clock);
         write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
     }
 
@@ -933,7 +946,8 @@ mod tests {
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &cello_patch());
         voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
         voice.enqueue_note_on(127);
-        voice.handle_pending_note_events(&clock);
+        voice.handle_pending_note_events();
+        voice.tick_envelopes(&clock);
         write_sound(&mut voice, &mut clock, 5.0, 1.0, "voice_cello_c4");
     }
 }
