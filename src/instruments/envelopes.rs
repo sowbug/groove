@@ -5,11 +5,11 @@ use crate::{
     messages::EntityMessage,
     settings::patches::EnvelopeSettings,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
-    utils::transform_linear_to_mma_convex,
     Clock,
 };
 use groove_macros::{Control, Uid};
 use more_asserts::{debug_assert_ge, debug_assert_le};
+use nalgebra::{Matrix3, Matrix3x1};
 use std::str::FromStr;
 use std::{fmt::Debug, marker::PhantomData, ops::Range};
 use strum_macros::{Display, EnumString, FromRepr};
@@ -61,6 +61,16 @@ pub struct SimpleEnvelope {
     amplitude_target: Unipolar,
     time_target: TimeUnit,
 
+    // Polynomial coefficients for convex
+    convex_a: f64,
+    convex_b: f64,
+    convex_c: f64,
+
+    // Polynomial coefficients for concave
+    concave_a: f64,
+    concave_b: f64,
+    concave_c: f64,
+
     note_on_pending: bool,
     note_off_pending: bool,
 }
@@ -81,9 +91,15 @@ impl GeneratesEnvelope for SimpleEnvelope {
 
         // 2. Calculate current amplitude
         let amplitude = match self.state {
-            SimpleEnvelopeState::Attack => Unipolar(transform_linear_to_mma_convex(
-                self.amplitude.current_sum().value(),
-            )),
+            SimpleEnvelopeState::Attack => {
+                Unipolar(self.transform_linear_to_convex(self.amplitude.current_sum().value()))
+            }
+            SimpleEnvelopeState::Decay => {
+                Unipolar(self.transform_linear_to_concave(self.amplitude.current_sum().value()))
+            }
+            SimpleEnvelopeState::Release => {
+                Unipolar(self.transform_linear_to_concave(self.amplitude.current_sum().value()))
+            }
             _ => self.amplitude.current_sum(),
         };
 
@@ -120,7 +136,6 @@ impl SimpleEnvelope {
         self.note_on_pending = false;
     }
 
-    #[allow(dead_code)]
     pub(crate) fn new_with(sample_rate: usize, envelope_settings: &EnvelopeSettings) -> Self {
         Self {
             settings: envelope_settings.clone(),
@@ -197,12 +212,12 @@ impl SimpleEnvelope {
                 self.delta = 0.0;
             }
             SimpleEnvelopeState::Attack => {
-                self.state = SimpleEnvelopeState::Attack;
-
                 if self.settings.attack as f64 == TimeUnit::zero().0 {
                     self.amplitude.set_sum(Unipolar::maximum());
                     self.set_state(SimpleEnvelopeState::Decay, current_time);
                 } else {
+                    self.state = SimpleEnvelopeState::Attack;
+                    let target_amplitude = Unipolar::maximum().value();
                     self.set_target(
                         current_time,
                         Unipolar::maximum(),
@@ -210,22 +225,41 @@ impl SimpleEnvelope {
                         false,
                         true,
                     );
+                    let current_amplitude = self.amplitude.current_sum().value();
+
+                    (self.convex_a, self.convex_b, self.convex_c) = Self::calculate_coefficients(
+                        current_amplitude,
+                        current_amplitude,
+                        (target_amplitude - current_amplitude) / 2.0 + current_amplitude,
+                        (target_amplitude - current_amplitude) / 1.5 + current_amplitude,
+                        target_amplitude,
+                        target_amplitude,
+                    );
                 }
             }
             SimpleEnvelopeState::Decay => {
-                self.state = SimpleEnvelopeState::Decay;
-
                 if self.settings.decay as f64 == TimeUnit::zero().0 {
                     self.amplitude
                         .set_sum(Unipolar(self.settings.sustain as f64));
                     self.set_state(SimpleEnvelopeState::Sustain, current_time);
                 } else {
+                    self.state = SimpleEnvelopeState::Decay;
+                    let target_amplitude = self.settings.sustain as f64;
                     self.set_target(
                         current_time,
-                        Unipolar(self.settings.sustain as f64),
+                        Unipolar(target_amplitude),
                         TimeUnit(self.settings.decay as f64),
                         true,
                         false,
+                    );
+                    let current_amplitude = self.amplitude.current_sum().value();
+                    (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
+                        current_amplitude,
+                        current_amplitude,
+                        (current_amplitude - target_amplitude) / 2.0 + target_amplitude,
+                        (current_amplitude - target_amplitude) / 3.0 + target_amplitude,
+                        target_amplitude,
+                        target_amplitude,
                     );
                 }
             }
@@ -246,12 +280,22 @@ impl SimpleEnvelope {
                     self.set_state(SimpleEnvelopeState::Idle, current_time);
                 } else {
                     self.state = SimpleEnvelopeState::Release;
+                    let target_amplitude = 0.0;
                     self.set_target(
                         current_time,
                         Unipolar::minimum(),
                         TimeUnit(self.settings.release as f64),
                         true,
                         true,
+                    );
+                    let current_amplitude = self.amplitude.current_sum().value();
+                    (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
+                        current_amplitude,
+                        current_amplitude,
+                        (current_amplitude - target_amplitude) / 2.0 + target_amplitude,
+                        (current_amplitude - target_amplitude) / 3.0 + target_amplitude,
+                        target_amplitude,
+                        target_amplitude,
                     );
                 }
             }
@@ -261,12 +305,12 @@ impl SimpleEnvelope {
     fn set_target(
         &mut self,
         current_time: TimeUnit,
-        amplitude_target: Unipolar,
+        target_amplitude: Unipolar,
         duration: TimeUnit,
         calculate_for_full_amplitude_range: bool,
         fast_reaction: bool,
     ) {
-        self.amplitude_target = amplitude_target;
+        self.amplitude_target = target_amplitude;
         if duration != TimeUnit::infinite() {
             let fast_reaction_extra_frame = if fast_reaction { 1.0 } else { 0.0 };
             let range = if calculate_for_full_amplitude_range {
@@ -287,6 +331,42 @@ impl SimpleEnvelope {
             self.time_target = TimeUnit::infinite();
             self.delta = 0.0;
         }
+    }
+
+    fn calculate_coefficients(
+        x0: f64,
+        y0: f64,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+    ) -> (f64, f64, f64) {
+        let m = Matrix3::new(
+            1.0,
+            x0,
+            x0.powi(2),
+            1.0,
+            x1,
+            x1.powi(2),
+            1.0,
+            x2,
+            x2.powi(2),
+        );
+        let y = Matrix3x1::new(y0, y1, y2);
+        let r = m.try_inverse();
+        if let Some(r) = r {
+            let abc = r * y;
+            (abc[(0)], abc[(1)], abc[(2)])
+        } else {
+            (0.0, 0.0, 0.0)
+        }
+    }
+
+    fn transform_linear_to_convex(&self, linear_value: f64) -> f64 {
+        self.convex_c * linear_value.powi(2) + self.convex_b * linear_value + self.convex_a
+    }
+    fn transform_linear_to_concave(&self, linear_value: f64) -> f64 {
+        self.concave_c * linear_value.powi(2) + self.concave_b * linear_value + self.concave_a
     }
 }
 
@@ -888,6 +968,7 @@ mod tests {
     use super::*;
     use crate::clock::Clock;
     use assert_approx_eq::assert_approx_eq;
+    use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
 
     impl SimpleEnvelope {
@@ -1418,15 +1499,25 @@ mod tests {
         let amplitude = envelope.tick(&clock);
         clock.tick();
 
-        assert_eq!(amplitude, Unipolar::minimum());
+        assert_eq!(
+            amplitude,
+            Unipolar::minimum(),
+            "Amplitude should start at zero"
+        );
 
+        // See https://floating-point-gui.de/errors/comparison/ for standard
+        // warning about comparing floats and looking for epsilons.
         envelope.enqueue_attack();
         let amplitude = envelope.tick(&clock);
         let mut time_marker = clock.seconds();
         clock.tick();
-        assert_eq!(
-            amplitude,
-            Unipolar::maximum(),
+        assert!(
+            approx_eq!(
+                f64,
+                amplitude.value(),
+                Unipolar::maximum().value(),
+                ulps = 8
+            ),
             "Amplitude should reach peak upon trigger"
         );
 
@@ -1457,9 +1548,13 @@ mod tests {
         let amplitude = envelope.tick(&clock);
         let mut time_marker = clock.seconds();
         clock.tick();
-        assert_eq!(
-            amplitude,
-            Unipolar::maximum(),
+        assert!(
+            approx_eq!(
+                f64,
+                amplitude.value(),
+                Unipolar::maximum().value(),
+                ulps = 8
+            ),
             "Amplitude should reach peak upon second trigger"
         );
 
@@ -1579,5 +1674,14 @@ mod tests {
                 break;
             }
         }
+    }
+
+    // https://docs.google.com/spreadsheets/d/1DSkut7rLG04Qx_zOy3cfI7PMRoGJVr9eaP5sDrFfppQ/edit#gid=0
+    #[test]
+    fn coeff() {
+        let (a, b, c) = SimpleEnvelope::calculate_coefficients(0.0, 1.0, 0.5, 0.25, 1.0, 0.0);
+        assert_eq!(a, 1.0);
+        assert_eq!(b, -2.0);
+        assert_eq!(c, 1.0);
     }
 }
