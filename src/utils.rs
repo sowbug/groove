@@ -20,6 +20,7 @@ use std::{
 };
 use strum_macros::{Display, EnumString, FromRepr};
 
+#[allow(dead_code)]
 pub(crate) fn transform_linear_to_mma_concave(linear_value: f64) -> f64 {
     const MAX_VALUE: f64 = 1.0;
     if linear_value > (1.0 - 10.0f64.powf(-12.0 / 5.0) * MAX_VALUE) {
@@ -29,6 +30,7 @@ pub(crate) fn transform_linear_to_mma_concave(linear_value: f64) -> f64 {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn transform_linear_to_mma_convex(linear_value: f64) -> f64 {
     const MAX_VALUE: f64 = 1.0;
     if linear_value < 10.0f64.powf(-12.0 / 5.0) * MAX_VALUE {
