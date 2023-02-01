@@ -155,9 +155,29 @@ mod tests {
         let clock = Clock::default();
 
         let mut limiter = Limiter::new_with(0.2, 0.8);
-        assert_eq!(limiter.transform_audio(&clock, 0.1), 0.2, "Limiter failed to clamp min {}", 0.2);
-        assert_eq!(limiter.transform_audio(&clock, 0.9), 0.8, "Limiter failed to clamp max {}", 0.8);
-        assert_eq!(limiter.transform_audio(&clock, -0.1), -0.2, "Limiter failed to clamp min {} for negative values", 0.2);
-        assert_eq!(limiter.transform_audio(&clock, -0.9), -0.8, "Limiter failed to clamp max {} for negative values", 0.8);
+        assert_eq!(
+            limiter.transform_audio(&clock, 0.1),
+            0.2,
+            "Limiter failed to clamp min {}",
+            0.2
+        );
+        assert_eq!(
+            limiter.transform_audio(&clock, 0.9),
+            0.8,
+            "Limiter failed to clamp max {}",
+            0.8
+        );
+        assert_eq!(
+            limiter.transform_audio(&clock, -0.1),
+            -0.2,
+            "Limiter failed to clamp min {} for negative values",
+            0.2
+        );
+        assert_eq!(
+            limiter.transform_audio(&clock, -0.9),
+            -0.8,
+            "Limiter failed to clamp max {} for negative values",
+            0.8
+        );
     }
 }
