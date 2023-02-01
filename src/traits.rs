@@ -1,5 +1,5 @@
 use crate::clock::ClockTimeUnit;
-use crate::common::F32ControlValue;
+use crate::common::{F32ControlValue, StereoSample};
 use crate::messages::EntityMessage;
 use crate::{clock::Clock, common::MonoSample, messages::MessageBounds};
 use crate::{
@@ -94,6 +94,16 @@ pub trait SourcesAudio: std::fmt::Debug + Send {
 /// do.
 pub trait TransformsAudio: std::fmt::Debug {
     fn transform_audio(&mut self, clock: &Clock, input_sample: MonoSample) -> MonoSample;
+}
+
+/// A TransformsAudioToStereo takes monophonic input audio and outputs stereo
+/// audio, typically transforming it further along the way.
+pub trait TransformsAudioToStereo: std::fmt::Debug {
+    fn transform_audio_to_stereo(
+        &mut self,
+        clock: &Clock,
+        input_sample: MonoSample,
+    ) -> StereoSample;
 }
 
 // A Terminates has a point in time where it would be OK never being called or

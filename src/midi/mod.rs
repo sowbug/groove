@@ -691,16 +691,8 @@ impl Terminates for MidiHandler {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::common::{StereoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN, MONO_SAMPLE_SILENCE};
     use assert_approx_eq::assert_approx_eq;
     use midly::num::u7;
-
-    #[allow(dead_code)]
-    pub const STEREO_SAMPLE_SILENCE: StereoSample = (MONO_SAMPLE_SILENCE, MONO_SAMPLE_SILENCE);
-    #[allow(dead_code)]
-    pub const STEREO_SAMPLE_MAX: StereoSample = (MONO_SAMPLE_MAX, MONO_SAMPLE_MAX);
-    #[allow(dead_code)]
-    pub const STEREO_SAMPLE_MIN: StereoSample = (MONO_SAMPLE_MAX, MONO_SAMPLE_MIN);
 
     impl MidiUtils {
         pub(crate) fn new_note_on(note: u8, vel: u8) -> MidiMessage {

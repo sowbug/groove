@@ -1,8 +1,11 @@
 use crate::{
-    common::{F32ControlValue, MonoSample},
+    common::{Bipolar, F32ControlValue, MonoSample, StereoSample},
     midi::MidiUtils,
     settings::patches::EnvelopeSettings,
-    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    traits::{
+        Controllable, HasUid, IsInstrument, Response, SourcesAudio, TransformsAudioToStereo,
+        Updateable,
+    },
     Clock, EntityMessage, Oscillator,
 };
 use anyhow::{anyhow, Result};
@@ -579,9 +582,68 @@ pub(crate) struct FmSynthesizerPreset {
     modulator_frequency_hz: f32,
 }
 
+#[derive(Debug)]
+pub(crate) struct Dca {
+    gain: f64,
+    pan: f64,
+}
+impl Default for Dca {
+    fn default() -> Self {
+        Self {
+            gain: 1.0,
+            pan: 0.0,
+        }
+    }
+}
+impl TransformsAudioToStereo for Dca {
+    fn transform_audio_to_stereo(
+        &mut self,
+        _clock: &Clock,
+        input_sample: MonoSample,
+    ) -> StereoSample {
+        // See Pirkle, DSSPC++, p.73
+        let input_sample: f64 = input_sample as f64 * self.gain;
+        let left_pan: f64 = 1.0 - 0.25 * (self.pan + 1.0).powi(2);
+        let right_pan: f64 = 1.0 - (0.5 * self.pan - 0.5).powi(2);
+        StereoSample(left_pan * input_sample, right_pan * input_sample)
+    }
+}
+impl Dca {
+    pub(crate) fn set_pan(&mut self, new_value: Bipolar) {
+        self.pan = new_value.safe_value();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dca_mainline() {
+        let mut dca = Dca::default();
+        let clock = Clock::default();
+        const VALUE_IN: f32 = 0.5;
+        const VALUE: f64 = 0.5;
+        assert_eq!(
+            dca.transform_audio_to_stereo(&clock, VALUE_IN),
+            StereoSample(VALUE * 0.75, VALUE * 0.75),
+            "Pan center should give 75% equally to each channel"
+        );
+
+        dca.set_pan(Bipolar::new(-1.0));
+        assert_eq!(
+            dca.transform_audio_to_stereo(&clock, VALUE_IN),
+            StereoSample(VALUE, 0.0),
+            "Pan left should give 100% to left channel"
+        );
+
+        dca.set_pan(Bipolar::new(1.0));
+        assert_eq!(
+            dca.transform_audio_to_stereo(&clock, VALUE_IN),
+            StereoSample(0.0, VALUE),
+            "Pan right should give 100% to right channel"
+        );
+    }
 
     #[test]
     fn voice_store_mainline() {
