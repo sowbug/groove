@@ -1,5 +1,5 @@
 use crate::{
-    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    common::{OldMonoSample, MONO_SAMPLE_SILENCE},
     midi::MidiChannel,
     traits::Response,
     AudioOutput, Clock, GrooveMessage, GrooveOrchestrator, IOHelper, TimeSignature,
@@ -55,7 +55,7 @@ pub enum GrooveEvent {
     SetTimeSignature(TimeSignature),
     MidiToExternal(MidiChannel, MidiMessage),
     ProjectLoaded(String, Option<String>),
-    AudioOutput(MonoSample),
+    AudioOutput(OldMonoSample),
     OutputComplete,
     Quit,
 }
@@ -112,8 +112,8 @@ impl Runner {
     ///
     /// Returns an audio sample if found, and returns true if the orchestrator
     /// has indicated that it's done with its work.
-    fn handle_pending_messages(&mut self) -> (MonoSample, bool) {
-        let mut sample: MonoSample = MONO_SAMPLE_SILENCE;
+    fn handle_pending_messages(&mut self) -> (OldMonoSample, bool) {
+        let mut sample: OldMonoSample = MONO_SAMPLE_SILENCE;
         let mut done = false;
         while let Some(message) = self.messages.pop() {
             match message {

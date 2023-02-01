@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    common::MonoSample,
+    common::OldMonoSample,
     instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
     messages::{EntityMessage, MessageBounds},
     settings::patches::EnvelopeSettings,
@@ -152,7 +152,7 @@ pub(crate) enum TestAudioSourceSetLevelControlParams {
 #[derive(Control, Debug, Default, Uid)]
 pub struct AudioSource<M: MessageBounds> {
     uid: usize,
-    level: MonoSample,
+    level: OldMonoSample,
     _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsInstrument for AudioSource<M> {}
@@ -161,13 +161,13 @@ impl<M: MessageBounds> Updateable for AudioSource<M> {
 }
 #[allow(dead_code)]
 impl<M: MessageBounds> AudioSource<M> {
-    pub const TOO_LOUD: MonoSample = 1.1;
-    pub const LOUD: MonoSample = 1.0;
-    pub const SILENT: MonoSample = 0.0;
-    pub const QUIET: MonoSample = -1.0;
-    pub const TOO_QUIET: MonoSample = -1.1;
+    pub const TOO_LOUD: OldMonoSample = 1.1;
+    pub const LOUD: OldMonoSample = 1.0;
+    pub const SILENT: OldMonoSample = 0.0;
+    pub const QUIET: OldMonoSample = -1.0;
+    pub const TOO_QUIET: OldMonoSample = -1.1;
 
-    pub fn new_with(level: MonoSample) -> Self {
+    pub fn new_with(level: OldMonoSample) -> Self {
         Self {
             level,
             ..Default::default()
@@ -178,12 +178,12 @@ impl<M: MessageBounds> AudioSource<M> {
         self.level
     }
 
-    pub fn set_level(&mut self, level: MonoSample) {
+    pub fn set_level(&mut self, level: OldMonoSample) {
         self.level = level;
     }
 }
 impl<M: MessageBounds> SourcesAudio for AudioSource<M> {
-    fn source_audio(&mut self, _clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, _clock: &Clock) -> OldMonoSample {
         self.level
     }
 }
@@ -293,7 +293,7 @@ impl<M: MessageBounds> Default for TestSynth<M> {
 }
 
 impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         // TODO: I don't think this can play sounds, because I don't see how the
         // envelope ever gets triggered.
         self.oscillator.source_audio(clock) * self.envelope.source_audio(clock)
@@ -325,7 +325,7 @@ pub(crate) enum TestLfoControlParams {
 #[derive(Debug, Default, Uid)]
 pub struct TestLfo<M: MessageBounds> {
     uid: usize,
-    value: MonoSample,
+    value: OldMonoSample,
     oscillator: Oscillator,
     _phantom: PhantomData<M>,
 }
@@ -380,7 +380,7 @@ pub mod tests {
     use super::Timer;
     use crate::{
         clock::Clock,
-        common::{MonoSample, MONO_SAMPLE_SILENCE},
+        common::{OldMonoSample, MONO_SAMPLE_SILENCE},
         controllers::orchestrator::Orchestrator,
         entities::BoxedEntity,
         messages::{tests::TestMessage, EntityMessage, GrooveMessage, MessageBounds},
@@ -401,12 +401,12 @@ pub mod tests {
     use std::{fs, marker::PhantomData, path::PathBuf};
     use strum_macros::{Display, EnumString, FromRepr};
 
-    fn read_samples_from_mono_wav_file(filename: &PathBuf) -> Vec<MonoSample> {
+    fn read_samples_from_mono_wav_file(filename: &PathBuf) -> Vec<OldMonoSample> {
         let mut reader = hound::WavReader::open(filename).unwrap();
         let mut r = Vec::default();
 
         for sample in reader.samples::<i16>() {
-            r.push(sample.unwrap() as MonoSample / i16::MAX as MonoSample);
+            r.push(sample.unwrap() as OldMonoSample / i16::MAX as OldMonoSample);
         }
         r
     }
@@ -471,7 +471,11 @@ pub mod tests {
         }
     }
     impl<M: MessageBounds> TransformsAudio for TestMixer<M> {
-        fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+        fn transform_audio(
+            &mut self,
+            _clock: &Clock,
+            input_sample: OldMonoSample,
+        ) -> OldMonoSample {
             input_sample
         }
     }

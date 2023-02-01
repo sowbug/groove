@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, MonoSample},
+    common::{F32ControlValue, OldMonoSample},
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -45,7 +45,7 @@ impl Updateable for Compressor {
     type Message = EntityMessage;
 }
 impl TransformsAudio for Compressor {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
         let input_sample_positive = input_sample.abs();
         if input_sample_positive > self.threshold {
             (self.threshold + (input_sample_positive - self.threshold) * self.ratio)

@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    common::MonoSample,
+    common::OldMonoSample,
     messages::{EntityMessage, MessageBounds},
     traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
@@ -20,7 +20,7 @@ pub struct Gain<M: MessageBounds> {
 }
 impl<M: MessageBounds> IsEffect for Gain<M> {}
 impl<M: MessageBounds> TransformsAudio for Gain<M> {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
         input_sample * self.ceiling
     }
 }

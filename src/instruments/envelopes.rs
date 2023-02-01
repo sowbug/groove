@@ -1,7 +1,7 @@
 use super::oscillators::KahanSummation;
 use crate::{
     clock::ClockTimeUnit,
-    common::{F32ControlValue, MonoSample, TimeUnit, Unipolar},
+    common::{F32ControlValue, OldMonoSample, TimeUnit, Unipolar},
     messages::EntityMessage,
     settings::patches::EnvelopeSettings,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
@@ -55,10 +55,10 @@ pub struct SimpleEnvelope {
     settings: EnvelopeSettings,
     sample_rate: f64,
     state: SimpleEnvelopeState,
-    amplitude: KahanSummation<Unipolar, f64>,
+    amplitude: KahanSummation<f64, f64>,
     delta: f64,
 
-    amplitude_target: Unipolar,
+    amplitude_target: f64,
     time_target: TimeUnit,
 
     // Polynomial coefficients for convex
@@ -92,13 +92,13 @@ impl GeneratesEnvelope for SimpleEnvelope {
         // 2. Calculate current amplitude
         let amplitude = match self.state {
             SimpleEnvelopeState::Attack => {
-                Unipolar(self.transform_linear_to_convex(self.amplitude.current_sum().value()))
+                self.transform_linear_to_convex(self.amplitude.current_sum())
             }
             SimpleEnvelopeState::Decay => {
-                Unipolar(self.transform_linear_to_concave(self.amplitude.current_sum().value()))
+                self.transform_linear_to_concave(self.amplitude.current_sum())
             }
             SimpleEnvelopeState::Release => {
-                Unipolar(self.transform_linear_to_concave(self.amplitude.current_sum().value()))
+                self.transform_linear_to_concave(self.amplitude.current_sum())
             }
             _ => self.amplitude.current_sum(),
         };
@@ -107,7 +107,7 @@ impl GeneratesEnvelope for SimpleEnvelope {
         self.update_amplitude();
         self.handle_state(current_time);
 
-        amplitude
+        Unipolar::new(amplitude)
     }
 
     fn is_idle(&self) -> bool {
@@ -188,8 +188,7 @@ impl SimpleEnvelope {
             // Is the difference between the current value and the target
             // smaller than the delta? This is a fancy way of saying we're as
             // close as we're going to get without overshooting the next time.
-            (self.amplitude.current_sum().value() - self.amplitude_target.value()).abs()
-                < self.delta.abs()
+            (self.amplitude.current_sum() - self.amplitude_target).abs() < self.delta.abs()
         };
 
         if has_hit_target {
@@ -213,7 +212,7 @@ impl SimpleEnvelope {
             }
             SimpleEnvelopeState::Attack => {
                 if self.settings.attack as f64 == TimeUnit::zero().0 {
-                    self.amplitude.set_sum(Unipolar::maximum());
+                    self.amplitude.set_sum(Unipolar::MAX);
                     self.set_state(SimpleEnvelopeState::Decay, current_time);
                 } else {
                     self.state = SimpleEnvelopeState::Attack;
@@ -225,7 +224,7 @@ impl SimpleEnvelope {
                         false,
                         true,
                     );
-                    let current_amplitude = self.amplitude.current_sum().value();
+                    let current_amplitude = self.amplitude.current_sum();
 
                     (self.convex_a, self.convex_b, self.convex_c) = Self::calculate_coefficients(
                         current_amplitude,
@@ -239,20 +238,19 @@ impl SimpleEnvelope {
             }
             SimpleEnvelopeState::Decay => {
                 if self.settings.decay as f64 == TimeUnit::zero().0 {
-                    self.amplitude
-                        .set_sum(Unipolar(self.settings.sustain as f64));
+                    self.amplitude.set_sum(self.settings.sustain as f64);
                     self.set_state(SimpleEnvelopeState::Sustain, current_time);
                 } else {
                     self.state = SimpleEnvelopeState::Decay;
                     let target_amplitude = self.settings.sustain as f64;
                     self.set_target(
                         current_time,
-                        Unipolar(target_amplitude),
+                        Unipolar::new(target_amplitude),
                         TimeUnit(self.settings.decay as f64),
                         true,
                         false,
                     );
-                    let current_amplitude = self.amplitude.current_sum().value();
+                    let current_amplitude = self.amplitude.current_sum();
                     (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
                         current_amplitude,
                         current_amplitude,
@@ -268,7 +266,7 @@ impl SimpleEnvelope {
 
                 self.set_target(
                     current_time,
-                    Unipolar(self.settings.sustain as f64),
+                    Unipolar::new(self.settings.sustain as f64),
                     TimeUnit::infinite(),
                     false,
                     false,
@@ -276,7 +274,7 @@ impl SimpleEnvelope {
             }
             SimpleEnvelopeState::Release => {
                 if self.settings.release as f64 == TimeUnit::zero().0 {
-                    self.amplitude.set_sum(Unipolar::maximum());
+                    self.amplitude.set_sum(Unipolar::MAX);
                     self.set_state(SimpleEnvelopeState::Idle, current_time);
                 } else {
                     self.state = SimpleEnvelopeState::Release;
@@ -288,7 +286,7 @@ impl SimpleEnvelope {
                         true,
                         true,
                     );
-                    let current_amplitude = self.amplitude.current_sum().value();
+                    let current_amplitude = self.amplitude.current_sum();
                     (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
                         current_amplitude,
                         current_amplitude,
@@ -310,13 +308,13 @@ impl SimpleEnvelope {
         calculate_for_full_amplitude_range: bool,
         fast_reaction: bool,
     ) {
-        self.amplitude_target = target_amplitude;
+        self.amplitude_target = target_amplitude.into();
         if duration != TimeUnit::infinite() {
             let fast_reaction_extra_frame = if fast_reaction { 1.0 } else { 0.0 };
             let range = if calculate_for_full_amplitude_range {
                 -1.0
             } else {
-                (self.amplitude_target - self.amplitude.current_sum()).value()
+                self.amplitude_target - self.amplitude.current_sum()
             };
             self.time_target = current_time + duration;
             self.delta = if duration != TimeUnit::zero() {
@@ -381,8 +379,8 @@ pub enum EnvelopeFunction {
 #[derive(Clone, Debug, Default)]
 pub struct EnvelopeStep {
     pub interval: Range<f32>,
-    pub start_value: MonoSample,
-    pub end_value: MonoSample,
+    pub start_value: OldMonoSample,
+    pub end_value: OldMonoSample,
     pub step_function: EnvelopeFunction,
 }
 
@@ -390,8 +388,8 @@ impl EnvelopeStep {
     pub(crate) fn new_with_duration(
         start_time: f32,
         duration: f32,
-        start_value: MonoSample,
-        end_value: MonoSample,
+        start_value: OldMonoSample,
+        end_value: OldMonoSample,
         step_function: EnvelopeFunction,
     ) -> Self {
         Self {
@@ -411,8 +409,8 @@ impl EnvelopeStep {
 
     pub(crate) fn new_with_end_time(
         interval: Range<f32>,
-        start_value: MonoSample,
-        end_value: MonoSample,
+        start_value: OldMonoSample,
+        end_value: OldMonoSample,
         step_function: EnvelopeFunction,
     ) -> Self {
         Self {
@@ -508,7 +506,7 @@ impl SteppedEnvelope {
         candidate_step
     }
 
-    pub(crate) fn value_for_step_at_time(&self, step: &EnvelopeStep, time: f32) -> MonoSample {
+    pub(crate) fn value_for_step_at_time(&self, step: &EnvelopeStep, time: f32) -> OldMonoSample {
         if step.interval.start == step.interval.end || step.start_value == step.end_value {
             return step.end_value;
         }
@@ -568,7 +566,7 @@ impl SteppedEnvelope {
 }
 
 impl SourcesAudio for SteppedEnvelope {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         let time = self.time_for_unit(clock);
         let step = self.step_for_time(time);
         self.value_for_step_at_time(step, time)
@@ -605,7 +603,7 @@ pub struct AdsrEnvelope {
 }
 impl IsInstrument for AdsrEnvelope {}
 impl SourcesAudio for AdsrEnvelope {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         let time = self.envelope.time_for_unit(clock);
         let step = self.envelope.step_for_time(time);
         self.envelope.value_for_step_at_time(step, time)
@@ -649,7 +647,7 @@ impl GeneratesEnvelope for AdsrEnvelope {
         let time = self.envelope.time_for_unit(clock);
         let step = self.envelope.step_for_time(time);
         self.is_idle = self.calculate_is_idle(clock);
-        Unipolar(self.envelope.value_for_step_at_time(step, time) as f64)
+        Unipolar::new(self.envelope.value_for_step_at_time(step, time) as f64)
     }
 
     fn is_idle(&self) -> bool {
@@ -986,7 +984,7 @@ mod tests {
         /// returned by tick(), which is in between pending events but after
         /// updating for the time slice.
         fn debug_amplitude(&self) -> Unipolar {
-            self.amplitude.current_sum()
+            Unipolar::new(self.amplitude.current_sum())
         }
     }
 

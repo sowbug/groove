@@ -1,7 +1,7 @@
 use crate::clock::ClockTimeUnit;
 use crate::common::{F32ControlValue, StereoSample};
 use crate::messages::EntityMessage;
-use crate::{clock::Clock, common::MonoSample, messages::MessageBounds};
+use crate::{clock::Clock, common::OldMonoSample, messages::MessageBounds};
 use crate::{
     common::MONO_SAMPLE_SILENCE,
     instruments::oscillators::Oscillator,
@@ -86,14 +86,14 @@ pub trait HasUid {
 
 /// A SourcesAudio provides audio in the form of digital samples.
 pub trait SourcesAudio: std::fmt::Debug + Send {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample;
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample;
 }
 
 /// A TransformsAudio takes input audio, which is typically produced by
 /// SourcesAudio, does something to it, and then outputs it. It's what effects
 /// do.
 pub trait TransformsAudio: std::fmt::Debug {
-    fn transform_audio(&mut self, clock: &Clock, input_sample: MonoSample) -> MonoSample;
+    fn transform_audio(&mut self, clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample;
 }
 
 /// A TransformsAudioToStereo takes monophonic input audio and outputs stereo
@@ -102,7 +102,7 @@ pub trait TransformsAudioToStereo: std::fmt::Debug {
     fn transform_audio_to_stereo(
         &mut self,
         clock: &Clock,
-        input_sample: MonoSample,
+        input_sample: OldMonoSample,
     ) -> StereoSample;
 }
 
@@ -322,7 +322,7 @@ pub struct TestEffect<M: MessageBounds> {
 }
 impl<M: MessageBounds> IsEffect for TestEffect<M> {}
 impl<M: MessageBounds> TransformsAudio for TestEffect<M> {
-    fn transform_audio(&mut self, clock: &Clock, input_sample: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
         self.check_values(clock);
         -input_sample
     }
@@ -547,7 +547,7 @@ impl<M: MessageBounds> TestInstrument<M> {
 }
 
 impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         // If we've been asked to assert values at checkpoints, do so.
         if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
         {

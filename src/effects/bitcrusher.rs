@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    common::MonoSample,
+    common::OldMonoSample,
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -26,11 +26,11 @@ pub struct Bitcrusher {
 }
 impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
         const I16_SCALE: f32 = i16::MAX as f32;
         let sign = input_sample.signum();
         let input = input_sample.abs() * I16_SCALE;
-        ((input / self.c).floor() * self.c / I16_SCALE) as MonoSample * sign
+        ((input / self.c).floor() * self.c / I16_SCALE) as OldMonoSample * sign
     }
 }
 impl Default for Bitcrusher {

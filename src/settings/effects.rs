@@ -1,5 +1,5 @@
 use crate::{
-    common::MonoSample,
+    common::OldMonoSample,
     effects::{
         bitcrusher::Bitcrusher,
         chorus::Chorus,
@@ -91,7 +91,7 @@ impl EffectSettings {
                 BoxedEntity::Mixer(Box::new(Mixer::<EntityMessage>::default()))
             }
             EffectSettings::Limiter { min, max } => BoxedEntity::Limiter(Box::new(
-                Limiter::new_with(min as MonoSample, max as MonoSample),
+                Limiter::new_with(min as OldMonoSample, max as OldMonoSample),
             )),
             EffectSettings::Gain { ceiling } => {
                 BoxedEntity::Gain(Box::new(Gain::<EntityMessage>::new_with(ceiling)))

@@ -3,7 +3,7 @@ pub(crate) mod orchestrator;
 pub(crate) mod sequencers;
 
 use crate::clock::{Clock, ClockTimeUnit};
-use crate::common::MonoSample;
+use crate::common::OldMonoSample;
 use crate::instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
 use crate::messages::{EntityMessage, MessageBounds};
 use crate::settings::controllers::ControlStep;
@@ -20,14 +20,14 @@ use std::ops::Range;
 #[derive(Debug)]
 pub struct Performance {
     pub sample_rate: usize,
-    pub worker: Worker<MonoSample>,
+    pub worker: Worker<OldMonoSample>,
 }
 
 impl Performance {
     pub fn new_with(sample_rate: usize) -> Self {
         Self {
             sample_rate,
-            worker: Worker::<MonoSample>::new_fifo(),
+            worker: Worker::<OldMonoSample>::new_fifo(),
         }
     }
 }

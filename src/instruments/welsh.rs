@@ -4,7 +4,7 @@ use super::{
     IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
 use crate::{
-    common::{F32ControlValue, MonoSample, Unipolar, MONO_SAMPLE_SILENCE},
+    common::{F32ControlValue, OldMonoSample, Unipolar, MONO_SAMPLE_SILENCE},
     effects::filter::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
     messages::EntityMessage,
@@ -571,7 +571,7 @@ impl WelshVoice {
     }
 }
 impl SourcesAudio for WelshVoice {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.handle_pending_note_events();
         // It's important for the envelope tick() methods to be called after
         // their handle_note_* methods are called, but before we check whether
@@ -604,7 +604,7 @@ impl SourcesAudio for WelshVoice {
                 let osc_1_val = self.oscillators[0].source_audio(clock);
                 let should_sync = self.oscillators[0].should_sync_after_this_sample();
                 let value =
-                    (osc_1_val + self.oscillators[1].source_audio(clock)) / 2.0 as MonoSample;
+                    (osc_1_val + self.oscillators[1].source_audio(clock)) / 2.0 as OldMonoSample;
 
                 // It's criticial to do this *after* the synced oscillator's
                 // source_audio(), because the should_sync refers to the next
@@ -656,7 +656,7 @@ pub struct WelshSynth {
 }
 impl IsInstrument for WelshSynth {}
 impl SourcesAudio for WelshSynth {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         if clock.seconds() == self.debug_last_seconds {
             panic!("We were called twice with the same time slice. Should this be OK?");
         } else {
@@ -736,7 +736,7 @@ mod tests {
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
-        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
+        const AMPLITUDE: OldMonoSample = i16::MAX as OldMonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
@@ -818,7 +818,7 @@ mod tests {
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
-        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
+        const AMPLITUDE: OldMonoSample = i16::MAX as OldMonoSample;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         let mut is_message_sent = false;

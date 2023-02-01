@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, MonoSample},
+    common::{F32ControlValue, OldMonoSample},
     messages::EntityMessage,
     midi::MidiMessage,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
@@ -13,7 +13,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 #[allow(dead_code)]
 pub struct Sampler {
     uid: usize,
-    samples: Vec<MonoSample>,
+    samples: Vec<OldMonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
@@ -23,7 +23,7 @@ pub struct Sampler {
 }
 impl IsInstrument for Sampler {}
 impl SourcesAudio for Sampler {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         // TODO: when we got rid of WatchesClock, we lost the concept of "done."
         // Be on the lookout for clipped audio.
         if self.sample_clock_start > clock.samples() {
@@ -81,7 +81,7 @@ impl Sampler {
         let mut r = Self::new_with(reader.duration() as usize);
         for sample in reader.samples::<i16>() {
             r.samples
-                .push(sample.unwrap() as MonoSample / i16::MAX as MonoSample);
+                .push(sample.unwrap() as OldMonoSample / i16::MAX as OldMonoSample);
         }
         r.filename = filename.to_string();
         r

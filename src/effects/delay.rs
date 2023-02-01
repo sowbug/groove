@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, MonoSample, MONO_SAMPLE_SILENCE},
+    common::{F32ControlValue, OldMonoSample, MONO_SAMPLE_SILENCE},
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -9,9 +9,9 @@ use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
 pub(super) trait Delays {
-    fn peek_output(&self, apply_decay: bool) -> MonoSample;
-    fn peek_indexed_output(&self, index: isize) -> MonoSample;
-    fn pop_output(&mut self, input: MonoSample) -> MonoSample;
+    fn peek_output(&self, apply_decay: bool) -> OldMonoSample;
+    fn peek_indexed_output(&self, index: isize) -> OldMonoSample;
+    fn pop_output(&mut self, input: OldMonoSample) -> OldMonoSample;
 }
 
 #[derive(Debug, Default)]
@@ -22,7 +22,7 @@ pub(crate) struct DelayLine {
 
     buffer_size: usize,
     buffer_pointer: usize,
-    buffer: Vec<MonoSample>,
+    buffer: Vec<OldMonoSample>,
 }
 impl DelayLine {
     /// decay_factor: 1.0 = no decay
@@ -63,7 +63,7 @@ impl DelayLine {
     }
 }
 impl Delays for DelayLine {
-    fn peek_output(&self, apply_decay: bool) -> MonoSample {
+    fn peek_output(&self, apply_decay: bool) -> OldMonoSample {
         if self.buffer_size == 0 {
             MONO_SAMPLE_SILENCE
         } else if apply_decay {
@@ -73,7 +73,7 @@ impl Delays for DelayLine {
         }
     }
 
-    fn peek_indexed_output(&self, index: isize) -> MonoSample {
+    fn peek_indexed_output(&self, index: isize) -> OldMonoSample {
         if self.buffer_size == 0 {
             MONO_SAMPLE_SILENCE
         } else {
@@ -85,7 +85,7 @@ impl Delays for DelayLine {
         }
     }
 
-    fn pop_output(&mut self, input: MonoSample) -> MonoSample {
+    fn pop_output(&mut self, input: OldMonoSample) -> OldMonoSample {
         if self.buffer_size == 0 {
             input
         } else {
@@ -126,15 +126,15 @@ impl RecirculatingDelayLine {
     }
 }
 impl Delays for RecirculatingDelayLine {
-    fn peek_output(&self, apply_decay: bool) -> MonoSample {
+    fn peek_output(&self, apply_decay: bool) -> OldMonoSample {
         self.delay.peek_output(apply_decay)
     }
 
-    fn peek_indexed_output(&self, index: isize) -> MonoSample {
+    fn peek_indexed_output(&self, index: isize) -> OldMonoSample {
         self.delay.peek_indexed_output(index)
     }
 
-    fn pop_output(&mut self, input: MonoSample) -> MonoSample {
+    fn pop_output(&mut self, input: OldMonoSample) -> OldMonoSample {
         let output = self.peek_output(true);
         self.delay.pop_output(input + output);
         output
@@ -166,15 +166,15 @@ impl AllPassDelayLine {
 }
 
 impl Delays for AllPassDelayLine {
-    fn peek_output(&self, _apply_decay: bool) -> MonoSample {
+    fn peek_output(&self, _apply_decay: bool) -> OldMonoSample {
         panic!("AllPassDelay doesn't allow peeking")
     }
 
-    fn peek_indexed_output(&self, _: isize) -> MonoSample {
+    fn peek_indexed_output(&self, _: isize) -> OldMonoSample {
         panic!("AllPassDelay doesn't allow peeking")
     }
 
-    fn pop_output(&mut self, input: MonoSample) -> MonoSample {
+    fn pop_output(&mut self, input: OldMonoSample) -> OldMonoSample {
         let decay_factor = self.delay.decay_factor();
         let vm = self.delay.peek_output(false);
         let vn = input - (vm * decay_factor);
@@ -194,7 +194,7 @@ pub struct Delay {
 }
 impl IsEffect for Delay {}
 impl TransformsAudio for Delay {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, _clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
         self.delay.pop_output(input_sample)
     }
 }

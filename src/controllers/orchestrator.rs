@@ -1,7 +1,7 @@
 use super::Performance;
 use crate::{
     clock::Clock,
-    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    common::{OldMonoSample, MONO_SAMPLE_SILENCE},
     effects::mixer::Mixer,
     entities::BoxedEntity,
     messages::{EntityMessage, GrooveMessage, MessageBounds},
@@ -230,10 +230,10 @@ impl<M: MessageBounds> Orchestrator<M> {
     // marker with the current sum, then push the children as to-visit). When a
     // marker pops up, eval with the current sum (nodes are effects, so they
     // take an input), then add to the running sum.
-    fn gather_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn gather_audio(&mut self, clock: &Clock) -> OldMonoSample {
         enum StackEntry {
             ToVisit(usize),
-            CollectResultFor(usize, MonoSample),
+            CollectResultFor(usize, OldMonoSample),
         }
         let gather_audio_start_time = self.metrics.gather_audio_fn_timer.start();
         let mut stack = Vec::new();
@@ -572,7 +572,7 @@ impl GrooveOrchestrator {
         }
     }
 
-    pub fn peek_command(command: &Response<GrooveMessage>) -> (MonoSample, bool) {
+    pub fn peek_command(command: &Response<GrooveMessage>) -> (OldMonoSample, bool) {
         let mut debug_matched_audio_output = false;
         let mut sample = MONO_SAMPLE_SILENCE;
         let mut done = false;
@@ -622,8 +622,8 @@ impl GrooveOrchestrator {
     // should return true in the Terminates trait.
     //
     // TODO: unit-test it!
-    pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<MonoSample>> {
-        let mut samples = Vec::<MonoSample>::new();
+    pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<OldMonoSample>> {
+        let mut samples = Vec::<OldMonoSample>::new();
         loop {
             let command = self.update(clock, GrooveMessage::Tick);
             let (sample, done) = Self::peek_command(&command);
@@ -849,7 +849,7 @@ pub mod tests {
     use super::Orchestrator;
     use crate::{
         clock::Clock,
-        common::{MonoSample, MONO_SAMPLE_SILENCE},
+        common::{OldMonoSample, MONO_SAMPLE_SILENCE},
         effects::gain::Gain,
         entities::BoxedEntity,
         messages::{tests::TestMessage, EntityMessage},
@@ -936,8 +936,8 @@ pub mod tests {
         }
     }
     impl Orchestrator<TestMessage> {
-        pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<MonoSample>> {
-            let mut samples = Vec::<MonoSample>::new();
+        pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<OldMonoSample>> {
+            let mut samples = Vec::<OldMonoSample>::new();
             loop {
                 // TODO: maybe this should be Commands, with one as a sample, and an
                 // occasional one as a done message.
@@ -1029,7 +1029,7 @@ pub mod tests {
             }
         }
 
-        pub fn peek_command(command: &Response<TestMessage>) -> (MonoSample, bool) {
+        pub fn peek_command(command: &Response<TestMessage>) -> (OldMonoSample, bool) {
             let mut debug_matched_audio_output = false;
             let mut sample = MONO_SAMPLE_SILENCE;
             let mut done = false;

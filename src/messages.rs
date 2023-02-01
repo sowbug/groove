@@ -1,5 +1,5 @@
 use crate::{
-    common::MonoSample,
+    common::OldMonoSample,
     midi::{subscription::PatternMessage, MidiChannel},
 };
 use iced_audio::Normal;
@@ -41,7 +41,7 @@ pub enum GrooveMessage {
 
     /// An audio sample for the current time slice. Intended to be sent in
     /// response to a downstream Tick, and consumed by the application.
-    AudioOutput(MonoSample),
+    AudioOutput(OldMonoSample),
 
     /// If sent, then the Orchestrator performance is done. Intended to be sent
     /// in response to a downstream Tick, and consumed by the application.
@@ -103,7 +103,7 @@ impl MessageBounds for EntityMessage {}
 #[cfg(test)]
 pub mod tests {
     use super::{EntityMessage, MessageBounds};
-    use crate::{common::MonoSample, midi::MidiChannel};
+    use crate::{common::OldMonoSample, midi::MidiChannel};
     use midly::MidiMessage;
 
     #[derive(Clone, Debug, Default)]
@@ -114,7 +114,7 @@ pub mod tests {
         EntityMessage(usize, EntityMessage),
         MidiFromExternal(MidiChannel, MidiMessage),
         MidiToExternal(MidiChannel, MidiMessage),
-        AudioOutput(MonoSample),
+        AudioOutput(OldMonoSample),
         OutputComplete,
     }
     impl MessageBounds for TestMessage {}

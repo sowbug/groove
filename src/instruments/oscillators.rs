@@ -1,5 +1,5 @@
 use crate::{
-    common::{F32ControlValue, MonoSample},
+    common::{F32ControlValue, OldMonoSample},
     messages::EntityMessage,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
     traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Updateable},
@@ -110,7 +110,7 @@ pub struct Oscillator {
 }
 impl IsInstrument for Oscillator {}
 impl SourcesAudio for Oscillator {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.check_for_clock_reset(clock);
         let cycle_position = self.calculate_cycle_position(clock);
         let waveform_type = self.waveform;

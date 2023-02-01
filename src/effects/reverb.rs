@@ -2,7 +2,7 @@ use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    common::MonoSample,
+    common::OldMonoSample,
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -32,7 +32,7 @@ pub struct Reverb {
 }
 impl IsEffect for Reverb {}
 impl TransformsAudio for Reverb {
-    fn transform_audio(&mut self, _clock: &Clock, input: MonoSample) -> MonoSample {
+    fn transform_audio(&mut self, _clock: &Clock, input: OldMonoSample) -> OldMonoSample {
         let input_attenuated = input * self.attenuation;
         let recirc_output = self.recirc_delay_lines[0].pop_output(input_attenuated)
             + self.recirc_delay_lines[1].pop_output(input_attenuated)

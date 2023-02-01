@@ -1,7 +1,7 @@
 use super::{HandlesMidi, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, MonoSample},
+    common::{F32ControlValue, OldMonoSample},
     messages::EntityMessage,
     midi::GeneralMidiPercussionProgram,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
@@ -14,7 +14,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Debug, Default)]
 struct Voice {
-    samples: Vec<MonoSample>,
+    samples: Vec<OldMonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
 
@@ -67,9 +67,9 @@ impl Voice {
     pub fn new_from_file(filename: &str) -> Self {
         let mut reader = hound::WavReader::open(filename).unwrap();
         let mut r = Self::new(reader.duration() as usize);
-        let i24_max: MonoSample = 2.0f32.powi(24 - 1);
+        let i24_max: OldMonoSample = 2.0f32.powi(24 - 1);
         for sample in reader.samples::<i32>() {
-            r.samples.push(sample.unwrap() as MonoSample / i24_max);
+            r.samples.push(sample.unwrap() as OldMonoSample / i24_max);
         }
         r
     }
@@ -92,7 +92,7 @@ impl Voice {
     }
 }
 impl SourcesAudio for Voice {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.handle_pending_note_events(clock);
         if self.sample_clock_start > clock.samples() {
             // TODO: this stops the clock-moves-backward explosion.
@@ -124,7 +124,7 @@ pub struct DrumkitSampler {
 }
 impl IsInstrument for DrumkitSampler {}
 impl SourcesAudio for DrumkitSampler {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.inner_synth.source_audio(clock)
     }
 }

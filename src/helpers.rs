@@ -1,5 +1,5 @@
 use crate::{
-    common::{MonoSample, MONO_SAMPLE_SILENCE},
+    common::{OldMonoSample, MONO_SAMPLE_SILENCE},
     controllers::{sequencers::MidiTickSequencer, Performance},
     entities::BoxedEntity,
     instruments::{drumkit_sampler::DrumkitSampler, welsh::WelshSynth},
@@ -50,7 +50,7 @@ impl AudioOutput {
         self.ring_buffer.capacity()
     }
 
-    pub fn push(&mut self, sample: MonoSample) {
+    pub fn push(&mut self, sample: OldMonoSample) {
         self.ring_buffer.force_push(sample);
     }
 
@@ -141,7 +141,7 @@ impl AudioOutput {
     }
 
     fn sample_from_queue<T: cpal::Sample>(
-        queue: &Arc<ArrayQueue<MonoSample>>,
+        queue: &Arc<ArrayQueue<OldMonoSample>>,
         sync_pair: &Arc<(Mutex<bool>, Condvar)>,
         data: &mut [T],
         _info: &cpal::OutputCallbackInfo,
@@ -227,7 +227,7 @@ impl IOHelper {
 
     pub fn sample_from_queue<T: cpal::Sample>(
         audio_is_stereo: bool,
-        stealer: &Stealer<MonoSample>,
+        stealer: &Stealer<OldMonoSample>,
         sync_pair: &Arc<(Mutex<bool>, Condvar)>,
         data: &mut [T],
         _info: &cpal::OutputCallbackInfo,
@@ -332,7 +332,7 @@ impl IOHelper {
         performance: Performance,
         output_filename: &str,
     ) -> anyhow::Result<()> {
-        const AMPLITUDE: MonoSample = i16::MAX as MonoSample;
+        const AMPLITUDE: OldMonoSample = i16::MAX as OldMonoSample;
         let spec = hound::WavSpec {
             channels: 1,
             sample_rate: performance.sample_rate as u32,

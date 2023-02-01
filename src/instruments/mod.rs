@@ -1,5 +1,5 @@
 use crate::{
-    common::{Bipolar, F32ControlValue, MonoSample, StereoSample},
+    common::{Bipolar, F32ControlValue, OldMonoSample, StereoSample},
     midi::MidiUtils,
     settings::patches::EnvelopeSettings,
     traits::{
@@ -84,7 +84,7 @@ impl<V: IsVoice> Updateable for Synthesizer<V> {
     type Message = EntityMessage;
 }
 impl<V: IsVoice> SourcesAudio for Synthesizer<V> {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.voice_store.source_audio(clock)
     }
 }
@@ -193,7 +193,7 @@ impl PlaysNotes for SimpleVoice {
     }
 }
 impl SourcesAudio for SimpleVoice {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.handle_pending_note_events();
         let r = self.oscillator.source_audio(clock) * self.envelope.tick(clock).value() as f32;
         self.is_playing = !self.envelope.is_idle();
@@ -265,7 +265,7 @@ impl Updateable for SimpleSynthesizer {
     }
 }
 impl SourcesAudio for SimpleSynthesizer {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.inner_synth.source_audio(clock)
     }
 }
@@ -318,7 +318,7 @@ impl<V: IsVoice> StoresVoices for SimpleVoiceStore<V> {
     }
 }
 impl<V: IsVoice> SourcesAudio for SimpleVoiceStore<V> {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         let r = self.voices.iter_mut().map(|v| v.source_audio(clock)).sum();
         for (index, voice) in self.voices.iter().enumerate() {
             if !voice.is_playing() {
@@ -356,7 +356,7 @@ impl<V: IsVoice> StoresVoices for VoicePerNoteStore<V> {
     }
 }
 impl<V: IsVoice> SourcesAudio for VoicePerNoteStore<V> {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.voices
             .values_mut()
             .map(|v| v.source_audio(clock))
@@ -416,7 +416,7 @@ impl PlaysNotes for FmVoice {
     }
 }
 impl SourcesAudio for FmVoice {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.handle_pending_note_events();
         self.carrier
             .set_frequency_modulation(self.modulator.source_audio(clock) * self.modulator_depth);
@@ -530,7 +530,7 @@ impl Updateable for FmSynthesizer {
     }
 }
 impl SourcesAudio for FmSynthesizer {
-    fn source_audio(&mut self, clock: &Clock) -> MonoSample {
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.inner_synth.source_audio(clock)
     }
 }
@@ -599,7 +599,7 @@ impl TransformsAudioToStereo for Dca {
     fn transform_audio_to_stereo(
         &mut self,
         _clock: &Clock,
-        input_sample: MonoSample,
+        input_sample: OldMonoSample,
     ) -> StereoSample {
         // See Pirkle, DSSPC++, p.73
         let input_sample: f64 = input_sample as f64 * self.gain;
@@ -609,8 +609,9 @@ impl TransformsAudioToStereo for Dca {
     }
 }
 impl Dca {
+    #[allow(dead_code)]
     pub(crate) fn set_pan(&mut self, new_value: Bipolar) {
-        self.pan = new_value.safe_value();
+        self.pan = new_value.value()
     }
 }
 
