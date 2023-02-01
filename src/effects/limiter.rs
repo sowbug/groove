@@ -20,7 +20,8 @@ pub struct Limiter {
 impl IsEffect for Limiter {}
 impl TransformsAudio for Limiter {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: MonoSample) -> MonoSample {
-        input_sample.clamp(self.min, self.max)
+        let sign = input_sample.signum();
+        input_sample.abs().clamp(self.min, self.max) * sign
     }
 }
 impl Updateable for Limiter {
@@ -75,7 +76,7 @@ mod tests {
     use more_asserts::{assert_gt, assert_lt};
 
     #[test]
-    fn test_limiter_mainline() {
+    fn limiter_mainline() {
         let clock = Clock::default();
 
         // audio sources are at or past boundaries
@@ -147,5 +148,16 @@ mod tests {
             ),
             MONO_SAMPLE_MIN
         );
+    }
+
+    #[test]
+    fn limiter_bias() {
+        let clock = Clock::default();
+
+        let mut limiter = Limiter::new_with(0.2, 0.8);
+        assert_eq!(limiter.transform_audio(&clock, 0.1), 0.2, "Limiter failed to clamp min {}", 0.2);
+        assert_eq!(limiter.transform_audio(&clock, 0.9), 0.8, "Limiter failed to clamp max {}", 0.8);
+        assert_eq!(limiter.transform_audio(&clock, -0.1), -0.2, "Limiter failed to clamp min {} for negative values", 0.2);
+        assert_eq!(limiter.transform_audio(&clock, -0.9), -0.8, "Limiter failed to clamp max {} for negative values", 0.8);
     }
 }
