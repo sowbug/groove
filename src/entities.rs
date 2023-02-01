@@ -9,8 +9,8 @@ use crate::{
         filter::BiQuadFilter, gain::Gain, limiter::Limiter, mixer::Mixer, reverb::Reverb,
     },
     instruments::{
-        drumkit_sampler::DrumkitSampler, envelopes::AdsrEnvelope, oscillators::Oscillator,
-        sampler::Sampler, welsh::WelshSynth, FmSynthesizer, SimpleSynthesizer,
+        drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth, FmSynthesizer,
+        SimpleSynthesizer,
     },
     messages::EntityMessage,
     midi::patterns::PatternManager,
@@ -77,11 +77,9 @@ boxed_entity_enum_and_common_crackers! {
     TestEffect: TestEffect<EntityMessage>,
 
     // Instruments
-    AdsrEnvelope: AdsrEnvelope,
     AudioSource: AudioSource<EntityMessage>,
     DrumkitSampler: DrumkitSampler,
     FmSynthesizer: FmSynthesizer,
-    Oscillator: Oscillator,
     Sampler: Sampler,
     SimpleSynthesizer: SimpleSynthesizer,
     TestInstrument: TestInstrument<EntityMessage>,
@@ -209,11 +207,9 @@ macro_rules! instrument_crackers {
     };
 }
 instrument_crackers! {
-    AdsrEnvelope,
     AudioSource,
     DrumkitSampler,
     FmSynthesizer,
-    Oscillator,
     Sampler,
     SimpleSynthesizer,
     TestInstrument,

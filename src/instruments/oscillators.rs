@@ -1,11 +1,10 @@
 use crate::{
     common::{F32ControlValue, OldMonoSample},
-    messages::EntityMessage,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Updateable},
+    traits::{Controllable, SourcesAudio},
     Clock,
 };
-use groove_macros::{Control, Uid};
+use groove_macros::Control;
 use more_asserts::debug_assert_lt;
 use std::f64::consts::PI;
 use std::str::FromStr;
@@ -57,10 +56,8 @@ impl<
     }
 }
 
-#[derive(Clone, Control, Debug, Uid)]
+#[derive(Clone, Control, Debug)]
 pub struct Oscillator {
-    uid: usize,
-
     waveform: WaveformType,
 
     /// Hertz. Any positive number. 440 = A4
@@ -108,7 +105,6 @@ pub struct Oscillator {
     // to the start.
     is_sync_pending: bool,
 }
-impl IsInstrument for Oscillator {}
 impl SourcesAudio for Oscillator {
     fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.check_for_clock_reset(clock);
@@ -117,9 +113,6 @@ impl SourcesAudio for Oscillator {
         let amplitude = self.mix * self.amplitude_for_position(&waveform_type, cycle_position);
         amplitude as f32
     }
-}
-impl Updateable for Oscillator {
-    type Message = EntityMessage;
 }
 impl Default for Oscillator {
     fn default() -> Self {
@@ -132,9 +125,8 @@ impl Default for Oscillator {
             // One view is that a default oscillator should be quiet. Another
             // view is that a quiet oscillator isn't doing its main job of
             // helping make sound. Principle of Least Astonishment prevails.
-            uid: usize::default(),
-
             waveform: WaveformType::Sine,
+
             mix: 1.0,
             frequency: 440.0,
             fixed_frequency: 0.0,
@@ -181,14 +173,6 @@ impl Oscillator {
         Self {
             waveform: lfo_preset.waveform,
             frequency: lfo_preset.frequency as f64,
-            ..Default::default()
-        }
-    }
-
-    pub(crate) fn new_with_type_and_frequency(waveform: WaveformType, frequency: f32) -> Self {
-        Self {
-            waveform,
-            frequency: frequency as f64,
             ..Default::default()
         }
     }
@@ -345,18 +329,26 @@ impl Oscillator {
 
 #[cfg(test)]
 mod tests {
-    use more_asserts::assert_lt;
-
     use super::{Oscillator, WaveformType};
     use crate::{
         clock::Clock,
-        controllers::orchestrator::tests::TestOrchestrator,
         midi::{MidiNote, MidiUtils},
         settings::patches::{OscillatorSettings, OscillatorTune},
         traits::SourcesAudio,
-        utils::tests::samples_match_known_good_wav_file,
-        EntityMessage, Paths, Timer,
+        utils::tests::{render_audio_source, samples_match_known_good_wav_file},
+        Paths,
     };
+    use more_asserts::assert_lt;
+
+    impl Oscillator {
+        pub(crate) fn new_with_type_and_frequency(waveform: WaveformType, frequency: f32) -> Self {
+            Self {
+                waveform,
+                frequency: frequency as f64,
+                ..Default::default()
+            }
+        }
+    }
 
     fn create_oscillator(
         waveform: WaveformType,
@@ -526,34 +518,19 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut o = TestOrchestrator::default();
-            let osc_uid = o.add(
-                None,
-                crate::BoxedEntity::Oscillator(Box::new(Oscillator::new_with_type_and_frequency(
-                    WaveformType::Square,
-                    test_case.0,
-                ))),
-            );
-            assert!(o.patch_chain_to_main_mixer(&[osc_uid]).is_ok());
-            let _ = o.add(
-                None,
-                crate::BoxedEntity::Timer(Box::new(Timer::<EntityMessage>::new_with(1.0))),
-            );
-            let mut clock = Clock::default();
-            if let Ok(samples) = o.run(&mut clock) {
-                let mut filename = Paths::test_data_path();
-                filename.push("audacity");
-                filename.push("44100Hz-mono");
-                filename.push(format!("square-{}.wav", test_case.1));
+            let mut osc =
+                Oscillator::new_with_type_and_frequency(WaveformType::Square, test_case.0);
+            let samples = render_audio_source(&mut osc, 1);
+            let mut filename = Paths::test_data_path();
+            filename.push("audacity");
+            filename.push("44100Hz-mono");
+            filename.push(format!("square-{}.wav", test_case.1));
 
-                assert!(
-                    samples_match_known_good_wav_file(samples, &filename, 0.001),
-                    "while testing square {}Hz",
-                    test_case.0
-                );
-            } else {
-                panic!("run failed");
-            }
+            assert!(
+                samples_match_known_good_wav_file(samples, &filename, 0.001),
+                "while testing square {}Hz",
+                test_case.0
+            );
         }
     }
 
@@ -567,34 +544,18 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut o = TestOrchestrator::default();
-            let osc_uid = o.add(
-                None,
-                crate::BoxedEntity::Oscillator(Box::new(Oscillator::new_with_type_and_frequency(
-                    WaveformType::Sine,
-                    test_case.0,
-                ))),
-            );
-            assert!(o.patch_chain_to_main_mixer(&[osc_uid]).is_ok());
-            let _ = o.add(
-                None,
-                crate::BoxedEntity::Timer(Box::new(Timer::<EntityMessage>::new_with(1.0))),
-            );
-            let mut clock = Clock::default();
-            if let Ok(samples) = o.run(&mut clock) {
-                let mut filename = Paths::test_data_path();
-                filename.push("audacity");
-                filename.push("44100Hz-mono");
-                filename.push(format!("sine-{}.wav", test_case.1));
+            let mut osc = Oscillator::new_with_type_and_frequency(WaveformType::Sine, test_case.0);
+            let samples = render_audio_source(&mut osc, 1);
+            let mut filename = Paths::test_data_path();
+            filename.push("audacity");
+            filename.push("44100Hz-mono");
+            filename.push(format!("sine-{}.wav", test_case.1));
 
-                assert!(
-                    samples_match_known_good_wav_file(samples, &filename, 0.001),
-                    "while testing sine {}Hz",
-                    test_case.0
-                );
-            } else {
-                panic!("run failed");
-            }
+            assert!(
+                samples_match_known_good_wav_file(samples, &filename, 0.001),
+                "while testing sine {}Hz",
+                test_case.0
+            );
         }
     }
 
@@ -608,34 +569,19 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut o = TestOrchestrator::default();
-            let osc_uid = o.add(
-                None,
-                crate::BoxedEntity::Oscillator(Box::new(Oscillator::new_with_type_and_frequency(
-                    WaveformType::Sawtooth,
-                    test_case.0,
-                ))),
-            );
-            assert!(o.patch_chain_to_main_mixer(&[osc_uid]).is_ok());
-            let _ = o.add(
-                None,
-                crate::BoxedEntity::Timer(Box::new(Timer::<EntityMessage>::new_with(1.0))),
-            );
-            let mut clock = Clock::default();
-            if let Ok(samples) = o.run(&mut clock) {
-                let mut filename = Paths::test_data_path();
-                filename.push("audacity");
-                filename.push("44100Hz-mono");
-                filename.push(format!("sawtooth-{}.wav", test_case.1));
+            let mut osc =
+                Oscillator::new_with_type_and_frequency(WaveformType::Sawtooth, test_case.0);
+            let samples = render_audio_source(&mut osc, 1);
+            let mut filename = Paths::test_data_path();
+            filename.push("audacity");
+            filename.push("44100Hz-mono");
+            filename.push(format!("sawtooth-{}.wav", test_case.1));
 
-                assert!(
-                    samples_match_known_good_wav_file(samples, &filename, 0.001),
-                    "while testing sawtooth {}Hz",
-                    test_case.0
-                );
-            } else {
-                panic!("run failed");
-            }
+            assert!(
+                samples_match_known_good_wav_file(samples, &filename, 0.001),
+                "while testing sawtooth {}Hz",
+                test_case.0
+            );
         }
     }
 
@@ -649,34 +595,19 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut o = TestOrchestrator::default();
-            let osc_uid = o.add(
-                None,
-                crate::BoxedEntity::Oscillator(Box::new(Oscillator::new_with_type_and_frequency(
-                    WaveformType::Triangle,
-                    test_case.0,
-                ))),
-            );
-            assert!(o.patch_chain_to_main_mixer(&[osc_uid]).is_ok());
-            let _ = o.add(
-                None,
-                crate::BoxedEntity::Timer(Box::new(Timer::<EntityMessage>::new_with(1.0))),
-            );
-            let mut clock = Clock::default();
-            if let Ok(samples) = o.run(&mut clock) {
-                let mut filename = Paths::test_data_path();
-                filename.push("audacity");
-                filename.push("44100Hz-mono");
-                filename.push(format!("triangle-{}.wav", test_case.1));
+            let mut osc =
+                Oscillator::new_with_type_and_frequency(WaveformType::Triangle, test_case.0);
+            let samples = render_audio_source(&mut osc, 1);
+            let mut filename = Paths::test_data_path();
+            filename.push("audacity");
+            filename.push("44100Hz-mono");
+            filename.push(format!("triangle-{}.wav", test_case.1));
 
-                assert!(
-                    samples_match_known_good_wav_file(samples, &filename, 0.01),
-                    "while testing triangle {}Hz",
-                    test_case.0
-                );
-            } else {
-                panic!("run failed");
-            }
+            assert!(
+                samples_match_known_good_wav_file(samples, &filename, 0.01),
+                "while testing triangle {}Hz",
+                test_case.0
+            );
         }
     }
 

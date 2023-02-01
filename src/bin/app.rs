@@ -5,12 +5,12 @@ mod gui;
 use groove::{
     gui::{GrooveEvent, GrooveInput},
     traits::{HasUid, TestController, TestEffect, TestInstrument},
-    AdsrEnvelope, Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity,
-    Chorus, Clock, Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, FmSynthesizer,
-    Gain, GrooveMessage, GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler,
-    MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer,
-    Mixer, Note, Oscillator, Pattern, PatternManager, PatternMessage, Reverb, Sampler,
-    SimpleSynthesizer, TestLfo, TestSynth, Timer, WelshSynth,
+    Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity, Chorus, Clock,
+    Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, FmSynthesizer, Gain,
+    GrooveMessage, GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
+    MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Note,
+    Pattern, PatternManager, PatternMessage, Reverb, Sampler, SimpleSynthesizer, TestLfo,
+    TestSynth, Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -435,13 +435,6 @@ impl GrooveApp {
 
     fn entity_view(&self, entity: &BoxedEntity) -> Element<EntityMessage> {
         match entity {
-            BoxedEntity::AdsrEnvelope(e) => GuiStuff::titled_container(
-                type_name::<AdsrEnvelope>(),
-                GuiStuff::<EntityMessage>::container_text(
-                    format!("Coming soon: {}", e.uid()).as_str(),
-                )
-                .into(),
-            ),
             BoxedEntity::Arpeggiator(_) => {
                 let title = type_name::<Arpeggiator>();
                 let contents = "Hello!";
@@ -503,13 +496,6 @@ impl GrooveApp {
                 .into(),
             ),
             BoxedEntity::Mixer(e) => self.mixer_view(e),
-            BoxedEntity::Oscillator(e) => GuiStuff::titled_container(
-                type_name::<Oscillator>(),
-                GuiStuff::<EntityMessage>::container_text(
-                    format!("Coming soon: {}", e.uid()).as_str(),
-                )
-                .into(),
-            ),
             BoxedEntity::PatternManager(e) => self.pattern_manager_view(e),
             BoxedEntity::Reverb(e) => GuiStuff::titled_container(
                 type_name::<Reverb>(),

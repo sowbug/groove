@@ -433,6 +433,19 @@ pub mod tests {
         true
     }
 
+    pub fn render_audio_source(
+        source: &mut dyn SourcesAudio,
+        run_length_in_seconds: usize,
+    ) -> Vec<f32> {
+        let mut clock = Clock::default();
+        let mut samples = Vec::default();
+        for _ in 0..clock.sample_rate() * run_length_in_seconds {
+            samples.push(source.source_audio(&clock));
+            clock.tick();
+        }
+        samples
+    }
+
     pub fn canonicalize_filename(filename: &str) -> String {
         const OUT_DIR: &str = "out";
         let result = fs::create_dir_all(OUT_DIR);

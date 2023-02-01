@@ -1,13 +1,8 @@
-use super::{
-    patches::{EnvelopeSettings, SynthPatch, WaveformType},
-    MidiChannel,
-};
+use super::{patches::SynthPatch, MidiChannel};
 use crate::{
     entities::BoxedEntity,
     instruments::{
         drumkit_sampler,
-        envelopes::AdsrEnvelope,
-        oscillators::Oscillator,
         welsh::{self},
         FmSynthesizer, SimpleSynthesizer,
     },
@@ -50,22 +45,6 @@ pub enum InstrumentSettings {
         #[serde(rename = "preset")]
         preset_name: String,
     },
-    #[serde(rename_all = "kebab-case")]
-    Oscillator {
-        #[serde(rename = "midi-in")]
-        midi_input_channel: MidiChannel,
-        waveform: WaveformType,
-        frequency: f32,
-    },
-    #[serde(rename_all = "kebab-case")]
-    Envelope {
-        #[serde(rename = "midi-in")]
-        midi_input_channel: MidiChannel,
-        attack: f32,
-        decay: f32,
-        sustain: f32,
-        release: f32,
-    },
     // TODO Sampler
 }
 
@@ -86,12 +65,6 @@ impl InstrumentSettings {
                     midi_input_channel, ..
                 } => *midi_input_channel,
                 InstrumentSettings::FmSynthesizer {
-                    midi_input_channel, ..
-                } => *midi_input_channel,
-                InstrumentSettings::Oscillator {
-                    midi_input_channel, ..
-                } => *midi_input_channel,
-                InstrumentSettings::Envelope {
                     midi_input_channel, ..
                 } => *midi_input_channel,
             };
@@ -136,31 +109,6 @@ impl InstrumentSettings {
                 BoxedEntity::FmSynthesizer(Box::new(FmSynthesizer::new_with(
                     &FmSynthesizer::preset_for_name(preset),
                 ))),
-            ),
-            InstrumentSettings::Oscillator {
-                midi_input_channel,
-                waveform,
-                frequency,
-            } => (
-                *midi_input_channel,
-                BoxedEntity::Oscillator(Box::new(Oscillator::new_with_type_and_frequency(
-                    *waveform, *frequency,
-                ))),
-            ),
-            InstrumentSettings::Envelope {
-                midi_input_channel,
-                attack,
-                decay,
-                sustain,
-                release,
-            } => (
-                *midi_input_channel,
-                BoxedEntity::AdsrEnvelope(Box::new(AdsrEnvelope::new_with(&EnvelopeSettings {
-                    attack: *attack,
-                    decay: *decay,
-                    sustain: *sustain,
-                    release: *release,
-                }))),
             ),
         }
     }
