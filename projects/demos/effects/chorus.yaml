@@ -1,4 +1,5 @@
 ---
+# BEWARE: this effect is currently broken
 title: "chorus"
 clock:
   bpm: 120.0
