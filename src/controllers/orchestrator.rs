@@ -849,7 +849,7 @@ pub mod tests {
     use super::Orchestrator;
     use crate::{
         clock::Clock,
-        common::{OldMonoSample, MONO_SAMPLE_SILENCE},
+        common::{Normal, OldMonoSample, MONO_SAMPLE_SILENCE},
         effects::gain::Gain,
         entities::BoxedEntity,
         messages::{tests::TestMessage, EntityMessage},
@@ -1110,7 +1110,10 @@ pub mod tests {
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
         );
-        let gain_1_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.5))));
+        let gain_1_uid = o.add(
+            None,
+            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))),
+        );
         let level_2_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.2))),
@@ -1173,20 +1176,32 @@ pub mod tests {
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
         );
-        let low_pass_1_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.2))));
-        let gain_1_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.4))));
+        let low_pass_1_uid = o.add(
+            None,
+            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.2)))),
+        );
+        let gain_1_uid = o.add(
+            None,
+            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.4)))),
+        );
 
         let bassline_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.3))),
         );
-        let gain_2_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.6))));
+        let gain_2_uid = o.add(
+            None,
+            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.6)))),
+        );
 
         let synth_1_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.5))),
         );
-        let gain_3_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.8))));
+        let gain_3_uid = o.add(
+            None,
+            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.8)))),
+        );
 
         let drum_1_uid = o.add(
             None,
@@ -1265,7 +1280,10 @@ pub mod tests {
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.5))),
         );
-        let effect_1_uid = o.add(None, BoxedEntity::Gain(Box::new(Gain::new_with(0.5))));
+        let effect_1_uid = o.add(
+            None,
+            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))),
+        );
 
         assert!(o.patch_chain_to_main_mixer(&[instrument_1_uid]).is_ok());
         assert!(o.patch_chain_to_main_mixer(&[effect_1_uid]).is_ok());

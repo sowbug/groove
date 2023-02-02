@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    common::OldMonoSample,
+    common::{Normal, OldMonoSample, Sample},
     messages::{EntityMessage, MessageBounds},
     traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
@@ -14,14 +14,23 @@ pub struct Gain<M: MessageBounds> {
     uid: usize,
 
     #[controllable]
-    ceiling: f32,
+    ceiling: Normal,
 
     _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsEffect for Gain<M> {}
 impl<M: MessageBounds> TransformsAudio for Gain<M> {
     fn transform_audio(&mut self, _clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
-        input_sample * self.ceiling
+        input_sample * self.ceiling.value() as OldMonoSample
+    }
+
+    fn transform_channel(
+        &mut self,
+        _clock: &Clock,
+        _channel: usize,
+        input_sample: crate::common::Sample,
+    ) -> crate::common::Sample {
+        Sample(input_sample.0 * self.ceiling.value())
     }
 }
 impl<M: MessageBounds> Updateable for Gain<M> {
@@ -40,12 +49,12 @@ impl<M: MessageBounds> Gain<M> {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
-            ceiling: 1.0,
+            ceiling: Normal::new(1.0),
             ..Default::default()
         }
     }
 
-    pub fn new_with(ceiling: f32) -> Self {
+    pub fn new_with(ceiling: Normal) -> Self {
         Self {
             ceiling,
             ..Default::default()
@@ -53,16 +62,16 @@ impl<M: MessageBounds> Gain<M> {
     }
 
     #[allow(dead_code)]
-    pub fn ceiling(&self) -> f32 {
+    pub fn ceiling(&self) -> Normal {
         self.ceiling
     }
 
-    pub fn set_ceiling(&mut self, pct: f32) {
-        self.ceiling = pct;
+    pub fn set_ceiling(&mut self, ceiling: Normal) {
+        self.ceiling = ceiling;
     }
 
     pub fn set_control_ceiling(&mut self, value: F32ControlValue) {
-        self.set_ceiling(value.0);
+        self.set_ceiling(Normal::new_from_f32(value.0));
     }
 }
 
@@ -75,7 +84,7 @@ mod tests {
 
     #[test]
     fn test_gain_mainline() {
-        let mut gain = Gain::<EntityMessage>::new_with(1.1);
+        let mut gain = Gain::<EntityMessage>::new_with(Normal::new(0.5));
         let clock = Clock::default();
         assert_eq!(
             gain.transform_audio(
@@ -83,7 +92,7 @@ mod tests {
                 AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
                     .source_audio(&clock)
             ),
-            1.1
+            0.5
         );
     }
 }

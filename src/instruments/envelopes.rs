@@ -1,7 +1,7 @@
 use super::oscillators::KahanSummation;
 use crate::{
     clock::ClockTimeUnit,
-    common::{F32ControlValue, OldMonoSample, TimeUnit, Unipolar},
+    common::{F32ControlValue, Normal, OldMonoSample, TimeUnit},
     messages::EntityMessage,
     settings::patches::EnvelopeSettings,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
@@ -31,7 +31,7 @@ pub trait GeneratesEnvelope {
     ///
     /// Returns the amplitude *after* processing any handle_* events, and
     /// *before* ticking to the next time slice.
-    fn tick(&mut self, clock: &Clock) -> Unipolar;
+    fn tick(&mut self, clock: &Clock) -> Normal;
 
     /// Whether the envelope generator has finished the active part of the
     /// envelope (or hasn't yet started it).
@@ -83,7 +83,7 @@ impl GeneratesEnvelope for SimpleEnvelope {
         self.note_off_pending = true;
     }
 
-    fn tick(&mut self, clock: &Clock) -> Unipolar {
+    fn tick(&mut self, clock: &Clock) -> Normal {
         let current_time = TimeUnit(clock.seconds() as f64);
 
         // 1. Handle queued events
@@ -107,7 +107,7 @@ impl GeneratesEnvelope for SimpleEnvelope {
         self.update_amplitude();
         self.handle_state(current_time);
 
-        Unipolar::new(amplitude)
+        Normal::new(amplitude)
     }
 
     fn is_idle(&self) -> bool {
@@ -212,14 +212,14 @@ impl SimpleEnvelope {
             }
             SimpleEnvelopeState::Attack => {
                 if self.settings.attack as f64 == TimeUnit::zero().0 {
-                    self.amplitude.set_sum(Unipolar::MAX);
+                    self.amplitude.set_sum(Normal::MAX);
                     self.set_state(SimpleEnvelopeState::Decay, current_time);
                 } else {
                     self.state = SimpleEnvelopeState::Attack;
-                    let target_amplitude = Unipolar::maximum().value();
+                    let target_amplitude = Normal::maximum().value();
                     self.set_target(
                         current_time,
-                        Unipolar::maximum(),
+                        Normal::maximum(),
                         TimeUnit(self.settings.attack as f64),
                         false,
                         true,
@@ -245,7 +245,7 @@ impl SimpleEnvelope {
                     let target_amplitude = self.settings.sustain as f64;
                     self.set_target(
                         current_time,
-                        Unipolar::new(target_amplitude),
+                        Normal::new(target_amplitude),
                         TimeUnit(self.settings.decay as f64),
                         true,
                         false,
@@ -266,7 +266,7 @@ impl SimpleEnvelope {
 
                 self.set_target(
                     current_time,
-                    Unipolar::new(self.settings.sustain as f64),
+                    Normal::new(self.settings.sustain as f64),
                     TimeUnit::infinite(),
                     false,
                     false,
@@ -274,14 +274,14 @@ impl SimpleEnvelope {
             }
             SimpleEnvelopeState::Release => {
                 if self.settings.release as f64 == TimeUnit::zero().0 {
-                    self.amplitude.set_sum(Unipolar::MAX);
+                    self.amplitude.set_sum(Normal::MAX);
                     self.set_state(SimpleEnvelopeState::Idle, current_time);
                 } else {
                     self.state = SimpleEnvelopeState::Release;
                     let target_amplitude = 0.0;
                     self.set_target(
                         current_time,
-                        Unipolar::minimum(),
+                        Normal::minimum(),
                         TimeUnit(self.settings.release as f64),
                         true,
                         true,
@@ -303,7 +303,7 @@ impl SimpleEnvelope {
     fn set_target(
         &mut self,
         current_time: TimeUnit,
-        target_amplitude: Unipolar,
+        target_amplitude: Normal,
         duration: TimeUnit,
         calculate_for_full_amplitude_range: bool,
         fast_reaction: bool,
@@ -642,12 +642,12 @@ impl GeneratesEnvelope for AdsrEnvelope {
         self.note_off_pending = true;
     }
 
-    fn tick(&mut self, clock: &Clock) -> Unipolar {
+    fn tick(&mut self, clock: &Clock) -> Normal {
         self.handle_pending(clock);
         let time = self.envelope.time_for_unit(clock);
         let step = self.envelope.step_for_time(time);
         self.is_idle = self.calculate_is_idle(clock);
-        Unipolar::new(self.envelope.value_for_step_at_time(step, time) as f64)
+        Normal::new(self.envelope.value_for_step_at_time(step, time) as f64)
     }
 
     fn is_idle(&self) -> bool {
@@ -983,8 +983,8 @@ mod tests {
         /// time slice (which is probably bad). It's better to use the value
         /// returned by tick(), which is in between pending events but after
         /// updating for the time slice.
-        fn debug_amplitude(&self) -> Unipolar {
-            Unipolar::new(self.amplitude.current_sum())
+        fn debug_amplitude(&self) -> Normal {
+            Normal::new(self.amplitude.current_sum())
         }
     }
 
@@ -1337,7 +1337,7 @@ mod tests {
         clock: &mut Clock,
         time_marker: f32,
         mut test: F,
-    ) -> Unipolar
+    ) -> Normal
     where
         F: FnMut(f64),
     {
@@ -1499,7 +1499,7 @@ mod tests {
 
         assert_eq!(
             amplitude,
-            Unipolar::minimum(),
+            Normal::minimum(),
             "Amplitude should start at zero"
         );
 
@@ -1510,12 +1510,7 @@ mod tests {
         let mut time_marker = clock.seconds();
         clock.tick();
         assert!(
-            approx_eq!(
-                f64,
-                amplitude.value(),
-                Unipolar::maximum().value(),
-                ulps = 8
-            ),
+            approx_eq!(f64, amplitude.value(), Normal::maximum().value(), ulps = 8),
             "Amplitude should reach peak upon trigger"
         );
 
@@ -1523,7 +1518,7 @@ mod tests {
         clock.tick();
         assert_lt!(
             amplitude,
-            Unipolar::maximum(),
+            Normal::maximum(),
             "Zero-attack amplitude should begin decreasing immediately after peak"
         );
 
@@ -1532,7 +1527,7 @@ mod tests {
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
         assert_lt!(
             amplitude,
-            Unipolar::maximum(),
+            Normal::maximum(),
             "Amplitude should have decayed halfway through decay"
         );
 
@@ -1547,12 +1542,7 @@ mod tests {
         let mut time_marker = clock.seconds();
         clock.tick();
         assert!(
-            approx_eq!(
-                f64,
-                amplitude.value(),
-                Unipolar::maximum().value(),
-                ulps = 8
-            ),
+            approx_eq!(f64, amplitude.value(), Normal::maximum().value(), ulps = 8),
             "Amplitude should reach peak upon second trigger"
         );
 

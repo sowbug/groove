@@ -1,5 +1,5 @@
 use crate::clock::ClockTimeUnit;
-use crate::common::{F32ControlValue, StereoSample};
+use crate::common::{F32ControlValue, Sample, StereoSample};
 use crate::messages::EntityMessage;
 use crate::{clock::Clock, common::OldMonoSample, messages::MessageBounds};
 use crate::{
@@ -93,7 +93,28 @@ pub trait SourcesAudio: std::fmt::Debug + Send {
 /// SourcesAudio, does something to it, and then outputs it. It's what effects
 /// do.
 pub trait TransformsAudio: std::fmt::Debug {
+    // TODO #[deprecated]
     fn transform_audio(&mut self, clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample;
+
+    fn transform_stereo_audio(
+        &mut self,
+        clock: &Clock,
+        input_sample: StereoSample,
+    ) -> StereoSample {
+        // Beware: converting from mono to stereo isn't just doing the work
+        // twice! You'll also have to double whatever state you maintain from
+        // tick to tick that has to do with a single channel's audio data.
+        StereoSample(
+            self.transform_channel(clock, 0, input_sample.0),
+            self.transform_channel(clock, 1, input_sample.1),
+        )
+    }
+
+    #[allow(unused_variables)]
+    fn transform_channel(&mut self, clock: &Clock, channel: usize, input_sample: Sample) -> Sample {
+        // TODO: remove this default implementation once everyone implements it
+        Sample(self.transform_audio(clock, input_sample.0 as OldMonoSample) as f64)
+    }
 }
 
 /// A TransformsAudioToStereo takes monophonic input audio and outputs stereo
@@ -323,6 +344,16 @@ pub struct TestEffect<M: MessageBounds> {
 impl<M: MessageBounds> IsEffect for TestEffect<M> {}
 impl<M: MessageBounds> TransformsAudio for TestEffect<M> {
     fn transform_audio(&mut self, clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
+        self.check_values(clock);
+        -input_sample
+    }
+
+    fn transform_channel(
+        &mut self,
+        clock: &Clock,
+        _channel: usize,
+        input_sample: Sample,
+    ) -> Sample {
         self.check_values(clock);
         -input_sample
     }

@@ -4,7 +4,7 @@ use super::{
     IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
 use crate::{
-    common::{F32ControlValue, OldMonoSample, Unipolar, MONO_SAMPLE_SILENCE},
+    common::{F32ControlValue, Normal, OldMonoSample, MONO_SAMPLE_SILENCE},
     effects::filter::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
     messages::EntityMessage,
@@ -541,7 +541,7 @@ impl WelshVoice {
         }
     }
 
-    fn tick_envelopes(&mut self, clock: &Clock) -> (Unipolar, Unipolar) {
+    fn tick_envelopes(&mut self, clock: &Clock) -> (Normal, Normal) {
         let amp_amplitude = self.amp_envelope.tick(clock);
         let filter_amplitude = self.filter_envelope.tick(clock);
 

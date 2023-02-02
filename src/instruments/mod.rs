@@ -1,5 +1,5 @@
 use crate::{
-    common::{Bipolar, F32ControlValue, OldMonoSample, StereoSample},
+    common::{BipolarNormal, F32ControlValue, OldMonoSample, StereoSample},
     midi::MidiUtils,
     settings::patches::EnvelopeSettings,
     traits::{
@@ -605,12 +605,12 @@ impl TransformsAudioToStereo for Dca {
         let input_sample: f64 = input_sample as f64 * self.gain;
         let left_pan: f64 = 1.0 - 0.25 * (self.pan + 1.0).powi(2);
         let right_pan: f64 = 1.0 - (0.5 * self.pan - 0.5).powi(2);
-        StereoSample(left_pan * input_sample, right_pan * input_sample)
+        StereoSample::new_from_f64(left_pan * input_sample, right_pan * input_sample)
     }
 }
 impl Dca {
     #[allow(dead_code)]
-    pub(crate) fn set_pan(&mut self, new_value: Bipolar) {
+    pub(crate) fn set_pan(&mut self, new_value: BipolarNormal) {
         self.pan = new_value.value()
     }
 }
@@ -627,21 +627,21 @@ mod tests {
         const VALUE: f64 = 0.5;
         assert_eq!(
             dca.transform_audio_to_stereo(&clock, VALUE_IN),
-            StereoSample(VALUE * 0.75, VALUE * 0.75),
+            StereoSample::new_from_f64(VALUE * 0.75, VALUE * 0.75),
             "Pan center should give 75% equally to each channel"
         );
 
-        dca.set_pan(Bipolar::new(-1.0));
+        dca.set_pan(BipolarNormal::new(-1.0));
         assert_eq!(
             dca.transform_audio_to_stereo(&clock, VALUE_IN),
-            StereoSample(VALUE, 0.0),
+            StereoSample::new_from_f64(VALUE, 0.0),
             "Pan left should give 100% to left channel"
         );
 
-        dca.set_pan(Bipolar::new(1.0));
+        dca.set_pan(BipolarNormal::new(1.0));
         assert_eq!(
             dca.transform_audio_to_stereo(&clock, VALUE_IN),
-            StereoSample(0.0, VALUE),
+            StereoSample::new_from_f64(0.0, VALUE),
             "Pan right should give 100% to right channel"
         );
     }

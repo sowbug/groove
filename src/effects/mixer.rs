@@ -24,6 +24,15 @@ impl<M: MessageBounds> TransformsAudio for Mixer<M> {
         // that by putting `Gain`s in front.
         input_sample
     }
+
+    fn transform_channel(
+        &mut self,
+        _clock: &Clock,
+        _channel: usize,
+        input_sample: crate::common::Sample,
+    ) -> crate::common::Sample {
+        input_sample
+    }
 }
 impl<M: MessageBounds> Updateable for Mixer<M> {
     type Message = M;

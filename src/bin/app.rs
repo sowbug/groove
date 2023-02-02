@@ -8,7 +8,7 @@ use groove::{
     Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity, Chorus, Clock,
     Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, FmSynthesizer, Gain,
     GrooveMessage, GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
-    MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Note,
+    MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Normal, Note,
     Pattern, PatternManager, PatternMessage, Reverb, Sampler, SimpleSynthesizer, TestLfo,
     TestSynth, Timer, WelshSynth,
 };
@@ -23,7 +23,7 @@ use iced::{
     widget::{button, column, container, pick_list, row, scrollable, text, text_input},
     Alignment, Application, Command, Element, Length, Settings, Subscription,
 };
-use iced_audio::{HSlider, Normal, NormalParam};
+use iced_audio::{HSlider, Normal as IcedNormal, NormalParam};
 use iced_native::{window, Event};
 use rustc_hash::FxHashMap;
 use std::{
@@ -401,7 +401,7 @@ impl GrooveApp {
                     },
                     BoxedEntity::Gain(e) => match message {
                         EntityMessage::HSliderInt(value) => {
-                            e.set_ceiling(value.as_f32());
+                            e.set_ceiling(Normal::new_from_f32(value.as_f32()));
                         }
                         _ => todo!(),
                     },
@@ -817,8 +817,8 @@ impl GrooveApp {
         self.collapsing_box("Gain", e.uid(), || {
             let slider = HSlider::new(
                 NormalParam {
-                    value: Normal::from_clipped(e.ceiling()),
-                    default: Normal::from_clipped(1.0),
+                    value: IcedNormal::from_clipped(e.ceiling().value() as f32),
+                    default: IcedNormal::from_clipped(1.0),
                 },
                 EntityMessage::HSliderInt,
             );
@@ -830,8 +830,8 @@ impl GrooveApp {
         self.collapsing_box("FM", e.uid(), || {
             let slider = HSlider::new(
                 NormalParam {
-                    value: Normal::from_clipped(42.0), // TODO
-                    default: Normal::from_clipped(1.0),
+                    value: IcedNormal::from_clipped(42.0), // TODO
+                    default: IcedNormal::from_clipped(1.0),
                 },
                 EntityMessage::HSliderInt,
             );
@@ -843,8 +843,8 @@ impl GrooveApp {
         let title = type_name::<BiQuadFilter<EntityMessage>>();
         let slider = HSlider::new(
             NormalParam {
-                value: Normal::from_clipped(e.cutoff_pct()),
-                default: Normal::from_clipped(1.0),
+                value: IcedNormal::from_clipped(e.cutoff_pct()),
+                default: IcedNormal::from_clipped(1.0),
             },
             EntityMessage::HSliderInt,
         );
@@ -873,8 +873,8 @@ impl GrooveApp {
         self.collapsing_box("Compressor", e.uid(), || {
             let slider = HSlider::new(
                 NormalParam {
-                    value: Normal::from_clipped(e.threshold()),
-                    default: Normal::from_clipped(1.0),
+                    value: IcedNormal::from_clipped(e.threshold()),
+                    default: IcedNormal::from_clipped(1.0),
                 },
                 EntityMessage::HSliderInt,
             );

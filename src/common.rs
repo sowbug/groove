@@ -5,6 +5,11 @@ use std::ops::{Add, AddAssign, Mul, Neg, Sub};
 /// f32/OldMonoSample to MonoSample/StereoSample.
 pub type SampleType = f64;
 
+/// Use ParameterType in places where a Normal or BipolarNormal could fit,
+/// except you don't have any range restrictions.
+#[allow(dead_code)]
+pub type ParameterType = f64;
+
 /// Sample is an audio sample.
 #[derive(Debug, Default, PartialEq, PartialOrd)]
 pub struct Sample(pub SampleType);
@@ -22,6 +27,11 @@ impl Sample {
     pub const MIN_VALUE: f64 = -1.0;
     #[allow(dead_code)]
     pub const MIN: Sample = Sample(Self::MIN_VALUE);
+
+    // TODO: deprecate
+    pub fn new_from_f32(value: f32) -> Self {
+        Self(value as f64)
+    }
 }
 impl AddAssign for Sample {
     fn add_assign(&mut self, rhs: Self) {
@@ -77,13 +87,20 @@ pub const MONO_SAMPLE_SILENCE: OldMonoSample = 0.0;
 pub const MONO_SAMPLE_MAX: OldMonoSample = 1.0;
 pub const MONO_SAMPLE_MIN: OldMonoSample = -1.0;
 
-/// StereoSample is a two-channel sample. Each channel is a MonoSample.
+/// StereoSample is a two-channel sample.
 #[derive(Debug, Default, PartialEq, PartialOrd)]
-pub struct StereoSample(pub SampleType, pub SampleType);
+pub struct StereoSample(pub Sample, pub Sample);
 impl StereoSample {
-    pub const SILENCE: StereoSample = StereoSample(0.0, 0.0);
-    pub const MAX: StereoSample = StereoSample(1.0, 1.0);
-    pub const MIN: StereoSample = StereoSample(-1.0, -1.0);
+    pub const SILENCE: StereoSample = StereoSample(Sample::SILENCE, Sample::SILENCE);
+    pub const MAX: StereoSample = StereoSample(Sample::MAX, Sample::MAX);
+    pub const MIN: StereoSample = StereoSample(Sample::MIN, Sample::MIN);
+
+    pub fn new_from_f64(left: SampleType, right: SampleType) -> Self {
+        Self {
+            0: Sample(left),
+            1: Sample(right),
+        }
+    }
 }
 
 pub type DeviceId = String;
@@ -118,7 +135,9 @@ impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
     pub fn new(value: f64) -> Self {
         Self(value.clamp(Self::MIN, Self::MAX))
     }
-
+    pub fn new_from_f32(value: f32) -> Self {
+        Self::new(value as f64)
+    }
     pub fn maximum() -> Self {
         Self(Self::MAX)
     }
@@ -166,8 +185,8 @@ impl<const LOWER: i8, const UPPER: i8> From<RangedF64<LOWER, UPPER>> for f64 {
     }
 }
 
-pub type Unipolar = RangedF64<0, 1>;
-pub type Bipolar = RangedF64<-1, 1>;
+pub type Normal = RangedF64<0, 1>;
+pub type BipolarNormal = RangedF64<-1, 1>;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct TimeUnit(pub f64);
@@ -207,23 +226,23 @@ impl Add<TimeUnit> for TimeUnit {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::Unipolar;
+    use crate::common::Normal;
 
     #[test]
     fn unipolar_mainline() {
-        let a = Unipolar::new(0.2);
-        let b = Unipolar::new(0.1);
+        let a = Normal::new(0.2);
+        let b = Normal::new(0.1);
 
-        // Add(Unipolar)
-        assert_eq!(a + b, Unipolar::new(0.2 + 0.1));
+        // Add(Normal)
+        assert_eq!(a + b, Normal::new(0.2 + 0.1));
 
-        // Sub(Unipolar)
-        assert_eq!(a - b, Unipolar::new(0.1));
+        // Sub(Normal)
+        assert_eq!(a - b, Normal::new(0.1));
 
         // Add(f64)
-        assert_eq!(a + 0.2f64, Unipolar::new(0.4));
+        assert_eq!(a + 0.2f64, Normal::new(0.4));
 
         // Sub(f64)
-        assert_eq!(a - 0.1, Unipolar::new(0.1));
+        assert_eq!(a - 0.1, Normal::new(0.1));
     }
 }
