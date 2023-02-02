@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, OldMonoSample, MONO_SAMPLE_SILENCE},
+    common::{F32ControlValue, OldMonoSample, Sample, MONO_SAMPLE_SILENCE},
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -194,8 +194,14 @@ pub struct Delay {
 }
 impl IsEffect for Delay {}
 impl TransformsAudio for Delay {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
-        self.delay.pop_output(input_sample)
+    fn transform_channel(
+        &mut self,
+        _clock: &Clock,
+        _channel: usize,
+        input_sample: crate::common::Sample,
+    ) -> crate::common::Sample {
+        let input_sample = input_sample.0 as OldMonoSample;
+        Sample::from(self.delay.pop_output(input_sample))
     }
 }
 impl Updateable for Delay {

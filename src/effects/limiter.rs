@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, OldMonoSample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
+    common::{F32ControlValue, OldMonoSample, Sample, MONO_SAMPLE_MAX, MONO_SAMPLE_MIN},
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -19,9 +19,16 @@ pub struct Limiter {
 }
 impl IsEffect for Limiter {}
 impl TransformsAudio for Limiter {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
+    fn transform_channel(
+        &mut self,
+        _clock: &Clock,
+        _channel: usize,
+        input_sample: crate::common::Sample,
+    ) -> crate::common::Sample {
+        let input_sample = input_sample.0 as OldMonoSample;
         let sign = input_sample.signum();
-        input_sample.abs().clamp(self.min, self.max) * sign
+
+        Sample::from(input_sample.abs().clamp(self.min, self.max) * sign)
     }
 }
 impl Updateable for Limiter {

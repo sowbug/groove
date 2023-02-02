@@ -485,11 +485,12 @@ pub mod tests {
         }
     }
     impl<M: MessageBounds> TransformsAudio for TestMixer<M> {
-        fn transform_stereo_audio(
+        fn transform_channel(
             &mut self,
             _clock: &Clock,
-            input_sample: StereoSample,
-        ) -> StereoSample {
+            _channel: usize,
+            input_sample: crate::common::Sample,
+        ) -> crate::common::Sample {
             input_sample
         }
     }

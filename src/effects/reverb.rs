@@ -2,7 +2,7 @@ use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    common::OldMonoSample,
+    common::{OldMonoSample, Sample},
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -32,15 +32,23 @@ pub struct Reverb {
 }
 impl IsEffect for Reverb {}
 impl TransformsAudio for Reverb {
-    fn transform_audio(&mut self, _clock: &Clock, input: OldMonoSample) -> OldMonoSample {
-        let input_attenuated = input * self.attenuation;
+    fn transform_channel(
+        &mut self,
+        _clock: &Clock,
+        _channel: usize,
+        input_sample: crate::common::Sample,
+    ) -> crate::common::Sample {
+        let input_sample = input_sample.0 as OldMonoSample;
+        let input_attenuated = input_sample * self.attenuation;
         let recirc_output = self.recirc_delay_lines[0].pop_output(input_attenuated)
             + self.recirc_delay_lines[1].pop_output(input_attenuated)
             + self.recirc_delay_lines[2].pop_output(input_attenuated)
             + self.recirc_delay_lines[3].pop_output(input_attenuated);
         let adl_0_out = self.allpass_delay_lines[0].pop_output(recirc_output);
-        self.wet_dry_mix * self.allpass_delay_lines[1].pop_output(adl_0_out)
-            + (1.0 - self.wet_dry_mix) * input
+        Sample::from(
+            self.wet_dry_mix * self.allpass_delay_lines[1].pop_output(adl_0_out)
+                + (1.0 - self.wet_dry_mix) * input_sample,
+        )
     }
 }
 impl Updateable for Reverb {

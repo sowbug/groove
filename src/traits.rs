@@ -103,12 +103,6 @@ pub trait SourcesAudio: std::fmt::Debug + Send {
 /// SourcesAudio, does something to it, and then outputs it. It's what effects
 /// do.
 pub trait TransformsAudio: std::fmt::Debug {
-    #[deprecated]
-    #[allow(unused_variables)]
-    fn transform_audio(&mut self, clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
-        MONO_SAMPLE_SILENCE
-    }
-
     fn transform_stereo_audio(
         &mut self,
         clock: &Clock,
@@ -123,12 +117,7 @@ pub trait TransformsAudio: std::fmt::Debug {
         )
     }
 
-    #[allow(unused_variables)]
-    fn transform_channel(&mut self, clock: &Clock, channel: usize, input_sample: Sample) -> Sample {
-        // TODO: remove this default implementation once everyone implements it
-        #[allow(deprecated)]
-        Sample(self.transform_audio(clock, input_sample.0 as OldMonoSample) as f64)
-    }
+    fn transform_channel(&mut self, clock: &Clock, channel: usize, input_sample: Sample) -> Sample;
 }
 
 /// A TransformsAudioToStereo takes monophonic input audio and outputs stereo

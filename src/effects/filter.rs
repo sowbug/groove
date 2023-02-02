@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, OldMonoSample},
+    common::{F32ControlValue, OldMonoSample, Sample},
     messages::{EntityMessage, MessageBounds},
     traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
@@ -143,7 +143,13 @@ pub struct BiQuadFilter<M: MessageBounds> {
 }
 impl<M: MessageBounds> IsEffect for BiQuadFilter<M> {}
 impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
+    fn transform_channel(
+        &mut self,
+        _clock: &Clock,
+        _channel: usize,
+        input_sample: crate::common::Sample,
+    ) -> crate::common::Sample {
+        let input_sample = input_sample.0 as OldMonoSample;
         match self.filter_type {
             FilterType::LowPass24db => {
                 // Thanks
@@ -158,7 +164,7 @@ impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
                     + self.coefficients_2.a4 * output
                     + self.state_3;
                 self.state_3 = self.coefficients_2.b5 * stage_1 + self.coefficients_2.a5 * output;
-                output as OldMonoSample
+                Sample::from(output)
             }
             _ => {
                 let s64 = input_sample as f64;
@@ -174,7 +180,7 @@ impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
 
                 self.output_m2 = self.output_m1;
                 self.output_m1 = r;
-                r as OldMonoSample
+                Sample::from(r)
             }
         }
     }

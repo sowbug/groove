@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, OldMonoSample},
+    common::F32ControlValue,
     messages::MessageBounds,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -17,20 +17,16 @@ pub struct Mixer<M: MessageBounds> {
 }
 impl<M: MessageBounds> IsEffect for Mixer<M> {}
 impl<M: MessageBounds> TransformsAudio for Mixer<M> {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
-        // This is a simple pass-through because it's the job of the
-        // infrastructure to provide a sum of all inputs as the input.
-        // Eventually this might turn into a weighted mixer, or we might handle
-        // that by putting `Gain`s in front.
-        input_sample
-    }
-
     fn transform_channel(
         &mut self,
         _clock: &Clock,
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
+        // This is a simple pass-through because it's the job of the
+        // infrastructure to provide a sum of all inputs as the input.
+        // Eventually this might turn into a weighted mixer, or we might handle
+        // that by putting `Gain`s in front.
         input_sample
     }
 }
