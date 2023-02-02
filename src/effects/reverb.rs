@@ -98,15 +98,21 @@ impl Reverb {
 #[cfg(test)]
 mod tests {
     use super::Reverb;
-    use crate::{common::MONO_SAMPLE_SILENCE, traits::TransformsAudio, Clock};
+    use crate::{common::Sample, traits::TransformsAudio, Clock};
 
     #[test]
     fn reverb_dry_works() {
         let mut clock = Clock::default();
         let mut fx = Reverb::new_with(clock.sample_rate(), 0.0, 0.5, 1.5);
-        assert_eq!(fx.transform_audio(&clock, 0.8), 0.8);
+        assert_eq!(
+            fx.transform_channel(&clock, 0, Sample::from(0.8f32)),
+            Sample::from(0.8f32)
+        );
         clock.tick();
-        assert_eq!(fx.transform_audio(&clock, 0.7), 0.7);
+        assert_eq!(
+            fx.transform_channel(&clock, 0, Sample::from(0.7f32)),
+            Sample::from(0.7f32)
+        );
     }
 
     #[test]
@@ -118,13 +124,16 @@ mod tests {
         // wrong, but I couldn't have predicted that exact number.
         let mut clock = Clock::default();
         let mut fx = Reverb::new_with(clock.sample_rate(), 1.0, 0.9, 0.5);
-        assert_eq!(fx.transform_audio(&clock, 0.8), 0.0);
+        assert_eq!(
+            fx.transform_channel(&clock, 0, Sample::from(0.8)),
+            Sample::SILENCE
+        );
         clock.debug_set_seconds(0.5);
-        let mut s = MONO_SAMPLE_SILENCE;
+        let mut s = Sample::default();
         for _ in 0..44100 {
-            s += fx.transform_audio(&clock, 0.0);
+            s += fx.transform_channel(&clock, 0, Sample::SILENCE);
             clock.tick();
         }
-        assert!(s != 0.0);
+        assert!(s != Sample::SILENCE);
     }
 }

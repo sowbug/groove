@@ -118,7 +118,10 @@ impl Compressor {
 
 #[cfg(test)]
 mod tests {
-    use crate::{effects::compressor::Compressor, traits::TransformsAudio, BoxedEntity, Clock};
+    use crate::{
+        common::Sample, effects::compressor::Compressor, traits::TransformsAudio, BoxedEntity,
+        Clock,
+    };
 
     #[test]
     fn compressor_exists() {
@@ -134,8 +137,8 @@ mod tests {
         const THRESHOLD: f32 = 0.25;
         let mut fx = Compressor::new_with(THRESHOLD, 0.5, 0.0, 0.0);
         assert_eq!(
-            fx.transform_audio(&clock, 0.35),
-            (0.35 - THRESHOLD) * 0.5 + THRESHOLD
+            fx.transform_channel(&clock, 0, Sample::from(0.35)),
+            Sample::from((0.35 - THRESHOLD) * 0.5 + THRESHOLD)
         );
     }
 
@@ -143,13 +146,19 @@ mod tests {
     fn nothing_compressor() {
         let clock = Clock::default();
         let mut fx = Compressor::new_with(0.25, 1.0, 0.0, 0.0);
-        assert_eq!(fx.transform_audio(&clock, 0.35), 0.35);
+        assert_eq!(
+            fx.transform_channel(&clock, 0, Sample::from(0.35f32)),
+            Sample::from(0.35f32)
+        );
     }
 
     #[test]
     fn infinite_compressor() {
         let clock = Clock::default();
         let mut fx = Compressor::new_with(0.25, 0.0, 0.0, 0.0);
-        assert_eq!(fx.transform_audio(&clock, 0.35), 0.25);
+        assert_eq!(
+            fx.transform_channel(&clock, 0, Sample::from(0.35)),
+            Sample::from(0.25)
+        );
     }
 }

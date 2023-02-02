@@ -103,7 +103,7 @@ impl MessageBounds for EntityMessage {}
 #[cfg(test)]
 pub mod tests {
     use super::{EntityMessage, MessageBounds};
-    use crate::{common::OldMonoSample, midi::MidiChannel, StereoSample};
+    use crate::{midi::MidiChannel, StereoSample};
     use midly::MidiMessage;
 
     #[derive(Clone, Debug, Default)]

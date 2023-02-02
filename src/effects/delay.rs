@@ -235,7 +235,7 @@ mod tests {
     use rand::random;
 
     use super::*;
-    use crate::clock::Clock;
+    use crate::{clock::Clock, common::Sample};
 
     #[test]
     fn test_delay_basic() {
@@ -243,14 +243,17 @@ mod tests {
         let mut fx = Delay::new_with(clock.sample_rate(), 1.0);
 
         // Add a unique first sample.
-        assert_eq!(fx.transform_audio(&clock, 0.5), 0.0);
+        assert_eq!(
+            fx.transform_channel(&clock, 0, Sample::from(0.5)),
+            Sample::SILENCE
+        );
         clock.tick();
 
         // Push a whole bunch more.
         for i in 0..clock.sample_rate() - 1 {
             assert_eq!(
-                fx.transform_audio(&clock, 1.0),
-                0.0,
+                fx.transform_channel(&clock, 0, Sample::MAX),
+                Sample::SILENCE,
                 "unexpected value at sample {}",
                 i
             );
@@ -258,11 +261,17 @@ mod tests {
         }
 
         // We should get back our first sentinel sample.
-        assert_eq!(fx.transform_audio(&clock, 0.0), 0.5);
+        assert_eq!(
+            fx.transform_channel(&clock, 0, Sample::SILENCE),
+            Sample::from(0.5)
+        );
         clock.tick();
 
         // And the next should be one of the bunch.
-        assert_eq!(fx.transform_audio(&clock, 0.0), 1.0);
+        assert_eq!(
+            fx.transform_channel(&clock, 0, Sample::SILENCE),
+            Sample::MAX
+        );
         clock.tick();
     }
 
@@ -273,10 +282,10 @@ mod tests {
 
         // We should keep getting back what we put in.
         for i in 0..clock.sample_rate() {
-            let mut sample: f32 = random();
-            sample = sample.fract() * 2.0 - 1.0;
+            let random_bipolar_normal = random::<f32>().fract() * 2.0 - 1.0;
+            let sample = Sample::from(random_bipolar_normal);
             assert_eq!(
-                fx.transform_audio(&clock, sample),
+                fx.transform_channel(&clock, 0, sample),
                 sample,
                 "unexpected value at sample {}",
                 i

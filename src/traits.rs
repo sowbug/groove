@@ -1,5 +1,6 @@
 use crate::clock::ClockTimeUnit;
 use crate::common::{F32ControlValue, Sample, StereoSample};
+use crate::instruments::Dca;
 use crate::messages::EntityMessage;
 use crate::{clock::Clock, common::OldMonoSample, messages::MessageBounds};
 use crate::{
@@ -87,7 +88,10 @@ pub trait HasUid {
 /// A SourcesAudio provides audio in the form of digital samples.
 pub trait SourcesAudio: std::fmt::Debug + Send {
     // TODO #[deprecated]
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample;
+    #[allow(unused_variables)]
+    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
+        MONO_SAMPLE_SILENCE
+    }
     fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
         // TODO: remove this default implementation once it's obsolete
         let sample = self.source_audio(clock);
@@ -99,7 +103,8 @@ pub trait SourcesAudio: std::fmt::Debug + Send {
 /// SourcesAudio, does something to it, and then outputs it. It's what effects
 /// do.
 pub trait TransformsAudio: std::fmt::Debug {
-    // TODO #[deprecated]
+    #[deprecated]
+    #[allow(unused_variables)]
     fn transform_audio(&mut self, clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
         MONO_SAMPLE_SILENCE
     }
@@ -121,6 +126,7 @@ pub trait TransformsAudio: std::fmt::Debug {
     #[allow(unused_variables)]
     fn transform_channel(&mut self, clock: &Clock, channel: usize, input_sample: Sample) -> Sample {
         // TODO: remove this default implementation once everyone implements it
+        #[allow(deprecated)]
         Sample(self.transform_audio(clock, input_sample.0 as OldMonoSample) as f64)
     }
 }
@@ -351,11 +357,6 @@ pub struct TestEffect<M: MessageBounds> {
 }
 impl<M: MessageBounds> IsEffect for TestEffect<M> {}
 impl<M: MessageBounds> TransformsAudio for TestEffect<M> {
-    fn transform_audio(&mut self, clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
-        self.check_values(clock);
-        -input_sample
-    }
-
     fn transform_channel(
         &mut self,
         clock: &Clock,
@@ -455,6 +456,7 @@ pub struct TestInstrument<M: MessageBounds> {
     pub fake_value: f32,
 
     oscillator: Oscillator,
+    dca: Dca,
     pub is_playing: bool,
     pub received_count: usize,
     pub handled_count: usize,
@@ -586,7 +588,7 @@ impl<M: MessageBounds> TestInstrument<M> {
 }
 
 impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
+    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
         // If we've been asked to assert values at checkpoints, do so.
         if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
         {
@@ -596,9 +598,10 @@ impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
             self.checkpoint_values.pop_front();
         }
         if self.is_playing {
-            self.oscillator.source_audio(clock)
+            self.dca
+                .transform_audio_to_stereo(clock, self.oscillator.source_audio(clock))
         } else {
-            MONO_SAMPLE_SILENCE
+            StereoSample::SILENCE
         }
     }
 }

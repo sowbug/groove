@@ -134,7 +134,7 @@ impl Runner {
 
     fn dispatch_sample(&mut self, sample: StereoSample) {
         if let Some(output) = self.audio_output.as_mut() {
-            output.push(sample);
+            let _ = output.push(sample);
         }
     }
 

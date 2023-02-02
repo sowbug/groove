@@ -4,7 +4,7 @@ use super::{
     Dca, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
 use crate::{
-    common::{F32ControlValue, Normal, OldMonoSample, MONO_SAMPLE_SILENCE},
+    common::{F32ControlValue, Normal, OldMonoSample, Sample, MONO_SAMPLE_SILENCE},
     effects::filter::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
     messages::EntityMessage,
@@ -633,7 +633,10 @@ impl SourcesAudio for WelshVoice {
             self.filter
                 .set_cutoff_pct(self.filter_cutoff_start * (1.0 + lfo_for_cutoff));
         }
-        let filtered_mix = self.filter.transform_audio(clock, osc_sum);
+        let filtered_mix = self
+            .filter
+            .transform_channel(clock, 0, Sample::from(osc_sum))
+            .0;
 
         // LFO amplitude modulation
         let lfo_for_amplitude = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
@@ -646,7 +649,7 @@ impl SourcesAudio for WelshVoice {
         let amp_envelope_level = amp_env_amplitude.value() as f32;
 
         // Final
-        filtered_mix * amp_envelope_level * lfo_for_amplitude
+        filtered_mix as f32 * amp_envelope_level * lfo_for_amplitude
     }
 
     fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {

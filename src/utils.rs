@@ -485,11 +485,11 @@ pub mod tests {
         }
     }
     impl<M: MessageBounds> TransformsAudio for TestMixer<M> {
-        fn transform_audio(
+        fn transform_stereo_audio(
             &mut self,
             _clock: &Clock,
-            input_sample: OldMonoSample,
-        ) -> OldMonoSample {
+            input_sample: StereoSample,
+        ) -> StereoSample {
             input_sample
         }
     }

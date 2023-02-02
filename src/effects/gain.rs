@@ -87,11 +87,15 @@ mod tests {
         let mut gain = Gain::<EntityMessage>::new_with(Normal::new(0.5));
         let clock = Clock::default();
         assert_eq!(
-            gain.transform_audio(
+            gain.transform_channel(
                 &clock,
-                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
-                    .source_audio(&clock)
-            ),
+                0,
+                Sample::from(
+                    AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
+                        .source_audio(&clock)
+                )
+            )
+            .0,
             0.5
         );
     }
