@@ -1,4 +1,7 @@
-use std::ops::{Add, AddAssign, Mul, Neg, Sub};
+use std::{
+    iter::Sum,
+    ops::{Add, AddAssign, Mul, Neg, Sub},
+};
 
 /// SampleType is the underlying primitive that makes up MonoSample and
 /// StereoSample. It exists as a transition aid while we migrate from hardcoded
@@ -11,7 +14,7 @@ pub type SampleType = f64;
 pub type ParameterType = f64;
 
 /// Sample is an audio sample.
-#[derive(Debug, Default, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Sample(pub SampleType);
 
 impl Sample {
@@ -88,7 +91,7 @@ pub const MONO_SAMPLE_MAX: OldMonoSample = 1.0;
 pub const MONO_SAMPLE_MIN: OldMonoSample = -1.0;
 
 /// StereoSample is a two-channel sample.
-#[derive(Debug, Default, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct StereoSample(pub Sample, pub Sample);
 impl StereoSample {
     pub const SILENCE: StereoSample = StereoSample(Sample::SILENCE, Sample::SILENCE);
@@ -100,6 +103,37 @@ impl StereoSample {
             0: Sample(left),
             1: Sample(right),
         }
+    }
+
+    pub fn new_from_single_f64(value: SampleType) -> Self {
+        Self::new_from_f64(value, value)
+    }
+}
+impl Add for StereoSample {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        StereoSample(self.0 + rhs.0, self.1 + rhs.1)
+    }
+}
+impl AddAssign for StereoSample {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+        self.1 += rhs.1;
+    }
+}
+impl Sum for StereoSample {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(
+            Self {
+                0: Sample::SILENCE,
+                1: Sample::SILENCE,
+            },
+            |a, b| Self {
+                0: a.0 + b.0,
+                1: a.1 + b.1,
+            },
+        )
     }
 }
 
@@ -226,10 +260,17 @@ impl Add<TimeUnit> for TimeUnit {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::Normal;
+    use crate::{common::Normal, StereoSample};
 
+    impl StereoSample {
+        // TODO: epsilon comparisons are bad. Figure out ULP (see float-cmp)
+        pub(crate) fn almost_equals(&self, rhs: Self) -> bool {
+            let epsilon = 0.0000001;
+            (self.0 .0 - rhs.0 .0).abs() < epsilon && (self.1 .0 - rhs.1 .0).abs() < epsilon
+        }
+    }
     #[test]
-    fn unipolar_mainline() {
+    fn normal_mainline() {
         let a = Normal::new(0.2);
         let b = Normal::new(0.1);
 

@@ -1,7 +1,7 @@
 use super::{
     envelopes::{GeneratesEnvelope, SimpleEnvelope},
     oscillators::Oscillator,
-    IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
+    Dca, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
 use crate::{
     common::{F32ControlValue, Normal, OldMonoSample, MONO_SAMPLE_SILENCE},
@@ -14,7 +14,8 @@ use crate::{
         LoadError,
     },
     traits::{
-        Controllable, HasUid, IsInstrument, Response, SourcesAudio, TransformsAudio, Updateable,
+        Controllable, HasUid, IsInstrument, Response, SourcesAudio, TransformsAudio,
+        TransformsAudioToStereo, Updateable,
     },
     utils::Paths,
     Clock,
@@ -418,6 +419,7 @@ pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
     oscillator_2_sync: bool,
     amp_envelope: SimpleEnvelope,
+    dca: Dca,
 
     lfo: Oscillator,
     lfo_routing: LfoRouting,
@@ -646,6 +648,11 @@ impl SourcesAudio for WelshVoice {
         // Final
         filtered_mix * amp_envelope_level * lfo_for_amplitude
     }
+
+    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+        let input_sample = self.source_audio(clock);
+        self.dca.transform_audio_to_stereo(clock, input_sample)
+    }
 }
 
 #[derive(Control, Debug, Uid)]
@@ -663,6 +670,10 @@ impl SourcesAudio for WelshSynth {
             self.debug_last_seconds = clock.seconds();
         }
         self.inner_synth.source_audio(clock)
+    }
+
+    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+        self.inner_synth.source_stereo_audio(clock)
     }
 }
 impl Updateable for WelshSynth {

@@ -380,7 +380,7 @@ pub mod tests {
     use super::Timer;
     use crate::{
         clock::Clock,
-        common::{OldMonoSample, MONO_SAMPLE_SILENCE},
+        common::OldMonoSample,
         controllers::orchestrator::Orchestrator,
         entities::BoxedEntity,
         messages::{tests::TestMessage, EntityMessage, GrooveMessage, MessageBounds},
@@ -393,6 +393,7 @@ pub mod tests {
             transform_linear_to_mma_concave, transform_linear_to_mma_convex, F32ControlValue,
             TestLfo, TestSynth, TestSynthControlParams,
         },
+        StereoSample,
     };
     use convert_case::{Case, Casing};
     use groove_macros::Control;
@@ -587,16 +588,16 @@ pub mod tests {
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
 
             // It should not all be silence.
-            assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
+            assert!(!samples_1.iter().any(|&s| s != StereoSample::SILENCE));
 
             // Run again but without the negating effect in the mix.
             assert!(o.unpatch(synth_uid, effect_uid).is_ok());
             clock.reset();
             if let Ok(samples_2) = o.run(&mut clock) {
                 // The sample pairs should cancel each other out.
-                assert!(!samples_2.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
+                assert!(!samples_2.iter().any(|&s| s != StereoSample::SILENCE));
                 samples_1.iter().zip(samples_2.iter()).all(|(a, b)| {
-                    *a + *b == MONO_SAMPLE_SILENCE && (*a == MONO_SAMPLE_SILENCE || *a != *b)
+                    *a + *b == StereoSample::SILENCE && (*a == StereoSample::SILENCE || *a != *b)
                 });
             }
         }
@@ -638,7 +639,7 @@ pub mod tests {
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
 
             // It should not all be silence.
-            assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
+            assert!(!samples_1.iter().any(|&s| s != StereoSample::SILENCE));
 
             // Run again after disconnecting the LFO.
             o.unlink_control(lfo_uid, synth_1_uid);
@@ -688,7 +689,7 @@ pub mod tests {
         if let Ok(samples) = o.run(&mut clock) {
             // We haven't asked the arpeggiator to start sending anything yet.
             assert!(
-                samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
+                samples.iter().all(|&s| s == StereoSample::SILENCE),
                 "Expected total silence because the arpeggiator is not turned on."
             );
         } else {
@@ -700,7 +701,7 @@ pub mod tests {
         clock.reset();
         if let Ok(samples) = o.run(&mut clock) {
             assert!(
-                samples.iter().any(|&s| s != MONO_SAMPLE_SILENCE),
+                samples.iter().any(|&s| s != StereoSample::SILENCE),
                 "Expected some sound because the arpeggiator is now running."
             );
         } else {
@@ -728,7 +729,7 @@ pub mod tests {
         clock.reset();
         if let Ok(samples) = o.run(&mut clock) {
             assert!(
-                samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
+                samples.iter().all(|&s| s == StereoSample::SILENCE),
                 "Expected total silence again after disabling the arpeggiator."
             );
         } else {
@@ -742,7 +743,7 @@ pub mod tests {
         clock.reset();
         if let Ok(samples) = o.run(&mut clock) {
             assert!(
-                samples.iter().all(|&s| s == MONO_SAMPLE_SILENCE),
+                samples.iter().all(|&s| s == StereoSample::SILENCE),
                 "Expected total silence after disconnecting the instrument from the MIDI bus."
             );
         } else {
@@ -784,16 +785,16 @@ pub mod tests {
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
 
             // It should not all be silence.
-            assert!(!samples_1.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
+            assert!(!samples_1.iter().any(|&s| s != StereoSample::SILENCE));
 
             // Run again but without the negating effect in the mix.
             assert!(o.unpatch(synth_uid, effect_uid).is_ok());
             clock.reset();
             if let Ok(samples_2) = o.run(&mut clock) {
                 // The sample pairs should cancel each other out.
-                assert!(!samples_2.iter().any(|&s| s != MONO_SAMPLE_SILENCE));
+                assert!(!samples_2.iter().any(|&s| s != StereoSample::SILENCE));
                 samples_1.iter().zip(samples_2.iter()).all(|(a, b)| {
-                    *a + *b == MONO_SAMPLE_SILENCE && (*a == MONO_SAMPLE_SILENCE || *a != *b)
+                    *a + *b == StereoSample::SILENCE && (*a == StereoSample::SILENCE || *a != *b)
                 });
             }
         }

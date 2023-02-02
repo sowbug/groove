@@ -1,7 +1,6 @@
 use super::Performance;
 use crate::{
     clock::Clock,
-    common::{OldMonoSample, MONO_SAMPLE_SILENCE},
     effects::mixer::Mixer,
     entities::BoxedEntity,
     messages::{EntityMessage, GrooveMessage, MessageBounds},
@@ -9,7 +8,7 @@ use crate::{
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     settings::ClockSettings,
     traits::{HasUid, Internal, Response, Terminates},
-    BeatSequencer, IOHelper, Paths,
+    BeatSequencer, IOHelper, Paths, StereoSample,
 };
 use anyhow::anyhow;
 use dipstick::InputScope;
@@ -230,14 +229,14 @@ impl<M: MessageBounds> Orchestrator<M> {
     // marker with the current sum, then push the children as to-visit). When a
     // marker pops up, eval with the current sum (nodes are effects, so they
     // take an input), then add to the running sum.
-    fn gather_audio(&mut self, clock: &Clock) -> OldMonoSample {
+    fn gather_audio(&mut self, clock: &Clock) -> StereoSample {
         enum StackEntry {
             ToVisit(usize),
-            CollectResultFor(usize, OldMonoSample),
+            CollectResultFor(usize, StereoSample),
         }
         let gather_audio_start_time = self.metrics.gather_audio_fn_timer.start();
         let mut stack = Vec::new();
-        let mut sum = MONO_SAMPLE_SILENCE;
+        let mut sum = StereoSample::default();
         stack.push(StackEntry::ToVisit(self.main_mixer_uid));
 
         self.metrics.mark_stack_loop_entry.mark();
@@ -258,10 +257,10 @@ impl<M: MessageBounds> Orchestrator<M> {
                         if let Some(entity) = entity.as_is_instrument_mut() {
                             if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
                                 let start_time = timer.start();
-                                sum += entity.source_audio(clock);
+                                sum += entity.source_stereo_audio(clock);
                                 timer.stop(start_time);
                             } else {
-                                sum += entity.source_audio(clock);
+                                sum += entity.source_stereo_audio(clock);
                             }
                         } else if entity.as_is_effect().is_some() {
                             // If it's a node, push its children on the stack,
@@ -269,7 +268,7 @@ impl<M: MessageBounds> Orchestrator<M> {
 
                             // Tell us to process sum.
                             stack.push(StackEntry::CollectResultFor(uid, sum));
-                            sum = MONO_SAMPLE_SILENCE;
+                            sum = StereoSample::default();
                             if let Some(source_uids) = self.store.patches(uid) {
                                 for &source_uid in &source_uids.to_vec() {
                                     debug_assert!(source_uid != uid);
@@ -296,11 +295,12 @@ impl<M: MessageBounds> Orchestrator<M> {
                             sum = accumulated_sum
                                 + if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
                                     let start_time = timer.start();
-                                    let transform_audio = entity.transform_audio(clock, sum);
+                                    let transformed_audio =
+                                        entity.transform_stereo_audio(clock, sum);
                                     timer.stop(start_time);
-                                    transform_audio
+                                    transformed_audio
                                 } else {
-                                    entity.transform_audio(clock, sum)
+                                    entity.transform_stereo_audio(clock, sum)
                                 };
                         }
                     }
@@ -572,9 +572,9 @@ impl GrooveOrchestrator {
         }
     }
 
-    pub fn peek_command(command: &Response<GrooveMessage>) -> (OldMonoSample, bool) {
+    pub fn peek_command(command: &Response<GrooveMessage>) -> (StereoSample, bool) {
         let mut debug_matched_audio_output = false;
-        let mut sample = MONO_SAMPLE_SILENCE;
+        let mut sample = StereoSample::default();
         let mut done = false;
         match &command.0 {
             Internal::None => {}
@@ -622,8 +622,8 @@ impl GrooveOrchestrator {
     // should return true in the Terminates trait.
     //
     // TODO: unit-test it!
-    pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<OldMonoSample>> {
-        let mut samples = Vec::<OldMonoSample>::new();
+    pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<StereoSample>> {
+        let mut samples = Vec::<StereoSample>::new();
         loop {
             let command = self.update(clock, GrooveMessage::Tick);
             let (sample, done) = Self::peek_command(&command);
@@ -849,15 +849,15 @@ pub mod tests {
     use super::Orchestrator;
     use crate::{
         clock::Clock,
-        common::{Normal, OldMonoSample, MONO_SAMPLE_SILENCE},
+        common::Normal,
         effects::gain::Gain,
         entities::BoxedEntity,
         messages::{tests::TestMessage, EntityMessage},
         traits::{Internal, Response, Updateable},
         utils::{AudioSource, Timer},
-        GrooveMessage,
+        GrooveMessage, StereoSample,
     };
-    use assert_approx_eq::assert_approx_eq;
+    //    use assert_approx_eq::assert_approx_eq;
     use midly::MidiMessage;
 
     pub type TestOrchestrator = Orchestrator<TestMessage>;
@@ -936,8 +936,8 @@ pub mod tests {
         }
     }
     impl Orchestrator<TestMessage> {
-        pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<OldMonoSample>> {
-            let mut samples = Vec::<OldMonoSample>::new();
+        pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<StereoSample>> {
+            let mut samples = Vec::<StereoSample>::new();
             loop {
                 // TODO: maybe this should be Commands, with one as a sample, and an
                 // occasional one as a done message.
@@ -1029,9 +1029,9 @@ pub mod tests {
             }
         }
 
-        pub fn peek_command(command: &Response<TestMessage>) -> (OldMonoSample, bool) {
+        pub fn peek_command(command: &Response<TestMessage>) -> (StereoSample, bool) {
             let mut debug_matched_audio_output = false;
-            let mut sample = MONO_SAMPLE_SILENCE;
+            let mut sample = StereoSample::default();
             let mut done = false;
             match &command.0 {
                 Internal::None => {}
@@ -1088,19 +1088,25 @@ pub mod tests {
         let clock = Clock::default();
 
         // Nothing connected: should output silence.
-        assert_eq!(o.gather_audio(&clock), MONO_SAMPLE_SILENCE);
+        assert_eq!(o.gather_audio(&clock), StereoSample::SILENCE);
 
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
-        assert_eq!(o.gather_audio(&clock), 0.1);
+        assert!(o
+            .gather_audio(&clock)
+            .almost_equals(StereoSample::new_from_single_f64(0.1)));
 
         assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
-        assert_eq!(o.gather_audio(&clock), 0.2);
+        assert!(o
+            .gather_audio(&clock)
+            .almost_equals(StereoSample::new_from_single_f64(0.2)));
 
         assert!(o.unpatch_all().is_ok());
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
-        assert_eq!(o.gather_audio(&clock), 0.1 + 0.2);
+        assert!(o
+            .gather_audio(&clock)
+            .almost_equals(StereoSample::new_from_single_f64(0.1 + 0.2)));
     }
 
     #[test]
@@ -1129,33 +1135,43 @@ pub mod tests {
         let clock = Clock::default();
 
         // Nothing connected: should output silence.
-        assert_eq!(o.gather_audio(&clock), MONO_SAMPLE_SILENCE);
+        assert_eq!(o.gather_audio(&clock), StereoSample::SILENCE);
 
         // Just the single-level instrument; should get that.
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
-        assert_eq!(o.gather_audio(&clock), 0.1);
+        assert!(o
+            .gather_audio(&clock)
+            .almost_equals(StereoSample::new_from_single_f64(0.1)));
 
         // Gain alone; that's weird, but it shouldn't explode.
         assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(gain_1_uid).is_ok());
-        assert_eq!(o.gather_audio(&clock), MONO_SAMPLE_SILENCE);
+        assert_eq!(o.gather_audio(&clock), StereoSample::SILENCE);
 
         // Disconnect/reconnect and connect just the single-level instrument again.
         assert!(o.disconnect_from_main_mixer(gain_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
-        assert_eq!(o.gather_audio(&clock), 0.1);
+        assert!(o
+            .gather_audio(&clock)
+            .almost_equals(StereoSample::new_from_single_f64(0.1)));
 
         // Instrument to gain should result in (instrument x gain).
         assert!(o.unpatch_all().is_ok());
         assert!(o
             .patch_chain_to_main_mixer(&[level_1_uid, gain_1_uid])
             .is_ok());
-        assert_approx_eq!(o.gather_audio(&clock), 0.1 * 0.5);
+        assert!(o
+            .gather_audio(&clock)
+            .almost_equals(StereoSample::new_from_single_f64(0.1 * 0.5)));
 
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_3_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_4_uid).is_ok());
-        assert_approx_eq!(o.gather_audio(&clock), 0.1 * 0.5 + 0.2 + 0.3 + 0.4);
+        assert!(o
+            .gather_audio(&clock)
+            .almost_equals(StereoSample::new_from_single_f64(
+                0.1 * 0.5 + 0.2 + 0.3 + 0.4
+            )));
 
         // Same thing, but inverted order.
         assert!(o.unpatch_all().is_ok());
@@ -1165,7 +1181,11 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[level_1_uid, gain_1_uid])
             .is_ok());
-        assert_approx_eq!(o.gather_audio(&clock), 0.1 * 0.5 + 0.2 + 0.3 + 0.4);
+        assert!(o
+            .gather_audio(&clock)
+            .almost_equals(StereoSample::new_from_single_f64(
+                0.1 * 0.5 + 0.2 + 0.3 + 0.4
+            )));
     }
 
     #[test]
@@ -1213,7 +1233,7 @@ pub mod tests {
             .patch_chain_to_main_mixer(&[piano_1_uid, low_pass_1_uid, gain_1_uid])
             .is_ok());
         let sample_chain_1 = o.gather_audio(&clock);
-        assert_approx_eq!(sample_chain_1, 0.1 * 0.2 * 0.4);
+        assert!(sample_chain_1.almost_equals(StereoSample::new_from_single_f64(0.1 * 0.2 * 0.4)));
 
         // Second chain.
         assert!(o.unpatch_all().is_ok());
@@ -1221,7 +1241,7 @@ pub mod tests {
             .patch_chain_to_main_mixer(&[bassline_uid, gain_2_uid])
             .is_ok());
         let sample_chain_2 = o.gather_audio(&clock);
-        assert_approx_eq!(sample_chain_2, 0.3 * 0.6);
+        assert!(sample_chain_2.almost_equals(StereoSample::new_from_single_f64(0.3 * 0.6)));
 
         // Third.
         assert!(o.unpatch_all().is_ok());
@@ -1229,13 +1249,13 @@ pub mod tests {
             .patch_chain_to_main_mixer(&[synth_1_uid, gain_3_uid])
             .is_ok());
         let sample_chain_3 = o.gather_audio(&clock);
-        assert_approx_eq!(sample_chain_3, 0.5 * 0.8);
+        assert_eq!(sample_chain_3, StereoSample::new_from_single_f64(0.5 * 0.8));
 
         // Fourth.
         assert!(o.unpatch_all().is_ok());
         assert!(o.patch_chain_to_main_mixer(&[drum_1_uid]).is_ok());
         let sample_chain_4 = o.gather_audio(&clock);
-        assert_approx_eq!(sample_chain_4, 0.7);
+        assert!(sample_chain_4.almost_equals(StereoSample::new_from_single_f64(0.7)));
 
         // Now start over and successively add. This is first and second chains together.
         assert!(o.unpatch_all().is_ok());
@@ -1245,23 +1265,22 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[bassline_uid, gain_2_uid])
             .is_ok());
-        assert_approx_eq!(o.gather_audio(&clock), sample_chain_1 + sample_chain_2);
+        assert_eq!(o.gather_audio(&clock), sample_chain_1 + sample_chain_2);
 
         // Plus third.
         assert!(o
             .patch_chain_to_main_mixer(&[synth_1_uid, gain_3_uid])
             .is_ok());
-        assert_approx_eq!(
+        assert_eq!(
             o.gather_audio(&clock),
             sample_chain_1 + sample_chain_2 + sample_chain_3
         );
 
         // Plus fourth.
         assert!(o.patch_chain_to_main_mixer(&[drum_1_uid]).is_ok());
-        assert_approx_eq!(
-            o.gather_audio(&clock),
-            sample_chain_1 + sample_chain_2 + sample_chain_3 + sample_chain_4
-        );
+        assert!(o
+            .gather_audio(&clock)
+            .almost_equals(sample_chain_1 + sample_chain_2 + sample_chain_3 + sample_chain_4));
     }
 
     #[test]
@@ -1289,7 +1308,9 @@ pub mod tests {
         assert!(o.patch_chain_to_main_mixer(&[effect_1_uid]).is_ok());
         assert!(o.patch(instrument_2_uid, effect_1_uid).is_ok());
         assert!(o.patch(instrument_3_uid, effect_1_uid).is_ok());
-        assert_eq!(o.gather_audio(&clock), 0.1 + 0.5 * (0.3 + 0.5));
+        assert!(o
+            .gather_audio(&clock)
+            .almost_equals(StereoSample::new_from_single_f64(0.1 + 0.5 * (0.3 + 0.5))));
     }
 
     #[test]

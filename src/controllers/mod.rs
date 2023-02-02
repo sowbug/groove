@@ -3,13 +3,12 @@ pub(crate) mod orchestrator;
 pub(crate) mod sequencers;
 
 use crate::clock::{Clock, ClockTimeUnit};
-use crate::common::OldMonoSample;
 use crate::instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
 use crate::messages::{EntityMessage, MessageBounds};
 use crate::settings::controllers::ControlStep;
 use crate::traits::{HasUid, IsController, Response, Terminates, Updateable};
-use crate::TimeSignature;
 use crate::{clock::BeatValue, settings::controllers::ControlPathSettings};
+use crate::{StereoSample, TimeSignature};
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use groove_macros::Uid;
@@ -20,14 +19,14 @@ use std::ops::Range;
 #[derive(Debug)]
 pub struct Performance {
     pub sample_rate: usize,
-    pub worker: Worker<OldMonoSample>,
+    pub worker: Worker<StereoSample>,
 }
 
 impl Performance {
     pub fn new_with(sample_rate: usize) -> Self {
         Self {
             sample_rate,
-            worker: Worker::<OldMonoSample>::new_fifo(),
+            worker: Worker::<StereoSample>::new_fifo(),
         }
     }
 }

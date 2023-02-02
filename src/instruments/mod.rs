@@ -87,6 +87,10 @@ impl<V: IsVoice> SourcesAudio for Synthesizer<V> {
     fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         self.voice_store.source_audio(clock)
     }
+
+    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
+        self.voice_store.source_stereo_audio(clock)
+    }
 }
 
 impl<V: IsVoice> Synthesizer<V> {
@@ -320,6 +324,20 @@ impl<V: IsVoice> StoresVoices for SimpleVoiceStore<V> {
 impl<V: IsVoice> SourcesAudio for SimpleVoiceStore<V> {
     fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
         let r = self.voices.iter_mut().map(|v| v.source_audio(clock)).sum();
+        for (index, voice) in self.voices.iter().enumerate() {
+            if !voice.is_playing() {
+                self.notes_playing[index] = u7::from(0);
+            }
+        }
+        r
+    }
+
+    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
+        let r = self
+            .voices
+            .iter_mut()
+            .map(|v| v.source_stereo_audio(clock))
+            .sum();
         for (index, voice) in self.voices.iter().enumerate() {
             if !voice.is_playing() {
                 self.notes_playing[index] = u7::from(0);
@@ -602,6 +620,11 @@ impl TransformsAudioToStereo for Dca {
         input_sample: OldMonoSample,
     ) -> StereoSample {
         // See Pirkle, DSSPC++, p.73
+        self.pan += 1.0 / 44100.0;
+        if self.pan > 1.0 {
+            println!("wrapped");
+            self.pan -= 1.0;
+        }
         let input_sample: f64 = input_sample as f64 * self.gain;
         let left_pan: f64 = 1.0 - 0.25 * (self.pan + 1.0).powi(2);
         let right_pan: f64 = 1.0 - (0.5 * self.pan - 0.5).powi(2);

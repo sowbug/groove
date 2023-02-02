@@ -1,15 +1,15 @@
 use crate::{
-    common::{OldMonoSample, MONO_SAMPLE_SILENCE},
+    common::SampleType,
     controllers::{sequencers::MidiTickSequencer, Performance},
     entities::BoxedEntity,
     instruments::{drumkit_sampler::DrumkitSampler, welsh::WelshSynth},
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
-    GrooveOrchestrator, Orchestrator,
+    GrooveOrchestrator, Orchestrator, StereoSample,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Stream, StreamConfig, SupportedStreamConfig,
+    FromSample, Sample as CpalSample, Stream, StreamConfig, SupportedStreamConfig,
 };
 use crossbeam::{
     deque::{Steal, Stealer},
@@ -19,7 +19,7 @@ use std::sync::{Arc, Condvar, Mutex};
 
 pub struct AudioOutput {
     sample_rate: usize,
-    ring_buffer: Arc<ArrayQueue<f32>>,
+    ring_buffer: Arc<ArrayQueue<StereoSample>>,
     stream: Option<Stream>,
     sync_pair: Arc<(Mutex<bool>, Condvar)>,
 }
@@ -50,7 +50,7 @@ impl AudioOutput {
         self.ring_buffer.capacity()
     }
 
-    pub fn push(&mut self, sample: OldMonoSample) {
+    pub fn push(&mut self, sample: StereoSample) {
         self.ring_buffer.force_push(sample);
     }
 
@@ -58,6 +58,7 @@ impl AudioOutput {
         let device = IOHelper::default_output_device();
         let config = IOHelper::default_output_config(&device);
         let sample_format = config.sample_format();
+        let channels: usize = config.channels() as usize;
         let config: StreamConfig = config.into();
         self.sample_rate = config.sample_rate.0 as usize;
 
@@ -70,6 +71,7 @@ impl AudioOutput {
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<f32>(
+                        channels,
                         &ring_buffer_clone,
                         &sync_pair_clone,
                         data,
@@ -77,11 +79,13 @@ impl AudioOutput {
                     )
                 },
                 err_fn,
+                None,
             ),
             cpal::SampleFormat::I16 => device.build_output_stream(
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<i16>(
+                        channels,
                         &ring_buffer_clone,
                         &sync_pair_clone,
                         data,
@@ -89,11 +93,13 @@ impl AudioOutput {
                     )
                 },
                 err_fn,
+                None,
             ),
             cpal::SampleFormat::U16 => device.build_output_stream(
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<u16>(
+                        channels,
                         &ring_buffer_clone,
                         &sync_pair_clone,
                         data,
@@ -101,7 +107,16 @@ impl AudioOutput {
                     )
                 },
                 err_fn,
+                None,
             ),
+            cpal::SampleFormat::I8 => todo!(),
+            cpal::SampleFormat::I32 => todo!(),
+            cpal::SampleFormat::I64 => todo!(),
+            cpal::SampleFormat::U8 => todo!(),
+            cpal::SampleFormat::U32 => todo!(),
+            cpal::SampleFormat::U64 => todo!(),
+            cpal::SampleFormat::F64 => todo!(),
+            _ => todo!(),
         } {
             self.stream = Some(result);
             if let Some(stream) = &self.stream {
@@ -141,13 +156,16 @@ impl AudioOutput {
     }
 
     fn sample_from_queue<T: cpal::Sample>(
-        queue: &Arc<ArrayQueue<OldMonoSample>>,
+        channels: usize,
+        queue: &Arc<ArrayQueue<StereoSample>>,
         sync_pair: &Arc<(Mutex<bool>, Condvar)>,
         data: &mut [T],
         _info: &cpal::OutputCallbackInfo,
-    ) {
-        for next_sample in data.iter_mut() {
-            let mut sample = 0.0f32;
+    ) where
+        T: CpalSample + FromSample<f32>,
+    {
+        for frame in data.chunks_mut(channels) {
+            let mut sample = StereoSample::default();
             if let Ok(finished) = sync_pair.0.lock() {
                 let finished: bool = *finished;
                 if !finished {
@@ -156,7 +174,12 @@ impl AudioOutput {
                     }
                 }
             }
-            *next_sample = cpal::Sample::from(&sample);
+            let left_value = T::from_sample(sample.0 .0 as f32);
+            let right_value = T::from_sample(sample.1 .0 as f32);
+            frame[0] = left_value;
+            if channels > 1 {
+                frame[1] = right_value;
+            }
         }
     }
 
@@ -226,45 +249,58 @@ impl IOHelper {
     }
 
     pub fn sample_from_queue<T: cpal::Sample>(
-        audio_is_stereo: bool,
-        stealer: &Stealer<OldMonoSample>,
+        channels: usize,
+        stealer: &Stealer<StereoSample>,
         sync_pair: &Arc<(Mutex<bool>, Condvar)>,
         data: &mut [T],
         _info: &cpal::OutputCallbackInfo,
-    ) {
+    ) where
+        T: CpalSample + FromSample<f32>,
+    {
         let lock = &sync_pair.0;
         let cvar = &sync_pair.1;
         let mut finished = lock.lock().unwrap();
 
-        let mut hack_duplicate_mono_for_stereo = false;
-        let mut last_sample = MONO_SAMPLE_SILENCE;
-        for next_sample in data.iter_mut() {
-            let sample = if audio_is_stereo && hack_duplicate_mono_for_stereo {
-                last_sample
-            } else if let Steal::Success(sample) = stealer.steal() {
-                last_sample = sample;
-                sample
-            } else {
-                // TODO(miket): this isn't great, because we don't know whether
-                // the steal failure was because of a spurious error (buffer
-                // underrun) or complete processing.
-                *finished = true;
-                cvar.notify_one();
-                MONO_SAMPLE_SILENCE
-            };
-            hack_duplicate_mono_for_stereo = !hack_duplicate_mono_for_stereo;
-
-            // This is where MonoSample becomes an f32.
-            #[allow(clippy::unnecessary_cast)]
-            let sample_crossover: f32 = sample as f32;
-            *next_sample = cpal::Sample::from(&sample_crossover);
+        for frame in data.chunks_mut(channels) {
+            if let Steal::Success(sample) = stealer.steal() {
+                let value_left: T = T::from_sample(sample.0 .0 as f32);
+                let value_right: T = T::from_sample(sample.1 .0 as f32);
+                frame[0] = value_left;
+                if frame.len() > 1 {
+                    frame[1] = value_right;
+                }
+            }
         }
+
+        // let mut hack_duplicate_mono_for_stereo = false;
+        // let mut last_sample = MONO_SAMPLE_SILENCE;
+        // for next_sample in data.iter_mut() {
+        //     let sample = if audio_is_stereo && hack_duplicate_mono_for_stereo {
+        //         last_sample
+        //     } else if let Steal::Success(sample) = stealer.steal() {
+        //         last_sample = sample;
+        //         sample
+        //     } else {
+        //         // TODO(miket): this isn't great, because we don't know whether
+        //         // the steal failure was because of a spurious error (buffer
+        //         // underrun) or complete processing.
+        //         *finished = true;
+        //         cvar.notify_one();
+        //         MONO_SAMPLE_SILENCE
+        //     };
+        //     hack_duplicate_mono_for_stereo = !hack_duplicate_mono_for_stereo;
+
+        //     // This is where MonoSample becomes an f32.
+        //     #[allow(clippy::unnecessary_cast)]
+        //     let sample_crossover: f32 = sample as f32;
+        //     *next_sample = cpal::Sample::from(&sample_crossover);
+        // }
     }
 
     pub fn send_performance_to_output_device(performance: &Performance) -> anyhow::Result<()> {
         let device = Self::default_output_device();
         let config: SupportedStreamConfig = Self::default_output_config(&device);
-        let audio_is_stereo = config.channels() == 2;
+        let channels = config.channels() as usize;
         let sample_format = config.sample_format();
         let config: StreamConfig = config.into();
 
@@ -278,7 +314,7 @@ impl IOHelper {
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<f32>(
-                        audio_is_stereo,
+                        channels,
                         &stealer,
                         &sync_pair_clone,
                         data,
@@ -286,12 +322,13 @@ impl IOHelper {
                     )
                 },
                 err_fn,
+                None,
             ),
             cpal::SampleFormat::I16 => device.build_output_stream(
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<i16>(
-                        audio_is_stereo,
+                        channels,
                         &stealer,
                         &sync_pair_clone,
                         data,
@@ -299,12 +336,13 @@ impl IOHelper {
                     )
                 },
                 err_fn,
+                None,
             ),
             cpal::SampleFormat::U16 => device.build_output_stream(
                 &config,
                 move |data, output_callback_info| {
                     Self::sample_from_queue::<u16>(
-                        audio_is_stereo,
+                        channels,
                         &stealer,
                         &sync_pair_clone,
                         data,
@@ -312,7 +350,16 @@ impl IOHelper {
                     )
                 },
                 err_fn,
+                None,
             ),
+            cpal::SampleFormat::I8 => todo!(),
+            cpal::SampleFormat::I32 => todo!(),
+            cpal::SampleFormat::I64 => todo!(),
+            cpal::SampleFormat::U8 => todo!(),
+            cpal::SampleFormat::U32 => todo!(),
+            cpal::SampleFormat::U64 => todo!(),
+            cpal::SampleFormat::F64 => todo!(),
+            _ => todo!(),
         }
         .unwrap();
 
@@ -332,9 +379,9 @@ impl IOHelper {
         performance: Performance,
         output_filename: &str,
     ) -> anyhow::Result<()> {
-        const AMPLITUDE: OldMonoSample = i16::MAX as OldMonoSample;
+        const AMPLITUDE: SampleType = i16::MAX as SampleType;
         let spec = hound::WavSpec {
-            channels: 1,
+            channels: 2,
             sample_rate: performance.sample_rate as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
@@ -343,7 +390,12 @@ impl IOHelper {
 
         while !performance.worker.is_empty() {
             let sample = performance.worker.pop().unwrap_or_default();
-            writer.write_sample((sample * AMPLITUDE) as i16).unwrap();
+            writer
+                .write_sample((sample.0 .0 * AMPLITUDE) as i16)
+                .unwrap();
+            writer
+                .write_sample((sample.1 .0 * AMPLITUDE) as i16)
+                .unwrap();
         }
         Ok(())
     }

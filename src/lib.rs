@@ -5,7 +5,7 @@
 
 pub use crate::{
     clock::{Clock, TimeSignature},
-    common::{BipolarNormal, Normal},
+    common::{BipolarNormal, Normal, StereoSample},
     controllers::{
         arpeggiator::Arpeggiator,
         orchestrator::{GrooveOrchestrator, Orchestrator},

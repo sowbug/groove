@@ -87,13 +87,18 @@ pub trait HasUid {
 /// A SourcesAudio provides audio in the form of digital samples.
 pub trait SourcesAudio: std::fmt::Debug + Send {
     fn source_audio(&mut self, clock: &Clock) -> OldMonoSample;
+    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
+        // TODO: remove this default implementation once it's obsolete
+        let sample = self.source_audio(clock);
+        StereoSample(Sample::new_from_f32(sample), Sample::new_from_f32(sample))
+    }
 }
 
 /// A TransformsAudio takes input audio, which is typically produced by
 /// SourcesAudio, does something to it, and then outputs it. It's what effects
 /// do.
 pub trait TransformsAudio: std::fmt::Debug {
-    // TODO #[deprecated]
+    #[deprecated]
     fn transform_audio(&mut self, clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample;
 
     fn transform_stereo_audio(
