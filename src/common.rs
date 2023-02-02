@@ -76,6 +76,16 @@ impl Mul<i16> for Sample {
         Self(self.0 * rhs as f64)
     }
 }
+impl From<f64> for Sample {
+    fn from(value: f64) -> Self {
+        Sample(value)
+    }
+}
+impl From<f32> for Sample {
+    fn from(value: f32) -> Self {
+        Sample(value as f64)
+    }
+}
 
 /// MonoSample is a single-channel sample. It exists separately from Sample for
 /// cases where we specifically want a monophonic audio stream.
