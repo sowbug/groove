@@ -296,11 +296,11 @@ impl<M: MessageBounds> Orchestrator<M> {
                                 + if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
                                     let start_time = timer.start();
                                     let transformed_audio =
-                                        entity.transform_stereo_audio(clock, sum);
+                                        entity.transform_audio(clock, sum);
                                     timer.stop(start_time);
                                     transformed_audio
                                 } else {
-                                    entity.transform_stereo_audio(clock, sum)
+                                    entity.transform_audio(clock, sum)
                                 };
                         }
                     }

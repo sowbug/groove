@@ -103,7 +103,7 @@ pub trait SourcesAudio: std::fmt::Debug + Send {
 /// SourcesAudio, does something to it, and then outputs it. It's what effects
 /// do.
 pub trait TransformsAudio: std::fmt::Debug {
-    fn transform_stereo_audio(
+    fn transform_audio(
         &mut self,
         clock: &Clock,
         input_sample: StereoSample,
@@ -117,6 +117,7 @@ pub trait TransformsAudio: std::fmt::Debug {
         )
     }
 
+    /// channel: 0 is left, 1 is right. Use the value as an index into arrays.
     fn transform_channel(&mut self, clock: &Clock, channel: usize, input_sample: Sample) -> Sample;
 }
 
