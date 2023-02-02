@@ -620,11 +620,6 @@ impl TransformsAudioToStereo for Dca {
         input_sample: OldMonoSample,
     ) -> StereoSample {
         // See Pirkle, DSSPC++, p.73
-        self.pan += 1.0 / 44100.0;
-        if self.pan > 1.0 {
-            println!("wrapped");
-            self.pan -= 1.0;
-        }
         let input_sample: f64 = input_sample as f64 * self.gain;
         let left_pan: f64 = 1.0 - 0.25 * (self.pan + 1.0).powi(2);
         let right_pan: f64 = 1.0 - (0.5 * self.pan - 0.5).powi(2);
