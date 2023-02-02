@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    common::OldMonoSample,
+    common::SampleType,
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -20,17 +20,22 @@ pub struct Bitcrusher {
     #[controllable]
     bits_to_crush: u8,
 
-    c: f32,
+    c: SampleType,
 
     bits_to_crush_int_range: IntRange,
 }
 impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
-    fn transform_audio(&mut self, _clock: &Clock, input_sample: OldMonoSample) -> OldMonoSample {
-        const I16_SCALE: f32 = i16::MAX as f32;
-        let sign = input_sample.signum();
-        let input = input_sample.abs() * I16_SCALE;
-        ((input / self.c).floor() * self.c / I16_SCALE) as OldMonoSample * sign
+    fn transform_channel(
+        &mut self,
+        _clock: &Clock,
+        _channel: usize,
+        input_sample: crate::common::Sample,
+    ) -> crate::common::Sample {
+        const I16_SCALE: SampleType = i16::MAX as SampleType;
+        let sign = input_sample.0.signum();
+        let input = (input_sample * I16_SCALE).0.abs();
+        (((input / self.c).floor() * self.c / I16_SCALE) * sign).into()
     }
 }
 impl Default for Bitcrusher {
@@ -65,7 +70,7 @@ impl Bitcrusher {
     }
 
     fn update_c(&mut self) {
-        self.c = 2.0f32.powi(self.bits_to_crush as i32);
+        self.c = 2.0f64.powi(self.bits_to_crush as i32);
     }
 
     pub(crate) fn set_control_bits_to_crush(&mut self, value: F32ControlValue) {
@@ -83,24 +88,26 @@ impl Bitcrusher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clock::Clock;
-    use std::f32::consts::PI;
+    use crate::{clock::Clock, common::Sample};
+    use std::f64::consts::PI;
 
-    const CRUSHED_PI: f32 = 0.14062929;
+    const CRUSHED_PI: SampleType = 0.14062929166539506;
 
     #[test]
     fn bitcrusher_basic() {
         let mut fx = Bitcrusher::new_with(8);
-        assert_eq!(fx.transform_audio(&Clock::default(), PI - 3.0), CRUSHED_PI);
+        assert_eq!(
+            fx.transform_channel(&Clock::default(), 0, Sample(PI - 3.0)),
+            Sample(CRUSHED_PI)
+        );
     }
 
     #[test]
     fn bitcrusher_no_bias() {
         let mut fx = Bitcrusher::new_with(8);
-        assert_eq!(fx.transform_audio(&Clock::default(), PI - 3.0), CRUSHED_PI);
         assert_eq!(
-            fx.transform_audio(&Clock::default(), -(PI - 3.0)),
-            -CRUSHED_PI
+            fx.transform_channel(&Clock::default(), 0, Sample(-(PI - 3.0))),
+            Sample(-CRUSHED_PI)
         );
     }
 }
