@@ -2,8 +2,8 @@ use crate::{
     clock::Clock,
     common::F32ControlValue,
     common::{Normal, Sample},
-    messages::{EntityMessage, MessageBounds},
-    traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    messages::MessageBounds,
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
 use groove_macros::{Control, Uid};
 use std::{marker::PhantomData, str::FromStr};
@@ -30,17 +30,8 @@ impl<M: MessageBounds> TransformsAudio for Gain<M> {
     }
 }
 impl<M: MessageBounds> Updateable for Gain<M> {
-    default type Message = M;
-
-    #[allow(unused_variables)]
-    default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        Response::none()
-    }
+    type Message = M;
 }
-impl Updateable for Gain<EntityMessage> {
-    type Message = EntityMessage;
-}
-
 impl<M: MessageBounds> Gain<M> {
     #[allow(dead_code)]
     pub fn new() -> Self {
@@ -76,6 +67,7 @@ mod tests {
     use super::*;
     use crate::{
         clock::Clock, messages::tests::TestMessage, traits::SourcesAudio, utils::AudioSource,
+        EntityMessage,
     };
 
     #[test]
