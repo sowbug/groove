@@ -11,10 +11,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     FromSample, Sample as CpalSample, Stream, StreamConfig, SupportedStreamConfig,
 };
-use crossbeam::{
-    deque::{Steal, Stealer},
-    queue::ArrayQueue,
-};
+use crossbeam::{deque::Steal, queue::ArrayQueue};
 use std::sync::{Arc, Condvar, Mutex};
 
 pub struct AudioOutput {
@@ -50,8 +47,12 @@ impl AudioOutput {
         self.ring_buffer.capacity()
     }
 
-    pub fn push(&mut self, sample: StereoSample) {
+    pub fn force_push(&mut self, sample: StereoSample) {
         self.ring_buffer.force_push(sample);
+    }
+
+    pub fn push(&mut self, sample: StereoSample) -> Result<(), StereoSample> {
+        self.ring_buffer.push(sample)
     }
 
     pub fn start(&mut self) {
@@ -119,11 +120,7 @@ impl AudioOutput {
             _ => todo!(),
         } {
             self.stream = Some(result);
-            if let Some(stream) = &self.stream {
-                if stream.play().is_ok() {
-                    // hooray
-                }
-            }
+            self.play();
         }
     }
 
@@ -174,6 +171,9 @@ impl AudioOutput {
                     }
                 }
             }
+            // I haven't really looked at what a frame is, so although this
+            // works, I'm not sure it's right. TODO: spend more than 10 minutes
+            // looking at cpal to understand how to use it robustly.
             let left_value = T::from_sample(sample.0 .0 as f32);
             let right_value = T::from_sample(sample.1 .0 as f32);
             frame[0] = left_value;
@@ -189,7 +189,6 @@ impl AudioOutput {
 }
 
 pub struct IOHelper {}
-
 impl IOHelper {
     fn default_output_device() -> cpal::Device {
         if let Some(device) = cpal::default_host().default_output_device() {
@@ -248,129 +247,23 @@ impl IOHelper {
         orchestrator
     }
 
-    pub fn sample_from_queue<T: cpal::Sample>(
-        channels: usize,
-        stealer: &Stealer<StereoSample>,
-        sync_pair: &Arc<(Mutex<bool>, Condvar)>,
-        data: &mut [T],
-        _info: &cpal::OutputCallbackInfo,
-    ) where
-        T: CpalSample + FromSample<f32>,
-    {
-        let lock = &sync_pair.0;
-        let cvar = &sync_pair.1;
-        let mut finished = lock.lock().unwrap();
-
-        for frame in data.chunks_mut(channels) {
-            if let Steal::Success(sample) = stealer.steal() {
-                let value_left: T = T::from_sample(sample.0 .0 as f32);
-                let value_right: T = T::from_sample(sample.1 .0 as f32);
-                frame[0] = value_left;
-                if frame.len() > 1 {
-                    frame[1] = value_right;
-                }
-            }
-        }
-
-        // let mut hack_duplicate_mono_for_stereo = false;
-        // let mut last_sample = MONO_SAMPLE_SILENCE;
-        // for next_sample in data.iter_mut() {
-        //     let sample = if audio_is_stereo && hack_duplicate_mono_for_stereo {
-        //         last_sample
-        //     } else if let Steal::Success(sample) = stealer.steal() {
-        //         last_sample = sample;
-        //         sample
-        //     } else {
-        //         // TODO(miket): this isn't great, because we don't know whether
-        //         // the steal failure was because of a spurious error (buffer
-        //         // underrun) or complete processing.
-        //         *finished = true;
-        //         cvar.notify_one();
-        //         MONO_SAMPLE_SILENCE
-        //     };
-        //     hack_duplicate_mono_for_stereo = !hack_duplicate_mono_for_stereo;
-
-        //     // This is where MonoSample becomes an f32.
-        //     #[allow(clippy::unnecessary_cast)]
-        //     let sample_crossover: f32 = sample as f32;
-        //     *next_sample = cpal::Sample::from(&sample_crossover);
-        // }
-    }
-
+    /// This utility function assumes the caller is cool with blocking.
     pub fn send_performance_to_output_device(performance: &Performance) -> anyhow::Result<()> {
-        let device = Self::default_output_device();
-        let config: SupportedStreamConfig = Self::default_output_config(&device);
-        let channels = config.channels() as usize;
-        let sample_format = config.sample_format();
-        let config: StreamConfig = config.into();
-
+        let mut audio_output = AudioOutput::default();
         let stealer = performance.worker.stealer();
-
-        let sync_pair = Arc::new((Mutex::new(false), Condvar::new()));
-        let sync_pair_clone = Arc::clone(&sync_pair);
-        let err_fn = |err| eprintln!("an error occurred on the output audio stream: {err}");
-        let stream = match sample_format {
-            cpal::SampleFormat::F32 => device.build_output_stream(
-                &config,
-                move |data, output_callback_info| {
-                    Self::sample_from_queue::<f32>(
-                        channels,
-                        &stealer,
-                        &sync_pair_clone,
-                        data,
-                        output_callback_info,
-                    )
-                },
-                err_fn,
-                None,
-            ),
-            cpal::SampleFormat::I16 => device.build_output_stream(
-                &config,
-                move |data, output_callback_info| {
-                    Self::sample_from_queue::<i16>(
-                        channels,
-                        &stealer,
-                        &sync_pair_clone,
-                        data,
-                        output_callback_info,
-                    )
-                },
-                err_fn,
-                None,
-            ),
-            cpal::SampleFormat::U16 => device.build_output_stream(
-                &config,
-                move |data, output_callback_info| {
-                    Self::sample_from_queue::<u16>(
-                        channels,
-                        &stealer,
-                        &sync_pair_clone,
-                        data,
-                        output_callback_info,
-                    )
-                },
-                err_fn,
-                None,
-            ),
-            cpal::SampleFormat::I8 => todo!(),
-            cpal::SampleFormat::I32 => todo!(),
-            cpal::SampleFormat::I64 => todo!(),
-            cpal::SampleFormat::U8 => todo!(),
-            cpal::SampleFormat::U32 => todo!(),
-            cpal::SampleFormat::U64 => todo!(),
-            cpal::SampleFormat::F64 => todo!(),
-            _ => todo!(),
-        }
-        .unwrap();
-
-        stream.play()?;
-
-        // See https://doc.rust-lang.org/stable/std/sync/struct.Condvar.html for
-        // origin of this code.
-        let &(ref lock, ref cvar) = &*sync_pair;
-        let mut finished = lock.lock().unwrap();
-        while !*finished {
-            finished = cvar.wait(finished).unwrap();
+        audio_output.start();
+        loop {
+            if let Steal::Success(sample) = stealer.steal() {
+                loop {
+                    if audio_output.push(sample).is_ok() {
+                        break;
+                    } else {
+                        std::thread::sleep(std::time::Duration::from_millis(1));
+                    }
+                }
+            } else {
+                break;
+            }
         }
         Ok(())
     }
