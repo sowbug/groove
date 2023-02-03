@@ -87,6 +87,7 @@ pub enum EntityMessage {
 
     /// iced_audio convention.
     HSliderInt(Normal),
+    Knob(Normal),
 
     PickListSelected(String),
 

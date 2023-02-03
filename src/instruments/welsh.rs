@@ -17,7 +17,7 @@ use crate::{
         Controllable, HasUid, IsInstrument, Response, SourcesAudio, TransformsAudio, Updateable,
     },
     utils::Paths,
-    Clock, StereoSample,
+    BipolarNormal, Clock, StereoSample,
 };
 use convert_case::{Boundary, Case, Casing};
 use groove_macros::{Control, Uid};
@@ -469,6 +469,10 @@ impl PlaysNotes for WelshVoice {
         self.note_off_is_pending = true;
         self.note_off_velocity = velocity;
     }
+
+    fn set_pan(&mut self, value: f32) {
+        self.dca.set_pan(BipolarNormal::from(value))
+    }
 }
 
 impl WelshVoice {
@@ -656,6 +660,14 @@ impl SourcesAudio for WelshVoice {
 pub struct WelshSynth {
     uid: usize,
     inner_synth: Synthesizer<WelshVoice>,
+
+    // TODO: will it be common for #[controllable] to represent a fake value
+    // that's actually propagated to things underneath? If so, do we need a
+    // better way to handle this?
+    #[controllable]
+    #[allow(dead_code)]
+    pan: f32,
+
     debug_last_seconds: f32,
 }
 impl IsInstrument for WelshSynth {}
@@ -689,6 +701,12 @@ impl Updateable for WelshSynth {
                     self.inner_synth.handle_midi_message(&midi_message);
                 }
             },
+            EntityMessage::Knob(value) => {
+                // TODO: it's annoying to have to plumb this through. I want
+                // everything #controllable to automatically generate the
+                // scaffolding for UI.
+                self.set_control_pan(F32ControlValue(value.as_f32()));
+            }
             _ => todo!(),
         }
         Response::none()
@@ -704,6 +722,7 @@ impl WelshSynth {
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<WelshVoice>::new_with(voice_store),
+            pan: Default::default(),
             debug_last_seconds: -1.0,
         }
     }
@@ -711,6 +730,19 @@ impl WelshSynth {
     pub fn preset_name(&self) -> &str {
         "none"
         //        self.preset.name.as_str()
+    }
+
+    pub fn pan(&self) -> f32 {
+        self.inner_synth.pan()
+    }
+
+    pub fn set_pan(&mut self, pan: f32) {
+        self.inner_synth.set_pan(pan);
+    }
+
+    fn set_control_pan(&mut self, value: F32ControlValue) {
+        // TODO: more toil. Let me say this is a bipolar normal
+        self.set_pan(value.0 * 2.0 - 1.0);
     }
 }
 

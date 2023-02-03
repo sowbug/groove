@@ -55,6 +55,10 @@ impl PlaysNotes for DrumkitSamplerVoice {
         self.note_off_is_pending = true;
         self.note_off_velocity = velocity;
     }
+
+    fn set_pan(&mut self, _value: f32) {
+        // We don't do stereo....  yet
+    }
 }
 
 impl DrumkitSamplerVoice {

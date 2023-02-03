@@ -23,8 +23,8 @@ use iced::{
     widget::{button, column, container, pick_list, row, scrollable, text, text_input},
     Alignment, Application, Command, Element, Length, Settings, Subscription,
 };
-use iced_audio::{HSlider, Normal as IcedNormal, NormalParam};
-use iced_native::{window, Event};
+use iced_audio::{HSlider, Knob, Normal as IcedNormal, NormalParam};
+use iced_native::{command, window, Event};
 use rustc_hash::FxHashMap;
 use std::{
     any::type_name,
@@ -54,6 +54,10 @@ struct GrooveApp {
     is_pref_load_complete: bool,
     theme: Theme,
     state: State,
+
+    // We won't set this until all tasks (orchestrator thread, MIDI interface
+    // thread, etc.) have been asked to shut down. If we forget, then the Iced
+    // process hangs after the main window disappears.
     should_exit: bool,
 
     // View
@@ -293,7 +297,11 @@ impl Application for GrooveApp {
             }
         }
 
-        Command::none()
+        if self.should_exit {
+            Command::single(command::Action::Window(window::Action::Close))
+        } else {
+            Command::none()
+        }
     }
 
     fn subscription(&self) -> Subscription<AppMessage> {
@@ -305,13 +313,6 @@ impl Application for GrooveApp {
             v.push(GrooveSubscription::subscription().map(AppMessage::GrooveEvent));
         }
         Subscription::batch(v)
-    }
-
-    fn should_exit(&self) -> bool {
-        // Ideally we won't set this until all tasks (orchestrator thread, MIDI
-        // interface thread, etc.) have been asked to shut down. If we forget,
-        // then the Iced process hangs after the main window disappears.
-        self.should_exit
     }
 
     fn view(&self) -> Element<AppMessage> {
@@ -533,11 +534,21 @@ impl GrooveApp {
     fn welsh_synth_view(&self, e: &WelshSynth) -> Element<EntityMessage> {
         self.collapsing_box("Welsh", e.uid(), || {
             let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
+            let pan_knob: Element<EntityMessage> = Knob::new(
+                // TODO: toil. make it easier to go from bipolar normal to normal
+                NormalParam {
+                    value: IcedNormal::from_clipped((e.pan() + 1.0) / 2.0),
+                    default: IcedNormal::from_clipped(0.5),
+                },
+                EntityMessage::Knob,
+            )
+            .into();
             container(column![
                 GuiStuff::<EntityMessage>::container_text(
                     format!("Welsh {} {} coming soon", e.uid(), e.preset_name()).as_str()
                 ),
-                pick_list(options, None, EntityMessage::PickListSelected,).font(gui::SMALL_FONT)
+                pick_list(options, None, EntityMessage::PickListSelected,).font(gui::SMALL_FONT),
+                pan_knob,
             ])
             .into()
         })

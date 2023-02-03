@@ -36,6 +36,7 @@ pub trait PlaysNotes {
     fn enqueue_note_on(&mut self, velocity: u8);
     fn enqueue_aftertouch(&mut self, velocity: u8);
     fn enqueue_note_off(&mut self, velocity: u8);
+    fn set_pan(&mut self, value: f32);
 }
 
 // TODO: I didn't want StoresVoices to know anything about audio (i.e.,
@@ -56,6 +57,9 @@ pub trait StoresVoices: SourcesAudio + Send + Debug {
 
     /// Fails if we run out of idle voices.
     fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>>;
+
+    /// Uh-oh, StoresVoices is turning into a synth
+    fn set_pan(&mut self, value: f32);
 }
 
 /// A synthesizer is composed of Voices. Ideally, a synth will know how to
@@ -75,6 +79,10 @@ pub struct Synthesizer<V: IsVoice> {
     /// Ranges from 0..127. Applies to all notes.
     #[controllable]
     channel_aftertouch: u8,
+
+    /// TODO: bipolar modal, -1.0 = all left, 1.0 = all right, 0.0 = center
+    #[controllable]
+    pan: f32,
 }
 impl<V: IsVoice> IsInstrument for Synthesizer<V> {}
 impl<V: IsVoice> Updateable for Synthesizer<V> {
@@ -93,6 +101,7 @@ impl<V: IsVoice> Synthesizer<V> {
             voice_store: voice_store,
             pitch_bend: Default::default(),
             channel_aftertouch: Default::default(),
+            pan: Default::default(),
         }
     }
     pub fn set_pitch_bend(&mut self, pitch_bend: f32) {
@@ -114,6 +123,20 @@ impl<V: IsVoice> Synthesizer<V> {
         // For now this is silly code to allow it to compile
         self.set_channel_aftertouch((channel_aftertouch.0 * 63.0 + 64.0) as u8);
         todo!()
+    }
+
+    pub fn pan(&self) -> f32 {
+        self.pan
+    }
+
+    pub fn set_pan(&mut self, pan: f32) {
+        self.pan = pan;
+        self.voice_store.set_pan(pan);
+    }
+
+    pub(crate) fn set_control_pan(&mut self, value: F32ControlValue) {
+        // TODO: more toil. Let me say this is a bipolar normal
+        self.set_pan(value.0 * 2.0 - 1.0);
     }
 }
 impl<V: IsVoice> HandlesMidi for Synthesizer<V> {
@@ -187,6 +210,10 @@ impl PlaysNotes for SimpleVoice {
     fn enqueue_note_off(&mut self, velocity: u8) {
         self.note_off_is_pending = true;
         self.note_off_velocity = velocity;
+    }
+
+    fn set_pan(&mut self, _value: f32) {
+        // We don't handle this.
     }
 }
 impl SourcesAudio for SimpleVoice {
@@ -313,6 +340,12 @@ impl<V: IsVoice> StoresVoices for SimpleVoiceStore<V> {
         }
         Err(anyhow!("out of voices"))
     }
+
+    fn set_pan(&mut self, value: f32) {
+        for voice in self.voices.iter_mut() {
+            voice.set_pan(value);
+        }
+    }
 }
 impl<V: IsVoice> SourcesAudio for SimpleVoiceStore<V> {
     fn source_audio(&mut self, clock: &Clock) -> StereoSample {
@@ -350,6 +383,12 @@ impl<V: IsVoice> StoresVoices for VoicePerNoteStore<V> {
             return Ok(voice);
         }
         Err(anyhow!("no voice for key {}", key))
+    }
+
+    fn set_pan(&mut self, value: f32) {
+        for voice in self.voices.iter_mut() {
+            voice.1.set_pan(value);
+        }
     }
 }
 impl<V: IsVoice> SourcesAudio for VoicePerNoteStore<V> {
@@ -411,6 +450,10 @@ impl PlaysNotes for FmVoice {
         self.note_off_is_pending = true;
         self.note_off_velocity = velocity;
         self.envelope.enqueue_release();
+    }
+
+    fn set_pan(&mut self, value: f32) {
+        self.dca.set_pan(BipolarNormal::from(value));
     }
 }
 impl SourcesAudio for FmVoice {
@@ -601,8 +644,8 @@ impl Default for Dca {
 }
 impl Dca {
     #[allow(dead_code)]
-    pub(crate) fn set_pan(&mut self, new_value: BipolarNormal) {
-        self.pan = new_value.value()
+    pub(crate) fn set_pan(&mut self, value: BipolarNormal) {
+        self.pan = value.value()
     }
 
     pub(crate) fn transform_audio_to_stereo(
