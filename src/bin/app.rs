@@ -7,10 +7,10 @@ use groove::{
     traits::{HasUid, TestController, TestEffect, TestInstrument},
     Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity, Chorus, Clock,
     Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, FmSynthesizer, Gain,
-    GrooveMessage, GrooveOrchestrator, GrooveSubscription, Limiter, MidiHandler, MidiHandlerEvent,
-    MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Normal, Note,
-    Pattern, PatternManager, PatternMessage, Reverb, Sampler, SimpleSynthesizer, TestLfo,
-    TestSynth, Timer, WelshSynth,
+    GrooveMessage, GrooveOrchestrator, GrooveSubscription, LfoController, Limiter, MidiHandler,
+    MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer,
+    Mixer, Normal, Note, Pattern, PatternManager, PatternMessage, Reverb, Sampler,
+    SimpleSynthesizer, TestLfo, TestSynth, Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -317,8 +317,7 @@ impl Application for GrooveApp {
 
     fn view(&self) -> Element<AppMessage> {
         match self.state {
-            State::Idle => {}
-            State::Playing => {}
+            State::Idle | State::Playing => {}
         }
 
         let control_bar = self.control_bar_view().map(AppMessage::ControlBarMessage);
@@ -481,6 +480,7 @@ impl GrooveApp {
             }
             BoxedEntity::FmSynthesizer(e) => self.fm_synthesizer_view(e),
             BoxedEntity::Gain(e) => self.gain_view(e),
+            BoxedEntity::LfoController(e) => self.lfo_view(e),
             BoxedEntity::Limiter(e) => {
                 let title = type_name::<Limiter>();
                 let contents = format!("min: {} max: {}", e.min(), e.max());
@@ -834,6 +834,19 @@ impl GrooveApp {
             let slider = HSlider::new(
                 NormalParam {
                     value: IcedNormal::from_clipped(e.ceiling().value() as f32),
+                    default: IcedNormal::from_clipped(1.0),
+                },
+                EntityMessage::HSliderInt,
+            );
+            container(row![slider]).padding(20).into()
+        })
+    }
+
+    fn lfo_view(&self, e: &LfoController) -> Element<EntityMessage> {
+        self.collapsing_box("LFO", e.uid(), || {
+            let slider = HSlider::new(
+                NormalParam {
+                    value: IcedNormal::from_clipped(0.42 as f32),
                     default: IcedNormal::from_clipped(1.0),
                 },
                 EntityMessage::HSliderInt,

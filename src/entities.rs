@@ -2,7 +2,7 @@ use crate::{
     controllers::{
         arpeggiator::Arpeggiator,
         sequencers::{BeatSequencer, MidiTickSequencer},
-        ControlTrip,
+        ControlTrip, LfoController,
     },
     effects::{
         bitcrusher::Bitcrusher, chorus::Chorus, compressor::Compressor, delay::Delay,
@@ -59,6 +59,7 @@ boxed_entity_enum_and_common_crackers! {
     BeatSequencer: BeatSequencer<EntityMessage>,
     ControlTrip: ControlTrip<EntityMessage>,
     MidiTickSequencer:MidiTickSequencer<EntityMessage>,
+    LfoController: LfoController,
     PatternManager: PatternManager,
     TestController: TestController<EntityMessage>,
     TestLfo: TestLfo<EntityMessage>,
@@ -120,6 +121,7 @@ controllable_crackers! {
     TestEffect,
     TestInstrument,
     TestSynth,
+    WelshSynth,
 }
 
 macro_rules! controller_crackers {
@@ -150,6 +152,7 @@ controller_crackers! {
     Arpeggiator,
     BeatSequencer,
     ControlTrip,
+    LfoController,
     MidiTickSequencer,
     PatternManager,
     TestController,

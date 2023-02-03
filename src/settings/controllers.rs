@@ -2,7 +2,7 @@ use super::MidiChannel;
 use crate::{
     clock::BeatValue,
     common::{DeviceId, SignalType},
-    controllers::arpeggiator::Arpeggiator,
+    controllers::{arpeggiator::Arpeggiator, LfoController},
     entities::BoxedEntity,
     messages::EntityMessage,
     traits::TestController,
@@ -90,6 +90,13 @@ pub enum ControllerSettings {
         #[serde(rename = "midi-out")]
         midi_output_channel: MidiChannel,
     },
+    #[serde(rename_all = "kebab-case", rename = "lfo")]
+    LfoController {
+        #[serde(rename = "midi-in")]
+        midi_input_channel: MidiChannel,
+        #[serde(rename = "midi-out")]
+        midi_output_channel: MidiChannel,
+    },
 }
 
 impl ControllerSettings {
@@ -102,8 +109,12 @@ impl ControllerSettings {
                 ControllerSettings::Test {
                     midi_input_channel,
                     midi_output_channel,
-                } => (midi_input_channel, midi_output_channel),
-                ControllerSettings::Arpeggiator {
+                }
+                | ControllerSettings::Arpeggiator {
+                    midi_input_channel,
+                    midi_output_channel,
+                }
+                | ControllerSettings::LfoController {
                     midi_input_channel,
                     midi_output_channel,
                 } => (midi_input_channel, midi_output_channel),
@@ -134,6 +145,14 @@ impl ControllerSettings {
                 midi_input_channel,
                 midi_output_channel,
                 BoxedEntity::Arpeggiator(Box::new(Arpeggiator::new_with(midi_output_channel))),
+            ),
+            ControllerSettings::LfoController {
+                midi_input_channel,
+                midi_output_channel,
+            } => (
+                midi_input_channel,
+                midi_output_channel,
+                BoxedEntity::LfoController(Box::new(LfoController::default())),
             ),
         }
     }

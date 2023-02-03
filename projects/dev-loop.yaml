@@ -52,11 +52,22 @@ devices:
       - filter-low-pass-12db:
           cutoff: 1200.0
           q: 1.0
+  - controller:
+      - panning-lfo
+      - lfo:
+          midi-in: 0   # TODO: not every controller cares about MIDI. Make these optional.s
+          midi-out: 0
 patch-cables:
   - [piano-1, low-pass-1, gain-1, main-mixer]
   - [bassline, gain-2, main-mixer]
   - [synth-1, gain-3, main-mixer]
   - [drum-1, main-mixer]
+controls:
+  - id: lfo-pan-1
+    source: panning-lfo
+    target:
+      id: bassline
+      param: pan
 patterns:
   - id: basic-1
     note-value: eighth

@@ -16,11 +16,11 @@ use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
 /// An IsController creates events that drive other things in the system.
-/// Examples are sequencers and arpeggiators. They get called on each time slice
-/// so that they can do work and send any needed messages. An IsController
-/// implements Terminates, which indicates that it's done emitting events (and,
-/// in the case of timers and sequencers, done waiting for other work in the
-/// system to complete).
+/// Examples are sequencers, arpeggiators, and discrete LFOs. They get called on
+/// each time slice so that they can do work and send any needed messages. An
+/// IsController implements Terminates, which indicates that it's done emitting
+/// events (and, in the case of timers and sequencers, done waiting for other
+/// work in the system to complete).
 pub trait IsController: Updateable + Terminates + HasUid + Send + std::fmt::Debug {}
 
 /// An IsEffect transforms audio. It takes audio inputs and produces audio

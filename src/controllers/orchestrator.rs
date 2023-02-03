@@ -102,18 +102,41 @@ impl<M: MessageBounds> Orchestrator<M> {
         controller_uid: usize,
         target_uid: usize,
         param_name: &str,
-    ) {
+    ) -> anyhow::Result<()> {
         if let Some(target) = self.store.get(target_uid) {
             if let Some(target) = target.as_controllable() {
                 let param_id = target.control_index_for_name(param_name);
-                if let Some(entity) = self.store.get(controller_uid) {
-                    if entity.as_is_controller().is_some() {
-                        self.store
-                            .link_control(controller_uid, target_uid, param_id);
+                if param_id != usize::MAX {
+                    if let Some(entity) = self.store.get(controller_uid) {
+                        if entity.as_is_controller().is_some() {
+                            self.store
+                                .link_control(controller_uid, target_uid, param_id);
+                        } else {
+                            return Err(anyhow!(
+                                "controller ID {} is not of a controller type",
+                                controller_uid
+                            ));
+                        }
+                    } else {
+                        return Err(anyhow!("couldn't find controller ID {}", controller_uid));
                     }
+                } else {
+                    return Err(anyhow!(
+                        "target ID {} does not have a controllable parameter named `{}`",
+                        target_uid,
+                        param_name
+                    ));
                 }
+            } else {
+                return Err(anyhow!(
+                    "target ID {} is not of a controllable type",
+                    target_uid
+                ));
             }
+        } else {
+            return Err(anyhow!("couldn't find target ID {}", target_uid));
         }
+        Ok(())
     }
 
     #[allow(dead_code)]

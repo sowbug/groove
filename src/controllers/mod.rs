@@ -2,19 +2,26 @@ pub(crate) mod arpeggiator;
 pub(crate) mod orchestrator;
 pub(crate) mod sequencers;
 
-use crate::clock::{Clock, ClockTimeUnit};
-use crate::common::SignalType;
-use crate::instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
-use crate::messages::{EntityMessage, MessageBounds};
-use crate::settings::controllers::ControlStep;
-use crate::traits::{HasUid, IsController, Response, Terminates, Updateable};
-use crate::{clock::BeatValue, settings::controllers::ControlPathSettings};
+use crate::{
+    clock::{BeatValue, Clock, ClockTimeUnit},
+    settings::controllers::ControlPathSettings,
+    Oscillator,
+};
+use crate::{
+    common::{F32ControlValue, SignalType},
+    instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
+    messages::{EntityMessage, MessageBounds},
+    settings::controllers::ControlStep,
+    traits::{Controllable, HasUid, IsController, Response, Terminates, Updateable},
+};
 use crate::{StereoSample, TimeSignature};
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
-use groove_macros::Uid;
+use groove_macros::{Control, Uid};
 use std::marker::PhantomData;
 use std::ops::Range;
+use std::str::FromStr;
+use strum_macros::{Display, EnumString, FromRepr};
 
 /// A Performance holds the output of an Orchestrator run.
 #[derive(Debug)]
@@ -191,6 +198,42 @@ impl ControlPath {
     }
 }
 
+#[derive(Control, Debug, Uid)]
+pub struct LfoController {
+    uid: usize,
+    oscillator: Oscillator,
+}
+impl IsController for LfoController {}
+impl Updateable for LfoController {
+    type Message = EntityMessage;
+
+    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+        match message {
+            EntityMessage::Tick => Response::single(EntityMessage::ControlF32(
+                self.oscillator.source_signal(clock).value() as f32,
+            )),
+            _ => Response::none(),
+        }
+    }
+}
+impl Terminates for LfoController {
+    fn is_finished(&self) -> bool {
+        // An LFO just keeps on oscillating until the end of time, so it's
+        // always willing to terminate.
+        true
+    }
+}
+impl Default for LfoController {
+    fn default() -> Self {
+        let mut r = Self {
+            uid: Default::default(),
+            oscillator: Oscillator::new_with(crate::settings::patches::WaveformType::Triangle),
+        };
+        r.oscillator.set_frequency(2.0);
+        r
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -235,7 +278,7 @@ mod tests {
         // TODO: hmmm, effect with no audio source plugged into its input!
         let _ = o.connect_to_main_mixer(effect_uid);
 
-        o.link_control(
+        let _ = o.link_control(
             controller_uid,
             effect_uid,
             &TestEffectControlParams::MyValue.to_string(),
@@ -280,7 +323,7 @@ mod tests {
         let mut trip = Box::new(ControlTrip::<EntityMessage>::default());
         trip.add_path(&clock.settings().time_signature(), &path);
         let controller_uid = o.add(None, BoxedEntity::ControlTrip(trip));
-        o.link_control(
+        let _ = o.link_control(
             controller_uid,
             instrument_uid,
             &TestInstrumentControlParams::FakeValue.to_string(),

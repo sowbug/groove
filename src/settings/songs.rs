@@ -1,6 +1,6 @@
 use super::{
     controllers::{ControlPathSettings, ControlTripSettings},
-    ClockSettings, DeviceSettings, PatternSettings, TrackSettings,
+    ClockSettings, ControlSettings, DeviceSettings, PatternSettings, TrackSettings,
 };
 use crate::{
     common::DeviceId,
@@ -31,8 +31,17 @@ pub struct SongSettings {
     /// Controllers, Effects, and Instruments
     pub devices: Vec<DeviceSettings>,
 
+    // TODO: it would be nice if zero patch cables automatically hooked up all
+    // the audio sources.
+    //
     /// Virtual audio cables connecting a series of devices
+    #[serde(default)]
     pub patch_cables: Vec<PatchCable>,
+
+    /// Automation links between a source device and a target device's
+    /// controllable parameter
+    #[serde(default)]
+    pub controls: Vec<ControlSettings>,
 
     /// Tracker-style note patterns
     #[serde(default)]
@@ -80,6 +89,7 @@ impl SongSettings {
         o.set_clock_settings(&self.clock);
         self.instantiate_devices(&mut o, load_only_test_entities);
         self.instantiate_patch_cables(&mut o)?;
+        self.instantiate_controls(&mut o)?;
         self.instantiate_tracks(&mut o);
         self.instantiate_control_trips(&mut o, &self.clock.time_signature());
         Ok(o)
@@ -150,6 +160,43 @@ impl SongSettings {
         Ok(())
     }
 
+    fn instantiate_controls(&self, orchestrator: &mut GrooveOrchestrator) -> anyhow::Result<()> {
+        for control in self.controls.iter() {
+            let source_uvid = &control.source;
+            let target_uvid = &control.target.id;
+            let target_param_name = control.target.param.as_str();
+
+            let controller_uid;
+            if let Some(uid) = orchestrator.store().get_uid(&source_uvid) {
+                controller_uid = uid;
+            } else {
+                eprintln!(
+                    "Warning: couldn't find control source ID {}. Skipping automation ID {}",
+                    source_uvid, control.id
+                );
+                continue;
+            }
+            let target_uid;
+            if let Some(uid) = orchestrator.store().get_uid(&target_uvid) {
+                target_uid = uid;
+            } else {
+                eprintln!(
+                    "Warning: couldn't find control target ID {}. Skipping automation ID {}",
+                    target_uvid, control.id
+                );
+                continue;
+            }
+            let result = orchestrator.link_control(controller_uid, target_uid, &target_param_name);
+            if let Err(error_text) = result {
+                eprintln!(
+                    "Warning: skipping automation ID {} because of error '{}'",
+                    control.id, error_text
+                );
+            }
+        }
+        Ok(())
+    }
+
     // TODO: for now, a track has a single time signature. Each pattern can have its
     // own to override the track's, but that's unwieldy compared to a single signature
     // change as part of the overall track sequence. Maybe a pattern can be either
@@ -210,6 +257,7 @@ impl SongSettings {
             );
         }
         for control_trip_settings in &self.trips {
+            let trip_id = control_trip_settings.id.as_str();
             if let Some(target_uid) = orchestrator.get_uid(&control_trip_settings.target.id) {
                 let mut control_trip = Box::new(ControlTrip::<EntityMessage>::default());
                 for path_id in &control_trip_settings.path_ids {
@@ -218,23 +266,26 @@ impl SongSettings {
                     } else {
                         eprintln!(
                             "Warning: trip {} refers to nonexistent path {}",
-                            control_trip_settings.id, path_id
+                            trip_id, path_id
                         );
                     }
                 }
-                let controller_uid = orchestrator.add(
-                    Some(&control_trip_settings.id),
-                    BoxedEntity::ControlTrip(control_trip),
-                );
-                orchestrator.link_control(
+                let controller_uid =
+                    orchestrator.add(Some(trip_id), BoxedEntity::ControlTrip(control_trip));
+                if let Err(err_result) = orchestrator.link_control(
                     controller_uid,
                     target_uid,
                     &control_trip_settings.target.param,
-                );
+                ) {
+                    eprintln!(
+                        "Warning: trip {} not added because of error '{}'",
+                        trip_id, err_result
+                    );
+                }
             } else {
                 eprintln!(
                     "Warning: trip {} controls nonexistent entity {}",
-                    control_trip_settings.id, control_trip_settings.target.id
+                    trip_id, control_trip_settings.target.id
                 );
             }
         }

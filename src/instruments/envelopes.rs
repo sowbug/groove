@@ -89,10 +89,7 @@ impl GeneratesEnvelope for SimpleEnvelope {
             SimpleEnvelopeState::Attack => {
                 self.transform_linear_to_convex(self.amplitude.current_sum())
             }
-            SimpleEnvelopeState::Decay => {
-                self.transform_linear_to_concave(self.amplitude.current_sum())
-            }
-            SimpleEnvelopeState::Release => {
+            SimpleEnvelopeState::Decay | SimpleEnvelopeState::Release => {
                 self.transform_linear_to_concave(self.amplitude.current_sum())
             }
             _ => self.amplitude.current_sum(),

@@ -569,7 +569,7 @@ pub mod tests {
         let mut lfo = TestLfo::default();
         lfo.set_frequency(2.0);
         let lfo_uid = o.add(None, BoxedEntity::TestLfo(Box::new(lfo)));
-        o.link_control(
+        let _ = o.link_control(
             lfo_uid,
             synth_1_uid,
             &TestSynthControlParams::OscillatorModulation.to_string(),

@@ -5,7 +5,9 @@ pub(crate) mod patches;
 pub(crate) mod songs;
 
 use self::{
-    controllers::ControllerSettings, effects::EffectSettings, instruments::InstrumentSettings,
+    controllers::{ControlTargetSettings, ControllerSettings},
+    effects::EffectSettings,
+    instruments::InstrumentSettings,
 };
 use crate::{
     clock::{BeatValue, TimeSignature},
@@ -137,6 +139,14 @@ impl Default for ClockSettings {
             midi_ticks_per_second: 960,
         }
     }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct ControlSettings {
+    pub id: DeviceId,
+    pub source: DeviceId,
+    pub target: ControlTargetSettings,
 }
 
 #[cfg(test)]
