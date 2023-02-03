@@ -1,0 +1,38 @@
+---
+title: "Stereo, automated"
+clock:
+  bpm: 128.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+      - lead
+      - welsh:
+          midi-in: 0
+          preset: growling-bass
+  - controller:
+      - panning-lfo
+      - lfo:
+          midi-in: 0
+          midi-out: 0
+patch-cables:
+  - [lead, main-mixer]
+controls:
+  - id: lfo-pan-1
+    source: panning-lfo
+    target:
+      id: lead
+      param: pan
+patterns:
+  - id: basic-1
+    note-value: eighth
+    notes:
+      - [48, 48, 48, 55, 48, 48, 48, 00]
+  - id: silent-measure-1
+    notes:
+      - [0]
+tracks:
+  - id: track-1
+    midi-channel: 0
+    patterns: [basic-1, silent-measure-1]
