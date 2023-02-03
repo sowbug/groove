@@ -9,6 +9,7 @@ use crate::{
         Controllable, HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates,
         Updateable,
     },
+    BipolarNormal,
 };
 use core::fmt::Debug;
 use groove_macros::{Control, Uid};
@@ -293,10 +294,12 @@ impl<M: MessageBounds> Default for TestSynth<M> {
 }
 
 impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
+    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         // TODO: I don't think this can play sounds, because I don't see how the
         // envelope ever gets triggered.
-        self.oscillator.source_audio(clock) * self.envelope.source_audio(clock)
+        let signal =
+            self.oscillator.source_signal(clock).value() * self.envelope.source_audio(clock) as f64;
+        crate::StereoSample::from(signal)
     }
 }
 
@@ -325,7 +328,7 @@ pub(crate) enum TestLfoControlParams {
 #[derive(Debug, Default, Uid)]
 pub struct TestLfo<M: MessageBounds> {
     uid: usize,
-    value: OldMonoSample,
+    signal_value: BipolarNormal,
     oscillator: Oscillator,
     _phantom: PhantomData<M>,
 }
@@ -346,8 +349,8 @@ impl Updateable for TestLfo<EntityMessage> {
 
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         if let Self::Message::Tick = message {
-            self.value = self.oscillator.source_audio(clock);
-            Response::single(Self::Message::ControlF32(self.value))
+            self.signal_value = self.oscillator.source_signal(clock);
+            Response::single(Self::Message::ControlF32(self.signal_value.value() as f32))
         } else {
             Response::none()
         }
@@ -370,8 +373,8 @@ impl<M: MessageBounds> TestLfo<M> {
         self.oscillator.set_frequency(frequency_hz);
     }
 
-    pub fn value(&self) -> f32 {
-        self.value
+    pub fn value(&self) -> BipolarNormal {
+        self.signal_value
     }
 }
 
@@ -380,7 +383,7 @@ pub mod tests {
     use super::Timer;
     use crate::{
         clock::Clock,
-        common::OldMonoSample,
+        common::{OldMonoSample, SampleType, SignalType},
         controllers::orchestrator::Orchestrator,
         entities::BoxedEntity,
         messages::{tests::TestMessage, EntityMessage, GrooveMessage, MessageBounds},
@@ -393,7 +396,7 @@ pub mod tests {
             transform_linear_to_mma_concave, transform_linear_to_mma_convex, F32ControlValue,
             TestLfo, TestSynth, TestSynthControlParams,
         },
-        StereoSample,
+        Oscillator, StereoSample,
     };
     use convert_case::{Case, Casing};
     use groove_macros::Control;
@@ -413,7 +416,7 @@ pub mod tests {
     }
 
     pub fn samples_match_known_good_wav_file(
-        samples: Vec<f32>,
+        samples: Vec<SampleType>,
         filename: &PathBuf,
         acceptable_deviation: f32,
     ) -> bool {
@@ -423,7 +426,7 @@ pub mod tests {
             return false;
         }
         for i in 0..samples.len() {
-            if (samples[i] - known_good_samples[i]).abs() >= acceptable_deviation {
+            if (samples[i] as f32 - known_good_samples[i]).abs() >= acceptable_deviation {
                 eprintln!(
                     "Samples differed at position {i}: known-good {}, test {}",
                     known_good_samples[i], samples[i]
@@ -434,14 +437,16 @@ pub mod tests {
         true
     }
 
-    pub fn render_audio_source(
-        source: &mut dyn SourcesAudio,
+    // For now, only Oscillator implements source_signal(). We'll probably make
+    // it a trait later.
+    pub fn render_signal_as_audio_source(
+        source: &mut Oscillator,
         run_length_in_seconds: usize,
-    ) -> Vec<f32> {
+    ) -> Vec<SignalType> {
         let mut clock = Clock::default();
         let mut samples = Vec::default();
         for _ in 0..clock.sample_rate() * run_length_in_seconds {
-            samples.push(source.source_audio(&clock));
+            samples.push(source.source_signal(&clock).value());
             clock.tick();
         }
         samples

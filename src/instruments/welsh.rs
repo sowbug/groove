@@ -4,7 +4,7 @@ use super::{
     Dca, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
 use crate::{
-    common::{F32ControlValue, Normal, OldMonoSample, Sample, MONO_SAMPLE_SILENCE},
+    common::{F32ControlValue, Normal, OldMonoSample, Sample},
     effects::filter::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
     messages::EntityMessage,
@@ -14,11 +14,10 @@ use crate::{
         LoadError,
     },
     traits::{
-        Controllable, HasUid, IsInstrument, Response, SourcesAudio, TransformsAudio,
-        TransformsAudioToStereo, Updateable,
+        Controllable, HasUid, IsInstrument, Response, SourcesAudio, TransformsAudio, Updateable,
     },
     utils::Paths,
-    Clock,
+    Clock, StereoSample,
 };
 use convert_case::{Boundary, Case, Casing};
 use groove_macros::{Control, Uid};
@@ -423,7 +422,7 @@ pub struct WelshVoice {
 
     lfo: Oscillator,
     lfo_routing: LfoRouting,
-    lfo_depth: f32,
+    lfo_depth: Normal,
 
     filter: BiQuadFilter<EntityMessage>,
     filter_cutoff_start: f32,
@@ -573,7 +572,7 @@ impl WelshVoice {
     }
 }
 impl SourcesAudio for WelshVoice {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
+    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         self.handle_pending_note_events();
         // It's important for the envelope tick() methods to be called after
         // their handle_note_* methods are called, but before we check whether
@@ -585,15 +584,15 @@ impl SourcesAudio for WelshVoice {
         let (amp_env_amplitude, filter_env_amplitude) = self.tick_envelopes(clock);
 
         if !self.is_playing() {
-            return MONO_SAMPLE_SILENCE;
+            return StereoSample::SILENCE;
         }
 
         // LFO
-        let lfo = self.lfo.source_audio(clock);
+        let lfo = self.lfo.source_signal(clock).value();
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
-            let lfo_for_pitch = lfo * self.lfo_depth;
+            let lfo_for_pitch = lfo * self.lfo_depth.value();
             for o in self.oscillators.iter_mut() {
-                o.set_frequency_modulation(lfo_for_pitch);
+                o.set_frequency_modulation(lfo_for_pitch as f32);
             }
         }
 
@@ -601,12 +600,11 @@ impl SourcesAudio for WelshVoice {
         let len = self.oscillators.len();
         let osc_sum = match len {
             0 => 0.0,
-            1 => self.oscillators[0].source_audio(clock),
+            1 => self.oscillators[0].source_signal(clock).value(),
             2 => {
-                let osc_1_val = self.oscillators[0].source_audio(clock);
+                let osc_1_val = self.oscillators[0].source_signal(clock).value();
                 let should_sync = self.oscillators[0].should_sync_after_this_sample();
-                let value =
-                    (osc_1_val + self.oscillators[1].source_audio(clock)) / 2.0 as OldMonoSample;
+                let value = (osc_1_val + self.oscillators[1].source_signal(clock).value()) / 2.0;
 
                 // It's criticial to do this *after* the synced oscillator's
                 // source_audio(), because the should_sync refers to the next
@@ -629,9 +627,9 @@ impl SourcesAudio for WelshVoice {
                     * filter_env_amplitude.value() as f32;
             self.filter.set_cutoff_pct(new_cutoff_percentage);
         } else if matches!(self.lfo_routing, LfoRouting::FilterCutoff) {
-            let lfo_for_cutoff = lfo * self.lfo_depth;
+            let lfo_for_cutoff = lfo * self.lfo_depth.value();
             self.filter
-                .set_cutoff_pct(self.filter_cutoff_start * (1.0 + lfo_for_cutoff));
+                .set_cutoff_pct(self.filter_cutoff_start * (1.0 + lfo_for_cutoff as f32));
         }
         let filtered_mix = self
             .filter
@@ -641,20 +639,16 @@ impl SourcesAudio for WelshVoice {
         // LFO amplitude modulation
         let lfo_for_amplitude = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
             // LFO ranges from [-1, 1], so convert to something that can silence or double the volume.
-            lfo * self.lfo_depth + 1.0
+            lfo * self.lfo_depth.value() + 1.0
         } else {
             1.0
         };
 
-        let amp_envelope_level = amp_env_amplitude.value() as f32;
-
         // Final
-        filtered_mix as f32 * amp_envelope_level * lfo_for_amplitude
-    }
-
-    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        let input_sample = self.source_audio(clock);
-        self.dca.transform_audio_to_stereo(clock, input_sample)
+        self.dca.transform_audio_to_stereo(
+            clock,
+            Sample(filtered_mix * amp_env_amplitude.value() * lfo_for_amplitude),
+        )
     }
 }
 

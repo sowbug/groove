@@ -103,11 +103,7 @@ pub trait SourcesAudio: std::fmt::Debug + Send {
 /// SourcesAudio, does something to it, and then outputs it. It's what effects
 /// do.
 pub trait TransformsAudio: std::fmt::Debug {
-    fn transform_audio(
-        &mut self,
-        clock: &Clock,
-        input_sample: StereoSample,
-    ) -> StereoSample {
+    fn transform_audio(&mut self, clock: &Clock, input_sample: StereoSample) -> StereoSample {
         // Beware: converting from mono to stereo isn't just doing the work
         // twice! You'll also have to double whatever state you maintain from
         // tick to tick that has to do with a single channel's audio data.
@@ -119,16 +115,6 @@ pub trait TransformsAudio: std::fmt::Debug {
 
     /// channel: 0 is left, 1 is right. Use the value as an index into arrays.
     fn transform_channel(&mut self, clock: &Clock, channel: usize, input_sample: Sample) -> Sample;
-}
-
-/// A TransformsAudioToStereo takes monophonic input audio and outputs stereo
-/// audio, typically transforming it further along the way.
-pub trait TransformsAudioToStereo: std::fmt::Debug {
-    fn transform_audio_to_stereo(
-        &mut self,
-        clock: &Clock,
-        input_sample: OldMonoSample,
-    ) -> StereoSample;
 }
 
 // A Terminates has a point in time where it would be OK never being called or
@@ -588,8 +574,10 @@ impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
             self.checkpoint_values.pop_front();
         }
         if self.is_playing {
-            self.dca
-                .transform_audio_to_stereo(clock, self.oscillator.source_audio(clock))
+            self.dca.transform_audio_to_stereo(
+                clock,
+                Sample::from(self.oscillator.source_signal(clock).value()),
+            )
         } else {
             StereoSample::SILENCE
         }

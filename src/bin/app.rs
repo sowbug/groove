@@ -725,7 +725,12 @@ impl GrooveApp {
         GuiStuff::titled_container(
             type_name::<TestLfo<EntityMessage>>(),
             GuiStuff::<EntityMessage>::container_text(
-                format!("Frequency: {} current value: {}", e.frequency(), e.value()).as_str(),
+                format!(
+                    "Frequency: {} current value: {}",
+                    e.frequency(),
+                    e.value().value()
+                )
+                .as_str(),
             )
             .into(),
         )

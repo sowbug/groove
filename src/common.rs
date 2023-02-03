@@ -8,6 +8,12 @@ use std::{
 /// f32/OldMonoSample to MonoSample/StereoSample.
 pub type SampleType = f64;
 
+/// SignalType is the primitive used for general digital signal-related work.
+/// It's pretty important that all of these different types be the same (e.g.,
+/// for now f64), but I'm hoping it's worth the hassle to use different names
+/// depending on usage.
+pub type SignalType = f64;
+
 /// Use ParameterType in places where a Normal or BipolarNormal could fit,
 /// except you don't have any range restrictions.
 #[allow(dead_code)]
@@ -41,14 +47,14 @@ impl AddAssign for Sample {
         self.0 += rhs.0;
     }
 }
-impl Add<Sample> for Sample {
+impl Add for Sample {
     type Output = Self;
 
     fn add(self, rhs: Sample) -> Self::Output {
         Self(self.0 + rhs.0)
     }
 }
-impl Mul<Sample> for Sample {
+impl Mul for Sample {
     type Output = Self;
 
     fn mul(self, rhs: Sample) -> Self::Output {
@@ -146,6 +152,16 @@ impl Sum for StereoSample {
         )
     }
 }
+impl From<Sample> for StereoSample {
+    fn from(value: Sample) -> Self {
+        Self(value, value)
+    }
+}
+impl From<f64> for StereoSample {
+    fn from(value: f64) -> Self {
+        Self(Sample(value), Sample(value))
+    }
+}
 
 pub type DeviceId = String;
 
@@ -194,6 +210,10 @@ impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
     pub fn set(&mut self, value: f64) {
         self.0 = value.clamp(Self::MIN, Self::MAX);
     }
+
+    pub fn scale(&self, factor: f64) -> f64 {
+        self.0 * factor
+    }
 }
 impl<const LOWER: i8, const UPPER: i8> Add for RangedF64<LOWER, UPPER> {
     type Output = Self;
@@ -226,6 +246,11 @@ impl<const LOWER: i8, const UPPER: i8> Sub<f64> for RangedF64<LOWER, UPPER> {
 impl<const LOWER: i8, const UPPER: i8> From<RangedF64<LOWER, UPPER>> for f64 {
     fn from(value: RangedF64<LOWER, UPPER>) -> Self {
         value.0.clamp(Self::MIN, Self::MAX)
+    }
+}
+impl<const LOWER: i8, const UPPER: i8> From<f64> for RangedF64<LOWER, UPPER> {
+    fn from(value: f64) -> Self {
+        Self(value.clamp(Self::MIN, Self::MAX))
     }
 }
 

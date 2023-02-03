@@ -1,3 +1,4 @@
+use crate::Normal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -176,13 +177,13 @@ impl Default for LfoDepth {
         LfoDepth::Pct(0.0)
     }
 }
-impl From<LfoDepth> for f32 {
+impl From<LfoDepth> for Normal {
     fn from(val: LfoDepth) -> Self {
         match val {
-            LfoDepth::None => 0.0,
-            LfoDepth::Pct(pct) => pct,
+            LfoDepth::None => Normal::minimum(),
+            LfoDepth::Pct(pct) => Normal::new(pct as f64),
             LfoDepth::Cents(cents) => {
-                1.0 - OscillatorSettings::semis_and_cents(0, cents as f64) as f32
+                Normal::new(1.0 - OscillatorSettings::semis_and_cents(0, cents as f64))
             }
         }
     }
