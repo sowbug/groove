@@ -2,7 +2,7 @@ use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    common::{OldMonoSample, Sample},
+    common::Sample,
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -38,7 +38,6 @@ impl TransformsAudio for Reverb {
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
-        let input_sample = input_sample.0 as OldMonoSample;
         let input_attenuated = input_sample * self.attenuation;
         let recirc_output = self.recirc_delay_lines[0].pop_output(input_attenuated)
             + self.recirc_delay_lines[1].pop_output(input_attenuated)
@@ -46,8 +45,8 @@ impl TransformsAudio for Reverb {
             + self.recirc_delay_lines[3].pop_output(input_attenuated);
         let adl_0_out = self.allpass_delay_lines[0].pop_output(recirc_output);
         Sample::from(
-            self.wet_dry_mix * self.allpass_delay_lines[1].pop_output(adl_0_out)
-                + (1.0 - self.wet_dry_mix) * input_sample,
+            self.allpass_delay_lines[1].pop_output(adl_0_out) * self.wet_dry_mix
+                + input_sample * (1.0 - self.wet_dry_mix),
         )
     }
 }

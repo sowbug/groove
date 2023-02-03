@@ -1,7 +1,7 @@
 use super::oscillators::KahanSummation;
 use crate::{
     clock::ClockTimeUnit,
-    common::{Normal, OldMonoSample, TimeUnit},
+    common::{Normal, SignalType, TimeUnit},
     settings::patches::EnvelopeSettings,
     Clock,
 };
@@ -373,9 +373,9 @@ pub enum EnvelopeFunction {
 
 #[derive(Clone, Debug, Default)]
 pub struct EnvelopeStep {
-    pub interval: Range<f32>,
-    pub start_value: OldMonoSample,
-    pub end_value: OldMonoSample,
+    pub interval: Range<SignalType>,
+    pub start_value: SignalType,
+    pub end_value: SignalType,
     pub step_function: EnvelopeFunction,
 }
 
@@ -411,7 +411,7 @@ impl SteppedEnvelope {
         &self.steps
     }
 
-    pub(crate) fn step_for_time(&self, time: f32) -> &EnvelopeStep {
+    pub(crate) fn step_for_time(&self, time: f64) -> &EnvelopeStep {
         let steps = self.steps();
         if steps.is_empty() {
             return &Self::EMPTY_STEP;
@@ -419,7 +419,7 @@ impl SteppedEnvelope {
 
         let mut candidate_step: &EnvelopeStep = steps.first().unwrap();
         for step in steps {
-            if candidate_step.interval.end == f32::MAX {
+            if candidate_step.interval.end == f64::MAX {
                 // Any step with max end_time is terminal.
                 break;
             }
@@ -440,7 +440,7 @@ impl SteppedEnvelope {
         candidate_step
     }
 
-    pub(crate) fn value_for_step_at_time(&self, step: &EnvelopeStep, time: f32) -> OldMonoSample {
+    pub(crate) fn value_for_step_at_time(&self, step: &EnvelopeStep, time: f64) -> SignalType {
         if step.interval.start == step.interval.end || step.start_value == step.end_value {
             return step.end_value;
         }
@@ -457,9 +457,7 @@ impl SteppedEnvelope {
                 EnvelopeFunction::Logarithmic => {
                     (percentage_complete.log(10000.0) * 2.0 + 1.0).clamp(0.0, 1.0)
                 }
-                EnvelopeFunction::Exponential => {
-                    (100.0f64.powf(percentage_complete as f64) / 100.0) as f32
-                }
+                EnvelopeFunction::Exponential => 100.0f64.powf(percentage_complete as f64) / 100.0,
             }
         };
         let mut value = step.start_value + total_interval_value_delta * multiplier;
@@ -487,15 +485,15 @@ impl SteppedEnvelope {
 
             // We don't require subsequent steps to be valid, as long as
             // an earlier step covered the rest of the time range.
-            if step.interval.end == f32::MAX {
+            if step.interval.end == f64::MAX {
                 break;
             }
         }
         // TODO same debug_assert_eq!(end_time, f32::MAX);
     }
 
-    pub(crate) fn time_for_unit(&self, clock: &Clock) -> f32 {
-        clock.time_for(&self.time_unit)
+    pub(crate) fn time_for_unit(&self, clock: &Clock) -> f64 {
+        clock.time_for(&self.time_unit) as f64
     }
 }
 
@@ -509,16 +507,16 @@ mod tests {
 
     impl EnvelopeStep {
         pub(crate) fn new_with_duration(
-            start_time: f32,
-            duration: f32,
-            start_value: OldMonoSample,
-            end_value: OldMonoSample,
+            start_time: f64,
+            duration: f64,
+            start_value: SignalType,
+            end_value: SignalType,
             step_function: EnvelopeFunction,
         ) -> Self {
             Self {
                 interval: Range {
                     start: start_time,
-                    end: if duration == f32::MAX {
+                    end: if duration == f64::MAX {
                         duration
                     } else {
                         start_time + duration
@@ -552,10 +550,10 @@ mod tests {
 
     #[test]
     fn test_envelope_step_functions() {
-        const START_TIME: f32 = 3.14159;
-        const DURATION: f32 = 2.71828;
-        const START_VALUE: f32 = 1.0;
-        const END_VALUE: f32 = 1.0 + 10.0;
+        const START_TIME: f64 = 3.14159;
+        const DURATION: f64 = 2.71828;
+        const START_VALUE: SignalType = 1.0;
+        const END_VALUE: SignalType = 1.0 + 10.0;
 
         let mut envelope = SteppedEnvelope::default();
         // This envelope is here just to offset the one we're testing,

@@ -29,8 +29,8 @@ pub enum BeatValue {
 }
 
 impl BeatValue {
-    pub fn divisor(value: BeatValue) -> f32 {
-        value as u32 as f32 / 1024.0
+    pub fn divisor(value: BeatValue) -> f64 {
+        value as u32 as f64 / 1024.0
     }
 
     pub fn from_divisor(divisor: f32) -> anyhow::Result<Self, anyhow::Error> {
@@ -277,8 +277,11 @@ impl Clock {
 /// to replace with something better later on, but for now I'm going to try to
 /// use the struct to get type safety and make refactoring easier later on when
 /// I replace f32 with something else.
+///
+/// TODO: look into MMA's time representation that uses a 32-bit integer with
+/// some math that stretches it out usefully.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct PerfectTimeUnit(pub f32);
+pub struct PerfectTimeUnit(pub f64);
 
 impl Display for PerfectTimeUnit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -287,12 +290,12 @@ impl Display for PerfectTimeUnit {
 }
 impl From<f32> for PerfectTimeUnit {
     fn from(value: f32) -> Self {
-        PerfectTimeUnit(value)
+        PerfectTimeUnit(value as f64)
     }
 }
 impl From<usize> for PerfectTimeUnit {
     fn from(value: usize) -> Self {
-        PerfectTimeUnit(value as f32)
+        PerfectTimeUnit(value as f64)
     }
 }
 impl Add for PerfectTimeUnit {

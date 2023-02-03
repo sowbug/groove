@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, OldMonoSample, Sample},
+    common::{F32ControlValue, Sample},
     messages::{EntityMessage, MessageBounds},
     traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
@@ -149,12 +149,11 @@ impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
-        let input_sample = input_sample.0 as OldMonoSample;
         match self.filter_type {
             FilterType::LowPass24db => {
                 // Thanks
                 // https://www.musicdsp.org/en/latest/Filters/229-lpf-24db-oct.html
-                let input = input_sample as f64;
+                let input = input_sample.0;
                 let stage_1 = self.coefficients.b0 * input + self.state_0;
                 self.state_0 =
                     self.coefficients.b1 * input + self.coefficients.a1 * stage_1 + self.state_1;
@@ -167,7 +166,7 @@ impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
                 Sample::from(output)
             }
             _ => {
-                let s64 = input_sample as f64;
+                let s64 = input_sample.0;
                 let r = (self.coefficients.b0 / self.coefficients.a0) * s64
                     + (self.coefficients.b1 / self.coefficients.a0) * self.sample_m1
                     + (self.coefficients.b2 / self.coefficients.a0) * self.sample_m2

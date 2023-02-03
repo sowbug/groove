@@ -1,7 +1,11 @@
 use super::MidiChannel;
 use crate::{
-    clock::BeatValue, common::DeviceId, controllers::arpeggiator::Arpeggiator,
-    entities::BoxedEntity, messages::EntityMessage, traits::TestController,
+    clock::BeatValue,
+    common::{DeviceId, SignalType},
+    controllers::arpeggiator::Arpeggiator,
+    entities::BoxedEntity,
+    messages::EntityMessage,
+    traits::TestController,
 };
 use serde::{Deserialize, Serialize};
 
@@ -14,15 +18,15 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "kebab-case")]
 pub enum ControlStep {
     /// Stairstep: one value per step.
-    Flat { value: f32 },
+    Flat { value: SignalType },
     /// Linear: start at one value and end at another.
-    Slope { start: f32, end: f32 },
+    Slope { start: SignalType, end: SignalType },
 
     /// Curved; starts out changing quickly and ends up changing slowly.
-    Logarithmic { start: f32, end: f32 },
+    Logarithmic { start: SignalType, end: SignalType },
 
     /// Curved; starts out changing slowly and ends up changing quickly.
-    Exponential { start: f32, end: f32 },
+    Exponential { start: SignalType, end: SignalType },
 
     /// Event-driven (TODO)
     #[allow(dead_code)]
@@ -33,10 +37,13 @@ pub enum ControlStep {
 }
 
 impl ControlStep {
-    pub fn new_flat(value: f32) -> crate::settings::controllers::ControlStep {
+    pub fn new_flat(value: SignalType) -> crate::settings::controllers::ControlStep {
         ControlStep::Flat { value }
     }
-    pub fn new_slope(start: f32, end: f32) -> crate::settings::controllers::ControlStep {
+    pub fn new_slope(
+        start: SignalType,
+        end: SignalType,
+    ) -> crate::settings::controllers::ControlStep {
         ControlStep::Slope { start, end }
     }
 }

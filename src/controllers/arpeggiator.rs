@@ -117,7 +117,9 @@ impl Arpeggiator {
     fn rebuild_sequence(&mut self, clock: &Clock, key: u8, vel: u8) {
         self.beat_sequencer.clear();
 
-        let start_beat = crate::clock::PerfectTimeUnit(clock.beats());
+        // TODO: this is a good place to start pulling the f32 time thread --
+        // remove that ".into()" and deal with it
+        let start_beat = crate::clock::PerfectTimeUnit(clock.beats().into());
         self.insert_one_note(
             start_beat + PerfectTimeUnit(0.25 * 0.0),
             PerfectTimeUnit(0.25),

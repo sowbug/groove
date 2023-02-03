@@ -3,6 +3,7 @@ pub(crate) mod orchestrator;
 pub(crate) mod sequencers;
 
 use crate::clock::{Clock, ClockTimeUnit};
+use crate::common::SignalType;
 use crate::instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope};
 use crate::messages::{EntityMessage, MessageBounds};
 use crate::settings::controllers::ControlStep;
@@ -41,8 +42,8 @@ impl Performance {
 #[derive(Debug, Uid)]
 pub struct ControlTrip<M: MessageBounds> {
     uid: usize,
-    cursor_beats: f32,
-    current_value: f32,
+    cursor_beats: f64,
+    current_value: SignalType,
     envelope: SteppedEnvelope,
     is_finished: bool,
 
@@ -71,13 +72,13 @@ impl<M: MessageBounds> Default for ControlTrip<M> {
     }
 }
 impl<M: MessageBounds> ControlTrip<M> {
-    const CURSOR_BEGIN: f32 = 0.0;
+    const CURSOR_BEGIN: f64 = 0.0;
 
     pub fn new() -> Self {
         Self {
             uid: usize::default(),
             cursor_beats: Self::CURSOR_BEGIN,
-            current_value: f32::MAX, // TODO we want to make sure we set the target's value at start
+            current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
             is_finished: true,
             _phantom: Default::default(),
@@ -163,7 +164,7 @@ impl Updateable for ControlTrip<EntityMessage> {
                 if self.tick(clock) {
                     // tick() tells us that our value has changed, so let's tell
                     // the world about that.
-                    return Response::single(Self::Message::ControlF32(self.current_value));
+                    return Response::single(Self::Message::ControlF32(self.current_value as f32));
                 }
             }
             _ => todo!(),

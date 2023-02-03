@@ -181,10 +181,10 @@ impl<M: MessageBounds> PatternProgrammer<M> {
 
         // Round up to full measure, advance cursor, and make sure sequencer
         // knows we have filled this space.
+        let top = self.time_signature.top as f64;
         let rounded_max_pattern_len =
-            (max_track_len as f32 * pattern_multiplier / self.time_signature.top as f32).ceil()
-                * self.time_signature.top as f32;
-        self.cursor_beats = self.cursor_beats + PerfectTimeUnit::from(rounded_max_pattern_len);
+            (max_track_len as f64 * pattern_multiplier / top).ceil() * top;
+        self.cursor_beats = self.cursor_beats + PerfectTimeUnit(rounded_max_pattern_len);
         sequencer.set_min_end_time(self.cursor_beats);
     }
 }

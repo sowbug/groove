@@ -1,6 +1,6 @@
 use std::{
     iter::Sum,
-    ops::{Add, AddAssign, Mul, Neg, Sub},
+    ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
 /// SampleType is the underlying primitive that makes up MonoSample and
@@ -22,7 +22,6 @@ pub type ParameterType = f64;
 /// Sample is an audio sample.
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Sample(pub SampleType);
-
 impl Sample {
     #[allow(dead_code)]
     pub const SILENCE_VALUE: f64 = 0.0;
@@ -68,6 +67,29 @@ impl Mul<f64> for Sample {
         Self(self.0 * rhs)
     }
 }
+// TODO #[deprecated] because it hides evidence that migration to SampleType
+// isn't complete
+impl Mul<f32> for Sample {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self(self.0 * rhs as f64)
+    }
+}
+impl Div<f64> for Sample {
+    type Output = Self;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        Self(self.0 / rhs)
+    }
+}
+impl Sub for Sample {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
+    }
+}
 impl Neg for Sample {
     type Output = Self;
 
@@ -99,12 +121,6 @@ impl From<f32> for Sample {
 /// TODO: I'm not convinced this is useful.
 #[derive(Debug, Default, PartialEq, PartialOrd)]
 pub struct MonoSample(pub SampleType);
-
-// TODO: enable this to feel bad, then fix it #[deprecated]
-pub type OldMonoSample = f32;
-pub const MONO_SAMPLE_SILENCE: OldMonoSample = 0.0;
-pub const MONO_SAMPLE_MAX: OldMonoSample = 1.0;
-pub const MONO_SAMPLE_MIN: OldMonoSample = -1.0;
 
 /// StereoSample is a two-channel sample.
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
@@ -251,6 +267,11 @@ impl<const LOWER: i8, const UPPER: i8> From<RangedF64<LOWER, UPPER>> for f64 {
 impl<const LOWER: i8, const UPPER: i8> From<f64> for RangedF64<LOWER, UPPER> {
     fn from(value: f64) -> Self {
         Self(value.clamp(Self::MIN, Self::MAX))
+    }
+}
+impl<const LOWER: i8, const UPPER: i8> From<f32> for RangedF64<LOWER, UPPER> {
+    fn from(value: f32) -> Self {
+        Self(value.clamp(Self::MIN as f32, Self::MAX as f32) as f64)
     }
 }
 

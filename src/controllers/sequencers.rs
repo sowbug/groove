@@ -117,7 +117,7 @@ impl Updateable for BeatSequencer<EntityMessage> {
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             Self::Message::Tick => {
-                self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats());
+                self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats().into());
 
                 if self.should_stop_pending_notes {
                     self.should_stop_pending_notes = false;
@@ -129,7 +129,7 @@ impl Updateable for BeatSequencer<EntityMessage> {
                     // any events scheduled at exactly that time. So the range is
                     // inclusive.
                     let range = (
-                        Included(PerfectTimeUnit(clock.beats())),
+                        Included(PerfectTimeUnit(clock.beats().into())),
                         Excluded(self.next_instant),
                     );
                     Response::batch(self.events.range(range).fold(

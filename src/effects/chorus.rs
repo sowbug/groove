@@ -2,7 +2,7 @@ use super::delay::{DelayLine, Delays};
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    common::{OldMonoSample, Sample},
+    common::{Sample, SampleType},
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -38,13 +38,13 @@ impl TransformsAudio for Chorus {
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
         let index_offset = self.delay_factor / self.voices;
-        let mut sum = self.delay.pop_output(input_sample.0 as OldMonoSample);
+        let mut sum = self.delay.pop_output(input_sample);
         for i in 1..self.voices as isize {
             sum += self.delay.peek_indexed_output(i * index_offset as isize);
         }
         Sample::from(
-            self.wet_dry_mix * sum / self.voices as OldMonoSample
-                + (1.0 - self.wet_dry_mix) * input_sample.0 as OldMonoSample,
+            sum * self.wet_dry_mix as SampleType / self.voices as SampleType
+                + input_sample * (1.0 - self.wet_dry_mix),
         )
     }
 }

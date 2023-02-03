@@ -1,5 +1,5 @@
 use crate::{
-    common::{Normal, OldMonoSample},
+    common::{Normal, SampleType},
     effects::{
         bitcrusher::Bitcrusher,
         chorus::Chorus,
@@ -14,6 +14,7 @@ use crate::{
     entities::BoxedEntity,
     messages::EntityMessage,
     traits::TestEffect,
+    BipolarNormal,
 };
 use serde::{Deserialize, Serialize};
 
@@ -91,7 +92,7 @@ impl EffectSettings {
                 BoxedEntity::Mixer(Box::new(Mixer::<EntityMessage>::default()))
             }
             EffectSettings::Limiter { min, max } => BoxedEntity::Limiter(Box::new(
-                Limiter::new_with(min as OldMonoSample, max as OldMonoSample),
+                Limiter::new_with(BipolarNormal::from(min), BipolarNormal::from(max)),
             )),
             EffectSettings::Gain { ceiling } => BoxedEntity::Gain(Box::new(
                 Gain::<EntityMessage>::new_with(Normal::new_from_f32(ceiling)),
@@ -105,7 +106,10 @@ impl EffectSettings {
                 attack,
                 release,
             } => BoxedEntity::Compressor(Box::new(Compressor::new_with(
-                threshold, ratio, attack, release,
+                threshold as SampleType,
+                ratio,
+                attack,
+                release,
             ))),
             EffectSettings::FilterLowPass12db { cutoff, q } => BoxedEntity::BiQuadFilter(Box::new(
                 BiQuadFilter::new_with(&FilterParams::LowPass12db { cutoff, q }, sample_rate),

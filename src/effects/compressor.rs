@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, OldMonoSample, Sample},
+    common::{F32ControlValue, Sample, SampleType},
     messages::EntityMessage,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
 };
@@ -51,11 +51,15 @@ impl TransformsAudio for Compressor {
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
-        let input_sample_positive = input_sample.0.abs() as OldMonoSample;
-        if input_sample_positive > self.threshold {
+        let input_sample_positive = input_sample.0.abs();
+        let threshold = self.threshold as SampleType;
+        if input_sample_positive > threshold {
+            // TODO: this expression is (a + b - a) * c * d, which is just b * c
+            // * d, which is clearly wrong. Fix it. (Too tired right now to look
+            //   into how compression should work)
             Sample::from(
-                (self.threshold + (input_sample_positive - self.threshold) * self.ratio)
-                    * input_sample.0.signum() as OldMonoSample,
+                (threshold + (input_sample_positive - threshold) * self.ratio as SampleType)
+                    * input_sample.0.signum(),
             )
         } else {
             input_sample
@@ -64,9 +68,9 @@ impl TransformsAudio for Compressor {
 }
 
 impl Compressor {
-    pub fn new_with(threshold: f32, ratio: f32, attack: f32, release: f32) -> Self {
+    pub fn new_with(threshold: SampleType, ratio: f32, attack: f32, release: f32) -> Self {
         Self {
-            threshold,
+            threshold: threshold as f32,
             ratio,
             attack,
             release,
@@ -126,8 +130,10 @@ impl Compressor {
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::Sample, effects::compressor::Compressor, traits::TransformsAudio, BoxedEntity,
-        Clock,
+        common::{Sample, SampleType},
+        effects::compressor::Compressor,
+        traits::TransformsAudio,
+        BoxedEntity, Clock,
     };
 
     #[test]
@@ -141,7 +147,7 @@ mod tests {
     #[test]
     fn basic_compressor() {
         let clock = Clock::default();
-        const THRESHOLD: f32 = 0.25;
+        const THRESHOLD: SampleType = 0.25;
         let mut fx = Compressor::new_with(THRESHOLD, 0.5, 0.0, 0.0);
         assert_eq!(
             fx.transform_channel(&clock, 0, Sample::from(0.35)),

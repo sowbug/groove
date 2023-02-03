@@ -1,6 +1,6 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, OldMonoSample, Sample},
+    common::{F32ControlValue, Sample, SampleType},
     messages::EntityMessage,
     midi::MidiMessage,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
@@ -14,7 +14,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 #[allow(dead_code)]
 pub struct Sampler {
     uid: usize,
-    samples: Vec<OldMonoSample>,
+    samples: Vec<Sample>,
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
@@ -40,10 +40,12 @@ impl SourcesAudio for Sampler {
 
         // TODO Issue #80: load stereo samples
         StereoSample::from(if self.is_playing {
-            let sample = *self.samples.get(self.sample_pointer).unwrap_or(&0.0);
-            sample as f64
+            *self
+                .samples
+                .get(self.sample_pointer)
+                .unwrap_or(&Sample::SILENCE)
         } else {
-            Sample::SILENCE_VALUE
+            Sample::SILENCE
         })
     }
 }
@@ -82,8 +84,9 @@ impl Sampler {
         let mut reader = hound::WavReader::open(filename).unwrap();
         let mut r = Self::new_with(reader.duration() as usize);
         for sample in reader.samples::<i16>() {
-            r.samples
-                .push(sample.unwrap() as OldMonoSample / i16::MAX as OldMonoSample);
+            r.samples.push(Sample::from(
+                sample.unwrap() as SampleType / i16::MAX as SampleType,
+            ));
         }
         r.filename = filename.to_string();
         r

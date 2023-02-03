@@ -385,7 +385,7 @@ pub mod tests {
     use super::Timer;
     use crate::{
         clock::Clock,
-        common::{OldMonoSample, SampleType, SignalType},
+        common::{Sample, SampleType},
         controllers::orchestrator::Orchestrator,
         entities::BoxedEntity,
         messages::{tests::TestMessage, EntityMessage, GrooveMessage, MessageBounds},
@@ -407,20 +407,22 @@ pub mod tests {
     use std::{fs, marker::PhantomData, path::PathBuf};
     use strum_macros::{Display, EnumString, FromRepr};
 
-    fn read_samples_from_mono_wav_file(filename: &PathBuf) -> Vec<OldMonoSample> {
+    fn read_samples_from_mono_wav_file(filename: &PathBuf) -> Vec<Sample> {
         let mut reader = hound::WavReader::open(filename).unwrap();
         let mut r = Vec::default();
 
         for sample in reader.samples::<i16>() {
-            r.push(sample.unwrap() as OldMonoSample / i16::MAX as OldMonoSample);
+            r.push(Sample::from(
+                sample.unwrap() as SampleType / i16::MAX as SampleType,
+            ));
         }
         r
     }
 
     pub fn samples_match_known_good_wav_file(
-        samples: Vec<SampleType>,
+        samples: Vec<Sample>,
         filename: &PathBuf,
-        acceptable_deviation: f32,
+        acceptable_deviation: SampleType,
     ) -> bool {
         let known_good_samples = read_samples_from_mono_wav_file(filename);
         if known_good_samples.len() != samples.len() {
@@ -428,10 +430,10 @@ pub mod tests {
             return false;
         }
         for i in 0..samples.len() {
-            if (samples[i] as f32 - known_good_samples[i]).abs() >= acceptable_deviation {
+            if (samples[i] - known_good_samples[i]).0.abs() >= acceptable_deviation {
                 eprintln!(
                     "Samples differed at position {i}: known-good {}, test {}",
-                    known_good_samples[i], samples[i]
+                    known_good_samples[i].0, samples[i].0
                 );
                 return false;
             }
@@ -444,11 +446,11 @@ pub mod tests {
     pub fn render_signal_as_audio_source(
         source: &mut Oscillator,
         run_length_in_seconds: usize,
-    ) -> Vec<SignalType> {
+    ) -> Vec<Sample> {
         let mut clock = Clock::default();
         let mut samples = Vec::default();
         for _ in 0..clock.sample_rate() * run_length_in_seconds {
-            samples.push(source.source_signal(&clock).value());
+            samples.push(Sample::from(source.source_signal(&clock).value()));
             clock.tick();
         }
         samples
