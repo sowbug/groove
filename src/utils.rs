@@ -1,15 +1,17 @@
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    common::OldMonoSample,
-    instruments::{envelopes::AdsrEnvelope, oscillators::Oscillator},
+    common::SampleType,
+    instruments::{
+        envelopes::{GeneratesEnvelope, SimpleEnvelope},
+        oscillators::Oscillator,
+    },
     messages::{EntityMessage, MessageBounds},
-    settings::patches::EnvelopeSettings,
     traits::{
         Controllable, HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates,
         Updateable,
     },
-    BipolarNormal,
+    BipolarNormal, StereoSample,
 };
 use core::fmt::Debug;
 use groove_macros::{Control, Uid};
@@ -153,7 +155,7 @@ pub(crate) enum TestAudioSourceSetLevelControlParams {
 #[derive(Control, Debug, Default, Uid)]
 pub struct AudioSource<M: MessageBounds> {
     uid: usize,
-    level: OldMonoSample,
+    level: SampleType,
     _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsInstrument for AudioSource<M> {}
@@ -162,30 +164,30 @@ impl<M: MessageBounds> Updateable for AudioSource<M> {
 }
 #[allow(dead_code)]
 impl<M: MessageBounds> AudioSource<M> {
-    pub const TOO_LOUD: OldMonoSample = 1.1;
-    pub const LOUD: OldMonoSample = 1.0;
-    pub const SILENT: OldMonoSample = 0.0;
-    pub const QUIET: OldMonoSample = -1.0;
-    pub const TOO_QUIET: OldMonoSample = -1.1;
+    pub const TOO_LOUD: SampleType = 1.1;
+    pub const LOUD: SampleType = 1.0;
+    pub const SILENT: SampleType = 0.0;
+    pub const QUIET: SampleType = -1.0;
+    pub const TOO_QUIET: SampleType = -1.1;
 
-    pub fn new_with(level: OldMonoSample) -> Self {
+    pub fn new_with(level: SampleType) -> Self {
         Self {
             level,
             ..Default::default()
         }
     }
 
-    pub fn level(&self) -> f32 {
+    pub fn level(&self) -> SampleType {
         self.level
     }
 
-    pub fn set_level(&mut self, level: OldMonoSample) {
+    pub fn set_level(&mut self, level: SampleType) {
         self.level = level;
     }
 }
 impl<M: MessageBounds> SourcesAudio for AudioSource<M> {
-    fn source_audio(&mut self, _clock: &Clock) -> OldMonoSample {
-        self.level
+    fn source_stereo_audio(&mut self, _clock: &Clock) -> crate::StereoSample {
+        StereoSample::from(self.level)
     }
 }
 
@@ -243,7 +245,7 @@ pub struct TestSynth<M: MessageBounds> {
     oscillator_modulation: f32,
 
     oscillator: Box<Oscillator>,
-    envelope: Box<dyn SourcesAudio>,
+    envelope: Box<dyn GeneratesEnvelope>,
     _phantom: PhantomData<M>,
 }
 
@@ -256,10 +258,10 @@ impl<M: MessageBounds> TestSynth<M> {
     fn new() -> Self {
         Self::new_with(
             Box::new(Oscillator::default()),
-            Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
+            Box::new(SimpleEnvelope::default()),
         )
     }
-    pub fn new_with(oscillator: Box<Oscillator>, envelope: Box<dyn SourcesAudio>) -> Self {
+    pub fn new_with(oscillator: Box<Oscillator>, envelope: Box<dyn GeneratesEnvelope>) -> Self {
         Self {
             oscillator,
             envelope,
@@ -287,7 +289,7 @@ impl<M: MessageBounds> Default for TestSynth<M> {
             uid: 0,
             oscillator_modulation: Default::default(),
             oscillator: Box::new(Oscillator::default()),
-            envelope: Box::new(AdsrEnvelope::new_with(&EnvelopeSettings::default())),
+            envelope: Box::new(SimpleEnvelope::default()),
             _phantom: Default::default(),
         }
     }
@@ -297,8 +299,8 @@ impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
     fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         // TODO: I don't think this can play sounds, because I don't see how the
         // envelope ever gets triggered.
-        let signal =
-            self.oscillator.source_signal(clock).value() * self.envelope.source_audio(clock) as f64;
+        let envelope_amplitude = self.envelope.tick(clock).value();
+        let signal = self.oscillator.source_signal(clock).value() * envelope_amplitude;
         crate::StereoSample::from(signal)
     }
 }
@@ -389,8 +391,8 @@ pub mod tests {
         messages::{tests::TestMessage, EntityMessage, GrooveMessage, MessageBounds},
         midi::MidiChannel,
         traits::{
-            Controllable, HasUid, IsController, IsEffect, Response, SourcesAudio, Terminates,
-            TestController, TestEffect, TestInstrument, TransformsAudio, Updateable,
+            Controllable, HasUid, IsEffect, Response, TestController, TestEffect, TestInstrument,
+            TransformsAudio, Updateable,
         },
         utils::{
             transform_linear_to_mma_concave, transform_linear_to_mma_convex, F32ControlValue,
@@ -501,64 +503,6 @@ pub mod tests {
     }
     impl<M: MessageBounds> Updateable for TestMixer<M> {
         type Message = M;
-    }
-
-    /// Lets a SourcesAudio act like an IsController
-    #[derive(Debug)]
-    pub struct TestControlSourceContinuous<M: MessageBounds> {
-        uid: usize,
-        source: Box<dyn SourcesAudio>,
-
-        _phantom: PhantomData<M>,
-    }
-    impl<M: MessageBounds> IsController for TestControlSourceContinuous<M> {}
-    impl<M: MessageBounds> Updateable for TestControlSourceContinuous<M> {
-        default type Message = M;
-
-        default fn update(
-            &mut self,
-            _clock: &Clock,
-            _message: Self::Message,
-        ) -> Response<Self::Message> {
-            Response::none()
-        }
-    }
-    impl Updateable for TestControlSourceContinuous<EntityMessage> {
-        type Message = EntityMessage;
-
-        fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-            match message {
-                Self::Message::Tick => {
-                    let value = self.source.source_audio(clock).abs();
-                    Response::single(Self::Message::ControlF32(value))
-                }
-                _ => Response::none(),
-            }
-        }
-    }
-    impl<M: MessageBounds> Terminates for TestControlSourceContinuous<M> {
-        fn is_finished(&self) -> bool {
-            true
-        }
-    }
-    impl<M: MessageBounds> HasUid for TestControlSourceContinuous<M> {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
-    }
-    impl<M: MessageBounds> TestControlSourceContinuous<M> {
-        #[allow(dead_code)]
-        pub fn new_with(source: Box<dyn SourcesAudio>) -> Self {
-            Self {
-                uid: usize::default(),
-                source,
-                _phantom: PhantomData::default(),
-            }
-        }
     }
 
     #[test]

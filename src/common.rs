@@ -304,6 +304,7 @@ mod tests {
             (self.0 .0 - rhs.0 .0).abs() < epsilon && (self.1 .0 - rhs.1 .0).abs() < epsilon
         }
     }
+
     #[test]
     fn normal_mainline() {
         let a = Normal::new(0.2);

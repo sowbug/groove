@@ -1,23 +1,18 @@
 use super::oscillators::KahanSummation;
 use crate::{
     clock::ClockTimeUnit,
-    common::{F32ControlValue, Normal, OldMonoSample, TimeUnit},
-    messages::EntityMessage,
+    common::{Normal, OldMonoSample, TimeUnit},
     settings::patches::EnvelopeSettings,
-    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     Clock,
 };
-use groove_macros::{Control, Uid};
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
-use std::str::FromStr;
-use std::{fmt::Debug, marker::PhantomData, ops::Range};
-use strum_macros::{Display, EnumString, FromRepr};
+use std::{fmt::Debug, ops::Range};
 
 /// The user-visible parts of an envelope generator, which provides an amplitude
 /// 0.0..=1.0 that changes over time according to its internal parameters and
 /// the note on/off trigger.
-pub trait GeneratesEnvelope {
+pub trait GeneratesEnvelope: Send + Debug {
     /// Triggers the active part of the envelope.
     fn enqueue_attack(&mut self);
 
@@ -384,50 +379,11 @@ pub struct EnvelopeStep {
     pub step_function: EnvelopeFunction,
 }
 
-impl EnvelopeStep {
-    pub(crate) fn new_with_duration(
-        start_time: f32,
-        duration: f32,
-        start_value: OldMonoSample,
-        end_value: OldMonoSample,
-        step_function: EnvelopeFunction,
-    ) -> Self {
-        Self {
-            interval: Range {
-                start: start_time,
-                end: if duration == f32::MAX {
-                    duration
-                } else {
-                    start_time + duration
-                },
-            },
-            start_value,
-            end_value,
-            step_function,
-        }
-    }
-
-    pub(crate) fn new_with_end_time(
-        interval: Range<f32>,
-        start_value: OldMonoSample,
-        end_value: OldMonoSample,
-        step_function: EnvelopeFunction,
-    ) -> Self {
-        Self {
-            interval,
-            start_value,
-            end_value,
-            step_function,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Default)]
 pub struct SteppedEnvelope {
     time_unit: ClockTimeUnit,
     steps: Vec<EnvelopeStep>,
 }
-
 impl SteppedEnvelope {
     const EMPTY_STEP: EnvelopeStep = EnvelopeStep {
         interval: Range {
@@ -439,28 +395,11 @@ impl SteppedEnvelope {
         step_function: EnvelopeFunction::Linear,
     };
 
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
-    #[allow(dead_code)]
     pub(crate) fn new_with_time_unit(time_unit: ClockTimeUnit) -> Self {
         Self {
             time_unit,
             ..Default::default()
         }
-    }
-
-    pub(crate) fn new_with(time_unit: ClockTimeUnit, vec: Vec<EnvelopeStep>) -> Self {
-        let r = Self {
-            time_unit,
-            steps: vec,
-        };
-        r.debug_validate_steps();
-        r
     }
 
     pub(crate) fn push_step(&mut self, step: EnvelopeStep) {
@@ -470,11 +409,6 @@ impl SteppedEnvelope {
 
     fn steps(&self) -> &[EnvelopeStep] {
         &self.steps
-    }
-
-    #[allow(dead_code)]
-    fn time_unit(&self) -> &ClockTimeUnit {
-        &self.time_unit
     }
 
     pub(crate) fn step_for_time(&self, time: f32) -> &EnvelopeStep {
@@ -565,402 +499,6 @@ impl SteppedEnvelope {
     }
 }
 
-impl SourcesAudio for SteppedEnvelope {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
-        let time = self.time_for_unit(clock);
-        let step = self.step_for_time(time);
-        self.value_for_step_at_time(step, time)
-    }
-}
-
-#[derive(Debug, Default)]
-enum AdsrEnvelopeStepName {
-    #[default]
-    InitialIdle,
-    Attack,
-    Decay,
-    Sustain,
-    Release,
-    FinalIdle,
-}
-
-#[derive(Clone, Control, Debug, Uid)]
-pub struct AdsrEnvelope {
-    uid: usize,
-    preset: EnvelopeSettings,
-
-    #[controllable]
-    note: PhantomData<u8>,
-
-    envelope: SteppedEnvelope,
-    note_on_time: f32,
-    note_off_time: f32,
-    end_work_time: f32,
-
-    note_on_pending: bool,
-    note_off_pending: bool,
-    is_idle: bool,
-}
-impl IsInstrument for AdsrEnvelope {}
-impl SourcesAudio for AdsrEnvelope {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
-        let time = self.envelope.time_for_unit(clock);
-        let step = self.envelope.step_for_time(time);
-        self.envelope.value_for_step_at_time(step, time)
-    }
-}
-impl Updateable for AdsrEnvelope {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            Self::Message::Midi(_, message) => match message {
-                midly::MidiMessage::NoteOff { key: _, vel: _ } => {
-                    self.handle_note_event(clock, false)
-                }
-                midly::MidiMessage::NoteOn { key: _, vel: _ } => {
-                    self.handle_note_event(clock, true)
-                }
-                _ => {}
-            },
-            _ => todo!(),
-        }
-        Response::none()
-    }
-}
-impl Default for AdsrEnvelope {
-    fn default() -> Self {
-        Self::new_with(&EnvelopeSettings::default())
-    }
-}
-impl GeneratesEnvelope for AdsrEnvelope {
-    fn enqueue_attack(&mut self) {
-        self.note_on_pending = true;
-    }
-
-    fn enqueue_release(&mut self) {
-        self.note_off_pending = true;
-    }
-
-    fn tick(&mut self, clock: &Clock) -> Normal {
-        self.handle_pending(clock);
-        let time = self.envelope.time_for_unit(clock);
-        let step = self.envelope.step_for_time(time);
-        self.is_idle = self.calculate_is_idle(clock);
-        Normal::new(self.envelope.value_for_step_at_time(step, time) as f64)
-    }
-
-    fn is_idle(&self) -> bool {
-        self.is_idle
-    }
-}
-
-impl AdsrEnvelope {
-    fn handle_pending(&mut self, clock: &Clock) {
-        if self.note_on_pending {
-            self.note_on_time = self.envelope.time_for_unit(clock);
-            self.note_off_time = f32::MAX;
-            self.handle_state_change();
-            self.note_on_pending = false;
-        }
-        if self.note_off_pending {
-            if self.note_on_time == f32::MAX {
-                self.note_on_time = self.envelope.time_for_unit(clock);
-            }
-            self.note_off_time = self.envelope.time_for_unit(clock);
-            self.handle_state_change();
-            self.note_off_pending = false;
-        }
-    }
-
-    fn calculate_is_idle(&self, clock: &Clock) -> bool {
-        clock.seconds() < self.note_on_time || clock.seconds() >= self.end_work_time
-    }
-
-    pub(crate) fn handle_note_event(&mut self, clock: &Clock, note_on: bool) {
-        if note_on {
-            self.note_on_time = self.envelope.time_for_unit(clock);
-            self.note_off_time = f32::MAX;
-            self.handle_state_change();
-        } else {
-            // We don't touch the note-on time because that's still important to
-            // build the right envelope shape, unless we got a note-off without
-            // a prior note-on (which can happen), and in that case we'll fix it
-            // up to now.
-            if self.note_on_time == f32::MAX {
-                self.note_on_time = self.envelope.time_for_unit(clock);
-            }
-            self.note_off_time = self.envelope.time_for_unit(clock);
-            self.handle_state_change();
-        }
-    }
-
-    // TODO: is this really used anywhere? If yes, then we either need to plumb
-    // clock back through all the control infra, or else we need to figure out a
-    // different way to communicate the control event to this special case,
-    // e.g., storing away the note event and processing it at the next
-    // source_audio(), when we will have a clock.
-    pub(crate) fn set_control_note(&mut self, _value: F32ControlValue) {
-        //        self.handle_note_event(clock, value.0 == 1.0);
-    }
-
-    fn handle_state_change(&mut self) {
-        if self.note_on_time == f32::MAX {
-            // We're waiting for a keypress; we have neither key-down nor key-up.
-            // InitialIdle is only state.
-            self.envelope.steps[AdsrEnvelopeStepName::InitialIdle as usize] =
-                EnvelopeStep::new_with_duration(0.0, f32::MAX, 0.0, 0.0, EnvelopeFunction::Linear);
-            self.end_work_time = f32::MAX;
-            self.envelope.debug_validate_steps();
-            return;
-        }
-
-        // We have at least a key-down.
-        let dt = self.note_on_time; // "down time" as in key-down time
-        let p = &self.preset;
-
-        self.envelope.steps[AdsrEnvelopeStepName::InitialIdle as usize] =
-            EnvelopeStep::new_with_duration(0.0, dt, 0.0, 0.0, EnvelopeFunction::Linear);
-
-        // No matter whether we have a key-up yet, we want Attack to behave as if it's
-        // going to complete normally, starting at 0, targeting 1, at the expected rate.
-        self.envelope.steps[AdsrEnvelopeStepName::Attack as usize] =
-            EnvelopeStep::new_with_duration(dt, p.attack, 0.0, 1.0, EnvelopeFunction::Linear);
-
-        if self.note_off_time == f32::MAX {
-            // We don't have a key-up, so let's build an envelope that ends on sustain.
-            self.envelope.steps[AdsrEnvelopeStepName::Decay as usize] =
-                EnvelopeStep::new_with_duration(
-                    dt + p.attack,
-                    p.decay,
-                    1.0,
-                    p.sustain,
-                    EnvelopeFunction::Linear,
-                );
-            self.envelope.steps[AdsrEnvelopeStepName::Sustain as usize] =
-                EnvelopeStep::new_with_duration(
-                    dt + p.attack + p.decay,
-                    f32::MAX,
-                    p.sustain,
-                    p.sustain,
-                    EnvelopeFunction::Linear,
-                );
-            self.end_work_time = f32::MAX;
-            self.envelope.debug_validate_steps();
-            return;
-        }
-
-        // We do have a key-up. There are two cases: during Attack/Decay, or during Sustain.
-        let ut = self.note_off_time;
-        debug_assert_le!(dt, ut);
-
-        let keydown_duration = ut - dt;
-        let attack_decay_duration = p.attack + p.decay;
-        if keydown_duration > attack_decay_duration {
-            // normal case where key-up does not interrupt attack/decay.
-            self.envelope.steps[AdsrEnvelopeStepName::Decay as usize] =
-                EnvelopeStep::new_with_duration(
-                    dt + p.attack,
-                    p.decay,
-                    1.0,
-                    p.sustain,
-                    EnvelopeFunction::Linear,
-                );
-            self.envelope.steps[AdsrEnvelopeStepName::Sustain as usize] =
-                EnvelopeStep::new_with_end_time(
-                    Range {
-                        start: dt + p.attack + p.decay,
-                        end: ut,
-                    },
-                    p.sustain,
-                    p.sustain,
-                    EnvelopeFunction::Linear,
-                );
-            self.envelope.steps[AdsrEnvelopeStepName::Release as usize] =
-                EnvelopeStep::new_with_duration(
-                    ut,
-                    p.release,
-                    p.sustain,
-                    0.0,
-                    EnvelopeFunction::Linear,
-                );
-            let final_idle_start_time = ut + p.release;
-            self.envelope.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
-                EnvelopeStep::new_with_duration(
-                    final_idle_start_time,
-                    f32::MAX,
-                    0.0,
-                    0.0,
-                    EnvelopeFunction::Linear,
-                );
-            self.end_work_time = final_idle_start_time;
-        } else {
-            // key-up happened during attack/decay.
-            if keydown_duration >= p.attack {
-                // Attack completed normally, and decay was midway. Let decay finish, skip sustain.
-                self.envelope.steps[AdsrEnvelopeStepName::Decay as usize] =
-                    EnvelopeStep::new_with_duration(
-                        dt + p.attack,
-                        p.decay,
-                        1.0,
-                        p.sustain,
-                        EnvelopeFunction::Linear,
-                    );
-                self.envelope.steps[AdsrEnvelopeStepName::Sustain as usize] =
-                    EnvelopeStep::new_with_duration(
-                        dt + p.attack + p.decay,
-                        0.0,
-                        p.sustain,
-                        p.sustain,
-                        EnvelopeFunction::Linear,
-                    );
-                self.envelope.steps[AdsrEnvelopeStepName::Release as usize] =
-                    EnvelopeStep::new_with_duration(
-                        dt + p.attack + p.decay,
-                        p.release,
-                        p.sustain,
-                        0.0,
-                        EnvelopeFunction::Linear,
-                    );
-                let final_idle_start_time = dt + p.attack + p.decay + p.release;
-                self.envelope.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
-                    EnvelopeStep::new_with_duration(
-                        final_idle_start_time,
-                        f32::MAX,
-                        0.0,
-                        0.0,
-                        EnvelopeFunction::Linear,
-                    );
-                self.end_work_time = final_idle_start_time;
-            } else {
-                // Attack was interrupted. Pick current amplitude as ceiling, skip rest of attack, and move to decay.
-                // Since we're picking a new ceiling, we'll scale the sustain level along with it so that the
-                // envelope shape doesn't get weird (example: attack is interrupted at amplitude 0.1, but sustain was
-                // 0.8. If we let decay do its thing going from "ceiling" to sustain, then it would go *up* rather than
-                // down).
-                let intercept_value = self.envelope.value_for_step_at_time(
-                    &self.envelope.steps[AdsrEnvelopeStepName::Attack as usize],
-                    ut,
-                );
-                let scaled_sustain = p.sustain * intercept_value;
-                self.envelope.steps[AdsrEnvelopeStepName::Decay as usize] =
-                    EnvelopeStep::new_with_duration(
-                        ut,
-                        p.decay,
-                        intercept_value,
-                        scaled_sustain,
-                        EnvelopeFunction::Linear,
-                    );
-                self.envelope.steps[AdsrEnvelopeStepName::Sustain as usize] =
-                    EnvelopeStep::new_with_duration(
-                        ut + p.decay,
-                        0.0,
-                        scaled_sustain,
-                        scaled_sustain,
-                        EnvelopeFunction::Linear,
-                    );
-                self.envelope.steps[AdsrEnvelopeStepName::Release as usize] =
-                    EnvelopeStep::new_with_duration(
-                        ut + p.decay,
-                        p.release,
-                        scaled_sustain,
-                        0.0,
-                        EnvelopeFunction::Linear,
-                    );
-                let final_idle_start_time = ut + p.decay + p.release;
-                self.envelope.steps[AdsrEnvelopeStepName::FinalIdle as usize] =
-                    EnvelopeStep::new_with_duration(
-                        final_idle_start_time,
-                        f32::MAX,
-                        0.0,
-                        0.0,
-                        EnvelopeFunction::Linear,
-                    );
-                self.end_work_time = final_idle_start_time;
-            }
-        }
-        self.envelope.debug_validate_steps();
-    }
-
-    pub fn new_with(preset: &EnvelopeSettings) -> Self {
-        let vec = vec![
-            EnvelopeStep {
-                // InitialIdle
-                interval: Range {
-                    start: 0.0,
-                    end: f32::MAX,
-                },
-                start_value: 0.0,
-                end_value: 0.0,
-                step_function: EnvelopeFunction::Linear,
-            },
-            EnvelopeStep {
-                // Attack
-                interval: Range {
-                    start: 0.0,
-                    end: f32::MAX,
-                },
-                start_value: 0.0,
-                end_value: 1.0,
-                step_function: EnvelopeFunction::Linear,
-            },
-            EnvelopeStep {
-                // Decay
-                interval: Range {
-                    start: 0.0,
-                    end: f32::MAX,
-                },
-                start_value: 1.0,
-                end_value: preset.sustain,
-                step_function: EnvelopeFunction::Linear,
-            },
-            EnvelopeStep {
-                // Sustain
-                interval: Range {
-                    start: 0.0,
-                    end: f32::MAX,
-                },
-                start_value: preset.sustain,
-                end_value: preset.sustain,
-                step_function: EnvelopeFunction::Linear,
-            },
-            EnvelopeStep {
-                // Release
-                interval: Range {
-                    start: 0.0,
-                    end: f32::MAX,
-                },
-                start_value: preset.sustain,
-                end_value: 0.0,
-                step_function: EnvelopeFunction::Linear,
-            },
-            EnvelopeStep {
-                // FinalIdle
-                interval: Range {
-                    start: 0.0,
-                    end: f32::MAX,
-                },
-                start_value: 0.0,
-                end_value: 0.0,
-                step_function: EnvelopeFunction::Linear,
-            },
-        ];
-        Self {
-            uid: usize::default(),
-            preset: *preset,
-            note: Default::default(),
-            envelope: SteppedEnvelope::new_with(ClockTimeUnit::Seconds, vec),
-            note_on_time: f32::MAX,
-            note_off_time: f32::MAX,
-            end_work_time: f32::MAX,
-
-            note_on_pending: false,
-            note_off_pending: false,
-            is_idle: true,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -968,6 +506,30 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
+
+    impl EnvelopeStep {
+        pub(crate) fn new_with_duration(
+            start_time: f32,
+            duration: f32,
+            start_value: OldMonoSample,
+            end_value: OldMonoSample,
+            step_function: EnvelopeFunction,
+        ) -> Self {
+            Self {
+                interval: Range {
+                    start: start_time,
+                    end: if duration == f32::MAX {
+                        duration
+                    } else {
+                        start_time + duration
+                    },
+                },
+                start_value,
+                end_value,
+                step_function,
+            }
+        }
+    }
 
     impl SimpleEnvelope {
         fn debug_state(&self) -> &SimpleEnvelopeState {
@@ -986,218 +548,6 @@ mod tests {
         fn debug_amplitude(&self) -> Normal {
             Normal::new(self.amplitude.current_sum())
         }
-    }
-
-    // temp for testing
-    impl AdsrEnvelope {
-        fn is_idle_for_time(&self, clock: &Clock) -> bool {
-            self.calculate_is_idle(clock)
-        }
-    }
-
-    #[test]
-    fn test_envelope_mainline() {
-        let ep = EnvelopeSettings {
-            attack: 0.1,
-            decay: 0.2,
-            sustain: 0.8,
-            release: 0.3,
-        };
-        let mut envelope = AdsrEnvelope::new_with(&ep);
-
-        // Nobody has pressed a key, so it should be all silent.
-        for t in 0..100 {
-            let t_f32 = t as f32 / 10.0;
-            let clock = Clock::debug_new_with_time(t_f32);
-            assert_eq!(envelope.source_audio(&clock), 0.);
-            assert!(envelope.is_idle_for_time(&clock));
-        }
-
-        // Now press a key. Make sure the sustaining part of the envelope is good.
-        const NOTE_ON_TIMESTAMP: f32 = 0.5;
-        envelope.handle_note_event(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP), true);
-
-        assert_approx_eq!(envelope.source_audio(&Clock::debug_new_with_time(0.0)), 0.0);
-        assert_approx_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP + ep.attack)),
-            1.0
-        );
-        assert_approx_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(
-                NOTE_ON_TIMESTAMP + ep.attack + ep.decay
-            )),
-            ep.sustain
-        );
-        assert_approx_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP + 5.0)),
-            ep.sustain
-        );
-        assert_approx_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP + 10.0)),
-            ep.sustain
-        );
-        assert!(envelope.is_idle_for_time(&Clock::debug_new_with_time(0.0)));
-        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP)));
-        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(
-            NOTE_ON_TIMESTAMP + ep.attack + ep.decay
-        )));
-        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP + 10.0)));
-        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(f32::MAX)));
-
-        // Let the key go. Release should work.
-        const NOTE_OFF_TIMESTAMP: f32 = 2.0;
-        envelope.handle_note_event(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP), false);
-
-        assert_approx_eq!(envelope.source_audio(&Clock::debug_new_with_time(0.0)), 0.0);
-        assert_approx_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP)),
-            ep.sustain
-        );
-        assert_lt!(
-            envelope.source_audio(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP + 0.01)),
-            ep.sustain
-        );
-        assert_approx_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(
-                NOTE_OFF_TIMESTAMP + ep.release / 2.0
-            )),
-            ep.sustain / 2.0
-        );
-        assert_approx_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP + ep.release)),
-            0.0
-        );
-        assert_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(
-                NOTE_OFF_TIMESTAMP + ep.release + 0.1
-            )),
-            0.0
-        );
-        assert_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(10.0)),
-            0.0
-        );
-
-        assert!(envelope.is_idle_for_time(&Clock::debug_new_with_time(0.0)));
-        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(NOTE_ON_TIMESTAMP)));
-        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP)));
-        assert!(!envelope.is_idle_for_time(&Clock::debug_new_with_time(
-            NOTE_OFF_TIMESTAMP + ep.release - 0.01
-        )));
-        assert!(
-            envelope.is_idle_for_time(&Clock::debug_new_with_time(NOTE_OFF_TIMESTAMP + ep.release))
-        );
-    }
-
-    #[test]
-    fn test_envelope_interrupted_attack() {
-        let ep = EnvelopeSettings {
-            attack: 0.2,
-            decay: 0.4,
-            sustain: 0.8,
-            release: 0.16,
-        };
-        let mut envelope = AdsrEnvelope::new_with(&ep);
-
-        // Silence throughout (pick an arbitrary point of T0 + attack)
-        assert_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(ep.attack)),
-            0.0
-        );
-
-        // Press a key at time zero to make arithmetic easier. Attack should be
-        // complete at expected time.
-        envelope.handle_note_event(&Clock::default(), true);
-        assert_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(ep.attack)),
-            1.0
-        );
-
-        // But it turns out we release the key before attack completes! Decay should
-        // commence as of wherever the amplitude was at that point.
-        let how_far_through_attack = 0.3f32;
-        let attack_timestamp = ep.attack * how_far_through_attack;
-        let amplitude_at_timestamp = (1.0 - 0.0) * how_far_through_attack;
-        const EPSILONISH: f32 = 0.05;
-        envelope.handle_note_event(&Clock::debug_new_with_time(attack_timestamp), false);
-        assert_approx_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(attack_timestamp)),
-            amplitude_at_timestamp
-        );
-        // Should be below local peak right before...
-        assert_lt!(
-            envelope.source_audio(&Clock::debug_new_with_time(attack_timestamp - EPSILONISH)),
-            amplitude_at_timestamp
-        );
-        // and right after.
-        assert_lt!(
-            envelope.source_audio(&Clock::debug_new_with_time(attack_timestamp + EPSILONISH)),
-            amplitude_at_timestamp
-        );
-        // and should decline through full expected release time to zero.
-        assert_gt!(
-            envelope.source_audio(&Clock::debug_new_with_time(
-                attack_timestamp + ep.decay + ep.release - EPSILONISH
-            )),
-            0.0
-        );
-        assert_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(
-                attack_timestamp + ep.decay + ep.release
-            )),
-            0.0
-        );
-    }
-
-    #[test]
-    fn test_envelope_interrupted_decay() {
-        let ep = EnvelopeSettings {
-            attack: 0.2,
-            decay: 0.4,
-            sustain: 0.8,
-            release: 0.16,
-        };
-        let mut envelope = AdsrEnvelope::new_with(&ep);
-
-        // Press a key at time zero to make arithmetic easier. Attack should be
-        // complete at expected time.
-        envelope.handle_note_event(&Clock::default(), true);
-
-        // We release the key mid-decay. Release should
-        // commence as of wherever the amplitude was at that point.
-        let how_far_through_decay = 0.3f32;
-        let decay_timestamp = ep.attack + ep.decay * how_far_through_decay;
-        envelope.handle_note_event(&Clock::debug_new_with_time(decay_timestamp), false);
-
-        let amplitude_at_timestamp = 1.0 - (1.0 - ep.sustain) * how_far_through_decay;
-        const EPSILONISH: f32 = 0.05;
-        assert_approx_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(decay_timestamp)),
-            amplitude_at_timestamp
-        );
-        // Should be above right before...
-        assert_gt!(
-            envelope.source_audio(&Clock::debug_new_with_time(decay_timestamp - EPSILONISH)),
-            amplitude_at_timestamp
-        );
-        // and below right after.
-        assert_lt!(
-            envelope.source_audio(&Clock::debug_new_with_time(decay_timestamp + EPSILONISH)),
-            amplitude_at_timestamp
-        );
-
-        // and should decline through release time to zero.
-        let end_of_envelope_timestamp = ep.attack + ep.decay + ep.release;
-        assert_gt!(
-            envelope.source_audio(&Clock::debug_new_with_time(
-                end_of_envelope_timestamp - EPSILONISH
-            )),
-            0.0
-        );
-        assert_eq!(
-            envelope.source_audio(&Clock::debug_new_with_time(end_of_envelope_timestamp)),
-            0.0
-        );
     }
 
     #[test]
@@ -1624,44 +974,6 @@ mod tests {
             envelope_settings.release,
             amplitude.value()
         );
-    }
-
-    #[ignore]
-    #[test]
-    fn compare_old_and_new() {
-        // These settings are copied from Welsh Piano's filter envelope, which
-        // is where I noticed some unwanted behavior.
-        let envelope_settings = EnvelopeSettings {
-            attack: 0.0,
-            decay: 5.22,
-            sustain: 0.25,
-            release: 0.5,
-        };
-        let mut clock = Clock::default();
-        let mut old_envelope = AdsrEnvelope::new_with(&envelope_settings);
-        let mut new_envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
-
-        old_envelope.enqueue_attack();
-        new_envelope.enqueue_attack();
-
-        let time_marker = clock.seconds() + 10.0;
-        let when_to_release = time_marker + 1.0;
-        let mut has_released = false;
-        loop {
-            if clock.seconds() >= when_to_release && !has_released {
-                has_released = true;
-                old_envelope.enqueue_release();
-                new_envelope.enqueue_release();
-            }
-            let old_amplitude = old_envelope.tick(&clock);
-            let new_amplitude = new_envelope.tick(&clock);
-            let should_continue = clock.seconds() < time_marker;
-            assert_approx_eq!(old_amplitude.value(), new_amplitude.value(), 0.001);
-            clock.tick();
-            if !should_continue {
-                break;
-            }
-        }
     }
 
     // https://docs.google.com/spreadsheets/d/1DSkut7rLG04Qx_zOy3cfI7PMRoGJVr9eaP5sDrFfppQ/edit#gid=0

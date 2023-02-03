@@ -78,7 +78,7 @@ mod tests {
     use super::*;
     use crate::{
         clock::Clock, common::Sample, messages::tests::TestMessage, traits::SourcesAudio,
-        utils::AudioSource,
+        utils::AudioSource, StereoSample,
     };
     use more_asserts::{assert_gt, assert_lt};
 
@@ -88,93 +88,72 @@ mod tests {
 
         // audio sources are at or past boundaries
         assert_gt!(
-            Sample::from(
-                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_LOUD)
-                    .source_audio(&clock)
-            ),
-            Sample::MAX
+            AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_LOUD)
+                .source_stereo_audio(&clock),
+            StereoSample::MAX
         );
         assert_eq!(
-            Sample::from(
-                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
-                    .source_audio(&clock)
-            ),
-            Sample::MAX
+            AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
+                .source_stereo_audio(&clock),
+            StereoSample::MAX
         );
         assert_eq!(
-            Sample::from(
-                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::SILENT)
-                    .source_audio(&clock)
-            ),
-            Sample::SILENCE
+            AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::SILENT)
+                .source_stereo_audio(&clock),
+            StereoSample::SILENCE
         );
         assert_eq!(
             AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::QUIET)
-                .source_audio(&clock),
-            MONO_SAMPLE_MIN
+                .source_stereo_audio(&clock),
+            StereoSample::MIN
         );
         assert_lt!(
             AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_QUIET)
-                .source_audio(&clock),
-            MONO_SAMPLE_MIN
+                .source_stereo_audio(&clock),
+            StereoSample::MIN
         );
 
         // Limiter clamps high and low, and doesn't change values inside the range.
         let mut limiter = Limiter::new_with(MONO_SAMPLE_MIN, MONO_SAMPLE_MAX);
         assert_eq!(
-            limiter.transform_channel(
+            limiter.transform_audio(
                 &clock,
-                0,
-                Sample::from(
-                    AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_LOUD)
-                        .source_audio(&clock)
-                )
+                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_LOUD)
+                    .source_stereo_audio(&clock)
             ),
-            Sample::MAX
+            StereoSample::MAX
         );
         assert_eq!(
-            limiter.transform_channel(
+            limiter.transform_audio(
                 &clock,
-                0,
-                Sample::from(
-                    AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
-                        .source_audio(&clock)
-                )
+                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
+                    .source_stereo_audio(&clock)
             ),
-            Sample::MAX
+            StereoSample::MAX
         );
         assert_eq!(
-            limiter.transform_channel(
+            limiter.transform_audio(
                 &clock,
-                0,
-                Sample::from(
-                    AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::SILENT)
-                        .source_audio(&clock)
-                )
+                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::SILENT)
+                    .source_stereo_audio(&clock)
             ),
-            Sample::SILENCE
+            StereoSample::SILENCE
         );
         assert_eq!(
-            limiter.transform_channel(
+            limiter.transform_audio(
                 &clock,
-                0,
-                Sample::from(
-                    AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::QUIET)
-                        .source_audio(&clock)
-                )
+                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::QUIET)
+                    .source_stereo_audio(&clock)
             ),
-            Sample::MIN
+            StereoSample::MIN
         );
         assert_eq!(
-            limiter.transform_channel(
+            limiter.transform_audio(
                 &clock,
-                0,
-                Sample::from(
-                    AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_QUIET)
-                        .source_audio(&clock)
-                )
+                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_QUIET)
+                    .source_stereo_audio(&clock)
             ),
-            Sample::MIN
+            StereoSample::MIN
         );
     }
 

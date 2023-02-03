@@ -1,9 +1,10 @@
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, OldMonoSample},
+    common::{F32ControlValue, OldMonoSample, Sample},
     messages::EntityMessage,
     midi::MidiMessage,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    StereoSample,
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -23,7 +24,7 @@ pub struct Sampler {
 }
 impl IsInstrument for Sampler {}
 impl SourcesAudio for Sampler {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
+    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         // TODO: when we got rid of WatchesClock, we lost the concept of "done."
         // Be on the lookout for clipped audio.
         if self.sample_clock_start > clock.samples() {
@@ -37,12 +38,13 @@ impl SourcesAudio for Sampler {
             }
         }
 
-        if self.is_playing {
+        // TODO Issue #80: load stereo samples
+        StereoSample::from(if self.is_playing {
             let sample = *self.samples.get(self.sample_pointer).unwrap_or(&0.0);
-            sample
+            sample as f64
         } else {
-            0.0
-        }
+            Sample::SILENCE_VALUE
+        })
     }
 }
 impl Updateable for Sampler {

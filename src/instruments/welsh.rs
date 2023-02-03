@@ -4,7 +4,7 @@ use super::{
     Dca, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
 use crate::{
-    common::{F32ControlValue, Normal, OldMonoSample, Sample},
+    common::{F32ControlValue, Normal, Sample},
     effects::filter::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
     messages::EntityMessage,
@@ -660,16 +660,12 @@ pub struct WelshSynth {
 }
 impl IsInstrument for WelshSynth {}
 impl SourcesAudio for WelshSynth {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
+    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         if clock.seconds() == self.debug_last_seconds {
             panic!("We were called twice with the same time slice. Should this be OK?");
         } else {
             self.debug_last_seconds = clock.seconds();
         }
-        self.inner_synth.source_audio(clock)
-    }
-
-    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         self.inner_synth.source_stereo_audio(clock)
     }
 }
@@ -724,6 +720,7 @@ mod tests {
     use super::*;
     use crate::{
         clock::Clock,
+        common::SampleType,
         instruments::welsh::WaveformType,
         midi::{MidiNote, MidiUtils},
         settings::patches::{
@@ -739,12 +736,12 @@ mod tests {
         let mut clock = Clock::default();
 
         let spec = hound::WavSpec {
-            channels: 1,
+            channels: 2,
             sample_rate: clock.sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
-        const AMPLITUDE: OldMonoSample = i16::MAX as OldMonoSample;
+        const AMPLITUDE: SampleType = i16::MAX as SampleType;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
@@ -764,8 +761,9 @@ mod tests {
                 voice.tick_envelopes(&clock);
             }
 
-            let sample = voice.source_audio(&clock);
-            let _ = writer.write_sample((sample * AMPLITUDE) as i16);
+            let sample = voice.source_stereo_audio(&clock);
+            let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
+            let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
             clock.tick();
         }
     }
@@ -821,12 +819,12 @@ mod tests {
         basename: &str,
     ) {
         let spec = hound::WavSpec {
-            channels: 1,
+            channels: 2,
             sample_rate: clock.sample_rate() as u32,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
-        const AMPLITUDE: OldMonoSample = i16::MAX as OldMonoSample;
+        const AMPLITUDE: SampleType = i16::MAX as SampleType;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
         let mut is_message_sent = false;
@@ -837,8 +835,9 @@ mod tests {
                 source.handle_pending_note_events();
                 source.tick_envelopes(&clock);
             }
-            let sample = source.source_audio(clock);
-            let _ = writer.write_sample((sample * AMPLITUDE) as i16);
+            let sample = source.source_stereo_audio(clock);
+            let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
+            let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
             clock.tick();
         }
     }

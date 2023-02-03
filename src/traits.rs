@@ -2,9 +2,8 @@ use crate::clock::ClockTimeUnit;
 use crate::common::{F32ControlValue, Sample, StereoSample};
 use crate::instruments::Dca;
 use crate::messages::EntityMessage;
-use crate::{clock::Clock, common::OldMonoSample, messages::MessageBounds};
+use crate::{clock::Clock, messages::MessageBounds};
 use crate::{
-    common::MONO_SAMPLE_SILENCE,
     instruments::oscillators::Oscillator,
     midi::{MidiChannel, MidiUtils},
     settings::patches::WaveformType,
@@ -87,16 +86,7 @@ pub trait HasUid {
 
 /// A SourcesAudio provides audio in the form of digital samples.
 pub trait SourcesAudio: std::fmt::Debug + Send {
-    // TODO #[deprecated]
-    #[allow(unused_variables)]
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
-        MONO_SAMPLE_SILENCE
-    }
-    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
-        // TODO: remove this default implementation once it's obsolete
-        let sample = self.source_audio(clock);
-        StereoSample(Sample::new_from_f32(sample), Sample::new_from_f32(sample))
-    }
+    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample;
 }
 
 /// A TransformsAudio takes input audio, which is typically produced by
@@ -675,7 +665,7 @@ pub mod tests {
         for _ in 0..100 {
             let mut clock = Clock::default();
             clock.set_samples(random());
-            let _ = instrument.source_audio(&clock);
+            let _ = instrument.source_stereo_audio(&clock);
         }
     }
 

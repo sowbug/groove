@@ -283,12 +283,8 @@ impl IOHelper {
 
         while !performance.worker.is_empty() {
             let sample = performance.worker.pop().unwrap_or_default();
-            writer
-                .write_sample((sample.0 .0 * AMPLITUDE) as i16)
-                .unwrap();
-            writer
-                .write_sample((sample.1 .0 * AMPLITUDE) as i16)
-                .unwrap();
+            let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
+            let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
         }
         Ok(())
     }

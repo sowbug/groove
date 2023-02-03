@@ -1,11 +1,12 @@
 use super::{HandlesMidi, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, OldMonoSample},
+    common::{F32ControlValue, OldMonoSample, Sample},
     messages::EntityMessage,
     midi::GeneralMidiPercussionProgram,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     utils::Paths,
+    StereoSample,
 };
 use groove_macros::{Control, Uid};
 use midly::num::u7;
@@ -13,7 +14,7 @@ use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Debug, Default)]
-struct Voice {
+struct DrumkitSamplerVoice {
     samples: Vec<OldMonoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
@@ -26,8 +27,8 @@ struct Voice {
     aftertouch_is_pending: bool,
     aftertouch_velocity: u8,
 }
-impl IsVoice for Voice {}
-impl PlaysNotes for Voice {
+impl IsVoice for DrumkitSamplerVoice {}
+impl PlaysNotes for DrumkitSamplerVoice {
     fn is_playing(&self) -> bool {
         self.is_playing
     }
@@ -56,7 +57,7 @@ impl PlaysNotes for Voice {
     }
 }
 
-impl Voice {
+impl DrumkitSamplerVoice {
     pub fn new(buffer_size: usize) -> Self {
         Self {
             samples: Vec::with_capacity(buffer_size),
@@ -91,8 +92,8 @@ impl Voice {
         }
     }
 }
-impl SourcesAudio for Voice {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
+impl SourcesAudio for DrumkitSamplerVoice {
+    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         self.handle_pending_note_events(clock);
         if self.sample_clock_start > clock.samples() {
             // TODO: this stops the clock-moves-backward explosion.
@@ -107,25 +108,25 @@ impl SourcesAudio for Voice {
             }
         }
 
-        if self.is_playing {
+        StereoSample::from(if self.is_playing {
             let sample = *self.samples.get(self.sample_pointer).unwrap_or(&0.0);
-            sample
+            sample as f64
         } else {
-            0.0
-        }
+            Sample::SILENCE_VALUE
+        })
     }
 }
 
 #[derive(Control, Debug, Uid)]
 pub struct DrumkitSampler {
     uid: usize,
-    inner_synth: Synthesizer<Voice>,
+    inner_synth: Synthesizer<DrumkitSamplerVoice>,
     kit_name: String,
 }
 impl IsInstrument for DrumkitSampler {}
 impl SourcesAudio for DrumkitSampler {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
-        self.inner_synth.source_audio(clock)
+    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+        self.inner_synth.source_stereo_audio(clock)
     }
 }
 impl Updateable for DrumkitSampler {
@@ -145,7 +146,7 @@ impl Updateable for DrumkitSampler {
 
 impl DrumkitSampler {
     pub(crate) fn new_from_files() -> Self {
-        let mut voice_store = Box::new(VoicePerNoteStore::<Voice>::default());
+        let mut voice_store = Box::new(VoicePerNoteStore::<DrumkitSamplerVoice>::default());
 
         let samples: [(GeneralMidiPercussionProgram, &str); 21] = [
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
@@ -181,7 +182,7 @@ impl DrumkitSampler {
             if let Some(filename) = path.to_str() {
                 voice_store.add_voice(
                     u7::from(program as u8),
-                    Box::new(Voice::new_from_file(filename)),
+                    Box::new(DrumkitSamplerVoice::new_from_file(filename)),
                 );
             } else {
                 eprintln!("Unable to load sample {asset_name}.");
@@ -194,10 +195,10 @@ impl DrumkitSampler {
         self.kit_name.as_ref()
     }
 
-    fn new_with(voice_store: Box<VoicePerNoteStore<Voice>>, kit_name: &str) -> Self {
+    fn new_with(voice_store: Box<VoicePerNoteStore<DrumkitSamplerVoice>>, kit_name: &str) -> Self {
         Self {
             uid: Default::default(),
-            inner_synth: Synthesizer::<Voice>::new_with(voice_store),
+            inner_synth: Synthesizer::<DrumkitSamplerVoice>::new_with(voice_store),
             kit_name: kit_name.to_string(),
         }
     }

@@ -1,5 +1,5 @@
 use crate::{
-    common::{BipolarNormal, F32ControlValue, OldMonoSample, Sample, StereoSample},
+    common::{BipolarNormal, F32ControlValue, Sample, StereoSample},
     midi::MidiUtils,
     settings::patches::EnvelopeSettings,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
@@ -81,10 +81,6 @@ impl<V: IsVoice> Updateable for Synthesizer<V> {
     type Message = EntityMessage;
 }
 impl<V: IsVoice> SourcesAudio for Synthesizer<V> {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
-        self.voice_store.source_audio(clock)
-    }
-
     fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
         self.voice_store.source_stereo_audio(clock)
     }
@@ -266,8 +262,8 @@ impl Updateable for SimpleSynthesizer {
     }
 }
 impl SourcesAudio for SimpleSynthesizer {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
-        self.inner_synth.source_audio(clock)
+    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
+        self.inner_synth.source_stereo_audio(clock)
     }
 }
 impl Default for SimpleSynthesizer {
@@ -319,16 +315,6 @@ impl<V: IsVoice> StoresVoices for SimpleVoiceStore<V> {
     }
 }
 impl<V: IsVoice> SourcesAudio for SimpleVoiceStore<V> {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
-        let r = self.voices.iter_mut().map(|v| v.source_audio(clock)).sum();
-        for (index, voice) in self.voices.iter().enumerate() {
-            if !voice.is_playing() {
-                self.notes_playing[index] = u7::from(0);
-            }
-        }
-        r
-    }
-
     fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
         let r = self
             .voices
@@ -371,10 +357,10 @@ impl<V: IsVoice> StoresVoices for VoicePerNoteStore<V> {
     }
 }
 impl<V: IsVoice> SourcesAudio for VoicePerNoteStore<V> {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
+    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
         self.voices
             .values_mut()
-            .map(|v| v.source_audio(clock))
+            .map(|v| v.source_stereo_audio(clock))
             .sum()
     }
 }
@@ -548,8 +534,8 @@ impl Updateable for FmSynthesizer {
     }
 }
 impl SourcesAudio for FmSynthesizer {
-    fn source_audio(&mut self, clock: &Clock) -> OldMonoSample {
-        self.inner_synth.source_audio(clock)
+    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
+        self.inner_synth.source_stereo_audio(clock)
     }
 }
 impl Default for FmSynthesizer {
@@ -600,6 +586,10 @@ pub(crate) struct FmSynthesizerPreset {
     modulator_frequency_hz: f32,
 }
 
+/// The Digitally Controller Amplifier (DCA) handles gain and pan for many kinds
+/// of synths.
+///
+/// See DSSPC++, Section 7.9 for requirements. TODO: implement
 #[derive(Debug)]
 pub(crate) struct Dca {
     gain: f64,

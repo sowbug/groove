@@ -67,7 +67,7 @@ mod tests {
     use super::*;
     use crate::{
         clock::Clock, messages::tests::TestMessage, traits::SourcesAudio, utils::AudioSource,
-        EntityMessage,
+        EntityMessage, StereoSample,
     };
 
     #[test]
@@ -75,16 +75,12 @@ mod tests {
         let mut gain = Gain::<EntityMessage>::new_with(Normal::new(0.5));
         let clock = Clock::default();
         assert_eq!(
-            gain.transform_channel(
+            gain.transform_audio(
                 &clock,
-                0,
-                Sample::from(
-                    AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
-                        .source_audio(&clock)
-                )
-            )
-            .0,
-            0.5
+                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
+                    .source_stereo_audio(&clock)
+            ),
+            StereoSample::from(0.5)
         );
     }
 }
