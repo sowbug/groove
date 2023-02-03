@@ -5,3 +5,4 @@ Cargo.lock
 groove-cli.exe
 groove-gui.exe
 /projects/**/*.wav
+/projects/**/*.mp3
