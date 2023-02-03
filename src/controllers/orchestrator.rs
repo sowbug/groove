@@ -257,10 +257,10 @@ impl<M: MessageBounds> Orchestrator<M> {
                         if let Some(entity) = entity.as_is_instrument_mut() {
                             if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
                                 let start_time = timer.start();
-                                sum += entity.source_stereo_audio(clock);
+                                sum += entity.source_audio(clock);
                                 timer.stop(start_time);
                             } else {
-                                sum += entity.source_stereo_audio(clock);
+                                sum += entity.source_audio(clock);
                             }
                         } else if entity.as_is_effect().is_some() {
                             // If it's a node, push its children on the stack,

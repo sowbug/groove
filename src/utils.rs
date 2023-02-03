@@ -186,7 +186,7 @@ impl<M: MessageBounds> AudioSource<M> {
     }
 }
 impl<M: MessageBounds> SourcesAudio for AudioSource<M> {
-    fn source_stereo_audio(&mut self, _clock: &Clock) -> crate::StereoSample {
+    fn source_audio(&mut self, _clock: &Clock) -> crate::StereoSample {
         StereoSample::from(self.level)
     }
 }
@@ -296,7 +296,7 @@ impl<M: MessageBounds> Default for TestSynth<M> {
 }
 
 impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         // TODO: I don't think this can play sounds, because I don't see how the
         // envelope ever gets triggered.
         let envelope_amplitude = self.envelope.tick(clock).value();

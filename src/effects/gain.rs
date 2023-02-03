@@ -78,7 +78,7 @@ mod tests {
             gain.transform_audio(
                 &clock,
                 AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
-                    .source_stereo_audio(&clock)
+                    .source_audio(&clock)
             ),
             StereoSample::from(0.5)
         );

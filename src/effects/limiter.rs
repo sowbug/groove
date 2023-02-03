@@ -89,27 +89,27 @@ mod tests {
         // audio sources are at or past boundaries
         assert_gt!(
             AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_LOUD)
-                .source_stereo_audio(&clock),
+                .source_audio(&clock),
             StereoSample::MAX
         );
         assert_eq!(
             AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
-                .source_stereo_audio(&clock),
+                .source_audio(&clock),
             StereoSample::MAX
         );
         assert_eq!(
             AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::SILENT)
-                .source_stereo_audio(&clock),
+                .source_audio(&clock),
             StereoSample::SILENCE
         );
         assert_eq!(
             AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::QUIET)
-                .source_stereo_audio(&clock),
+                .source_audio(&clock),
             StereoSample::MIN
         );
         assert_lt!(
             AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_QUIET)
-                .source_stereo_audio(&clock),
+                .source_audio(&clock),
             StereoSample::MIN
         );
 
@@ -119,7 +119,7 @@ mod tests {
             limiter.transform_audio(
                 &clock,
                 AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_LOUD)
-                    .source_stereo_audio(&clock)
+                    .source_audio(&clock)
             ),
             StereoSample::MAX
         );
@@ -127,7 +127,7 @@ mod tests {
             limiter.transform_audio(
                 &clock,
                 AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
-                    .source_stereo_audio(&clock)
+                    .source_audio(&clock)
             ),
             StereoSample::MAX
         );
@@ -135,7 +135,7 @@ mod tests {
             limiter.transform_audio(
                 &clock,
                 AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::SILENT)
-                    .source_stereo_audio(&clock)
+                    .source_audio(&clock)
             ),
             StereoSample::SILENCE
         );
@@ -143,7 +143,7 @@ mod tests {
             limiter.transform_audio(
                 &clock,
                 AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::QUIET)
-                    .source_stereo_audio(&clock)
+                    .source_audio(&clock)
             ),
             StereoSample::MIN
         );
@@ -151,7 +151,7 @@ mod tests {
             limiter.transform_audio(
                 &clock,
                 AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_QUIET)
-                    .source_stereo_audio(&clock)
+                    .source_audio(&clock)
             ),
             StereoSample::MIN
         );

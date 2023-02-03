@@ -24,7 +24,7 @@ pub struct Sampler {
 }
 impl IsInstrument for Sampler {}
 impl SourcesAudio for Sampler {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         // TODO: when we got rid of WatchesClock, we lost the concept of "done."
         // Be on the lookout for clipped audio.
         if self.sample_clock_start > clock.samples() {

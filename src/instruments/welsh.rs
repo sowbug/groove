@@ -572,7 +572,7 @@ impl WelshVoice {
     }
 }
 impl SourcesAudio for WelshVoice {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         self.handle_pending_note_events();
         // It's important for the envelope tick() methods to be called after
         // their handle_note_* methods are called, but before we check whether
@@ -660,13 +660,13 @@ pub struct WelshSynth {
 }
 impl IsInstrument for WelshSynth {}
 impl SourcesAudio for WelshSynth {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         if clock.seconds() == self.debug_last_seconds {
             panic!("We were called twice with the same time slice. Should this be OK?");
         } else {
             self.debug_last_seconds = clock.seconds();
         }
-        self.inner_synth.source_stereo_audio(clock)
+        self.inner_synth.source_audio(clock)
     }
 }
 impl Updateable for WelshSynth {
@@ -761,7 +761,7 @@ mod tests {
                 voice.tick_envelopes(&clock);
             }
 
-            let sample = voice.source_stereo_audio(&clock);
+            let sample = voice.source_audio(&clock);
             let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
             let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
             clock.tick();
@@ -835,7 +835,7 @@ mod tests {
                 source.handle_pending_note_events();
                 source.tick_envelopes(&clock);
             }
-            let sample = source.source_stereo_audio(clock);
+            let sample = source.source_audio(clock);
             let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
             let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
             clock.tick();

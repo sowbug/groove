@@ -93,7 +93,7 @@ impl DrumkitSamplerVoice {
     }
 }
 impl SourcesAudio for DrumkitSamplerVoice {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         self.handle_pending_note_events(clock);
         if self.sample_clock_start > clock.samples() {
             // TODO: this stops the clock-moves-backward explosion.
@@ -125,8 +125,8 @@ pub struct DrumkitSampler {
 }
 impl IsInstrument for DrumkitSampler {}
 impl SourcesAudio for DrumkitSampler {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        self.inner_synth.source_stereo_audio(clock)
+    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+        self.inner_synth.source_audio(clock)
     }
 }
 impl Updateable for DrumkitSampler {

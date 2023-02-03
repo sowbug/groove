@@ -86,7 +86,7 @@ pub trait HasUid {
 
 /// A SourcesAudio provides audio in the form of digital samples.
 pub trait SourcesAudio: std::fmt::Debug + Send {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample;
+    fn source_audio(&mut self, clock: &Clock) -> StereoSample;
 }
 
 /// A TransformsAudio takes input audio, which is typically produced by
@@ -554,7 +554,7 @@ impl<M: MessageBounds> TestInstrument<M> {
 }
 
 impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
+    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
         // If we've been asked to assert values at checkpoints, do so.
         if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
         {
@@ -665,7 +665,7 @@ pub mod tests {
         for _ in 0..100 {
             let mut clock = Clock::default();
             clock.set_samples(random());
-            let _ = instrument.source_stereo_audio(&clock);
+            let _ = instrument.source_audio(&clock);
         }
     }
 

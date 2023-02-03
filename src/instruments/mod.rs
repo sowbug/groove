@@ -81,8 +81,8 @@ impl<V: IsVoice> Updateable for Synthesizer<V> {
     type Message = EntityMessage;
 }
 impl<V: IsVoice> SourcesAudio for Synthesizer<V> {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
-        self.voice_store.source_stereo_audio(clock)
+    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
+        self.voice_store.source_audio(clock)
     }
 }
 
@@ -190,7 +190,7 @@ impl PlaysNotes for SimpleVoice {
     }
 }
 impl SourcesAudio for SimpleVoice {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
+    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
         self.handle_pending_note_events();
         let r = self.oscillator.source_signal(clock).value() * self.envelope.tick(clock).value();
         self.is_playing = !self.envelope.is_idle();
@@ -262,8 +262,8 @@ impl Updateable for SimpleSynthesizer {
     }
 }
 impl SourcesAudio for SimpleSynthesizer {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
-        self.inner_synth.source_stereo_audio(clock)
+    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
+        self.inner_synth.source_audio(clock)
     }
 }
 impl Default for SimpleSynthesizer {
@@ -315,12 +315,8 @@ impl<V: IsVoice> StoresVoices for SimpleVoiceStore<V> {
     }
 }
 impl<V: IsVoice> SourcesAudio for SimpleVoiceStore<V> {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
-        let r = self
-            .voices
-            .iter_mut()
-            .map(|v| v.source_stereo_audio(clock))
-            .sum();
+    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
+        let r = self.voices.iter_mut().map(|v| v.source_audio(clock)).sum();
         for (index, voice) in self.voices.iter().enumerate() {
             if !voice.is_playing() {
                 self.notes_playing[index] = u7::from(0);
@@ -357,10 +353,10 @@ impl<V: IsVoice> StoresVoices for VoicePerNoteStore<V> {
     }
 }
 impl<V: IsVoice> SourcesAudio for VoicePerNoteStore<V> {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
+    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
         self.voices
             .values_mut()
-            .map(|v| v.source_stereo_audio(clock))
+            .map(|v| v.source_audio(clock))
             .sum()
     }
 }
@@ -418,7 +414,7 @@ impl PlaysNotes for FmVoice {
     }
 }
 impl SourcesAudio for FmVoice {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
+    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
         self.handle_pending_note_events();
         self.carrier.set_frequency_modulation(
             self.modulator.source_signal(clock).value() as f32 * self.modulator_depth,
@@ -534,8 +530,8 @@ impl Updateable for FmSynthesizer {
     }
 }
 impl SourcesAudio for FmSynthesizer {
-    fn source_stereo_audio(&mut self, clock: &Clock) -> StereoSample {
-        self.inner_synth.source_stereo_audio(clock)
+    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
+        self.inner_synth.source_audio(clock)
     }
 }
 impl Default for FmSynthesizer {
@@ -671,12 +667,12 @@ mod tests {
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(!voice.is_playing());
             voice.enqueue_note_on(127);
-            voice.source_stereo_audio(&clock); // We must ask for the sample to register the trigger.
+            voice.source_audio(&clock); // We must ask for the sample to register the trigger.
             assert!(voice.is_playing());
         }
         if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
             voice.enqueue_note_on(127);
-            voice.source_stereo_audio(&clock);
+            voice.source_audio(&clock);
         }
 
         // Request a voice for a new note that would exceed the count. Should
@@ -690,7 +686,7 @@ mod tests {
 
             // All SimpleVoice envelope times are instantaneous, so we know the
             // release completes after asking for the next sample.
-            voice.source_stereo_audio(&clock);
+            voice.source_audio(&clock);
             assert!(!voice.is_playing());
         }
     }
@@ -731,7 +727,7 @@ mod tests {
             0,
             "voices shouldn't be marked as playing until next source_audio()"
         );
-        let _ = voice_store.source_stereo_audio(&clock);
+        let _ = voice_store.source_audio(&clock);
         assert_eq!(voice_store.active_voice_count(), 2, "voices with pending attacks() should have been handled, and they should now be is_playing()");
 
         // Now ask for both voices again. Each should be playing and each should
@@ -752,7 +748,7 @@ mod tests {
                 "we should have gotten back the same voice for the requested note"
             );
         }
-        let _ = voice_store.source_stereo_audio(&clock);
+        let _ = voice_store.source_audio(&clock);
 
         // Finally, mark a note done and then ask for a new one. We should get
         // assigned the one we just gave up.
@@ -773,7 +769,7 @@ mod tests {
             );
             voice.enqueue_note_off(127);
         }
-        let _ = voice_store.source_stereo_audio(&clock);
+        let _ = voice_store.source_audio(&clock);
         if let Ok(voice) = voice_store.get_voice(&u7::from(62)) {
             // This is a bit too cute. We assume that we're getting back the
             // voice that serviced note #60 because (1) we set up the voice
