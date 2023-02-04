@@ -7,14 +7,15 @@ use crate::{
     StereoSample,
 };
 use groove_macros::{Control, Uid};
-use std::str::FromStr;
+use hound::WavReader;
+use std::{fs::File, io::BufReader, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Control, Debug, Default, Uid)]
 #[allow(dead_code)]
 pub struct Sampler {
     uid: usize,
-    samples: Vec<Sample>,
+    samples: Vec<StereoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
@@ -38,15 +39,14 @@ impl SourcesAudio for Sampler {
             }
         }
 
-        // TODO Issue #80: load stereo samples
-        StereoSample::from(if self.is_playing {
+        if self.is_playing {
             *self
                 .samples
                 .get(self.sample_pointer)
-                .unwrap_or(&Sample::SILENCE)
+                .unwrap_or(&StereoSample::SILENCE)
         } else {
-            Sample::SILENCE
-        })
+            StereoSample::SILENCE
+        }
     }
 }
 impl Updateable for Sampler {
@@ -72,23 +72,64 @@ impl Updateable for Sampler {
 }
 
 impl Sampler {
-    pub(crate) fn new_with(buffer_size: usize) -> Self {
-        Self {
-            samples: Vec::with_capacity(buffer_size),
-            ..Default::default()
+    fn read_samples<T>(
+        reader: &mut WavReader<BufReader<File>>,
+        channels: u16,
+        scale_factor: SampleType,
+    ) -> Vec<StereoSample>
+    where
+        Sample: From<T>,
+        T: hound::Sample,
+    {
+        let mut samples = Vec::default();
+        if channels == 1 {
+            for sample in reader.samples::<T>() {
+                if let Ok(sample) = sample {
+                    let sample = Sample::from(sample) / scale_factor;
+                    samples.push(StereoSample::from(sample));
+                }
+            }
+        } else {
+            debug_assert_eq!(channels, 2);
+            loop {
+                let mut iter = reader.samples::<T>();
+                let left = iter.next();
+                if let Some(Ok(left)) = left {
+                    let right = iter.next();
+                    if let Some(Ok(right)) = right {
+                        let left = Sample::from(left) / scale_factor;
+                        let right = Sample::from(right) / scale_factor;
+                        samples.push(StereoSample(left, right));
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+        samples
+    }
+    pub fn read_samples_from_file(filename: &str) -> Vec<StereoSample> {
+        let mut reader = hound::WavReader::open(filename).unwrap();
+        let spec = reader.spec();
+        let itype_max: SampleType = 2.0f64.powi(spec.bits_per_sample as i32 - 1);
+
+        match spec.sample_format {
+            hound::SampleFormat::Float => {
+                Self::read_samples::<f32>(&mut reader, spec.channels, itype_max)
+            }
+            hound::SampleFormat::Int => {
+                Self::read_samples::<i32>(&mut reader, spec.channels, itype_max)
+            }
         }
     }
 
-    #[allow(dead_code)]
     pub fn new_from_file(filename: &str) -> Self {
-        let mut reader = hound::WavReader::open(filename).unwrap();
-        let mut r = Self::new_with(reader.duration() as usize);
-        for sample in reader.samples::<i16>() {
-            r.samples.push(Sample::from(
-                sample.unwrap() as SampleType / i16::MAX as SampleType,
-            ));
-        }
-        r.filename = filename.to_string();
+        let samples = Self::read_samples_from_file(filename);
+        let mut r = Self::default();
+        r.samples = samples;
+        r.filename = String::from(filename);
         r
     }
 

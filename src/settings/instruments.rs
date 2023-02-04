@@ -8,6 +8,7 @@ use crate::{
     },
     messages::EntityMessage,
     traits::TestInstrument,
+    Sampler,
 };
 use serde::{Deserialize, Serialize};
 
@@ -39,6 +40,12 @@ pub enum InstrumentSettings {
         preset_name: String,
     },
     #[serde(rename_all = "kebab-case")]
+    Sampler {
+        #[serde(rename = "midi-in")]
+        midi_input_channel: MidiChannel,
+        filename: String,
+    },
+    #[serde(rename_all = "kebab-case")]
     FmSynthesizer {
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
@@ -65,6 +72,9 @@ impl InstrumentSettings {
                     midi_input_channel, ..
                 } => *midi_input_channel,
                 InstrumentSettings::FmSynthesizer {
+                    midi_input_channel, ..
+                } => *midi_input_channel,
+                InstrumentSettings::Sampler {
                     midi_input_channel, ..
                 } => *midi_input_channel,
             };
@@ -100,6 +110,13 @@ impl InstrumentSettings {
                 BoxedEntity::DrumkitSampler(Box::new(
                     drumkit_sampler::DrumkitSampler::new_from_files(),
                 )),
+            ),
+            InstrumentSettings::Sampler {
+                midi_input_channel,
+                filename,
+            } => (
+                *midi_input_channel,
+                BoxedEntity::Sampler(Box::new(Sampler::new_from_file(&filename))),
             ),
             InstrumentSettings::FmSynthesizer {
                 midi_input_channel,

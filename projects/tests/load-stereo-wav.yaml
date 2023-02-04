@@ -1,0 +1,24 @@
+---
+title: "Loading and playing stereo WAV file"
+clock:
+  bpm: 64.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+      - sampler
+      - sampler:
+          midi-in: 0
+          filename: "test-data/spoken_stereo-from-elevenlabs.io.wav"
+patch-cables:
+  - [sampler, main-mixer]
+patterns:
+  - id: pattern-1
+    note-value: whole
+    notes:
+      - [60]
+tracks:
+  - id: main
+    midi-channel: 0
+    patterns: [pattern-1]
