@@ -346,7 +346,7 @@ impl SimpleEnvelope {
         let r = m.try_inverse();
         if let Some(r) = r {
             let abc = r * y;
-            (abc[(0)], abc[(1)], abc[(2)])
+            (abc[0], abc[1], abc[2])
         } else {
             (0.0, 0.0, 0.0)
         }
