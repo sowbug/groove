@@ -114,6 +114,14 @@ impl From<f32> for Sample {
         Sample(value as f64)
     }
 }
+impl From<i32> for Sample {
+    // TODO: this is an incomplete conversion, because we don't know what the
+    // range of the i32 really is. So we leave it to someone else to divide by
+    // the correct value to obtain the proper -1.0..=1.0 range.
+    fn from(value: i32) -> Self {
+        Sample(value as f64)
+    }
+}
 
 /// MonoSample is a single-channel sample. It exists separately from Sample for
 /// cases where we specifically want a monophonic audio stream.

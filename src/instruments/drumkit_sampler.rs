@@ -1,12 +1,12 @@
 use super::{HandlesMidi, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
 use crate::{
     clock::Clock,
-    common::{F32ControlValue, Sample, SampleType},
+    common::F32ControlValue,
     messages::EntityMessage,
     midi::GeneralMidiPercussionProgram,
     traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
     utils::Paths,
-    StereoSample,
+    Sampler, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use midly::num::u7;
@@ -15,7 +15,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Debug, Default)]
 struct DrumkitSamplerVoice {
-    samples: Vec<Sample>,
+    samples: Vec<StereoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
 
@@ -62,21 +62,9 @@ impl PlaysNotes for DrumkitSamplerVoice {
 }
 
 impl DrumkitSamplerVoice {
-    pub fn new(buffer_size: usize) -> Self {
-        Self {
-            samples: Vec::with_capacity(buffer_size),
-            ..Default::default()
-        }
-    }
-
     pub fn new_from_file(filename: &str) -> Self {
-        let mut reader = hound::WavReader::open(filename).unwrap();
-        let mut r = Self::new(reader.duration() as usize);
-        let i24_max: SampleType = 2.0f64.powi(24 - 1);
-        for sample in reader.samples::<i32>() {
-            r.samples
-                .push(Sample::from(sample.unwrap() as SampleType / i24_max));
-        }
+        let mut r = Self::default();
+        r.samples = Sampler::read_samples_from_file(filename);
         r
     }
 
@@ -113,14 +101,14 @@ impl SourcesAudio for DrumkitSamplerVoice {
             }
         }
 
-        StereoSample::from(if self.is_playing {
+        if self.is_playing {
             *self
                 .samples
                 .get(self.sample_pointer)
-                .unwrap_or(&Sample::SILENCE)
+                .unwrap_or(&StereoSample::SILENCE)
         } else {
-            Sample::SILENCE
-        })
+            StereoSample::SILENCE
+        }
     }
 }
 
