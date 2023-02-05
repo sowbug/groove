@@ -57,6 +57,8 @@ devices:
       - lfo:
           midi-in: 0   # TODO: not every controller cares about MIDI. Make these optional.
           midi-out: 0
+          waveform: triangle
+          frequency: 2.0
 patch-cables:
   - [piano-1, low-pass-1, gain-1, main-mixer]
   - [bassline, gain-2, main-mixer]
