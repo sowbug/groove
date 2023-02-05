@@ -83,8 +83,12 @@ impl Preferences {
                 .map_err(|_| SaveError::Write)?;
         }
 
+        // TODO: re-implement the is_dirty thing to save regularly. As-is, we're
+        // saving only on a requested close, which means we'll lose work
+        // whenever we crash.
+        //        
         // This is a simple way to save at most once every couple seconds
-        async_std::task::sleep(std::time::Duration::from_secs(2)).await;
+        // async_std::task::sleep(std::time::Duration::from_secs(2)).await;
 
         Ok(())
     }

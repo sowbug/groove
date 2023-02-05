@@ -21,10 +21,10 @@ use iced::{
     futures::channel::mpsc,
     theme::{self, Theme},
     widget::{button, column, container, pick_list, row, scrollable, text, text_input},
-    Alignment, Application, Command, Element, Length, Settings, Subscription,
+    window, Alignment, Application, Command, Element, Length, Settings, Subscription,
 };
 use iced_audio::{HSlider, Knob, Normal as IcedNormal, NormalParam};
-use iced_native::{command, window, Event};
+use iced_native::Event;
 use rustc_hash::FxHashMap;
 use std::{
     any::type_name,
@@ -273,7 +273,9 @@ impl Application for GrooveApp {
                     // TODO
                 }
                 MidiHandlerEvent::Quit => {
-                    todo!("If we were waiting for this to shut down, then record that we're ready");
+                    // TODO: If we were waiting for this to shut down, then
+                    // record that we're ready. For now, it's nice to know, but
+                    // we won't do anything about it.
                 }
             },
             AppMessage::GrooveMessage(message) => match message {
@@ -291,17 +293,19 @@ impl Application for GrooveApp {
                 },
                 _ => todo!(),
             },
-            AppMessage::PrefsSaved(Ok(_)) => {}
-            AppMessage::PrefsSaved(Err(_)) => {
-                todo!()
+            AppMessage::PrefsSaved(r) => {
+                if self.should_exit {
+                    return window::close::<Self::Message>();
+                } else {
+                    match r {
+                        Ok(_) => {}
+                        Err(_) => todo!(),
+                    }
+                }
             }
         }
 
-        if self.should_exit {
-            Command::single(command::Action::Window(window::Action::Close))
-        } else {
-            Command::none()
-        }
+        Command::none()
     }
 
     fn subscription(&self) -> Subscription<AppMessage> {
@@ -925,10 +929,12 @@ impl GrooveApp {
         // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
         //
         // This is needed to stop an ALSA buffer underrun on close
-
         self.post_to_midi_handler(MidiHandlerInput::QuitRequested);
         self.post_to_orchestrator(GrooveInput::QuitRequested);
+
+        // Let the PrefsSaved message handler know that it's time to go.
         self.should_exit = true;
+
         return Command::perform(
             Preferences::save_prefs(Preferences {
                 selected_midi_input: self.preferences.selected_midi_input.clone(),
