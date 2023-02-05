@@ -33,6 +33,8 @@ jobs:
         with:
           toolchain: nightly
           targets: ${{ matrix.target }}
+      - name: Set toolchain default
+        run: rustup default ${{ matrix.target }}
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - run: cargo build
