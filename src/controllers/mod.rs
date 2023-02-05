@@ -4,7 +4,8 @@ pub(crate) mod sequencers;
 
 use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit},
-    settings::controllers::ControlPathSettings,
+    common::ParameterType,
+    settings::{controllers::ControlPathSettings, patches::WaveformType},
     Oscillator,
 };
 use crate::{
@@ -210,7 +211,7 @@ impl Updateable for LfoController {
     fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
         match message {
             EntityMessage::Tick => Response::single(EntityMessage::ControlF32(
-                self.oscillator.source_signal(clock).value() as f32,
+                (self.oscillator.source_signal(clock).value() as f32 + 1.0) / 2.0,
             )),
             _ => Response::none(),
         }
@@ -227,10 +228,18 @@ impl Default for LfoController {
     fn default() -> Self {
         let mut r = Self {
             uid: Default::default(),
-            oscillator: Oscillator::new_with(crate::settings::patches::WaveformType::Triangle),
+            oscillator: Oscillator::default(),
         };
         r.oscillator.set_frequency(2.0);
         r
+    }
+}
+impl LfoController {
+    pub fn new_with(waveform: WaveformType, frequency_hz: ParameterType) -> Self {
+        Self {
+            uid: Default::default(),
+            oscillator: Oscillator::new_with_type_and_frequency(waveform, frequency_hz as f32),
+        }
     }
 }
 

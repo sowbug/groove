@@ -151,6 +151,14 @@ impl Oscillator {
         // is Square.
     }
 
+    pub(crate) fn new_with_type_and_frequency(waveform: WaveformType, frequency: f32) -> Self {
+        Self {
+            waveform,
+            frequency: frequency as f64,
+            ..Default::default()
+        }
+    }
+
     pub fn new_from_preset(preset: &OscillatorSettings) -> Self {
         Self {
             waveform: preset.waveform,
@@ -337,16 +345,6 @@ mod tests {
         Paths,
     };
     use more_asserts::assert_lt;
-
-    impl Oscillator {
-        pub(crate) fn new_with_type_and_frequency(waveform: WaveformType, frequency: f32) -> Self {
-            Self {
-                waveform,
-                frequency: frequency as f64,
-                ..Default::default()
-            }
-        }
-    }
 
     fn create_oscillator(
         waveform: WaveformType,

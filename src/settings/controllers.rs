@@ -1,4 +1,4 @@
-use super::MidiChannel;
+use super::{patches::WaveformType, MidiChannel};
 use crate::{
     clock::BeatValue,
     common::{DeviceId, SignalType},
@@ -96,6 +96,8 @@ pub enum ControllerSettings {
         midi_input_channel: MidiChannel,
         #[serde(rename = "midi-out")]
         midi_output_channel: MidiChannel,
+        waveform: WaveformType,
+        frequency: f32,
     },
 }
 
@@ -117,6 +119,7 @@ impl ControllerSettings {
                 | ControllerSettings::LfoController {
                     midi_input_channel,
                     midi_output_channel,
+                    ..
                 } => (midi_input_channel, midi_output_channel),
             };
             return (
@@ -149,10 +152,15 @@ impl ControllerSettings {
             ControllerSettings::LfoController {
                 midi_input_channel,
                 midi_output_channel,
+                waveform,
+                frequency,
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                BoxedEntity::LfoController(Box::new(LfoController::default())),
+                BoxedEntity::LfoController(Box::new(LfoController::new_with(
+                    waveform,
+                    frequency as f64,
+                ))),
             ),
         }
     }
