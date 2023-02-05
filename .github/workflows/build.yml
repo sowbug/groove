@@ -12,10 +12,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu      # for most Linux machines
+          - target: x86_64-unknown-linux-gnu      # Most Linux machines
             os: ubuntu-20.04                      # TODO: change to 22.04 when 20.04 is EOL
-          - target: armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4 and maybe ARM Chromebooks
-            os: ubuntu-latest
+          # - target: armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4
+          #   os: ubuntu-latest
+          #   linker: gcc-arm-linux-gnueabihf
+          # - target: aarch64-unknown-linux-gnu     # ARM Chromebooks
+          #   os: ubuntu-latest
+          #   linker: aarch64-linux-gnu-gcc
           - target: x86_64-pc-windows-msvc
             os: windows-latest
           - target: x86_64-apple-darwin
@@ -26,6 +30,12 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
       - run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
         if: startsWith(matrix.os, 'ubuntu')
+      - run: sudo apt -y install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+        if: startsWith(matrix.target, 'armv7')
+      - run: sudo apt -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+        if: startsWith(matrix.target, 'aarch64')
+      - run: sudo apt install ${{ matrix.linker }} 
+        if: startsWith(matrix.target, 'armv7')
 
       - uses: actions/checkout@master
       - name: Install latest Rust nightly
