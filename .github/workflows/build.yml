@@ -13,7 +13,7 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu      # for most Linux machines
-            os: ubuntu-20.04 # TODO: change to 22.04 when 20.04 is EOL
+            os: ubuntu-20.04                      # TODO: change to 22.04 when 20.04 is EOL
           - target: armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4 and maybe ARM Chromebooks
             os: ubuntu-latest
           - target: x86_64-pc-windows-msvc
@@ -29,22 +29,14 @@ jobs:
 
       - uses: actions/checkout@master
       - name: Install latest Rust nightly
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: nightly
-          override: true
-          target: ${{ matrix.target }}
+          targets: ${{ matrix.target }}
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - run: cargo build
       - run: cargo test --verbose
-      # - name: Upload artifacts
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: groove-${{ matrix.target }}
-      #     path: |
-      #       target/debug/groove-cli*
-      #       target/debug/groove-gui*
 
   fmt:
     name: cargo-fmt
