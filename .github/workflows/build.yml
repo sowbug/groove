@@ -29,15 +29,14 @@ jobs:
 
       - uses: actions/checkout@master
       - name: Install latest Rust nightly
-        uses: dtolnay/rust-toolchain@v1
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-          targets: ${{ matrix.target }}
-      - name: Set toolchain default
-        run: rustup default ${{ matrix.target }}
+          override: true
+          target: ${{ matrix.target }}
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-      - run: cargo build
+      - run: cargo build --target ${{ matrix.target }}
       - run: cargo test --verbose
 
   fmt:
