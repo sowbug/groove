@@ -7,52 +7,6 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build-all:
-    name: Build/Test
-    strategy:
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu      # Most Linux machines
-            os: ubuntu-20.04
-          - target: armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4
-            os: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu     # ARM Chromebooks & 64-bit RPi
-            os: ubuntu-latest
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-          - target: x86_64-apple-darwin
-            os: macos-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-        # Set up the build machine
-      - name: Install Linux x86_64 build dependencies
-        run: sudo apt update; sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
-        if: startsWith(matrix.os, 'ubuntu') && startsWith(matrix.target, 'x86_64-')
-      - name: Install latest Rust nightly
-        uses: actions-rs/toolchain@v1
-        if: startsWith(matrix.target, 'x86_64-')
-        with:
-          toolchain: nightly
-          override: true
-          target: ${{ matrix.target }}
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        if: startsWith(matrix.target, 'x86_64-')
-      - run: cargo install cross
-        if: ${{ !startsWith(matrix.target, 'x86_64-') }}
-
-        # Get the source
-      - uses: actions/checkout@master
-      
-        # Build
-      - run: cargo build --target ${{ matrix.target }}
-        if: startsWith(matrix.target, 'x86_64-')
-      - run: cargo cross build --target ${{ matrix.target }}
-        if: ${{ !startsWith(matrix.target, 'x86_64-') }}
-
-        # Test
-      - run: cargo test --verbose
-
   fmt:
     name: cargo-fmt
     runs-on: ubuntu-latest
@@ -66,3 +20,58 @@ jobs:
           rustup component add rustfmt
       - name: Run rustfmt
         run: cargo fmt --all --check
+
+  test-x86:
+    name: Test x86
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-20.04
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+        # Set up the build machine
+      - name: Install Linux x86_64 build dependencies
+        run: sudo apt update; sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
+        if: startsWith(matrix.os, 'ubuntu')
+      - name: Install latest Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          target: ${{ matrix.target }}
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+        # Get the source
+      - uses: actions/checkout@v2
+
+        # Test
+      - run: cargo test --verbose --target ${{ matrix.target }}
+
+  test-cross:
+    name: Test ${{matrix.target}}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu       # ARM Chromebooks & 64-bit RPi
+          - armv7-unknown-linux-gnueabihf   # Raspberry Pi 3/4 32-bit
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: ${{matrix.target}}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: test
+          args: --target ${{matrix.target}}
