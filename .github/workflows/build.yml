@@ -37,7 +37,7 @@ jobs:
     steps:
       # Set up the build machine
       - name: Install Linux x86_64 build dependencies
-        run: sudo apt update; sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
+        run: sudo apt -qq update; sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
         if: startsWith(matrix.os, 'ubuntu')
       - name: Install latest Rust nightly
         uses: actions-rs/toolchain@v1
@@ -54,7 +54,7 @@ jobs:
         # Test
       - run: cargo test --target ${{ matrix.target }}
 
-  test-cross:
+  build-cross:
     name: Test ${{matrix.target}}
     runs-on: ubuntu-latest
     strategy:
@@ -73,5 +73,5 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
-          command: test
+          command: build
           args: --target ${{matrix.target}}
