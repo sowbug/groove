@@ -24,24 +24,33 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - run: sudo apt update
-        if: startsWith(matrix.os, 'ubuntu')
-      - run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
+        # Set up the build machine
+      - name: Install Linux x86_64 build dependencies
+        run: sudo apt update; sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
         if: startsWith(matrix.os, 'ubuntu') && startsWith(matrix.target, 'x86_64-')
-
-      - uses: actions/checkout@master
       - name: Install latest Rust nightly
         uses: actions-rs/toolchain@v1
+        if: startsWith(matrix.target, 'x86_64-')
         with:
           toolchain: nightly
           override: true
           target: ${{ matrix.target }}
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
+        if: startsWith(matrix.target, 'x86_64-')
+      - run: cargo install cargo-cross
+        if: ${{ !startsWith(matrix.target, 'x86_64-') }}
+
+        # Get the source
+      - uses: actions/checkout@master
+      
+        # Build
       - run: cargo build --target ${{ matrix.target }}
         if: startsWith(matrix.target, 'x86_64-')
       - run: cargo cross build --target ${{ matrix.target }}
-        if: $${{ !startsWith(matrix.target, 'x86_64-') }}
+        if: ${{ !startsWith(matrix.target, 'x86_64-') }}
+
+        # Test
       - run: cargo test --verbose
 
   fmt:

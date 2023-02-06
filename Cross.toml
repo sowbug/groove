@@ -1,9 +1,0 @@
-[build]
-default-target = "aarch64-unknown-linux-gnu" # also try armv7-unknown-linux-gnueabihf
-pre-build = [
-    "dpkg --add-architecture $CROSS_DEB_ARCH", 
-    "apt-get update",
-    "apt -y install pkg-config:$CROSS_DEB_ARCH",
-    "apt -y install libfontconfig-dev:$CROSS_DEB_ARCH",
-    "apt -y install libasound2-dev:$CROSS_DEB_ARCH"
-]   
