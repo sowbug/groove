@@ -73,5 +73,10 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
-          command: test
+          command: build
           args: --target ${{matrix.target}}
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: test
+          args: --verbose --target ${{matrix.target}}
