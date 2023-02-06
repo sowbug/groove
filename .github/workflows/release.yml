@@ -60,24 +60,25 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-          target: ${{matrix.target}}
+          target: ${{ matrix.target }}
           override: true
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
-          args: --release --target ${{matrix.target}}
+          args: --release --target ${{ matrix.target }}
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: groove-${{ matrix.target }}
           path: |
-            target/release/groove-cli*
-            target/release/groove-gui*
+            target/${{ matrix.target }}/release/groove-cli*
+            target/${{ matrix.target }}/release/groove-gui*
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: groove-gui,groove-cli
           include: README.md,LICENSE.txt,assets,projects
+          target: ${{ matrix.target }}
           leading_dir: true
           archive: groove-$tag-$target
           token: ${{ secrets.GITHUB_TOKEN }}
