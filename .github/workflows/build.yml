@@ -38,7 +38,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         if: startsWith(matrix.target, 'x86_64-')
-      - run: cargo install cargo-cross
+      - run: cargo install cross
         if: ${{ !startsWith(matrix.target, 'x86_64-') }}
 
         # Get the source
