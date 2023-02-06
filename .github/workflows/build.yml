@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@v2
 
         # Test
-      - run: cargo test --verbose --target ${{ matrix.target }}
+      - run: cargo test --target ${{ matrix.target }}
 
   test-cross:
     name: Test ${{matrix.target}}
@@ -74,4 +74,4 @@ jobs:
         with:
           use-cross: true
           command: test
-          args: --verbose --target ${{matrix.target}}
+          args: --target ${{matrix.target}}
