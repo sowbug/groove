@@ -2,9 +2,9 @@ name: Build and test for win/osx/linux
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   fmt:
@@ -35,7 +35,7 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
-        # Set up the build machine
+      # Set up the build machine
       - name: Install Linux x86_64 build dependencies
         run: sudo apt update; sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
         if: startsWith(matrix.os, 'ubuntu')
@@ -61,16 +61,11 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - aarch64-unknown-linux-gnu       # ARM Chromebooks & 64-bit RPi
-          - armv7-unknown-linux-gnueabihf   # Raspberry Pi 3/4 32-bit
+          - aarch64-unknown-linux-gnu # ARM Chromebooks & 64-bit RPi
+          - armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4 32-bit
     steps:
       - name: Install build dependencies
-        run: dpkg --add-architecture arm64; |
-             apt update; |
-             apt -y install |
-             pkg-config:arm64 |
-             libfontconfig-dev:arm64 |
-             libasound2-dev:arm64
+        run: dpkg --add-architecture arm64; apt update; apt -y install pkg-config:arm64 libfontconfig-dev:arm64 libasound2-dev:arm64
 
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
