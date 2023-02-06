@@ -342,10 +342,11 @@ impl<M: MessageBounds> Orchestrator<M> {
         message: EntityMessage,
     ) -> Response<EntityMessage> {
         if let Some(target) = self.store.get_mut(uid) {
-            target.as_updateable_mut().update(clock, message)
-        } else {
-            Response::none()
+            if let Some(target) = target.as_updateable_mut() {
+                return target.update(clock, message);
+            }
         }
+        Response::none()
     }
 
     #[allow(unused_variables)]

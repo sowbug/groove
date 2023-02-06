@@ -410,9 +410,9 @@ impl GrooveApp {
                         _ => todo!(),
                     },
                     _ => {
-                        entity
-                            .as_updateable_mut()
-                            .update(&self.clock_mirror, message);
+                        if let Some(entity) = entity.as_updateable_mut() {
+                            entity.update(&self.clock_mirror, message);
+                        }
                     }
                 }
             }

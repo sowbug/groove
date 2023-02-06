@@ -21,6 +21,8 @@ use crate::{
     utils::{AudioSource, TestLfo, TestSynth, Timer},
 };
 
+// PRO TIP: use `cargo expand --lib entities` to see what's being generated
+
 macro_rules! boxed_entity_enum_and_common_crackers {
     ($($variant:ident: $type:ty,)*) => {
         #[derive(Debug)]
@@ -37,16 +39,6 @@ macro_rules! boxed_entity_enum_and_common_crackers {
             pub fn as_has_uid_mut(&mut self) -> &mut dyn HasUid {
                 match self {
                 $( BoxedEntity::$variant(e) => e.as_mut(), )*
-                }
-            }
-            pub fn as_updateable(&self) -> &dyn Updateable<Message = EntityMessage> {
-                match self {
-                    $( BoxedEntity::$variant(e) => e.as_ref(), )*
-                }
-            }
-            pub fn as_updateable_mut(&mut self) -> &mut dyn Updateable<Message = EntityMessage> {
-                match self {
-                    $( BoxedEntity::$variant(e) => e.as_mut(), )*
                 }
             }
         }
@@ -163,13 +155,13 @@ controller_crackers! {
 macro_rules! effect_crackers {
     ($($type:ident,)*) => {
         impl BoxedEntity {
-            pub fn as_is_effect(&self) -> Option<&dyn IsEffect<Message = EntityMessage>> {
+            pub fn as_is_effect(&self) -> Option<&dyn IsEffect> {
                 match self {
                 $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn IsEffect<Message = EntityMessage>> {
+            pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
                 match self {
                 $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -217,5 +209,46 @@ instrument_crackers! {
     SimpleSynthesizer,
     TestInstrument,
     TestSynth,
+    WelshSynth,
+}
+
+macro_rules! updateable_crackers {
+    ($($type:ident,)*) => {
+        impl BoxedEntity {
+            pub fn as_updateable(&self) -> Option<&dyn Updateable<Message = EntityMessage>> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    _ => None
+                }
+            }
+            pub fn as_updateable_mut(&mut self) -> Option<&mut dyn Updateable<Message = EntityMessage>> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    _ => None
+                }
+            }
+        }
+    };
+}
+
+// Everything in controllers and instruments (and effects while removing the trait)
+updateable_crackers! {
+    Arpeggiator,
+    AudioSource,
+    BeatSequencer,
+    ControlTrip,
+    DrumkitSampler,
+    FmSynthesizer,
+    LfoController,
+    MidiTickSequencer,
+    PatternManager,
+    Sampler,
+    SimpleSynthesizer,
+    TestController,
+    TestEffect,
+    TestInstrument,
+    TestLfo,
+    TestSynth,
+    Timer,
     WelshSynth,
 }

@@ -1,7 +1,7 @@
 use crate::{
     clock::Clock,
     common::{F32ControlValue, Sample},
-    messages::{EntityMessage, MessageBounds},
+    messages::MessageBounds,
     traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
 };
 use groove_macros::{Control, Uid};
@@ -192,10 +192,6 @@ impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
         Response::none()
     }
 }
-impl Updateable for BiQuadFilter<EntityMessage> {
-    type Message = EntityMessage;
-}
-
 // We can't derive this because we need to call recalculate_coefficients(). Is
 // there an elegant way to get that done for free without a bunch of repetition?
 impl<M: MessageBounds> Default for BiQuadFilter<M> {

@@ -1,8 +1,7 @@
 use crate::{
     clock::Clock,
     common::{F32ControlValue, Sample, SampleType},
-    messages::EntityMessage,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
     BipolarNormal,
 };
 use groove_macros::{Control, Uid};
@@ -45,10 +44,6 @@ impl TransformsAudio for Limiter {
         )
     }
 }
-impl Updateable for Limiter {
-    type Message = EntityMessage;
-}
-
 impl Limiter {
     #[allow(dead_code)]
     fn new() -> Self {

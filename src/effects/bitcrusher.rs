@@ -2,8 +2,7 @@ use crate::{
     clock::Clock,
     common::F32ControlValue,
     common::SampleType,
-    messages::EntityMessage,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
 use iced_audio::{IntRange, Normal};
@@ -43,11 +42,6 @@ impl Default for Bitcrusher {
         Self::new_with(8)
     }
 }
-
-impl Updateable for Bitcrusher {
-    type Message = EntityMessage;
-}
-
 impl Bitcrusher {
     pub(crate) fn new_with(bits_to_crush: u8) -> Self {
         let mut r = Self {

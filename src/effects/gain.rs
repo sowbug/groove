@@ -3,7 +3,7 @@ use crate::{
     common::F32ControlValue,
     common::{Normal, Sample},
     messages::MessageBounds,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
 use std::{marker::PhantomData, str::FromStr};
@@ -28,9 +28,6 @@ impl<M: MessageBounds> TransformsAudio for Gain<M> {
     ) -> crate::common::Sample {
         Sample(input_sample.0 * self.ceiling.value())
     }
-}
-impl<M: MessageBounds> Updateable for Gain<M> {
-    type Message = M;
 }
 impl<M: MessageBounds> Gain<M> {
     #[allow(dead_code)]

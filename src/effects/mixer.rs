@@ -2,7 +2,7 @@ use crate::{
     clock::Clock,
     common::F32ControlValue,
     messages::MessageBounds,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
 use std::marker::PhantomData;
@@ -29,9 +29,6 @@ impl<M: MessageBounds> TransformsAudio for Mixer<M> {
         // that by putting `Gain`s in front.
         input_sample
     }
-}
-impl<M: MessageBounds> Updateable for Mixer<M> {
-    type Message = M;
 }
 impl<M: MessageBounds> Mixer<M> {
     #[allow(dead_code)]

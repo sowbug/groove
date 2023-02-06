@@ -3,8 +3,7 @@ use crate::{
     clock::Clock,
     common::F32ControlValue,
     common::Sample,
-    messages::EntityMessage,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -50,10 +49,6 @@ impl TransformsAudio for Reverb {
         )
     }
 }
-impl Updateable for Reverb {
-    type Message = EntityMessage;
-}
-
 impl Reverb {
     #[allow(dead_code)]
     fn new() -> Self {

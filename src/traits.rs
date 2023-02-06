@@ -33,10 +33,7 @@ pub trait IsController: Updateable + Terminates + HasUid + Send + std::fmt::Debu
 /// delay effect), and it turns out to be inconvenient for an IsController to
 /// track the end. In this case, we might add a Terminates bound for IsEffect.
 /// But right now I'm not sure that's the right solution.
-pub trait IsEffect:
-    TransformsAudio + Updateable + Controllable + HasUid + Send + std::fmt::Debug
-{
-}
+pub trait IsEffect: TransformsAudio + Controllable + HasUid + Send + std::fmt::Debug {}
 
 /// An IsInstrument produces audio, usually upon request from MIDI or
 /// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
