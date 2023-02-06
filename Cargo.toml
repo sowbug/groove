@@ -65,12 +65,16 @@ scripting = ["dep:rhai"]
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH", 
     "apt update",
-    "apt -y install pkg-config pkg-config:$CROSS_DEB_ARCH libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
-]   
+    "apt -y install libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
+]
+image = "ghcr.io/iced-rs/aarch64:latest"
+xargo = false
 
 [package.metadata.cross.target.armv7-unknown-linux-gnueabihf]
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH", 
     "apt update",
-    "apt -y install pkg-config pkg-config:$CROSS_DEB_ARCH libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
-]   
+    "apt -y install libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
+]
+image = "ghcr.io/iced-rs/armv7:latest"
+xargo = false
