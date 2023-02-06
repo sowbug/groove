@@ -1,4 +1,4 @@
-name: Build and test for win/osx/linux
+name: Build and test for win/osx/linux; build for ARM
 
 on:
   push:
