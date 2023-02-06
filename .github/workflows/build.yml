@@ -65,7 +65,7 @@ jobs:
           - armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4 32-bit
     steps:
       - name: Install build dependencies
-        run: dpkg --add-architecture arm64; apt update; apt -y install pkg-config:arm64 libfontconfig-dev:arm64 libasound2-dev:arm64
+        run: sudo sh -c "dpkg --add-architecture arm64; apt update; apt -y install pkg-config:arm64 libfontconfig-dev:arm64 libasound2-dev:arm64"
 
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
