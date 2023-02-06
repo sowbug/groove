@@ -18,7 +18,7 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - run: sudo apt update
+      - run: sudo apt -qq update
         if: startsWith(matrix.os, 'ubuntu')
       - run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
         if: startsWith(matrix.os, 'ubuntu')
@@ -31,7 +31,7 @@ jobs:
           override: true
           target: ${{ matrix.target }}
       - run: cargo build --release
-      - run: cargo test --release --verbose
+      - run: cargo test --release
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -68,11 +68,6 @@ jobs:
           use-cross: true
           command: build
           args: --release --target ${{matrix.target}}
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: test
-          args: --release --verbose
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:

@@ -55,7 +55,7 @@ jobs:
       - run: cargo test --target ${{ matrix.target }}
 
   build-cross:
-    name: Test ${{matrix.target}}
+    name: Build (but don't test) ${{matrix.target}}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
