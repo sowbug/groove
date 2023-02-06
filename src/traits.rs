@@ -38,10 +38,7 @@ pub trait IsEffect: TransformsAudio + Controllable + HasUid + Send + std::fmt::D
 /// An IsInstrument produces audio, usually upon request from MIDI or
 /// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
 /// because it continues to create audio as long as asked.
-pub trait IsInstrument:
-    SourcesAudio + Updateable + Controllable + HasUid + Send + std::fmt::Debug
-{
-}
+pub trait IsInstrument: SourcesAudio + Controllable + HasUid + Send + std::fmt::Debug {}
 
 /// A future fourth trait might be named something like IsWidget or
 /// IsGuiElement. These exist only to interact with the user of a GUI app, but

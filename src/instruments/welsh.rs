@@ -13,9 +13,7 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{
-        Controllable, HasUid, IsInstrument, Response, SourcesAudio, TransformsAudio, Updateable,
-    },
+    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, TransformsAudio},
     utils::Paths,
     BipolarNormal, Clock, StereoSample,
 };
@@ -681,35 +679,22 @@ impl SourcesAudio for WelshSynth {
         self.inner_synth.source_audio(clock)
     }
 }
-impl Updateable for WelshSynth {
-    type Message = EntityMessage;
-
-    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        #[allow(unused_variables)]
+impl HandlesMidi for WelshSynth {
+    fn handle_midi_message(&mut self, message: &MidiMessage) {
         match message {
-            Self::Message::Midi(channel, midi_message) => match midi_message {
-                MidiMessage::ProgramChange { program } => {
-                    if let Some(program) = GeneralMidiProgram::from_u8(u8::from(program)) {
-                        if let Ok(preset) = WelshSynth::general_midi_preset(&program) {
-                            //  self.preset = preset;
-                        } else {
-                            println!("unrecognized patch from MIDI program change: {}", &program);
-                        }
+            MidiMessage::ProgramChange { program } => {
+                if let Some(program) = GeneralMidiProgram::from_u8(program.as_int()) {
+                    if let Ok(_preset) = WelshSynth::general_midi_preset(&program) {
+                        //  self.preset = preset;
+                    } else {
+                        println!("unrecognized patch from MIDI program change: {}", &program);
                     }
                 }
-                _ => {
-                    self.inner_synth.handle_midi_message(&midi_message);
-                }
-            },
-            EntityMessage::Knob(value) => {
-                // TODO: it's annoying to have to plumb this through. I want
-                // everything #controllable to automatically generate the
-                // scaffolding for UI.
-                self.set_control_pan(F32ControlValue(value.as_f32()));
             }
-            _ => todo!(),
+            _ => {
+                self.inner_synth.handle_midi_message(&message);
+            }
         }
-        Response::none()
     }
 }
 
@@ -740,7 +725,7 @@ impl WelshSynth {
         self.inner_synth.set_pan(pan);
     }
 
-    fn set_control_pan(&mut self, value: F32ControlValue) {
+    pub fn set_control_pan(&mut self, value: F32ControlValue) {
         // TODO: more toil. Let me say this is a bipolar normal
         self.set_pan(value.0 * 2.0 - 1.0);
     }

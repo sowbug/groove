@@ -6,11 +6,11 @@ use groove::{
     gui::{GrooveEvent, GrooveInput},
     traits::{HasUid, TestController, TestEffect, TestInstrument},
     Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity, Chorus, Clock,
-    Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, FmSynthesizer, Gain,
-    GrooveMessage, GrooveOrchestrator, GrooveSubscription, LfoController, Limiter, MidiHandler,
-    MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer,
-    Mixer, Normal, Note, Pattern, PatternManager, PatternMessage, Reverb, Sampler,
-    SimpleSynthesizer, TestLfo, TestSynth, Timer, WelshSynth,
+    Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, F32ControlValue, FmSynthesizer,
+    Gain, GrooveMessage, GrooveOrchestrator, GrooveSubscription, LfoController, Limiter,
+    MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
+    MidiTickSequencer, Mixer, Normal, Note, Pattern, PatternManager, PatternMessage, Reverb,
+    Sampler, SimpleSynthesizer, TestLfo, TestSynth, Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -406,6 +406,15 @@ impl GrooveApp {
                     BoxedEntity::Gain(e) => match message {
                         EntityMessage::HSliderInt(value) => {
                             e.set_ceiling(Normal::new_from_f32(value.as_f32()));
+                        }
+                        _ => todo!(),
+                    },
+                    BoxedEntity::WelshSynth(e) => match message {
+                        EntityMessage::Knob(value) => {
+                            // TODO: it's annoying to have to plumb this through. I want
+                            // everything #controllable to automatically generate the
+                            // scaffolding for UI.
+                            e.set_control_pan(F32ControlValue(value.as_f32()));
                         }
                         _ => todo!(),
                     },

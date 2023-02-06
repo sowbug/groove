@@ -574,14 +574,24 @@ impl GrooveOrchestrator {
         if receiver_uids.is_empty() {
             return Response::none();
         }
-        Response::batch(receiver_uids.iter().fold(Vec::new(), |mut v, uid| {
-            v.push(self.dispatch_and_wrap_entity_message(
-                clock,
-                *uid,
-                EntityMessage::Midi(channel, message),
-            ));
-            v
-        }))
+        Response::batch(receiver_uids.iter().fold(
+            Vec::new(),
+            |mut v: Vec<Response<GrooveMessage>>, uid: &usize| {
+                let uid = uid.clone();
+                if let Some(e) = self.store.get_mut(uid) {
+                    if let Some(_e) = e.as_updateable_mut() {
+                        v.push(self.dispatch_and_wrap_entity_message(
+                            clock,
+                            uid,
+                            EntityMessage::Midi(channel, message),
+                        ));
+                    } else if let Some(e) = e.as_handles_midi_mut() {
+                        e.handle_midi_message(&message);
+                    }
+                }
+                v
+            },
+        ))
     }
 
     fn dispatch_control_f32(&mut self, uid: usize, value: f32) {

@@ -2,9 +2,8 @@ use super::{HandlesMidi, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    messages::EntityMessage,
     midi::GeneralMidiPercussionProgram,
-    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    traits::{Controllable, HasUid, IsInstrument, SourcesAudio},
     utils::Paths,
     Sampler, StereoSample,
 };
@@ -119,23 +118,14 @@ pub struct DrumkitSampler {
     kit_name: String,
 }
 impl IsInstrument for DrumkitSampler {}
+impl HandlesMidi for DrumkitSampler {
+    fn handle_midi_message(&mut self, message: &midly::MidiMessage) {
+        self.inner_synth.handle_midi_message(message);
+    }
+}
 impl SourcesAudio for DrumkitSampler {
     fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         self.inner_synth.source_audio(clock)
-    }
-}
-impl Updateable for DrumkitSampler {
-    type Message = EntityMessage;
-
-    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        #[allow(unused_variables)]
-        match message {
-            Self::Message::Midi(channel, midi_message) => {
-                self.inner_synth.handle_midi_message(&midi_message);
-            }
-            _ => todo!(),
-        }
-        Response::none()
     }
 }
 

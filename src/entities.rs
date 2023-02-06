@@ -10,7 +10,7 @@ use crate::{
     },
     instruments::{
         drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth, FmSynthesizer,
-        SimpleSynthesizer,
+        HandlesMidi, SimpleSynthesizer,
     },
     messages::EntityMessage,
     midi::patterns::PatternManager,
@@ -186,13 +186,13 @@ effect_crackers! {
 macro_rules! instrument_crackers {
     ($($type:ident,)*) => {
         impl BoxedEntity {
-            pub fn as_is_instrument(&self) -> Option<&dyn IsInstrument<Message = EntityMessage>> {
+            pub fn as_is_instrument(&self) -> Option<&dyn IsInstrument> {
                 match self {
                 $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument<Message = EntityMessage>> {
+            pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
                 match self {
                 $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -237,7 +237,6 @@ updateable_crackers! {
     AudioSource,
     BeatSequencer,
     ControlTrip,
-    DrumkitSampler,
     FmSynthesizer,
     LfoController,
     MidiTickSequencer,
@@ -250,5 +249,28 @@ updateable_crackers! {
     TestLfo,
     TestSynth,
     Timer,
+}
+
+macro_rules! handles_midi_crackers {
+    ($($type:ident,)*) => {
+        impl BoxedEntity {
+            pub fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    _ => None
+                }
+            }
+            pub fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    _ => None
+                }
+            }
+        }
+    };
+}
+
+handles_midi_crackers! {
+    DrumkitSampler,
     WelshSynth,
 }
