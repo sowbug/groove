@@ -21,8 +21,8 @@ jobs:
       - name: Run rustfmt
         run: cargo fmt --all --check
 
-  test-x86:
-    name: Test x86
+  test-x86_64:
+    name: Test x86_64
     strategy:
       fail-fast: false
       matrix:
