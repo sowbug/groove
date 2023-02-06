@@ -68,7 +68,7 @@ scripting = ["dep:rhai"]
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH", 
     "apt -qq update",
-    "apt -y install libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
+    "apt -y install pkg-config libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
 ]
 # See https://github.com/iced-rs/iced/blob/master/Cross.toml
 image = "ghcr.io/iced-rs/aarch64:latest"
@@ -78,7 +78,7 @@ xargo = false
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH", 
     "apt -qq update",
-    "apt -y install libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
+    "apt -y install pkg-config libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
 ]
 # See https://github.com/iced-rs/iced/blob/master/Cross.toml
 image = "ghcr.io/iced-rs/armv7:latest"
