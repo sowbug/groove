@@ -64,20 +64,12 @@ jobs:
           - aarch64-unknown-linux-gnu # ARM Chromebooks & 64-bit RPi
           - armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4 32-bit
     steps:
-      - name: Install build dependencies
-        run: sudo sh -c "dpkg --add-architecture arm64; apt update; apt -y install pkg-config:arm64 libfontconfig-dev:arm64 libasound2-dev:arm64"
-
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           target: ${{matrix.target}}
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --target ${{matrix.target}}
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
