@@ -5,7 +5,7 @@ on:
     types: [created]
 
 jobs:
-  release-all:
+  release-x86_64:
     strategy:
       matrix:
         include:
