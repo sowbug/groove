@@ -3,6 +3,9 @@ name = "groove"
 version = "0.1.0"
 authors = ["Mike Tsao <mike@sowbug.com>"]
 edition = "2021"
+readme = "README.md"
+description = "A digital audio workstation."
+license = "Copyright (c) 2023 Mike Tsao. All rights reserved."
 
 [dependencies]
 #plotters = "0.3.4"
@@ -67,6 +70,7 @@ pre-build = [
     "apt update",
     "apt -y install libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
 ]
+# See https://github.com/iced-rs/iced/blob/master/Cross.toml
 image = "ghcr.io/iced-rs/aarch64:latest"
 xargo = false
 
@@ -76,5 +80,16 @@ pre-build = [
     "apt update",
     "apt -y install libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
 ]
+# See https://github.com/iced-rs/iced/blob/master/Cross.toml
 image = "ghcr.io/iced-rs/armv7:latest"
 xargo = false
+
+[package.metadata.deb]
+assets = [
+    ["target/release/groove-cli", "usr/bin/", "755"],
+    ["target/release/groove-gui", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/groove/README.md", "644"],
+    ["assets/patches/**/*.yaml", "usr/share/groove/patches/", "644"],
+    ["assets/samples/**/*.wav", "usr/share/groove/samples/", "644"],
+    ["projects/**/*.yaml", "usr/share/groove/projects/", "644"],
+]
