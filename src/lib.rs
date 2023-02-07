@@ -1,5 +1,3 @@
-#![feature(specialization)]
-#![allow(incomplete_features)]
 #![allow(clippy::box_default)]
 
 pub use crate::{
