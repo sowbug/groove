@@ -7,7 +7,6 @@ use crate::{
     common::{F32ControlValue, Normal, Sample},
     effects::filter::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
-    messages::EntityMessage,
     midi::{GeneralMidiProgram, MidiMessage, MidiUtils},
     settings::{
         patches::{LfoRouting, SynthPatch, WaveformType},

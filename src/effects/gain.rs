@@ -5,7 +5,7 @@ use crate::{
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
-use std::{marker::PhantomData, str::FromStr};
+use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Control, Debug, Default, Uid)]
@@ -59,9 +59,7 @@ impl Gain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        clock::Clock, traits::SourcesAudio, utils::AudioSource, EntityMessage, StereoSample,
-    };
+    use crate::{clock::Clock, traits::SourcesAudio, utils::AudioSource, StereoSample};
 
     #[test]
     fn test_gain_mainline() {

@@ -7,18 +7,16 @@ use crate::{
         oscillators::Oscillator,
         HandlesMidi,
     },
-    messages::{EntityMessage, MessageBounds},
     traits::{
         Controllable, HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates,
         Updateable,
     },
-    BipolarNormal, StereoSample,
+    BipolarNormal, EntityMessage, StereoSample,
 };
 use core::fmt::Debug;
 use groove_macros::{Control, Uid};
 use std::{
     env::{current_dir, current_exe},
-    marker::PhantomData,
     path::PathBuf,
     str::FromStr,
 };
@@ -327,11 +325,10 @@ pub mod tests {
         common::{Sample, SampleType},
         controllers::orchestrator::Orchestrator,
         entities::BoxedEntity,
-        messages::{EntityMessage, GrooveMessage, MessageBounds},
         midi::MidiChannel,
         traits::{
             Controllable, HasUid, IsEffect, TestController, TestEffect, TestInstrument,
-            TransformsAudio, Updateable,
+            TransformsAudio,
         },
         utils::{
             transform_linear_to_mma_concave, transform_linear_to_mma_convex, F32ControlValue,
@@ -343,7 +340,7 @@ pub mod tests {
     use groove_macros::Control;
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
     use std::str::FromStr;
-    use std::{fs, marker::PhantomData, path::PathBuf};
+    use std::{fs, path::PathBuf};
     use strum_macros::{Display, EnumString, FromRepr};
 
     fn read_samples_from_mono_wav_file(filename: &PathBuf) -> Vec<Sample> {

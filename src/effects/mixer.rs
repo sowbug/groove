@@ -4,7 +4,6 @@ use crate::{
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
-use std::marker::PhantomData;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 

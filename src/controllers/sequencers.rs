@@ -1,8 +1,8 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
-    messages::EntityMessage,
     midi::{MidiChannel, MidiMessage},
     traits::{HasUid, IsController, Response, Terminates, Updateable},
+    EntityMessage,
 };
 use btreemultimap::BTreeMultiMap;
 use groove_macros::Uid;
@@ -235,15 +235,13 @@ impl Updateable for MidiTickSequencer {
 
 #[cfg(test)]
 mod tests {
-
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         clock::{Clock, MidiTicks},
         entities::BoxedEntity,
-        messages::EntityMessage,
         midi::{MidiChannel, MidiUtils},
         traits::{IsController, TestInstrument},
-        Orchestrator,
+        EntityMessage, Orchestrator,
     };
 
     impl BeatSequencer {

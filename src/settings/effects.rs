@@ -12,7 +12,6 @@ use crate::{
         reverb::Reverb,
     },
     entities::BoxedEntity,
-    messages::EntityMessage,
     traits::TestEffect,
     BipolarNormal,
 };

@@ -8,7 +8,7 @@ pub(crate) mod subscription;
 use self::subscription::MidiHandlerEvent;
 use crate::{
     messages::MessageBounds,
-    traits::{HasUid, IsController, Response, Terminates, Updateable},
+    traits::{HasUid, Response, Terminates},
     Clock,
 };
 use crossbeam::deque::{Steal, Stealer, Worker};

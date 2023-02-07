@@ -6,12 +6,11 @@ use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit},
     common::ParameterType,
     settings::{controllers::ControlPathSettings, patches::WaveformType},
-    Oscillator,
+    EntityMessage, Oscillator,
 };
 use crate::{
     common::{F32ControlValue, SignalType},
     instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
-    messages::EntityMessage,
     settings::controllers::ControlStep,
     traits::{Controllable, HasUid, IsController, Response, Terminates, Updateable},
 };

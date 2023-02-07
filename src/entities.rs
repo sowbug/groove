@@ -12,7 +12,6 @@ use crate::{
         drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth, FmSynthesizer,
         HandlesMidi, SimpleSynthesizer,
     },
-    messages::EntityMessage,
     midi::patterns::PatternManager,
     traits::{
         Controllable, HasUid, IsController, IsEffect, IsInstrument, Terminates, TestController,

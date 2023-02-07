@@ -6,7 +6,6 @@ use crate::{
     common::DeviceId,
     controllers::{orchestrator::Orchestrator, ControlPath, ControlTrip},
     entities::BoxedEntity,
-    messages::EntityMessage,
     midi::{
         patterns::{Note, Pattern},
         programmers::PatternProgrammer,

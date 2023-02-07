@@ -5,11 +5,10 @@ use super::{
 use crate::{
     clock::{BeatValue, MidiTicks, PerfectTimeUnit},
     controllers::sequencers::{BeatSequencer, MidiTickSequencer},
-    messages::EntityMessage,
     TimeSignature,
 };
 use midly::{MidiMessage, TrackEventKind};
-use std::{cmp, marker::PhantomData};
+use std::cmp;
 
 pub struct MidiSmfReader {}
 
@@ -192,7 +191,7 @@ mod tests {
         clock::{BeatValue, Clock, TimeSignature},
         entities::BoxedEntity,
         settings::PatternSettings,
-        traits::{TestInstrument, Updateable},
+        traits::TestInstrument,
         utils::Timer,
         GrooveMessage, Orchestrator,
     };

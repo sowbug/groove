@@ -2,9 +2,9 @@ use super::sequencers::BeatSequencer;
 use crate::{
     clock::{Clock, PerfectTimeUnit},
     common::F32ControlValue,
-    messages::EntityMessage,
     midi::{MidiChannel, MidiMessage},
     traits::{Controllable, HasUid, IsController, Response, Terminates, Updateable},
+    EntityMessage,
 };
 use groove_macros::{Control, Uid};
 use midly::num::u7;
@@ -169,7 +169,6 @@ mod tests {
         clock::PerfectTimeUnit,
         controllers::sequencers::BeatSequencer,
         entities::BoxedEntity,
-        messages::EntityMessage,
         midi::MidiChannel,
         traits::{Internal, TestInstrument},
         Clock, GrooveMessage, Orchestrator,

@@ -6,7 +6,6 @@ use crate::{
         welsh::{self},
         FmSynthesizer, SimpleSynthesizer,
     },
-    messages::EntityMessage,
     traits::TestInstrument,
     Sampler,
 };

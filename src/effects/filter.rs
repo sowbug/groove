@@ -1,10 +1,10 @@
 use crate::{
     clock::Clock,
     common::{F32ControlValue, Sample},
-    traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
-use std::{f64::consts::PI, marker::PhantomData, str::FromStr};
+use std::{f64::consts::PI, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Debug, Clone, Copy, Default)]

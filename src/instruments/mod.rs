@@ -2,8 +2,8 @@ use crate::{
     common::{BipolarNormal, F32ControlValue, Sample, StereoSample},
     midi::MidiUtils,
     settings::patches::EnvelopeSettings,
-    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Updateable},
-    Clock, EntityMessage, Oscillator,
+    traits::{Controllable, HasUid, IsInstrument, SourcesAudio},
+    Clock, Oscillator,
 };
 use anyhow::{anyhow, Result};
 use groove_macros::{Control, Uid};

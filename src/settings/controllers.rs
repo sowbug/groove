@@ -4,7 +4,6 @@ use crate::{
     common::{DeviceId, SignalType},
     controllers::{arpeggiator::Arpeggiator, LfoController},
     entities::BoxedEntity,
-    messages::EntityMessage,
     traits::TestController,
 };
 use serde::{Deserialize, Serialize};
