@@ -422,7 +422,7 @@ pub struct WelshVoice {
     lfo_routing: LfoRouting,
     lfo_depth: Normal,
 
-    filter: BiQuadFilter<EntityMessage>,
+    filter: BiQuadFilter,
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
     filter_envelope: SimpleEnvelope,
@@ -485,11 +485,11 @@ impl WelshVoice {
             filter: BiQuadFilter::new_with(
                 &FilterParams::LowPass12db {
                     cutoff: preset.filter_type_12db.cutoff_hz,
-                    q: BiQuadFilter::<EntityMessage>::denormalize_q(preset.filter_resonance),
+                    q: BiQuadFilter::denormalize_q(preset.filter_resonance),
                 },
                 sample_rate,
             ),
-            filter_cutoff_start: BiQuadFilter::<EntityMessage>::frequency_to_percent(
+            filter_cutoff_start: BiQuadFilter::frequency_to_percent(
                 preset.filter_type_12db.cutoff_hz,
             ),
             filter_cutoff_end: preset.filter_envelope_weight,

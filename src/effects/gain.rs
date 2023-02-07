@@ -2,7 +2,6 @@ use crate::{
     clock::Clock,
     common::F32ControlValue,
     common::{Normal, Sample},
-    messages::MessageBounds,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
@@ -10,16 +9,14 @@ use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Control, Debug, Default, Uid)]
-pub struct Gain<M: MessageBounds> {
+pub struct Gain {
     uid: usize,
 
     #[controllable]
     ceiling: Normal,
-
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsEffect for Gain<M> {}
-impl<M: MessageBounds> TransformsAudio for Gain<M> {
+impl IsEffect for Gain {}
+impl TransformsAudio for Gain {
     fn transform_channel(
         &mut self,
         _clock: &Clock,
@@ -29,7 +26,7 @@ impl<M: MessageBounds> TransformsAudio for Gain<M> {
         Sample(input_sample.0 * self.ceiling.value())
     }
 }
-impl<M: MessageBounds> Gain<M> {
+impl Gain {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
@@ -63,19 +60,17 @@ impl<M: MessageBounds> Gain<M> {
 mod tests {
     use super::*;
     use crate::{
-        clock::Clock, messages::tests::TestMessage, traits::SourcesAudio, utils::AudioSource,
-        EntityMessage, StereoSample,
+        clock::Clock, traits::SourcesAudio, utils::AudioSource, EntityMessage, StereoSample,
     };
 
     #[test]
     fn test_gain_mainline() {
-        let mut gain = Gain::<EntityMessage>::new_with(Normal::new(0.5));
+        let mut gain = Gain::new_with(Normal::new(0.5));
         let clock = Clock::default();
         assert_eq!(
             gain.transform_audio(
                 &clock,
-                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
-                    .source_audio(&clock)
+                AudioSource::new_with(AudioSource::LOUD).source_audio(&clock)
             ),
             StereoSample::from(0.5)
         );

@@ -420,30 +420,6 @@ impl std::fmt::Debug for MidiOutputHandler {
     }
 }
 
-impl IsController for MidiOutputHandler {}
-impl Updateable for MidiOutputHandler {
-    type Message = MidiHandlerMessage;
-
-    fn update(&mut self, _clock: &Clock, message: Self::Message) -> Response<MidiHandlerMessage> {
-        match message {
-            MidiHandlerMessage::Midi(channel, message) => {
-                let event = LiveEvent::Midi {
-                    channel: u4::from(channel),
-                    message,
-                };
-
-                // TODO: this seems like a lot of work
-                let mut buf = Vec::new();
-                event.write(&mut buf).unwrap();
-                if self.send(&buf).is_err() {
-                    // TODO
-                }
-            }
-            _ => todo!(),
-        }
-        Response::none()
-    }
-}
 impl Terminates for MidiOutputHandler {
     fn is_finished(&self) -> bool {
         true
@@ -553,6 +529,32 @@ impl MidiOutputHandler {
 
     pub fn labels(&self) -> (&Option<MidiPortLabel>, Vec<MidiPortLabel>) {
         (&self.active_port, self.labels.clone()) // TODO aaaaargh
+    }
+
+    // TODO: this looks like old Updateable::update() because it was one. It's
+    // free to evolve independently.
+    fn update(
+        &mut self,
+        _clock: &Clock,
+        message: MidiHandlerMessage,
+    ) -> Response<MidiHandlerMessage> {
+        match message {
+            MidiHandlerMessage::Midi(channel, message) => {
+                let event = LiveEvent::Midi {
+                    channel: u4::from(channel),
+                    message,
+                };
+
+                // TODO: this seems like a lot of work
+                let mut buf = Vec::new();
+                event.write(&mut buf).unwrap();
+                if self.send(&buf).is_err() {
+                    // TODO
+                }
+            }
+            _ => todo!(),
+        }
+        Response::none()
     }
 }
 

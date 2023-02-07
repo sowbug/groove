@@ -80,13 +80,13 @@ impl InstrumentSettings {
             };
             return (
                 midi_input_channel,
-                BoxedEntity::TestInstrument(Box::new(TestInstrument::<EntityMessage>::default())),
+                BoxedEntity::TestInstrument(Box::new(TestInstrument::default())),
             );
         }
         match self {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,
-                BoxedEntity::TestInstrument(Box::new(TestInstrument::<EntityMessage>::default())),
+                BoxedEntity::TestInstrument(Box::new(TestInstrument::default())),
             ),
             InstrumentSettings::SimpleSynth { midi_input_channel } => (
                 *midi_input_channel,

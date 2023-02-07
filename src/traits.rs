@@ -53,10 +53,8 @@ pub trait IsInstrument:
 /// Methods and messages are isomorphic, and everything could have been done
 /// through update(), but sometimes a direct method is the right solution.
 pub trait Updateable {
-    type Message: MessageBounds;
-
     #[allow(unused_variables)]
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
         Response::none()
     }
 }
@@ -199,7 +197,7 @@ enum TestControllerAction {
 }
 
 #[derive(Debug, Default)]
-pub struct TestController<M: MessageBounds> {
+pub struct TestController {
     uid: usize,
     midi_channel_out: MidiChannel,
     pub tempo: f32,
@@ -210,27 +208,14 @@ pub struct TestController<M: MessageBounds> {
     pub checkpoint: f32,
     pub checkpoint_delta: f32,
     pub time_unit: ClockTimeUnit,
-
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsController for TestController<M> {}
-impl<M: MessageBounds> Terminates for TestController<M> {
+impl IsController for TestController {}
+impl Terminates for TestController {
     fn is_finished(&self) -> bool {
         true
     }
 }
-impl<M: MessageBounds> Updateable for TestController<M> {
-    default type Message = M;
-
-    default fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl<M: MessageBounds> HasUid for TestController<M> {
+impl HasUid for TestController {
     fn uid(&self) -> usize {
         self.uid
     }
@@ -239,7 +224,7 @@ impl<M: MessageBounds> HasUid for TestController<M> {
         self.uid = uid
     }
 }
-impl<M: MessageBounds> TestController<M> {
+impl TestController {
     pub fn new_with(midi_channel_out: MidiChannel) -> Self {
         Self {
             midi_channel_out,
@@ -278,7 +263,7 @@ impl<M: MessageBounds> TestController<M> {
         TestControllerAction::Nothing
     }
 }
-impl<M: MessageBounds> TestsValues for TestController<M> {
+impl TestsValues for TestController {
     fn has_checkpoint_values(&self) -> bool {
         !self.checkpoint_values.is_empty()
     }
@@ -305,7 +290,7 @@ impl<M: MessageBounds> TestsValues for TestController<M> {
 }
 
 #[derive(Control, Debug, Default)]
-pub struct TestEffect<M: MessageBounds> {
+pub struct TestEffect {
     uid: usize,
 
     #[controllable]
@@ -315,11 +300,9 @@ pub struct TestEffect<M: MessageBounds> {
     pub checkpoint: f32,
     pub checkpoint_delta: f32,
     pub time_unit: ClockTimeUnit,
-
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsEffect for TestEffect<M> {}
-impl<M: MessageBounds> TransformsAudio for TestEffect<M> {
+impl IsEffect for TestEffect {}
+impl TransformsAudio for TestEffect {
     fn transform_channel(
         &mut self,
         clock: &Clock,
@@ -330,15 +313,7 @@ impl<M: MessageBounds> TransformsAudio for TestEffect<M> {
         -input_sample
     }
 }
-impl<M: MessageBounds> Updateable for TestEffect<M> {
-    default type Message = M;
-
-    #[allow(unused_variables)]
-    default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl<M: MessageBounds> HasUid for TestEffect<M> {
+impl HasUid for TestEffect {
     fn uid(&self) -> usize {
         self.uid
     }
@@ -347,7 +322,7 @@ impl<M: MessageBounds> HasUid for TestEffect<M> {
         self.uid = uid;
     }
 }
-impl<M: MessageBounds> TestsValues for TestEffect<M> {
+impl TestsValues for TestEffect {
     fn has_checkpoint_values(&self) -> bool {
         !self.checkpoint_values.is_empty()
     }
@@ -372,7 +347,7 @@ impl<M: MessageBounds> TestsValues for TestEffect<M> {
         self.checkpoint_values.pop_front()
     }
 }
-impl<M: MessageBounds> TestEffect<M> {
+impl TestEffect {
     pub fn new_with_test_values(
         values: &[f32],
         checkpoint: f32,
@@ -408,7 +383,7 @@ impl<M: MessageBounds> TestEffect<M> {
 /// To act as a controller target, it has two parameters: Oscillator waveform
 /// and frequency.
 #[derive(Control, Debug, Default)]
-pub struct TestInstrument<M: MessageBounds> {
+pub struct TestInstrument {
     uid: usize,
 
     /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
@@ -430,11 +405,9 @@ pub struct TestInstrument<M: MessageBounds> {
     pub time_unit: ClockTimeUnit,
 
     pub debug_messages: Vec<(f32, MidiChannel, MidiMessage)>,
-
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsInstrument for TestInstrument<M> {}
-impl<M: MessageBounds> HasUid for TestInstrument<M> {
+impl IsInstrument for TestInstrument {}
+impl HasUid for TestInstrument {
     fn uid(&self) -> usize {
         self.uid
     }
@@ -443,8 +416,8 @@ impl<M: MessageBounds> HasUid for TestInstrument<M> {
         self.uid = uid;
     }
 }
-impl<M: MessageBounds> HandlesMidi for TestInstrument<M> {}
-impl<M: MessageBounds> TestsValues for TestInstrument<M> {
+impl HandlesMidi for TestInstrument {}
+impl TestsValues for TestInstrument {
     fn has_checkpoint_values(&self) -> bool {
         !self.checkpoint_values.is_empty()
     }
@@ -469,7 +442,7 @@ impl<M: MessageBounds> TestsValues for TestInstrument<M> {
         self.checkpoint_values.pop_front()
     }
 }
-impl<M: MessageBounds> TestInstrument<M> {
+impl TestInstrument {
     pub fn new() -> Self {
         Self {
             ..Default::default()
@@ -540,7 +513,7 @@ impl<M: MessageBounds> TestInstrument<M> {
     }
 }
 
-impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
+impl SourcesAudio for TestInstrument {
     fn source_audio(&mut self, clock: &Clock) -> StereoSample {
         // If we've been asked to assert values at checkpoints, do so.
         if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
@@ -561,12 +534,10 @@ impl<M: MessageBounds> SourcesAudio for TestInstrument<M> {
     }
 }
 
-impl Updateable for TestController<EntityMessage> {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+impl Updateable for TestController {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
         match message {
-            Self::Message::Tick => {
+            EntityMessage::Tick => {
                 self.check_values(clock);
                 return match self.what_to_do(clock) {
                     TestControllerAction::Nothing => Response::none(),
@@ -576,7 +547,7 @@ impl Updateable for TestController<EntityMessage> {
                         // then we still send the off note,
                         if self.is_enabled {
                             self.is_playing = true;
-                            Response::single(Self::Message::Midi(
+                            Response::single(EntityMessage::Midi(
                                 self.midi_channel_out,
                                 MidiMessage::NoteOn {
                                     key: 60.into(),
@@ -589,7 +560,7 @@ impl Updateable for TestController<EntityMessage> {
                     }
                     TestControllerAction::NoteOff => {
                         if self.is_playing {
-                            Response::single(Self::Message::Midi(
+                            Response::single(EntityMessage::Midi(
                                 self.midi_channel_out,
                                 MidiMessage::NoteOff {
                                     key: 60.into(),
@@ -602,30 +573,12 @@ impl Updateable for TestController<EntityMessage> {
                     }
                 };
             }
-            Self::Message::Enable(enabled) => {
+            EntityMessage::Enable(enabled) => {
                 self.is_enabled = enabled;
             }
             #[allow(unused_variables)]
-            Self::Message::Midi(channel, message) => {
+            EntityMessage::Midi(channel, message) => {
                 //dbg!(&channel, &message);
-            }
-            _ => todo!(),
-        }
-        Response::none()
-    }
-}
-
-impl Updateable for TestEffect<EntityMessage> {
-    type Message = EntityMessage;
-}
-
-impl Updateable for TestInstrument<EntityMessage> {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        match message {
-            Self::Message::Midi(channel, message) => {
-                self.handle_midi(clock, channel, message);
             }
             _ => todo!(),
         }
@@ -638,8 +591,6 @@ pub mod tests {
     use super::SourcesAudio;
     use super::TestInstrument;
     use crate::clock::Clock;
-    use crate::messages::tests::TestMessage;
-    use crate::messages::MessageBounds;
     use rand::random;
 
     // TODO: restore tests that test basic trait behavior, then figure out how
@@ -648,7 +599,7 @@ pub mod tests {
     // for non-consecutive time slices.
     #[test]
     fn test_sources_audio_random_access() {
-        let mut instrument = TestInstrument::<TestMessage>::default();
+        let mut instrument = TestInstrument::default();
         for _ in 0..100 {
             let mut clock = Clock::default();
             clock.set_samples(random());
@@ -656,7 +607,7 @@ pub mod tests {
         }
     }
 
-    impl<M: MessageBounds> TestInstrument<M> {
+    impl TestInstrument {
         pub fn dump_messages(&self) {
             dbg!(&self.debug_messages);
         }

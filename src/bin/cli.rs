@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
 
             // TODO: this is temporary, to return the right type
             #[cfg(not(feature = "scripting"))]
-            Box::<groove::Orchestrator<groove::GrooveMessage>>::default()
+            Box::<groove::Orchestrator>::default()
         } else if input_filename.ends_with(".yaml")
             || input_filename.ends_with(".yml")
             || input_filename.ends_with(".nsn")
@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
             }
             r
         } else {
-            Box::<groove::Orchestrator<groove::GrooveMessage>>::default()
+            Box::<groove::Orchestrator>::default()
         };
 
         orchestrator.set_enable_dev_experiment(args.debug);

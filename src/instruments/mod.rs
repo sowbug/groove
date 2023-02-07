@@ -86,9 +86,6 @@ pub struct Synthesizer<V: IsVoice> {
     pan: f32,
 }
 impl<V: IsVoice> IsInstrument for Synthesizer<V> {}
-impl<V: IsVoice> Updateable for Synthesizer<V> {
-    type Message = EntityMessage;
-}
 impl<V: IsVoice> SourcesAudio for Synthesizer<V> {
     fn source_audio(&mut self, clock: &Clock) -> StereoSample {
         self.voice_store.source_audio(clock)

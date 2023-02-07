@@ -7,7 +7,7 @@ pub use crate::{
     common::{BipolarNormal, F32ControlValue, Normal, StereoSample},
     controllers::{
         arpeggiator::Arpeggiator,
-        orchestrator::{GrooveOrchestrator, Orchestrator},
+        orchestrator::Orchestrator,
         sequencers::{BeatSequencer, MidiTickSequencer},
         ControlTrip, LfoController,
     },

@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     common::DeviceId,
-    controllers::{orchestrator::GrooveOrchestrator, ControlPath, ControlTrip},
+    controllers::{orchestrator::Orchestrator, ControlPath, ControlTrip},
     entities::BoxedEntity,
     messages::EntityMessage,
     midi::{
@@ -83,8 +83,8 @@ impl SongSettings {
         Ok(settings)
     }
 
-    pub fn instantiate(&self, load_only_test_entities: bool) -> Result<GrooveOrchestrator> {
-        let mut o = GrooveOrchestrator::default();
+    pub fn instantiate(&self, load_only_test_entities: bool) -> Result<Orchestrator> {
+        let mut o = Orchestrator::default();
         o.set_title(self.title.clone());
         o.set_clock_settings(&self.clock);
         self.instantiate_devices(&mut o, load_only_test_entities);
@@ -95,11 +95,7 @@ impl SongSettings {
         Ok(o)
     }
 
-    fn instantiate_devices(
-        &self,
-        orchestrator: &mut GrooveOrchestrator,
-        load_only_test_entities: bool,
-    ) {
+    fn instantiate_devices(&self, orchestrator: &mut Orchestrator, load_only_test_entities: bool) {
         let sample_rate = self.clock.sample_rate();
 
         for device in &self.devices {
@@ -125,10 +121,7 @@ impl SongSettings {
         }
     }
 
-    fn instantiate_patch_cables(
-        &self,
-        orchestrator: &mut GrooveOrchestrator,
-    ) -> anyhow::Result<()> {
+    fn instantiate_patch_cables(&self, orchestrator: &mut Orchestrator) -> anyhow::Result<()> {
         for patch_cable in &self.patch_cables {
             if patch_cable.len() < 2 {
                 eprintln!("Warning: ignoring patch cable with only one ID.");
@@ -160,7 +153,7 @@ impl SongSettings {
         Ok(())
     }
 
-    fn instantiate_controls(&self, orchestrator: &mut GrooveOrchestrator) -> anyhow::Result<()> {
+    fn instantiate_controls(&self, orchestrator: &mut Orchestrator) -> anyhow::Result<()> {
         for control in self.controls.iter() {
             let source_uvid = &control.source;
             let target_uvid = &control.target.id;
@@ -203,7 +196,7 @@ impl SongSettings {
     // a pattern or a TS change...
     //
     // TODO - should PatternSequencers be able to change their base time signature? Probably
-    fn instantiate_tracks(&self, orchestrator: &mut GrooveOrchestrator) {
+    fn instantiate_tracks(&self, orchestrator: &mut Orchestrator) {
         if self.tracks.is_empty() {
             return;
         }
@@ -224,8 +217,7 @@ impl SongSettings {
         if let Some(BoxedEntity::BeatSequencer(sequencer)) =
             orchestrator.store_mut().get_mut(beat_sequencer_uid)
         {
-            let mut programmer =
-                PatternProgrammer::<EntityMessage>::new_with(&self.clock.time_signature);
+            let mut programmer = PatternProgrammer::new_with(&self.clock.time_signature);
 
             for track in &self.tracks {
                 let channel = track.midi_channel;
@@ -241,7 +233,7 @@ impl SongSettings {
 
     fn instantiate_control_trips(
         &self,
-        orchestrator: &mut GrooveOrchestrator,
+        orchestrator: &mut Orchestrator,
         time_signature: &TimeSignature,
     ) {
         if self.trips.is_empty() {
@@ -259,7 +251,7 @@ impl SongSettings {
         for control_trip_settings in &self.trips {
             let trip_id = control_trip_settings.id.as_str();
             if let Some(target_uid) = orchestrator.get_uid(&control_trip_settings.target.id) {
-                let mut control_trip = Box::new(ControlTrip::<EntityMessage>::default());
+                let mut control_trip = Box::new(ControlTrip::default());
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
                         control_trip.add_path(time_signature, control_path);

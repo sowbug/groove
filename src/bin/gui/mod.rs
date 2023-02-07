@@ -1,5 +1,6 @@
 pub mod persistence;
 
+use groove::EntityMessage;
 use iced::widget::Text;
 use iced::{
     alignment::{self, Vertical},

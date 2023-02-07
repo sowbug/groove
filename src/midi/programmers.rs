@@ -6,7 +6,6 @@ use crate::{
     clock::{BeatValue, MidiTicks, PerfectTimeUnit},
     controllers::sequencers::{BeatSequencer, MidiTickSequencer},
     messages::EntityMessage,
-    messages::MessageBounds,
     TimeSignature,
 };
 use midly::{MidiMessage, TrackEventKind};
@@ -15,7 +14,7 @@ use std::{cmp, marker::PhantomData};
 pub struct MidiSmfReader {}
 
 impl MidiSmfReader {
-    pub fn program_sequencer(sequencer: &mut MidiTickSequencer<EntityMessage>, data: &[u8]) {
+    pub fn program_sequencer(sequencer: &mut MidiTickSequencer, data: &[u8]) {
         let parse_result = midly::Smf::parse(data).unwrap();
 
         struct MetaInfo {
@@ -96,21 +95,18 @@ impl MidiSmfReader {
 }
 
 #[derive(Debug)]
-pub struct PatternProgrammer<M: MessageBounds> {
+pub struct PatternProgrammer {
     time_signature: TimeSignature,
     cursor_beats: PerfectTimeUnit,
-
-    _phantom: PhantomData<M>,
 }
 
-impl<M: MessageBounds> PatternProgrammer<M> {
+impl PatternProgrammer {
     const CURSOR_BEGIN: PerfectTimeUnit = PerfectTimeUnit(0.0);
 
     pub fn new_with(time_signature: &TimeSignature) -> Self {
         Self {
             time_signature: *time_signature,
             cursor_beats: Self::CURSOR_BEGIN,
-            _phantom: PhantomData::default(),
         }
     }
 
@@ -126,7 +122,7 @@ impl<M: MessageBounds> PatternProgrammer<M> {
 
     pub(crate) fn insert_pattern_at_cursor(
         &mut self,
-        sequencer: &mut BeatSequencer<M>,
+        sequencer: &mut BeatSequencer,
         channel: &MidiChannel,
         pattern: &Pattern<Note>,
     ) {
@@ -194,13 +190,11 @@ mod tests {
     use super::*;
     use crate::{
         clock::{BeatValue, Clock, TimeSignature},
-        controllers::orchestrator::tests::TestOrchestrator,
         entities::BoxedEntity,
-        messages::tests::TestMessage,
         settings::PatternSettings,
         traits::{TestInstrument, Updateable},
         utils::Timer,
-        Orchestrator,
+        GrooveMessage, Orchestrator,
     };
     use assert_approx_eq::assert_approx_eq;
 
@@ -219,7 +213,7 @@ mod tests {
     fn test_pattern() {
         let time_signature = TimeSignature::default();
         let mut sequencer = BeatSequencer::default();
-        let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
+        let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
         // means that we should interpret this as TWO measures, the first having
@@ -245,15 +239,9 @@ mod tests {
 
         // We don't need to call reset_cursor(), but we do just once to make
         // sure it's working.
-        assert_eq!(
-            programmer.cursor(),
-            PatternProgrammer::<TestMessage>::CURSOR_BEGIN
-        );
+        assert_eq!(programmer.cursor(), PatternProgrammer::CURSOR_BEGIN);
         programmer.reset_cursor();
-        assert_eq!(
-            programmer.cursor(),
-            PatternProgrammer::<TestMessage>::CURSOR_BEGIN
-        );
+        assert_eq!(programmer.cursor(), PatternProgrammer::CURSOR_BEGIN);
 
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
         assert_eq!(
@@ -267,8 +255,8 @@ mod tests {
     #[test]
     fn test_empty_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = Box::new(BeatSequencer::<EntityMessage>::default());
-        let mut programmer = PatternProgrammer::<EntityMessage>::new_with(&time_signature);
+        let mut sequencer = Box::new(BeatSequencer::default());
+        let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         let note_pattern = vec!["0".to_string()];
         let pattern_settings = PatternSettings {
@@ -289,7 +277,7 @@ mod tests {
         );
         assert_eq!(sequencer.debug_events().len(), 0);
 
-        let mut o = TestOrchestrator::default();
+        let mut o = Orchestrator::default();
         let _ = o.add(None, BoxedEntity::BeatSequencer(sequencer));
         let mut clock = Clock::default();
         if let Ok(result) = o.run(&mut clock) {
@@ -304,7 +292,7 @@ mod tests {
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
         let mut sequencer = BeatSequencer::default();
-        let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
+        let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time
         // signature calls for eighth notes, they last twice as long as they
@@ -349,7 +337,7 @@ mod tests {
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
         let mut sequencer = BeatSequencer::default();
-        let mut programmer = PatternProgrammer::<TestMessage>::new_with(&time_signature);
+        let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern::<Note>::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
             note_value: None,
@@ -366,10 +354,9 @@ mod tests {
     #[test]
     fn test_random_access() {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
-        let mut o = Orchestrator::<TestMessage>::default();
-        let mut sequencer = Box::new(BeatSequencer::<EntityMessage>::default());
-        let mut programmer =
-            PatternProgrammer::<EntityMessage>::new_with(&TimeSignature::default());
+        let mut o = Orchestrator::default();
+        let mut sequencer = Box::new(BeatSequencer::default());
+        let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
         let mut pattern = Pattern::<Note>::default();
 
         const NOTE_VALUE: BeatValue = BeatValue::Quarter;
@@ -411,7 +398,7 @@ mod tests {
 
         let mut clock = Clock::default();
         let sample_rate = clock.sample_rate();
-        let mut o = Box::new(Orchestrator::<TestMessage>::default());
+        let mut o = Box::new(Orchestrator::default());
         let _sequencer_uid = o.add(None, BoxedEntity::BeatSequencer(sequencer));
 
         assert!(o.run(&mut clock,).is_ok());
@@ -451,7 +438,7 @@ mod tests {
         // Rewind clock to start.
         clock.reset();
         // This shouldn't explode.
-        let _ = o.update(&clock, TestMessage::Tick);
+        let _ = o.update(&clock, GrooveMessage::Tick);
 
         // Only the first time slice's events should have fired.
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
@@ -459,7 +446,7 @@ mod tests {
         // Fast-forward to the end. Nothing else should fire. This is because
         // any tick() should do work for just the slice specified.
         clock.debug_set_seconds(10.0);
-        let _ = o.update(&clock, TestMessage::Tick);
+        let _ = o.update(&clock, GrooveMessage::Tick);
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
 
         // Start test recorder over again.

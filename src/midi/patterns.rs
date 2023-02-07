@@ -64,9 +64,7 @@ pub struct PatternManager {
     patterns: Vec<Pattern<Note>>,
 }
 impl IsController for PatternManager {}
-impl Updateable for PatternManager {
-    type Message = EntityMessage;
-}
+impl Updateable for PatternManager {}
 impl Terminates for PatternManager {
     fn is_finished(&self) -> bool {
         true

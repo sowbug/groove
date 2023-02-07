@@ -5,7 +5,7 @@ use crate::{
     instruments::{drumkit_sampler::DrumkitSampler, welsh::WelshSynth},
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
-    GrooveOrchestrator, Orchestrator, StereoSample,
+    Orchestrator, StereoSample,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -218,7 +218,7 @@ impl IOHelper {
         Ok(settings)
     }
 
-    pub fn orchestrator_from_midi_file(filename: &str) -> Box<GrooveOrchestrator> {
+    pub fn orchestrator_from_midi_file(filename: &str) -> Box<Orchestrator> {
         let data = std::fs::read(filename).unwrap();
         let mut orchestrator = Box::new(Orchestrator::default());
 
