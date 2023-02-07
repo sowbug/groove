@@ -1,51 +1,12 @@
-name: Build and test for win/osx/linux
+name: Build and test for win/osx/linux; build for ARM
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-  build-all:
-    name: Build/Test
-    strategy:
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu      # for most Linux machines
-            os: ubuntu-20.04 # TODO: change to 22.04 when 20.04 is EOL
-          - target: armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4 and maybe ARM Chromebooks
-            os: ubuntu-latest
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-          - target: x86_64-apple-darwin
-            os: macos-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - run: sudo apt update
-        if: startsWith(matrix.os, 'ubuntu')
-      - run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
-        if: startsWith(matrix.os, 'ubuntu')
-
-      - uses: actions/checkout@master
-      - name: Install latest Rust nightly
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-          target: ${{ matrix.target }}
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-      - run: cargo build
-      - run: cargo test --verbose
-      # - name: Upload artifacts
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: groove-${{ matrix.target }}
-      #     path: |
-      #       target/debug/groove-cli*
-      #       target/debug/groove-gui*
-
   fmt:
     name: cargo-fmt
     runs-on: ubuntu-latest
@@ -59,3 +20,58 @@ jobs:
           rustup component add rustfmt
       - name: Run rustfmt
         run: cargo fmt --all --check
+
+  test-x86_64:
+    name: Test x86_64
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-20.04
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Set up the build machine
+      - name: Install Linux x86_64 build dependencies
+        run: sudo apt -qq update; sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
+        if: startsWith(matrix.os, 'ubuntu')
+      - name: Install latest Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          target: ${{ matrix.target }}
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+        # Get the source
+      - uses: actions/checkout@v2
+
+        # Test
+      - run: cargo test --target ${{ matrix.target }}
+
+  build-cross:
+    name: Build (but don't test) ${{matrix.target}}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu # ARM Chromebooks & 64-bit RPi
+          - armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4 32-bit
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: ${{matrix.target}}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --target ${{matrix.target}}

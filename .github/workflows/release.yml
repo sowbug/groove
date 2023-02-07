@@ -5,21 +5,20 @@ on:
     types: [created]
 
 jobs:
-  release-all:
+  release-x86_64:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-20.04 # TODO: change to 22.04 when 20.04 is EOL
-          - target: armv7-unknown-linux-gnueabihf
-            os: ubuntu-latest
+            os: ubuntu-20.04
           - target: x86_64-pc-windows-msvc
             os: windows-latest
           - target: x86_64-apple-darwin
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - run: sudo apt update
+      - run: sudo apt -qq update
         if: startsWith(matrix.os, 'ubuntu')
       - run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
         if: startsWith(matrix.os, 'ubuntu')
@@ -32,7 +31,7 @@ jobs:
           override: true
           target: ${{ matrix.target }}
       - run: cargo build --release
-      - run: cargo test --release --verbose
+      - run: cargo test --release
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -44,6 +43,42 @@ jobs:
         with:
           bin: groove-gui,groove-cli
           include: README.md,LICENSE.txt,assets,projects
+          leading_dir: true
+          archive: groove-$tag-$target
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  release-cross:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu # ARM Chromebooks & 64-bit RPi
+          - armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4 32-bit
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: ${{ matrix.target }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target ${{ matrix.target }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: groove-${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/groove-cli*
+            target/${{ matrix.target }}/release/groove-gui*
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: groove-gui,groove-cli
+          include: README.md,LICENSE.txt,assets,projects
+          target: ${{ matrix.target }}
           leading_dir: true
           archive: groove-$tag-$target
           token: ${{ secrets.GITHUB_TOKEN }}
