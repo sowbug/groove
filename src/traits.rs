@@ -1,8 +1,8 @@
+use crate::clock::Clock;
 use crate::clock::ClockTimeUnit;
 use crate::common::{F32ControlValue, Sample, StereoSample};
 use crate::instruments::{Dca, HandlesMidi};
 use crate::messages::EntityMessage;
-use crate::{clock::Clock, messages::MessageBounds};
 use crate::{
     instruments::oscillators::Oscillator,
     midi::{MidiChannel, MidiUtils},
@@ -210,6 +210,57 @@ pub struct TestController {
     pub time_unit: ClockTimeUnit,
 }
 impl IsController for TestController {}
+impl Updateable for TestController {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
+        match message {
+            EntityMessage::Tick => {
+                self.check_values(clock);
+                return match self.what_to_do(clock) {
+                    TestControllerAction::Nothing => Response::none(),
+                    TestControllerAction::NoteOn => {
+                        // This is elegant, I hope. If the arpeggiator is
+                        // disabled during play, and we were playing a note,
+                        // then we still send the off note,
+                        if self.is_enabled {
+                            self.is_playing = true;
+                            Response::single(EntityMessage::Midi(
+                                self.midi_channel_out,
+                                MidiMessage::NoteOn {
+                                    key: 60.into(),
+                                    vel: 127.into(),
+                                },
+                            ))
+                        } else {
+                            Response::none()
+                        }
+                    }
+                    TestControllerAction::NoteOff => {
+                        if self.is_playing {
+                            Response::single(EntityMessage::Midi(
+                                self.midi_channel_out,
+                                MidiMessage::NoteOff {
+                                    key: 60.into(),
+                                    vel: 0.into(),
+                                },
+                            ))
+                        } else {
+                            Response::none()
+                        }
+                    }
+                };
+            }
+            EntityMessage::Enable(enabled) => {
+                self.is_enabled = enabled;
+            }
+            #[allow(unused_variables)]
+            EntityMessage::Midi(channel, message) => {
+                //dbg!(&channel, &message);
+            }
+            _ => todo!(),
+        }
+        Response::none()
+    }
+}
 impl Terminates for TestController {
     fn is_finished(&self) -> bool {
         true
@@ -404,7 +455,7 @@ pub struct TestInstrument {
     pub checkpoint_delta: f32,
     pub time_unit: ClockTimeUnit,
 
-    pub debug_messages: Vec<(f32, MidiChannel, MidiMessage)>,
+    pub debug_messages: Vec<MidiMessage>,
 }
 impl IsInstrument for TestInstrument {}
 impl HasUid for TestInstrument {
@@ -416,7 +467,24 @@ impl HasUid for TestInstrument {
         self.uid = uid;
     }
 }
-impl HandlesMidi for TestInstrument {}
+impl HandlesMidi for TestInstrument {
+    fn handle_midi_message(&mut self, message: &MidiMessage) {
+        self.debug_messages.push(*message);
+        self.received_count += 1;
+
+        match message {
+            MidiMessage::NoteOn { key, vel: _ } => {
+                self.is_playing = true;
+                self.oscillator
+                    .set_frequency(MidiUtils::note_to_frequency(key.as_int()));
+            }
+            MidiMessage::NoteOff { key: _, vel: _ } => {
+                self.is_playing = false;
+            }
+            _ => {}
+        }
+    }
+}
 impl TestsValues for TestInstrument {
     fn has_checkpoint_values(&self) -> bool {
         !self.checkpoint_values.is_empty()
@@ -461,23 +529,6 @@ impl TestInstrument {
             checkpoint_delta,
             time_unit,
             ..Default::default()
-        }
-    }
-
-    pub fn handle_midi(&mut self, clock: &Clock, channel: MidiChannel, message: MidiMessage) {
-        self.debug_messages.push((clock.beats(), channel, message));
-        self.received_count += 1;
-
-        match message {
-            MidiMessage::NoteOn { key, vel: _ } => {
-                self.is_playing = true;
-                self.oscillator
-                    .set_frequency(MidiUtils::note_to_frequency(key.as_int()));
-            }
-            MidiMessage::NoteOff { key: _, vel: _ } => {
-                self.is_playing = false;
-            }
-            _ => {}
         }
     }
 
@@ -531,58 +582,6 @@ impl SourcesAudio for TestInstrument {
         } else {
             StereoSample::SILENCE
         }
-    }
-}
-
-impl Updateable for TestController {
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        match message {
-            EntityMessage::Tick => {
-                self.check_values(clock);
-                return match self.what_to_do(clock) {
-                    TestControllerAction::Nothing => Response::none(),
-                    TestControllerAction::NoteOn => {
-                        // This is elegant, I hope. If the arpeggiator is
-                        // disabled during play, and we were playing a note,
-                        // then we still send the off note,
-                        if self.is_enabled {
-                            self.is_playing = true;
-                            Response::single(EntityMessage::Midi(
-                                self.midi_channel_out,
-                                MidiMessage::NoteOn {
-                                    key: 60.into(),
-                                    vel: 127.into(),
-                                },
-                            ))
-                        } else {
-                            Response::none()
-                        }
-                    }
-                    TestControllerAction::NoteOff => {
-                        if self.is_playing {
-                            Response::single(EntityMessage::Midi(
-                                self.midi_channel_out,
-                                MidiMessage::NoteOff {
-                                    key: 60.into(),
-                                    vel: 0.into(),
-                                },
-                            ))
-                        } else {
-                            Response::none()
-                        }
-                    }
-                };
-            }
-            EntityMessage::Enable(enabled) => {
-                self.is_enabled = enabled;
-            }
-            #[allow(unused_variables)]
-            EntityMessage::Midi(channel, message) => {
-                //dbg!(&channel, &message);
-            }
-            _ => todo!(),
-        }
-        Response::none()
     }
 }
 
