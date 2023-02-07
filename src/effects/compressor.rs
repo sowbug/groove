@@ -1,8 +1,7 @@
 use crate::{
     clock::Clock,
     common::{F32ControlValue, Sample, SampleType},
-    messages::EntityMessage,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -41,9 +40,6 @@ pub struct Compressor {
     current_gain: f32,
 }
 impl IsEffect for Compressor {}
-impl Updateable for Compressor {
-    type Message = EntityMessage;
-}
 impl TransformsAudio for Compressor {
     fn transform_channel(
         &mut self,

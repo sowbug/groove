@@ -12,7 +12,6 @@ use crate::{
         reverb::Reverb,
     },
     entities::BoxedEntity,
-    messages::EntityMessage,
     traits::TestEffect,
     BipolarNormal,
 };
@@ -82,21 +81,17 @@ impl EffectSettings {
         load_only_test_entities: bool,
     ) -> BoxedEntity {
         if load_only_test_entities {
-            return BoxedEntity::TestEffect(Box::new(TestEffect::<EntityMessage>::default()));
+            return BoxedEntity::TestEffect(Box::new(TestEffect::default()));
         }
         match *self {
-            EffectSettings::Test {} => {
-                BoxedEntity::TestEffect(Box::new(TestEffect::<EntityMessage>::default()))
-            }
-            EffectSettings::Mixer {} => {
-                BoxedEntity::Mixer(Box::new(Mixer::<EntityMessage>::default()))
-            }
+            EffectSettings::Test {} => BoxedEntity::TestEffect(Box::new(TestEffect::default())),
+            EffectSettings::Mixer {} => BoxedEntity::Mixer(Box::new(Mixer::default())),
             EffectSettings::Limiter { min, max } => BoxedEntity::Limiter(Box::new(
                 Limiter::new_with(BipolarNormal::from(min), BipolarNormal::from(max)),
             )),
-            EffectSettings::Gain { ceiling } => BoxedEntity::Gain(Box::new(
-                Gain::<EntityMessage>::new_with(Normal::new_from_f32(ceiling)),
-            )),
+            EffectSettings::Gain { ceiling } => {
+                BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new_from_f32(ceiling))))
+            }
             EffectSettings::Bitcrusher { bits_to_crush } => {
                 BoxedEntity::Bitcrusher(Box::new(Bitcrusher::new_with(bits_to_crush)))
             }

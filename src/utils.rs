@@ -5,19 +5,18 @@ use crate::{
     instruments::{
         envelopes::{GeneratesEnvelope, SimpleEnvelope},
         oscillators::Oscillator,
+        HandlesMidi,
     },
-    messages::{EntityMessage, MessageBounds},
     traits::{
         Controllable, HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates,
         Updateable,
     },
-    BipolarNormal, StereoSample,
+    BipolarNormal, EntityMessage, StereoSample,
 };
 use core::fmt::Debug;
 use groove_macros::{Control, Uid};
 use std::{
     env::{current_dir, current_exe},
-    marker::PhantomData,
     path::PathBuf,
     str::FromStr,
 };
@@ -45,14 +44,12 @@ pub(crate) fn transform_linear_to_mma_convex(linear_value: f64) -> f64 {
 
 /// Timer returns true to Terminates::is_finished() after a specified amount of time.
 #[derive(Debug, Default, Uid)]
-pub struct Timer<M: MessageBounds> {
+pub struct Timer {
     uid: usize,
     has_more_work: bool,
     time_to_run_seconds: f32,
-
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> Timer<M> {
+impl Timer {
     #[allow(dead_code)]
     pub fn new_with(time_to_run_seconds: f32) -> Self {
         Self {
@@ -65,28 +62,15 @@ impl<M: MessageBounds> Timer<M> {
         self.time_to_run_seconds
     }
 }
-impl<M: MessageBounds> Terminates for Timer<M> {
+impl Terminates for Timer {
     fn is_finished(&self) -> bool {
         !self.has_more_work
     }
 }
-impl<M: MessageBounds> IsController for Timer<M> {}
-impl<M: MessageBounds> Updateable for Timer<M> {
-    default type Message = M;
-
-    default fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl Updateable for Timer<EntityMessage> {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        if let Self::Message::Tick = message {
+impl IsController for Timer {}
+impl Updateable for Timer {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
+        if let EntityMessage::Tick = message {
             self.has_more_work = clock.seconds() < self.time_to_run_seconds;
         }
         Response::none()
@@ -95,32 +79,19 @@ impl Updateable for Timer<EntityMessage> {
 
 /// Trigger issues a ControlF32 message after a specified amount of time.
 #[derive(Debug, Default, Uid)]
-pub(crate) struct Trigger<M: MessageBounds> {
+pub(crate) struct Trigger {
     uid: usize,
     time_to_trigger_seconds: f32,
     value: f32,
     has_triggered: bool,
-
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsController for Trigger<M> {}
-impl<M: MessageBounds> Updateable for Trigger<M> {
-    default type Message = M;
-
-    default fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl<M: MessageBounds> Terminates for Trigger<M> {
+impl IsController for Trigger {}
+impl Terminates for Trigger {
     fn is_finished(&self) -> bool {
         self.has_triggered
     }
 }
-impl<M: MessageBounds> Trigger<M> {
+impl Trigger {
     #[allow(dead_code)]
     pub fn new(time_to_trigger_seconds: f32, value: f32) -> Self {
         Self {
@@ -130,14 +101,12 @@ impl<M: MessageBounds> Trigger<M> {
         }
     }
 }
-impl Updateable for Trigger<EntityMessage> {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        if let Self::Message::Tick = message {
+impl Updateable for Trigger {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
+        if let EntityMessage::Tick = message {
             return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
                 self.has_triggered = true;
-                Response::single(Self::Message::ControlF32(self.value))
+                Response::single(EntityMessage::ControlF32(self.value))
             } else {
                 Response::none()
             };
@@ -153,17 +122,14 @@ pub(crate) enum TestAudioSourceSetLevelControlParams {
 }
 
 #[derive(Control, Debug, Default, Uid)]
-pub struct AudioSource<M: MessageBounds> {
+pub struct AudioSource {
     uid: usize,
     level: SampleType,
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsInstrument for AudioSource<M> {}
-impl<M: MessageBounds> Updateable for AudioSource<M> {
-    type Message = M;
-}
+impl IsInstrument for AudioSource {}
+impl HandlesMidi for AudioSource {}
 #[allow(dead_code)]
-impl<M: MessageBounds> AudioSource<M> {
+impl AudioSource {
     pub const TOO_LOUD: SampleType = 1.1;
     pub const LOUD: SampleType = 1.0;
     pub const SILENT: SampleType = 0.0;
@@ -185,7 +151,7 @@ impl<M: MessageBounds> AudioSource<M> {
         self.level = level;
     }
 }
-impl<M: MessageBounds> SourcesAudio for AudioSource<M> {
+impl SourcesAudio for AudioSource {
     fn source_audio(&mut self, _clock: &Clock) -> crate::StereoSample {
         StereoSample::from(self.level)
     }
@@ -238,7 +204,7 @@ impl Paths {
 }
 
 #[derive(Control, Debug, Uid)]
-pub struct TestSynth<M: MessageBounds> {
+pub struct TestSynth {
     uid: usize,
 
     #[controllable]
@@ -246,10 +212,9 @@ pub struct TestSynth<M: MessageBounds> {
 
     oscillator: Box<Oscillator>,
     envelope: Box<dyn GeneratesEnvelope>,
-    _phantom: PhantomData<M>,
 }
 
-impl<M: MessageBounds> TestSynth<M> {
+impl TestSynth {
     /// You really don't want to call this, because you need a sample rate
     /// for it to do anything meaningful, and it's a bad practice to
     /// hardcode a 44.1KHz rate.
@@ -283,19 +248,18 @@ impl<M: MessageBounds> TestSynth<M> {
         self.set_oscillator_modulation(oscillator_modulation.0);
     }
 }
-impl<M: MessageBounds> Default for TestSynth<M> {
+impl Default for TestSynth {
     fn default() -> Self {
         Self {
             uid: 0,
             oscillator_modulation: Default::default(),
             oscillator: Box::new(Oscillator::default()),
             envelope: Box::new(SimpleEnvelope::default()),
-            _phantom: Default::default(),
         }
     }
 }
 
-impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
+impl SourcesAudio for TestSynth {
     fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         // TODO: I don't think this can play sounds, because I don't see how the
         // envelope ever gets triggered.
@@ -305,21 +269,8 @@ impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
     }
 }
 
-impl<M: MessageBounds> IsInstrument for TestSynth<M> {}
-impl<M: MessageBounds> Updateable for TestSynth<M> {
-    default type Message = M;
-
-    default fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl Updateable for TestSynth<EntityMessage> {
-    type Message = EntityMessage;
-}
+impl IsInstrument for TestSynth {}
+impl HandlesMidi for TestSynth {}
 
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
@@ -328,44 +279,30 @@ pub(crate) enum TestLfoControlParams {
 }
 
 #[derive(Debug, Default, Uid)]
-pub struct TestLfo<M: MessageBounds> {
+pub struct TestLfo {
     uid: usize,
     signal_value: BipolarNormal,
     oscillator: Oscillator,
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsController for TestLfo<M> {}
-impl<M: MessageBounds> Updateable for TestLfo<M> {
-    default type Message = M;
-
-    default fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl Updateable for TestLfo<EntityMessage> {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        if let Self::Message::Tick = message {
+impl IsController for TestLfo {}
+impl Updateable for TestLfo {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
+        if let EntityMessage::Tick = message {
             self.signal_value = self.oscillator.source_signal(clock);
-            Response::single(Self::Message::ControlF32(self.signal_value.value() as f32))
+            Response::single(EntityMessage::ControlF32(self.signal_value.value() as f32))
         } else {
             Response::none()
         }
     }
 }
-impl<M: MessageBounds> Terminates for TestLfo<M> {
+impl Terminates for TestLfo {
     // This hardcoded value is OK because an LFO doesn't have a defined
     // beginning/end. It just keeps going. Yet it truly is a controller.
     fn is_finished(&self) -> bool {
         true
     }
 }
-impl<M: MessageBounds> TestLfo<M> {
+impl TestLfo {
     pub fn frequency(&self) -> f32 {
         self.oscillator.frequency()
     }
@@ -388,11 +325,10 @@ pub mod tests {
         common::{Sample, SampleType},
         controllers::orchestrator::Orchestrator,
         entities::BoxedEntity,
-        messages::{tests::TestMessage, EntityMessage, GrooveMessage, MessageBounds},
         midi::MidiChannel,
         traits::{
-            Controllable, HasUid, IsEffect, Response, TestController, TestEffect, TestInstrument,
-            TransformsAudio, Updateable,
+            Controllable, HasUid, IsEffect, TestController, TestEffect, TestInstrument,
+            TransformsAudio,
         },
         utils::{
             transform_linear_to_mma_concave, transform_linear_to_mma_convex, F32ControlValue,
@@ -404,7 +340,7 @@ pub mod tests {
     use groove_macros::Control;
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
     use std::str::FromStr;
-    use std::{fs, marker::PhantomData, path::PathBuf};
+    use std::{fs, path::PathBuf};
     use strum_macros::{Display, EnumString, FromRepr};
 
     fn read_samples_from_mono_wav_file(filename: &PathBuf) -> Vec<Sample> {
@@ -466,25 +402,12 @@ pub mod tests {
         format!("{OUT_DIR}/{snake_filename}.wav")
     }
 
-    impl Updateable for Timer<TestMessage> {
-        type Message = TestMessage;
-
-        fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-            if let Self::Message::Tick = message {
-                self.has_more_work = clock.seconds() < self.time_to_run_seconds;
-            }
-            Response::none()
-        }
-    }
-
     #[derive(Control, Debug, Default)]
-    pub struct TestMixer<M: MessageBounds> {
+    pub struct TestMixer {
         uid: usize,
-
-        _phantom: PhantomData<M>,
     }
-    impl<M: MessageBounds> IsEffect for TestMixer<M> {}
-    impl<M: MessageBounds> HasUid for TestMixer<M> {
+    impl IsEffect for TestMixer {}
+    impl HasUid for TestMixer {
         fn uid(&self) -> usize {
             self.uid
         }
@@ -493,7 +416,7 @@ pub mod tests {
             self.uid = uid;
         }
     }
-    impl<M: MessageBounds> TransformsAudio for TestMixer<M> {
+    impl TransformsAudio for TestMixer {
         fn transform_channel(
             &mut self,
             _clock: &Clock,
@@ -503,13 +426,10 @@ pub mod tests {
             input_sample
         }
     }
-    impl<M: MessageBounds> Updateable for TestMixer<M> {
-        type Message = M;
-    }
 
     #[test]
     fn test_audio_routing() {
-        let mut o = Box::new(Orchestrator::<TestMessage>::default());
+        let mut o = Box::new(Orchestrator::default());
 
         // A simple audio source.
         let synth_uid = o.add(None, BoxedEntity::TestSynth(Box::new(TestSynth::default())));
@@ -517,7 +437,7 @@ pub mod tests {
         // A simple effect.
         let effect_uid = o.add(
             None,
-            BoxedEntity::TestEffect(Box::new(TestEffect::<EntityMessage>::default())),
+            BoxedEntity::TestEffect(Box::new(TestEffect::default())),
         );
 
         // Connect the audio's output to the effect's input.
@@ -562,7 +482,7 @@ pub mod tests {
 
     #[test]
     fn test_control_routing() {
-        let mut o = Box::new(Orchestrator::<TestMessage>::default());
+        let mut o = Box::new(Orchestrator::default());
 
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(None, BoxedEntity::TestSynth(Box::new(TestSynth::default())));
@@ -610,7 +530,7 @@ pub mod tests {
     #[test]
     fn test_midi_routing() {
         const TEST_MIDI_CHANNEL: MidiChannel = 7;
-        let mut o = Box::new(Orchestrator::<TestMessage>::default());
+        let mut o = Box::new(Orchestrator::default());
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
@@ -705,7 +625,7 @@ pub mod tests {
 
     #[test]
     fn test_groove_can_be_instantiated_in_new_generic_world() {
-        let mut o = Box::new(Orchestrator::<GrooveMessage>::default());
+        let mut o = Box::new(Orchestrator::default());
 
         // A simple audio source.
         let entity_groove = BoxedEntity::TestSynth(Box::new(TestSynth::default()));

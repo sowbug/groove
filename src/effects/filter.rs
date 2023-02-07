@@ -1,11 +1,10 @@
 use crate::{
     clock::Clock,
     common::{F32ControlValue, Sample},
-    messages::{EntityMessage, MessageBounds},
-    traits::{Controllable, HasUid, IsEffect, Response, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
-use std::{f64::consts::PI, marker::PhantomData, str::FromStr};
+use std::{f64::consts::PI, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -108,7 +107,7 @@ struct CoefficientSet2 {
 
 /// https://en.wikipedia.org/wiki/Digital_biquad_filter
 #[derive(Control, Clone, Debug, Uid)]
-pub struct BiQuadFilter<M: MessageBounds> {
+pub struct BiQuadFilter {
     uid: usize,
 
     sample_rate: usize,
@@ -138,11 +137,9 @@ pub struct BiQuadFilter<M: MessageBounds> {
     state_1: f64,
     state_2: f64,
     state_3: f64,
-
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsEffect for BiQuadFilter<M> {}
-impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
+impl IsEffect for BiQuadFilter {}
+impl TransformsAudio for BiQuadFilter {
     fn transform_channel(
         &mut self,
         _clock: &Clock,
@@ -184,21 +181,9 @@ impl<M: MessageBounds> TransformsAudio for BiQuadFilter<M> {
         }
     }
 }
-impl<M: MessageBounds> Updateable for BiQuadFilter<M> {
-    default type Message = M;
-
-    #[allow(unused_variables)]
-    default fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl Updateable for BiQuadFilter<EntityMessage> {
-    type Message = EntityMessage;
-}
-
 // We can't derive this because we need to call recalculate_coefficients(). Is
 // there an elegant way to get that done for free without a bunch of repetition?
-impl<M: MessageBounds> Default for BiQuadFilter<M> {
+impl Default for BiQuadFilter {
     fn default() -> Self {
         let mut r = Self::default_fields();
         r.update_coefficients();
@@ -208,7 +193,7 @@ impl<M: MessageBounds> Default for BiQuadFilter<M> {
 
 #[allow(dead_code)]
 #[allow(unused_variables)]
-impl<M: MessageBounds> BiQuadFilter<M> {
+impl BiQuadFilter {
     pub const FREQUENCY_TO_LINEAR_BASE: f32 = 800.0;
     pub const FREQUENCY_TO_LINEAR_COEFFICIENT: f32 = 25.0;
 
@@ -263,8 +248,6 @@ impl<M: MessageBounds> BiQuadFilter<M> {
             state_1: Default::default(),
             state_2: Default::default(),
             state_3: Default::default(),
-
-            _phantom: Default::default(),
         }
     }
 
@@ -610,7 +593,7 @@ impl<M: MessageBounds> BiQuadFilter<M> {
     fn rbj_low_shelf_coefficients(&self) -> CoefficientSet {
         let a = 10f64.powf(self.param2 as f64 / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            BiQuadFilter::<M>::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
+            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
 
         CoefficientSet {
             a0: (a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
@@ -625,7 +608,7 @@ impl<M: MessageBounds> BiQuadFilter<M> {
     fn rbj_high_shelf_coefficients(&self) -> CoefficientSet {
         let a = 10f64.powf(self.param2 as f64 / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            BiQuadFilter::<M>::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
+            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
 
         CoefficientSet {
             a0: (a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,

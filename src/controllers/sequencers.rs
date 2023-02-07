@@ -1,9 +1,8 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
-    messages::EntityMessage,
-    messages::MessageBounds,
     midi::{MidiChannel, MidiMessage},
     traits::{HasUid, IsController, Response, Terminates, Updateable},
+    EntityMessage,
 };
 use btreemultimap::BTreeMultiMap;
 use groove_macros::Uid;
@@ -11,14 +10,13 @@ use midly::num::u7;
 use rustc_hash::FxHashMap;
 use std::{
     fmt::Debug,
-    marker::PhantomData,
     ops::Bound::{Excluded, Included},
 };
 
 pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
 
 #[derive(Debug, Default, Uid)]
-pub struct BeatSequencer<M: MessageBounds> {
+pub struct BeatSequencer {
     uid: usize,
     next_instant: PerfectTimeUnit,
     events: BeatEventsMap,
@@ -27,27 +25,14 @@ pub struct BeatSequencer<M: MessageBounds> {
 
     should_stop_pending_notes: bool,
     on_notes: FxHashMap<u7, MidiChannel>,
-
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsController for BeatSequencer<M> {}
-impl<M: MessageBounds> Updateable for BeatSequencer<M> {
-    default type Message = M;
-
-    default fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl<M: MessageBounds> Terminates for BeatSequencer<M> {
+impl IsController for BeatSequencer {}
+impl Terminates for BeatSequencer {
     fn is_finished(&self) -> bool {
         self.next_instant > self.last_event_time
     }
 }
-impl<M: MessageBounds> BeatSequencer<M> {
+impl BeatSequencer {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self::default()
@@ -111,12 +96,10 @@ impl<M: MessageBounds> BeatSequencer<M> {
     }
 }
 
-impl Updateable for BeatSequencer<EntityMessage> {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+impl Updateable for BeatSequencer {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
         match message {
-            Self::Message::Tick => {
+            EntityMessage::Tick => {
                 self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats().into());
 
                 if self.should_stop_pending_notes {
@@ -147,7 +130,7 @@ impl Updateable for BeatSequencer<EntityMessage> {
                                 }
                                 _ => {}
                             }
-                            vec.push(Response::single(Self::Message::Midi(event.0, event.1)));
+                            vec.push(Response::single(EntityMessage::Midi(event.0, event.1)));
                             vec
                         },
                     ))
@@ -163,32 +146,20 @@ impl Updateable for BeatSequencer<EntityMessage> {
 pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
 
 #[derive(Debug, Uid)]
-pub struct MidiTickSequencer<M: MessageBounds> {
+pub struct MidiTickSequencer {
     uid: usize,
     next_instant: MidiTicks,
     events: MidiTickEventsMap,
     last_event_time: MidiTicks,
     is_disabled: bool,
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsController for MidiTickSequencer<M> {}
-impl<M: MessageBounds> Updateable for MidiTickSequencer<M> {
-    default type Message = M;
-
-    default fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl<M: MessageBounds> Terminates for MidiTickSequencer<M> {
+impl IsController for MidiTickSequencer {}
+impl Terminates for MidiTickSequencer {
     fn is_finished(&self) -> bool {
         self.next_instant > self.last_event_time
     }
 }
-impl<M: MessageBounds> Default for MidiTickSequencer<M> {
+impl Default for MidiTickSequencer {
     fn default() -> Self {
         Self {
             uid: usize::default(),
@@ -196,12 +167,11 @@ impl<M: MessageBounds> Default for MidiTickSequencer<M> {
             events: Default::default(),
             last_event_time: MidiTicks::MIN,
             is_disabled: Default::default(),
-            _phantom: Default::default(),
         }
     }
 }
 
-impl<M: MessageBounds> MidiTickSequencer<M> {
+impl MidiTickSequencer {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self::default()
@@ -232,12 +202,10 @@ impl<M: MessageBounds> MidiTickSequencer<M> {
     }
 }
 
-impl Updateable for MidiTickSequencer<EntityMessage> {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+impl Updateable for MidiTickSequencer {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
         match message {
-            Self::Message::Tick => {
+            EntityMessage::Tick => {
                 self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
 
                 if self.is_enabled() {
@@ -251,8 +219,8 @@ impl Updateable for MidiTickSequencer<EntityMessage> {
                     let events = self.events.range(range);
                     Response::batch(events.into_iter().fold(
                         Vec::new(),
-                        |mut vec: Vec<Response<Self::Message>>, (_when, (channel, message))| {
-                            vec.push(Response::single(Self::Message::Midi(*channel, *message)));
+                        |mut vec: Vec<Response<EntityMessage>>, (_when, (channel, message))| {
+                            vec.push(Response::single(EntityMessage::Midi(*channel, *message)));
                             vec
                         },
                     ))
@@ -267,19 +235,16 @@ impl Updateable for MidiTickSequencer<EntityMessage> {
 
 #[cfg(test)]
 mod tests {
-
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         clock::{Clock, MidiTicks},
         entities::BoxedEntity,
-        messages::EntityMessage,
-        messages::{tests::TestMessage, MessageBounds},
         midi::{MidiChannel, MidiUtils},
         traits::{IsController, TestInstrument},
-        Orchestrator,
+        EntityMessage, Orchestrator,
     };
 
-    impl<M: MessageBounds> BeatSequencer<M> {
+    impl BeatSequencer {
         pub fn debug_events(&self) -> &BeatEventsMap {
             &self.events
         }
@@ -290,14 +255,14 @@ mod tests {
         }
     }
 
-    impl<M: MessageBounds> MidiTickSequencer<M> {
+    impl MidiTickSequencer {
         #[allow(dead_code)]
         pub(crate) fn debug_events(&self) -> &MidiTickEventsMap {
             &self.events
         }
     }
 
-    impl<M: MessageBounds> MidiTickSequencer<M> {
+    impl MidiTickSequencer {
         pub(crate) fn tick_for_beat(&self, clock: &Clock, beat: usize) -> MidiTicks {
             //            let tpb = self.midi_ticks_per_second.0 as f32 /
             //            (clock.bpm() / 60.0);
@@ -306,10 +271,7 @@ mod tests {
         }
     }
 
-    fn advance_to_next_beat(
-        clock: &mut Clock,
-        sequencer: &mut dyn IsController<Message = EntityMessage>,
-    ) {
+    fn advance_to_next_beat(clock: &mut Clock, sequencer: &mut dyn IsController) {
         let next_beat = clock.beats().floor() + 1.0;
         while clock.beats() < next_beat {
             // TODO: a previous version of this utility function had
@@ -322,10 +284,7 @@ mod tests {
 
     // We're papering over the issue that MIDI events are firing a little late.
     // See Clock::next_slice_in_midi_ticks().
-    fn advance_one_midi_tick(
-        clock: &mut Clock,
-        sequencer: &mut dyn IsController<Message = EntityMessage>,
-    ) {
+    fn advance_one_midi_tick(clock: &mut Clock, sequencer: &mut dyn IsController) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
             let _ = sequencer.update(clock, EntityMessage::Tick);
@@ -337,9 +296,9 @@ mod tests {
     fn test_sequencer() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = 7;
         let mut clock = Clock::default();
-        let mut o = Orchestrator::<TestMessage>::default();
-        let mut sequencer = Box::new(MidiTickSequencer::<EntityMessage>::default());
-        let instrument = Box::new(TestInstrument::<EntityMessage>::default());
+        let mut o = Orchestrator::default();
+        let mut sequencer = Box::new(MidiTickSequencer::default());
+        let instrument = Box::new(TestInstrument::default());
         let device_uid = o.add(None, BoxedEntity::TestInstrument(instrument));
 
         sequencer.insert(

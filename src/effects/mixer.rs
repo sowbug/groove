@@ -1,22 +1,18 @@
 use crate::{
     clock::Clock,
     common::F32ControlValue,
-    messages::MessageBounds,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
-use std::marker::PhantomData;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Clone, Control, Debug, Default, Uid)]
-pub struct Mixer<M: MessageBounds> {
+pub struct Mixer {
     uid: usize,
-
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsEffect for Mixer<M> {}
-impl<M: MessageBounds> TransformsAudio for Mixer<M> {
+impl IsEffect for Mixer {}
+impl TransformsAudio for Mixer {
     fn transform_channel(
         &mut self,
         _clock: &Clock,
@@ -30,10 +26,7 @@ impl<M: MessageBounds> TransformsAudio for Mixer<M> {
         input_sample
     }
 }
-impl<M: MessageBounds> Updateable for Mixer<M> {
-    type Message = M;
-}
-impl<M: MessageBounds> Mixer<M> {
+impl Mixer {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {

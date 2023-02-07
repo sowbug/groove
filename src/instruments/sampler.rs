@@ -1,15 +1,16 @@
 use crate::{
     clock::Clock,
     common::{F32ControlValue, Sample, SampleType},
-    messages::EntityMessage,
     midi::MidiMessage,
-    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    traits::{Controllable, HasUid, IsInstrument, SourcesAudio},
     StereoSample,
 };
 use groove_macros::{Control, Uid};
 use hound::WavReader;
 use std::{fs::File, io::BufReader, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
+
+use super::HandlesMidi;
 
 #[derive(Control, Debug, Default, Uid)]
 #[allow(dead_code)]
@@ -26,17 +27,16 @@ pub struct Sampler {
 impl IsInstrument for Sampler {}
 impl SourcesAudio for Sampler {
     fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        // TODO: when we got rid of WatchesClock, we lost the concept of "done."
-        // Be on the lookout for clipped audio.
-        if self.sample_clock_start > clock.samples() {
+        if self.sample_clock_start == usize::MAX || clock.was_reset() {
+            self.sample_clock_start = clock.samples();
+        }
+
+        debug_assert!(self.sample_clock_start <= clock.samples());
+
+        self.sample_pointer = clock.samples() - self.sample_clock_start;
+        if self.sample_pointer >= self.samples.len() {
             self.is_playing = false;
             self.sample_pointer = 0;
-        } else {
-            self.sample_pointer = clock.samples() - self.sample_clock_start;
-            if self.sample_pointer >= self.samples.len() {
-                self.is_playing = false;
-                self.sample_pointer = 0;
-            }
         }
 
         if self.is_playing {
@@ -49,25 +49,24 @@ impl SourcesAudio for Sampler {
         }
     }
 }
-impl Updateable for Sampler {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+impl HandlesMidi for Sampler {
+    fn handle_midi_message(&mut self, message: &MidiMessage) {
         #[allow(unused_variables)]
-        if let Self::Message::Midi(channel, message) = message {
-            match message {
-                MidiMessage::NoteOff { key, vel } => {
-                    self.is_playing = false;
-                }
-                MidiMessage::NoteOn { key, vel } => {
-                    self.sample_pointer = 0;
-                    self.sample_clock_start = clock.samples();
-                    self.is_playing = true;
-                }
-                _ => {}
+        match message {
+            MidiMessage::NoteOff { key, vel } => {
+                self.is_playing = false;
             }
+            MidiMessage::NoteOn { key, vel } => {
+                self.is_playing = true;
+
+                self.sample_pointer = 0;
+
+                // Slight hack to tell ourselves to record the sample start time
+                // on next source_audio().
+                self.sample_clock_start = usize::MAX;
+            }
+            _ => {}
         }
-        Response::none()
     }
 }
 

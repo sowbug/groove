@@ -5,7 +5,7 @@ use crate::{
 use iced_audio::Normal;
 use midly::MidiMessage;
 
-pub trait MessageBounds: Clone + std::fmt::Debug + Default + Send + 'static {} // TODO: that 'static scares me
+pub trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {} // TODO: that 'static scares me
 
 // How do you decide what's a GrooveMessage and what's an EntityMessage? Some
 // rules (I'll add as I go):
@@ -14,11 +14,10 @@ pub trait MessageBounds: Clone + std::fmt::Debug + Default + Send + 'static {} /
 //   the right entity via GrooveMessage's UID, so EntityMessages don't need to
 //   care about them.
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub enum GrooveMessage {
     /// "no operation" $EA, exists only as a default. Nobody should do anything
     /// in response to this message; in fact, it's probably OK to panic.
-    #[default]
     Nop,
 
     /// It's time to do a slice of work. Since update() includes a Clock
@@ -100,23 +99,3 @@ pub enum EntityMessage {
     EnablePressed(bool),
 }
 impl MessageBounds for EntityMessage {}
-
-#[cfg(test)]
-pub mod tests {
-    use super::{EntityMessage, MessageBounds};
-    use crate::{midi::MidiChannel, StereoSample};
-    use midly::MidiMessage;
-
-    #[derive(Clone, Debug, Default)]
-    pub enum TestMessage {
-        #[default]
-        Nop,
-        Tick,
-        EntityMessage(usize, EntityMessage),
-        MidiFromExternal(MidiChannel, MidiMessage),
-        MidiToExternal(MidiChannel, MidiMessage),
-        AudioOutput(StereoSample),
-        OutputComplete,
-    }
-    impl MessageBounds for TestMessage {}
-}

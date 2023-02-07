@@ -3,8 +3,7 @@ use crate::{
     clock::Clock,
     common::F32ControlValue,
     common::{Sample, SampleType},
-    messages::EntityMessage,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -48,10 +47,6 @@ impl TransformsAudio for Chorus {
         )
     }
 }
-impl Updateable for Chorus {
-    type Message = EntityMessage;
-}
-
 impl Chorus {
     #[allow(dead_code)]
     fn new() -> Self {

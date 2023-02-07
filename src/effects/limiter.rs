@@ -1,8 +1,7 @@
 use crate::{
     clock::Clock,
     common::{F32ControlValue, Sample, SampleType},
-    messages::EntityMessage,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
     BipolarNormal,
 };
 use groove_macros::{Control, Uid};
@@ -45,10 +44,6 @@ impl TransformsAudio for Limiter {
         )
     }
 }
-impl Updateable for Limiter {
-    type Message = EntityMessage;
-}
-
 impl Limiter {
     #[allow(dead_code)]
     fn new() -> Self {
@@ -92,8 +87,7 @@ impl Limiter {
 mod tests {
     use super::*;
     use crate::{
-        clock::Clock, common::Sample, messages::tests::TestMessage, traits::SourcesAudio,
-        utils::AudioSource, StereoSample,
+        clock::Clock, common::Sample, traits::SourcesAudio, utils::AudioSource, StereoSample,
     };
     use more_asserts::{assert_gt, assert_lt};
 
@@ -103,28 +97,23 @@ mod tests {
 
         // audio sources are at or past boundaries
         assert_gt!(
-            AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_LOUD)
-                .source_audio(&clock),
+            AudioSource::new_with(AudioSource::TOO_LOUD).source_audio(&clock),
             StereoSample::MAX
         );
         assert_eq!(
-            AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
-                .source_audio(&clock),
+            AudioSource::new_with(AudioSource::LOUD).source_audio(&clock),
             StereoSample::MAX
         );
         assert_eq!(
-            AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::SILENT)
-                .source_audio(&clock),
+            AudioSource::new_with(AudioSource::SILENT).source_audio(&clock),
             StereoSample::SILENCE
         );
         assert_eq!(
-            AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::QUIET)
-                .source_audio(&clock),
+            AudioSource::new_with(AudioSource::QUIET).source_audio(&clock),
             StereoSample::MIN
         );
         assert_lt!(
-            AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_QUIET)
-                .source_audio(&clock),
+            AudioSource::new_with(AudioSource::TOO_QUIET).source_audio(&clock),
             StereoSample::MIN
         );
 
@@ -133,40 +122,35 @@ mod tests {
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_LOUD)
-                    .source_audio(&clock)
+                AudioSource::new_with(AudioSource::TOO_LOUD).source_audio(&clock)
             ),
             StereoSample::MAX
         );
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::LOUD)
-                    .source_audio(&clock)
+                AudioSource::new_with(AudioSource::LOUD).source_audio(&clock)
             ),
             StereoSample::MAX
         );
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::SILENT)
-                    .source_audio(&clock)
+                AudioSource::new_with(AudioSource::SILENT).source_audio(&clock)
             ),
             StereoSample::SILENCE
         );
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::QUIET)
-                    .source_audio(&clock)
+                AudioSource::new_with(AudioSource::QUIET).source_audio(&clock)
             ),
             StereoSample::MIN
         );
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                AudioSource::<TestMessage>::new_with(AudioSource::<TestMessage>::TOO_QUIET)
-                    .source_audio(&clock)
+                AudioSource::new_with(AudioSource::TOO_QUIET).source_audio(&clock)
             ),
             StereoSample::MIN
         );

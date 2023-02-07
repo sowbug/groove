@@ -4,7 +4,6 @@ use crate::{
     common::{DeviceId, SignalType},
     controllers::{arpeggiator::Arpeggiator, LfoController},
     entities::BoxedEntity,
-    messages::EntityMessage,
     traits::TestController,
 };
 use serde::{Deserialize, Serialize};
@@ -125,7 +124,7 @@ impl ControllerSettings {
             return (
                 *midi_input_channel,
                 *midi_output_channel,
-                BoxedEntity::TestController(Box::new(TestController::<EntityMessage>::new_with(
+                BoxedEntity::TestController(Box::new(TestController::new_with(
                     *midi_output_channel,
                 ))),
             );
@@ -137,7 +136,7 @@ impl ControllerSettings {
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                BoxedEntity::TestController(Box::new(TestController::<EntityMessage>::new_with(
+                BoxedEntity::TestController(Box::new(TestController::new_with(
                     midi_output_channel,
                 ))),
             ),

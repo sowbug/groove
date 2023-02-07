@@ -6,11 +6,11 @@ use groove::{
     gui::{GrooveEvent, GrooveInput},
     traits::{HasUid, TestController, TestEffect, TestInstrument},
     Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity, Chorus, Clock,
-    Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, FmSynthesizer, Gain,
-    GrooveMessage, GrooveOrchestrator, GrooveSubscription, LfoController, Limiter, MidiHandler,
-    MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer,
-    Mixer, Normal, Note, Pattern, PatternManager, PatternMessage, Reverb, Sampler,
-    SimpleSynthesizer, TestLfo, TestSynth, Timer, WelshSynth,
+    Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, F32ControlValue, FmSynthesizer,
+    Gain, GrooveMessage, GrooveSubscription, LfoController, Limiter, MidiHandler, MidiHandlerEvent,
+    MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Normal, Note,
+    Orchestrator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, SimpleSynthesizer,
+    TestLfo, TestSynth, Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -66,7 +66,7 @@ struct GrooveApp {
     // Model
     project_title: Option<String>,
     orchestrator_sender: Option<mpsc::Sender<GrooveInput>>,
-    orchestrator: Arc<Mutex<GrooveOrchestrator>>,
+    orchestrator: Arc<Mutex<Orchestrator>>,
     clock_mirror: Clock, // this clock is just a cache of the real clock in Orchestrator.
 
     // This is true when playback went all the way to the end of the song. The
@@ -89,7 +89,7 @@ impl Default for GrooveApp {
     fn default() -> Self {
         // TODO: these are (probably) temporary until the project is
         // loaded. Make sure they really need to be instantiated.
-        let orchestrator = GrooveOrchestrator::default();
+        let orchestrator = Orchestrator::default();
         let clock = Clock::new_with(orchestrator.clock_settings());
         Self {
             preferences: Default::default(),
@@ -409,10 +409,19 @@ impl GrooveApp {
                         }
                         _ => todo!(),
                     },
+                    BoxedEntity::WelshSynth(e) => match message {
+                        EntityMessage::Knob(value) => {
+                            // TODO: it's annoying to have to plumb this through. I want
+                            // everything #controllable to automatically generate the
+                            // scaffolding for UI.
+                            e.set_control_pan(F32ControlValue(value.as_f32()));
+                        }
+                        _ => todo!(),
+                    },
                     _ => {
-                        entity
-                            .as_updateable_mut()
-                            .update(&self.clock_mirror, message);
+                        if let Some(entity) = entity.as_updateable_mut() {
+                            entity.update(&self.clock_mirror, message);
+                        }
                     }
                 }
             }
@@ -460,7 +469,7 @@ impl GrooveApp {
             ),
             BoxedEntity::Compressor(e) => self.compressor_view(e),
             BoxedEntity::ControlTrip(e) => GuiStuff::titled_container(
-                type_name::<ControlTrip<EntityMessage>>(),
+                type_name::<ControlTrip>(),
                 GuiStuff::<EntityMessage>::container_text(
                     format!("Coming soon: {}", e.uid()).as_str(),
                 )
@@ -494,7 +503,7 @@ impl GrooveApp {
                 )
             }
             BoxedEntity::MidiTickSequencer(e) => GuiStuff::titled_container(
-                type_name::<MidiTickSequencer<EntityMessage>>(),
+                type_name::<MidiTickSequencer>(),
                 GuiStuff::<EntityMessage>::container_text(
                     format!("Coming soon: {}", e.uid()).as_str(),
                 )
@@ -557,7 +566,7 @@ impl GrooveApp {
             .into()
         })
     }
-    fn mixer_view(&self, e: &Mixer<EntityMessage>) -> Element<EntityMessage> {
+    fn mixer_view(&self, e: &Mixer) -> Element<EntityMessage> {
         self.collapsing_box("Mixer", e.uid(), || {
             GuiStuff::<EntityMessage>::container_text(
                 format!("Mixer {} coming soon", e.uid()).as_str(),
@@ -703,32 +712,32 @@ impl GrooveApp {
         row![time_counter, time_signature_view, beat_counter].into()
     }
 
-    fn beat_sequencer_view(&self, e: &BeatSequencer<EntityMessage>) -> Element<EntityMessage> {
+    fn beat_sequencer_view(&self, e: &BeatSequencer) -> Element<EntityMessage> {
         self.collapsing_box("Sequencer", e.uid(), || {
             let contents = format!("{}", e.next_instant());
             GuiStuff::<EntityMessage>::container_text(contents.as_str()).into()
         })
     }
 
-    fn test_controller_view(&self, e: &TestController<EntityMessage>) -> Element<EntityMessage> {
+    fn test_controller_view(&self, e: &TestController) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<TestController<EntityMessage>>(),
+            type_name::<TestController>(),
             GuiStuff::<EntityMessage>::container_text(format!("Tempo: {}", e.tempo).as_str())
                 .into(),
         )
     }
 
-    fn test_effect_view(&self, e: &TestEffect<EntityMessage>) -> Element<EntityMessage> {
+    fn test_effect_view(&self, e: &TestEffect) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<TestEffect<EntityMessage>>(),
+            type_name::<TestEffect>(),
             GuiStuff::<EntityMessage>::container_text(format!("Value: {}", e.my_value()).as_str())
                 .into(),
         )
     }
 
-    fn test_instrument_view(&self, e: &TestInstrument<EntityMessage>) -> Element<EntityMessage> {
+    fn test_instrument_view(&self, e: &TestInstrument) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<TestInstrument<EntityMessage>>(),
+            type_name::<TestInstrument>(),
             GuiStuff::<EntityMessage>::container_text(
                 format!("Fake value: {}", e.fake_value()).as_str(),
             )
@@ -736,9 +745,9 @@ impl GrooveApp {
         )
     }
 
-    fn test_lfo_view(&self, e: &TestLfo<EntityMessage>) -> Element<EntityMessage> {
+    fn test_lfo_view(&self, e: &TestLfo) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<TestLfo<EntityMessage>>(),
+            type_name::<TestLfo>(),
             GuiStuff::<EntityMessage>::container_text(
                 format!(
                     "Frequency: {} current value: {}",
@@ -751,16 +760,16 @@ impl GrooveApp {
         )
     }
 
-    fn test_synth_view(&self, _: &TestSynth<EntityMessage>) -> Element<EntityMessage> {
+    fn test_synth_view(&self, _: &TestSynth) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<TestSynth<EntityMessage>>(),
+            type_name::<TestSynth>(),
             GuiStuff::<EntityMessage>::container_text("Nothing").into(),
         )
     }
 
-    fn timer_view(&self, e: &Timer<EntityMessage>) -> Element<EntityMessage> {
+    fn timer_view(&self, e: &Timer) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<Timer<EntityMessage>>(),
+            type_name::<Timer>(),
             GuiStuff::<EntityMessage>::container_text(
                 format!("Runtime: {}", e.time_to_run_seconds()).as_str(),
             )
@@ -801,9 +810,9 @@ impl GrooveApp {
         ])
         .into()
     }
-    fn audio_source_view(&self, e: &AudioSource<EntityMessage>) -> Element<EntityMessage> {
+    fn audio_source_view(&self, e: &AudioSource) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<AudioSource<EntityMessage>>(),
+            type_name::<AudioSource>(),
             GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
                 .into(),
         )
@@ -829,11 +838,11 @@ impl GrooveApp {
             let contents = contents_fn();
             GuiStuff::expanded_container(title, EntityMessage::CollapsePressed, contents)
         } else {
-            GuiStuff::collapsed_container(&title, EntityMessage::ExpandPressed)
+            GuiStuff::<EntityMessage>::collapsed_container(&title, EntityMessage::ExpandPressed)
         }
     }
 
-    fn gain_view(&self, e: &Gain<EntityMessage>) -> Element<EntityMessage> {
+    fn gain_view(&self, e: &Gain) -> Element<EntityMessage> {
         self.collapsing_box("Gain", e.uid(), || {
             let slider = HSlider::new(
                 NormalParam {
@@ -872,8 +881,8 @@ impl GrooveApp {
         })
     }
 
-    fn biquad_filter_view(&self, e: &BiQuadFilter<EntityMessage>) -> Element<EntityMessage> {
-        let title = type_name::<BiQuadFilter<EntityMessage>>();
+    fn biquad_filter_view(&self, e: &BiQuadFilter) -> Element<EntityMessage> {
+        let title = type_name::<BiQuadFilter>();
         let slider = HSlider::new(
             NormalParam {
                 value: IcedNormal::from_clipped(e.cutoff_pct()),

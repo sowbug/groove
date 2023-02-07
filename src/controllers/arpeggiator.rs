@@ -2,9 +2,9 @@ use super::sequencers::BeatSequencer;
 use crate::{
     clock::{Clock, PerfectTimeUnit},
     common::F32ControlValue,
-    messages::EntityMessage,
     midi::{MidiChannel, MidiMessage},
     traits::{Controllable, HasUid, IsController, Response, Terminates, Updateable},
+    EntityMessage,
 };
 use groove_macros::{Control, Uid};
 use midly::num::u7;
@@ -15,7 +15,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 pub struct Arpeggiator {
     uid: usize,
     midi_channel_out: MidiChannel,
-    beat_sequencer: BeatSequencer<EntityMessage>,
+    beat_sequencer: BeatSequencer,
 
     // A poor-man's semaphore that allows note-off events to overlap with the
     // current note without causing it to shut off. Example is a legato
@@ -26,14 +26,12 @@ pub struct Arpeggiator {
 }
 impl IsController for Arpeggiator {}
 impl Updateable for Arpeggiator {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
         match message {
-            Self::Message::Tick => {
+            EntityMessage::Tick => {
                 return self.beat_sequencer.update(clock, message);
             }
-            Self::Message::Midi(_channel, message) => {
+            EntityMessage::Midi(_channel, message) => {
                 match message {
                     MidiMessage::NoteOff { key: _, vel: _ } => {
                         self.note_semaphore -= 1;
@@ -58,7 +56,7 @@ impl Updateable for Arpeggiator {
                         // going to send, and another to send it), and an
                         // internal memory of which notes we've asked the
                         // downstream to play. TODO TODO TODO
-                        return self.beat_sequencer.update(clock, Self::Message::Tick);
+                        return self.beat_sequencer.update(clock, EntityMessage::Tick);
                     }
                     MidiMessage::Aftertouch { key: _, vel: _ } => todo!(),
                     MidiMessage::Controller {
@@ -171,7 +169,6 @@ mod tests {
         clock::PerfectTimeUnit,
         controllers::sequencers::BeatSequencer,
         entities::BoxedEntity,
-        messages::EntityMessage,
         midi::MidiChannel,
         traits::{Internal, TestInstrument},
         Clock, GrooveMessage, Orchestrator,
@@ -195,12 +192,12 @@ mod tests {
     // that note-on is skipped.
     #[test]
     fn test_arpeggiator_sends_command_on_correct_time_slice() {
-        let mut sequencer = Box::new(BeatSequencer::<EntityMessage>::default());
+        let mut sequencer = Box::new(BeatSequencer::default());
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
         let arpeggiator = Box::new(Arpeggiator::new_with(MIDI_CHANNEL_ARP_TO_INSTRUMENT));
-        let instrument = Box::new(TestInstrument::<EntityMessage>::default());
-        let mut o = Orchestrator::<GrooveMessage>::default();
+        let instrument = Box::new(TestInstrument::default());
+        let mut o = Orchestrator::default();
 
         sequencer.insert(
             PerfectTimeUnit(0.0),

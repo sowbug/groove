@@ -1,8 +1,7 @@
 use crate::{
     clock::Clock,
     common::{F32ControlValue, Sample, SignalType},
-    messages::EntityMessage,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio, Updateable},
+    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
 use std::{marker::PhantomData, str::FromStr};
@@ -208,10 +207,6 @@ impl TransformsAudio for Delay {
         self.delay.pop_output(input_sample)
     }
 }
-impl Updateable for Delay {
-    type Message = EntityMessage;
-}
-
 impl Delay {
     #[allow(dead_code)]
     fn new() -> Self {

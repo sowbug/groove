@@ -1,6 +1,6 @@
 use crate::{
-    midi::MidiChannel, traits::Response, AudioOutput, Clock, GrooveMessage, GrooveOrchestrator,
-    IOHelper, StereoSample, TimeSignature,
+    midi::MidiChannel, traits::Response, AudioOutput, Clock, GrooveMessage, IOHelper, Orchestrator,
+    StereoSample, TimeSignature,
 };
 use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
@@ -47,7 +47,7 @@ pub enum GrooveInput {
 
 #[derive(Clone, Debug)]
 pub enum GrooveEvent {
-    Ready(mpsc::Sender<GrooveInput>, Arc<Mutex<GrooveOrchestrator>>),
+    Ready(mpsc::Sender<GrooveInput>, Arc<Mutex<Orchestrator>>),
     SetClock(usize),
     SetBpm(f32),
     SetTimeSignature(TimeSignature),
@@ -59,7 +59,7 @@ pub enum GrooveEvent {
 }
 
 struct Runner {
-    orchestrator: Arc<Mutex<GrooveOrchestrator>>,
+    orchestrator: Arc<Mutex<Orchestrator>>,
     clock: Clock,
     last_clock_update: Instant,
 
@@ -72,7 +72,7 @@ struct Runner {
 }
 impl Runner {
     pub fn new_with(
-        orchestrator: Arc<Mutex<GrooveOrchestrator>>,
+        orchestrator: Arc<Mutex<Orchestrator>>,
         sender: mpsc::Sender<GrooveEvent>,
         receiver: mpsc::Receiver<GrooveInput>,
     ) -> Self {
@@ -300,7 +300,7 @@ impl GrooveSubscription {
                         let (thread_sender, thread_receiver) = mpsc::channel::<GrooveEvent>(1024);
 
                         // TODO: deal with output-device and sample-rate changes.
-                        let mut t = GrooveOrchestrator::default();
+                        let mut t = Orchestrator::default();
                         t.set_sample_rate(IOHelper::get_output_device_sample_rate());
                         let orchestrator = Arc::new(Mutex::new(t));
                         let orchestrator_for_app = Arc::clone(&orchestrator);

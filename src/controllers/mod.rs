@@ -6,12 +6,11 @@ use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit},
     common::ParameterType,
     settings::{controllers::ControlPathSettings, patches::WaveformType},
-    Oscillator,
+    EntityMessage, Oscillator,
 };
 use crate::{
     common::{F32ControlValue, SignalType},
     instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
-    messages::{EntityMessage, MessageBounds},
     settings::controllers::ControlStep,
     traits::{Controllable, HasUid, IsController, Response, Terminates, Updateable},
 };
@@ -19,7 +18,6 @@ use crate::{StereoSample, TimeSignature};
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use groove_macros::{Control, Uid};
-use std::marker::PhantomData;
 use std::ops::Range;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -48,38 +46,25 @@ impl Performance {
 /// A ControlTrip is one automation track, which can run as long as the whole
 /// song. For now, it controls one parameter of one target.
 #[derive(Debug, Uid)]
-pub struct ControlTrip<M: MessageBounds> {
+pub struct ControlTrip {
     uid: usize,
     cursor_beats: f64,
     current_value: SignalType,
     envelope: SteppedEnvelope,
     is_finished: bool,
-
-    _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsController for ControlTrip<M> {}
-impl<M: MessageBounds> Updateable for ControlTrip<M> {
-    default type Message = M;
-
-    default fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl<M: MessageBounds> Terminates for ControlTrip<M> {
+impl IsController for ControlTrip {}
+impl Terminates for ControlTrip {
     fn is_finished(&self) -> bool {
         self.is_finished
     }
 }
-impl<M: MessageBounds> Default for ControlTrip<M> {
+impl Default for ControlTrip {
     fn default() -> Self {
         Self::new()
     }
 }
-impl<M: MessageBounds> ControlTrip<M> {
+impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
 
     pub fn new() -> Self {
@@ -89,7 +74,6 @@ impl<M: MessageBounds> ControlTrip<M> {
             current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
             is_finished: true,
-            _phantom: Default::default(),
         }
     }
 
@@ -163,16 +147,14 @@ impl<M: MessageBounds> ControlTrip<M> {
         }
     }
 }
-impl Updateable for ControlTrip<EntityMessage> {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+impl Updateable for ControlTrip {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
         match message {
-            Self::Message::Tick => {
+            EntityMessage::Tick => {
                 if self.tick(clock) {
                     // tick() tells us that our value has changed, so let's tell
                     // the world about that.
-                    return Response::single(Self::Message::ControlF32(self.current_value as f32));
+                    return Response::single(EntityMessage::ControlF32(self.current_value as f32));
                 }
             }
             _ => todo!(),
@@ -206,9 +188,7 @@ pub struct LfoController {
 }
 impl IsController for LfoController {}
 impl Updateable for LfoController {
-    type Message = EntityMessage;
-
-    fn update(&mut self, clock: &Clock, message: Self::Message) -> Response<Self::Message> {
+    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
         match message {
             EntityMessage::Tick => Response::single(EntityMessage::ControlF32(
                 (self.oscillator.source_signal(clock).value() as f32 + 1.0) / 2.0,
@@ -248,7 +228,6 @@ mod tests {
     use super::*;
     use crate::{
         entities::BoxedEntity,
-        messages::tests::TestMessage,
         traits::{
             TestEffect, TestEffectControlParams, TestInstrument, TestInstrumentControlParams,
         },
@@ -270,17 +249,17 @@ mod tests {
             steps: step_vec,
         };
 
-        let mut o = Box::new(Orchestrator::<TestMessage>::default());
+        let mut o = Box::new(Orchestrator::default());
         let effect_uid = o.add(
             None,
-            BoxedEntity::TestEffect(Box::new(TestEffect::<EntityMessage>::new_with_test_values(
+            BoxedEntity::TestEffect(Box::new(TestEffect::new_with_test_values(
                 &[0.9, 0.1, 0.2, 0.3],
                 0.0,
                 1.0,
                 ClockTimeUnit::Beats,
             ))),
         );
-        let mut trip = ControlTrip::<EntityMessage>::default();
+        let mut trip = ControlTrip::default();
         trip.add_path(&clock.settings().time_signature(), &path);
         let controller_uid = o.add(None, BoxedEntity::ControlTrip(Box::new(trip)));
 
@@ -320,8 +299,8 @@ mod tests {
             steps: step_vec,
         };
 
-        let mut o = Box::new(Orchestrator::<TestMessage>::default());
-        let instrument = Box::new(TestInstrument::<EntityMessage>::new_with_test_values(
+        let mut o = Box::new(Orchestrator::default());
+        let instrument = Box::new(TestInstrument::new_with_test_values(
             INTERPOLATED_VALUES,
             0.0,
             0.5,
@@ -329,7 +308,7 @@ mod tests {
         ));
         let instrument_uid = o.add(None, BoxedEntity::TestInstrument(instrument));
         let _ = o.connect_to_main_mixer(instrument_uid);
-        let mut trip = Box::new(ControlTrip::<EntityMessage>::default());
+        let mut trip = Box::new(ControlTrip::default());
         trip.add_path(&clock.settings().time_signature(), &path);
         let controller_uid = o.add(None, BoxedEntity::ControlTrip(trip));
         let _ = o.link_control(

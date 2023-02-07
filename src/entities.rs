@@ -10,9 +10,8 @@ use crate::{
     },
     instruments::{
         drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth, FmSynthesizer,
-        SimpleSynthesizer,
+        HandlesMidi, SimpleSynthesizer,
     },
-    messages::EntityMessage,
     midi::patterns::PatternManager,
     traits::{
         Controllable, HasUid, IsController, IsEffect, IsInstrument, Terminates, TestController,
@@ -20,6 +19,8 @@ use crate::{
     },
     utils::{AudioSource, TestLfo, TestSynth, Timer},
 };
+
+// PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
 macro_rules! boxed_entity_enum_and_common_crackers {
     ($($variant:ident: $type:ty,)*) => {
@@ -39,16 +40,6 @@ macro_rules! boxed_entity_enum_and_common_crackers {
                 $( BoxedEntity::$variant(e) => e.as_mut(), )*
                 }
             }
-            pub fn as_updateable(&self) -> &dyn Updateable<Message = EntityMessage> {
-                match self {
-                    $( BoxedEntity::$variant(e) => e.as_ref(), )*
-                }
-            }
-            pub fn as_updateable_mut(&mut self) -> &mut dyn Updateable<Message = EntityMessage> {
-                match self {
-                    $( BoxedEntity::$variant(e) => e.as_mut(), )*
-                }
-            }
         }
     };
 }
@@ -56,35 +47,35 @@ macro_rules! boxed_entity_enum_and_common_crackers {
 boxed_entity_enum_and_common_crackers! {
     // Controllers
     Arpeggiator: Arpeggiator,
-    BeatSequencer: BeatSequencer<EntityMessage>,
-    ControlTrip: ControlTrip<EntityMessage>,
-    MidiTickSequencer:MidiTickSequencer<EntityMessage>,
+    BeatSequencer: BeatSequencer,
+    ControlTrip: ControlTrip,
+    MidiTickSequencer:MidiTickSequencer,
     LfoController: LfoController,
     PatternManager: PatternManager,
-    TestController: TestController<EntityMessage>,
-    TestLfo: TestLfo<EntityMessage>,
-    Timer: Timer<EntityMessage>,
+    TestController: TestController,
+    TestLfo: TestLfo,
+    Timer: Timer,
 
     // Effects
-    BiQuadFilter: BiQuadFilter<EntityMessage>,
+    BiQuadFilter: BiQuadFilter,
     Bitcrusher: Bitcrusher,
     Chorus: Chorus,
     Compressor: Compressor,
     Delay: Delay,
-    Gain: Gain<EntityMessage>,
+    Gain: Gain,
     Limiter: Limiter,
-    Mixer: Mixer<EntityMessage>,
+    Mixer: Mixer,
     Reverb: Reverb,
-    TestEffect: TestEffect<EntityMessage>,
+    TestEffect: TestEffect,
 
     // Instruments
-    AudioSource: AudioSource<EntityMessage>,
+    AudioSource: AudioSource,
     DrumkitSampler: DrumkitSampler,
     FmSynthesizer: FmSynthesizer,
     Sampler: Sampler,
     SimpleSynthesizer: SimpleSynthesizer,
-    TestInstrument: TestInstrument<EntityMessage>,
-    TestSynth: TestSynth<EntityMessage>,
+    TestInstrument: TestInstrument,
+    TestSynth: TestSynth,
     WelshSynth: WelshSynth,
 }
 
@@ -127,13 +118,13 @@ controllable_crackers! {
 macro_rules! controller_crackers {
     ($($type:ident,)*) => {
         impl BoxedEntity {
-            pub fn as_is_controller(&self) -> Option<&dyn IsController<Message = EntityMessage>> {
+            pub fn as_is_controller(&self) -> Option<&dyn IsController> {
                 match self {
                     $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn IsController<Message = EntityMessage>> {
+            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn IsController> {
                 match self {
                     $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -163,13 +154,13 @@ controller_crackers! {
 macro_rules! effect_crackers {
     ($($type:ident,)*) => {
         impl BoxedEntity {
-            pub fn as_is_effect(&self) -> Option<&dyn IsEffect<Message = EntityMessage>> {
+            pub fn as_is_effect(&self) -> Option<&dyn IsEffect> {
                 match self {
                 $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn IsEffect<Message = EntityMessage>> {
+            pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
                 match self {
                 $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -194,13 +185,13 @@ effect_crackers! {
 macro_rules! instrument_crackers {
     ($($type:ident,)*) => {
         impl BoxedEntity {
-            pub fn as_is_instrument(&self) -> Option<&dyn IsInstrument<Message = EntityMessage>> {
+            pub fn as_is_instrument(&self) -> Option<&dyn IsInstrument> {
                 match self {
                 $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument<Message = EntityMessage>> {
+            pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
                 match self {
                 $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -210,6 +201,68 @@ macro_rules! instrument_crackers {
     };
 }
 instrument_crackers! {
+    AudioSource,
+    DrumkitSampler,
+    FmSynthesizer,
+    Sampler,
+    SimpleSynthesizer,
+    TestInstrument,
+    TestSynth,
+    WelshSynth,
+}
+
+macro_rules! updateable_crackers {
+    ($($type:ident,)*) => {
+        impl BoxedEntity {
+            pub fn as_updateable(&self) -> Option<&dyn Updateable> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    _ => None
+                }
+            }
+            pub fn as_updateable_mut(&mut self) -> Option<&mut dyn Updateable> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    _ => None
+                }
+            }
+        }
+    };
+}
+
+// Everything in controllers and instruments (and effects while removing the trait)
+updateable_crackers! {
+    Arpeggiator,
+    BeatSequencer,
+    ControlTrip,
+    LfoController,
+    MidiTickSequencer,
+    PatternManager,
+    TestController,
+    TestLfo,
+    Timer,
+}
+
+macro_rules! handles_midi_crackers {
+    ($($type:ident,)*) => {
+        impl BoxedEntity {
+            pub fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    _ => None
+                }
+            }
+            pub fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
+                match self {
+                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    _ => None
+                }
+            }
+        }
+    };
+}
+
+handles_midi_crackers! {
     AudioSource,
     DrumkitSampler,
     FmSynthesizer,
