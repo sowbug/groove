@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Groove
+Comment=Make music
+Exec=/usr/share/groove/groove-gui
+Icon=audio-speakers
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=GNOME;GTK;AudioVideo;Education;
