@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Groove
 Comment=Make music
-Exec=/usr/share/groove/groove-gui
+Exec=/usr/bin/groove-gui
 Icon=audio-speakers
 Terminal=false
 Type=Application
