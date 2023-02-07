@@ -5,6 +5,7 @@ use crate::{
     instruments::{
         envelopes::{GeneratesEnvelope, SimpleEnvelope},
         oscillators::Oscillator,
+        HandlesMidi,
     },
     messages::{EntityMessage, MessageBounds},
     traits::{
@@ -159,9 +160,7 @@ pub struct AudioSource<M: MessageBounds> {
     _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsInstrument for AudioSource<M> {}
-impl<M: MessageBounds> Updateable for AudioSource<M> {
-    type Message = M;
-}
+impl<M: MessageBounds> HandlesMidi for AudioSource<M> {}
 #[allow(dead_code)]
 impl<M: MessageBounds> AudioSource<M> {
     pub const TOO_LOUD: SampleType = 1.1;
@@ -306,20 +305,7 @@ impl<M: MessageBounds> SourcesAudio for TestSynth<M> {
 }
 
 impl<M: MessageBounds> IsInstrument for TestSynth<M> {}
-impl<M: MessageBounds> Updateable for TestSynth<M> {
-    default type Message = M;
-
-    default fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> Response<Self::Message> {
-        Response::none()
-    }
-}
-impl Updateable for TestSynth<EntityMessage> {
-    type Message = EntityMessage;
-}
+impl<M: MessageBounds> HandlesMidi for TestSynth<M> {}
 
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]

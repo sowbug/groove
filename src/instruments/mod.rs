@@ -2,7 +2,7 @@ use crate::{
     common::{BipolarNormal, F32ControlValue, Sample, StereoSample},
     midi::MidiUtils,
     settings::patches::EnvelopeSettings,
-    traits::{Controllable, HasUid, IsInstrument, Response, SourcesAudio, Updateable},
+    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Updateable},
     Clock, EntityMessage, Oscillator,
 };
 use anyhow::{anyhow, Result};
@@ -21,7 +21,8 @@ pub(crate) mod sampler;
 pub(crate) mod welsh;
 
 pub trait HandlesMidi {
-    fn handle_midi_message(&mut self, message: &MidiMessage);
+    #[allow(unused_variables)]
+    fn handle_midi_message(&mut self, message: &MidiMessage) {}
 }
 
 /// As an experiment, we're going to define PlaysNotes as a different interface
@@ -271,21 +272,9 @@ pub struct SimpleSynthesizer {
     inner_synth: Synthesizer<SimpleVoice>,
 }
 impl IsInstrument for SimpleSynthesizer {}
-impl Updateable for SimpleSynthesizer {
-    type Message = EntityMessage;
-
-    fn update(
-        &mut self,
-        _clock: &Clock,
-        message: Self::Message,
-    ) -> crate::traits::Response<Self::Message> {
-        match message {
-            EntityMessage::Midi(_channel, message) => {
-                self.inner_synth.handle_midi_message(&message);
-            }
-            _ => todo!(),
-        }
-        crate::traits::Response::none()
+impl HandlesMidi for SimpleSynthesizer {
+    fn handle_midi_message(&mut self, message: &MidiMessage) {
+        self.inner_synth.handle_midi_message(&message);
     }
 }
 impl SourcesAudio for SimpleSynthesizer {
@@ -555,21 +544,9 @@ pub struct FmSynthesizer {
     inner_synth: Synthesizer<FmVoice>,
 }
 impl IsInstrument for FmSynthesizer {}
-impl Updateable for FmSynthesizer {
-    type Message = EntityMessage;
-
-    fn update(
-        &mut self,
-        _clock: &Clock,
-        message: Self::Message,
-    ) -> crate::traits::Response<Self::Message> {
-        match message {
-            EntityMessage::Midi(_channel, message) => {
-                self.inner_synth.handle_midi_message(&message)
-            }
-            _ => todo!(),
-        }
-        Response::none()
+impl HandlesMidi for FmSynthesizer {
+    fn handle_midi_message(&mut self, message: &MidiMessage) {
+        self.inner_synth.handle_midi_message(&message)
     }
 }
 impl SourcesAudio for FmSynthesizer {

@@ -234,20 +234,15 @@ macro_rules! updateable_crackers {
 // Everything in controllers and instruments (and effects while removing the trait)
 updateable_crackers! {
     Arpeggiator,
-    AudioSource,
     BeatSequencer,
     ControlTrip,
-    FmSynthesizer,
     LfoController,
     MidiTickSequencer,
     PatternManager,
-    Sampler,
-    SimpleSynthesizer,
     TestController,
     TestEffect,
     TestInstrument,
     TestLfo,
-    TestSynth,
     Timer,
 }
 
@@ -271,6 +266,11 @@ macro_rules! handles_midi_crackers {
 }
 
 handles_midi_crackers! {
+    AudioSource,
     DrumkitSampler,
+    FmSynthesizer,
+    Sampler,
+    SimpleSynthesizer,
+    TestSynth,
     WelshSynth,
 }

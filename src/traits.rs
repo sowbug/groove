@@ -1,6 +1,6 @@
 use crate::clock::ClockTimeUnit;
 use crate::common::{F32ControlValue, Sample, StereoSample};
-use crate::instruments::Dca;
+use crate::instruments::{Dca, HandlesMidi};
 use crate::messages::EntityMessage;
 use crate::{clock::Clock, messages::MessageBounds};
 use crate::{
@@ -38,7 +38,10 @@ pub trait IsEffect: TransformsAudio + Controllable + HasUid + Send + std::fmt::D
 /// An IsInstrument produces audio, usually upon request from MIDI or
 /// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
 /// because it continues to create audio as long as asked.
-pub trait IsInstrument: SourcesAudio + Controllable + HasUid + Send + std::fmt::Debug {}
+pub trait IsInstrument:
+    SourcesAudio + HandlesMidi + Controllable + HasUid + Send + std::fmt::Debug
+{
+}
 
 /// A future fourth trait might be named something like IsWidget or
 /// IsGuiElement. These exist only to interact with the user of a GUI app, but
@@ -431,17 +434,6 @@ pub struct TestInstrument<M: MessageBounds> {
     _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsInstrument for TestInstrument<M> {}
-impl<M: MessageBounds> Updateable for TestInstrument<M> {
-    default type Message = M;
-
-    default fn update(
-        &mut self,
-        _clock: &Clock,
-        _message: Self::Message,
-    ) -> Response<Self::Message> {
-        Response::none()
-    }
-}
 impl<M: MessageBounds> HasUid for TestInstrument<M> {
     fn uid(&self) -> usize {
         self.uid
@@ -451,6 +443,7 @@ impl<M: MessageBounds> HasUid for TestInstrument<M> {
         self.uid = uid;
     }
 }
+impl<M: MessageBounds> HandlesMidi for TestInstrument<M> {}
 impl<M: MessageBounds> TestsValues for TestInstrument<M> {
     fn has_checkpoint_values(&self) -> bool {
         !self.checkpoint_values.is_empty()
