@@ -263,7 +263,8 @@ impl SourcesAudio for TestSynth {
     fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
         // TODO: I don't think this can play sounds, because I don't see how the
         // envelope ever gets triggered.
-        let envelope_amplitude = self.envelope.tick(clock).value();
+        self.envelope.tick(1);
+        let envelope_amplitude = self.envelope.amplitude().value();
         let signal = self.oscillator.source_signal(clock).value() * envelope_amplitude;
         crate::StereoSample::from(signal)
     }

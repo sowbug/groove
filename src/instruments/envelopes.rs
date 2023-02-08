@@ -9,30 +9,57 @@ use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
 use std::{fmt::Debug, ops::Range};
 
-/// The user-visible parts of an envelope generator, which provides an amplitude
-/// 0.0..=1.0 that changes over time according to its internal parameters and
-/// the note on/off trigger.
-pub trait GeneratesEnvelope: Send + Debug {
-    /// Triggers the active part of the envelope.
+/// Describes the public parts of an envelope generator, which provides a
+/// normalized amplitude (0.0..=1.0) that changes over time according to its
+/// internal parameters, external triggers, and the progression of time.
+pub trait GeneratesEnvelope: Send + Debug + Ticks {
+    /// Triggers the active part of the envelope. "Enqueue" means that the
+    /// attack event won't be processed until the next Ticks::tick().
     fn enqueue_attack(&mut self);
 
-    /// Signals the end of the active part of the envelope.
+    /// Signals the end of the active part of the envelope. As with attack,
+    /// release is processed at the next tick().
     fn enqueue_release(&mut self);
 
-    /// Gives the envelope generator time to do work. Must be called on every
-    /// sample of the clock. It's not required for any GeneratesEnvelope to look
-    /// for clock resets, which means that if the clock jumps around, correct
-    /// behavior is not guaranteed.
-    ///
-    /// Returns the amplitude *after* processing any handle_* events, and
-    /// *before* ticking to the next time slice.
-    fn tick(&mut self, clock: &Clock) -> Normal;
+    /// Returns the current envelope amplitude(). This value is valid for the
+    /// current frame once Ticks::tick() has been called for the current frame.
+    fn amplitude(&self) -> Normal;
+
+    fn batch_amplitude(&mut self, buffer: &mut [Normal]);
 
     /// Whether the envelope generator has finished the active part of the
-    /// envelope (or hasn't yet started it).
-    ///
-    /// It's generally OK to call this after tick(), unlike amplitude().
+    /// envelope (or hasn't yet started it). Like amplitude(), this value is
+    /// valid for the current frame only after tick() is called.
     fn is_idle(&self) -> bool;
+}
+
+pub trait Ticks: Send + Debug {
+    /// The entity should reset its internal state.
+    ///
+    /// The system will call reset() when the global sample rate changes, and
+    /// whenever the global clock is reset. Since most entities that care about
+    /// sample rate need to know it during construction, the system *won't* call
+    /// reset on entity construction; instead, entities can require the sample
+    /// rate as part of their new() functions, and if desired call reset()
+    /// within that function.
+    fn reset(&mut self, sample_rate: usize);
+
+    /// The entity should perform work for the current frame (or frames if
+    /// frame_count > 1). Under normal circumstances, successive tick()s
+    /// represent successive frames. Exceptions include, for example, restarting
+    /// a performance, which would reset the global clock, which the entity
+    /// learns about via reset().
+    ///
+    /// Entities are responsible for tracking their own notion of time, which
+    /// they should update during tick().
+    ///
+    /// tick() guarantees that any state for the current frame is valid *after*
+    /// tick() has been called for the current frame. This means that Ticks
+    /// implementers must treat the first frame as special. Normally, entity
+    /// state is correct for the first frame after entity construction, so
+    /// tick() must be careful not to update state on the first frame, because
+    /// that would cause the state to represent the second frame, not the first.
+    fn tick(&mut self, tick_count: usize);
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -48,13 +75,22 @@ enum SimpleEnvelopeState {
 #[derive(Debug, Default)]
 pub struct SimpleEnvelope {
     settings: EnvelopeSettings,
+    ticks: usize,
+    time: TimeUnit,
     sample_rate: f64,
     state: SimpleEnvelopeState,
-    amplitude: KahanSummation<f64, f64>,
+    uncorrected_amplitude: KahanSummation<f64, f64>,
+    corrected_amplitude: Normal,
     delta: f64,
 
     amplitude_target: f64,
     time_target: TimeUnit,
+
+    // Whether the amplitude was set to an explicit value during this frame,
+    // which means that the caller is expecting to get an amplitude of that
+    // exact value, which means that we should return the PRE-update value
+    // rather than the usual post-update value.
+    amplitude_was_set: bool,
 
     // Polynomial coefficients for convex
     convex_a: f64,
@@ -78,51 +114,66 @@ impl GeneratesEnvelope for SimpleEnvelope {
         self.note_off_pending = true;
     }
 
-    fn tick(&mut self, clock: &Clock) -> Normal {
-        let current_time = TimeUnit(clock.seconds() as f64);
+    fn amplitude(&self) -> Normal {
+        self.corrected_amplitude
+    }
 
-        // 1. Handle queued events
-        self.handle_pending(current_time);
-
-        // 2. Calculate current amplitude
-        let amplitude = match self.state {
-            SimpleEnvelopeState::Attack => {
-                self.transform_linear_to_convex(self.amplitude.current_sum())
-            }
-            SimpleEnvelopeState::Decay | SimpleEnvelopeState::Release => {
-                self.transform_linear_to_concave(self.amplitude.current_sum())
-            }
-            _ => self.amplitude.current_sum(),
-        };
-
-        // 3. Update for next time slice
-        self.update_amplitude();
-        self.handle_state(current_time);
-
-        Normal::new(amplitude)
+    fn batch_amplitude(&mut self, buffer: &mut [Normal]) {
+        todo!()
     }
 
     fn is_idle(&self) -> bool {
         matches!(self.state, SimpleEnvelopeState::Idle)
     }
 }
+impl Ticks for SimpleEnvelope {
+    fn reset(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate as f64;
+        // TODO: reset stuff
+    }
+
+    fn tick(&mut self, tick_count: usize) {
+        self.ticks += 1;
+        self.time = TimeUnit(self.ticks as f64 / self.sample_rate);
+
+        self.handle_pending();
+        let pre_update_amplitude = self.uncorrected_amplitude.current_sum();
+        self.update_amplitude();
+        self.handle_state();
+
+        let linear_amplitude = if self.amplitude_was_set {
+            self.amplitude_was_set = false;
+            pre_update_amplitude
+        } else {
+            self.uncorrected_amplitude.current_sum()
+        };
+        self.corrected_amplitude = Normal::new(match self.state {
+            SimpleEnvelopeState::Attack => self.transform_linear_to_convex(linear_amplitude),
+            SimpleEnvelopeState::Decay | SimpleEnvelopeState::Release => {
+                self.transform_linear_to_concave(linear_amplitude)
+            }
+            _ => linear_amplitude,
+        });
+    }
+}
 impl SimpleEnvelope {
-    fn handle_pending(&mut self, current_time: TimeUnit) {
+    /// returns true if the amplitude was set to a new value.
+    fn handle_pending(&mut self) {
         // We need to be careful when we've been asked to do a note-on and
         // note-off at the same time. Depending on whether we're active, we
         // handle this differently.
         if self.note_on_pending && self.note_off_pending {
             if self.is_idle() {
-                self.set_state(SimpleEnvelopeState::Attack, current_time);
-                self.set_state(SimpleEnvelopeState::Release, current_time);
+                self.set_state(SimpleEnvelopeState::Attack);
+                self.set_state(SimpleEnvelopeState::Release);
             } else {
-                self.set_state(SimpleEnvelopeState::Release, current_time);
-                self.set_state(SimpleEnvelopeState::Attack, current_time);
+                self.set_state(SimpleEnvelopeState::Release);
+                self.set_state(SimpleEnvelopeState::Attack);
             }
         } else if self.note_off_pending {
-            self.set_state(SimpleEnvelopeState::Release, current_time);
+            self.set_state(SimpleEnvelopeState::Release);
         } else if self.note_on_pending {
-            self.set_state(SimpleEnvelopeState::Attack, current_time);
+            self.set_state(SimpleEnvelopeState::Attack);
         }
         self.note_off_pending = false;
         self.note_on_pending = false;
@@ -138,41 +189,41 @@ impl SimpleEnvelope {
     }
 
     fn update_amplitude(&mut self) {
-        self.amplitude.add(self.delta);
+        self.uncorrected_amplitude.add(self.delta);
     }
 
-    fn handle_state(&mut self, current_time: TimeUnit) {
+    fn handle_state(&mut self) {
         match self.state {
             SimpleEnvelopeState::Idle => {
                 // Nothing to do; we're waiting for a trigger
             }
             SimpleEnvelopeState::Attack => {
-                if self.has_reached_target(current_time) {
-                    self.set_state(SimpleEnvelopeState::Decay, current_time);
+                if self.has_reached_target() {
+                    self.set_state(SimpleEnvelopeState::Decay);
                 }
             }
             SimpleEnvelopeState::Decay => {
-                if self.has_reached_target(current_time) {
-                    self.set_state(SimpleEnvelopeState::Sustain, current_time);
+                if self.has_reached_target() {
+                    self.set_state(SimpleEnvelopeState::Sustain);
                 }
             }
             SimpleEnvelopeState::Sustain => {
                 // Nothing to do; we're waiting for a note-off event
             }
             SimpleEnvelopeState::Release => {
-                if self.has_reached_target(current_time) {
-                    self.set_state(SimpleEnvelopeState::Idle, current_time);
+                if self.has_reached_target() {
+                    self.set_state(SimpleEnvelopeState::Idle);
                 }
             }
         }
     }
 
-    fn has_reached_target(&mut self, current_time: TimeUnit) -> bool {
+    fn has_reached_target(&mut self) -> bool {
         let has_hit_target = if self.delta == 0.0 {
             // This is probably a degenerate case, but we don't want to be stuck
             // forever in the current state.
             true
-        } else if self.time_target.0 != 0.0 && current_time >= self.time_target {
+        } else if self.time_target.0 != 0.0 && self.time >= self.time_target {
             // If we have a time target and we've hit it, then we're done even
             // if the amplitude isn't quite there yet.
             true
@@ -180,12 +231,16 @@ impl SimpleEnvelope {
             // Is the difference between the current value and the target
             // smaller than the delta? This is a fancy way of saying we're as
             // close as we're going to get without overshooting the next time.
-            (self.amplitude.current_sum() - self.amplitude_target).abs() < self.delta.abs()
+            (self.uncorrected_amplitude.current_sum() - self.amplitude_target).abs()
+                < self.delta.abs()
         };
 
         if has_hit_target {
-            // Set to the exact amplitude target in case of precision errors.
-            self.amplitude.set_sum(self.amplitude_target);
+            // Set to the exact amplitude target in case of precision errors. We
+            // don't want to set self.amplitude_was_set here because this is
+            // happening after the update, so we'll already be returning the
+            // amplitude snapshotted at the right time.
+            self.uncorrected_amplitude.set_sum(self.amplitude_target);
         }
         has_hit_target
     }
@@ -195,28 +250,27 @@ impl SimpleEnvelope {
     // matters, for example, if attack is zero and decay is non-zero. If we jump
     // straight from idle to decay, then decay is decaying from the idle
     // amplitude of zero, which is wrong.
-    fn set_state(&mut self, new_state: SimpleEnvelopeState, current_time: TimeUnit) {
+    fn set_state(&mut self, new_state: SimpleEnvelopeState) {
         match new_state {
             SimpleEnvelopeState::Idle => {
                 self.state = SimpleEnvelopeState::Idle;
-                self.amplitude = Default::default();
+                self.uncorrected_amplitude = Default::default();
                 self.delta = 0.0;
             }
             SimpleEnvelopeState::Attack => {
                 if self.settings.attack as f64 == TimeUnit::zero().0 {
-                    self.amplitude.set_sum(Normal::MAX);
-                    self.set_state(SimpleEnvelopeState::Decay, current_time);
+                    self.set_explicit_amplitude(Normal::MAX);
+                    self.set_state(SimpleEnvelopeState::Decay);
                 } else {
                     self.state = SimpleEnvelopeState::Attack;
                     let target_amplitude = Normal::maximum().value();
                     self.set_target(
-                        current_time,
                         Normal::maximum(),
                         TimeUnit(self.settings.attack as f64),
                         false,
-                        true,
+                        false,
                     );
-                    let current_amplitude = self.amplitude.current_sum();
+                    let current_amplitude = self.uncorrected_amplitude.current_sum();
 
                     (self.convex_a, self.convex_b, self.convex_c) = Self::calculate_coefficients(
                         current_amplitude,
@@ -230,19 +284,18 @@ impl SimpleEnvelope {
             }
             SimpleEnvelopeState::Decay => {
                 if self.settings.decay as f64 == TimeUnit::zero().0 {
-                    self.amplitude.set_sum(self.settings.sustain as f64);
-                    self.set_state(SimpleEnvelopeState::Sustain, current_time);
+                    self.set_explicit_amplitude(self.settings.sustain as f64);
+                    self.set_state(SimpleEnvelopeState::Sustain);
                 } else {
                     self.state = SimpleEnvelopeState::Decay;
                     let target_amplitude = self.settings.sustain as f64;
                     self.set_target(
-                        current_time,
                         Normal::new(target_amplitude),
                         TimeUnit(self.settings.decay as f64),
                         true,
                         false,
                     );
-                    let current_amplitude = self.amplitude.current_sum();
+                    let current_amplitude = self.uncorrected_amplitude.current_sum();
                     (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
                         current_amplitude,
                         current_amplitude,
@@ -257,7 +310,6 @@ impl SimpleEnvelope {
                 self.state = SimpleEnvelopeState::Sustain;
 
                 self.set_target(
-                    current_time,
                     Normal::new(self.settings.sustain as f64),
                     TimeUnit::infinite(),
                     false,
@@ -266,19 +318,18 @@ impl SimpleEnvelope {
             }
             SimpleEnvelopeState::Release => {
                 if self.settings.release as f64 == TimeUnit::zero().0 {
-                    self.amplitude.set_sum(Normal::MAX);
-                    self.set_state(SimpleEnvelopeState::Idle, current_time);
+                    self.set_explicit_amplitude(Normal::MAX);
+                    self.set_state(SimpleEnvelopeState::Idle);
                 } else {
                     self.state = SimpleEnvelopeState::Release;
                     let target_amplitude = 0.0;
                     self.set_target(
-                        current_time,
                         Normal::minimum(),
                         TimeUnit(self.settings.release as f64),
                         true,
-                        true,
+                        false,
                     );
-                    let current_amplitude = self.amplitude.current_sum();
+                    let current_amplitude = self.uncorrected_amplitude.current_sum();
                     (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
                         current_amplitude,
                         current_amplitude,
@@ -292,9 +343,13 @@ impl SimpleEnvelope {
         }
     }
 
+    fn set_explicit_amplitude(&mut self, new_value: f64) {
+        self.uncorrected_amplitude.set_sum(new_value);
+        self.amplitude_was_set = true;
+    }
+
     fn set_target(
         &mut self,
-        current_time: TimeUnit,
         target_amplitude: Normal,
         duration: TimeUnit,
         calculate_for_full_amplitude_range: bool,
@@ -306,16 +361,16 @@ impl SimpleEnvelope {
             let range = if calculate_for_full_amplitude_range {
                 -1.0
             } else {
-                self.amplitude_target - self.amplitude.current_sum()
+                self.amplitude_target - self.uncorrected_amplitude.current_sum()
             };
-            self.time_target = current_time + duration;
+            self.time_target = self.time + duration;
             self.delta = if duration != TimeUnit::zero() {
                 range / (duration.0 * self.sample_rate + fast_reaction_extra_frame) as f64
             } else {
                 0.0
             };
             if fast_reaction {
-                self.amplitude.add(self.delta);
+                self.uncorrected_amplitude.add(self.delta);
             }
         } else {
             self.time_target = TimeUnit::infinite();
@@ -541,7 +596,7 @@ mod tests {
         /// returned by tick(), which is in between pending events but after
         /// updating for the time slice.
         fn debug_amplitude(&self) -> Normal {
-            Normal::new(self.amplitude.current_sum())
+            Normal::new(self.uncorrected_amplitude.current_sum())
         }
     }
 
@@ -667,11 +722,11 @@ mod tests {
 
         assert!(e.is_idle(), "Envelope should be idle on creation.");
 
-        let amplitude = e.tick(&clock);
+        e.tick(1);
         clock.tick();
         assert!(e.is_idle(), "Untriggered envelope should remain idle.");
         assert_eq!(
-            amplitude.value(),
+            e.amplitude().value(),
             0.0,
             "Untriggered envelope should remain amplitude zero."
         );
@@ -686,14 +741,15 @@ mod tests {
     where
         F: FnMut(f64),
     {
-        let mut amplitude;
+        let mut amplitude: Normal = Normal::new(0.0);
         loop {
-            amplitude = envelope.tick(&clock);
+            envelope.tick(1);
             let should_continue = clock.seconds() < time_marker;
             clock.tick();
             if !should_continue {
                 break;
             }
+            amplitude = envelope.amplitude();
             test(amplitude.value());
         }
         amplitude
@@ -704,7 +760,7 @@ mod tests {
         let (_envelope_settings, mut clock, mut e) = get_ge_trait_stuff();
 
         e.enqueue_attack();
-        let mut amplitude = e.tick(&clock);
+        e.tick(1);
         clock.tick();
         assert!(
             !e.is_idle(),
@@ -717,11 +773,11 @@ mod tests {
         // a good thing; it objectively makes attack laggy (in this case 16
         // samples late!).
         for _ in 0..17 {
-            amplitude = e.tick(&clock);
+            e.tick(1);
             clock.tick();
         }
         assert_gt!(
-            amplitude.value(),
+            e.amplitude().value(),
             0.0,
             "Envelope amplitude should increase immediately upon trigger"
         );
@@ -740,7 +796,7 @@ mod tests {
         let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
 
         envelope.enqueue_attack();
-        envelope.tick(&clock);
+        envelope.tick(1);
         let mut time_marker = clock.seconds() + envelope_settings.attack;
         assert!(
             matches!(envelope.debug_state(), SimpleEnvelopeState::Attack),
@@ -782,7 +838,7 @@ mod tests {
         let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
 
         envelope.enqueue_attack();
-        envelope.tick(&clock);
+        envelope.tick(1);
         let mut time_marker =
             clock.seconds() + envelope_settings.attack + envelope_settings.expected_decay_time();
         clock.tick();
@@ -839,11 +895,11 @@ mod tests {
         let mut clock = Clock::default();
         let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
 
-        let amplitude = envelope.tick(&clock);
+        envelope.tick(1);
         clock.tick();
 
         assert_eq!(
-            amplitude,
+            envelope.amplitude(),
             Normal::minimum(),
             "Amplitude should start at zero"
         );
@@ -851,18 +907,24 @@ mod tests {
         // See https://floating-point-gui.de/errors/comparison/ for standard
         // warning about comparing floats and looking for epsilons.
         envelope.enqueue_attack();
-        let amplitude = envelope.tick(&clock);
+        envelope.tick(1);
         let mut time_marker = clock.seconds();
         clock.tick();
         assert!(
-            approx_eq!(f64, amplitude.value(), Normal::maximum().value(), ulps = 8),
-            "Amplitude should reach peak upon trigger"
+            approx_eq!(
+                f64,
+                envelope.amplitude().value(),
+                Normal::maximum().value(),
+                ulps = 8
+            ),
+            "Amplitude should reach peak upon trigger, but instead of {} we got {}",
+            Normal::maximum().value(),
+            envelope.amplitude().value(),
         );
-
-        let amplitude = envelope.tick(&clock);
+        envelope.tick(1);
         clock.tick();
         assert_lt!(
-            amplitude,
+            envelope.amplitude(),
             Normal::maximum(),
             "Zero-attack amplitude should begin decreasing immediately after peak"
         );
@@ -878,16 +940,21 @@ mod tests {
 
         // Release the trigger.
         envelope.enqueue_release();
-        let _amplitude = envelope.tick(&clock);
+        let _amplitude = envelope.tick(1);
         clock.tick();
 
         // And hit it again.
         envelope.enqueue_attack();
-        let amplitude = envelope.tick(&clock);
+        envelope.tick(1);
         let mut time_marker = clock.seconds();
         clock.tick();
         assert!(
-            approx_eq!(f64, amplitude.value(), Normal::maximum().value(), ulps = 8),
+            approx_eq!(
+                f64,
+                envelope.amplitude().value(),
+                Normal::maximum().value(),
+                ulps = 8
+            ),
             "Amplitude should reach peak upon second trigger"
         );
 
@@ -896,7 +963,7 @@ mod tests {
 
         // Check that we keep decreasing amplitude to zero, not to sustain.
         time_marker += envelope_settings.release;
-        let mut last_amplitude = amplitude.value();
+        let mut last_amplitude = envelope.amplitude().value();
         let _amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
             assert_lt!(
                 inner_amplitude,

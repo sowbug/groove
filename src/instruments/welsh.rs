@@ -1,5 +1,5 @@
 use super::{
-    envelopes::{GeneratesEnvelope, SimpleEnvelope},
+    envelopes::{GeneratesEnvelope, SimpleEnvelope, Ticks},
     oscillators::Oscillator,
     Dca, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
@@ -543,9 +543,11 @@ impl WelshVoice {
         }
     }
 
-    fn tick_envelopes(&mut self, clock: &Clock) -> (Normal, Normal) {
-        let amp_amplitude = self.amp_envelope.tick(clock);
-        let filter_amplitude = self.filter_envelope.tick(clock);
+    fn tick_envelopes(&mut self) -> (Normal, Normal) {
+        self.amp_envelope.tick(1);
+        let amp_amplitude = self.amp_envelope.amplitude();
+        self.filter_envelope.tick(1);
+        let filter_amplitude = self.filter_envelope.amplitude();
 
         // TODO: I think this is setting is_playing a tick too early, but when I
         // moved it, it broke something else (the synth was deleting the note
@@ -582,7 +584,7 @@ impl SourcesAudio for WelshVoice {
         //
         // TODO: this seems like an implementation detail that maybe should be
         // hidden from the caller.
-        let (amp_env_amplitude, filter_env_amplitude) = self.tick_envelopes(clock);
+        let (amp_env_amplitude, filter_env_amplitude) = self.tick_envelopes();
 
         if !self.is_playing() {
             return StereoSample::SILENCE;
@@ -768,13 +770,13 @@ mod tests {
                 last_recognized_time_point = clock.seconds();
                 voice.enqueue_note_on(127);
                 voice.handle_pending_note_events();
-                voice.tick_envelopes(&clock);
+                voice.tick_envelopes();
             } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
             {
                 last_recognized_time_point = clock.seconds();
                 voice.enqueue_note_off(127);
                 voice.handle_pending_note_events();
-                voice.tick_envelopes(&clock);
+                voice.tick_envelopes();
             }
 
             let sample = voice.source_audio(&clock);
@@ -849,7 +851,7 @@ mod tests {
                 is_message_sent = true;
                 source.enqueue_note_off(0);
                 source.handle_pending_note_events();
-                source.tick_envelopes(&clock);
+                source.tick_envelopes();
             }
             let sample = source.source_audio(clock);
             let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
@@ -959,7 +961,7 @@ mod tests {
         voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
         voice.enqueue_note_on(127);
         voice.handle_pending_note_events();
-        voice.tick_envelopes(&clock);
+        voice.tick_envelopes();
         write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
     }
 
@@ -970,7 +972,7 @@ mod tests {
         voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
         voice.enqueue_note_on(127);
         voice.handle_pending_note_events();
-        voice.tick_envelopes(&clock);
+        voice.tick_envelopes();
         write_sound(&mut voice, &mut clock, 5.0, 1.0, "voice_cello_c4");
     }
 }

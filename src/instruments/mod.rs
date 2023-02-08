@@ -12,7 +12,7 @@ use std::str::FromStr;
 use std::{collections::HashMap, fmt::Debug};
 use strum_macros::{Display, EnumString, FromRepr};
 
-use self::envelopes::{GeneratesEnvelope, SimpleEnvelope};
+use self::envelopes::{GeneratesEnvelope, SimpleEnvelope, Ticks};
 
 pub(crate) mod drumkit_sampler;
 pub(crate) mod envelopes;
@@ -217,7 +217,8 @@ impl PlaysNotes for SimpleVoice {
 impl SourcesAudio for SimpleVoice {
     fn source_audio(&mut self, clock: &Clock) -> StereoSample {
         self.handle_pending_note_events();
-        let r = self.oscillator.source_signal(clock).value() * self.envelope.tick(clock).value();
+        self.envelope.tick(1);
+        let r = self.oscillator.source_signal(clock).value() * self.envelope.amplitude().value();
         self.is_playing = !self.envelope.is_idle();
         StereoSample::from(r)
     }
@@ -448,7 +449,8 @@ impl SourcesAudio for FmVoice {
         self.carrier.set_frequency_modulation(
             self.modulator.source_signal(clock).value() as f32 * self.modulator_depth,
         );
-        let r = self.carrier.source_signal(clock).value() * self.envelope.tick(clock).value();
+        self.envelope.tick(1);
+        let r = self.carrier.source_signal(clock).value() * self.envelope.amplitude().value();
         self.is_playing = !self.envelope.is_idle();
         self.dca.transform_audio_to_stereo(clock, Sample(r))
     }
