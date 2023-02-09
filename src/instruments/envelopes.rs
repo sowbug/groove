@@ -63,7 +63,7 @@ pub trait Ticks: Send + Debug {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-enum SimpleEnvelopeState {
+enum EnvelopeGeneratorState {
     #[default]
     Idle,
     Attack,
@@ -73,12 +73,12 @@ enum SimpleEnvelopeState {
 }
 
 #[derive(Debug, Default)]
-pub struct SimpleEnvelope {
+pub struct EnvelopeGenerator {
     settings: EnvelopeSettings,
     ticks: usize,
     time: TimeUnit,
     sample_rate: f64,
-    state: SimpleEnvelopeState,
+    state: EnvelopeGeneratorState,
     uncorrected_amplitude: KahanSummation<f64, f64>,
     corrected_amplitude: Normal,
     delta: f64,
@@ -105,7 +105,7 @@ pub struct SimpleEnvelope {
     note_on_pending: bool,
     note_off_pending: bool,
 }
-impl GeneratesEnvelope for SimpleEnvelope {
+impl GeneratesEnvelope for EnvelopeGenerator {
     fn enqueue_attack(&mut self) {
         self.note_on_pending = true;
     }
@@ -119,44 +119,54 @@ impl GeneratesEnvelope for SimpleEnvelope {
     }
 
     fn batch_amplitude(&mut self, buffer: &mut [Normal]) {
-        todo!()
+        // TODO: this is probably no more efficient than calling amplitude()
+        // individually, but for now we're just getting the interface right.
+        // Later we'll take advantage of it.
+        for item in buffer {
+            self.tick(1);
+            *item = self.amplitude();
+        }
     }
 
     fn is_idle(&self) -> bool {
-        matches!(self.state, SimpleEnvelopeState::Idle)
+        matches!(self.state, EnvelopeGeneratorState::Idle)
     }
 }
-impl Ticks for SimpleEnvelope {
+impl Ticks for EnvelopeGenerator {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate as f64;
         // TODO: reset stuff
     }
 
     fn tick(&mut self, tick_count: usize) {
-        self.ticks += 1;
-        self.time = TimeUnit(self.ticks as f64 / self.sample_rate);
+        // TODO: same comment as above about not yet taking advantage of
+        // batching
+        for _ in 0..tick_count {
+            self.ticks += 1;
+            self.time = TimeUnit(self.ticks as f64 / self.sample_rate);
 
-        self.handle_pending();
-        let pre_update_amplitude = self.uncorrected_amplitude.current_sum();
-        self.update_amplitude();
-        self.handle_state();
+            self.handle_pending();
+            let pre_update_amplitude = self.uncorrected_amplitude.current_sum();
+            self.update_amplitude();
+            self.handle_state();
 
-        let linear_amplitude = if self.amplitude_was_set {
-            self.amplitude_was_set = false;
-            pre_update_amplitude
-        } else {
-            self.uncorrected_amplitude.current_sum()
-        };
-        self.corrected_amplitude = Normal::new(match self.state {
-            SimpleEnvelopeState::Attack => self.transform_linear_to_convex(linear_amplitude),
-            SimpleEnvelopeState::Decay | SimpleEnvelopeState::Release => {
-                self.transform_linear_to_concave(linear_amplitude)
-            }
-            _ => linear_amplitude,
-        });
+            let linear_amplitude = if self.amplitude_was_set {
+                self.amplitude_was_set = false;
+                pre_update_amplitude
+            } else {
+                self.uncorrected_amplitude.current_sum()
+            };
+            self.corrected_amplitude = Normal::new(match self.state {
+                EnvelopeGeneratorState::Attack => self.transform_linear_to_convex(linear_amplitude),
+                EnvelopeGeneratorState::Decay | EnvelopeGeneratorState::Release => {
+                    self.transform_linear_to_concave(linear_amplitude)
+                }
+                _ => linear_amplitude,
+            });
+        }
     }
 }
-impl SimpleEnvelope {
+impl EnvelopeGenerator {
     /// returns true if the amplitude was set to a new value.
     fn handle_pending(&mut self) {
         // We need to be careful when we've been asked to do a note-on and
@@ -164,16 +174,16 @@ impl SimpleEnvelope {
         // handle this differently.
         if self.note_on_pending && self.note_off_pending {
             if self.is_idle() {
-                self.set_state(SimpleEnvelopeState::Attack);
-                self.set_state(SimpleEnvelopeState::Release);
+                self.set_state(EnvelopeGeneratorState::Attack);
+                self.set_state(EnvelopeGeneratorState::Release);
             } else {
-                self.set_state(SimpleEnvelopeState::Release);
-                self.set_state(SimpleEnvelopeState::Attack);
+                self.set_state(EnvelopeGeneratorState::Release);
+                self.set_state(EnvelopeGeneratorState::Attack);
             }
         } else if self.note_off_pending {
-            self.set_state(SimpleEnvelopeState::Release);
+            self.set_state(EnvelopeGeneratorState::Release);
         } else if self.note_on_pending {
-            self.set_state(SimpleEnvelopeState::Attack);
+            self.set_state(EnvelopeGeneratorState::Attack);
         }
         self.note_off_pending = false;
         self.note_on_pending = false;
@@ -183,7 +193,7 @@ impl SimpleEnvelope {
         Self {
             settings: envelope_settings.clone(),
             sample_rate: sample_rate as f64,
-            state: SimpleEnvelopeState::Idle,
+            state: EnvelopeGeneratorState::Idle,
             ..Default::default()
         }
     }
@@ -194,25 +204,25 @@ impl SimpleEnvelope {
 
     fn handle_state(&mut self) {
         match self.state {
-            SimpleEnvelopeState::Idle => {
+            EnvelopeGeneratorState::Idle => {
                 // Nothing to do; we're waiting for a trigger
             }
-            SimpleEnvelopeState::Attack => {
+            EnvelopeGeneratorState::Attack => {
                 if self.has_reached_target() {
-                    self.set_state(SimpleEnvelopeState::Decay);
+                    self.set_state(EnvelopeGeneratorState::Decay);
                 }
             }
-            SimpleEnvelopeState::Decay => {
+            EnvelopeGeneratorState::Decay => {
                 if self.has_reached_target() {
-                    self.set_state(SimpleEnvelopeState::Sustain);
+                    self.set_state(EnvelopeGeneratorState::Sustain);
                 }
             }
-            SimpleEnvelopeState::Sustain => {
+            EnvelopeGeneratorState::Sustain => {
                 // Nothing to do; we're waiting for a note-off event
             }
-            SimpleEnvelopeState::Release => {
+            EnvelopeGeneratorState::Release => {
                 if self.has_reached_target() {
-                    self.set_state(SimpleEnvelopeState::Idle);
+                    self.set_state(EnvelopeGeneratorState::Idle);
                 }
             }
         }
@@ -250,19 +260,19 @@ impl SimpleEnvelope {
     // matters, for example, if attack is zero and decay is non-zero. If we jump
     // straight from idle to decay, then decay is decaying from the idle
     // amplitude of zero, which is wrong.
-    fn set_state(&mut self, new_state: SimpleEnvelopeState) {
+    fn set_state(&mut self, new_state: EnvelopeGeneratorState) {
         match new_state {
-            SimpleEnvelopeState::Idle => {
-                self.state = SimpleEnvelopeState::Idle;
+            EnvelopeGeneratorState::Idle => {
+                self.state = EnvelopeGeneratorState::Idle;
                 self.uncorrected_amplitude = Default::default();
                 self.delta = 0.0;
             }
-            SimpleEnvelopeState::Attack => {
+            EnvelopeGeneratorState::Attack => {
                 if self.settings.attack as f64 == TimeUnit::zero().0 {
                     self.set_explicit_amplitude(Normal::MAX);
-                    self.set_state(SimpleEnvelopeState::Decay);
+                    self.set_state(EnvelopeGeneratorState::Decay);
                 } else {
-                    self.state = SimpleEnvelopeState::Attack;
+                    self.state = EnvelopeGeneratorState::Attack;
                     let target_amplitude = Normal::maximum().value();
                     self.set_target(
                         Normal::maximum(),
@@ -282,12 +292,12 @@ impl SimpleEnvelope {
                     );
                 }
             }
-            SimpleEnvelopeState::Decay => {
+            EnvelopeGeneratorState::Decay => {
                 if self.settings.decay as f64 == TimeUnit::zero().0 {
                     self.set_explicit_amplitude(self.settings.sustain as f64);
-                    self.set_state(SimpleEnvelopeState::Sustain);
+                    self.set_state(EnvelopeGeneratorState::Sustain);
                 } else {
-                    self.state = SimpleEnvelopeState::Decay;
+                    self.state = EnvelopeGeneratorState::Decay;
                     let target_amplitude = self.settings.sustain as f64;
                     self.set_target(
                         Normal::new(target_amplitude),
@@ -306,8 +316,8 @@ impl SimpleEnvelope {
                     );
                 }
             }
-            SimpleEnvelopeState::Sustain => {
-                self.state = SimpleEnvelopeState::Sustain;
+            EnvelopeGeneratorState::Sustain => {
+                self.state = EnvelopeGeneratorState::Sustain;
 
                 self.set_target(
                     Normal::new(self.settings.sustain as f64),
@@ -316,12 +326,12 @@ impl SimpleEnvelope {
                     false,
                 );
             }
-            SimpleEnvelopeState::Release => {
+            EnvelopeGeneratorState::Release => {
                 if self.settings.release as f64 == TimeUnit::zero().0 {
                     self.set_explicit_amplitude(Normal::MAX);
-                    self.set_state(SimpleEnvelopeState::Idle);
+                    self.set_state(EnvelopeGeneratorState::Idle);
                 } else {
-                    self.state = SimpleEnvelopeState::Release;
+                    self.state = EnvelopeGeneratorState::Release;
                     let target_amplitude = 0.0;
                     self.set_target(
                         Normal::minimum(),
@@ -581,8 +591,8 @@ mod tests {
         }
     }
 
-    impl SimpleEnvelope {
-        fn debug_state(&self) -> &SimpleEnvelopeState {
+    impl EnvelopeGenerator {
+        fn debug_state(&self) -> &EnvelopeGeneratorState {
             &self.state
         }
 
@@ -712,7 +722,7 @@ mod tests {
             release: 0.3,
         };
         let clock = Clock::default();
-        let envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
+        let envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
         (envelope_settings, clock, envelope)
     }
 
@@ -793,20 +803,23 @@ mod tests {
         };
         // An even sample rate means we can easily calculate how much time was spent in each state.
         let mut clock = Clock::new_with_sample_rate(100);
-        let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
+        let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
         envelope.enqueue_attack();
         envelope.tick(1);
         let mut time_marker = clock.seconds() + envelope_settings.attack;
         assert!(
-            matches!(envelope.debug_state(), SimpleEnvelopeState::Attack),
+            matches!(envelope.debug_state(), EnvelopeGeneratorState::Attack),
             "Expected SimpleEnvelopeState::Attack after trigger, but got {:?} instead",
             envelope.debug_state()
         );
         clock.tick();
 
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
-        assert!(matches!(envelope.debug_state(), SimpleEnvelopeState::Decay));
+        assert!(matches!(
+            envelope.debug_state(),
+            EnvelopeGeneratorState::Decay
+        ));
         assert_eq!(
             amplitude.value(),
             1.0,
@@ -822,7 +835,7 @@ mod tests {
         );
         assert!(matches!(
             envelope.debug_state(),
-            SimpleEnvelopeState::Sustain
+            EnvelopeGeneratorState::Sustain
         ));
     }
 
@@ -835,7 +848,7 @@ mod tests {
             release: 0.3,
         };
         let mut clock = Clock::default();
-        let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
+        let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
         envelope.enqueue_attack();
         envelope.tick(1);
@@ -893,7 +906,7 @@ mod tests {
             release: 0.5,
         };
         let mut clock = Clock::default();
-        let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
+        let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
         envelope.tick(1);
         clock.tick();
@@ -1000,7 +1013,7 @@ mod tests {
             release: 0.4,
         };
         let mut clock = Clock::default();
-        let mut envelope = SimpleEnvelope::new_with(clock.sample_rate(), &envelope_settings);
+        let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
         // Decay after note-on should be shorter than the decay value.
         envelope.enqueue_attack();
@@ -1041,9 +1054,48 @@ mod tests {
     // https://docs.google.com/spreadsheets/d/1DSkut7rLG04Qx_zOy3cfI7PMRoGJVr9eaP5sDrFfppQ/edit#gid=0
     #[test]
     fn coeff() {
-        let (a, b, c) = SimpleEnvelope::calculate_coefficients(0.0, 1.0, 0.5, 0.25, 1.0, 0.0);
+        let (a, b, c) = EnvelopeGenerator::calculate_coefficients(0.0, 1.0, 0.5, 0.25, 1.0, 0.0);
         assert_eq!(a, 1.0);
         assert_eq!(b, -2.0);
         assert_eq!(c, 1.0);
+    }
+
+    #[test]
+    fn envelope_amplitude_batching() {
+        let sample_rate = Clock::default().sample_rate();
+        let envelope_settings = EnvelopeSettings {
+            attack: 0.1,
+            decay: 0.2,
+            sustain: 0.5,
+            release: 0.3,
+        };
+        let mut e = EnvelopeGenerator::new_with(sample_rate, &envelope_settings);
+
+        // Initialize the buffer with a nonsense value so we know it got
+        // overwritten by the method we're about to call.
+        //
+        // TODO: that buffer size should be pulled from somewhere centralized.
+        let mut amplitude_buffer: [Normal; 64] = [Normal::from(0.888); 64];
+
+        // The envelope starts out in the idle state, and we haven't triggered
+        // it.
+        e.batch_amplitude(&mut amplitude_buffer);
+        amplitude_buffer.iter().for_each(|i| {
+            assert_eq!(
+                i.value(),
+                Normal::MIN,
+                "Each value in untriggered EG's buffer should be set to silence"
+            );
+        });
+
+        // Now trigger the envelope and see what happened.
+        e.enqueue_attack();
+        e.batch_amplitude(&mut amplitude_buffer);
+        assert!(
+            amplitude_buffer
+                .iter()
+                .any(|i| { i.value() != Normal::MIN }),
+            "Once triggered, the EG should generate non-silent values"
+        );
     }
 }

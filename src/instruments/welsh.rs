@@ -1,5 +1,5 @@
 use super::{
-    envelopes::{GeneratesEnvelope, SimpleEnvelope, Ticks},
+    envelopes::{EnvelopeGenerator, GeneratesEnvelope, Ticks},
     oscillators::Oscillator,
     Dca, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
@@ -414,7 +414,7 @@ impl WelshSynth {
 pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
     oscillator_2_sync: bool,
-    amp_envelope: SimpleEnvelope,
+    amp_envelope: EnvelopeGenerator,
     dca: Dca,
 
     lfo: Oscillator,
@@ -424,7 +424,7 @@ pub struct WelshVoice {
     filter: BiQuadFilter,
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
-    filter_envelope: SimpleEnvelope,
+    filter_envelope: EnvelopeGenerator,
 
     is_playing: bool,
     note_on_is_pending: bool,
@@ -475,7 +475,7 @@ impl PlaysNotes for WelshVoice {
 impl WelshVoice {
     pub fn new_with(sample_rate: usize, preset: &SynthPatch) -> Self {
         let mut r = Self {
-            amp_envelope: SimpleEnvelope::new_with(sample_rate, &preset.amp_envelope),
+            amp_envelope: EnvelopeGenerator::new_with(sample_rate, &preset.amp_envelope),
 
             lfo: Oscillator::new_lfo(&preset.lfo),
             lfo_routing: preset.lfo.routing,
@@ -492,7 +492,7 @@ impl WelshVoice {
                 preset.filter_type_12db.cutoff_hz,
             ),
             filter_cutoff_end: preset.filter_envelope_weight,
-            filter_envelope: SimpleEnvelope::new_with(sample_rate, &preset.filter_envelope),
+            filter_envelope: EnvelopeGenerator::new_with(sample_rate, &preset.filter_envelope),
             ..Default::default()
         };
         if !matches!(preset.oscillator_1.waveform, WaveformType::None) {

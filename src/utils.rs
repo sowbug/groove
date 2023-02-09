@@ -3,7 +3,7 @@ use crate::{
     common::F32ControlValue,
     common::SampleType,
     instruments::{
-        envelopes::{GeneratesEnvelope, SimpleEnvelope},
+        envelopes::{EnvelopeGenerator, GeneratesEnvelope},
         oscillators::Oscillator,
         HandlesMidi,
     },
@@ -223,7 +223,7 @@ impl TestSynth {
     fn new() -> Self {
         Self::new_with(
             Box::new(Oscillator::default()),
-            Box::new(SimpleEnvelope::default()),
+            Box::new(EnvelopeGenerator::default()),
         )
     }
     pub fn new_with(oscillator: Box<Oscillator>, envelope: Box<dyn GeneratesEnvelope>) -> Self {
@@ -254,7 +254,7 @@ impl Default for TestSynth {
             uid: 0,
             oscillator_modulation: Default::default(),
             oscillator: Box::new(Oscillator::default()),
-            envelope: Box::new(SimpleEnvelope::default()),
+            envelope: Box::new(EnvelopeGenerator::default()),
         }
     }
 }

@@ -12,7 +12,7 @@ use std::str::FromStr;
 use std::{collections::HashMap, fmt::Debug};
 use strum_macros::{Display, EnumString, FromRepr};
 
-use self::envelopes::{GeneratesEnvelope, SimpleEnvelope, Ticks};
+use self::envelopes::{EnvelopeGenerator, GeneratesEnvelope, Ticks};
 
 pub(crate) mod drumkit_sampler;
 pub(crate) mod envelopes;
@@ -171,7 +171,7 @@ impl<V: IsVoice> HandlesMidi for Synthesizer<V> {
 #[derive(Debug, Default)]
 pub struct SimpleVoice {
     oscillator: Oscillator,
-    envelope: SimpleEnvelope,
+    envelope: EnvelopeGenerator,
 
     is_playing: bool,
     note_on_is_pending: bool,
@@ -397,7 +397,7 @@ pub struct FmVoice {
     carrier: Oscillator,
     modulator: Oscillator,
     modulator_depth: f32,
-    envelope: SimpleEnvelope,
+    envelope: EnvelopeGenerator,
     dca: Dca,
 
     is_playing: bool,
@@ -461,7 +461,7 @@ impl Default for FmVoice {
             carrier: Default::default(),
             modulator: Default::default(),
             modulator_depth: 0.2,
-            envelope: SimpleEnvelope::new_with(
+            envelope: EnvelopeGenerator::new_with(
                 Clock::default().sample_rate(),
                 &EnvelopeSettings {
                     attack: 0.1,
