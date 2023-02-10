@@ -1,6 +1,7 @@
 use crate::clock::Clock;
 use crate::clock::ClockTimeUnit;
 use crate::common::{F32ControlValue, Sample, StereoSample};
+use crate::instruments::oscillators::GeneratesSignal;
 use crate::instruments::{Dca, HandlesMidi};
 use crate::messages::EntityMessage;
 use crate::{
@@ -460,13 +461,14 @@ impl TestEffect {
 ///
 /// To act as a controller target, it has two parameters: Oscillator waveform
 /// and frequency.
-#[derive(Control, Debug, Default)]
+#[derive(Control, Debug)]
 pub struct TestInstrument {
     uid: usize,
+    sample_rate: usize,
 
     /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
     #[controllable]
-    pub waveform: PhantomData<WaveformType>,
+    pub waveform: PhantomData<WaveformType>, // interesting use of PhantomData
 
     #[controllable]
     pub fake_value: f32,
@@ -538,25 +540,41 @@ impl TestsValues for TestInstrument {
     }
 }
 impl TestInstrument {
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
+    pub fn new_with(sample_rate: usize) -> Self {
+        let mut r = Self {
+            uid: Default::default(),
+            waveform: Default::default(),
+            sample_rate,
+            fake_value: Default::default(),
+            oscillator: Oscillator::new_with(sample_rate),
+            dca: Default::default(),
+            is_playing: Default::default(),
+            received_count: Default::default(),
+            handled_count: Default::default(),
+            checkpoint_values: Default::default(),
+            checkpoint: Default::default(),
+            checkpoint_delta: Default::default(),
+            time_unit: Default::default(),
+            debug_messages: Default::default(),
+        };
+        r.sample_rate = sample_rate;
+
+        r
     }
 
     pub fn new_with_test_values(
+        sample_rate: usize,
         values: &[f32],
         checkpoint: f32,
         checkpoint_delta: f32,
         time_unit: ClockTimeUnit,
     ) -> Self {
-        Self {
-            checkpoint_values: VecDeque::from(Vec::from(values)),
-            checkpoint,
-            checkpoint_delta,
-            time_unit,
-            ..Default::default()
-        }
+        let mut r = Self::new_with(sample_rate);
+        r.checkpoint_values = VecDeque::from(Vec::from(values));
+        r.checkpoint = checkpoint;
+        r.checkpoint_delta = checkpoint_delta;
+        r.time_unit = time_unit;
+        r
     }
 
     #[allow(dead_code)]
@@ -593,6 +611,10 @@ impl TestInstrument {
 
 impl SourcesAudio for TestInstrument {
     fn source_audio(&mut self, clock: &Clock) -> StereoSample {
+        if clock.was_reset() {
+            self.oscillator.reset(self.sample_rate);
+        }
+        self.oscillator.tick(1);
         // If we've been asked to assert values at checkpoints, do so.
         if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
         {
@@ -602,10 +624,8 @@ impl SourcesAudio for TestInstrument {
             self.checkpoint_values.pop_front();
         }
         if self.is_playing {
-            self.dca.transform_audio_to_stereo(
-                clock,
-                Sample::from(self.oscillator.source_signal(clock).value()),
-            )
+            self.dca
+                .transform_audio_to_stereo(clock, Sample::from(self.oscillator.signal_value()))
         } else {
             StereoSample::SILENCE
         }
@@ -625,7 +645,7 @@ pub mod tests {
     // for non-consecutive time slices.
     #[test]
     fn test_sources_audio_random_access() {
-        let mut instrument = TestInstrument::default();
+        let mut instrument = TestInstrument::new_with(Clock::DEFAULT_SAMPLE_RATE);
         for _ in 0..100 {
             let mut clock = Clock::default();
             clock.set_samples(random());

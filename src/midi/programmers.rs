@@ -388,7 +388,7 @@ mod tests {
         ]);
         programmer.insert_pattern_at_cursor(&mut sequencer, &INSTRUMENT_MIDI_CHANNEL, &pattern);
 
-        let midi_recorder = Box::new(TestInstrument::default());
+        let midi_recorder = Box::new(TestInstrument::new_with(Clock::DEFAULT_SAMPLE_RATE));
         let midi_recorder_uid = o.add(None, BoxedEntity::TestInstrument(midi_recorder));
         o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
 

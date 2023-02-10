@@ -107,7 +107,7 @@ impl SongSettings {
                 }
                 DeviceSettings::Controller(id, settings) => {
                     let (channel_in, _channel_out, entity) =
-                        settings.instantiate(load_only_test_entities);
+                        settings.instantiate(sample_rate, load_only_test_entities);
                     let uid = orchestrator.add(Some(id), entity);
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);

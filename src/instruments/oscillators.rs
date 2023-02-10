@@ -1,14 +1,27 @@
 use crate::{
     common::{F32ControlValue, SignalType},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::Controllable,
-    BipolarNormal, Clock, Normal,
+    traits::{Controllable, Ticks},
+    BipolarNormal, Normal,
 };
 use groove_macros::Control;
 use more_asserts::debug_assert_lt;
 use std::f64::consts::PI;
+use std::fmt::Debug;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
+
+/// Describes something that generates a SignalType over time.
+pub trait GeneratesSignal: Send + Debug + Ticks {
+    /// Returns the current signal value(). This value is valid for the current
+    /// frame once Ticks::tick() has been called for that frame.
+    fn signal_value(&self) -> SignalType;
+
+    /// The batch version of signal_value(). Note that it will call tick() on
+    /// its own before putting the signal value in the buffer, which is why this
+    /// method takes a mutable receiver, but signal_value() doesn't.
+    fn batch_signal_value(&mut self, signals: &mut [SignalType]);
+}
 
 /// https://en.wikipedia.org/wiki/Kahan_summation_algorithm
 ///
@@ -78,9 +91,17 @@ pub struct Oscillator {
     /// 0..1.0: volume
     mix: Normal,
 
-    // working variables to generate semi-deterministic noise.
+    /// working variables to generate semi-deterministic noise.
     noise_x1: u32,
     noise_x2: u32,
+
+    /// An internal copy of the current sample rate.
+    sample_rate: usize,
+
+    /// The internal clock. Advances once per tick().
+    ticks: usize,
+
+    signal_value: SignalType,
 
     // It's important for us to remember the "cursor" in the current waveform,
     // because the frequency can change over time, so recalculating the position
@@ -105,8 +126,38 @@ pub struct Oscillator {
     // to the start.
     is_sync_pending: bool,
 }
-impl Default for Oscillator {
-    fn default() -> Self {
+impl GeneratesSignal for Oscillator {
+    fn signal_value(&self) -> SignalType {
+        self.signal_value
+    }
+
+    fn batch_signal_value(&mut self, signals: &mut [SignalType]) {
+        todo!()
+    }
+}
+impl Ticks for Oscillator {
+    fn reset(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
+        self.ticks = 0; // TODO: this might not be the right thing to do
+
+        self.update_delta();
+        self.cycle_position
+            .set_sum((self.delta * self.ticks as f64).fract());
+    }
+
+    fn tick(&mut self, tick_count: usize) {
+        for _ in 0..tick_count {
+            self.ticks += 1;
+            let cycle_position = self.calculate_cycle_position();
+            let waveform = self.waveform;
+            let amplitude_for_position = self.amplitude_for_position(&waveform, cycle_position);
+            self.signal_value = BipolarNormal::from(self.mix.scale(amplitude_for_position)).value();
+        }
+    }
+}
+
+impl Oscillator {
+    pub fn new_with(sample_rate: usize) -> Self {
         Self {
             // See the _pola test. I kept running into non-bugs where I had a
             // default oscillator in a chain, and wasted time debugging why the
@@ -120,60 +171,54 @@ impl Default for Oscillator {
 
             mix: Normal::maximum(),
             frequency: 440.0,
-            fixed_frequency: 0.0,
+            fixed_frequency: Default::default(),
             frequency_tune: 1.0,
-            frequency_modulation: 0.0,
+            frequency_modulation: Default::default(),
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
+            sample_rate,
+            ticks: Default::default(),
+            signal_value: Default::default(),
             cycle_position: Default::default(),
-            delta: 0.0,
+            delta: Default::default(),
             delta_needs_update: true,
-            should_sync_after_this_sample: false,
-            is_sync_pending: false,
-        }
-    }
-}
-
-impl Oscillator {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
+            should_sync_after_this_sample: Default::default(),
+            is_sync_pending: Default::default(),
         }
     }
 
-    pub fn new_with(waveform: WaveformType) -> Self {
-        Self {
-            waveform,
-            ..Default::default()
-        }
+    pub fn new_with_waveform(sample_rate: usize, waveform: WaveformType) -> Self {
         // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5
         // is Square.
+        let mut r = Self::new_with(sample_rate);
+        r.waveform = waveform;
+        r
     }
 
-    pub(crate) fn new_with_type_and_frequency(waveform: WaveformType, frequency: f32) -> Self {
-        Self {
-            waveform,
-            frequency: frequency as f64,
-            ..Default::default()
-        }
+    pub(crate) fn new_with_type_and_frequency(
+        sample_rate: usize,
+        waveform: WaveformType,
+        frequency: f32,
+    ) -> Self {
+        let mut r = Self::new_with(sample_rate);
+        r.waveform = waveform;
+        r.frequency = frequency as f64;
+        r
     }
 
-    pub fn new_from_preset(preset: &OscillatorSettings) -> Self {
-        Self {
-            waveform: preset.waveform,
-            mix: Normal::from(preset.mix as f64),
-            frequency_tune: preset.tune.into(),
-            ..Default::default()
-        }
+    pub fn new_from_preset(sample_rate: usize, preset: &OscillatorSettings) -> Self {
+        let mut r = Self::new_with(sample_rate);
+        r.waveform = preset.waveform;
+        r.mix = Normal::from(preset.mix as f64);
+        r.frequency_tune = preset.tune.into();
+        r
     }
 
-    pub fn new_lfo(lfo_preset: &LfoPreset) -> Self {
-        Self {
-            waveform: lfo_preset.waveform,
-            frequency: lfo_preset.frequency as f64,
-            ..Default::default()
-        }
+    pub fn new_lfo(sample_rate: usize, lfo_preset: &LfoPreset) -> Self {
+        let mut r = Self::new_with(sample_rate);
+        r.waveform = lfo_preset.waveform;
+        r.frequency = lfo_preset.frequency as f64;
+        r
     }
 
     fn adjusted_frequency(&self) -> f64 {
@@ -220,37 +265,20 @@ impl Oscillator {
         self.should_sync_after_this_sample
     }
 
-    pub fn source_signal(&mut self, clock: &Clock) -> BipolarNormal {
-        self.check_for_clock_reset(clock);
-        let cycle_position = self.calculate_cycle_position(clock);
-        let waveform = self.waveform;
-        let amplitude_for_position = self.amplitude_for_position(&waveform, cycle_position);
-        BipolarNormal::from(self.mix.scale(amplitude_for_position))
-    }
-
     pub(crate) fn sync(&mut self) {
         self.is_sync_pending = true;
     }
 
-    fn check_for_clock_reset(&mut self, clock: &Clock) {
-        if clock.was_reset() {
-            self.update_delta(clock);
-
-            self.cycle_position
-                .set_sum((self.delta * clock.samples() as f64).fract());
-        }
-    }
-
-    fn update_delta(&mut self, clock: &Clock) {
+    fn update_delta(&mut self) {
         if self.delta_needs_update {
-            self.delta = self.adjusted_frequency() / clock.sample_rate() as f64;
+            self.delta = self.adjusted_frequency() / self.sample_rate as f64;
             self.cycle_position.reset_compensation();
             self.delta_needs_update = false;
         }
     }
 
-    fn calculate_cycle_position(&mut self, clock: &Clock) -> f64 {
-        self.update_delta(clock);
+    fn calculate_cycle_position(&mut self) -> f64 {
+        self.update_delta();
 
         // Process any sync() calls since last tick. The point of sync() is to
         // restart the synced oscillator's cycle, so position zero is correct.
@@ -339,8 +367,10 @@ mod tests {
     use super::{Oscillator, WaveformType};
     use crate::{
         clock::Clock,
+        instruments::oscillators::GeneratesSignal,
         midi::{MidiNote, MidiUtils},
         settings::patches::{OscillatorSettings, OscillatorTune},
+        traits::Ticks,
         utils::tests::{render_signal_as_audio_source, samples_match_known_good_wav_file},
         Paths,
     };
@@ -351,25 +381,30 @@ mod tests {
         tune: OscillatorTune,
         note: MidiNote,
     ) -> Oscillator {
-        let mut oscillator = Oscillator::new_from_preset(&OscillatorSettings {
-            waveform,
-            tune,
-            ..Default::default()
-        });
+        let sample_rate = Clock::DEFAULT_SAMPLE_RATE;
+        let mut oscillator = Oscillator::new_from_preset(
+            sample_rate,
+            &OscillatorSettings {
+                waveform,
+                tune,
+                ..Default::default()
+            },
+        );
         oscillator.set_frequency(MidiUtils::note_type_to_frequency(note));
         oscillator
     }
 
     #[test]
     fn test_oscillator_pola() {
-        let mut oscillator = Oscillator::default();
-        let mut clock = Clock::default();
+        let mut oscillator = Oscillator::new_with(Clock::DEFAULT_SAMPLE_RATE);
 
-        // we'll run one tick in case the oscillator happens to start at zero
-        oscillator.source_signal(&clock);
-        clock.tick();
-
-        assert_ne!(0.0, oscillator.source_signal(&clock).value());
+        // we'll run two ticks in case the oscillator happens to start at zero
+        oscillator.tick(2);
+        assert_ne!(
+            0.0,
+            oscillator.signal_value(),
+            "Default Oscillator should not be silent"
+        );
     }
 
     // Make sure we're dealing with at least a pulse-width wave of amplitude
@@ -379,16 +414,15 @@ mod tests {
         const SAMPLE_RATE: usize = 63949; // Prime number
         const FREQUENCY: f32 = 499.0;
         let mut oscillator =
-            Oscillator::new_with_type_and_frequency(WaveformType::Square, FREQUENCY);
-        let mut clock = Clock::new_with_sample_rate(SAMPLE_RATE);
+            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, WaveformType::Square, FREQUENCY);
 
         // Below Nyquist limit
         assert_lt!(FREQUENCY, (SAMPLE_RATE / 2) as f32);
 
-        for _ in 0..clock.sample_rate() {
-            let f = oscillator.source_signal(&clock).value();
+        for _ in 0..SAMPLE_RATE {
+            oscillator.tick(1);
+            let f = oscillator.signal_value();
             assert_eq!(f, f.signum());
-            clock.tick();
         }
     }
 
@@ -399,16 +433,15 @@ mod tests {
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: f32 = 128.0;
         let mut oscillator =
-            Oscillator::new_with_type_and_frequency(WaveformType::Square, FREQUENCY);
-        let mut clock = Clock::new_with_sample_rate(SAMPLE_RATE);
+            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, WaveformType::Square, FREQUENCY);
 
         let mut n_pos = 0;
         let mut n_neg = 0;
         let mut last_sample = 1.0;
         let mut transitions = 0;
-        for _ in 0..clock.sample_rate() {
-            let f = oscillator.source_signal(&clock).value();
-            clock.tick();
+        for _ in 0..SAMPLE_RATE {
+            oscillator.tick(1);
+            let f = oscillator.signal_value();
             if f == 1.0 {
                 n_pos += 1;
             } else if f == -1.0 {
@@ -434,12 +467,14 @@ mod tests {
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: f32 = 2.0;
         let mut oscillator =
-            Oscillator::new_with_type_and_frequency(WaveformType::Square, FREQUENCY);
+            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, WaveformType::Square, FREQUENCY);
 
-        // The first sample should be 1.0.
-        let mut clock = Clock::new_with_sample_rate(SAMPLE_RATE);
-        assert_eq!(oscillator.source_signal(&clock).value(), 1.0);
-        clock.tick();
+        oscillator.tick(1);
+        assert_eq!(
+            oscillator.signal_value(),
+            1.0,
+            "the first sample of a square wave should be 1.0"
+        );
 
         // Halfway between the first and second cycle, the wave should
         // transition from 1.0 to -1.0.
@@ -451,45 +486,44 @@ mod tests {
         // reasonably to clock.set_samples(). I haven't decided whether entities
         // need to pay close attention to clock.set_samples() other than not
         // exploding, so I might end up deleting that part of the test.
-        for t in 1..SAMPLE_RATE / 4 - 2 {
-            assert_eq!(t, clock.samples());
-            oscillator.source_signal(&clock);
-            clock.tick();
-        }
-        assert_eq!(oscillator.source_signal(&clock).value(), 1.0);
-        clock.tick();
-        assert_eq!(oscillator.source_signal(&clock).value(), 1.0);
-        clock.tick();
-        assert_eq!(oscillator.source_signal(&clock).value(), -1.0);
-        clock.tick();
-        assert_eq!(oscillator.source_signal(&clock).value(), -1.0);
+        oscillator.tick(SAMPLE_RATE / 4 - 2 - 1);
+        assert_eq!(oscillator.signal_value(), 1.0);
+        oscillator.tick(1);
+        assert_eq!(oscillator.signal_value(), 1.0);
+        oscillator.tick(1);
+        assert_eq!(oscillator.signal_value(), -1.0);
+        oscillator.tick(1);
+        assert_eq!(oscillator.signal_value(), -1.0);
 
         // Then should transition back to 1.0 at the first sample of the second
         // cycle.
         //
         // As noted above, we're using clock.set_samples() here.
-        clock.set_samples(SAMPLE_RATE / 2 - 2);
-        assert_eq!(oscillator.source_signal(&clock).value(), -1.0);
-        clock.tick();
-        assert_eq!(oscillator.source_signal(&clock).value(), -1.0);
-        clock.tick();
-        assert_eq!(oscillator.source_signal(&clock).value(), 1.0);
-        clock.tick();
-        assert_eq!(oscillator.source_signal(&clock).value(), 1.0);
+        // TODOTODODODODODODODODO  clock.set_samples(SAMPLE_RATE / 2 - 2);
+        assert_eq!(oscillator.signal_value(), -1.0);
+        oscillator.tick(1);
+        assert_eq!(oscillator.signal_value(), -1.0);
+        oscillator.tick(1);
+        assert_eq!(oscillator.signal_value(), 1.0);
+        oscillator.tick(1);
+        assert_eq!(oscillator.signal_value(), 1.0);
     }
 
     #[test]
     fn test_sine_wave_is_balanced() {
-        const SAMPLE_RATE: usize = 44100;
         const FREQUENCY: f32 = 1.0;
-        let mut oscillator = Oscillator::new_with_type_and_frequency(WaveformType::Sine, FREQUENCY);
-        let mut clock = Clock::new_with_sample_rate(SAMPLE_RATE);
+        let mut oscillator = Oscillator::new_with_type_and_frequency(
+            Clock::DEFAULT_SAMPLE_RATE,
+            WaveformType::Sine,
+            FREQUENCY,
+        );
 
         let mut n_pos = 0;
         let mut n_neg = 0;
         let mut n_zero = 0;
-        for _ in 0..clock.sample_rate() {
-            let f = oscillator.source_signal(&clock).value();
+        for _ in 0..Clock::DEFAULT_SAMPLE_RATE {
+            oscillator.tick(1);
+            let f = oscillator.signal_value();
             if f < -0.0000001 {
                 n_neg += 1;
             } else if f > 0.0000001 {
@@ -497,11 +531,10 @@ mod tests {
             } else {
                 n_zero += 1;
             }
-            clock.tick();
         }
         assert_eq!(n_zero, 2);
         assert_eq!(n_pos, n_neg);
-        assert_eq!(n_pos + n_neg + n_zero, SAMPLE_RATE);
+        assert_eq!(n_pos + n_neg + n_zero, Clock::DEFAULT_SAMPLE_RATE);
     }
 
     #[test]
@@ -514,8 +547,11 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc =
-                Oscillator::new_with_type_and_frequency(WaveformType::Square, test_case.0);
+            let mut osc = Oscillator::new_with_type_and_frequency(
+                Clock::DEFAULT_SAMPLE_RATE,
+                WaveformType::Square,
+                test_case.0,
+            );
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = Paths::test_data_path();
             filename.push("audacity");
@@ -540,7 +576,11 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc = Oscillator::new_with_type_and_frequency(WaveformType::Sine, test_case.0);
+            let mut osc = Oscillator::new_with_type_and_frequency(
+                Clock::DEFAULT_SAMPLE_RATE,
+                WaveformType::Sine,
+                test_case.0,
+            );
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = Paths::test_data_path();
             filename.push("audacity");
@@ -565,8 +605,11 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc =
-                Oscillator::new_with_type_and_frequency(WaveformType::Sawtooth, test_case.0);
+            let mut osc = Oscillator::new_with_type_and_frequency(
+                Clock::DEFAULT_SAMPLE_RATE,
+                WaveformType::Sawtooth,
+                test_case.0,
+            );
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = Paths::test_data_path();
             filename.push("audacity");
@@ -591,8 +634,11 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc =
-                Oscillator::new_with_type_and_frequency(WaveformType::Triangle, test_case.0);
+            let mut osc = Oscillator::new_with_type_and_frequency(
+                Clock::DEFAULT_SAMPLE_RATE,
+                WaveformType::Triangle,
+                test_case.0,
+            );
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = Paths::test_data_path();
             filename.push("audacity");
@@ -656,7 +702,7 @@ mod tests {
     #[test]
     fn oscillator_cycle_restarts_on_time() {
         let mut clock = Clock::default();
-        let mut oscillator = Oscillator::default();
+        let mut oscillator = Oscillator::new_with(clock.sample_rate());
         const FREQUENCY: f32 = 2.0;
         const SAMPLE_RATE: usize = 44100;
         oscillator.set_frequency(FREQUENCY);
@@ -675,8 +721,7 @@ mod tests {
         const LAST_ITERATION_IN_LOOP: usize = TICKS_IN_CYCLE - 1;
         for tick in 0..=TICKS_IN_CYCLE {
             assert_eq!(tick, clock.samples());
-            oscillator.source_signal(&clock);
-            clock.tick();
+            oscillator.tick(1);
 
             // I don't like the usability of should_sync_after_this_sample(),
             // because it requires an unnatural ordering of its handling. It
@@ -696,7 +741,7 @@ mod tests {
         // Let's try again after rewinding the clock. It should recognize
         // something happened and restart the cycle. First we confirm that it
         // thinks it's midway through the cycle.
-        oscillator.source_signal(&clock);
+        oscillator.tick(1);
         assert!(!oscillator.should_sync_after_this_sample());
 
         // Then we actually change the clock. We'll pick something we know is
@@ -707,16 +752,16 @@ mod tests {
         // shift, so it's OK to have the wrong timbre for a tiny fraction of a
         // second.
         clock.set_samples(3);
-        oscillator.source_signal(&clock);
+        oscillator.reset(SAMPLE_RATE);
+        oscillator.tick(1);
         assert!(!oscillator.should_sync_after_this_sample());
 
         // Let's run through again, but this time go for a whole second, and
         // count the number of flags.
-        clock.reset();
+        oscillator.reset(SAMPLE_RATE);
         let mut cycles = 0;
         for _ in 0..SAMPLE_RATE {
-            oscillator.source_signal(&clock);
-            clock.tick();
+            oscillator.tick(1);
             if oscillator.should_sync_after_this_sample() {
                 cycles += 1;
             }

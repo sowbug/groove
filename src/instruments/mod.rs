@@ -1,4 +1,7 @@
-use self::envelopes::{EnvelopeGenerator, GeneratesEnvelope};
+use self::{
+    envelopes::{EnvelopeGenerator, GeneratesEnvelope},
+    oscillators::GeneratesSignal,
+};
 use crate::{
     common::{BipolarNormal, F32ControlValue, Sample, StereoSample},
     midi::MidiUtils,
@@ -64,7 +67,7 @@ pub trait StoresVoices: SourcesAudio + Send + Debug {
 
 /// A synthesizer is composed of Voices. Ideally, a synth will know how to
 /// construct Voices, and then handle all the MIDI events properly for them.
-pub trait IsVoice: SourcesAudio + PlaysNotes + Send + Default {}
+pub trait IsVoice: SourcesAudio + PlaysNotes + Send {}
 
 #[derive(Control, Debug, Uid)]
 pub struct Synthesizer<V: IsVoice> {
@@ -167,7 +170,7 @@ impl<V: IsVoice> HandlesMidi for Synthesizer<V> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SimpleVoice {
     oscillator: Oscillator,
     envelope: EnvelopeGenerator,
@@ -215,15 +218,32 @@ impl PlaysNotes for SimpleVoice {
 }
 impl SourcesAudio for SimpleVoice {
     fn source_audio(&mut self, clock: &Clock) -> StereoSample {
+        if clock.was_reset() {
+            self.oscillator.reset(clock.sample_rate())
+        }
+
         self.handle_pending_note_events();
         self.envelope.tick(1);
-        let r = self.oscillator.source_signal(clock).value() * self.envelope.amplitude().value();
+        let r = self.oscillator.signal_value() * self.envelope.amplitude().value();
         self.is_playing = !self.envelope.is_idle();
         StereoSample::from(r)
     }
 }
 
 impl SimpleVoice {
+    pub fn new_with(sample_rate: usize) -> Self {
+        Self {
+            oscillator: Oscillator::new_with(sample_rate),
+            envelope: Default::default(),
+            is_playing: Default::default(),
+            note_on_is_pending: Default::default(),
+            note_on_velocity: Default::default(),
+            note_off_is_pending: Default::default(),
+            note_off_velocity: Default::default(),
+            aftertouch_is_pending: Default::default(),
+            aftertouch_velocity: Default::default(),
+        }
+    }
     fn handle_pending_note_events(&mut self) {
         if self.note_on_is_pending && self.note_off_is_pending {
             // Handle the case where both are pending at the same time.
@@ -279,26 +299,26 @@ impl SourcesAudio for SimpleSynthesizer {
         self.inner_synth.source_audio(clock)
     }
 }
-impl Default for SimpleSynthesizer {
-    fn default() -> Self {
-        let mut voice_store = Box::new(SimpleVoiceStore::<SimpleVoice>::default());
+impl SimpleSynthesizer {
+    pub fn new(sample_rate: usize) -> Self {
+        let mut voice_store = Box::new(SimpleVoiceStore::<SimpleVoice>::new_with(sample_rate));
         for _ in 0..4 {
-            voice_store.add_voice(Box::new(SimpleVoice::default()));
+            voice_store.add_voice(Box::new(SimpleVoice::new_with(sample_rate)));
         }
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<SimpleVoice>::new_with(voice_store),
         }
     }
-}
-impl SimpleSynthesizer {
     pub fn notes_playing(&self) -> usize {
         0
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SimpleVoiceStore<V: IsVoice> {
+    #[allow(dead_code)] // TODO: should we keep this?
+    sample_rate: usize,
     voices: Vec<Box<V>>,
     notes_playing: Vec<u7>,
 }
@@ -345,6 +365,13 @@ impl<V: IsVoice> SourcesAudio for SimpleVoiceStore<V> {
     }
 }
 impl<V: IsVoice> SimpleVoiceStore<V> {
+    pub fn new_with(sample_rate: usize) -> Self {
+        Self {
+            sample_rate,
+            voices: Default::default(),
+            notes_playing: Default::default(),
+        }
+    }
     fn add_voice(&mut self, voice: Box<V>) {
         self.voices.push(voice);
         self.notes_playing.push(u7::from(0));
@@ -444,24 +471,31 @@ impl PlaysNotes for FmVoice {
 }
 impl SourcesAudio for FmVoice {
     fn source_audio(&mut self, clock: &Clock) -> StereoSample {
+        if clock.was_reset() {
+            self.envelope.reset(clock.sample_rate());
+            self.carrier.reset(clock.sample_rate());
+            self.modulator.reset(clock.sample_rate());
+        }
+
         self.handle_pending_note_events();
-        self.carrier.set_frequency_modulation(
-            self.modulator.source_signal(clock).value() as f32 * self.modulator_depth,
-        );
+        self.carrier
+            .set_frequency_modulation(self.modulator.signal_value() as f32 * self.modulator_depth);
         self.envelope.tick(1);
-        let r = self.carrier.source_signal(clock).value() * self.envelope.amplitude().value();
+        self.carrier.tick(1);
+        self.modulator.tick(1);
+        let r = self.carrier.signal_value() * self.envelope.amplitude().value();
         self.is_playing = !self.envelope.is_idle();
         self.dca.transform_audio_to_stereo(clock, Sample(r))
     }
 }
-impl Default for FmVoice {
-    fn default() -> Self {
+impl FmVoice {
+    pub(crate) fn new_with(sample_rate: usize) -> Self {
         Self {
-            carrier: Default::default(),
-            modulator: Default::default(),
+            carrier: Oscillator::new_with(sample_rate),
+            modulator: Oscillator::new_with(sample_rate),
             modulator_depth: 0.2,
             envelope: EnvelopeGenerator::new_with(
-                Clock::default().sample_rate(),
+                Clock::DEFAULT_SAMPLE_RATE,
                 &EnvelopeSettings {
                     attack: 0.1,
                     decay: 0.1,
@@ -479,15 +513,15 @@ impl Default for FmVoice {
             aftertouch_velocity: Default::default(),
         }
     }
-}
-impl FmVoice {
-    pub(crate) fn new_with(modulator_frequency: f32) -> Self {
-        let mut modulator = Oscillator::default();
+    pub(crate) fn new_with_modulator_frequency(
+        sample_rate: usize,
+        modulator_frequency: f32,
+    ) -> Self {
+        let mut modulator = Oscillator::new_with(sample_rate);
         modulator.set_frequency(modulator_frequency);
-        Self {
-            modulator,
-            ..Default::default()
-        }
+        let mut r = Self::new_with(sample_rate);
+        r.modulator = modulator;
+        r
     }
     fn handle_pending_note_events(&mut self) {
         if self.note_on_is_pending && self.note_off_is_pending {
@@ -552,18 +586,20 @@ impl SourcesAudio for FmSynthesizer {
         self.inner_synth.source_audio(clock)
     }
 }
-impl Default for FmSynthesizer {
-    fn default() -> Self {
-        let mut voice_store = Box::new(SimpleVoiceStore::<FmVoice>::default());
+impl FmSynthesizer {
+    #[allow(dead_code)]
+    pub(crate) fn new_with(sample_rate: usize) -> Self {
+        let mut voice_store = Box::new(SimpleVoiceStore::<FmVoice>::new_with(sample_rate));
         for _ in 0..4 {
-            voice_store.add_voice(Box::new(FmVoice::default()));
+            voice_store.add_voice(Box::new(FmVoice::new_with(sample_rate)));
         }
         Self::new_with_voice_store(voice_store)
     }
-}
-impl FmSynthesizer {
-    pub(crate) fn new_with(preset: &FmSynthesizerPreset) -> Self {
-        let voice_store = Box::new(SimpleVoiceStore::<FmVoice>::new_with(preset));
+    pub(crate) fn new_with_preset(sample_rate: usize, preset: &FmSynthesizerPreset) -> Self {
+        let voice_store = Box::new(SimpleVoiceStore::<FmVoice>::new_with_preset(
+            sample_rate,
+            preset,
+        ));
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<FmVoice>::new_with(voice_store),
@@ -587,10 +623,13 @@ impl FmSynthesizer {
 }
 
 impl SimpleVoiceStore<FmVoice> {
-    pub(crate) fn new_with(preset: &FmSynthesizerPreset) -> Self {
-        let mut voice_store = SimpleVoiceStore::<FmVoice>::default();
+    pub(crate) fn new_with_preset(sample_rate: usize, preset: &FmSynthesizerPreset) -> Self {
+        let mut voice_store = SimpleVoiceStore::<FmVoice>::new_with(sample_rate);
         for _ in 0..4 {
-            voice_store.add_voice(Box::new(FmVoice::new_with(preset.modulator_frequency_hz)));
+            voice_store.add_voice(Box::new(FmVoice::new_with_modulator_frequency(
+                sample_rate,
+                preset.modulator_frequency_hz,
+            )));
         }
         voice_store
     }
@@ -669,12 +708,12 @@ mod tests {
 
     #[test]
     fn voice_store_mainline() {
-        let mut voice_store = SimpleVoiceStore::<SimpleVoice>::default();
+        let mut voice_store = SimpleVoiceStore::<SimpleVoice>::new_with(Clock::DEFAULT_SAMPLE_RATE);
         assert_eq!(voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
 
         for _ in 0..2 {
-            voice_store.add_voice(Box::new(SimpleVoice::default()));
+            voice_store.add_voice(Box::new(SimpleVoice::new_with(Clock::DEFAULT_SAMPLE_RATE)));
         }
         assert_eq!(voice_store.voice_count(), 2);
         assert_eq!(voice_store.active_voice_count(), 0);
@@ -711,12 +750,12 @@ mod tests {
 
     #[test]
     fn voice_store_simultaneous_events() {
-        let mut voice_store = SimpleVoiceStore::<SimpleVoice>::default();
+        let mut voice_store = SimpleVoiceStore::<SimpleVoice>::new_with(Clock::DEFAULT_SAMPLE_RATE);
         assert_eq!(voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
 
         for _ in 0..2 {
-            voice_store.add_voice(Box::new(SimpleVoice::default()));
+            voice_store.add_voice(Box::new(SimpleVoice::new_with(Clock::DEFAULT_SAMPLE_RATE)));
         }
         assert_eq!(voice_store.voice_count(), 2);
         assert_eq!(voice_store.active_voice_count(), 0);

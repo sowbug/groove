@@ -196,7 +196,7 @@ mod tests {
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
         let arpeggiator = Box::new(Arpeggiator::new_with(MIDI_CHANNEL_ARP_TO_INSTRUMENT));
-        let instrument = Box::new(TestInstrument::default());
+        let instrument = Box::new(TestInstrument::new_with(Clock::DEFAULT_SAMPLE_RATE));
         let mut o = Orchestrator::default();
 
         sequencer.insert(

@@ -4,12 +4,12 @@ use crate::{
     common::SampleType,
     instruments::{
         envelopes::{EnvelopeGenerator, GeneratesEnvelope},
-        oscillators::Oscillator,
+        oscillators::{GeneratesSignal, Oscillator},
         HandlesMidi,
     },
     traits::{
         Controllable, HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates,
-        Updateable,
+        Ticks, Updateable,
     },
     BipolarNormal, EntityMessage, StereoSample,
 };
@@ -206,6 +206,7 @@ impl Paths {
 #[derive(Control, Debug, Uid)]
 pub struct TestSynth {
     uid: usize,
+    sample_rate: usize,
 
     #[controllable]
     oscillator_modulation: f32,
@@ -215,22 +216,17 @@ pub struct TestSynth {
 }
 
 impl TestSynth {
-    /// You really don't want to call this, because you need a sample rate
-    /// for it to do anything meaningful, and it's a bad practice to
-    /// hardcode a 44.1KHz rate.
-    #[deprecated]
-    #[allow(dead_code)]
-    fn new() -> Self {
-        Self::new_with(
-            Box::new(Oscillator::default()),
-            Box::new(EnvelopeGenerator::default()),
-        )
-    }
-    pub fn new_with(oscillator: Box<Oscillator>, envelope: Box<dyn GeneratesEnvelope>) -> Self {
+    pub fn new_with_components(
+        sample_rate: usize,
+        oscillator: Box<Oscillator>,
+        envelope: Box<dyn GeneratesEnvelope>,
+    ) -> Self {
         Self {
+            uid: Default::default(),
+            sample_rate,
+            oscillator_modulation: Default::default(),
             oscillator,
             envelope,
-            ..Default::default()
         }
     }
 
@@ -247,13 +243,14 @@ impl TestSynth {
     pub fn set_control_oscillator_modulation(&mut self, oscillator_modulation: F32ControlValue) {
         self.set_oscillator_modulation(oscillator_modulation.0);
     }
-}
-impl Default for TestSynth {
-    fn default() -> Self {
+
+    #[allow(dead_code)]
+    fn new_with(sample_rate: usize) -> Self {
         Self {
-            uid: 0,
+            uid: Default::default(),
+            sample_rate,
             oscillator_modulation: Default::default(),
-            oscillator: Box::new(Oscillator::default()),
+            oscillator: Box::new(Oscillator::new_with(sample_rate)),
             envelope: Box::new(EnvelopeGenerator::default()),
         }
     }
@@ -261,11 +258,14 @@ impl Default for TestSynth {
 
 impl SourcesAudio for TestSynth {
     fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+        if clock.was_reset() {
+            self.oscillator.reset(self.sample_rate);
+        }
         // TODO: I don't think this can play sounds, because I don't see how the
         // envelope ever gets triggered.
         self.envelope.tick(1);
         let envelope_amplitude = self.envelope.amplitude().value();
-        let signal = self.oscillator.source_signal(clock).value() * envelope_amplitude;
+        let signal = self.oscillator.signal_value() * envelope_amplitude;
         crate::StereoSample::from(signal)
     }
 }
@@ -279,7 +279,7 @@ pub(crate) enum TestLfoControlParams {
     Frequency,
 }
 
-#[derive(Debug, Default, Uid)]
+#[derive(Debug, Uid)]
 pub struct TestLfo {
     uid: usize,
     signal_value: BipolarNormal,
@@ -288,8 +288,12 @@ pub struct TestLfo {
 impl IsController for TestLfo {}
 impl Updateable for TestLfo {
     fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
+        if clock.was_reset() {
+            self.oscillator.reset(clock.sample_rate());
+        }
         if let EntityMessage::Tick = message {
-            self.signal_value = self.oscillator.source_signal(clock);
+            self.oscillator.tick(1);
+            self.signal_value = BipolarNormal::from(self.oscillator.signal_value()); // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
             Response::single(EntityMessage::ControlF32(self.signal_value.value() as f32))
         } else {
             Response::none()
@@ -304,6 +308,14 @@ impl Terminates for TestLfo {
     }
 }
 impl TestLfo {
+    pub fn new_with(sample_rate: usize) -> Self {
+        Self {
+            uid: Default::default(),
+            signal_value: Default::default(),
+            oscillator: Oscillator::new_with(sample_rate),
+        }
+    }
+
     pub fn frequency(&self) -> f32 {
         self.oscillator.frequency()
     }
@@ -326,9 +338,10 @@ pub mod tests {
         common::{Sample, SampleType},
         controllers::orchestrator::Orchestrator,
         entities::BoxedEntity,
+        instruments::oscillators::GeneratesSignal,
         midi::MidiChannel,
         traits::{
-            Controllable, HasUid, IsEffect, TestController, TestEffect, TestInstrument,
+            Controllable, HasUid, IsEffect, TestController, TestEffect, TestInstrument, Ticks,
             TransformsAudio,
         },
         utils::{
@@ -384,11 +397,10 @@ pub mod tests {
         source: &mut Oscillator,
         run_length_in_seconds: usize,
     ) -> Vec<Sample> {
-        let mut clock = Clock::default();
         let mut samples = Vec::default();
-        for _ in 0..clock.sample_rate() * run_length_in_seconds {
-            samples.push(Sample::from(source.source_signal(&clock).value()));
-            clock.tick();
+        for _ in 0..Clock::DEFAULT_SAMPLE_RATE * run_length_in_seconds {
+            source.tick(1);
+            samples.push(Sample::from(source.signal_value()));
         }
         samples
     }
@@ -433,7 +445,10 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::default());
 
         // A simple audio source.
-        let synth_uid = o.add(None, BoxedEntity::TestSynth(Box::new(TestSynth::default())));
+        let synth_uid = o.add(
+            None,
+            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(Clock::DEFAULT_SAMPLE_RATE))),
+        );
 
         // A simple effect.
         let effect_uid = o.add(
@@ -486,8 +501,11 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::default());
 
         // The synth's frequency is modulated by the LFO.
-        let synth_1_uid = o.add(None, BoxedEntity::TestSynth(Box::new(TestSynth::default())));
-        let mut lfo = TestLfo::default();
+        let synth_1_uid = o.add(
+            None,
+            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(Clock::DEFAULT_SAMPLE_RATE))),
+        );
+        let mut lfo = TestLfo::new_with(Clock::DEFAULT_SAMPLE_RATE);
         lfo.set_frequency(2.0);
         let lfo_uid = o.add(None, BoxedEntity::TestLfo(Box::new(lfo)));
         let _ = o.link_control(
@@ -536,7 +554,9 @@ pub mod tests {
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
             None,
-            BoxedEntity::TestInstrument(Box::new(TestInstrument::default())),
+            BoxedEntity::TestInstrument(Box::new(TestInstrument::new_with(
+                Clock::DEFAULT_SAMPLE_RATE,
+            ))),
         );
         let arpeggiator_uid = o.add(
             None,
@@ -629,7 +649,8 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::default());
 
         // A simple audio source.
-        let entity_groove = BoxedEntity::TestSynth(Box::new(TestSynth::default()));
+        let entity_groove =
+            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(Clock::DEFAULT_SAMPLE_RATE)));
         let synth_uid = o.add(None, entity_groove);
 
         // A simple effect.

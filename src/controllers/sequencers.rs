@@ -298,7 +298,7 @@ mod tests {
         let mut clock = Clock::default();
         let mut o = Orchestrator::default();
         let mut sequencer = Box::new(MidiTickSequencer::default());
-        let instrument = Box::new(TestInstrument::default());
+        let instrument = Box::new(TestInstrument::new_with(clock.sample_rate()));
         let device_uid = o.add(None, BoxedEntity::TestInstrument(instrument));
 
         sequencer.insert(

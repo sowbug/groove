@@ -1,6 +1,6 @@
 use super::{
     envelopes::{EnvelopeGenerator, GeneratesEnvelope},
-    oscillators::Oscillator,
+    oscillators::{GeneratesSignal, Oscillator},
     Dca, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
 use crate::{
@@ -410,7 +410,7 @@ impl WelshSynth {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
     oscillator_2_sync: bool,
@@ -477,7 +477,7 @@ impl WelshVoice {
         let mut r = Self {
             amp_envelope: EnvelopeGenerator::new_with(sample_rate, &preset.amp_envelope),
 
-            lfo: Oscillator::new_lfo(&preset.lfo),
+            lfo: Oscillator::new_lfo(sample_rate, &preset.lfo),
             lfo_routing: preset.lfo.routing,
             lfo_depth: preset.lfo.depth.into(),
 
@@ -493,14 +493,25 @@ impl WelshVoice {
             ),
             filter_cutoff_end: preset.filter_envelope_weight,
             filter_envelope: EnvelopeGenerator::new_with(sample_rate, &preset.filter_envelope),
-            ..Default::default()
+            oscillators: Default::default(),
+            oscillator_2_sync: Default::default(),
+            dca: Default::default(),
+            is_playing: Default::default(),
+            note_on_is_pending: Default::default(),
+            note_on_velocity: Default::default(),
+            note_off_is_pending: Default::default(),
+            note_off_velocity: Default::default(),
+            aftertouch_is_pending: Default::default(),
+            aftertouch_velocity: Default::default(),
         };
         if !matches!(preset.oscillator_1.waveform, WaveformType::None) {
-            r.oscillators
-                .push(Oscillator::new_from_preset(&preset.oscillator_1));
+            r.oscillators.push(Oscillator::new_from_preset(
+                sample_rate,
+                &preset.oscillator_1,
+            ));
         }
         if !matches!(preset.oscillator_2.waveform, WaveformType::None) {
-            let mut o = Oscillator::new_from_preset(&preset.oscillator_2);
+            let mut o = Oscillator::new_from_preset(sample_rate, &preset.oscillator_2);
             if !preset.oscillator_2_track {
                 if let crate::settings::patches::OscillatorTune::Note(note) =
                     preset.oscillator_2.tune
@@ -514,8 +525,10 @@ impl WelshVoice {
             r.oscillators.push(o);
         }
         if preset.noise > 0.0 {
-            r.oscillators
-                .push(Oscillator::new_with(WaveformType::Noise));
+            r.oscillators.push(Oscillator::new_with_waveform(
+                sample_rate,
+                WaveformType::Noise,
+            ));
         }
         r
     }
@@ -576,6 +589,14 @@ impl WelshVoice {
 }
 impl SourcesAudio for WelshVoice {
     fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
+        if clock.was_reset() {
+            self.lfo.reset(clock.sample_rate());
+            self.amp_envelope.reset(clock.sample_rate());
+            self.filter_envelope.reset(clock.sample_rate());
+            self.oscillators
+                .iter_mut()
+                .for_each(|o| o.reset(clock.sample_rate()));
+        }
         self.handle_pending_note_events();
         // It's important for the envelope tick() methods to be called after
         // their handle_note_* methods are called, but before we check whether
@@ -591,7 +612,8 @@ impl SourcesAudio for WelshVoice {
         }
 
         // LFO
-        let lfo = self.lfo.source_signal(clock).value();
+        self.lfo.tick(1);
+        let lfo = self.lfo.signal_value();
         if matches!(self.lfo_routing, LfoRouting::Pitch) {
             let lfo_for_pitch = lfo * self.lfo_depth.value();
             for o in self.oscillators.iter_mut() {
@@ -600,14 +622,15 @@ impl SourcesAudio for WelshVoice {
         }
 
         // Oscillators
+        self.oscillators.iter_mut().for_each(|o| o.tick(1));
         let len = self.oscillators.len();
         let osc_sum = match len {
             0 => 0.0,
-            1 => self.oscillators[0].source_signal(clock).value(),
+            1 => self.oscillators[0].signal_value(),
             2 => {
-                let osc_1_val = self.oscillators[0].source_signal(clock).value();
+                let osc_1_val = self.oscillators[0].signal_value();
                 let should_sync = self.oscillators[0].should_sync_after_this_sample();
-                let value = (osc_1_val + self.oscillators[1].source_signal(clock).value()) / 2.0;
+                let value = (osc_1_val + self.oscillators[1].signal_value()) / 2.0;
 
                 // It's criticial to do this *after* the synced oscillator's
                 // source_audio(), because the should_sync refers to the next
@@ -701,7 +724,7 @@ impl HandlesMidi for WelshSynth {
 
 impl WelshSynth {
     pub(crate) fn new_with(sample_rate: usize, preset: SynthPatch) -> Self {
-        let mut voice_store = Box::new(SimpleVoiceStore::<WelshVoice>::default());
+        let mut voice_store = Box::new(SimpleVoiceStore::<WelshVoice>::new_with(sample_rate));
         for _ in 0..8 {
             voice_store.add_voice(Box::new(WelshVoice::new_with(sample_rate, &preset)));
         }

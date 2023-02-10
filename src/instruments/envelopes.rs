@@ -1034,7 +1034,7 @@ mod tests {
 
     #[test]
     fn envelope_amplitude_batching() {
-        let sample_rate = Clock::default().sample_rate();
+        let sample_rate = Clock::DEFAULT_SAMPLE_RATE;
         let envelope_settings = EnvelopeSettings {
             attack: 0.1,
             decay: 0.2,

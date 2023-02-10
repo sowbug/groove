@@ -79,17 +79,17 @@ impl InstrumentSettings {
             };
             return (
                 midi_input_channel,
-                BoxedEntity::TestInstrument(Box::new(TestInstrument::default())),
+                BoxedEntity::TestInstrument(Box::new(TestInstrument::new_with(sample_rate))),
             );
         }
         match self {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,
-                BoxedEntity::TestInstrument(Box::new(TestInstrument::default())),
+                BoxedEntity::TestInstrument(Box::new(TestInstrument::new_with(sample_rate))),
             ),
             InstrumentSettings::SimpleSynth { midi_input_channel } => (
                 *midi_input_channel,
-                BoxedEntity::SimpleSynthesizer(Box::new(SimpleSynthesizer::default())),
+                BoxedEntity::SimpleSynthesizer(Box::new(SimpleSynthesizer::new(sample_rate))),
             ),
             InstrumentSettings::Welsh {
                 midi_input_channel,
@@ -122,7 +122,8 @@ impl InstrumentSettings {
                 preset_name: preset,
             } => (
                 *midi_input_channel,
-                BoxedEntity::FmSynthesizer(Box::new(FmSynthesizer::new_with(
+                BoxedEntity::FmSynthesizer(Box::new(FmSynthesizer::new_with_preset(
+                    sample_rate,
                     &FmSynthesizer::preset_for_name(preset),
                 ))),
             ),
