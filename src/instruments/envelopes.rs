@@ -3,6 +3,7 @@ use crate::{
     clock::ClockTimeUnit,
     common::{Normal, SignalType, TimeUnit},
     settings::patches::EnvelopeSettings,
+    traits::Ticks,
     Clock,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -31,35 +32,6 @@ pub trait GeneratesEnvelope: Send + Debug + Ticks {
     /// envelope (or hasn't yet started it). Like amplitude(), this value is
     /// valid for the current frame only after tick() is called.
     fn is_idle(&self) -> bool;
-}
-
-pub trait Ticks: Send + Debug {
-    /// The entity should reset its internal state.
-    ///
-    /// The system will call reset() when the global sample rate changes, and
-    /// whenever the global clock is reset. Since most entities that care about
-    /// sample rate need to know it during construction, the system *won't* call
-    /// reset on entity construction; instead, entities can require the sample
-    /// rate as part of their new() functions, and if desired call reset()
-    /// within that function.
-    fn reset(&mut self, sample_rate: usize);
-
-    /// The entity should perform work for the current frame (or frames if
-    /// frame_count > 1). Under normal circumstances, successive tick()s
-    /// represent successive frames. Exceptions include, for example, restarting
-    /// a performance, which would reset the global clock, which the entity
-    /// learns about via reset().
-    ///
-    /// Entities are responsible for tracking their own notion of time, which
-    /// they should update during tick().
-    ///
-    /// tick() guarantees that any state for the current frame is valid *after*
-    /// tick() has been called for the current frame. This means that Ticks
-    /// implementers must treat the first frame as special. Normally, entity
-    /// state is correct for the first frame after entity construction, so
-    /// tick() must be careful not to update state on the first frame, because
-    /// that would cause the state to represent the second frame, not the first.
-    fn tick(&mut self, tick_count: usize);
 }
 
 #[derive(Clone, Copy, Debug, Default)]

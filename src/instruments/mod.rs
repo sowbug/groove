@@ -1,8 +1,9 @@
+use self::envelopes::{EnvelopeGenerator, GeneratesEnvelope};
 use crate::{
     common::{BipolarNormal, F32ControlValue, Sample, StereoSample},
     midi::MidiUtils,
     settings::patches::EnvelopeSettings,
-    traits::{Controllable, HasUid, IsInstrument, SourcesAudio},
+    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Ticks},
     Clock, Oscillator,
 };
 use anyhow::{anyhow, Result};
@@ -11,8 +12,6 @@ use midly::{num::u7, MidiMessage};
 use std::str::FromStr;
 use std::{collections::HashMap, fmt::Debug};
 use strum_macros::{Display, EnumString, FromRepr};
-
-use self::envelopes::{EnvelopeGenerator, GeneratesEnvelope, Ticks};
 
 pub(crate) mod drumkit_sampler;
 pub(crate) mod envelopes;

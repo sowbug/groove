@@ -1,5 +1,5 @@
 use super::{
-    envelopes::{EnvelopeGenerator, GeneratesEnvelope, Ticks},
+    envelopes::{EnvelopeGenerator, GeneratesEnvelope},
     oscillators::Oscillator,
     Dca, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
@@ -12,7 +12,7 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, TransformsAudio},
+    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Ticks, TransformsAudio},
     utils::Paths,
     BipolarNormal, Clock, StereoSample,
 };
