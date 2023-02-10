@@ -13,14 +13,14 @@ use strum_macros::{Display, EnumString, FromRepr};
 
 /// Describes something that generates a SignalType over time.
 pub trait GeneratesSignal: Send + Debug + Ticks {
-    /// Returns the current signal value(). This value is valid for the current
-    /// frame once Ticks::tick() has been called for that frame.
-    fn signal_value(&self) -> SignalType;
+    /// Returns the current signal(). This value is valid for the current frame
+    /// once Ticks::tick() has been called for that frame.
+    fn signal(&self) -> SignalType;
 
-    /// The batch version of signal_value(). Note that it will call tick() on
-    /// its own before putting the signal value in the buffer, which is why this
-    /// method takes a mutable receiver, but signal_value() doesn't.
-    fn batch_signal_value(&mut self, signals: &mut [SignalType]);
+    /// The batch version of signal(). Note that it will call tick() on its own
+    /// before putting the signal value in the buffer, which is why this method
+    /// takes a mutable receiver, but signal_value() doesn't.
+    fn batch_signal(&mut self, signals: &mut [SignalType]);
 }
 
 /// https://en.wikipedia.org/wiki/Kahan_summation_algorithm
@@ -101,7 +101,7 @@ pub struct Oscillator {
     /// The internal clock. Advances once per tick().
     ticks: usize,
 
-    signal_value: SignalType,
+    signal: SignalType,
 
     // It's important for us to remember the "cursor" in the current waveform,
     // because the frequency can change over time, so recalculating the position
@@ -126,11 +126,11 @@ pub struct Oscillator {
     is_reset_pending: bool,
 }
 impl GeneratesSignal for Oscillator {
-    fn signal_value(&self) -> SignalType {
-        self.signal_value
+    fn signal(&self) -> SignalType {
+        self.signal
     }
 
-    fn batch_signal_value(&mut self, signals: &mut [SignalType]) {
+    fn batch_signal(&mut self, signals: &mut [SignalType]) {
         todo!()
     }
 }
@@ -155,7 +155,7 @@ impl Ticks for Oscillator {
             let cycle_position = self.calculate_cycle_position();
             let waveform = self.waveform;
             let amplitude_for_position = self.amplitude_for_position(&waveform, cycle_position);
-            self.signal_value = BipolarNormal::from(self.mix.scale(amplitude_for_position)).value();
+            self.signal = BipolarNormal::from(self.mix.scale(amplitude_for_position)).value();
 
             // We need this to be at the end of tick() because any code running
             // during tick() might look at it.
@@ -186,7 +186,7 @@ impl Oscillator {
             noise_x2: 0xe1e9f0a7,
             sample_rate,
             ticks: Default::default(),
-            signal_value: Default::default(),
+            signal: Default::default(),
             cycle_position: Default::default(),
             delta: Default::default(),
             delta_needs_update: true,
@@ -422,7 +422,7 @@ mod tests {
         oscillator.tick(2);
         assert_ne!(
             0.0,
-            oscillator.signal_value(),
+            oscillator.signal(),
             "Default Oscillator should not be silent"
         );
     }
@@ -441,7 +441,7 @@ mod tests {
 
         for _ in 0..SAMPLE_RATE {
             oscillator.tick(1);
-            let f = oscillator.signal_value();
+            let f = oscillator.signal();
             assert_eq!(f, f.signum());
         }
     }
@@ -461,7 +461,7 @@ mod tests {
         let mut transitions = 0;
         for _ in 0..SAMPLE_RATE {
             oscillator.tick(1);
-            let f = oscillator.signal_value();
+            let f = oscillator.signal();
             if f == 1.0 {
                 n_pos += 1;
             } else if f == -1.0 {
@@ -491,7 +491,7 @@ mod tests {
 
         oscillator.tick(1);
         assert_eq!(
-            oscillator.signal_value(),
+            oscillator.signal(),
             1.0,
             "the first sample of a square wave should be 1.0"
         );
@@ -507,26 +507,26 @@ mod tests {
         // need to pay close attention to clock.set_samples() other than not
         // exploding, so I might end up deleting that part of the test.
         oscillator.tick(SAMPLE_RATE / 4 - 2);
-        assert_eq!(oscillator.signal_value(), 1.0);
+        assert_eq!(oscillator.signal(), 1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal_value(), 1.0);
+        assert_eq!(oscillator.signal(), 1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal_value(), -1.0);
+        assert_eq!(oscillator.signal(), -1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal_value(), -1.0);
+        assert_eq!(oscillator.signal(), -1.0);
 
         // Then should transition back to 1.0 at the first sample of the second
         // cycle.
         //
         // As noted above, we're using clock.set_samples() here.
         oscillator.debug_tick_until(SAMPLE_RATE / 2 - 2);
-        assert_eq!(oscillator.signal_value(), -1.0);
+        assert_eq!(oscillator.signal(), -1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal_value(), -1.0);
+        assert_eq!(oscillator.signal(), -1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal_value(), 1.0);
+        assert_eq!(oscillator.signal(), 1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal_value(), 1.0);
+        assert_eq!(oscillator.signal(), 1.0);
     }
 
     #[test]
@@ -543,7 +543,7 @@ mod tests {
         let mut n_zero = 0;
         for _ in 0..Clock::DEFAULT_SAMPLE_RATE {
             oscillator.tick(1);
-            let f = oscillator.signal_value();
+            let f = oscillator.signal();
             if f < -0.0000001 {
                 n_neg += 1;
             } else if f > 0.0000001 {

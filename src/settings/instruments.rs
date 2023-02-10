@@ -107,7 +107,7 @@ impl InstrumentSettings {
             } => (
                 *midi_input_channel,
                 BoxedEntity::DrumkitSampler(Box::new(
-                    drumkit_sampler::DrumkitSampler::new_from_files(),
+                    drumkit_sampler::DrumkitSampler::new_from_files(sample_rate),
                 )),
             ),
             InstrumentSettings::Sampler {

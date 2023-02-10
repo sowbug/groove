@@ -625,7 +625,7 @@ impl SourcesAudio for TestInstrument {
         }
         if self.is_playing {
             self.dca
-                .transform_audio_to_stereo(clock, Sample::from(self.oscillator.signal_value()))
+                .transform_audio_to_stereo(clock, Sample::from(self.oscillator.signal()))
         } else {
             StereoSample::SILENCE
         }

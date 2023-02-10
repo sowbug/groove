@@ -265,7 +265,7 @@ impl SourcesAudio for TestSynth {
         // envelope ever gets triggered.
         self.envelope.tick(1);
         let envelope_amplitude = self.envelope.amplitude().value();
-        let signal = self.oscillator.signal_value() * envelope_amplitude;
+        let signal = self.oscillator.signal() * envelope_amplitude;
         crate::StereoSample::from(signal)
     }
 }
@@ -293,7 +293,7 @@ impl Updateable for TestLfo {
         }
         if let EntityMessage::Tick = message {
             self.oscillator.tick(1);
-            self.signal_value = BipolarNormal::from(self.oscillator.signal_value()); // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
+            self.signal_value = BipolarNormal::from(self.oscillator.signal()); // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
             Response::single(EntityMessage::ControlF32(self.signal_value.value() as f32))
         } else {
             Response::none()
@@ -400,7 +400,7 @@ pub mod tests {
         let mut samples = Vec::default();
         for _ in 0..Clock::DEFAULT_SAMPLE_RATE * run_length_in_seconds {
             source.tick(1);
-            samples.push(Sample::from(source.signal_value()));
+            samples.push(Sample::from(source.signal()));
         }
         samples
     }

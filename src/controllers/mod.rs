@@ -196,7 +196,7 @@ impl Updateable for LfoController {
         }
         match message {
             EntityMessage::Tick => Response::single(EntityMessage::ControlF32(
-                (self.oscillator.signal_value() as f32 + 1.0) / 2.0, // TODO: make from() smart
+                (self.oscillator.signal() as f32 + 1.0) / 2.0, // TODO: make from() smart
             )),
             _ => Response::none(),
         }

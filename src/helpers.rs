@@ -4,7 +4,7 @@ use crate::{
     entities::BoxedEntity,
     instruments::{drumkit_sampler::DrumkitSampler, welsh::WelshSynth},
     midi::programmers::MidiSmfReader,
-    settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
+    settings::{patches::SynthPatch, songs::SongSettings},
     Orchestrator, StereoSample,
 };
 use cpal::{
@@ -233,10 +233,12 @@ impl IOHelper {
             let synth_uid = orchestrator.add(
                 None,
                 if channel == 9 {
-                    BoxedEntity::DrumkitSampler(Box::new(DrumkitSampler::new_from_files()))
+                    BoxedEntity::DrumkitSampler(Box::new(DrumkitSampler::new_from_files(
+                        orchestrator.clock_settings().sample_rate(),
+                    )))
                 } else {
                     BoxedEntity::WelshSynth(Box::new(WelshSynth::new_with(
-                        ClockSettings::default().sample_rate(), // TODO: tie this better to actual reality
+                        orchestrator.clock_settings().sample_rate(), // TODO: tie this better to actual reality
                         SynthPatch::by_name("Piano"),
                     )))
                 },

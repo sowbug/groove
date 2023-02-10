@@ -22,16 +22,16 @@ pub trait GeneratesEnvelope: Send + Debug + Ticks {
     /// release is processed at the next tick().
     fn enqueue_release(&mut self);
 
-    /// Returns the current envelope amplitude(). This value is valid for the
-    /// current frame once Ticks::tick() has been called for the current frame.
-    fn amplitude(&self) -> Normal;
-
-    fn batch_amplitude(&mut self, buffer: &mut [Normal]);
-
     /// Whether the envelope generator has finished the active part of the
     /// envelope (or hasn't yet started it). Like amplitude(), this value is
     /// valid for the current frame only after tick() is called.
     fn is_idle(&self) -> bool;
+
+    /// Returns the current envelope amplitude(). This value is valid for the
+    /// current frame once Ticks::tick() has been called for the current frame.
+    fn amplitude(&self) -> Normal;
+
+    fn batch_amplitude(&mut self, amplitudes: &mut [Normal]);
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -90,11 +90,11 @@ impl GeneratesEnvelope for EnvelopeGenerator {
         self.corrected_amplitude
     }
 
-    fn batch_amplitude(&mut self, buffer: &mut [Normal]) {
+    fn batch_amplitude(&mut self, amplitudes: &mut [Normal]) {
         // TODO: this is probably no more efficient than calling amplitude()
         // individually, but for now we're just getting the interface right.
         // Later we'll take advantage of it.
-        for item in buffer {
+        for item in amplitudes {
             self.tick(1);
             *item = self.amplitude();
         }
@@ -1047,12 +1047,12 @@ mod tests {
         // overwritten by the method we're about to call.
         //
         // TODO: that buffer size should be pulled from somewhere centralized.
-        let mut amplitude_buffer: [Normal; 64] = [Normal::from(0.888); 64];
+        let mut amplitudes: [Normal; 64] = [Normal::from(0.888); 64];
 
         // The envelope starts out in the idle state, and we haven't triggered
         // it.
-        e.batch_amplitude(&mut amplitude_buffer);
-        amplitude_buffer.iter().for_each(|i| {
+        e.batch_amplitude(&mut amplitudes);
+        amplitudes.iter().for_each(|i| {
             assert_eq!(
                 i.value(),
                 Normal::MIN,
@@ -1062,11 +1062,9 @@ mod tests {
 
         // Now trigger the envelope and see what happened.
         e.enqueue_attack();
-        e.batch_amplitude(&mut amplitude_buffer);
+        e.batch_amplitude(&mut amplitudes);
         assert!(
-            amplitude_buffer
-                .iter()
-                .any(|i| { i.value() != Normal::MIN }),
+            amplitudes.iter().any(|i| { i.value() != Normal::MIN }),
             "Once triggered, the EG should generate non-silent values"
         );
     }
