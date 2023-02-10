@@ -628,17 +628,10 @@ impl SourcesAudio for WelshVoice {
             0 => 0.0,
             1 => self.oscillators[0].signal_value(),
             2 => {
-                let osc_1_val = self.oscillators[0].signal_value();
-                let should_sync = self.oscillators[0].should_sync_after_this_sample();
-                let value = (osc_1_val + self.oscillators[1].signal_value()) / 2.0;
-
-                // It's criticial to do this *after* the synced oscillator's
-                // source_audio(), because the should_sync refers to the next
-                // sample.
-                if self.oscillator_2_sync && should_sync {
+                if self.oscillator_2_sync && self.oscillators[0].should_sync() {
                     self.oscillators[1].sync();
                 }
-                value
+                (self.oscillators[0].signal_value() + self.oscillators[1].signal_value()) / 2.0
             }
             _ => todo!(),
         };

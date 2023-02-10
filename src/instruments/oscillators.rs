@@ -115,16 +115,15 @@ pub struct Oscillator {
     delta_needs_update: bool,
 
     // Whether this oscillator's owner should sync other oscillators to this
-    // one. IMPORTANT! Because we return the sample for the current state but
-    // calculate the next sample, all in the same source_signal(), we're also
-    // returning the should_sync value for the next clock tick. That's why this
-    // field has the elaborate name. Be careful when you're using this, or else
-    // you'll sync your synced oscillators one sample too early.
-    should_sync_after_this_sample: bool,
+    // one. Calculated during tick().
+    should_sync: bool,
 
     // If this is a synced oscillator, then whether we should reset our waveform
     // to the start.
     is_sync_pending: bool,
+
+    // Set on init and reset().
+    is_reset_pending: bool,
 }
 impl GeneratesSignal for Oscillator {
     fn signal_value(&self) -> SignalType {
@@ -137,21 +136,30 @@ impl GeneratesSignal for Oscillator {
 }
 impl Ticks for Oscillator {
     fn reset(&mut self, sample_rate: usize) {
+        self.is_reset_pending = true;
         self.sample_rate = sample_rate;
-        self.ticks = 0; // TODO: this might not be the right thing to do
-
-        self.update_delta();
-        self.cycle_position
-            .set_sum((self.delta * self.ticks as f64).fract());
     }
 
     fn tick(&mut self, tick_count: usize) {
         for _ in 0..tick_count {
-            self.ticks += 1;
+            if self.is_reset_pending {
+                self.ticks = 0; // TODO: this might not be the right thing to do
+
+                self.update_delta();
+                self.cycle_position
+                    .set_sum((self.delta * self.ticks as f64).fract());
+            } else {
+                self.ticks += 1;
+            }
+
             let cycle_position = self.calculate_cycle_position();
             let waveform = self.waveform;
             let amplitude_for_position = self.amplitude_for_position(&waveform, cycle_position);
             self.signal_value = BipolarNormal::from(self.mix.scale(amplitude_for_position)).value();
+
+            // We need this to be at the end of tick() because any code running
+            // during tick() might look at it.
+            self.is_reset_pending = false;
         }
     }
 }
@@ -182,8 +190,9 @@ impl Oscillator {
             cycle_position: Default::default(),
             delta: Default::default(),
             delta_needs_update: true,
-            should_sync_after_this_sample: Default::default(),
+            should_sync: Default::default(),
             is_sync_pending: Default::default(),
+            is_reset_pending: true,
         }
     }
 
@@ -261,8 +270,8 @@ impl Oscillator {
         self.frequency as f32
     }
 
-    pub fn should_sync_after_this_sample(&self) -> bool {
-        self.should_sync_after_this_sample
+    pub fn should_sync(&self) -> bool {
+        self.should_sync
     }
 
     pub(crate) fn sync(&mut self) {
@@ -296,20 +305,23 @@ impl Oscillator {
             self.cycle_position = Default::default();
         }
 
-        // On the first call to this method, clock and self.cycle_position are
-        // assumed to be set to the start (zero). All the change calculations
-        // below are therefore for the *next* result. So we need to save the
-        // start value, as that's what we'll report at the end of this method.
-        let current_cycle_position = self.cycle_position.current_sum();
+        // If we haven't just reset, add delta to the previous position and mod
+        // 1.0.
+        let next_cycle_position_unrounded = if self.is_reset_pending {
+            0.0
+        } else {
+            self.cycle_position.add(self.delta)
+        };
 
-        // Add delta to the previous position and mod 1.0.
-        let next_cycle_position_unrounded = self.cycle_position.add(self.delta);
-
-        // This special case is to deal with an FP precision issue that was
-        // causing square waves to flip one sample too late in unit tests. We
-        // take advantage of it to also record whether we should signal to
-        // synced oscillators that it's time to sync.
-        self.should_sync_after_this_sample = if next_cycle_position_unrounded > 0.999999999999 {
+        self.should_sync = if self.is_reset_pending {
+            // If we're in the first post-reset tick(), then we want other
+            // oscillators to sync.
+            true
+        } else if next_cycle_position_unrounded > 0.999999999999 {
+            // This special case is to deal with an FP precision issue that was
+            // causing square waves to flip one sample too late in unit tests. We
+            // take advantage of it to also record whether we should signal to
+            // synced oscillators that it's time to sync.
             debug_assert_lt!(next_cycle_position_unrounded, 2.0);
             self.cycle_position.add(-1.0);
             true
@@ -317,7 +329,7 @@ impl Oscillator {
             false
         };
 
-        current_cycle_position
+        self.cycle_position.current_sum()
     }
 
     // https://en.wikipedia.org/wiki/Sine_wave
@@ -370,11 +382,19 @@ mod tests {
         instruments::oscillators::GeneratesSignal,
         midi::{MidiNote, MidiUtils},
         settings::patches::{OscillatorSettings, OscillatorTune},
-        traits::Ticks,
+        traits::{tests::DebugTicks, Ticks},
         utils::tests::{render_signal_as_audio_source, samples_match_known_good_wav_file},
         Paths,
     };
     use more_asserts::assert_lt;
+
+    impl DebugTicks for Oscillator {
+        fn debug_tick_until(&mut self, tick_number: usize) {
+            if self.ticks < tick_number {
+                self.tick(tick_number - self.ticks);
+            }
+        }
+    }
 
     fn create_oscillator(
         waveform: WaveformType,
@@ -486,7 +506,7 @@ mod tests {
         // reasonably to clock.set_samples(). I haven't decided whether entities
         // need to pay close attention to clock.set_samples() other than not
         // exploding, so I might end up deleting that part of the test.
-        oscillator.tick(SAMPLE_RATE / 4 - 2 - 1);
+        oscillator.tick(SAMPLE_RATE / 4 - 2);
         assert_eq!(oscillator.signal_value(), 1.0);
         oscillator.tick(1);
         assert_eq!(oscillator.signal_value(), 1.0);
@@ -499,7 +519,7 @@ mod tests {
         // cycle.
         //
         // As noted above, we're using clock.set_samples() here.
-        // TODOTODODODODODODODODO  clock.set_samples(SAMPLE_RATE / 2 - 2);
+        oscillator.debug_tick_until(SAMPLE_RATE / 2 - 2);
         assert_eq!(oscillator.signal_value(), -1.0);
         oscillator.tick(1);
         assert_eq!(oscillator.signal_value(), -1.0);
@@ -701,48 +721,44 @@ mod tests {
 
     #[test]
     fn oscillator_cycle_restarts_on_time() {
-        let mut clock = Clock::default();
-        let mut oscillator = Oscillator::new_with(clock.sample_rate());
+        let mut oscillator = Oscillator::new_with(Clock::DEFAULT_SAMPLE_RATE);
         const FREQUENCY: f32 = 2.0;
-        const SAMPLE_RATE: usize = 44100;
         oscillator.set_frequency(FREQUENCY);
 
-        // We're hardcoding 44.1 so we can use a const in the match below.
-        const TICKS_IN_CYCLE: usize = SAMPLE_RATE / FREQUENCY as usize;
+        const TICKS_IN_CYCLE: usize = Clock::DEFAULT_SAMPLE_RATE / FREQUENCY as usize;
+        assert_eq!(TICKS_IN_CYCLE, 44100 / 2);
 
-        // On init, the oscillator should NOT flag that any init/reset work
-        // needs to happen. We assume that synced oscillators can take care of
-        // their own init.
-        assert!(!oscillator.should_sync_after_this_sample());
+        // We assume that synced oscillators can take care of their own init.
+        assert!(
+            !oscillator.should_sync(),
+            "On init, the oscillator should NOT flag that any init/reset work needs to happen."
+        );
 
         // Now run through and see that we're flagging cycle start at the right
         // time. Note the = in the for loop range; we're expecting a flag at the
         // zeroth sample of each cycle.
-        const LAST_ITERATION_IN_LOOP: usize = TICKS_IN_CYCLE - 1;
         for tick in 0..=TICKS_IN_CYCLE {
-            assert_eq!(tick, clock.samples());
-            oscillator.tick(1);
-
-            // I don't like the usability of should_sync_after_this_sample(),
-            // because it requires an unnatural ordering of its handling. It
-            // works for now, but I might want to rework it.
             let expected = match tick {
-                0 => false,                     // zeroth sample of first cycle
-                LAST_ITERATION_IN_LOOP => true, // zeroth sample of second cycle
+                0 => true,              // zeroth sample of first cycle
+                TICKS_IN_CYCLE => true, // zeroth sample of second cycle
                 _ => false,
             };
+
+            oscillator.tick(1);
             assert_eq!(
-                oscillator.should_sync_after_this_sample(),
+                oscillator.should_sync(),
                 expected,
                 "expected {expected} at sample #{tick}"
             );
         }
 
         // Let's try again after rewinding the clock. It should recognize
-        // something happened and restart the cycle. First we confirm that it
-        // thinks it's midway through the cycle.
+        // something happened and restart the cycle.
         oscillator.tick(1);
-        assert!(!oscillator.should_sync_after_this_sample());
+        assert!(
+            !oscillator.should_sync(),
+            "Oscillator shouldn't sync midway through cycle."
+        );
 
         // Then we actually change the clock. We'll pick something we know is
         // off-cycle. We don't treat this as a should-sync event, because we
@@ -751,18 +767,25 @@ mod tests {
         // oscillator cycle. No normal audio performance will involve a clock
         // shift, so it's OK to have the wrong timbre for a tiny fraction of a
         // second.
-        clock.set_samples(3);
-        oscillator.reset(SAMPLE_RATE);
+        oscillator.reset(Clock::DEFAULT_SAMPLE_RATE);
         oscillator.tick(1);
-        assert!(!oscillator.should_sync_after_this_sample());
+        assert!(
+            oscillator.should_sync(),
+            "After reset, oscillator should sync."
+        );
+        oscillator.tick(1);
+        assert!(
+            !oscillator.should_sync(),
+            "Oscillator shouldn't sync twice when syncing after reset."
+        );
 
         // Let's run through again, but this time go for a whole second, and
         // count the number of flags.
-        oscillator.reset(SAMPLE_RATE);
+        oscillator.reset(Clock::DEFAULT_SAMPLE_RATE);
         let mut cycles = 0;
-        for _ in 0..SAMPLE_RATE {
+        for _ in 0..Clock::DEFAULT_SAMPLE_RATE {
             oscillator.tick(1);
-            if oscillator.should_sync_after_this_sample() {
+            if oscillator.should_sync() {
                 cycles += 1;
             }
         }

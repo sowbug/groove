@@ -636,8 +636,13 @@ impl SourcesAudio for TestInstrument {
 pub mod tests {
     use super::SourcesAudio;
     use super::TestInstrument;
+    use super::Ticks;
     use crate::clock::Clock;
     use rand::random;
+
+    pub trait DebugTicks: Ticks {
+        fn debug_tick_until(&mut self, tick_number: usize);
+    }
 
     // TODO: restore tests that test basic trait behavior, then figure out how
     // to run everyone implementing those traits through that behavior. For now,
