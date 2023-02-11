@@ -12,7 +12,7 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Ticks, TransformsAudio},
+    traits::{Controllable, HasUid, IsInstrument, Ticks, TransformsAudio},
     utils::Paths,
     BipolarNormal, Clock, StereoSample,
 };
@@ -474,95 +474,12 @@ impl PlaysNotes for WelshVoice {
         self.dca.set_pan(BipolarNormal::from(value))
     }
 }
-impl SourcesAudio for WelshVoice {
-    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        if clock.was_reset() {
-            self.lfo.reset(clock.sample_rate());
-            self.amp_envelope.reset(clock.sample_rate());
-            self.filter_envelope.reset(clock.sample_rate());
-            self.oscillators
-                .iter_mut()
-                .for_each(|o| o.reset(clock.sample_rate()));
-        }
-        self.handle_pending_note_events();
-        // It's important for the envelope tick() methods to be called after
-        // their handle_note_* methods are called, but before we check whether
-        // amp_envelope.is_idle(), because the tick() methods are what determine
-        // the current idle state.
-        //
-        // TODO: this seems like an implementation detail that maybe should be
-        // hidden from the caller.
-        let (amp_env_amplitude, filter_env_amplitude) = self.tick_envelopes();
-
-        if !self.is_playing() {
-            return StereoSample::SILENCE;
-        }
-
-        // LFO
-        self.lfo.tick(1);
-        let lfo = self.lfo.signal();
-        if matches!(self.lfo_routing, LfoRouting::Pitch) {
-            let lfo_for_pitch = lfo * self.lfo_depth.value();
-            for o in self.oscillators.iter_mut() {
-                o.set_frequency_modulation(lfo_for_pitch as f32);
-            }
-        }
-
-        // Oscillators
-        self.oscillators.iter_mut().for_each(|o| o.tick(1));
-        let len = self.oscillators.len();
-        let osc_sum = match len {
-            0 => 0.0,
-            1 => self.oscillators[0].signal(),
-            2 => {
-                if self.oscillator_2_sync && self.oscillators[0].should_sync() {
-                    self.oscillators[1].sync();
-                }
-                (self.oscillators[0].signal() + self.oscillators[1].signal()) / 2.0
-            }
-            _ => todo!(),
-        };
-
-        // Filters
-        //
-        // https://aempass.blogspot.com/2014/09/analog-and-welshs-synthesizer-cookbook.html
-        if self.filter_cutoff_end != 0.0 {
-            let new_cutoff_percentage = self.filter_cutoff_start
-                + (1.0 - self.filter_cutoff_start)
-                    * self.filter_cutoff_end
-                    * filter_env_amplitude.value() as f32;
-            self.filter.set_cutoff_pct(new_cutoff_percentage);
-        } else if matches!(self.lfo_routing, LfoRouting::FilterCutoff) {
-            let lfo_for_cutoff = lfo * self.lfo_depth.value();
-            self.filter
-                .set_cutoff_pct(self.filter_cutoff_start * (1.0 + lfo_for_cutoff as f32));
-        }
-        let filtered_mix = self
-            .filter
-            .transform_channel(clock, 0, Sample::from(osc_sum))
-            .0;
-
-        // LFO amplitude modulation
-        let lfo_for_amplitude = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
-            // LFO ranges from [-1, 1], so convert to something that can silence or double the volume.
-            lfo * self.lfo_depth.value() + 1.0
-        } else {
-            1.0
-        };
-
-        // Final
-        self.dca.transform_audio_to_stereo(
-            clock,
-            Sample(filtered_mix * amp_env_amplitude.value() * lfo_for_amplitude),
-        )
-    }
-}
 impl GeneratesSamples for WelshVoice {
     fn sample(&self) -> StereoSample {
         self.sample
     }
 
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+    fn batch_sample(&mut self, _samples: &mut [StereoSample]) {
         todo!()
     }
 }
@@ -593,8 +510,6 @@ impl Ticks for WelshVoice {
             self.oscillators.iter_mut().for_each(|o| o.tick(1));
 
             self.sample = if self.is_playing() {
-                StereoSample::SILENCE
-            } else {
                 // LFO
                 let lfo = self.lfo.signal();
                 if matches!(self.lfo_routing, LfoRouting::Pitch) {
@@ -647,11 +562,12 @@ impl Ticks for WelshVoice {
                 };
 
                 // Final
-                self.dca.transform_audio_to_stereo(
-                    &todo_delete_me_clock,
-                    Sample(filtered_mix * amp_env_amplitude.value() * lfo_for_amplitude),
-                )
-            }
+                self.dca.transform_audio_to_stereo(Sample(
+                    filtered_mix * amp_env_amplitude.value() * lfo_for_amplitude,
+                ))
+            } else {
+                StereoSample::SILENCE
+            };
         }
     }
 }
@@ -784,18 +700,24 @@ pub struct WelshSynth {
     #[controllable]
     #[allow(dead_code)]
     pan: f32,
-
-    debug_last_seconds: f32,
 }
 impl IsInstrument for WelshSynth {}
-impl SourcesAudio for WelshSynth {
-    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        if clock.seconds() == self.debug_last_seconds {
-            panic!("We were called twice with the same time slice. Should this be OK?");
-        } else {
-            self.debug_last_seconds = clock.seconds();
-        }
-        self.inner_synth.source_audio(clock)
+impl GeneratesSamples for WelshSynth {
+    fn sample(&self) -> StereoSample {
+        self.inner_synth.sample()
+    }
+
+    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+        self.inner_synth.batch_sample(samples);
+    }
+}
+impl Ticks for WelshSynth {
+    fn reset(&mut self, sample_rate: usize) {
+        self.inner_synth.reset(sample_rate);
+    }
+
+    fn tick(&mut self, tick_count: usize) {
+        self.inner_synth.tick(tick_count);
     }
 }
 impl HandlesMidi for WelshSynth {
@@ -816,7 +738,6 @@ impl HandlesMidi for WelshSynth {
         }
     }
 }
-
 impl WelshSynth {
     pub(crate) fn new_with(sample_rate: usize, preset: SynthPatch) -> Self {
         let mut voice_store = Box::new(SimpleVoiceStore::<WelshVoice>::new_with(sample_rate));
@@ -827,7 +748,6 @@ impl WelshSynth {
             uid: Default::default(),
             inner_synth: Synthesizer::<WelshVoice>::new_with(sample_rate, voice_store),
             pan: Default::default(),
-            debug_last_seconds: -1.0,
         }
     }
 
@@ -856,8 +776,8 @@ mod tests {
     use super::*;
     use crate::{
         clock::Clock,
-        common::SampleType,
-        instruments::welsh::WaveformType,
+        common::{SampleType, DEFAULT_SAMPLE_RATE},
+        instruments::{tests::is_voice_makes_any_sound_at_all, welsh::WaveformType},
         midi::{MidiNote, MidiUtils},
         settings::patches::{
             EnvelopeSettings, FilterPreset, LfoPreset, LfoRouting, OscillatorSettings,
@@ -897,7 +817,8 @@ mod tests {
                 voice.tick_envelopes();
             }
 
-            let sample = voice.source_audio(&clock);
+            voice.tick(1);
+            let sample = voice.sample();
             let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
             let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
             clock.tick();
@@ -971,7 +892,8 @@ mod tests {
                 source.handle_pending_note_events();
                 source.tick_envelopes();
             }
-            let sample = source.source_audio(clock);
+            source.tick(1);
+            let sample = source.sample();
             let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
             let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
             clock.tick();
@@ -1070,6 +992,18 @@ mod tests {
                 release: EnvelopeSettings::MAX,
             },
         }
+    }
+
+    #[test]
+    fn welsh_makes_any_sound_at_all() {
+        let mut voice = WelshVoice::new_with(DEFAULT_SAMPLE_RATE, &test_patch());
+        voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
+        voice.enqueue_note_on(127);
+
+        assert!(
+            is_voice_makes_any_sound_at_all(&mut voice),
+            "once triggered, Welsh voice should make a sound"
+        );
     }
 
     #[test]

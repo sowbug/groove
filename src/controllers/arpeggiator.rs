@@ -165,16 +165,16 @@ impl Arpeggiator {
 
 #[cfg(test)]
 mod tests {
+    use super::Arpeggiator;
     use crate::{
         clock::PerfectTimeUnit,
+        common::DEFAULT_SAMPLE_RATE,
         controllers::sequencers::BeatSequencer,
         entities::BoxedEntity,
         midi::MidiChannel,
         traits::{Internal, TestInstrument},
         Clock, GrooveMessage, Orchestrator,
     };
-
-    use super::Arpeggiator;
 
     // Orchestrator sends a Tick message to everyone in an undefined order, and
     // routes the resulting messages to everyone in yet another undefined order.
@@ -196,7 +196,7 @@ mod tests {
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
         let arpeggiator = Box::new(Arpeggiator::new_with(MIDI_CHANNEL_ARP_TO_INSTRUMENT));
-        let instrument = Box::new(TestInstrument::new_with(Clock::DEFAULT_SAMPLE_RATE));
+        let instrument = Box::new(TestInstrument::new_with(DEFAULT_SAMPLE_RATE));
         let mut o = Orchestrator::default();
 
         sequencer.insert(

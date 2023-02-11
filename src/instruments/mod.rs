@@ -6,8 +6,8 @@ use crate::{
     common::{BipolarNormal, F32ControlValue, Sample, StereoSample},
     midi::MidiUtils,
     settings::patches::EnvelopeSettings,
-    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Ticks},
-    Clock, Oscillator,
+    traits::{Controllable, GeneratesSamples, HasUid, IsInstrument, Ticks},
+    Oscillator,
 };
 use anyhow::{anyhow, Result};
 use groove_macros::{Control, Uid};
@@ -21,11 +21,6 @@ pub(crate) mod envelopes;
 pub(crate) mod oscillators;
 pub(crate) mod sampler;
 pub(crate) mod welsh;
-
-pub trait GeneratesSamples: Send + Ticks {
-    fn sample(&self) -> StereoSample;
-    fn batch_sample(&mut self, samples: &mut [StereoSample]);
-}
 
 pub trait HandlesMidi {
     #[allow(unused_variables)]
@@ -51,7 +46,7 @@ pub trait PlaysNotes {
 // SourcesAudio), but I couldn't figure out how to return an IterMut from a
 // HashMap, so I couldn't define a trait method that allowed the implementation
 // to return an iterator from either a Vec or a HashMap.
-pub trait StoresVoices: SourcesAudio + GeneratesSamples + Send + Debug {
+pub trait StoresVoices: GeneratesSamples + Send + Debug {
     type Voice;
 
     /// Generally, this value won't change after initialization, because we try
@@ -72,7 +67,7 @@ pub trait StoresVoices: SourcesAudio + GeneratesSamples + Send + Debug {
 
 /// A synthesizer is composed of Voices. Ideally, a synth will know how to
 /// construct Voices, and then handle all the MIDI events properly for them.
-pub trait IsVoice: SourcesAudio + GeneratesSamples + PlaysNotes + Send {}
+pub trait IsVoice: GeneratesSamples + PlaysNotes + Send {}
 
 #[derive(Control, Debug, Uid)]
 pub struct Synthesizer<V: IsVoice> {
@@ -94,11 +89,6 @@ pub struct Synthesizer<V: IsVoice> {
     pan: f32,
 }
 impl<V: IsVoice> IsInstrument for Synthesizer<V> {}
-impl<V: IsVoice> SourcesAudio for Synthesizer<V> {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
-        self.voice_store.source_audio(clock)
-    }
-}
 impl<V: IsVoice> GeneratesSamples for Synthesizer<V> {
     fn sample(&self) -> StereoSample {
         self.voice_store.sample()
@@ -245,15 +235,6 @@ impl PlaysNotes for SimpleVoice {
         // We don't handle this.
     }
 }
-impl SourcesAudio for SimpleVoice {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
-        if clock.was_reset() {
-            self.reset(clock.sample_rate());
-        }
-        self.tick(1);
-        self.sample()
-    }
-}
 impl GeneratesSamples for SimpleVoice {
     fn sample(&self) -> StereoSample {
         self.sample
@@ -351,11 +332,6 @@ impl HandlesMidi for SimpleSynthesizer {
         self.inner_synth.handle_midi_message(&message);
     }
 }
-impl SourcesAudio for SimpleSynthesizer {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
-        self.inner_synth.source_audio(clock)
-    }
-}
 impl GeneratesSamples for SimpleSynthesizer {
     fn sample(&self) -> StereoSample {
         self.inner_synth.sample()
@@ -427,22 +403,12 @@ impl<V: IsVoice> StoresVoices for SimpleVoiceStore<V> {
         }
     }
 }
-impl<V: IsVoice> SourcesAudio for SimpleVoiceStore<V> {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
-        let r = self.voices.iter_mut().map(|v| v.source_audio(clock)).sum();
-        for (index, voice) in self.voices.iter().enumerate() {
-            if !voice.is_playing() {
-                self.notes_playing[index] = u7::from(0);
-            }
-        }
-        r
-    }
-}
 impl<V: IsVoice> GeneratesSamples for SimpleVoiceStore<V> {
     fn sample(&self) -> StereoSample {
         self.sample
     }
 
+    #[allow(unused_variables)]
     fn batch_sample(&mut self, samples: &mut [StereoSample]) {
         todo!()
     }
@@ -480,6 +446,7 @@ impl<V: IsVoice> SimpleVoiceStore<V> {
 
 #[derive(Debug)]
 pub struct VoicePerNoteStore<V: IsVoice> {
+    sample: StereoSample,
     voices: HashMap<u7, Box<V>>,
 }
 impl<V: IsVoice> StoresVoices for VoicePerNoteStore<V> {
@@ -504,37 +471,30 @@ impl<V: IsVoice> StoresVoices for VoicePerNoteStore<V> {
         }
     }
 }
-impl<V: IsVoice> SourcesAudio for VoicePerNoteStore<V> {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
-        self.voices
-            .values_mut()
-            .map(|v| v.source_audio(clock))
-            .sum()
-    }
-}
 impl<V: IsVoice> GeneratesSamples for VoicePerNoteStore<V> {
     fn sample(&self) -> StereoSample {
-        todo!()
+        self.sample
     }
 
+    #[allow(unused_variables)]
     fn batch_sample(&mut self, samples: &mut [StereoSample]) {
         todo!()
     }
 }
 impl<V: IsVoice> Ticks for VoicePerNoteStore<V> {
     fn reset(&mut self, sample_rate: usize) {
-        self.voices
-            .iter_mut()
-            .for_each(|(k, v)| v.reset(sample_rate));
+        self.voices.values_mut().for_each(|v| v.reset(sample_rate));
     }
 
     fn tick(&mut self, tick_count: usize) {
-        todo!()
+        self.voices.values_mut().for_each(|v| v.tick(tick_count));
+        self.sample = self.voices.values().map(|v| v.sample()).sum();
     }
 }
 impl<V: IsVoice> VoicePerNoteStore<V> {
-    pub fn new_with(sample_rate: usize) -> Self {
+    pub fn new_with(_sample_rate: usize) -> Self {
         Self {
+            sample: Default::default(),
             voices: Default::default(),
         }
     }
@@ -545,6 +505,7 @@ impl<V: IsVoice> VoicePerNoteStore<V> {
 
 #[derive(Debug)]
 pub struct FmVoice {
+    sample: StereoSample,
     carrier: Oscillator,
     modulator: Oscillator,
     modulator_depth: f32,
@@ -594,30 +555,12 @@ impl PlaysNotes for FmVoice {
         self.dca.set_pan(BipolarNormal::from(value));
     }
 }
-impl SourcesAudio for FmVoice {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
-        if clock.was_reset() {
-            self.envelope.reset(clock.sample_rate());
-            self.carrier.reset(clock.sample_rate());
-            self.modulator.reset(clock.sample_rate());
-        }
-
-        self.handle_pending_note_events();
-        self.carrier
-            .set_frequency_modulation(self.modulator.signal() as f32 * self.modulator_depth);
-        self.envelope.tick(1);
-        self.carrier.tick(1);
-        self.modulator.tick(1);
-        let r = self.carrier.signal() * self.envelope.amplitude().value();
-        self.is_playing = !self.envelope.is_idle();
-        self.dca.transform_audio_to_stereo(clock, Sample(r))
-    }
-}
 impl GeneratesSamples for FmVoice {
     fn sample(&self) -> StereoSample {
         todo!()
     }
 
+    #[allow(unused_variables)]
     fn batch_sample(&mut self, samples: &mut [StereoSample]) {
         todo!()
     }
@@ -630,17 +573,26 @@ impl Ticks for FmVoice {
     }
 
     fn tick(&mut self, tick_count: usize) {
-        todo!()
+        self.handle_pending_note_events();
+        self.carrier
+            .set_frequency_modulation(self.modulator.signal() as f32 * self.modulator_depth);
+        self.envelope.tick(tick_count);
+        self.carrier.tick(tick_count);
+        self.modulator.tick(tick_count);
+        let r = self.carrier.signal() * self.envelope.amplitude().value();
+        self.is_playing = !self.envelope.is_idle();
+        self.sample = self.dca.transform_audio_to_stereo(Sample(r));
     }
 }
 impl FmVoice {
     pub(crate) fn new_with(sample_rate: usize) -> Self {
         Self {
+            sample: Default::default(),
             carrier: Oscillator::new_with(sample_rate),
             modulator: Oscillator::new_with(sample_rate),
             modulator_depth: 0.2,
             envelope: EnvelopeGenerator::new_with(
-                Clock::DEFAULT_SAMPLE_RATE,
+                sample_rate,
                 &EnvelopeSettings {
                     attack: 0.1,
                     decay: 0.1,
@@ -721,14 +673,27 @@ pub struct FmSynthesizer {
     inner_synth: Synthesizer<FmVoice>,
 }
 impl IsInstrument for FmSynthesizer {}
+impl GeneratesSamples for FmSynthesizer {
+    fn sample(&self) -> StereoSample {
+        self.inner_synth.sample()
+    }
+
+    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+        self.inner_synth.batch_sample(samples);
+    }
+}
+impl Ticks for FmSynthesizer {
+    fn reset(&mut self, sample_rate: usize) {
+        self.inner_synth.reset(sample_rate)
+    }
+
+    fn tick(&mut self, tick_count: usize) {
+        self.inner_synth.tick(tick_count);
+    }
+}
 impl HandlesMidi for FmSynthesizer {
     fn handle_midi_message(&mut self, message: &MidiMessage) {
         self.inner_synth.handle_midi_message(&message)
-    }
-}
-impl SourcesAudio for FmSynthesizer {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
-        self.inner_synth.source_audio(clock)
     }
 }
 impl FmSynthesizer {
@@ -808,11 +773,7 @@ impl Dca {
         self.pan = value.value()
     }
 
-    pub(crate) fn transform_audio_to_stereo(
-        &mut self,
-        _clock: &Clock,
-        input_sample: Sample,
-    ) -> StereoSample {
+    pub(crate) fn transform_audio_to_stereo(&mut self, input_sample: Sample) -> StereoSample {
         // See Pirkle, DSSPC++, p.73
         let input_sample: f64 = input_sample.0 * self.gain;
         let left_pan: f64 = 1.0 - 0.25 * (self.pan + 1.0).powi(2);
@@ -823,30 +784,31 @@ impl Dca {
 
 #[cfg(test)]
 mod tests {
+    use crate::common::DEFAULT_SAMPLE_RATE;
+
     use super::*;
 
     #[test]
     fn dca_mainline() {
         let mut dca = Dca::default();
-        let clock = Clock::default();
         const VALUE_IN: Sample = Sample(0.5);
         const VALUE: f64 = 0.5;
         assert_eq!(
-            dca.transform_audio_to_stereo(&clock, VALUE_IN),
+            dca.transform_audio_to_stereo(VALUE_IN),
             StereoSample::new_from_f64(VALUE * 0.75, VALUE * 0.75),
             "Pan center should give 75% equally to each channel"
         );
 
         dca.set_pan(BipolarNormal::new(-1.0));
         assert_eq!(
-            dca.transform_audio_to_stereo(&clock, VALUE_IN),
+            dca.transform_audio_to_stereo(VALUE_IN),
             StereoSample::new_from_f64(VALUE, 0.0),
             "Pan left should give 100% to left channel"
         );
 
         dca.set_pan(BipolarNormal::new(1.0));
         assert_eq!(
-            dca.transform_audio_to_stereo(&clock, VALUE_IN),
+            dca.transform_audio_to_stereo(VALUE_IN),
             StereoSample::new_from_f64(0.0, VALUE),
             "Pan right should give 100% to right channel"
         );
@@ -854,28 +816,26 @@ mod tests {
 
     #[test]
     fn voice_store_mainline() {
-        let mut voice_store = SimpleVoiceStore::<SimpleVoice>::new_with(Clock::DEFAULT_SAMPLE_RATE);
+        let mut voice_store = SimpleVoiceStore::<SimpleVoice>::new_with(DEFAULT_SAMPLE_RATE);
         assert_eq!(voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
 
         for _ in 0..2 {
-            voice_store.add_voice(Box::new(SimpleVoice::new_with(Clock::DEFAULT_SAMPLE_RATE)));
+            voice_store.add_voice(Box::new(SimpleVoice::new_with(DEFAULT_SAMPLE_RATE)));
         }
         assert_eq!(voice_store.voice_count(), 2);
         assert_eq!(voice_store.active_voice_count(), 0);
-
-        let clock = Clock::default();
 
         // Request and start the maximum number of voices.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(!voice.is_playing());
             voice.enqueue_note_on(127);
-            voice.source_audio(&clock); // We must ask for the sample to register the trigger.
+            voice.tick(1); // We must tick() register the trigger.
             assert!(voice.is_playing());
         }
         if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
             voice.enqueue_note_on(127);
-            voice.source_audio(&clock);
+            voice.tick(1);
         }
 
         // Request a voice for a new note that would exceed the count. Should
@@ -889,24 +849,22 @@ mod tests {
 
             // All SimpleVoice envelope times are instantaneous, so we know the
             // release completes after asking for the next sample.
-            voice.source_audio(&clock);
+            voice.tick(1);
             assert!(!voice.is_playing());
         }
     }
 
     #[test]
     fn voice_store_simultaneous_events() {
-        let mut voice_store = SimpleVoiceStore::<SimpleVoice>::new_with(Clock::DEFAULT_SAMPLE_RATE);
+        let mut voice_store = SimpleVoiceStore::<SimpleVoice>::new_with(DEFAULT_SAMPLE_RATE);
         assert_eq!(voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
 
         for _ in 0..2 {
-            voice_store.add_voice(Box::new(SimpleVoice::new_with(Clock::DEFAULT_SAMPLE_RATE)));
+            voice_store.add_voice(Box::new(SimpleVoice::new_with(DEFAULT_SAMPLE_RATE)));
         }
         assert_eq!(voice_store.voice_count(), 2);
         assert_eq!(voice_store.active_voice_count(), 0);
-
-        let clock = Clock::default();
 
         // Request multiple voices during the same tick.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
@@ -930,7 +888,7 @@ mod tests {
             0,
             "voices shouldn't be marked as playing until next source_audio()"
         );
-        let _ = voice_store.source_audio(&clock);
+        voice_store.tick(1);
         assert_eq!(voice_store.active_voice_count(), 2, "voices with pending attacks() should have been handled, and they should now be is_playing()");
 
         // Now ask for both voices again. Each should be playing and each should
@@ -951,7 +909,7 @@ mod tests {
                 "we should have gotten back the same voice for the requested note"
             );
         }
-        let _ = voice_store.source_audio(&clock);
+        voice_store.tick(1);
 
         // Finally, mark a note done and then ask for a new one. We should get
         // assigned the one we just gave up.
@@ -972,7 +930,7 @@ mod tests {
             );
             voice.enqueue_note_off(127);
         }
-        let _ = voice_store.source_audio(&clock);
+        voice_store.tick(1);
         if let Ok(voice) = voice_store.get_voice(&u7::from(62)) {
             // This is a bit too cute. We assume that we're getting back the
             // voice that serviced note #60 because (1) we set up the voice
@@ -988,5 +946,13 @@ mod tests {
         } else {
             panic!("ran out of notes unexpectedly");
         }
+    }
+
+    pub(crate) fn is_voice_makes_any_sound_at_all(voice: &mut impl IsVoice) -> bool {
+        voice.enqueue_note_on(127);
+
+        // Skip a few frames in case attack is slow
+        voice.tick(5);
+        voice.sample() != StereoSample::SILENCE
     }
 }

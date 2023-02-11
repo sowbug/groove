@@ -59,17 +59,14 @@ impl Gain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{clock::Clock, traits::SourcesAudio, utils::AudioSource, StereoSample};
+    use crate::{clock::Clock, traits::GeneratesSamples, utils::AudioSource, StereoSample};
 
     #[test]
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(Normal::new(0.5));
         let clock = Clock::default();
         assert_eq!(
-            gain.transform_audio(
-                &clock,
-                AudioSource::new_with(AudioSource::LOUD).source_audio(&clock)
-            ),
+            gain.transform_audio(&clock, AudioSource::new_with(AudioSource::LOUD).sample()),
             StereoSample::from(0.5)
         );
     }

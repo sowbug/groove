@@ -534,7 +534,7 @@ impl SteppedEnvelope {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clock::Clock;
+    use crate::{clock::Clock, common::DEFAULT_SAMPLE_RATE};
     use assert_approx_eq::assert_approx_eq;
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
@@ -1034,14 +1034,13 @@ mod tests {
 
     #[test]
     fn envelope_amplitude_batching() {
-        let sample_rate = Clock::DEFAULT_SAMPLE_RATE;
         let envelope_settings = EnvelopeSettings {
             attack: 0.1,
             decay: 0.2,
             sustain: 0.5,
             release: 0.3,
         };
-        let mut e = EnvelopeGenerator::new_with(sample_rate, &envelope_settings);
+        let mut e = EnvelopeGenerator::new_with(DEFAULT_SAMPLE_RATE, &envelope_settings);
 
         // Initialize the buffer with a nonsense value so we know it got
         // overwritten by the method we're about to call.

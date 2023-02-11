@@ -87,7 +87,7 @@ impl Limiter {
 mod tests {
     use super::*;
     use crate::{
-        clock::Clock, common::Sample, traits::SourcesAudio, utils::AudioSource, StereoSample,
+        clock::Clock, common::Sample, traits::GeneratesSamples, utils::AudioSource, StereoSample,
     };
     use more_asserts::{assert_gt, assert_lt};
 
@@ -97,23 +97,23 @@ mod tests {
 
         // audio sources are at or past boundaries
         assert_gt!(
-            AudioSource::new_with(AudioSource::TOO_LOUD).source_audio(&clock),
+            AudioSource::new_with(AudioSource::TOO_LOUD).sample(),
             StereoSample::MAX
         );
         assert_eq!(
-            AudioSource::new_with(AudioSource::LOUD).source_audio(&clock),
+            AudioSource::new_with(AudioSource::LOUD).sample(),
             StereoSample::MAX
         );
         assert_eq!(
-            AudioSource::new_with(AudioSource::SILENT).source_audio(&clock),
+            AudioSource::new_with(AudioSource::SILENT).sample(),
             StereoSample::SILENCE
         );
         assert_eq!(
-            AudioSource::new_with(AudioSource::QUIET).source_audio(&clock),
+            AudioSource::new_with(AudioSource::QUIET).sample(),
             StereoSample::MIN
         );
         assert_lt!(
-            AudioSource::new_with(AudioSource::TOO_QUIET).source_audio(&clock),
+            AudioSource::new_with(AudioSource::TOO_QUIET).sample(),
             StereoSample::MIN
         );
 
@@ -122,35 +122,26 @@ mod tests {
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                AudioSource::new_with(AudioSource::TOO_LOUD).source_audio(&clock)
+                AudioSource::new_with(AudioSource::TOO_LOUD).sample()
             ),
             StereoSample::MAX
         );
         assert_eq!(
-            limiter.transform_audio(
-                &clock,
-                AudioSource::new_with(AudioSource::LOUD).source_audio(&clock)
-            ),
+            limiter.transform_audio(&clock, AudioSource::new_with(AudioSource::LOUD).sample()),
             StereoSample::MAX
         );
         assert_eq!(
-            limiter.transform_audio(
-                &clock,
-                AudioSource::new_with(AudioSource::SILENT).source_audio(&clock)
-            ),
+            limiter.transform_audio(&clock, AudioSource::new_with(AudioSource::SILENT).sample()),
             StereoSample::SILENCE
         );
         assert_eq!(
-            limiter.transform_audio(
-                &clock,
-                AudioSource::new_with(AudioSource::QUIET).source_audio(&clock)
-            ),
+            limiter.transform_audio(&clock, AudioSource::new_with(AudioSource::QUIET).sample()),
             StereoSample::MIN
         );
         assert_eq!(
             limiter.transform_audio(
                 &clock,
-                AudioSource::new_with(AudioSource::TOO_QUIET).source_audio(&clock)
+                AudioSource::new_with(AudioSource::TOO_QUIET).sample()
             ),
             StereoSample::MIN
         );

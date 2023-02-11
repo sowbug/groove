@@ -1,9 +1,8 @@
-use super::{GeneratesSamples, HandlesMidi, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
+use super::{HandlesMidi, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
 use crate::{
-    clock::Clock,
     common::F32ControlValue,
     midi::GeneralMidiPercussionProgram,
-    traits::{Controllable, HasUid, IsInstrument, SourcesAudio, Ticks},
+    traits::{Controllable, GeneratesSamples, HasUid, IsInstrument, Ticks},
     utils::Paths,
     Sampler, StereoSample,
 };
@@ -108,37 +107,12 @@ impl DrumkitSamplerVoice {
         }
     }
 }
-impl SourcesAudio for DrumkitSamplerVoice {
-    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        self.handle_pending_note_events(clock.samples());
-        if self.sample_clock_start > clock.samples() {
-            // TODO: this stops the clock-moves-backward explosion.
-            // Come up with a more robust way to handle the sample pointer.
-            self.is_playing = false;
-            self.sample_pointer = 0;
-        } else {
-            self.sample_pointer = clock.samples() - self.sample_clock_start;
-            if self.sample_pointer >= self.samples.len() {
-                self.is_playing = false;
-                self.sample_pointer = 0;
-            }
-        }
-
-        if self.is_playing {
-            *self
-                .samples
-                .get(self.sample_pointer)
-                .unwrap_or(&StereoSample::SILENCE)
-        } else {
-            StereoSample::SILENCE
-        }
-    }
-}
 impl GeneratesSamples for DrumkitSamplerVoice {
     fn sample(&self) -> StereoSample {
         self.sample
     }
 
+    #[allow(unused_variables)]
     fn batch_sample(&mut self, samples: &mut [StereoSample]) {
         todo!()
     }
@@ -185,14 +159,27 @@ pub struct DrumkitSampler {
     kit_name: String,
 }
 impl IsInstrument for DrumkitSampler {}
+impl GeneratesSamples for DrumkitSampler {
+    fn sample(&self) -> StereoSample {
+        self.inner_synth.sample()
+    }
+
+    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+        self.inner_synth.batch_sample(samples);
+    }
+}
+impl Ticks for DrumkitSampler {
+    fn reset(&mut self, sample_rate: usize) {
+        self.inner_synth.reset(sample_rate);
+    }
+
+    fn tick(&mut self, tick_count: usize) {
+        self.inner_synth.tick(tick_count);
+    }
+}
 impl HandlesMidi for DrumkitSampler {
     fn handle_midi_message(&mut self, message: &midly::MidiMessage) {
         self.inner_synth.handle_midi_message(message);
-    }
-}
-impl SourcesAudio for DrumkitSampler {
-    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        self.inner_synth.source_audio(clock)
     }
 }
 
@@ -264,10 +251,26 @@ impl DrumkitSampler {
 
 #[cfg(test)]
 mod tests {
+    use crate::{common::DEFAULT_SAMPLE_RATE, instruments::tests::is_voice_makes_any_sound_at_all};
+
     use super::*;
 
     #[test]
     fn test_loading() {
-        let _ = DrumkitSampler::new_from_files(Clock::DEFAULT_SAMPLE_RATE);
+        let _ = DrumkitSampler::new_from_files(DEFAULT_SAMPLE_RATE);
+    }
+
+    #[test]
+    fn drumkit_sampler_makes_any_sound_at_all() {
+        let mut voice = DrumkitSamplerVoice::new_from_file(
+            DEFAULT_SAMPLE_RATE,
+            "test-data/square-440Hz-1-second-mono-24-bit-PCM.wav",
+        );
+        voice.enqueue_note_on(127);
+
+        assert!(
+            is_voice_makes_any_sound_at_all(&mut voice),
+            "once triggered, DrumkitSampler voice should make a sound"
+        );
     }
 }

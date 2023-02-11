@@ -8,7 +8,7 @@ use crate::{
         HandlesMidi,
     },
     traits::{
-        Controllable, HasUid, IsController, IsInstrument, Response, SourcesAudio, Terminates,
+        Controllable, GeneratesSamples, HasUid, IsController, IsInstrument, Response, Terminates,
         Ticks, Updateable,
     },
     BipolarNormal, EntityMessage, StereoSample,
@@ -127,6 +127,20 @@ pub struct AudioSource {
     level: SampleType,
 }
 impl IsInstrument for AudioSource {}
+impl GeneratesSamples for AudioSource {
+    fn sample(&self) -> StereoSample {
+        StereoSample::from(self.level)
+    }
+
+    #[allow(unused_variables)]
+    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Ticks for AudioSource {
+    fn reset(&mut self, _sample_rate: usize) {}
+    fn tick(&mut self, _tick_count: usize) {}
+}
 impl HandlesMidi for AudioSource {}
 #[allow(dead_code)]
 impl AudioSource {
@@ -149,11 +163,6 @@ impl AudioSource {
 
     pub fn set_level(&mut self, level: SampleType) {
         self.level = level;
-    }
-}
-impl SourcesAudio for AudioSource {
-    fn source_audio(&mut self, _clock: &Clock) -> crate::StereoSample {
-        StereoSample::from(self.level)
     }
 }
 
@@ -207,6 +216,7 @@ impl Paths {
 pub struct TestSynth {
     uid: usize,
     sample_rate: usize,
+    sample: StereoSample,
 
     #[controllable]
     oscillator_modulation: f32,
@@ -214,7 +224,33 @@ pub struct TestSynth {
     oscillator: Box<Oscillator>,
     envelope: Box<dyn GeneratesEnvelope>,
 }
+impl IsInstrument for TestSynth {}
+impl GeneratesSamples for TestSynth {
+    fn sample(&self) -> StereoSample {
+        self.sample
+    }
 
+    #[allow(unused_variables)]
+    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Ticks for TestSynth {
+    fn reset(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
+        self.oscillator.reset(sample_rate);
+    }
+
+    fn tick(&mut self, tick_count: usize) {
+        // TODO: I don't think this can play sounds, because I don't see how the
+        // envelope ever gets triggered.
+        self.oscillator.tick(tick_count);
+        self.envelope.tick(tick_count);
+        self.sample =
+            crate::StereoSample::from(self.oscillator.signal() * self.envelope.amplitude().value());
+    }
+}
+impl HandlesMidi for TestSynth {}
 impl TestSynth {
     pub fn new_with_components(
         sample_rate: usize,
@@ -224,6 +260,7 @@ impl TestSynth {
         Self {
             uid: Default::default(),
             sample_rate,
+            sample: Default::default(),
             oscillator_modulation: Default::default(),
             oscillator,
             envelope,
@@ -246,32 +283,13 @@ impl TestSynth {
 
     #[allow(dead_code)]
     fn new_with(sample_rate: usize) -> Self {
-        Self {
-            uid: Default::default(),
+        Self::new_with_components(
             sample_rate,
-            oscillator_modulation: Default::default(),
-            oscillator: Box::new(Oscillator::new_with(sample_rate)),
-            envelope: Box::new(EnvelopeGenerator::default()),
-        }
+            Box::new(Oscillator::new_with(sample_rate)),
+            Box::new(EnvelopeGenerator::default()),
+        )
     }
 }
-
-impl SourcesAudio for TestSynth {
-    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        if clock.was_reset() {
-            self.oscillator.reset(self.sample_rate);
-        }
-        // TODO: I don't think this can play sounds, because I don't see how the
-        // envelope ever gets triggered.
-        self.envelope.tick(1);
-        let envelope_amplitude = self.envelope.amplitude().value();
-        let signal = self.oscillator.signal() * envelope_amplitude;
-        crate::StereoSample::from(signal)
-    }
-}
-
-impl IsInstrument for TestSynth {}
-impl HandlesMidi for TestSynth {}
 
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
@@ -335,7 +353,7 @@ pub mod tests {
     use super::Timer;
     use crate::{
         clock::Clock,
-        common::{Sample, SampleType},
+        common::{Sample, SampleType, DEFAULT_SAMPLE_RATE},
         controllers::orchestrator::Orchestrator,
         entities::BoxedEntity,
         instruments::oscillators::GeneratesSignal,
@@ -398,7 +416,7 @@ pub mod tests {
         run_length_in_seconds: usize,
     ) -> Vec<Sample> {
         let mut samples = Vec::default();
-        for _ in 0..Clock::DEFAULT_SAMPLE_RATE * run_length_in_seconds {
+        for _ in 0..DEFAULT_SAMPLE_RATE * run_length_in_seconds {
             source.tick(1);
             samples.push(Sample::from(source.signal()));
         }
@@ -447,7 +465,7 @@ pub mod tests {
         // A simple audio source.
         let synth_uid = o.add(
             None,
-            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(Clock::DEFAULT_SAMPLE_RATE))),
+            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(DEFAULT_SAMPLE_RATE))),
         );
 
         // A simple effect.
@@ -503,9 +521,9 @@ pub mod tests {
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(
             None,
-            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(Clock::DEFAULT_SAMPLE_RATE))),
+            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(DEFAULT_SAMPLE_RATE))),
         );
-        let mut lfo = TestLfo::new_with(Clock::DEFAULT_SAMPLE_RATE);
+        let mut lfo = TestLfo::new_with(DEFAULT_SAMPLE_RATE);
         lfo.set_frequency(2.0);
         let lfo_uid = o.add(None, BoxedEntity::TestLfo(Box::new(lfo)));
         let _ = o.link_control(
@@ -554,9 +572,7 @@ pub mod tests {
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
             None,
-            BoxedEntity::TestInstrument(Box::new(TestInstrument::new_with(
-                Clock::DEFAULT_SAMPLE_RATE,
-            ))),
+            BoxedEntity::TestInstrument(Box::new(TestInstrument::new_with(DEFAULT_SAMPLE_RATE))),
         );
         let arpeggiator_uid = o.add(
             None,
@@ -650,7 +666,7 @@ pub mod tests {
 
         // A simple audio source.
         let entity_groove =
-            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(Clock::DEFAULT_SAMPLE_RATE)));
+            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(DEFAULT_SAMPLE_RATE)));
         let synth_uid = o.add(None, entity_groove);
 
         // A simple effect.

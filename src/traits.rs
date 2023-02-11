@@ -1,11 +1,11 @@
-use crate::clock::Clock;
-use crate::clock::ClockTimeUnit;
-use crate::common::{F32ControlValue, Sample, StereoSample};
-use crate::instruments::oscillators::GeneratesSignal;
-use crate::instruments::{Dca, HandlesMidi};
-use crate::messages::EntityMessage;
 use crate::{
-    instruments::oscillators::Oscillator,
+    clock::{Clock, ClockTimeUnit},
+    common::{F32ControlValue, Sample, StereoSample},
+    instruments::{
+        oscillators::{GeneratesSignal, Oscillator},
+        Dca, HandlesMidi,
+    },
+    messages::EntityMessage,
     midi::{MidiChannel, MidiUtils},
     settings::patches::WaveformType,
 };
@@ -40,7 +40,10 @@ pub trait IsEffect: TransformsAudio + Controllable + HasUid + Send + Debug {}
 /// An IsInstrument produces audio, usually upon request from MIDI or
 /// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
 /// because it continues to create audio as long as asked.
-pub trait IsInstrument: SourcesAudio + HandlesMidi + Controllable + HasUid + Send + Debug {}
+pub trait IsInstrument:
+    GeneratesSamples + Ticks + HandlesMidi + Controllable + HasUid + Send + Debug
+{
+}
 
 /// A future fourth trait might be named something like IsWidget or
 /// IsGuiElement. These exist only to interact with the user of a GUI app, but
@@ -107,9 +110,16 @@ pub trait Ticks: Send + Debug {
     fn tick(&mut self, tick_count: usize);
 }
 
-/// A SourcesAudio provides audio in the form of digital samples.
-pub trait SourcesAudio: Debug + Send {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample;
+/// A GeneratesSamples provides audio in the form of digital samples.
+pub trait GeneratesSamples: Send + Ticks {
+    /// The sample for the current frame. Advance the frame by calling
+    /// Ticks::tick().
+    fn sample(&self) -> StereoSample;
+
+    /// The batch version of sample(). To deliver each sample, this method will
+    /// typically call tick() internally. If you don't want this, then call
+    /// sample() on your own.
+    fn batch_sample(&mut self, samples: &mut [StereoSample]);
 }
 
 /// A TransformsAudio takes input audio, which is typically produced by
@@ -465,6 +475,7 @@ impl TestEffect {
 pub struct TestInstrument {
     uid: usize,
     sample_rate: usize,
+    sample: StereoSample,
 
     /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
     #[controllable]
@@ -487,6 +498,41 @@ pub struct TestInstrument {
     pub debug_messages: Vec<MidiMessage>,
 }
 impl IsInstrument for TestInstrument {}
+impl GeneratesSamples for TestInstrument {
+    fn sample(&self) -> StereoSample {
+        self.sample
+    }
+
+    #[allow(unused_variables)]
+    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Ticks for TestInstrument {
+    fn reset(&mut self, sample_rate: usize) {
+        self.oscillator.reset(sample_rate);
+    }
+
+    fn tick(&mut self, tick_count: usize) {
+        self.oscillator.tick(tick_count);
+        // If we've been asked to assert values at checkpoints, do so.
+
+        // TODODODODO
+        // if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
+        // {
+        //     const SAD_FLOAT_DIFF: f32 = 1.0e-2;
+        //     assert_approx_eq!(self.fake_value, self.checkpoint_values[0], SAD_FLOAT_DIFF);
+        //     self.checkpoint += self.checkpoint_delta;
+        //     self.checkpoint_values.pop_front();
+        // }
+        self.sample = if self.is_playing {
+            self.dca
+                .transform_audio_to_stereo(Sample::from(self.oscillator.signal()))
+        } else {
+            StereoSample::SILENCE
+        };
+    }
+}
 impl HasUid for TestInstrument {
     fn uid(&self) -> usize {
         self.uid
@@ -545,6 +591,7 @@ impl TestInstrument {
             uid: Default::default(),
             waveform: Default::default(),
             sample_rate,
+            sample: Default::default(),
             fake_value: Default::default(),
             oscillator: Oscillator::new_with(sample_rate),
             dca: Default::default(),
@@ -609,35 +656,10 @@ impl TestInstrument {
     }
 }
 
-impl SourcesAudio for TestInstrument {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
-        if clock.was_reset() {
-            self.oscillator.reset(self.sample_rate);
-        }
-        self.oscillator.tick(1);
-        // If we've been asked to assert values at checkpoints, do so.
-        if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
-        {
-            const SAD_FLOAT_DIFF: f32 = 1.0e-2;
-            assert_approx_eq!(self.fake_value, self.checkpoint_values[0], SAD_FLOAT_DIFF);
-            self.checkpoint += self.checkpoint_delta;
-            self.checkpoint_values.pop_front();
-        }
-        if self.is_playing {
-            self.dca
-                .transform_audio_to_stereo(clock, Sample::from(self.oscillator.signal()))
-        } else {
-            StereoSample::SILENCE
-        }
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
-    use super::SourcesAudio;
-    use super::TestInstrument;
-    use super::Ticks;
-    use crate::clock::Clock;
+    use super::{GeneratesSamples, TestInstrument, Ticks};
+    use crate::common::DEFAULT_SAMPLE_RATE;
     use rand::random;
 
     pub trait DebugTicks: Ticks {
@@ -650,11 +672,10 @@ pub mod tests {
     // for non-consecutive time slices.
     #[test]
     fn test_sources_audio_random_access() {
-        let mut instrument = TestInstrument::new_with(Clock::DEFAULT_SAMPLE_RATE);
+        let mut instrument = TestInstrument::new_with(DEFAULT_SAMPLE_RATE);
         for _ in 0..100 {
-            let mut clock = Clock::default();
-            clock.set_samples(random());
-            let _ = instrument.source_audio(&clock);
+            instrument.tick(random::<usize>() % 10);
+            let _ = instrument.sample();
         }
     }
 

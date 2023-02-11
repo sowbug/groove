@@ -1,8 +1,7 @@
 use crate::{
-    clock::Clock,
     common::{F32ControlValue, Sample, SampleType},
     midi::MidiMessage,
-    traits::{Controllable, HasUid, IsInstrument, SourcesAudio},
+    traits::{Controllable, HasUid, IsInstrument, Ticks},
     StereoSample,
 };
 use groove_macros::{Control, Uid};
@@ -10,13 +9,16 @@ use hound::WavReader;
 use std::{fs::File, io::BufReader, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
-use super::HandlesMidi;
+use super::{GeneratesSamples, HandlesMidi};
 
 #[derive(Control, Debug, Default, Uid)]
 #[allow(dead_code)]
 pub struct Sampler {
     uid: usize,
     samples: Vec<StereoSample>,
+    sample: StereoSample,
+    ticks: usize,
+    is_reset_pending: bool,
     sample_clock_start: usize,
     sample_pointer: usize,
     is_playing: bool,
@@ -25,27 +27,44 @@ pub struct Sampler {
     filename: String,
 }
 impl IsInstrument for Sampler {}
-impl SourcesAudio for Sampler {
-    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        if self.sample_clock_start == usize::MAX || clock.was_reset() {
-            self.sample_clock_start = clock.samples();
-        }
+impl GeneratesSamples for Sampler {
+    fn sample(&self) -> StereoSample {
+        self.sample
+    }
 
-        debug_assert!(self.sample_clock_start <= clock.samples());
+    #[allow(unused_variables)]
+    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Ticks for Sampler {
+    fn reset(&mut self, _sample_rate: usize) {
+        self.is_reset_pending = true;
+    }
 
-        self.sample_pointer = clock.samples() - self.sample_clock_start;
-        if self.sample_pointer >= self.samples.len() {
-            self.is_playing = false;
-            self.sample_pointer = 0;
-        }
+    fn tick(&mut self, tick_count: usize) {
+        for _ in 0..tick_count {
+            if self.is_reset_pending {
+                self.ticks = 0;
+                self.sample_clock_start = 0;
+            } else {
+                self.ticks += 1;
+            }
 
-        if self.is_playing {
-            *self
-                .samples
-                .get(self.sample_pointer)
-                .unwrap_or(&StereoSample::SILENCE)
-        } else {
-            StereoSample::SILENCE
+            self.sample_pointer = self.ticks - self.sample_clock_start;
+            if self.sample_pointer >= self.samples.len() {
+                self.is_playing = false;
+                self.sample_pointer = 0;
+            }
+
+            self.sample = if self.is_playing {
+                *self
+                    .samples
+                    .get(self.sample_pointer)
+                    .unwrap_or(&StereoSample::SILENCE)
+            } else {
+                StereoSample::SILENCE
+            };
         }
     }
 }
@@ -59,17 +78,17 @@ impl HandlesMidi for Sampler {
             MidiMessage::NoteOn { key, vel } => {
                 self.is_playing = true;
 
-                self.sample_pointer = 0;
-
                 // Slight hack to tell ourselves to record the sample start time
                 // on next source_audio().
-                self.sample_clock_start = usize::MAX;
+                //
+                // TODO: I'm not sure this is safe, because it's a broad concept
+                // used very specifically here. Keep an eye on it.
+                self.is_reset_pending = true;
             }
             _ => {}
         }
     }
 }
-
 impl Sampler {
     fn read_samples<T>(
         reader: &mut WavReader<BufReader<File>>,

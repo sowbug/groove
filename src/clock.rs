@@ -149,8 +149,6 @@ impl Default for Clock {
 }
 
 impl Clock {
-    pub const DEFAULT_SAMPLE_RATE: usize = 44100;
-
     pub fn new() -> Self {
         Self::default()
     }

@@ -130,6 +130,7 @@ impl GeneratesSignal for Oscillator {
         self.signal
     }
 
+    #[allow(unused_variables)]
     fn batch_signal(&mut self, signals: &mut [SignalType]) {
         todo!()
     }
@@ -378,7 +379,7 @@ impl Oscillator {
 mod tests {
     use super::{Oscillator, WaveformType};
     use crate::{
-        clock::Clock,
+        common::DEFAULT_SAMPLE_RATE,
         instruments::oscillators::GeneratesSignal,
         midi::{MidiNote, MidiUtils},
         settings::patches::{OscillatorSettings, OscillatorTune},
@@ -401,7 +402,7 @@ mod tests {
         tune: OscillatorTune,
         note: MidiNote,
     ) -> Oscillator {
-        let sample_rate = Clock::DEFAULT_SAMPLE_RATE;
+        let sample_rate = DEFAULT_SAMPLE_RATE;
         let mut oscillator = Oscillator::new_from_preset(
             sample_rate,
             &OscillatorSettings {
@@ -416,7 +417,7 @@ mod tests {
 
     #[test]
     fn test_oscillator_pola() {
-        let mut oscillator = Oscillator::new_with(Clock::DEFAULT_SAMPLE_RATE);
+        let mut oscillator = Oscillator::new_with(DEFAULT_SAMPLE_RATE);
 
         // we'll run two ticks in case the oscillator happens to start at zero
         oscillator.tick(2);
@@ -533,7 +534,7 @@ mod tests {
     fn test_sine_wave_is_balanced() {
         const FREQUENCY: f32 = 1.0;
         let mut oscillator = Oscillator::new_with_type_and_frequency(
-            Clock::DEFAULT_SAMPLE_RATE,
+            DEFAULT_SAMPLE_RATE,
             WaveformType::Sine,
             FREQUENCY,
         );
@@ -541,7 +542,7 @@ mod tests {
         let mut n_pos = 0;
         let mut n_neg = 0;
         let mut n_zero = 0;
-        for _ in 0..Clock::DEFAULT_SAMPLE_RATE {
+        for _ in 0..DEFAULT_SAMPLE_RATE {
             oscillator.tick(1);
             let f = oscillator.signal();
             if f < -0.0000001 {
@@ -554,7 +555,7 @@ mod tests {
         }
         assert_eq!(n_zero, 2);
         assert_eq!(n_pos, n_neg);
-        assert_eq!(n_pos + n_neg + n_zero, Clock::DEFAULT_SAMPLE_RATE);
+        assert_eq!(n_pos + n_neg + n_zero, DEFAULT_SAMPLE_RATE);
     }
 
     #[test]
@@ -568,7 +569,7 @@ mod tests {
         ];
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_type_and_frequency(
-                Clock::DEFAULT_SAMPLE_RATE,
+                DEFAULT_SAMPLE_RATE,
                 WaveformType::Square,
                 test_case.0,
             );
@@ -597,7 +598,7 @@ mod tests {
         ];
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_type_and_frequency(
-                Clock::DEFAULT_SAMPLE_RATE,
+                DEFAULT_SAMPLE_RATE,
                 WaveformType::Sine,
                 test_case.0,
             );
@@ -626,7 +627,7 @@ mod tests {
         ];
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_type_and_frequency(
-                Clock::DEFAULT_SAMPLE_RATE,
+                DEFAULT_SAMPLE_RATE,
                 WaveformType::Sawtooth,
                 test_case.0,
             );
@@ -655,7 +656,7 @@ mod tests {
         ];
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_type_and_frequency(
-                Clock::DEFAULT_SAMPLE_RATE,
+                DEFAULT_SAMPLE_RATE,
                 WaveformType::Triangle,
                 test_case.0,
             );
@@ -721,11 +722,11 @@ mod tests {
 
     #[test]
     fn oscillator_cycle_restarts_on_time() {
-        let mut oscillator = Oscillator::new_with(Clock::DEFAULT_SAMPLE_RATE);
+        let mut oscillator = Oscillator::new_with(DEFAULT_SAMPLE_RATE);
         const FREQUENCY: f32 = 2.0;
         oscillator.set_frequency(FREQUENCY);
 
-        const TICKS_IN_CYCLE: usize = Clock::DEFAULT_SAMPLE_RATE / FREQUENCY as usize;
+        const TICKS_IN_CYCLE: usize = DEFAULT_SAMPLE_RATE / FREQUENCY as usize;
         assert_eq!(TICKS_IN_CYCLE, 44100 / 2);
 
         // We assume that synced oscillators can take care of their own init.
@@ -767,7 +768,7 @@ mod tests {
         // oscillator cycle. No normal audio performance will involve a clock
         // shift, so it's OK to have the wrong timbre for a tiny fraction of a
         // second.
-        oscillator.reset(Clock::DEFAULT_SAMPLE_RATE);
+        oscillator.reset(DEFAULT_SAMPLE_RATE);
         oscillator.tick(1);
         assert!(
             oscillator.should_sync(),
@@ -781,9 +782,9 @@ mod tests {
 
         // Let's run through again, but this time go for a whole second, and
         // count the number of flags.
-        oscillator.reset(Clock::DEFAULT_SAMPLE_RATE);
+        oscillator.reset(DEFAULT_SAMPLE_RATE);
         let mut cycles = 0;
-        for _ in 0..Clock::DEFAULT_SAMPLE_RATE {
+        for _ in 0..DEFAULT_SAMPLE_RATE {
             oscillator.tick(1);
             if oscillator.should_sync() {
                 cycles += 1;
