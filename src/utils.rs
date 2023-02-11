@@ -450,7 +450,6 @@ pub mod tests {
     impl TransformsAudio for TestMixer {
         fn transform_channel(
             &mut self,
-            _clock: &Clock,
             _channel: usize,
             input_sample: crate::common::Sample,
         ) -> crate::common::Sample {

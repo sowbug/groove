@@ -14,7 +14,7 @@ use crate::{
     },
     traits::{Controllable, HasUid, IsInstrument, Ticks, TransformsAudio},
     utils::Paths,
-    BipolarNormal, Clock, StereoSample,
+    BipolarNormal, StereoSample,
 };
 use convert_case::{Boundary, Case, Casing};
 use groove_macros::{Control, Uid};
@@ -547,11 +547,7 @@ impl Ticks for WelshVoice {
                     self.filter
                         .set_cutoff_pct(self.filter_cutoff_start * (1.0 + lfo_for_cutoff as f32));
                 }
-                let todo_delete_me_clock = Clock::default();
-                let filtered_mix = self
-                    .filter
-                    .transform_channel(&todo_delete_me_clock, 0, Sample::from(osc_sum))
-                    .0;
+                let filtered_mix = self.filter.transform_channel(0, Sample::from(osc_sum)).0;
 
                 // LFO amplitude modulation
                 let lfo_for_amplitude = if matches!(self.lfo_routing, LfoRouting::Amplitude) {

@@ -126,18 +126,18 @@ pub trait GeneratesSamples: Send + Ticks {
 /// SourcesAudio, does something to it, and then outputs it. It's what effects
 /// do.
 pub trait TransformsAudio: Debug {
-    fn transform_audio(&mut self, clock: &Clock, input_sample: StereoSample) -> StereoSample {
+    fn transform_audio(&mut self, input_sample: StereoSample) -> StereoSample {
         // Beware: converting from mono to stereo isn't just doing the work
         // twice! You'll also have to double whatever state you maintain from
         // tick to tick that has to do with a single channel's audio data.
         StereoSample(
-            self.transform_channel(clock, 0, input_sample.0),
-            self.transform_channel(clock, 1, input_sample.1),
+            self.transform_channel(0, input_sample.0),
+            self.transform_channel(1, input_sample.1),
         )
     }
 
     /// channel: 0 is left, 1 is right. Use the value as an index into arrays.
-    fn transform_channel(&mut self, clock: &Clock, channel: usize, input_sample: Sample) -> Sample;
+    fn transform_channel(&mut self, channel: usize, input_sample: Sample) -> Sample;
 }
 
 // A Terminates has a point in time where it would be OK never being called or
@@ -392,13 +392,8 @@ pub struct TestEffect {
 }
 impl IsEffect for TestEffect {}
 impl TransformsAudio for TestEffect {
-    fn transform_channel(
-        &mut self,
-        clock: &Clock,
-        _channel: usize,
-        input_sample: Sample,
-    ) -> Sample {
-        self.check_values(clock);
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
+        /////////////////////// TODO        self.check_values(clock);
         -input_sample
     }
 }

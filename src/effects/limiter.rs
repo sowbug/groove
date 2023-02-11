@@ -1,5 +1,4 @@
 use crate::{
-    clock::Clock,
     common::{F32ControlValue, Sample, SampleType},
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
     BipolarNormal,
@@ -30,7 +29,7 @@ impl IsEffect for Limiter {}
 impl TransformsAudio for Limiter {
     fn transform_channel(
         &mut self,
-        _clock: &Clock,
+
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
@@ -86,15 +85,11 @@ impl Limiter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        clock::Clock, common::Sample, traits::GeneratesSamples, utils::AudioSource, StereoSample,
-    };
+    use crate::{common::Sample, traits::GeneratesSamples, utils::AudioSource, StereoSample};
     use more_asserts::{assert_gt, assert_lt};
 
     #[test]
     fn limiter_mainline() {
-        let clock = Clock::default();
-
         // audio sources are at or past boundaries
         assert_gt!(
             AudioSource::new_with(AudioSource::TOO_LOUD).sample(),
@@ -120,58 +115,50 @@ mod tests {
         // Limiter clamps high and low, and doesn't change values inside the range.
         let mut limiter = Limiter::default();
         assert_eq!(
-            limiter.transform_audio(
-                &clock,
-                AudioSource::new_with(AudioSource::TOO_LOUD).sample()
-            ),
+            limiter.transform_audio(AudioSource::new_with(AudioSource::TOO_LOUD).sample()),
             StereoSample::MAX
         );
         assert_eq!(
-            limiter.transform_audio(&clock, AudioSource::new_with(AudioSource::LOUD).sample()),
+            limiter.transform_audio(AudioSource::new_with(AudioSource::LOUD).sample()),
             StereoSample::MAX
         );
         assert_eq!(
-            limiter.transform_audio(&clock, AudioSource::new_with(AudioSource::SILENT).sample()),
+            limiter.transform_audio(AudioSource::new_with(AudioSource::SILENT).sample()),
             StereoSample::SILENCE
         );
         assert_eq!(
-            limiter.transform_audio(&clock, AudioSource::new_with(AudioSource::QUIET).sample()),
+            limiter.transform_audio(AudioSource::new_with(AudioSource::QUIET).sample()),
             StereoSample::MIN
         );
         assert_eq!(
-            limiter.transform_audio(
-                &clock,
-                AudioSource::new_with(AudioSource::TOO_QUIET).sample()
-            ),
+            limiter.transform_audio(AudioSource::new_with(AudioSource::TOO_QUIET).sample()),
             StereoSample::MIN
         );
     }
 
     #[test]
     fn limiter_bias() {
-        let clock = Clock::default();
-
         let mut limiter = Limiter::new_with(BipolarNormal::from(0.2), BipolarNormal::from(0.8));
         assert_eq!(
-            limiter.transform_channel(&clock, 0, Sample::from(0.1f32)),
+            limiter.transform_channel(0, Sample::from(0.1f32)),
             Sample::from(0.2f32),
             "Limiter failed to clamp min {}",
             0.2
         );
         assert_eq!(
-            limiter.transform_channel(&clock, 0, Sample::from(0.9f32)),
+            limiter.transform_channel(0, Sample::from(0.9f32)),
             Sample::from(0.8f32),
             "Limiter failed to clamp max {}",
             0.8
         );
         assert_eq!(
-            limiter.transform_channel(&clock, 0, Sample::from(-0.1f32)),
+            limiter.transform_channel(0, Sample::from(-0.1f32)),
             Sample::from(-0.2f32),
             "Limiter failed to clamp min {} for negative values",
             0.2
         );
         assert_eq!(
-            limiter.transform_channel(&clock, 0, Sample::from(-0.9f32)),
+            limiter.transform_channel(0, Sample::from(-0.9f32)),
             Sample::from(-0.8f32),
             "Limiter failed to clamp max {} for negative values",
             0.8

@@ -1,5 +1,4 @@
 use crate::{
-    clock::Clock,
     common::F32ControlValue,
     common::{Normal, Sample},
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
@@ -19,7 +18,7 @@ impl IsEffect for Gain {}
 impl TransformsAudio for Gain {
     fn transform_channel(
         &mut self,
-        _clock: &Clock,
+
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
@@ -59,14 +58,13 @@ impl Gain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{clock::Clock, traits::GeneratesSamples, utils::AudioSource, StereoSample};
+    use crate::{traits::GeneratesSamples, utils::AudioSource, StereoSample};
 
     #[test]
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(Normal::new(0.5));
-        let clock = Clock::default();
         assert_eq!(
-            gain.transform_audio(&clock, AudioSource::new_with(AudioSource::LOUD).sample()),
+            gain.transform_audio(AudioSource::new_with(AudioSource::LOUD).sample()),
             StereoSample::from(0.5)
         );
     }

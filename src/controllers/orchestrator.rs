@@ -245,7 +245,7 @@ impl Orchestrator {
     // marker with the current sum, then push the children as to-visit). When a
     // marker pops up, eval with the current sum (nodes are effects, so they
     // take an input), then add to the running sum.
-    fn gather_audio(&mut self, clock: &Clock) -> StereoSample {
+    fn gather_audio(&mut self) -> StereoSample {
         enum StackEntry {
             ToVisit(usize),
             CollectResultFor(usize, StereoSample),
@@ -312,11 +312,11 @@ impl Orchestrator {
                             sum = accumulated_sum
                                 + if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
                                     let start_time = timer.start();
-                                    let transformed_audio = entity.transform_audio(clock, sum);
+                                    let transformed_audio = entity.transform_audio(sum);
                                     timer.stop(start_time);
                                     transformed_audio
                                 } else {
-                                    entity.transform_audio(clock, sum)
+                                    entity.transform_audio(sum)
                                 };
                         }
                     }
@@ -505,7 +505,7 @@ impl Orchestrator {
         }
         if let GrooveMessage::Tick = message {
             unhandled_commands.push(Response::single(GrooveMessage::AudioOutput(
-                self.gather_audio(clock),
+                self.gather_audio(),
             )));
             if self.are_all_finished() {
                 unhandled_commands.push(Response::single(GrooveMessage::OutputComplete));
@@ -897,27 +897,25 @@ pub mod tests {
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.2))),
         );
 
-        let clock = Clock::default();
-
         // Nothing connected: should output silence.
-        assert_eq!(o.gather_audio(&clock), StereoSample::SILENCE);
+        assert_eq!(o.gather_audio(), StereoSample::SILENCE);
 
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
         assert!(o
-            .gather_audio(&clock)
+            .gather_audio()
             .almost_equals(StereoSample::new_from_single_f64(0.1)));
 
         assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
         assert!(o
-            .gather_audio(&clock)
+            .gather_audio()
             .almost_equals(StereoSample::new_from_single_f64(0.2)));
 
         assert!(o.unpatch_all().is_ok());
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
         assert!(o
-            .gather_audio(&clock)
+            .gather_audio()
             .almost_equals(StereoSample::new_from_single_f64(0.1 + 0.2)));
     }
 
@@ -944,27 +942,26 @@ pub mod tests {
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.4))),
         );
-        let clock = Clock::default();
 
         // Nothing connected: should output silence.
-        assert_eq!(o.gather_audio(&clock), StereoSample::SILENCE);
+        assert_eq!(o.gather_audio(), StereoSample::SILENCE);
 
         // Just the single-level instrument; should get that.
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
         assert!(o
-            .gather_audio(&clock)
+            .gather_audio()
             .almost_equals(StereoSample::new_from_single_f64(0.1)));
 
         // Gain alone; that's weird, but it shouldn't explode.
         assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(gain_1_uid).is_ok());
-        assert_eq!(o.gather_audio(&clock), StereoSample::SILENCE);
+        assert_eq!(o.gather_audio(), StereoSample::SILENCE);
 
         // Disconnect/reconnect and connect just the single-level instrument again.
         assert!(o.disconnect_from_main_mixer(gain_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
         assert!(o
-            .gather_audio(&clock)
+            .gather_audio()
             .almost_equals(StereoSample::new_from_single_f64(0.1)));
 
         // Instrument to gain should result in (instrument x gain).
@@ -973,14 +970,14 @@ pub mod tests {
             .patch_chain_to_main_mixer(&[level_1_uid, gain_1_uid])
             .is_ok());
         assert!(o
-            .gather_audio(&clock)
+            .gather_audio()
             .almost_equals(StereoSample::new_from_single_f64(0.1 * 0.5)));
 
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_3_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_4_uid).is_ok());
         assert!(o
-            .gather_audio(&clock)
+            .gather_audio()
             .almost_equals(StereoSample::new_from_single_f64(
                 0.1 * 0.5 + 0.2 + 0.3 + 0.4
             )));
@@ -994,7 +991,7 @@ pub mod tests {
             .patch_chain_to_main_mixer(&[level_1_uid, gain_1_uid])
             .is_ok());
         assert!(o
-            .gather_audio(&clock)
+            .gather_audio()
             .almost_equals(StereoSample::new_from_single_f64(
                 0.1 * 0.5 + 0.2 + 0.3 + 0.4
             )));
@@ -1002,7 +999,6 @@ pub mod tests {
 
     #[test]
     fn test_orchestrator_gather_audio_2() {
-        let clock = Clock::default();
         let mut o = Orchestrator::default();
         let piano_1_uid = o.add(
             None,
@@ -1044,7 +1040,7 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[piano_1_uid, low_pass_1_uid, gain_1_uid])
             .is_ok());
-        let sample_chain_1 = o.gather_audio(&clock);
+        let sample_chain_1 = o.gather_audio();
         assert!(sample_chain_1.almost_equals(StereoSample::new_from_single_f64(0.1 * 0.2 * 0.4)));
 
         // Second chain.
@@ -1052,7 +1048,7 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[bassline_uid, gain_2_uid])
             .is_ok());
-        let sample_chain_2 = o.gather_audio(&clock);
+        let sample_chain_2 = o.gather_audio();
         assert!(sample_chain_2.almost_equals(StereoSample::new_from_single_f64(0.3 * 0.6)));
 
         // Third.
@@ -1060,13 +1056,13 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[synth_1_uid, gain_3_uid])
             .is_ok());
-        let sample_chain_3 = o.gather_audio(&clock);
+        let sample_chain_3 = o.gather_audio();
         assert_eq!(sample_chain_3, StereoSample::new_from_single_f64(0.5 * 0.8));
 
         // Fourth.
         assert!(o.unpatch_all().is_ok());
         assert!(o.patch_chain_to_main_mixer(&[drum_1_uid]).is_ok());
-        let sample_chain_4 = o.gather_audio(&clock);
+        let sample_chain_4 = o.gather_audio();
         assert!(sample_chain_4.almost_equals(StereoSample::new_from_single_f64(0.7)));
 
         // Now start over and successively add. This is first and second chains together.
@@ -1077,27 +1073,26 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[bassline_uid, gain_2_uid])
             .is_ok());
-        assert_eq!(o.gather_audio(&clock), sample_chain_1 + sample_chain_2);
+        assert_eq!(o.gather_audio(), sample_chain_1 + sample_chain_2);
 
         // Plus third.
         assert!(o
             .patch_chain_to_main_mixer(&[synth_1_uid, gain_3_uid])
             .is_ok());
         assert_eq!(
-            o.gather_audio(&clock),
+            o.gather_audio(),
             sample_chain_1 + sample_chain_2 + sample_chain_3
         );
 
         // Plus fourth.
         assert!(o.patch_chain_to_main_mixer(&[drum_1_uid]).is_ok());
         assert!(o
-            .gather_audio(&clock)
+            .gather_audio()
             .almost_equals(sample_chain_1 + sample_chain_2 + sample_chain_3 + sample_chain_4));
     }
 
     #[test]
     fn test_orchestrator_gather_audio_with_branches() {
-        let clock = Clock::default();
         let mut o = Orchestrator::default();
         let instrument_1_uid = o.add(
             None,
@@ -1121,7 +1116,7 @@ pub mod tests {
         assert!(o.patch(instrument_2_uid, effect_1_uid).is_ok());
         assert!(o.patch(instrument_3_uid, effect_1_uid).is_ok());
         assert!(o
-            .gather_audio(&clock)
+            .gather_audio()
             .almost_equals(StereoSample::new_from_single_f64(0.1 + 0.5 * (0.3 + 0.5))));
     }
 

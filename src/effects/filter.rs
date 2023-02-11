@@ -1,5 +1,4 @@
 use crate::{
-    clock::Clock,
     common::{F32ControlValue, Sample},
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
@@ -142,7 +141,7 @@ impl IsEffect for BiQuadFilter {}
 impl TransformsAudio for BiQuadFilter {
     fn transform_channel(
         &mut self,
-        _clock: &Clock,
+
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {

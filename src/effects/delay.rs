@@ -1,5 +1,4 @@
 use crate::{
-    clock::Clock,
     common::{F32ControlValue, Sample, SignalType},
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
@@ -200,7 +199,7 @@ impl IsEffect for Delay {}
 impl TransformsAudio for Delay {
     fn transform_channel(
         &mut self,
-        _clock: &Clock,
+
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
@@ -235,67 +234,50 @@ impl Delay {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::common::{Sample, DEFAULT_SAMPLE_RATE};
     use assert_approx_eq::assert_approx_eq;
     use more_asserts::{assert_gt, assert_lt};
     use rand::random;
 
-    use super::*;
-    use crate::{clock::Clock, common::Sample};
-
     #[test]
     fn test_delay_basic() {
-        let mut clock = Clock::default();
-        let mut fx = Delay::new_with(clock.sample_rate(), 1.0);
+        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, 1.0);
 
         // Add a unique first sample.
-        assert_eq!(
-            fx.transform_channel(&clock, 0, Sample::from(0.5)),
-            Sample::SILENCE
-        );
-        clock.tick();
+        assert_eq!(fx.transform_channel(0, Sample::from(0.5)), Sample::SILENCE);
 
         // Push a whole bunch more.
-        for i in 0..clock.sample_rate() - 1 {
+        for i in 0..DEFAULT_SAMPLE_RATE - 1 {
             assert_eq!(
-                fx.transform_channel(&clock, 0, Sample::MAX),
+                fx.transform_channel(0, Sample::MAX),
                 Sample::SILENCE,
                 "unexpected value at sample {}",
                 i
             );
-            clock.tick();
         }
 
         // We should get back our first sentinel sample.
-        assert_eq!(
-            fx.transform_channel(&clock, 0, Sample::SILENCE),
-            Sample::from(0.5)
-        );
-        clock.tick();
+        assert_eq!(fx.transform_channel(0, Sample::SILENCE), Sample::from(0.5));
 
         // And the next should be one of the bunch.
-        assert_eq!(
-            fx.transform_channel(&clock, 0, Sample::SILENCE),
-            Sample::MAX
-        );
-        clock.tick();
+        assert_eq!(fx.transform_channel(0, Sample::SILENCE), Sample::MAX);
     }
 
     #[test]
     fn test_delay_zero() {
-        let mut clock = Clock::default();
-        let mut fx = Delay::new_with(clock.sample_rate(), 0.0);
+        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, 0.0);
 
         // We should keep getting back what we put in.
-        for i in 0..clock.sample_rate() {
+        for i in 0..DEFAULT_SAMPLE_RATE {
             let random_bipolar_normal = random::<f32>().fract() * 2.0 - 1.0;
             let sample = Sample::from(random_bipolar_normal);
             assert_eq!(
-                fx.transform_channel(&clock, 0, sample),
+                fx.transform_channel(0, sample),
                 sample,
                 "unexpected value at sample {}",
                 i
             );
-            clock.tick();
         }
     }
 

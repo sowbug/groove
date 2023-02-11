@@ -1,6 +1,5 @@
 use super::delay::{DelayLine, Delays};
 use crate::{
-    clock::Clock,
     common::F32ControlValue,
     common::{Sample, SampleType},
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
@@ -32,7 +31,7 @@ impl IsEffect for Chorus {}
 impl TransformsAudio for Chorus {
     fn transform_channel(
         &mut self,
-        _clock: &Clock,
+
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
