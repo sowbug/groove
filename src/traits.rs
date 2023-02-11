@@ -1,10 +1,8 @@
-use crate::clock::Clock;
-use crate::clock::ClockTimeUnit;
-use crate::common::{F32ControlValue, Sample, StereoSample};
-use crate::instruments::{Dca, HandlesMidi};
-use crate::messages::EntityMessage;
 use crate::{
-    instruments::oscillators::Oscillator,
+    clock::{Clock, ClockTimeUnit},
+    common::{F32ControlValue, Sample, StereoSample},
+    instruments::{oscillators::Oscillator, Dca, HandlesMidi},
+    messages::EntityMessage,
     midi::{MidiChannel, MidiUtils},
     settings::patches::WaveformType,
 };
@@ -12,6 +10,7 @@ use assert_approx_eq::assert_approx_eq;
 use groove_macros::Control;
 use midly::MidiMessage;
 use std::collections::VecDeque;
+use std::fmt::Debug;
 use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -21,7 +20,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 /// IsController implements Terminates, which indicates that it's done emitting
 /// events (and, in the case of timers and sequencers, done waiting for other
 /// work in the system to complete).
-pub trait IsController: Updateable + Terminates + HasUid + Send + std::fmt::Debug {}
+pub trait IsController: Updateable + Terminates + HasUid + Send + Debug {}
 
 /// An IsEffect transforms audio. It takes audio inputs and produces audio
 /// output. It does not get called unless there is audio input to provide to it
@@ -33,19 +32,30 @@ pub trait IsController: Updateable + Terminates + HasUid + Send + std::fmt::Debu
 /// delay effect), and it turns out to be inconvenient for an IsController to
 /// track the end. In this case, we might add a Terminates bound for IsEffect.
 /// But right now I'm not sure that's the right solution.
-pub trait IsEffect: TransformsAudio + Controllable + HasUid + Send + std::fmt::Debug {}
+pub trait IsEffect: TransformsAudio + Controllable + HasUid + Send + Debug {}
 
 /// An IsInstrument produces audio, usually upon request from MIDI or
 /// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
 /// because it continues to create audio as long as asked.
 pub trait IsInstrument:
-    SourcesAudio + HandlesMidi + Controllable + HasUid + Send + std::fmt::Debug
+    Generates<StereoSample> + Ticks + HandlesMidi + Controllable + HasUid + Send + Debug
 {
 }
 
 /// A future fourth trait might be named something like IsWidget or
 /// IsGuiElement. These exist only to interact with the user of a GUI app, but
 /// don't actually create or control audio.
+
+pub trait Generates<V>: Send + Debug + Ticks {
+    /// The value for the current frame. Advance the frame by calling
+    /// Ticks::tick().
+    fn value(&self) -> V;
+
+    /// The batch version of value(). To deliver each value, this method will
+    /// typically call tick() internally. If you don't want this, then call
+    /// value() on your own.
+    fn batch_values(&mut self, values: &mut [V]);
+}
 
 /// An Updateable accepts new information through update() (i.e., Messages) or
 /// control parameters.
@@ -79,27 +89,51 @@ pub trait HasUid {
     fn set_uid(&mut self, uid: usize);
 }
 
-/// A SourcesAudio provides audio in the form of digital samples.
-pub trait SourcesAudio: std::fmt::Debug + Send {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample;
+pub trait Ticks: Send + Debug {
+    /// The entity should reset its internal state.
+    ///
+    /// The system will call reset() when the global sample rate changes, and
+    /// whenever the global clock is reset. Since most entities that care about
+    /// sample rate need to know it during construction, the system *won't* call
+    /// reset on entity construction; instead, entities can require the sample
+    /// rate as part of their new() functions, and if desired call reset()
+    /// within that function.
+    fn reset(&mut self, sample_rate: usize);
+
+    /// The entity should perform work for the current frame (or frames if
+    /// frame_count > 1). Under normal circumstances, successive tick()s
+    /// represent successive frames. Exceptions include, for example, restarting
+    /// a performance, which would reset the global clock, which the entity
+    /// learns about via reset().
+    ///
+    /// Entities are responsible for tracking their own notion of time, which
+    /// they should update during tick().
+    ///
+    /// tick() guarantees that any state for the current frame is valid *after*
+    /// tick() has been called for the current frame. This means that Ticks
+    /// implementers must treat the first frame as special. Normally, entity
+    /// state is correct for the first frame after entity construction, so
+    /// tick() must be careful not to update state on the first frame, because
+    /// that would cause the state to represent the second frame, not the first.
+    fn tick(&mut self, tick_count: usize);
 }
 
 /// A TransformsAudio takes input audio, which is typically produced by
 /// SourcesAudio, does something to it, and then outputs it. It's what effects
 /// do.
-pub trait TransformsAudio: std::fmt::Debug {
-    fn transform_audio(&mut self, clock: &Clock, input_sample: StereoSample) -> StereoSample {
+pub trait TransformsAudio: Debug {
+    fn transform_audio(&mut self, input_sample: StereoSample) -> StereoSample {
         // Beware: converting from mono to stereo isn't just doing the work
         // twice! You'll also have to double whatever state you maintain from
         // tick to tick that has to do with a single channel's audio data.
         StereoSample(
-            self.transform_channel(clock, 0, input_sample.0),
-            self.transform_channel(clock, 1, input_sample.1),
+            self.transform_channel(0, input_sample.0),
+            self.transform_channel(1, input_sample.1),
         )
     }
 
     /// channel: 0 is left, 1 is right. Use the value as an index into arrays.
-    fn transform_channel(&mut self, clock: &Clock, channel: usize, input_sample: Sample) -> Sample;
+    fn transform_channel(&mut self, channel: usize, input_sample: Sample) -> Sample;
 }
 
 // A Terminates has a point in time where it would be OK never being called or
@@ -116,7 +150,7 @@ pub trait TransformsAudio: std::fmt::Debug {
 // returns true, the loop will never end. Thus, "is_finished" is more like "is
 // unaware of any reason to continue existing" rather than "is certain there is
 // no more work to do."
-pub trait Terminates: std::fmt::Debug {
+pub trait Terminates: Debug {
     fn is_finished(&self) -> bool;
 }
 
@@ -354,13 +388,8 @@ pub struct TestEffect {
 }
 impl IsEffect for TestEffect {}
 impl TransformsAudio for TestEffect {
-    fn transform_channel(
-        &mut self,
-        clock: &Clock,
-        _channel: usize,
-        input_sample: Sample,
-    ) -> Sample {
-        self.check_values(clock);
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
+        /////////////////////// TODO        self.check_values(clock);
         -input_sample
     }
 }
@@ -433,13 +462,15 @@ impl TestEffect {
 ///
 /// To act as a controller target, it has two parameters: Oscillator waveform
 /// and frequency.
-#[derive(Control, Debug, Default)]
+#[derive(Control, Debug)]
 pub struct TestInstrument {
     uid: usize,
+    sample_rate: usize,
+    sample: StereoSample,
 
     /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
     #[controllable]
-    pub waveform: PhantomData<WaveformType>,
+    pub waveform: PhantomData<WaveformType>, // interesting use of PhantomData
 
     #[controllable]
     pub fake_value: f32,
@@ -458,6 +489,41 @@ pub struct TestInstrument {
     pub debug_messages: Vec<MidiMessage>,
 }
 impl IsInstrument for TestInstrument {}
+impl Generates<StereoSample> for TestInstrument {
+    fn value(&self) -> StereoSample {
+        self.sample
+    }
+
+    #[allow(unused_variables)]
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Ticks for TestInstrument {
+    fn reset(&mut self, sample_rate: usize) {
+        self.oscillator.reset(sample_rate);
+    }
+
+    fn tick(&mut self, tick_count: usize) {
+        self.oscillator.tick(tick_count);
+        // If we've been asked to assert values at checkpoints, do so.
+
+        // TODODODODO
+        // if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
+        // {
+        //     const SAD_FLOAT_DIFF: f32 = 1.0e-2;
+        //     assert_approx_eq!(self.fake_value, self.checkpoint_values[0], SAD_FLOAT_DIFF);
+        //     self.checkpoint += self.checkpoint_delta;
+        //     self.checkpoint_values.pop_front();
+        // }
+        self.sample = if self.is_playing {
+            self.dca
+                .transform_audio_to_stereo(Sample::from(self.oscillator.value()))
+        } else {
+            StereoSample::SILENCE
+        };
+    }
+}
 impl HasUid for TestInstrument {
     fn uid(&self) -> usize {
         self.uid
@@ -511,25 +577,42 @@ impl TestsValues for TestInstrument {
     }
 }
 impl TestInstrument {
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
+    pub fn new_with(sample_rate: usize) -> Self {
+        let mut r = Self {
+            uid: Default::default(),
+            waveform: Default::default(),
+            sample_rate,
+            sample: Default::default(),
+            fake_value: Default::default(),
+            oscillator: Oscillator::new_with(sample_rate),
+            dca: Default::default(),
+            is_playing: Default::default(),
+            received_count: Default::default(),
+            handled_count: Default::default(),
+            checkpoint_values: Default::default(),
+            checkpoint: Default::default(),
+            checkpoint_delta: Default::default(),
+            time_unit: Default::default(),
+            debug_messages: Default::default(),
+        };
+        r.sample_rate = sample_rate;
+
+        r
     }
 
     pub fn new_with_test_values(
+        sample_rate: usize,
         values: &[f32],
         checkpoint: f32,
         checkpoint_delta: f32,
         time_unit: ClockTimeUnit,
     ) -> Self {
-        Self {
-            checkpoint_values: VecDeque::from(Vec::from(values)),
-            checkpoint,
-            checkpoint_delta,
-            time_unit,
-            ..Default::default()
-        }
+        let mut r = Self::new_with(sample_rate);
+        r.checkpoint_values = VecDeque::from(Vec::from(values));
+        r.checkpoint = checkpoint;
+        r.checkpoint_delta = checkpoint_delta;
+        r.time_unit = time_unit;
+        r
     }
 
     #[allow(dead_code)]
@@ -564,33 +647,15 @@ impl TestInstrument {
     }
 }
 
-impl SourcesAudio for TestInstrument {
-    fn source_audio(&mut self, clock: &Clock) -> StereoSample {
-        // If we've been asked to assert values at checkpoints, do so.
-        if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
-        {
-            const SAD_FLOAT_DIFF: f32 = 1.0e-2;
-            assert_approx_eq!(self.fake_value, self.checkpoint_values[0], SAD_FLOAT_DIFF);
-            self.checkpoint += self.checkpoint_delta;
-            self.checkpoint_values.pop_front();
-        }
-        if self.is_playing {
-            self.dca.transform_audio_to_stereo(
-                clock,
-                Sample::from(self.oscillator.source_signal(clock).value()),
-            )
-        } else {
-            StereoSample::SILENCE
-        }
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
-    use super::SourcesAudio;
-    use super::TestInstrument;
-    use crate::clock::Clock;
+    use super::{Generates, TestInstrument, Ticks};
+    use crate::common::DEFAULT_SAMPLE_RATE;
     use rand::random;
+
+    pub trait DebugTicks: Ticks {
+        fn debug_tick_until(&mut self, tick_number: usize);
+    }
 
     // TODO: restore tests that test basic trait behavior, then figure out how
     // to run everyone implementing those traits through that behavior. For now,
@@ -598,11 +663,10 @@ pub mod tests {
     // for non-consecutive time slices.
     #[test]
     fn test_sources_audio_random_access() {
-        let mut instrument = TestInstrument::default();
+        let mut instrument = TestInstrument::new_with(DEFAULT_SAMPLE_RATE);
         for _ in 0..100 {
-            let mut clock = Clock::default();
-            clock.set_samples(random());
-            let _ = instrument.source_audio(&clock);
+            instrument.tick(random::<usize>() % 10);
+            let _ = instrument.value();
         }
     }
 

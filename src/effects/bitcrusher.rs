@@ -1,5 +1,4 @@
 use crate::{
-    clock::Clock,
     common::F32ControlValue,
     common::SampleType,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
@@ -27,7 +26,7 @@ impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
     fn transform_channel(
         &mut self,
-        _clock: &Clock,
+
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
@@ -82,7 +81,7 @@ impl Bitcrusher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{clock::Clock, common::Sample};
+    use crate::common::Sample;
     use std::f64::consts::PI;
 
     const CRUSHED_PI: SampleType = 0.14062929166539506;
@@ -91,7 +90,7 @@ mod tests {
     fn bitcrusher_basic() {
         let mut fx = Bitcrusher::new_with(8);
         assert_eq!(
-            fx.transform_channel(&Clock::default(), 0, Sample(PI - 3.0)),
+            fx.transform_channel(0, Sample(PI - 3.0)),
             Sample(CRUSHED_PI)
         );
     }
@@ -100,7 +99,7 @@ mod tests {
     fn bitcrusher_no_bias() {
         let mut fx = Bitcrusher::new_with(8);
         assert_eq!(
-            fx.transform_channel(&Clock::default(), 0, Sample(-(PI - 3.0))),
+            fx.transform_channel(0, Sample(-(PI - 3.0))),
             Sample(-CRUSHED_PI)
         );
     }

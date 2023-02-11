@@ -3,6 +3,9 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
+#[cfg(test)]
+pub const DEFAULT_SAMPLE_RATE: usize = 44100;
+
 /// SampleType is the underlying primitive that makes up MonoSample and
 /// StereoSample. It exists as a transition aid while we migrate from hardcoded
 /// f32/OldMonoSample to MonoSample/StereoSample.

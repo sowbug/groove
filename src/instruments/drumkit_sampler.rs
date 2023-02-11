@@ -1,9 +1,10 @@
-use super::{HandlesMidi, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
+use super::{
+    HandlesMidi, IsStereoSampleVoice, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore,
+};
 use crate::{
-    clock::Clock,
     common::F32ControlValue,
     midi::GeneralMidiPercussionProgram,
-    traits::{Controllable, HasUid, IsInstrument, SourcesAudio},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Ticks},
     utils::Paths,
     Sampler, StereoSample,
 };
@@ -12,8 +13,12 @@ use midly::num::u7;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct DrumkitSamplerVoice {
+    sample_rate: usize,
+    sample: StereoSample,
+    ticks: usize,
+
     samples: Vec<StereoSample>,
     sample_clock_start: usize,
     sample_pointer: usize,
@@ -26,7 +31,8 @@ struct DrumkitSamplerVoice {
     aftertouch_is_pending: bool,
     aftertouch_velocity: u8,
 }
-impl IsVoice for DrumkitSamplerVoice {}
+impl IsStereoSampleVoice for DrumkitSamplerVoice {}
+impl IsVoice<StereoSample> for DrumkitSamplerVoice {}
 impl PlaysNotes for DrumkitSamplerVoice {
     fn is_playing(&self) -> bool {
         self.is_playing
@@ -61,17 +67,37 @@ impl PlaysNotes for DrumkitSamplerVoice {
 }
 
 impl DrumkitSamplerVoice {
-    pub fn new_from_file(filename: &str) -> Self {
-        let mut r = Self::default();
+    pub fn new_with(sample_rate: usize) -> Self {
+        Self {
+            sample_rate: sample_rate,
+            sample: Default::default(),
+            ticks: Default::default(),
+            samples: Default::default(),
+            sample_clock_start: Default::default(),
+            sample_pointer: Default::default(),
+            is_playing: Default::default(),
+            note_on_is_pending: Default::default(),
+            note_on_velocity: Default::default(),
+            note_off_is_pending: Default::default(),
+            note_off_velocity: Default::default(),
+            aftertouch_is_pending: Default::default(),
+            aftertouch_velocity: Default::default(),
+        }
+    }
+    pub fn new_from_file(sample_rate: usize, filename: &str) -> Self {
+        let mut r = Self::new_with(sample_rate);
         r.samples = Sampler::read_samples_from_file(filename);
+        // TODO we're sorta kinda ignoring that edge case where the sample's
+        // sample rate doesn't match the current sample rate.............
         r
     }
 
-    fn handle_pending_note_events(&mut self, clock: &Clock) {
+    // TODO get rid of ticks arg when source_audio() is gone
+    fn handle_pending_note_events(&mut self, ticks: usize) {
         if self.note_on_is_pending {
             self.note_on_is_pending = false;
             self.sample_pointer = 0;
-            self.sample_clock_start = clock.samples();
+            self.sample_clock_start = ticks;
             self.is_playing = true;
         }
         if self.aftertouch_is_pending {
@@ -84,29 +110,47 @@ impl DrumkitSamplerVoice {
         }
     }
 }
-impl SourcesAudio for DrumkitSamplerVoice {
-    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        self.handle_pending_note_events(clock);
-        if self.sample_clock_start > clock.samples() {
-            // TODO: this stops the clock-moves-backward explosion.
-            // Come up with a more robust way to handle the sample pointer.
-            self.is_playing = false;
-            self.sample_pointer = 0;
-        } else {
-            self.sample_pointer = clock.samples() - self.sample_clock_start;
-            if self.sample_pointer >= self.samples.len() {
+impl Generates<StereoSample> for DrumkitSamplerVoice {
+    fn value(&self) -> StereoSample {
+        self.sample
+    }
+
+    #[allow(unused_variables)]
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Ticks for DrumkitSamplerVoice {
+    fn reset(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
+        self.ticks = 0;
+    }
+
+    fn tick(&mut self, tick_count: usize) {
+        for _ in 0..tick_count {
+            self.ticks += 1;
+            self.handle_pending_note_events(self.ticks);
+            if self.sample_clock_start > self.ticks {
+                // TODO: this stops the clock-moves-backward explosion.
+                // Come up with a more robust way to handle the sample pointer.
                 self.is_playing = false;
                 self.sample_pointer = 0;
+            } else {
+                self.sample_pointer = self.ticks - self.sample_clock_start;
+                if self.sample_pointer >= self.samples.len() {
+                    self.is_playing = false;
+                    self.sample_pointer = 0;
+                }
             }
-        }
 
-        if self.is_playing {
-            *self
-                .samples
-                .get(self.sample_pointer)
-                .unwrap_or(&StereoSample::SILENCE)
-        } else {
-            StereoSample::SILENCE
+            self.sample = if self.is_playing {
+                *self
+                    .samples
+                    .get(self.sample_pointer)
+                    .unwrap_or(&StereoSample::SILENCE)
+            } else {
+                StereoSample::SILENCE
+            };
         }
     }
 }
@@ -118,20 +162,35 @@ pub struct DrumkitSampler {
     kit_name: String,
 }
 impl IsInstrument for DrumkitSampler {}
+impl Generates<StereoSample> for DrumkitSampler {
+    fn value(&self) -> StereoSample {
+        self.inner_synth.value()
+    }
+
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        self.inner_synth.batch_values(values);
+    }
+}
+impl Ticks for DrumkitSampler {
+    fn reset(&mut self, sample_rate: usize) {
+        self.inner_synth.reset(sample_rate);
+    }
+
+    fn tick(&mut self, tick_count: usize) {
+        self.inner_synth.tick(tick_count);
+    }
+}
 impl HandlesMidi for DrumkitSampler {
     fn handle_midi_message(&mut self, message: &midly::MidiMessage) {
         self.inner_synth.handle_midi_message(message);
     }
 }
-impl SourcesAudio for DrumkitSampler {
-    fn source_audio(&mut self, clock: &Clock) -> crate::StereoSample {
-        self.inner_synth.source_audio(clock)
-    }
-}
 
 impl DrumkitSampler {
-    pub(crate) fn new_from_files() -> Self {
-        let mut voice_store = Box::new(VoicePerNoteStore::<DrumkitSamplerVoice>::default());
+    pub(crate) fn new_from_files(sample_rate: usize) -> Self {
+        let mut voice_store = Box::new(VoicePerNoteStore::<DrumkitSamplerVoice>::new_with(
+            sample_rate,
+        ));
 
         let samples: [(GeneralMidiPercussionProgram, &str); 21] = [
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
@@ -167,23 +226,27 @@ impl DrumkitSampler {
             if let Some(filename) = path.to_str() {
                 voice_store.add_voice(
                     u7::from(program as u8),
-                    Box::new(DrumkitSamplerVoice::new_from_file(filename)),
+                    Box::new(DrumkitSamplerVoice::new_from_file(sample_rate, filename)),
                 );
             } else {
                 eprintln!("Unable to load sample {asset_name}.");
             }
         }
-        Self::new_with(voice_store, "707")
+        Self::new_with(sample_rate, voice_store, "707")
     }
 
     pub fn kit_name(&self) -> &str {
         self.kit_name.as_ref()
     }
 
-    fn new_with(voice_store: Box<VoicePerNoteStore<DrumkitSamplerVoice>>, kit_name: &str) -> Self {
+    fn new_with(
+        sample_rate: usize,
+        voice_store: Box<VoicePerNoteStore<DrumkitSamplerVoice>>,
+        kit_name: &str,
+    ) -> Self {
         Self {
             uid: Default::default(),
-            inner_synth: Synthesizer::<DrumkitSamplerVoice>::new_with(voice_store),
+            inner_synth: Synthesizer::<DrumkitSamplerVoice>::new_with(sample_rate, voice_store),
             kit_name: kit_name.to_string(),
         }
     }
@@ -191,10 +254,26 @@ impl DrumkitSampler {
 
 #[cfg(test)]
 mod tests {
+    use crate::{common::DEFAULT_SAMPLE_RATE, instruments::tests::is_voice_makes_any_sound_at_all};
+
     use super::*;
 
     #[test]
     fn test_loading() {
-        let _ = DrumkitSampler::new_from_files();
+        let _ = DrumkitSampler::new_from_files(DEFAULT_SAMPLE_RATE);
+    }
+
+    #[test]
+    fn drumkit_sampler_makes_any_sound_at_all() {
+        let mut voice = DrumkitSamplerVoice::new_from_file(
+            DEFAULT_SAMPLE_RATE,
+            "test-data/square-440Hz-1-second-mono-24-bit-PCM.wav",
+        );
+        voice.enqueue_note_on(127);
+
+        assert!(
+            is_voice_makes_any_sound_at_all(&mut voice),
+            "once triggered, DrumkitSampler voice should make a sound"
+        );
     }
 }

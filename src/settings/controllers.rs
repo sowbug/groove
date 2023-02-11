@@ -103,6 +103,7 @@ pub enum ControllerSettings {
 impl ControllerSettings {
     pub(crate) fn instantiate(
         &self,
+        sample_rate: usize,
         load_only_test_entities: bool,
     ) -> (MidiChannel, MidiChannel, BoxedEntity) {
         if load_only_test_entities {
@@ -157,6 +158,7 @@ impl ControllerSettings {
                 midi_input_channel,
                 midi_output_channel,
                 BoxedEntity::LfoController(Box::new(LfoController::new_with(
+                    sample_rate,
                     waveform,
                     frequency as f64,
                 ))),

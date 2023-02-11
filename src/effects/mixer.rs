@@ -1,5 +1,4 @@
 use crate::{
-    clock::Clock,
     common::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
@@ -15,7 +14,7 @@ impl IsEffect for Mixer {}
 impl TransformsAudio for Mixer {
     fn transform_channel(
         &mut self,
-        _clock: &Clock,
+
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {

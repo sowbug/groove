@@ -1,5 +1,4 @@
 use crate::{
-    clock::Clock,
     common::{F32ControlValue, Sample, SampleType},
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
@@ -43,7 +42,7 @@ impl IsEffect for Compressor {}
 impl TransformsAudio for Compressor {
     fn transform_channel(
         &mut self,
-        _clock: &Clock,
+
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
@@ -129,7 +128,7 @@ mod tests {
         common::{Sample, SampleType},
         effects::compressor::Compressor,
         traits::TransformsAudio,
-        BoxedEntity, Clock,
+        BoxedEntity,
     };
 
     #[test]
@@ -142,31 +141,28 @@ mod tests {
 
     #[test]
     fn basic_compressor() {
-        let clock = Clock::default();
         const THRESHOLD: SampleType = 0.25;
         let mut fx = Compressor::new_with(THRESHOLD, 0.5, 0.0, 0.0);
         assert_eq!(
-            fx.transform_channel(&clock, 0, Sample::from(0.35)),
+            fx.transform_channel(0, Sample::from(0.35)),
             Sample::from((0.35 - THRESHOLD) * 0.5 + THRESHOLD)
         );
     }
 
     #[test]
     fn nothing_compressor() {
-        let clock = Clock::default();
         let mut fx = Compressor::new_with(0.25, 1.0, 0.0, 0.0);
         assert_eq!(
-            fx.transform_channel(&clock, 0, Sample::from(0.35f32)),
+            fx.transform_channel(0, Sample::from(0.35f32)),
             Sample::from(0.35f32)
         );
     }
 
     #[test]
     fn infinite_compressor() {
-        let clock = Clock::default();
         let mut fx = Compressor::new_with(0.25, 0.0, 0.0, 0.0);
         assert_eq!(
-            fx.transform_channel(&clock, 0, Sample::from(0.35)),
+            fx.transform_channel(0, Sample::from(0.35)),
             Sample::from(0.25)
         );
     }

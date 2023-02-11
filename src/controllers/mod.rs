@@ -6,6 +6,7 @@ use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit},
     common::ParameterType,
     settings::{controllers::ControlPathSettings, patches::WaveformType},
+    traits::{Generates, Ticks},
     EntityMessage, Oscillator,
 };
 use crate::{
@@ -189,9 +190,12 @@ pub struct LfoController {
 impl IsController for LfoController {}
 impl Updateable for LfoController {
     fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
+        if clock.was_reset() {
+            self.oscillator.reset(clock.sample_rate())
+        }
         match message {
             EntityMessage::Tick => Response::single(EntityMessage::ControlF32(
-                (self.oscillator.source_signal(clock).value() as f32 + 1.0) / 2.0,
+                (self.oscillator.value() as f32 + 1.0) / 2.0, // TODO: make from() smart
             )),
             _ => Response::none(),
         }
@@ -204,21 +208,19 @@ impl Terminates for LfoController {
         true
     }
 }
-impl Default for LfoController {
-    fn default() -> Self {
-        let mut r = Self {
-            uid: Default::default(),
-            oscillator: Oscillator::default(),
-        };
-        r.oscillator.set_frequency(2.0);
-        r
-    }
-}
 impl LfoController {
-    pub fn new_with(waveform: WaveformType, frequency_hz: ParameterType) -> Self {
+    pub fn new_with(
+        sample_rate: usize,
+        waveform: WaveformType,
+        frequency_hz: ParameterType,
+    ) -> Self {
         Self {
             uid: Default::default(),
-            oscillator: Oscillator::new_with_type_and_frequency(waveform, frequency_hz as f32),
+            oscillator: Oscillator::new_with_type_and_frequency(
+                sample_rate,
+                waveform,
+                frequency_hz as f32,
+            ),
         }
     }
 }
@@ -301,6 +303,7 @@ mod tests {
 
         let mut o = Box::new(Orchestrator::default());
         let instrument = Box::new(TestInstrument::new_with_test_values(
+            clock.sample_rate(),
             INTERPOLATED_VALUES,
             0.0,
             0.5,

@@ -107,7 +107,7 @@ impl SongSettings {
                 }
                 DeviceSettings::Controller(id, settings) => {
                     let (channel_in, _channel_out, entity) =
-                        settings.instantiate(load_only_test_entities);
+                        settings.instantiate(sample_rate, load_only_test_entities);
                     let uid = orchestrator.add(Some(id), entity);
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
@@ -285,8 +285,10 @@ impl SongSettings {
 
 #[cfg(test)]
 mod tests {
+    use crossbeam::deque::Steal;
+
     use super::SongSettings;
-    use crate::{clock::Clock, IOHelper, Paths};
+    use crate::{clock::Clock, IOHelper, Paths, StereoSample};
 
     #[test]
     fn test_yaml_loads_and_parses() {
@@ -303,6 +305,24 @@ mod tests {
         let performance = orchestrator
             .run_performance(&mut clock, false)
             .unwrap_or_else(|err| panic!("performance failed: {:?}", err));
+
+        assert!(
+            !performance.worker.is_empty(),
+            "Orchestrator reported successful performance, but performance is empty."
+        );
+
+        let stealer = performance.worker.stealer();
+        let mut found_non_silence = false;
+        loop {
+            if let Steal::Success(sample) = stealer.steal() {
+                if sample != StereoSample::SILENCE {
+                    found_non_silence = true;
+                    continue;
+                }
+            }
+            break;
+        }
+        assert!(found_non_silence, "Performance contains only silence.");
 
         // TODO: maybe make a Paths:: function for out/
         assert!(IOHelper::send_performance_to_file(

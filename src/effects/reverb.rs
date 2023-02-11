@@ -1,6 +1,5 @@
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use crate::{
-    clock::Clock,
     common::F32ControlValue,
     common::Sample,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
@@ -33,7 +32,7 @@ impl IsEffect for Reverb {}
 impl TransformsAudio for Reverb {
     fn transform_channel(
         &mut self,
-        _clock: &Clock,
+
         _channel: usize,
         input_sample: crate::common::Sample,
     ) -> crate::common::Sample {
@@ -100,19 +99,20 @@ impl Reverb {
 #[cfg(test)]
 mod tests {
     use super::Reverb;
-    use crate::{common::Sample, traits::TransformsAudio, Clock};
+    use crate::{
+        common::{Sample, DEFAULT_SAMPLE_RATE},
+        traits::TransformsAudio,
+    };
 
     #[test]
     fn reverb_dry_works() {
-        let mut clock = Clock::default();
-        let mut fx = Reverb::new_with(clock.sample_rate(), 0.0, 0.5, 1.5);
+        let mut fx = Reverb::new_with(DEFAULT_SAMPLE_RATE, 0.0, 0.5, 1.5);
         assert_eq!(
-            fx.transform_channel(&clock, 0, Sample::from(0.8f32)),
+            fx.transform_channel(0, Sample::from(0.8f32)),
             Sample::from(0.8f32)
         );
-        clock.tick();
         assert_eq!(
-            fx.transform_channel(&clock, 0, Sample::from(0.7f32)),
+            fx.transform_channel(0, Sample::from(0.7f32)),
             Sample::from(0.7f32)
         );
     }
@@ -124,18 +124,17 @@ mod tests {
         // to 0.5 seconds, we start getting back nonzero samples (first
         // 0.47767496) at samples: 29079, seconds: 0.65938777. This doesn't look
         // wrong, but I couldn't have predicted that exact number.
-        let mut clock = Clock::default();
-        let mut fx = Reverb::new_with(clock.sample_rate(), 1.0, 0.9, 0.5);
-        assert_eq!(
-            fx.transform_channel(&clock, 0, Sample::from(0.8)),
-            Sample::SILENCE
-        );
-        clock.debug_set_seconds(0.5);
+        let mut fx = Reverb::new_with(DEFAULT_SAMPLE_RATE, 1.0, 0.9, 0.5);
+        assert_eq!(fx.transform_channel(0, Sample::from(0.8)), Sample::SILENCE);
         let mut s = Sample::default();
         for _ in 0..44100 {
-            s += fx.transform_channel(&clock, 0, Sample::SILENCE);
-            clock.tick();
+            s += fx.transform_channel(0, Sample::SILENCE);
         }
         assert!(s != Sample::SILENCE);
+
+        // TODO: this test might not do anything. I refactored it in a hurry and
+        // took something that looked critical (skipping the clock to 0.5
+        // seconds) out of it, but it still passed. I might not actually be
+        // testing anything useful.
     }
 }
