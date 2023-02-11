@@ -1,7 +1,7 @@
 use crate::{
     common::{F32ControlValue, SignalType},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{Controllable, Ticks},
+    traits::{Controllable, Generates, Ticks},
     BipolarNormal, Normal,
 };
 use groove_macros::Control;
@@ -10,18 +10,6 @@ use std::f64::consts::PI;
 use std::fmt::Debug;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
-
-/// Describes something that generates a SignalType over time.
-pub trait GeneratesSignal: Send + Debug + Ticks {
-    /// Returns the current signal(). This value is valid for the current frame
-    /// once Ticks::tick() has been called for that frame.
-    fn signal(&self) -> SignalType;
-
-    /// The batch version of signal(). Note that it will call tick() on its own
-    /// before putting the signal value in the buffer, which is why this method
-    /// takes a mutable receiver, but signal_value() doesn't.
-    fn batch_signal(&mut self, signals: &mut [SignalType]);
-}
 
 /// https://en.wikipedia.org/wiki/Kahan_summation_algorithm
 ///
@@ -125,13 +113,13 @@ pub struct Oscillator {
     // Set on init and reset().
     is_reset_pending: bool,
 }
-impl GeneratesSignal for Oscillator {
-    fn signal(&self) -> SignalType {
+impl Generates<SignalType> for Oscillator {
+    fn value(&self) -> SignalType {
         self.signal
     }
 
     #[allow(unused_variables)]
-    fn batch_signal(&mut self, signals: &mut [SignalType]) {
+    fn batch_values(&mut self, values: &mut [SignalType]) {
         todo!()
     }
 }
@@ -380,10 +368,9 @@ mod tests {
     use super::{Oscillator, WaveformType};
     use crate::{
         common::DEFAULT_SAMPLE_RATE,
-        instruments::oscillators::GeneratesSignal,
         midi::{MidiNote, MidiUtils},
         settings::patches::{OscillatorSettings, OscillatorTune},
-        traits::{tests::DebugTicks, Ticks},
+        traits::{tests::DebugTicks, Generates, Ticks},
         utils::tests::{render_signal_as_audio_source, samples_match_known_good_wav_file},
         Paths,
     };
@@ -423,7 +410,7 @@ mod tests {
         oscillator.tick(2);
         assert_ne!(
             0.0,
-            oscillator.signal(),
+            oscillator.value(),
             "Default Oscillator should not be silent"
         );
     }
@@ -442,7 +429,7 @@ mod tests {
 
         for _ in 0..SAMPLE_RATE {
             oscillator.tick(1);
-            let f = oscillator.signal();
+            let f = oscillator.value();
             assert_eq!(f, f.signum());
         }
     }
@@ -462,7 +449,7 @@ mod tests {
         let mut transitions = 0;
         for _ in 0..SAMPLE_RATE {
             oscillator.tick(1);
-            let f = oscillator.signal();
+            let f = oscillator.value();
             if f == 1.0 {
                 n_pos += 1;
             } else if f == -1.0 {
@@ -492,7 +479,7 @@ mod tests {
 
         oscillator.tick(1);
         assert_eq!(
-            oscillator.signal(),
+            oscillator.value(),
             1.0,
             "the first sample of a square wave should be 1.0"
         );
@@ -508,26 +495,26 @@ mod tests {
         // need to pay close attention to clock.set_samples() other than not
         // exploding, so I might end up deleting that part of the test.
         oscillator.tick(SAMPLE_RATE / 4 - 2);
-        assert_eq!(oscillator.signal(), 1.0);
+        assert_eq!(oscillator.value(), 1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal(), 1.0);
+        assert_eq!(oscillator.value(), 1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal(), -1.0);
+        assert_eq!(oscillator.value(), -1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal(), -1.0);
+        assert_eq!(oscillator.value(), -1.0);
 
         // Then should transition back to 1.0 at the first sample of the second
         // cycle.
         //
         // As noted above, we're using clock.set_samples() here.
         oscillator.debug_tick_until(SAMPLE_RATE / 2 - 2);
-        assert_eq!(oscillator.signal(), -1.0);
+        assert_eq!(oscillator.value(), -1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal(), -1.0);
+        assert_eq!(oscillator.value(), -1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal(), 1.0);
+        assert_eq!(oscillator.value(), 1.0);
         oscillator.tick(1);
-        assert_eq!(oscillator.signal(), 1.0);
+        assert_eq!(oscillator.value(), 1.0);
     }
 
     #[test]
@@ -544,7 +531,7 @@ mod tests {
         let mut n_zero = 0;
         for _ in 0..DEFAULT_SAMPLE_RATE {
             oscillator.tick(1);
-            let f = oscillator.signal();
+            let f = oscillator.value();
             if f < -0.0000001 {
                 n_neg += 1;
             } else if f > 0.0000001 {

@@ -5,9 +5,8 @@ pub(crate) mod sequencers;
 use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit},
     common::ParameterType,
-    instruments::oscillators::GeneratesSignal,
     settings::{controllers::ControlPathSettings, patches::WaveformType},
-    traits::Ticks,
+    traits::{Generates, Ticks},
     EntityMessage, Oscillator,
 };
 use crate::{
@@ -196,7 +195,7 @@ impl Updateable for LfoController {
         }
         match message {
             EntityMessage::Tick => Response::single(EntityMessage::ControlF32(
-                (self.oscillator.signal() as f32 + 1.0) / 2.0, // TODO: make from() smart
+                (self.oscillator.value() as f32 + 1.0) / 2.0, // TODO: make from() smart
             )),
             _ => Response::none(),
         }

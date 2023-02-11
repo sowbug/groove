@@ -1,7 +1,7 @@
 use super::{
-    envelopes::{EnvelopeGenerator, GeneratesEnvelope},
-    oscillators::{GeneratesSignal, Oscillator},
-    Dca, GeneratesSamples, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
+    envelopes::{Envelope, EnvelopeGenerator},
+    oscillators::Oscillator,
+    Dca, IsStereoSampleVoice, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
 };
 use crate::{
     common::{F32ControlValue, Normal, Sample},
@@ -12,7 +12,7 @@ use crate::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{Controllable, HasUid, IsInstrument, Ticks, TransformsAudio},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Ticks, TransformsAudio},
     utils::Paths,
     BipolarNormal, StereoSample,
 };
@@ -437,7 +437,8 @@ pub struct WelshVoice {
     sample: StereoSample,
     ticks: usize,
 }
-impl IsVoice for WelshVoice {}
+impl IsStereoSampleVoice for WelshVoice {}
+impl IsVoice<StereoSample> for WelshVoice {}
 impl PlaysNotes for WelshVoice {
     fn is_playing(&self) -> bool {
         self.is_playing
@@ -474,12 +475,12 @@ impl PlaysNotes for WelshVoice {
         self.dca.set_pan(BipolarNormal::from(value))
     }
 }
-impl GeneratesSamples for WelshVoice {
-    fn sample(&self) -> StereoSample {
+impl Generates<StereoSample> for WelshVoice {
+    fn value(&self) -> StereoSample {
         self.sample
     }
 
-    fn batch_sample(&mut self, _samples: &mut [StereoSample]) {
+    fn batch_values(&mut self, _samples: &mut [StereoSample]) {
         todo!()
     }
 }
@@ -511,7 +512,7 @@ impl Ticks for WelshVoice {
 
             self.sample = if self.is_playing() {
                 // LFO
-                let lfo = self.lfo.signal();
+                let lfo = self.lfo.value();
                 if matches!(self.lfo_routing, LfoRouting::Pitch) {
                     let lfo_for_pitch = lfo * self.lfo_depth.value();
                     for o in self.oscillators.iter_mut() {
@@ -523,12 +524,12 @@ impl Ticks for WelshVoice {
                 let len = self.oscillators.len();
                 let osc_sum = match len {
                     0 => 0.0,
-                    1 => self.oscillators[0].signal(),
+                    1 => self.oscillators[0].value(),
                     2 => {
                         if self.oscillator_2_sync && self.oscillators[0].should_sync() {
                             self.oscillators[1].sync();
                         }
-                        (self.oscillators[0].signal() + self.oscillators[1].signal()) / 2.0
+                        (self.oscillators[0].value() + self.oscillators[1].value()) / 2.0
                     }
                     _ => todo!(),
                 };
@@ -655,9 +656,9 @@ impl WelshVoice {
 
     fn tick_envelopes(&mut self) -> (Normal, Normal) {
         self.amp_envelope.tick(1);
-        let amp_amplitude = self.amp_envelope.amplitude();
+        let amp_amplitude = self.amp_envelope.value();
         self.filter_envelope.tick(1);
-        let filter_amplitude = self.filter_envelope.amplitude();
+        let filter_amplitude = self.filter_envelope.value();
 
         // TODO: I think this is setting is_playing a tick too early, but when I
         // moved it, it broke something else (the synth was deleting the note
@@ -698,13 +699,13 @@ pub struct WelshSynth {
     pan: f32,
 }
 impl IsInstrument for WelshSynth {}
-impl GeneratesSamples for WelshSynth {
-    fn sample(&self) -> StereoSample {
-        self.inner_synth.sample()
+impl Generates<StereoSample> for WelshSynth {
+    fn value(&self) -> StereoSample {
+        self.inner_synth.value()
     }
 
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
-        self.inner_synth.batch_sample(samples);
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        self.inner_synth.batch_values(values);
     }
 }
 impl Ticks for WelshSynth {
@@ -814,7 +815,7 @@ mod tests {
             }
 
             voice.tick(1);
-            let sample = voice.sample();
+            let sample = voice.value();
             let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
             let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
             clock.tick();
@@ -889,7 +890,7 @@ mod tests {
                 source.tick_envelopes();
             }
             source.tick(1);
-            let sample = source.sample();
+            let sample = source.value();
             let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
             let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
             clock.tick();

@@ -1,15 +1,14 @@
+use super::HandlesMidi;
 use crate::{
     common::{F32ControlValue, Sample, SampleType},
     midi::MidiMessage,
-    traits::{Controllable, HasUid, IsInstrument, Ticks},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Ticks},
     StereoSample,
 };
 use groove_macros::{Control, Uid};
 use hound::WavReader;
 use std::{fs::File, io::BufReader, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
-
-use super::{GeneratesSamples, HandlesMidi};
 
 #[derive(Control, Debug, Default, Uid)]
 #[allow(dead_code)]
@@ -27,13 +26,13 @@ pub struct Sampler {
     filename: String,
 }
 impl IsInstrument for Sampler {}
-impl GeneratesSamples for Sampler {
-    fn sample(&self) -> StereoSample {
+impl Generates<StereoSample> for Sampler {
+    fn value(&self) -> StereoSample {
         self.sample
     }
 
     #[allow(unused_variables)]
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }

@@ -85,53 +85,53 @@ impl Limiter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{common::Sample, traits::GeneratesSamples, utils::AudioSource, StereoSample};
+    use crate::{common::Sample, traits::Generates, utils::AudioSource, StereoSample};
     use more_asserts::{assert_gt, assert_lt};
 
     #[test]
     fn limiter_mainline() {
         // audio sources are at or past boundaries
         assert_gt!(
-            AudioSource::new_with(AudioSource::TOO_LOUD).sample(),
+            AudioSource::new_with(AudioSource::TOO_LOUD).value(),
             StereoSample::MAX
         );
         assert_eq!(
-            AudioSource::new_with(AudioSource::LOUD).sample(),
+            AudioSource::new_with(AudioSource::LOUD).value(),
             StereoSample::MAX
         );
         assert_eq!(
-            AudioSource::new_with(AudioSource::SILENT).sample(),
+            AudioSource::new_with(AudioSource::SILENT).value(),
             StereoSample::SILENCE
         );
         assert_eq!(
-            AudioSource::new_with(AudioSource::QUIET).sample(),
+            AudioSource::new_with(AudioSource::QUIET).value(),
             StereoSample::MIN
         );
         assert_lt!(
-            AudioSource::new_with(AudioSource::TOO_QUIET).sample(),
+            AudioSource::new_with(AudioSource::TOO_QUIET).value(),
             StereoSample::MIN
         );
 
         // Limiter clamps high and low, and doesn't change values inside the range.
         let mut limiter = Limiter::default();
         assert_eq!(
-            limiter.transform_audio(AudioSource::new_with(AudioSource::TOO_LOUD).sample()),
+            limiter.transform_audio(AudioSource::new_with(AudioSource::TOO_LOUD).value()),
             StereoSample::MAX
         );
         assert_eq!(
-            limiter.transform_audio(AudioSource::new_with(AudioSource::LOUD).sample()),
+            limiter.transform_audio(AudioSource::new_with(AudioSource::LOUD).value()),
             StereoSample::MAX
         );
         assert_eq!(
-            limiter.transform_audio(AudioSource::new_with(AudioSource::SILENT).sample()),
+            limiter.transform_audio(AudioSource::new_with(AudioSource::SILENT).value()),
             StereoSample::SILENCE
         );
         assert_eq!(
-            limiter.transform_audio(AudioSource::new_with(AudioSource::QUIET).sample()),
+            limiter.transform_audio(AudioSource::new_with(AudioSource::QUIET).value()),
             StereoSample::MIN
         );
         assert_eq!(
-            limiter.transform_audio(AudioSource::new_with(AudioSource::TOO_QUIET).sample()),
+            limiter.transform_audio(AudioSource::new_with(AudioSource::TOO_QUIET).value()),
             StereoSample::MIN
         );
     }

@@ -1,8 +1,10 @@
-use super::{HandlesMidi, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
+use super::{
+    HandlesMidi, IsStereoSampleVoice, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore,
+};
 use crate::{
     common::F32ControlValue,
     midi::GeneralMidiPercussionProgram,
-    traits::{Controllable, GeneratesSamples, HasUid, IsInstrument, Ticks},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Ticks},
     utils::Paths,
     Sampler, StereoSample,
 };
@@ -29,7 +31,8 @@ struct DrumkitSamplerVoice {
     aftertouch_is_pending: bool,
     aftertouch_velocity: u8,
 }
-impl IsVoice for DrumkitSamplerVoice {}
+impl IsStereoSampleVoice for DrumkitSamplerVoice {}
+impl IsVoice<StereoSample> for DrumkitSamplerVoice {}
 impl PlaysNotes for DrumkitSamplerVoice {
     fn is_playing(&self) -> bool {
         self.is_playing
@@ -107,13 +110,13 @@ impl DrumkitSamplerVoice {
         }
     }
 }
-impl GeneratesSamples for DrumkitSamplerVoice {
-    fn sample(&self) -> StereoSample {
+impl Generates<StereoSample> for DrumkitSamplerVoice {
+    fn value(&self) -> StereoSample {
         self.sample
     }
 
     #[allow(unused_variables)]
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }
@@ -159,13 +162,13 @@ pub struct DrumkitSampler {
     kit_name: String,
 }
 impl IsInstrument for DrumkitSampler {}
-impl GeneratesSamples for DrumkitSampler {
-    fn sample(&self) -> StereoSample {
-        self.inner_synth.sample()
+impl Generates<StereoSample> for DrumkitSampler {
+    fn value(&self) -> StereoSample {
+        self.inner_synth.value()
     }
 
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
-        self.inner_synth.batch_sample(samples);
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        self.inner_synth.batch_values(values);
     }
 }
 impl Ticks for DrumkitSampler {

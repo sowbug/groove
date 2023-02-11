@@ -58,13 +58,13 @@ impl Gain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{traits::GeneratesSamples, utils::AudioSource, StereoSample};
+    use crate::{traits::Generates, utils::AudioSource, StereoSample};
 
     #[test]
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(Normal::new(0.5));
         assert_eq!(
-            gain.transform_audio(AudioSource::new_with(AudioSource::LOUD).sample()),
+            gain.transform_audio(AudioSource::new_with(AudioSource::LOUD).value()),
             StereoSample::from(0.5)
         );
     }

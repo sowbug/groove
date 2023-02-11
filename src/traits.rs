@@ -1,10 +1,7 @@
 use crate::{
     clock::{Clock, ClockTimeUnit},
     common::{F32ControlValue, Sample, StereoSample},
-    instruments::{
-        oscillators::{GeneratesSignal, Oscillator},
-        Dca, HandlesMidi,
-    },
+    instruments::{oscillators::Oscillator, Dca, HandlesMidi},
     messages::EntityMessage,
     midi::{MidiChannel, MidiUtils},
     settings::patches::WaveformType,
@@ -41,13 +38,24 @@ pub trait IsEffect: TransformsAudio + Controllable + HasUid + Send + Debug {}
 /// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
 /// because it continues to create audio as long as asked.
 pub trait IsInstrument:
-    GeneratesSamples + Ticks + HandlesMidi + Controllable + HasUid + Send + Debug
+    Generates<StereoSample> + Ticks + HandlesMidi + Controllable + HasUid + Send + Debug
 {
 }
 
 /// A future fourth trait might be named something like IsWidget or
 /// IsGuiElement. These exist only to interact with the user of a GUI app, but
 /// don't actually create or control audio.
+
+pub trait Generates<V>: Send + Debug + Ticks {
+    /// The value for the current frame. Advance the frame by calling
+    /// Ticks::tick().
+    fn value(&self) -> V;
+
+    /// The batch version of value(). To deliver each value, this method will
+    /// typically call tick() internally. If you don't want this, then call
+    /// value() on your own.
+    fn batch_values(&mut self, values: &mut [V]);
+}
 
 /// An Updateable accepts new information through update() (i.e., Messages) or
 /// control parameters.
@@ -108,18 +116,6 @@ pub trait Ticks: Send + Debug {
     /// tick() must be careful not to update state on the first frame, because
     /// that would cause the state to represent the second frame, not the first.
     fn tick(&mut self, tick_count: usize);
-}
-
-/// A GeneratesSamples provides audio in the form of digital samples.
-pub trait GeneratesSamples: Send + Ticks {
-    /// The sample for the current frame. Advance the frame by calling
-    /// Ticks::tick().
-    fn sample(&self) -> StereoSample;
-
-    /// The batch version of sample(). To deliver each sample, this method will
-    /// typically call tick() internally. If you don't want this, then call
-    /// sample() on your own.
-    fn batch_sample(&mut self, samples: &mut [StereoSample]);
 }
 
 /// A TransformsAudio takes input audio, which is typically produced by
@@ -493,13 +489,13 @@ pub struct TestInstrument {
     pub debug_messages: Vec<MidiMessage>,
 }
 impl IsInstrument for TestInstrument {}
-impl GeneratesSamples for TestInstrument {
-    fn sample(&self) -> StereoSample {
+impl Generates<StereoSample> for TestInstrument {
+    fn value(&self) -> StereoSample {
         self.sample
     }
 
     #[allow(unused_variables)]
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }
@@ -522,7 +518,7 @@ impl Ticks for TestInstrument {
         // }
         self.sample = if self.is_playing {
             self.dca
-                .transform_audio_to_stereo(Sample::from(self.oscillator.signal()))
+                .transform_audio_to_stereo(Sample::from(self.oscillator.value()))
         } else {
             StereoSample::SILENCE
         };
@@ -653,7 +649,7 @@ impl TestInstrument {
 
 #[cfg(test)]
 pub mod tests {
-    use super::{GeneratesSamples, TestInstrument, Ticks};
+    use super::{Generates, TestInstrument, Ticks};
     use crate::common::DEFAULT_SAMPLE_RATE;
     use rand::random;
 
@@ -670,7 +666,7 @@ pub mod tests {
         let mut instrument = TestInstrument::new_with(DEFAULT_SAMPLE_RATE);
         for _ in 0..100 {
             instrument.tick(random::<usize>() % 10);
-            let _ = instrument.sample();
+            let _ = instrument.value();
         }
     }
 

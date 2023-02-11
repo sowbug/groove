@@ -3,13 +3,13 @@ use crate::{
     common::F32ControlValue,
     common::SampleType,
     instruments::{
-        envelopes::{EnvelopeGenerator, GeneratesEnvelope},
-        oscillators::{GeneratesSignal, Oscillator},
+        envelopes::{Envelope, EnvelopeGenerator},
+        oscillators::Oscillator,
         HandlesMidi,
     },
     traits::{
-        Controllable, GeneratesSamples, HasUid, IsController, IsInstrument, Response, Terminates,
-        Ticks, Updateable,
+        Controllable, Generates, HasUid, IsController, IsInstrument, Response, Terminates, Ticks,
+        Updateable,
     },
     BipolarNormal, EntityMessage, StereoSample,
 };
@@ -127,13 +127,13 @@ pub struct AudioSource {
     level: SampleType,
 }
 impl IsInstrument for AudioSource {}
-impl GeneratesSamples for AudioSource {
-    fn sample(&self) -> StereoSample {
+impl Generates<StereoSample> for AudioSource {
+    fn value(&self) -> StereoSample {
         StereoSample::from(self.level)
     }
 
     #[allow(unused_variables)]
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }
@@ -222,16 +222,16 @@ pub struct TestSynth {
     oscillator_modulation: f32,
 
     oscillator: Box<Oscillator>,
-    envelope: Box<dyn GeneratesEnvelope>,
+    envelope: Box<dyn Envelope>,
 }
 impl IsInstrument for TestSynth {}
-impl GeneratesSamples for TestSynth {
-    fn sample(&self) -> StereoSample {
+impl Generates<StereoSample> for TestSynth {
+    fn value(&self) -> StereoSample {
         self.sample
     }
 
     #[allow(unused_variables)]
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }
@@ -247,7 +247,7 @@ impl Ticks for TestSynth {
         self.oscillator.tick(tick_count);
         self.envelope.tick(tick_count);
         self.sample =
-            crate::StereoSample::from(self.oscillator.signal() * self.envelope.amplitude().value());
+            crate::StereoSample::from(self.oscillator.value() * self.envelope.value().value());
     }
 }
 impl HandlesMidi for TestSynth {}
@@ -255,7 +255,7 @@ impl TestSynth {
     pub fn new_with_components(
         sample_rate: usize,
         oscillator: Box<Oscillator>,
-        envelope: Box<dyn GeneratesEnvelope>,
+        envelope: Box<dyn Envelope>,
     ) -> Self {
         Self {
             uid: Default::default(),
@@ -311,7 +311,7 @@ impl Updateable for TestLfo {
         }
         if let EntityMessage::Tick = message {
             self.oscillator.tick(1);
-            self.signal_value = BipolarNormal::from(self.oscillator.signal()); // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
+            self.signal_value = BipolarNormal::from(self.oscillator.value()); // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
             Response::single(EntityMessage::ControlF32(self.signal_value.value() as f32))
         } else {
             Response::none()
@@ -356,11 +356,10 @@ pub mod tests {
         common::{Sample, SampleType, DEFAULT_SAMPLE_RATE},
         controllers::orchestrator::Orchestrator,
         entities::BoxedEntity,
-        instruments::oscillators::GeneratesSignal,
         midi::MidiChannel,
         traits::{
-            Controllable, HasUid, IsEffect, TestController, TestEffect, TestInstrument, Ticks,
-            TransformsAudio,
+            Controllable, Generates, HasUid, IsEffect, TestController, TestEffect, TestInstrument,
+            Ticks, TransformsAudio,
         },
         utils::{
             transform_linear_to_mma_concave, transform_linear_to_mma_convex, F32ControlValue,
@@ -418,7 +417,7 @@ pub mod tests {
         let mut samples = Vec::default();
         for _ in 0..DEFAULT_SAMPLE_RATE * run_length_in_seconds {
             source.tick(1);
-            samples.push(Sample::from(source.signal()));
+            samples.push(Sample::from(source.value()));
         }
         samples
     }

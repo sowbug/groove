@@ -3,7 +3,7 @@ use crate::{
     clock::ClockTimeUnit,
     common::{Normal, SignalType, TimeUnit},
     settings::patches::EnvelopeSettings,
-    traits::Ticks,
+    traits::{Generates, Ticks},
     Clock,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -13,7 +13,7 @@ use std::{fmt::Debug, ops::Range};
 /// Describes the public parts of an envelope generator, which provides a
 /// normalized amplitude (0.0..=1.0) that changes over time according to its
 /// internal parameters, external triggers, and the progression of time.
-pub trait GeneratesEnvelope: Send + Debug + Ticks {
+pub trait Envelope: Generates<Normal> + Send + Debug + Ticks {
     /// Triggers the active part of the envelope. "Enqueue" means that the
     /// attack event won't be processed until the next Ticks::tick().
     fn enqueue_attack(&mut self);
@@ -26,12 +26,6 @@ pub trait GeneratesEnvelope: Send + Debug + Ticks {
     /// envelope (or hasn't yet started it). Like amplitude(), this value is
     /// valid for the current frame only after tick() is called.
     fn is_idle(&self) -> bool;
-
-    /// Returns the current envelope amplitude(). This value is valid for the
-    /// current frame once Ticks::tick() has been called for the current frame.
-    fn amplitude(&self) -> Normal;
-
-    fn batch_amplitude(&mut self, amplitudes: &mut [Normal]);
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -77,7 +71,7 @@ pub struct EnvelopeGenerator {
     note_on_pending: bool,
     note_off_pending: bool,
 }
-impl GeneratesEnvelope for EnvelopeGenerator {
+impl Envelope for EnvelopeGenerator {
     fn enqueue_attack(&mut self) {
         self.note_on_pending = true;
     }
@@ -85,23 +79,23 @@ impl GeneratesEnvelope for EnvelopeGenerator {
     fn enqueue_release(&mut self) {
         self.note_off_pending = true;
     }
-
-    fn amplitude(&self) -> Normal {
+    fn is_idle(&self) -> bool {
+        matches!(self.state, EnvelopeGeneratorState::Idle)
+    }
+}
+impl Generates<Normal> for EnvelopeGenerator {
+    fn value(&self) -> Normal {
         self.corrected_amplitude
     }
 
-    fn batch_amplitude(&mut self, amplitudes: &mut [Normal]) {
+    fn batch_values(&mut self, values: &mut [Normal]) {
         // TODO: this is probably no more efficient than calling amplitude()
         // individually, but for now we're just getting the interface right.
         // Later we'll take advantage of it.
-        for item in amplitudes {
+        for item in values {
             self.tick(1);
-            *item = self.amplitude();
+            *item = self.value();
         }
-    }
-
-    fn is_idle(&self) -> bool {
-        matches!(self.state, EnvelopeGeneratorState::Idle)
     }
 }
 impl Ticks for EnvelopeGenerator {
@@ -684,9 +678,8 @@ mod tests {
     }
 
     // Where possible, we'll erase the envelope type and work only with the
-    // GeneratesEnvelope trait, so that we can confirm that the trait alone is
-    // useful.
-    fn get_ge_trait_stuff() -> (EnvelopeSettings, Clock, impl GeneratesEnvelope) {
+    // Envelope trait, so that we can confirm that the trait alone is useful.
+    fn get_ge_trait_stuff() -> (EnvelopeSettings, Clock, impl Envelope) {
         let envelope_settings = EnvelopeSettings {
             attack: 0.1,
             decay: 0.2,
@@ -708,14 +701,14 @@ mod tests {
         clock.tick();
         assert!(e.is_idle(), "Untriggered envelope should remain idle.");
         assert_eq!(
-            e.amplitude().value(),
+            e.value().value(),
             0.0,
             "Untriggered envelope should remain amplitude zero."
         );
     }
 
     fn run_until<F>(
-        envelope: &mut impl GeneratesEnvelope,
+        envelope: &mut impl Envelope,
         clock: &mut Clock,
         time_marker: f32,
         mut test: F,
@@ -731,7 +724,7 @@ mod tests {
             if !should_continue {
                 break;
             }
-            amplitude = envelope.amplitude();
+            amplitude = envelope.value();
             test(amplitude.value());
         }
         amplitude
@@ -759,7 +752,7 @@ mod tests {
             clock.tick();
         }
         assert_gt!(
-            e.amplitude().value(),
+            e.value().value(),
             0.0,
             "Envelope amplitude should increase immediately upon trigger"
         );
@@ -884,7 +877,7 @@ mod tests {
         clock.tick();
 
         assert_eq!(
-            envelope.amplitude(),
+            envelope.value(),
             Normal::minimum(),
             "Amplitude should start at zero"
         );
@@ -898,18 +891,18 @@ mod tests {
         assert!(
             approx_eq!(
                 f64,
-                envelope.amplitude().value(),
+                envelope.value().value(),
                 Normal::maximum().value(),
                 ulps = 8
             ),
             "Amplitude should reach peak upon trigger, but instead of {} we got {}",
             Normal::maximum().value(),
-            envelope.amplitude().value(),
+            envelope.value().value(),
         );
         envelope.tick(1);
         clock.tick();
         assert_lt!(
-            envelope.amplitude(),
+            envelope.value(),
             Normal::maximum(),
             "Zero-attack amplitude should begin decreasing immediately after peak"
         );
@@ -936,7 +929,7 @@ mod tests {
         assert!(
             approx_eq!(
                 f64,
-                envelope.amplitude().value(),
+                envelope.value().value(),
                 Normal::maximum().value(),
                 ulps = 8
             ),
@@ -948,7 +941,7 @@ mod tests {
 
         // Check that we keep decreasing amplitude to zero, not to sustain.
         time_marker += envelope_settings.release;
-        let mut last_amplitude = envelope.amplitude().value();
+        let mut last_amplitude = envelope.value().value();
         let _amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
             assert_lt!(
                 inner_amplitude,
@@ -1050,7 +1043,7 @@ mod tests {
 
         // The envelope starts out in the idle state, and we haven't triggered
         // it.
-        e.batch_amplitude(&mut amplitudes);
+        e.batch_values(&mut amplitudes);
         amplitudes.iter().for_each(|i| {
             assert_eq!(
                 i.value(),
@@ -1061,7 +1054,7 @@ mod tests {
 
         // Now trigger the envelope and see what happened.
         e.enqueue_attack();
-        e.batch_amplitude(&mut amplitudes);
+        e.batch_values(&mut amplitudes);
         assert!(
             amplitudes.iter().any(|i| { i.value() != Normal::MIN }),
             "Once triggered, the EG should generate non-silent values"

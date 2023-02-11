@@ -278,7 +278,7 @@ impl Orchestrator {
                             } else {
                                 entity.tick(1);
                             }
-                            sum += entity.sample();
+                            sum += entity.value();
                         } else if entity.as_is_effect().is_some() {
                             // If it's a node, push its children on the stack,
                             // then evaluate the result.

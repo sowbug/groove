@@ -1,12 +1,9 @@
-use self::{
-    envelopes::{EnvelopeGenerator, GeneratesEnvelope},
-    oscillators::GeneratesSignal,
-};
+use self::envelopes::{Envelope, EnvelopeGenerator};
 use crate::{
     common::{BipolarNormal, F32ControlValue, Sample, StereoSample},
     midi::MidiUtils,
     settings::patches::EnvelopeSettings,
-    traits::{Controllable, GeneratesSamples, HasUid, IsInstrument, Ticks},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Ticks},
     Oscillator,
 };
 use anyhow::{anyhow, Result};
@@ -46,7 +43,7 @@ pub trait PlaysNotes {
 // SourcesAudio), but I couldn't figure out how to return an IterMut from a
 // HashMap, so I couldn't define a trait method that allowed the implementation
 // to return an iterator from either a Vec or a HashMap.
-pub trait StoresVoices: GeneratesSamples + Send + Debug {
+pub trait StoresVoices: Generates<StereoSample> + Send + Debug {
     type Voice;
 
     /// Generally, this value won't change after initialization, because we try
@@ -67,10 +64,11 @@ pub trait StoresVoices: GeneratesSamples + Send + Debug {
 
 /// A synthesizer is composed of Voices. Ideally, a synth will know how to
 /// construct Voices, and then handle all the MIDI events properly for them.
-pub trait IsVoice: GeneratesSamples + PlaysNotes + Send {}
+pub trait IsVoice<V>: Generates<V> + PlaysNotes + Send {}
+pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}
 
 #[derive(Control, Debug, Uid)]
-pub struct Synthesizer<V: IsVoice> {
+pub struct Synthesizer<V: IsStereoSampleVoice> {
     uid: usize,
     sample_rate: usize,
 
@@ -88,17 +86,17 @@ pub struct Synthesizer<V: IsVoice> {
     #[controllable]
     pan: f32,
 }
-impl<V: IsVoice> IsInstrument for Synthesizer<V> {}
-impl<V: IsVoice> GeneratesSamples for Synthesizer<V> {
-    fn sample(&self) -> StereoSample {
-        self.voice_store.sample()
+impl<V: IsStereoSampleVoice> IsInstrument for Synthesizer<V> {}
+impl<V: IsStereoSampleVoice> Generates<StereoSample> for Synthesizer<V> {
+    fn value(&self) -> StereoSample {
+        self.voice_store.value()
     }
 
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
-        self.voice_store.batch_sample(samples);
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        self.voice_store.batch_values(values);
     }
 }
-impl<V: IsVoice> Ticks for Synthesizer<V> {
+impl<V: IsStereoSampleVoice> Ticks for Synthesizer<V> {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
         self.voice_store.reset(sample_rate);
@@ -109,7 +107,7 @@ impl<V: IsVoice> Ticks for Synthesizer<V> {
     }
 }
 
-impl<V: IsVoice> Synthesizer<V> {
+impl<V: IsStereoSampleVoice> Synthesizer<V> {
     fn new_with(sample_rate: usize, voice_store: Box<dyn StoresVoices<Voice = V>>) -> Self {
         Self {
             uid: Default::default(),
@@ -155,7 +153,7 @@ impl<V: IsVoice> Synthesizer<V> {
         self.set_pan(value.0 * 2.0 - 1.0);
     }
 }
-impl<V: IsVoice> HandlesMidi for Synthesizer<V> {
+impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
     fn handle_midi_message(&mut self, message: &MidiMessage) {
         match message {
             MidiMessage::NoteOff { key, vel } => {
@@ -202,7 +200,8 @@ pub struct SimpleVoice {
     aftertouch_is_pending: bool,
     aftertouch_velocity: u8,
 }
-impl IsVoice for SimpleVoice {}
+impl IsStereoSampleVoice for SimpleVoice {}
+impl IsVoice<StereoSample> for SimpleVoice {}
 impl PlaysNotes for SimpleVoice {
     fn is_playing(&self) -> bool {
         self.is_playing
@@ -235,15 +234,15 @@ impl PlaysNotes for SimpleVoice {
         // We don't handle this.
     }
 }
-impl GeneratesSamples for SimpleVoice {
-    fn sample(&self) -> StereoSample {
+impl Generates<StereoSample> for SimpleVoice {
+    fn value(&self) -> StereoSample {
         self.sample
     }
 
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
-        for sample in samples {
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        for sample in values {
             self.tick(1);
-            *sample = self.sample();
+            *sample = self.value();
         }
     }
 }
@@ -261,7 +260,7 @@ impl Ticks for SimpleVoice {
             self.envelope.tick(1);
             self.is_playing = !self.envelope.is_idle();
             self.sample =
-                StereoSample::from(self.oscillator.signal() * self.envelope.amplitude().value());
+                StereoSample::from(self.oscillator.value() * self.envelope.value().value());
         }
     }
 }
@@ -332,13 +331,13 @@ impl HandlesMidi for SimpleSynthesizer {
         self.inner_synth.handle_midi_message(&message);
     }
 }
-impl GeneratesSamples for SimpleSynthesizer {
-    fn sample(&self) -> StereoSample {
-        self.inner_synth.sample()
+impl Generates<StereoSample> for SimpleSynthesizer {
+    fn value(&self) -> StereoSample {
+        self.inner_synth.value()
     }
 
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
-        self.inner_synth.batch_sample(samples)
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        self.inner_synth.batch_values(values)
     }
 }
 impl Ticks for SimpleSynthesizer {
@@ -367,12 +366,12 @@ impl SimpleSynthesizer {
 }
 
 #[derive(Debug)]
-pub struct SimpleVoiceStore<V: IsVoice> {
+pub struct SimpleVoiceStore<V: IsStereoSampleVoice> {
     sample: StereoSample,
     voices: Vec<Box<V>>,
     notes_playing: Vec<u7>,
 }
-impl<V: IsVoice> StoresVoices for SimpleVoiceStore<V> {
+impl<V: IsStereoSampleVoice> StoresVoices for SimpleVoiceStore<V> {
     type Voice = V;
 
     fn voice_count(&self) -> usize {
@@ -403,17 +402,17 @@ impl<V: IsVoice> StoresVoices for SimpleVoiceStore<V> {
         }
     }
 }
-impl<V: IsVoice> GeneratesSamples for SimpleVoiceStore<V> {
-    fn sample(&self) -> StereoSample {
+impl<V: IsStereoSampleVoice> Generates<StereoSample> for SimpleVoiceStore<V> {
+    fn value(&self) -> StereoSample {
         self.sample
     }
 
     #[allow(unused_variables)]
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }
-impl<V: IsVoice> Ticks for SimpleVoiceStore<V> {
+impl<V: IsStereoSampleVoice> Ticks for SimpleVoiceStore<V> {
     fn reset(&mut self, sample_rate: usize) {
         self.voices.iter_mut().for_each(|v| v.reset(sample_rate));
     }
@@ -422,7 +421,7 @@ impl<V: IsVoice> Ticks for SimpleVoiceStore<V> {
     // batch_sample() calls it, it's lame.
     fn tick(&mut self, tick_count: usize) {
         self.voices.iter_mut().for_each(|v| v.tick(tick_count));
-        self.sample = self.voices.iter().map(|v| v.sample()).sum();
+        self.sample = self.voices.iter().map(|v| v.value()).sum();
         self.voices.iter().enumerate().for_each(|(index, voice)| {
             if !voice.is_playing() {
                 self.notes_playing[index] = u7::from(0);
@@ -430,7 +429,7 @@ impl<V: IsVoice> Ticks for SimpleVoiceStore<V> {
         });
     }
 }
-impl<V: IsVoice> SimpleVoiceStore<V> {
+impl<V: IsStereoSampleVoice> SimpleVoiceStore<V> {
     pub fn new_with(_sample_rate: usize) -> Self {
         Self {
             sample: Default::default(),
@@ -445,11 +444,11 @@ impl<V: IsVoice> SimpleVoiceStore<V> {
 }
 
 #[derive(Debug)]
-pub struct VoicePerNoteStore<V: IsVoice> {
+pub struct VoicePerNoteStore<V: IsStereoSampleVoice> {
     sample: StereoSample,
     voices: HashMap<u7, Box<V>>,
 }
-impl<V: IsVoice> StoresVoices for VoicePerNoteStore<V> {
+impl<V: IsStereoSampleVoice> StoresVoices for VoicePerNoteStore<V> {
     type Voice = V;
 
     fn voice_count(&self) -> usize {
@@ -471,27 +470,27 @@ impl<V: IsVoice> StoresVoices for VoicePerNoteStore<V> {
         }
     }
 }
-impl<V: IsVoice> GeneratesSamples for VoicePerNoteStore<V> {
-    fn sample(&self) -> StereoSample {
+impl<V: IsStereoSampleVoice> Generates<StereoSample> for VoicePerNoteStore<V> {
+    fn value(&self) -> StereoSample {
         self.sample
     }
 
     #[allow(unused_variables)]
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }
-impl<V: IsVoice> Ticks for VoicePerNoteStore<V> {
+impl<V: IsStereoSampleVoice> Ticks for VoicePerNoteStore<V> {
     fn reset(&mut self, sample_rate: usize) {
         self.voices.values_mut().for_each(|v| v.reset(sample_rate));
     }
 
     fn tick(&mut self, tick_count: usize) {
         self.voices.values_mut().for_each(|v| v.tick(tick_count));
-        self.sample = self.voices.values().map(|v| v.sample()).sum();
+        self.sample = self.voices.values().map(|v| v.value()).sum();
     }
 }
-impl<V: IsVoice> VoicePerNoteStore<V> {
+impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
     pub fn new_with(_sample_rate: usize) -> Self {
         Self {
             sample: Default::default(),
@@ -520,7 +519,8 @@ pub struct FmVoice {
     aftertouch_is_pending: bool,
     aftertouch_velocity: u8,
 }
-impl IsVoice for FmVoice {}
+impl IsStereoSampleVoice for FmVoice {}
+impl IsVoice<StereoSample> for FmVoice {}
 impl PlaysNotes for FmVoice {
     fn is_playing(&self) -> bool {
         self.is_playing
@@ -555,13 +555,13 @@ impl PlaysNotes for FmVoice {
         self.dca.set_pan(BipolarNormal::from(value));
     }
 }
-impl GeneratesSamples for FmVoice {
-    fn sample(&self) -> StereoSample {
+impl Generates<StereoSample> for FmVoice {
+    fn value(&self) -> StereoSample {
         todo!()
     }
 
     #[allow(unused_variables)]
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }
 }
@@ -575,11 +575,11 @@ impl Ticks for FmVoice {
     fn tick(&mut self, tick_count: usize) {
         self.handle_pending_note_events();
         self.carrier
-            .set_frequency_modulation(self.modulator.signal() as f32 * self.modulator_depth);
+            .set_frequency_modulation(self.modulator.value() as f32 * self.modulator_depth);
         self.envelope.tick(tick_count);
         self.carrier.tick(tick_count);
         self.modulator.tick(tick_count);
-        let r = self.carrier.signal() * self.envelope.amplitude().value();
+        let r = self.carrier.value() * self.envelope.value().value();
         self.is_playing = !self.envelope.is_idle();
         self.sample = self.dca.transform_audio_to_stereo(Sample(r));
     }
@@ -673,13 +673,13 @@ pub struct FmSynthesizer {
     inner_synth: Synthesizer<FmVoice>,
 }
 impl IsInstrument for FmSynthesizer {}
-impl GeneratesSamples for FmSynthesizer {
-    fn sample(&self) -> StereoSample {
-        self.inner_synth.sample()
+impl Generates<StereoSample> for FmSynthesizer {
+    fn value(&self) -> StereoSample {
+        self.inner_synth.value()
     }
 
-    fn batch_sample(&mut self, samples: &mut [StereoSample]) {
-        self.inner_synth.batch_sample(samples);
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        self.inner_synth.batch_values(values);
     }
 }
 impl Ticks for FmSynthesizer {
@@ -948,11 +948,11 @@ mod tests {
         }
     }
 
-    pub(crate) fn is_voice_makes_any_sound_at_all(voice: &mut impl IsVoice) -> bool {
+    pub(crate) fn is_voice_makes_any_sound_at_all(voice: &mut impl IsStereoSampleVoice) -> bool {
         voice.enqueue_note_on(127);
 
         // Skip a few frames in case attack is slow
         voice.tick(5);
-        voice.sample() != StereoSample::SILENCE
+        voice.value() != StereoSample::SILENCE
     }
 }
