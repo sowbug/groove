@@ -2,7 +2,7 @@ use crate::{
     common::{F32ControlValue, SignalType},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
     traits::{Controllable, Generates, Ticks},
-    BipolarNormal, Normal,
+    BipolarNormal,
 };
 use groove_macros::Control;
 use more_asserts::debug_assert_lt;
@@ -76,9 +76,6 @@ pub struct Oscillator {
     /// it. Designed for LFO and frequent changes.
     frequency_modulation: SignalType,
 
-    /// 0..1.0: volume
-    mix: Normal,
-
     /// working variables to generate semi-deterministic noise.
     noise_x1: u32,
     noise_x2: u32,
@@ -144,7 +141,7 @@ impl Ticks for Oscillator {
             let cycle_position = self.calculate_cycle_position();
             let waveform = self.waveform;
             let amplitude_for_position = self.amplitude_for_position(&waveform, cycle_position);
-            self.signal = BipolarNormal::from(self.mix.scale(amplitude_for_position)).value();
+            self.signal = BipolarNormal::from(amplitude_for_position).value();
 
             // We need this to be at the end of tick() because any code running
             // during tick() might look at it.
@@ -166,7 +163,6 @@ impl Oscillator {
             // helping make sound. Principle of Least Astonishment prevails.
             waveform: WaveformType::Sine,
 
-            mix: Normal::maximum(),
             frequency: 440.0,
             fixed_frequency: Default::default(),
             frequency_tune: 1.0,
@@ -207,7 +203,6 @@ impl Oscillator {
     pub fn new_from_preset(sample_rate: usize, preset: &OscillatorSettings) -> Self {
         let mut r = Self::new_with(sample_rate);
         r.waveform = preset.waveform;
-        r.mix = Normal::from(preset.mix as f64);
         r.frequency_tune = preset.tune.into();
         r
     }

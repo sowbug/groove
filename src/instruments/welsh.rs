@@ -414,6 +414,7 @@ impl WelshSynth {
 pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
     oscillator_2_sync: bool,
+    oscillator_mix: f64, // 1.0 = entirely osc 0, 0.0 = entirely osc 1.
     amp_envelope: EnvelopeGenerator,
     dca: Dca,
 
@@ -506,11 +507,24 @@ impl Ticks for WelshVoice {
             //
             // TODO: this seems like an implementation detail that maybe should be
             // hidden from the caller.
-            self.lfo.tick(1);
             let (amp_env_amplitude, filter_env_amplitude) = self.tick_envelopes();
-            self.oscillators.iter_mut().for_each(|o| o.tick(1));
+
+            // TODO: various parts of this loop can be precalculated.
 
             self.sample = if self.is_playing() {
+                // TODO: ideally, these entities would get a tick() on every
+                // voice tick(), but they are surprisingly expensive. So we will
+                // skip calling them unless we're going to look at their output.
+                // This means that they won't get a time slice as often as the
+                // voice will. If this becomes a problem, we can add something
+                // like an empty_tick() method to the Ticks trait that lets
+                // entities stay in sync, but skipping any real work that would
+                // cost time.
+                if !matches!(self.lfo_routing, LfoRouting::None) {
+                    self.lfo.tick(1);
+                }
+                self.oscillators.iter_mut().for_each(|o| o.tick(1));
+
                 // LFO
                 let lfo = self.lfo.value();
                 if matches!(self.lfo_routing, LfoRouting::Pitch) {
@@ -524,12 +538,13 @@ impl Ticks for WelshVoice {
                 let len = self.oscillators.len();
                 let osc_sum = match len {
                     0 => 0.0,
-                    1 => self.oscillators[0].value(),
+                    1 => self.oscillators[0].value() * self.oscillator_mix,
                     2 => {
                         if self.oscillator_2_sync && self.oscillators[0].should_sync() {
                             self.oscillators[1].sync();
                         }
-                        (self.oscillators[0].value() + self.oscillators[1].value()) / 2.0
+                        self.oscillators[0].value() * self.oscillator_mix
+                            + self.oscillators[1].value() * (1.0 - self.oscillator_mix)
                     }
                     _ => todo!(),
                 };
@@ -591,6 +606,7 @@ impl WelshVoice {
             filter_envelope: EnvelopeGenerator::new_with(sample_rate, &preset.filter_envelope),
             oscillators: Default::default(),
             oscillator_2_sync: Default::default(),
+            oscillator_mix: Default::default(),
             dca: Default::default(),
             is_playing: Default::default(),
             note_on_is_pending: Default::default(),
@@ -622,6 +638,17 @@ impl WelshVoice {
             r.oscillator_2_sync = preset.oscillator_2_sync;
             r.oscillators.push(o);
         }
+        r.oscillator_mix = if r.oscillators.len() == 0 {
+            0.0
+        } else if r.oscillators.len() == 1 {
+            1.0
+        } else if preset.oscillator_1.mix == 0.0 && preset.oscillator_2.mix == 0.0 {
+            1.0
+        } else {
+            let total = preset.oscillator_1.mix + preset.oscillator_2.mix;
+            (preset.oscillator_1.mix / total) as f64
+        };
+
         if preset.noise > 0.0 {
             r.oscillators.push(Oscillator::new_with_waveform(
                 sample_rate,
