@@ -7,6 +7,7 @@ readme = "README.md"
 description = "A digital audio workstation."
 license = "Copyright (c) 2023 Mike Tsao. All rights reserved."
 build = "build.rs"
+links = "z"
 
 [dependencies]
 #plotters = "0.3.4"
