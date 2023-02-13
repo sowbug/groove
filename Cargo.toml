@@ -6,6 +6,7 @@ edition = "2021"
 readme = "README.md"
 description = "A digital audio workstation."
 license = "Copyright (c) 2023 Mike Tsao. All rights reserved."
+build = "build.rs"
 
 [dependencies]
 #plotters = "0.3.4"
@@ -22,7 +23,7 @@ directories-next = "2.0"
 enum-primitive-derive = "0.2.2"
 float-cmp = "0.9.0"
 groove_macros = { path = "./groove-macros" }
-hound = "3.4"
+hound = "3.5"
 iced = { version = "0.7.0", features = ["smol"] }
 iced_audio = "0.10.0"
 iced_native = "0.8.0"
@@ -42,6 +43,11 @@ sorted-vec = "0.8.0"
 spectrum-analyzer = "1.2.6"
 strum = "0.24.1"
 strum_macros = "0.24.2"
+vergen = "7.5.1"
+
+[build-dependencies]
+anyhow = "1.0.12"
+vergen = "7"
 
 [[bin]]
 name = "groove-cli"
@@ -66,7 +72,7 @@ scripting = ["dep:rhai"]
 
 [package.metadata.cross.target.aarch64-unknown-linux-gnu]
 pre-build = [
-    "dpkg --add-architecture $CROSS_DEB_ARCH", 
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt -qq update",
     "apt -y install pkg-config libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
 ]
@@ -76,7 +82,7 @@ xargo = false
 
 [package.metadata.cross.target.armv7-unknown-linux-gnueabihf]
 pre-build = [
-    "dpkg --add-architecture $CROSS_DEB_ARCH", 
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt -qq update",
     "apt -y install pkg-config libfontconfig-dev:$CROSS_DEB_ARCH libasound2-dev:$CROSS_DEB_ARCH"
 ]

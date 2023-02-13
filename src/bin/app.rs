@@ -656,6 +656,12 @@ impl GrooveApp {
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::FillPortion(1)),
                 container(self.clock_view()).width(Length::FillPortion(1)),
+                container(text(format!(
+                    "{} ({:.8})",
+                    env!("VERGEN_GIT_SEMVER"),
+                    env!("VERGEN_GIT_SHA")
+                )))
+                .align_x(alignment::Horizontal::Right)
             ]
             .padding(8)
             .spacing(4)

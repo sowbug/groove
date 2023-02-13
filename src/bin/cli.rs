@@ -6,7 +6,7 @@ use std::time::Instant;
 //use groove::ScriptEngine;
 
 #[derive(Parser, Debug, Default)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author, about, long_about = None)]
 struct Args {
     /// Names of files to process. Can be YAML, MIDI, or scripts.
     input: Vec<String>,
@@ -23,17 +23,32 @@ struct Args {
     #[clap(short = 'd', long, value_parser)]
     debug: bool,
 
-    /// Output perf information
+    /// Print perf information
     #[clap(short = 'p', long, value_parser)]
     perf: bool,
 
     /// Suppress status updates while processing
     #[clap(short = 'q', long, value_parser)]
     quiet: bool,
+
+    /// Print version and exit
+    #[clap(short = 'v', long, value_parser)]
+    version: bool,
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+
+    // TODO: output this information into any generated files (WAV, MP3, etc.)
+    // so that we can reproduce them when the code later changes.
+    if args.version {
+        println!(
+            "groove-cli {} ({:.8})",
+            env!("VERGEN_GIT_SEMVER"),
+            env!("VERGEN_GIT_SHA")
+        );
+        return Ok(());
+    }
 
     for input_filename in args.input {
         let mut orchestrator = if input_filename.ends_with(".nscr") {
