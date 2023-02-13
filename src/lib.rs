@@ -33,6 +33,18 @@ pub use crate::{
 pub mod gui;
 pub mod traits;
 
+// https://stackoverflow.com/a/49502807/344467
+pub const REF: &str = include_str!("../.git/HEAD");
+pub const REF_MAIN: &str = include_str!("../.git/refs/heads/main");
+pub const REF_MAIN_TEST: &str = "ref: refs/heads/main\n";
+pub fn git_hash() -> &'static str {
+    if REF == REF_MAIN_TEST {
+        REF_MAIN
+    } else {
+        REF
+    }
+}
+
 pub(crate) mod clock;
 pub(crate) mod common;
 pub(crate) mod controllers;

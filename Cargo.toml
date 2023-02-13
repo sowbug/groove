@@ -6,7 +6,6 @@ edition = "2021"
 readme = "README.md"
 description = "A digital audio workstation."
 license = "Copyright (c) 2023 Mike Tsao. All rights reserved."
-build = "build.rs"
 
 [dependencies]
 #plotters = "0.3.4"
@@ -43,11 +42,6 @@ sorted-vec = "0.8.0"
 spectrum-analyzer = "1.2.6"
 strum = "0.24.1"
 strum_macros = "0.24.2"
-vergen = "7.5.1"
-
-[build-dependencies]
-anyhow = "1.0.12"
-vergen = { version = "7.5.1", default-features = false, features = ["git"] }
 
 [[bin]]
 name = "groove-cli"
