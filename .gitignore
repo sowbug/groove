@@ -6,3 +6,4 @@ groove-cli.exe
 groove-gui.exe
 /projects/**/*.wav
 /projects/**/*.mp3
+perf-output.txt

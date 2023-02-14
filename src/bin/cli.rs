@@ -119,7 +119,7 @@ fn main() -> anyhow::Result<()> {
             if input_filename == output_filename {
                 panic!("would overwrite input file; couldn't generate output filename");
             }
-            IOHelper::send_performance_to_file(performance, &output_filename)?;
+            IOHelper::send_performance_to_file(&performance, &output_filename)?;
         } else {
             IOHelper::send_performance_to_output_device(&performance)?;
         }

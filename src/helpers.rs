@@ -271,7 +271,7 @@ impl IOHelper {
     }
 
     pub fn send_performance_to_file(
-        performance: Performance,
+        performance: &Performance,
         output_filename: &str,
     ) -> anyhow::Result<()> {
         const AMPLITUDE: SampleType = i16::MAX as SampleType;

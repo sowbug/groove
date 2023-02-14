@@ -285,14 +285,17 @@ impl SongSettings {
 
 #[cfg(test)]
 mod tests {
-    use crossbeam::deque::Steal;
-
     use super::SongSettings;
+    use crate::git_hash;
     use crate::{clock::Clock, IOHelper, Paths, StereoSample};
+    use crossbeam::deque::Steal;
+    use std::fs::File;
+    use std::io::prelude::*;
+    use std::time::Instant;
 
     #[test]
-    fn test_yaml_loads_and_parses() {
-        let mut path = Paths::project_path();
+    fn yaml_loads_and_parses() {
+        let mut path = Paths::test_data_path();
         path.push("kitchen-sink.yaml");
         let yaml = std::fs::read_to_string(path)
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
@@ -326,10 +329,53 @@ mod tests {
 
         // TODO: maybe make a Paths:: function for out/
         assert!(IOHelper::send_performance_to_file(
-            performance,
+            &performance,
             "out/test_yaml_loads_and_parses-kitchen-sink.wav",
         )
         .is_ok());
+    }
+
+    #[test]
+    fn spit_out_perf_data() {
+        let mut path = Paths::test_data_path();
+        path.push("perf-1.yaml");
+        let yaml = std::fs::read_to_string(path)
+            .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
+        let song_settings = SongSettings::new_from_yaml(yaml.as_str())
+            .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
+        let mut orchestrator = song_settings
+            .instantiate(false)
+            .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
+        let mut clock = Clock::new_with(orchestrator.clock_settings());
+
+        let start_instant = Instant::now();
+        let performance = orchestrator
+            .run_performance(&mut clock, false)
+            .unwrap_or_else(|err| panic!("performance failed: {:?}", err));
+        let elapsed = start_instant.elapsed();
+        let frame_count = performance.worker.len();
+
+        let mut file = File::create("perf-output.txt").unwrap();
+        let output = format!(
+            "Version    : {}\n\
+Git hash   : {:.8}\n\
+\n\
+Elapsed    : {:0.3}s\n\
+Frames     : {}\n\
+Frames/msec: {:.2?} (goal >{:.2?})\n\
+usec/frame : {:.2?} (goal <{:.2?})",
+            env!("CARGO_PKG_VERSION"),
+            git_hash(),
+            elapsed.as_secs_f32(),
+            frame_count,
+            frame_count as f32 / start_instant.elapsed().as_millis() as f32,
+            performance.sample_rate as f32 / 1000.0,
+            start_instant.elapsed().as_micros() as f32 / frame_count as f32,
+            1000000.0 / performance.sample_rate as f32
+        );
+        let _ = file.write(output.as_bytes());
+
+        assert!(IOHelper::send_performance_to_file(&performance, "out/perf-1.wav",).is_ok());
     }
 
     #[test]
