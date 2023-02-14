@@ -409,7 +409,7 @@ mod tests {
     }
 
     #[test]
-    fn test_clock_mainline() {
+    fn clock_mainline_works() {
         const SAMPLE_RATE: usize = 256;
         const BPM: f32 = 128.0;
         const QUARTER_NOTE_OF_TICKS: usize = ((SAMPLE_RATE * 60) as f32 / BPM) as usize;
@@ -455,7 +455,7 @@ mod tests {
     }
 
     #[test]
-    fn test_time_signature_valid() {
+    fn valid_time_signatures_can_be_instantiated() {
         let ts = TimeSignature::default();
         assert_eq!(ts.top, 4);
         assert_eq!(ts.bottom, 4);
@@ -465,12 +465,12 @@ mod tests {
     }
 
     #[test]
-    fn test_time_signature_invalid_bad_top() {
+    fn time_signature_with_bad_top_is_invalid() {
         assert!(TimeSignature::new_with(0, 4).is_err());
     }
 
     #[test]
-    fn test_time_signature_invalid_bottom_not_power_of_two() {
+    fn time_signature_with_bottom_not_power_of_two_is_invalid() {
         assert!(TimeSignature::new_with(4, 5).is_err());
     }
 
