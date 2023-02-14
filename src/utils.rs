@@ -5,11 +5,10 @@ use crate::{
     instruments::{
         envelopes::{Envelope, EnvelopeGenerator},
         oscillators::Oscillator,
-        HandlesMidi,
     },
     traits::{
-        Controllable, Generates, HasUid, IsController, IsInstrument, Response, Terminates, Ticks,
-        Updateable,
+        Controllable, Generates, HandlesMidi, HasUid, IsController, IsInstrument, Resets, Response,
+        Terminates, Ticks, TicksWithMessages, Updateable,
     },
     BipolarNormal, EntityMessage, StereoSample,
 };
@@ -48,6 +47,8 @@ pub struct Timer {
     uid: usize,
     has_more_work: bool,
     time_to_run_seconds: f32,
+
+    temp_hack_clock: Clock,
 }
 impl Timer {
     #[allow(dead_code)]
@@ -68,10 +69,23 @@ impl Terminates for Timer {
     }
 }
 impl IsController for Timer {}
-impl Updateable for Timer {
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        if let EntityMessage::Tick = message {
-            self.has_more_work = clock.seconds() < self.time_to_run_seconds;
+impl Updateable for Timer {}
+impl HandlesMidi for Timer {}
+impl Resets for Timer {
+    fn reset(&mut self, sample_rate: usize) {
+        self.temp_hack_clock.set_sample_rate(sample_rate);
+        self.temp_hack_clock.reset();
+    }
+}
+impl TicksWithMessages for Timer {
+    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+        for _ in 0..tick_count {
+            self.has_more_work = self.temp_hack_clock.seconds() < self.time_to_run_seconds;
+            if self.has_more_work {
+                self.temp_hack_clock.tick();
+            } else {
+                break;
+            }
         }
         Response::none()
     }
@@ -84,11 +98,29 @@ pub(crate) struct Trigger {
     time_to_trigger_seconds: f32,
     value: f32,
     has_triggered: bool,
+
+    temp_hack_clock: Clock,
 }
 impl IsController for Trigger {}
 impl Terminates for Trigger {
     fn is_finished(&self) -> bool {
         self.has_triggered
+    }
+}
+impl Resets for Trigger {}
+impl TicksWithMessages for Trigger {
+    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+        for _ in 0..tick_count {
+            self.temp_hack_clock.tick();
+        }
+        return if !self.has_triggered
+            && self.temp_hack_clock.seconds() >= self.time_to_trigger_seconds
+        {
+            self.has_triggered = true;
+            Response::single(EntityMessage::ControlF32(self.value))
+        } else {
+            Response::none()
+        };
     }
 }
 impl Trigger {
@@ -101,19 +133,8 @@ impl Trigger {
         }
     }
 }
-impl Updateable for Trigger {
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        if let EntityMessage::Tick = message {
-            return if !self.has_triggered && clock.seconds() >= self.time_to_trigger_seconds {
-                self.has_triggered = true;
-                Response::single(EntityMessage::ControlF32(self.value))
-            } else {
-                Response::none()
-            };
-        }
-        Response::none()
-    }
-}
+impl Updateable for Trigger {}
+impl HandlesMidi for Trigger {}
 
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
@@ -137,8 +158,10 @@ impl Generates<StereoSample> for AudioSource {
         todo!()
     }
 }
-impl Ticks for AudioSource {
+impl Resets for AudioSource {
     fn reset(&mut self, _sample_rate: usize) {}
+}
+impl Ticks for AudioSource {
     fn tick(&mut self, _tick_count: usize) {}
 }
 impl HandlesMidi for AudioSource {}
@@ -235,12 +258,13 @@ impl Generates<StereoSample> for TestSynth {
         todo!()
     }
 }
-impl Ticks for TestSynth {
+impl Resets for TestSynth {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
         self.oscillator.reset(sample_rate);
     }
-
+}
+impl Ticks for TestSynth {
     fn tick(&mut self, tick_count: usize) {
         // TODO: I don't think this can play sounds, because I don't see how the
         // envelope ever gets triggered.
@@ -304,20 +328,7 @@ pub struct TestLfo {
     oscillator: Oscillator,
 }
 impl IsController for TestLfo {}
-impl Updateable for TestLfo {
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        if clock.was_reset() {
-            self.oscillator.reset(clock.sample_rate());
-        }
-        if let EntityMessage::Tick = message {
-            self.oscillator.tick(1);
-            self.signal_value = BipolarNormal::from(self.oscillator.value()); // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
-            Response::single(EntityMessage::ControlF32(self.signal_value.value() as f32))
-        } else {
-            Response::none()
-        }
-    }
-}
+impl Updateable for TestLfo {}
 impl Terminates for TestLfo {
     // This hardcoded value is OK because an LFO doesn't have a defined
     // beginning/end. It just keeps going. Yet it truly is a controller.
@@ -325,6 +336,25 @@ impl Terminates for TestLfo {
         true
     }
 }
+impl Resets for TestLfo {
+    fn reset(&mut self, sample_rate: usize) {
+        self.oscillator.reset(sample_rate);
+    }
+}
+impl TicksWithMessages for TestLfo {
+    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+        let mut v = Vec::default();
+        for _ in 0..tick_count {
+            self.oscillator.tick(1);
+            self.signal_value = BipolarNormal::from(self.oscillator.value()); // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
+            v.push(Response::single(EntityMessage::ControlF32(
+                self.signal_value.value() as f32,
+            )));
+        }
+        Response::batch(v)
+    }
+}
+impl HandlesMidi for TestLfo {}
 impl TestLfo {
     pub fn new_with(sample_rate: usize) -> Self {
         Self {
@@ -457,7 +487,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_audio_routing() {
+    fn audio_routing_works() {
         let mut o = Box::new(Orchestrator::default());
 
         // A simple audio source.
@@ -513,7 +543,7 @@ pub mod tests {
     // argument as an alternative to the (necessary) string argument.
 
     #[test]
-    fn test_control_routing() {
+    fn control_routing_works() {
         let mut o = Box::new(Orchestrator::default());
 
         // The synth's frequency is modulated by the LFO.
@@ -563,8 +593,9 @@ pub mod tests {
     }
 
     #[test]
-    fn test_midi_routing() {
+    fn midi_routing_works() {
         const TEST_MIDI_CHANNEL: MidiChannel = 7;
+        const ARP_MIDI_CHANNEL: MidiChannel = 5;
         let mut o = Box::new(Orchestrator::default());
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
@@ -582,8 +613,8 @@ pub mod tests {
 
         // This might not be necessary. Orchestrator will automatically get
         // every MIDI message sent.
-        o.connect_midi_upstream(arpeggiator_uid);
         o.connect_midi_downstream(instrument_uid, TEST_MIDI_CHANNEL);
+        o.connect_midi_downstream(arpeggiator_uid, ARP_MIDI_CHANNEL);
 
         const SECONDS: usize = 1;
         let _ = o.add(
@@ -595,6 +626,7 @@ pub mod tests {
         let mut clock = Clock::default();
         if let Ok(samples) = o.run(&mut clock) {
             // We haven't asked the arpeggiator to start sending anything yet.
+            assert_eq!(samples.len(), (SECONDS * DEFAULT_SAMPLE_RATE) as usize);
             assert!(
                 samples.iter().all(|&s| s == StereoSample::SILENCE),
                 "Expected total silence because the arpeggiator is not turned on."
@@ -604,9 +636,11 @@ pub mod tests {
         }
 
         // Let's turn on the arpeggiator.
-        o.debug_send_msg_enable(&clock, arpeggiator_uid, true);
+        o.debug_send_midi_note(ARP_MIDI_CHANNEL, true);
         clock.reset();
+        o.reset();
         if let Ok(samples) = o.run(&mut clock) {
+            assert_eq!(samples.len(), (SECONDS * DEFAULT_SAMPLE_RATE) as usize);
             assert!(
                 samples.iter().any(|&s| s != StereoSample::SILENCE),
                 "Expected some sound because the arpeggiator is now running."
@@ -622,7 +656,7 @@ pub mod tests {
         //
         // Note that we're implicitly testing that the arpeggiator will send a
         // note-off if necessary, even if it's disabled mid-note.
-        o.debug_send_msg_enable(&clock, arpeggiator_uid, false);
+        o.debug_send_midi_note(ARP_MIDI_CHANNEL, false);
 
         // It's actually immaterial to this test whether this has any sound in
         // it. We're just giving the arpeggiator a bit of time to clear out any
@@ -645,7 +679,7 @@ pub mod tests {
 
         // Re-enable the arpeggiator but disconnect the instrument's MIDI
         // connection.
-        o.debug_send_msg_enable(&clock, arpeggiator_uid, true);
+        o.debug_send_midi_note(ARP_MIDI_CHANNEL, true);
         o.disconnect_midi_downstream(instrument_uid, TEST_MIDI_CHANNEL);
         clock.reset();
         if let Ok(samples) = o.run(&mut clock) {

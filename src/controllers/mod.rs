@@ -6,7 +6,7 @@ use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit},
     common::ParameterType,
     settings::{controllers::ControlPathSettings, patches::WaveformType},
-    traits::{Generates, Ticks},
+    traits::{Generates, HandlesMidi, Resets, TicksWithMessages},
     EntityMessage, Oscillator,
 };
 use crate::{
@@ -53,6 +53,8 @@ pub struct ControlTrip {
     current_value: SignalType,
     envelope: SteppedEnvelope,
     is_finished: bool,
+
+    temp_hack_clock: Clock,
 }
 impl IsController for ControlTrip {}
 impl Terminates for ControlTrip {
@@ -60,6 +62,7 @@ impl Terminates for ControlTrip {
         self.is_finished
     }
 }
+impl HandlesMidi for ControlTrip {}
 impl Default for ControlTrip {
     fn default() -> Self {
         Self::new()
@@ -75,6 +78,7 @@ impl ControlTrip {
             current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
             is_finished: true,
+            temp_hack_clock: Default::default(),
         }
     }
 
@@ -127,40 +131,40 @@ impl ControlTrip {
         }
         self.is_finished = false;
     }
-
-    fn tick(&mut self, clock: &Clock) -> bool {
-        let time = self.envelope.time_for_unit(clock);
-        let step = self.envelope.step_for_time(time);
-        if step.interval.contains(&time) {
-            let value = self.envelope.value_for_step_at_time(step, time);
-
-            let last_value = self.current_value;
-            self.current_value = value;
-            self.is_finished = time >= step.interval.end;
-            self.current_value != last_value
-        } else {
-            // This is a drastic response to a tick that's out of range. It
-            // might be better to limit it to times that are later than the
-            // covered range. We're likely to hit ControlTrips that start beyond
-            // time zero.
-            self.is_finished = true;
-            false
-        }
-    }
 }
-impl Updateable for ControlTrip {
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        match message {
-            EntityMessage::Tick => {
-                if self.tick(clock) {
-                    // tick() tells us that our value has changed, so let's tell
-                    // the world about that.
-                    return Response::single(EntityMessage::ControlF32(self.current_value as f32));
+impl Updateable for ControlTrip {}
+impl Resets for ControlTrip {}
+impl TicksWithMessages for ControlTrip {
+    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+        let mut v = Vec::default();
+        for _ in 0..tick_count {
+            self.temp_hack_clock.tick();
+            if {
+                let time = self.envelope.time_for_unit(&self.temp_hack_clock);
+                let step = self.envelope.step_for_time(time);
+                if step.interval.contains(&time) {
+                    let value = self.envelope.value_for_step_at_time(step, time);
+
+                    let last_value = self.current_value;
+                    self.current_value = value;
+                    self.is_finished = time >= step.interval.end;
+                    self.current_value != last_value
+                } else {
+                    // This is a drastic response to a tick that's out of range. It
+                    // might be better to limit it to times that are later than the
+                    // covered range. We're likely to hit ControlTrips that start beyond
+                    // time zero.
+                    self.is_finished = true;
+                    false
                 }
+            } {
+                //  our value has changed, so let's tell the world about that.
+                v.push(Response::single(EntityMessage::ControlF32(
+                    self.current_value as f32,
+                )));
             }
-            _ => todo!(),
         }
-        Response::none()
+        Response::batch(v)
     }
 }
 
@@ -188,16 +192,22 @@ pub struct LfoController {
     oscillator: Oscillator,
 }
 impl IsController for LfoController {}
-impl Updateable for LfoController {
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        if clock.was_reset() {
-            self.oscillator.reset(clock.sample_rate())
-        }
-        match message {
-            EntityMessage::Tick => Response::single(EntityMessage::ControlF32(
+impl Updateable for LfoController {}
+impl Resets for LfoController {}
+impl TicksWithMessages for LfoController {
+    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+        let mut v = Vec::default();
+        for _ in 0..tick_count {
+            v.push(Response::single(EntityMessage::ControlF32(
                 (self.oscillator.value() as f32 + 1.0) / 2.0, // TODO: make from() smart
-            )),
-            _ => Response::none(),
+            )));
+        }
+        if v.is_empty() {
+            Response::none()
+        } else if v.len() == 1 {
+            v.pop().unwrap()
+        } else {
+            Response::batch(v)
         }
     }
 }
@@ -208,6 +218,7 @@ impl Terminates for LfoController {
         true
     }
 }
+impl HandlesMidi for LfoController {}
 impl LfoController {
     pub fn new_with(
         sample_rate: usize,
@@ -276,13 +287,10 @@ mod tests {
 
         let _ = o.run(&mut clock);
 
-        // We advance the clock one slice before checking whether the loop is
-        // done, so the clock actually should be one slice beyond the number of
-        // samples we actually get.
         let expected_final_sample =
             (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32).ceil()
                 as usize;
-        assert_eq!(clock.samples(), expected_final_sample + 1);
+        assert_eq!(clock.samples(), expected_final_sample);
     }
 
     #[test]
@@ -325,6 +333,6 @@ mod tests {
         let expected_final_sample =
             (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32).ceil()
                 as usize;
-        assert_eq!(clock.samples(), expected_final_sample + 1);
+        assert_eq!(clock.samples(), expected_final_sample);
     }
 }

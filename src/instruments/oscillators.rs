@@ -1,7 +1,7 @@
 use crate::{
     common::{F32ControlValue, SignalType},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{Controllable, Generates, Ticks},
+    traits::{Controllable, Generates, Resets, Ticks},
     BipolarNormal, Normal,
 };
 use groove_macros::Control;
@@ -123,12 +123,13 @@ impl Generates<SignalType> for Oscillator {
         todo!()
     }
 }
-impl Ticks for Oscillator {
+impl Resets for Oscillator {
     fn reset(&mut self, sample_rate: usize) {
         self.is_reset_pending = true;
         self.sample_rate = sample_rate;
     }
-
+}
+impl Ticks for Oscillator {
     fn tick(&mut self, tick_count: usize) {
         for _ in 0..tick_count {
             if self.is_reset_pending {
@@ -370,7 +371,7 @@ mod tests {
         common::DEFAULT_SAMPLE_RATE,
         midi::{MidiNote, MidiUtils},
         settings::patches::{OscillatorSettings, OscillatorTune},
-        traits::{tests::DebugTicks, Generates, Ticks},
+        traits::{tests::DebugTicks, Generates, Resets, Ticks},
         utils::tests::{render_signal_as_audio_source, samples_match_known_good_wav_file},
         Paths,
     };

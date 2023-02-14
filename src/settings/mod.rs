@@ -54,7 +54,7 @@ pub struct TrackSettings {
 #[serde(rename_all = "kebab-case")]
 pub struct ClockSettings {
     #[serde(skip)]
-    samples_per_second: usize, // Samples per second; granularity of a tick().
+    sample_rate: usize, // Samples per second; granularity of a tick().
 
     #[serde(rename = "bpm")]
     beats_per_minute: f32,
@@ -69,12 +69,12 @@ pub struct ClockSettings {
 impl ClockSettings {
     #[allow(dead_code)]
     pub(crate) fn new(
-        samples_per_second: usize,
+        sample_rate: usize,
         beats_per_minute: f32,
         time_signature: (usize, usize),
     ) -> Self {
         Self {
-            samples_per_second,
+            sample_rate,
             beats_per_minute,
             time_signature: TimeSignature {
                 top: time_signature.0,
@@ -92,11 +92,11 @@ impl ClockSettings {
     }
 
     pub fn sample_rate(&self) -> usize {
-        self.samples_per_second
+        self.sample_rate
     }
 
-    pub fn set_sample_rate(&mut self, samples_per_second: usize) {
-        self.samples_per_second = samples_per_second;
+    pub fn set_sample_rate(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
     }
 
     pub fn midi_ticks_per_second(&self) -> usize {
@@ -117,7 +117,7 @@ impl ClockSettings {
 
     pub fn beats_to_samples(&self, beats: f32) -> usize {
         let seconds = beats * 60.0 / self.beats_per_minute;
-        (seconds * self.samples_per_second as f32) as usize
+        (seconds * self.sample_rate as f32) as usize
     }
 
     // TODO: Horrible precision problems
@@ -133,7 +133,7 @@ impl ClockSettings {
 impl Default for ClockSettings {
     fn default() -> Self {
         Self {
-            samples_per_second: 44100,
+            sample_rate: 44100,
             beats_per_minute: 128.0,
             time_signature: TimeSignature { top: 4, bottom: 4 },
             midi_ticks_per_second: 960,

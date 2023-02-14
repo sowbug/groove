@@ -1,12 +1,11 @@
 use crate::{
     clock::{Clock, ClockTimeUnit},
     common::{F32ControlValue, Sample, StereoSample},
-    instruments::{oscillators::Oscillator, Dca, HandlesMidi},
+    instruments::{oscillators::Oscillator, Dca},
     messages::EntityMessage,
     midi::{MidiChannel, MidiUtils},
     settings::patches::WaveformType,
 };
-use assert_approx_eq::assert_approx_eq;
 use groove_macros::Control;
 use midly::MidiMessage;
 use std::collections::VecDeque;
@@ -20,7 +19,10 @@ use strum_macros::{Display, EnumString, FromRepr};
 /// IsController implements Terminates, which indicates that it's done emitting
 /// events (and, in the case of timers and sequencers, done waiting for other
 /// work in the system to complete).
-pub trait IsController: Updateable + Terminates + HasUid + Send + Debug {}
+pub trait IsController:
+    Updateable + TicksWithMessages + Terminates + HandlesMidi + HasUid + Send + Debug
+{
+}
 
 /// An IsEffect transforms audio. It takes audio inputs and produces audio
 /// output. It does not get called unless there is audio input to provide to it
@@ -80,6 +82,16 @@ pub trait Controllable {
     }
 }
 
+pub trait HandlesMidi {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        dbg!("Received message {:?} but no handler for it", &message);
+        None
+    }
+}
+
 /// A HasUid has an ephemeral but globally unique numeric identifier, which is
 /// useful for one entity to refer to another without getting into icky Rust
 /// ownership questions. It's the foundation of any ECS
@@ -89,7 +101,7 @@ pub trait HasUid {
     fn set_uid(&mut self, uid: usize);
 }
 
-pub trait Ticks: Send + Debug {
+pub trait Resets {
     /// The entity should reset its internal state.
     ///
     /// The system will call reset() when the global sample rate changes, and
@@ -98,8 +110,11 @@ pub trait Ticks: Send + Debug {
     /// reset on entity construction; instead, entities can require the sample
     /// rate as part of their new() functions, and if desired call reset()
     /// within that function.
-    fn reset(&mut self, sample_rate: usize);
+    #[allow(unused_variables)]
+    fn reset(&mut self, sample_rate: usize) {}
+}
 
+pub trait Ticks: Resets + Send + Debug {
     /// The entity should perform work for the current frame (or frames if
     /// frame_count > 1). Under normal circumstances, successive tick()s
     /// represent successive frames. Exceptions include, for example, restarting
@@ -116,6 +131,11 @@ pub trait Ticks: Send + Debug {
     /// tick() must be careful not to update state on the first frame, because
     /// that would cause the state to represent the second frame, not the first.
     fn tick(&mut self, tick_count: usize);
+}
+
+pub trait TicksWithMessages: Resets + Send + Debug {
+    /// Similar to Ticks::tick() except it also returns a Response<EntityMessage>.
+    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage>;
 }
 
 /// A TransformsAudio takes input audio, which is typically produced by
@@ -196,27 +216,28 @@ impl<T> Response<T> {
 // ones, for example if we're trying to determine whether an entity is
 // responsible for a performance issue.
 
-pub trait TestsValues {
-    fn check_values(&mut self, clock: &Clock) {
-        // If we've been asked to assert values at checkpoints, do so.
-        if self.has_checkpoint_values()
-            && clock.time_for(self.time_unit()) >= self.checkpoint_time()
-        {
-            const SAD_FLOAT_DIFF: f32 = 1.0e-4;
-            if let Some(value) = self.pop_checkpoint_value() {
-                assert_approx_eq!(self.value_to_check(), value, SAD_FLOAT_DIFF);
-            }
-            self.advance_checkpoint_time();
-        }
-    }
+// TODO: redesign this for clockless operation
+// pub trait TestsValues {
+//     fn check_values(&mut self, clock: &Clock) {
+//         // If we've been asked to assert values at checkpoints, do so.
+//         if self.has_checkpoint_values()
+//             && clock.time_for(self.time_unit()) >= self.checkpoint_time()
+//         {
+//             const SAD_FLOAT_DIFF: f32 = 1.0e-4;
+//             if let Some(value) = self.pop_checkpoint_value() {
+//                 assert_approx_eq!(self.value_to_check(), value, SAD_FLOAT_DIFF);
+//             }
+//             self.advance_checkpoint_time();
+//         }
+//     }
 
-    fn has_checkpoint_values(&self) -> bool;
-    fn time_unit(&self) -> &ClockTimeUnit;
-    fn checkpoint_time(&self) -> f32;
-    fn advance_checkpoint_time(&mut self);
-    fn value_to_check(&self) -> f32;
-    fn pop_checkpoint_value(&mut self) -> Option<f32>;
-}
+//     fn has_checkpoint_values(&self) -> bool;
+//     fn time_unit(&self) -> &ClockTimeUnit;
+//     fn checkpoint_time(&self) -> f32;
+//     fn advance_checkpoint_time(&mut self);
+//     fn value_to_check(&self) -> f32;
+//     fn pop_checkpoint_value(&mut self) -> Option<f32>;
+// }
 
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
@@ -234,6 +255,9 @@ enum TestControllerAction {
 pub struct TestController {
     uid: usize,
     midi_channel_out: MidiChannel,
+
+    temp_hack_clock: Clock,
+
     pub tempo: f32,
     is_enabled: bool,
     is_playing: bool,
@@ -244,60 +268,76 @@ pub struct TestController {
     pub time_unit: ClockTimeUnit,
 }
 impl IsController for TestController {}
-impl Updateable for TestController {
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        match message {
-            EntityMessage::Tick => {
-                self.check_values(clock);
-                return match self.what_to_do(clock) {
-                    TestControllerAction::Nothing => Response::none(),
-                    TestControllerAction::NoteOn => {
-                        // This is elegant, I hope. If the arpeggiator is
-                        // disabled during play, and we were playing a note,
-                        // then we still send the off note,
-                        if self.is_enabled {
-                            self.is_playing = true;
-                            Response::single(EntityMessage::Midi(
-                                self.midi_channel_out,
-                                MidiMessage::NoteOn {
-                                    key: 60.into(),
-                                    vel: 127.into(),
-                                },
-                            ))
-                        } else {
-                            Response::none()
-                        }
+impl Updateable for TestController {}
+impl Resets for TestController {
+    fn reset(&mut self, sample_rate: usize) {
+        self.temp_hack_clock.set_sample_rate(sample_rate);
+        self.temp_hack_clock.reset();
+    }
+}
+impl TicksWithMessages for TestController {
+    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+        let mut v = Vec::default();
+        for _ in 0..tick_count {
+            if !self.temp_hack_clock.was_reset() {
+                self.temp_hack_clock.tick();
+            }
+            // TODO self.check_values(clock);
+            v.push(match self.what_to_do(&self.temp_hack_clock) {
+                TestControllerAction::Nothing => Response::none(),
+                TestControllerAction::NoteOn => {
+                    // This is elegant, I hope. If the arpeggiator is
+                    // disabled during play, and we were playing a note,
+                    // then we still send the off note,
+                    if self.is_enabled {
+                        self.is_playing = true;
+                        Response::single(EntityMessage::Midi(
+                            self.midi_channel_out,
+                            MidiMessage::NoteOn {
+                                key: 60.into(),
+                                vel: 127.into(),
+                            },
+                        ))
+                    } else {
+                        Response::none()
                     }
-                    TestControllerAction::NoteOff => {
-                        if self.is_playing {
-                            Response::single(EntityMessage::Midi(
-                                self.midi_channel_out,
-                                MidiMessage::NoteOff {
-                                    key: 60.into(),
-                                    vel: 0.into(),
-                                },
-                            ))
-                        } else {
-                            Response::none()
-                        }
+                }
+                TestControllerAction::NoteOff => {
+                    if self.is_playing {
+                        Response::single(EntityMessage::Midi(
+                            self.midi_channel_out,
+                            MidiMessage::NoteOff {
+                                key: 60.into(),
+                                vel: 0.into(),
+                            },
+                        ))
+                    } else {
+                        Response::none()
                     }
-                };
-            }
-            EntityMessage::Enable(enabled) => {
-                self.is_enabled = enabled;
-            }
-            #[allow(unused_variables)]
-            EntityMessage::Midi(channel, message) => {
-                //dbg!(&channel, &message);
-            }
-            _ => todo!(),
+                }
+            });
         }
-        Response::none()
+        Response::batch(v)
     }
 }
 impl Terminates for TestController {
     fn is_finished(&self) -> bool {
         true
+    }
+}
+impl HandlesMidi for TestController {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        #[allow(unused_variables)]
+        match message {
+            MidiMessage::NoteOff { key, vel } => self.is_enabled = false,
+            MidiMessage::NoteOn { key, vel } => self.is_enabled = true,
+            _ => todo!(),
+        }
+        dbg!("Received message {:?} but no handler for it", &message);
+        None
     }
 }
 impl HasUid for TestController {
@@ -348,31 +388,31 @@ impl TestController {
         TestControllerAction::Nothing
     }
 }
-impl TestsValues for TestController {
-    fn has_checkpoint_values(&self) -> bool {
-        !self.checkpoint_values.is_empty()
-    }
+// impl TestsValues for TestController {
+//     fn has_checkpoint_values(&self) -> bool {
+//         !self.checkpoint_values.is_empty()
+//     }
 
-    fn time_unit(&self) -> &ClockTimeUnit {
-        &self.time_unit
-    }
+//     fn time_unit(&self) -> &ClockTimeUnit {
+//         &self.time_unit
+//     }
 
-    fn checkpoint_time(&self) -> f32 {
-        self.checkpoint
-    }
+//     fn checkpoint_time(&self) -> f32 {
+//         self.checkpoint
+//     }
 
-    fn advance_checkpoint_time(&mut self) {
-        self.checkpoint += self.checkpoint_delta;
-    }
+//     fn advance_checkpoint_time(&mut self) {
+//         self.checkpoint += self.checkpoint_delta;
+//     }
 
-    fn value_to_check(&self) -> f32 {
-        self.tempo
-    }
+//     fn value_to_check(&self) -> f32 {
+//         self.tempo
+//     }
 
-    fn pop_checkpoint_value(&mut self) -> Option<f32> {
-        self.checkpoint_values.pop_front()
-    }
-}
+//     fn pop_checkpoint_value(&mut self) -> Option<f32> {
+//         self.checkpoint_values.pop_front()
+//     }
+// }
 
 #[derive(Control, Debug, Default)]
 pub struct TestEffect {
@@ -402,31 +442,31 @@ impl HasUid for TestEffect {
         self.uid = uid;
     }
 }
-impl TestsValues for TestEffect {
-    fn has_checkpoint_values(&self) -> bool {
-        !self.checkpoint_values.is_empty()
-    }
+// impl TestsValues for TestEffect {
+//     fn has_checkpoint_values(&self) -> bool {
+//         !self.checkpoint_values.is_empty()
+//     }
 
-    fn time_unit(&self) -> &ClockTimeUnit {
-        &self.time_unit
-    }
+//     fn time_unit(&self) -> &ClockTimeUnit {
+//         &self.time_unit
+//     }
 
-    fn checkpoint_time(&self) -> f32 {
-        self.checkpoint
-    }
+//     fn checkpoint_time(&self) -> f32 {
+//         self.checkpoint
+//     }
 
-    fn advance_checkpoint_time(&mut self) {
-        self.checkpoint += self.checkpoint_delta;
-    }
+//     fn advance_checkpoint_time(&mut self) {
+//         self.checkpoint += self.checkpoint_delta;
+//     }
 
-    fn value_to_check(&self) -> f32 {
-        self.my_value()
-    }
+//     fn value_to_check(&self) -> f32 {
+//         self.my_value()
+//     }
 
-    fn pop_checkpoint_value(&mut self) -> Option<f32> {
-        self.checkpoint_values.pop_front()
-    }
-}
+//     fn pop_checkpoint_value(&mut self) -> Option<f32> {
+//         self.checkpoint_values.pop_front()
+//     }
+// }
 impl TestEffect {
     pub fn new_with_test_values(
         values: &[f32],
@@ -499,11 +539,12 @@ impl Generates<StereoSample> for TestInstrument {
         todo!()
     }
 }
-impl Ticks for TestInstrument {
+impl Resets for TestInstrument {
     fn reset(&mut self, sample_rate: usize) {
         self.oscillator.reset(sample_rate);
     }
-
+}
+impl Ticks for TestInstrument {
     fn tick(&mut self, tick_count: usize) {
         self.oscillator.tick(tick_count);
         // If we've been asked to assert values at checkpoints, do so.
@@ -534,7 +575,10 @@ impl HasUid for TestInstrument {
     }
 }
 impl HandlesMidi for TestInstrument {
-    fn handle_midi_message(&mut self, message: &MidiMessage) {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
         self.debug_messages.push(*message);
         self.received_count += 1;
 
@@ -549,33 +593,34 @@ impl HandlesMidi for TestInstrument {
             }
             _ => {}
         }
+        None
     }
 }
-impl TestsValues for TestInstrument {
-    fn has_checkpoint_values(&self) -> bool {
-        !self.checkpoint_values.is_empty()
-    }
+// impl TestsValues for TestInstrument {
+//     fn has_checkpoint_values(&self) -> bool {
+//         !self.checkpoint_values.is_empty()
+//     }
 
-    fn time_unit(&self) -> &ClockTimeUnit {
-        &self.time_unit
-    }
+//     fn time_unit(&self) -> &ClockTimeUnit {
+//         &self.time_unit
+//     }
 
-    fn checkpoint_time(&self) -> f32 {
-        self.checkpoint
-    }
+//     fn checkpoint_time(&self) -> f32 {
+//         self.checkpoint
+//     }
 
-    fn advance_checkpoint_time(&mut self) {
-        self.checkpoint += self.checkpoint_delta;
-    }
+//     fn advance_checkpoint_time(&mut self) {
+//         self.checkpoint += self.checkpoint_delta;
+//     }
 
-    fn value_to_check(&self) -> f32 {
-        self.fake_value
-    }
+//     fn value_to_check(&self) -> f32 {
+//         self.fake_value
+//     }
 
-    fn pop_checkpoint_value(&mut self) -> Option<f32> {
-        self.checkpoint_values.pop_front()
-    }
-}
+//     fn pop_checkpoint_value(&mut self) -> Option<f32> {
+//         self.checkpoint_values.pop_front()
+//     }
+// }
 impl TestInstrument {
     pub fn new_with(sample_rate: usize) -> Self {
         let mut r = Self {

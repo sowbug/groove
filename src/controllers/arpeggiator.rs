@@ -3,7 +3,10 @@ use crate::{
     clock::{Clock, PerfectTimeUnit},
     common::F32ControlValue,
     midi::{MidiChannel, MidiMessage},
-    traits::{Controllable, HasUid, IsController, Response, Terminates, Updateable},
+    traits::{
+        Controllable, HandlesMidi, HasUid, IsController, Resets, Response, Terminates,
+        TicksWithMessages, Updateable,
+    },
     EntityMessage,
 };
 use groove_macros::{Control, Uid};
@@ -17,6 +20,8 @@ pub struct Arpeggiator {
     midi_channel_out: MidiChannel,
     beat_sequencer: BeatSequencer,
 
+    temp_hack_clock: Clock,
+
     // A poor-man's semaphore that allows note-off events to overlap with the
     // current note without causing it to shut off. Example is a legato
     // playing-style of the MIDI instrument that controls the arpeggiator. If we
@@ -25,57 +30,67 @@ pub struct Arpeggiator {
     note_semaphore: i16,
 }
 impl IsController for Arpeggiator {}
-impl Updateable for Arpeggiator {
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        match message {
-            EntityMessage::Tick => {
-                return self.beat_sequencer.update(clock, message);
-            }
-            EntityMessage::Midi(_channel, message) => {
-                match message {
-                    MidiMessage::NoteOff { key: _, vel: _ } => {
-                        self.note_semaphore -= 1;
-                        if self.note_semaphore < 0 {
-                            self.note_semaphore = 0;
-                        }
-                        self.beat_sequencer.enable(self.note_semaphore > 0);
-                    }
-                    MidiMessage::NoteOn { key, vel } => {
-                        self.note_semaphore += 1;
-                        self.rebuild_sequence(clock, key.as_int(), vel.as_int());
-                        self.beat_sequencer.enable(true);
-                        //                self.sequence_start_beats = clock.beats();
-
-                        // TODO: this scratches the itch of needing to respond
-                        // to a note-down with a note *during this slice*, but
-                        // it also has an edge condition where we need to cancel
-                        // a different note that was might have been supposed to
-                        // be sent instead during this slice, or at least
-                        // immediately shut it off. This seems to require a
-                        // two-phase Tick handler (one to decide what we're
-                        // going to send, and another to send it), and an
-                        // internal memory of which notes we've asked the
-                        // downstream to play. TODO TODO TODO
-                        return self.beat_sequencer.update(clock, EntityMessage::Tick);
-                    }
-                    MidiMessage::Aftertouch { key: _, vel: _ } => todo!(),
-                    MidiMessage::Controller {
-                        controller: _,
-                        value: _,
-                    } => todo!(),
-                    MidiMessage::ProgramChange { program: _ } => todo!(),
-                    MidiMessage::ChannelAftertouch { vel: _ } => todo!(),
-                    MidiMessage::PitchBend { bend: _ } => todo!(),
-                }
-            }
-            _ => todo!(),
+impl Updateable for Arpeggiator {}
+impl Resets for Arpeggiator {}
+impl TicksWithMessages for Arpeggiator {
+    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+        let mut v = Vec::default();
+        for _ in 0..tick_count {
+            self.temp_hack_clock.tick(); // TODO: why do we have this?
+            v.push(self.beat_sequencer.tick(1));
         }
-        Response::none()
+        Response::batch(v)
     }
 }
 impl Terminates for Arpeggiator {
     fn is_finished(&self) -> bool {
         true
+    }
+}
+impl HandlesMidi for Arpeggiator {
+    fn handle_midi_message(
+        &mut self,
+        message: &midly::MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        match message {
+            MidiMessage::NoteOff { key: _, vel: _ } => {
+                self.note_semaphore -= 1;
+                if self.note_semaphore < 0 {
+                    self.note_semaphore = 0;
+                }
+                self.beat_sequencer.enable(self.note_semaphore > 0);
+            }
+            MidiMessage::NoteOn { key, vel } => {
+                self.note_semaphore += 1;
+                self.rebuild_sequence(key.as_int(), vel.as_int());
+                self.beat_sequencer.enable(true);
+                //                self.sequence_start_beats = clock.beats();
+
+                // TODO: this scratches the itch of needing to respond
+                // to a note-down with a note *during this slice*, but
+                // it also has an edge condition where we need to cancel
+                // a different note that was might have been supposed to
+                // be sent instead during this slice, or at least
+                // immediately shut it off. This seems to require a
+                // two-phase Tick handler (one to decide what we're
+                // going to send, and another to send it), and an
+                // internal memory of which notes we've asked the
+                // downstream to play. TODO TODO TODO
+
+                // return self
+                //     .beat_sequencer
+                //     .update(&self.temp_hack_clock, EntityMessage::Tick);
+            }
+            MidiMessage::Aftertouch { key: _, vel: _ } => todo!(),
+            MidiMessage::Controller {
+                controller: _,
+                value: _,
+            } => todo!(),
+            MidiMessage::ProgramChange { program: _ } => todo!(),
+            MidiMessage::ChannelAftertouch { vel: _ } => todo!(),
+            MidiMessage::PitchBend { bend: _ } => todo!(),
+        }
+        None
     }
 }
 
@@ -112,12 +127,12 @@ impl Arpeggiator {
         );
     }
 
-    fn rebuild_sequence(&mut self, clock: &Clock, key: u8, vel: u8) {
+    fn rebuild_sequence(&mut self, key: u8, vel: u8) {
         self.beat_sequencer.clear();
 
         // TODO: this is a good place to start pulling the f32 time thread --
         // remove that ".into()" and deal with it
-        let start_beat = crate::clock::PerfectTimeUnit(clock.beats().into());
+        let start_beat = crate::clock::PerfectTimeUnit(self.temp_hack_clock.beats().into());
         self.insert_one_note(
             start_beat + PerfectTimeUnit(0.25 * 0.0),
             PerfectTimeUnit(0.25),

@@ -10,16 +10,15 @@ use crate::{
     },
     instruments::{
         drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth, FmSynthesizer,
-        HandlesMidi, SimpleSynthesizer,
+        SimpleSynthesizer,
     },
     midi::patterns::PatternManager,
     traits::{
-        Controllable, HasUid, IsController, IsEffect, IsInstrument, Terminates, TestController,
-        TestEffect, TestInstrument, Updateable,
+        Controllable, HandlesMidi, HasUid, IsController, IsEffect, IsInstrument, Terminates,
+        TestController, TestEffect, TestInstrument, Updateable,
     },
     utils::{AudioSource, TestLfo, TestSynth, Timer},
 };
-
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
 macro_rules! boxed_entity_enum_and_common_crackers {
@@ -263,12 +262,21 @@ macro_rules! handles_midi_crackers {
 }
 
 handles_midi_crackers! {
+    Arpeggiator,
     AudioSource,
+    BeatSequencer,
+    ControlTrip,
     DrumkitSampler,
     FmSynthesizer,
+    LfoController,
+    MidiTickSequencer,
+    PatternManager,
     Sampler,
     SimpleSynthesizer,
+    TestController,
     TestInstrument,
+    TestLfo,
     TestSynth,
+    Timer,
     WelshSynth,
 }

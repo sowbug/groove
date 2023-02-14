@@ -202,6 +202,11 @@ impl Clock {
         self.settings.set_time_signature(time_signature);
         self.update();
     }
+    pub fn set_sample_rate(&mut self, sample_rate: usize) {
+        self.was_reset = true;
+        self.settings.set_sample_rate(sample_rate);
+        self.update();
+    }
 
     /// The next_slice_in_ methods return the start of the next time slice, in
     /// whatever unit is requested. The usage is to accurately identify the
@@ -217,20 +222,6 @@ impl Clock {
     }
     pub(crate) fn next_slice_in_beats(&self) -> f32 {
         self.beats_for_sample(self.samples + 1)
-    }
-    pub(crate) fn next_slice_in_midi_ticks(&self) -> usize {
-        // Because MIDI ticks (960Hz) are larger than samples (44100Hz), many of
-        // the ranges computed in MidiTickSequencer::tick() are empty. A range
-        // is nonzero only when the division works out so that the start is
-        // barely on the left, and the end barely on the right. This means that
-        // something scheduled for MIDI tick zero will actually happen around
-        // sample 46 (44100/960 = 45.9375), so MIDI time is about a millisecond
-        // behind where it should be.
-        //
-        // TODO: Come up with a better conversion method that aligns integer
-        // MIDI ticks with the first range that could include them, but that
-        // doesn't then schedule the tick more than once.
-        self.midi_ticks_for_sample(self.samples + 1)
     }
 
     pub fn tick(&mut self) {

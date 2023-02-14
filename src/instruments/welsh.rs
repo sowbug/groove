@@ -7,12 +7,12 @@ use crate::{
     common::{F32ControlValue, Normal, Sample},
     effects::filter::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
-    midi::{GeneralMidiProgram, MidiMessage, MidiUtils},
+    midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
     settings::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{Controllable, Generates, HasUid, IsInstrument, Ticks, TransformsAudio},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks, TransformsAudio},
     utils::Paths,
     BipolarNormal, StereoSample,
 };
@@ -484,7 +484,7 @@ impl Generates<StereoSample> for WelshVoice {
         todo!()
     }
 }
-impl Ticks for WelshVoice {
+impl Resets for WelshVoice {
     fn reset(&mut self, sample_rate: usize) {
         self.ticks = 0;
         self.lfo.reset(sample_rate);
@@ -494,7 +494,8 @@ impl Ticks for WelshVoice {
             .iter_mut()
             .for_each(|o| o.reset(sample_rate));
     }
-
+}
+impl Ticks for WelshVoice {
     fn tick(&mut self, tick_count: usize) {
         for _ in 0..tick_count {
             self.ticks += 1;
@@ -708,17 +709,21 @@ impl Generates<StereoSample> for WelshSynth {
         self.inner_synth.batch_values(values);
     }
 }
-impl Ticks for WelshSynth {
+impl Resets for WelshSynth {
     fn reset(&mut self, sample_rate: usize) {
         self.inner_synth.reset(sample_rate);
     }
-
+}
+impl Ticks for WelshSynth {
     fn tick(&mut self, tick_count: usize) {
         self.inner_synth.tick(tick_count);
     }
 }
 impl HandlesMidi for WelshSynth {
-    fn handle_midi_message(&mut self, message: &MidiMessage) {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
         match message {
             MidiMessage::ProgramChange { program } => {
                 if let Some(program) = GeneralMidiProgram::from_u8(program.as_int()) {
@@ -728,10 +733,9 @@ impl HandlesMidi for WelshSynth {
                         println!("unrecognized patch from MIDI program change: {}", &program);
                     }
                 }
+                None
             }
-            _ => {
-                self.inner_synth.handle_midi_message(&message);
-            }
+            _ => self.inner_synth.handle_midi_message(&message),
         }
     }
 }

@@ -1,9 +1,9 @@
 use self::envelopes::{Envelope, EnvelopeGenerator};
 use crate::{
     common::{BipolarNormal, F32ControlValue, Sample, StereoSample},
-    midi::MidiUtils,
+    midi::{MidiChannel, MidiUtils},
     settings::patches::EnvelopeSettings,
-    traits::{Controllable, Generates, HasUid, IsInstrument, Ticks},
+    traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
     Oscillator,
 };
 use anyhow::{anyhow, Result};
@@ -18,11 +18,6 @@ pub(crate) mod envelopes;
 pub(crate) mod oscillators;
 pub(crate) mod sampler;
 pub(crate) mod welsh;
-
-pub trait HandlesMidi {
-    #[allow(unused_variables)]
-    fn handle_midi_message(&mut self, message: &MidiMessage) {}
-}
 
 /// As an experiment, we're going to define PlaysNotes as a different interface
 /// from HandlesMidi. This will give the HandlesMidi Synthesizer an opportunity
@@ -96,12 +91,13 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for Synthesizer<V> {
         self.voice_store.batch_values(values);
     }
 }
-impl<V: IsStereoSampleVoice> Ticks for Synthesizer<V> {
+impl<V: IsStereoSampleVoice> Resets for Synthesizer<V> {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
         self.voice_store.reset(sample_rate);
     }
-
+}
+impl<V: IsStereoSampleVoice> Ticks for Synthesizer<V> {
     fn tick(&mut self, tick_count: usize) {
         self.voice_store.tick(tick_count);
     }
@@ -154,7 +150,10 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
     }
 }
 impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
-    fn handle_midi_message(&mut self, message: &MidiMessage) {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
         match message {
             MidiMessage::NoteOff { key, vel } => {
                 if let Ok(voice) = self.voice_store.get_voice(key) {
@@ -181,6 +180,7 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
             #[allow(unused_variables)]
             MidiMessage::PitchBend { bend } => self.set_pitch_bend(bend.as_f32()),
         }
+        None
     }
 }
 
@@ -246,13 +246,14 @@ impl Generates<StereoSample> for SimpleVoice {
         }
     }
 }
-impl Ticks for SimpleVoice {
+impl Resets for SimpleVoice {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
         self.oscillator.reset(sample_rate);
         self.envelope.reset(sample_rate);
     }
-
+}
+impl Ticks for SimpleVoice {
     fn tick(&mut self, tick_count: usize) {
         for _ in 0..tick_count {
             self.handle_pending_note_events();
@@ -327,8 +328,11 @@ pub struct SimpleSynthesizer {
 }
 impl IsInstrument for SimpleSynthesizer {}
 impl HandlesMidi for SimpleSynthesizer {
-    fn handle_midi_message(&mut self, message: &MidiMessage) {
-        self.inner_synth.handle_midi_message(&message);
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        self.inner_synth.handle_midi_message(&message)
     }
 }
 impl Generates<StereoSample> for SimpleSynthesizer {
@@ -340,11 +344,12 @@ impl Generates<StereoSample> for SimpleSynthesizer {
         self.inner_synth.batch_values(values)
     }
 }
-impl Ticks for SimpleSynthesizer {
+impl Resets for SimpleSynthesizer {
     fn reset(&mut self, sample_rate: usize) {
         self.inner_synth.reset(sample_rate);
     }
-
+}
+impl Ticks for SimpleSynthesizer {
     fn tick(&mut self, tick_count: usize) {
         self.inner_synth.tick(tick_count);
     }
@@ -412,11 +417,12 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for SimpleVoiceStore<V> {
         todo!()
     }
 }
-impl<V: IsStereoSampleVoice> Ticks for SimpleVoiceStore<V> {
+impl<V: IsStereoSampleVoice> Resets for SimpleVoiceStore<V> {
     fn reset(&mut self, sample_rate: usize) {
         self.voices.iter_mut().for_each(|v| v.reset(sample_rate));
     }
-
+}
+impl<V: IsStereoSampleVoice> Ticks for SimpleVoiceStore<V> {
     // TODO: this is not at all taking advantage of batching. When
     // batch_sample() calls it, it's lame.
     fn tick(&mut self, tick_count: usize) {
@@ -480,11 +486,12 @@ impl<V: IsStereoSampleVoice> Generates<StereoSample> for VoicePerNoteStore<V> {
         todo!()
     }
 }
-impl<V: IsStereoSampleVoice> Ticks for VoicePerNoteStore<V> {
+impl<V: IsStereoSampleVoice> Resets for VoicePerNoteStore<V> {
     fn reset(&mut self, sample_rate: usize) {
         self.voices.values_mut().for_each(|v| v.reset(sample_rate));
     }
-
+}
+impl<V: IsStereoSampleVoice> Ticks for VoicePerNoteStore<V> {
     fn tick(&mut self, tick_count: usize) {
         self.voices.values_mut().for_each(|v| v.tick(tick_count));
         self.sample = self.voices.values().map(|v| v.value()).sum();
@@ -565,13 +572,14 @@ impl Generates<StereoSample> for FmVoice {
         todo!()
     }
 }
-impl Ticks for FmVoice {
+impl Resets for FmVoice {
     fn reset(&mut self, sample_rate: usize) {
         self.envelope.reset(sample_rate);
         self.carrier.reset(sample_rate);
         self.modulator.reset(sample_rate);
     }
-
+}
+impl Ticks for FmVoice {
     fn tick(&mut self, tick_count: usize) {
         self.handle_pending_note_events();
         self.carrier
@@ -682,17 +690,21 @@ impl Generates<StereoSample> for FmSynthesizer {
         self.inner_synth.batch_values(values);
     }
 }
-impl Ticks for FmSynthesizer {
+impl Resets for FmSynthesizer {
     fn reset(&mut self, sample_rate: usize) {
         self.inner_synth.reset(sample_rate)
     }
-
+}
+impl Ticks for FmSynthesizer {
     fn tick(&mut self, tick_count: usize) {
         self.inner_synth.tick(tick_count);
     }
 }
 impl HandlesMidi for FmSynthesizer {
-    fn handle_midi_message(&mut self, message: &MidiMessage) {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
         self.inner_synth.handle_midi_message(&message)
     }
 }

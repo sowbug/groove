@@ -1,15 +1,13 @@
-use super::{
-    HandlesMidi, IsStereoSampleVoice, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore,
-};
+use super::{IsStereoSampleVoice, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
 use crate::{
     common::F32ControlValue,
-    midi::GeneralMidiPercussionProgram,
-    traits::{Controllable, Generates, HasUid, IsInstrument, Ticks},
+    midi::{GeneralMidiPercussionProgram, MidiChannel},
+    traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
     utils::Paths,
     Sampler, StereoSample,
 };
 use groove_macros::{Control, Uid};
-use midly::num::u7;
+use midly::{num::u7, MidiMessage};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -120,12 +118,13 @@ impl Generates<StereoSample> for DrumkitSamplerVoice {
         todo!()
     }
 }
-impl Ticks for DrumkitSamplerVoice {
+impl Resets for DrumkitSamplerVoice {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
         self.ticks = 0;
     }
-
+}
+impl Ticks for DrumkitSamplerVoice {
     fn tick(&mut self, tick_count: usize) {
         for _ in 0..tick_count {
             self.ticks += 1;
@@ -171,18 +170,22 @@ impl Generates<StereoSample> for DrumkitSampler {
         self.inner_synth.batch_values(values);
     }
 }
-impl Ticks for DrumkitSampler {
+impl Resets for DrumkitSampler {
     fn reset(&mut self, sample_rate: usize) {
         self.inner_synth.reset(sample_rate);
     }
-
+}
+impl Ticks for DrumkitSampler {
     fn tick(&mut self, tick_count: usize) {
         self.inner_synth.tick(tick_count);
     }
 }
 impl HandlesMidi for DrumkitSampler {
-    fn handle_midi_message(&mut self, message: &midly::MidiMessage) {
-        self.inner_synth.handle_midi_message(message);
+    fn handle_midi_message(
+        &mut self,
+        message: &midly::MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        self.inner_synth.handle_midi_message(message)
     }
 }
 

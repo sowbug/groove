@@ -51,20 +51,8 @@ pub enum GrooveMessage {
 }
 impl MessageBounds for GrooveMessage {}
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub enum EntityMessage {
-    /// "no operation" $EA, exists only as a default. Nobody should do anything
-    /// in response to this message; in fact, it's probably OK to panic.
-    #[default]
-    Nop,
-
-    /// It's time to do a slice of work. Since update() includes a Clock
-    /// parameter, Tick is just a message without time information. We assume
-    /// that anyone getting a Tick got it via update(), directly or indirectly,
-    /// so it's the responsibility of the message handler to pass time
-    /// information when needed.
-    Tick,
-
     /// A MIDI message sent to a channel. In most cases, MidiChannel is
     /// redundant, as the sender of a message generally won't route a message to
     /// someone not listening on the channel.

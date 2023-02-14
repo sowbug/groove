@@ -2,7 +2,10 @@ use groove_macros::Uid;
 
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
-    traits::{HasUid, IsController, Terminates, Updateable},
+    traits::{
+        HandlesMidi, HasUid, IsController, Resets, Response, Terminates, TicksWithMessages,
+        Updateable,
+    },
 };
 use std::fmt::Debug;
 
@@ -57,6 +60,7 @@ impl Pattern<Note> {
     }
 }
 
+// TODO: why is there so much paperwork for a vector?
 #[derive(Clone, Debug, Default, Uid)]
 pub struct PatternManager {
     uid: usize,
@@ -69,7 +73,14 @@ impl Terminates for PatternManager {
         true
     }
 }
-
+impl HandlesMidi for PatternManager {}
+impl Resets for PatternManager {}
+impl TicksWithMessages for PatternManager {
+    #[allow(unused_variables)]
+    fn tick(&mut self, tick_count: usize) -> Response<crate::EntityMessage> {
+        Response::none()
+    }
+}
 impl PatternManager {
     pub fn new() -> Self {
         Self::default()

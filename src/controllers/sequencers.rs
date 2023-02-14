@@ -1,7 +1,10 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
     midi::{MidiChannel, MidiMessage},
-    traits::{HasUid, IsController, Response, Terminates, Updateable},
+    traits::{
+        HandlesMidi, HasUid, IsController, Resets, Response, Terminates, TicksWithMessages,
+        Updateable,
+    },
     EntityMessage,
 };
 use btreemultimap::BTreeMultiMap;
@@ -25,6 +28,8 @@ pub struct BeatSequencer {
 
     should_stop_pending_notes: bool,
     on_notes: FxHashMap<u7, MidiChannel>,
+
+    temp_hack_clock: Clock,
 }
 impl IsController for BeatSequencer {}
 impl Terminates for BeatSequencer {
@@ -32,6 +37,7 @@ impl Terminates for BeatSequencer {
         self.next_instant > self.last_event_time
     }
 }
+impl HandlesMidi for BeatSequencer {}
 impl BeatSequencer {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
@@ -95,29 +101,30 @@ impl BeatSequencer {
         Response::batch(v)
     }
 }
+impl Updateable for BeatSequencer {}
+impl Resets for BeatSequencer {}
+impl TicksWithMessages for BeatSequencer {
+    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+        let mut v = Vec::default();
+        for _ in 0..tick_count {
+            let this_instant = PerfectTimeUnit(self.temp_hack_clock.beats().into());
+            self.temp_hack_clock.tick();
+            self.next_instant = PerfectTimeUnit(self.temp_hack_clock.beats().into());
 
-impl Updateable for BeatSequencer {
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        match message {
-            EntityMessage::Tick => {
-                self.next_instant = PerfectTimeUnit(clock.next_slice_in_beats().into());
+            if self.should_stop_pending_notes {
+                self.should_stop_pending_notes = false;
+                return self.stop_pending_notes();
+            }
 
-                if self.should_stop_pending_notes {
-                    self.should_stop_pending_notes = false;
-                    return self.stop_pending_notes();
-                }
-
-                return if self.is_enabled() {
-                    // If the last instant marks a new interval, then we want to include
-                    // any events scheduled at exactly that time. So the range is
-                    // inclusive.
-                    let range = (
-                        Included(PerfectTimeUnit(clock.beats().into())),
-                        Excluded(self.next_instant),
-                    );
-                    Response::batch(self.events.range(range).fold(
-                        Vec::new(),
-                        |mut vec, (_when, event)| {
+            if self.is_enabled() {
+                // If the last instant marks a new interval, then we want to include
+                // any events scheduled at exactly that time. So the range is
+                // inclusive.
+                let range = (Included(this_instant), Excluded(self.next_instant));
+                v.extend(
+                    self.events
+                        .range(range)
+                        .fold(Vec::new(), |mut vec, (_when, event)| {
                             match event.1 {
                                 MidiMessage::NoteOff { key, vel: _ } => {
                                     self.on_notes.remove(&key);
@@ -132,14 +139,11 @@ impl Updateable for BeatSequencer {
                             }
                             vec.push(Response::single(EntityMessage::Midi(event.0, event.1)));
                             vec
-                        },
-                    ))
-                } else {
-                    Response::none()
-                };
-            }
-            _ => todo!(),
+                        }),
+                );
+            };
         }
+        Response::batch(v)
     }
 }
 
@@ -152,6 +156,8 @@ pub struct MidiTickSequencer {
     events: MidiTickEventsMap,
     last_event_time: MidiTicks,
     is_disabled: bool,
+
+    temp_hack_clock: Clock,
 }
 impl IsController for MidiTickSequencer {}
 impl Terminates for MidiTickSequencer {
@@ -159,6 +165,7 @@ impl Terminates for MidiTickSequencer {
         self.next_instant > self.last_event_time
     }
 }
+impl HandlesMidi for MidiTickSequencer {}
 impl Default for MidiTickSequencer {
     fn default() -> Self {
         Self {
@@ -167,6 +174,8 @@ impl Default for MidiTickSequencer {
             events: Default::default(),
             last_event_time: MidiTicks::MIN,
             is_disabled: Default::default(),
+
+            temp_hack_clock: Default::default(),
         }
     }
 }
@@ -202,34 +211,32 @@ impl MidiTickSequencer {
     }
 }
 
-impl Updateable for MidiTickSequencer {
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        match message {
-            EntityMessage::Tick => {
-                self.next_instant = MidiTicks(clock.next_slice_in_midi_ticks());
+impl Updateable for MidiTickSequencer {}
+impl Resets for MidiTickSequencer {}
+impl TicksWithMessages for MidiTickSequencer {
+    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+        let mut v = Vec::default();
+        for _ in 0..tick_count {
+            let this_instant = MidiTicks(self.temp_hack_clock.midi_ticks().into());
+            self.temp_hack_clock.tick();
+            self.next_instant = MidiTicks(self.temp_hack_clock.midi_ticks().into());
 
-                if self.is_enabled() {
-                    // If the last instant marks a new interval, then we want to include
-                    // any events scheduled at exactly that time. So the range is
-                    // inclusive.
-                    let range = (
-                        Included(MidiTicks(clock.midi_ticks())),
-                        Excluded(self.next_instant),
-                    );
-                    let events = self.events.range(range);
-                    Response::batch(events.into_iter().fold(
-                        Vec::new(),
-                        |mut vec: Vec<Response<EntityMessage>>, (_when, (channel, message))| {
-                            vec.push(Response::single(EntityMessage::Midi(*channel, *message)));
-                            vec
-                        },
-                    ))
-                } else {
-                    Response::none()
-                }
+            if self.is_enabled() {
+                // If the last instant marks a new interval, then we want to include
+                // any events scheduled at exactly that time. So the range is
+                // inclusive.
+                let range = (Included(this_instant), Excluded(self.next_instant));
+                let events = self.events.range(range);
+                v.extend(events.into_iter().fold(
+                    Vec::new(),
+                    |mut vec: Vec<Response<EntityMessage>>, (_when, (channel, message))| {
+                        vec.push(Response::single(EntityMessage::Midi(*channel, *message)));
+                        vec
+                    },
+                ));
             }
-            _ => todo!(),
         }
+        Response::batch(v)
     }
 }
 
@@ -241,7 +248,7 @@ mod tests {
         entities::BoxedEntity,
         midi::{MidiChannel, MidiUtils},
         traits::{IsController, TestInstrument},
-        EntityMessage, Orchestrator,
+        Orchestrator,
     };
 
     impl BeatSequencer {
@@ -277,7 +284,7 @@ mod tests {
             // TODO: a previous version of this utility function had
             // clock.tick() first, meaning that the sequencer never got the 0th
             // (first) tick. No test ever cared, apparently. Fix this.
-            let _ = sequencer.update(clock, EntityMessage::Tick);
+            let _ = sequencer.tick(1);
             clock.tick();
         }
     }
@@ -287,7 +294,7 @@ mod tests {
     fn advance_one_midi_tick(clock: &mut Clock, sequencer: &mut dyn IsController) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
-            let _ = sequencer.update(clock, EntityMessage::Tick);
+            let _ = sequencer.tick(1);
             clock.tick();
         }
     }

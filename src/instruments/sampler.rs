@@ -1,8 +1,8 @@
 use super::HandlesMidi;
 use crate::{
     common::{F32ControlValue, Sample, SampleType},
-    midi::MidiMessage,
-    traits::{Controllable, Generates, HasUid, IsInstrument, Ticks},
+    midi::{MidiChannel, MidiMessage},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
     StereoSample,
 };
 use groove_macros::{Control, Uid};
@@ -36,11 +36,12 @@ impl Generates<StereoSample> for Sampler {
         todo!()
     }
 }
-impl Ticks for Sampler {
+impl Resets for Sampler {
     fn reset(&mut self, _sample_rate: usize) {
         self.is_reset_pending = true;
     }
-
+}
+impl Ticks for Sampler {
     fn tick(&mut self, tick_count: usize) {
         for _ in 0..tick_count {
             if self.is_reset_pending {
@@ -68,7 +69,10 @@ impl Ticks for Sampler {
     }
 }
 impl HandlesMidi for Sampler {
-    fn handle_midi_message(&mut self, message: &MidiMessage) {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
         #[allow(unused_variables)]
         match message {
             MidiMessage::NoteOff { key, vel } => {
@@ -86,6 +90,7 @@ impl HandlesMidi for Sampler {
             }
             _ => {}
         }
+        None
     }
 }
 impl Sampler {
