@@ -54,6 +54,12 @@ jobs:
         # Test
       - run: cargo test --target ${{ matrix.target }}
 
+        # Upload artifacts
+      - uses: actions/upload-artifact@v3
+        with:
+          name: perf-output
+          path: perf-output.txt
+
   build-cross:
     name: Build (but don't test) ${{matrix.target}}
     runs-on: ubuntu-latest
