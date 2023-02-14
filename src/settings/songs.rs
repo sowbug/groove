@@ -25,7 +25,8 @@ pub struct SongSettings {
     pub title: Option<String>,
 
     /// Information about timing. BPM, time signature, etc.
-    pub clock: ClockSettings,
+    #[serde(rename = "clock")]
+    pub clock_settings: ClockSettings,
 
     /// Controllers, Effects, and Instruments
     pub devices: Vec<DeviceSettings>,
@@ -76,26 +77,30 @@ impl SongSettings {
         //
         // TODO: think (again) about whether Serde structs should be closer or
         // farther to the heart of the model.
-        if settings.clock.sample_rate() == 0 {
-            settings.clock.set_sample_rate(44100);
+        if settings.clock_settings.sample_rate() == 0 {
+            settings.clock_settings.set_sample_rate(44100);
         }
         Ok(settings)
     }
 
     pub fn instantiate(&self, load_only_test_entities: bool) -> Result<Orchestrator> {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&self.clock_settings);
         o.set_title(self.title.clone());
-        o.set_clock_settings(&self.clock);
-        self.instantiate_devices(&mut o, load_only_test_entities);
+        self.instantiate_devices(&mut o, &self.clock_settings, load_only_test_entities);
         self.instantiate_patch_cables(&mut o)?;
         self.instantiate_controls(&mut o)?;
         self.instantiate_tracks(&mut o);
-        self.instantiate_control_trips(&mut o, &self.clock.time_signature());
+        self.instantiate_control_trips(&mut o, &self.clock_settings.time_signature());
         Ok(o)
     }
 
-    fn instantiate_devices(&self, orchestrator: &mut Orchestrator, load_only_test_entities: bool) {
-        let sample_rate = self.clock.sample_rate();
+    fn instantiate_devices(
+        &self,
+        orchestrator: &mut Orchestrator,
+        clock_settings: &ClockSettings,
+        load_only_test_entities: bool,
+    ) {
+        let sample_rate = self.clock_settings.sample_rate();
 
         for device in &self.devices {
             match device {
@@ -107,7 +112,7 @@ impl SongSettings {
                 }
                 DeviceSettings::Controller(id, settings) => {
                     let (channel_in, _channel_out, entity) =
-                        settings.instantiate(sample_rate, load_only_test_entities);
+                        settings.instantiate(sample_rate, clock_settings, load_only_test_entities);
                     let uid = orchestrator.add(Some(id), entity);
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
@@ -216,7 +221,7 @@ impl SongSettings {
         if let Some(BoxedEntity::BeatSequencer(sequencer)) =
             orchestrator.store_mut().get_mut(beat_sequencer_uid)
         {
-            let mut programmer = PatternProgrammer::new_with(&self.clock.time_signature);
+            let mut programmer = PatternProgrammer::new_with(&self.clock_settings.time_signature);
 
             for track in &self.tracks {
                 let channel = track.midi_channel;
@@ -250,7 +255,8 @@ impl SongSettings {
         for control_trip_settings in &self.trips {
             let trip_id = control_trip_settings.id.as_str();
             if let Some(target_uid) = orchestrator.get_uid(&control_trip_settings.target.id) {
-                let mut control_trip = Box::new(ControlTrip::default());
+                let mut control_trip =
+                    Box::new(ControlTrip::new_with(orchestrator.clock_settings()));
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
                         control_trip.add_path(time_signature, control_path);
@@ -285,14 +291,13 @@ impl SongSettings {
 
 #[cfg(test)]
 mod tests {
-    use crossbeam::deque::Steal;
-
     use super::SongSettings;
     use crate::{clock::Clock, IOHelper, Paths, StereoSample};
+    use crossbeam::deque::Steal;
 
     #[test]
     fn test_yaml_loads_and_parses() {
-        let mut path = Paths::project_path();
+        let mut path = Paths::test_data_path();
         path.push("kitchen-sink.yaml");
         let yaml = std::fs::read_to_string(path)
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));

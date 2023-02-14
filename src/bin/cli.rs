@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use clap::Parser;
-use groove::{Clock, IOHelper};
+use groove::{Clock, ClockSettings, IOHelper, Orchestrator};
 use regex::Regex;
 use std::time::Instant;
 //use groove::ScriptEngine;
@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
 
             // TODO: this is temporary, to return the right type
             #[cfg(not(feature = "scripting"))]
-            Box::<groove::Orchestrator>::default()
+            Box::new(Orchestrator::new_with(&ClockSettings::default()))
         } else if input_filename.ends_with(".yaml")
             || input_filename.ends_with(".yml")
             || input_filename.ends_with(".nsn")
@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
             }
             r
         } else {
-            Box::<groove::Orchestrator>::default()
+            Box::new(Orchestrator::new_with(&ClockSettings::default()))
         };
 
         orchestrator.set_enable_dev_experiment(args.debug);

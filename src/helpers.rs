@@ -5,7 +5,7 @@ use crate::{
     instruments::{drumkit_sampler::DrumkitSampler, welsh::WelshSynth},
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings},
-    Orchestrator, StereoSample,
+    ClockSettings, Orchestrator, StereoSample,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -220,7 +220,8 @@ impl IOHelper {
 
     pub fn orchestrator_from_midi_file(filename: &str) -> Box<Orchestrator> {
         let data = std::fs::read(filename).unwrap();
-        let mut orchestrator = Box::new(Orchestrator::default());
+        // TODO: where do BPM, time signature, etc. come from?
+        let mut orchestrator = Box::new(Orchestrator::new_with(&ClockSettings::default()));
 
         let mut sequencer = Box::new(MidiTickSequencer::default());
         MidiSmfReader::program_sequencer(&mut sequencer, &data);

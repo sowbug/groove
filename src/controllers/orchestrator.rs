@@ -46,8 +46,10 @@ impl Orchestrator {
         &self.clock_settings
     }
 
+    #[allow(dead_code)]
     pub(crate) fn set_clock_settings(&mut self, clock_settings: &ClockSettings) {
         self.clock_settings = clock_settings.clone();
+        // TODO: we'll need to propagate the changes to everyone who's paying attention
     }
 
     pub fn set_sample_rate(&mut self, sample_rate: usize) {
@@ -352,7 +354,7 @@ impl Orchestrator {
         receiver_midi_channel: MidiChannel,
     ) {
         if let Some(e) = self.store().get(receiver_uid) {
-            if let Some(e) = e.as_handles_midi() {
+            if e.as_handles_midi().is_some() {
                 self.store
                     .connect_midi_receiver(receiver_uid, receiver_midi_channel);
             } else {
@@ -399,13 +401,12 @@ impl Orchestrator {
     pub(crate) fn set_title(&mut self, title: Option<String>) {
         self.title = title;
     }
-}
-impl Default for Orchestrator {
-    fn default() -> Self {
+
+    pub fn new_with(clock_settings: &ClockSettings) -> Self {
         let mut r = Self {
             uid: Default::default(),
             title: Some("Untitled".to_string()),
-            clock_settings: Default::default(),
+            clock_settings: clock_settings.clone(),
             store: Default::default(),
             main_mixer_uid: Default::default(),
             pattern_manager_uid: Default::default(),
@@ -424,15 +425,15 @@ impl Default for Orchestrator {
         );
         r.beat_sequencer_uid = r.add(
             Some(Orchestrator::BEAT_SEQUENCER_UVID),
-            BoxedEntity::BeatSequencer(Box::new(BeatSequencer::default())),
+            BoxedEntity::BeatSequencer(Box::new(BeatSequencer::new_with(
+                r.clock_settings.sample_rate(),
+                &r.clock_settings,
+            ))),
         );
         r.connect_midi_upstream(r.beat_sequencer_uid);
 
         r
     }
-}
-impl Orchestrator {
-    //type Message = GrooveMessage;
 
     pub(crate) fn update(
         &mut self,
@@ -741,6 +742,9 @@ pub struct Store {
 impl Store {
     pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: BoxedEntity) -> usize {
         let uid = self.get_next_uid();
+        if uid == 14 {
+            dbg!("Assigning {} to {}", &uid, &uid);
+        }
         entity.as_has_uid_mut().set_uid(uid);
 
         self.uid_to_item.insert(uid, entity);
@@ -914,7 +918,7 @@ pub mod tests {
         entities::BoxedEntity,
         midi::MidiChannel,
         utils::{AudioSource, Timer},
-        StereoSample,
+        ClockSettings, StereoSample,
     };
 
     impl Orchestrator {
@@ -945,7 +949,7 @@ pub mod tests {
     }
     #[test]
     fn test_orchestrator_gather_audio_basic() {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
         let level_1_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -979,7 +983,7 @@ pub mod tests {
 
     #[test]
     fn test_orchestrator_gather_audio() {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
         let level_1_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -1057,7 +1061,7 @@ pub mod tests {
 
     #[test]
     fn test_orchestrator_gather_audio_2() {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
         let piano_1_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -1151,7 +1155,7 @@ pub mod tests {
 
     #[test]
     fn test_orchestrator_gather_audio_with_branches() {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
         let instrument_1_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -1180,9 +1184,9 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_zero_timer() {
-        let mut o = Orchestrator::default();
-        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(0.0))));
         let mut clock = Clock::default();
+        let mut o = Orchestrator::new_with(clock.settings());
+        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(0.0))));
         if let Ok(samples) = o.run(&mut clock) {
             assert_eq!(samples.len(), 0);
         } else {
@@ -1194,7 +1198,7 @@ pub mod tests {
     fn orchestrator_sample_count_is_accurate_for_short_timer() {
         const SAMPLE_RATE: usize = 44100;
         let mut clock = Clock::new_with_sample_rate(SAMPLE_RATE);
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(clock.settings());
         let _ = o.add(
             None,
             BoxedEntity::Timer(Box::new(Timer::new_with(1.0 / SAMPLE_RATE as f32))),
@@ -1208,9 +1212,9 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_ordinary_timer() {
-        let mut o = Orchestrator::default();
-        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(1.0))));
         let mut clock = Clock::new_with_sample_rate(44100);
+        let mut o = Orchestrator::new_with(clock.settings());
+        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(1.0))));
         if let Ok(samples) = o.run(&mut clock) {
             assert_eq!(samples.len(), 44100);
         } else {
@@ -1220,7 +1224,7 @@ pub mod tests {
 
     #[test]
     fn test_patch_fails_with_bad_id() {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
         assert!(o.patch(3, 2).is_err());
     }
 }

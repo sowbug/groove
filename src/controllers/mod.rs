@@ -7,7 +7,7 @@ use crate::{
     common::ParameterType,
     settings::{controllers::ControlPathSettings, patches::WaveformType},
     traits::{Generates, HandlesMidi, Resets, TicksWithMessages},
-    EntityMessage, Oscillator,
+    ClockSettings, EntityMessage, Oscillator,
 };
 use crate::{
     common::{F32ControlValue, SignalType},
@@ -63,22 +63,17 @@ impl Terminates for ControlTrip {
     }
 }
 impl HandlesMidi for ControlTrip {}
-impl Default for ControlTrip {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
 
-    pub fn new() -> Self {
+    pub fn new_with(clock_settings: &ClockSettings) -> Self {
         Self {
             uid: usize::default(),
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
             is_finished: true,
-            temp_hack_clock: Default::default(),
+            temp_hack_clock: Clock::new_with(clock_settings),
         }
     }
 
@@ -262,7 +257,7 @@ mod tests {
             steps: step_vec,
         };
 
-        let mut o = Box::new(Orchestrator::default());
+        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
         let effect_uid = o.add(
             None,
             BoxedEntity::TestEffect(Box::new(TestEffect::new_with_test_values(
@@ -272,7 +267,7 @@ mod tests {
                 ClockTimeUnit::Beats,
             ))),
         );
-        let mut trip = ControlTrip::default();
+        let mut trip = ControlTrip::new_with(clock.settings());
         trip.add_path(&clock.settings().time_signature(), &path);
         let controller_uid = o.add(None, BoxedEntity::ControlTrip(Box::new(trip)));
 
@@ -309,7 +304,7 @@ mod tests {
             steps: step_vec,
         };
 
-        let mut o = Box::new(Orchestrator::default());
+        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
         let instrument = Box::new(TestInstrument::new_with_test_values(
             clock.sample_rate(),
             INTERPOLATED_VALUES,
@@ -319,7 +314,7 @@ mod tests {
         ));
         let instrument_uid = o.add(None, BoxedEntity::TestInstrument(instrument));
         let _ = o.connect_to_main_mixer(instrument_uid);
-        let mut trip = Box::new(ControlTrip::default());
+        let mut trip = Box::new(ControlTrip::new_with(clock.settings()));
         trip.add_path(&clock.settings().time_signature(), &path);
         let controller_uid = o.add(None, BoxedEntity::ControlTrip(trip));
         let _ = o.link_control(

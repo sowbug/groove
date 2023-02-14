@@ -488,7 +488,8 @@ pub mod tests {
 
     #[test]
     fn audio_routing_works() {
-        let mut o = Box::new(Orchestrator::default());
+        let mut clock = Clock::default();
+        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
 
         // A simple audio source.
         let synth_uid = o.add(
@@ -516,7 +517,6 @@ pub mod tests {
         );
 
         // Gather the audio output.
-        let mut clock = Clock::default();
         if let Ok(samples_1) = o.run(&mut clock) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
@@ -544,7 +544,8 @@ pub mod tests {
 
     #[test]
     fn control_routing_works() {
-        let mut o = Box::new(Orchestrator::default());
+        let mut clock = Clock::default();
+        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
 
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(
@@ -570,7 +571,6 @@ pub mod tests {
         );
 
         // Gather the audio output.
-        let mut clock = Clock::default();
         if let Ok(samples_1) = o.run(&mut clock) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
@@ -596,7 +596,8 @@ pub mod tests {
     fn midi_routing_works() {
         const TEST_MIDI_CHANNEL: MidiChannel = 7;
         const ARP_MIDI_CHANNEL: MidiChannel = 5;
-        let mut o = Box::new(Orchestrator::default());
+        let mut clock = Clock::default();
+        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
@@ -623,7 +624,6 @@ pub mod tests {
         );
 
         // Everything is hooked up. Let's run it and hear what we got.
-        let mut clock = Clock::default();
         if let Ok(samples) = o.run(&mut clock) {
             // We haven't asked the arpeggiator to start sending anything yet.
             assert_eq!(samples.len(), (SECONDS * DEFAULT_SAMPLE_RATE) as usize);
@@ -694,7 +694,8 @@ pub mod tests {
 
     #[test]
     fn test_groove_can_be_instantiated_in_new_generic_world() {
-        let mut o = Box::new(Orchestrator::default());
+        let mut clock = Clock::default();
+        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
 
         // A simple audio source.
         let entity_groove =
@@ -721,7 +722,6 @@ pub mod tests {
         );
 
         // Gather the audio output.
-        let mut clock = Clock::default();
         if let Ok(samples_1) = o.run(&mut clock) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());

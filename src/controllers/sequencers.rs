@@ -5,7 +5,7 @@ use crate::{
         HandlesMidi, HasUid, IsController, Resets, Response, Terminates, TicksWithMessages,
         Updateable,
     },
-    EntityMessage,
+    ClockSettings, EntityMessage,
 };
 use btreemultimap::BTreeMultiMap;
 use groove_macros::Uid;
@@ -18,7 +18,7 @@ use std::{
 
 pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
 
-#[derive(Debug, Default, Uid)]
+#[derive(Debug, Uid)]
 pub struct BeatSequencer {
     uid: usize,
     next_instant: PerfectTimeUnit,
@@ -39,15 +39,27 @@ impl Terminates for BeatSequencer {
 }
 impl HandlesMidi for BeatSequencer {}
 impl BeatSequencer {
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
-        Self::default()
+    pub(crate) fn new_with(_sample_rate: usize, clock_settings: &ClockSettings) -> Self {
+        Self {
+            uid: Default::default(),
+            next_instant: Default::default(),
+            events: Default::default(),
+            last_event_time: Default::default(),
+            is_disabled: Default::default(),
+            should_stop_pending_notes: Default::default(),
+            on_notes: Default::default(),
+            temp_hack_clock: Clock::new_with(clock_settings),
+        }
     }
 
     pub(crate) fn clear(&mut self) {
         self.events.clear();
         self.next_instant = PerfectTimeUnit::default();
         self.last_event_time = PerfectTimeUnit::default();
+    }
+
+    pub(crate) fn cursor_in_beats(&self) -> f32 {
+        self.temp_hack_clock.beats()
     }
 
     pub(crate) fn insert(
@@ -100,6 +112,45 @@ impl BeatSequencer {
         }
         Response::batch(v)
     }
+
+    fn generate_midi_messages_for_interval(
+        &mut self,
+        begin: PerfectTimeUnit,
+        end: PerfectTimeUnit,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        let range = (Included(begin), Excluded(end));
+        let v = self
+            .events
+            .range(range)
+            .fold(Vec::new(), |mut vec, (_when, event)| {
+                match event.1 {
+                    MidiMessage::NoteOff { key, vel: _ } => {
+                        self.on_notes.remove(&key);
+                    }
+                    MidiMessage::NoteOn { key, vel } => {
+                        if vel == 0 {
+                            self.on_notes.remove(&key);
+                        }
+                        self.on_notes.insert(key, event.0);
+                    }
+                    _ => {}
+                }
+                vec.push((event.0, event.1));
+                vec
+            });
+        if v.is_empty() {
+            None
+        } else {
+            Some(v)
+        }
+    }
+
+    pub fn generate_midi_messages_for_current_frame(&mut self) -> Option<Vec<(u8, MidiMessage)>> {
+        self.generate_midi_messages_for_interval(
+            PerfectTimeUnit(self.temp_hack_clock.beats().into()),
+            PerfectTimeUnit(self.temp_hack_clock.next_slice_in_beats().into()),
+        )
+    }
 }
 impl Updateable for BeatSequencer {}
 impl Resets for BeatSequencer {}
@@ -117,30 +168,15 @@ impl TicksWithMessages for BeatSequencer {
             }
 
             if self.is_enabled() {
-                // If the last instant marks a new interval, then we want to include
-                // any events scheduled at exactly that time. So the range is
-                // inclusive.
-                let range = (Included(this_instant), Excluded(self.next_instant));
-                v.extend(
-                    self.events
-                        .range(range)
-                        .fold(Vec::new(), |mut vec, (_when, event)| {
-                            match event.1 {
-                                MidiMessage::NoteOff { key, vel: _ } => {
-                                    self.on_notes.remove(&key);
-                                }
-                                MidiMessage::NoteOn { key, vel } => {
-                                    if vel == 0 {
-                                        self.on_notes.remove(&key);
-                                    }
-                                    self.on_notes.insert(key, event.0);
-                                }
-                                _ => {}
-                            }
-                            vec.push(Response::single(EntityMessage::Midi(event.0, event.1)));
-                            vec
-                        }),
-                );
+                if let Some(messages) =
+                    self.generate_midi_messages_for_interval(this_instant, self.next_instant)
+                {
+                    v.extend(
+                        messages
+                            .iter()
+                            .map(|m| Response::single(EntityMessage::Midi(m.0, m.1))),
+                    );
+                }
             };
         }
         Response::batch(v)
@@ -303,7 +339,7 @@ mod tests {
     fn test_sequencer() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = 7;
         let mut clock = Clock::default();
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(clock.settings());
         let mut sequencer = Box::new(MidiTickSequencer::default());
         let instrument = Box::new(TestInstrument::new_with(clock.sample_rate()));
         let device_uid = o.add(None, BoxedEntity::TestInstrument(instrument));

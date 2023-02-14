@@ -83,11 +83,12 @@ pub trait Controllable {
 }
 
 pub trait HandlesMidi {
+    #[allow(unused_variables)]
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        dbg!("Received message {:?} but no handler for it", &message);
+        //dbg!("Received message {:?} but no handler for it", &message);
         None
     }
 }

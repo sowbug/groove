@@ -194,7 +194,7 @@ mod tests {
         settings::PatternSettings,
         traits::TestInstrument,
         utils::Timer,
-        GrooveMessage, Orchestrator,
+        ClockSettings, GrooveMessage, Orchestrator,
     };
     use assert_approx_eq::assert_approx_eq;
 
@@ -212,7 +212,7 @@ mod tests {
     #[test]
     fn test_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = BeatSequencer::default();
+        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, &ClockSettings::default());
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
@@ -254,8 +254,12 @@ mod tests {
     // A pattern of all zeroes should last as long as a pattern of nonzeroes.
     #[test]
     fn test_empty_pattern() {
+        let mut clock = Clock::default();
         let time_signature = TimeSignature::default();
-        let mut sequencer = Box::new(BeatSequencer::default());
+        let mut sequencer = Box::new(BeatSequencer::new_with(
+            clock.sample_rate(),
+            clock.settings(),
+        ));
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         let note_pattern = vec!["0".to_string()];
@@ -277,9 +281,8 @@ mod tests {
         );
         assert_eq!(sequencer.debug_events().len(), 0);
 
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(clock.settings());
         let _ = o.add(None, BoxedEntity::BeatSequencer(sequencer));
-        let mut clock = Clock::default();
         if let Ok(result) = o.run(&mut clock) {
             assert_eq!(
                 result.len(),
@@ -291,7 +294,7 @@ mod tests {
     #[test]
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
-        let mut sequencer = BeatSequencer::default();
+        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, &ClockSettings::default());
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time
@@ -336,7 +339,7 @@ mod tests {
     #[test]
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
-        let mut sequencer = BeatSequencer::default();
+        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, &ClockSettings::default());
         let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern::<Note>::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
@@ -354,8 +357,12 @@ mod tests {
     #[test]
     fn test_random_access() {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
-        let mut o = Orchestrator::default();
-        let mut sequencer = Box::new(BeatSequencer::default());
+        let mut clock = Clock::default();
+        let mut o = Orchestrator::new_with(clock.settings());
+        let mut sequencer = Box::new(BeatSequencer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            &ClockSettings::default(),
+        ));
         let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
         let mut pattern = Pattern::<Note>::default();
 
@@ -396,9 +403,8 @@ mod tests {
         // Test recorder has seen nothing to start with.
         // TODO assert!(midi_recorder.debug_messages.is_empty());
 
-        let mut clock = Clock::default();
         let sample_rate = clock.sample_rate();
-        let mut o = Box::new(Orchestrator::default());
+        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
         let _sequencer_uid = o.add(None, BoxedEntity::BeatSequencer(sequencer));
 
         assert!(o.run(&mut clock,).is_ok());
