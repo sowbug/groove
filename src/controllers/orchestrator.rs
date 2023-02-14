@@ -742,9 +742,6 @@ pub struct Store {
 impl Store {
     pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: BoxedEntity) -> usize {
         let uid = self.get_next_uid();
-        if uid == 14 {
-            dbg!("Assigning {} to {}", &uid, &uid);
-        }
         entity.as_has_uid_mut().set_uid(uid);
 
         self.uid_to_item.insert(uid, entity);
