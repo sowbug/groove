@@ -10,16 +10,15 @@ use crate::{
     },
     instruments::{
         drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth, FmSynthesizer,
-        HandlesMidi, SimpleSynthesizer,
+        SimpleSynthesizer,
     },
     midi::patterns::PatternManager,
     traits::{
-        Controllable, HasUid, IsController, IsEffect, IsInstrument, Terminates, TestController,
-        TestEffect, TestInstrument, Updateable,
+        Controllable, HandlesMidi, HasUid, IsController, IsEffect, IsInstrument, Terminates,
+        TestController, TestEffect, TestInstrument,
     },
     utils::{AudioSource, TestLfo, TestSynth, Timer},
 };
-
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
 macro_rules! boxed_entity_enum_and_common_crackers {
@@ -211,38 +210,6 @@ instrument_crackers! {
     WelshSynth,
 }
 
-macro_rules! updateable_crackers {
-    ($($type:ident,)*) => {
-        impl BoxedEntity {
-            pub fn as_updateable(&self) -> Option<&dyn Updateable> {
-                match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
-                    _ => None
-                }
-            }
-            pub fn as_updateable_mut(&mut self) -> Option<&mut dyn Updateable> {
-                match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
-                    _ => None
-                }
-            }
-        }
-    };
-}
-
-// Everything in controllers and instruments (and effects while removing the trait)
-updateable_crackers! {
-    Arpeggiator,
-    BeatSequencer,
-    ControlTrip,
-    LfoController,
-    MidiTickSequencer,
-    PatternManager,
-    TestController,
-    TestLfo,
-    Timer,
-}
-
 macro_rules! handles_midi_crackers {
     ($($type:ident,)*) => {
         impl BoxedEntity {
@@ -263,12 +230,21 @@ macro_rules! handles_midi_crackers {
 }
 
 handles_midi_crackers! {
+    Arpeggiator,
     AudioSource,
+    BeatSequencer,
+    ControlTrip,
     DrumkitSampler,
     FmSynthesizer,
+    LfoController,
+    MidiTickSequencer,
+    PatternManager,
     Sampler,
     SimpleSynthesizer,
+    TestController,
     TestInstrument,
+    TestLfo,
     TestSynth,
+    Timer,
     WelshSynth,
 }

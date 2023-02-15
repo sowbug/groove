@@ -3,7 +3,7 @@ use crate::{
     clock::ClockTimeUnit,
     common::{Normal, SignalType, TimeUnit},
     settings::patches::EnvelopeSettings,
-    traits::{Generates, Ticks},
+    traits::{Generates, Resets, Ticks},
     Clock,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -98,12 +98,13 @@ impl Generates<Normal> for EnvelopeGenerator {
         }
     }
 }
-impl Ticks for EnvelopeGenerator {
+impl Resets for EnvelopeGenerator {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate as f64;
         // TODO: reset stuff
     }
-
+}
+impl Ticks for EnvelopeGenerator {
     fn tick(&mut self, tick_count: usize) {
         // TODO: same comment as above about not yet taking advantage of
         // batching

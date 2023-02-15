@@ -5,6 +5,7 @@ use crate::{
     controllers::{arpeggiator::Arpeggiator, LfoController},
     entities::BoxedEntity,
     traits::TestController,
+    ClockSettings,
 };
 use serde::{Deserialize, Serialize};
 
@@ -104,6 +105,7 @@ impl ControllerSettings {
     pub(crate) fn instantiate(
         &self,
         sample_rate: usize,
+        clock_settings: &ClockSettings,
         load_only_test_entities: bool,
     ) -> (MidiChannel, MidiChannel, BoxedEntity) {
         if load_only_test_entities {
@@ -147,7 +149,11 @@ impl ControllerSettings {
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                BoxedEntity::Arpeggiator(Box::new(Arpeggiator::new_with(midi_output_channel))),
+                BoxedEntity::Arpeggiator(Box::new(Arpeggiator::new_with(
+                    sample_rate,
+                    clock_settings,
+                    midi_output_channel,
+                ))),
             ),
             ControllerSettings::LfoController {
                 midi_input_channel,

@@ -90,8 +90,8 @@ impl Default for GrooveApp {
     fn default() -> Self {
         // TODO: these are (probably) temporary until the project is
         // loaded. Make sure they really need to be instantiated.
-        let orchestrator = Orchestrator::default();
-        let clock = Clock::new_with(orchestrator.clock_settings());
+        let clock = Clock::default();
+        let orchestrator = Orchestrator::new_with(clock.settings());
         Self {
             preferences: Default::default(),
             is_pref_load_complete: false,
@@ -419,11 +419,14 @@ impl GrooveApp {
                         }
                         _ => todo!(),
                     },
-                    _ => {
-                        if let Some(entity) = entity.as_updateable_mut() {
-                            entity.update(&self.clock_mirror, message);
+                    #[allow(unused_variables)]
+                    BoxedEntity::PatternManager(e) => match message {
+                        EntityMessage::PatternMessage(uid, message) => {
+                            todo!()
                         }
-                    }
+                        _ => todo!(),
+                    },
+                    _ => todo!(),
                 }
             }
         }

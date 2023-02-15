@@ -202,6 +202,11 @@ impl Clock {
         self.settings.set_time_signature(time_signature);
         self.update();
     }
+    pub fn set_sample_rate(&mut self, sample_rate: usize) {
+        self.was_reset = true;
+        self.settings.set_sample_rate(sample_rate);
+        self.update();
+    }
 
     /// The next_slice_in_ methods return the start of the next time slice, in
     /// whatever unit is requested. The usage is to accurately identify the
@@ -217,20 +222,6 @@ impl Clock {
     }
     pub(crate) fn next_slice_in_beats(&self) -> f32 {
         self.beats_for_sample(self.samples + 1)
-    }
-    pub(crate) fn next_slice_in_midi_ticks(&self) -> usize {
-        // Because MIDI ticks (960Hz) are larger than samples (44100Hz), many of
-        // the ranges computed in MidiTickSequencer::tick() are empty. A range
-        // is nonzero only when the division works out so that the start is
-        // barely on the left, and the end barely on the right. This means that
-        // something scheduled for MIDI tick zero will actually happen around
-        // sample 46 (44100/960 = 45.9375), so MIDI time is about a millisecond
-        // behind where it should be.
-        //
-        // TODO: Come up with a better conversion method that aligns integer
-        // MIDI ticks with the first range that could include them, but that
-        // doesn't then schedule the tick more than once.
-        self.midi_ticks_for_sample(self.samples + 1)
     }
 
     pub fn tick(&mut self) {
@@ -418,7 +409,7 @@ mod tests {
     }
 
     #[test]
-    fn test_clock_mainline() {
+    fn clock_mainline_works() {
         const SAMPLE_RATE: usize = 256;
         const BPM: f32 = 128.0;
         const QUARTER_NOTE_OF_TICKS: usize = ((SAMPLE_RATE * 60) as f32 / BPM) as usize;
@@ -464,7 +455,7 @@ mod tests {
     }
 
     #[test]
-    fn test_time_signature_valid() {
+    fn valid_time_signatures_can_be_instantiated() {
         let ts = TimeSignature::default();
         assert_eq!(ts.top, 4);
         assert_eq!(ts.bottom, 4);
@@ -474,12 +465,12 @@ mod tests {
     }
 
     #[test]
-    fn test_time_signature_invalid_bad_top() {
+    fn time_signature_with_bad_top_is_invalid() {
         assert!(TimeSignature::new_with(0, 4).is_err());
     }
 
     #[test]
-    fn test_time_signature_invalid_bottom_not_power_of_two() {
+    fn time_signature_with_bottom_not_power_of_two_is_invalid() {
         assert!(TimeSignature::new_with(4, 5).is_err());
     }
 

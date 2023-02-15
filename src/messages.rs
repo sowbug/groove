@@ -16,10 +16,6 @@ pub trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {} // TODO: th
 
 #[derive(Clone, Debug)]
 pub enum GrooveMessage {
-    /// "no operation" $EA, exists only as a default. Nobody should do anything
-    /// in response to this message; in fact, it's probably OK to panic.
-    Nop,
-
     /// It's time to do a slice of work. Since update() includes a Clock
     /// parameter, Tick is just a message without time information. We assume
     /// that anyone getting a Tick got it via update(), directly or indirectly,
@@ -51,20 +47,8 @@ pub enum GrooveMessage {
 }
 impl MessageBounds for GrooveMessage {}
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub enum EntityMessage {
-    /// "no operation" $EA, exists only as a default. Nobody should do anything
-    /// in response to this message; in fact, it's probably OK to panic.
-    #[default]
-    Nop,
-
-    /// It's time to do a slice of work. Since update() includes a Clock
-    /// parameter, Tick is just a message without time information. We assume
-    /// that anyone getting a Tick got it via update(), directly or indirectly,
-    /// so it's the responsibility of the message handler to pass time
-    /// information when needed.
-    Tick,
-
     /// A MIDI message sent to a channel. In most cases, MidiChannel is
     /// redundant, as the sender of a message generally won't route a message to
     /// someone not listening on the channel.
@@ -78,9 +62,6 @@ pub enum EntityMessage {
     /// the controller.
     ControlF32(f32),
 
-    /// Enable or disable the recipient.
-    Enable(bool),
-
     /// Wrapper for PatternMessages.
     PatternMessage(usize, PatternMessage),
 
@@ -93,9 +74,5 @@ pub enum EntityMessage {
     // GUI things.
     ExpandPressed,
     CollapsePressed,
-
-    // Temp things
-    MutePressed(bool),
-    EnablePressed(bool),
 }
 impl MessageBounds for EntityMessage {}

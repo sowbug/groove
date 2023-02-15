@@ -1,6 +1,6 @@
 use crate::{
-    midi::MidiChannel, traits::Response, AudioOutput, Clock, GrooveMessage, IOHelper, Orchestrator,
-    StereoSample, TimeSignature,
+    midi::MidiChannel, traits::Response, AudioOutput, Clock, ClockSettings, GrooveMessage,
+    IOHelper, Orchestrator, StereoSample, TimeSignature,
 };
 use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
@@ -18,6 +18,8 @@ enum State {
     Idle,
 }
 
+/// A GrooveInput is a kind of message that acts as input from the subscriber
+/// (the app) to the subscription publisher (the Groove engine).
 #[derive(Clone, Debug)]
 pub enum GrooveInput {
     /// Load the project at the given file path.
@@ -45,6 +47,10 @@ pub enum GrooveInput {
     QuitRequested,
 }
 
+/// A GrooveEvent is a kind of message that lets the subscriber (the app) know
+/// something happened with the subscription publisher (the Groove engine). We
+/// could have also called it a GrooveOutput, but other examples of Iced
+/// subscriptions use the term "event," so we're going with that.
 #[derive(Clone, Debug)]
 pub enum GrooveEvent {
     Ready(mpsc::Sender<GrooveInput>, Arc<Mutex<Orchestrator>>),
@@ -58,6 +64,16 @@ pub enum GrooveEvent {
     Quit,
 }
 
+/// Runner is the glue between Groove (the audio engine) and the Iced
+/// Subscription interface. It takes input/output going over the MPSC channels
+/// and converts them to work with Groove. It's also the thing that knows that
+/// Groove is running in a separate thread, so it manages the Arc<Mutex<>> that
+/// lets app messages arrive asynchronously.
+///
+/// Runner also spins up AudioOutput, which is another thread. This might make
+/// more sense as its own subscription, so that the app can arrange for
+/// GrooveSubscription audio output to be routed to the audio system. For now
+/// it's not causing any trouble.
 struct Runner {
     orchestrator: Arc<Mutex<Orchestrator>>,
     clock: Clock,
@@ -185,7 +201,7 @@ impl Runner {
             // send_pending_messages().
             while let Some(message) = messages.pop() {
                 let response = if let Ok(mut o) = self.orchestrator.lock() {
-                    o.update(&self.clock, message)
+                    o.update(message)
                 } else {
                     Response::none()
                 };
@@ -197,7 +213,7 @@ impl Runner {
                 // Send Tick to Orchestrator so it can do the bulk of its work for
                 // the loop.
                 let response = if let Ok(mut o) = self.orchestrator.lock() {
-                    o.update(&self.clock, GrooveMessage::Tick)
+                    o.update(GrooveMessage::Tick)
                 } else {
                     Response::none()
                 };
@@ -281,6 +297,9 @@ impl Runner {
     }
 }
 
+/// GrooveSubscription is the Iced Subscription for the Groove engine. It
+/// creates the MPSC channels and spawns the Orchestrator/Runner in a thread. It
+/// also knows how to signal the thread to quit when it's time.
 pub struct GrooveSubscription {}
 impl GrooveSubscription {
     pub fn subscription() -> Subscription<GrooveEvent> {
@@ -299,9 +318,11 @@ impl GrooveSubscription {
                         // Runner/Orchestrator as subscription events.
                         let (thread_sender, thread_receiver) = mpsc::channel::<GrooveEvent>(1024);
 
-                        // TODO: deal with output-device and sample-rate changes.
-                        let mut t = Orchestrator::default();
-                        t.set_sample_rate(IOHelper::get_output_device_sample_rate());
+                        // TODO: deal with output-device and sample-rate
+                        // changes. This is a mess.
+                        let mut clock_settings = ClockSettings::default();
+                        clock_settings.set_sample_rate(IOHelper::get_output_device_sample_rate());
+                        let t = Orchestrator::new_with(&clock_settings);
                         let orchestrator = Arc::new(Mutex::new(t));
                         let orchestrator_for_app = Arc::clone(&orchestrator);
                         let handler = std::thread::spawn(move || {

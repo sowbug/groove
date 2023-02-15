@@ -46,8 +46,10 @@ impl Orchestrator {
         &self.clock_settings
     }
 
+    #[allow(dead_code)]
     pub(crate) fn set_clock_settings(&mut self, clock_settings: &ClockSettings) {
         self.clock_settings = clock_settings.clone();
+        // TODO: we'll need to propagate the changes to everyone who's paying attention
     }
 
     pub fn set_sample_rate(&mut self, sample_rate: usize) {
@@ -329,20 +331,6 @@ impl Orchestrator {
         sum
     }
 
-    fn send_unhandled_entity_message(
-        &mut self,
-        clock: &Clock,
-        uid: usize,
-        message: EntityMessage,
-    ) -> Response<EntityMessage> {
-        if let Some(target) = self.store.get_mut(uid) {
-            if let Some(target) = target.as_updateable_mut() {
-                return target.update(clock, message);
-            }
-        }
-        Response::none()
-    }
-
     #[allow(unused_variables)]
     pub(crate) fn connect_midi_upstream(&self, source_uid: usize) {}
 
@@ -351,8 +339,19 @@ impl Orchestrator {
         receiver_uid: usize,
         receiver_midi_channel: MidiChannel,
     ) {
-        self.store
-            .connect_midi_receiver(receiver_uid, receiver_midi_channel);
+        if let Some(e) = self.store().get(receiver_uid) {
+            if e.as_handles_midi().is_some() {
+                self.store
+                    .connect_midi_receiver(receiver_uid, receiver_midi_channel);
+            } else {
+                eprintln!(
+                    "Warning: trying to connect device ID {}, but it does not handle MIDI",
+                    receiver_uid
+                );
+            }
+        } else {
+            eprintln!("Warning: tried to connect nonexistent device to MIDI");
+        }
     }
 
     #[allow(dead_code)]
@@ -388,13 +387,12 @@ impl Orchestrator {
     pub(crate) fn set_title(&mut self, title: Option<String>) {
         self.title = title;
     }
-}
-impl Default for Orchestrator {
-    fn default() -> Self {
+
+    pub fn new_with(clock_settings: &ClockSettings) -> Self {
         let mut r = Self {
             uid: Default::default(),
             title: Some("Untitled".to_string()),
-            clock_settings: Default::default(),
+            clock_settings: clock_settings.clone(),
             store: Default::default(),
             main_mixer_uid: Default::default(),
             pattern_manager_uid: Default::default(),
@@ -413,21 +411,17 @@ impl Default for Orchestrator {
         );
         r.beat_sequencer_uid = r.add(
             Some(Orchestrator::BEAT_SEQUENCER_UVID),
-            BoxedEntity::BeatSequencer(Box::new(BeatSequencer::default())),
+            BoxedEntity::BeatSequencer(Box::new(BeatSequencer::new_with(
+                r.clock_settings.sample_rate(),
+                &r.clock_settings,
+            ))),
         );
         r.connect_midi_upstream(r.beat_sequencer_uid);
 
         r
     }
-}
-impl Orchestrator {
-    //type Message = GrooveMessage;
 
-    pub(crate) fn update(
-        &mut self,
-        clock: &Clock,
-        message: GrooveMessage,
-    ) -> Response<GrooveMessage> {
+    pub(crate) fn update(&mut self, message: GrooveMessage) -> Response<GrooveMessage> {
         let mut unhandled_commands = Vec::new();
         let mut commands = Vec::new();
         commands.push(Response::single(message.clone()));
@@ -440,12 +434,10 @@ impl Orchestrator {
             }
             while let Some(message) = messages.pop() {
                 match message {
-                    GrooveMessage::Nop => {}
                     GrooveMessage::Tick => {
-                        commands.push(self.handle_tick(clock));
+                        commands.push(self.handle_tick());
                     }
                     GrooveMessage::EntityMessage(uid, message) => match message {
-                        EntityMessage::Nop => panic!("this should never be sent"),
                         EntityMessage::Midi(channel, message) => {
                             // We could have pushed this onto the regular
                             // commands vector, and then instead of panicking on
@@ -455,23 +447,16 @@ impl Orchestrator {
                             unhandled_commands.push(Response::single(
                                 GrooveMessage::MidiToExternal(channel, message),
                             ));
-                            commands.push(self.broadcast_midi_message(clock, channel, message));
+                            self.broadcast_midi_messages(&(vec![(channel, message)]));
                         }
                         EntityMessage::ControlF32(value) => {
                             self.dispatch_control_f32(uid, value);
                         }
-                        EntityMessage::Enable(_) => todo!(),
                         EntityMessage::PatternMessage(_, _) => todo!(),
-                        EntityMessage::MutePressed(_) => todo!(),
-                        EntityMessage::EnablePressed(_) => todo!(),
-                        _ => {
-                            // EntityMessage::Tick
-                            commands
-                                .push(self.dispatch_and_wrap_entity_message(clock, uid, message));
-                        }
+                        _ => todo!(),
                     },
                     GrooveMessage::MidiFromExternal(channel, message) => {
-                        commands.push(self.broadcast_midi_message(clock, channel, message));
+                        self.broadcast_midi_messages(&(vec![(channel, message)]));
                     }
                     GrooveMessage::MidiToExternal(_, _) => {
                         panic!("Orchestrator should not handle MidiToExternal");
@@ -515,26 +500,18 @@ impl Orchestrator {
     }
 
     // Send a tick to every Controller and return their responses.
-    fn handle_tick(&mut self, clock: &Clock) -> Response<GrooveMessage> {
+    fn handle_tick(&mut self) -> Response<GrooveMessage> {
         Response::batch(
             self.store()
                 .controller_uids()
                 .fold(Vec::new(), |mut v, uid| {
-                    v.push(self.dispatch_and_wrap_entity_message(clock, uid, EntityMessage::Tick));
+                    if let Some(e) = self.store_mut().get_mut(uid) {
+                        if let Some(e) = e.as_is_controller_mut() {
+                            v.push(Self::entity_command_to_groove_command(uid, e.tick(1)));
+                        }
+                    }
                     v
                 }),
-        )
-    }
-
-    fn dispatch_and_wrap_entity_message(
-        &mut self,
-        clock: &Clock,
-        uid: usize,
-        message: EntityMessage,
-    ) -> Response<GrooveMessage> {
-        Self::entity_command_to_groove_command(
-            uid,
-            self.send_unhandled_entity_message(clock, uid, message),
         )
     }
 
@@ -553,36 +530,43 @@ impl Orchestrator {
         }
     }
 
+    fn broadcast_midi_messages(&mut self, channel_message_tuples: &[(MidiChannel, MidiMessage)]) {
+        let mut v = Vec::from(channel_message_tuples);
+        for (channel, message) in channel_message_tuples {
+            if let Some(responses) = self.broadcast_midi_message(channel, message) {
+                v.extend(responses);
+            }
+        }
+    }
+
     fn broadcast_midi_message(
         &mut self,
-        clock: &Clock,
-        channel: u8,
-        message: MidiMessage,
-    ) -> Response<GrooveMessage> {
-        let mut receiver_uids = Vec::new();
-        receiver_uids.extend(self.store.midi_receivers(channel));
-        receiver_uids.dedup();
+        channel: &u8,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        let receiver_uids = self.store.midi_receivers(channel).clone();
         if receiver_uids.is_empty() {
-            return Response::none();
+            return None;
         }
-        Response::batch(receiver_uids.iter().fold(
+        let midi_messages_in_response = receiver_uids.iter().fold(
             Vec::new(),
-            |mut v: Vec<Response<GrooveMessage>>, uid: &usize| {
+            |mut v: Vec<(MidiChannel, MidiMessage)>, uid: &usize| {
                 let uid = uid.clone();
                 if let Some(e) = self.store.get_mut(uid) {
-                    if let Some(_e) = e.as_updateable_mut() {
-                        v.push(self.dispatch_and_wrap_entity_message(
-                            clock,
-                            uid,
-                            EntityMessage::Midi(channel, message),
-                        ));
-                    } else if let Some(e) = e.as_handles_midi_mut() {
-                        e.handle_midi_message(&message);
+                    if let Some(e) = e.as_handles_midi_mut() {
+                        if let Some(messages) = e.handle_midi_message(&message) {
+                            v.extend(messages);
+                        }
                     }
                 }
                 v
             },
-        ))
+        );
+        if midi_messages_in_response.is_empty() {
+            None
+        } else {
+            Some(midi_messages_in_response)
+        }
     }
 
     fn dispatch_control_f32(&mut self, uid: usize, value: f32) {
@@ -649,7 +633,7 @@ impl Orchestrator {
     pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<StereoSample>> {
         let mut samples = Vec::<StereoSample>::new();
         loop {
-            let command = self.update(clock, GrooveMessage::Tick);
+            let command = self.update(GrooveMessage::Tick);
             let (sample, done) = Self::peek_command(&command);
             clock.tick();
             if done {
@@ -671,7 +655,7 @@ impl Orchestrator {
         let mut next_progress_indicator: usize = progress_indicator_quantum;
         clock.reset();
         loop {
-            let command = self.update(clock, GrooveMessage::Tick);
+            let command = self.update(GrooveMessage::Tick);
             let (sample, done) = Orchestrator::peek_command(&command);
             if next_progress_indicator <= clock.samples() {
                 if !quiet {
@@ -693,6 +677,10 @@ impl Orchestrator {
             self.metrics.report();
         }
         Ok(performance)
+    }
+
+    pub fn reset(&mut self) {
+        self.store.reset(self.clock_settings().sample_rate());
     }
 }
 
@@ -761,7 +749,6 @@ impl Store {
         self.uid_to_item.values()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn values_mut(
         &mut self,
     ) -> std::collections::hash_map::ValuesMut<usize, BoxedEntity> {
@@ -831,9 +818,9 @@ impl Store {
         self.audio_sink_uid_to_source_uids.get(&input_uid)
     }
 
-    pub(crate) fn midi_receivers(&mut self, channel: MidiChannel) -> &Vec<usize> {
+    pub(crate) fn midi_receivers(&mut self, channel: &MidiChannel) -> &Vec<usize> {
         self.midi_channel_to_receiver_uid
-            .entry(channel)
+            .entry(*channel)
             .or_default()
     }
 
@@ -866,28 +853,62 @@ impl Store {
         );
         println!("uvid_to_uid: {}", self.uvid_to_uid.len());
     }
+
+    fn reset(&mut self, sample_rate: usize) {
+        self.values_mut().for_each(|e| {
+            if let Some(e) = e.as_is_controller_mut() {
+                e.reset(sample_rate);
+            } else if let Some(e) = e.as_is_instrument_mut() {
+                e.reset(sample_rate);
+            }
+        })
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
+    use midly::MidiMessage;
+
     use super::Orchestrator;
     use crate::{
         clock::Clock,
         common::Normal,
         effects::gain::Gain,
         entities::BoxedEntity,
+        midi::MidiChannel,
         utils::{AudioSource, Timer},
-        EntityMessage, StereoSample,
+        ClockSettings, StereoSample,
     };
 
     impl Orchestrator {
-        pub fn debug_send_msg_enable(&mut self, clock: &Clock, uid: usize, enabled: bool) {
-            self.send_unhandled_entity_message(clock, uid, EntityMessage::Enable(enabled));
+        /// Warning! This method exists only as a debug shortcut to
+        /// enable/disable test instruments. That's why it drops any reply
+        /// messages on the floor, rather than routing them.
+        pub fn debug_send_midi_note(&mut self, channel: MidiChannel, on: bool) {
+            let message = if on {
+                MidiMessage::NoteOn {
+                    key: 17.into(),
+                    vel: 127.into(),
+                }
+            } else {
+                MidiMessage::NoteOff {
+                    key: 17.into(),
+                    vel: 127.into(),
+                }
+            };
+            let reply = self.broadcast_midi_message(&channel, &message);
+
+            assert!(
+                reply.is_none(),
+                concat!(
+                "You might be using a special-purpose utility method to trigger a MIDI controller. "
+                    , "That's bad. The messages being generated in response are not being routed.")
+            );
         }
     }
     #[test]
     fn test_orchestrator_gather_audio_basic() {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
         let level_1_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -921,7 +942,7 @@ pub mod tests {
 
     #[test]
     fn test_orchestrator_gather_audio() {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
         let level_1_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -999,7 +1020,7 @@ pub mod tests {
 
     #[test]
     fn test_orchestrator_gather_audio_2() {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
         let piano_1_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -1093,7 +1114,7 @@ pub mod tests {
 
     #[test]
     fn test_orchestrator_gather_audio_with_branches() {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
         let instrument_1_uid = o.add(
             None,
             BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -1121,10 +1142,38 @@ pub mod tests {
     }
 
     #[test]
-    fn test_orchestrator_sample_count_is_accurate() {
-        let mut o = Orchestrator::default();
-        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(1.0))));
+    fn orchestrator_sample_count_is_accurate_for_zero_timer() {
         let mut clock = Clock::default();
+        let mut o = Orchestrator::new_with(clock.settings());
+        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(0.0))));
+        if let Ok(samples) = o.run(&mut clock) {
+            assert_eq!(samples.len(), 0);
+        } else {
+            panic!("run failed");
+        }
+    }
+
+    #[test]
+    fn orchestrator_sample_count_is_accurate_for_short_timer() {
+        const SAMPLE_RATE: usize = 44100;
+        let mut clock = Clock::new_with_sample_rate(SAMPLE_RATE);
+        let mut o = Orchestrator::new_with(clock.settings());
+        let _ = o.add(
+            None,
+            BoxedEntity::Timer(Box::new(Timer::new_with(1.0 / SAMPLE_RATE as f32))),
+        );
+        if let Ok(samples) = o.run(&mut clock) {
+            assert_eq!(samples.len(), 1);
+        } else {
+            panic!("run failed");
+        }
+    }
+
+    #[test]
+    fn orchestrator_sample_count_is_accurate_for_ordinary_timer() {
+        let mut clock = Clock::new_with_sample_rate(44100);
+        let mut o = Orchestrator::new_with(clock.settings());
+        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(1.0))));
         if let Ok(samples) = o.run(&mut clock) {
             assert_eq!(samples.len(), 44100);
         } else {
@@ -1134,7 +1183,7 @@ pub mod tests {
 
     #[test]
     fn test_patch_fails_with_bad_id() {
-        let mut o = Orchestrator::default();
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
         assert!(o.patch(3, 2).is_err());
     }
 }
