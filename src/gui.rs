@@ -69,11 +69,11 @@ pub enum GrooveEvent {
 /// and converts them to work with Groove. It's also the thing that knows that
 /// Groove is running in a separate thread, so it manages the Arc<Mutex<>> that
 /// lets app messages arrive asynchronously.
-/// 
+///
 /// Runner also spins up AudioOutput, which is another thread. This might make
 /// more sense as its own subscription, so that the app can arrange for
 /// GrooveSubscription audio output to be routed to the audio system. For now
-/// it's not causing any trouble. 
+/// it's not causing any trouble.
 struct Runner {
     orchestrator: Arc<Mutex<Orchestrator>>,
     clock: Clock,
