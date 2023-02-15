@@ -434,7 +434,6 @@ impl Orchestrator {
             }
             while let Some(message) = messages.pop() {
                 match message {
-                    GrooveMessage::Nop => {}
                     GrooveMessage::Tick => {
                         commands.push(self.handle_tick());
                     }

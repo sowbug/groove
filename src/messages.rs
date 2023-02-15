@@ -16,10 +16,6 @@ pub trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {} // TODO: th
 
 #[derive(Clone, Debug)]
 pub enum GrooveMessage {
-    /// "no operation" $EA, exists only as a default. Nobody should do anything
-    /// in response to this message; in fact, it's probably OK to panic.
-    Nop,
-
     /// It's time to do a slice of work. Since update() includes a Clock
     /// parameter, Tick is just a message without time information. We assume
     /// that anyone getting a Tick got it via update(), directly or indirectly,
