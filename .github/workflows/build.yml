@@ -51,14 +51,18 @@ jobs:
         # Get the source
       - uses: actions/checkout@v2
 
-        # Test
-      - run: cargo test --target ${{ matrix.target }}
+        # Build debug
+      - run: cargo build --target ${{ matrix.target }}
+
+        # Build and test release
+      - run: cargo test --release --target ${{ matrix.target }}
 
         # Upload artifacts
       - uses: actions/upload-artifact@v3
         with:
           name: perf-output-${{ matrix.target }}
           path: |
+            out/voice_cello_c_4.wav
             out/perf-1.wav
             perf-output.txt
 
