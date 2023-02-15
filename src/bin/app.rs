@@ -418,6 +418,7 @@ impl GrooveApp {
                         }
                         _ => todo!(),
                     },
+                    #[allow(unused_variables)]
                     BoxedEntity::PatternManager(e) => match message {
                         EntityMessage::PatternMessage(uid, message) => {
                             todo!()
