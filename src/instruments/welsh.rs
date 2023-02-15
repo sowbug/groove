@@ -507,11 +507,24 @@ impl Ticks for WelshVoice {
             //
             // TODO: this seems like an implementation detail that maybe should be
             // hidden from the caller.
-            self.lfo.tick(1);
             let (amp_env_amplitude, filter_env_amplitude) = self.tick_envelopes();
-            self.oscillators.iter_mut().for_each(|o| o.tick(1));
+
+            // TODO: various parts of this loop can be precalculated.
 
             self.sample = if self.is_playing() {
+                // TODO: ideally, these entities would get a tick() on every
+                // voice tick(), but they are surprisingly expensive. So we will
+                // skip calling them unless we're going to look at their output.
+                // This means that they won't get a time slice as often as the
+                // voice will. If this becomes a problem, we can add something
+                // like an empty_tick() method to the Ticks trait that lets
+                // entities stay in sync, but skipping any real work that would
+                // cost time.
+                if !matches!(self.lfo_routing, LfoRouting::None) {
+                    self.lfo.tick(1);
+                }
+                self.oscillators.iter_mut().for_each(|o| o.tick(1));
+
                 // LFO
                 let lfo = self.lfo.value();
                 if matches!(self.lfo_routing, LfoRouting::Pitch) {
