@@ -189,12 +189,11 @@ mod tests {
     use super::*;
     use crate::{
         clock::{BeatValue, Clock, TimeSignature},
-        common::DEFAULT_SAMPLE_RATE,
         entities::BoxedEntity,
         settings::PatternSettings,
         traits::TestInstrument,
         utils::Timer,
-        ClockSettings, GrooveMessage, Orchestrator,
+        ClockSettings, Orchestrator, StereoSample,
     };
     use assert_approx_eq::assert_approx_eq;
 
@@ -212,7 +211,7 @@ mod tests {
     #[test]
     fn test_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, &ClockSettings::default());
+        let mut sequencer = BeatSequencer::new_with(&ClockSettings::default());
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
@@ -254,12 +253,9 @@ mod tests {
     // A pattern of all zeroes should last as long as a pattern of nonzeroes.
     #[test]
     fn test_empty_pattern() {
-        let mut clock = Clock::default();
         let time_signature = TimeSignature::default();
-        let mut sequencer = Box::new(BeatSequencer::new_with(
-            clock.sample_rate(),
-            clock.settings(),
-        ));
+        let clock_settings = ClockSettings::default();
+        let mut sequencer = Box::new(BeatSequencer::new_with(&clock_settings));
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         let note_pattern = vec!["0".to_string()];
@@ -281,12 +277,14 @@ mod tests {
         );
         assert_eq!(sequencer.debug_events().len(), 0);
 
-        let mut o = Orchestrator::new_with(clock.settings());
+        let mut o = Orchestrator::new_with(&clock_settings);
         let _ = o.add(None, BoxedEntity::BeatSequencer(sequencer));
-        if let Ok(result) = o.run(&mut clock) {
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        if let Ok(result) = o.run(&mut sample_buffer) {
             assert_eq!(
                 result.len(),
-                ((60.0 * 4.0 / clock.bpm()) * clock.sample_rate() as f32) as usize
+                ((60.0 * 4.0 / clock_settings.bpm()) * clock_settings.sample_rate() as f32)
+                    as usize
             );
         }
     }
@@ -294,7 +292,7 @@ mod tests {
     #[test]
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
-        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, &ClockSettings::default());
+        let mut sequencer = BeatSequencer::new_with(&ClockSettings::default());
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time
@@ -339,7 +337,7 @@ mod tests {
     #[test]
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
-        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, &ClockSettings::default());
+        let mut sequencer = BeatSequencer::new_with(&ClockSettings::default());
         let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern::<Note>::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
@@ -359,10 +357,7 @@ mod tests {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
         let mut clock = Clock::default();
         let mut o = Orchestrator::new_with(clock.settings());
-        let mut sequencer = Box::new(BeatSequencer::new_with(
-            DEFAULT_SAMPLE_RATE,
-            &ClockSettings::default(),
-        ));
+        let mut sequencer = Box::new(BeatSequencer::new_with(&ClockSettings::default()));
         let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
         let mut pattern = Pattern::<Note>::default();
 
@@ -396,7 +391,7 @@ mod tests {
         ]);
         programmer.insert_pattern_at_cursor(&mut sequencer, &INSTRUMENT_MIDI_CHANNEL, &pattern);
 
-        let midi_recorder = Box::new(TestInstrument::new_with(DEFAULT_SAMPLE_RATE));
+        let midi_recorder = Box::new(TestInstrument::new_with(clock.sample_rate()));
         let midi_recorder_uid = o.add(None, BoxedEntity::TestInstrument(midi_recorder));
         o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
 
@@ -407,7 +402,8 @@ mod tests {
         let mut o = Box::new(Orchestrator::new_with(clock.settings()));
         let _sequencer_uid = o.add(None, BoxedEntity::BeatSequencer(sequencer));
 
-        assert!(o.run(&mut clock,).is_ok());
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        assert!(o.run(&mut sample_buffer).is_ok());
 
         // We should have gotten one on and one off for each note in the
         // pattern.
@@ -443,8 +439,9 @@ mod tests {
 
         // Rewind clock to start.
         clock.reset();
+        let mut samples = [StereoSample::SILENCE; 1];
         // This shouldn't explode.
-        let _ = o.update(GrooveMessage::Tick);
+        let _ = o.tick(&mut samples);
 
         // Only the first time slice's events should have fired.
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
@@ -452,7 +449,7 @@ mod tests {
         // Fast-forward to the end. Nothing else should fire. This is because
         // any tick() should do work for just the slice specified.
         clock.debug_set_seconds(10.0);
-        let _ = o.update(GrooveMessage::Tick);
+        let _ = o.tick(&mut samples);
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
 
         // Start test recorder over again.
@@ -461,15 +458,20 @@ mod tests {
         // Move just past first note.
         clock.set_samples(1);
 
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+
         // Keep going until just before half of second beat. We should see the
         // first note off (not on!) and the second note on/off.
-        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(2.0))));
-        assert!(o.run(&mut clock).is_ok());
+        let _ = o.add(
+            None,
+            BoxedEntity::Timer(Box::new(Timer::new_with(clock.sample_rate(), 2.0))),
+        );
+        assert!(o.run(&mut sample_buffer).is_ok());
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 3);
 
         // Keep ticking through start of second beat. Should see one more event:
         // #3 on.
-        assert!(o.run(&mut clock).is_ok());
+        assert!(o.run(&mut sample_buffer).is_ok());
         // TODO dbg!(&midi_recorder.debug_messages);
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 4);
     }

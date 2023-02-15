@@ -104,7 +104,6 @@ pub enum ControllerSettings {
 impl ControllerSettings {
     pub(crate) fn instantiate(
         &self,
-        sample_rate: usize,
         clock_settings: &ClockSettings,
         load_only_test_entities: bool,
     ) -> (MidiChannel, MidiChannel, BoxedEntity) {
@@ -128,6 +127,7 @@ impl ControllerSettings {
                 *midi_input_channel,
                 *midi_output_channel,
                 BoxedEntity::TestController(Box::new(TestController::new_with(
+                    clock_settings,
                     *midi_output_channel,
                 ))),
             );
@@ -140,6 +140,7 @@ impl ControllerSettings {
                 midi_input_channel,
                 midi_output_channel,
                 BoxedEntity::TestController(Box::new(TestController::new_with(
+                    clock_settings,
                     midi_output_channel,
                 ))),
             ),
@@ -150,7 +151,6 @@ impl ControllerSettings {
                 midi_input_channel,
                 midi_output_channel,
                 BoxedEntity::Arpeggiator(Box::new(Arpeggiator::new_with(
-                    sample_rate,
                     clock_settings,
                     midi_output_channel,
                 ))),
@@ -164,7 +164,7 @@ impl ControllerSettings {
                 midi_input_channel,
                 midi_output_channel,
                 BoxedEntity::LfoController(Box::new(LfoController::new_with(
-                    sample_rate,
+                    clock_settings,
                     waveform,
                     frequency as f64,
                 ))),

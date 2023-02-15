@@ -1,6 +1,5 @@
 use super::Performance;
 use crate::{
-    clock::Clock,
     effects::mixer::Mixer,
     entities::BoxedEntity,
     messages::{EntityMessage, GrooveMessage},
@@ -221,6 +220,8 @@ impl Orchestrator {
         self.store.unpatch_all()
     }
 
+    // TODO - is this the end of Terminates?
+    #[allow(dead_code)]
     pub(crate) fn are_all_finished(&mut self) -> bool {
         self.store.values().all(|item| {
             if let Some(item) = item.as_terminates() {
@@ -247,88 +248,91 @@ impl Orchestrator {
     // marker with the current sum, then push the children as to-visit). When a
     // marker pops up, eval with the current sum (nodes are effects, so they
     // take an input), then add to the running sum.
-    fn gather_audio(&mut self) -> StereoSample {
-        enum StackEntry {
-            ToVisit(usize),
-            CollectResultFor(usize, StereoSample),
-        }
-        let gather_audio_start_time = self.metrics.gather_audio_fn_timer.start();
-        let mut stack = Vec::new();
-        let mut sum = StereoSample::default();
-        stack.push(StackEntry::ToVisit(self.main_mixer_uid));
+    fn gather_audio(&mut self, samples: &mut [StereoSample]) {
+        for sample in samples {
+            enum StackEntry {
+                ToVisit(usize),
+                CollectResultFor(usize, StereoSample),
+            }
+            let gather_audio_start_time = self.metrics.gather_audio_fn_timer.start();
+            let mut stack = Vec::new();
+            let mut sum = StereoSample::default();
+            stack.push(StackEntry::ToVisit(self.main_mixer_uid));
 
-        self.metrics.mark_stack_loop_entry.mark();
-        while let Some(entry) = stack.pop() {
-            self.metrics.mark_stack_loop_iteration.mark();
-            match entry {
-                StackEntry::ToVisit(uid) => {
-                    // We've never seen this node before.
-                    //
-                    // I thought about checking for patch cables to determine
-                    // whether it's an instrument (leaf) or effect (node). The
-                    // hope was to avoid an entity lookup. But we have to look
-                    // up the patch cables. So I think it's six of one, a
-                    // half-dozen of another.
-                    if let Some(entity) = self.store.get_mut(uid) {
-                        // If it's a leaf, eval it now and add it to the
-                        // running sum.
-                        if let Some(entity) = entity.as_is_instrument_mut() {
-                            if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
-                                let start_time = timer.start();
-                                entity.tick(1);
-                                timer.stop(start_time);
-                            } else {
-                                entity.tick(1);
-                            }
-                            sum += entity.value();
-                        } else if entity.as_is_effect().is_some() {
-                            // If it's a node, push its children on the stack,
-                            // then evaluate the result.
-
-                            // Tell us to process sum.
-                            stack.push(StackEntry::CollectResultFor(uid, sum));
-                            sum = StereoSample::default();
-                            if let Some(source_uids) = self.store.patches(uid) {
-                                for &source_uid in &source_uids.to_vec() {
-                                    debug_assert!(source_uid != uid);
-                                    stack.push(StackEntry::ToVisit(source_uid));
+            self.metrics.mark_stack_loop_entry.mark();
+            while let Some(entry) = stack.pop() {
+                self.metrics.mark_stack_loop_iteration.mark();
+                match entry {
+                    StackEntry::ToVisit(uid) => {
+                        // We've never seen this node before.
+                        //
+                        // I thought about checking for patch cables to determine
+                        // whether it's an instrument (leaf) or effect (node). The
+                        // hope was to avoid an entity lookup. But we have to look
+                        // up the patch cables. So I think it's six of one, a
+                        // half-dozen of another.
+                        if let Some(entity) = self.store.get_mut(uid) {
+                            // If it's a leaf, eval it now and add it to the
+                            // running sum.
+                            if let Some(entity) = entity.as_is_instrument_mut() {
+                                if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
+                                    let start_time = timer.start();
+                                    entity.tick(1);
+                                    timer.stop(start_time);
+                                } else {
+                                    entity.tick(1);
                                 }
-                            } else {
-                                // an effect is at the end of a chain. This
-                                // should be harmless (but probably
-                                // confusing for the end user; might want to
-                                // flag it).
+                                sum += entity.value();
+                            } else if entity.as_is_effect().is_some() {
+                                // If it's a node, push its children on the stack,
+                                // then evaluate the result.
+
+                                // Tell us to process sum.
+                                stack.push(StackEntry::CollectResultFor(uid, sum));
+                                sum = StereoSample::default();
+                                if let Some(source_uids) = self.store.patches(uid) {
+                                    for &source_uid in &source_uids.to_vec() {
+                                        debug_assert!(source_uid != uid);
+                                        stack.push(StackEntry::ToVisit(source_uid));
+                                    }
+                                } else {
+                                    // an effect is at the end of a chain. This
+                                    // should be harmless (but probably
+                                    // confusing for the end user; might want to
+                                    // flag it).
+                                }
                             }
                         }
                     }
-                }
-                // We're returning to this node after evaluating its children.
-                // TODO: it's a shame we have to look up the node twice. I still
-                // think it's better to look it up once to avoid the patch-cable
-                // lookup for instruments and controllers. And if we're going to
-                // optimize for avoiding lookups, we might as well unroll the
-                // whole tree and zip through it, as mentioned earlier.
-                StackEntry::CollectResultFor(uid, accumulated_sum) => {
-                    if let Some(entity) = self.store.get_mut(uid) {
-                        if let Some(entity) = entity.as_is_effect_mut() {
-                            sum = accumulated_sum
-                                + if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
-                                    let start_time = timer.start();
-                                    let transformed_audio = entity.transform_audio(sum);
-                                    timer.stop(start_time);
-                                    transformed_audio
-                                } else {
-                                    entity.transform_audio(sum)
-                                };
+                    // We're returning to this node after evaluating its children.
+                    // TODO: it's a shame we have to look up the node twice. I still
+                    // think it's better to look it up once to avoid the patch-cable
+                    // lookup for instruments and controllers. And if we're going to
+                    // optimize for avoiding lookups, we might as well unroll the
+                    // whole tree and zip through it, as mentioned earlier.
+                    StackEntry::CollectResultFor(uid, accumulated_sum) => {
+                        if let Some(entity) = self.store.get_mut(uid) {
+                            if let Some(entity) = entity.as_is_effect_mut() {
+                                sum = accumulated_sum
+                                    + if let Some(timer) = self.metrics.entity_audio_times.get(&uid)
+                                    {
+                                        let start_time = timer.start();
+                                        let transformed_audio = entity.transform_audio(sum);
+                                        timer.stop(start_time);
+                                        transformed_audio
+                                    } else {
+                                        entity.transform_audio(sum)
+                                    };
+                            }
                         }
                     }
                 }
             }
+            self.metrics
+                .gather_audio_fn_timer
+                .stop(gather_audio_start_time);
+            *sample = sum;
         }
-        self.metrics
-            .gather_audio_fn_timer
-            .stop(gather_audio_start_time);
-        sum
     }
 
     #[allow(unused_variables)]
@@ -411,10 +415,7 @@ impl Orchestrator {
         );
         r.beat_sequencer_uid = r.add(
             Some(Orchestrator::BEAT_SEQUENCER_UVID),
-            BoxedEntity::BeatSequencer(Box::new(BeatSequencer::new_with(
-                r.clock_settings.sample_rate(),
-                &r.clock_settings,
-            ))),
+            BoxedEntity::BeatSequencer(Box::new(BeatSequencer::new_with(&r.clock_settings))),
         );
         r.connect_midi_upstream(r.beat_sequencer_uid);
 
@@ -434,9 +435,6 @@ impl Orchestrator {
             }
             while let Some(message) = messages.pop() {
                 match message {
-                    GrooveMessage::Tick => {
-                        commands.push(self.handle_tick());
-                    }
                     GrooveMessage::EntityMessage(uid, message) => match message {
                         EntityMessage::Midi(channel, message) => {
                             // We could have pushed this onto the regular
@@ -488,30 +486,42 @@ impl Orchestrator {
                 }
             }
         }
-        if let GrooveMessage::Tick = message {
-            unhandled_commands.push(Response::single(GrooveMessage::AudioOutput(
-                self.gather_audio(),
-            )));
-            if self.are_all_finished() {
-                unhandled_commands.push(Response::single(GrooveMessage::OutputComplete));
-            }
-        }
         Response::batch(unhandled_commands)
     }
 
-    // Send a tick to every Controller and return their responses.
-    fn handle_tick(&mut self) -> Response<GrooveMessage> {
-        Response::batch(
-            self.store()
-                .controller_uids()
-                .fold(Vec::new(), |mut v, uid| {
-                    if let Some(e) = self.store_mut().get_mut(uid) {
-                        if let Some(e) = e.as_is_controller_mut() {
-                            v.push(Self::entity_command_to_groove_command(uid, e.tick(1)));
+    // Call every Controller's tick() and return their responses. This is
+    // pub(crate) only for testing by arpeggiator, which is bad
+    //
+    // TODO: figure out how to help Arpeggiator test without exposing these
+    // internals.
+    pub(crate) fn handle_tick(&mut self, tick_count: usize) -> (Response<GrooveMessage>, usize) {
+        let mut max_ticks_completed = 0;
+        (
+            Response::batch(
+                self.store()
+                    .controller_uids()
+                    .fold(Vec::new(), |mut v, uid| {
+                        if let Some(e) = self.store_mut().get_mut(uid) {
+                            if let Some(e) = e.as_is_controller_mut() {
+                                let (message_opt, ticks_completed) = e.tick(tick_count);
+                                if ticks_completed > max_ticks_completed {
+                                    max_ticks_completed = ticks_completed;
+                                }
+                                if let Some(messages) = message_opt {
+                                    // TODO clone, ouch
+                                    v.push(Self::entity_command_to_groove_command(
+                                        uid,
+                                        Response::batch(
+                                            messages.iter().map(|m| Response::single(m.clone())),
+                                        ),
+                                    ));
+                                }
+                            }
                         }
-                    }
-                    v
-                }),
+                        v
+                    }),
+            ),
+            max_ticks_completed,
         )
     }
 
@@ -587,8 +597,6 @@ impl Orchestrator {
         match &command.0 {
             Internal::None => {}
             Internal::Single(message) => match message {
-                // GrooveMessage::Nop - never sent
-                // GrooveMessage::Tick - Ticks should go only downstream
                 // GrooveMessage::EntityMessage - shouldn't escape from Orchestrator
                 // GrooveMessage::MidiFromExternal - should go only downstream
                 // GrooveMessage::MidiToExternal - ignore and let app handle it
@@ -630,45 +638,52 @@ impl Orchestrator {
     // should return true in the Terminates trait.
     //
     // TODO: unit-test it!
-    pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<StereoSample>> {
-        let mut samples = Vec::<StereoSample>::new();
+    pub fn run(&mut self, samples: &mut [StereoSample]) -> anyhow::Result<Vec<StereoSample>> {
+        let mut performance_samples = Vec::<StereoSample>::new();
         loop {
-            let command = self.update(GrooveMessage::Tick);
-            let (sample, done) = Self::peek_command(&command);
-            clock.tick();
-            if done {
+            let ticks_completed = self.tick(samples);
+            if ticks_completed < samples.len() {
+                // TODO: deal with partial buffer fills at the end
                 break;
             }
-            samples.push(sample);
+            performance_samples.extend(samples.iter());
         }
-        Ok(samples)
+        Ok(performance_samples)
     }
 
     pub fn run_performance(
         &mut self,
-        clock: &mut Clock,
+        samples: &mut [StereoSample],
         quiet: bool,
     ) -> anyhow::Result<Performance> {
-        let sample_rate = clock.sample_rate();
+        let sample_rate = self.clock_settings().sample_rate();
+        let mut tick_count = 0;
         let performance = Performance::new_with(sample_rate);
         let progress_indicator_quantum: usize = sample_rate / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
-        clock.reset();
+
         loop {
-            let command = self.update(GrooveMessage::Tick);
-            let (sample, done) = Orchestrator::peek_command(&command);
-            if next_progress_indicator <= clock.samples() {
+            let ticks_completed = self.tick(samples);
+            if next_progress_indicator <= tick_count {
                 if !quiet {
                     print!(".");
                     io::stdout().flush().unwrap();
                 }
                 next_progress_indicator += progress_indicator_quantum;
             }
-            clock.tick();
-            if done {
+            tick_count += ticks_completed;
+            if ticks_completed < samples.len() {
                 break;
             }
-            performance.worker.push(sample);
+            let mut i = 0;
+            for sample in samples.iter() {
+                if i < ticks_completed {
+                    performance.worker.push(*sample);
+                } else {
+                    break;
+                }
+                i += 1;
+            }
         }
         if !quiet {
             println!();
@@ -681,6 +696,33 @@ impl Orchestrator {
 
     pub fn reset(&mut self) {
         self.store.reset(self.clock_settings().sample_rate());
+    }
+
+    /// Runs the whole world for the given number of frames, returning each
+    /// frame's output as a StereoSample.
+    ///
+    /// The number of frames to run is implied in the length of the sample
+    /// slice.
+    ///
+    /// Returns the actual number of frames filled. If this number is shorter
+    /// than the slice length, then the performance is complete.
+    pub(crate) fn tick(&mut self, samples: &mut [StereoSample]) -> usize {
+        let tick_count = samples.len();
+        let (commands, ticks_completed) = self.handle_tick(tick_count);
+        match commands.0 {
+            Internal::None => {}
+            Internal::Single(message) => {
+                self.update(message);
+            }
+            Internal::Batch(messages) => {
+                for message in messages {
+                    self.update(message);
+                }
+            }
+        }
+        self.gather_audio(samples);
+
+        ticks_completed
     }
 }
 
@@ -906,8 +948,9 @@ pub mod tests {
             );
         }
     }
+
     #[test]
-    fn test_orchestrator_gather_audio_basic() {
+    fn gather_audio_basic() {
         let mut o = Orchestrator::new_with(&ClockSettings::default());
         let level_1_uid = o.add(
             None,
@@ -919,29 +962,28 @@ pub mod tests {
         );
 
         // Nothing connected: should output silence.
-        assert_eq!(o.gather_audio(), StereoSample::SILENCE);
+        let mut samples: [StereoSample; 1] = Default::default();
+        o.gather_audio(&mut samples);
+        assert_eq!(samples[0], StereoSample::SILENCE);
 
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
-        assert!(o
-            .gather_audio()
-            .almost_equals(StereoSample::new_from_single_f64(0.1)));
+        o.gather_audio(&mut samples);
+        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.1)));
 
         assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
-        assert!(o
-            .gather_audio()
-            .almost_equals(StereoSample::new_from_single_f64(0.2)));
+        o.gather_audio(&mut samples);
+        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.2)));
 
         assert!(o.unpatch_all().is_ok());
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
-        assert!(o
-            .gather_audio()
-            .almost_equals(StereoSample::new_from_single_f64(0.1 + 0.2)));
+        o.gather_audio(&mut samples);
+        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.1 + 0.2)));
     }
 
     #[test]
-    fn test_orchestrator_gather_audio() {
+    fn gather_audio() {
         let mut o = Orchestrator::new_with(&ClockSettings::default());
         let level_1_uid = o.add(
             None,
@@ -965,43 +1007,42 @@ pub mod tests {
         );
 
         // Nothing connected: should output silence.
-        assert_eq!(o.gather_audio(), StereoSample::SILENCE);
+        let mut samples: [StereoSample; 1] = Default::default();
+        o.gather_audio(&mut samples);
+        assert_eq!(samples[0], StereoSample::SILENCE);
 
         // Just the single-level instrument; should get that.
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
-        assert!(o
-            .gather_audio()
-            .almost_equals(StereoSample::new_from_single_f64(0.1)));
+        o.gather_audio(&mut samples);
+        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.1)));
 
         // Gain alone; that's weird, but it shouldn't explode.
         assert!(o.disconnect_from_main_mixer(level_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(gain_1_uid).is_ok());
-        assert_eq!(o.gather_audio(), StereoSample::SILENCE);
+        o.gather_audio(&mut samples);
+        assert_eq!(samples[0], StereoSample::SILENCE);
 
         // Disconnect/reconnect and connect just the single-level instrument again.
         assert!(o.disconnect_from_main_mixer(gain_1_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_1_uid).is_ok());
-        assert!(o
-            .gather_audio()
-            .almost_equals(StereoSample::new_from_single_f64(0.1)));
+        o.gather_audio(&mut samples);
+        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.1)));
 
         // Instrument to gain should result in (instrument x gain).
         assert!(o.unpatch_all().is_ok());
         assert!(o
             .patch_chain_to_main_mixer(&[level_1_uid, gain_1_uid])
             .is_ok());
-        assert!(o
-            .gather_audio()
-            .almost_equals(StereoSample::new_from_single_f64(0.1 * 0.5)));
+        o.gather_audio(&mut samples);
+        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(0.1 * 0.5)));
 
         assert!(o.connect_to_main_mixer(level_2_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_3_uid).is_ok());
         assert!(o.connect_to_main_mixer(level_4_uid).is_ok());
-        assert!(o
-            .gather_audio()
-            .almost_equals(StereoSample::new_from_single_f64(
-                0.1 * 0.5 + 0.2 + 0.3 + 0.4
-            )));
+        o.gather_audio(&mut samples);
+        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(
+            0.1 * 0.5 + 0.2 + 0.3 + 0.4
+        )));
 
         // Same thing, but inverted order.
         assert!(o.unpatch_all().is_ok());
@@ -1011,15 +1052,14 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[level_1_uid, gain_1_uid])
             .is_ok());
-        assert!(o
-            .gather_audio()
-            .almost_equals(StereoSample::new_from_single_f64(
-                0.1 * 0.5 + 0.2 + 0.3 + 0.4
-            )));
+        o.gather_audio(&mut samples);
+        assert!(samples[0].almost_equals(StereoSample::new_from_single_f64(
+            0.1 * 0.5 + 0.2 + 0.3 + 0.4
+        )));
     }
 
     #[test]
-    fn test_orchestrator_gather_audio_2() {
+    fn gather_audio_2() {
         let mut o = Orchestrator::new_with(&ClockSettings::default());
         let piano_1_uid = o.add(
             None,
@@ -1061,7 +1101,9 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[piano_1_uid, low_pass_1_uid, gain_1_uid])
             .is_ok());
-        let sample_chain_1 = o.gather_audio();
+        let mut samples: [StereoSample; 1] = Default::default();
+        o.gather_audio(&mut samples);
+        let sample_chain_1 = samples[0];
         assert!(sample_chain_1.almost_equals(StereoSample::new_from_single_f64(0.1 * 0.2 * 0.4)));
 
         // Second chain.
@@ -1069,7 +1111,8 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[bassline_uid, gain_2_uid])
             .is_ok());
-        let sample_chain_2 = o.gather_audio();
+        o.gather_audio(&mut samples);
+        let sample_chain_2 = samples[0];
         assert!(sample_chain_2.almost_equals(StereoSample::new_from_single_f64(0.3 * 0.6)));
 
         // Third.
@@ -1077,13 +1120,15 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[synth_1_uid, gain_3_uid])
             .is_ok());
-        let sample_chain_3 = o.gather_audio();
+        o.gather_audio(&mut samples);
+        let sample_chain_3 = samples[0];
         assert_eq!(sample_chain_3, StereoSample::new_from_single_f64(0.5 * 0.8));
 
         // Fourth.
         assert!(o.unpatch_all().is_ok());
         assert!(o.patch_chain_to_main_mixer(&[drum_1_uid]).is_ok());
-        let sample_chain_4 = o.gather_audio();
+        o.gather_audio(&mut samples);
+        let sample_chain_4 = samples[0];
         assert!(sample_chain_4.almost_equals(StereoSample::new_from_single_f64(0.7)));
 
         // Now start over and successively add. This is first and second chains together.
@@ -1094,26 +1139,25 @@ pub mod tests {
         assert!(o
             .patch_chain_to_main_mixer(&[bassline_uid, gain_2_uid])
             .is_ok());
-        assert_eq!(o.gather_audio(), sample_chain_1 + sample_chain_2);
+        o.gather_audio(&mut samples);
+        assert_eq!(samples[0], sample_chain_1 + sample_chain_2);
 
         // Plus third.
         assert!(o
             .patch_chain_to_main_mixer(&[synth_1_uid, gain_3_uid])
             .is_ok());
-        assert_eq!(
-            o.gather_audio(),
-            sample_chain_1 + sample_chain_2 + sample_chain_3
-        );
+        o.gather_audio(&mut samples);
+        assert_eq!(samples[0], sample_chain_1 + sample_chain_2 + sample_chain_3);
 
         // Plus fourth.
         assert!(o.patch_chain_to_main_mixer(&[drum_1_uid]).is_ok());
-        assert!(o
-            .gather_audio()
+        o.gather_audio(&mut samples);
+        assert!(samples[0]
             .almost_equals(sample_chain_1 + sample_chain_2 + sample_chain_3 + sample_chain_4));
     }
 
     #[test]
-    fn test_orchestrator_gather_audio_with_branches() {
+    fn gather_audio_with_branches() {
         let mut o = Orchestrator::new_with(&ClockSettings::default());
         let instrument_1_uid = o.add(
             None,
@@ -1136,17 +1180,41 @@ pub mod tests {
         assert!(o.patch_chain_to_main_mixer(&[effect_1_uid]).is_ok());
         assert!(o.patch(instrument_2_uid, effect_1_uid).is_ok());
         assert!(o.patch(instrument_3_uid, effect_1_uid).is_ok());
-        assert!(o
-            .gather_audio()
-            .almost_equals(StereoSample::new_from_single_f64(0.1 + 0.5 * (0.3 + 0.5))));
+        let mut samples: [StereoSample; 1] = Default::default();
+        o.gather_audio(&mut samples);
+        assert!(
+            samples[0].almost_equals(StereoSample::new_from_single_f64(0.1 + 0.5 * (0.3 + 0.5)))
+        );
+    }
+
+    #[test]
+    fn run_buffer_size_can_be_odd_number() {
+        let clock_settings = ClockSettings::default();
+        let mut o = Orchestrator::new_with(&clock_settings);
+        let _ = o.add(
+            None,
+            BoxedEntity::Timer(Box::new(Timer::new_with(clock_settings.sample_rate(), 1.0))),
+        );
+
+        // Prime number
+        let mut sample_buffer = [StereoSample::SILENCE; 17];
+        let r = o.run(&mut sample_buffer);
+        assert!(r.is_ok());
+        assert_eq!(r.unwrap().len(), clock_settings.sample_rate());
     }
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_zero_timer() {
-        let mut clock = Clock::default();
-        let mut o = Orchestrator::new_with(clock.settings());
-        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(0.0))));
-        if let Ok(samples) = o.run(&mut clock) {
+        let mut o = Orchestrator::new_with(&ClockSettings::default());
+        let _ = o.add(
+            None,
+            BoxedEntity::Timer(Box::new(Timer::new_with(
+                ClockSettings::default().sample_rate(),
+                0.0,
+            ))),
+        );
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), 0);
         } else {
             panic!("run failed");
@@ -1155,14 +1223,17 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_short_timer() {
-        const SAMPLE_RATE: usize = 44100;
-        let mut clock = Clock::new_with_sample_rate(SAMPLE_RATE);
-        let mut o = Orchestrator::new_with(clock.settings());
+        let clock_settings = ClockSettings::default();
+        let mut o = Orchestrator::new_with(&clock_settings);
         let _ = o.add(
             None,
-            BoxedEntity::Timer(Box::new(Timer::new_with(1.0 / SAMPLE_RATE as f32))),
+            BoxedEntity::Timer(Box::new(Timer::new_with(
+                clock_settings.sample_rate(),
+                1.0 / clock_settings.sample_rate() as f32,
+            ))),
         );
-        if let Ok(samples) = o.run(&mut clock) {
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), 1);
         } else {
             panic!("run failed");
@@ -1171,10 +1242,14 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_ordinary_timer() {
-        let mut clock = Clock::new_with_sample_rate(44100);
+        let clock = Clock::new_with_sample_rate(44100);
         let mut o = Orchestrator::new_with(clock.settings());
-        let _ = o.add(None, BoxedEntity::Timer(Box::new(Timer::new_with(1.0))));
-        if let Ok(samples) = o.run(&mut clock) {
+        let _ = o.add(
+            None,
+            BoxedEntity::Timer(Box::new(Timer::new_with(clock.sample_rate(), 1.0))),
+        );
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), 44100);
         } else {
             panic!("run failed");

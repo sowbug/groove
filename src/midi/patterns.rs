@@ -2,7 +2,8 @@ use groove_macros::Uid;
 
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
-    traits::{HandlesMidi, HasUid, IsController, Resets, Response, Terminates, TicksWithMessages},
+    traits::{HandlesMidi, HasUid, IsController, Resets, Terminates, TicksWithMessages},
+    EntityMessage,
 };
 use std::fmt::Debug;
 
@@ -73,8 +74,8 @@ impl HandlesMidi for PatternManager {}
 impl Resets for PatternManager {}
 impl TicksWithMessages for PatternManager {
     #[allow(unused_variables)]
-    fn tick(&mut self, tick_count: usize) -> Response<crate::EntityMessage> {
-        Response::none()
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
+        (None, 0)
     }
 }
 impl PatternManager {

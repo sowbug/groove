@@ -230,6 +230,12 @@ impl Clock {
         self.update();
     }
 
+    pub fn tick_batch(&mut self, count: usize) {
+        self.was_reset = false;
+        self.samples += count;
+        self.update();
+    }
+
     fn seconds_for_sample(&self, sample: usize) -> f32 {
         sample as f32 / self.settings.sample_rate() as f32
     }

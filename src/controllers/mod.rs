@@ -7,13 +7,13 @@ use crate::{
     common::ParameterType,
     settings::{controllers::ControlPathSettings, patches::WaveformType},
     traits::{Generates, HandlesMidi, Resets, Ticks, TicksWithMessages},
-    ClockSettings, EntityMessage, Oscillator,
+    BipolarNormal, ClockSettings, EntityMessage, Oscillator,
 };
 use crate::{
     common::{F32ControlValue, SignalType},
     instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
     settings::controllers::ControlStep,
-    traits::{Controllable, HasUid, IsController, Response, Terminates},
+    traits::{Controllable, HasUid, IsController, Terminates},
 };
 use crate::{StereoSample, TimeSignature};
 use core::fmt::Debug;
@@ -129,7 +129,10 @@ impl ControlTrip {
 }
 impl Resets for ControlTrip {}
 impl TicksWithMessages for ControlTrip {
-    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+        if self.is_finished() {
+            return (None, 0);
+        }
         let mut v = Vec::default();
         for _ in 0..tick_count {
             self.temp_hack_clock.tick();
@@ -153,12 +156,14 @@ impl TicksWithMessages for ControlTrip {
                 }
             } {
                 //  our value has changed, so let's tell the world about that.
-                v.push(Response::single(EntityMessage::ControlF32(
-                    self.current_value as f32,
-                )));
+                v.push(EntityMessage::ControlF32(self.current_value as f32));
             }
         }
-        Response::batch(v)
+        if v.is_empty() {
+            (None, tick_count)
+        } else {
+            (Some(v), tick_count)
+        }
     }
 }
 
@@ -188,24 +193,15 @@ pub struct LfoController {
 impl IsController for LfoController {}
 impl Resets for LfoController {}
 impl TicksWithMessages for LfoController {
-    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
-        let mut v = Vec::default();
-        for _ in 0..tick_count {
-            // TODO: this might be a problem. If we batch up the ControlF32
-            // messages, they're all going to be processed at once, and a smooth
-            // transition will turn into lurching stairsteps. Think about this.
-            self.oscillator.tick(1);
-            v.push(Response::single(EntityMessage::ControlF32(
-                (self.oscillator.value() as f32 + 1.0) / 2.0, // TODO: make from() smart
-            )));
-        }
-        if v.is_empty() {
-            Response::none()
-        } else if v.len() == 1 {
-            v.pop().unwrap()
-        } else {
-            Response::batch(v)
-        }
+    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+        self.oscillator.tick(tick_count);
+        // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
+        (
+            Some(vec![EntityMessage::ControlF32(
+                BipolarNormal::from(self.oscillator.value()).value() as f32,
+            )]),
+            0,
+        )
     }
 }
 impl Terminates for LfoController {
@@ -218,14 +214,14 @@ impl Terminates for LfoController {
 impl HandlesMidi for LfoController {}
 impl LfoController {
     pub fn new_with(
-        sample_rate: usize,
+        clock_settings: &ClockSettings,
         waveform: WaveformType,
         frequency_hz: ParameterType,
     ) -> Self {
         Self {
             uid: Default::default(),
             oscillator: Oscillator::new_with_type_and_frequency(
-                sample_rate,
+                clock_settings.sample_rate(),
                 waveform,
                 frequency_hz as f32,
             ),
@@ -246,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_flat_step() {
-        let mut clock = Clock::default();
+        let clock = Clock::default();
         let step_vec = vec![
             ControlStep::Flat { value: 0.9 },
             ControlStep::Flat { value: 0.1 },
@@ -282,17 +278,18 @@ mod tests {
             &TestEffectControlParams::MyValue.to_string(),
         );
 
-        let _ = o.run(&mut clock);
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        let samples = o.run(&mut sample_buffer).unwrap();
 
-        let expected_final_sample =
+        let expected_sample_len =
             (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32).ceil()
                 as usize;
-        assert_eq!(clock.samples(), expected_final_sample);
+        assert_eq!(samples.len(), expected_sample_len);
     }
 
     #[test]
     fn test_slope_step() {
-        let mut clock = Clock::default();
+        let clock = Clock::default();
         let step_vec = vec![
             ControlStep::new_slope(0.0, 1.0),
             ControlStep::new_slope(1.0, 0.5),
@@ -325,11 +322,12 @@ mod tests {
             &TestInstrumentControlParams::FakeValue.to_string(),
         );
 
-        let _ = o.run(&mut clock);
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        let samples = o.run(&mut sample_buffer).unwrap();
 
-        let expected_final_sample =
+        let expected_sample_len =
             (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32).ceil()
                 as usize;
-        assert_eq!(clock.samples(), expected_final_sample);
+        assert_eq!(samples.len(), expected_sample_len);
     }
 }

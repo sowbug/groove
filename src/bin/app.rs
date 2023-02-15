@@ -10,7 +10,7 @@ use groove::{
     Gain, GrooveMessage, GrooveSubscription, LfoController, Limiter, MidiHandler, MidiHandlerEvent,
     MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Normal, Note,
     Orchestrator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, SimpleSynthesizer,
-    TestLfo, TestSynth, Timer, WelshSynth,
+    TestSynth, Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -540,7 +540,6 @@ impl GrooveApp {
             BoxedEntity::TestController(e) => self.test_controller_view(e),
             BoxedEntity::TestEffect(e) => self.test_effect_view(e),
             BoxedEntity::TestInstrument(e) => self.test_instrument_view(e),
-            BoxedEntity::TestLfo(e) => self.test_lfo_view(e),
             BoxedEntity::TestSynth(e) => self.test_synth_view(e),
             BoxedEntity::Timer(e) => self.timer_view(e),
             BoxedEntity::WelshSynth(e) => self.welsh_synth_view(e),
@@ -743,21 +742,6 @@ impl GrooveApp {
             type_name::<TestInstrument>(),
             GuiStuff::<EntityMessage>::container_text(
                 format!("Fake value: {}", e.fake_value()).as_str(),
-            )
-            .into(),
-        )
-    }
-
-    fn test_lfo_view(&self, e: &TestLfo) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<TestLfo>(),
-            GuiStuff::<EntityMessage>::container_text(
-                format!(
-                    "Frequency: {} current value: {}",
-                    e.frequency(),
-                    e.value().value()
-                )
-                .as_str(),
             )
             .into(),
         )

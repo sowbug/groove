@@ -112,7 +112,7 @@ impl SongSettings {
                 }
                 DeviceSettings::Controller(id, settings) => {
                     let (channel_in, _channel_out, entity) =
-                        settings.instantiate(sample_rate, clock_settings, load_only_test_entities);
+                        settings.instantiate(clock_settings, load_only_test_entities);
                     let uid = orchestrator.add(Some(id), entity);
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
@@ -292,7 +292,7 @@ impl SongSettings {
 #[cfg(test)]
 mod tests {
     use super::SongSettings;
-    use crate::{clock::Clock, IOHelper, Paths, StereoSample};
+    use crate::{IOHelper, Paths, StereoSample};
     use crossbeam::deque::Steal;
 
     #[test]
@@ -306,9 +306,9 @@ mod tests {
         let mut orchestrator = song_settings
             .instantiate(false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
-        let mut clock = Clock::new_with(orchestrator.clock_settings());
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
         let performance = orchestrator
-            .run_performance(&mut clock, false)
+            .run_performance(&mut sample_buffer, false)
             .unwrap_or_else(|err| panic!("performance failed: {:?}", err));
 
         assert!(

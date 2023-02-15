@@ -17,7 +17,7 @@ use crate::{
         Controllable, HandlesMidi, HasUid, IsController, IsEffect, IsInstrument, Terminates,
         TestController, TestEffect, TestInstrument,
     },
-    utils::{AudioSource, TestLfo, TestSynth, Timer},
+    utils::{AudioSource, TestSynth, Timer},
 };
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
@@ -52,7 +52,6 @@ boxed_entity_enum_and_common_crackers! {
     LfoController: LfoController,
     PatternManager: PatternManager,
     TestController: TestController,
-    TestLfo: TestLfo,
     Timer: Timer,
 
     // Effects
@@ -146,7 +145,6 @@ controller_crackers! {
     MidiTickSequencer,
     PatternManager,
     TestController,
-    TestLfo,
     Timer,
 }
 
@@ -243,7 +241,6 @@ handles_midi_crackers! {
     SimpleSynthesizer,
     TestController,
     TestInstrument,
-    TestLfo,
     TestSynth,
     Timer,
     WelshSynth,

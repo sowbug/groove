@@ -16,7 +16,10 @@ use enum_primitive_derive::Primitive;
 use groove_macros::Uid;
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
 pub use midly::MidiMessage;
-use midly::{live::LiveEvent, num::u4};
+use midly::{
+    live::LiveEvent,
+    num::{u4, u7},
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, time::Instant};
 use strum_macros::Display;
@@ -690,27 +693,28 @@ impl Terminates for MidiHandler {
     }
 }
 
+impl MidiUtils {
+    pub(crate) fn new_note_on(note: u8, vel: u8) -> MidiMessage {
+        MidiMessage::NoteOn {
+            key: u7::from(note),
+            vel: u7::from(vel),
+        }
+    }
+
+    pub(crate) fn new_note_off(note: u8, vel: u8) -> MidiMessage {
+        MidiMessage::NoteOff {
+            key: u7::from(note),
+            vel: u7::from(vel),
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
     use assert_approx_eq::assert_approx_eq;
-    use midly::num::u7;
 
     impl MidiUtils {
-        pub(crate) fn new_note_on(note: u8, vel: u8) -> MidiMessage {
-            MidiMessage::NoteOn {
-                key: u7::from(note),
-                vel: u7::from(vel),
-            }
-        }
-
-        pub(crate) fn new_note_off(note: u8, vel: u8) -> MidiMessage {
-            MidiMessage::NoteOff {
-                key: u7::from(note),
-                vel: u7::from(vel),
-            }
-        }
-
         pub fn note_on_c4() -> MidiMessage {
             Self::new_note_on(MidiNote::C4 as u8, 0)
         }

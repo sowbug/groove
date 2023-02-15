@@ -5,6 +5,7 @@ use crate::{
     messages::EntityMessage,
     midi::{MidiChannel, MidiUtils},
     settings::patches::WaveformType,
+    ClockSettings,
 };
 use groove_macros::Control;
 use midly::MidiMessage;
@@ -13,12 +14,17 @@ use std::fmt::Debug;
 use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
-/// An IsController creates events that drive other things in the system.
-/// Examples are sequencers, arpeggiators, and discrete LFOs. They get called on
-/// each time slice so that they can do work and send any needed messages. An
-/// IsController implements Terminates, which indicates that it's done emitting
-/// events (and, in the case of timers and sequencers, done waiting for other
-/// work in the system to complete).
+/// An IsController controls things in the system that implement Controllable.
+/// Examples are sequencers, arpeggiators, and discrete LFOs (as contrasted with
+/// LFOs that are integrated into other instruments).
+///
+/// An IsController implements Terminates, which indicates that it's done
+/// emitting events (and, in the case of timers and sequencers, done waiting for
+/// other work in the system to complete).
+///
+/// An IsController necessarily implements TicksWithMessages, rather than just
+/// Ticks, because messages are how controllers control other things in the
+/// system.
 pub trait IsController:
     TicksWithMessages + Terminates + HandlesMidi + HasUid + Send + Debug
 {
@@ -28,25 +34,17 @@ pub trait IsController:
 /// output. It does not get called unless there is audio input to provide to it
 /// (which can include silence, e.g., in the case of a muted instrument).
 ///
-/// IsEffects don't terminate in the Terminates sense. This might become an
-/// issue in the future, for example if a composition's end is determined by the
-/// amount of time it takes for an effect to finish processing inputs (e.g., a
-/// delay effect), and it turns out to be inconvenient for an IsController to
-/// track the end. In this case, we might add a Terminates bound for IsEffect.
-/// But right now I'm not sure that's the right solution.
+/// IsEffects don't implement Terminates. They process audio indefinitely, and
+/// don't have a sense of the length of the performance.
 pub trait IsEffect: TransformsAudio + Controllable + HasUid + Send + Debug {}
 
 /// An IsInstrument produces audio, usually upon request from MIDI or
-/// InController input. Like IsEffect, IsInstrument doesn't implement Terminates
+/// IsController input. Like IsEffect, IsInstrument doesn't implement Terminates
 /// because it continues to create audio as long as asked.
 pub trait IsInstrument:
     Generates<StereoSample> + Ticks + HandlesMidi + Controllable + HasUid + Send + Debug
 {
 }
-
-/// A future fourth trait might be named something like IsWidget or
-/// IsGuiElement. These exist only to interact with the user of a GUI app, but
-/// don't actually create or control audio.
 
 pub trait Generates<V>: Send + Debug + Ticks {
     /// The value for the current frame. Advance the frame by calling
@@ -59,6 +57,12 @@ pub trait Generates<V>: Send + Debug + Ticks {
     fn batch_values(&mut self, values: &mut [V]);
 }
 
+/// Something that is Controllable exposes a set of attributes, each with a text
+/// name, that IsControllers can change. If you're familiar with DAWs, this is
+/// typically called "automation."
+///
+/// The Controllable trait is more powerful than ordinary getters/setters
+/// because it allows runtime binding of an IsController to a Controllable.
 pub trait Controllable {
     #[allow(unused_variables)]
     fn control_index_for_name(&self, name: &str) -> usize {
@@ -70,13 +74,15 @@ pub trait Controllable {
     }
 }
 
+/// Takes standard MIDI messages. Implementers can ignore MidiChannel if it's
+/// not important, as the virtual cabling model tries to route only relevant
+/// traffic to individual devices.
 pub trait HandlesMidi {
     #[allow(unused_variables)]
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        //dbg!("Received message {:?} but no handler for it", &message);
         None
     }
 }
@@ -90,25 +96,33 @@ pub trait HasUid {
     fn set_uid(&mut self, uid: usize);
 }
 
+/// Something that Resets also either Ticks or TicksWithMessages. Since the
+/// Ticks family of traits don't get access to a global clock, they have to
+/// maintain internal clocks and trust that they'll be asked to tick exactly the
+/// same number of times as everyone else in the system. Resets::reset() ensures
+/// that everyone starts from the beginning at the same time, and that everyone
+/// agrees how long a tick lasts.
+///
+/// Sometimes we'll refer to a tick's "time slice" or "frame." These all mean
+/// the same thing.
 pub trait Resets {
     /// The entity should reset its internal state.
     ///
     /// The system will call reset() when the global sample rate changes, and
     /// whenever the global clock is reset. Since most entities that care about
     /// sample rate need to know it during construction, the system *won't* call
-    /// reset on entity construction; instead, entities can require the sample
-    /// rate as part of their new() functions, and if desired call reset()
-    /// within that function.
+    /// reset() on entity construction; entities can require the sample rate as
+    /// part of their new() functions, and if desired call reset() within that
+    /// function.
     #[allow(unused_variables)]
     fn reset(&mut self, sample_rate: usize) {}
 }
 
 pub trait Ticks: Resets + Send + Debug {
-    /// The entity should perform work for the current frame (or frames if
-    /// frame_count > 1). Under normal circumstances, successive tick()s
-    /// represent successive frames. Exceptions include, for example, restarting
-    /// a performance, which would reset the global clock, which the entity
-    /// learns about via reset().
+    /// The entity should perform work for the current frame or frames. Under
+    /// normal circumstances, successive tick()s represent successive frames.
+    /// Exceptions include, for example, restarting a performance, which would
+    /// reset the global clock, which the entity learns about via reset().
     ///
     /// Entities are responsible for tracking their own notion of time, which
     /// they should update during tick().
@@ -123,8 +137,12 @@ pub trait Ticks: Resets + Send + Debug {
 }
 
 pub trait TicksWithMessages: Resets + Send + Debug {
-    /// Similar to Ticks::tick() except it also returns a Response<EntityMessage>.
-    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage>;
+    /// Similar to Ticks::tick().
+    ///
+    /// Returns zero or more EntityMessages.
+    ///
+    /// Returns the number of requested ticks handled before terminating.
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize);
 }
 
 /// A TransformsAudio takes input audio, which is typically produced by
@@ -240,12 +258,13 @@ enum TestControllerAction {
     NoteOff,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TestController {
     uid: usize,
     midi_channel_out: MidiChannel,
 
-    temp_hack_clock: Clock,
+    clock_settings: ClockSettings,
+    clock: Clock,
 
     pub tempo: f32,
     is_enabled: bool,
@@ -257,55 +276,48 @@ pub struct TestController {
     pub time_unit: ClockTimeUnit,
 }
 impl IsController for TestController {}
-impl Resets for TestController {
-    fn reset(&mut self, sample_rate: usize) {
-        self.temp_hack_clock.set_sample_rate(sample_rate);
-        self.temp_hack_clock.reset();
-    }
-}
 impl TicksWithMessages for TestController {
-    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
         let mut v = Vec::default();
         for _ in 0..tick_count {
-            if !self.temp_hack_clock.was_reset() {
-                self.temp_hack_clock.tick();
-            }
+            self.clock.tick();
             // TODO self.check_values(clock);
-            v.push(match self.what_to_do(&self.temp_hack_clock) {
-                TestControllerAction::Nothing => Response::none(),
+
+            match self.what_to_do() {
+                TestControllerAction::Nothing => {}
                 TestControllerAction::NoteOn => {
                     // This is elegant, I hope. If the arpeggiator is
                     // disabled during play, and we were playing a note,
                     // then we still send the off note,
                     if self.is_enabled {
                         self.is_playing = true;
-                        Response::single(EntityMessage::Midi(
+                        v.push(EntityMessage::Midi(
                             self.midi_channel_out,
-                            MidiMessage::NoteOn {
-                                key: 60.into(),
-                                vel: 127.into(),
-                            },
-                        ))
-                    } else {
-                        Response::none()
+                            MidiUtils::new_note_on(60, 127),
+                        ));
                     }
                 }
                 TestControllerAction::NoteOff => {
                     if self.is_playing {
-                        Response::single(EntityMessage::Midi(
+                        v.push(EntityMessage::Midi(
                             self.midi_channel_out,
-                            MidiMessage::NoteOff {
-                                key: 60.into(),
-                                vel: 0.into(),
-                            },
-                        ))
-                    } else {
-                        Response::none()
+                            MidiUtils::new_note_off(60, 0),
+                        ));
                     }
                 }
-            });
+            }
         }
-        Response::batch(v)
+        if v.is_empty() {
+            (None, 0)
+        } else {
+            (Some(v), 0)
+        }
+    }
+}
+impl Resets for TestController {
+    fn reset(&mut self, sample_rate: usize) {
+        self.clock_settings.set_sample_rate(sample_rate);
+        self.clock = Clock::new_with(&self.clock_settings);
     }
 }
 impl Terminates for TestController {
@@ -338,14 +350,19 @@ impl HasUid for TestController {
     }
 }
 impl TestController {
-    pub fn new_with(midi_channel_out: MidiChannel) -> Self {
-        Self {
+    pub fn new_with(clock_settings: &ClockSettings, midi_channel_out: MidiChannel) -> Self {
+        Self::new_with_test_values(
+            clock_settings,
             midi_channel_out,
-            ..Default::default()
-        }
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        )
     }
 
     pub fn new_with_test_values(
+        clock_settings: &ClockSettings,
         midi_channel_out: MidiChannel,
         values: &[f32],
         checkpoint: f32,
@@ -353,18 +370,23 @@ impl TestController {
         time_unit: ClockTimeUnit,
     ) -> Self {
         Self {
+            uid: Default::default(),
             midi_channel_out,
+            clock_settings: clock_settings.clone(),
+            clock: Clock::new_with(&clock_settings),
+            tempo: Default::default(),
+            is_enabled: Default::default(),
+            is_playing: Default::default(),
             checkpoint_values: VecDeque::from(Vec::from(values)),
             checkpoint,
             checkpoint_delta,
             time_unit,
-            ..Default::default()
         }
     }
 
-    fn what_to_do(&self, clock: &Clock) -> TestControllerAction {
-        let beat_slice_start = clock.beats();
-        let beat_slice_end = clock.next_slice_in_beats();
+    fn what_to_do(&self) -> TestControllerAction {
+        let beat_slice_start = self.clock.beats();
+        let beat_slice_end = self.clock.next_slice_in_beats();
         let next_exact_beat = beat_slice_start.floor();
         let next_exact_half_beat = next_exact_beat + 0.5;
         if next_exact_beat >= beat_slice_start && next_exact_beat < beat_slice_end {

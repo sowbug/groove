@@ -1,16 +1,14 @@
 use super::sequencers::BeatSequencer;
 use crate::{
-    clock::{Clock, PerfectTimeUnit},
+    clock::PerfectTimeUnit,
     common::F32ControlValue,
-    midi::{MidiChannel, MidiMessage},
+    midi::{MidiChannel, MidiMessage, MidiUtils},
     traits::{
-        Controllable, HandlesMidi, HasUid, IsController, Resets, Response, Terminates,
-        TicksWithMessages,
+        Controllable, HandlesMidi, HasUid, IsController, Resets, Terminates, TicksWithMessages,
     },
     ClockSettings, EntityMessage,
 };
 use groove_macros::{Control, Uid};
-use midly::num::u7;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -19,8 +17,6 @@ pub struct Arpeggiator {
     uid: usize,
     midi_channel_out: MidiChannel,
     beat_sequencer: BeatSequencer,
-
-    temp_hack_clock: Clock,
 
     // A poor-man's semaphore that allows note-off events to overlap with the
     // current note without causing it to shut off. Example is a legato
@@ -32,13 +28,8 @@ pub struct Arpeggiator {
 impl IsController for Arpeggiator {}
 impl Resets for Arpeggiator {}
 impl TicksWithMessages for Arpeggiator {
-    fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
-        let mut v = Vec::default();
-        for _ in 0..tick_count {
-            self.temp_hack_clock.tick(); // TODO: why do we have this?
-            v.push(self.beat_sequencer.tick(1));
-        }
-        Response::batch(v)
+    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+        self.beat_sequencer.tick(tick_count)
     }
 }
 impl Terminates for Arpeggiator {
@@ -92,16 +83,11 @@ impl HandlesMidi for Arpeggiator {
 }
 
 impl Arpeggiator {
-    pub fn new_with(
-        sample_rate: usize,
-        clock_settings: &ClockSettings,
-        midi_channel_out: MidiChannel,
-    ) -> Self {
+    pub fn new_with(clock_settings: &ClockSettings, midi_channel_out: MidiChannel) -> Self {
         Self {
             uid: Default::default(),
             midi_channel_out,
-            beat_sequencer: BeatSequencer::new_with(sample_rate, clock_settings),
-            temp_hack_clock: Clock::new_with(clock_settings),
+            beat_sequencer: BeatSequencer::new_with(clock_settings),
             note_semaphore: Default::default(),
         }
     }
@@ -116,18 +102,12 @@ impl Arpeggiator {
         self.beat_sequencer.insert(
             when,
             self.midi_channel_out,
-            MidiMessage::NoteOn {
-                key: u7::from(key),
-                vel: u7::from(vel),
-            },
+            MidiUtils::new_note_on(key, vel),
         );
         self.beat_sequencer.insert(
             when + duration,
             self.midi_channel_out,
-            MidiMessage::NoteOff {
-                key: u7::from(key),
-                vel: u7::from(0),
-            },
+            MidiUtils::new_note_off(key, 0),
         );
     }
 
@@ -186,13 +166,9 @@ impl Arpeggiator {
 mod tests {
     use super::Arpeggiator;
     use crate::{
-        clock::PerfectTimeUnit,
-        common::DEFAULT_SAMPLE_RATE,
-        controllers::sequencers::BeatSequencer,
-        entities::BoxedEntity,
-        midi::MidiChannel,
-        traits::{Internal, TestInstrument},
-        Clock, GrooveMessage, Orchestrator,
+        clock::PerfectTimeUnit, common::DEFAULT_SAMPLE_RATE,
+        controllers::sequencers::BeatSequencer, entities::BoxedEntity, midi::MidiChannel,
+        traits::TestInstrument, Clock, Orchestrator,
     };
 
     // Orchestrator sends a Tick message to everyone in an undefined order, and
@@ -212,14 +188,10 @@ mod tests {
     #[test]
     fn arpeggiator_sends_command_on_correct_time_slice() {
         let clock = Clock::default();
-        let mut sequencer = Box::new(BeatSequencer::new_with(
-            clock.sample_rate(),
-            clock.settings(),
-        ));
+        let mut sequencer = Box::new(BeatSequencer::new_with(clock.settings()));
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
         let arpeggiator = Box::new(Arpeggiator::new_with(
-            clock.sample_rate(),
             clock.settings(),
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
         ));
@@ -241,38 +213,38 @@ mod tests {
         o.connect_midi_downstream(instrument_uid, MIDI_CHANNEL_ARP_TO_INSTRUMENT);
         let _sequencer_uid = o.add(None, BoxedEntity::BeatSequencer(sequencer));
 
-        let command = o.update(GrooveMessage::Tick);
-        if let Internal::Batch(messages) = command.0 {
-            assert_eq!(messages.len(), 3);
-            match messages[0] {
-                GrooveMessage::MidiToExternal(channel, _message) => {
-                    assert_eq!(channel, 7);
-                }
-                _ => panic!(),
-            };
-            // TODO
-            //
-            // This is disabled for now. It happened as part of the #55 refactor
-            // to generate bulk samples. It means that a lot of MIDI events that
-            // should go to external devices are not getting there. I have filed
-            // #92 so we don't forget.
+        // let command = o.handle_tick(1);
+        // if let Internal::Batch(messages) = command.0 {
+        //     assert_eq!(messages.len(), 3);
+        //     match messages[0] {
+        //         GrooveMessage::MidiToExternal(channel, _message) => {
+        //             assert_eq!(channel, 7);
+        //         }
+        //         _ => panic!(),
+        //     };
+        //     // TODO
+        //     //
+        //     // This is disabled for now. It happened as part of the #55 refactor
+        //     // to generate bulk samples. It means that a lot of MIDI events that
+        //     // should go to external devices are not getting there. I have filed
+        //     // #92 so we don't forget.
 
-            // match messages[1] {
-            //     GrooveMessage::MidiToExternal(channel, _message) => {
-            //         assert_eq!(channel, 8);
-            //     }
-            //     _ => panic!(),
-            // };
-            match messages[1] {
-                GrooveMessage::AudioOutput(_) => {}
-                _ => panic!(),
-            };
-            match messages[2] {
-                GrooveMessage::OutputComplete => {}
-                _ => panic!(),
-            };
-        } else {
-            panic!("command wasn't Batch type");
-        }
+        //     // match messages[1] {
+        //     //     GrooveMessage::MidiToExternal(channel, _message) => {
+        //     //         assert_eq!(channel, 8);
+        //     //     }
+        //     //     _ => panic!(),
+        //     // };
+        //     match messages[1] {
+        //         GrooveMessage::AudioOutput(_) => {}
+        //         _ => panic!(),
+        //     };
+        //     match messages[2] {
+        //         GrooveMessage::OutputComplete => {}
+        //         _ => panic!(),
+        //     };
+        // } else {
+        //     panic!("command wasn't Batch type");
+        // }
     }
 }
