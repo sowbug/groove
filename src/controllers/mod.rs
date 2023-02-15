@@ -6,7 +6,7 @@ use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit},
     common::ParameterType,
     settings::{controllers::ControlPathSettings, patches::WaveformType},
-    traits::{Generates, HandlesMidi, Resets, TicksWithMessages},
+    traits::{Generates, HandlesMidi, Resets, Ticks, TicksWithMessages},
     ClockSettings, EntityMessage, Oscillator,
 };
 use crate::{
@@ -193,6 +193,10 @@ impl TicksWithMessages for LfoController {
     fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
         let mut v = Vec::default();
         for _ in 0..tick_count {
+            // TODO: this might be a problem. If we batch up the ControlF32
+            // messages, they're all going to be processed at once, and a smooth
+            // transition will turn into lurching stairsteps. Think about this.
+            self.oscillator.tick(1);
             v.push(Response::single(EntityMessage::ControlF32(
                 (self.oscillator.value() as f32 + 1.0) / 2.0, // TODO: make from() smart
             )));
