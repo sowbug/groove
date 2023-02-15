@@ -942,7 +942,7 @@ mod tests {
                 routing: LfoRouting::Amplitude,
                 waveform: WaveformType::Sine,
                 frequency: 7.5,
-                depth: crate::settings::patches::LfoDepth::Pct(5.0),
+                depth: crate::settings::patches::LfoDepth::Pct(0.05),
             },
             glide: 0.0,
             unison: false,
@@ -1049,6 +1049,6 @@ mod tests {
         voice.enqueue_note_on(127);
         voice.handle_pending_note_events();
         voice.tick_envelopes();
-        write_sound(&mut voice, &mut clock, 5.0, 1.0, "voice_cello_c4");
+        write_sound(&mut voice, &mut clock, 5.0, 3.0, "voice_cello_c4");
     }
 }
