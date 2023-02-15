@@ -62,9 +62,6 @@ pub enum EntityMessage {
     /// the controller.
     ControlF32(f32),
 
-    /// Enable or disable the recipient.
-    Enable(bool),
-
     /// Wrapper for PatternMessages.
     PatternMessage(usize, PatternMessage),
 
@@ -77,9 +74,5 @@ pub enum EntityMessage {
     // GUI things.
     ExpandPressed,
     CollapsePressed,
-
-    // Temp things
-    MutePressed(bool),
-    EnablePressed(bool),
 }
 impl MessageBounds for EntityMessage {}

@@ -452,10 +452,7 @@ impl Orchestrator {
                         EntityMessage::ControlF32(value) => {
                             self.dispatch_control_f32(uid, value);
                         }
-                        EntityMessage::Enable(_) => todo!(),
                         EntityMessage::PatternMessage(_, _) => todo!(),
-                        EntityMessage::MutePressed(_) => todo!(),
-                        EntityMessage::EnablePressed(_) => todo!(),
                         _ => todo!(),
                     },
                     GrooveMessage::MidiFromExternal(channel, message) => {
