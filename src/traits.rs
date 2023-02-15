@@ -20,7 +20,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 /// events (and, in the case of timers and sequencers, done waiting for other
 /// work in the system to complete).
 pub trait IsController:
-    Updateable + TicksWithMessages + Terminates + HandlesMidi + HasUid + Send + Debug
+    TicksWithMessages + Terminates + HandlesMidi + HasUid + Send + Debug
 {
 }
 
@@ -57,18 +57,6 @@ pub trait Generates<V>: Send + Debug + Ticks {
     /// typically call tick() internally. If you don't want this, then call
     /// value() on your own.
     fn batch_values(&mut self, values: &mut [V]);
-}
-
-/// An Updateable accepts new information through update() (i.e., Messages) or
-/// control parameters.
-///
-/// Methods and messages are isomorphic, and everything could have been done
-/// through update(), but sometimes a direct method is the right solution.
-pub trait Updateable {
-    #[allow(unused_variables)]
-    fn update(&mut self, clock: &Clock, message: EntityMessage) -> Response<EntityMessage> {
-        Response::none()
-    }
 }
 
 pub trait Controllable {
@@ -269,7 +257,6 @@ pub struct TestController {
     pub time_unit: ClockTimeUnit,
 }
 impl IsController for TestController {}
-impl Updateable for TestController {}
 impl Resets for TestController {
     fn reset(&mut self, sample_rate: usize) {
         self.temp_hack_clock.set_sample_rate(sample_rate);

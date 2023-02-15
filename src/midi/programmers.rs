@@ -444,7 +444,7 @@ mod tests {
         // Rewind clock to start.
         clock.reset();
         // This shouldn't explode.
-        let _ = o.update(&clock, GrooveMessage::Tick);
+        let _ = o.update(GrooveMessage::Tick);
 
         // Only the first time slice's events should have fired.
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
@@ -452,7 +452,7 @@ mod tests {
         // Fast-forward to the end. Nothing else should fire. This is because
         // any tick() should do work for just the slice specified.
         clock.debug_set_seconds(10.0);
-        let _ = o.update(&clock, GrooveMessage::Tick);
+        let _ = o.update(GrooveMessage::Tick);
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
 
         // Start test recorder over again.

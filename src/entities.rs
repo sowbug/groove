@@ -15,7 +15,7 @@ use crate::{
     midi::patterns::PatternManager,
     traits::{
         Controllable, HandlesMidi, HasUid, IsController, IsEffect, IsInstrument, Terminates,
-        TestController, TestEffect, TestInstrument, Updateable,
+        TestController, TestEffect, TestInstrument,
     },
     utils::{AudioSource, TestLfo, TestSynth, Timer},
 };
@@ -208,38 +208,6 @@ instrument_crackers! {
     TestInstrument,
     TestSynth,
     WelshSynth,
-}
-
-macro_rules! updateable_crackers {
-    ($($type:ident,)*) => {
-        impl BoxedEntity {
-            pub fn as_updateable(&self) -> Option<&dyn Updateable> {
-                match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
-                    _ => None
-                }
-            }
-            pub fn as_updateable_mut(&mut self) -> Option<&mut dyn Updateable> {
-                match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
-                    _ => None
-                }
-            }
-        }
-    };
-}
-
-// Everything in controllers and instruments (and effects while removing the trait)
-updateable_crackers! {
-    Arpeggiator,
-    BeatSequencer,
-    ControlTrip,
-    LfoController,
-    MidiTickSequencer,
-    PatternManager,
-    TestController,
-    TestLfo,
-    Timer,
 }
 
 macro_rules! handles_midi_crackers {

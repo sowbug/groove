@@ -8,7 +8,7 @@ use crate::{
     },
     traits::{
         Controllable, Generates, HandlesMidi, HasUid, IsController, IsInstrument, Resets, Response,
-        Terminates, Ticks, TicksWithMessages, Updateable,
+        Terminates, Ticks, TicksWithMessages,
     },
     BipolarNormal, EntityMessage, StereoSample,
 };
@@ -69,7 +69,6 @@ impl Terminates for Timer {
     }
 }
 impl IsController for Timer {}
-impl Updateable for Timer {}
 impl HandlesMidi for Timer {}
 impl Resets for Timer {
     fn reset(&mut self, sample_rate: usize) {
@@ -133,7 +132,6 @@ impl Trigger {
         }
     }
 }
-impl Updateable for Trigger {}
 impl HandlesMidi for Trigger {}
 
 #[derive(Display, Debug, EnumString)]
@@ -328,7 +326,6 @@ pub struct TestLfo {
     oscillator: Oscillator,
 }
 impl IsController for TestLfo {}
-impl Updateable for TestLfo {}
 impl Terminates for TestLfo {
     // This hardcoded value is OK because an LFO doesn't have a defined
     // beginning/end. It just keeps going. Yet it truly is a controller.

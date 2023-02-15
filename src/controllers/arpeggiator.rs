@@ -5,7 +5,7 @@ use crate::{
     midi::{MidiChannel, MidiMessage},
     traits::{
         Controllable, HandlesMidi, HasUid, IsController, Resets, Response, Terminates,
-        TicksWithMessages, Updateable,
+        TicksWithMessages,
     },
     ClockSettings, EntityMessage,
 };
@@ -30,7 +30,6 @@ pub struct Arpeggiator {
     note_semaphore: i16,
 }
 impl IsController for Arpeggiator {}
-impl Updateable for Arpeggiator {}
 impl Resets for Arpeggiator {}
 impl TicksWithMessages for Arpeggiator {
     fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
@@ -242,7 +241,7 @@ mod tests {
         o.connect_midi_downstream(instrument_uid, MIDI_CHANNEL_ARP_TO_INSTRUMENT);
         let _sequencer_uid = o.add(None, BoxedEntity::BeatSequencer(sequencer));
 
-        let command = o.update(&clock, GrooveMessage::Tick);
+        let command = o.update(GrooveMessage::Tick);
         if let Internal::Batch(messages) = command.0 {
             assert_eq!(messages.len(), 3);
             match messages[0] {

@@ -13,7 +13,7 @@ use crate::{
     common::{F32ControlValue, SignalType},
     instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
     settings::controllers::ControlStep,
-    traits::{Controllable, HasUid, IsController, Response, Terminates, Updateable},
+    traits::{Controllable, HasUid, IsController, Response, Terminates},
 };
 use crate::{StereoSample, TimeSignature};
 use core::fmt::Debug;
@@ -127,7 +127,6 @@ impl ControlTrip {
         self.is_finished = false;
     }
 }
-impl Updateable for ControlTrip {}
 impl Resets for ControlTrip {}
 impl TicksWithMessages for ControlTrip {
     fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
@@ -187,7 +186,6 @@ pub struct LfoController {
     oscillator: Oscillator,
 }
 impl IsController for LfoController {}
-impl Updateable for LfoController {}
 impl Resets for LfoController {}
 impl TicksWithMessages for LfoController {
     fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {

@@ -1,10 +1,7 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
     midi::{MidiChannel, MidiMessage},
-    traits::{
-        HandlesMidi, HasUid, IsController, Resets, Response, Terminates, TicksWithMessages,
-        Updateable,
-    },
+    traits::{HandlesMidi, HasUid, IsController, Resets, Response, Terminates, TicksWithMessages},
     ClockSettings, EntityMessage,
 };
 use btreemultimap::BTreeMultiMap;
@@ -152,7 +149,6 @@ impl BeatSequencer {
         )
     }
 }
-impl Updateable for BeatSequencer {}
 impl Resets for BeatSequencer {}
 impl TicksWithMessages for BeatSequencer {
     fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {
@@ -246,8 +242,6 @@ impl MidiTickSequencer {
         self.is_disabled = !is_enabled;
     }
 }
-
-impl Updateable for MidiTickSequencer {}
 impl Resets for MidiTickSequencer {}
 impl TicksWithMessages for MidiTickSequencer {
     fn tick(&mut self, tick_count: usize) -> Response<EntityMessage> {

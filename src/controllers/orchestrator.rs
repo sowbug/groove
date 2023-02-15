@@ -331,20 +331,6 @@ impl Orchestrator {
         sum
     }
 
-    fn send_unhandled_entity_message(
-        &mut self,
-        clock: &Clock,
-        uid: usize,
-        message: EntityMessage,
-    ) -> Response<EntityMessage> {
-        if let Some(target) = self.store.get_mut(uid) {
-            if let Some(target) = target.as_updateable_mut() {
-                return target.update(clock, message);
-            }
-        }
-        Response::none()
-    }
-
     #[allow(unused_variables)]
     pub(crate) fn connect_midi_upstream(&self, source_uid: usize) {}
 
@@ -435,11 +421,7 @@ impl Orchestrator {
         r
     }
 
-    pub(crate) fn update(
-        &mut self,
-        clock: &Clock,
-        message: GrooveMessage,
-    ) -> Response<GrooveMessage> {
+    pub(crate) fn update(&mut self, message: GrooveMessage) -> Response<GrooveMessage> {
         let mut unhandled_commands = Vec::new();
         let mut commands = Vec::new();
         commands.push(Response::single(message.clone()));
@@ -475,11 +457,7 @@ impl Orchestrator {
                         EntityMessage::PatternMessage(_, _) => todo!(),
                         EntityMessage::MutePressed(_) => todo!(),
                         EntityMessage::EnablePressed(_) => todo!(),
-                        _ => {
-                            // EntityMessage::Tick
-                            commands
-                                .push(self.dispatch_and_wrap_entity_message(clock, uid, message));
-                        }
+                        _ => todo!(),
                     },
                     GrooveMessage::MidiFromExternal(channel, message) => {
                         self.broadcast_midi_messages(&(vec![(channel, message)]));
@@ -538,18 +516,6 @@ impl Orchestrator {
                     }
                     v
                 }),
-        )
-    }
-
-    fn dispatch_and_wrap_entity_message(
-        &mut self,
-        clock: &Clock,
-        uid: usize,
-        message: EntityMessage,
-    ) -> Response<GrooveMessage> {
-        Self::entity_command_to_groove_command(
-            uid,
-            self.send_unhandled_entity_message(clock, uid, message),
         )
     }
 
@@ -671,7 +637,7 @@ impl Orchestrator {
     pub fn run(&mut self, clock: &mut Clock) -> anyhow::Result<Vec<StereoSample>> {
         let mut samples = Vec::<StereoSample>::new();
         loop {
-            let command = self.update(clock, GrooveMessage::Tick);
+            let command = self.update(GrooveMessage::Tick);
             let (sample, done) = Self::peek_command(&command);
             clock.tick();
             if done {
@@ -693,7 +659,7 @@ impl Orchestrator {
         let mut next_progress_indicator: usize = progress_indicator_quantum;
         clock.reset();
         loop {
-            let command = self.update(clock, GrooveMessage::Tick);
+            let command = self.update(GrooveMessage::Tick);
             let (sample, done) = Orchestrator::peek_command(&command);
             if next_progress_indicator <= clock.samples() {
                 if !quiet {

@@ -185,7 +185,7 @@ impl Runner {
             // send_pending_messages().
             while let Some(message) = messages.pop() {
                 let response = if let Ok(mut o) = self.orchestrator.lock() {
-                    o.update(&self.clock, message)
+                    o.update(message)
                 } else {
                     Response::none()
                 };
@@ -197,7 +197,7 @@ impl Runner {
                 // Send Tick to Orchestrator so it can do the bulk of its work for
                 // the loop.
                 let response = if let Ok(mut o) = self.orchestrator.lock() {
-                    o.update(&self.clock, GrooveMessage::Tick)
+                    o.update(GrooveMessage::Tick)
                 } else {
                     Response::none()
                 };
