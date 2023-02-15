@@ -1,7 +1,7 @@
 use crate::{
     common::{F32ControlValue, SignalType},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
-    traits::{Controllable, Generates, Ticks, Resets},
+    traits::{Controllable, Generates, Resets, Ticks},
     BipolarNormal,
 };
 use groove_macros::Control;
