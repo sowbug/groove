@@ -35,7 +35,8 @@ pub mod traits;
 
 // https://stackoverflow.com/a/65972328/344467
 pub fn app_version() -> &'static str {
-    option_env!("PROJECT_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
+    option_env!("GIT_DESCRIBE")
+        .unwrap_or(option_env!("GIT_REV_PARSE").unwrap_or(env!("CARGO_PKG_VERSION")))
 }
 
 pub(crate) mod clock;
