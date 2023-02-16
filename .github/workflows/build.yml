@@ -35,7 +35,7 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
-      # Set up the build machine
+        # Set up the build machine
       - name: Install Linux x86_64 build dependencies
         run: sudo apt -qq update; sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev gcc
         if: startsWith(matrix.os, 'ubuntu')
@@ -49,16 +49,18 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
         # Get the source
-      - uses: actions/checkout@v3
+      - name: Check out source
+        uses: actions/checkout@v3
 
-        # Build debug
-      - run: cargo build --target ${{ matrix.target }}
+        # Build and test
+      - name: Build debug
+        run: cargo build --target ${{ matrix.target }}
+      - name: Build and test release
+        run: cargo test --release --target ${{ matrix.target }}
 
-        # Build and test release
-      - run: cargo test --release --target ${{ matrix.target }}
-
-        # Upload artifacts
-      - uses: actions/upload-artifact@v3
+        # Upload build products
+      - name: Upload test suite artifacts
+        uses: actions/upload-artifact@v3
         with:
           name: "perf-output-${{ matrix.target }}-${{github.sha}}"
           path: |
