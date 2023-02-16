@@ -748,7 +748,7 @@ impl HandlesMidi for WelshSynth {
                 }
                 None
             }
-            _ => self.inner_synth.handle_midi_message(&message),
+            _ => self.inner_synth.handle_midi_message(message),
         }
     }
 }

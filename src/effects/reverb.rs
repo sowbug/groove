@@ -1,7 +1,6 @@
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use crate::{
     common::F32ControlValue,
-    common::Sample,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
@@ -42,10 +41,8 @@ impl TransformsAudio for Reverb {
             + self.recirc_delay_lines[2].pop_output(input_attenuated)
             + self.recirc_delay_lines[3].pop_output(input_attenuated);
         let adl_0_out = self.allpass_delay_lines[0].pop_output(recirc_output);
-        Sample::from(
-            self.allpass_delay_lines[1].pop_output(adl_0_out) * self.wet_dry_mix
-                + input_sample * (1.0 - self.wet_dry_mix),
-        )
+        self.allpass_delay_lines[1].pop_output(adl_0_out) * self.wet_dry_mix
+            + input_sample * (1.0 - self.wet_dry_mix)
     }
 }
 impl Reverb {

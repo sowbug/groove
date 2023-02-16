@@ -425,7 +425,7 @@ impl Orchestrator {
     pub(crate) fn update(&mut self, message: GrooveMessage) -> Response<GrooveMessage> {
         let mut unhandled_commands = Vec::new();
         let mut commands = Vec::new();
-        commands.push(Response::single(message.clone()));
+        commands.push(Response::single(message));
         while let Some(command) = commands.pop() {
             let mut messages = Vec::new();
             match command.0 {
@@ -445,7 +445,7 @@ impl Orchestrator {
                             unhandled_commands.push(Response::single(
                                 GrooveMessage::MidiToExternal(channel, message),
                             ));
-                            self.broadcast_midi_messages(&(vec![(channel, message)]));
+                            self.broadcast_midi_messages(&[(channel, message)]);
                         }
                         EntityMessage::ControlF32(value) => {
                             self.dispatch_control_f32(uid, value);
@@ -454,7 +454,7 @@ impl Orchestrator {
                         _ => todo!(),
                     },
                     GrooveMessage::MidiFromExternal(channel, message) => {
-                        self.broadcast_midi_messages(&(vec![(channel, message)]));
+                        self.broadcast_midi_messages(&[(channel, message)]);
                     }
                     GrooveMessage::MidiToExternal(_, _) => {
                         panic!("Orchestrator should not handle MidiToExternal");
@@ -561,10 +561,10 @@ impl Orchestrator {
         let midi_messages_in_response = receiver_uids.iter().fold(
             Vec::new(),
             |mut v: Vec<(MidiChannel, MidiMessage)>, uid: &usize| {
-                let uid = uid.clone();
+                let uid = *uid;
                 if let Some(e) = self.store.get_mut(uid) {
                     if let Some(e) = e.as_handles_midi_mut() {
-                        if let Some(messages) = e.handle_midi_message(&message) {
+                        if let Some(messages) = e.handle_midi_message(message) {
                             v.extend(messages);
                         }
                     }
@@ -674,14 +674,12 @@ impl Orchestrator {
             if ticks_completed < samples.len() {
                 break;
             }
-            let mut i = 0;
-            for sample in samples.iter() {
+            for (i, sample) in samples.iter().enumerate() {
                 if i < ticks_completed {
                     performance.worker.push(*sample);
                 } else {
                     break;
                 }
-                i += 1;
             }
         }
         if !quiet {

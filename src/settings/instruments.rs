@@ -115,7 +115,7 @@ impl InstrumentSettings {
                 filename,
             } => (
                 *midi_input_channel,
-                BoxedEntity::Sampler(Box::new(Sampler::new_from_file(&filename))),
+                BoxedEntity::Sampler(Box::new(Sampler::new_from_file(filename))),
             ),
             InstrumentSettings::FmSynthesizer {
                 midi_input_channel,

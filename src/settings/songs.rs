@@ -164,7 +164,7 @@ impl SongSettings {
             let target_param_name = control.target.param.as_str();
 
             let controller_uid;
-            if let Some(uid) = orchestrator.store().get_uid(&source_uvid) {
+            if let Some(uid) = orchestrator.store().get_uid(source_uvid) {
                 controller_uid = uid;
             } else {
                 eprintln!(
@@ -174,7 +174,7 @@ impl SongSettings {
                 continue;
             }
             let target_uid;
-            if let Some(uid) = orchestrator.store().get_uid(&target_uvid) {
+            if let Some(uid) = orchestrator.store().get_uid(target_uvid) {
                 target_uid = uid;
             } else {
                 eprintln!(
@@ -183,7 +183,7 @@ impl SongSettings {
                 );
                 continue;
             }
-            let result = orchestrator.link_control(controller_uid, target_uid, &target_param_name);
+            let result = orchestrator.link_control(controller_uid, target_uid, target_param_name);
             if let Err(error_text) = result {
                 eprintln!(
                     "Warning: skipping automation ID {} because of error '{}'",

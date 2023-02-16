@@ -152,14 +152,12 @@ impl Runner {
 
     fn dispatch_samples(&mut self, samples: &[StereoSample], sample_count: usize) {
         if let Some(output) = self.audio_output.as_mut() {
-            let mut i = 0;
-            for sample in samples {
+            for (i, sample) in samples.iter().enumerate() {
                 if i < sample_count {
                     let _ = output.push(*sample);
                 } else {
                     break;
                 }
-                i += 1;
             }
         }
     }

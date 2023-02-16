@@ -142,10 +142,7 @@ impl StereoSample {
     pub const MIN: StereoSample = StereoSample(Sample::MIN, Sample::MIN);
 
     pub fn new_from_f64(left: SampleType, right: SampleType) -> Self {
-        Self {
-            0: Sample(left),
-            1: Sample(right),
-        }
+        Self(Sample(left), Sample(right))
     }
 
     pub fn new_from_single_f64(value: SampleType) -> Self {
@@ -167,16 +164,9 @@ impl AddAssign for StereoSample {
 }
 impl Sum for StereoSample {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(
-            Self {
-                0: Sample::SILENCE,
-                1: Sample::SILENCE,
-            },
-            |a, b| Self {
-                0: a.0 + b.0,
-                1: a.1 + b.1,
-            },
-        )
+        iter.fold(Self(Sample::SILENCE, Sample::SILENCE), |a, b| {
+            Self(a.0 + b.0, a.1 + b.1)
+        })
     }
 }
 impl From<Sample> for StereoSample {
@@ -302,12 +292,12 @@ impl TimeUnit {
 }
 impl From<f64> for TimeUnit {
     fn from(value: f64) -> Self {
-        Self { 0: value }
+        Self(value)
     }
 }
 impl From<f32> for TimeUnit {
     fn from(value: f32) -> Self {
-        Self { 0: value as f64 }
+        Self(value as f64)
     }
 }
 impl Add<f64> for TimeUnit {

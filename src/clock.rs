@@ -267,11 +267,9 @@ impl Ticks for Clock {
             // loop can tick() us at the beginning, See
             // https://github.com/sowbug/groove/issues/84 for discussion.
             self.was_reset = false;
-        } else {
-            if tick_count != 0 {
-                self.samples += tick_count;
-                self.update();
-            }
+        } else if tick_count != 0 {
+            self.samples += tick_count;
+            self.update();
         }
     }
 }

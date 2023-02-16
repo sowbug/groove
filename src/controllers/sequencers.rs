@@ -104,7 +104,7 @@ impl BeatSequencer {
             let channel = *on_note.1;
             v.push(EntityMessage::Midi(
                 channel,
-                MidiUtils::new_note_off(note.into(), 0.into()),
+                MidiUtils::new_note_off(note.into(), 0),
             ));
         }
         v
@@ -259,9 +259,9 @@ impl TicksWithMessages for MidiTickSequencer {
             return (None, 0);
         }
         let mut v = Vec::default();
-        let this_instant = MidiTicks(self.temp_hack_clock.midi_ticks().into());
+        let this_instant = MidiTicks(self.temp_hack_clock.midi_ticks());
         self.temp_hack_clock.tick_batch(tick_count);
-        self.next_instant = MidiTicks(self.temp_hack_clock.midi_ticks().into());
+        self.next_instant = MidiTicks(self.temp_hack_clock.midi_ticks());
 
         if self.is_enabled() {
             // If the last instant marks a new interval, then we want to include

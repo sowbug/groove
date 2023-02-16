@@ -158,7 +158,7 @@ impl EnvelopeGenerator {
 
     pub(crate) fn new_with(sample_rate: usize, envelope_settings: &EnvelopeSettings) -> Self {
         Self {
-            settings: envelope_settings.clone(),
+            settings: *envelope_settings,
             sample_rate: sample_rate as f64,
             state: EnvelopeGeneratorState::Idle,
             ..Default::default()
@@ -196,6 +196,7 @@ impl EnvelopeGenerator {
     }
 
     fn has_reached_target(&mut self) -> bool {
+        #[deny(clippy::if_same_then_else)]
         let has_hit_target = if self.delta == 0.0 {
             // This is probably a degenerate case, but we don't want to be stuck
             // forever in the current state.
@@ -342,7 +343,7 @@ impl EnvelopeGenerator {
             };
             self.time_target = self.time + duration;
             self.delta = if duration != TimeUnit::zero() {
-                range / (duration.0 * self.sample_rate + fast_reaction_extra_frame) as f64
+                range / (duration.0 * self.sample_rate + fast_reaction_extra_frame)
             } else {
                 0.0
             };
@@ -486,7 +487,7 @@ impl SteppedEnvelope {
                 EnvelopeFunction::Logarithmic => {
                     (percentage_complete.log(10000.0) * 2.0 + 1.0).clamp(0.0, 1.0)
                 }
-                EnvelopeFunction::Exponential => 100.0f64.powf(percentage_complete as f64) / 100.0,
+                EnvelopeFunction::Exponential => 100.0f64.powf(percentage_complete) / 100.0,
             }
         };
         let mut value = step.start_value + total_interval_value_delta * multiplier;

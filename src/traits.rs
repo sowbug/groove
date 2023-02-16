@@ -372,7 +372,7 @@ impl TestController {
             uid: Default::default(),
             midi_channel_out,
             clock_settings: clock_settings.clone(),
-            clock: Clock::new_with(&clock_settings),
+            clock: Clock::new_with(clock_settings),
             tempo: Default::default(),
             is_enabled: Default::default(),
             is_playing: Default::default(),
