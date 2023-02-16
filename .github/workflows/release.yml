@@ -18,20 +18,30 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - run: sudo apt -qq update
+        # Set up the build machine
+      - name: Install Linux x86_64 build dependencies
+        run: sudo apt -qq update; sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev gcc
         if: startsWith(matrix.os, 'ubuntu')
-      - run: sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev
-        if: startsWith(matrix.os, 'ubuntu')
-
-      - uses: actions/checkout@master
       - name: Install latest Rust nightly
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
           target: ${{ matrix.target }}
-      - run: cargo build --release
-      - run: cargo test --release
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+        # Get the source
+      - name: Check out source
+        uses: actions/checkout@v3
+
+        # Build and test
+      - name: Build release
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: Test release
+        run: cargo test --release --target ${{ matrix.target }}
+
+        # Upload build products
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -39,7 +49,9 @@ jobs:
           path: |
             target/release/groove-cli*
             target/release/groove-gui*
-      - uses: taiki-e/upload-rust-binary-action@v1
+            perf-output.txt
+      - name: Upload binaries
+        uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: groove-gui,groove-cli
           include: README.md,LICENSE.txt,assets,projects
