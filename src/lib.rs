@@ -33,16 +33,9 @@ pub use crate::{
 pub mod gui;
 pub mod traits;
 
-// https://stackoverflow.com/a/49502807/344467
-pub const REF: &str = include_str!("../.git/HEAD");
-pub const REF_MAIN: &str = include_str!("../.git/refs/heads/main");
-pub const REF_MAIN_TEST: &str = "ref: refs/heads/main\n";
-pub fn git_hash() -> &'static str {
-    if REF == REF_MAIN_TEST {
-        REF_MAIN
-    } else {
-        REF
-    }
+// https://stackoverflow.com/a/65972328/344467
+pub fn app_version() -> &'static str {
+    option_env!("PROJECT_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
 }
 
 pub(crate) mod clock;

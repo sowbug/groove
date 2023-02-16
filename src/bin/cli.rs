@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use clap::Parser;
-use groove::{git_hash, ClockSettings, IOHelper, Orchestrator, StereoSample};
+use groove::{app_version, ClockSettings, IOHelper, Orchestrator, StereoSample};
 use regex::Regex;
 use std::time::Instant;
 //use groove::ScriptEngine;
@@ -43,9 +43,8 @@ fn main() -> anyhow::Result<()> {
     // so that we can reproduce them when the code later changes.
     if args.version {
         println!(
-            "groove-cli {} ({:.8})",
-            env!("CARGO_PKG_VERSION"),
-            git_hash()
+            "groove-cli {}",
+            app_version()
         );
         return Ok(());
     }

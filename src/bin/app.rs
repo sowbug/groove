@@ -3,7 +3,7 @@
 mod gui;
 
 use groove::{
-    git_hash,
+    app_version,
     gui::{GrooveEvent, GrooveInput},
     traits::{HasUid, TestController, TestEffect, TestInstrument},
     Arpeggiator, AudioSource, BeatSequencer, BiQuadFilter, Bitcrusher, BoxedEntity, Chorus, Clock,
@@ -659,12 +659,7 @@ impl GrooveApp {
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::FillPortion(1)),
                 container(self.clock_view()).width(Length::FillPortion(1)),
-                container(text(format!(
-                    "{} ({:.8})",
-                    env!("CARGO_PKG_VERSION"),
-                    git_hash()
-                )))
-                .align_x(alignment::Horizontal::Right)
+                container(text(app_version())).align_x(alignment::Horizontal::Right)
             ]
             .padding(8)
             .spacing(4)

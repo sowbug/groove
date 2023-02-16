@@ -292,7 +292,7 @@ impl SongSettings {
 #[cfg(test)]
 mod tests {
     use super::SongSettings;
-    use crate::git_hash;
+    use crate::app_version;
     use crate::{IOHelper, Paths, StereoSample};
     use crossbeam::deque::Steal;
     use std::fs::File;
@@ -364,14 +364,12 @@ mod tests {
         let mut file = File::create("perf-output.txt").unwrap();
         let output = format!(
             "Version    : {}\n\
-Git hash   : {:.8}\n\
 \n\
 Elapsed    : {:0.3}s\n\
 Frames     : {}\n\
 Frames/msec: {:.2?} (goal >{:.2?})\n\
 usec/frame : {:.2?} (goal <{:.2?})",
-            env!("CARGO_PKG_VERSION"),
-            git_hash(),
+            app_version(),
             elapsed.as_secs_f32(),
             frame_count,
             frame_count as f32 / start_instant.elapsed().as_millis() as f32,
