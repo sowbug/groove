@@ -23,13 +23,6 @@ jobs:
         run: sudo apt -qq update; sudo apt -y install pkg-config libfontconfig-dev librust-alsa-sys-dev gcc
         if: startsWith(matrix.os, 'ubuntu')
 
-        # This is needed because of a terrible hack I'm using to insert the git hash
-        # into the binary. https://stackoverflow.com/a/49502807/344467
-        # GitHub uses git version > 2.39.1, so this config should be recognized (2.28+).
-      - name: Configure git to use 'main' as name for initial branch
-        run: git config --global init.defaultBranch main
- 
-      - uses: actions/checkout@master
       - name: Install latest Rust nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -40,6 +33,12 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
         # Get the source
+      - name: Configure git to use 'main' as name for initial branch
+        # This is needed because of a terrible hack I'm using to insert the git
+        # hash into the binary. https://stackoverflow.com/a/49502807/344467
+        # GitHub uses git version > 2.39.1, so this config should be recognized
+        # (2.28+).
+        run: git config --global init.defaultBranch main 
       - name: Check out source
         uses: actions/checkout@v3
 
