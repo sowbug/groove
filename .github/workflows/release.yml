@@ -44,7 +44,7 @@ jobs:
         # https://stackoverflow.com/a/65972328/344467
         run: |
           echo 'PROJECT_VERSION<<QQEOFQQ' >> $GITHUB_ENV
-          git rev-parse --short HEAD      >> $GITHUB_ENV
+          git describe --tags             >> $GITHUB_ENV
           echo 'QQEOFQQ'                  >> $GITHUB_ENV
       - name: Build release
         run: cargo build --release --target ${{ matrix.target }}
@@ -89,7 +89,7 @@ jobs:
         # https://stackoverflow.com/a/65972328/344467
         run: |
           echo 'PROJECT_VERSION<<QQEOFQQ' >> $GITHUB_ENV
-          git rev-parse --short HEAD      >> $GITHUB_ENV
+          git describe --tags             >> $GITHUB_ENV
           echo 'QQEOFQQ'                  >> $GITHUB_ENV
       - uses: actions-rs/cargo@v1
         with:
