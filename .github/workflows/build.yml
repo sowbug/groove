@@ -49,7 +49,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
         # Get the source
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
         # Build debug
       - run: cargo build --target ${{ matrix.target }}
