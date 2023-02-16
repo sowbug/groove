@@ -130,13 +130,11 @@ impl ControlTrip {
 impl Resets for ControlTrip {}
 impl TicksWithMessages for ControlTrip {
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
-        if self.is_finished() {
-            return (None, 0);
-        }
         let mut v = Vec::default();
-        for _ in 0..tick_count {
-            self.temp_hack_clock.tick();
-            if {
+        let mut ticks_completed = tick_count;
+        for i in 0..tick_count {
+            self.temp_hack_clock.tick(1);
+            let has_value_changed = {
                 let time = self.envelope.time_for_unit(&self.temp_hack_clock);
                 let step = self.envelope.step_for_time(time);
                 if step.interval.contains(&time) {
@@ -154,15 +152,20 @@ impl TicksWithMessages for ControlTrip {
                     self.is_finished = true;
                     false
                 }
-            } {
-                //  our value has changed, so let's tell the world about that.
+            };
+            if self.is_finished {
+                ticks_completed = i;
+                break;
+            }
+            if has_value_changed {
+                // our value has changed, so let's tell the world about that.
                 v.push(EntityMessage::ControlF32(self.current_value as f32));
             }
         }
         if v.is_empty() {
-            (None, tick_count)
+            (None, ticks_completed)
         } else {
-            (Some(v), tick_count)
+            (Some(v), ticks_completed)
         }
     }
 }

@@ -31,7 +31,8 @@ pub struct BeatSequencer {
 impl IsController for BeatSequencer {}
 impl Terminates for BeatSequencer {
     fn is_finished(&self) -> bool {
-        self.next_instant > self.last_event_time
+        (self.events.is_empty() && self.last_event_time == PerfectTimeUnit(0.0))
+            || self.next_instant > self.last_event_time
     }
 }
 impl HandlesMidi for BeatSequencer {}
@@ -148,7 +149,12 @@ impl BeatSequencer {
         )
     }
 }
-impl Resets for BeatSequencer {}
+impl Resets for BeatSequencer {
+    fn reset(&mut self, sample_rate: usize) {
+        self.temp_hack_clock.set_sample_rate(sample_rate);
+        self.temp_hack_clock.reset(sample_rate);
+    }
+}
 impl TicksWithMessages for BeatSequencer {
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
         if self.is_finished() {
@@ -286,7 +292,7 @@ mod tests {
         clock::{Clock, MidiTicks},
         entities::BoxedEntity,
         midi::{MidiChannel, MidiUtils},
-        traits::{IsController, TestInstrument},
+        traits::{IsController, TestInstrument, Ticks},
         Orchestrator,
     };
 
@@ -324,7 +330,7 @@ mod tests {
             // clock.tick() first, meaning that the sequencer never got the 0th
             // (first) tick. No test ever cared, apparently. Fix this.
             let _ = sequencer.tick(1);
-            clock.tick();
+            clock.tick(1);
         }
     }
 
@@ -334,7 +340,7 @@ mod tests {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
             let _ = sequencer.tick(1);
-            clock.tick();
+            clock.tick(1);
         }
     }
 

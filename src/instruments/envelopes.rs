@@ -699,7 +699,7 @@ mod tests {
         assert!(e.is_idle(), "Envelope should be idle on creation.");
 
         e.tick(1);
-        clock.tick();
+        clock.tick(1);
         assert!(e.is_idle(), "Untriggered envelope should remain idle.");
         assert_eq!(
             e.value().value(),
@@ -721,7 +721,7 @@ mod tests {
         loop {
             envelope.tick(1);
             let should_continue = clock.seconds() < time_marker;
-            clock.tick();
+            clock.tick(1);
             if !should_continue {
                 break;
             }
@@ -737,7 +737,7 @@ mod tests {
 
         e.enqueue_attack();
         e.tick(1);
-        clock.tick();
+        clock.tick(1);
         assert!(
             !e.is_idle(),
             "Envelope should be active immediately upon trigger"
@@ -750,7 +750,7 @@ mod tests {
         // samples late!).
         for _ in 0..17 {
             e.tick(1);
-            clock.tick();
+            clock.tick(1);
         }
         assert_gt!(
             e.value().value(),
@@ -772,6 +772,7 @@ mod tests {
         let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
         envelope.enqueue_attack();
+        clock.tick(1);
         envelope.tick(1);
         let mut time_marker = clock.seconds() + envelope_settings.attack;
         assert!(
@@ -779,8 +780,8 @@ mod tests {
             "Expected SimpleEnvelopeState::Attack after trigger, but got {:?} instead",
             envelope.debug_state()
         );
-        clock.tick();
 
+        clock.tick(1);
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
         assert!(matches!(
             envelope.debug_state(),
@@ -820,7 +821,7 @@ mod tests {
         envelope.tick(1);
         let mut time_marker =
             clock.seconds() + envelope_settings.attack + envelope_settings.expected_decay_time();
-        clock.tick();
+        clock.tick(1);
 
         // Skip past attack/decay.
         run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
@@ -875,7 +876,7 @@ mod tests {
         let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
         envelope.tick(1);
-        clock.tick();
+        clock.tick(1);
 
         assert_eq!(
             envelope.value(),
@@ -888,7 +889,7 @@ mod tests {
         envelope.enqueue_attack();
         envelope.tick(1);
         let mut time_marker = clock.seconds();
-        clock.tick();
+        clock.tick(1);
         assert!(
             approx_eq!(
                 f64,
@@ -901,7 +902,7 @@ mod tests {
             envelope.value().value(),
         );
         envelope.tick(1);
-        clock.tick();
+        clock.tick(1);
         assert_lt!(
             envelope.value(),
             Normal::maximum(),
@@ -920,13 +921,13 @@ mod tests {
         // Release the trigger.
         envelope.enqueue_release();
         let _amplitude = envelope.tick(1);
-        clock.tick();
+        clock.tick(1);
 
         // And hit it again.
         envelope.enqueue_attack();
         envelope.tick(1);
         let mut time_marker = clock.seconds();
-        clock.tick();
+        clock.tick(1);
         assert!(
             approx_eq!(
                 f64,

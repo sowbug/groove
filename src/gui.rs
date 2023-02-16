@@ -1,6 +1,8 @@
 use crate::{
-    midi::MidiChannel, traits::Response, AudioOutput, Clock, ClockSettings, GrooveMessage,
-    IOHelper, Orchestrator, StereoSample, TimeSignature,
+    midi::MidiChannel,
+    traits::{Resets, Response},
+    AudioOutput, Clock, ClockSettings, GrooveMessage, IOHelper, Orchestrator, StereoSample,
+    TimeSignature,
 };
 use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
@@ -176,14 +178,14 @@ impl Runner {
                     // TODO: many of these are in the wrong place. This loop
                     // should be tight and dumb.
                     GrooveInput::LoadProject(filename) => {
-                        self.clock.reset();
+                        self.clock.reset(self.clock.sample_rate());
                         is_playing = false;
                         messages.push(GrooveMessage::LoadProject(filename));
                     }
                     GrooveInput::Play => is_playing = true,
                     GrooveInput::Pause => is_playing = false,
                     GrooveInput::SkipToStart => {
-                        self.clock.reset();
+                        self.clock.reset(self.clock.sample_rate());
                     }
                     GrooveInput::Midi(channel, message) => {
                         messages.push(GrooveMessage::MidiFromExternal(channel, message))

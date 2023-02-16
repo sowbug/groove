@@ -835,7 +835,7 @@ mod tests {
             let sample = voice.value();
             let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
             let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
-            clock.tick();
+            clock.tick(1);
         }
     }
 
@@ -910,7 +910,7 @@ mod tests {
             let sample = source.value();
             let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
             let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
-            clock.tick();
+            clock.tick(1);
         }
     }
 

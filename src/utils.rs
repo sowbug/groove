@@ -447,7 +447,7 @@ pub mod tests {
         // A simple audio source.
         let synth_uid = o.add(
             None,
-            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(DEFAULT_SAMPLE_RATE))),
+            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate()))),
         );
 
         // A simple effect.
@@ -483,7 +483,7 @@ pub mod tests {
 
             // Run again but without the negating effect in the mix.
             assert!(o.unpatch(synth_uid, effect_uid).is_ok());
-            clock.reset();
+            clock.reset(clock.sample_rate());
             if let Ok(samples_2) = o.run(&mut sample_buffer) {
                 // The sample pairs should cancel each other out.
                 assert!(!samples_2.iter().any(|&s| s != StereoSample::SILENCE));
@@ -543,7 +543,7 @@ pub mod tests {
 
             // Run again after disconnecting the LFO.
             o.unlink_control(lfo_uid, synth_1_uid);
-            clock.reset();
+            clock.reset(clock.sample_rate());
             if let Ok(samples_2) = o.run(&mut sample_buffer) {
                 // The two runs should be different. That's not a great test of what
                 // we're doing here, but it will detect when things are broken.
@@ -559,7 +559,7 @@ pub mod tests {
     fn midi_routing_works() {
         const TEST_MIDI_CHANNEL: MidiChannel = 7;
         const ARP_MIDI_CHANNEL: MidiChannel = 5;
-        let mut clock = Clock::default();
+        let clock = Clock::default();
         let mut o = Box::new(Orchestrator::new_with(clock.settings()));
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
@@ -607,7 +607,6 @@ pub mod tests {
 
         // Let's turn on the arpeggiator.
         o.debug_send_midi_note(ARP_MIDI_CHANNEL, true);
-        clock.reset();
         o.reset();
         if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), (SECONDS * DEFAULT_SAMPLE_RATE) as usize);
@@ -631,14 +630,15 @@ pub mod tests {
         // It's actually immaterial to this test whether this has any sound in
         // it. We're just giving the arpeggiator a bit of time to clear out any
         // leftover note.
-        clock.reset();
+        o.reset();
         if o.run(&mut sample_buffer).is_err() {
             panic!("impossible!");
         }
 
         // But by now it should be silent.
-        clock.reset();
+        o.reset();
         if let Ok(samples) = o.run(&mut sample_buffer) {
+            assert_eq!(samples.len(), (SECONDS * DEFAULT_SAMPLE_RATE) as usize);
             assert!(
                 samples.iter().all(|&s| s == StereoSample::SILENCE),
                 "Expected total silence again after disabling the arpeggiator."
@@ -651,8 +651,9 @@ pub mod tests {
         // connection.
         o.debug_send_midi_note(ARP_MIDI_CHANNEL, true);
         o.disconnect_midi_downstream(instrument_uid, TEST_MIDI_CHANNEL);
-        clock.reset();
+        o.reset();
         if let Ok(samples) = o.run(&mut sample_buffer) {
+            assert_eq!(samples.len(), (SECONDS * DEFAULT_SAMPLE_RATE) as usize);
             assert!(
                 samples.iter().all(|&s| s == StereoSample::SILENCE),
                 "Expected total silence after disconnecting the instrument from the MIDI bus."
@@ -705,7 +706,7 @@ pub mod tests {
 
             // Run again but without the negating effect in the mix.
             assert!(o.unpatch(synth_uid, effect_uid).is_ok());
-            clock.reset();
+            clock.reset(clock.sample_rate());
             if let Ok(samples_2) = o.run(&mut sample_buffer) {
                 // The sample pairs should cancel each other out.
                 assert!(!samples_2.iter().any(|&s| s != StereoSample::SILENCE));

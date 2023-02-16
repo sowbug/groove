@@ -191,11 +191,10 @@ mod tests {
         clock::{BeatValue, Clock, TimeSignature},
         entities::BoxedEntity,
         settings::PatternSettings,
-        traits::TestInstrument,
+        traits::{Resets, TestInstrument},
         utils::Timer,
         ClockSettings, Orchestrator, StereoSample,
     };
-    use assert_approx_eq::assert_approx_eq;
 
     #[allow(dead_code)]
     impl Pattern<PerfectTimeUnit> {
@@ -253,10 +252,9 @@ mod tests {
     // A pattern of all zeroes should last as long as a pattern of nonzeroes.
     #[test]
     fn test_empty_pattern() {
-        let time_signature = TimeSignature::default();
         let clock_settings = ClockSettings::default();
         let mut sequencer = Box::new(BeatSequencer::new_with(&clock_settings));
-        let mut programmer = PatternProgrammer::new_with(&time_signature);
+        let mut programmer = PatternProgrammer::new_with(&clock_settings.time_signature());
 
         let note_pattern = vec!["0".to_string()];
         let pattern_settings = PatternSettings {
@@ -273,7 +271,7 @@ mod tests {
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
         assert_eq!(
             programmer.cursor(),
-            PerfectTimeUnit::from(time_signature.top)
+            PerfectTimeUnit::from(clock_settings.time_signature().top)
         );
         assert_eq!(sequencer.debug_events().len(), 0);
 
@@ -283,7 +281,7 @@ mod tests {
         if let Ok(result) = o.run(&mut sample_buffer) {
             assert_eq!(
                 result.len(),
-                ((60.0 * 4.0 / clock_settings.bpm()) * clock_settings.sample_rate() as f32)
+                ((60.0 * 4.0 / clock_settings.bpm()) * clock_settings.sample_rate() as f32).ceil()
                     as usize
             );
         }
@@ -398,47 +396,43 @@ mod tests {
         // Test recorder has seen nothing to start with.
         // TODO assert!(midi_recorder.debug_messages.is_empty());
 
-        let sample_rate = clock.sample_rate();
         let mut o = Box::new(Orchestrator::new_with(clock.settings()));
         let _sequencer_uid = o.add(None, BoxedEntity::BeatSequencer(sequencer));
 
         let mut sample_buffer = [StereoSample::SILENCE; 64];
-        assert!(o.run(&mut sample_buffer).is_ok());
+        if let Ok(samples) = o.run(&mut sample_buffer) {
+            // We should have gotten one on and one off for each note in the
+            // pattern.
+            // TODO
+            // assert_eq!(
+            //     midi_recorder.debug_messages.len(),
+            //     pattern.notes[0].len() * 2
+            // );
 
-        // We should have gotten one on and one off for each note in the
-        // pattern.
-        // TODO
-        // assert_eq!(
-        //     midi_recorder.debug_messages.len(),
-        //     pattern.notes[0].len() * 2
-        // );
+            // TODO sequencer.debug_dump_events();
 
-        // TODO sequencer.debug_dump_events();
-
-        // The comment below is incorrect; it was true when the beat sequencer
-        // ended after sending the last note event, rather than thinking in
-        // terms of full measures.
-        //
-        // WRONG: The clock should stop at the last note-off, which is 1.01
-        // WRONG: beats past the start of the third note, which started at 2.0.
-        // WRONG: Since the fourth note is zero-duration, it actually ends at 3.0,
-        // WRONG: before the third note's note-off event happens.
-        let last_beat = 4.0;
-        assert_approx_eq!(
-            clock.beats(),
-            last_beat,
-            1.5 / sample_rate as f32 // The extra 0.5 is for f32 precision
-        );
-        assert_eq!(
-            clock.samples() - 1, // TODO: -1 is probably wrong
-            clock.settings().beats_to_samples(last_beat)
-        );
+            // The comment below is incorrect; it was true when the beat sequencer
+            // ended after sending the last note event, rather than thinking in
+            // terms of full measures.
+            //
+            // WRONG: The clock should stop at the last note-off, which is 1.01
+            // WRONG: beats past the start of the third note, which started at 2.0.
+            // WRONG: Since the fourth note is zero-duration, it actually ends at 3.0,
+            // WRONG: before the third note's note-off event happens.
+            const LAST_BEAT: f32 = 4.0;
+            assert_eq!(
+                samples.len(),
+                (LAST_BEAT * 60.0 / clock.bpm() * clock.sample_rate() as f32).ceil() as usize
+            );
+        } else {
+            assert!(false, "run failed");
+        }
 
         // Start test recorder over again.
         // TODO midi_recorder.debug_messages.clear();
 
         // Rewind clock to start.
-        clock.reset();
+        clock.reset(clock.sample_rate());
         let mut samples = [StereoSample::SILENCE; 1];
         // This shouldn't explode.
         let _ = o.tick(&mut samples);

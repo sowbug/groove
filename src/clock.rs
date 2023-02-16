@@ -4,7 +4,10 @@ use std::{
     ops::{Add, Mul},
 };
 
-use crate::settings::ClockSettings;
+use crate::{
+    settings::ClockSettings,
+    traits::{Resets, Ticks},
+};
 use anyhow::{anyhow, Error};
 use serde::{Deserialize, Serialize};
 use strum_macros::FromRepr;
@@ -45,37 +48,36 @@ impl BeatValue {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct TimeSignature {
-    // The top number of a time signature tells how many beats are in a
-    // measure. The bottom number tells the value of a beat. For example,
-    // if the bottom number is 4, then a beat is a quarter-note. And if
-    // the top number is 4, then you should expect to see four beats in a
-    // measure, or four quarter-notes in a measure.
+    // The top number of a time signature tells how many beats are in a measure.
+    // The bottom number tells the value of a beat. For example, if the bottom
+    // number is 4, then a beat is a quarter-note. And if the top number is 4,
+    // then you should expect to see four beats in a measure, or four
+    // quarter-notes in a measure.
     //
-    // If your song is playing at 60 beats per minute, and it's 4/4,
-    // then a measure's worth of the song should complete in four seconds.
-    // That's because each beat takes a second (60 beats/minute,
-    // 60 seconds/minute -> 60/60 beats/second = 60/60 seconds/beat),
-    // and a measure takes four beats (4 beats/measure * 1 second/beat
-    // = 4/1 seconds/measure).
+    // If your song is playing at 60 beats per minute, and it's 4/4, then a
+    // measure's worth of the song should complete in four seconds. That's
+    // because each beat takes a second (60 beats/minute, 60 seconds/minute ->
+    // 60/60 beats/second = 60/60 seconds/beat), and a measure takes four beats
+    // (4 beats/measure * 1 second/beat = 4/1 seconds/measure).
     //
-    // If your song is playing at 120 beats per minute, and it's 4/4,
-    // then a measure's worth of the song should complete in two seconds.
-    // That's because each beat takes a half-second (120 beats/minute,
-    // 60 seconds/minute -> 120/60 beats/second = 60/120 seconds/beat),
-    // and a measure takes four beats (4 beats/measure * 1/2 seconds/beat
-    // = 4/2 seconds/measure).
+    // If your song is playing at 120 beats per minute, and it's 4/4, then a
+    // measure's worth of the song should complete in two seconds. That's
+    // because each beat takes a half-second (120 beats/minute, 60
+    // seconds/minute -> 120/60 beats/second = 60/120 seconds/beat), and a
+    // measure takes four beats (4 beats/measure * 1/2 seconds/beat = 4/2
+    // seconds/measure).
     //
     // The relevance in this project is...
     //
     // - BPM tells how fast a beat should last in time
-    // - bottom number tells what the default denomination is of a slot
-    // in a pattern
-    // - top number tells how many slots should be in a pattern. But
-    //   we might not want to enforce this, as it seems redundant... if
-    //   you want a 5/4 pattern, it seems like you can just go ahead and
-    //   include 5 slots in it. The only relevance seems to be whether
-    //   we'd round a 5-slot pattern in a 4/4 song to the next even measure,
-    //   or just tack the next pattern directly onto the sixth beat.
+    // - bottom number tells what the default denomination is of a slot in a
+    // pattern
+    // - top number tells how many slots should be in a pattern. But we might
+    //   not want to enforce this, as it seems redundant... if you want a 5/4
+    //   pattern, it seems like you can just go ahead and include 5 slots in it.
+    //   The only relevance seems to be whether we'd round a 5-slot pattern in a
+    //   4/4 song to the next even measure, or just tack the next pattern
+    //   directly onto the sixth beat.
     pub top: usize,
     pub bottom: usize,
 }
@@ -117,6 +119,9 @@ pub enum ClockTimeUnit {
     MidiTicks,
 }
 
+/// A timekeeper that operates in terms of sample rate.
+///
+/// Like much of this project,
 #[derive(Clone, Debug)]
 pub struct Clock {
     settings: ClockSettings,
@@ -224,12 +229,6 @@ impl Clock {
         self.beats_for_sample(self.samples + 1)
     }
 
-    pub fn tick(&mut self) {
-        self.was_reset = false;
-        self.samples += 1;
-        self.update();
-    }
-
     pub fn tick_batch(&mut self, count: usize) {
         self.was_reset = false;
         self.samples += count;
@@ -252,14 +251,6 @@ impl Clock {
         self.midi_ticks = self.midi_ticks_for_sample(self.samples);
     }
 
-    pub fn reset(&mut self) {
-        self.was_reset = true;
-        self.samples = 0;
-        self.seconds = 0.0;
-        self.beats = 0.0;
-        self.midi_ticks = 0;
-    }
-
     pub(crate) fn time_for(&self, unit: &ClockTimeUnit) -> f32 {
         match unit {
             ClockTimeUnit::Seconds => self.seconds(),
@@ -267,6 +258,31 @@ impl Clock {
             ClockTimeUnit::Samples => todo!(),
             ClockTimeUnit::MidiTicks => todo!(),
         }
+    }
+}
+impl Ticks for Clock {
+    fn tick(&mut self, tick_count: usize) {
+        if self.was_reset {
+            // On a reset, we keep our tick counter at zero. This is so that a
+            // loop can tick() us at the beginning, See
+            // https://github.com/sowbug/groove/issues/84 for discussion.
+            self.was_reset = false;
+        } else {
+            if tick_count != 0 {
+                self.samples += tick_count;
+                self.update();
+            }
+        }
+    }
+}
+impl Resets for Clock {
+    fn reset(&mut self, sample_rate: usize) {
+        self.set_sample_rate(sample_rate);
+        self.was_reset = true;
+        self.samples = 0;
+        self.seconds = 0.0;
+        self.beats = 0.0;
+        self.midi_ticks = 0;
     }
 }
 
@@ -423,38 +439,50 @@ mod tests {
         const ONE_SAMPLE_OF_SECONDS: f32 = 1.0 / SAMPLE_RATE as f32;
 
         let clock_settings = ClockSettings::new(SAMPLE_RATE, BPM, (4, 4));
-        let mut clock = Clock::new_with(&clock_settings);
 
-        // init state
-        assert_eq!(clock.samples(), 0);
+        // Initial state. The Ticks trait specifies that state is valid for the
+        // frame *after* calling tick(), so here we verify that after calling
+        // tick() the first time, the tick counter remains unchanged.
+        let mut clock = Clock::new_with(&clock_settings);
+        clock.tick(1);
+        assert_eq!(
+            clock.samples(),
+            0,
+            "After creation and then tick(), tick counter should remain at zero."
+        );
         assert_eq!(clock.seconds, 0.0);
         assert_eq!(clock.beats(), 0.0);
 
+        // Same but after reset.
+        clock.reset(SAMPLE_RATE);
+        clock.tick(1);
+        assert_eq!(
+            clock.samples(),
+            0,
+            "After reset() and then tick(), tick counter should remain at zero."
+        );
+
         // Check after one tick.
-        clock.tick();
+        clock.tick(1);
         assert_eq!(clock.samples(), 1);
         assert_eq!(clock.seconds, ONE_SAMPLE_OF_SECONDS);
         assert_eq!(clock.beats(), (BPM / 60.0) * ONE_SAMPLE_OF_SECONDS);
 
-        // Check around a full quarter note of ticks.
-        // minus one because we already did one tick(), then minus another to test edge
-        for _ in 0..QUARTER_NOTE_OF_TICKS - 1 - 1 {
-            clock.tick();
-        }
+        // Check around a full quarter note of ticks. minus one because we
+        // already did one tick(), then minus another to test edge
+        clock.tick(QUARTER_NOTE_OF_TICKS - 1 - 1);
         assert_eq!(clock.samples(), QUARTER_NOTE_OF_TICKS - 1);
         assert!(clock.seconds < SECONDS_PER_BEAT);
         assert_lt!(clock.beats(), 1.0);
 
         // Now right on the quarter note.
-        clock.tick();
+        clock.tick(1);
         assert_eq!(clock.samples(), QUARTER_NOTE_OF_TICKS);
         assert_eq!(clock.seconds, SECONDS_PER_BEAT);
         assert_eq!(clock.beats(), 1.0);
 
         // One full minute.
-        for _ in 0..QUARTER_NOTE_OF_TICKS * (BPM - 1.0) as usize {
-            clock.tick();
-        }
+        clock.tick(QUARTER_NOTE_OF_TICKS * (BPM - 1.0) as usize);
         assert_eq!(clock.samples(), SAMPLE_RATE * 60);
         assert_eq!(clock.seconds, 60.0);
         assert_eq!(clock.beats(), BPM);
@@ -495,26 +523,26 @@ mod tests {
 
     #[test]
     fn test_clock_tells_us_when_it_jumps() {
-        let mut clock = Clock::new();
+        let mut clock = Clock::default();
 
         let mut next_sample = clock.samples();
         let mut first_time = true;
 
         for _ in 0..10 {
+            clock.tick(1);
             assert_eq!(clock.samples(), next_sample);
 
-            // The first time through, the clock really is reset, because it had no
-            // prior tick.
+            // The first time through, the clock really is reset, because it had
+            // no prior tick.
             assert!(first_time || !clock.was_reset());
 
             first_time = false;
             next_sample = clock.next_slice_in_samples();
-            clock.tick();
         }
         clock.set_samples(clock.samples() + 1);
         assert!(clock.was_reset());
-        assert_eq!(clock.samples(), next_sample + 1);
-        clock.tick();
+        assert_eq!(clock.samples(), next_sample);
+        clock.tick(1);
         assert!(!clock.was_reset());
     }
 }

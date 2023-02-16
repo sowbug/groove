@@ -280,7 +280,7 @@ impl TicksWithMessages for TestController {
     fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
         let mut v = Vec::default();
         for _ in 0..tick_count {
-            self.clock.tick();
+            self.clock.tick(1);
             // TODO self.check_values(clock);
 
             match self.what_to_do() {
@@ -336,7 +336,6 @@ impl HandlesMidi for TestController {
             MidiMessage::NoteOn { key, vel } => self.is_enabled = true,
             _ => todo!(),
         }
-        dbg!("Received message {:?} but no handler for it", &message);
         None
     }
 }

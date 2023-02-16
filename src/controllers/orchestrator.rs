@@ -642,11 +642,10 @@ impl Orchestrator {
         let mut performance_samples = Vec::<StereoSample>::new();
         loop {
             let ticks_completed = self.tick(samples);
+            performance_samples.extend(&samples[0..ticks_completed]);
             if ticks_completed < samples.len() {
-                // TODO: deal with partial buffer fills at the end
                 break;
             }
-            performance_samples.extend(samples.iter());
         }
         Ok(performance_samples)
     }
@@ -909,8 +908,6 @@ impl Store {
 
 #[cfg(test)]
 pub mod tests {
-    use midly::MidiMessage;
-
     use super::Orchestrator;
     use crate::{
         clock::Clock,
@@ -921,6 +918,7 @@ pub mod tests {
         utils::{AudioSource, Timer},
         ClockSettings, StereoSample,
     };
+    use midly::MidiMessage;
 
     impl Orchestrator {
         /// Warning! This method exists only as a debug shortcut to
