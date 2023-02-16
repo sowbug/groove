@@ -42,10 +42,7 @@ fn main() -> anyhow::Result<()> {
     // TODO: output this information into any generated files (WAV, MP3, etc.)
     // so that we can reproduce them when the code later changes.
     if args.version {
-        println!(
-            "groove-cli {}",
-            app_version()
-        );
+        println!("groove-cli {}", app_version());
         return Ok(());
     }
 
