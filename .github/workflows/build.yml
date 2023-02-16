@@ -60,7 +60,7 @@ jobs:
         # Upload artifacts
       - uses: actions/upload-artifact@v3
         with:
-          name: "perf-output-${{ matrix.target }}-${GITHUB_SHA}"
+          name: "perf-output-${{ matrix.target }}-${{github.sha}}"
           path: |
             out/voice_cello_c_4.wav
             out/perf-1.wav
