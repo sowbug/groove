@@ -11,7 +11,7 @@ use groove::{
     Gain, GrooveMessage, GrooveSubscription, LfoController, Limiter, MidiHandler, MidiHandlerEvent,
     MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Normal, Note,
     Orchestrator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, SimpleSynthesizer,
-    TestLfo, TestSynth, Timer, WelshSynth,
+    TestSynth, Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -541,7 +541,6 @@ impl GrooveApp {
             BoxedEntity::TestController(e) => self.test_controller_view(e),
             BoxedEntity::TestEffect(e) => self.test_effect_view(e),
             BoxedEntity::TestInstrument(e) => self.test_instrument_view(e),
-            BoxedEntity::TestLfo(e) => self.test_lfo_view(e),
             BoxedEntity::TestSynth(e) => self.test_synth_view(e),
             BoxedEntity::Timer(e) => self.timer_view(e),
             BoxedEntity::WelshSynth(e) => self.welsh_synth_view(e),
@@ -755,21 +754,6 @@ impl GrooveApp {
         )
     }
 
-    fn test_lfo_view(&self, e: &TestLfo) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<TestLfo>(),
-            GuiStuff::<EntityMessage>::container_text(
-                format!(
-                    "Frequency: {} current value: {}",
-                    e.frequency(),
-                    e.value().value()
-                )
-                .as_str(),
-            )
-            .into(),
-        )
-    }
-
     fn test_synth_view(&self, _: &TestSynth) -> Element<EntityMessage> {
         GuiStuff::titled_container(
             type_name::<TestSynth>(),
@@ -837,7 +821,7 @@ impl GrooveApp {
     }
 
     fn set_entity_view_state(&mut self, uid: usize, new_state: EntityViewState) {
-        self.entity_view_states.insert(uid, new_state.clone());
+        self.entity_view_states.insert(uid, new_state);
     }
 
     fn collapsing_box<F>(&self, title: &str, uid: usize, contents_fn: F) -> Element<EntityMessage>
@@ -848,7 +832,7 @@ impl GrooveApp {
             let contents = contents_fn();
             GuiStuff::expanded_container(title, EntityMessage::CollapsePressed, contents)
         } else {
-            GuiStuff::<EntityMessage>::collapsed_container(&title, EntityMessage::ExpandPressed)
+            GuiStuff::<EntityMessage>::collapsed_container(title, EntityMessage::ExpandPressed)
         }
     }
 
@@ -869,7 +853,7 @@ impl GrooveApp {
         self.collapsing_box("LFO", e.uid(), || {
             let slider = HSlider::new(
                 NormalParam {
-                    value: IcedNormal::from_clipped(0.42 as f32),
+                    value: IcedNormal::from_clipped(0.42_f32),
                     default: IcedNormal::from_clipped(1.0),
                 },
                 EntityMessage::HSliderInt,
@@ -954,7 +938,7 @@ impl GrooveApp {
         // Let the PrefsSaved message handler know that it's time to go.
         self.should_exit = true;
 
-        return Command::perform(
+        Command::perform(
             Preferences::save_prefs(Preferences {
                 selected_midi_input: self.preferences.selected_midi_input.clone(),
                 selected_midi_output: self.preferences.selected_midi_output.clone(),
@@ -962,23 +946,18 @@ impl GrooveApp {
                 last_project_filename: self.preferences.last_project_filename.clone(),
             }),
             AppMessage::PrefsSaved,
-        );
+        )
     }
 
     fn handle_keyboard_event(&mut self, event: iced::keyboard::Event) {
-        match event {
-            #[allow(unused_variables)]
-            iced::keyboard::Event::KeyPressed {
-                key_code,
-                modifiers,
-            } => match key_code {
-                // https://docs.rs/iced/latest/iced/keyboard/enum.KeyCode.html
-                iced::keyboard::KeyCode::Tab => {
-                    self.switch_main_view();
-                }
-                _ => {}
-            },
-            _ => {}
+        if let iced::keyboard::Event::KeyPressed {
+            key_code,
+            modifiers: _,
+        } = event
+        {
+            if key_code == iced::keyboard::KeyCode::Tab {
+                self.switch_main_view();
+            }
         }
     }
 }

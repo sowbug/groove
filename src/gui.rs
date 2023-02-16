@@ -1,6 +1,8 @@
 use crate::{
-    midi::MidiChannel, traits::Response, AudioOutput, Clock, ClockSettings, GrooveMessage,
-    IOHelper, Orchestrator, StereoSample, TimeSignature,
+    midi::MidiChannel,
+    traits::{Resets, Response},
+    AudioOutput, Clock, ClockSettings, GrooveMessage, IOHelper, Orchestrator, StereoSample,
+    TimeSignature,
 };
 use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
@@ -148,13 +150,20 @@ impl Runner {
         (sample, done)
     }
 
-    fn dispatch_sample(&mut self, sample: StereoSample) {
+    fn dispatch_samples(&mut self, samples: &[StereoSample], sample_count: usize) {
         if let Some(output) = self.audio_output.as_mut() {
-            let _ = output.push(sample);
+            for (i, sample) in samples.iter().enumerate() {
+                if i < sample_count {
+                    let _ = output.push(*sample);
+                } else {
+                    break;
+                }
+            }
         }
     }
 
     pub fn do_loop(&mut self) {
+        let mut samples = [StereoSample::SILENCE; 64];
         let mut is_playing = false;
         loop {
             self.publish_clock_update();
@@ -167,14 +176,14 @@ impl Runner {
                     // TODO: many of these are in the wrong place. This loop
                     // should be tight and dumb.
                     GrooveInput::LoadProject(filename) => {
-                        self.clock.reset();
+                        self.clock.reset(self.clock.sample_rate());
                         is_playing = false;
                         messages.push(GrooveMessage::LoadProject(filename));
                     }
                     GrooveInput::Play => is_playing = true,
                     GrooveInput::Pause => is_playing = false,
                     GrooveInput::SkipToStart => {
-                        self.clock.reset();
+                        self.clock.reset(self.clock.sample_rate());
                     }
                     GrooveInput::Midi(channel, message) => {
                         messages.push(GrooveMessage::MidiFromExternal(channel, message))
@@ -210,32 +219,29 @@ impl Runner {
             let (_, _) = self.handle_pending_messages();
 
             if is_playing {
-                // Send Tick to Orchestrator so it can do the bulk of its work for
-                // the loop.
-                let response = if let Ok(mut o) = self.orchestrator.lock() {
-                    o.update(GrooveMessage::Tick)
+                let ticks_completed = if let Ok(mut o) = self.orchestrator.lock() {
+                    o.tick(&mut samples)
                 } else {
-                    Response::none()
+                    0
                 };
-                self.push_response(response);
-
-                // Since this is a response to a Tick, we know that we got an
-                // AudioOutput and maybe an OutputComplete. Thus the return values
-                // we get here are meaningful.
-                let (sample, done) = self.handle_pending_messages();
-                if done {
-                    // TODO: I think we need to identify the edge between not done
-                    // and done, and advance the clock one more time. Or maybe what
-                    // we really need is to have two clocks, one driving the
-                    // automated note events, and the other driving the audio
-                    // processing.
+                if ticks_completed < samples.len() {
                     is_playing = false;
                 }
 
-                if is_playing {
-                    self.clock.tick();
-                    self.dispatch_sample(sample);
+                // This clock is used to tell the app where we are in the song,
+                // so even though it looks like it's not helping here in the
+                // loop, it's necessary. We have it before the second is_playing
+                // test because the tick() that returns false still produced
+                // some samples, so we want the clock to reflect that.
+                self.clock.tick_batch(ticks_completed);
 
+                // TODO: this might cut off the end of the buffer if it doesn't
+                // end on a 64-sample boundary. Would make sense to change
+                // tick() to return the number of samples it was able to fill,
+                // and then propagate that number through to dispatch_samples()
+                // et seq.
+                if is_playing {
+                    self.dispatch_samples(&samples, ticks_completed);
                     self.wait_for_audio_buffer();
                 }
             }

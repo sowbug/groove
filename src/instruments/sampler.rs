@@ -10,7 +10,7 @@ use hound::WavReader;
 use std::{fs::File, io::BufReader, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Control, Debug, Default, Uid)]
+#[derive(Control, Debug, Uid)]
 #[allow(dead_code)]
 pub struct Sampler {
     uid: usize,
@@ -105,11 +105,8 @@ impl Sampler {
     {
         let mut samples = Vec::default();
         if channels == 1 {
-            for sample in reader.samples::<T>() {
-                if let Ok(sample) = sample {
-                    let sample = Sample::from(sample) / scale_factor;
-                    samples.push(StereoSample::from(sample));
-                }
+            for sample in reader.samples::<T>().flatten() {
+                samples.push(StereoSample::from(Sample::from(sample) / scale_factor));
             }
         } else {
             debug_assert_eq!(channels, 2);
@@ -149,10 +146,18 @@ impl Sampler {
 
     pub fn new_from_file(filename: &str) -> Self {
         let samples = Self::read_samples_from_file(filename);
-        let mut r = Self::default();
-        r.samples = samples;
-        r.filename = String::from(filename);
-        r
+        Self {
+            uid: Default::default(),
+            samples,
+            sample: Default::default(),
+            ticks: Default::default(),
+            is_reset_pending: Default::default(),
+            sample_clock_start: Default::default(),
+            sample_pointer: Default::default(),
+            is_playing: Default::default(),
+            root_frequency: Default::default(),
+            filename: String::from(filename),
+        }
     }
 
     pub fn filename(&self) -> &str {

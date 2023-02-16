@@ -27,7 +27,7 @@ pub use crate::{
         MidiHandler, MidiHandlerMessage, MidiInputStealer,
     },
     settings::{songs::SongSettings, ClockSettings},
-    utils::{AudioSource, Paths, TestLfo, TestSynth, Timer},
+    utils::{AudioSource, Paths, TestSynth, Timer},
 };
 
 pub mod gui;

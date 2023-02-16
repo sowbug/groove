@@ -67,7 +67,7 @@ impl PlaysNotes for DrumkitSamplerVoice {
 impl DrumkitSamplerVoice {
     pub fn new_with(sample_rate: usize) -> Self {
         Self {
-            sample_rate: sample_rate,
+            sample_rate,
             sample: Default::default(),
             ticks: Default::default(),
             samples: Default::default(),

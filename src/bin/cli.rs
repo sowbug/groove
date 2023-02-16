@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use clap::Parser;
-use groove::{git_hash, Clock, ClockSettings, IOHelper, Orchestrator};
+use groove::{git_hash, ClockSettings, IOHelper, Orchestrator, StereoSample};
 use regex::Regex;
 use std::time::Instant;
 //use groove::ScriptEngine;
@@ -90,9 +90,9 @@ fn main() -> anyhow::Result<()> {
         } else {
             IOHelper::get_output_device_sample_rate()
         });
-        let mut clock = Clock::new_with(&clock_settings);
         let start_instant = Instant::now();
-        let performance = orchestrator.run_performance(&mut clock, args.quiet)?;
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        let performance = orchestrator.run_performance(&mut sample_buffer, args.quiet)?;
         if args.perf {
             println!(
                 "\n Orchestrator performance time: {:.2?}",

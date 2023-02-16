@@ -55,6 +55,15 @@ impl AudioOutput {
         self.ring_buffer.push(sample)
     }
 
+    pub fn push_buffer(&mut self, samples: &[StereoSample]) -> Result<(), StereoSample> {
+        for sample in samples {
+            if let Err(e) = self.ring_buffer.push(*sample) {
+                return Result::Err(e);
+            }
+        }
+        Ok(())
+    }
+
     pub fn start(&mut self) {
         let device = IOHelper::default_output_device();
         let config = IOHelper::default_output_config(&device);
@@ -255,17 +264,13 @@ impl IOHelper {
         let mut audio_output = AudioOutput::default();
         let stealer = performance.worker.stealer();
         audio_output.start();
-        loop {
-            if let Steal::Success(sample) = stealer.steal() {
-                loop {
-                    if audio_output.push(sample).is_ok() {
-                        break;
-                    } else {
-                        std::thread::sleep(std::time::Duration::from_millis(1));
-                    }
+        while let Steal::Success(sample) = stealer.steal() {
+            loop {
+                if audio_output.push(sample).is_ok() {
+                    break;
+                } else {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
                 }
-            } else {
-                break;
             }
         }
         Ok(())

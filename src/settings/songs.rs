@@ -112,7 +112,7 @@ impl SongSettings {
                 }
                 DeviceSettings::Controller(id, settings) => {
                     let (channel_in, _channel_out, entity) =
-                        settings.instantiate(sample_rate, clock_settings, load_only_test_entities);
+                        settings.instantiate(clock_settings, load_only_test_entities);
                     let uid = orchestrator.add(Some(id), entity);
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
@@ -164,7 +164,7 @@ impl SongSettings {
             let target_param_name = control.target.param.as_str();
 
             let controller_uid;
-            if let Some(uid) = orchestrator.store().get_uid(&source_uvid) {
+            if let Some(uid) = orchestrator.store().get_uid(source_uvid) {
                 controller_uid = uid;
             } else {
                 eprintln!(
@@ -174,7 +174,7 @@ impl SongSettings {
                 continue;
             }
             let target_uid;
-            if let Some(uid) = orchestrator.store().get_uid(&target_uvid) {
+            if let Some(uid) = orchestrator.store().get_uid(target_uvid) {
                 target_uid = uid;
             } else {
                 eprintln!(
@@ -183,7 +183,7 @@ impl SongSettings {
                 );
                 continue;
             }
-            let result = orchestrator.link_control(controller_uid, target_uid, &target_param_name);
+            let result = orchestrator.link_control(controller_uid, target_uid, target_param_name);
             if let Err(error_text) = result {
                 eprintln!(
                     "Warning: skipping automation ID {} because of error '{}'",
@@ -293,7 +293,7 @@ impl SongSettings {
 mod tests {
     use super::SongSettings;
     use crate::git_hash;
-    use crate::{clock::Clock, IOHelper, Paths, StereoSample};
+    use crate::{IOHelper, Paths, StereoSample};
     use crossbeam::deque::Steal;
     use std::fs::File;
     use std::io::prelude::*;
@@ -310,9 +310,9 @@ mod tests {
         let mut orchestrator = song_settings
             .instantiate(false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
-        let mut clock = Clock::new_with(orchestrator.clock_settings());
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
         let performance = orchestrator
-            .run_performance(&mut clock, false)
+            .run_performance(&mut sample_buffer, false)
             .unwrap_or_else(|err| panic!("performance failed: {:?}", err));
 
         assert!(
@@ -352,11 +352,11 @@ mod tests {
         let mut orchestrator = song_settings
             .instantiate(false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
-        let mut clock = Clock::new_with(orchestrator.clock_settings());
 
         let start_instant = Instant::now();
+        let mut samples = [StereoSample::SILENCE; 64];
         let performance = orchestrator
-            .run_performance(&mut clock, false)
+            .run_performance(&mut samples, false)
             .unwrap_or_else(|err| panic!("performance failed: {:?}", err));
         let elapsed = start_instant.elapsed();
         let frame_count = performance.worker.len();

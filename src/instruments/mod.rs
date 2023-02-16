@@ -108,7 +108,7 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
         Self {
             uid: Default::default(),
             sample_rate,
-            voice_store: voice_store,
+            voice_store,
             pitch_bend: Default::default(),
             channel_aftertouch: Default::default(),
             pan: Default::default(),
@@ -332,7 +332,7 @@ impl HandlesMidi for SimpleSynthesizer {
         &mut self,
         message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        self.inner_synth.handle_midi_message(&message)
+        self.inner_synth.handle_midi_message(message)
     }
 }
 impl Generates<StereoSample> for SimpleSynthesizer {
@@ -705,7 +705,7 @@ impl HandlesMidi for FmSynthesizer {
         &mut self,
         message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        self.inner_synth.handle_midi_message(&message)
+        self.inner_synth.handle_midi_message(message)
     }
 }
 impl FmSynthesizer {

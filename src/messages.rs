@@ -16,13 +16,6 @@ pub trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {} // TODO: th
 
 #[derive(Clone, Debug)]
 pub enum GrooveMessage {
-    /// It's time to do a slice of work. Since update() includes a Clock
-    /// parameter, Tick is just a message without time information. We assume
-    /// that anyone getting a Tick got it via update(), directly or indirectly,
-    /// so it's the responsibility of the message handler to pass time
-    /// information when needed.
-    Tick,
-
     /// A wrapped EntityMessage that contains the uid of the receipient in
     /// addition to the EntityMessage.
     EntityMessage(usize, EntityMessage),

@@ -1,7 +1,7 @@
 use super::delay::{DelayLine, Delays};
 use crate::{
     common::F32ControlValue,
-    common::{Sample, SampleType},
+    common::SampleType,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};
@@ -40,10 +40,8 @@ impl TransformsAudio for Chorus {
         for i in 1..self.voices as isize {
             sum += self.delay.peek_indexed_output(i * index_offset as isize);
         }
-        Sample::from(
-            sum * self.wet_dry_mix as SampleType / self.voices as SampleType
-                + input_sample * (1.0 - self.wet_dry_mix),
-        )
+        sum * self.wet_dry_mix as SampleType / self.voices as SampleType
+            + input_sample * (1.0 - self.wet_dry_mix)
     }
 }
 impl Chorus {
