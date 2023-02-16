@@ -59,9 +59,9 @@ jobs:
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#environment-files
         # https://stackoverflow.com/a/65972328/344467
         run: |
-          echo 'PROJECT_VERSION<<QQEOFQQ' >> $GITHUB_ENV
-          git describe --tags             >> $GITHUB_ENV
-          echo 'QQEOFQQ'                  >> $GITHUB_ENV
+          echo 'PROJECT_VERSION<<QQEOFQQ'                   >> $GITHUB_ENV
+          git describe --tags || git rev-parse --short HEAD >> $GITHUB_ENV
+          echo 'QQEOFQQ'                                    >> $GITHUB_ENV
       - name: Build debug
         run: cargo build --target ${{ matrix.target }}
       - name: Build and test release
@@ -97,9 +97,9 @@ jobs:
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#environment-files
         # https://stackoverflow.com/a/65972328/344467
         run: |
-          echo 'PROJECT_VERSION<<QQEOFQQ' >> $GITHUB_ENV
-          git describe --tags             >> $GITHUB_ENV
-          echo 'QQEOFQQ'                  >> $GITHUB_ENV
+          echo 'PROJECT_VERSION<<QQEOFQQ'                   >> $GITHUB_ENV
+          git describe --tags || git rev-parse --short HEAD >> $GITHUB_ENV
+          echo 'QQEOFQQ'                                    >> $GITHUB_ENV
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
