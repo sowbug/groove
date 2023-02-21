@@ -22,6 +22,18 @@ pub trait Envelope: Generates<Normal> + Send + Debug + Ticks {
     /// release is processed at the next tick().
     fn enqueue_release(&mut self);
 
+    /// Requests that the EG change the current amplitude to zero as quickly as
+    /// possible without introducing transients. Upon reaching zero, switch to
+    /// idle state. If the EG is already idle, then do nothing.
+    ///
+    /// In general, the EG's settings (ADSR, etc.) shouldn't affect the rate of
+    /// shutdown decay.
+    ///
+    /// See DSSPC, 4.5 Voice Stealing, for an understanding of how the shutdown
+    /// state helps. TL;DR: if we have to steal one voice to play a different
+    /// note, it sounds better if the voice very briefly stops and restarts.
+    fn enqueue_shutdown(&mut self);
+
     /// Whether the envelope generator has finished the active part of the
     /// envelope (or hasn't yet started it). Like amplitude(), this value is
     /// valid for the current frame only after tick() is called.
@@ -36,6 +48,7 @@ enum EnvelopeGeneratorState {
     Decay,
     Sustain,
     Release,
+    Shutdown,
 }
 
 #[derive(Debug, Default)]
@@ -70,14 +83,17 @@ pub struct EnvelopeGenerator {
 
     note_on_pending: bool,
     note_off_pending: bool,
+    shutdown_pending: bool,
 }
 impl Envelope for EnvelopeGenerator {
     fn enqueue_attack(&mut self) {
         self.note_on_pending = true;
     }
-
     fn enqueue_release(&mut self) {
         self.note_off_pending = true;
+    }
+    fn enqueue_shutdown(&mut self) {
+        self.shutdown_pending = true;
     }
     fn is_idle(&self) -> bool {
         matches!(self.state, EnvelopeGeneratorState::Idle)
@@ -136,24 +152,29 @@ impl Ticks for EnvelopeGenerator {
 impl EnvelopeGenerator {
     /// returns true if the amplitude was set to a new value.
     fn handle_pending(&mut self) {
-        // We need to be careful when we've been asked to do a note-on and
-        // note-off at the same time. Depending on whether we're active, we
-        // handle this differently.
-        if self.note_on_pending && self.note_off_pending {
-            if self.is_idle() {
-                self.set_state(EnvelopeGeneratorState::Attack);
+        if self.shutdown_pending {
+            self.shutdown_pending = false;
+            self.set_state(EnvelopeGeneratorState::Shutdown);
+        } else {
+            // We need to be careful when we've been asked to do a note-on and
+            // note-off at the same time. Depending on whether we're active, we
+            // handle this differently.
+            if self.note_on_pending && self.note_off_pending {
+                if self.is_idle() {
+                    self.set_state(EnvelopeGeneratorState::Attack);
+                    self.set_state(EnvelopeGeneratorState::Release);
+                } else {
+                    self.set_state(EnvelopeGeneratorState::Release);
+                    self.set_state(EnvelopeGeneratorState::Attack);
+                }
+            } else if self.note_off_pending {
                 self.set_state(EnvelopeGeneratorState::Release);
-            } else {
-                self.set_state(EnvelopeGeneratorState::Release);
+            } else if self.note_on_pending {
                 self.set_state(EnvelopeGeneratorState::Attack);
             }
-        } else if self.note_off_pending {
-            self.set_state(EnvelopeGeneratorState::Release);
-        } else if self.note_on_pending {
-            self.set_state(EnvelopeGeneratorState::Attack);
+            self.note_off_pending = false;
+            self.note_on_pending = false;
         }
-        self.note_off_pending = false;
-        self.note_on_pending = false;
     }
 
     pub(crate) fn new_with(sample_rate: usize, envelope_settings: &EnvelopeSettings) -> Self {
@@ -188,6 +209,11 @@ impl EnvelopeGenerator {
                 // Nothing to do; we're waiting for a note-off event
             }
             EnvelopeGeneratorState::Release => {
+                if self.has_reached_target() {
+                    self.set_state(EnvelopeGeneratorState::Idle);
+                }
+            }
+            EnvelopeGeneratorState::Shutdown => {
                 if self.has_reached_target() {
                     self.set_state(EnvelopeGeneratorState::Idle);
                 }
@@ -317,6 +343,10 @@ impl EnvelopeGenerator {
                         target_amplitude,
                     );
                 }
+            }
+            EnvelopeGeneratorState::Shutdown => {
+                self.state = EnvelopeGeneratorState::Shutdown;
+                self.set_target(Normal::minimum(), TimeUnit(1.0 / 1000.0), false, true);
             }
         }
     }
@@ -1061,6 +1091,40 @@ mod tests {
         assert!(
             amplitudes.iter().any(|i| { i.value() != Normal::MIN }),
             "Once triggered, the EG should generate non-silent values"
+        );
+    }
+
+    #[test]
+    fn envelope_shutdown_state() {
+        let envelope_settings = EnvelopeSettings {
+            attack: 0.0,
+            decay: 0.0,
+            sustain: 1.0,
+            release: 0.5,
+        };
+        let mut e = EnvelopeGenerator::new_with(2000, &envelope_settings);
+
+        // With sample rate 1000, each sample is 0.5 millisecond.
+        let mut amplitudes: [Normal; 10] = [Normal::default(); 10];
+
+        e.enqueue_attack();
+        e.batch_values(&mut amplitudes);
+        assert!(
+            amplitudes.iter().all(|s| { s.value() == Normal::MAX }),
+            "After enqueueing attack, amplitude should be max"
+        );
+
+        e.enqueue_shutdown();
+        e.batch_values(&mut amplitudes);
+        assert_lt!(
+            amplitudes[0].value(),
+            (Normal::MAX - Normal::MIN) / 2.0,
+            "At sample rate 2KHz, shutdown state should take two samples to go from 1.0 to 0.0."
+        );
+        assert_eq!(
+            amplitudes[1].value(),
+            Normal::MIN,
+            "At sample rate 2KHz, shutdown state should reach 0.0 within two samples."
         );
     }
 }
