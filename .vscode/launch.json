@@ -120,8 +120,7 @@
       },
       "args": [
         "projects${pathSeparator}scale-c4-major.yaml",
-        "--wav",
-        "out.wav"
+        "--wav"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -182,8 +181,7 @@
       },
       "args": [
         "projects${pathSeparator}dev-loop.yaml",
-        "--wav",
-        "dev-loop.wav"
+        "--wav"
       ],
       "cwd": "${workspaceFolder}"
     },
