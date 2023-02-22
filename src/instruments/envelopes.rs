@@ -81,16 +81,16 @@ pub struct EnvelopeGenerator {
     concave_b: f64,
     concave_c: f64,
 
-    note_on_pending: bool,
-    note_off_pending: bool,
+    attack_pending: bool,
+    release_pending: bool,
     shutdown_pending: bool,
 }
 impl Envelope for EnvelopeGenerator {
     fn enqueue_attack(&mut self) {
-        self.note_on_pending = true;
+        self.attack_pending = true;
     }
     fn enqueue_release(&mut self) {
-        self.note_off_pending = true;
+        self.release_pending = true;
     }
     fn enqueue_shutdown(&mut self) {
         self.shutdown_pending = true;
@@ -153,13 +153,13 @@ impl EnvelopeGenerator {
     /// returns true if the amplitude was set to a new value.
     fn handle_pending(&mut self) {
         if self.shutdown_pending {
-            self.shutdown_pending = false;
             self.set_state(EnvelopeGeneratorState::Shutdown);
+            self.shutdown_pending = false;
         } else {
             // We need to be careful when we've been asked to do a note-on and
             // note-off at the same time. Depending on whether we're active, we
             // handle this differently.
-            if self.note_on_pending && self.note_off_pending {
+            if self.attack_pending && self.release_pending {
                 if self.is_idle() {
                     self.set_state(EnvelopeGeneratorState::Attack);
                     self.set_state(EnvelopeGeneratorState::Release);
@@ -167,13 +167,13 @@ impl EnvelopeGenerator {
                     self.set_state(EnvelopeGeneratorState::Release);
                     self.set_state(EnvelopeGeneratorState::Attack);
                 }
-            } else if self.note_off_pending {
+            } else if self.release_pending {
                 self.set_state(EnvelopeGeneratorState::Release);
-            } else if self.note_on_pending {
+            } else if self.attack_pending {
                 self.set_state(EnvelopeGeneratorState::Attack);
             }
-            self.note_off_pending = false;
-            self.note_on_pending = false;
+            self.release_pending = false;
+            self.attack_pending = false;
         }
     }
 
@@ -312,7 +312,6 @@ impl EnvelopeGenerator {
             }
             EnvelopeGeneratorState::Sustain => {
                 self.state = EnvelopeGeneratorState::Sustain;
-
                 self.set_target(
                     Normal::new(self.settings.sustain as f64),
                     TimeUnit::infinite(),
