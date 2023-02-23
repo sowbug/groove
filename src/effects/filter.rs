@@ -104,7 +104,7 @@ struct CoefficientSet2 {
     b5: f64,
 }
 
-/// https://en.wikipedia.org/wiki/Digital_biquad_filter
+/// <https://en.wikipedia.org/wiki/Digital_biquad_filter>
 #[derive(Control, Clone, Debug, Uid)]
 pub struct BiQuadFilter {
     uid: usize,
