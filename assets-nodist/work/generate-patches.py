@@ -43,11 +43,16 @@ def as_float(s):
         return float(s)
 
 
-def as_envelope(s):
+def as_envelope(s, what_is_max):
     if s == '':
         return 0.0
     if s == 'max':
-        return 0.0  # special number when sustain = 100%
+        # For decay, this happens only when sustain is 100%, so it doesn't
+        # matter
+        #
+        # For release, this happens only on filter envelope, where max should be
+        # a very long time (30+ seconds) to outlast amp envelope
+        return what_is_max
     return float(s)
 
 
@@ -162,16 +167,16 @@ with open("patches.csv") as csvfile:
             'filter-envelope-weight': as_pct(row[34]),
             'filter-envelope': {
                 'attack': as_float(row[35]),
-                'decay': as_envelope(row[36]),
+                'decay': as_envelope(row[36], 0.0),
                 'sustain': as_pct(row[37]),
-                'release': as_envelope(row[38]),
+                'release': as_envelope(row[38], 30.0),
             },
             'amp-envelope': {
                 'attack': as_float(row[39]),
-                'decay': as_envelope(row[40]),
+                'decay': as_envelope(row[40], 0.0),
                 'sustain': as_pct(row[41]),
-                'release': as_envelope(row[42]),
+                'release': as_envelope(row[42], None),
             },
         }
-        with open("../patches/welsh/%s.yaml" % name, "w") as patchfile:
+        with open("../../assets/patches/welsh/%s.yaml" % name, "w") as patchfile:
             patchfile.write(dump(patch, explicit_start=True))

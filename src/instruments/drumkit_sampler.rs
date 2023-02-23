@@ -1,4 +1,7 @@
-use super::{IsStereoSampleVoice, IsVoice, PlaysNotes, Synthesizer, VoicePerNoteStore};
+use super::{
+    IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, Synthesizer,
+    VoicePerNoteStore,
+};
 use crate::{
     common::F32ControlValue,
     midi::{GeneralMidiPercussionProgram, MidiChannel},
@@ -22,12 +25,7 @@ struct DrumkitSamplerVoice {
     sample_pointer: usize,
 
     is_playing: bool,
-    note_on_is_pending: bool,
-    note_on_velocity: u8,
-    note_off_is_pending: bool,
-    note_off_velocity: u8,
-    aftertouch_is_pending: bool,
-    aftertouch_velocity: u8,
+    event_tracker: PlaysNotesEventTracker,
 }
 impl IsStereoSampleVoice for DrumkitSamplerVoice {}
 impl IsVoice<StereoSample> for DrumkitSamplerVoice {}
@@ -36,27 +34,31 @@ impl PlaysNotes for DrumkitSamplerVoice {
         self.is_playing
     }
 
-    fn are_events_pending(&self) -> bool {
-        self.note_on_is_pending || self.aftertouch_is_pending || self.note_off_is_pending
+    fn has_pending_events(&self) -> bool {
+        self.event_tracker.has_pending_events()
     }
 
-    fn set_frequency_hz(&mut self, _frequency_hz: f32) {
-        // not applicable for this kind of sampler
-    }
-
-    fn enqueue_note_on(&mut self, velocity: u8) {
-        self.note_on_is_pending = true;
-        self.note_on_velocity = velocity;
+    fn enqueue_note_on(&mut self, key: u8, velocity: u8) {
+        // This instrument doesn't care about key because each Voice always
+        // plays the same note, but it's more consistent to pass it in to
+        // PlaysNotesEventTracker.
+        if self.is_active() {
+            // TODO: it's unclear whether this needs to be implemented. There could
+            // definitely be a transient if a note interrupts its own playback.
+            // Let's revisit. For now, let's just respect the contract and turn the
+            // steal into a note-on.
+            self.event_tracker.enqueue_steal(key, velocity);
+        } else {
+            self.event_tracker.enqueue_note_on(key, velocity);
+        }
     }
 
     fn enqueue_aftertouch(&mut self, velocity: u8) {
-        self.aftertouch_is_pending = true;
-        self.aftertouch_velocity = velocity;
+        self.event_tracker.enqueue_aftertouch(velocity);
     }
 
     fn enqueue_note_off(&mut self, velocity: u8) {
-        self.note_off_is_pending = true;
-        self.note_off_velocity = velocity;
+        self.event_tracker.enqueue_note_off(velocity);
     }
 
     fn set_pan(&mut self, _value: f32) {
@@ -74,12 +76,7 @@ impl DrumkitSamplerVoice {
             sample_clock_start: Default::default(),
             sample_pointer: Default::default(),
             is_playing: Default::default(),
-            note_on_is_pending: Default::default(),
-            note_on_velocity: Default::default(),
-            note_off_is_pending: Default::default(),
-            note_off_velocity: Default::default(),
-            aftertouch_is_pending: Default::default(),
-            aftertouch_velocity: Default::default(),
+            event_tracker: Default::default(),
         }
     }
     pub fn new_from_file(sample_rate: usize, filename: &str) -> Self {
@@ -92,20 +89,18 @@ impl DrumkitSamplerVoice {
 
     // TODO get rid of ticks arg when source_audio() is gone
     fn handle_pending_note_events(&mut self, ticks: usize) {
-        if self.note_on_is_pending {
-            self.note_on_is_pending = false;
+        if self.event_tracker.note_off_is_pending {
+            self.is_playing = false;
+        }
+        if self.event_tracker.note_on_is_pending {
             self.sample_pointer = 0;
             self.sample_clock_start = ticks;
             self.is_playing = true;
         }
-        if self.aftertouch_is_pending {
-            self.aftertouch_is_pending = false;
+        if self.event_tracker.aftertouch_is_pending {
             // TODO: do something
         }
-        if self.note_off_is_pending {
-            self.note_off_is_pending = false;
-            self.is_playing = false;
-        }
+        self.event_tracker.clear_pending();
     }
 }
 impl Generates<StereoSample> for DrumkitSamplerVoice {
@@ -272,7 +267,7 @@ mod tests {
             DEFAULT_SAMPLE_RATE,
             "test-data/square-440Hz-1-second-mono-24-bit-PCM.wav",
         );
-        voice.enqueue_note_on(127);
+        voice.enqueue_note_on(1, 127);
 
         assert!(
             is_voice_makes_any_sound_at_all(&mut voice),

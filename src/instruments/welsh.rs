@@ -1,7 +1,8 @@
 use super::{
     envelopes::{Envelope, EnvelopeGenerator},
     oscillators::Oscillator,
-    Dca, IsStereoSampleVoice, IsVoice, PlaysNotes, SimpleVoiceStore, Synthesizer,
+    Dca, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, StealingVoiceStore,
+    Synthesizer,
 };
 use crate::{
     common::{F32ControlValue, Normal, Sample},
@@ -428,12 +429,7 @@ pub struct WelshVoice {
     filter_envelope: EnvelopeGenerator,
 
     is_playing: bool,
-    note_on_is_pending: bool,
-    note_on_velocity: u8,
-    note_off_is_pending: bool,
-    note_off_velocity: u8,
-    aftertouch_is_pending: bool,
-    aftertouch_velocity: u8,
+    event_tracker: PlaysNotesEventTracker,
 
     sample: StereoSample,
     ticks: usize,
@@ -444,34 +440,22 @@ impl PlaysNotes for WelshVoice {
     fn is_playing(&self) -> bool {
         self.is_playing
     }
-
-    fn are_events_pending(&self) -> bool {
-        self.note_on_is_pending || self.note_off_is_pending || self.aftertouch_is_pending
+    fn has_pending_events(&self) -> bool {
+        self.event_tracker.has_pending_events()
     }
-
-    fn set_frequency_hz(&mut self, frequency_hz: f32) {
-        // It's safe to set the frequency on a fixed-frequency oscillator; the
-        // fixed frequency is stored separately and takes precedence.
-        self.oscillators.iter_mut().for_each(|o| {
-            o.set_frequency(frequency_hz);
-        });
+    fn enqueue_note_on(&mut self, key: u8, velocity: u8) {
+        if self.is_active() {
+            self.event_tracker.enqueue_steal(key, velocity);
+        } else {
+            self.event_tracker.enqueue_note_on(key, velocity);
+        }
     }
-
-    fn enqueue_note_on(&mut self, velocity: u8) {
-        self.note_on_is_pending = true;
-        self.note_on_velocity = velocity;
-    }
-
     fn enqueue_aftertouch(&mut self, velocity: u8) {
-        self.aftertouch_is_pending = true;
-        self.aftertouch_velocity = velocity;
+        self.event_tracker.enqueue_aftertouch(velocity);
     }
-
     fn enqueue_note_off(&mut self, velocity: u8) {
-        self.note_off_is_pending = true;
-        self.note_off_velocity = velocity;
+        self.event_tracker.enqueue_note_off(velocity);
     }
-
     fn set_pan(&mut self, value: f32) {
         self.dca.set_pan(BipolarNormal::from(value))
     }
@@ -480,7 +464,6 @@ impl Generates<StereoSample> for WelshVoice {
     fn value(&self) -> StereoSample {
         self.sample
     }
-
     fn batch_values(&mut self, _samples: &mut [StereoSample]) {
         todo!()
     }
@@ -494,6 +477,7 @@ impl Resets for WelshVoice {
         self.oscillators
             .iter_mut()
             .for_each(|o| o.reset(sample_rate));
+        self.event_tracker.reset();
     }
 }
 impl Ticks for WelshVoice {
@@ -588,11 +572,9 @@ impl WelshVoice {
     pub fn new_with(sample_rate: usize, preset: &SynthPatch) -> Self {
         let mut r = Self {
             amp_envelope: EnvelopeGenerator::new_with(sample_rate, &preset.amp_envelope),
-
             lfo: Oscillator::new_lfo(sample_rate, &preset.lfo),
             lfo_routing: preset.lfo.routing,
             lfo_depth: preset.lfo.depth.into(),
-
             filter: BiQuadFilter::new_with(
                 &FilterParams::LowPass12db {
                     cutoff: preset.filter_type_12db.cutoff_hz,
@@ -610,12 +592,7 @@ impl WelshVoice {
             oscillator_mix: Default::default(),
             dca: Default::default(),
             is_playing: Default::default(),
-            note_on_is_pending: Default::default(),
-            note_on_velocity: Default::default(),
-            note_off_is_pending: Default::default(),
-            note_off_velocity: Default::default(),
-            aftertouch_is_pending: Default::default(),
-            aftertouch_velocity: Default::default(),
+            event_tracker: Default::default(),
             sample: Default::default(),
             ticks: Default::default(),
         };
@@ -660,26 +637,33 @@ impl WelshVoice {
     }
 
     fn handle_pending_note_events(&mut self) {
-        if self.note_on_is_pending && self.note_off_is_pending {
-            // Handle the case where both are pending at the same time.
-            if self.is_playing {
-                self.handle_note_off_event();
-                self.handle_note_on_event();
-            } else {
-                self.handle_note_on_event();
-                self.handle_note_off_event();
-            }
+        if self.event_tracker.steal_is_pending {
+            self.handle_steal_event();
+        } else if self.event_tracker.steal_is_underway {
+            // We don't want any interruptions
         } else {
-            if self.note_off_is_pending {
-                self.handle_note_off_event();
+            if self.event_tracker.note_on_is_pending && self.event_tracker.note_off_is_pending {
+                // Handle the case where both are pending at the same time.
+                if self.is_playing {
+                    self.handle_note_off_event();
+                    self.handle_note_on_event();
+                } else {
+                    self.handle_note_on_event();
+                    self.handle_note_off_event();
+                }
+            } else {
+                if self.event_tracker.note_off_is_pending {
+                    self.handle_note_off_event();
+                }
+                if self.event_tracker.note_on_is_pending {
+                    self.handle_note_on_event();
+                }
             }
-            if self.note_on_is_pending {
-                self.handle_note_on_event();
+            if self.event_tracker.aftertouch_is_pending {
+                self.handle_aftertouch_event();
             }
         }
-        if self.aftertouch_is_pending {
-            self.handle_aftertouch_event();
-        }
+        self.event_tracker.clear_pending();
     }
 
     fn tick_envelopes(&mut self) -> (Normal, Normal) {
@@ -691,26 +675,42 @@ impl WelshVoice {
         // TODO: I think this is setting is_playing a tick too early, but when I
         // moved it, it broke something else (the synth was deleting the note
         // because it no longer appeared to be playing). Fragile. Fix.
+        let is_playing = self.is_playing;
         self.is_playing = !self.amp_envelope.is_idle();
+
+        if is_playing && !self.is_playing {
+            self.event_tracker.handle_steal_end();
+        }
 
         (amp_amplitude, filter_amplitude)
     }
 
+    fn handle_note_on_event(&mut self) {
+        self.amp_envelope.enqueue_attack();
+        self.filter_envelope.enqueue_attack();
+        self.set_frequency_hz(MidiUtils::note_to_frequency(self.event_tracker.note_on_key));
+    }
+
+    fn handle_steal_event(&mut self) {
+        self.event_tracker.handle_steal_start();
+        self.amp_envelope.enqueue_shutdown();
+    }
+
     fn handle_aftertouch_event(&mut self) {
-        self.aftertouch_is_pending = false;
         // TODO: do something
     }
 
-    fn handle_note_on_event(&mut self) {
-        self.note_on_is_pending = false;
-        self.amp_envelope.enqueue_attack();
-        self.filter_envelope.enqueue_attack();
-    }
-
     fn handle_note_off_event(&mut self) {
-        self.note_off_is_pending = false;
         self.amp_envelope.enqueue_release();
         self.filter_envelope.enqueue_release();
+    }
+
+    fn set_frequency_hz(&mut self, frequency_hz: f32) {
+        // It's safe to set the frequency on a fixed-frequency oscillator; the
+        // fixed frequency is stored separately and takes precedence.
+        self.oscillators.iter_mut().for_each(|o| {
+            o.set_frequency(frequency_hz);
+        });
     }
 }
 
@@ -768,7 +768,7 @@ impl HandlesMidi for WelshSynth {
 }
 impl WelshSynth {
     pub(crate) fn new_with(sample_rate: usize, preset: SynthPatch) -> Self {
-        let mut voice_store = Box::new(SimpleVoiceStore::<WelshVoice>::new_with(sample_rate));
+        let mut voice_store = Box::new(StealingVoiceStore::<WelshVoice>::new_with(sample_rate));
         for _ in 0..8 {
             voice_store.add_voice(Box::new(WelshVoice::new_with(sample_rate, &preset)));
         }
@@ -806,7 +806,6 @@ mod tests {
         clock::Clock,
         common::{SampleType, DEFAULT_SAMPLE_RATE},
         instruments::{tests::is_voice_makes_any_sound_at_all, welsh::WaveformType},
-        midi::{MidiNote, MidiUtils},
         settings::patches::{
             EnvelopeSettings, FilterPreset, LfoPreset, LfoRouting, OscillatorSettings,
             PolyphonySettings,
@@ -828,13 +827,12 @@ mod tests {
         const AMPLITUDE: SampleType = i16::MAX as SampleType;
         let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
 
-        voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
         let mut last_recognized_time_point = -1.;
         let time_note_off = duration / 2.0;
         while clock.seconds() < duration {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
-                voice.enqueue_note_on(127);
+                voice.enqueue_note_on(60, 127);
                 voice.handle_pending_note_events();
                 voice.tick_envelopes();
             } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
@@ -1025,8 +1023,7 @@ mod tests {
     #[test]
     fn welsh_makes_any_sound_at_all() {
         let mut voice = WelshVoice::new_with(DEFAULT_SAMPLE_RATE, &test_patch());
-        voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
-        voice.enqueue_note_on(127);
+        voice.enqueue_note_on(60, 127);
 
         assert!(
             is_voice_makes_any_sound_at_all(&mut voice),
@@ -1038,8 +1035,7 @@ mod tests {
     fn test_basic_synth_patch() {
         let mut clock = Clock::default();
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &test_patch());
-        voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
-        voice.enqueue_note_on(127);
+        voice.enqueue_note_on(60, 127);
         voice.handle_pending_note_events();
         voice.tick_envelopes();
         write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
@@ -1049,8 +1045,7 @@ mod tests {
     fn test_basic_cello_patch() {
         let mut clock = Clock::default();
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &cello_patch());
-        voice.set_frequency_hz(MidiUtils::note_type_to_frequency(MidiNote::C4));
-        voice.enqueue_note_on(127);
+        voice.enqueue_note_on(60, 127);
         voice.handle_pending_note_events();
         voice.tick_envelopes();
         write_sound(&mut voice, &mut clock, 5.0, 3.0, "voice_cello_c4");

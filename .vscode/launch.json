@@ -86,6 +86,27 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "YAML, repeating note",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove-cli",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove-cli",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "projects${pathSeparator}repeating-note.yaml",
+        "-w"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "YAML, just a piano scale",
       "cargo": {
         "args": [
@@ -120,8 +141,7 @@
       },
       "args": [
         "projects${pathSeparator}scale-c4-major.yaml",
-        "--wav",
-        "out.wav"
+        "--wav"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -182,8 +202,7 @@
       },
       "args": [
         "projects${pathSeparator}dev-loop.yaml",
-        "--wav",
-        "dev-loop.wav"
+        "--wav"
       ],
       "cwd": "${workspaceFolder}"
     },

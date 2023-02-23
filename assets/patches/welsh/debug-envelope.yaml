@@ -38,7 +38,7 @@ filter-envelope:
   sustain: 1.0
   release: 0.0
 amp-envelope:
-  attack: 0.0
+  attack: 0.1
   decay: 0.67
   sustain: 0.25
   release: 0.5
