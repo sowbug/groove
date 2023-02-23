@@ -403,7 +403,7 @@ impl SimpleVoice {
 
     fn handle_note_on_event(&mut self) {
         self.set_frequency_hz(MidiUtils::note_to_frequency(self.event_tracker.note_on_key));
-        self.envelope.enqueue_attack();
+        self.envelope.trigger_attack();
     }
 
     fn handle_aftertouch_event(&mut self) {
@@ -411,12 +411,12 @@ impl SimpleVoice {
     }
 
     fn handle_note_off_event(&mut self) {
-        self.envelope.enqueue_release();
+        self.envelope.trigger_release();
     }
 
     fn handle_steal_event(&mut self) {
         self.event_tracker.handle_steal_start();
-        self.envelope.enqueue_shutdown();
+        self.envelope.trigger_shutdown();
     }
 }
 
@@ -837,7 +837,7 @@ impl FmVoice {
 
     fn handle_note_on_event(&mut self) {
         self.set_frequency_hz(MidiUtils::note_to_frequency(self.event_tracker.note_on_key));
-        self.envelope.enqueue_attack();
+        self.envelope.trigger_attack();
     }
 
     fn handle_aftertouch_event(&mut self) {
@@ -845,12 +845,12 @@ impl FmVoice {
     }
 
     fn handle_note_off_event(&mut self) {
-        self.envelope.enqueue_release();
+        self.envelope.trigger_release();
     }
 
     fn handle_steal_event(&mut self) {
         self.event_tracker.handle_steal_start();
-        self.envelope.enqueue_shutdown();
+        self.envelope.trigger_shutdown();
     }
 
     #[allow(dead_code)]

@@ -10,38 +10,32 @@ use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
 use std::{fmt::Debug, ops::Range};
 
-/// Describes the public parts of an envelope generator, which provides a
+/// Describes the public interface of an envelope generator, which provides a
 /// normalized amplitude (0.0..=1.0) that changes over time according to its
 /// internal parameters, external triggers, and the progression of time.
 pub trait Envelope: Generates<Normal> + Send + Debug + Ticks {
-    /// Triggers the active part of the envelope. "Enqueue" means that the
-    /// attack event won't be processed until the next Ticks::tick().
-    fn enqueue_attack(&mut self);
+    /// Triggers the envelope's active stage.
+    fn trigger_attack(&mut self);
 
-    /// Signals the end of the active part of the envelope. As with attack,
-    /// release is processed at the next tick().
-    fn enqueue_release(&mut self);
+    /// Triggers the end of the envelope's active stage.
+    fn trigger_release(&mut self);
 
-    /// Requests that the EG change the current amplitude to zero as quickly as
-    /// possible without introducing transients. Upon reaching zero, switch to
-    /// idle state. If the EG is already idle, then do nothing.
-    ///
-    /// In general, the EG's settings (ADSR, etc.) shouldn't affect the rate of
-    /// shutdown decay.
+    /// Requests a fast decrease to zero amplitude. Upon reaching zero, switches
+    /// to idle. If the EG is already idle, then does nothing. For normal EGs,
+    /// the EG's settings (ADSR, etc.) don't affect the rate of shutdown decay.
     ///
     /// See DSSPC, 4.5 Voice Stealing, for an understanding of how the shutdown
     /// state helps. TL;DR: if we have to steal one voice to play a different
     /// note, it sounds better if the voice very briefly stops and restarts.
-    fn enqueue_shutdown(&mut self);
+    fn trigger_shutdown(&mut self);
 
-    /// Whether the envelope generator has finished the active part of the
-    /// envelope (or hasn't yet started it). Like amplitude(), this value is
-    /// valid for the current frame only after tick() is called.
+    /// Whether the envelope generator is in the idle state, which usually means
+    /// quiescent and zero amplitude.
     fn is_idle(&self) -> bool;
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-enum EnvelopeGeneratorState {
+enum State {
     #[default]
     Idle,
     Attack,
@@ -51,17 +45,20 @@ enum EnvelopeGeneratorState {
     Shutdown,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct EnvelopeGenerator {
     settings: EnvelopeSettings,
+    sample_rate: f64,
+    state: State,
+
+    was_reset: bool,
+
     ticks: usize,
     time: TimeUnit,
-    sample_rate: f64,
-    state: EnvelopeGeneratorState,
+
     uncorrected_amplitude: KahanSummation<f64, f64>,
     corrected_amplitude: Normal,
     delta: f64,
-
     amplitude_target: f64,
     time_target: TimeUnit,
 
@@ -80,23 +77,19 @@ pub struct EnvelopeGenerator {
     concave_a: f64,
     concave_b: f64,
     concave_c: f64,
-
-    attack_pending: bool,
-    release_pending: bool,
-    shutdown_pending: bool,
 }
 impl Envelope for EnvelopeGenerator {
-    fn enqueue_attack(&mut self) {
-        self.attack_pending = true;
+    fn trigger_attack(&mut self) {
+        self.set_state(State::Attack);
     }
-    fn enqueue_release(&mut self) {
-        self.release_pending = true;
+    fn trigger_release(&mut self) {
+        self.set_state(State::Release);
     }
-    fn enqueue_shutdown(&mut self) {
-        self.shutdown_pending = true;
+    fn trigger_shutdown(&mut self) {
+        self.set_state(State::Shutdown);
     }
     fn is_idle(&self) -> bool {
-        matches!(self.state, EnvelopeGeneratorState::Idle)
+        matches!(self.state, State::Idle)
     }
 }
 impl Generates<Normal> for EnvelopeGenerator {
@@ -117,6 +110,7 @@ impl Generates<Normal> for EnvelopeGenerator {
 impl Resets for EnvelopeGenerator {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate as f64;
+        self.was_reset = true;
         // TODO: reset stuff
     }
 }
@@ -125,10 +119,13 @@ impl Ticks for EnvelopeGenerator {
         // TODO: same comment as above about not yet taking advantage of
         // batching
         for _ in 0..tick_count {
-            self.ticks += 1;
+            if self.was_reset {
+                self.was_reset = false;
+            } else {
+                self.ticks += 1;
+            }
             self.time = TimeUnit(self.ticks as f64 / self.sample_rate);
 
-            self.handle_pending();
             let pre_update_amplitude = self.uncorrected_amplitude.current_sum();
             self.update_amplitude();
             self.handle_state();
@@ -140,48 +137,34 @@ impl Ticks for EnvelopeGenerator {
                 self.uncorrected_amplitude.current_sum()
             };
             self.corrected_amplitude = Normal::new(match self.state {
-                EnvelopeGeneratorState::Attack => self.transform_linear_to_convex(linear_amplitude),
-                EnvelopeGeneratorState::Decay | EnvelopeGeneratorState::Release => {
-                    self.transform_linear_to_concave(linear_amplitude)
-                }
+                State::Attack => self.transform_linear_to_convex(linear_amplitude),
+                State::Decay | State::Release => self.transform_linear_to_concave(linear_amplitude),
                 _ => linear_amplitude,
             });
         }
     }
 }
 impl EnvelopeGenerator {
-    /// returns true if the amplitude was set to a new value.
-    fn handle_pending(&mut self) {
-        if self.shutdown_pending {
-            self.set_state(EnvelopeGeneratorState::Shutdown);
-            self.shutdown_pending = false;
-        }
-        // We need to be careful when we've been asked to do a note-on and
-        // note-off at the same time. Depending on whether we're active, we
-        // handle this differently.
-        if self.attack_pending && self.release_pending {
-            if self.is_idle() {
-                self.set_state(EnvelopeGeneratorState::Attack);
-                self.set_state(EnvelopeGeneratorState::Release);
-            } else {
-                self.set_state(EnvelopeGeneratorState::Release);
-                self.set_state(EnvelopeGeneratorState::Attack);
-            }
-        } else if self.release_pending {
-            self.set_state(EnvelopeGeneratorState::Release);
-        } else if self.attack_pending {
-            self.set_state(EnvelopeGeneratorState::Attack);
-        }
-        self.release_pending = false;
-        self.attack_pending = false;
-    }
-
     pub(crate) fn new_with(sample_rate: usize, envelope_settings: &EnvelopeSettings) -> Self {
         Self {
             settings: *envelope_settings,
             sample_rate: sample_rate as f64,
-            state: EnvelopeGeneratorState::Idle,
-            ..Default::default()
+            state: State::Idle,
+            was_reset: true,
+            ticks: Default::default(),
+            time: Default::default(),
+            uncorrected_amplitude: Default::default(),
+            corrected_amplitude: Default::default(),
+            delta: Default::default(),
+            amplitude_target: Default::default(),
+            time_target: Default::default(),
+            amplitude_was_set: Default::default(),
+            convex_a: Default::default(),
+            convex_b: Default::default(),
+            convex_c: Default::default(),
+            concave_a: Default::default(),
+            concave_b: Default::default(),
+            concave_c: Default::default(),
         }
     }
 
@@ -190,33 +173,16 @@ impl EnvelopeGenerator {
     }
 
     fn handle_state(&mut self) {
-        match self.state {
-            EnvelopeGeneratorState::Idle => {
-                // Nothing to do; we're waiting for a trigger
-            }
-            EnvelopeGeneratorState::Attack => {
-                if self.has_reached_target() {
-                    self.set_state(EnvelopeGeneratorState::Decay);
-                }
-            }
-            EnvelopeGeneratorState::Decay => {
-                if self.has_reached_target() {
-                    self.set_state(EnvelopeGeneratorState::Sustain);
-                }
-            }
-            EnvelopeGeneratorState::Sustain => {
-                // Nothing to do; we're waiting for a note-off event
-            }
-            EnvelopeGeneratorState::Release => {
-                if self.has_reached_target() {
-                    self.set_state(EnvelopeGeneratorState::Idle);
-                }
-            }
-            EnvelopeGeneratorState::Shutdown => {
-                if self.has_reached_target() {
-                    self.set_state(EnvelopeGeneratorState::Idle);
-                }
-            }
+        let (next_state, awaiting_target) = match self.state {
+            State::Idle => (State::Idle, false),
+            State::Attack => (State::Decay, true),
+            State::Decay => (State::Sustain, true),
+            State::Sustain => (State::Sustain, false),
+            State::Release => (State::Idle, true),
+            State::Shutdown => (State::Idle, true),
+        };
+        if awaiting_target && self.has_reached_target() {
+            self.set_state(next_state);
         }
     }
 
@@ -253,19 +219,19 @@ impl EnvelopeGenerator {
     // matters, for example, if attack is zero and decay is non-zero. If we jump
     // straight from idle to decay, then decay is decaying from the idle
     // amplitude of zero, which is wrong.
-    fn set_state(&mut self, new_state: EnvelopeGeneratorState) {
+    fn set_state(&mut self, new_state: State) {
         match new_state {
-            EnvelopeGeneratorState::Idle => {
-                self.state = EnvelopeGeneratorState::Idle;
+            State::Idle => {
+                self.state = State::Idle;
                 self.uncorrected_amplitude = Default::default();
                 self.delta = 0.0;
             }
-            EnvelopeGeneratorState::Attack => {
+            State::Attack => {
                 if self.settings.attack as f64 == TimeUnit::zero().0 {
                     self.set_explicit_amplitude(Normal::MAX);
-                    self.set_state(EnvelopeGeneratorState::Decay);
+                    self.set_state(State::Decay);
                 } else {
-                    self.state = EnvelopeGeneratorState::Attack;
+                    self.state = State::Attack;
                     let target_amplitude = Normal::maximum().value();
                     self.set_target(
                         Normal::maximum(),
@@ -285,12 +251,12 @@ impl EnvelopeGenerator {
                     );
                 }
             }
-            EnvelopeGeneratorState::Decay => {
+            State::Decay => {
                 if self.settings.decay as f64 == TimeUnit::zero().0 {
                     self.set_explicit_amplitude(self.settings.sustain as f64);
-                    self.set_state(EnvelopeGeneratorState::Sustain);
+                    self.set_state(State::Sustain);
                 } else {
-                    self.state = EnvelopeGeneratorState::Decay;
+                    self.state = State::Decay;
                     let target_amplitude = self.settings.sustain as f64;
                     self.set_target(
                         Normal::new(target_amplitude),
@@ -309,8 +275,8 @@ impl EnvelopeGenerator {
                     );
                 }
             }
-            EnvelopeGeneratorState::Sustain => {
-                self.state = EnvelopeGeneratorState::Sustain;
+            State::Sustain => {
+                self.state = State::Sustain;
                 self.set_target(
                     Normal::new(self.settings.sustain as f64),
                     TimeUnit::infinite(),
@@ -318,12 +284,12 @@ impl EnvelopeGenerator {
                     false,
                 );
             }
-            EnvelopeGeneratorState::Release => {
+            State::Release => {
                 if self.settings.release as f64 == TimeUnit::zero().0 {
                     self.set_explicit_amplitude(Normal::MAX);
-                    self.set_state(EnvelopeGeneratorState::Idle);
+                    self.set_state(State::Idle);
                 } else {
-                    self.state = EnvelopeGeneratorState::Release;
+                    self.state = State::Release;
                     let target_amplitude = 0.0;
                     self.set_target(
                         Normal::minimum(),
@@ -342,8 +308,8 @@ impl EnvelopeGenerator {
                     );
                 }
             }
-            EnvelopeGeneratorState::Shutdown => {
-                self.state = EnvelopeGeneratorState::Shutdown;
+            State::Shutdown => {
+                self.state = State::Shutdown;
                 self.set_target(Normal::minimum(), TimeUnit(1.0 / 1000.0), false, true);
             }
         }
@@ -588,12 +554,12 @@ mod tests {
     }
 
     impl EnvelopeGenerator {
-        fn debug_state(&self) -> &EnvelopeGeneratorState {
+        fn debug_state(&self) -> &State {
             &self.state
         }
 
         pub(crate) fn debug_is_shutting_down(&self) -> bool {
-            matches!(self.debug_state(), EnvelopeGeneratorState::Shutdown)
+            matches!(self.debug_state(), State::Shutdown)
         }
 
         /// The current value of the envelope generator. Note that this value is
@@ -768,7 +734,7 @@ mod tests {
     fn generates_envelope_trait_instant_trigger_response() {
         let (_envelope_settings, mut clock, mut e) = get_ge_trait_stuff();
 
-        e.enqueue_attack();
+        e.trigger_attack();
         e.tick(1);
         clock.tick(1);
         assert!(
@@ -804,22 +770,19 @@ mod tests {
         let mut clock = Clock::new_with_sample_rate(100);
         let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
-        envelope.enqueue_attack();
+        envelope.trigger_attack();
         clock.tick(1);
         envelope.tick(1);
         let mut time_marker = clock.seconds() + envelope_settings.attack;
         assert!(
-            matches!(envelope.debug_state(), EnvelopeGeneratorState::Attack),
+            matches!(envelope.debug_state(), State::Attack),
             "Expected SimpleEnvelopeState::Attack after trigger, but got {:?} instead",
             envelope.debug_state()
         );
 
         clock.tick(1);
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
-        assert!(matches!(
-            envelope.debug_state(),
-            EnvelopeGeneratorState::Decay
-        ));
+        assert!(matches!(envelope.debug_state(), State::Decay));
         assert_eq!(
             amplitude.value(),
             1.0,
@@ -833,10 +796,7 @@ mod tests {
             envelope_settings.sustain as f64,
             "Amplitude should reach sustain level after decay."
         );
-        assert!(matches!(
-            envelope.debug_state(),
-            EnvelopeGeneratorState::Sustain
-        ));
+        assert!(matches!(envelope.debug_state(), State::Sustain));
     }
 
     #[test]
@@ -850,7 +810,7 @@ mod tests {
         let mut clock = Clock::default();
         let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
-        envelope.enqueue_attack();
+        envelope.trigger_attack();
         envelope.tick(1);
         let mut time_marker =
             clock.seconds() + envelope_settings.attack + envelope_settings.expected_decay_time();
@@ -869,7 +829,7 @@ mod tests {
         })
         .value();
 
-        envelope.enqueue_release();
+        envelope.trigger_release();
         time_marker += envelope_settings.expected_release_time(amplitude);
         let mut last_amplitude = amplitude;
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
@@ -919,7 +879,7 @@ mod tests {
 
         // See https://floating-point-gui.de/errors/comparison/ for standard
         // warning about comparing floats and looking for epsilons.
-        envelope.enqueue_attack();
+        envelope.trigger_attack();
         envelope.tick(1);
         let mut time_marker = clock.seconds();
         clock.tick(1);
@@ -952,12 +912,12 @@ mod tests {
         );
 
         // Release the trigger.
-        envelope.enqueue_release();
+        envelope.trigger_release();
         let _amplitude = envelope.tick(1);
         clock.tick(1);
 
         // And hit it again.
-        envelope.enqueue_attack();
+        envelope.trigger_attack();
         envelope.tick(1);
         let mut time_marker = clock.seconds();
         clock.tick(1);
@@ -972,7 +932,7 @@ mod tests {
         );
 
         // Then release again.
-        envelope.enqueue_release();
+        envelope.trigger_release();
 
         // Check that we keep decreasing amplitude to zero, not to sustain.
         time_marker += envelope_settings.release;
@@ -1016,7 +976,7 @@ mod tests {
         let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
         // Decay after note-on should be shorter than the decay value.
-        envelope.enqueue_attack();
+        envelope.trigger_attack();
         let mut time_marker = clock.seconds() + envelope_settings.expected_decay_time();
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {}).value();
         assert_eq!(amplitude as f32,
@@ -1029,7 +989,7 @@ mod tests {
         );
 
         // Release after note-off should also be shorter than the release value.
-        envelope.enqueue_release();
+        envelope.trigger_release();
         let expected_release_time = envelope_settings.expected_release_time(amplitude);
         time_marker += expected_release_time;
         let amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
@@ -1088,7 +1048,7 @@ mod tests {
         });
 
         // Now trigger the envelope and see what happened.
-        e.enqueue_attack();
+        e.trigger_attack();
         e.batch_values(&mut amplitudes);
         assert!(
             amplitudes.iter().any(|i| { i.value() != Normal::MIN }),
@@ -1109,14 +1069,14 @@ mod tests {
         // With sample rate 1000, each sample is 0.5 millisecond.
         let mut amplitudes: [Normal; 10] = [Normal::default(); 10];
 
-        e.enqueue_attack();
+        e.trigger_attack();
         e.batch_values(&mut amplitudes);
         assert!(
             amplitudes.iter().all(|s| { s.value() == Normal::MAX }),
             "After enqueueing attack, amplitude should be max"
         );
 
-        e.enqueue_shutdown();
+        e.trigger_shutdown();
         e.batch_values(&mut amplitudes);
         assert_lt!(
             amplitudes[0].value(),

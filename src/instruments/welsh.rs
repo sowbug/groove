@@ -686,14 +686,14 @@ impl WelshVoice {
     }
 
     fn handle_note_on_event(&mut self) {
-        self.amp_envelope.enqueue_attack();
-        self.filter_envelope.enqueue_attack();
+        self.amp_envelope.trigger_attack();
+        self.filter_envelope.trigger_attack();
         self.set_frequency_hz(MidiUtils::note_to_frequency(self.event_tracker.note_on_key));
     }
 
     fn handle_steal_event(&mut self) {
         self.event_tracker.handle_steal_start();
-        self.amp_envelope.enqueue_shutdown();
+        self.amp_envelope.trigger_shutdown();
     }
 
     fn handle_aftertouch_event(&mut self) {
@@ -701,8 +701,8 @@ impl WelshVoice {
     }
 
     fn handle_note_off_event(&mut self) {
-        self.amp_envelope.enqueue_release();
-        self.filter_envelope.enqueue_release();
+        self.amp_envelope.trigger_release();
+        self.filter_envelope.trigger_release();
     }
 
     fn set_frequency_hz(&mut self, frequency_hz: f32) {

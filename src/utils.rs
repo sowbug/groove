@@ -5,6 +5,7 @@ use crate::{
         envelopes::{Envelope, EnvelopeGenerator},
         oscillators::Oscillator,
     },
+    settings::patches::EnvelopeSettings,
     traits::{
         Controllable, Generates, HandlesMidi, HasUid, IsController, IsInstrument, Resets,
         Terminates, Ticks, TicksWithMessages,
@@ -270,7 +271,10 @@ impl TestSynth {
         Self::new_with_components(
             sample_rate,
             Box::new(Oscillator::new_with(sample_rate)),
-            Box::new(EnvelopeGenerator::default()),
+            Box::new(EnvelopeGenerator::new_with(
+                sample_rate,
+                &EnvelopeSettings::default(),
+            )),
         )
     }
 }
