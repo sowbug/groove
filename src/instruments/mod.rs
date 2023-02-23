@@ -996,6 +996,7 @@ mod tests {
         traits::Ticks,
         BipolarNormal, StereoSample,
     };
+    use float_cmp::approx_eq;
     use midly::num::u7;
 
     impl SimpleVoice {
@@ -1147,17 +1148,15 @@ mod tests {
         // have its individual frequency.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(voice.is_playing());
-            assert_eq!(
-                voice.oscillator.frequency(),
-                261.62555,
+            assert!(
+                approx_eq!(f32, voice.oscillator.frequency(), 261.62555),
                 "we should have gotten back the same voice for the requested note"
             );
         }
         if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
             assert!(voice.is_playing());
-            assert_eq!(
-                voice.oscillator.frequency(),
-                277.18265,
+            assert!(
+                approx_eq!(f32, voice.oscillator.frequency(), 277.18265),
                 "we should have gotten back the same voice for the requested note"
             );
         }
@@ -1175,9 +1174,8 @@ mod tests {
         // for the system to consider a voice to still be playing after
         // release() during the same tick.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
-            assert_eq!(
-                voice.oscillator.frequency(),
-                261.62555,
+            assert!(
+                approx_eq!(f32, voice.oscillator.frequency(), 261.62555),
                 "we should have gotten back the same voice for the requested note"
             );
             voice.enqueue_note_off(127);
@@ -1190,9 +1188,8 @@ mod tests {
             // happen to know that this voice store recycles voices rather than
             // instantiating new ones. (2) is very likely to remain true for all
             // voice stores, but it's a little loosey-goosey right now.
-            assert_eq!(
-                voice.oscillator.frequency(),
-                261.62555,
+            assert!(
+                approx_eq!(f32, voice.oscillator.frequency(), 261.62555),
                 "we should have gotten the defunct voice for a new note"
             );
         } else {
