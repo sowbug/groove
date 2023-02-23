@@ -15,7 +15,7 @@ patch-cables:
   - [instrument-1, main-mixer]
 patterns:
   - id: basic-1
-    note-value: eighth
+    note-value: quarter
     notes:
       - [60, 60, 60, 60, 60, 60, 60, 60]
   - id: silent-measure-1

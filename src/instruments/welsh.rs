@@ -1,7 +1,7 @@
 use super::{
     envelopes::{Envelope, EnvelopeGenerator},
     oscillators::Oscillator,
-    Dca, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, SimpleVoiceStore,
+    Dca, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, StealingVoiceStore,
     Synthesizer,
 };
 use crate::{
@@ -639,6 +639,8 @@ impl WelshVoice {
     fn handle_pending_note_events(&mut self) {
         if self.event_tracker.steal_is_pending {
             self.handle_steal_event();
+        } else if self.event_tracker.steal_is_underway {
+            // We don't want any interruptions
         } else {
             if self.event_tracker.note_on_is_pending && self.event_tracker.note_off_is_pending {
                 // Handle the case where both are pending at the same time.
@@ -766,7 +768,7 @@ impl HandlesMidi for WelshSynth {
 }
 impl WelshSynth {
     pub(crate) fn new_with(sample_rate: usize, preset: SynthPatch) -> Self {
-        let mut voice_store = Box::new(SimpleVoiceStore::<WelshVoice>::new_with(sample_rate));
+        let mut voice_store = Box::new(StealingVoiceStore::<WelshVoice>::new_with(sample_rate));
         for _ in 0..8 {
             voice_store.add_voice(Box::new(WelshVoice::new_with(sample_rate, &preset)));
         }

@@ -62,7 +62,7 @@ devices:
 patch-cables:
   - [piano-1, low-pass-1, gain-1, main-mixer]
   - [bassline, gain-2, main-mixer]
-#  - [synth-1, gain-3, main-mixer]
+  - [synth-1, gain-3, main-mixer]
   - [drum-1, main-mixer]
 controls:
   - id: lfo-pan-1

@@ -86,6 +86,27 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "YAML, repeating note",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=groove-cli",
+          "--package=groove"
+        ],
+        "filter": {
+          "name": "groove-cli",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "projects${pathSeparator}repeating-note.yaml",
+        "-w"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "YAML, just a piano scale",
       "cargo": {
         "args": [

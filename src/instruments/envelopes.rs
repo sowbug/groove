@@ -155,26 +155,25 @@ impl EnvelopeGenerator {
         if self.shutdown_pending {
             self.set_state(EnvelopeGeneratorState::Shutdown);
             self.shutdown_pending = false;
-        } else {
-            // We need to be careful when we've been asked to do a note-on and
-            // note-off at the same time. Depending on whether we're active, we
-            // handle this differently.
-            if self.attack_pending && self.release_pending {
-                if self.is_idle() {
-                    self.set_state(EnvelopeGeneratorState::Attack);
-                    self.set_state(EnvelopeGeneratorState::Release);
-                } else {
-                    self.set_state(EnvelopeGeneratorState::Release);
-                    self.set_state(EnvelopeGeneratorState::Attack);
-                }
-            } else if self.release_pending {
+        }
+        // We need to be careful when we've been asked to do a note-on and
+        // note-off at the same time. Depending on whether we're active, we
+        // handle this differently.
+        if self.attack_pending && self.release_pending {
+            if self.is_idle() {
+                self.set_state(EnvelopeGeneratorState::Attack);
                 self.set_state(EnvelopeGeneratorState::Release);
-            } else if self.attack_pending {
+            } else {
+                self.set_state(EnvelopeGeneratorState::Release);
                 self.set_state(EnvelopeGeneratorState::Attack);
             }
-            self.release_pending = false;
-            self.attack_pending = false;
+        } else if self.release_pending {
+            self.set_state(EnvelopeGeneratorState::Release);
+        } else if self.attack_pending {
+            self.set_state(EnvelopeGeneratorState::Attack);
         }
+        self.release_pending = false;
+        self.attack_pending = false;
     }
 
     pub(crate) fn new_with(sample_rate: usize, envelope_settings: &EnvelopeSettings) -> Self {
@@ -591,6 +590,10 @@ mod tests {
     impl EnvelopeGenerator {
         fn debug_state(&self) -> &EnvelopeGeneratorState {
             &self.state
+        }
+
+        pub(crate) fn debug_is_shutting_down(&self) -> bool {
+            matches!(self.debug_state(), EnvelopeGeneratorState::Shutdown)
         }
 
         /// The current value of the envelope generator. Note that this value is

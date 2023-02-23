@@ -124,8 +124,8 @@ impl PlaysNotesEventTracker {
 
     fn handle_steal_end(&mut self) {
         if self.steal_is_underway {
-            self.enqueue_note_on(self.note_on_key, self.note_on_velocity);
             self.steal_is_underway = false;
+            self.enqueue_note_on(self.note_on_key, self.note_on_velocity);
         }
     }
 }
@@ -304,7 +304,11 @@ impl PlaysNotes for SimpleVoice {
     }
 
     fn enqueue_note_on(&mut self, key: u8, velocity: u8) {
-        self.event_tracker.enqueue_note_on(key, velocity);
+        if self.is_active() {
+            self.event_tracker.enqueue_steal(key, velocity);
+        } else {
+            self.event_tracker.enqueue_note_on(key, velocity);
+        }
     }
 
     fn enqueue_aftertouch(&mut self, velocity: u8) {
@@ -361,7 +365,7 @@ impl SimpleVoice {
         Self {
             sample_rate,
             oscillator: Oscillator::new_with(sample_rate),
-            envelope: Default::default(),
+            envelope: EnvelopeGenerator::new_with(sample_rate, &EnvelopeSettings::default()),
             sample: Default::default(),
             is_playing: Default::default(),
             event_tracker: Default::default(),
@@ -483,9 +487,11 @@ impl<V: IsStereoSampleVoice> StoresVoices for SimpleVoiceStore<V> {
     }
 
     fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>> {
+        // If we have a voice already going for this note, return it.
         if let Some(index) = self.notes_playing.iter().position(|note| *key == *note) {
             return Ok(&mut self.voices[index]);
         }
+        // If we can find an inactive voice, return it.
         for (index, voice) in self.voices.iter().enumerate() {
             if voice.is_active() {
                 continue;
@@ -494,12 +500,6 @@ impl<V: IsStereoSampleVoice> StoresVoices for SimpleVoiceStore<V> {
             return Ok(&mut self.voices[index]);
         }
 
-        // We need to steal a voice. For now, let's just pick the first one in the list.
-        let index = 0;
-        self.notes_playing[index] = *key;
-        return Ok(&mut self.voices[index]);
-
-        #[allow(unreachable_code)]
         Err(anyhow!("out of voices"))
     }
 
@@ -531,13 +531,102 @@ impl<V: IsStereoSampleVoice> Ticks for SimpleVoiceStore<V> {
         self.voices.iter_mut().for_each(|v| v.tick(tick_count));
         self.sample = self.voices.iter().map(|v| v.value()).sum();
         self.voices.iter().enumerate().for_each(|(index, voice)| {
-            if !voice.is_playing() {
+            if !voice.is_active() {
                 self.notes_playing[index] = u7::from(0);
             }
         });
     }
 }
 impl<V: IsStereoSampleVoice> SimpleVoiceStore<V> {
+    pub fn new_with(_sample_rate: usize) -> Self {
+        Self {
+            sample: Default::default(),
+            voices: Default::default(),
+            notes_playing: Default::default(),
+        }
+    }
+    fn add_voice(&mut self, voice: Box<V>) {
+        self.voices.push(voice);
+        self.notes_playing.push(u7::from(0));
+    }
+}
+
+/// A VoiceStore that steals voices to satisfy get_voice().
+#[derive(Debug)]
+pub struct StealingVoiceStore<V: IsStereoSampleVoice> {
+    sample: StereoSample,
+    voices: Vec<Box<V>>,
+    notes_playing: Vec<u7>,
+}
+impl<V: IsStereoSampleVoice> StoresVoices for StealingVoiceStore<V> {
+    type Voice = V;
+
+    fn voice_count(&self) -> usize {
+        self.voices.len()
+    }
+
+    fn active_voice_count(&self) -> usize {
+        self.voices.iter().filter(|v| v.is_playing()).count()
+    }
+
+    fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>> {
+        // If we have a voice already going for this note, return it.
+        if let Some(index) = self.notes_playing.iter().position(|note| *key == *note) {
+            return Ok(&mut self.voices[index]);
+        }
+        // If we can find an inactive voice, return it.
+        for (index, voice) in self.voices.iter().enumerate() {
+            if voice.is_active() {
+                continue;
+            }
+            self.notes_playing[index] = *key;
+            return Ok(&mut self.voices[index]);
+        }
+
+        // We need to steal a voice. For now, let's just pick the first one in the list.
+        let index = 0;
+        self.notes_playing[index] = *key;
+        return Ok(&mut self.voices[index]);
+
+        #[allow(unreachable_code)]
+        Err(anyhow!("out of voices"))
+    }
+
+    fn set_pan(&mut self, value: f32) {
+        for voice in self.voices.iter_mut() {
+            voice.set_pan(value);
+        }
+    }
+}
+impl<V: IsStereoSampleVoice> Generates<StereoSample> for StealingVoiceStore<V> {
+    fn value(&self) -> StereoSample {
+        self.sample
+    }
+
+    #[allow(unused_variables)]
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl<V: IsStereoSampleVoice> Resets for StealingVoiceStore<V> {
+    fn reset(&mut self, sample_rate: usize) {
+        self.voices.iter_mut().for_each(|v| v.reset(sample_rate));
+    }
+}
+impl<V: IsStereoSampleVoice> Ticks for StealingVoiceStore<V> {
+    // TODO: this is not at all taking advantage of batching. When
+    // batch_sample() calls it, it's lame.
+    fn tick(&mut self, tick_count: usize) {
+        self.voices.iter_mut().for_each(|v| v.tick(tick_count));
+        self.sample = self.voices.iter().map(|v| v.value()).sum();
+        self.voices.iter().enumerate().for_each(|(index, voice)| {
+            if !voice.is_active() {
+                self.notes_playing[index] = u7::from(0);
+            }
+        });
+    }
+}
+impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
     pub fn new_with(_sample_rate: usize) -> Self {
         Self {
             sample: Default::default(),
@@ -900,9 +989,20 @@ impl Dca {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::DEFAULT_SAMPLE_RATE;
+    use super::{IsStereoSampleVoice, SimpleVoice};
+    use crate::{
+        common::{Sample, DEFAULT_SAMPLE_RATE},
+        instruments::{Dca, PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
+        traits::Ticks,
+        BipolarNormal, StereoSample,
+    };
+    use midly::num::u7;
 
-    use super::*;
+    impl SimpleVoice {
+        fn debug_is_shutting_down(&self) -> bool {
+            self.envelope.debug_is_shutting_down()
+        }
+    }
 
     #[test]
     fn dca_mainline() {
@@ -931,7 +1031,7 @@ mod tests {
     }
 
     #[test]
-    fn voice_store_mainline() {
+    fn simple_voice_store_mainline() {
         let mut voice_store = SimpleVoiceStore::<SimpleVoice>::new_with(DEFAULT_SAMPLE_RATE);
         assert_eq!(voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
@@ -967,6 +1067,46 @@ mod tests {
             // release completes after asking for the next sample.
             voice.tick(1);
             assert!(!voice.is_playing());
+        }
+    }
+
+    #[test]
+    fn stealing_voice_store_mainline() {
+        let mut voice_store = StealingVoiceStore::<SimpleVoice>::new_with(DEFAULT_SAMPLE_RATE);
+        assert_eq!(voice_store.voice_count(), 0);
+        assert_eq!(voice_store.active_voice_count(), 0);
+
+        for _ in 0..2 {
+            voice_store.add_voice(Box::new(SimpleVoice::new_with(DEFAULT_SAMPLE_RATE)));
+        }
+        assert_eq!(voice_store.voice_count(), 2);
+        assert_eq!(voice_store.active_voice_count(), 0);
+
+        // Request and start the full number of voices.
+        if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
+            assert!(!voice.is_playing());
+            voice.enqueue_note_on(60, 127);
+            voice.tick(1); // We must tick() register the trigger.
+            assert!(voice.is_playing());
+        }
+        if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
+            assert!(!voice.is_playing());
+            voice.enqueue_note_on(61, 127);
+            voice.tick(1);
+        }
+
+        // Request a voice for a new note that would exceed the count. It should
+        // already be playing, because we're about to steal it.
+        if let Ok(voice) = voice_store.get_voice(&u7::from(62)) {
+            assert!(voice.is_playing());
+
+            // This is testing the shutdown state, rather than the voice store,
+            // but I'm feeling lazy today.
+            voice.enqueue_note_on(62, 127);
+            voice.tick(1);
+            assert!(voice.debug_is_shutting_down());
+        } else {
+            assert!(false, "StealingVoiceStore didn't return a voice");
         }
     }
 
@@ -1060,9 +1200,8 @@ mod tests {
         }
     }
 
+    // It's your job to enqueue a note before calling this function.
     pub(crate) fn is_voice_makes_any_sound_at_all(voice: &mut impl IsStereoSampleVoice) -> bool {
-        voice.enqueue_note_on(1, 127);
-
         // Skip a few frames in case attack is slow
         voice.tick(5);
         voice.value() != StereoSample::SILENCE
