@@ -47,6 +47,12 @@ fn main() -> anyhow::Result<()> {
     }
 
     for input_filename in args.input {
+        if input_filename == "-" {
+            // This is a separator for cases like
+            //
+            // `cargo run --bin groove-cli - x.yaml`
+            continue;
+        }
         let mut orchestrator = if input_filename.ends_with(".nscr") {
             #[cfg(feature = "scripting")]
             let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
