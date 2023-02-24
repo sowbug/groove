@@ -161,7 +161,9 @@ impl Orchestrator {
 
         // Validate that source_uid refers to something that outputs audio
         if let Some(output) = self.store.get(output_uid) {
-            if output.as_is_controller().is_some() {
+            let outputs_audio =
+                output.as_is_instrument().is_some() || output.as_is_effect().is_some();
+            if !outputs_audio {
                 return Err(anyhow!(
                     "Output device doesn't output audio and can't be patched into input device"
                 ));

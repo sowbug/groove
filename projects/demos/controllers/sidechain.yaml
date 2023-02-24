@@ -1,0 +1,74 @@
+---
+title: "Sidechain"
+clock:
+  bpm: 60.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+      - instrument-1
+      - welsh:
+          midi-in: 1
+          preset: debug-envelope
+  - instrument:
+      - drum-1
+      - drumkit:
+          midi-in: 10
+          preset: "707"
+  - effect:
+      - compressor-1
+      - compressor:
+          threshold: 0.0 # this will be automated, so the initial value is meaningless
+          ratio: 0.1 # lots of compression so we can easily hear the difference
+          attack: 0.0 # TODO: currently ignored
+          release: 0.0 # TODO: currently ignored
+  - controller:
+      - sidechain-1
+      - signal-passthrough-controller: # All these parameters are ignored.
+          midi-in: 0
+          midi-out: 0
+  - effect:
+      - gain-killer
+      - gain:
+          ceiling: 0.0
+patch-cables:
+  - [instrument-1, compressor-1, main-mixer]
+  - [drum-1, sidechain-1, gain-killer, main-mixer]
+controls:
+  # this hooks up the sidechain-1's control output to the compressor-1's
+  # threshold control input.
+  - id: sidechain-drums-to-lead-1
+    source: sidechain-1
+    target:
+      id: compressor-1
+      param: threshold
+patterns:
+  - id: repeating-note-1
+    note-value: sixteenth
+    notes:
+      - [72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72]
+  - id: bass-on-each-beat
+    note-value: sixteenth
+    notes:
+      - [35, 00, 00, 00, 35, 00, 00, 00, 35, 00, 00, 00, 35, 00, 00, 00]
+tracks:
+  - id: track-1
+    midi-channel: 1
+    patterns: [repeating-note-1]
+  - id: track-2
+    midi-channel: 10
+    patterns: [bass-on-each-beat]
+# paths:
+#   - id: ramp-up
+#     note-value: whole
+#     steps:
+#       - slope:
+#           start: 0.0
+#           end: 1.0
+# trips:
+#   - id: control-effect
+#     target:
+#       id: compressor-1
+#       param: threshold
+#     paths: [ramp-up]

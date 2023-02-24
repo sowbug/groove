@@ -4,9 +4,9 @@ pub(crate) mod sequencers;
 
 use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit},
-    common::ParameterType,
+    common::{ParameterType, Sample},
     settings::{controllers::ControlPathSettings, patches::WaveformType},
-    traits::{Generates, HandlesMidi, Resets, Ticks, TicksWithMessages},
+    traits::{Generates, HandlesMidi, IsEffect, Resets, Ticks, TicksWithMessages, TransformsAudio},
     BipolarNormal, ClockSettings, EntityMessage, Oscillator,
 };
 use crate::{
@@ -188,6 +188,7 @@ impl ControlPath {
     }
 }
 
+/// Uses an internal LFO as a control source.
 #[derive(Control, Debug, Uid)]
 pub struct LfoController {
     uid: usize,
@@ -228,6 +229,74 @@ impl LfoController {
                 waveform,
                 frequency_hz as f32,
             ),
+        }
+    }
+}
+
+/// Uses an input signal as a control source.
+#[derive(Control, Debug, Uid)]
+pub struct SignalPassthroughController {
+    uid: usize,
+    signal: BipolarNormal,
+    has_signal_changed: bool,
+}
+impl IsController for SignalPassthroughController {}
+impl Resets for SignalPassthroughController {}
+impl TicksWithMessages for SignalPassthroughController {
+    fn tick(&mut self, _tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+        // We ignore tick_count because we know we won't send more than one
+        // control signal during any batch of tick()s unless we also get
+        // multiple transform_audio() calls. This is fine; it's exactly how
+        // other controllers behave.(
+        (
+            if self.has_signal_changed {
+                self.has_signal_changed = false;
+                Some(vec![EntityMessage::ControlF32(
+                    self.signal.value() as f32 * -0.5, // TODO: deal with that transform
+                )])
+            } else {
+                None
+            },
+            // We always return 0 for handled ticks because that's our signal
+            // that we're OK terminating.
+            0,
+        )
+    }
+}
+impl Terminates for SignalPassthroughController {
+    fn is_finished(&self) -> bool {
+        true
+    }
+}
+impl HandlesMidi for SignalPassthroughController {}
+impl IsEffect for SignalPassthroughController {}
+impl TransformsAudio for SignalPassthroughController {
+    fn transform_audio(&mut self, input_sample: StereoSample) -> StereoSample {
+        let averaged_sample: Sample = (input_sample.0 + input_sample.1) * 0.5;
+        let as_bipolar_normal: BipolarNormal = averaged_sample.into();
+        if self.signal != as_bipolar_normal {
+            self.has_signal_changed = true;
+            self.signal = as_bipolar_normal;
+        }
+        input_sample
+    }
+
+    fn transform_channel(
+        &mut self,
+        _channel: usize,
+        _input_sample: crate::common::Sample,
+    ) -> crate::common::Sample {
+        // We've overridden transform_audio(), so nobody should be calling this
+        // method.
+        todo!();
+    }
+}
+impl SignalPassthroughController {
+    pub fn new() -> Self {
+        Self {
+            uid: Default::default(),
+            signal: Default::default(),
+            has_signal_changed: true,
         }
     }
 }

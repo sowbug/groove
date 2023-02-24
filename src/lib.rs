@@ -7,7 +7,7 @@ pub use crate::{
         arpeggiator::Arpeggiator,
         orchestrator::Orchestrator,
         sequencers::{BeatSequencer, MidiTickSequencer},
-        ControlTrip, LfoController,
+        ControlTrip, LfoController, SignalPassthroughController,
     },
     effects::{
         bitcrusher::Bitcrusher, chorus::Chorus, compressor::Compressor, delay::Delay,

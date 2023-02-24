@@ -10,8 +10,8 @@ use groove::{
     Compressor, ControlTrip, Delay, DrumkitSampler, EntityMessage, F32ControlValue, FmSynthesizer,
     Gain, GrooveMessage, GrooveSubscription, LfoController, Limiter, MidiHandler, MidiHandlerEvent,
     MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiTickSequencer, Mixer, Normal, Note,
-    Orchestrator, Pattern, PatternManager, PatternMessage, Reverb, Sampler, SimpleSynthesizer,
-    TestSynth, Timer, WelshSynth,
+    Orchestrator, Pattern, PatternManager, PatternMessage, Reverb, Sampler,
+    SignalPassthroughController, SimpleSynthesizer, TestSynth, Timer, WelshSynth,
 };
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -530,6 +530,7 @@ impl GrooveApp {
                     GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
                 )
             }
+            BoxedEntity::SignalPassthroughController(e) => self.signal_controller_view(e),
             BoxedEntity::SimpleSynthesizer(e) => {
                 let title = type_name::<SimpleSynthesizer>();
                 let contents = format!("notes playing: {}", e.notes_playing());
@@ -721,6 +722,13 @@ impl GrooveApp {
             let contents = format!("{}", e.next_instant());
             GuiStuff::<EntityMessage>::container_text(contents.as_str()).into()
         })
+    }
+
+    fn signal_controller_view(&self, _: &SignalPassthroughController) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            type_name::<SignalPassthroughController>(),
+            GuiStuff::<EntityMessage>::container_text("nothing").into(),
+        )
     }
 
     fn test_controller_view(&self, e: &TestController) -> Element<EntityMessage> {

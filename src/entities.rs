@@ -2,7 +2,7 @@ use crate::{
     controllers::{
         arpeggiator::Arpeggiator,
         sequencers::{BeatSequencer, MidiTickSequencer},
-        ControlTrip, LfoController,
+        ControlTrip, LfoController, SignalPassthroughController,
     },
     effects::{
         bitcrusher::Bitcrusher, chorus::Chorus, compressor::Compressor, delay::Delay,
@@ -51,6 +51,7 @@ boxed_entity_enum_and_common_crackers! {
     MidiTickSequencer:MidiTickSequencer,
     LfoController: LfoController,
     PatternManager: PatternManager,
+    SignalPassthroughController: SignalPassthroughController,
     TestController: TestController,
     Timer: Timer,
 
@@ -144,6 +145,7 @@ controller_crackers! {
     LfoController,
     MidiTickSequencer,
     PatternManager,
+    SignalPassthroughController,
     TestController,
     Timer,
 }
@@ -176,6 +178,7 @@ effect_crackers! {
     Limiter,
     Mixer,
     Reverb,
+    SignalPassthroughController,
     TestEffect,
 }
 
@@ -238,6 +241,7 @@ handles_midi_crackers! {
     MidiTickSequencer,
     PatternManager,
     Sampler,
+    SignalPassthroughController,
     SimpleSynthesizer,
     TestController,
     TestInstrument,
