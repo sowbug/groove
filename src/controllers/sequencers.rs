@@ -1,7 +1,7 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
     midi::{MidiChannel, MidiMessage, MidiUtils},
-    traits::{HandlesMidi, HasUid, IsController, Resets, Terminates, TicksWithMessages},
+    traits::{HandlesMidi, HasUid, IsController, Resets, TicksWithMessages},
     ClockSettings, EntityMessage,
 };
 use btreemultimap::BTreeMultiMap;
@@ -29,12 +29,6 @@ pub struct BeatSequencer {
     temp_hack_clock: Clock,
 }
 impl IsController for BeatSequencer {}
-impl Terminates for BeatSequencer {
-    fn is_finished(&self) -> bool {
-        (self.events.is_empty() && self.last_event_time == PerfectTimeUnit(0.0))
-            || self.next_instant > self.last_event_time
-    }
-}
 impl HandlesMidi for BeatSequencer {}
 impl BeatSequencer {
     pub(crate) fn new_with(clock_settings: &ClockSettings) -> Self {
@@ -81,6 +75,11 @@ impl BeatSequencer {
             self.should_stop_pending_notes = true;
         }
         self.is_disabled = !is_enabled;
+    }
+
+    fn is_finished(&self) -> bool {
+        (self.events.is_empty() && self.last_event_time == PerfectTimeUnit(0.0))
+            || self.next_instant > self.last_event_time
     }
 
     // In the case of a silent pattern, we don't ask the sequencer to insert any
@@ -202,11 +201,6 @@ pub struct MidiTickSequencer {
     temp_hack_clock: Clock,
 }
 impl IsController for MidiTickSequencer {}
-impl Terminates for MidiTickSequencer {
-    fn is_finished(&self) -> bool {
-        self.next_instant > self.last_event_time
-    }
-}
 impl HandlesMidi for MidiTickSequencer {}
 impl Default for MidiTickSequencer {
     fn default() -> Self {
@@ -250,6 +244,10 @@ impl MidiTickSequencer {
     #[allow(dead_code)]
     pub fn enable(&mut self, is_enabled: bool) {
         self.is_disabled = !is_enabled;
+    }
+
+    fn is_finished(&self) -> bool {
+        self.next_instant > self.last_event_time
     }
 }
 impl Resets for MidiTickSequencer {}

@@ -13,7 +13,7 @@ use crate::{
     common::{F32ControlValue, SignalType},
     instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
     settings::controllers::ControlStep,
-    traits::{Controllable, HasUid, IsController, Terminates},
+    traits::{Controllable, HasUid, IsController},
 };
 use crate::{StereoSample, TimeSignature};
 use core::fmt::Debug;
@@ -57,11 +57,6 @@ pub struct ControlTrip {
     temp_hack_clock: Clock,
 }
 impl IsController for ControlTrip {}
-impl Terminates for ControlTrip {
-    fn is_finished(&self) -> bool {
-        self.is_finished
-    }
-}
 impl HandlesMidi for ControlTrip {}
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
@@ -205,13 +200,6 @@ impl TicksWithMessages for LfoController {
             )]),
             0,
         )
-    }
-}
-impl Terminates for LfoController {
-    fn is_finished(&self) -> bool {
-        // An LFO just keeps on oscillating until the end of time, so it's
-        // always willing to terminate.
-        true
     }
 }
 impl HandlesMidi for LfoController {}

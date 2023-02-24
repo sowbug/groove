@@ -6,7 +6,7 @@ use crate::{
     metrics::DipstickWrapper,
     midi::{patterns::PatternManager, MidiChannel, MidiMessage},
     settings::ClockSettings,
-    traits::{HasUid, Internal, Response, Terminates},
+    traits::{HasUid, Internal, Response},
     BeatSequencer, IOHelper, Paths, StereoSample,
 };
 use anyhow::anyhow;
@@ -29,11 +29,6 @@ pub struct Orchestrator {
     metrics: DipstickWrapper,
     enable_dev_experiment: bool,
     should_output_perf: bool,
-}
-impl Terminates for Orchestrator {
-    fn is_finished(&self) -> bool {
-        true
-    }
 }
 impl Orchestrator {
     // TODO: prefix these to reserve internal ID namespace
@@ -218,18 +213,6 @@ impl Orchestrator {
     #[allow(dead_code)]
     pub(crate) fn unpatch_all(&mut self) -> anyhow::Result<()> {
         self.store.unpatch_all()
-    }
-
-    // TODO - is this the end of Terminates?
-    #[allow(dead_code)]
-    pub(crate) fn are_all_finished(&mut self) -> bool {
-        self.store.values().all(|item| {
-            if let Some(item) = item.as_terminates() {
-                item.is_finished()
-            } else {
-                true
-            }
-        })
     }
 
     // This (probably) embarrassing method is supposed to be a naturally
@@ -784,6 +767,7 @@ impl Store {
         self.uid_to_item.iter()
     }
 
+    #[allow(dead_code)]
     pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, BoxedEntity> {
         self.uid_to_item.values()
     }

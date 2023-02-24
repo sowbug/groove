@@ -7,8 +7,8 @@ use crate::{
     },
     settings::patches::EnvelopeSettings,
     traits::{
-        Controllable, Generates, HandlesMidi, HasUid, IsController, IsInstrument, Resets,
-        Terminates, Ticks, TicksWithMessages,
+        Controllable, Generates, HandlesMidi, HasUid, IsController, IsInstrument, Resets, Ticks,
+        TicksWithMessages,
     },
     EntityMessage, StereoSample,
 };
@@ -65,11 +65,6 @@ impl Timer {
 
     pub fn time_to_run_seconds(&self) -> f32 {
         self.time_to_run_seconds
-    }
-}
-impl Terminates for Timer {
-    fn is_finished(&self) -> bool {
-        !self.has_more_work
     }
 }
 impl IsController for Timer {}
@@ -299,8 +294,7 @@ pub mod tests {
         settings::patches::WaveformType,
         traits::{
             Controllable, Generates, HandlesMidi, HasUid, IsController, IsEffect, Resets,
-            Terminates, TestController, TestEffect, TestInstrument, Ticks, TicksWithMessages,
-            TransformsAudio,
+            TestController, TestEffect, TestInstrument, Ticks, TicksWithMessages, TransformsAudio,
         },
         utils::{
             transform_linear_to_mma_concave, transform_linear_to_mma_convex, F32ControlValue,
@@ -402,11 +396,6 @@ pub mod tests {
         }
     }
     impl Resets for Trigger {}
-    impl Terminates for Trigger {
-        fn is_finished(&self) -> bool {
-            self.has_triggered
-        }
-    }
     impl HandlesMidi for Trigger {}
     impl Trigger {
         pub fn new_with(sample_rate: usize, time_to_trigger_seconds: f32, value: f32) -> Self {
@@ -760,7 +749,11 @@ pub mod tests {
 
     #[test]
     fn instantiate_trigger() {
-        let trigger = Trigger::new_with(44100, 1.0, 0.5);
-        assert!(!trigger.is_finished());
+        let mut trigger = Trigger::new_with(44100, 1.0, 0.5);
+
+        // asserting that 5 returned 5 confirms that the trigger isn't done yet.
+        let (m, count) = trigger.tick(5);
+        assert!(m.is_none());
+        assert_eq!(count, 5);
     }
 }

@@ -2,7 +2,7 @@ use groove_macros::Uid;
 
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
-    traits::{HandlesMidi, HasUid, IsController, Resets, Terminates, TicksWithMessages},
+    traits::{HandlesMidi, HasUid, IsController, Resets, TicksWithMessages},
     EntityMessage,
 };
 use std::fmt::Debug;
@@ -65,11 +65,6 @@ pub struct PatternManager {
     patterns: Vec<Pattern<Note>>,
 }
 impl IsController for PatternManager {}
-impl Terminates for PatternManager {
-    fn is_finished(&self) -> bool {
-        true
-    }
-}
 impl HandlesMidi for PatternManager {}
 impl Resets for PatternManager {}
 impl TicksWithMessages for PatternManager {
