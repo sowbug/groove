@@ -3,9 +3,7 @@ use crate::{
     clock::PerfectTimeUnit,
     common::F32ControlValue,
     midi::{MidiChannel, MidiMessage, MidiUtils},
-    traits::{
-        Controllable, HandlesMidi, HasUid, IsController, Resets, Terminates, TicksWithMessages,
-    },
+    traits::{Controllable, HandlesMidi, HasUid, IsController, Resets, TicksWithMessages},
     ClockSettings, EntityMessage,
 };
 use groove_macros::{Control, Uid};
@@ -30,11 +28,6 @@ impl Resets for Arpeggiator {}
 impl TicksWithMessages for Arpeggiator {
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
         self.beat_sequencer.tick(tick_count)
-    }
-}
-impl Terminates for Arpeggiator {
-    fn is_finished(&self) -> bool {
-        true
     }
 }
 impl HandlesMidi for Arpeggiator {

@@ -8,7 +8,7 @@ pub(crate) mod subscription;
 use self::subscription::MidiHandlerEvent;
 use crate::{
     messages::MessageBounds,
-    traits::{HasUid, Response, Terminates},
+    traits::{HasUid, Response},
     Clock,
 };
 use crossbeam::deque::{Steal, Stealer, Worker};
@@ -422,13 +422,6 @@ impl std::fmt::Debug for MidiOutputHandler {
         write!(f, "({:?}, {:?})", self.stealer, self.outputs)
     }
 }
-
-impl Terminates for MidiOutputHandler {
-    fn is_finished(&self) -> bool {
-        true
-    }
-}
-
 impl MidiOutputHandler {
     pub fn new() -> anyhow::Result<Self> {
         if let Ok(midi_out) = MidiOutput::new("Groove MIDI output") {
@@ -687,12 +680,6 @@ impl MidiHandler {
         self.midi_output.as_ref()
     }
 }
-impl Terminates for MidiHandler {
-    fn is_finished(&self) -> bool {
-        true
-    }
-}
-
 impl MidiUtils {
     pub(crate) fn new_note_on(note: u8, vel: u8) -> MidiMessage {
         MidiMessage::NoteOn {

@@ -14,8 +14,8 @@ use crate::{
     },
     midi::patterns::PatternManager,
     traits::{
-        Controllable, HandlesMidi, HasUid, IsController, IsEffect, IsInstrument, Terminates,
-        TestController, TestEffect, TestInstrument,
+        Controllable, HandlesMidi, HasUid, IsController, IsEffect, IsInstrument, TestController,
+        TestEffect, TestInstrument,
     },
     utils::{AudioSource, TestSynth, Timer},
 };
@@ -127,12 +127,6 @@ macro_rules! controller_crackers {
                 match self {
                     $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
-                }
-            }
-            pub fn as_terminates(&self) -> Option<&dyn Terminates> {
-                match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
-                    _ => None
                 }
             }
         }

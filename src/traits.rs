@@ -25,10 +25,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 /// An IsController necessarily implements TicksWithMessages, rather than just
 /// Ticks, because messages are how controllers control other things in the
 /// system.
-pub trait IsController:
-    TicksWithMessages + Terminates + HandlesMidi + HasUid + Send + Debug
-{
-}
+pub trait IsController: TicksWithMessages + HandlesMidi + HasUid + Send + Debug {}
 
 /// An IsEffect transforms audio. It takes audio inputs and produces audio
 /// output. It does not get called unless there is audio input to provide to it
@@ -161,24 +158,6 @@ pub trait TransformsAudio: Debug {
 
     /// channel: 0 is left, 1 is right. Use the value as an index into arrays.
     fn transform_channel(&mut self, channel: usize, input_sample: Sample) -> Sample;
-}
-
-// A Terminates has a point in time where it would be OK never being called or
-// continuing to exist.
-//
-// If you're required to implement Terminates, but you don't know when you need
-// to terminate, then you should always return true. For example, an arpeggiator
-// would be happy to keep responding to MIDI input forever. Which is (a little
-// strangely) the same as saying it would be happy to quit at any time. Thus it
-// should always return true.
-//
-// The reason to choose true rather than false is that the system uses
-// is_finished() to determine whether a song is complete. If a Terminates never
-// returns true, the loop will never end. Thus, "is_finished" is more like "is
-// unaware of any reason to continue existing" rather than "is certain there is
-// no more work to do."
-pub trait Terminates: Debug {
-    fn is_finished(&self) -> bool;
 }
 
 #[derive(Debug)]
@@ -318,11 +297,6 @@ impl Resets for TestController {
     fn reset(&mut self, sample_rate: usize) {
         self.clock_settings.set_sample_rate(sample_rate);
         self.clock = Clock::new_with(&self.clock_settings);
-    }
-}
-impl Terminates for TestController {
-    fn is_finished(&self) -> bool {
-        true
     }
 }
 impl HandlesMidi for TestController {
