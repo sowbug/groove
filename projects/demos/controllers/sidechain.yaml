@@ -1,5 +1,5 @@
 ---
-title: "Sidechain"
+title: "Sidechain (without, then with)"
 clock:
   bpm: 60.0
   time-signature:
@@ -10,7 +10,12 @@ devices:
       - instrument-1
       - welsh:
           midi-in: 1
-          preset: debug-envelope
+          preset: acid-bass
+  - instrument:
+      - instrument-2
+      - welsh:
+          midi-in: 2
+          preset: acid-bass
   - instrument:
       - drum-1
       - drumkit:
@@ -19,56 +24,61 @@ devices:
   - effect:
       - compressor-1
       - compressor:
-          threshold: 0.0 # this will be automated, so the initial value is meaningless
-          ratio: 0.1 # lots of compression so we can easily hear the difference
+          threshold: 1.0
+          ratio: 0.2 # lots of compression so we can easily hear the difference
+          attack: 0.0 # TODO: currently ignored
+          release: 0.0 # TODO: currently ignored
+  - effect:
+      - compressor-2
+      - compressor:
+          threshold: 1.0 # this will be automated, so the initial value is meaningless
+          ratio: 0.2 # lots of compression so we can easily hear the difference
           attack: 0.0 # TODO: currently ignored
           release: 0.0 # TODO: currently ignored
   - controller:
-      - sidechain-1
+      - sidechain-2
       - signal-passthrough-controller: # All these parameters are ignored.
           midi-in: 0
           midi-out: 0
-  - effect:
-      - gain-killer
-      - gain:
-          ceiling: 0.0
 patch-cables:
   - [instrument-1, compressor-1, main-mixer]
-  - [drum-1, sidechain-1, gain-killer, main-mixer]
+  - [instrument-2, compressor-2, main-mixer]
+  - [drum-1, sidechain-2, main-mixer]
 controls:
-  # this hooks up the sidechain-1's control output to the compressor-1's
+  # this hooks up the sidechain-1's control output to the compressor-2's
   # threshold control input.
-  - id: sidechain-drums-to-lead-1
-    source: sidechain-1
+  - id: sidechain-drums-to-instrument-2
+    source: sidechain-2
     target:
-      id: compressor-1
+      id: compressor-2
       param: threshold
 patterns:
-  - id: repeating-note-1
+  - id: on-then-off-1
     note-value: sixteenth
     notes:
-      - [72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72, 72]
+      - [48, 48, 48, 48, 48, 48, 46, 46, 00, 00, 00, 00, 00, 00, 00, 00]
+  - id: off-then-on-1
+    note-value: sixteenth
+    notes:
+      - [00, 00, 00, 00, 00, 00, 00, 00, 48, 48, 48, 48, 48, 48, 46, 46]
+  - id: silence-1
+    note-value: whole
+    notes:
+      - [0]
   - id: bass-on-each-beat
     note-value: sixteenth
     notes:
-      - [35, 00, 00, 00, 35, 00, 00, 00, 35, 00, 00, 00, 35, 00, 00, 00]
+      - [39, 00, 39, 00, 39, 00, 39, 00, 39, 00, 39, 00, 39, 00, 39, 00] # Clap
 tracks:
+  # This track plays first, without active (sidechained) compression
   - id: track-1
     midi-channel: 1
-    patterns: [repeating-note-1]
+    patterns: [on-then-off-1]
+  # This track plays second, with sidechaining
   - id: track-2
+    midi-channel: 2
+    patterns: [off-then-on-1]
+  # The clap track is the sidechain source
+  - id: track-3
     midi-channel: 10
     patterns: [bass-on-each-beat]
-# paths:
-#   - id: ramp-up
-#     note-value: whole
-#     steps:
-#       - slope:
-#           start: 0.0
-#           end: 1.0
-# trips:
-#   - id: control-effect
-#     target:
-#       id: compressor-1
-#       param: threshold
-#     paths: [ramp-up]

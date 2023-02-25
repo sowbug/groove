@@ -251,11 +251,6 @@ impl TicksWithMessages for SignalPassthroughController {
         )
     }
 }
-impl Terminates for SignalPassthroughController {
-    fn is_finished(&self) -> bool {
-        true
-    }
-}
 impl HandlesMidi for SignalPassthroughController {}
 impl IsEffect for SignalPassthroughController {}
 impl TransformsAudio for SignalPassthroughController {
