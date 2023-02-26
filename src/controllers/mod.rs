@@ -235,12 +235,12 @@ impl TicksWithMessages for SignalPassthroughController {
         // We ignore tick_count because we know we won't send more than one
         // control signal during any batch of tick()s unless we also get
         // multiple transform_audio() calls. This is fine; it's exactly how
-        // other controllers behave.(
+        // other controllers behave.
         (
             if self.has_signal_changed {
                 self.has_signal_changed = false;
                 Some(vec![EntityMessage::ControlF32(
-                    self.signal.value() as f32 * -0.5, // TODO: deal with that transform
+                    1.0 - (self.signal.value() as f32).abs(), // TODO: deal with that transform
                 )])
             } else {
                 None

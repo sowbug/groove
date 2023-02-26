@@ -279,10 +279,11 @@ impl<const LOWER: i8, const UPPER: i8> From<f32> for RangedF64<LOWER, UPPER> {
 pub type Normal = RangedF64<0, 1>;
 pub type BipolarNormal = RangedF64<-1, 1>;
 
-/// Extends 0..=1.0 range of Sample to -1.0..=1.0 range of BipolarNormal
 impl From<Sample> for BipolarNormal {
+    // A Sample has the same range as a BipolarNormal, so no conversion is
+    // necessary.
     fn from(value: Sample) -> Self {
-        Self(value.0 * 2.0 - 1.0)
+        Self(value.0)
     }
 }
 
