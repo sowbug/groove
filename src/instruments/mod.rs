@@ -12,9 +12,10 @@ use self::{
     envelopes::{Envelope, EnvelopeGenerator},
     oscillators::Oscillator,
 };
+use crate::controllers::F32ControlValue;
 use crate::{
     clock::ClockTimeUnit,
-    common::{BipolarNormal, F32ControlValue, Sample, SampleType, StereoSample},
+    common::{BipolarNormal, Sample, SampleType, StereoSample},
     midi::{MidiChannel, MidiUtils},
     settings::patches::{EnvelopeSettings, WaveformType},
     traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},

@@ -10,7 +10,7 @@ pub(crate) mod sequencers;
 
 use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit, TimeSignature},
-    common::{BipolarNormal, F32ControlValue, ParameterType, SignalType, StereoSample},
+    common::{BipolarNormal, ParameterType, SignalType, StereoSample},
     instruments::{
         envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
         oscillators::Oscillator,
@@ -33,6 +33,8 @@ use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use std::{collections::VecDeque, ops::Range};
 use strum_macros::{Display, EnumString, FromRepr};
+
+pub struct F32ControlValue(pub f32);
 
 /// A Performance holds the output of an Orchestrator run.
 #[derive(Debug)]

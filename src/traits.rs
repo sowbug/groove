@@ -1,5 +1,6 @@
 use crate::{
-    common::{F32ControlValue, Sample, StereoSample},
+    common::{Sample, StereoSample},
+    controllers::F32ControlValue,
     messages::EntityMessage,
     midi::MidiChannel,
 };

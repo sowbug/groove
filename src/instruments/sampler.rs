@@ -1,6 +1,7 @@
 use super::HandlesMidi;
+use crate::controllers::F32ControlValue;
 use crate::{
-    common::{F32ControlValue, Sample, SampleType, StereoSample},
+    common::{Sample, SampleType, StereoSample},
     midi::{MidiChannel, MidiMessage},
     traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
 };

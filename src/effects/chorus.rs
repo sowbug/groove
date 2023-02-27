@@ -1,7 +1,7 @@
 use super::delay::{DelayLine, Delays};
 use crate::{
-    common::F32ControlValue,
     common::SampleType,
+    controllers::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};

@@ -9,9 +9,10 @@ pub use limiter::Limiter;
 pub use mixer::Mixer;
 pub use reverb::Reverb;
 
+use crate::controllers::F32ControlValue;
 use crate::{
     clock::ClockTimeUnit,
-    common::{F32ControlValue, Sample},
+    common::Sample,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::Control;

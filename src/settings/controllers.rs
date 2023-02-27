@@ -1,7 +1,7 @@
-use super::{patches::WaveformType, ClockSettings, MidiChannel};
+use super::{patches::WaveformType, ClockSettings, DeviceId, MidiChannel};
 use crate::{
     clock::BeatValue,
-    common::{DeviceId, SignalType},
+    common::SignalType,
     controllers::{Arpeggiator, LfoController, TestController},
     entities::Entity,
 };

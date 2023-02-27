@@ -1,7 +1,7 @@
 use super::sequencers::BeatSequencer;
 use crate::{
     clock::PerfectTimeUnit,
-    common::F32ControlValue,
+    controllers::F32ControlValue,
     messages::EntityMessage,
     midi::{MidiChannel, MidiMessage, MidiUtils},
     settings::ClockSettings,
