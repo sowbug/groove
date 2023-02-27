@@ -9,11 +9,10 @@ use self::{
     effects::EffectSettings,
     instruments::InstrumentSettings,
 };
-use crate::{
-    clock::{BeatValue, TimeSignature},
-    common::DeviceId,
-};
+use crate::clock::{BeatValue, TimeSignature};
 use serde::{Deserialize, Serialize};
+
+pub type DeviceId = String;
 
 type MidiChannel = u8;
 

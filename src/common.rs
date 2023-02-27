@@ -183,10 +183,6 @@ impl From<f64> for StereoSample {
     }
 }
 
-pub type DeviceId = String;
-
-pub struct F32ControlValue(pub f32);
-
 /// RangedF64 tries to enforce the given range limits while not becoming too
 /// expensive to use compared to a plain f64. It enforces the value at creation,
 /// when setting it explicitly, when converting from an f64, and when getting

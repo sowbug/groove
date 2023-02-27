@@ -2,8 +2,9 @@ use super::{
     sampler::Sampler, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker,
     Synthesizer, VoicePerNoteStore,
 };
+use crate::controllers::F32ControlValue;
 use crate::{
-    common::{F32ControlValue, StereoSample},
+    common::StereoSample,
     midi::{GeneralMidiPercussionProgram, MidiChannel},
     traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
     utils::Paths,

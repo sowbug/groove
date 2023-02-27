@@ -581,7 +581,8 @@ impl Orchestrator {
         for (target_uid, param_id) in control_links {
             if let Some(entity) = self.store.get_mut(target_uid) {
                 if let Some(entity) = entity.as_controllable_mut() {
-                    entity.set_by_control_index(param_id, crate::common::F32ControlValue(value));
+                    entity
+                        .set_by_control_index(param_id, crate::controllers::F32ControlValue(value));
                 }
             }
         }

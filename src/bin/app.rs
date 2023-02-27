@@ -4,10 +4,10 @@ mod gui;
 
 use groove::{
     app_version,
-    common::{F32ControlValue, Normal},
+    common::Normal,
     controllers::{
-        Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern,
-        PatternManager, PatternMessage, TestController, Timer,
+        Arpeggiator, BeatSequencer, ControlTrip, F32ControlValue, LfoController, MidiTickSequencer,
+        Note, Pattern, PatternManager, PatternMessage, TestController, Timer,
     },
     effects::{
         BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb,

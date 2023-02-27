@@ -1,5 +1,6 @@
+use crate::controllers::F32ControlValue;
 use crate::{
-    common::{BipolarNormal, F32ControlValue, Sample, SampleType},
+    common::{BipolarNormal, Sample, SampleType},
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::{Control, Uid};

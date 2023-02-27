@@ -1,10 +1,9 @@
 use super::{
     controllers::{ControlPathSettings, ControlTripSettings},
-    ClockSettings, ControlSettings, DeviceSettings, PatternSettings, TrackSettings,
+    ClockSettings, ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
 };
 use crate::{
     clock::TimeSignature,
-    common::DeviceId,
     controllers::{
         patterns::{Note, Pattern},
         ControlPath, ControlTrip,

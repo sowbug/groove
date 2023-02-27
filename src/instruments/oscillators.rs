@@ -1,5 +1,6 @@
+use crate::instruments::F32ControlValue;
 use crate::{
-    common::{BipolarNormal, F32ControlValue, SignalType},
+    common::{BipolarNormal, SignalType},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
     traits::{Controllable, Generates, Resets, Ticks},
 };

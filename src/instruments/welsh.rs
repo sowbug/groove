@@ -5,7 +5,8 @@ use super::{
     Synthesizer,
 };
 use crate::{
-    common::{BipolarNormal, F32ControlValue, Normal, Sample, StereoSample},
+    common::{BipolarNormal, Normal, Sample, StereoSample},
+    controllers::F32ControlValue,
     effects::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
