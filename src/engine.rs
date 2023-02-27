@@ -1,8 +1,12 @@
 use crate::{
+    clock::{Clock, TimeSignature},
+    common::StereoSample,
+    helpers::{AudioOutput, IOHelper},
+    messages::GrooveMessage,
     midi::MidiChannel,
+    settings::ClockSettings,
     traits::{Resets, Response},
-    AudioOutput, Clock, ClockSettings, GrooveMessage, IOHelper, Orchestrator, StereoSample,
-    TimeSignature,
+    Orchestrator,
 };
 use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
@@ -328,7 +332,7 @@ impl GrooveSubscription {
                         // changes. This is a mess.
                         let mut clock_settings = ClockSettings::default();
                         clock_settings.set_sample_rate(IOHelper::get_output_device_sample_rate());
-                        let t = Orchestrator::new_with(&clock_settings);
+                        let t = Orchestrator::new_with_clock_settings(&clock_settings);
                         let orchestrator = Arc::new(Mutex::new(t));
                         let orchestrator_for_app = Arc::clone(&orchestrator);
                         let handler = std::thread::spawn(move || {

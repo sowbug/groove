@@ -1,13 +1,15 @@
-use super::Performance;
+use super::{patterns::PatternManager, sequencers::BeatSequencer, Performance};
 use crate::{
-    effects::mixer::Mixer,
-    entities::BoxedEntity,
+    common::StereoSample,
+    effects::Mixer,
+    entities::Entity,
+    helpers::IOHelper,
     messages::{EntityMessage, GrooveMessage},
     metrics::DipstickWrapper,
-    midi::{patterns::PatternManager, MidiChannel, MidiMessage},
+    midi::{MidiChannel, MidiMessage},
     settings::ClockSettings,
     traits::{HasUid, Internal, Response},
-    BeatSequencer, IOHelper, Paths, StereoSample,
+    utils::Paths,
 };
 use anyhow::anyhow;
 use dipstick::InputScope;
@@ -65,7 +67,7 @@ impl Orchestrator {
             .insert(uid, self.metrics.bucket.timer(name.as_str()));
     }
 
-    pub fn add(&mut self, uvid: Option<&str>, entity: BoxedEntity) -> usize {
+    pub fn add(&mut self, uvid: Option<&str>, entity: Entity) -> usize {
         self.metrics.entity_count.mark();
         let uid = self.store.add(uvid, entity);
         self.install_entity_metric(uvid, uid);
@@ -73,12 +75,12 @@ impl Orchestrator {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get(&self, uvid: &str) -> Option<&BoxedEntity> {
+    pub(crate) fn get(&self, uvid: &str) -> Option<&Entity> {
         self.store.get_by_uvid(uvid)
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity> {
+    pub(crate) fn get_mut(&mut self, uvid: &str) -> Option<&mut Entity> {
         self.store.get_by_uvid_mut(uvid)
     }
 
@@ -375,7 +377,19 @@ impl Orchestrator {
         self.title = title;
     }
 
-    pub fn new_with(clock_settings: &ClockSettings) -> Self {
+    pub fn new_with(
+        sample_rate: usize,
+        beats_per_minute: f32,
+        time_signature: (usize, usize),
+    ) -> Self {
+        Self::new_with_clock_settings(&ClockSettings::new_with(
+            sample_rate,
+            beats_per_minute,
+            time_signature,
+        ))
+    }
+
+    pub fn new_with_clock_settings(clock_settings: &ClockSettings) -> Self {
         let mut r = Self {
             uid: Default::default(),
             title: Some("Untitled".to_string()),
@@ -390,15 +404,15 @@ impl Orchestrator {
         };
         r.main_mixer_uid = r.add(
             Some(Orchestrator::MAIN_MIXER_UVID),
-            BoxedEntity::Mixer(Box::new(Mixer::default())),
+            Entity::Mixer(Box::new(Mixer::default())),
         );
         r.pattern_manager_uid = r.add(
             Some(Orchestrator::PATTERN_MANAGER_UVID),
-            BoxedEntity::PatternManager(Box::new(PatternManager::default())),
+            Entity::PatternManager(Box::new(PatternManager::default())),
         );
         r.beat_sequencer_uid = r.add(
             Some(Orchestrator::BEAT_SEQUENCER_UVID),
-            BoxedEntity::BeatSequencer(Box::new(BeatSequencer::new_with(&r.clock_settings))),
+            Entity::BeatSequencer(Box::new(BeatSequencer::new_with(&r.clock_settings))),
         );
         r.connect_midi_upstream(r.beat_sequencer_uid);
 
@@ -709,7 +723,7 @@ impl Orchestrator {
 #[derive(Debug, Default)]
 pub struct Store {
     last_uid: usize,
-    uid_to_item: FxHashMap<usize, BoxedEntity>,
+    uid_to_item: FxHashMap<usize, Entity>,
 
     // Linked controls (one entity controls another entity's parameter)
     uid_to_control: FxHashMap<usize, Vec<(usize, usize)>>,
@@ -724,7 +738,7 @@ pub struct Store {
 }
 
 impl Store {
-    pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: BoxedEntity) -> usize {
+    pub(crate) fn add(&mut self, uvid: Option<&str>, mut entity: Entity) -> usize {
         let uid = self.get_next_uid();
         entity.as_has_uid_mut().set_uid(uid);
 
@@ -735,15 +749,15 @@ impl Store {
         uid
     }
 
-    pub(crate) fn get(&self, uid: usize) -> Option<&BoxedEntity> {
+    pub(crate) fn get(&self, uid: usize) -> Option<&Entity> {
         self.uid_to_item.get(&uid)
     }
 
-    pub fn get_mut(&mut self, uid: usize) -> Option<&mut BoxedEntity> {
+    pub fn get_mut(&mut self, uid: usize) -> Option<&mut Entity> {
         self.uid_to_item.get_mut(&uid)
     }
 
-    pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&BoxedEntity> {
+    pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&Entity> {
         if let Some(uid) = self.uvid_to_uid.get(uvid) {
             self.uid_to_item.get(uid)
         } else {
@@ -751,7 +765,7 @@ impl Store {
         }
     }
 
-    pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut BoxedEntity> {
+    pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut Entity> {
         if let Some(uid) = self.uvid_to_uid.get(uvid) {
             self.uid_to_item.get_mut(uid)
         } else {
@@ -763,18 +777,16 @@ impl Store {
         self.uvid_to_uid.get(uvid).copied()
     }
 
-    pub fn iter(&self) -> std::collections::hash_map::Iter<usize, BoxedEntity> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<usize, Entity> {
         self.uid_to_item.iter()
     }
 
     #[allow(dead_code)]
-    pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, BoxedEntity> {
+    pub(crate) fn values(&self) -> std::collections::hash_map::Values<usize, Entity> {
         self.uid_to_item.values()
     }
 
-    pub(crate) fn values_mut(
-        &mut self,
-    ) -> std::collections::hash_map::ValuesMut<usize, BoxedEntity> {
+    pub(crate) fn values_mut(&mut self) -> std::collections::hash_map::ValuesMut<usize, Entity> {
         self.uid_to_item.values_mut()
     }
 
@@ -893,12 +905,13 @@ pub mod tests {
     use super::Orchestrator;
     use crate::{
         clock::Clock,
-        common::Normal,
+        common::{Normal, StereoSample, DEFAULT_BPM, DEFAULT_SAMPLE_RATE, DEFAULT_TIME_SIGNATURE},
+        controllers::Timer,
         effects::gain::Gain,
-        entities::BoxedEntity,
+        entities::Entity,
+        instruments::AudioSource,
         midi::MidiChannel,
-        utils::{AudioSource, Timer},
-        ClockSettings, StereoSample,
+        settings::ClockSettings,
     };
     use midly::MidiMessage;
 
@@ -931,14 +944,15 @@ pub mod tests {
 
     #[test]
     fn gather_audio_basic() {
-        let mut o = Orchestrator::new_with(&ClockSettings::default());
+        let mut o =
+            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
         let level_1_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
         );
         let level_2_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.2))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.2))),
         );
 
         // Nothing connected: should output silence.
@@ -964,26 +978,27 @@ pub mod tests {
 
     #[test]
     fn gather_audio() {
-        let mut o = Orchestrator::new_with(&ClockSettings::default());
+        let mut o =
+            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
         let level_1_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
         );
         let gain_1_uid = o.add(
             None,
-            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))),
+            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))),
         );
         let level_2_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.2))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.2))),
         );
         let level_3_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.3))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.3))),
         );
         let level_4_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.4))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.4))),
         );
 
         // Nothing connected: should output silence.
@@ -1040,41 +1055,42 @@ pub mod tests {
 
     #[test]
     fn gather_audio_2() {
-        let mut o = Orchestrator::new_with(&ClockSettings::default());
+        let mut o =
+            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
         let piano_1_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
         );
         let low_pass_1_uid = o.add(
             None,
-            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.2)))),
+            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.2)))),
         );
         let gain_1_uid = o.add(
             None,
-            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.4)))),
+            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.4)))),
         );
 
         let bassline_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.3))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.3))),
         );
         let gain_2_uid = o.add(
             None,
-            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.6)))),
+            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.6)))),
         );
 
         let synth_1_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.5))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.5))),
         );
         let gain_3_uid = o.add(
             None,
-            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.8)))),
+            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.8)))),
         );
 
         let drum_1_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.7))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.7))),
         );
 
         // First chain.
@@ -1138,22 +1154,23 @@ pub mod tests {
 
     #[test]
     fn gather_audio_with_branches() {
-        let mut o = Orchestrator::new_with(&ClockSettings::default());
+        let mut o =
+            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
         let instrument_1_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.1))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
         );
         let instrument_2_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.3))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.3))),
         );
         let instrument_3_uid = o.add(
             None,
-            BoxedEntity::AudioSource(Box::new(AudioSource::new_with(0.5))),
+            Entity::AudioSource(Box::new(AudioSource::new_with(0.5))),
         );
         let effect_1_uid = o.add(
             None,
-            BoxedEntity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))),
+            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))),
         );
 
         assert!(o.patch_chain_to_main_mixer(&[instrument_1_uid]).is_ok());
@@ -1170,10 +1187,10 @@ pub mod tests {
     #[test]
     fn run_buffer_size_can_be_odd_number() {
         let clock_settings = ClockSettings::default();
-        let mut o = Orchestrator::new_with(&clock_settings);
+        let mut o = Orchestrator::new_with_clock_settings(&clock_settings);
         let _ = o.add(
             None,
-            BoxedEntity::Timer(Box::new(Timer::new_with(clock_settings.sample_rate(), 1.0))),
+            Entity::Timer(Box::new(Timer::new_with(clock_settings.sample_rate(), 1.0))),
         );
 
         // Prime number
@@ -1185,10 +1202,11 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_zero_timer() {
-        let mut o = Orchestrator::new_with(&ClockSettings::default());
+        let mut o =
+            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
         let _ = o.add(
             None,
-            BoxedEntity::Timer(Box::new(Timer::new_with(
+            Entity::Timer(Box::new(Timer::new_with(
                 ClockSettings::default().sample_rate(),
                 0.0,
             ))),
@@ -1204,10 +1222,10 @@ pub mod tests {
     #[test]
     fn orchestrator_sample_count_is_accurate_for_short_timer() {
         let clock_settings = ClockSettings::default();
-        let mut o = Orchestrator::new_with(&clock_settings);
+        let mut o = Orchestrator::new_with_clock_settings(&clock_settings);
         let _ = o.add(
             None,
-            BoxedEntity::Timer(Box::new(Timer::new_with(
+            Entity::Timer(Box::new(Timer::new_with(
                 clock_settings.sample_rate(),
                 1.0 / clock_settings.sample_rate() as f32,
             ))),
@@ -1223,10 +1241,10 @@ pub mod tests {
     #[test]
     fn orchestrator_sample_count_is_accurate_for_ordinary_timer() {
         let clock = Clock::new_with_sample_rate(44100);
-        let mut o = Orchestrator::new_with(clock.settings());
+        let mut o = Orchestrator::new_with_clock_settings(clock.settings());
         let _ = o.add(
             None,
-            BoxedEntity::Timer(Box::new(Timer::new_with(clock.sample_rate(), 1.0))),
+            Entity::Timer(Box::new(Timer::new_with(clock.sample_rate(), 1.0))),
         );
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -1238,7 +1256,8 @@ pub mod tests {
 
     #[test]
     fn test_patch_fails_with_bad_id() {
-        let mut o = Orchestrator::new_with(&ClockSettings::default());
+        let mut o =
+            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
         assert!(o.patch(3, 2).is_err());
     }
 }

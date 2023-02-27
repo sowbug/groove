@@ -1,10 +1,9 @@
 use super::oscillators::KahanSummation;
 use crate::{
-    clock::ClockTimeUnit,
+    clock::{Clock, ClockTimeUnit},
     common::{Normal, SignalType, TimeUnit},
     settings::patches::EnvelopeSettings,
     traits::{Generates, Resets, Ticks},
-    Clock,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};

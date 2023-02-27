@@ -1,26 +1,37 @@
+pub use arpeggiator::Arpeggiator;
+use midly::MidiMessage;
+pub use patterns::{Note, Pattern, PatternManager, PatternMessage};
+pub use sequencers::{BeatSequencer, MidiTickSequencer};
+
 pub(crate) mod arpeggiator;
 pub(crate) mod orchestrator;
+pub(crate) mod patterns;
 pub(crate) mod sequencers;
 
 use crate::{
-    clock::{BeatValue, Clock, ClockTimeUnit},
-    common::ParameterType,
-    settings::{controllers::ControlPathSettings, patches::WaveformType},
-    traits::{Generates, HandlesMidi, Resets, Ticks, TicksWithMessages},
-    BipolarNormal, ClockSettings, EntityMessage, Oscillator,
+    clock::{BeatValue, Clock, ClockTimeUnit, TimeSignature},
+    common::{BipolarNormal, F32ControlValue, ParameterType, SignalType, StereoSample},
+    instruments::{
+        envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
+        oscillators::Oscillator,
+    },
+    messages::EntityMessage,
+    midi::{MidiChannel, MidiUtils},
+    settings::{
+        controllers::{ControlPathSettings, ControlStep},
+        patches::WaveformType,
+        ClockSettings,
+    },
+    traits::{
+        Controllable, Generates, HandlesMidi, HasUid, IsController, Resets, Ticks,
+        TicksWithMessages,
+    },
 };
-use crate::{
-    common::{F32ControlValue, SignalType},
-    instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
-    settings::controllers::ControlStep,
-    traits::{Controllable, HasUid, IsController},
-};
-use crate::{StereoSample, TimeSignature};
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use groove_macros::{Control, Uid};
-use std::ops::Range;
 use std::str::FromStr;
+use std::{collections::VecDeque, ops::Range};
 use strum_macros::{Display, EnumString, FromRepr};
 
 /// A Performance holds the output of an Orchestrator run.
@@ -220,16 +231,279 @@ impl LfoController {
     }
 }
 
+#[derive(Display, Debug, EnumString)]
+#[strum(serialize_all = "kebab_case")]
+pub(crate) enum TestControllerControlParams {
+    Tempo,
+}
+
+enum TestControllerAction {
+    Nothing,
+    NoteOn,
+    NoteOff,
+}
+
+#[derive(Debug)]
+pub struct TestController {
+    uid: usize,
+    midi_channel_out: MidiChannel,
+
+    clock_settings: ClockSettings,
+    clock: Clock,
+
+    pub tempo: f32,
+    is_enabled: bool,
+    is_playing: bool,
+
+    pub checkpoint_values: VecDeque<f32>,
+    pub checkpoint: f32,
+    pub checkpoint_delta: f32,
+    pub time_unit: ClockTimeUnit,
+}
+impl IsController for TestController {}
+impl TicksWithMessages for TestController {
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
+        let mut v = Vec::default();
+        for _ in 0..tick_count {
+            self.clock.tick(1);
+            // TODO self.check_values(clock);
+
+            match self.what_to_do() {
+                TestControllerAction::Nothing => {}
+                TestControllerAction::NoteOn => {
+                    // This is elegant, I hope. If the arpeggiator is
+                    // disabled during play, and we were playing a note,
+                    // then we still send the off note,
+                    if self.is_enabled {
+                        self.is_playing = true;
+                        v.push(EntityMessage::Midi(
+                            self.midi_channel_out,
+                            MidiUtils::new_note_on(60, 127),
+                        ));
+                    }
+                }
+                TestControllerAction::NoteOff => {
+                    if self.is_playing {
+                        v.push(EntityMessage::Midi(
+                            self.midi_channel_out,
+                            MidiUtils::new_note_off(60, 0),
+                        ));
+                    }
+                }
+            }
+        }
+        if v.is_empty() {
+            (None, 0)
+        } else {
+            (Some(v), 0)
+        }
+    }
+}
+impl Resets for TestController {
+    fn reset(&mut self, sample_rate: usize) {
+        self.clock_settings.set_sample_rate(sample_rate);
+        self.clock = Clock::new_with(&self.clock_settings);
+    }
+}
+impl HandlesMidi for TestController {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        #[allow(unused_variables)]
+        match message {
+            MidiMessage::NoteOff { key, vel } => self.is_enabled = false,
+            MidiMessage::NoteOn { key, vel } => self.is_enabled = true,
+            _ => todo!(),
+        }
+        None
+    }
+}
+impl HasUid for TestController {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid
+    }
+}
+impl TestController {
+    pub fn new_with(clock_settings: &ClockSettings, midi_channel_out: MidiChannel) -> Self {
+        Self::new_with_test_values(
+            clock_settings,
+            midi_channel_out,
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        )
+    }
+
+    pub fn new_with_test_values(
+        clock_settings: &ClockSettings,
+        midi_channel_out: MidiChannel,
+        values: &[f32],
+        checkpoint: f32,
+        checkpoint_delta: f32,
+        time_unit: ClockTimeUnit,
+    ) -> Self {
+        Self {
+            uid: Default::default(),
+            midi_channel_out,
+            clock_settings: clock_settings.clone(),
+            clock: Clock::new_with(clock_settings),
+            tempo: Default::default(),
+            is_enabled: Default::default(),
+            is_playing: Default::default(),
+            checkpoint_values: VecDeque::from(Vec::from(values)),
+            checkpoint,
+            checkpoint_delta,
+            time_unit,
+        }
+    }
+
+    fn what_to_do(&self) -> TestControllerAction {
+        let beat_slice_start = self.clock.beats();
+        let beat_slice_end = self.clock.next_slice_in_beats();
+        let next_exact_beat = beat_slice_start.floor();
+        let next_exact_half_beat = next_exact_beat + 0.5;
+        if next_exact_beat >= beat_slice_start && next_exact_beat < beat_slice_end {
+            return TestControllerAction::NoteOn;
+        }
+        if next_exact_half_beat >= beat_slice_start && next_exact_half_beat < beat_slice_end {
+            return TestControllerAction::NoteOff;
+        }
+        TestControllerAction::Nothing
+    }
+}
+// impl TestsValues for TestController {
+//     fn has_checkpoint_values(&self) -> bool {
+//         !self.checkpoint_values.is_empty()
+//     }
+
+//     fn time_unit(&self) -> &ClockTimeUnit {
+//         &self.time_unit
+//     }
+
+//     fn checkpoint_time(&self) -> f32 {
+//         self.checkpoint
+//     }
+
+//     fn advance_checkpoint_time(&mut self) {
+//         self.checkpoint += self.checkpoint_delta;
+//     }
+
+//     fn value_to_check(&self) -> f32 {
+//         self.tempo
+//     }
+
+//     fn pop_checkpoint_value(&mut self) -> Option<f32> {
+//         self.checkpoint_values.pop_front()
+//     }
+// }
+
+/// Timer Terminates (in the Terminates trait sense) after a specified amount of time.
+#[derive(Debug, Uid)]
+pub struct Timer {
+    uid: usize,
+    sample_rate: usize,
+    time_to_run_seconds: f32,
+
+    has_more_work: bool,
+    ticks: usize,
+}
+impl Timer {
+    pub fn new_with(sample_rate: usize, time_to_run_seconds: f32) -> Self {
+        Self {
+            uid: Default::default(),
+            sample_rate,
+            time_to_run_seconds,
+
+            has_more_work: Default::default(),
+            ticks: Default::default(),
+        }
+    }
+
+    pub fn time_to_run_seconds(&self) -> f32 {
+        self.time_to_run_seconds
+    }
+}
+impl IsController for Timer {}
+impl HandlesMidi for Timer {}
+impl Resets for Timer {
+    fn reset(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
+        self.ticks = 0;
+    }
+}
+impl TicksWithMessages for Timer {
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
+        let mut ticks_completed = tick_count;
+        for i in 0..tick_count {
+            self.has_more_work =
+                (self.ticks as f32 / self.sample_rate as f32) < self.time_to_run_seconds;
+            if self.has_more_work {
+                self.ticks += 1;
+            } else {
+                ticks_completed = i;
+                break;
+            }
+        }
+        (None, ticks_completed)
+    }
+}
+
+/// Trigger issues a ControlF32 message after a specified amount of time.
+///
+/// TODO: needs tests!
+#[derive(Debug, Uid)]
+pub(crate) struct Trigger {
+    uid: usize,
+    value: f32,
+
+    timer: Timer,
+    has_triggered: bool,
+}
+impl IsController for Trigger {}
+impl TicksWithMessages for Trigger {
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
+        // We toss the timer's messages because we know it never returns any,
+        // and we wouldn't pass them on if it did.
+        let (_, ticks_completed) = self.timer.tick(tick_count);
+        if ticks_completed < tick_count && !self.has_triggered {
+            self.has_triggered = true;
+            (
+                Some(vec![EntityMessage::ControlF32(self.value)]),
+                ticks_completed,
+            )
+        } else {
+            (None, ticks_completed)
+        }
+    }
+}
+impl Resets for Trigger {}
+impl HandlesMidi for Trigger {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        entities::BoxedEntity,
-        traits::{
-            TestEffect, TestEffectControlParams, TestInstrument, TestInstrumentControlParams,
-        },
-        Orchestrator,
+        controllers::orchestrator::Orchestrator, effects::TestEffect,
+        effects::TestEffectControlParams, entities::Entity, instruments::TestInstrument,
+        instruments::TestInstrumentControlParams,
     };
+
+    impl Trigger {
+        pub fn new_with(sample_rate: usize, time_to_trigger_seconds: f32, value: f32) -> Self {
+            Self {
+                uid: Default::default(),
+                value,
+                timer: Timer::new_with(sample_rate, time_to_trigger_seconds),
+                has_triggered: false,
+            }
+        }
+    }
 
     #[test]
     fn test_flat_step() {
@@ -246,10 +520,10 @@ mod tests {
             steps: step_vec,
         };
 
-        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
         let effect_uid = o.add(
             None,
-            BoxedEntity::TestEffect(Box::new(TestEffect::new_with_test_values(
+            Entity::TestEffect(Box::new(TestEffect::new_with_test_values(
                 &[0.9, 0.1, 0.2, 0.3],
                 0.0,
                 1.0,
@@ -258,7 +532,7 @@ mod tests {
         );
         let mut trip = ControlTrip::new_with(clock.settings());
         trip.add_path(&clock.settings().time_signature(), &path);
-        let controller_uid = o.add(None, BoxedEntity::ControlTrip(Box::new(trip)));
+        let controller_uid = o.add(None, Entity::ControlTrip(Box::new(trip)));
 
         // TODO: hmmm, effect with no audio source plugged into its input!
         let _ = o.connect_to_main_mixer(effect_uid);
@@ -294,7 +568,7 @@ mod tests {
             steps: step_vec,
         };
 
-        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
         let instrument = Box::new(TestInstrument::new_with_test_values(
             clock.sample_rate(),
             INTERPOLATED_VALUES,
@@ -302,11 +576,11 @@ mod tests {
             0.5,
             ClockTimeUnit::Beats,
         ));
-        let instrument_uid = o.add(None, BoxedEntity::TestInstrument(instrument));
+        let instrument_uid = o.add(None, Entity::TestInstrument(instrument));
         let _ = o.connect_to_main_mixer(instrument_uid);
         let mut trip = Box::new(ControlTrip::new_with(clock.settings()));
         trip.add_path(&clock.settings().time_signature(), &path);
-        let controller_uid = o.add(None, BoxedEntity::ControlTrip(trip));
+        let controller_uid = o.add(None, Entity::ControlTrip(trip));
         let _ = o.link_control(
             controller_uid,
             instrument_uid,

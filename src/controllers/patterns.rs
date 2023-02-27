@@ -1,11 +1,16 @@
-use groove_macros::Uid;
-
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
+    messages::EntityMessage,
     traits::{HandlesMidi, HasUid, IsController, Resets, TicksWithMessages},
-    EntityMessage,
 };
+use groove_macros::Uid;
 use std::fmt::Debug;
+
+#[derive(Clone, Debug)]
+pub enum PatternMessage {
+    SomethingHappened,
+    ButtonPressed,
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct Note {

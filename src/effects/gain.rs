@@ -58,7 +58,7 @@ impl Gain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{traits::Generates, utils::AudioSource, StereoSample};
+    use crate::{common::StereoSample, instruments::AudioSource, traits::Generates};
 
     #[test]
     fn test_gain_mainline() {

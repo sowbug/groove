@@ -1,11 +1,9 @@
-use super::{patches::WaveformType, MidiChannel};
+use super::{patches::WaveformType, ClockSettings, MidiChannel};
 use crate::{
     clock::BeatValue,
     common::{DeviceId, SignalType},
-    controllers::{arpeggiator::Arpeggiator, LfoController},
-    entities::BoxedEntity,
-    traits::TestController,
-    ClockSettings,
+    controllers::{Arpeggiator, LfoController, TestController},
+    entities::Entity,
 };
 use serde::{Deserialize, Serialize};
 
@@ -106,7 +104,7 @@ impl ControllerSettings {
         &self,
         clock_settings: &ClockSettings,
         load_only_test_entities: bool,
-    ) -> (MidiChannel, MidiChannel, BoxedEntity) {
+    ) -> (MidiChannel, MidiChannel, Entity) {
         if load_only_test_entities {
             let (midi_input_channel, midi_output_channel) = match self {
                 ControllerSettings::Test {
@@ -126,7 +124,7 @@ impl ControllerSettings {
             return (
                 *midi_input_channel,
                 *midi_output_channel,
-                BoxedEntity::TestController(Box::new(TestController::new_with(
+                Entity::TestController(Box::new(TestController::new_with(
                     clock_settings,
                     *midi_output_channel,
                 ))),
@@ -139,7 +137,7 @@ impl ControllerSettings {
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                BoxedEntity::TestController(Box::new(TestController::new_with(
+                Entity::TestController(Box::new(TestController::new_with(
                     clock_settings,
                     midi_output_channel,
                 ))),
@@ -150,7 +148,7 @@ impl ControllerSettings {
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                BoxedEntity::Arpeggiator(Box::new(Arpeggiator::new_with(
+                Entity::Arpeggiator(Box::new(Arpeggiator::new_with(
                     clock_settings,
                     midi_output_channel,
                 ))),
@@ -163,7 +161,7 @@ impl ControllerSettings {
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                BoxedEntity::LfoController(Box::new(LfoController::new_with(
+                Entity::LfoController(Box::new(LfoController::new_with(
                     clock_settings,
                     waveform,
                     frequency as f64,

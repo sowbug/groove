@@ -3,14 +3,15 @@ use super::{
     ClockSettings, ControlSettings, DeviceSettings, PatternSettings, TrackSettings,
 };
 use crate::{
+    clock::TimeSignature,
     common::DeviceId,
-    controllers::{orchestrator::Orchestrator, ControlPath, ControlTrip},
-    entities::BoxedEntity,
-    midi::{
+    controllers::{
         patterns::{Note, Pattern},
-        programmers::PatternProgrammer,
+        ControlPath, ControlTrip,
     },
-    TimeSignature,
+    entities::Entity,
+    midi::programmers::PatternProgrammer,
+    Orchestrator,
 };
 use anyhow::Result;
 use rustc_hash::FxHashMap;
@@ -84,7 +85,7 @@ impl SongSettings {
     }
 
     pub fn instantiate(&self, load_only_test_entities: bool) -> Result<Orchestrator> {
-        let mut o = Orchestrator::new_with(&self.clock_settings);
+        let mut o = Orchestrator::new_with_clock_settings(&self.clock_settings);
         o.set_title(self.title.clone());
         self.instantiate_devices(&mut o, &self.clock_settings, load_only_test_entities);
         self.instantiate_patch_cables(&mut o)?;
@@ -207,7 +208,7 @@ impl SongSettings {
 
         let mut ids_to_patterns = FxHashMap::default();
         let pattern_manager_uid = orchestrator.pattern_manager_uid();
-        if let Some(BoxedEntity::PatternManager(pattern_manager)) =
+        if let Some(Entity::PatternManager(pattern_manager)) =
             orchestrator.store_mut().get_mut(pattern_manager_uid)
         {
             for pattern_settings in &self.patterns {
@@ -218,7 +219,7 @@ impl SongSettings {
         }
 
         let beat_sequencer_uid = orchestrator.beat_sequencer_uid();
-        if let Some(BoxedEntity::BeatSequencer(sequencer)) =
+        if let Some(Entity::BeatSequencer(sequencer)) =
             orchestrator.store_mut().get_mut(beat_sequencer_uid)
         {
             let mut programmer = PatternProgrammer::new_with(&self.clock_settings.time_signature);
@@ -268,7 +269,7 @@ impl SongSettings {
                     }
                 }
                 let controller_uid =
-                    orchestrator.add(Some(trip_id), BoxedEntity::ControlTrip(control_trip));
+                    orchestrator.add(Some(trip_id), Entity::ControlTrip(control_trip));
                 if let Err(err_result) = orchestrator.link_control(
                     controller_uid,
                     target_uid,
@@ -293,7 +294,9 @@ impl SongSettings {
 mod tests {
     use super::SongSettings;
     use crate::app_version;
-    use crate::{IOHelper, Paths, StereoSample};
+    use crate::common::StereoSample;
+    use crate::helpers::IOHelper;
+    use crate::utils::Paths;
     use crossbeam::deque::Steal;
     use std::fs::File;
     use std::io::prelude::*;

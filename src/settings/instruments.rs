@@ -1,13 +1,11 @@
 use super::{patches::SynthPatch, MidiChannel};
 use crate::{
-    entities::BoxedEntity,
+    entities::Entity,
     instruments::{
         drumkit_sampler,
         welsh::{self},
-        FmSynthesizer, SimpleSynthesizer,
+        FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument,
     },
-    traits::TestInstrument,
-    Sampler,
 };
 use serde::{Deserialize, Serialize};
 
@@ -59,7 +57,7 @@ impl InstrumentSettings {
         &self,
         sample_rate: usize,
         load_only_test_entities: bool,
-    ) -> (MidiChannel, BoxedEntity) {
+    ) -> (MidiChannel, Entity) {
         if load_only_test_entities {
             let midi_input_channel = match self {
                 InstrumentSettings::Test { midi_input_channel } => *midi_input_channel,
@@ -79,24 +77,24 @@ impl InstrumentSettings {
             };
             return (
                 midi_input_channel,
-                BoxedEntity::TestInstrument(Box::new(TestInstrument::new_with(sample_rate))),
+                Entity::TestInstrument(Box::new(TestInstrument::new_with(sample_rate))),
             );
         }
         match self {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,
-                BoxedEntity::TestInstrument(Box::new(TestInstrument::new_with(sample_rate))),
+                Entity::TestInstrument(Box::new(TestInstrument::new_with(sample_rate))),
             ),
             InstrumentSettings::SimpleSynth { midi_input_channel } => (
                 *midi_input_channel,
-                BoxedEntity::SimpleSynthesizer(Box::new(SimpleSynthesizer::new(sample_rate))),
+                Entity::SimpleSynthesizer(Box::new(SimpleSynthesizer::new(sample_rate))),
             ),
             InstrumentSettings::Welsh {
                 midi_input_channel,
                 preset_name,
             } => (
                 *midi_input_channel,
-                BoxedEntity::WelshSynth(Box::new(welsh::WelshSynth::new_with(
+                Entity::WelshSynth(Box::new(welsh::WelshSynth::new_with(
                     sample_rate,
                     SynthPatch::by_name(preset_name),
                 ))),
@@ -106,23 +104,23 @@ impl InstrumentSettings {
                 preset_name: _preset,
             } => (
                 *midi_input_channel,
-                BoxedEntity::DrumkitSampler(Box::new(
-                    drumkit_sampler::DrumkitSampler::new_from_files(sample_rate),
-                )),
+                Entity::DrumkitSampler(Box::new(drumkit_sampler::DrumkitSampler::new_from_files(
+                    sample_rate,
+                ))),
             ),
             InstrumentSettings::Sampler {
                 midi_input_channel,
                 filename,
             } => (
                 *midi_input_channel,
-                BoxedEntity::Sampler(Box::new(Sampler::new_from_file(filename))),
+                Entity::Sampler(Box::new(Sampler::new_from_file(filename))),
             ),
             InstrumentSettings::FmSynthesizer {
                 midi_input_channel,
                 preset_name: preset,
             } => (
                 *midi_input_channel,
-                BoxedEntity::FmSynthesizer(Box::new(FmSynthesizer::new_with_preset(
+                Entity::FmSynthesizer(Box::new(FmSynthesizer::new_with_preset(
                     sample_rate,
                     &FmSynthesizer::preset_for_name(preset),
                 ))),

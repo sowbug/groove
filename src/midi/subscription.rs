@@ -1,5 +1,5 @@
-use super::{MidiChannel, MidiPortLabel};
-use crate::{traits::Response, Clock, MidiHandler, MidiHandlerMessage};
+use super::{MidiChannel, MidiHandler, MidiHandlerMessage, MidiPortLabel};
+use crate::{clock::Clock, traits::Response};
 use iced::{futures::channel::mpsc, subscription, Subscription};
 use midly::MidiMessage;
 use std::{
@@ -7,13 +7,6 @@ use std::{
     thread::JoinHandle,
     time::Duration,
 };
-
-// TODO: how did this get here?
-#[derive(Clone, Debug)]
-pub enum PatternMessage {
-    SomethingHappened,
-    ButtonPressed,
-}
 
 #[derive(Clone, Debug)]
 pub enum MidiHandlerInput {

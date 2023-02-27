@@ -1,13 +1,12 @@
 use super::{
-    IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, Synthesizer,
-    VoicePerNoteStore,
+    sampler::Sampler, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker,
+    Synthesizer, VoicePerNoteStore,
 };
 use crate::{
-    common::F32ControlValue,
+    common::{F32ControlValue, StereoSample},
     midi::{GeneralMidiPercussionProgram, MidiChannel},
     traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
     utils::Paths,
-    Sampler, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use midly::{num::u7, MidiMessage};

@@ -1,42 +1,39 @@
 use crate::{
     controllers::{
         arpeggiator::Arpeggiator,
+        patterns::PatternManager,
         sequencers::{BeatSequencer, MidiTickSequencer},
-        ControlTrip, LfoController,
+        ControlTrip, LfoController, TestController, Timer,
     },
     effects::{
         bitcrusher::Bitcrusher, chorus::Chorus, compressor::Compressor, delay::Delay,
         filter::BiQuadFilter, gain::Gain, limiter::Limiter, mixer::Mixer, reverb::Reverb,
+        TestEffect,
     },
     instruments::{
-        drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth, FmSynthesizer,
-        SimpleSynthesizer,
+        drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth, AudioSource,
+        FmSynthesizer, SimpleSynthesizer, TestInstrument, TestSynth,
     },
-    midi::patterns::PatternManager,
-    traits::{
-        Controllable, HandlesMidi, HasUid, IsController, IsEffect, IsInstrument, TestController,
-        TestEffect, TestInstrument,
-    },
-    utils::{AudioSource, TestSynth, Timer},
+    traits::{Controllable, HandlesMidi, HasUid, IsController, IsEffect, IsInstrument},
 };
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
 macro_rules! boxed_entity_enum_and_common_crackers {
     ($($variant:ident: $type:ty,)*) => {
         #[derive(Debug)]
-        pub enum BoxedEntity {
+        pub enum Entity {
             $( $variant(Box<$type>) ),*
         }
 
-        impl BoxedEntity {
+        impl Entity {
             pub fn as_has_uid(&self) -> &dyn HasUid {
                 match self {
-                $( BoxedEntity::$variant(e) => e.as_ref(), )*
+                $( Entity::$variant(e) => e.as_ref(), )*
                 }
             }
             pub fn as_has_uid_mut(&mut self) -> &mut dyn HasUid {
                 match self {
-                $( BoxedEntity::$variant(e) => e.as_mut(), )*
+                $( Entity::$variant(e) => e.as_mut(), )*
                 }
             }
         }
@@ -79,16 +76,16 @@ boxed_entity_enum_and_common_crackers! {
 
 macro_rules! controllable_crackers {
     ($($type:ident,)*) => {
-        impl BoxedEntity {
+        impl Entity {
             pub fn as_controllable(&self) -> Option<&dyn Controllable> {
                 match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    $( Entity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_controllable_mut(&mut self) -> Option<&mut dyn Controllable> {
                 match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    $( Entity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
@@ -115,16 +112,16 @@ controllable_crackers! {
 
 macro_rules! controller_crackers {
     ($($type:ident,)*) => {
-        impl BoxedEntity {
+        impl Entity {
             pub fn as_is_controller(&self) -> Option<&dyn IsController> {
                 match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    $( Entity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn IsController> {
                 match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    $( Entity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
@@ -144,16 +141,16 @@ controller_crackers! {
 
 macro_rules! effect_crackers {
     ($($type:ident,)*) => {
-        impl BoxedEntity {
+        impl Entity {
             pub fn as_is_effect(&self) -> Option<&dyn IsEffect> {
                 match self {
-                $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                $( Entity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn IsEffect> {
                 match self {
-                $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                $( Entity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
@@ -175,16 +172,16 @@ effect_crackers! {
 
 macro_rules! instrument_crackers {
     ($($type:ident,)*) => {
-        impl BoxedEntity {
+        impl Entity {
             pub fn as_is_instrument(&self) -> Option<&dyn IsInstrument> {
                 match self {
-                $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                $( Entity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn IsInstrument> {
                 match self {
-                $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                $( Entity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }
@@ -204,16 +201,16 @@ instrument_crackers! {
 
 macro_rules! handles_midi_crackers {
     ($($type:ident,)*) => {
-        impl BoxedEntity {
+        impl Entity {
             pub fn as_handles_midi(&self) -> Option<&dyn HandlesMidi> {
                 match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_ref()), )*
+                    $( Entity::$type(e) => Some(e.as_ref()), )*
                     _ => None
                 }
             }
             pub fn as_handles_midi_mut(&mut self) -> Option<&mut dyn HandlesMidi> {
                 match self {
-                    $( BoxedEntity::$type(e) => Some(e.as_mut()), )*
+                    $( Entity::$type(e) => Some(e.as_mut()), )*
                     _ => None
                 }
             }

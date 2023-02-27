@@ -1,8 +1,9 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
+    messages::EntityMessage,
     midi::{MidiChannel, MidiMessage, MidiUtils},
+    settings::ClockSettings,
     traits::{HandlesMidi, HasUid, IsController, Resets, TicksWithMessages},
-    ClockSettings, EntityMessage,
 };
 use btreemultimap::BTreeMultiMap;
 use groove_macros::Uid;
@@ -288,10 +289,11 @@ mod tests {
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         clock::{Clock, MidiTicks},
-        entities::BoxedEntity,
+        controllers::orchestrator::Orchestrator,
+        entities::Entity,
+        instruments::TestInstrument,
         midi::{MidiChannel, MidiUtils},
-        traits::{IsController, TestInstrument, Ticks},
-        Orchestrator,
+        traits::{IsController, Ticks},
     };
 
     impl BeatSequencer {
@@ -346,10 +348,10 @@ mod tests {
     fn test_sequencer() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = 7;
         let mut clock = Clock::default();
-        let mut o = Orchestrator::new_with(clock.settings());
+        let mut o = Orchestrator::new_with_clock_settings(clock.settings());
         let mut sequencer = Box::new(MidiTickSequencer::default());
         let instrument = Box::new(TestInstrument::new_with(clock.sample_rate()));
-        let device_uid = o.add(None, BoxedEntity::TestInstrument(instrument));
+        let device_uid = o.add(None, Entity::TestInstrument(instrument));
 
         sequencer.insert(
             sequencer.tick_for_beat(&clock, 0),
@@ -362,10 +364,7 @@ mod tests {
             MidiUtils::note_off_c4(),
         );
         const SEQUENCER_ID: &str = "seq";
-        let _sequencer_uid = o.add(
-            Some(SEQUENCER_ID),
-            BoxedEntity::MidiTickSequencer(sequencer),
-        );
+        let _sequencer_uid = o.add(Some(SEQUENCER_ID), Entity::MidiTickSequencer(sequencer));
         o.connect_midi_downstream(device_uid, DEVICE_MIDI_CHANNEL);
 
         // TODO: figure out a reasonable way to test these things once they're

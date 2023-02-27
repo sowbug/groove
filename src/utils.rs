@@ -1,25 +1,9 @@
-use crate::{
-    common::F32ControlValue,
-    common::SampleType,
-    instruments::{
-        envelopes::{Envelope, EnvelopeGenerator},
-        oscillators::Oscillator,
-    },
-    settings::patches::EnvelopeSettings,
-    traits::{
-        Controllable, Generates, HandlesMidi, HasUid, IsController, IsInstrument, Resets, Ticks,
-        TicksWithMessages,
-    },
-    EntityMessage, StereoSample,
-};
 use core::fmt::Debug;
-use groove_macros::{Control, Uid};
 use std::{
     env::{current_dir, current_exe},
     path::PathBuf,
-    str::FromStr,
 };
-use strum_macros::{Display, EnumString, FromRepr};
+use strum_macros::{Display, EnumString};
 
 #[allow(dead_code)]
 pub(crate) fn transform_linear_to_mma_concave(linear_value: f64) -> f64 {
@@ -41,115 +25,10 @@ pub(crate) fn transform_linear_to_mma_convex(linear_value: f64) -> f64 {
     }
 }
 
-/// Timer Terminates (in the Terminates trait sense) after a specified amount of time.
-#[derive(Debug, Uid)]
-pub struct Timer {
-    uid: usize,
-    sample_rate: usize,
-    time_to_run_seconds: f32,
-
-    has_more_work: bool,
-    ticks: usize,
-}
-impl Timer {
-    pub fn new_with(sample_rate: usize, time_to_run_seconds: f32) -> Self {
-        Self {
-            uid: Default::default(),
-            sample_rate,
-            time_to_run_seconds,
-
-            has_more_work: Default::default(),
-            ticks: Default::default(),
-        }
-    }
-
-    pub fn time_to_run_seconds(&self) -> f32 {
-        self.time_to_run_seconds
-    }
-}
-impl IsController for Timer {}
-impl HandlesMidi for Timer {}
-impl Resets for Timer {
-    fn reset(&mut self, sample_rate: usize) {
-        self.sample_rate = sample_rate;
-        self.ticks = 0;
-    }
-}
-impl TicksWithMessages for Timer {
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
-        let mut ticks_completed = tick_count;
-        for i in 0..tick_count {
-            self.has_more_work =
-                (self.ticks as f32 / self.sample_rate as f32) < self.time_to_run_seconds;
-            if self.has_more_work {
-                self.ticks += 1;
-            } else {
-                ticks_completed = i;
-                break;
-            }
-        }
-        (None, ticks_completed)
-    }
-}
-
-#[derive(Display, Debug, EnumString)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum TestAudioSourceSetLevelControlParams {
-    Level,
-}
-
-#[derive(Control, Debug, Default, Uid)]
-pub struct AudioSource {
-    uid: usize,
-    level: SampleType,
-}
-impl IsInstrument for AudioSource {}
-impl Generates<StereoSample> for AudioSource {
-    fn value(&self) -> StereoSample {
-        StereoSample::from(self.level)
-    }
-
-    #[allow(unused_variables)]
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
-        todo!()
-    }
-}
-impl Resets for AudioSource {
-    fn reset(&mut self, _sample_rate: usize) {}
-}
-impl Ticks for AudioSource {
-    fn tick(&mut self, _tick_count: usize) {}
-}
-impl HandlesMidi for AudioSource {}
-#[allow(dead_code)]
-impl AudioSource {
-    pub const TOO_LOUD: SampleType = 1.1;
-    pub const LOUD: SampleType = 1.0;
-    pub const SILENT: SampleType = 0.0;
-    pub const QUIET: SampleType = -1.0;
-    pub const TOO_QUIET: SampleType = -1.1;
-
-    pub fn new_with(level: SampleType) -> Self {
-        Self {
-            level,
-            ..Default::default()
-        }
-    }
-
-    pub fn level(&self) -> SampleType {
-        self.level
-    }
-
-    pub fn set_level(&mut self, level: SampleType) {
-        self.level = level;
-    }
-}
-
 pub struct Paths {}
 impl Paths {
     const ASSETS: &str = "assets";
     const PROJECTS: &str = "projects";
-    const TEST_DATA: &str = "test-data";
 
     pub fn asset_path() -> PathBuf {
         let mut path_buf = Paths::cwd();
@@ -160,12 +39,6 @@ impl Paths {
     pub fn project_path() -> PathBuf {
         let mut path_buf = Paths::cwd();
         path_buf.push(Self::PROJECTS);
-        path_buf
-    }
-
-    pub fn test_data_path() -> PathBuf {
-        let mut path_buf = Paths::cwd();
-        path_buf.push(Self::TEST_DATA);
         path_buf
     }
 
@@ -191,89 +64,6 @@ impl Paths {
     }
 }
 
-#[derive(Control, Debug, Uid)]
-pub struct TestSynth {
-    uid: usize,
-    sample_rate: usize,
-    sample: StereoSample,
-
-    #[controllable]
-    oscillator_modulation: f32,
-
-    oscillator: Box<Oscillator>,
-    envelope: Box<dyn Envelope>,
-}
-impl IsInstrument for TestSynth {}
-impl Generates<StereoSample> for TestSynth {
-    fn value(&self) -> StereoSample {
-        self.sample
-    }
-
-    #[allow(unused_variables)]
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
-        todo!()
-    }
-}
-impl Resets for TestSynth {
-    fn reset(&mut self, sample_rate: usize) {
-        self.sample_rate = sample_rate;
-        self.oscillator.reset(sample_rate);
-    }
-}
-impl Ticks for TestSynth {
-    fn tick(&mut self, tick_count: usize) {
-        // TODO: I don't think this can play sounds, because I don't see how the
-        // envelope ever gets triggered.
-        self.oscillator.tick(tick_count);
-        self.envelope.tick(tick_count);
-        self.sample =
-            crate::StereoSample::from(self.oscillator.value() * self.envelope.value().value());
-    }
-}
-impl HandlesMidi for TestSynth {}
-impl TestSynth {
-    pub fn new_with_components(
-        sample_rate: usize,
-        oscillator: Box<Oscillator>,
-        envelope: Box<dyn Envelope>,
-    ) -> Self {
-        Self {
-            uid: Default::default(),
-            sample_rate,
-            sample: Default::default(),
-            oscillator_modulation: Default::default(),
-            oscillator,
-            envelope,
-        }
-    }
-
-    pub fn oscillator_modulation(&self) -> f32 {
-        self.oscillator.frequency_modulation()
-    }
-
-    pub fn set_oscillator_modulation(&mut self, oscillator_modulation: f32) {
-        self.oscillator_modulation = oscillator_modulation;
-        self.oscillator
-            .set_frequency_modulation(oscillator_modulation);
-    }
-
-    pub fn set_control_oscillator_modulation(&mut self, oscillator_modulation: F32ControlValue) {
-        self.set_oscillator_modulation(oscillator_modulation.0);
-    }
-
-    #[allow(dead_code)]
-    fn new_with(sample_rate: usize) -> Self {
-        Self::new_with_components(
-            sample_rate,
-            Box::new(Oscillator::new_with(sample_rate)),
-            Box::new(EnvelopeGenerator::new_with(
-                sample_rate,
-                &EnvelopeSettings::default(),
-            )),
-        )
-    }
-}
-
 #[derive(Display, Debug, EnumString)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum TestLfoControlParams {
@@ -284,30 +74,32 @@ pub(crate) enum TestLfoControlParams {
 
 #[cfg(test)]
 pub mod tests {
-    use super::Timer;
     use crate::{
         clock::Clock,
-        common::{Sample, SampleType, DEFAULT_SAMPLE_RATE},
-        controllers::orchestrator::Orchestrator,
-        entities::BoxedEntity,
+        common::{Sample, SampleType, StereoSample, DEFAULT_SAMPLE_RATE},
+        controllers::{orchestrator::Orchestrator, LfoController, TestController, Timer, Trigger},
+        effects::TestEffect,
+        entities::Entity,
+        instruments::{oscillators::Oscillator, TestInstrument, TestSynth, TestSynthControlParams},
         midi::MidiChannel,
         settings::patches::WaveformType,
-        traits::{
-            Controllable, Generates, HandlesMidi, HasUid, IsController, IsEffect, Resets,
-            TestController, TestEffect, TestInstrument, Ticks, TicksWithMessages, TransformsAudio,
-        },
-        utils::{
-            transform_linear_to_mma_concave, transform_linear_to_mma_convex, F32ControlValue,
-            TestSynth, TestSynthControlParams,
-        },
-        EntityMessage, LfoController, Oscillator, StereoSample,
+        traits::{Generates, Resets, Ticks, TicksWithMessages},
+        utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
     };
     use convert_case::{Case, Casing};
-    use groove_macros::{Control, Uid};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
-    use std::str::FromStr;
     use std::{fs, path::PathBuf};
-    use strum_macros::{Display, EnumString, FromRepr};
+
+    use super::Paths;
+
+    impl Paths {
+        const TEST_DATA: &str = "test-data";
+        pub fn test_data_path() -> PathBuf {
+            let mut path_buf = Paths::cwd();
+            path_buf.push(Self::TEST_DATA);
+            path_buf
+        }
+    }
 
     fn read_samples_from_mono_wav_file(filename: &PathBuf) -> Vec<Sample> {
         let mut reader = hound::WavReader::open(filename).unwrap();
@@ -367,87 +159,19 @@ pub mod tests {
         format!("{OUT_DIR}/{snake_filename}.wav")
     }
 
-    /// Trigger issues a ControlF32 message after a specified amount of time.
-    ///
-    /// TODO: needs tests!
-    #[derive(Debug, Uid)]
-    pub(crate) struct Trigger {
-        uid: usize,
-        value: f32,
-
-        timer: Timer,
-        has_triggered: bool,
-    }
-    impl IsController for Trigger {}
-    impl TicksWithMessages for Trigger {
-        fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
-            // We toss the timer's messages because we know it never returns any,
-            // and we wouldn't pass them on if it did.
-            let (_, ticks_completed) = self.timer.tick(tick_count);
-            if ticks_completed < tick_count && !self.has_triggered {
-                self.has_triggered = true;
-                (
-                    Some(vec![EntityMessage::ControlF32(self.value)]),
-                    ticks_completed,
-                )
-            } else {
-                (None, ticks_completed)
-            }
-        }
-    }
-    impl Resets for Trigger {}
-    impl HandlesMidi for Trigger {}
-    impl Trigger {
-        pub fn new_with(sample_rate: usize, time_to_trigger_seconds: f32, value: f32) -> Self {
-            Self {
-                uid: Default::default(),
-                value,
-                timer: Timer::new_with(sample_rate, time_to_trigger_seconds),
-                has_triggered: false,
-            }
-        }
-    }
-
-    #[derive(Control, Debug, Default)]
-    pub struct TestMixer {
-        uid: usize,
-    }
-    impl IsEffect for TestMixer {}
-    impl HasUid for TestMixer {
-        fn uid(&self) -> usize {
-            self.uid
-        }
-
-        fn set_uid(&mut self, uid: usize) {
-            self.uid = uid;
-        }
-    }
-    impl TransformsAudio for TestMixer {
-        fn transform_channel(
-            &mut self,
-            _channel: usize,
-            input_sample: crate::common::Sample,
-        ) -> crate::common::Sample {
-            input_sample
-        }
-    }
-
     #[test]
     fn audio_routing_works() {
         let mut clock = Clock::default();
-        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
 
         // A simple audio source.
         let synth_uid = o.add(
             None,
-            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate()))),
+            Entity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate()))),
         );
 
         // A simple effect.
-        let effect_uid = o.add(
-            None,
-            BoxedEntity::TestEffect(Box::new(TestEffect::default())),
-        );
+        let effect_uid = o.add(None, Entity::TestEffect(Box::new(TestEffect::default())));
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -459,7 +183,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Timer(Box::new(Timer::new_with(
+            Entity::Timer(Box::new(Timer::new_with(
                 clock.sample_rate(),
                 SECONDS as f32,
             ))),
@@ -495,15 +219,15 @@ pub mod tests {
     #[test]
     fn control_routing_works() {
         let mut clock = Clock::default();
-        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
 
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(
             None,
-            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate()))),
+            Entity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate()))),
         );
         let lfo = LfoController::new_with(clock.settings(), WaveformType::Sine, 2.0);
-        let lfo_uid = o.add(None, BoxedEntity::LfoController(Box::new(lfo)));
+        let lfo_uid = o.add(None, Entity::LfoController(Box::new(lfo)));
         let _ = o.link_control(
             lfo_uid,
             synth_1_uid,
@@ -516,7 +240,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Timer(Box::new(Timer::new_with(
+            Entity::Timer(Box::new(Timer::new_with(
                 clock.sample_rate(),
                 SECONDS as f32,
             ))),
@@ -553,16 +277,16 @@ pub mod tests {
         const TEST_MIDI_CHANNEL: MidiChannel = 7;
         const ARP_MIDI_CHANNEL: MidiChannel = 5;
         let clock = Clock::default();
-        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
             None,
-            BoxedEntity::TestInstrument(Box::new(TestInstrument::new_with(clock.sample_rate()))),
+            Entity::TestInstrument(Box::new(TestInstrument::new_with(clock.sample_rate()))),
         );
         let arpeggiator_uid = o.add(
             None,
-            BoxedEntity::TestController(Box::new(TestController::new_with(
+            Entity::TestController(Box::new(TestController::new_with(
                 clock.settings(),
                 TEST_MIDI_CHANNEL,
             ))),
@@ -579,7 +303,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Timer(Box::new(Timer::new_with(
+            Entity::Timer(Box::new(Timer::new_with(
                 clock.sample_rate(),
                 SECONDS as f32,
             ))),
@@ -659,18 +383,14 @@ pub mod tests {
     #[test]
     fn test_groove_can_be_instantiated_in_new_generic_world() {
         let mut clock = Clock::default();
-        let mut o = Box::new(Orchestrator::new_with(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
 
         // A simple audio source.
-        let entity_groove =
-            BoxedEntity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate())));
+        let entity_groove = Entity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate())));
         let synth_uid = o.add(None, entity_groove);
 
         // A simple effect.
-        let effect_uid = o.add(
-            None,
-            BoxedEntity::TestEffect(Box::new(TestEffect::default())),
-        );
+        let effect_uid = o.add(None, Entity::TestEffect(Box::new(TestEffect::default())));
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -682,7 +402,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(
             None,
-            BoxedEntity::Timer(Box::new(Timer::new_with(
+            Entity::Timer(Box::new(Timer::new_with(
                 clock.sample_rate(),
                 SECONDS as f32,
             ))),

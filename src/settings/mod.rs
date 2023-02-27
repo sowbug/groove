@@ -67,8 +67,7 @@ pub struct ClockSettings {
 }
 
 impl ClockSettings {
-    #[allow(dead_code)]
-    pub(crate) fn new(
+    pub(crate) fn new_with(
         sample_rate: usize,
         beats_per_minute: f32,
         time_signature: (usize, usize),
@@ -154,7 +153,7 @@ impl ClockSettings {
     const TEST_SAMPLE_RATE: usize = 256;
     const TEST_BPM: f32 = 99.;
     pub fn new_test() -> Self {
-        Self::new(
+        Self::new_with(
             ClockSettings::TEST_SAMPLE_RATE,
             ClockSettings::TEST_BPM,
             (4, 4),

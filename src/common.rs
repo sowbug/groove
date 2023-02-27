@@ -3,8 +3,11 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
-#[cfg(test)]
+// TODO: these three should be #[cfg(test)] because nobody should be assuming
+// these values
 pub const DEFAULT_SAMPLE_RATE: usize = 44100;
+pub const DEFAULT_BPM: f32 = 128.0;
+pub const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);
 
 /// SampleType is the underlying primitive that makes up MonoSample and
 /// StereoSample. It exists as a transition aid while we migrate from hardcoded
@@ -317,7 +320,8 @@ impl Add<TimeUnit> for TimeUnit {
 
 #[cfg(test)]
 mod tests {
-    use crate::{common::Normal, StereoSample};
+    use super::StereoSample;
+    use crate::common::Normal;
 
     impl StereoSample {
         // TODO: epsilon comparisons are bad. Figure out ULP (see float-cmp)

@@ -1,23 +1,30 @@
-use self::envelopes::{Envelope, EnvelopeGenerator};
-use crate::{
-    common::{BipolarNormal, F32ControlValue, Sample, StereoSample},
-    midi::{MidiChannel, MidiUtils},
-    settings::patches::EnvelopeSettings,
-    traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
-    Oscillator,
-};
-use anyhow::{anyhow, Result};
-use groove_macros::{Control, Uid};
-use midly::{num::u7, MidiMessage};
-use std::str::FromStr;
-use std::{collections::HashMap, fmt::Debug};
-use strum_macros::{Display, EnumString, FromRepr};
+pub use drumkit_sampler::DrumkitSampler;
+pub use sampler::Sampler;
+pub use welsh::WelshSynth;
 
 pub(crate) mod drumkit_sampler;
 pub(crate) mod envelopes;
 pub(crate) mod oscillators;
 pub(crate) mod sampler;
 pub(crate) mod welsh;
+
+use self::{
+    envelopes::{Envelope, EnvelopeGenerator},
+    oscillators::Oscillator,
+};
+use crate::{
+    clock::ClockTimeUnit,
+    common::{BipolarNormal, F32ControlValue, Sample, SampleType, StereoSample},
+    midi::{MidiChannel, MidiUtils},
+    settings::patches::{EnvelopeSettings, WaveformType},
+    traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
+};
+use anyhow::{anyhow, Result};
+use groove_macros::{Control, Uid};
+use midly::{num::u7, MidiMessage};
+use std::{collections::HashMap, fmt::Debug};
+use std::{collections::VecDeque, marker::PhantomData, str::FromStr};
+use strum_macros::{Display, EnumString, FromRepr};
 
 /// As an experiment, we're going to define PlaysNotes as a different interface
 /// from HandlesMidi. This will give the HandlesMidi Synthesizer an opportunity
@@ -987,14 +994,344 @@ impl Dca {
     }
 }
 
+/// A simple implementation of IsInstrument that's useful for testing and
+/// debugging. Uses a default Oscillator to produce sound, and its "envelope" is
+/// just a boolean that responds to MIDI NoteOn/NoteOff.
+///
+/// To act as a controller target, it has two parameters: Oscillator waveform
+/// and frequency.
+#[derive(Control, Debug)]
+pub struct TestInstrument {
+    uid: usize,
+    sample_rate: usize,
+    sample: StereoSample,
+
+    /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
+    #[controllable]
+    pub waveform: PhantomData<WaveformType>, // interesting use of PhantomData
+
+    #[controllable]
+    pub fake_value: f32,
+
+    oscillator: Oscillator,
+    dca: Dca,
+    pub is_playing: bool,
+    pub received_count: usize,
+    pub handled_count: usize,
+
+    pub checkpoint_values: VecDeque<f32>,
+    pub checkpoint: f32,
+    pub checkpoint_delta: f32,
+    pub time_unit: ClockTimeUnit,
+
+    pub debug_messages: Vec<MidiMessage>,
+}
+impl IsInstrument for TestInstrument {}
+impl Generates<StereoSample> for TestInstrument {
+    fn value(&self) -> StereoSample {
+        self.sample
+    }
+
+    #[allow(unused_variables)]
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Resets for TestInstrument {
+    fn reset(&mut self, sample_rate: usize) {
+        self.oscillator.reset(sample_rate);
+    }
+}
+impl Ticks for TestInstrument {
+    fn tick(&mut self, tick_count: usize) {
+        self.oscillator.tick(tick_count);
+        // If we've been asked to assert values at checkpoints, do so.
+
+        // TODODODODO
+        // if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
+        // {
+        //     const SAD_FLOAT_DIFF: f32 = 1.0e-2;
+        //     assert_approx_eq!(self.fake_value, self.checkpoint_values[0], SAD_FLOAT_DIFF);
+        //     self.checkpoint += self.checkpoint_delta;
+        //     self.checkpoint_values.pop_front();
+        // }
+        self.sample = if self.is_playing {
+            self.dca
+                .transform_audio_to_stereo(Sample::from(self.oscillator.value()))
+        } else {
+            StereoSample::SILENCE
+        };
+    }
+}
+impl HasUid for TestInstrument {
+    fn uid(&self) -> usize {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+}
+impl HandlesMidi for TestInstrument {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        self.debug_messages.push(*message);
+        self.received_count += 1;
+
+        match message {
+            MidiMessage::NoteOn { key, vel: _ } => {
+                self.is_playing = true;
+                self.oscillator
+                    .set_frequency(MidiUtils::note_to_frequency(key.as_int()));
+            }
+            MidiMessage::NoteOff { key: _, vel: _ } => {
+                self.is_playing = false;
+            }
+            _ => {}
+        }
+        None
+    }
+}
+// impl TestsValues for TestInstrument {
+//     fn has_checkpoint_values(&self) -> bool {
+//         !self.checkpoint_values.is_empty()
+//     }
+
+//     fn time_unit(&self) -> &ClockTimeUnit {
+//         &self.time_unit
+//     }
+
+//     fn checkpoint_time(&self) -> f32 {
+//         self.checkpoint
+//     }
+
+//     fn advance_checkpoint_time(&mut self) {
+//         self.checkpoint += self.checkpoint_delta;
+//     }
+
+//     fn value_to_check(&self) -> f32 {
+//         self.fake_value
+//     }
+
+//     fn pop_checkpoint_value(&mut self) -> Option<f32> {
+//         self.checkpoint_values.pop_front()
+//     }
+// }
+impl TestInstrument {
+    pub fn new_with(sample_rate: usize) -> Self {
+        let mut r = Self {
+            uid: Default::default(),
+            waveform: Default::default(),
+            sample_rate,
+            sample: Default::default(),
+            fake_value: Default::default(),
+            oscillator: Oscillator::new_with(sample_rate),
+            dca: Default::default(),
+            is_playing: Default::default(),
+            received_count: Default::default(),
+            handled_count: Default::default(),
+            checkpoint_values: Default::default(),
+            checkpoint: Default::default(),
+            checkpoint_delta: Default::default(),
+            time_unit: Default::default(),
+            debug_messages: Default::default(),
+        };
+        r.sample_rate = sample_rate;
+
+        r
+    }
+
+    pub fn new_with_test_values(
+        sample_rate: usize,
+        values: &[f32],
+        checkpoint: f32,
+        checkpoint_delta: f32,
+        time_unit: ClockTimeUnit,
+    ) -> Self {
+        let mut r = Self::new_with(sample_rate);
+        r.checkpoint_values = VecDeque::from(Vec::from(values));
+        r.checkpoint = checkpoint;
+        r.checkpoint_delta = checkpoint_delta;
+        r.time_unit = time_unit;
+        r
+    }
+
+    #[allow(dead_code)]
+    fn waveform(&self) -> f32 {
+        match self.oscillator.waveform() {
+            WaveformType::Sawtooth => -1.0,
+            WaveformType::Square => 1.0,
+            _ => 0.0,
+        }
+    }
+
+    pub fn set_control_waveform(&mut self, value: F32ControlValue) {
+        self.oscillator.set_waveform(if value.0 == -1.0 {
+            WaveformType::Sawtooth
+        } else if value.0 == 1.0 {
+            WaveformType::Square
+        } else {
+            WaveformType::Sine
+        });
+    }
+
+    pub fn set_fake_value(&mut self, fake_value: f32) {
+        self.fake_value = fake_value;
+    }
+
+    pub fn fake_value(&self) -> f32 {
+        self.fake_value
+    }
+
+    pub(crate) fn set_control_fake_value(&mut self, fake_value: F32ControlValue) {
+        self.set_fake_value(fake_value.0);
+    }
+}
+
+#[derive(Control, Debug, Uid)]
+pub struct TestSynth {
+    uid: usize,
+    sample_rate: usize,
+    sample: StereoSample,
+
+    #[controllable]
+    oscillator_modulation: f32,
+
+    oscillator: Box<Oscillator>,
+    envelope: Box<dyn Envelope>,
+}
+impl IsInstrument for TestSynth {}
+impl Generates<StereoSample> for TestSynth {
+    fn value(&self) -> StereoSample {
+        self.sample
+    }
+
+    #[allow(unused_variables)]
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Resets for TestSynth {
+    fn reset(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
+        self.oscillator.reset(sample_rate);
+    }
+}
+impl Ticks for TestSynth {
+    fn tick(&mut self, tick_count: usize) {
+        // TODO: I don't think this can play sounds, because I don't see how the
+        // envelope ever gets triggered.
+        self.oscillator.tick(tick_count);
+        self.envelope.tick(tick_count);
+        self.sample = StereoSample::from(self.oscillator.value() * self.envelope.value().value());
+    }
+}
+impl HandlesMidi for TestSynth {}
+impl TestSynth {
+    pub fn new_with_components(
+        sample_rate: usize,
+        oscillator: Box<Oscillator>,
+        envelope: Box<dyn Envelope>,
+    ) -> Self {
+        Self {
+            uid: Default::default(),
+            sample_rate,
+            sample: Default::default(),
+            oscillator_modulation: Default::default(),
+            oscillator,
+            envelope,
+        }
+    }
+
+    pub fn oscillator_modulation(&self) -> f32 {
+        self.oscillator.frequency_modulation()
+    }
+
+    pub fn set_oscillator_modulation(&mut self, oscillator_modulation: f32) {
+        self.oscillator_modulation = oscillator_modulation;
+        self.oscillator
+            .set_frequency_modulation(oscillator_modulation);
+    }
+
+    pub fn set_control_oscillator_modulation(&mut self, oscillator_modulation: F32ControlValue) {
+        self.set_oscillator_modulation(oscillator_modulation.0);
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn new_with(sample_rate: usize) -> Self {
+        Self::new_with_components(
+            sample_rate,
+            Box::new(Oscillator::new_with(sample_rate)),
+            Box::new(EnvelopeGenerator::new_with(
+                sample_rate,
+                &EnvelopeSettings::default(),
+            )),
+        )
+    }
+}
+
+#[derive(Control, Debug, Default, Uid)]
+pub struct AudioSource {
+    uid: usize,
+
+    #[controllable]
+    level: SampleType,
+}
+impl IsInstrument for AudioSource {}
+impl Generates<StereoSample> for AudioSource {
+    fn value(&self) -> StereoSample {
+        StereoSample::from(self.level)
+    }
+
+    #[allow(unused_variables)]
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Resets for AudioSource {
+    fn reset(&mut self, _sample_rate: usize) {}
+}
+impl Ticks for AudioSource {
+    fn tick(&mut self, _tick_count: usize) {}
+}
+impl HandlesMidi for AudioSource {}
+#[allow(dead_code)]
+impl AudioSource {
+    pub const TOO_LOUD: SampleType = 1.1;
+    pub const LOUD: SampleType = 1.0;
+    pub const SILENT: SampleType = 0.0;
+    pub const QUIET: SampleType = -1.0;
+    pub const TOO_QUIET: SampleType = -1.1;
+
+    pub fn new_with(level: SampleType) -> Self {
+        Self {
+            level,
+            ..Default::default()
+        }
+    }
+
+    pub fn level(&self) -> SampleType {
+        self.level
+    }
+
+    pub fn set_level(&mut self, level: SampleType) {
+        self.level = level;
+    }
+
+    fn set_control_level(&mut self, level: F32ControlValue) {
+        self.set_level(level.0 as f64);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{IsStereoSampleVoice, SimpleVoice};
     use crate::{
-        common::{Sample, DEFAULT_SAMPLE_RATE},
+        common::{BipolarNormal, Sample, StereoSample, DEFAULT_SAMPLE_RATE},
         instruments::{Dca, PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
         traits::Ticks,
-        BipolarNormal, StereoSample,
     };
     use float_cmp::approx_eq;
     use midly::num::u7;

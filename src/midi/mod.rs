@@ -1,15 +1,17 @@
-pub(crate) mod patterns;
+pub use subscription::MidiHandlerEvent;
+pub use subscription::MidiHandlerInput;
+pub use subscription::MidiSubscription;
+
 pub(crate) mod programmers;
 pub(crate) mod smf_reader;
 pub(crate) mod subscription;
 
 // TODO copy and conform MidiMessage to MessageBounds so it can be a trait
 // associated type
-use self::subscription::MidiHandlerEvent;
 use crate::{
+    clock::Clock,
     messages::MessageBounds,
     traits::{HasUid, Response},
-    Clock,
 };
 use crossbeam::deque::{Steal, Stealer, Worker};
 use enum_primitive_derive::Primitive;

@@ -1,9 +1,8 @@
 use super::HandlesMidi;
 use crate::{
-    common::{F32ControlValue, Sample, SampleType},
+    common::{F32ControlValue, Sample, SampleType, StereoSample},
     midi::{MidiChannel, MidiMessage},
     traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
-    StereoSample,
 };
 use groove_macros::{Control, Uid};
 use hound::WavReader;

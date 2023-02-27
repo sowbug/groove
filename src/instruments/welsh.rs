@@ -5,8 +5,8 @@ use super::{
     Synthesizer,
 };
 use crate::{
-    common::{F32ControlValue, Normal, Sample},
-    effects::filter::{BiQuadFilter, FilterParams},
+    common::{BipolarNormal, F32ControlValue, Normal, Sample, StereoSample},
+    effects::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
     midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
     settings::{
@@ -15,7 +15,6 @@ use crate::{
     },
     traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks, TransformsAudio},
     utils::Paths,
-    BipolarNormal, StereoSample,
 };
 use convert_case::{Boundary, Case, Casing};
 use groove_macros::{Control, Uid};

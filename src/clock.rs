@@ -1,15 +1,14 @@
-use std::{
-    cmp::Ordering,
-    fmt::Display,
-    ops::{Add, Mul},
-};
-
 use crate::{
     settings::ClockSettings,
     traits::{Resets, Ticks},
 };
 use anyhow::{anyhow, Error};
 use serde::{Deserialize, Serialize};
+use std::{
+    cmp::Ordering,
+    fmt::Display,
+    ops::{Add, Mul},
+};
 use strum_macros::FromRepr;
 
 #[derive(Clone, Debug, Default, Deserialize, FromRepr, Serialize)]
@@ -401,7 +400,7 @@ mod tests {
 
         pub fn new_with_sample_rate(sample_rate: usize) -> Self {
             let cs = ClockSettings::default();
-            Self::new_with(&ClockSettings::new(
+            Self::new_with(&ClockSettings::new_with(
                 sample_rate,
                 cs.bpm(),
                 (cs.time_signature().top, cs.time_signature().bottom),
@@ -436,7 +435,7 @@ mod tests {
         const SECONDS_PER_BEAT: f32 = 60.0 / BPM;
         const ONE_SAMPLE_OF_SECONDS: f32 = 1.0 / SAMPLE_RATE as f32;
 
-        let clock_settings = ClockSettings::new(SAMPLE_RATE, BPM, (4, 4));
+        let clock_settings = ClockSettings::new_with(SAMPLE_RATE, BPM, (4, 4));
 
         // Initial state. The Ticks trait specifies that state is valid for the
         // frame *after* calling tick(), so here we verify that after calling

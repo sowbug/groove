@@ -1,7 +1,6 @@
 use crate::{
-    common::{F32ControlValue, Sample, SampleType},
+    common::{BipolarNormal, F32ControlValue, Sample, SampleType},
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
-    BipolarNormal,
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -85,7 +84,11 @@ impl Limiter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{common::Sample, traits::Generates, utils::AudioSource, StereoSample};
+    use crate::{
+        common::{Sample, StereoSample},
+        instruments::AudioSource,
+        traits::Generates,
+    };
     use more_asserts::{assert_gt, assert_lt};
 
     #[test]

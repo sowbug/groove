@@ -1,18 +1,8 @@
-use crate::{
-    common::StereoSample,
-    midi::{subscription::PatternMessage, MidiChannel},
-};
+use crate::{common::StereoSample, controllers::PatternMessage, midi::MidiChannel};
 use iced_audio::Normal;
 use midly::MidiMessage;
 
-pub trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {} // TODO: that 'static scares me
-
-// How do you decide what's a GrooveMessage and what's an EntityMessage? Some
-// rules (I'll add as I go):
-//
-// - If it knows about UIDs, it's a GrooveMessage. EntityMessages get sent to
-//   the right entity via GrooveMessage's UID, so EntityMessages don't need to
-//   care about them.
+pub(crate) trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {} // TODO: that 'static scares me
 
 #[derive(Clone, Debug)]
 pub enum GrooveMessage {

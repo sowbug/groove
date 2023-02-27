@@ -2,9 +2,10 @@ use super::sequencers::BeatSequencer;
 use crate::{
     clock::PerfectTimeUnit,
     common::F32ControlValue,
+    messages::EntityMessage,
     midi::{MidiChannel, MidiMessage, MidiUtils},
+    settings::ClockSettings,
     traits::{Controllable, HandlesMidi, HasUid, IsController, Resets, TicksWithMessages},
-    ClockSettings, EntityMessage,
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -159,9 +160,12 @@ impl Arpeggiator {
 mod tests {
     use super::Arpeggiator;
     use crate::{
-        clock::PerfectTimeUnit, common::DEFAULT_SAMPLE_RATE,
-        controllers::sequencers::BeatSequencer, entities::BoxedEntity, midi::MidiChannel,
-        traits::TestInstrument, Clock, Orchestrator,
+        clock::{Clock, PerfectTimeUnit},
+        common::DEFAULT_SAMPLE_RATE,
+        controllers::{orchestrator::Orchestrator, sequencers::BeatSequencer},
+        entities::Entity,
+        instruments::TestInstrument,
+        midi::MidiChannel,
     };
 
     // Orchestrator sends a Tick message to everyone in an undefined order, and
@@ -189,7 +193,7 @@ mod tests {
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
         ));
         let instrument = Box::new(TestInstrument::new_with(DEFAULT_SAMPLE_RATE));
-        let mut o = Orchestrator::new_with(clock.settings());
+        let mut o = Orchestrator::new_with_clock_settings(clock.settings());
 
         sequencer.insert(
             PerfectTimeUnit(0.0),
@@ -200,11 +204,11 @@ mod tests {
             },
         );
 
-        let arpeggiator_uid = o.add(None, BoxedEntity::Arpeggiator(arpeggiator));
+        let arpeggiator_uid = o.add(None, Entity::Arpeggiator(arpeggiator));
         o.connect_midi_downstream(arpeggiator_uid, MIDI_CHANNEL_SEQUENCER_TO_ARP);
-        let instrument_uid = o.add(None, BoxedEntity::TestInstrument(instrument));
+        let instrument_uid = o.add(None, Entity::TestInstrument(instrument));
         o.connect_midi_downstream(instrument_uid, MIDI_CHANNEL_ARP_TO_INSTRUMENT);
-        let _sequencer_uid = o.add(None, BoxedEntity::BeatSequencer(sequencer));
+        let _sequencer_uid = o.add(None, Entity::BeatSequencer(sequencer));
 
         // let command = o.handle_tick(1);
         // if let Internal::Batch(messages) = command.0 {

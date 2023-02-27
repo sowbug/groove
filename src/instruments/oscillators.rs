@@ -1,8 +1,7 @@
 use crate::{
-    common::{F32ControlValue, SignalType},
+    common::{BipolarNormal, F32ControlValue, SignalType},
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
     traits::{Controllable, Generates, Resets, Ticks},
-    BipolarNormal,
 };
 use groove_macros::Control;
 use more_asserts::debug_assert_lt;
@@ -367,8 +366,10 @@ mod tests {
         midi::{MidiNote, MidiUtils},
         settings::patches::{OscillatorSettings, OscillatorTune},
         traits::{tests::DebugTicks, Generates, Resets, Ticks},
-        utils::tests::{render_signal_as_audio_source, samples_match_known_good_wav_file},
-        Paths,
+        utils::{
+            tests::{render_signal_as_audio_source, samples_match_known_good_wav_file},
+            Paths,
+        },
     };
     use more_asserts::assert_lt;
 

@@ -127,14 +127,14 @@ mod tests {
     use crate::{
         common::{Sample, SampleType},
         effects::compressor::Compressor,
+        entities::Entity,
         traits::TransformsAudio,
-        BoxedEntity,
     };
 
     #[test]
     fn compressor_exists() {
         let fx = Compressor::default();
-        let entity = BoxedEntity::Compressor(Box::new(fx));
+        let entity = Entity::Compressor(Box::new(fx));
         assert!(entity.as_controllable().is_some());
         assert!(entity.as_is_effect().is_some());
     }

@@ -1,6 +1,11 @@
 use anyhow::Ok;
 use clap::Parser;
-use groove::{app_version, ClockSettings, IOHelper, Orchestrator, StereoSample};
+use groove::{
+    app_version,
+    common::{StereoSample, DEFAULT_BPM, DEFAULT_SAMPLE_RATE, DEFAULT_TIME_SIGNATURE},
+    helpers::IOHelper,
+    Orchestrator,
+};
 use regex::Regex;
 use std::time::Instant;
 //use groove::ScriptEngine;
@@ -59,7 +64,11 @@ fn main() -> anyhow::Result<()> {
 
             // TODO: this is temporary, to return the right type
             #[cfg(not(feature = "scripting"))]
-            Box::new(Orchestrator::new_with(&ClockSettings::default()))
+            Box::new(Orchestrator::new_with(
+                DEFAULT_SAMPLE_RATE,
+                DEFAULT_BPM,
+                DEFAULT_TIME_SIGNATURE,
+            ))
         } else if input_filename.ends_with(".yaml")
             || input_filename.ends_with(".yml")
             || input_filename.ends_with(".nsn")
@@ -77,7 +86,11 @@ fn main() -> anyhow::Result<()> {
             }
             r
         } else {
-            Box::new(Orchestrator::new_with(&ClockSettings::default()))
+            Box::new(Orchestrator::new_with(
+                DEFAULT_SAMPLE_RATE,
+                DEFAULT_BPM,
+                DEFAULT_TIME_SIGNATURE,
+            ))
         };
 
         orchestrator.set_enable_dev_experiment(args.debug);

@@ -1,11 +1,11 @@
 use crate::{
-    common::SampleType,
+    common::{SampleType, StereoSample},
     controllers::{sequencers::MidiTickSequencer, Performance},
-    entities::BoxedEntity,
+    entities::Entity,
     instruments::{drumkit_sampler::DrumkitSampler, welsh::WelshSynth},
     midi::programmers::MidiSmfReader,
-    settings::{patches::SynthPatch, songs::SongSettings},
-    ClockSettings, Orchestrator, StereoSample,
+    settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
+    Orchestrator,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -228,13 +228,14 @@ impl IOHelper {
     }
 
     pub fn orchestrator_from_midi_file(filename: &str) -> Box<Orchestrator> {
-        let data = std::fs::read(filename).unwrap();
         // TODO: where do BPM, time signature, etc. come from?
-        let mut orchestrator = Box::new(Orchestrator::new_with(&ClockSettings::default()));
+        let clock_settings = ClockSettings::default();
+        let mut orchestrator = Box::new(Orchestrator::new_with_clock_settings(&clock_settings));
 
+        let data = std::fs::read(filename).unwrap();
         let mut sequencer = Box::new(MidiTickSequencer::default());
         MidiSmfReader::program_sequencer(&mut sequencer, &data);
-        let sequencer_uid = orchestrator.add(None, BoxedEntity::MidiTickSequencer(sequencer));
+        let sequencer_uid = orchestrator.add(None, Entity::MidiTickSequencer(sequencer));
         orchestrator.connect_midi_upstream(sequencer_uid);
 
         // TODO: this is a hack. We need only the number of channels used in the
@@ -243,11 +244,11 @@ impl IOHelper {
             let synth_uid = orchestrator.add(
                 None,
                 if channel == 9 {
-                    BoxedEntity::DrumkitSampler(Box::new(DrumkitSampler::new_from_files(
+                    Entity::DrumkitSampler(Box::new(DrumkitSampler::new_from_files(
                         orchestrator.clock_settings().sample_rate(),
                     )))
                 } else {
-                    BoxedEntity::WelshSynth(Box::new(WelshSynth::new_with(
+                    Entity::WelshSynth(Box::new(WelshSynth::new_with(
                         orchestrator.clock_settings().sample_rate(), // TODO: tie this better to actual reality
                         SynthPatch::by_name("Piano"),
                     )))
