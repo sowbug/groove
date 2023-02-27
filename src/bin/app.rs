@@ -30,10 +30,19 @@ use iced::{
     alignment, executor,
     futures::channel::mpsc,
     theme::{self, Theme},
-    widget::{button, column, container, pick_list, row, scrollable, text, text_input},
-    window, Alignment, Application, Command, Element, Event, Length, Settings, Subscription,
+    widget::{
+        button,
+        canvas::{
+            gradient::{Location, Position},
+            Cache, Cursor, Frame, Gradient, Program,
+        },
+        column, container, pick_list, row, scrollable, text, text_input, Canvas,
+    },
+    window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
+    Renderer, Settings, Size, Subscription,
 };
 use iced_audio::{HSlider, Knob, Normal as IcedNormal, NormalParam};
+use rand::{thread_rng, Rng};
 use rustc_hash::FxHashMap;
 use std::{
     any::type_name,
@@ -92,6 +101,8 @@ struct GrooveApp {
     midi_handler: Option<Arc<Mutex<MidiHandler>>>,
 
     entity_view_states: FxHashMap<usize, EntityViewState>,
+
+    cache: Cache,
 }
 
 impl Default for GrooveApp {
@@ -115,6 +126,7 @@ impl Default for GrooveApp {
             midi_handler_sender: Default::default(),
             midi_handler: Default::default(),
             entity_view_states: Default::default(),
+            cache: Default::default(),
         }
     }
 }
@@ -340,6 +352,10 @@ impl Application for GrooveApp {
         .width(Length::FillPortion(1))
         .align_x(alignment::Horizontal::Center)
         .align_y(alignment::Vertical::Center);
+        let canvas: Element<'_, Self::Message, Renderer<Self::Theme>> = Canvas::new(self)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into();
         let main_content = match self.current_view {
             MainViews::Unstructured => {
                 let project_view: Element<AppMessage> =
@@ -349,7 +365,7 @@ impl Application for GrooveApp {
                 let scrollable_content = column![midi_view, project_view];
                 let scrollable =
                     container(scrollable(scrollable_content)).width(Length::FillPortion(1));
-                row![under_construction, scrollable]
+                row![canvas, scrollable]
             }
             MainViews::Session => {
                 row![under_construction]
@@ -373,8 +389,110 @@ impl Application for GrooveApp {
             .into()
     }
 }
+impl<GrooveMessage> Program<GrooveMessage> for GrooveApp {
+    type State = ();
 
+    fn draw(
+        &self,
+        _state: &Self::State,
+        _theme: &Theme,
+        bounds: Rectangle,
+        _cursor: Cursor,
+    ) -> Vec<iced::widget::canvas::Geometry> {
+        let geometry = self.cache.draw(bounds.size(), |frame| {
+            let num_squares = thread_rng().gen_range(0..1200);
+
+            let mut i = 0;
+            while i <= num_squares {
+                Self::generate_box(frame, bounds.size());
+                i += 1;
+            }
+        });
+
+        vec![geometry]
+    }
+
+    fn update(
+        &self,
+        _state: &mut Self::State,
+        _event: iced::widget::canvas::Event,
+        _bounds: Rectangle,
+        _cursor: Cursor,
+    ) -> (iced::widget::canvas::event::Status, Option<GrooveMessage>) {
+        (iced::widget::canvas::event::Status::Ignored, None)
+    }
+
+    fn mouse_interaction(
+        &self,
+        _state: &Self::State,
+        _bounds: Rectangle,
+        _cursor: Cursor,
+    ) -> iced_native::mouse::Interaction {
+        iced_native::mouse::Interaction::default()
+    }
+}
 impl GrooveApp {
+    fn random_direction() -> Location {
+        match thread_rng().gen_range(0..8) {
+            0 => Location::TopLeft,
+            1 => Location::Top,
+            2 => Location::TopRight,
+            3 => Location::Right,
+            4 => Location::BottomRight,
+            5 => Location::Bottom,
+            6 => Location::BottomLeft,
+            7 => Location::Left,
+            _ => Location::TopLeft,
+        }
+    }
+
+    fn generate_box(frame: &mut Frame, bounds: Size) -> bool {
+        let solid = rand::random::<bool>();
+
+        let random_color = || -> Color {
+            Color::from_rgb(
+                thread_rng().gen_range(0.0..1.0),
+                thread_rng().gen_range(0.0..1.0),
+                thread_rng().gen_range(0.0..1.0),
+            )
+        };
+
+        let gradient = |top_left: Point, size: Size| -> Gradient {
+            let mut builder = Gradient::linear(Position::Relative {
+                top_left,
+                size,
+                start: Self::random_direction(),
+                end: Self::random_direction(),
+            });
+            let stops = thread_rng().gen_range(1..15u32);
+
+            let mut i = 0;
+            while i <= stops {
+                builder = builder.add_stop(i as f32 / stops as f32, random_color());
+                i += 1;
+            }
+
+            builder.build().unwrap()
+        };
+
+        let top_left = Point::new(
+            thread_rng().gen_range(0.0..bounds.width),
+            thread_rng().gen_range(0.0..bounds.height),
+        );
+
+        let size = Size::new(
+            thread_rng().gen_range(50.0..200.0),
+            thread_rng().gen_range(50.0..200.0),
+        );
+
+        if solid {
+            frame.fill_rectangle(top_left, size, random_color());
+        } else {
+            frame.fill_rectangle(top_left, size, gradient(top_left, size));
+        };
+
+        solid
+    }
     fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
         if let Some(sender) = self.midi_handler_sender.as_mut() {
             // TODO: deal with this
