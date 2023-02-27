@@ -31,10 +31,9 @@ use iced::{
     futures::channel::mpsc,
     theme::{self, Theme},
     widget::{button, column, container, pick_list, row, scrollable, text, text_input},
-    window, Alignment, Application, Command, Element, Length, Settings, Subscription,
+    window, Alignment, Application, Command, Element, Event, Length, Settings, Subscription,
 };
 use iced_audio::{HSlider, Knob, Normal as IcedNormal, NormalParam};
-use iced_native::Event;
 use rustc_hash::FxHashMap;
 use std::{
     any::type_name,
@@ -653,16 +652,16 @@ impl GrooveApp {
                 )
                 .font(gui::SMALL_FONT)
                 .size(gui::SMALL_FONT_SIZE)
-                .width(Length::Units(60)),
+                .width(Length::Fixed(60.0)),
                 container(row![
                     button(skip_to_prev_icon())
-                        .width(Length::Units(32))
+                        .width(Length::Fixed(32.0))
                         .on_press(ControlBarMessage::SkipToStart),
                     button(play_icon())
-                        .width(Length::Units(32))
+                        .width(Length::Fixed(32.0))
                         .on_press(ControlBarMessage::Play),
                     button(stop_icon())
-                        .width(Length::Units(32))
+                        .width(Length::Fixed(32.0))
                         .on_press(ControlBarMessage::Stop)
                 ])
                 .align_x(alignment::Horizontal::Center)
