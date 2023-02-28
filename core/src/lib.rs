@@ -14,11 +14,11 @@ pub type SampleType = f64;
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Sample(pub SampleType);
 impl Sample {
-    pub const SILENCE_VALUE: f64 = 0.0;
+    pub const SILENCE_VALUE: SampleType = 0.0;
     pub const SILENCE: Sample = Sample(Self::SILENCE_VALUE);
-    pub const MAX_VALUE: f64 = 1.0;
+    pub const MAX_VALUE: SampleType = 1.0;
     pub const MAX: Sample = Sample(Self::MAX_VALUE);
-    pub const MIN_VALUE: f64 = -1.0;
+    pub const MIN_VALUE: SampleType = -1.0;
     pub const MIN: Sample = Sample(Self::MIN_VALUE);
 }
 impl AddAssign for Sample {
