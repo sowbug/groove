@@ -102,6 +102,13 @@ impl From<i32> for Sample {
         Sample(value as f64)
     }
 }
+// I predict this conversion will someday be declared evil. We're naively
+// averaging the two channels. I'm not sure this makes sense in all situations.
+impl From<StereoSample> for Sample {
+    fn from(value: StereoSample) -> Self {
+        Sample((value.0 .0 + value.1 .0) * 0.5)
+    }
+}
 
 /// MonoSample is a single-channel sample. It exists separately from Sample for
 /// cases where we specifically want a monophonic audio stream.
@@ -122,6 +129,7 @@ impl StereoSample {
         Self(Sample(left), Sample(right))
     }
 
+    // TODO: is this necessary? Wouldn't a fluent Rust coder use .into()?
     pub fn new_from_single_f64(value: SampleType) -> Self {
         Self::new_from_f64(value, value)
     }
@@ -173,11 +181,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn conversions() {
-        let sample = Sample::MAX;
-        let stereo_sample = StereoSample::MAX;
+    fn mono_to_stereo() {
+        assert_eq!(StereoSample::from(Sample::MIN), StereoSample::MIN);
+        assert_eq!(StereoSample::from(Sample::SILENCE), StereoSample::SILENCE);
+        assert_eq!(StereoSample::from(Sample::MAX), StereoSample::MAX);
+    }
 
-        let converted = StereoSample::from(sample);
-        assert_eq!(stereo_sample, converted);
+    #[test]
+    fn stereo_to_mono() {
+        assert_eq!(Sample::from(StereoSample::MIN), Sample::MIN);
+        assert_eq!(Sample::from(StereoSample::SILENCE), Sample::SILENCE);
+        assert_eq!(Sample::from(StereoSample::MAX), Sample::MAX);
+
+        assert_eq!(
+            Sample::from(StereoSample::new_from_f64(1.0, 0.0)),
+            Sample::from(0.5)
+        );
     }
 }
