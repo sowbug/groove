@@ -14,23 +14,12 @@ pub type SampleType = f64;
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Sample(pub SampleType);
 impl Sample {
-    #[allow(dead_code)]
     pub const SILENCE_VALUE: f64 = 0.0;
-    #[allow(dead_code)]
     pub const SILENCE: Sample = Sample(Self::SILENCE_VALUE);
-    #[allow(dead_code)]
     pub const MAX_VALUE: f64 = 1.0;
-    #[allow(dead_code)]
     pub const MAX: Sample = Sample(Self::MAX_VALUE);
-    #[allow(dead_code)]
     pub const MIN_VALUE: f64 = -1.0;
-    #[allow(dead_code)]
     pub const MIN: Sample = Sample(Self::MIN_VALUE);
-
-    // TODO: deprecate
-    pub fn new_from_f32(value: f32) -> Self {
-        Self(value as f64)
-    }
 }
 impl AddAssign for Sample {
     fn add_assign(&mut self, rhs: Self) {
