@@ -1,5 +1,4 @@
 use crate::{
-    common::{SampleType, StereoSample},
     controllers::{sequencers::MidiTickSequencer, Performance},
     entities::Entity,
     instruments::{drumkit_sampler::DrumkitSampler, welsh::WelshSynth},
@@ -12,6 +11,7 @@ use cpal::{
     FromSample, Sample as CpalSample, Stream, StreamConfig, SupportedStreamConfig,
 };
 use crossbeam::{deque::Steal, queue::ArrayQueue};
+use groove_core::{SampleType, StereoSample};
 use std::sync::{Arc, Condvar, Mutex};
 
 pub struct AudioOutput {

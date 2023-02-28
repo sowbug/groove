@@ -1,11 +1,12 @@
 use crate::{
-    common::{BipolarNormal, Normal, SampleType},
+    common::{BipolarNormal, Normal},
     effects::{
         BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, FilterParams, Gain, Limiter, Mixer,
         Reverb, TestEffect,
     },
     entities::Entity,
 };
+use groove_core::SampleType;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

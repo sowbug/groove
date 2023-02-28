@@ -1,4 +1,5 @@
 pub use arpeggiator::Arpeggiator;
+use groove_core::StereoSample;
 use midly::MidiMessage;
 pub use patterns::{Note, Pattern, PatternManager, PatternMessage};
 pub use sequencers::{BeatSequencer, MidiTickSequencer};
@@ -10,7 +11,7 @@ pub(crate) mod sequencers;
 
 use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit, TimeSignature},
-    common::{BipolarNormal, ParameterType, SignalType, StereoSample},
+    common::{BipolarNormal, ParameterType, SignalType},
     instruments::{
         envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
         oscillators::Oscillator,

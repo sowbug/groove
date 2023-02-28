@@ -3,6 +3,7 @@ use crate::{
     controllers::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
+use groove_core::Sample;
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -29,12 +30,7 @@ pub struct Reverb {
 }
 impl IsEffect for Reverb {}
 impl TransformsAudio for Reverb {
-    fn transform_channel(
-        &mut self,
-
-        _channel: usize,
-        input_sample: crate::common::Sample,
-    ) -> crate::common::Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         let input_attenuated = input_sample * self.attenuation;
         let recirc_output = self.recirc_delay_lines[0].pop_output(input_attenuated)
             + self.recirc_delay_lines[1].pop_output(input_attenuated)
@@ -95,11 +91,9 @@ impl Reverb {
 
 #[cfg(test)]
 mod tests {
+    use groove_core::Sample;
     use super::Reverb;
-    use crate::{
-        common::{Sample, DEFAULT_SAMPLE_RATE},
-        traits::TransformsAudio,
-    };
+    use crate::{common::DEFAULT_SAMPLE_RATE, traits::TransformsAudio};
 
     #[test]
     fn reverb_dry_works() {

@@ -1,6 +1,5 @@
 use crate::{
     clock::{Clock, TimeSignature},
-    common::StereoSample,
     helpers::{AudioOutput, IOHelper},
     messages::GrooveMessage,
     midi::MidiChannel,
@@ -8,6 +7,7 @@ use crate::{
     traits::{Resets, Response},
     Orchestrator,
 };
+use groove_core::StereoSample;
 use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
 use midly::MidiMessage;

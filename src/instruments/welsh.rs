@@ -5,7 +5,7 @@ use super::{
     Synthesizer,
 };
 use crate::{
-    common::{BipolarNormal, Normal, Sample, StereoSample},
+    common::{BipolarNormal, Normal},
     controllers::F32ControlValue,
     effects::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
@@ -18,6 +18,7 @@ use crate::{
     utils::Paths,
 };
 use convert_case::{Boundary, Case, Casing};
+use groove_core::{Sample, StereoSample};
 use groove_macros::{Control, Uid};
 use num_traits::FromPrimitive;
 use std::str::FromStr;
@@ -804,7 +805,7 @@ mod tests {
     use super::*;
     use crate::{
         clock::Clock,
-        common::{SampleType, DEFAULT_SAMPLE_RATE},
+        common::DEFAULT_SAMPLE_RATE,
         instruments::{tests::is_voice_makes_any_sound_at_all, welsh::WaveformType},
         settings::patches::{
             EnvelopeSettings, FilterPreset, LfoPreset, LfoRouting, OscillatorSettings,
@@ -812,6 +813,7 @@ mod tests {
         },
         utils::tests::canonicalize_filename,
     };
+    use groove_core::SampleType;
 
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]

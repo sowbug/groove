@@ -1,10 +1,10 @@
 use super::HandlesMidi;
 use crate::controllers::F32ControlValue;
 use crate::{
-    common::{Sample, SampleType, StereoSample},
     midi::{MidiChannel, MidiMessage},
     traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
 };
+use groove_core::{Sample, SampleType, StereoSample};
 use groove_macros::{Control, Uid};
 use hound::WavReader;
 use std::{fs::File, io::BufReader, str::FromStr};

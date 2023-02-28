@@ -1,8 +1,9 @@
 use crate::{
-    common::{Normal, Sample},
+    common::Normal,
     controllers::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
+use groove_core::Sample;
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -16,12 +17,7 @@ pub struct Gain {
 }
 impl IsEffect for Gain {}
 impl TransformsAudio for Gain {
-    fn transform_channel(
-        &mut self,
-
-        _channel: usize,
-        input_sample: crate::common::Sample,
-    ) -> crate::common::Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         Sample(input_sample.0 * self.ceiling.value())
     }
 }
@@ -58,7 +54,8 @@ impl Gain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{common::StereoSample, instruments::AudioSource, traits::Generates};
+    use crate::{instruments::AudioSource, traits::Generates};
+    use groove_core::StereoSample;
 
     #[test]
     fn test_gain_mainline() {

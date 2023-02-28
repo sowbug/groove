@@ -1,8 +1,9 @@
 use crate::controllers::F32ControlValue;
 use crate::{
-    common::{BipolarNormal, Sample, SampleType},
+    common::BipolarNormal,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
+use groove_core::{Sample, SampleType};
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -27,12 +28,7 @@ impl Default for Limiter {
 }
 impl IsEffect for Limiter {}
 impl TransformsAudio for Limiter {
-    fn transform_channel(
-        &mut self,
-
-        _channel: usize,
-        input_sample: crate::common::Sample,
-    ) -> crate::common::Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         let sign = input_sample.0.signum();
         Sample::from(
             input_sample
@@ -85,11 +81,8 @@ impl Limiter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        common::{Sample, StereoSample},
-        instruments::AudioSource,
-        traits::Generates,
-    };
+    use crate::{instruments::AudioSource, traits::Generates};
+    use groove_core::StereoSample;
     use more_asserts::{assert_gt, assert_lt};
 
     #[test]

@@ -1,8 +1,8 @@
 use crate::{
-    common::SampleType,
     controllers::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
+use groove_core::{Sample, SampleType};
 use groove_macros::{Control, Uid};
 use iced_audio::{IntRange, Normal};
 use std::str::FromStr;
@@ -24,12 +24,7 @@ pub struct Bitcrusher {
 }
 impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
-    fn transform_channel(
-        &mut self,
-
-        _channel: usize,
-        input_sample: crate::common::Sample,
-    ) -> crate::common::Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         const I16_SCALE: SampleType = i16::MAX as SampleType;
         let sign = input_sample.0.signum();
         let input = (input_sample * I16_SCALE).0.abs();
@@ -81,7 +76,7 @@ impl Bitcrusher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::Sample;
+    use groove_core::{Sample, SampleType};
     use std::f64::consts::PI;
 
     const CRUSHED_PI: SampleType = 0.14062929166539506;

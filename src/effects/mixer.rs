@@ -2,6 +2,7 @@ use crate::{
     controllers::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
+use groove_core::Sample;
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -12,12 +13,7 @@ pub struct Mixer {
 }
 impl IsEffect for Mixer {}
 impl TransformsAudio for Mixer {
-    fn transform_channel(
-        &mut self,
-
-        _channel: usize,
-        input_sample: crate::common::Sample,
-    ) -> crate::common::Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         // This is a simple pass-through because it's the job of the
         // infrastructure to provide a sum of all inputs as the input.
         // Eventually this might turn into a weighted mixer, or we might handle
