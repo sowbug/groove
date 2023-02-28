@@ -1,9 +1,10 @@
-/target
-Cargo.lock
+**/target
 /*.wav
 /out/
+/projects/**/*.mp3
+/projects/**/*.wav
+/target
+Cargo.lock
 groove-cli.exe
 groove-gui.exe
-/projects/**/*.wav
-/projects/**/*.mp3
 perf-output.txt
