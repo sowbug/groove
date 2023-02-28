@@ -509,9 +509,6 @@ impl Orchestrator {
                     GrooveMessage::LoadedProject(_, _) => {
                         panic!("this is only sent by us, never received")
                     }
-                    GrooveMessage::TrackSamples(_) => {
-                        panic!("this is only sent by us, never received")
-                    }
                 }
             }
         }
@@ -671,7 +668,7 @@ impl Orchestrator {
     pub fn run(&mut self, samples: &mut [StereoSample]) -> anyhow::Result<Vec<StereoSample>> {
         let mut performance_samples = Vec::<StereoSample>::new();
         loop {
-            let (_messages, ticks_completed) = self.tick(samples);
+            let ticks_completed = self.tick(samples);
             performance_samples.extend(&samples[0..ticks_completed]);
             if ticks_completed < samples.len() {
                 break;
@@ -692,7 +689,7 @@ impl Orchestrator {
         let mut next_progress_indicator: usize = progress_indicator_quantum;
 
         loop {
-            let (_messages, ticks_completed) = self.tick(samples);
+            let ticks_completed = self.tick(samples);
             if next_progress_indicator <= tick_count {
                 if !quiet {
                     print!(".");
@@ -733,10 +730,7 @@ impl Orchestrator {
     ///
     /// Returns the actual number of frames filled. If this number is shorter
     /// than the slice length, then the performance is complete.
-    pub(crate) fn tick(
-        &mut self,
-        samples: &mut [StereoSample],
-    ) -> (Option<Vec<GrooveMessage>>, usize) {
+    pub(crate) fn tick(&mut self, samples: &mut [StereoSample]) -> usize {
         let tick_count = samples.len();
         let (commands, ticks_completed) = self.handle_tick(tick_count);
         match commands.0 {
@@ -752,13 +746,7 @@ impl Orchestrator {
         }
         self.gather_audio(samples);
 
-        let messages = vec![GrooveMessage::TrackSamples(self.last_track_samples.clone())];
-
-        if messages.is_empty() {
-            (None, ticks_completed)
-        } else {
-            (Some(messages), ticks_completed)
-        }
+        ticks_completed
     }
 
     pub fn last_track_sample(&self, index: usize) -> &StereoSample {
@@ -768,6 +756,10 @@ impl Orchestrator {
             }
         }
         &StereoSample::SILENCE
+    }
+
+    pub fn track_samples(&self) -> &[StereoSample] {
+        &self.last_track_samples
     }
 }
 

@@ -28,11 +28,6 @@ pub enum GrooveMessage {
 
     LoadProject(String),
     LoadedProject(String, Option<String>),
-
-    // Samples emitted by the sources to the main mixer. Updated only
-    // occasionally. This is a test to see how to get data flowing to the app
-    // for the GUI.
-    TrackSamples(Vec<StereoSample>),
 }
 impl MessageBounds for GrooveMessage {}
 

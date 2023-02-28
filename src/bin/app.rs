@@ -23,7 +23,7 @@ use groove::{
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
     Clock, Entity, HasUid, Orchestrator,
 };
-use groove_core::{Sample, StereoSample};
+use groove_core::Sample;
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
     play_icon, skip_to_prev_icon, stop_icon, GuiStuff,
@@ -34,17 +34,13 @@ use iced::{
     theme::{self, Theme},
     widget::{
         button,
-        canvas::{
-            gradient::{Location, Position},
-            Cache, Cursor, Frame, Gradient, Program,
-        },
+        canvas::{self, Cache, Cursor},
         column, container, pick_list, row, scrollable, text, text_input, Canvas, Container,
     },
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Renderer, Settings, Size, Subscription,
 };
 use iced_audio::{HSlider, Knob, Normal as IcedNormal, NormalParam};
-use rand::{thread_rng, Rng};
 use rustc_hash::FxHashMap;
 use std::{
     any::type_name,
@@ -104,7 +100,7 @@ struct GrooveApp {
     midi_handler: Option<Arc<Mutex<MidiHandler>>>,
 
     entity_view_states: FxHashMap<usize, EntityViewState>,
-    square_drawer: SquareDrawer,
+    gui_state: GuiState,
 }
 impl Default for GrooveApp {
     fn default() -> Self {
@@ -112,6 +108,7 @@ impl Default for GrooveApp {
         // loaded. Make sure they really need to be instantiated.
         let clock = Clock::default();
         let orchestrator = Orchestrator::new_with_clock_settings(clock.settings());
+        let orchestrator = Arc::new(Mutex::new(orchestrator));
         Self {
             preferences: Default::default(),
             is_pref_load_complete: false,
@@ -121,13 +118,13 @@ impl Default for GrooveApp {
             current_view: Default::default(),
             project_title: None,
             orchestrator_sender: Default::default(),
-            orchestrator: Arc::new(Mutex::new(orchestrator)),
+            orchestrator: orchestrator.clone(),
             clock_mirror: clock,
             reached_end_of_playback: Default::default(),
             midi_handler_sender: Default::default(),
             midi_handler: Default::default(),
             entity_view_states: Default::default(),
-            square_drawer: Default::default(),
+            gui_state: GuiState::new(orchestrator),
         }
     }
 }
@@ -199,7 +196,10 @@ impl Application for GrooveApp {
                 self.preferences = Preferences::default();
             }
             AppMessage::Tick(_now) => {
-                // TODO: do we still need a tick?
+                // if let Ok(o) = self.orchestrator.lock() {
+                //     self.gui_state.update_state(o);
+                // }
+                self.gui_state.update_state();
             }
             AppMessage::ControlBarMessage(message) => match message {
                 // TODO: not sure if we need ticking for now. it's playing OR
@@ -253,7 +253,8 @@ impl Application for GrooveApp {
             AppMessage::GrooveEvent(event) => match event {
                 GrooveEvent::Ready(sender, orchestrator) => {
                     self.orchestrator_sender = Some(sender);
-                    self.orchestrator = orchestrator;
+                    self.orchestrator = orchestrator.clone();
+                    self.gui_state.set_orchestrator(orchestrator);
 
                     // We don't start the GrooveSubscription until prefs are
                     // done loading, so this boolean and the corresponding
@@ -274,11 +275,6 @@ impl Application for GrooveApp {
                 }
                 GrooveEvent::MidiToExternal(channel, message) => {
                     self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
-                }
-                GrooveEvent::TrackSamples(samples) => {
-                    self.square_drawer.track_samples = samples;
-                    self.square_drawer.cache.clear();
-                    self.square_drawer.cache_2.clear();
                 }
                 GrooveEvent::AudioOutput(_) => todo!(),
                 GrooveEvent::OutputComplete => {
@@ -342,6 +338,7 @@ impl Application for GrooveApp {
         let mut v = vec![
             iced_native::subscription::events().map(AppMessage::Event),
             MidiSubscription::subscription().map(AppMessage::MidiHandlerEvent),
+            window::frames().map(AppMessage::Tick),
         ];
         if self.is_pref_load_complete {
             v.push(GrooveSubscription::subscription().map(AppMessage::GrooveEvent));
@@ -467,7 +464,7 @@ impl GrooveApp {
     fn orchestrator_view(&self) -> Element<GrooveMessage> {
         if let Ok(orchestrator) = self.orchestrator.lock() {
             let canvas: Element<'_, GrooveMessage, Renderer<<GrooveApp as Application>::Theme>> =
-                Canvas::new(&self.square_drawer)
+                Canvas::new(&self.gui_state)
                     .width(Length::Fill)
                     .height(Length::Fixed((32 * 4) as f32))
                     .into();
@@ -492,7 +489,7 @@ impl GrooveApp {
     fn orchestrator_new_view(&self) -> Element<GrooveMessage> {
         if let Ok(_orchestrator) = self.orchestrator.lock() {
             let canvas: Element<'_, GrooveMessage, Renderer<<GrooveApp as Application>::Theme>> =
-                Canvas::new(&self.square_drawer)
+                Canvas::new(&self.gui_state)
                     .width(Length::Fill)
                     .height(Length::Fixed((32 * 4) as f32))
                     .into();
@@ -1006,168 +1003,126 @@ impl GrooveApp {
     }
 
     fn handle_keyboard_event(&mut self, event: iced::keyboard::Event) {
-        if let iced::keyboard::Event::KeyPressed {
-            key_code,
-            modifiers: _,
-        } = event
-        {
-            if key_code == iced::keyboard::KeyCode::Tab {
+        // This recently changed, and I don't get KeyPressed anymore. Maybe this
+        // is a new event that processes KeyPressed/KeyReleased, so they're no
+        // longer "ignored runtime events."
+        if let iced::keyboard::Event::CharacterReceived(char) = event {
+            if char == '\t' {
                 self.switch_main_view();
             }
         }
     }
 }
 
-#[derive(Debug, Default)]
-struct SquareDrawerState {}
+/// GuiState helps with GUI drawing. It gets called during AppMessage::Tick with
+/// a ref to a mutex-locked Orchestrator. It grabs whatever information it needs
+/// to handle canvas draw() operations.
+///
+/// I'm not sure whether Program::draw() is fundamentally that different from
+/// Application::view(), but I ended up coding them differently. We lock
+/// Orchestrator during view() and grab all the information we need just-in-time
+/// to build the view. For draw(), though, we update internal GuiState during
+/// the app's update(), and then use that state later on for drawing. I could
+/// have used the draw() approach for view(), but I would have had to build up a
+/// whole lot of state in GuiState. I don't think the view() approach would work
+/// for draw(), because the draw closures .
+///
+///  locks Maybe it's a better approach than what I'm doing now, which is
+/// locking Orchestrator during view() and grabbing the needed information while
+/// building the view. I don't know whether I can do that with draw() without
+/// every cache wanting to grab the Orchestrator mutex (which might not be a bad
+/// thing). Right now I think it's worse, because it seems like I'll have to
+/// maintain Orchestrator state in GuiState, rather than using it immediately
+/// during the draw operation and then forgetting it. As usual, I'm probably
+/// misusing one or both of the methods.
+struct GuiState {
+    background: Cache,
+    foreground: Cache,
 
-#[derive(Default)]
-struct SquareDrawer {
-    track_samples: Vec<StereoSample>,
-
-    cache: Cache,
-    cache_2: Cache,
+    orchestrator: Arc<Mutex<Orchestrator>>,
 }
-impl<GrooveMessage> Program<GrooveMessage> for SquareDrawer {
-    type State = SquareDrawerState;
+impl GuiState {
+    fn new(orchestrator: Arc<Mutex<Orchestrator>>) -> Self {
+        Self {
+            background: Default::default(),
+            foreground: Default::default(),
+            orchestrator,
+        }
+    }
+
+    // I don't know how
+    // https://github.com/iced-rs/iced/blob/master/examples/solar_system/src/main.rs
+    // was able to call its method update() without getting an error about
+    // stomping on the Program trait's update().
+    fn update_state(&mut self) {
+        // TODO: we can be smarter about when to redraw. We can also store more
+        // stuff in GuiState that won't change that often if we think that'll be
+        // more efficient than querying Orchestrator each time. Unless we're
+        // doing rendering-specific transformations of Orchestrator data,
+        // though, I'm not sure that's a win.
+
+        self.foreground.clear();
+    }
+
+    fn set_orchestrator(&mut self, orchestrator: Arc<Mutex<Orchestrator>>) {
+        self.orchestrator = orchestrator;
+        self.background.clear();
+        self.foreground.clear();
+    }
+}
+impl<GrooveMessage> canvas::Program<GrooveMessage> for GuiState {
+    type State = ();
 
     fn draw(
         &self,
         _state: &Self::State,
-        _theme: &Theme,
+        _theme: &iced_native::Theme,
         bounds: Rectangle,
         _cursor: Cursor,
     ) -> Vec<iced::widget::canvas::Geometry> {
-        let random_color = || -> Color {
-            Color::from_rgb(
-                thread_rng().gen_range(0.0..1.0),
-                thread_rng().gen_range(0.0..1.0),
-                thread_rng().gen_range(0.0..1.0),
-            )
-        };
-
-        let geometry = self.cache.draw(bounds.size(), |frame| {
-            let track_size = Size {
-                width: bounds.width,
-                height: 32.0,
-            };
-            for (i, sample) in self.track_samples.iter().enumerate() {
-                let top_left = Point {
-                    x: 0.0,
-                    y: (i * 32) as f32,
+        if let Ok(orchestrator) = self.orchestrator.lock() {
+            let track_samples = orchestrator.track_samples().to_vec();
+            let background = self.background.draw(bounds.size(), |frame| {
+                let track_size = Size {
+                    width: bounds.width,
+                    height: 32.0,
                 };
-                //                frame.fill_rectangle(top_left, track_size, random_color());
-                frame.fill_rectangle(top_left, track_size, Color::BLACK);
-            }
-        });
-
-        let next_layer = self.cache_2.draw(bounds.size(), |frame| {
-            let track_size = Size {
-                width: bounds.width,
-                height: 16.0,
-            };
-            for (i, sample) in self.track_samples.iter().enumerate() {
-                let top_left = Point {
-                    x: 0.0,
-                    y: (i * 32) as f32,
-                };
-                let amplitude_mono: Sample = (*sample).into();
-                let amplitude_normalized: Normal = amplitude_mono.into();
-                frame.fill_rectangle(
-                    top_left,
-                    track_size,
-                    Color::from_rgb(
-                        amplitude_normalized.value_as_f32(),
-                        amplitude_normalized.value_as_f32(),
-                        0.0,
-                    ),
-                );
-            }
-        });
-
-        vec![geometry, next_layer]
-    }
-
-    fn update(
-        &self,
-        _state: &mut Self::State,
-        _event: iced::widget::canvas::Event,
-        _bounds: Rectangle,
-        _cursor: Cursor,
-    ) -> (iced::widget::canvas::event::Status, Option<GrooveMessage>) {
-        (iced::widget::canvas::event::Status::Ignored, None)
-    }
-
-    fn mouse_interaction(
-        &self,
-        _state: &Self::State,
-        _bounds: Rectangle,
-        _cursor: Cursor,
-    ) -> iced_native::mouse::Interaction {
-        iced_native::mouse::Interaction::default()
-    }
-}
-impl SquareDrawer {
-    fn random_direction() -> Location {
-        match thread_rng().gen_range(0..8) {
-            0 => Location::TopLeft,
-            1 => Location::Top,
-            2 => Location::TopRight,
-            3 => Location::Right,
-            4 => Location::BottomRight,
-            5 => Location::Bottom,
-            6 => Location::BottomLeft,
-            7 => Location::Left,
-            _ => Location::TopLeft,
-        }
-    }
-
-    fn generate_box(frame: &mut Frame, bounds: Size) -> bool {
-        let solid = rand::random::<bool>();
-
-        let random_color = || -> Color {
-            Color::from_rgb(
-                thread_rng().gen_range(0.0..1.0),
-                thread_rng().gen_range(0.0..1.0),
-                thread_rng().gen_range(0.0..1.0),
-            )
-        };
-
-        let gradient = |top_left: Point, size: Size| -> Gradient {
-            let mut builder = Gradient::linear(Position::Relative {
-                top_left,
-                size,
-                start: Self::random_direction(),
-                end: Self::random_direction(),
+                for (i, _sample) in track_samples.iter().enumerate() {
+                    let top_left = Point {
+                        x: 0.0,
+                        y: (i * 32) as f32,
+                    };
+                    frame.fill_rectangle(top_left, track_size, Color::BLACK);
+                }
             });
-            let stops = thread_rng().gen_range(1..15u32);
 
-            let mut i = 0;
-            while i <= stops {
-                builder = builder.add_stop(i as f32 / stops as f32, random_color());
-                i += 1;
-            }
+            let foreground = self.foreground.draw(bounds.size(), |frame| {
+                let track_size = Size {
+                    width: bounds.width,
+                    height: 16.0,
+                };
+                for (i, sample) in track_samples.iter().enumerate() {
+                    let top_left = Point {
+                        x: 0.0,
+                        y: (i * 32) as f32,
+                    };
 
-            builder.build().unwrap()
-        };
+                    // TODO: need to map because it doesn't seem linear
+                    let amplitude_mono: Sample = (*sample).into();
+                    let amplitude_magnitude = amplitude_mono.0.abs() as f32;
 
-        let top_left = Point::new(
-            thread_rng().gen_range(0.0..bounds.width),
-            thread_rng().gen_range(0.0..bounds.height),
-        );
+                    frame.fill_rectangle(
+                        top_left,
+                        track_size,
+                        Color::from_rgb(amplitude_magnitude, amplitude_magnitude, 0.0),
+                    );
+                }
+            });
 
-        let size = Size::new(
-            thread_rng().gen_range(50.0..200.0),
-            thread_rng().gen_range(50.0..200.0),
-        );
-
-        if solid {
-            frame.fill_rectangle(top_left, size, random_color());
+            vec![background, foreground]
         } else {
-            frame.fill_rectangle(top_left, size, gradient(top_left, size));
-        };
-
-        solid
+            Vec::default()
+        }
     }
 }
 
