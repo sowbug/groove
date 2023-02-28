@@ -507,7 +507,7 @@ impl TicksWithMessages for SignalPassthroughController {
             if self.has_signal_changed {
                 self.has_signal_changed = false;
                 Some(vec![EntityMessage::ControlF32(
-                    1.0 - (self.signal.value() as f32).abs(), // TODO: deal with that transform
+                    (self.signal.value() as f32).abs() * -0.5, // TODO: deal with that transform
                 )])
             } else {
                 None
