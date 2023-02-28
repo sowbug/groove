@@ -23,6 +23,7 @@ use groove::{
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
     Clock, Entity, HasUid, Orchestrator,
 };
+use groove_core::{Sample, StereoSample};
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
     play_icon, skip_to_prev_icon, stop_icon, GuiStuff,
@@ -188,7 +189,6 @@ impl Application for GrooveApp {
     }
 
     fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
-        self.square_drawer.set_track_count(4);
         match message {
             AppMessage::PrefsLoaded(Ok(preferences)) => {
                 self.preferences = preferences;
@@ -274,6 +274,11 @@ impl Application for GrooveApp {
                 }
                 GrooveEvent::MidiToExternal(channel, message) => {
                     self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
+                }
+                GrooveEvent::TrackSamples(samples) => {
+                    self.square_drawer.track_samples = samples;
+                    self.square_drawer.cache.clear();
+                    self.square_drawer.cache_2.clear();
                 }
                 GrooveEvent::AudioOutput(_) => todo!(),
                 GrooveEvent::OutputComplete => {
@@ -464,9 +469,7 @@ impl GrooveApp {
             let canvas: Element<'_, GrooveMessage, Renderer<<GrooveApp as Application>::Theme>> =
                 Canvas::new(&self.square_drawer)
                     .width(Length::Fill)
-                    .height(Length::Fixed(
-                        (32 * self.square_drawer.track_count()) as f32,
-                    ))
+                    .height(Length::Fixed((32 * 4) as f32))
                     .into();
 
             let mut views = orchestrator
@@ -491,9 +494,7 @@ impl GrooveApp {
             let canvas: Element<'_, GrooveMessage, Renderer<<GrooveApp as Application>::Theme>> =
                 Canvas::new(&self.square_drawer)
                     .width(Length::Fill)
-                    .height(Length::Fixed(
-                        (32 * self.square_drawer.track_count()) as f32,
-                    ))
+                    .height(Length::Fixed((32 * 4) as f32))
                     .into();
             canvas.into()
         } else {
@@ -1017,15 +1018,18 @@ impl GrooveApp {
     }
 }
 
+#[derive(Debug, Default)]
+struct SquareDrawerState {}
+
 #[derive(Default)]
 struct SquareDrawer {
-    track_count: usize,
+    track_samples: Vec<StereoSample>,
 
     cache: Cache,
     cache_2: Cache,
 }
 impl<GrooveMessage> Program<GrooveMessage> for SquareDrawer {
-    type State = ();
+    type State = SquareDrawerState;
 
     fn draw(
         &self,
@@ -1047,12 +1051,13 @@ impl<GrooveMessage> Program<GrooveMessage> for SquareDrawer {
                 width: bounds.width,
                 height: 32.0,
             };
-            for i in 0..self.track_count {
+            for (i, sample) in self.track_samples.iter().enumerate() {
                 let top_left = Point {
                     x: 0.0,
                     y: (i * 32) as f32,
                 };
-                frame.fill_rectangle(top_left, track_size, random_color());
+                //                frame.fill_rectangle(top_left, track_size, random_color());
+                frame.fill_rectangle(top_left, track_size, Color::BLACK);
             }
         });
 
@@ -1061,12 +1066,22 @@ impl<GrooveMessage> Program<GrooveMessage> for SquareDrawer {
                 width: bounds.width,
                 height: 16.0,
             };
-            for i in 0..self.track_count {
+            for (i, sample) in self.track_samples.iter().enumerate() {
                 let top_left = Point {
                     x: 0.0,
                     y: (i * 32) as f32,
                 };
-                frame.fill_rectangle(top_left, track_size, Color::BLACK);
+                let amplitude_mono: Sample = (*sample).into();
+                let amplitude_normalized: Normal = amplitude_mono.into();
+                frame.fill_rectangle(
+                    top_left,
+                    track_size,
+                    Color::from_rgb(
+                        amplitude_normalized.value_as_f32(),
+                        amplitude_normalized.value_as_f32(),
+                        0.0,
+                    ),
+                );
             }
         });
 
@@ -1080,7 +1095,6 @@ impl<GrooveMessage> Program<GrooveMessage> for SquareDrawer {
         _bounds: Rectangle,
         _cursor: Cursor,
     ) -> (iced::widget::canvas::event::Status, Option<GrooveMessage>) {
-        dbg!(_state, _event, _bounds, _cursor);
         (iced::widget::canvas::event::Status::Ignored, None)
     }
 
@@ -1090,7 +1104,6 @@ impl<GrooveMessage> Program<GrooveMessage> for SquareDrawer {
         _bounds: Rectangle,
         _cursor: Cursor,
     ) -> iced_native::mouse::Interaction {
-        dbg!(_state, _bounds, _cursor);
         iced_native::mouse::Interaction::default()
     }
 }
@@ -1155,14 +1168,6 @@ impl SquareDrawer {
         };
 
         solid
-    }
-
-    fn set_track_count(&mut self, arg: usize) {
-        self.track_count = arg;
-    }
-
-    fn track_count(&self) -> usize {
-        self.track_count
     }
 }
 

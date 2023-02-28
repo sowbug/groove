@@ -67,6 +67,7 @@ pub enum GrooveEvent {
     ProjectLoaded(String, Option<String>),
     AudioOutput(StereoSample),
     OutputComplete,
+    TrackSamples(Vec<StereoSample>),
     Quit,
 }
 
@@ -148,7 +149,12 @@ impl Runner {
                 GrooveMessage::LoadedProject(filename, title) => {
                     self.post_event(GrooveEvent::ProjectLoaded(filename, title))
                 }
-                _ => todo!(),
+                GrooveMessage::EntityMessage(_, _) => todo!(),
+                GrooveMessage::MidiFromExternal(_, _) => todo!(),
+                GrooveMessage::LoadProject(_) => todo!(),
+                GrooveMessage::TrackSamples(samples) => {
+                    self.post_event(GrooveEvent::TrackSamples(samples))
+                }
             }
         }
         (sample, done)
@@ -223,13 +229,17 @@ impl Runner {
             let (_, _) = self.handle_pending_messages();
 
             if is_playing {
-                let ticks_completed = if let Ok(mut o) = self.orchestrator.lock() {
+                let (tick_messages, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
                     o.tick(&mut samples)
                 } else {
-                    0
+                    (None, 0)
                 };
                 if ticks_completed < samples.len() {
                     is_playing = false;
+                }
+                if let Some(tick_messages) = tick_messages {
+                    self.messages.extend(tick_messages);
+                    let (_, _) = self.handle_pending_messages();
                 }
 
                 // This clock is used to tell the app where we are in the song,

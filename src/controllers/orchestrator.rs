@@ -14,7 +14,7 @@ use anyhow::anyhow;
 use dipstick::InputScope;
 use groove_core::StereoSample;
 use groove_macros::Uid;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::io::{self, Write};
 
 #[derive(Debug, Uid)]
@@ -31,6 +31,10 @@ pub struct Orchestrator {
     metrics: DipstickWrapper,
     enable_dev_experiment: bool,
     should_output_perf: bool,
+
+    last_track_samples: Vec<StereoSample>,
+    main_mixer_source_uids: FxHashSet<usize>,
+    last_samples: FxHashMap<usize, StereoSample>,
 }
 impl Orchestrator {
     // TODO: prefix these to reserve internal ID namespace
@@ -171,6 +175,10 @@ impl Orchestrator {
 
         // We've passed our checks. Record it.
         self.store.patch(output_uid, input_uid);
+
+        if input_uid == self.main_mixer_uid {
+            self.main_mixer_source_uids.insert(output_uid);
+        }
         Ok(())
     }
 
@@ -201,10 +209,14 @@ impl Orchestrator {
 
     #[allow(dead_code)]
     pub(crate) fn unpatch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
+        if input_uid == self.main_mixer_uid {
+            self.main_mixer_source_uids.remove(&input_uid);
+        }
         self.store.unpatch(output_uid, input_uid);
         Ok(()) // TODO: do we ever care about this result?
     }
 
+    #[allow(dead_code)]
     pub(crate) fn connect_to_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
         self.patch(source_uid, self.main_mixer_uid)
     }
@@ -236,6 +248,9 @@ impl Orchestrator {
     // marker pops up, eval with the current sum (nodes are effects, so they
     // take an input), then add to the running sum.
     fn gather_audio(&mut self, samples: &mut [StereoSample]) {
+        // TODO: we are wasting work by putting stuff in the last-sample hash
+        // map for all but the last iteration of this loop.
+        self.last_samples.clear();
         for sample in samples {
             enum StackEntry {
                 ToVisit(usize),
@@ -269,6 +284,7 @@ impl Orchestrator {
                                 } else {
                                     entity.tick(1);
                                 }
+                                self.last_samples.insert(uid, entity.value());
                                 sum += entity.value();
                             } else if entity.as_is_effect().is_some() {
                                 // If it's a node, push its children on the stack,
@@ -300,16 +316,18 @@ impl Orchestrator {
                     StackEntry::CollectResultFor(uid, accumulated_sum) => {
                         if let Some(entity) = self.store.get_mut(uid) {
                             if let Some(entity) = entity.as_is_effect_mut() {
-                                sum = accumulated_sum
-                                    + if let Some(timer) = self.metrics.entity_audio_times.get(&uid)
-                                    {
-                                        let start_time = timer.start();
-                                        let transformed_audio = entity.transform_audio(sum);
-                                        timer.stop(start_time);
-                                        transformed_audio
-                                    } else {
-                                        entity.transform_audio(sum)
-                                    };
+                                let entity_value = if let Some(timer) =
+                                    self.metrics.entity_audio_times.get(&uid)
+                                {
+                                    let start_time = timer.start();
+                                    let transformed_audio = entity.transform_audio(sum);
+                                    timer.stop(start_time);
+                                    transformed_audio
+                                } else {
+                                    entity.transform_audio(sum)
+                                };
+                                sum = accumulated_sum + entity_value;
+                                self.last_samples.insert(uid, entity_value);
                             }
                         }
                     }
@@ -319,6 +337,12 @@ impl Orchestrator {
                 .gather_audio_fn_timer
                 .stop(gather_audio_start_time);
             *sample = sum;
+        }
+        self.last_track_samples.clear();
+        for uid in self.main_mixer_source_uids.iter() {
+            if let Some(sample) = self.last_samples.get(uid) {
+                self.last_track_samples.push(*sample);
+            }
         }
     }
 
@@ -403,6 +427,9 @@ impl Orchestrator {
             metrics: Default::default(),
             enable_dev_experiment: Default::default(),
             should_output_perf: Default::default(),
+            last_track_samples: Default::default(),
+            main_mixer_source_uids: Default::default(),
+            last_samples: Default::default(),
         };
         r.main_mixer_uid = r.add(
             Some(Orchestrator::MAIN_MIXER_UVID),
@@ -480,6 +507,9 @@ impl Orchestrator {
                         }
                     }
                     GrooveMessage::LoadedProject(_, _) => {
+                        panic!("this is only sent by us, never received")
+                    }
+                    GrooveMessage::TrackSamples(_) => {
                         panic!("this is only sent by us, never received")
                     }
                 }
@@ -641,7 +671,7 @@ impl Orchestrator {
     pub fn run(&mut self, samples: &mut [StereoSample]) -> anyhow::Result<Vec<StereoSample>> {
         let mut performance_samples = Vec::<StereoSample>::new();
         loop {
-            let ticks_completed = self.tick(samples);
+            let (_messages, ticks_completed) = self.tick(samples);
             performance_samples.extend(&samples[0..ticks_completed]);
             if ticks_completed < samples.len() {
                 break;
@@ -662,7 +692,7 @@ impl Orchestrator {
         let mut next_progress_indicator: usize = progress_indicator_quantum;
 
         loop {
-            let ticks_completed = self.tick(samples);
+            let (_messages, ticks_completed) = self.tick(samples);
             if next_progress_indicator <= tick_count {
                 if !quiet {
                     print!(".");
@@ -703,7 +733,10 @@ impl Orchestrator {
     ///
     /// Returns the actual number of frames filled. If this number is shorter
     /// than the slice length, then the performance is complete.
-    pub(crate) fn tick(&mut self, samples: &mut [StereoSample]) -> usize {
+    pub(crate) fn tick(
+        &mut self,
+        samples: &mut [StereoSample],
+    ) -> (Option<Vec<GrooveMessage>>, usize) {
         let tick_count = samples.len();
         let (commands, ticks_completed) = self.handle_tick(tick_count);
         match commands.0 {
@@ -719,7 +752,22 @@ impl Orchestrator {
         }
         self.gather_audio(samples);
 
-        ticks_completed
+        let messages = vec![GrooveMessage::TrackSamples(self.last_track_samples.clone())];
+
+        if messages.is_empty() {
+            (None, ticks_completed)
+        } else {
+            (Some(messages), ticks_completed)
+        }
+    }
+
+    pub fn last_track_sample(&self, index: usize) -> &StereoSample {
+        if let Some(uid) = self.main_mixer_source_uids.get(&index) {
+            if let Some(sample) = self.last_track_samples.get(*uid) {
+                return sample;
+            }
+        }
+        &StereoSample::SILENCE
     }
 }
 
