@@ -58,6 +58,9 @@ impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
     pub fn value(&self) -> f64 {
         self.0.clamp(Self::MIN, Self::MAX)
     }
+    pub fn value_as_f32(&self) -> f32 {
+        self.value() as f32
+    }
     pub fn set(&mut self, value: f64) {
         self.0 = value.clamp(Self::MIN, Self::MAX);
     }
@@ -113,6 +116,13 @@ impl<const LOWER: i8, const UPPER: i8> From<f32> for RangedF64<LOWER, UPPER> {
 pub type Normal = RangedF64<0, 1>;
 pub type BipolarNormal = RangedF64<-1, 1>;
 
+impl From<Sample> for Normal {
+    // Sample -1.0..=1.0
+    // Normal 0.0..=1.0
+    fn from(value: Sample) -> Self {
+        Self(value.0 * 0.5 + 0.5)
+    }
+}
 impl From<Sample> for BipolarNormal {
     // A Sample has the same range as a BipolarNormal, so no conversion is
     // necessary.
@@ -160,6 +170,7 @@ impl Add<TimeUnit> for TimeUnit {
 #[cfg(test)]
 mod tests {
     use crate::common::Normal;
+    use groove_core::Sample;
 
     #[test]
     fn normal_mainline() {
@@ -177,5 +188,33 @@ mod tests {
 
         // Sub(f64)
         assert_eq!(a - 0.1, Normal::new(0.1));
+    }
+
+    #[test]
+    fn normal_out_of_bounds() {
+        assert_eq!(
+            Normal::new(-1.0),
+            Normal::new(0.0),
+            "Normal below 0.0 should be clamped to 0.0"
+        );
+        assert_eq!(
+            Normal::new(1.1),
+            Normal::new(1.0),
+            "Normal above 1.0 should be clamped to 1.0"
+        );
+    }
+
+    #[test]
+    fn convert_sample_to_normal() {
+        assert_eq!(
+            Normal::from(Sample(-0.5)),
+            Normal::new(0.25),
+            "Converting Sample -0.5 to Normal should yield 0.25"
+        );
+        assert_eq!(
+            Normal::from(Sample(0.0)),
+            Normal::new(0.5),
+            "Converting Sample 0.0 to Normal should yield 0.5"
+        );
     }
 }
