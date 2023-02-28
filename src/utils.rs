@@ -76,7 +76,7 @@ pub(crate) enum TestLfoControlParams {
 pub mod tests {
     use crate::{
         clock::Clock,
-        common::{Sample, SampleType, StereoSample, DEFAULT_SAMPLE_RATE},
+        common::DEFAULT_SAMPLE_RATE,
         controllers::{orchestrator::Orchestrator, LfoController, TestController, Timer, Trigger},
         effects::TestEffect,
         entities::Entity,
@@ -87,6 +87,7 @@ pub mod tests {
         utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
     };
     use convert_case::{Case, Casing};
+    use groove_core::{Sample, SampleType, StereoSample};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
     use std::{fs, path::PathBuf};
 

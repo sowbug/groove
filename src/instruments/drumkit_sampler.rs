@@ -4,11 +4,11 @@ use super::{
 };
 use crate::controllers::F32ControlValue;
 use crate::{
-    common::StereoSample,
     midi::{GeneralMidiPercussionProgram, MidiChannel},
     traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
     utils::Paths,
 };
+use groove_core::StereoSample;
 use groove_macros::{Control, Uid};
 use midly::{num::u7, MidiMessage};
 use std::str::FromStr;

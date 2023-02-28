@@ -1,4 +1,5 @@
-use crate::{common::StereoSample, controllers::PatternMessage, midi::MidiChannel};
+use crate::{controllers::PatternMessage, midi::MidiChannel};
+use groove_core::StereoSample;
 use iced_audio::Normal;
 use midly::MidiMessage;
 

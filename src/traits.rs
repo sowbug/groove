@@ -1,9 +1,5 @@
-use crate::{
-    common::{Sample, StereoSample},
-    controllers::F32ControlValue,
-    messages::EntityMessage,
-    midi::MidiChannel,
-};
+use crate::{controllers::F32ControlValue, messages::EntityMessage, midi::MidiChannel};
+use groove_core::{Sample, StereoSample};
 use midly::MidiMessage;
 use std::fmt::Debug;
 

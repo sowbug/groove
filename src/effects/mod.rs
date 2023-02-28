@@ -5,6 +5,7 @@ pub use delay::Delay;
 pub use filter::BiQuadFilter;
 pub use filter::FilterParams;
 pub use gain::Gain;
+use groove_core::Sample;
 pub use limiter::Limiter;
 pub use mixer::Mixer;
 pub use reverb::Reverb;
@@ -12,7 +13,6 @@ pub use reverb::Reverb;
 use crate::controllers::F32ControlValue;
 use crate::{
     clock::ClockTimeUnit,
-    common::Sample,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
 use groove_macros::Control;
@@ -46,11 +46,7 @@ impl HasUid for TestMixer {
     }
 }
 impl TransformsAudio for TestMixer {
-    fn transform_channel(
-        &mut self,
-        _channel: usize,
-        input_sample: crate::common::Sample,
-    ) -> crate::common::Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         input_sample
     }
 }

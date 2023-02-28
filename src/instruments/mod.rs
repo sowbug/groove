@@ -1,4 +1,5 @@
 pub use drumkit_sampler::DrumkitSampler;
+use groove_core::{Sample, SampleType, StereoSample};
 pub use sampler::Sampler;
 pub use welsh::WelshSynth;
 
@@ -15,7 +16,7 @@ use self::{
 use crate::controllers::F32ControlValue;
 use crate::{
     clock::ClockTimeUnit,
-    common::{BipolarNormal, Sample, SampleType, StereoSample},
+    common::BipolarNormal,
     midi::{MidiChannel, MidiUtils},
     settings::patches::{EnvelopeSettings, WaveformType},
     traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
@@ -1330,11 +1331,12 @@ impl AudioSource {
 mod tests {
     use super::{IsStereoSampleVoice, SimpleVoice};
     use crate::{
-        common::{BipolarNormal, Sample, StereoSample, DEFAULT_SAMPLE_RATE},
+        common::{BipolarNormal, DEFAULT_SAMPLE_RATE},
         instruments::{Dca, PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
         traits::Ticks,
     };
     use float_cmp::approx_eq;
+    use groove_core::{Sample, StereoSample};
     use midly::num::u7;
 
     impl SimpleVoice {

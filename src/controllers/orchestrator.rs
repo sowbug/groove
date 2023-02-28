@@ -1,6 +1,5 @@
 use super::{patterns::PatternManager, sequencers::BeatSequencer, Performance};
 use crate::{
-    common::StereoSample,
     effects::Mixer,
     entities::Entity,
     helpers::IOHelper,
@@ -13,6 +12,7 @@ use crate::{
 };
 use anyhow::anyhow;
 use dipstick::InputScope;
+use groove_core::StereoSample;
 use groove_macros::Uid;
 use rustc_hash::FxHashMap;
 use std::io::{self, Write};
@@ -906,7 +906,7 @@ pub mod tests {
     use super::Orchestrator;
     use crate::{
         clock::Clock,
-        common::{Normal, StereoSample, DEFAULT_BPM, DEFAULT_SAMPLE_RATE, DEFAULT_TIME_SIGNATURE},
+        common::{Normal, DEFAULT_BPM, DEFAULT_SAMPLE_RATE, DEFAULT_TIME_SIGNATURE},
         controllers::Timer,
         effects::gain::Gain,
         entities::Entity,
@@ -914,6 +914,7 @@ pub mod tests {
         midi::MidiChannel,
         settings::ClockSettings,
     };
+    use groove_core::StereoSample;
     use midly::MidiMessage;
 
     impl Orchestrator {

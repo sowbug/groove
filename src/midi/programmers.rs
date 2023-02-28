@@ -188,7 +188,6 @@ mod tests {
     use super::*;
     use crate::{
         clock::{BeatValue, Clock, TimeSignature},
-        common::StereoSample,
         controllers::Timer,
         entities::Entity,
         instruments::TestInstrument,
@@ -196,6 +195,7 @@ mod tests {
         traits::Resets,
         Orchestrator,
     };
+    use groove_core::StereoSample;
 
     #[allow(dead_code)]
     impl Pattern<PerfectTimeUnit> {

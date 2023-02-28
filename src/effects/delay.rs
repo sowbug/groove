@@ -1,8 +1,9 @@
 use crate::{
-    common::{Sample, SignalType},
+    common::SignalType,
     controllers::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
+use groove_core::Sample;
 use groove_macros::{Control, Uid};
 use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
@@ -198,12 +199,7 @@ pub struct Delay {
 }
 impl IsEffect for Delay {}
 impl TransformsAudio for Delay {
-    fn transform_channel(
-        &mut self,
-
-        _channel: usize,
-        input_sample: crate::common::Sample,
-    ) -> crate::common::Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         self.delay.pop_output(input_sample)
     }
 }
@@ -236,7 +232,7 @@ impl Delay {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::{Sample, DEFAULT_SAMPLE_RATE};
+    use crate::common::DEFAULT_SAMPLE_RATE;
     use assert_approx_eq::assert_approx_eq;
     use more_asserts::{assert_gt, assert_lt};
     use rand::random;

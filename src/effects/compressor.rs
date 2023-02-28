@@ -1,8 +1,8 @@
 use crate::{
-    common::{Sample, SampleType},
     controllers::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
+use groove_core::{Sample, SampleType};
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -41,12 +41,7 @@ pub struct Compressor {
 }
 impl IsEffect for Compressor {}
 impl TransformsAudio for Compressor {
-    fn transform_channel(
-        &mut self,
-
-        _channel: usize,
-        input_sample: crate::common::Sample,
-    ) -> crate::common::Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         let input_sample_positive = input_sample.0.abs();
         let threshold = self.threshold as SampleType;
         if input_sample_positive > threshold {
@@ -125,12 +120,8 @@ impl Compressor {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        common::{Sample, SampleType},
-        effects::compressor::Compressor,
-        entities::Entity,
-        traits::TransformsAudio,
-    };
+    use crate::{effects::compressor::Compressor, entities::Entity, traits::TransformsAudio};
+    use groove_core::{Sample, SampleType};
 
     #[test]
     fn compressor_exists() {

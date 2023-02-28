@@ -293,10 +293,10 @@ impl SongSettings {
 mod tests {
     use super::SongSettings;
     use crate::app_version;
-    use crate::common::StereoSample;
     use crate::helpers::IOHelper;
     use crate::utils::Paths;
     use crossbeam::deque::Steal;
+    use groove_core::StereoSample;
     use std::fs::File;
     use std::io::prelude::*;
     use std::time::Instant;

@@ -1,9 +1,9 @@
 use super::delay::{DelayLine, Delays};
 use crate::{
-    common::SampleType,
     controllers::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
 };
+use groove_core::{Sample, SampleType};
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -29,12 +29,7 @@ pub struct Chorus {
 }
 impl IsEffect for Chorus {}
 impl TransformsAudio for Chorus {
-    fn transform_channel(
-        &mut self,
-
-        _channel: usize,
-        input_sample: crate::common::Sample,
-    ) -> crate::common::Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         let index_offset = self.delay_factor / self.voices;
         let mut sum = self.delay.pop_output(input_sample);
         for i in 1..self.voices as isize {

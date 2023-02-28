@@ -1,8 +1,6 @@
 use crate::controllers::F32ControlValue;
-use crate::{
-    common::Sample,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
-};
+use crate::traits::{Controllable, HasUid, IsEffect, TransformsAudio};
+use groove_core::Sample;
 use groove_macros::{Control, Uid};
 use std::{f64::consts::PI, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
@@ -140,12 +138,7 @@ pub struct BiQuadFilter {
 }
 impl IsEffect for BiQuadFilter {}
 impl TransformsAudio for BiQuadFilter {
-    fn transform_channel(
-        &mut self,
-
-        _channel: usize,
-        input_sample: crate::common::Sample,
-    ) -> crate::common::Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         match self.filter_type {
             FilterType::LowPass24db => {
                 // Thanks

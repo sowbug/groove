@@ -2,10 +2,11 @@ use anyhow::Ok;
 use clap::Parser;
 use groove::{
     app_version,
-    common::{StereoSample, DEFAULT_BPM, DEFAULT_SAMPLE_RATE, DEFAULT_TIME_SIGNATURE},
+    common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE, DEFAULT_TIME_SIGNATURE},
     helpers::IOHelper,
     Orchestrator,
 };
+use groove_core::StereoSample;
 use regex::Regex;
 use std::time::Instant;
 //use groove::ScriptEngine;
