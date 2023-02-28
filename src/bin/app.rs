@@ -7,7 +7,8 @@ use groove::{
     common::Normal,
     controllers::{
         Arpeggiator, BeatSequencer, ControlTrip, F32ControlValue, LfoController, MidiTickSequencer,
-        Note, Pattern, PatternManager, PatternMessage, TestController, Timer,
+        Note, Pattern, PatternManager, PatternMessage, SignalPassthroughController, TestController,
+        Timer,
     },
     effects::{
         BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb,
@@ -580,6 +581,7 @@ impl GrooveApp {
                     GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
                 )
             }
+            Entity::SignalPassthroughController(e) => self.signal_controller_view(e),
             Entity::SimpleSynthesizer(e) => {
                 let title = type_name::<SimpleSynthesizer>();
                 let contents = format!("notes playing: {}", e.notes_playing());
@@ -771,6 +773,13 @@ impl GrooveApp {
             let contents = format!("{}", e.next_instant());
             GuiStuff::<EntityMessage>::container_text(contents.as_str()).into()
         })
+    }
+
+    fn signal_controller_view(&self, _: &SignalPassthroughController) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            type_name::<SignalPassthroughController>(),
+            GuiStuff::<EntityMessage>::container_text("nothing").into(),
+        )
     }
 
     fn test_controller_view(&self, e: &TestController) -> Element<EntityMessage> {

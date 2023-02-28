@@ -2,7 +2,7 @@ use super::{patches::WaveformType, ClockSettings, DeviceId, MidiChannel};
 use crate::{
     clock::BeatValue,
     common::SignalType,
-    controllers::{Arpeggiator, LfoController, TestController},
+    controllers::{Arpeggiator, LfoController, SignalPassthroughController, TestController},
     entities::Entity,
 };
 use serde::{Deserialize, Serialize};
@@ -97,6 +97,13 @@ pub enum ControllerSettings {
         waveform: WaveformType,
         frequency: f32,
     },
+    #[serde(rename_all = "kebab-case", rename = "signal-passthrough-controller")]
+    SignalPassthroughController {
+        #[serde(rename = "midi-in")]
+        midi_input_channel: MidiChannel,
+        #[serde(rename = "midi-out")]
+        midi_output_channel: MidiChannel,
+    },
 }
 
 impl ControllerSettings {
@@ -116,6 +123,11 @@ impl ControllerSettings {
                     midi_output_channel,
                 }
                 | ControllerSettings::LfoController {
+                    midi_input_channel,
+                    midi_output_channel,
+                    ..
+                }
+                | ControllerSettings::SignalPassthroughController {
                     midi_input_channel,
                     midi_output_channel,
                     ..
@@ -166,6 +178,14 @@ impl ControllerSettings {
                     waveform,
                     frequency as f64,
                 ))),
+            ),
+            ControllerSettings::SignalPassthroughController {
+                midi_input_channel,
+                midi_output_channel,
+            } => (
+                midi_input_channel,
+                midi_output_channel,
+                Entity::SignalPassthroughController(Box::new(SignalPassthroughController::new())),
             ),
         }
     }

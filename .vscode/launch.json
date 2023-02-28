@@ -59,7 +59,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}low-cpu.yaml"
+        "projects${pathSeparator}demos/controllers/sidechain.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },

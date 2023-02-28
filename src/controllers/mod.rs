@@ -1,5 +1,5 @@
 pub use arpeggiator::Arpeggiator;
-use groove_core::StereoSample;
+use groove_core::{Sample, StereoSample};
 use midly::MidiMessage;
 pub use patterns::{Note, Pattern, PatternManager, PatternMessage};
 pub use sequencers::{BeatSequencer, MidiTickSequencer};
@@ -24,8 +24,8 @@ use crate::{
         ClockSettings,
     },
     traits::{
-        Controllable, Generates, HandlesMidi, HasUid, IsController, Resets, Ticks,
-        TicksWithMessages,
+        Controllable, Generates, HandlesMidi, HasUid, IsController, IsEffect, Resets, Ticks,
+        TicksWithMessages, TransformsAudio,
     },
 };
 use core::fmt::Debug;
@@ -197,6 +197,7 @@ impl ControlPath {
     }
 }
 
+/// Uses an internal LFO as a control source.
 #[derive(Control, Debug, Uid)]
 pub struct LfoController {
     uid: usize,
@@ -487,6 +488,64 @@ impl TicksWithMessages for Trigger {
 }
 impl Resets for Trigger {}
 impl HandlesMidi for Trigger {}
+/// Uses an input signal as a control source.
+#[derive(Control, Debug, Uid)]
+pub struct SignalPassthroughController {
+    uid: usize,
+    signal: BipolarNormal,
+    has_signal_changed: bool,
+}
+impl IsController for SignalPassthroughController {}
+impl Resets for SignalPassthroughController {}
+impl TicksWithMessages for SignalPassthroughController {
+    fn tick(&mut self, _tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+        // We ignore tick_count because we know we won't send more than one
+        // control signal during any batch of tick()s unless we also get
+        // multiple transform_audio() calls. This is fine; it's exactly how
+        // other controllers behave.
+        (
+            if self.has_signal_changed {
+                self.has_signal_changed = false;
+                Some(vec![EntityMessage::ControlF32(
+                    1.0 - (self.signal.value() as f32).abs(), // TODO: deal with that transform
+                )])
+            } else {
+                None
+            },
+            // We always return 0 for handled ticks because that's our signal
+            // that we're OK terminating.
+            0,
+        )
+    }
+}
+impl HandlesMidi for SignalPassthroughController {}
+impl IsEffect for SignalPassthroughController {}
+impl TransformsAudio for SignalPassthroughController {
+    fn transform_audio(&mut self, input_sample: StereoSample) -> StereoSample {
+        let averaged_sample: Sample = (input_sample.0 + input_sample.1) * 0.5;
+        let as_bipolar_normal: BipolarNormal = averaged_sample.into();
+        if self.signal != as_bipolar_normal {
+            self.has_signal_changed = true;
+            self.signal = as_bipolar_normal;
+        }
+        input_sample
+    }
+
+    fn transform_channel(&mut self, _channel: usize, _input_sample: Sample) -> Sample {
+        // We've overridden transform_audio(), so nobody should be calling this
+        // method.
+        todo!();
+    }
+}
+impl SignalPassthroughController {
+    pub fn new() -> Self {
+        Self {
+            uid: Default::default(),
+            signal: Default::default(),
+            has_signal_changed: true,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
