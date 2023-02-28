@@ -91,9 +91,9 @@ impl Reverb {
 
 #[cfg(test)]
 mod tests {
-    use groove_core::Sample;
     use super::Reverb;
     use crate::{common::DEFAULT_SAMPLE_RATE, traits::TransformsAudio};
+    use groove_core::Sample;
 
     #[test]
     fn reverb_dry_works() {
