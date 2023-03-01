@@ -5,14 +5,17 @@ use crate::{
     helpers::IOHelper,
     messages::{EntityMessage, GrooveMessage},
     metrics::DipstickWrapper,
-    midi::{MidiChannel, MidiMessage},
     settings::ClockSettings,
-    traits::{HasUid, Internal, Response},
+    traits::{Internal, Response},
     utils::Paths,
 };
 use anyhow::anyhow;
 use dipstick::InputScope;
-use groove_core::StereoSample;
+use groove_core::{
+    midi::{MidiChannel, MidiMessage},
+    traits::HasUid,
+    StereoSample,
+};
 use groove_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::io::{self, Write};
@@ -953,11 +956,12 @@ pub mod tests {
         effects::gain::Gain,
         entities::Entity,
         instruments::AudioSource,
-        midi::MidiChannel,
         settings::ClockSettings,
     };
-    use groove_core::{Normal, StereoSample};
-    use midly::MidiMessage;
+    use groove_core::{
+        midi::{MidiChannel, MidiMessage},
+        Normal, StereoSample,
+    };
 
     impl Orchestrator {
         /// Warning! This method exists only as a debug shortcut to

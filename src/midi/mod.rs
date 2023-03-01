@@ -1,3 +1,4 @@
+use crate::traits::Response;
 pub use subscription::MidiHandlerEvent;
 pub use subscription::MidiHandlerInput;
 pub use subscription::MidiSubscription;
@@ -8,17 +9,16 @@ pub(crate) mod subscription;
 
 // TODO copy and conform MidiMessage to MessageBounds so it can be a trait
 // associated type
-use crate::{
-    clock::Clock,
-    messages::MessageBounds,
-    traits::{HasUid, Response},
-};
+use crate::{clock::Clock, messages::MessageBounds};
 use crossbeam::deque::{Steal, Stealer, Worker};
 use enum_primitive_derive::Primitive;
+use groove_core::{
+    midi::{MidiChannel, MidiMessage},
+    traits::HasUid,
+};
 use groove_macros::Uid;
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
-pub use midly::MidiMessage;
-use midly::{
+pub use midly::{
     live::LiveEvent,
     num::{u4, u7},
 };
@@ -61,8 +61,6 @@ pub enum MidiNote {
     C5 = 72,
     G9 = 127,
 }
-
-pub type MidiChannel = u8;
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Copy, Default)]
 pub enum MidiMessageType {

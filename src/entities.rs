@@ -14,8 +14,13 @@ use crate::{
         drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth, AudioSource,
         FmSynthesizer, SimpleSynthesizer, TestInstrument, TestSynth,
     },
-    traits::{Controllable, HandlesMidi, HasUid, IsController, IsEffect, IsInstrument},
+    messages::EntityMessage,
 };
+use groove_core::{
+    midi::HandlesMidi,
+    traits::{Controllable, HasUid, IsController, IsEffect, IsInstrument},
+};
+
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
 macro_rules! boxed_entity_enum_and_common_crackers {
@@ -114,13 +119,13 @@ controllable_crackers! {
 macro_rules! controller_crackers {
     ($($type:ident,)*) => {
         impl Entity {
-            pub fn as_is_controller(&self) -> Option<&dyn IsController> {
+            pub fn as_is_controller(&self) -> Option<&dyn IsController<EntityMessage, Message=EntityMessage>> {
                 match self {
                     $( Entity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn IsController> {
+            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn IsController<EntityMessage, Message=EntityMessage>> {
                 match self {
                     $( Entity::$type(e) => Some(e.as_mut()), )*
                     _ => None,

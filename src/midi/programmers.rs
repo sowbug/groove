@@ -1,4 +1,3 @@
-use super::MidiChannel;
 use crate::{
     clock::{BeatValue, MidiTicks, PerfectTimeUnit, TimeSignature},
     controllers::{
@@ -6,6 +5,7 @@ use crate::{
         sequencers::{BeatSequencer, MidiTickSequencer},
     },
 };
+use groove_core::midi::MidiChannel;
 use midly::{MidiMessage, TrackEventKind};
 use std::cmp;
 
@@ -192,10 +192,9 @@ mod tests {
         entities::Entity,
         instruments::TestInstrument,
         settings::{ClockSettings, PatternSettings},
-        traits::Resets,
         Orchestrator,
     };
-    use groove_core::StereoSample;
+    use groove_core::{traits::Resets, StereoSample};
 
     #[allow(dead_code)]
     impl Pattern<PerfectTimeUnit> {

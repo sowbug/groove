@@ -1,7 +1,9 @@
-use crate::{controllers::PatternMessage, midi::MidiChannel};
-use groove_core::StereoSample;
+use crate::controllers::PatternMessage;
+use groove_core::{
+    midi::{MidiChannel, MidiMessage},
+    StereoSample,
+};
 use iced_audio::Normal;
-use midly::MidiMessage;
 
 pub(crate) trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {} // TODO: that 'static scares me
 

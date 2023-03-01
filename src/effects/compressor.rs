@@ -1,8 +1,8 @@
-use crate::{
-    controllers::F32ControlValue,
+use groove_core::{
+    control::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    Sample, SampleType,
 };
-use groove_core::{Sample, SampleType};
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -120,8 +120,8 @@ impl Compressor {
 
 #[cfg(test)]
 mod tests {
-    use crate::{effects::compressor::Compressor, entities::Entity, traits::TransformsAudio};
-    use groove_core::{Sample, SampleType};
+    use crate::{effects::compressor::Compressor, entities::Entity};
+    use groove_core::{traits::TransformsAudio, Sample, SampleType};
 
     #[test]
     fn compressor_exists() {

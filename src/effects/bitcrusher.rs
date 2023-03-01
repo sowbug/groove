@@ -1,8 +1,8 @@
-use crate::{
-    controllers::F32ControlValue,
+use groove_core::{
+    control::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    Sample, SampleType,
 };
-use groove_core::{Sample, SampleType};
 use groove_macros::{Control, Uid};
 use iced_audio::{IntRange, Normal};
 use std::str::FromStr;

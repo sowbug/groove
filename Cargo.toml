@@ -19,10 +19,10 @@ cpal = "0.15.0"
 crossbeam = "0.8"
 dipstick = "0.9.0"
 directories-next = "2.0"
-groove-core = { path = "core" }
 enum-primitive-derive = "0.2.2"
 float-cmp = "0.9.0"
-groove_macros = { path = "./groove-macros" }
+groove-core = { path = "core" }
+groove-macros = { path = "macros" }
 hound = "3.5"
 iced = { version = "0.8.0", features = ["smol", "canvas"] }
 iced_audio = "0.11.0"

@@ -1,6 +1,4 @@
 pub use arpeggiator::Arpeggiator;
-use groove_core::{BipolarNormal, ParameterType, Sample, SignalType, StereoSample};
-use midly::MidiMessage;
 pub use patterns::{Note, Pattern, PatternManager, PatternMessage};
 pub use sequencers::{BeatSequencer, MidiTickSequencer};
 
@@ -16,25 +14,28 @@ use crate::{
         oscillators::Oscillator,
     },
     messages::EntityMessage,
-    midi::{MidiChannel, MidiUtils},
+    midi::MidiUtils,
     settings::{
         controllers::{ControlPathSettings, ControlStep},
         patches::WaveformType,
         ClockSettings,
     },
-    traits::{
-        Controllable, Generates, HandlesMidi, HasUid, IsController, IsEffect, Resets, Ticks,
-        TicksWithMessages, TransformsAudio,
-    },
 };
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
+use groove_core::{
+    control::F32ControlValue,
+    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    traits::{
+        Controllable, Generates, HasUid, IsController, IsEffect, Resets, Ticks, TicksWithMessages,
+        TransformsAudio,
+    },
+    BipolarNormal, ParameterType, Sample, SignalType, StereoSample,
+};
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use std::{collections::VecDeque, ops::Range};
 use strum_macros::{Display, EnumString, FromRepr};
-
-pub struct F32ControlValue(pub f32);
 
 /// A Performance holds the output of an Orchestrator run.
 #[derive(Debug)]
@@ -69,7 +70,7 @@ pub struct ControlTrip {
 
     temp_hack_clock: Clock,
 }
-impl IsController for ControlTrip {}
+impl IsController<EntityMessage> for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
@@ -136,8 +137,10 @@ impl ControlTrip {
     }
 }
 impl Resets for ControlTrip {}
-impl TicksWithMessages for ControlTrip {
-    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+impl TicksWithMessages<EntityMessage> for ControlTrip {
+    type Message = EntityMessage;
+
+    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         let mut v = Vec::default();
         let mut ticks_completed = tick_count;
         for i in 0..tick_count {
@@ -202,10 +205,12 @@ pub struct LfoController {
     uid: usize,
     oscillator: Oscillator,
 }
-impl IsController for LfoController {}
+impl IsController<EntityMessage> for LfoController {}
 impl Resets for LfoController {}
-impl TicksWithMessages for LfoController {
-    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+impl TicksWithMessages<EntityMessage> for LfoController {
+    type Message = EntityMessage;
+
+    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         self.oscillator.tick(tick_count);
         // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
         (
@@ -263,9 +268,11 @@ pub struct TestController {
     pub checkpoint_delta: f32,
     pub time_unit: ClockTimeUnit,
 }
-impl IsController for TestController {}
-impl TicksWithMessages for TestController {
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
+impl IsController<EntityMessage> for TestController {}
+impl TicksWithMessages<EntityMessage> for TestController {
+    type Message = EntityMessage;
+
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
         let mut v = Vec::default();
         for _ in 0..tick_count {
             self.clock.tick(1);
@@ -432,7 +439,7 @@ impl Timer {
         self.time_to_run_seconds
     }
 }
-impl IsController for Timer {}
+impl IsController<EntityMessage> for Timer {}
 impl HandlesMidi for Timer {}
 impl Resets for Timer {
     fn reset(&mut self, sample_rate: usize) {
@@ -440,8 +447,10 @@ impl Resets for Timer {
         self.ticks = 0;
     }
 }
-impl TicksWithMessages for Timer {
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
+impl TicksWithMessages<EntityMessage> for Timer {
+    type Message = EntityMessage;
+
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
         let mut ticks_completed = tick_count;
         for i in 0..tick_count {
             self.has_more_work =
@@ -468,9 +477,11 @@ pub(crate) struct Trigger {
     timer: Timer,
     has_triggered: bool,
 }
-impl IsController for Trigger {}
-impl TicksWithMessages for Trigger {
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
+impl IsController<EntityMessage> for Trigger {}
+impl TicksWithMessages<EntityMessage> for Trigger {
+    type Message = EntityMessage;
+
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
         // We toss the timer's messages because we know it never returns any,
         // and we wouldn't pass them on if it did.
         let (_, ticks_completed) = self.timer.tick(tick_count);
@@ -494,10 +505,12 @@ pub struct SignalPassthroughController {
     signal: BipolarNormal,
     has_signal_changed: bool,
 }
-impl IsController for SignalPassthroughController {}
+impl IsController<EntityMessage> for SignalPassthroughController {}
 impl Resets for SignalPassthroughController {}
-impl TicksWithMessages for SignalPassthroughController {
-    fn tick(&mut self, _tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+impl TicksWithMessages<EntityMessage> for SignalPassthroughController {
+    type Message = EntityMessage;
+
+    fn tick(&mut self, _tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         // We ignore tick_count because we know we won't send more than one
         // control signal during any batch of tick()s unless we also get
         // multiple transform_audio() calls. This is fine; it's exactly how

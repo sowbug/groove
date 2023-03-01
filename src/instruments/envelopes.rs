@@ -3,9 +3,11 @@ use crate::{
     clock::{Clock, ClockTimeUnit},
     common::TimeUnit,
     settings::patches::EnvelopeSettings,
-    traits::{Generates, Resets, Ticks},
 };
-use groove_core::{Normal, SignalType};
+use groove_core::{
+    traits::{Generates, Resets, Ticks},
+    Normal, SignalType,
+};
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
 use std::{fmt::Debug, ops::Range};

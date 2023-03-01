@@ -5,9 +5,8 @@ mod gui;
 use groove::{
     app_version,
     controllers::{
-        Arpeggiator, BeatSequencer, ControlTrip, F32ControlValue, LfoController, MidiTickSequencer,
-        Note, Pattern, PatternManager, PatternMessage, SignalPassthroughController, TestController,
-        Timer,
+        Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern,
+        PatternManager, PatternMessage, SignalPassthroughController, TestController, Timer,
     },
     effects::{
         BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb,
@@ -20,9 +19,9 @@ use groove::{
     },
     messages::{EntityMessage, GrooveMessage},
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
-    Clock, Entity, HasUid, Orchestrator,
+    Clock, Entity, Orchestrator,
 };
-use groove_core::{Normal, Sample};
+use groove_core::{control::F32ControlValue, traits::HasUid, Normal, Sample};
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
     play_icon, skip_to_prev_icon, stop_icon, GuiStuff,

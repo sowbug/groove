@@ -1,8 +1,8 @@
-use crate::{
-    controllers::F32ControlValue,
+use groove_core::{
+    control::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    Sample, SignalType,
 };
-use groove_core::{Sample, SignalType};
 use groove_macros::{Control, Uid};
 use std::{marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};

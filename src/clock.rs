@@ -1,8 +1,6 @@
-use crate::{
-    settings::ClockSettings,
-    traits::{Resets, Ticks},
-};
+use crate::settings::ClockSettings;
 use anyhow::{anyhow, Error};
+use groove_core::traits::{Resets, Ticks};
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,

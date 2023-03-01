@@ -1,11 +1,11 @@
 use super::sequencers::BeatSequencer;
 use crate::{
-    clock::PerfectTimeUnit,
-    controllers::F32ControlValue,
-    messages::EntityMessage,
-    midi::{MidiChannel, MidiMessage, MidiUtils},
-    settings::ClockSettings,
-    traits::{Controllable, HandlesMidi, HasUid, IsController, Resets, TicksWithMessages},
+    clock::PerfectTimeUnit, messages::EntityMessage, midi::MidiUtils, settings::ClockSettings,
+};
+use groove_core::{
+    control::F32ControlValue,
+    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    traits::{Controllable, HasUid, IsController, Resets, TicksWithMessages},
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -24,10 +24,12 @@ pub struct Arpeggiator {
     // arpeggiator would frequently get clipped.
     note_semaphore: i16,
 }
-impl IsController for Arpeggiator {}
+impl IsController<EntityMessage> for Arpeggiator {}
 impl Resets for Arpeggiator {}
-impl TicksWithMessages for Arpeggiator {
-    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+impl TicksWithMessages<EntityMessage> for Arpeggiator {
+    type Message = EntityMessage;
+
+    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         self.beat_sequencer.tick(tick_count)
     }
 }
@@ -158,6 +160,8 @@ impl Arpeggiator {
 
 #[cfg(test)]
 mod tests {
+    use groove_core::midi::MidiChannel;
+
     use super::Arpeggiator;
     use crate::{
         clock::{Clock, PerfectTimeUnit},
@@ -165,7 +169,6 @@ mod tests {
         controllers::{orchestrator::Orchestrator, sequencers::BeatSequencer},
         entities::Entity,
         instruments::TestInstrument,
-        midi::MidiChannel,
     };
 
     // Orchestrator sends a Tick message to everyone in an undefined order, and

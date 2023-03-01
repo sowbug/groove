@@ -1,9 +1,9 @@
 use super::delay::{DelayLine, Delays};
-use crate::{
-    controllers::F32ControlValue,
+use groove_core::{
+    control::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    Sample, SampleType,
 };
-use groove_core::{Sample, SampleType};
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};

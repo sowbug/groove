@@ -2,13 +2,13 @@ use super::{
     sampler::Sampler, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker,
     Synthesizer, VoicePerNoteStore,
 };
-use crate::controllers::F32ControlValue;
-use crate::{
-    midi::{GeneralMidiPercussionProgram, MidiChannel},
-    traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
-    utils::Paths,
+use crate::{midi::GeneralMidiPercussionProgram, utils::Paths};
+use groove_core::{
+    control::F32ControlValue,
+    midi::{HandlesMidi, MidiChannel},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
+    StereoSample,
 };
-use groove_core::StereoSample;
 use groove_macros::{Control, Uid};
 use midly::{num::u7, MidiMessage};
 use std::str::FromStr;

@@ -1,11 +1,14 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
     messages::EntityMessage,
-    midi::{MidiChannel, MidiMessage, MidiUtils},
+    midi::MidiUtils,
     settings::ClockSettings,
-    traits::{HandlesMidi, HasUid, IsController, Resets, TicksWithMessages},
 };
 use btreemultimap::BTreeMultiMap;
+use groove_core::{
+    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    traits::{HasUid, IsController, Resets, TicksWithMessages},
+};
 use groove_macros::Uid;
 use midly::num::u7;
 use rustc_hash::FxHashMap;
@@ -29,7 +32,7 @@ pub struct BeatSequencer {
 
     temp_hack_clock: Clock,
 }
-impl IsController for BeatSequencer {}
+impl IsController<EntityMessage> for BeatSequencer {}
 impl HandlesMidi for BeatSequencer {}
 impl BeatSequencer {
     pub(crate) fn new_with(clock_settings: &ClockSettings) -> Self {
@@ -155,8 +158,10 @@ impl Resets for BeatSequencer {
         self.temp_hack_clock.reset(sample_rate);
     }
 }
-impl TicksWithMessages for BeatSequencer {
-    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+impl TicksWithMessages<EntityMessage> for BeatSequencer {
+    type Message = EntityMessage;
+
+    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         if self.is_finished() {
             // TODO: since this code ensures we'll end only on even frame
             // boundaries, it's likely to be masking edge cases. Consider
@@ -201,7 +206,7 @@ pub struct MidiTickSequencer {
 
     temp_hack_clock: Clock,
 }
-impl IsController for MidiTickSequencer {}
+impl IsController<EntityMessage> for MidiTickSequencer {}
 impl HandlesMidi for MidiTickSequencer {}
 impl Default for MidiTickSequencer {
     fn default() -> Self {
@@ -252,8 +257,10 @@ impl MidiTickSequencer {
     }
 }
 impl Resets for MidiTickSequencer {}
-impl TicksWithMessages for MidiTickSequencer {
-    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<EntityMessage>>, usize) {
+impl TicksWithMessages<EntityMessage> for MidiTickSequencer {
+    type Message = EntityMessage;
+
+    fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         if self.is_finished() {
             return (None, 0);
         }
@@ -286,14 +293,19 @@ impl TicksWithMessages for MidiTickSequencer {
 
 #[cfg(test)]
 mod tests {
+    use groove_core::{
+        midi::MidiChannel,
+        traits::{IsController, Ticks},
+    };
+
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         clock::{Clock, MidiTicks},
         controllers::orchestrator::Orchestrator,
         entities::Entity,
         instruments::TestInstrument,
-        midi::{MidiChannel, MidiUtils},
-        traits::{IsController, Ticks},
+        messages::EntityMessage,
+        midi::MidiUtils,
     };
 
     impl BeatSequencer {
@@ -323,7 +335,10 @@ mod tests {
         }
     }
 
-    fn advance_to_next_beat(clock: &mut Clock, sequencer: &mut dyn IsController) {
+    fn advance_to_next_beat(
+        clock: &mut Clock,
+        sequencer: &mut dyn IsController<EntityMessage, Message = EntityMessage>,
+    ) {
         let next_beat = clock.beats().floor() + 1.0;
         while clock.beats() < next_beat {
             // TODO: a previous version of this utility function had
@@ -336,7 +351,10 @@ mod tests {
 
     // We're papering over the issue that MIDI events are firing a little late.
     // See Clock::next_slice_in_midi_ticks().
-    fn advance_one_midi_tick(clock: &mut Clock, sequencer: &mut dyn IsController) {
+    fn advance_one_midi_tick(
+        clock: &mut Clock,
+        sequencer: &mut dyn IsController<EntityMessage, Message = EntityMessage>,
+    ) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
             let _ = sequencer.tick(1);

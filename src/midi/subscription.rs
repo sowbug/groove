@@ -1,7 +1,7 @@
-use super::{MidiChannel, MidiHandler, MidiHandlerMessage, MidiPortLabel};
+use super::{MidiHandler, MidiHandlerMessage, MidiPortLabel};
 use crate::{clock::Clock, traits::Response};
+use groove_core::midi::{MidiChannel, MidiMessage};
 use iced::{futures::channel::mpsc, subscription, Subscription};
-use midly::MidiMessage;
 use std::{
     sync::{Arc, Mutex},
     thread::JoinHandle,

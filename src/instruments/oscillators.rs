@@ -1,9 +1,9 @@
-use crate::{
-    instruments::F32ControlValue,
-    settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
+use crate::settings::patches::{LfoPreset, OscillatorSettings, WaveformType};
+use groove_core::{
+    control::F32ControlValue,
     traits::{Controllable, Generates, Resets, Ticks},
+    BipolarNormal, SignalType,
 };
-use groove_core::{BipolarNormal, SignalType};
 use groove_macros::Control;
 use more_asserts::debug_assert_lt;
 use std::f64::consts::PI;
@@ -366,12 +366,13 @@ mod tests {
         common::DEFAULT_SAMPLE_RATE,
         midi::{MidiNote, MidiUtils},
         settings::patches::{OscillatorSettings, OscillatorTune},
-        traits::{tests::DebugTicks, Generates, Resets, Ticks},
+        traits::tests::DebugTicks,
         utils::{
             tests::{render_signal_as_audio_source, samples_match_known_good_wav_file},
             Paths,
         },
     };
+    use groove_core::traits::{Generates, Resets, Ticks};
     use more_asserts::assert_lt;
 
     impl DebugTicks for Oscillator {

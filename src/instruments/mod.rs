@@ -14,13 +14,16 @@ use self::{
 };
 use crate::{
     clock::ClockTimeUnit,
-    controllers::F32ControlValue,
-    midi::{MidiChannel, MidiUtils},
+    midi::MidiUtils,
     settings::patches::{EnvelopeSettings, WaveformType},
-    traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
 };
 use anyhow::{anyhow, Result};
-use groove_core::{BipolarNormal, Sample, SampleType, StereoSample};
+use groove_core::{
+    control::F32ControlValue,
+    midi::{HandlesMidi, MidiChannel},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
+    BipolarNormal, Sample, SampleType, StereoSample,
+};
 use groove_macros::{Control, Uid};
 use midly::{num::u7, MidiMessage};
 use std::{
@@ -1336,10 +1339,9 @@ mod tests {
     use crate::{
         common::DEFAULT_SAMPLE_RATE,
         instruments::{Dca, PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
-        traits::Ticks,
     };
     use float_cmp::approx_eq;
-    use groove_core::{BipolarNormal, Sample, StereoSample};
+    use groove_core::{traits::Ticks, BipolarNormal, Sample, StereoSample};
     use midly::num::u7;
 
     impl SimpleVoice {

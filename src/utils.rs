@@ -74,6 +74,7 @@ pub(crate) enum TestLfoControlParams {
 
 #[cfg(test)]
 pub mod tests {
+    use super::Paths;
     use crate::{
         clock::Clock,
         common::DEFAULT_SAMPLE_RATE,
@@ -81,17 +82,17 @@ pub mod tests {
         effects::TestEffect,
         entities::Entity,
         instruments::{oscillators::Oscillator, TestInstrument, TestSynth, TestSynthControlParams},
-        midi::MidiChannel,
         settings::patches::WaveformType,
-        traits::{Generates, Resets, Ticks, TicksWithMessages},
         utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
     };
     use convert_case::{Case, Casing};
-    use groove_core::{Sample, SampleType, StereoSample};
+    use groove_core::{
+        midi::MidiChannel,
+        traits::{Generates, Resets, Ticks, TicksWithMessages},
+        Sample, SampleType, StereoSample,
+    };
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
     use std::{fs, path::PathBuf};
-
-    use super::Paths;
 
     impl Paths {
         const TEST_DATA: &str = "test-data";

@@ -1,5 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+pub mod control;
+pub mod midi;
+pub mod traits;
+
 use std::{
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},

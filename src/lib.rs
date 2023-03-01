@@ -5,7 +5,6 @@
 pub use crate::clock::Clock;
 pub use crate::controllers::orchestrator::Orchestrator;
 pub use crate::entities::Entity;
-pub use crate::traits::HasUid;
 
 pub mod common;
 pub mod controllers;

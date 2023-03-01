@@ -5,15 +5,15 @@ pub use delay::Delay;
 pub use filter::BiQuadFilter;
 pub use filter::FilterParams;
 pub use gain::Gain;
-use groove_core::Sample;
 pub use limiter::Limiter;
 pub use mixer::Mixer;
 pub use reverb::Reverb;
 
-use crate::controllers::F32ControlValue;
-use crate::{
-    clock::ClockTimeUnit,
+use crate::clock::ClockTimeUnit;
+use groove_core::{
+    control::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    Sample,
 };
 use groove_macros::Control;
 use std::collections::VecDeque;

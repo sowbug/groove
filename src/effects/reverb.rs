@@ -1,9 +1,9 @@
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
-use crate::{
-    controllers::F32ControlValue,
+use groove_core::{
+    control::F32ControlValue,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    Sample,
 };
-use groove_core::Sample;
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
@@ -92,8 +92,8 @@ impl Reverb {
 #[cfg(test)]
 mod tests {
     use super::Reverb;
-    use crate::{common::DEFAULT_SAMPLE_RATE, traits::TransformsAudio};
-    use groove_core::Sample;
+    use crate::common::DEFAULT_SAMPLE_RATE;
+    use groove_core::{traits::TransformsAudio, Sample};
 
     #[test]
     fn reverb_dry_works() {

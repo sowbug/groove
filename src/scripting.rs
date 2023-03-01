@@ -4,7 +4,6 @@ use crate::{
     midi::{programmers::MidiSmfReader, sequencers::MidiTickSequencer, MidiChannel},
     settings::patches::SynthPatch,
     synthesizers::welsh,
-    traits::{HasUid, IsMidiInstrument, SinksMidi, SourcesAudio, SourcesMidi},
     IOHelper, Orchestrator,
 };
 use rhai::{Engine, EvalAltResult};

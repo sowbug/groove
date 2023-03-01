@@ -1,7 +1,10 @@
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
     messages::EntityMessage,
-    traits::{HandlesMidi, HasUid, IsController, Resets, TicksWithMessages},
+};
+use groove_core::{
+    midi::HandlesMidi,
+    traits::{HasUid, IsController, Resets, TicksWithMessages},
 };
 use groove_macros::Uid;
 use std::fmt::Debug;
@@ -69,12 +72,14 @@ pub struct PatternManager {
     uid: usize,
     patterns: Vec<Pattern<Note>>,
 }
-impl IsController for PatternManager {}
+impl IsController<EntityMessage> for PatternManager {}
 impl HandlesMidi for PatternManager {}
 impl Resets for PatternManager {}
-impl TicksWithMessages for PatternManager {
+impl TicksWithMessages<EntityMessage> for PatternManager {
+    type Message = EntityMessage;
+
     #[allow(unused_variables)]
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<EntityMessage>>, usize) {
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
         (None, 0)
     }
 }

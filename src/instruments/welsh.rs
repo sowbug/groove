@@ -5,19 +5,21 @@ use super::{
     Synthesizer,
 };
 use crate::{
-    controllers::F32ControlValue,
     effects::{BiQuadFilter, FilterParams},
-    instruments::HandlesMidi,
-    midi::{GeneralMidiProgram, MidiChannel, MidiMessage, MidiUtils},
+    midi::{GeneralMidiProgram, MidiUtils},
     settings::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
     },
-    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks, TransformsAudio},
     utils::Paths,
 };
 use convert_case::{Boundary, Case, Casing};
-use groove_core::{BipolarNormal, Normal, Sample, StereoSample};
+use groove_core::{
+    control::F32ControlValue,
+    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks, TransformsAudio},
+    BipolarNormal, Normal, Sample, StereoSample,
+};
 use groove_macros::{Control, Uid};
 use num_traits::FromPrimitive;
 use std::str::FromStr;

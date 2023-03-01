@@ -2,15 +2,18 @@ use crate::{
     clock::{Clock, TimeSignature},
     helpers::{AudioOutput, IOHelper},
     messages::GrooveMessage,
-    midi::MidiChannel,
     settings::ClockSettings,
-    traits::{Resets, Response},
+    traits::Response,
     Orchestrator,
 };
-use groove_core::StereoSample;
+use groove_core::{
+    midi::{MidiChannel, MidiMessage},
+    traits::Resets,
+    StereoSample,
+};
 use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
-use midly::MidiMessage;
+
 use std::{
     sync::{Arc, Mutex},
     thread::JoinHandle,
