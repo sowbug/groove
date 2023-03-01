@@ -1,6 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use midly::MidiMessage;
+pub use midly::{
+    num::{u4, u7},
+    MidiMessage,
+};
 
 pub type MidiChannel = u8;
 

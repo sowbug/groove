@@ -5,8 +5,8 @@ use crate::{
         sequencers::{BeatSequencer, MidiTickSequencer},
     },
 };
-use groove_core::midi::MidiChannel;
-use midly::{MidiMessage, TrackEventKind};
+use groove_core::midi::{MidiChannel, MidiMessage};
+use midly::TrackEventKind;
 use std::cmp;
 
 pub struct MidiSmfReader {}

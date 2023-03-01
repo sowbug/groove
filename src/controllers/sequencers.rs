@@ -6,11 +6,10 @@ use crate::{
 };
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
-    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    midi::{HandlesMidi, MidiChannel, MidiMessage, u7},
     traits::{HasUid, IsController, Resets, TicksWithMessages},
 };
 use groove_macros::Uid;
-use midly::num::u7;
 use rustc_hash::FxHashMap;
 use std::{
     fmt::Debug,

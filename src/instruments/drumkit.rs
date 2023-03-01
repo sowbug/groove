@@ -8,12 +8,11 @@ use crate::{
 };
 use groove_core::{
     control::F32ControlValue,
-    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    midi::{HandlesMidi, MidiChannel, MidiMessage, u7},
     traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
     StereoSample,
 };
 use groove_macros::{Control, Uid};
-use midly::num::u7;
 use std::{str::FromStr, sync::Arc};
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -46,7 +45,7 @@ impl Ticks for Drumkit {
 impl HandlesMidi for Drumkit {
     fn handle_midi_message(
         &mut self,
-        message: &midly::MidiMessage,
+        message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
         self.inner_synth.handle_midi_message(message)
     }

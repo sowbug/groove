@@ -17,7 +17,7 @@ use crate::{
 use anyhow::{anyhow, Result};
 use groove_core::{
     control::F32ControlValue,
-    midi::{HandlesMidi, MidiChannel},
+    midi::{ u7, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Controllable, Envelope, Generates, HasUid, IsInstrument, IsStereoSampleVoice, IsVoice,
         PlaysNotes, Resets, StoresVoices, Ticks,
@@ -25,7 +25,6 @@ use groove_core::{
     BipolarNormal, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};
-use midly::{num::u7, MidiMessage};
 use std::{
     collections::{HashMap, VecDeque},
     fmt::Debug,
@@ -434,7 +433,7 @@ impl<V: IsStereoSampleVoice> StoresVoices for SimpleVoiceStore<V> {
         self.voices.iter().filter(|v| v.is_playing()).count()
     }
 
-    fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>> {
+    fn get_voice(&mut self, key: &u7) -> Result<&mut Box<Self::Voice>> {
         // If we have a voice already going for this note, return it.
         if let Some(index) = self.notes_playing.iter().position(|note| *key == *note) {
             return Ok(&mut self.voices[index]);
@@ -529,7 +528,7 @@ impl<V: IsStereoSampleVoice> StoresVoices for StealingVoiceStore<V> {
         self.voices.iter().filter(|v| v.is_playing()).count()
     }
 
-    fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>> {
+    fn get_voice(&mut self, key: &u7) -> Result<&mut Box<Self::Voice>> {
         // If we have a voice already going for this note, return it.
         if let Some(index) = self.notes_playing.iter().position(|note| *key == *note) {
             return Ok(&mut self.voices[index]);
@@ -614,7 +613,7 @@ impl<V: IsStereoSampleVoice> StoresVoices for VoicePerNoteStore<V> {
     fn active_voice_count(&self) -> usize {
         self.voices.iter().filter(|(_k, v)| v.is_playing()).count()
     }
-    fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>> {
+    fn get_voice(&mut self, key: &u7) -> Result<&mut Box<Self::Voice>> {
         if let Some(voice) = self.voices.get_mut(key) {
             return Ok(voice);
         }
@@ -1288,8 +1287,9 @@ mod tests {
         midi::MidiUtils,
     };
     use float_cmp::approx_eq;
-    use groove_core::{traits::Ticks, BipolarNormal, ParameterType, Sample, StereoSample};
-    use midly::num::u7;
+    use groove_core::{
+        midi::u7, traits::Ticks, BipolarNormal, ParameterType, Sample, StereoSample,
+    };
 
     impl SimpleVoice {
         fn debug_is_shutting_down(&self) -> bool {

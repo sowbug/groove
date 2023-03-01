@@ -1,6 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{control::F32ControlValue, midi::HandlesMidi, Normal, Sample, StereoSample};
+use crate::{
+    control::F32ControlValue,
+    midi::{u7, HandlesMidi},
+    Normal, Sample, StereoSample,
+};
 
 /// An IsController controls things in the system that implement Controllable.
 /// Examples are sequencers, arpeggiators, and discrete LFOs (as contrasted with
@@ -216,7 +220,7 @@ pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
     fn active_voice_count(&self) -> usize;
 
     /// Fails if we run out of idle voices and can't steal any active ones.
-    fn get_voice(&mut self, key: &midly::num::u7) -> anyhow::Result<&mut Box<Self::Voice>>;
+    fn get_voice(&mut self, key: &u7) -> anyhow::Result<&mut Box<Self::Voice>>;
 
     /// Uh-oh, StoresVoices is turning into a synth
     fn set_pan(&mut self, value: f32);

@@ -1,5 +1,7 @@
 use crate::traits::Response;
 use groove_core::ParameterType;
+use groove_core::midi::u4;
+use groove_core::midi::u7;
 pub use subscription::MidiHandlerEvent;
 pub use subscription::MidiHandlerInput;
 pub use subscription::MidiSubscription;
@@ -19,10 +21,7 @@ use groove_core::{
 };
 use groove_macros::Uid;
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
-pub use midly::{
-    live::LiveEvent,
-    num::{u4, u7},
-};
+pub use midly::live::LiveEvent;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, time::Instant};
 use strum_macros::Display;

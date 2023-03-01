@@ -36,7 +36,7 @@ impl TicksWithMessages<EntityMessage> for Arpeggiator {
 impl HandlesMidi for Arpeggiator {
     fn handle_midi_message(
         &mut self,
-        message: &midly::MidiMessage,
+        message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
         match message {
             MidiMessage::NoteOff { key: _, vel: _ } => {
@@ -160,8 +160,6 @@ impl Arpeggiator {
 
 #[cfg(test)]
 mod tests {
-    use groove_core::midi::MidiChannel;
-
     use super::Arpeggiator;
     use crate::{
         clock::{Clock, PerfectTimeUnit},
@@ -170,6 +168,7 @@ mod tests {
         entities::Entity,
         instruments::TestInstrument,
     };
+    use groove_core::midi::{MidiChannel, MidiMessage};
 
     // Orchestrator sends a Tick message to everyone in an undefined order, and
     // routes the resulting messages to everyone in yet another undefined order.
@@ -201,7 +200,7 @@ mod tests {
         sequencer.insert(
             PerfectTimeUnit(0.0),
             MIDI_CHANNEL_SEQUENCER_TO_ARP,
-            midly::MidiMessage::NoteOn {
+            MidiMessage::NoteOn {
                 key: 99.into(),
                 vel: 88.into(),
             },
