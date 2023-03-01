@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{control::F32ControlValue, midi::HandlesMidi, Sample, StereoSample};
+use crate::{control::F32ControlValue, midi::HandlesMidi, Sample, StereoSample, Normal};
 
 /// An IsController controls things in the system that implement Controllable.
 /// Examples are sequencers, arpeggiators, and discrete LFOs (as contrasted with
@@ -139,3 +139,94 @@ pub trait TransformsAudio: std::fmt::Debug {
     /// channel: 0 is left, 1 is right. Use the value as an index into arrays.
     fn transform_channel(&mut self, channel: usize, input_sample: Sample) -> Sample;
 }
+
+/// Describes the public interface of an envelope generator, which provides a
+/// normalized amplitude (0.0..=1.0) that changes over time according to its
+/// internal parameters, external triggers, and the progression of time.
+pub trait Envelope: Generates<Normal> + Send + std::fmt::Debug + Ticks {
+    /// Triggers the envelope's active stage.
+    fn trigger_attack(&mut self);
+
+    /// Triggers the end of the envelope's active stage.
+    fn trigger_release(&mut self);
+
+    /// Requests a fast decrease to zero amplitude. Upon reaching zero, switches
+    /// to idle. If the EG is already idle, then does nothing. For normal EGs,
+    /// the EG's settings (ADSR, etc.) don't affect the rate of shutdown decay.
+    ///
+    /// See DSSPC, 4.5 Voice Stealing, for an understanding of how the shutdown
+    /// state helps. TL;DR: if we have to steal one voice to play a different
+    /// note, it sounds better if the voice very briefly stops and restarts.
+    fn trigger_shutdown(&mut self);
+
+    /// Whether the envelope generator is in the idle state, which usually means
+    /// quiescent and zero amplitude.
+    fn is_idle(&self) -> bool;
+}
+
+/// As an experiment, we're going to define PlaysNotes as a different interface
+/// from HandlesMidi. This will give the HandlesMidi Synthesizer an opportunity
+/// to manage more about the note lifecycle, including concepts like glide
+/// (which I believe needs a higher-level definition of a "note" than just MIDI
+/// on/off)
+pub trait PlaysNotes {
+    /// Whether the entity is currently making sound.
+    fn is_playing(&self) -> bool;
+
+    /// Whether the entity has been asked to enqueue anything.
+    fn has_pending_events(&self) -> bool;
+
+    /// Whether the entity has any work to do (either is_playing or
+    /// has_pending_events).
+    fn is_active(&self) -> bool {
+        self.is_playing() || self.has_pending_events()
+    }
+
+    /// Queues a note-on event, which will be handled at the next work cycle
+    /// (usually tick()). Depending on implementation, might initiate a steal
+    /// (tell envelope to go to shutdown state, then do note-on when that's
+    /// done).
+    fn enqueue_note_on(&mut self, key: u8, velocity: u8);
+
+    /// Queues an aftertouch event.
+    fn enqueue_aftertouch(&mut self, velocity: u8);
+
+    /// Queues a note-off event, which can take a long time to complete,
+    /// depending on how long the envelope's release is.
+    fn enqueue_note_off(&mut self, velocity: u8);
+
+    /// Sets this entity's left-right balance.
+    ///
+    /// TODO: this doesn't seem to belong here... but maybe it should.
+    fn set_pan(&mut self, value: f32);
+}
+
+// TODO: I didn't want StoresVoices to know anything about audio (i.e.,
+// SourcesAudio), but I couldn't figure out how to return an IterMut from a
+// HashMap, so I couldn't define a trait method that allowed the implementation
+// to return an iterator from either a Vec or a HashMap.
+//
+// Maybe what I really want is for Synthesizers to have the StoresVoices trait.
+pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
+    type Voice;
+
+    /// Generally, this value won't change after initialization, because we try
+    /// not to dynamically allocate new voices.
+    fn voice_count(&self) -> usize;
+
+    /// The number of voices reporting is_playing() true. Notably, this excludes
+    /// any voice with pending events. So if you call attack() on a voice in the
+    /// store but don't tick it, the voice-store active number won't include it.
+    fn active_voice_count(&self) -> usize;
+
+    /// Fails if we run out of idle voices and can't steal any active ones.
+    fn get_voice(&mut self, key: &midly::num::u7) -> anyhow::Result<&mut Box<Self::Voice>>;
+
+    /// Uh-oh, StoresVoices is turning into a synth
+    fn set_pan(&mut self, value: f32);
+}
+
+/// A synthesizer is composed of Voices. Ideally, a synth will know how to
+/// construct Voices, and then handle all the MIDI events properly for them.
+pub trait IsVoice<V>: Generates<V> + PlaysNotes + Send {}
+pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}

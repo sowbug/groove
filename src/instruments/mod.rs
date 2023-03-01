@@ -9,7 +9,7 @@ pub(crate) mod sampler;
 pub(crate) mod welsh;
 
 use self::{
-    envelopes::{Envelope, EnvelopeGenerator},
+    envelopes::EnvelopeGenerator,
     oscillators::Oscillator,
 };
 use crate::{
@@ -18,12 +18,7 @@ use crate::{
     settings::patches::{EnvelopeSettings, WaveformType},
 };
 use anyhow::{anyhow, Result};
-use groove_core::{
-    control::F32ControlValue,
-    midi::{HandlesMidi, MidiChannel},
-    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
-    BipolarNormal, Sample, SampleType, StereoSample,
-};
+use groove_core::{traits::{PlaysNotes, IsVoice, StoresVoices, Controllable, Generates, HasUid, IsInstrument, Resets, Ticks, IsStereoSampleVoice, Envelope}, control::F32ControlValue, midi::{HandlesMidi, MidiChannel}, BipolarNormal, Sample, SampleType, StereoSample};
 use groove_macros::{Control, Uid};
 use midly::{num::u7, MidiMessage};
 use std::{
@@ -33,43 +28,6 @@ use std::{
     str::FromStr,
 };
 use strum_macros::{Display, EnumString, FromRepr};
-
-/// As an experiment, we're going to define PlaysNotes as a different interface
-/// from HandlesMidi. This will give the HandlesMidi Synthesizer an opportunity
-/// to manage more about the note lifecycle, including concepts like glide
-/// (which I believe needs a higher-level definition of a "note" than just MIDI
-/// on/off)
-pub trait PlaysNotes {
-    /// Whether the entity is currently making sound.
-    fn is_playing(&self) -> bool;
-
-    /// Whether the entity has been asked to enqueue anything.
-    fn has_pending_events(&self) -> bool;
-
-    /// Whether the entity has any work to do (either is_playing or
-    /// has_pending_events).
-    fn is_active(&self) -> bool {
-        self.is_playing() || self.has_pending_events()
-    }
-
-    /// Queues a note-on event, which will be handled at the next work cycle
-    /// (usually tick()). Depending on implementation, might initiate a steal
-    /// (tell envelope to go to shutdown state, then do note-on when that's
-    /// done).
-    fn enqueue_note_on(&mut self, key: u8, velocity: u8);
-
-    /// Queues an aftertouch event.
-    fn enqueue_aftertouch(&mut self, velocity: u8);
-
-    /// Queues a note-off event, which can take a long time to complete,
-    /// depending on how long the envelope's release is.
-    fn enqueue_note_off(&mut self, velocity: u8);
-
-    /// Sets this entity's left-right balance.
-    ///
-    /// TODO: this doesn't seem to belong here... but maybe it should.
-    fn set_pan(&mut self, value: f32);
-}
 
 #[derive(Debug, Default)]
 pub(crate) struct PlaysNotesEventTracker {
@@ -144,36 +102,6 @@ impl PlaysNotesEventTracker {
         }
     }
 }
-
-// TODO: I didn't want StoresVoices to know anything about audio (i.e.,
-// SourcesAudio), but I couldn't figure out how to return an IterMut from a
-// HashMap, so I couldn't define a trait method that allowed the implementation
-// to return an iterator from either a Vec or a HashMap.
-//
-// Maybe what I really want is for Synthesizers to have the StoresVoices trait.
-pub trait StoresVoices: Generates<StereoSample> + Send + Debug {
-    type Voice;
-
-    /// Generally, this value won't change after initialization, because we try
-    /// not to dynamically allocate new voices.
-    fn voice_count(&self) -> usize;
-
-    /// The number of voices reporting is_playing() true. Notably, this excludes
-    /// any voice with pending events. So if you call attack() on a voice in the
-    /// store but don't tick it, the voice-store active number won't include it.
-    fn active_voice_count(&self) -> usize;
-
-    /// Fails if we run out of idle voices and can't steal any active ones.
-    fn get_voice(&mut self, key: &midly::num::u7) -> Result<&mut Box<Self::Voice>>;
-
-    /// Uh-oh, StoresVoices is turning into a synth
-    fn set_pan(&mut self, value: f32);
-}
-
-/// A synthesizer is composed of Voices. Ideally, a synth will know how to
-/// construct Voices, and then handle all the MIDI events properly for them.
-pub trait IsVoice<V>: Generates<V> + PlaysNotes + Send {}
-pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}
 
 #[derive(Control, Debug, Uid)]
 pub struct Synthesizer<V: IsStereoSampleVoice> {

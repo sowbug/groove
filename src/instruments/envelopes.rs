@@ -5,36 +5,12 @@ use crate::{
     settings::patches::EnvelopeSettings,
 };
 use groove_core::{
-    traits::{Generates, Resets, Ticks},
+    traits::{Generates, Resets, Ticks, Envelope},
     Normal, SignalType,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
 use std::{fmt::Debug, ops::Range};
-
-/// Describes the public interface of an envelope generator, which provides a
-/// normalized amplitude (0.0..=1.0) that changes over time according to its
-/// internal parameters, external triggers, and the progression of time.
-pub trait Envelope: Generates<Normal> + Send + Debug + Ticks {
-    /// Triggers the envelope's active stage.
-    fn trigger_attack(&mut self);
-
-    /// Triggers the end of the envelope's active stage.
-    fn trigger_release(&mut self);
-
-    /// Requests a fast decrease to zero amplitude. Upon reaching zero, switches
-    /// to idle. If the EG is already idle, then does nothing. For normal EGs,
-    /// the EG's settings (ADSR, etc.) don't affect the rate of shutdown decay.
-    ///
-    /// See DSSPC, 4.5 Voice Stealing, for an understanding of how the shutdown
-    /// state helps. TL;DR: if we have to steal one voice to play a different
-    /// note, it sounds better if the voice very briefly stops and restarts.
-    fn trigger_shutdown(&mut self);
-
-    /// Whether the envelope generator is in the idle state, which usually means
-    /// quiescent and zero amplitude.
-    fn is_idle(&self) -> bool;
-}
 
 #[derive(Clone, Copy, Debug, Default)]
 enum State {

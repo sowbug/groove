@@ -1,5 +1,5 @@
 use super::{
-    envelopes::{Envelope, EnvelopeGenerator},
+    envelopes::{ EnvelopeGenerator},
     oscillators::Oscillator,
     Dca, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, StealingVoiceStore,
     Synthesizer,

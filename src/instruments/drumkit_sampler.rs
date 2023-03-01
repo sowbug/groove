@@ -1,16 +1,17 @@
+use groove_core::traits::IsVoice;
 use super::{
-    sampler::Sampler, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker,
+    sampler::Sampler,  PlaysNotesEventTracker,
     Synthesizer, VoicePerNoteStore,
 };
 use crate::{midi::GeneralMidiPercussionProgram, utils::Paths};
 use groove_core::{
     control::F32ControlValue,
-    midi::{HandlesMidi, MidiChannel},
-    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
+    midi::{HandlesMidi, MidiChannel,MidiMessage},
+    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks, IsStereoSampleVoice, PlaysNotes},
     StereoSample,
 };
 use groove_macros::{Control, Uid};
-use midly::{num::u7, MidiMessage};
+use midly::{num::u7, };
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
