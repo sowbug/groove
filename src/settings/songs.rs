@@ -212,6 +212,13 @@ impl SongSettings {
         {
             for pattern_settings in &self.patterns {
                 let pattern = Pattern::<Note>::from_settings(pattern_settings);
+                if ids_to_patterns.contains_key(&pattern_settings.id) {
+                    eprintln!(
+                        "WARNING: duplicate pattern ID {}. Skipping all but one!",
+                        pattern_settings.id
+                    );
+                    continue;
+                }
                 ids_to_patterns.insert(pattern_settings.id.clone(), pattern.clone());
                 pattern_manager.register(pattern);
             }

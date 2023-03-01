@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     effects::{BiQuadFilter, FilterParams},
-    midi::{GeneralMidiProgram, MidiUtils},
+    midi::GeneralMidiProgram,
     settings::{
         patches::{LfoRouting, SynthPatch, WaveformType},
         LoadError,
@@ -14,7 +14,7 @@ use crate::{
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     control::F32ControlValue,
-    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Controllable, Envelope, Generates, HasUid, IsInstrument, Resets, Ticks, TransformsAudio,
     },
@@ -610,7 +610,7 @@ impl WelshVoice {
                 if let crate::settings::patches::OscillatorTune::Note(note) =
                     preset.oscillator_2.tune
                 {
-                    o.set_fixed_frequency(MidiUtils::note_to_frequency(note));
+                    o.set_fixed_frequency(note_to_frequency(note));
                 } else {
                     panic!("Patch configured without oscillator 2 tracking, but tune is not a note specification");
                 }
@@ -690,7 +690,7 @@ impl WelshVoice {
     fn handle_note_on_event(&mut self) {
         self.amp_envelope.trigger_attack();
         self.filter_envelope.trigger_attack();
-        self.set_frequency_hz(MidiUtils::note_to_frequency(self.event_tracker.note_on_key));
+        self.set_frequency_hz(note_to_frequency(self.event_tracker.note_on_key));
     }
 
     fn handle_steal_event(&mut self) {

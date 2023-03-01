@@ -1,12 +1,11 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
     messages::EntityMessage,
-    midi::MidiUtils,
     settings::ClockSettings,
 };
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
-    midi::{HandlesMidi, MidiChannel, MidiMessage, u7},
+    midi::{new_note_off, u7, HandlesMidi, MidiChannel, MidiMessage},
     traits::{HasUid, IsController, Resets, TicksWithMessages},
 };
 use groove_macros::Uid;
@@ -104,10 +103,7 @@ impl BeatSequencer {
         for on_note in &self.on_notes {
             let note = *on_note.0;
             let channel = *on_note.1;
-            v.push(EntityMessage::Midi(
-                channel,
-                MidiUtils::new_note_off(note.into(), 0),
-            ));
+            v.push(EntityMessage::Midi(channel, new_note_off(note.into(), 0)));
         }
         v
     }
@@ -293,7 +289,7 @@ impl TicksWithMessages<EntityMessage> for MidiTickSequencer {
 #[cfg(test)]
 mod tests {
     use groove_core::{
-        midi::MidiChannel,
+        midi::{new_note_off, new_note_on, MidiChannel, MidiNote},
         traits::{IsController, Ticks},
     };
 
@@ -304,7 +300,6 @@ mod tests {
         entities::Entity,
         instruments::TestInstrument,
         messages::EntityMessage,
-        midi::MidiUtils,
     };
 
     impl BeatSequencer {
@@ -373,12 +368,12 @@ mod tests {
         sequencer.insert(
             sequencer.tick_for_beat(&clock, 0),
             DEVICE_MIDI_CHANNEL,
-            MidiUtils::note_on_c4(),
+            new_note_on(MidiNote::C4 as u8, 127),
         );
         sequencer.insert(
             sequencer.tick_for_beat(&clock, 1),
             DEVICE_MIDI_CHANNEL,
-            MidiUtils::note_off_c4(),
+            new_note_off(MidiNote::C4 as u8, 0),
         );
         const SEQUENCER_ID: &str = "seq";
         let _sequencer_uid = o.add(Some(SEQUENCER_ID), Entity::MidiTickSequencer(sequencer));
@@ -430,22 +425,22 @@ mod tests {
     //     sequencer.insert(
     //         sequencer.tick_for_beat(&clock, 0),
     //         0,
-    //         MidiUtils::new_note_on(60, 0),
+    //         new_note_on(60, 0),
     //     );
     //     sequencer.insert(
     //         sequencer.tick_for_beat(&clock, 1),
     //         1,
-    //         MidiUtils::new_note_on(60, 0),
+    //         new_note_on(60, 0),
     //     );
     //     sequencer.insert(
     //         sequencer.tick_for_beat(&clock, 2),
     //         0,
-    //         MidiUtils::new_note_off(MidiNote::C4 as u8, 0),
+    //         new_note_off(MidiNote::C4 as u8, 0),
     //     );
     //     sequencer.insert(
     //         sequencer.tick_for_beat(&clock, 3),
     //         1,
-    //         MidiUtils::new_note_off(MidiNote::C4 as u8, 0),
+    //         new_note_off(MidiNote::C4 as u8, 0),
     //     );
     //     assert_eq!(sequencer.debug_events().len(), 4);
 

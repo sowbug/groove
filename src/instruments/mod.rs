@@ -11,13 +11,12 @@ pub(crate) mod welsh;
 use self::{envelopes::EnvelopeGenerator, oscillators::Oscillator};
 use crate::{
     clock::ClockTimeUnit,
-    midi::MidiUtils,
     settings::patches::{EnvelopeSettings, WaveformType},
 };
 use anyhow::{anyhow, Result};
 use groove_core::{
     control::F32ControlValue,
-    midi::{ u7, HandlesMidi, MidiChannel, MidiMessage},
+    midi::{note_to_frequency, u7, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Controllable, Envelope, Generates, HasUid, IsInstrument, IsStereoSampleVoice, IsVoice,
         PlaysNotes, Resets, StoresVoices, Ticks,
@@ -349,7 +348,7 @@ impl SimpleVoice {
     }
 
     fn handle_note_on_event(&mut self) {
-        self.set_frequency_hz(MidiUtils::note_to_frequency(self.event_tracker.note_on_key));
+        self.set_frequency_hz(note_to_frequency(self.event_tracker.note_on_key));
         self.envelope.trigger_attack();
     }
 
@@ -796,7 +795,7 @@ impl FmVoice {
     }
 
     fn handle_note_on_event(&mut self) {
-        self.set_frequency_hz(MidiUtils::note_to_frequency(self.event_tracker.note_on_key));
+        self.set_frequency_hz(note_to_frequency(self.event_tracker.note_on_key));
         self.envelope.trigger_attack();
     }
 
@@ -1037,7 +1036,7 @@ impl HandlesMidi for TestInstrument {
             MidiMessage::NoteOn { key, vel: _ } => {
                 self.is_playing = true;
                 self.oscillator
-                    .set_frequency(MidiUtils::note_to_frequency(key.as_int()));
+                    .set_frequency(note_to_frequency(key.as_int()));
             }
             MidiMessage::NoteOff { key: _, vel: _ } => {
                 self.is_playing = false;
@@ -1284,11 +1283,12 @@ mod tests {
     use crate::{
         common::DEFAULT_SAMPLE_RATE,
         instruments::{Dca, PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
-        midi::MidiUtils,
     };
     use float_cmp::approx_eq;
     use groove_core::{
-        midi::u7, traits::Ticks, BipolarNormal, ParameterType, Sample, StereoSample,
+        midi::{note_to_frequency, u7},
+        traits::Ticks,
+        BipolarNormal, ParameterType, Sample, StereoSample,
     };
 
     impl SimpleVoice {
@@ -1444,7 +1444,7 @@ mod tests {
                 approx_eq!(
                     ParameterType,
                     voice.oscillator.frequency(),
-                    MidiUtils::note_to_frequency(60)
+                    note_to_frequency(60)
                 ),
                 "we should have gotten back the same voice for the requested note"
             );
@@ -1455,7 +1455,7 @@ mod tests {
                 approx_eq!(
                     ParameterType,
                     voice.oscillator.frequency(),
-                    MidiUtils::note_to_frequency(61)
+                    note_to_frequency(61)
                 ),
                 "we should have gotten back the same voice for the requested note"
             );
@@ -1478,7 +1478,7 @@ mod tests {
                 approx_eq!(
                     ParameterType,
                     voice.oscillator.frequency(),
-                    MidiUtils::note_to_frequency(60)
+                    note_to_frequency(60)
                 ),
                 "we should have gotten back the same voice for the requested note"
             );
@@ -1496,7 +1496,7 @@ mod tests {
                 approx_eq!(
                     ParameterType,
                     voice.oscillator.frequency(),
-                    MidiUtils::note_to_frequency(60) // 60, not 62!!
+                    note_to_frequency(60) // 60, not 62!!
                 ),
                 "we should have gotten the defunct voice for a new note"
             );

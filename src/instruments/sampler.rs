@@ -1,8 +1,7 @@
 use super::{SimpleVoiceStore, Synthesizer};
-use crate::midi::MidiUtils;
 use groove_core::{
     control::F32ControlValue,
-    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Controllable, Generates, HasUid, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
         Resets, Ticks,
@@ -42,7 +41,7 @@ impl PlaysNotes for SamplerVoice {
     fn note_on(&mut self, key: u8, velocity: u8) {
         self.is_playing = true;
         self.sample_pointer = 0.0;
-        self.frequency = MidiUtils::note_to_frequency(key);
+        self.frequency = note_to_frequency(key);
         self.sample_pointer_delta = self.frequency / self.root_frequency;
     }
 
@@ -153,10 +152,13 @@ impl Resets for Sampler {
     }
 }
 impl Sampler {
-    pub fn new_with_filename(sample_rate: usize, filename: &str) -> Self {
+    pub fn new_with_filename(
+        sample_rate: usize,
+        filename: &str,
+        root_frequency: ParameterType,
+    ) -> Self {
         if let Ok(samples) = Self::read_samples_from_file(filename) {
             let samples = Arc::new(samples);
-            let root_frequency = 440.0; // TODO #6
             Self {
                 uid: Default::default(),
                 inner_synth: Synthesizer::<SamplerVoice>::new_with(
@@ -242,7 +244,7 @@ mod tests {
     fn test_loading() {
         let mut filename = Paths::test_data_path();
         filename.push("stereo-pluck.wav");
-        let _ = Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap());
+        let _ = Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap(), 440.0);
     }
 
     #[test]

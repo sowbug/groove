@@ -1,10 +1,8 @@
 use super::sequencers::BeatSequencer;
-use crate::{
-    clock::PerfectTimeUnit, messages::EntityMessage, midi::MidiUtils, settings::ClockSettings,
-};
+use crate::{clock::PerfectTimeUnit, messages::EntityMessage, settings::ClockSettings};
 use groove_core::{
     control::F32ControlValue,
-    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
     traits::{Controllable, HasUid, IsController, Resets, TicksWithMessages},
 };
 use groove_macros::{Control, Uid};
@@ -95,16 +93,10 @@ impl Arpeggiator {
         key: u8,
         vel: u8,
     ) {
-        self.beat_sequencer.insert(
-            when,
-            self.midi_channel_out,
-            MidiUtils::new_note_on(key, vel),
-        );
-        self.beat_sequencer.insert(
-            when + duration,
-            self.midi_channel_out,
-            MidiUtils::new_note_off(key, 0),
-        );
+        self.beat_sequencer
+            .insert(when, self.midi_channel_out, new_note_on(key, vel));
+        self.beat_sequencer
+            .insert(when + duration, self.midi_channel_out, new_note_off(key, 0));
     }
 
     fn rebuild_sequence(&mut self, key: u8, vel: u8) {

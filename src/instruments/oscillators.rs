@@ -364,7 +364,6 @@ mod tests {
     use super::{Oscillator, WaveformType};
     use crate::{
         common::DEFAULT_SAMPLE_RATE,
-        midi::{MidiNote, MidiUtils},
         settings::patches::{OscillatorSettings, OscillatorTune},
         traits::tests::DebugTicks,
         utils::{
@@ -373,6 +372,7 @@ mod tests {
         },
     };
     use groove_core::{
+        midi::{note_type_to_frequency, MidiNote},
         traits::{Generates, Resets, Ticks},
         BipolarNormal, ParameterType,
     };
@@ -400,7 +400,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        oscillator.set_frequency(MidiUtils::note_type_to_frequency(note));
+        oscillator.set_frequency(note_type_to_frequency(note));
         oscillator
     }
 
@@ -677,35 +677,35 @@ mod tests {
         // Default
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C4) as f64
+            note_type_to_frequency(MidiNote::C4) as f64
         );
 
         // Explicitly zero (none)
         oscillator.set_frequency_modulation(BipolarNormal::from(0.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C4) as f64
+            note_type_to_frequency(MidiNote::C4) as f64
         );
 
         // Max
         oscillator.set_frequency_modulation(BipolarNormal::from(1.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C5) as f64
+            note_type_to_frequency(MidiNote::C5) as f64
         );
 
         // Min
         oscillator.set_frequency_modulation(BipolarNormal::from(-1.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C3) as f64
+            note_type_to_frequency(MidiNote::C3) as f64
         );
 
         // Halfway between zero and max
         oscillator.set_frequency_modulation(BipolarNormal::from(0.5));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            MidiUtils::note_type_to_frequency(MidiNote::C4) as f64 * 2.0f64.sqrt()
+            note_type_to_frequency(MidiNote::C4) as f64 * 2.0f64.sqrt()
         );
     }
 

@@ -14,7 +14,6 @@ use crate::{
         oscillators::Oscillator,
     },
     messages::EntityMessage,
-    midi::MidiUtils,
     settings::{
         controllers::{ControlPathSettings, ControlStep},
         patches::WaveformType,
@@ -25,7 +24,7 @@ use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use groove_core::{
     control::F32ControlValue,
-    midi::{HandlesMidi, MidiChannel, MidiMessage},
+    midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Controllable, Generates, HasUid, IsController, IsEffect, Resets, Ticks, TicksWithMessages,
         TransformsAudio,
@@ -288,7 +287,7 @@ impl TicksWithMessages<EntityMessage> for TestController {
                         self.is_playing = true;
                         v.push(EntityMessage::Midi(
                             self.midi_channel_out,
-                            MidiUtils::new_note_on(60, 127),
+                            new_note_on(60, 127),
                         ));
                     }
                 }
@@ -296,7 +295,7 @@ impl TicksWithMessages<EntityMessage> for TestController {
                     if self.is_playing {
                         v.push(EntityMessage::Midi(
                             self.midi_channel_out,
-                            MidiUtils::new_note_off(60, 0),
+                            new_note_off(60, 0),
                         ));
                     }
                 }

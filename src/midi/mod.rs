@@ -1,7 +1,5 @@
 use crate::traits::Response;
-use groove_core::ParameterType;
 use groove_core::midi::u4;
-use groove_core::midi::u7;
 pub use subscription::MidiHandlerEvent;
 pub use subscription::MidiHandlerInput;
 pub use subscription::MidiSubscription;
@@ -26,42 +24,6 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, time::Instant};
 use strum_macros::Display;
 
-/// There are two different mappings of piano notes to MIDI numbers. They both
-/// agree that Midi note 0 is a C, but they otherwise differ by an octave. I
-/// originally picked C4=60, because that was the top Google search result's
-/// answer, but it seems like a slight majority thinks C3=60. I'm going to leave
-/// it as-is so that I don't have to rename my test data files. I don't think it
-/// matters because we're not actually mapping these to anything user-visible.
-///
-/// These also correspond to <https://en.wikipedia.org/wiki/Piano_key_frequencies>
-#[derive(Clone, Copy, Debug, Default)]
-#[allow(dead_code)]
-pub enum MidiNote {
-    None = 0,
-    C0 = 12,
-    Cs0 = 13,
-    D0 = 14,
-    Ds0 = 15,
-    E0 = 16,
-    F0 = 17,
-    Fs0 = 18,
-    G0 = 19,
-    Gs0 = 20,
-    A0 = 21,
-    As0 = 22,
-    B0 = 23,
-    C1 = 24,
-    C2 = 36,
-    C3 = 48,
-    D3 = 50,
-    #[default]
-    C4 = 60,
-    G4 = 67,
-    A4 = 69,
-    C5 = 72,
-    G9 = 127,
-}
-
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Copy, Default)]
 pub enum MidiMessageType {
     #[default] // there isn't any sensible default here, so we pick something loud
@@ -69,19 +31,6 @@ pub enum MidiMessageType {
     NoteOff = 0b1000,
     ProgramChange = 0b1100,
     Controller,
-}
-
-pub struct MidiUtils {}
-
-impl MidiUtils {
-    pub fn note_to_frequency(note: u8) -> ParameterType {
-        2.0_f64.powf((note as ParameterType - 69.0) / 12.0) * 440.0
-    }
-
-    #[allow(dead_code)]
-    pub fn note_type_to_frequency(midi_note: MidiNote) -> ParameterType {
-        2.0_f64.powf((midi_note as u8 as ParameterType - 69.0) / 12.0) * 440.0
-    }
 }
 
 #[derive(Display, Primitive, Debug)]
@@ -678,49 +627,5 @@ impl MidiHandler {
 
     pub fn midi_output(&self) -> Option<&MidiOutputHandler> {
         self.midi_output.as_ref()
-    }
-}
-impl MidiUtils {
-    pub(crate) fn new_note_on(note: u8, vel: u8) -> MidiMessage {
-        MidiMessage::NoteOn {
-            key: u7::from(note),
-            vel: u7::from(vel),
-        }
-    }
-
-    pub(crate) fn new_note_off(note: u8, vel: u8) -> MidiMessage {
-        MidiMessage::NoteOff {
-            key: u7::from(note),
-            vel: u7::from(vel),
-        }
-    }
-}
-
-#[cfg(test)]
-pub mod tests {
-    use super::*;
-    use assert_approx_eq::assert_approx_eq;
-
-    impl MidiUtils {
-        pub fn note_on_c4() -> MidiMessage {
-            Self::new_note_on(MidiNote::C4 as u8, 0)
-        }
-
-        pub fn note_off_c4() -> MidiMessage {
-            Self::new_note_off(MidiNote::C4 as u8, 0)
-        }
-    }
-
-    #[test]
-    fn test_note_to_frequency() {
-        assert_approx_eq!(MidiUtils::note_type_to_frequency(MidiNote::C0), 16.351_597);
-        assert_approx_eq!(
-            MidiUtils::note_type_to_frequency(MidiNote::C4),
-            261.625_565_300_598_6
-        );
-        assert_approx_eq!(
-            MidiUtils::note_type_to_frequency(MidiNote::G9),
-            12_543.853_951_415_975
-        );
     }
 }

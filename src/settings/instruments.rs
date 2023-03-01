@@ -3,6 +3,7 @@ use crate::{
     entities::Entity,
     instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument, WelshSynth},
 };
+use groove_core::midi::{note_description_to_frequency, note_to_frequency};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -37,6 +38,10 @@ pub enum InstrumentSettings {
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
         filename: String,
+
+        /// This can be either a floating-point frequency in Hz or a MIDI note number.
+        #[serde(default)]
+        root: String,
     },
     #[serde(rename_all = "kebab-case")]
     FmSynthesizer {
@@ -105,9 +110,14 @@ impl InstrumentSettings {
             InstrumentSettings::Sampler {
                 midi_input_channel,
                 filename,
+                root,
             } => (
                 *midi_input_channel,
-                Entity::Sampler(Box::new(Sampler::new_with_filename(sample_rate, filename))),
+                Entity::Sampler(Box::new(Sampler::new_with_filename(
+                    sample_rate,
+                    filename,
+                    note_description_to_frequency(root.to_string(), note_to_frequency(69)),
+                ))),
             ),
             InstrumentSettings::FmSynthesizer {
                 midi_input_channel,

@@ -2,13 +2,10 @@ use super::{
     sampler::{Sampler, SamplerVoice},
     Synthesizer, VoicePerNoteStore,
 };
-use crate::{
-    midi::{GeneralMidiPercussionProgram, MidiUtils},
-    utils::Paths,
-};
+use crate::{midi::GeneralMidiPercussionProgram, utils::Paths};
 use groove_core::{
     control::F32ControlValue,
-    midi::{HandlesMidi, MidiChannel, MidiMessage, u7},
+    midi::{note_to_frequency, u7, HandlesMidi, MidiChannel, MidiMessage},
     traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
     StereoSample,
 };
@@ -94,7 +91,7 @@ impl Drumkit {
                         Box::new(SamplerVoice::new_with_samples(
                             sample_rate,
                             Arc::new(samples),
-                            MidiUtils::note_to_frequency(program),
+                            note_to_frequency(program),
                         )),
                     );
                 } else {
