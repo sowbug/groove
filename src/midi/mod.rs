@@ -33,7 +33,7 @@ use strum_macros::Display;
 /// it as-is so that I don't have to rename my test data files. I don't think it
 /// matters because we're not actually mapping these to anything user-visible.
 ///
-/// These also correspond to https://en.wikipedia.org/wiki/Piano_key_frequencies
+/// These also correspond to <https://en.wikipedia.org/wiki/Piano_key_frequencies>
 #[derive(Clone, Copy, Debug, Default)]
 #[allow(dead_code)]
 pub enum MidiNote {
