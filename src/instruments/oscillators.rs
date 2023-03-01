@@ -2,7 +2,7 @@ use crate::settings::patches::{LfoPreset, OscillatorSettings, WaveformType};
 use groove_core::{
     control::F32ControlValue,
     traits::{Controllable, Generates, Resets, Ticks},
-    BipolarNormal, SignalType,
+    BipolarNormal, ParameterType, SignalType,
 };
 use groove_macros::Control;
 use more_asserts::debug_assert_lt;
@@ -62,19 +62,19 @@ pub struct Oscillator {
     waveform: WaveformType,
 
     /// Hertz. Any positive number. 440 = A4
-    frequency: SignalType,
+    frequency: ParameterType,
 
     /// if not zero, then ignores the `frequency` field and uses this one
     /// instead.
-    fixed_frequency: SignalType,
+    fixed_frequency: ParameterType,
 
     /// 1.0 is no change. 2.0 doubles the frequency. 0.5 halves it. Designed for
     /// pitch correction at construction time.
-    frequency_tune: SignalType,
+    frequency_tune: ParameterType,
 
     /// [-1, 1] is typical range, with -1 halving the frequency, and 1 doubling
     /// it. Designed for LFO and frequent changes.
-    frequency_modulation: SignalType,
+    frequency_modulation: BipolarNormal,
 
     /// working variables to generate semi-deterministic noise.
     noise_x1: u32,
@@ -221,21 +221,21 @@ impl Oscillator {
         } else {
             self.fixed_frequency
         };
-        tmp * 2.0f64.powf(self.frequency_modulation)
+        tmp * 2.0f64.powf(self.frequency_modulation.value())
     }
 
-    pub(crate) fn set_frequency(&mut self, frequency: f32) {
-        self.frequency = frequency as f64;
+    pub(crate) fn set_frequency(&mut self, frequency: ParameterType) {
+        self.frequency = frequency;
         self.delta_needs_update = true;
     }
 
-    pub(crate) fn set_fixed_frequency(&mut self, frequency: f32) {
-        self.fixed_frequency = frequency as f64;
+    pub(crate) fn set_fixed_frequency(&mut self, frequency: ParameterType) {
+        self.fixed_frequency = frequency;
         self.delta_needs_update = true;
     }
 
-    pub(crate) fn set_frequency_modulation(&mut self, frequency_modulation: f32) {
-        self.frequency_modulation = frequency_modulation as f64;
+    pub(crate) fn set_frequency_modulation(&mut self, frequency_modulation: BipolarNormal) {
+        self.frequency_modulation = frequency_modulation;
         self.delta_needs_update = true;
     }
 
@@ -247,12 +247,12 @@ impl Oscillator {
         self.waveform = waveform;
     }
 
-    pub fn frequency_modulation(&self) -> f32 {
-        self.frequency_modulation as f32
+    pub fn frequency_modulation(&self) -> BipolarNormal {
+        self.frequency_modulation
     }
 
-    pub fn frequency(&self) -> f32 {
-        self.frequency as f32
+    pub fn frequency(&self) -> ParameterType {
+        self.frequency
     }
 
     pub fn should_sync(&self) -> bool {
@@ -372,7 +372,10 @@ mod tests {
             Paths,
         },
     };
-    use groove_core::traits::{Generates, Resets, Ticks};
+    use groove_core::{
+        traits::{Generates, Resets, Ticks},
+        BipolarNormal, ParameterType,
+    };
     use more_asserts::assert_lt;
 
     impl DebugTicks for Oscillator {
@@ -678,28 +681,28 @@ mod tests {
         );
 
         // Explicitly zero (none)
-        oscillator.set_frequency_modulation(0.0);
+        oscillator.set_frequency_modulation(BipolarNormal::from(0.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiUtils::note_type_to_frequency(MidiNote::C4) as f64
         );
 
         // Max
-        oscillator.set_frequency_modulation(1.0);
+        oscillator.set_frequency_modulation(BipolarNormal::from(1.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiUtils::note_type_to_frequency(MidiNote::C5) as f64
         );
 
         // Min
-        oscillator.set_frequency_modulation(-1.0);
+        oscillator.set_frequency_modulation(BipolarNormal::from(-1.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiUtils::note_type_to_frequency(MidiNote::C3) as f64
         );
 
         // Halfway between zero and max
-        oscillator.set_frequency_modulation(0.5);
+        oscillator.set_frequency_modulation(BipolarNormal::from(0.5));
         assert_eq!(
             oscillator.adjusted_frequency(),
             MidiUtils::note_type_to_frequency(MidiNote::C4) as f64 * 2.0f64.sqrt()
@@ -709,7 +712,7 @@ mod tests {
     #[test]
     fn oscillator_cycle_restarts_on_time() {
         let mut oscillator = Oscillator::new_with(DEFAULT_SAMPLE_RATE);
-        const FREQUENCY: f32 = 2.0;
+        const FREQUENCY: ParameterType = 2.0;
         oscillator.set_frequency(FREQUENCY);
 
         const TICKS_IN_CYCLE: usize = DEFAULT_SAMPLE_RATE / FREQUENCY as usize;

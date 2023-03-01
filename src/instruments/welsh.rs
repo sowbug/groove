@@ -18,7 +18,7 @@ use groove_core::{
     traits::{
         Controllable, Envelope, Generates, HasUid, IsInstrument, Resets, Ticks, TransformsAudio,
     },
-    BipolarNormal, Normal, Sample, StereoSample,
+    BipolarNormal, Normal, ParameterType, Sample, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use num_traits::FromPrimitive;
@@ -517,7 +517,7 @@ impl Ticks for WelshVoice {
                 if matches!(self.lfo_routing, LfoRouting::Pitch) {
                     let lfo_for_pitch = lfo * self.lfo_depth.value();
                     for o in self.oscillators.iter_mut() {
-                        o.set_frequency_modulation(lfo_for_pitch as f32);
+                        o.set_frequency_modulation(BipolarNormal::from(lfo_for_pitch));
                     }
                 }
 
@@ -707,7 +707,7 @@ impl WelshVoice {
         self.filter_envelope.trigger_release();
     }
 
-    fn set_frequency_hz(&mut self, frequency_hz: f32) {
+    fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {
         // It's safe to set the frequency on a fixed-frequency oscillator; the
         // fixed frequency is stored separately and takes precedence.
         self.oscillators.iter_mut().for_each(|o| {

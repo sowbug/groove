@@ -17,7 +17,7 @@ patterns:
   - id: pattern-1
     note-value: whole
     notes:
-      - [60]
+      - [69]
 tracks:
   - id: main
     midi-channel: 0

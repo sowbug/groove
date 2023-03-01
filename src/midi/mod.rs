@@ -1,4 +1,5 @@
 use crate::traits::Response;
+use groove_core::ParameterType;
 pub use subscription::MidiHandlerEvent;
 pub use subscription::MidiHandlerInput;
 pub use subscription::MidiSubscription;
@@ -74,13 +75,13 @@ pub enum MidiMessageType {
 pub struct MidiUtils {}
 
 impl MidiUtils {
-    pub fn note_to_frequency(note: u8) -> f32 {
-        2.0_f32.powf((note as f32 - 69.0) / 12.0) * 440.0
+    pub fn note_to_frequency(note: u8) -> ParameterType {
+        2.0_f64.powf((note as ParameterType - 69.0) / 12.0) * 440.0
     }
 
     #[allow(dead_code)]
-    pub fn note_type_to_frequency(midi_note: MidiNote) -> f32 {
-        2.0_f32.powf((midi_note as u8 as f32 - 69.0) / 12.0) * 440.0
+    pub fn note_type_to_frequency(midi_note: MidiNote) -> ParameterType {
+        2.0_f64.powf((midi_note as u8 as ParameterType - 69.0) / 12.0) * 440.0
     }
 }
 
@@ -216,7 +217,7 @@ pub enum GeneralMidiProgram {
     Gunshot = 127,
 }
 
-#[allow(dead_code)]
+#[derive(Clone, Copy)]
 pub enum GeneralMidiPercussionProgram {
     AcousticBassDrum = 35,
     ElectricBassDrum = 36,

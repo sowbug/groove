@@ -1,4 +1,5 @@
 use super::{SimpleVoiceStore, Synthesizer};
+use crate::midi::MidiUtils;
 use groove_core::{
     control::F32ControlValue,
     midi::{HandlesMidi, MidiChannel, MidiMessage},
@@ -18,12 +19,13 @@ pub(crate) struct SamplerVoice {
     sample_rate: usize,
     samples: Arc<Vec<StereoSample>>,
 
-    #[allow(dead_code)]
     root_frequency: ParameterType,
+    frequency: ParameterType,
 
     was_reset: bool,
     is_playing: bool,
-    sample_pointer: usize,
+    sample_pointer: f64,
+    sample_pointer_delta: f64,
 }
 impl IsVoice<StereoSample> for SamplerVoice {}
 impl IsStereoSampleVoice for SamplerVoice {}
@@ -39,7 +41,9 @@ impl PlaysNotes for SamplerVoice {
     #[allow(unused_variables)]
     fn note_on(&mut self, key: u8, velocity: u8) {
         self.is_playing = true;
-        self.sample_pointer = 0;
+        self.sample_pointer = 0.0;
+        self.frequency = MidiUtils::note_to_frequency(key);
+        self.sample_pointer_delta = self.frequency / self.root_frequency;
     }
 
     #[allow(unused_variables)]
@@ -50,7 +54,7 @@ impl PlaysNotes for SamplerVoice {
     #[allow(unused_variables)]
     fn note_off(&mut self, velocity: u8) {
         self.is_playing = false;
-        self.sample_pointer = 0;
+        self.sample_pointer = 0.0;
     }
 
     #[allow(unused_variables)]
@@ -60,7 +64,7 @@ impl PlaysNotes for SamplerVoice {
 }
 impl Generates<StereoSample> for SamplerVoice {
     fn value(&self) -> StereoSample {
-        self.samples[self.sample_pointer]
+        self.samples[self.sample_pointer as usize]
     }
 
     #[allow(unused_variables)]
@@ -73,11 +77,11 @@ impl Ticks for SamplerVoice {
         for _ in 0..tick_count {
             if self.is_playing {
                 if !self.was_reset {
-                    self.sample_pointer += 1;
+                    self.sample_pointer += self.sample_pointer_delta;
                 }
-                if self.sample_pointer >= self.samples.len() {
+                if self.sample_pointer as usize >= self.samples.len() {
                     self.is_playing = false;
-                    self.sample_pointer = 0;
+                    self.sample_pointer = 0.0;
                 }
             }
             if self.was_reset {
@@ -93,14 +97,23 @@ impl Resets for SamplerVoice {
     }
 }
 impl SamplerVoice {
-    pub fn new_with_samples(sample_rate: usize, samples: Arc<Vec<StereoSample>>) -> Self {
+    pub fn new_with_samples(
+        sample_rate: usize,
+        samples: Arc<Vec<StereoSample>>,
+        root_frequency: ParameterType,
+    ) -> Self {
+        if !root_frequency.is_normal() {
+            panic!("strange number given for root frequency: {root_frequency}");
+        }
         Self {
             sample_rate,
             samples,
-            root_frequency: Default::default(),
+            root_frequency,
+            frequency: Default::default(),
             was_reset: true,
             is_playing: Default::default(),
             sample_pointer: Default::default(),
+            sample_pointer_delta: Default::default(),
         }
     }
 }
@@ -143,13 +156,20 @@ impl Sampler {
     pub fn new_with_filename(sample_rate: usize, filename: &str) -> Self {
         if let Ok(samples) = Self::read_samples_from_file(filename) {
             let samples = Arc::new(samples);
+            let root_frequency = 440.0; // TODO #6
             Self {
                 uid: Default::default(),
                 inner_synth: Synthesizer::<SamplerVoice>::new_with(
                     sample_rate,
                     Box::new(SimpleVoiceStore::<SamplerVoice>::new_with_voice(
                         sample_rate,
-                        || SamplerVoice::new_with_samples(sample_rate, Arc::clone(&samples)),
+                        || {
+                            SamplerVoice::new_with_samples(
+                                sample_rate,
+                                Arc::clone(&samples),
+                                root_frequency,
+                            )
+                        },
                     )),
                 ),
             }
@@ -231,7 +251,8 @@ mod tests {
             Sampler::read_samples_from_file("test-data/square-440Hz-1-second-mono-24-bit-PCM.wav");
         assert!(samples.is_ok());
         let samples = samples.unwrap();
-        let mut voice = SamplerVoice::new_with_samples(DEFAULT_SAMPLE_RATE, Arc::new(samples));
+        let mut voice =
+            SamplerVoice::new_with_samples(DEFAULT_SAMPLE_RATE, Arc::new(samples), 440.0);
         voice.note_on(1, 127);
 
         assert!(

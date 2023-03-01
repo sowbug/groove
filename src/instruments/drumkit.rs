@@ -2,7 +2,10 @@ use super::{
     sampler::{Sampler, SamplerVoice},
     Synthesizer, VoicePerNoteStore,
 };
-use crate::{midi::GeneralMidiPercussionProgram, utils::Paths};
+use crate::{
+    midi::{GeneralMidiPercussionProgram, MidiUtils},
+    utils::Paths,
+};
 use groove_core::{
     control::F32ControlValue,
     midi::{HandlesMidi, MidiChannel, MidiMessage},
@@ -86,11 +89,13 @@ impl Drumkit {
 
             if let Some(filename) = path.to_str() {
                 if let Ok(samples) = Sampler::read_samples_from_file(filename) {
+                    let program = program as u8;
                     voice_store.add_voice(
-                        u7::from(program as u8),
+                        u7::from(program),
                         Box::new(SamplerVoice::new_with_samples(
                             sample_rate,
                             Arc::new(samples),
+                            MidiUtils::note_to_frequency(program),
                         )),
                     );
                 } else {

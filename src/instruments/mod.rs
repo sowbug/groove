@@ -22,7 +22,7 @@ use groove_core::{
         Controllable, Envelope, Generates, HasUid, IsInstrument, IsStereoSampleVoice, IsVoice,
         PlaysNotes, Resets, StoresVoices, Ticks,
     },
-    BipolarNormal, Sample, SampleType, StereoSample,
+    BipolarNormal, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use midly::{num::u7, MidiMessage};
@@ -319,7 +319,7 @@ impl SimpleVoice {
             event_tracker: Default::default(),
         }
     }
-    fn set_frequency_hz(&mut self, frequency_hz: f32) {
+    fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {
         self.oscillator.set_frequency(frequency_hz);
     }
     fn handle_pending_note_events(&mut self) {
@@ -664,7 +664,7 @@ pub struct FmVoice {
     sample: StereoSample,
     carrier: Oscillator,
     modulator: Oscillator,
-    modulator_depth: f32,
+    modulator_depth: ParameterType,
     envelope: EnvelopeGenerator,
     dca: Dca,
 
@@ -723,8 +723,9 @@ impl Resets for FmVoice {
 impl Ticks for FmVoice {
     fn tick(&mut self, tick_count: usize) {
         self.handle_pending_note_events();
-        self.carrier
-            .set_frequency_modulation(self.modulator.value() as f32 * self.modulator_depth);
+        self.carrier.set_frequency_modulation(BipolarNormal::from(
+            self.modulator.value() * self.modulator_depth,
+        ));
         self.envelope.tick(tick_count);
         self.carrier.tick(tick_count);
         self.modulator.tick(tick_count);
@@ -760,7 +761,7 @@ impl FmVoice {
     }
     pub(crate) fn new_with_modulator_frequency(
         sample_rate: usize,
-        modulator_frequency: f32,
+        modulator_frequency: ParameterType,
     ) -> Self {
         let mut modulator = Oscillator::new_with(sample_rate);
         modulator.set_frequency(modulator_frequency);
@@ -814,16 +815,16 @@ impl FmVoice {
     }
 
     #[allow(dead_code)]
-    pub fn modulator_frequency(&self) -> f32 {
+    pub fn modulator_frequency(&self) -> ParameterType {
         self.modulator.frequency()
     }
 
     #[allow(dead_code)]
-    pub fn set_modulator_frequency(&mut self, value: f32) {
+    pub fn set_modulator_frequency(&mut self, value: ParameterType) {
         self.modulator.set_frequency(value);
     }
 
-    fn set_frequency_hz(&mut self, frequency_hz: f32) {
+    fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {
         self.carrier.set_frequency(frequency_hz);
     }
 }
@@ -912,7 +913,7 @@ impl SimpleVoiceStore<FmVoice> {
 }
 
 pub(crate) struct FmSynthesizerPreset {
-    modulator_frequency_hz: f32,
+    modulator_frequency_hz: ParameterType,
 }
 
 /// The Digitally Controller Amplifier (DCA) handles gain and pan for many kinds
@@ -1150,7 +1151,7 @@ pub struct TestSynth {
     sample: StereoSample,
 
     #[controllable]
-    oscillator_modulation: f32,
+    oscillator_modulation: BipolarNormal,
 
     oscillator: Box<Oscillator>,
     envelope: Box<dyn Envelope>,
@@ -1198,18 +1199,18 @@ impl TestSynth {
         }
     }
 
-    pub fn oscillator_modulation(&self) -> f32 {
+    pub fn oscillator_modulation(&self) -> BipolarNormal {
         self.oscillator.frequency_modulation()
     }
 
-    pub fn set_oscillator_modulation(&mut self, oscillator_modulation: f32) {
+    pub fn set_oscillator_modulation(&mut self, oscillator_modulation: BipolarNormal) {
         self.oscillator_modulation = oscillator_modulation;
         self.oscillator
             .set_frequency_modulation(oscillator_modulation);
     }
 
     pub fn set_control_oscillator_modulation(&mut self, oscillator_modulation: F32ControlValue) {
-        self.set_oscillator_modulation(oscillator_modulation.0);
+        self.set_oscillator_modulation(BipolarNormal::from(oscillator_modulation.0));
     }
 
     #[allow(dead_code)]
@@ -1286,7 +1287,7 @@ mod tests {
         instruments::{Dca, PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
     };
     use float_cmp::approx_eq;
-    use groove_core::{traits::Ticks, BipolarNormal, Sample, StereoSample};
+    use groove_core::{traits::Ticks, BipolarNormal, ParameterType, Sample, StereoSample};
     use midly::num::u7;
 
     impl SimpleVoice {
@@ -1439,14 +1440,14 @@ mod tests {
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(voice.is_playing());
             assert!(
-                approx_eq!(f32, voice.oscillator.frequency(), 261.62555),
+                approx_eq!(ParameterType, voice.oscillator.frequency(), 261.62555),
                 "we should have gotten back the same voice for the requested note"
             );
         }
         if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
             assert!(voice.is_playing());
             assert!(
-                approx_eq!(f32, voice.oscillator.frequency(), 277.18265),
+                approx_eq!(ParameterType, voice.oscillator.frequency(), 277.18265),
                 "we should have gotten back the same voice for the requested note"
             );
         }
@@ -1465,7 +1466,7 @@ mod tests {
         // release() during the same tick.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(
-                approx_eq!(f32, voice.oscillator.frequency(), 261.62555),
+                approx_eq!(ParameterType, voice.oscillator.frequency(), 261.62555),
                 "we should have gotten back the same voice for the requested note"
             );
             voice.note_off(127);
@@ -1479,7 +1480,7 @@ mod tests {
             // instantiating new ones. (2) is very likely to remain true for all
             // voice stores, but it's a little loosey-goosey right now.
             assert!(
-                approx_eq!(f32, voice.oscillator.frequency(), 261.62555),
+                approx_eq!(ParameterType, voice.oscillator.frequency(), 261.62555),
                 "we should have gotten the defunct voice for a new note"
             );
         } else {
