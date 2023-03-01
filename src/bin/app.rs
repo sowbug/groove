@@ -1036,24 +1036,6 @@ impl GrooveApp {
 /// GuiState helps with GUI drawing. It gets called during AppMessage::Tick with
 /// a ref to a mutex-locked Orchestrator. It grabs whatever information it needs
 /// to handle canvas draw() operations.
-///
-/// I'm not sure whether Program::draw() is fundamentally that different from
-/// Application::view(), but I ended up coding them differently. We lock
-/// Orchestrator during view() and grab all the information we need just-in-time
-/// to build the view. For draw(), though, we update internal GuiState during
-/// the app's update(), and then use that state later on for drawing. I could
-/// have used the draw() approach for view(), but I would have had to build up a
-/// whole lot of state in GuiState. I don't think the view() approach would work
-/// for draw(), because the draw closures .
-///
-///  locks Maybe it's a better approach than what I'm doing now, which is
-/// locking Orchestrator during view() and grabbing the needed information while
-/// building the view. I don't know whether I can do that with draw() without
-/// every cache wanting to grab the Orchestrator mutex (which might not be a bad
-/// thing). Right now I think it's worse, because it seems like I'll have to
-/// maintain Orchestrator state in GuiState, rather than using it immediately
-/// during the draw operation and then forgetting it. As usual, I'm probably
-/// misusing one or both of the methods.
 struct GuiState {
     background: Cache,
     foreground: Cache,
