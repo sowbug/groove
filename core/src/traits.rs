@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{control::F32ControlValue, midi::HandlesMidi, Sample, StereoSample, Normal};
+use crate::{control::F32ControlValue, midi::HandlesMidi, Normal, Sample, StereoSample};
 
 /// An IsController controls things in the system that implement Controllable.
 /// Examples are sequencers, arpeggiators, and discrete LFOs (as contrasted with

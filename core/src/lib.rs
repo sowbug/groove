@@ -1,30 +1,35 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub mod control;
-pub mod midi;
-pub mod traits;
-
 use std::{
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
-/// SampleType is the underlying primitive that makes up MonoSample and
-/// StereoSample. It exists as a transition aid while we migrate from hardcoded
-/// f32/OldMonoSample to MonoSample/StereoSample.
+/// The [control] module handles automation, or real-time automatic control of
+/// one entity's parameters by another entity's output.
+pub mod control;
+/// The [midi] module knows about [MIDI](https://en.wikipedia.org/wiki/MIDI).
+pub mod midi;
+/// The [traits] module describes the public interfaces that are central to the
+/// Groove system.
+pub mod traits;
+
+/// [SampleType] is the underlying primitive that makes up [MonoSample] and
+/// [StereoSample]. It exists as a transition aid while we migrate from
+/// hardcoded f32 to [MonoSample]/[StereoSample].
 pub type SampleType = f64;
 
-/// SignalType is the primitive used for general digital signal-related work.
+/// [SignalType] is the primitive used for general digital signal-related work.
 /// It's pretty important that all of these different types be the same (e.g.,
 /// for now f64), but I'm hoping it's worth the hassle to use different names
 /// depending on usage.
 pub type SignalType = f64;
 
-/// Use ParameterType in places where a Normal or BipolarNormal could fit,
+/// Use [ParameterType] in places where a [Normal] or [BipolarNormal] could fit,
 /// except you don't have any range restrictions.
 pub type ParameterType = f64;
 
-/// Sample is an audio sample.
+/// [Sample] represents a single audio sample.
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Sample(pub SampleType);
 impl Sample {
@@ -124,14 +129,13 @@ impl From<StereoSample> for Sample {
     }
 }
 
-/// MonoSample is a single-channel sample. It exists separately from Sample for
-/// cases where we specifically want a monophonic audio stream.
-///
-/// TODO: I'm not convinced this is useful.
+// TODO: I'm not convinced this is useful.
+/// [MonoSample] is a single-channel sample. It exists separately from [Sample]
+/// for cases where we specifically want a monophonic audio stream.
 #[derive(Debug, Default, PartialEq, PartialOrd)]
 pub struct MonoSample(pub SampleType);
 
-/// StereoSample is a two-channel sample.
+/// [StereoSample] is a two-channel sample.
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct StereoSample(pub Sample, pub Sample);
 impl StereoSample {
@@ -190,25 +194,25 @@ impl From<f64> for StereoSample {
     }
 }
 
-/// RangedF64 tries to enforce the given range limits while not becoming too
-/// expensive to use compared to a plain f64. It enforces the value at creation,
-/// when setting it explicitly, when converting from an f64, and when getting
-/// it. But math operations (Add, Sub, etc.) are not checked! This allows
-/// certain operations to (hopefully temporarily) exceed the range, or for
+// TODO: I tried implementing this using the sort-of new generic const
+// expressions, because I wanted to see whether I could have compile-time
+// errors for attempts to set the value outside the range. I did not succeed.
+
+/// [RangedF64] enforces the given range limits while not becoming too expensive
+/// to use compared to a plain f64. It enforces the value at creation, when
+/// setting it explicitly, when converting from an f64, and when getting it. But
+/// math operations (Add, Sub, etc.) are not checked! This allows certain
+/// operations to (hopefully temporarily) exceed the range, or for
 /// floating-point precision problems to (again hopefully) get compensated for
 /// later on.
 ///
-/// Also note that RangedF64 doesn't tell you when clamping happens. It just
+/// Also note that [RangedF64] doesn't tell you when clamping happens. It just
 /// does it, silently.
 ///
-/// Altogether, RangedF64 is good for gatekeeping -- parameters, return values,
-/// etc., -- and somewhat OK at pure math. But we might decide to clamp (heh)
-/// down on out-of-bounds conditions later on, so if you want to do math, prefer
-/// f64 sourced from RangedF64 rather than RangedF64 itself.
-///
-/// TODO: I tried implementing this using the sort-of new generic const
-/// expressions, because I wanted to see whether I could have compile-time
-/// errors for attempts to set the value outside the range. I did not succeed.
+/// Altogether, [RangedF64] is good for gatekeeping -- parameters, return
+/// values, etc., -- and somewhat OK at pure math. But we might decide to clamp
+/// (heh) down on out-of-bounds conditions later on, so if you want to do math,
+/// prefer f64 sourced from [RangedF64] rather than [RangedF64] itself.
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct RangedF64<const LOWER: i8, const UPPER: i8>(f64);
 impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
@@ -285,10 +289,10 @@ impl<const LOWER: i8, const UPPER: i8> From<f32> for RangedF64<LOWER, UPPER> {
     }
 }
 
-/// A Normal's range is [0.0, 1.0].
+/// A Normal is a [RangedF64] whose range is [0.0, 1.0].
 pub type Normal = RangedF64<0, 1>;
 
-/// A BipolarNormal's range is [-1.0, 1.0].
+/// A BipolarNormal is a [RangedF64] whose range is [-1.0, 1.0].
 pub type BipolarNormal = RangedF64<-1, 1>;
 
 impl From<Sample> for Normal {
@@ -299,7 +303,7 @@ impl From<Sample> for Normal {
     }
 }
 impl From<Sample> for BipolarNormal {
-    // A Sample has the same range as a BipolarNormal, so no conversion is
+    // A [Sample] has the same range as a [BipolarNormal], so no conversion is
     // necessary.
     fn from(value: Sample) -> Self {
         Self(value.0)

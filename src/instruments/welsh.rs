@@ -1,8 +1,6 @@
 use super::{
-    envelopes::{ EnvelopeGenerator},
-    oscillators::Oscillator,
-    Dca, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, StealingVoiceStore,
-    Synthesizer,
+    envelopes::EnvelopeGenerator, oscillators::Oscillator, Dca, IsStereoSampleVoice, IsVoice,
+    PlaysNotes, PlaysNotesEventTracker, StealingVoiceStore, Synthesizer,
 };
 use crate::{
     effects::{BiQuadFilter, FilterParams},
@@ -17,7 +15,9 @@ use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     control::F32ControlValue,
     midi::{HandlesMidi, MidiChannel, MidiMessage},
-    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks, TransformsAudio},
+    traits::{
+        Controllable, Envelope, Generates, HasUid, IsInstrument, Resets, Ticks, TransformsAudio,
+    },
     BipolarNormal, Normal, Sample, StereoSample,
 };
 use groove_macros::{Control, Uid};

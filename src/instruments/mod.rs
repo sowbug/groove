@@ -8,17 +8,22 @@ pub(crate) mod oscillators;
 pub(crate) mod sampler;
 pub(crate) mod welsh;
 
-use self::{
-    envelopes::EnvelopeGenerator,
-    oscillators::Oscillator,
-};
+use self::{envelopes::EnvelopeGenerator, oscillators::Oscillator};
 use crate::{
     clock::ClockTimeUnit,
     midi::MidiUtils,
     settings::patches::{EnvelopeSettings, WaveformType},
 };
 use anyhow::{anyhow, Result};
-use groove_core::{traits::{PlaysNotes, IsVoice, StoresVoices, Controllable, Generates, HasUid, IsInstrument, Resets, Ticks, IsStereoSampleVoice, Envelope}, control::F32ControlValue, midi::{HandlesMidi, MidiChannel}, BipolarNormal, Sample, SampleType, StereoSample};
+use groove_core::{
+    control::F32ControlValue,
+    midi::{HandlesMidi, MidiChannel},
+    traits::{
+        Controllable, Envelope, Generates, HasUid, IsInstrument, IsStereoSampleVoice, IsVoice,
+        PlaysNotes, Resets, StoresVoices, Ticks,
+    },
+    BipolarNormal, Sample, SampleType, StereoSample,
+};
 use groove_macros::{Control, Uid};
 use midly::{num::u7, MidiMessage};
 use std::{

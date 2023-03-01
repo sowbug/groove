@@ -5,7 +5,7 @@ use crate::{
     settings::patches::EnvelopeSettings,
 };
 use groove_core::{
-    traits::{Generates, Resets, Ticks, Envelope},
+    traits::{Envelope, Generates, Resets, Ticks},
     Normal, SignalType,
 };
 use more_asserts::{debug_assert_ge, debug_assert_le};
