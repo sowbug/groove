@@ -5,7 +5,6 @@ use super::{
     Synthesizer,
 };
 use crate::{
-    common::{BipolarNormal, Normal},
     controllers::F32ControlValue,
     effects::{BiQuadFilter, FilterParams},
     instruments::HandlesMidi,
@@ -18,7 +17,7 @@ use crate::{
     utils::Paths,
 };
 use convert_case::{Boundary, Case, Casing};
-use groove_core::{Sample, StereoSample};
+use groove_core::{BipolarNormal, Normal, Sample, StereoSample};
 use groove_macros::{Control, Uid};
 use num_traits::FromPrimitive;
 use std::str::FromStr;

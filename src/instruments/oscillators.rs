@@ -1,9 +1,9 @@
-use crate::instruments::F32ControlValue;
 use crate::{
-    common::{BipolarNormal, SignalType},
+    instruments::F32ControlValue,
     settings::patches::{LfoPreset, OscillatorSettings, WaveformType},
     traits::{Controllable, Generates, Resets, Ticks},
 };
+use groove_core::{BipolarNormal, SignalType};
 use groove_macros::Control;
 use more_asserts::debug_assert_lt;
 use std::f64::consts::PI;

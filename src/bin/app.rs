@@ -4,7 +4,6 @@ mod gui;
 
 use groove::{
     app_version,
-    common::Normal,
     controllers::{
         Arpeggiator, BeatSequencer, ControlTrip, F32ControlValue, LfoController, MidiTickSequencer,
         Note, Pattern, PatternManager, PatternMessage, SignalPassthroughController, TestController,
@@ -23,7 +22,7 @@ use groove::{
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
     Clock, Entity, HasUid, Orchestrator,
 };
-use groove_core::Sample;
+use groove_core::{Normal, Sample};
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
     play_icon, skip_to_prev_icon, stop_icon, GuiStuff,

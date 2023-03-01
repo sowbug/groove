@@ -948,7 +948,7 @@ pub mod tests {
     use super::Orchestrator;
     use crate::{
         clock::Clock,
-        common::{Normal, DEFAULT_BPM, DEFAULT_SAMPLE_RATE, DEFAULT_TIME_SIGNATURE},
+        common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE, DEFAULT_TIME_SIGNATURE},
         controllers::Timer,
         effects::gain::Gain,
         entities::Entity,
@@ -956,7 +956,7 @@ pub mod tests {
         midi::MidiChannel,
         settings::ClockSettings,
     };
-    use groove_core::StereoSample;
+    use groove_core::{Normal, StereoSample};
     use midly::MidiMessage;
 
     impl Orchestrator {

@@ -1,10 +1,10 @@
 use super::{patches::WaveformType, ClockSettings, DeviceId, MidiChannel};
 use crate::{
     clock::BeatValue,
-    common::SignalType,
     controllers::{Arpeggiator, LfoController, SignalPassthroughController, TestController},
     entities::Entity,
 };
+use groove_core::SignalType;
 use serde::{Deserialize, Serialize};
 
 /// A ControlTrip contains successive ControlSteps. A ControlStep describes how

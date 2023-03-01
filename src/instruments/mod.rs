@@ -1,5 +1,4 @@
 pub use drumkit_sampler::DrumkitSampler;
-use groove_core::{Sample, SampleType, StereoSample};
 pub use sampler::Sampler;
 pub use welsh::WelshSynth;
 
@@ -13,19 +12,23 @@ use self::{
     envelopes::{Envelope, EnvelopeGenerator},
     oscillators::Oscillator,
 };
-use crate::controllers::F32ControlValue;
 use crate::{
     clock::ClockTimeUnit,
-    common::BipolarNormal,
+    controllers::F32ControlValue,
     midi::{MidiChannel, MidiUtils},
     settings::patches::{EnvelopeSettings, WaveformType},
     traits::{Controllable, Generates, HandlesMidi, HasUid, IsInstrument, Resets, Ticks},
 };
 use anyhow::{anyhow, Result};
+use groove_core::{BipolarNormal, Sample, SampleType, StereoSample};
 use groove_macros::{Control, Uid};
 use midly::{num::u7, MidiMessage};
-use std::{collections::HashMap, fmt::Debug};
-use std::{collections::VecDeque, marker::PhantomData, str::FromStr};
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt::Debug,
+    marker::PhantomData,
+    str::FromStr,
+};
 use strum_macros::{Display, EnumString, FromRepr};
 
 /// As an experiment, we're going to define PlaysNotes as a different interface
@@ -1331,12 +1334,12 @@ impl AudioSource {
 mod tests {
     use super::{IsStereoSampleVoice, SimpleVoice};
     use crate::{
-        common::{BipolarNormal, DEFAULT_SAMPLE_RATE},
+        common::DEFAULT_SAMPLE_RATE,
         instruments::{Dca, PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
         traits::Ticks,
     };
     use float_cmp::approx_eq;
-    use groove_core::{Sample, StereoSample};
+    use groove_core::{BipolarNormal, Sample, StereoSample};
     use midly::num::u7;
 
     impl SimpleVoice {

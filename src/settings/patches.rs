@@ -1,6 +1,5 @@
+use groove_core::Normal;
 use serde::{Deserialize, Serialize};
-
-use crate::common::Normal;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]

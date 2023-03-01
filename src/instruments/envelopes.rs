@@ -1,10 +1,11 @@
 use super::oscillators::KahanSummation;
 use crate::{
     clock::{Clock, ClockTimeUnit},
-    common::{Normal, SignalType, TimeUnit},
+    common::TimeUnit,
     settings::patches::EnvelopeSettings,
     traits::{Generates, Resets, Ticks},
 };
+use groove_core::{Normal, SignalType};
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
 use std::{fmt::Debug, ops::Range};
