@@ -44,6 +44,12 @@ spectrum-analyzer = "1.2.6"
 strum = "0.24.1"
 strum_macros = "0.24.2"
 
+[workspace]
+members = [
+    "core",
+    "macros",
+]
+
 [[bin]]
 name = "groove-cli"
 path = "src/bin/cli.rs"

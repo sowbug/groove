@@ -7,6 +7,28 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "Unit tests (core)",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--workspace",
+          "--",
+          "--show-output",
+          "--bin=groove",
+          "--package=groove-core",
+        ],
+        "filter": {
+          "name": "groove-core",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Unit tests",
       "cargo": {
         "args": [

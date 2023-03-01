@@ -65,7 +65,7 @@ jobs:
       - name: Build debug
         run: cargo build --target ${{ matrix.target }}
       - name: Build and test release
-        run: cargo test --release --target ${{ matrix.target }}
+        run: cargo test --workspace --release --target ${{ matrix.target }}
 
         # Upload build products
       - name: Upload test suite artifacts
