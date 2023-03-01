@@ -281,7 +281,10 @@ impl<const LOWER: i8, const UPPER: i8> From<f32> for RangedF64<LOWER, UPPER> {
     }
 }
 
+/// A Normal's range is [0.0, 1.0].
 pub type Normal = RangedF64<0, 1>;
+
+/// A BipolarNormal's range is [-1.0, 1.0].
 pub type BipolarNormal = RangedF64<-1, 1>;
 
 impl From<Sample> for Normal {
