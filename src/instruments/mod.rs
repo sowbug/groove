@@ -1,8 +1,8 @@
-pub use drumkit_sampler::DrumkitSampler;
+pub use drumkit::Drumkit;
 pub use sampler::Sampler;
 pub use welsh::WelshSynth;
 
-pub(crate) mod drumkit_sampler;
+pub(crate) mod drumkit;
 pub(crate) mod envelopes;
 pub(crate) mod oscillators;
 pub(crate) mod sampler;
@@ -203,17 +203,17 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
         match message {
             MidiMessage::NoteOff { key, vel } => {
                 if let Ok(voice) = self.voice_store.get_voice(key) {
-                    voice.enqueue_note_off(vel.as_int());
+                    voice.note_off(vel.as_int());
                 }
             }
             MidiMessage::NoteOn { key, vel } => {
                 if let Ok(voice) = self.voice_store.get_voice(key) {
-                    voice.enqueue_note_on(key.as_int(), vel.as_int());
+                    voice.note_on(key.as_int(), vel.as_int());
                 }
             }
             MidiMessage::Aftertouch { key, vel } => {
                 if let Ok(voice) = self.voice_store.get_voice(key) {
-                    voice.enqueue_aftertouch(vel.as_int());
+                    voice.aftertouch(vel.as_int());
                 }
             }
             #[allow(unused_variables)]
@@ -251,7 +251,7 @@ impl PlaysNotes for SimpleVoice {
         self.event_tracker.has_pending_events()
     }
 
-    fn enqueue_note_on(&mut self, key: u8, velocity: u8) {
+    fn note_on(&mut self, key: u8, velocity: u8) {
         if self.is_active() {
             self.event_tracker.enqueue_steal(key, velocity);
         } else {
@@ -259,11 +259,11 @@ impl PlaysNotes for SimpleVoice {
         }
     }
 
-    fn enqueue_aftertouch(&mut self, velocity: u8) {
+    fn aftertouch(&mut self, velocity: u8) {
         self.event_tracker.enqueue_aftertouch(velocity);
     }
 
-    fn enqueue_note_off(&mut self, velocity: u8) {
+    fn note_off(&mut self, velocity: u8) {
         self.event_tracker.enqueue_note_off(velocity);
     }
 
@@ -497,6 +497,18 @@ impl<V: IsStereoSampleVoice> SimpleVoiceStore<V> {
         self.voices.push(voice);
         self.notes_playing.push(u7::from(0));
     }
+
+    // When we need, make the voice count configurable.
+    pub(crate) fn new_with_voice<F>(sample_rate: usize, new_voice_fn: F) -> Self
+    where
+        F: Fn() -> V,
+    {
+        let mut voice_store = Self::new_with(sample_rate);
+        for _ in 0..4 {
+            voice_store.add_voice(Box::new(new_voice_fn()));
+        }
+        voice_store
+    }
 }
 
 /// A VoiceStore that steals voices to satisfy get_voice().
@@ -670,7 +682,7 @@ impl PlaysNotes for FmVoice {
         self.event_tracker.has_pending_events()
     }
 
-    fn enqueue_note_on(&mut self, key: u8, velocity: u8) {
+    fn note_on(&mut self, key: u8, velocity: u8) {
         if self.is_active() {
             self.event_tracker.enqueue_steal(key, velocity);
         } else {
@@ -678,11 +690,11 @@ impl PlaysNotes for FmVoice {
         }
     }
 
-    fn enqueue_aftertouch(&mut self, velocity: u8) {
+    fn aftertouch(&mut self, velocity: u8) {
         self.event_tracker.enqueue_aftertouch(velocity);
     }
 
-    fn enqueue_note_off(&mut self, velocity: u8) {
+    fn note_off(&mut self, velocity: u8) {
         self.event_tracker.enqueue_note_off(velocity);
     }
 
@@ -1324,12 +1336,12 @@ mod tests {
         // Request and start the maximum number of voices.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(!voice.is_playing());
-            voice.enqueue_note_on(60, 127);
+            voice.note_on(60, 127);
             voice.tick(1); // We must tick() register the trigger.
             assert!(voice.is_playing());
         }
         if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
-            voice.enqueue_note_on(61, 127);
+            voice.note_on(61, 127);
             voice.tick(1);
         }
 
@@ -1340,7 +1352,7 @@ mod tests {
         // Request to get back a voice that's already playing.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(voice.is_playing());
-            voice.enqueue_note_off(127);
+            voice.note_off(127);
 
             // All SimpleVoice envelope times are instantaneous, so we know the
             // release completes after asking for the next sample.
@@ -1364,13 +1376,13 @@ mod tests {
         // Request and start the full number of voices.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(!voice.is_playing());
-            voice.enqueue_note_on(60, 127);
+            voice.note_on(60, 127);
             voice.tick(1); // We must tick() register the trigger.
             assert!(voice.is_playing());
         }
         if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
             assert!(!voice.is_playing());
-            voice.enqueue_note_on(61, 127);
+            voice.note_on(61, 127);
             voice.tick(1);
         }
 
@@ -1381,7 +1393,7 @@ mod tests {
 
             // This is testing the shutdown state, rather than the voice store,
             // but I'm feeling lazy today.
-            voice.enqueue_note_on(62, 127);
+            voice.note_on(62, 127);
             voice.tick(1);
             assert!(voice.debug_is_shutting_down());
         } else {
@@ -1403,11 +1415,11 @@ mod tests {
 
         // Request multiple voices during the same tick.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
-            voice.enqueue_note_on(60, 127);
+            voice.note_on(60, 127);
             assert!(!voice.is_playing(), "New voice shouldn't be marked is_playing() until both attack() and the next source_audio() have completed");
         }
         if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
-            voice.enqueue_note_on(61, 127);
+            voice.note_on(61, 127);
             assert!(!voice.is_playing(), "New voice shouldn't be marked is_playing() until both attack() and the next source_audio() have completed");
         }
 
@@ -1456,7 +1468,7 @@ mod tests {
                 approx_eq!(f32, voice.oscillator.frequency(), 261.62555),
                 "we should have gotten back the same voice for the requested note"
             );
-            voice.enqueue_note_off(127);
+            voice.note_off(127);
         }
         voice_store.tick(1);
         if let Ok(voice) = voice_store.get_voice(&u7::from(62)) {

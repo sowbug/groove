@@ -164,16 +164,15 @@ pub trait Envelope: Generates<Normal> + Send + std::fmt::Debug + Ticks {
     fn is_idle(&self) -> bool;
 }
 
-/// As an experiment, we're going to define PlaysNotes as a different interface
-/// from HandlesMidi. This will give the HandlesMidi Synthesizer an opportunity
-/// to manage more about the note lifecycle, including concepts like glide
-/// (which I believe needs a higher-level definition of a "note" than just MIDI
-/// on/off)
+/// A [PlaysNotes] turns note events into sound. It seems to overlap with
+/// [HandlesMidi]; the reason it exists is to allow the two interfaces to evolve
+/// independently, because MIDI is unlikely to be perfect for all our needs.
 pub trait PlaysNotes {
     /// Whether the entity is currently making sound.
     fn is_playing(&self) -> bool;
 
     /// Whether the entity has been asked to enqueue anything.
+    #[deprecated]
     fn has_pending_events(&self) -> bool;
 
     /// Whether the entity has any work to do (either is_playing or
@@ -182,22 +181,19 @@ pub trait PlaysNotes {
         self.is_playing() || self.has_pending_events()
     }
 
-    /// Queues a note-on event, which will be handled at the next work cycle
-    /// (usually tick()). Depending on implementation, might initiate a steal
-    /// (tell envelope to go to shutdown state, then do note-on when that's
-    /// done).
-    fn enqueue_note_on(&mut self, key: u8, velocity: u8);
+    /// Initiates a note-on event. Depending on implementation, might initiate a
+    /// steal (tell envelope to go to shutdown state, then do note-on when
+    /// that's done).
+    fn note_on(&mut self, key: u8, velocity: u8);
 
-    /// Queues an aftertouch event.
-    fn enqueue_aftertouch(&mut self, velocity: u8);
+    /// Initiates an aftertouch event.
+    fn aftertouch(&mut self, velocity: u8);
 
-    /// Queues a note-off event, which can take a long time to complete,
+    /// Initiates a note-off event, which can take a long time to complete,
     /// depending on how long the envelope's release is.
-    fn enqueue_note_off(&mut self, velocity: u8);
+    fn note_off(&mut self, velocity: u8);
 
     /// Sets this entity's left-right balance.
-    ///
-    /// TODO: this doesn't seem to belong here... but maybe it should.
     fn set_pan(&mut self, value: f32);
 }
 

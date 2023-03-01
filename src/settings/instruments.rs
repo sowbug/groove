@@ -1,11 +1,7 @@
 use super::{patches::SynthPatch, MidiChannel};
 use crate::{
     entities::Entity,
-    instruments::{
-        drumkit_sampler,
-        welsh::{self},
-        FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument,
-    },
+    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument, WelshSynth},
 };
 use serde::{Deserialize, Serialize};
 
@@ -94,7 +90,7 @@ impl InstrumentSettings {
                 preset_name,
             } => (
                 *midi_input_channel,
-                Entity::WelshSynth(Box::new(welsh::WelshSynth::new_with(
+                Entity::WelshSynth(Box::new(WelshSynth::new_with(
                     sample_rate,
                     SynthPatch::by_name(preset_name),
                 ))),
@@ -104,16 +100,14 @@ impl InstrumentSettings {
                 preset_name: _preset,
             } => (
                 *midi_input_channel,
-                Entity::DrumkitSampler(Box::new(drumkit_sampler::DrumkitSampler::new_from_files(
-                    sample_rate,
-                ))),
+                Entity::Drumkit(Box::new(Drumkit::new_from_files(sample_rate))),
             ),
             InstrumentSettings::Sampler {
                 midi_input_channel,
                 filename,
             } => (
                 *midi_input_channel,
-                Entity::Sampler(Box::new(Sampler::new_from_file(filename))),
+                Entity::Sampler(Box::new(Sampler::new_with_filename(sample_rate, filename))),
             ),
             InstrumentSettings::FmSynthesizer {
                 midi_input_channel,

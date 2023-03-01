@@ -14,8 +14,8 @@ use groove::{
     },
     engine::{GrooveEvent, GrooveInput, GrooveSubscription},
     instruments::{
-        AudioSource, DrumkitSampler, FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument,
-        TestSynth, WelshSynth,
+        AudioSource, Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument, TestSynth,
+        WelshSynth,
     },
     messages::{EntityMessage, GrooveMessage},
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
@@ -508,7 +508,7 @@ impl GrooveApp {
             Entity::Compressor(e) => self.compressor_view(e),
             Entity::ControlTrip(e) => self.control_trip_view(e),
             Entity::Delay(e) => self.delay_view(e),
-            Entity::DrumkitSampler(e) => self.drumkit_sampler_view(e),
+            Entity::Drumkit(e) => self.drumkit_view(e),
             Entity::FmSynthesizer(e) => self.fm_synthesizer_view(e),
             Entity::Gain(e) => self.gain_view(e),
             Entity::LfoController(e) => self.lfo_view(e),
@@ -546,8 +546,8 @@ impl GrooveApp {
         )
     }
 
-    fn drumkit_sampler_view(&self, e: &DrumkitSampler) -> Element<EntityMessage> {
-        let title = type_name::<DrumkitSampler>();
+    fn drumkit_view(&self, e: &Drumkit) -> Element<EntityMessage> {
+        let title = type_name::<Drumkit>();
         let contents = format!("kit name: {}", e.kit_name());
         GuiStuff::titled_container(
             title,

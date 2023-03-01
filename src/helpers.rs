@@ -1,7 +1,7 @@
 use crate::{
     controllers::{sequencers::MidiTickSequencer, Performance},
     entities::Entity,
-    instruments::{drumkit_sampler::DrumkitSampler, welsh::WelshSynth},
+    instruments::{drumkit::Drumkit, welsh::WelshSynth},
     midi::programmers::MidiSmfReader,
     settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
     Orchestrator,
@@ -244,7 +244,7 @@ impl IOHelper {
             let synth_uid = orchestrator.add(
                 None,
                 if channel == 9 {
-                    Entity::DrumkitSampler(Box::new(DrumkitSampler::new_from_files(
+                    Entity::Drumkit(Box::new(Drumkit::new_from_files(
                         orchestrator.clock_settings().sample_rate(),
                     )))
                 } else {

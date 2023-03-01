@@ -445,17 +445,17 @@ impl PlaysNotes for WelshVoice {
     fn has_pending_events(&self) -> bool {
         self.event_tracker.has_pending_events()
     }
-    fn enqueue_note_on(&mut self, key: u8, velocity: u8) {
+    fn note_on(&mut self, key: u8, velocity: u8) {
         if self.is_active() {
             self.event_tracker.enqueue_steal(key, velocity);
         } else {
             self.event_tracker.enqueue_note_on(key, velocity);
         }
     }
-    fn enqueue_aftertouch(&mut self, velocity: u8) {
+    fn aftertouch(&mut self, velocity: u8) {
         self.event_tracker.enqueue_aftertouch(velocity);
     }
-    fn enqueue_note_off(&mut self, velocity: u8) {
+    fn note_off(&mut self, velocity: u8) {
         self.event_tracker.enqueue_note_off(velocity);
     }
     fn set_pan(&mut self, value: f32) {
@@ -835,13 +835,13 @@ mod tests {
         while clock.seconds() < duration {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
-                voice.enqueue_note_on(60, 127);
+                voice.note_on(60, 127);
                 voice.handle_pending_note_events();
                 voice.tick_envelopes();
             } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
             {
                 last_recognized_time_point = clock.seconds();
-                voice.enqueue_note_off(127);
+                voice.note_off(127);
                 voice.handle_pending_note_events();
                 voice.tick_envelopes();
             }
@@ -917,7 +917,7 @@ mod tests {
         while clock.seconds() < duration {
             if when <= clock.seconds() && !is_message_sent {
                 is_message_sent = true;
-                source.enqueue_note_off(0);
+                source.note_off(0);
                 source.handle_pending_note_events();
                 source.tick_envelopes();
             }
@@ -1026,7 +1026,7 @@ mod tests {
     #[test]
     fn welsh_makes_any_sound_at_all() {
         let mut voice = WelshVoice::new_with(DEFAULT_SAMPLE_RATE, &test_patch());
-        voice.enqueue_note_on(60, 127);
+        voice.note_on(60, 127);
 
         assert!(
             is_voice_makes_any_sound_at_all(&mut voice),
@@ -1038,7 +1038,7 @@ mod tests {
     fn test_basic_synth_patch() {
         let mut clock = Clock::default();
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &test_patch());
-        voice.enqueue_note_on(60, 127);
+        voice.note_on(60, 127);
         voice.handle_pending_note_events();
         voice.tick_envelopes();
         write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
@@ -1048,7 +1048,7 @@ mod tests {
     fn test_basic_cello_patch() {
         let mut clock = Clock::default();
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &cello_patch());
-        voice.enqueue_note_on(60, 127);
+        voice.note_on(60, 127);
         voice.handle_pending_note_events();
         voice.tick_envelopes();
         write_sound(&mut voice, &mut clock, 5.0, 3.0, "voice_cello_c4");

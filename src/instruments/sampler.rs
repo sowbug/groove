@@ -1,33 +1,66 @@
+use super::{SimpleVoiceStore, Synthesizer};
 use groove_core::{
     control::F32ControlValue,
     midi::{HandlesMidi, MidiChannel, MidiMessage},
-    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
-    Sample, SampleType, StereoSample,
+    traits::{
+        Controllable, Generates, HasUid, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
+        Resets, Ticks,
+    },
+    ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use hound::WavReader;
-use std::{fs::File, io::BufReader, str::FromStr};
+use std::{fs::File, io::BufReader, str::FromStr, sync::Arc};
 use strum_macros::{Display, EnumString, FromRepr};
 
-#[derive(Control, Debug, Uid)]
-#[allow(dead_code)]
-pub struct Sampler {
-    uid: usize,
-    samples: Vec<StereoSample>,
-    sample: StereoSample,
-    ticks: usize,
-    is_reset_pending: bool,
-    sample_clock_start: usize,
-    sample_pointer: usize,
-    is_playing: bool,
-    root_frequency: f32, // TODO: make not dead
+#[derive(Debug)]
+pub(crate) struct SamplerVoice {
+    sample_rate: usize,
+    samples: Arc<Vec<StereoSample>>,
 
-    filename: String,
+    #[allow(dead_code)]
+    root_frequency: ParameterType,
+
+    was_reset: bool,
+    is_playing: bool,
+    sample_pointer: usize,
 }
-impl IsInstrument for Sampler {}
-impl Generates<StereoSample> for Sampler {
+impl IsVoice<StereoSample> for SamplerVoice {}
+impl IsStereoSampleVoice for SamplerVoice {}
+impl PlaysNotes for SamplerVoice {
+    fn is_playing(&self) -> bool {
+        self.is_playing
+    }
+
+    fn has_pending_events(&self) -> bool {
+        false
+    }
+
+    #[allow(unused_variables)]
+    fn note_on(&mut self, key: u8, velocity: u8) {
+        self.is_playing = true;
+        self.sample_pointer = 0;
+    }
+
+    #[allow(unused_variables)]
+    fn aftertouch(&mut self, velocity: u8) {
+        todo!()
+    }
+
+    #[allow(unused_variables)]
+    fn note_off(&mut self, velocity: u8) {
+        self.is_playing = false;
+        self.sample_pointer = 0;
+    }
+
+    #[allow(unused_variables)]
+    fn set_pan(&mut self, value: f32) {
+        todo!()
+    }
+}
+impl Generates<StereoSample> for SamplerVoice {
     fn value(&self) -> StereoSample {
-        self.sample
+        self.samples[self.sample_pointer]
     }
 
     #[allow(unused_variables)]
@@ -35,69 +68,101 @@ impl Generates<StereoSample> for Sampler {
         todo!()
     }
 }
-impl Resets for Sampler {
-    fn reset(&mut self, _sample_rate: usize) {
-        self.is_reset_pending = true;
-    }
-}
-impl Ticks for Sampler {
+impl Ticks for SamplerVoice {
     fn tick(&mut self, tick_count: usize) {
         for _ in 0..tick_count {
-            if self.is_reset_pending {
-                self.ticks = 0;
-                self.sample_clock_start = 0;
-            } else {
-                self.ticks += 1;
+            if self.is_playing {
+                if !self.was_reset {
+                    self.sample_pointer += 1;
+                }
+                if self.sample_pointer >= self.samples.len() {
+                    self.is_playing = false;
+                    self.sample_pointer = 0;
+                }
             }
-
-            self.sample_pointer = self.ticks - self.sample_clock_start;
-            if self.sample_pointer >= self.samples.len() {
-                self.is_playing = false;
-                self.sample_pointer = 0;
+            if self.was_reset {
+                self.was_reset = false;
             }
-
-            self.sample = if self.is_playing {
-                *self
-                    .samples
-                    .get(self.sample_pointer)
-                    .unwrap_or(&StereoSample::SILENCE)
-            } else {
-                StereoSample::SILENCE
-            };
         }
     }
 }
+impl Resets for SamplerVoice {
+    fn reset(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
+        self.was_reset = true;
+    }
+}
+impl SamplerVoice {
+    pub fn new_with_samples(sample_rate: usize, samples: Arc<Vec<StereoSample>>) -> Self {
+        Self {
+            sample_rate,
+            samples,
+            root_frequency: Default::default(),
+            was_reset: true,
+            is_playing: Default::default(),
+            sample_pointer: Default::default(),
+        }
+    }
+}
+
+#[derive(Control, Debug, Uid)]
+pub struct Sampler {
+    uid: usize,
+    inner_synth: Synthesizer<SamplerVoice>,
+}
+impl IsInstrument for Sampler {}
 impl HandlesMidi for Sampler {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        #[allow(unused_variables)]
-        match message {
-            MidiMessage::NoteOff { key, vel } => {
-                self.is_playing = false;
-            }
-            MidiMessage::NoteOn { key, vel } => {
-                self.is_playing = true;
+        self.inner_synth.handle_midi_message(message)
+    }
+}
+impl Generates<StereoSample> for Sampler {
+    fn value(&self) -> StereoSample {
+        self.inner_synth.value()
+    }
 
-                // Slight hack to tell ourselves to record the sample start time
-                // on next source_audio().
-                //
-                // TODO: I'm not sure this is safe, because it's a broad concept
-                // used very specifically here. Keep an eye on it.
-                self.is_reset_pending = true;
-            }
-            _ => {}
-        }
-        None
+    #[allow(dead_code, unused_variables)]
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        self.inner_synth.batch_values(values);
+    }
+}
+impl Ticks for Sampler {
+    fn tick(&mut self, tick_count: usize) {
+        self.inner_synth.tick(tick_count)
+    }
+}
+impl Resets for Sampler {
+    fn reset(&mut self, sample_rate: usize) {
+        self.inner_synth.reset(sample_rate)
     }
 }
 impl Sampler {
+    pub fn new_with_filename(sample_rate: usize, filename: &str) -> Self {
+        if let Ok(samples) = Self::read_samples_from_file(filename) {
+            let samples = Arc::new(samples);
+            Self {
+                uid: Default::default(),
+                inner_synth: Synthesizer::<SamplerVoice>::new_with(
+                    sample_rate,
+                    Box::new(SimpleVoiceStore::<SamplerVoice>::new_with_voice(
+                        sample_rate,
+                        || SamplerVoice::new_with_samples(sample_rate, Arc::clone(&samples)),
+                    )),
+                ),
+            }
+        } else {
+            panic!("Couldn't load sample {}", filename);
+        }
+    }
+
     fn read_samples<T>(
         reader: &mut WavReader<BufReader<File>>,
         channels: u16,
         scale_factor: SampleType,
-    ) -> Vec<StereoSample>
+    ) -> anyhow::Result<Vec<StereoSample>>
     where
         Sample: From<T>,
         T: hound::Sample,
@@ -126,10 +191,11 @@ impl Sampler {
                 }
             }
         }
-        samples
+        Ok(samples)
     }
-    pub fn read_samples_from_file(filename: &str) -> Vec<StereoSample> {
-        let mut reader = hound::WavReader::open(filename).unwrap();
+
+    pub fn read_samples_from_file(filename: &str) -> anyhow::Result<Vec<StereoSample>> {
+        let mut reader = hound::WavReader::open(filename)?;
         let spec = reader.spec();
         let itype_max: SampleType = 2.0f64.powi(spec.bits_per_sample as i32 - 1);
 
@@ -142,37 +208,35 @@ impl Sampler {
             }
         }
     }
-
-    pub fn new_from_file(filename: &str) -> Self {
-        let samples = Self::read_samples_from_file(filename);
-        Self {
-            uid: Default::default(),
-            samples,
-            sample: Default::default(),
-            ticks: Default::default(),
-            is_reset_pending: Default::default(),
-            sample_clock_start: Default::default(),
-            sample_pointer: Default::default(),
-            is_playing: Default::default(),
-            root_frequency: Default::default(),
-            filename: String::from(filename),
-        }
-    }
-
-    pub fn filename(&self) -> &str {
-        self.filename.as_ref()
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::Paths;
+    use crate::{
+        common::DEFAULT_SAMPLE_RATE, instruments::tests::is_voice_makes_any_sound_at_all,
+        utils::Paths,
+    };
 
     #[test]
     fn test_loading() {
         let mut filename = Paths::test_data_path();
         filename.push("632256__cloud-10__kygo-style-pluck-2.wav");
-        let _ = Sampler::new_from_file(filename.to_str().unwrap());
+        let _ = Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap());
+    }
+
+    #[test]
+    fn sampler_makes_any_sound_at_all() {
+        let samples =
+            Sampler::read_samples_from_file("test-data/square-440Hz-1-second-mono-24-bit-PCM.wav");
+        assert!(samples.is_ok());
+        let samples = samples.unwrap();
+        let mut voice = SamplerVoice::new_with_samples(DEFAULT_SAMPLE_RATE, Arc::new(samples));
+        voice.note_on(1, 127);
+
+        assert!(
+            is_voice_makes_any_sound_at_all(&mut voice),
+            "once triggered, SamplerVoice should make a sound"
+        );
     }
 }

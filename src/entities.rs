@@ -11,8 +11,8 @@ use crate::{
         TestEffect,
     },
     instruments::{
-        drumkit_sampler::DrumkitSampler, sampler::Sampler, welsh::WelshSynth, AudioSource,
-        FmSynthesizer, SimpleSynthesizer, TestInstrument, TestSynth,
+        drumkit::Drumkit, sampler::Sampler, welsh::WelshSynth, AudioSource, FmSynthesizer,
+        SimpleSynthesizer, TestInstrument, TestSynth,
     },
     messages::EntityMessage,
 };
@@ -71,7 +71,7 @@ boxed_entity_enum_and_common_crackers! {
 
     // Instruments
     AudioSource: AudioSource,
-    DrumkitSampler: DrumkitSampler,
+    Drumkit: Drumkit,
     FmSynthesizer: FmSynthesizer,
     Sampler: Sampler,
     SimpleSynthesizer: SimpleSynthesizer,
@@ -198,7 +198,7 @@ macro_rules! instrument_crackers {
 }
 instrument_crackers! {
     AudioSource,
-    DrumkitSampler,
+    Drumkit,
     FmSynthesizer,
     Sampler,
     SimpleSynthesizer,
@@ -231,7 +231,7 @@ handles_midi_crackers! {
     AudioSource,
     BeatSequencer,
     ControlTrip,
-    DrumkitSampler,
+    Drumkit,
     FmSynthesizer,
     LfoController,
     MidiTickSequencer,
