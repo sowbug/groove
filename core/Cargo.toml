@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.12"
+float-cmp = "0.9.0"
 midly = "0.5.3"
