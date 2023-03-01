@@ -500,93 +500,27 @@ impl GrooveApp {
 
     fn entity_view(&self, entity: &Entity) -> Element<EntityMessage> {
         match entity {
-            Entity::Arpeggiator(_) => {
-                let title = type_name::<Arpeggiator>();
-                let contents = "Hello!";
-                GuiStuff::titled_container(
-                    title,
-                    GuiStuff::<EntityMessage>::container_text(contents).into(),
-                )
-            }
+            Entity::Arpeggiator(e) => self.arpeggiator_view(e),
             Entity::AudioSource(e) => self.audio_source_view(e),
             Entity::BeatSequencer(e) => self.beat_sequencer_view(e),
             Entity::BiQuadFilter(e) => self.biquad_filter_view(e),
             Entity::Bitcrusher(e) => self.bitcrusher_view(e),
-            Entity::Chorus(e) => GuiStuff::titled_container(
-                type_name::<Chorus>(),
-                GuiStuff::<EntityMessage>::container_text(
-                    format!("Coming soon: {}", e.uid()).as_str(),
-                )
-                .into(),
-            ),
+            Entity::Chorus(e) => self.chorus_view(e),
             Entity::Compressor(e) => self.compressor_view(e),
-            Entity::ControlTrip(e) => GuiStuff::titled_container(
-                type_name::<ControlTrip>(),
-                GuiStuff::<EntityMessage>::container_text(
-                    format!("Coming soon: {}", e.uid()).as_str(),
-                )
-                .into(),
-            ),
-            Entity::Delay(e) => {
-                let title = type_name::<Delay>();
-                let contents = format!("delay in seconds: {}", e.seconds());
-                GuiStuff::titled_container(
-                    title,
-                    GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-                )
-            }
-            Entity::DrumkitSampler(e) => {
-                let title = type_name::<DrumkitSampler>();
-                let contents = format!("kit name: {}", e.kit_name());
-                GuiStuff::titled_container(
-                    title,
-                    GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-                )
-            }
+            Entity::ControlTrip(e) => self.control_trip_view(e),
+            Entity::Delay(e) => self.delay_view(e),
+            Entity::DrumkitSampler(e) => self.drumkit_sampler_view(e),
             Entity::FmSynthesizer(e) => self.fm_synthesizer_view(e),
             Entity::Gain(e) => self.gain_view(e),
             Entity::LfoController(e) => self.lfo_view(e),
-            Entity::Limiter(e) => {
-                let title = type_name::<Limiter>();
-                let contents = format!("min: {} max: {}", e.min(), e.max());
-                GuiStuff::titled_container(
-                    title,
-                    GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-                )
-            }
-            Entity::MidiTickSequencer(e) => GuiStuff::titled_container(
-                type_name::<MidiTickSequencer>(),
-                GuiStuff::<EntityMessage>::container_text(
-                    format!("Coming soon: {}", e.uid()).as_str(),
-                )
-                .into(),
-            ),
+            Entity::Limiter(e) => self.limiter_view(e),
+            Entity::MidiTickSequencer(e) => self.midi_tick_sequencer_view(e),
             Entity::Mixer(e) => self.mixer_view(e),
             Entity::PatternManager(e) => self.pattern_manager_view(e),
-            Entity::Reverb(e) => GuiStuff::titled_container(
-                type_name::<Reverb>(),
-                GuiStuff::<EntityMessage>::container_text(
-                    format!("Coming soon: {}", e.uid()).as_str(),
-                )
-                .into(),
-            ),
-            Entity::Sampler(e) => {
-                let title = type_name::<Sampler>();
-                let contents = format!("name: {}", e.filename());
-                GuiStuff::titled_container(
-                    title,
-                    GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-                )
-            }
+            Entity::Reverb(e) => self.reverb_view(e),
+            Entity::Sampler(e) => self.sampler_view(e),
             Entity::SignalPassthroughController(e) => self.signal_controller_view(e),
-            Entity::SimpleSynthesizer(e) => {
-                let title = type_name::<SimpleSynthesizer>();
-                let contents = format!("notes playing: {}", e.notes_playing());
-                GuiStuff::titled_container(
-                    title,
-                    GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-                )
-            }
+            Entity::SimpleSynthesizer(e) => self.simple_synthesizer_view(e),
             Entity::TestController(e) => self.test_controller_view(e),
             Entity::TestEffect(e) => self.test_effect_view(e),
             Entity::TestInstrument(e) => self.test_instrument_view(e),
@@ -594,6 +528,92 @@ impl GrooveApp {
             Entity::Timer(e) => self.timer_view(e),
             Entity::WelshSynth(e) => self.welsh_synth_view(e),
         }
+    }
+
+    fn midi_tick_sequencer_view(&self, e: &MidiTickSequencer) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            type_name::<MidiTickSequencer>(),
+            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
+                .into(),
+        )
+    }
+
+    fn limiter_view(&self, e: &Limiter) -> Element<EntityMessage> {
+        let title = type_name::<Limiter>();
+        let contents = format!("min: {} max: {}", e.min(), e.max());
+        GuiStuff::titled_container(
+            title,
+            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+        )
+    }
+
+    fn drumkit_sampler_view(&self, e: &DrumkitSampler) -> Element<EntityMessage> {
+        let title = type_name::<DrumkitSampler>();
+        let contents = format!("kit name: {}", e.kit_name());
+        GuiStuff::titled_container(
+            title,
+            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+        )
+    }
+
+    fn delay_view(&self, e: &Delay) -> Element<EntityMessage> {
+        let title = type_name::<Delay>();
+        let contents = format!("delay in seconds: {}", e.seconds());
+        GuiStuff::titled_container(
+            title,
+            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+        )
+    }
+
+    fn chorus_view(&self, e: &Chorus) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            type_name::<Chorus>(),
+            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
+                .into(),
+        )
+    }
+
+    fn control_trip_view(&self, e: &ControlTrip) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            type_name::<ControlTrip>(),
+            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
+                .into(),
+        )
+    }
+
+    fn arpeggiator_view(&self, e: &Arpeggiator) -> Element<EntityMessage> {
+        let title = type_name::<Arpeggiator>();
+        let contents = format!("Coming soon: {}", e.uid());
+        GuiStuff::titled_container(
+            title,
+            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+        )
+    }
+
+    fn reverb_view(&self, e: &Reverb) -> Element<EntityMessage> {
+        GuiStuff::titled_container(
+            type_name::<Reverb>(),
+            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
+                .into(),
+        )
+    }
+
+    fn sampler_view(&self, e: &Sampler) -> Element<EntityMessage> {
+        let title = type_name::<Sampler>();
+        let contents = format!("Coming soon: {}", e.uid());
+        GuiStuff::titled_container(
+            title,
+            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+        )
+    }
+
+    fn simple_synthesizer_view(&self, e: &SimpleSynthesizer) -> Element<EntityMessage> {
+        let title = type_name::<SimpleSynthesizer>();
+        let contents = format!("notes playing: {}", e.notes_playing());
+        GuiStuff::titled_container(
+            title,
+            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
+        )
     }
 
     fn welsh_synth_view(&self, e: &WelshSynth) -> Element<EntityMessage> {
