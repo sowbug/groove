@@ -1285,6 +1285,7 @@ mod tests {
     use crate::{
         common::DEFAULT_SAMPLE_RATE,
         instruments::{Dca, PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
+        midi::MidiUtils,
     };
     use float_cmp::approx_eq;
     use groove_core::{traits::Ticks, BipolarNormal, ParameterType, Sample, StereoSample};
@@ -1440,14 +1441,22 @@ mod tests {
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(voice.is_playing());
             assert!(
-                approx_eq!(ParameterType, voice.oscillator.frequency(), 261.62555),
+                approx_eq!(
+                    ParameterType,
+                    voice.oscillator.frequency(),
+                    MidiUtils::note_to_frequency(60)
+                ),
                 "we should have gotten back the same voice for the requested note"
             );
         }
         if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
             assert!(voice.is_playing());
             assert!(
-                approx_eq!(ParameterType, voice.oscillator.frequency(), 277.18265),
+                approx_eq!(
+                    ParameterType,
+                    voice.oscillator.frequency(),
+                    MidiUtils::note_to_frequency(61)
+                ),
                 "we should have gotten back the same voice for the requested note"
             );
         }
@@ -1466,7 +1475,11 @@ mod tests {
         // release() during the same tick.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             assert!(
-                approx_eq!(ParameterType, voice.oscillator.frequency(), 261.62555),
+                approx_eq!(
+                    ParameterType,
+                    voice.oscillator.frequency(),
+                    MidiUtils::note_to_frequency(60)
+                ),
                 "we should have gotten back the same voice for the requested note"
             );
             voice.note_off(127);
@@ -1480,7 +1493,11 @@ mod tests {
             // instantiating new ones. (2) is very likely to remain true for all
             // voice stores, but it's a little loosey-goosey right now.
             assert!(
-                approx_eq!(ParameterType, voice.oscillator.frequency(), 261.62555),
+                approx_eq!(
+                    ParameterType,
+                    voice.oscillator.frequency(),
+                    MidiUtils::note_to_frequency(60) // 60, not 62!!
+                ),
                 "we should have gotten the defunct voice for a new note"
             );
         } else {

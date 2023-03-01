@@ -715,7 +715,13 @@ pub mod tests {
     #[test]
     fn test_note_to_frequency() {
         assert_approx_eq!(MidiUtils::note_type_to_frequency(MidiNote::C0), 16.351_597);
-        assert_approx_eq!(MidiUtils::note_type_to_frequency(MidiNote::C4), 261.625_55);
-        assert_approx_eq!(MidiUtils::note_type_to_frequency(MidiNote::G9), 12_543.855);
+        assert_approx_eq!(
+            MidiUtils::note_type_to_frequency(MidiNote::C4),
+            261.625_565_300_598_6
+        );
+        assert_approx_eq!(
+            MidiUtils::note_type_to_frequency(MidiNote::G9),
+            12_543.853_951_415_975
+        );
     }
 }

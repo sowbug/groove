@@ -241,7 +241,7 @@ mod tests {
     #[test]
     fn test_loading() {
         let mut filename = Paths::test_data_path();
-        filename.push("632256__cloud-10__kygo-style-pluck-2.wav");
+        filename.push("stereo-pluck.wav");
         let _ = Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap());
     }
 
