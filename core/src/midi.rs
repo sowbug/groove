@@ -102,6 +102,7 @@ mod tests {
 
     #[test]
     fn note_to_frequency() {
+        // https://www.colincrawley.com/midi-note-to-audio-frequency-calculator/
         assert_eq!(note_type_to_frequency(MidiNote::C0), 16.351_597_831_287_414);
         assert_eq!(note_type_to_frequency(MidiNote::C4), 261.625_565_300_598_6);
         assert_eq!(note_type_to_frequency(MidiNote::D5), 587.329_535_834_815_1);

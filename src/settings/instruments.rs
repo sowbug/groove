@@ -3,7 +3,7 @@ use crate::{
     entities::Entity,
     instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument, WelshSynth},
 };
-use groove_core::midi::{note_description_to_frequency, note_to_frequency};
+use groove_core::midi::note_description_to_frequency;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -111,14 +111,23 @@ impl InstrumentSettings {
                 midi_input_channel,
                 filename,
                 root,
-            } => (
-                *midi_input_channel,
-                Entity::Sampler(Box::new(Sampler::new_with_filename(
-                    sample_rate,
-                    filename,
-                    note_description_to_frequency(root.to_string(), note_to_frequency(69)),
-                ))),
-            ),
+            } => {
+                // TODO: where should this logic live?
+                let root_frequency = note_description_to_frequency(root.to_string(), 0.0);
+                let root_frequency = if root_frequency > 0.0 {
+                    Some(root_frequency)
+                } else {
+                    None
+                };
+                (
+                    *midi_input_channel,
+                    Entity::Sampler(Box::new(Sampler::new_with_filename(
+                        sample_rate,
+                        filename,
+                        root_frequency,
+                    ))),
+                )
+            }
             InstrumentSettings::FmSynthesizer {
                 midi_input_channel,
                 preset_name: preset,

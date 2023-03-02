@@ -1,4 +1,5 @@
 use super::{SimpleVoiceStore, Synthesizer};
+use anyhow::{anyhow, Result};
 use groove_core::{
     control::F32ControlValue,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
@@ -10,7 +11,12 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 use hound::WavReader;
-use std::{fs::File, io::BufReader, str::FromStr, sync::Arc};
+use std::{
+    fs::File,
+    io::{BufReader, Read, Seek, SeekFrom},
+    str::FromStr,
+    sync::Arc,
+};
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Debug)]
@@ -121,6 +127,8 @@ impl SamplerVoice {
 pub struct Sampler {
     uid: usize,
     inner_synth: Synthesizer<SamplerVoice>,
+
+    root_frequency: ParameterType,
 }
 impl IsInstrument for Sampler {}
 impl HandlesMidi for Sampler {
@@ -155,10 +163,19 @@ impl Sampler {
     pub fn new_with_filename(
         sample_rate: usize,
         filename: &str,
-        root_frequency: ParameterType,
+        root_frequency: Option<ParameterType>,
     ) -> Self {
         if let Ok(samples) = Self::read_samples_from_file(filename) {
             let samples = Arc::new(samples);
+
+            let root_frequency = if root_frequency.is_some() {
+                root_frequency.unwrap()
+            } else if let Ok(root_frequency) = Self::read_riff_metadata(filename) {
+                note_to_frequency(root_frequency)
+            } else {
+                440.0
+            };
+
             Self {
                 uid: Default::default(),
                 inner_synth: Synthesizer::<SamplerVoice>::new_with(
@@ -174,10 +191,71 @@ impl Sampler {
                         },
                     )),
                 ),
+                root_frequency,
             }
         } else {
             panic!("Couldn't load sample {}", filename);
         }
+    }
+
+    // https://forums.cockos.com/showthread.php?t=227118
+    //
+    // ** The acid chunk goes a little something like this:
+    // **
+    // ** 4 bytes          'acid'
+    // ** 4 bytes (int)     length of chunk starting at next byte
+    // **
+    // ** 4 bytes (int)     type of file:
+    // **        this appears to be a bit mask,however some combinations
+    // **        are probably impossible and/or qualified as "errors"
+    // **
+    // **        0x01 On: One Shot         Off: Loop
+    // **        0x02 On: Root note is Set Off: No root
+    // **        0x04 On: Stretch is On,   Off: Strech is OFF
+    // **        0x08 On: Disk Based       Off: Ram based
+    // **        0x10 On: ??????????       Off: ????????? (Acidizer puts that ON)
+    // **
+    // ** 2 bytes (short)      root note
+    // **        if type 0x10 is OFF : [C,C#,(...),B] -> [0x30 to 0x3B]
+    // **        if type 0x10 is ON  : [C,C#,(...),B] -> [0x3C to 0x47]
+    // **         (both types fit on same MIDI pitch albeit different octaves, so who cares)
+    // **
+    // ** 2 bytes (short)      ??? always set to 0x8000
+    // ** 4 bytes (float)      ??? seems to be always 0
+    // ** 4 bytes (int)        number of beats
+    // ** 2 bytes (short)      meter denominator   //always 4 in SF/ACID
+    // ** 2 bytes (short)      meter numerator     //always 4 in SF/ACID
+    // **                      //are we sure about the order?? usually its num/denom
+    // ** 4 bytes (float)      tempo
+    // **
+    fn read_riff_metadata(filename: &str) -> Result<u8> {
+        let riff = riff_io::RiffFile::open(filename)?;
+        let entries = riff.read_entries()?;
+        for entry in entries {
+            match entry {
+                riff_io::Entry::Chunk(chunk) => {
+                    // looking for chunk_id 'acid'
+                    if chunk.chunk_id == [97, 99, 105, 100] {
+                        let mut f = File::open(filename)?;
+                        f.seek(SeekFrom::Start(chunk.data_offset as u64))?;
+                        let mut bytes = Vec::default();
+                        bytes.resize(chunk.data_size, 0);
+                        let _ = f.read(&mut bytes)?;
+
+                        let root_note_set = bytes[0] & 0x02 != 0;
+                        let pitch_b = bytes[0] & 0x10 != 0;
+
+                        if root_note_set {
+                            // TODO: find a real WAV that has the pitch_b flag set
+                            let root_note = bytes[4] - if pitch_b { 12 } else { 0 };
+                            return Ok(root_note);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Err(anyhow!("couldn't find root note in acid RIFF chunk"))
     }
 
     fn read_samples<T>(
@@ -230,6 +308,10 @@ impl Sampler {
             }
         }
     }
+
+    pub fn root_frequency(&self) -> f64 {
+        self.root_frequency
+    }
 }
 
 #[cfg(test)]
@@ -244,7 +326,70 @@ mod tests {
     fn test_loading() {
         let mut filename = Paths::test_data_path();
         filename.push("stereo-pluck.wav");
-        let _ = Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap(), 440.0);
+        let sampler =
+            Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap(), None);
+        assert_eq!(sampler.root_frequency(), 440.0);
+    }
+
+    #[test]
+    fn test_reading_acidized_metadata() {
+        let mut filename = Paths::test_data_path();
+        filename.push("riff-acidized.wav");
+        let root_note = Sampler::read_riff_metadata(filename.to_str().unwrap());
+        assert!(root_note.is_ok());
+        assert_eq!(root_note.unwrap(), 57);
+
+        let mut filename = Paths::test_data_path();
+        filename.push("riff-not-acidized.wav");
+        let root_note = Sampler::read_riff_metadata(filename.to_str().unwrap());
+        assert!(root_note.is_err());
+    }
+
+    #[test]
+    fn test_loading_with_root_frequency() {
+        let mut filename = Paths::test_data_path();
+        filename.push("riff-acidized.wav");
+
+        let sampler =
+            Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap(), None);
+        assert_eq!(
+            sampler.root_frequency(),
+            note_to_frequency(57),
+            "acidized WAV should produce sample with embedded root note"
+        );
+
+        let sampler = Sampler::new_with_filename(
+            DEFAULT_SAMPLE_RATE,
+            filename.to_str().unwrap(),
+            Some(123.0),
+        );
+        assert_eq!(
+            sampler.root_frequency(),
+            123.0,
+            "specified parameter should override acidized WAV's embedded root note"
+        );
+
+        let mut filename = Paths::test_data_path();
+        filename.push("riff-not-acidized.wav");
+
+        let sampler = Sampler::new_with_filename(
+            DEFAULT_SAMPLE_RATE,
+            filename.to_str().unwrap(),
+            Some(123.0),
+        );
+        assert_eq!(
+            sampler.root_frequency(),
+            123.0,
+            "specified parameter should be used for non-acidized WAV"
+        );
+
+        let sampler =
+            Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap(), None);
+        assert_eq!(
+            sampler.root_frequency(),
+            note_to_frequency(69),
+            "If there is neither an acidized WAV nor a provided frequency, sample should have root note A4 (440Hz)"
+        );
     }
 
     #[test]
