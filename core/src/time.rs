@@ -387,7 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn test_clock_tells_us_when_it_jumps() {
+    fn clock_tells_us_when_it_jumps() {
         let mut clock = Clock::new_with(
             DEFAULT_SAMPLE_RATE,
             DEFAULT_BPM,

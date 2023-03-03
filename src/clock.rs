@@ -1,9 +1,7 @@
 use anyhow::{anyhow, Error};
-use serde::{Deserialize, Serialize};
 use strum_macros::FromRepr;
 
-#[derive(Clone, Debug, Default, Deserialize, FromRepr, Serialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, Default, FromRepr)]
 pub enum BeatValue {
     Octuple = 128,   // large/maxima
     Quadruple = 256, // long

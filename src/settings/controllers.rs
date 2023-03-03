@@ -1,6 +1,5 @@
-use super::{patches::WaveformType, DeviceId, MidiChannel};
+use super::{patches::WaveformType, BeatValueSettings, DeviceId, MidiChannel};
 use crate::{
-    clock::BeatValue,
     controllers::{
         control_trip::ControlStep, Arpeggiator, ControlPath, LfoController,
         SignalPassthroughController, TestController,
@@ -61,13 +60,18 @@ impl ControlStepSettings {
 #[serde(rename_all = "kebab-case")]
 pub struct ControlPathSettings {
     pub id: DeviceId,
-    pub note_value: Option<BeatValue>,
+    pub note_value: Option<BeatValueSettings>,
     pub steps: Vec<ControlStepSettings>,
 }
 impl ControlPathSettings {
     pub fn into_control_path(&self) -> ControlPath {
+        let note_value = if let Some(note_value) = &self.note_value {
+            Some(note_value.into_beat_value())
+        } else {
+            None
+        };
         let mut r = ControlPath {
-            note_value: self.note_value.clone(),
+            note_value,
             steps: Default::default(),
         };
         for step in self.steps.iter() {

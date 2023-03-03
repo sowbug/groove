@@ -19,6 +19,7 @@ use groove_core::{
     ParameterType,
 };
 use serde::{Deserialize, Serialize};
+use strum_macros::FromRepr;
 
 pub type DeviceId = String;
 
@@ -43,13 +44,18 @@ pub enum DeviceSettings {
 #[serde(rename_all = "kebab-case")]
 pub struct PatternSettings {
     pub id: DeviceId,
-    pub note_value: Option<BeatValue>,
+    pub note_value: Option<BeatValueSettings>,
     pub notes: Vec<Vec<String>>,
 }
 impl PatternSettings {
     pub fn into_pattern(&self) -> Pattern<Note> {
+        let note_value = if let Some(note_value) = &self.note_value {
+            Some(note_value.into_beat_value())
+        } else {
+            None
+        };
         let mut r = Pattern::<Note> {
-            note_value: self.note_value.clone(),
+            note_value,
             notes: Vec::default(),
         };
         for note_sequence in self.notes.iter() {
@@ -146,6 +152,44 @@ impl Into<TimeSignature> for TimeSignatureSettings {
             ts
         } else {
             panic!("Failed to instantiate TimeSignature: {}", r.err().unwrap())
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, FromRepr, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum BeatValueSettings {
+    Octuple = 128,   // large/maxima
+    Quadruple = 256, // long
+    Double = 512,    // breve
+    Whole = 1024,    // semibreve
+    Half = 2048,     // minim
+    #[default]
+    Quarter = 4096, // crotchet
+    Eighth = 8192,   // quaver
+    Sixteenth = 16384, // semiquaver
+    ThirtySecond = 32768, // demisemiquaver
+    SixtyFourth = 65536, // hemidemisemiquaver
+    OneHundredTwentyEighth = 131072, // semihemidemisemiquaver / quasihemidemisemiquaver
+    TwoHundredFiftySixth = 262144, // demisemihemidemisemiquaver
+    FiveHundredTwelfth = 524288, // winner winner chicken dinner
+}
+impl BeatValueSettings {
+    pub fn into_beat_value(&self) -> BeatValue {
+        match self {
+            BeatValueSettings::Octuple => BeatValue::Octuple,
+            BeatValueSettings::Quadruple => BeatValue::Quadruple,
+            BeatValueSettings::Double => BeatValue::Double,
+            BeatValueSettings::Whole => BeatValue::Whole,
+            BeatValueSettings::Half => BeatValue::Half,
+            BeatValueSettings::Quarter => BeatValue::Quarter,
+            BeatValueSettings::Eighth => BeatValue::Eighth,
+            BeatValueSettings::Sixteenth => BeatValue::Sixteenth,
+            BeatValueSettings::ThirtySecond => BeatValue::ThirtySecond,
+            BeatValueSettings::SixtyFourth => BeatValue::SixtyFourth,
+            BeatValueSettings::OneHundredTwentyEighth => BeatValue::OneHundredTwentyEighth,
+            BeatValueSettings::TwoHundredFiftySixth => BeatValue::TwoHundredFiftySixth,
+            BeatValueSettings::FiveHundredTwelfth => BeatValue::FiveHundredTwelfth,
         }
     }
 }
