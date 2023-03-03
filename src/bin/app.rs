@@ -20,9 +20,14 @@ use groove::{
     },
     messages::{EntityMessage, GrooveMessage},
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
-    Entity, Orchestrator, TimeSignature,
+    Entity, Orchestrator,
 };
-use groove_core::{control::F32ControlValue, time::Clock, traits::HasUid, Normal, Sample};
+use groove_core::{
+    control::F32ControlValue,
+    time::{Clock, TimeSignature},
+    traits::HasUid,
+    Normal, Sample,
+};
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
     play_icon, skip_to_prev_icon, stop_icon, GuiStuff,

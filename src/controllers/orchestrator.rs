@@ -1,6 +1,5 @@
 use super::{patterns::PatternManager, sequencers::BeatSequencer, Performance};
 use crate::{
-    clock::TimeSignature,
     effects::Mixer,
     entities::Entity,
     helpers::IOHelper,
@@ -13,6 +12,7 @@ use anyhow::anyhow;
 use dipstick::InputScope;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
+    time::TimeSignature,
     traits::HasUid,
     ParameterType, StereoSample,
 };

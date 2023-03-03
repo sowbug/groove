@@ -3,7 +3,6 @@ use super::{
     ClockSettings, ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
 };
 use crate::{
-    clock::TimeSignature,
     controllers::{
         patterns::{Note, Pattern},
         ControlPath, ControlTrip,
@@ -13,7 +12,7 @@ use crate::{
     Orchestrator,
 };
 use anyhow::Result;
-use groove_core::ParameterType;
+use groove_core::{time::TimeSignature, ParameterType};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 

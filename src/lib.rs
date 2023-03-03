@@ -2,7 +2,6 @@
 
 // TODO: regularly scrutinize the re-exports and make sure they really should be
 // top-level
-pub use clock::TimeSignature;
 pub use controllers::orchestrator::Orchestrator;
 pub use entities::Entity;
 
@@ -15,7 +14,6 @@ pub mod instruments;
 pub mod messages;
 pub mod midi;
 
-pub(crate) mod clock;
 pub(crate) mod entities;
 pub(crate) mod metrics;
 pub(crate) mod settings;

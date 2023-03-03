@@ -1,10 +1,9 @@
-use crate::{
-    clock::{BeatValue},
-    messages::EntityMessage,
-};
+use crate::messages::EntityMessage;
 use groove_core::{
     midi::HandlesMidi,
-    traits::{HasUid, IsController, Resets, TicksWithMessages}, time::PerfectTimeUnit,
+    time::BeatValue,
+    time::PerfectTimeUnit,
+    traits::{HasUid, IsController, Resets, TicksWithMessages},
 };
 use groove_macros::Uid;
 use std::fmt::Debug;

@@ -10,12 +10,11 @@ use self::{
     instruments::InstrumentSettings,
 };
 use crate::{
-    clock::{BeatValue, TimeSignature},
     controllers::{Note, Pattern},
     Orchestrator,
 };
 use groove_core::{
-    time::{Clock, PerfectTimeUnit},
+    time::{BeatValue, Clock, PerfectTimeUnit, TimeSignature},
     ParameterType,
 };
 use serde::{Deserialize, Serialize};
