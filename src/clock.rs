@@ -208,69 +208,6 @@ impl Eq for MidiTicks {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
-    use groove_core::{
-        time::Clock,
-        traits::{Resets, Ticks},
-        ParameterType,
-    };
-    use more_asserts::assert_lt;
-
-    #[test]
-    fn clock_mainline_works() {
-        const SAMPLE_RATE: usize = 256;
-        const BPM: ParameterType = 128.0;
-        const QUARTER_NOTE_OF_TICKS: usize = ((SAMPLE_RATE * 60) as f64 / BPM) as usize;
-        const SECONDS_PER_BEAT: f64 = 60.0 / BPM;
-        const ONE_SAMPLE_OF_SECONDS: f64 = 1.0 / SAMPLE_RATE as f64;
-
-        // Initial state. The Ticks trait specifies that state is valid for the
-        // frame *after* calling tick(), so here we verify that after calling
-        // tick() the first time, the tick counter remains unchanged.
-        let mut clock = Clock::new_with(SAMPLE_RATE, BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
-        clock.tick(1);
-        assert_eq!(
-            clock.frames(),
-            0,
-            "After creation and then tick(), tick counter should remain at zero."
-        );
-        assert_eq!(clock.seconds(), 0.0);
-        assert_eq!(clock.beats(), 0.0);
-
-        // Same but after reset.
-        clock.reset(SAMPLE_RATE);
-        clock.tick(1);
-        assert_eq!(
-            clock.frames(),
-            0,
-            "After reset() and then tick(), tick counter should remain at zero."
-        );
-
-        // Check after one tick.
-        clock.tick(1);
-        assert_eq!(clock.frames(), 1);
-        assert_eq!(clock.seconds(), ONE_SAMPLE_OF_SECONDS);
-        assert_eq!(clock.beats(), (BPM / 60.0) * ONE_SAMPLE_OF_SECONDS);
-
-        // Check around a full quarter note of ticks. minus one because we
-        // already did one tick(), then minus another to test edge
-        clock.tick(QUARTER_NOTE_OF_TICKS - 1 - 1);
-        assert_eq!(clock.frames(), QUARTER_NOTE_OF_TICKS - 1);
-        assert!(clock.seconds() < SECONDS_PER_BEAT);
-        assert_lt!(clock.beats(), 1.0);
-
-        // Now right on the quarter note.
-        clock.tick(1);
-        assert_eq!(clock.frames(), QUARTER_NOTE_OF_TICKS);
-        assert_eq!(clock.seconds(), SECONDS_PER_BEAT);
-        assert_eq!(clock.beats(), 1.0);
-
-        // One full minute.
-        clock.tick(QUARTER_NOTE_OF_TICKS * (BPM - 1.0) as usize);
-        assert_eq!(clock.frames(), SAMPLE_RATE * 60);
-        assert_eq!(clock.seconds(), 60.0);
-        assert_eq!(clock.beats(), BPM);
-    }
 
     #[test]
     fn valid_time_signatures_can_be_instantiated() {
@@ -303,34 +240,5 @@ mod tests {
         // BeatValue::FiveHundredTwelfth value of 524288
         let bv = BeatValue::from_divisor(2.0f32.powi(10));
         assert!(bv.is_err());
-    }
-
-    #[test]
-    fn test_clock_tells_us_when_it_jumps() {
-        let mut clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
-
-        let mut next_sample = clock.frames();
-        let mut first_time = true;
-
-        for _ in 0..10 {
-            clock.tick(1);
-            assert_eq!(clock.frames(), next_sample);
-
-            // The first time through, the clock really is reset, because it had
-            // no prior tick.
-            assert!(first_time || !clock.was_reset());
-
-            first_time = false;
-            next_sample = clock.next_slice_in_frames();
-        }
-        clock.seek(clock.frames() + 1);
-        assert!(clock.was_reset());
-        assert_eq!(clock.frames(), next_sample);
-        clock.tick(1);
-        assert!(!clock.was_reset());
     }
 }
