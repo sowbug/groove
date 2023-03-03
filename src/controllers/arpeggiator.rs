@@ -155,12 +155,16 @@ impl Arpeggiator {
 mod tests {
     use super::Arpeggiator;
     use crate::{
-        clock::{Clock, PerfectTimeUnit},
+        clock::PerfectTimeUnit,
+        common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::{orchestrator::Orchestrator, sequencers::BeatSequencer},
         entities::Entity,
         instruments::TestInstrument,
     };
-    use groove_core::midi::{MidiChannel, MidiMessage};
+    use groove_core::{
+        midi::{MidiChannel, MidiMessage},
+        time::Clock,
+    };
 
     // Orchestrator sends a Tick message to everyone in an undefined order, and
     // routes the resulting messages to everyone in yet another undefined order.
@@ -178,7 +182,11 @@ mod tests {
     // that note-on is skipped.
     #[test]
     fn arpeggiator_sends_command_on_correct_time_slice() {
-        let clock = Clock::new_test();
+        let clock = Clock::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+        );
         let mut sequencer = Box::new(BeatSequencer::new_with(clock.sample_rate(), clock.bpm()));
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;

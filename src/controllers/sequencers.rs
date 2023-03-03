@@ -1,10 +1,11 @@
 use crate::{
-    clock::{Clock, MidiTicks, PerfectTimeUnit},
+    clock::{MidiTicks, PerfectTimeUnit},
     messages::EntityMessage,
 };
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{new_note_off, u7, HandlesMidi, MidiChannel, MidiMessage},
+    time::Clock,
     traits::{HasUid, IsController, Resets, TicksWithMessages},
     ParameterType,
 };
@@ -282,7 +283,7 @@ impl TicksWithMessages<EntityMessage> for MidiTickSequencer {
 mod tests {
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
-        clock::{Clock, MidiTicks},
+        clock::MidiTicks,
         common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::orchestrator::Orchestrator,
         entities::Entity,
@@ -291,6 +292,7 @@ mod tests {
     };
     use groove_core::{
         midi::{new_note_off, new_note_on, MidiChannel, MidiNote},
+        time::Clock,
         traits::{IsController, Ticks},
     };
 

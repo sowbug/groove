@@ -388,11 +388,14 @@ pub struct FilterPreset {
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::DEFAULT_SAMPLE_RATE, instruments::welsh::WelshVoice,
-        settings::patches::OscillatorSettings, utils::tests::canonicalize_filename, Clock,
+        common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+        instruments::welsh::WelshVoice,
+        settings::patches::OscillatorSettings,
+        utils::tests::canonicalize_filename,
     };
     use assert_approx_eq::assert_approx_eq;
     use groove_core::{
+        time::Clock,
         traits::{Generates, PlaysNotes, Ticks},
         SampleType, StereoSample,
     };
@@ -573,7 +576,11 @@ mod tests {
 
     #[test]
     fn basic_synth_patch() {
-        let mut clock = Clock::new_test();
+        let mut clock = Clock::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+        );
         let mut voice = test_patch().into_welsh_voice(clock.sample_rate());
         voice.note_on(60, 127);
         voice.tick(1);
@@ -582,7 +589,11 @@ mod tests {
 
     #[test]
     fn basic_cello_patch() {
-        let mut clock = Clock::new_test();
+        let mut clock = Clock::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+        );
         let mut voice = cello_patch().into_welsh_voice(clock.sample_rate());
         voice.note_on(60, 127);
         voice.tick(1);

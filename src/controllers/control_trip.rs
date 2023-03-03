@@ -1,11 +1,12 @@
 use crate::{
-    clock::{BeatValue, Clock, ClockTimeUnit, TimeSignature},
+    clock::{BeatValue, TimeSignature},
     instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
     messages::EntityMessage,
 };
 use core::fmt::Debug;
 use groove_core::{
     midi::HandlesMidi,
+    time::{Clock, ClockTimeUnit},
     traits::{HasUid, IsController, Resets, Ticks, TicksWithMessages},
     ParameterType, SignalType,
 };

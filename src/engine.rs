@@ -1,5 +1,5 @@
 use crate::{
-    clock::{Clock, TimeSignature},
+    clock::TimeSignature,
     common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
     helpers::{AudioOutput, IOHelper},
     messages::GrooveMessage,
@@ -8,6 +8,7 @@ use crate::{
 };
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
+    time::Clock,
     traits::Resets,
     ParameterType, StereoSample,
 };

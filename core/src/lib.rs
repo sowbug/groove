@@ -10,6 +10,8 @@ use std::{
 pub mod control;
 /// The [midi] module knows about [MIDI](https://en.wikipedia.org/wiki/MIDI).
 pub mod midi;
+/// The [time] module handles digital-audio and musical time.
+pub mod time;
 /// The [traits] module describes the public interfaces that are central to the
 /// Groove system.
 pub mod traits;

@@ -2,7 +2,6 @@
 
 // TODO: regularly scrutinize the re-exports and make sure they really should be
 // top-level
-pub use clock::Clock;
 pub use clock::TimeSignature;
 pub use controllers::orchestrator::Orchestrator;
 pub use entities::Entity;

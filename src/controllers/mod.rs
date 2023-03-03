@@ -11,15 +11,13 @@ pub(crate) mod orchestrator;
 pub(crate) mod patterns;
 pub(crate) mod sequencers;
 
-use crate::{
-    clock::{Clock, ClockTimeUnit},
-    messages::EntityMessage,
-};
+use crate::messages::EntityMessage;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use groove_core::{
     control::F32ControlValue,
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
+    time::{Clock, ClockTimeUnit},
     traits::{
         Controllable, HasUid, IsController, IsEffect, Resets, Ticks, TicksWithMessages,
         TransformsAudio,

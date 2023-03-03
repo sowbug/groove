@@ -12,11 +12,11 @@ use self::{
     envelopes::EnvelopeGenerator,
     oscillators::{Oscillator, Waveform},
 };
-use crate::clock::ClockTimeUnit;
 use anyhow::{anyhow, Result};
 use groove_core::{
     control::F32ControlValue,
     midi::{note_to_frequency, u7, HandlesMidi, MidiChannel, MidiMessage},
+    time::ClockTimeUnit,
     traits::{
         Controllable, Envelope, Generates, HasUid, IsInstrument, IsStereoSampleVoice, IsVoice,
         PlaysNotes, Resets, StoresVoices, Ticks,

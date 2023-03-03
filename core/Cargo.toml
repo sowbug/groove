@@ -1,11 +1,11 @@
+# Copyright (c) 2023 Mike Tsao. All rights reserved.
 [package]
 name = "groove-core"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 anyhow = "1.0.12"
 float-cmp = "0.9.0"
 midly = "0.5.3"
+more-asserts = "0.3.1"

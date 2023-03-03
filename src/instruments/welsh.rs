@@ -729,13 +729,20 @@ impl WelshSynth {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{clock::Clock, utils::tests::canonicalize_filename};
-    use groove_core::SampleType;
+    use crate::{
+        common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+        utils::tests::canonicalize_filename,
+    };
+    use groove_core::{time::Clock, SampleType};
 
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]
     fn write_voice(voice: &mut WelshVoice, duration: f64, basename: &str) {
-        let mut clock = Clock::new_test();
+        let mut clock = Clock::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+        );
 
         let spec = hound::WavSpec {
             channels: 2,

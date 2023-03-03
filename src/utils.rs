@@ -76,8 +76,7 @@ pub(crate) enum TestLfoControlParams {
 pub mod tests {
     use super::Paths;
     use crate::{
-        clock::Clock,
-        common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
+        common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::{orchestrator::Orchestrator, LfoController, TestController, Timer, Trigger},
         effects::TestEffect,
         entities::Entity,
@@ -90,6 +89,7 @@ pub mod tests {
     use convert_case::{Case, Casing};
     use groove_core::{
         midi::MidiChannel,
+        time::Clock,
         traits::{Generates, Resets, Ticks, TicksWithMessages},
         ParameterType, Sample, SampleType, StereoSample,
     };
@@ -165,7 +165,11 @@ pub mod tests {
 
     #[test]
     fn audio_routing_works() {
-        let mut clock = Clock::new_test();
+        let mut clock = Clock::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+        );
         let mut o = Box::new(Orchestrator::new_with(
             clock.sample_rate(),
             clock.bpm() as ParameterType,
@@ -225,7 +229,11 @@ pub mod tests {
 
     #[test]
     fn control_routing_works() {
-        let mut clock = Clock::new_test();
+        let mut clock = Clock::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+        );
         let mut o = Box::new(Orchestrator::new_with(
             clock.sample_rate(),
             clock.bpm() as ParameterType,
