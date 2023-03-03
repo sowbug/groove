@@ -342,6 +342,15 @@ mod tests {
         assert!(root_note.is_err());
     }
 
+    //    #[test]
+    fn test_reading_smpl_metadata() {
+        let mut filename = Paths::test_data_path();
+        filename.push("riff-with-smpl.wav");
+        let root_note = Sampler::read_riff_metadata(filename.to_str().unwrap());
+        assert!(root_note.is_ok());
+        assert_eq!(root_note.unwrap(), 255);
+    }
+
     #[test]
     fn test_loading_with_root_frequency() {
         let mut filename = Paths::test_data_path();
