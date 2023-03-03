@@ -1,4 +1,3 @@
-use crate::settings::patches::LfoPreset;
 use groove_core::{
     control::F32ControlValue,
     traits::{Controllable, Generates, Resets, Ticks},
@@ -163,13 +162,6 @@ impl Oscillator {
     ) -> Self {
         let mut r = Self::new_with_waveform(sample_rate, waveform);
         r.frequency = frequency as f64;
-        r
-    }
-
-    pub fn new_lfo(sample_rate: usize, lfo_preset: &LfoPreset) -> Self {
-        let mut r = Self::new_with(sample_rate);
-        r.waveform = lfo_preset.waveform.into();
-        r.frequency = lfo_preset.frequency as f64;
         r
     }
 

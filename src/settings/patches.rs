@@ -228,6 +228,11 @@ pub struct LfoPreset {
     pub frequency: f32,
     pub depth: LfoDepth,
 }
+impl LfoPreset {
+    pub fn into_with(&self, sample_rate: usize) -> Oscillator {
+        Oscillator::new_with_type_and_frequency(sample_rate, self.waveform.into(), self.frequency)
+    }
+}
 
 // TODO: for Welsh presets, it's understood that they're all low-pass filters.
 // Thus we can use defaults cutoff 0.0 and weight 0.0 as a hack for a passthrough.

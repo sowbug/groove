@@ -576,7 +576,7 @@ impl WelshVoice {
     pub fn new_with(sample_rate: usize, preset: &SynthPatch) -> Self {
         let mut r = Self {
             amp_envelope: preset.amp_envelope.into_with(sample_rate),
-            lfo: Oscillator::new_lfo(sample_rate, &preset.lfo),
+            lfo: preset.lfo.into_with(sample_rate),
             lfo_routing: preset.lfo.routing,
             lfo_depth: preset.lfo.depth.into(),
             filter: BiQuadFilter::new_with(
