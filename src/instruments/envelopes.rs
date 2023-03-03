@@ -1,4 +1,3 @@
-use super::oscillators::KahanSummation;
 use crate::{
     clock::{Clock, ClockTimeUnit},
     common::TimeUnit,
@@ -8,6 +7,7 @@ use groove_core::{
     traits::{Envelope, Generates, Resets, Ticks},
     Normal, SignalType,
 };
+use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
 use std::{fmt::Debug, ops::Range};
@@ -34,7 +34,7 @@ pub struct EnvelopeGenerator {
     ticks: usize,
     time: TimeUnit,
 
-    uncorrected_amplitude: KahanSummation<f64, f64>,
+    uncorrected_amplitude: KahanSum<f64>,
     corrected_amplitude: Normal,
     delta: f64,
     amplitude_target: f64,
@@ -97,7 +97,7 @@ impl Ticks for EnvelopeGenerator {
         // TODO: same comment as above about not yet taking advantage of
         // batching
         for _ in 0..tick_count {
-            let pre_update_amplitude = self.uncorrected_amplitude.current_sum();
+            let pre_update_amplitude = self.uncorrected_amplitude.sum();
             if self.was_reset {
                 self.was_reset = false;
             } else {
@@ -112,7 +112,7 @@ impl Ticks for EnvelopeGenerator {
                 self.amplitude_was_set = false;
                 pre_update_amplitude
             } else {
-                self.uncorrected_amplitude.current_sum()
+                self.uncorrected_amplitude.sum()
             };
             self.corrected_amplitude = Normal::new(match self.state {
                 State::Attack => self.transform_linear_to_convex(linear_amplitude),
@@ -147,7 +147,7 @@ impl EnvelopeGenerator {
     }
 
     fn update_amplitude(&mut self) {
-        self.uncorrected_amplitude.add(self.delta);
+        self.uncorrected_amplitude += self.delta;
     }
 
     fn handle_state(&mut self) {
@@ -178,8 +178,7 @@ impl EnvelopeGenerator {
             // Is the difference between the current value and the target
             // smaller than the delta? This is a fancy way of saying we're as
             // close as we're going to get without overshooting the next time.
-            (self.uncorrected_amplitude.current_sum() - self.amplitude_target).abs()
-                < self.delta.abs()
+            (self.uncorrected_amplitude.sum() - self.amplitude_target).abs() < self.delta.abs()
         };
 
         if has_hit_target {
@@ -187,7 +186,7 @@ impl EnvelopeGenerator {
             // don't want to set self.amplitude_was_set here because this is
             // happening after the update, so we'll already be returning the
             // amplitude snapshotted at the right time.
-            self.uncorrected_amplitude.set_sum(self.amplitude_target);
+            self.uncorrected_amplitude = KahanSum::new_with_value(self.amplitude_target);
         }
         has_hit_target
     }
@@ -217,7 +216,7 @@ impl EnvelopeGenerator {
                         false,
                         false,
                     );
-                    let current_amplitude = self.uncorrected_amplitude.current_sum();
+                    let current_amplitude = self.uncorrected_amplitude.sum();
 
                     (self.convex_a, self.convex_b, self.convex_c) = Self::calculate_coefficients(
                         current_amplitude,
@@ -242,7 +241,7 @@ impl EnvelopeGenerator {
                         true,
                         false,
                     );
-                    let current_amplitude = self.uncorrected_amplitude.current_sum();
+                    let current_amplitude = self.uncorrected_amplitude.sum();
                     (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
                         current_amplitude,
                         current_amplitude,
@@ -275,7 +274,7 @@ impl EnvelopeGenerator {
                         true,
                         false,
                     );
-                    let current_amplitude = self.uncorrected_amplitude.current_sum();
+                    let current_amplitude = self.uncorrected_amplitude.sum();
                     (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
                         current_amplitude,
                         current_amplitude,
@@ -294,7 +293,7 @@ impl EnvelopeGenerator {
     }
 
     fn set_explicit_amplitude(&mut self, new_value: f64) {
-        self.uncorrected_amplitude.set_sum(new_value);
+        self.uncorrected_amplitude = KahanSum::new_with_value(new_value);
         self.amplitude_was_set = true;
     }
 
@@ -311,7 +310,7 @@ impl EnvelopeGenerator {
             let range = if calculate_for_full_amplitude_range {
                 -1.0
             } else {
-                self.amplitude_target - self.uncorrected_amplitude.current_sum()
+                self.amplitude_target - self.uncorrected_amplitude.sum()
             };
             self.time_target = self.time + duration;
             self.delta = if duration != TimeUnit::zero() {
@@ -320,7 +319,7 @@ impl EnvelopeGenerator {
                 0.0
             };
             if fast_reaction {
-                self.uncorrected_amplitude.add(self.delta);
+                self.uncorrected_amplitude += self.delta;
             }
         } else {
             self.time_target = TimeUnit::infinite();
@@ -550,7 +549,7 @@ mod tests {
         /// returned by tick(), which is in between pending events but after
         /// updating for the time slice.
         fn debug_amplitude(&self) -> Normal {
-            Normal::new(self.uncorrected_amplitude.current_sum())
+            Normal::new(self.uncorrected_amplitude.sum())
         }
     }
 

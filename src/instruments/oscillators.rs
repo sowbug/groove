@@ -5,57 +5,12 @@ use groove_core::{
     BipolarNormal, ParameterType, SignalType,
 };
 use groove_macros::Control;
+use kahan::KahanSum;
 use more_asserts::debug_assert_lt;
 use std::f64::consts::PI;
 use std::fmt::Debug;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
-
-/// https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-///
-/// Given a large number that you want to increase by small numbers, accumulates
-/// fewer errors in the running sum than standard f32/f64.
-#[derive(Clone, Debug, Default)]
-pub(crate) struct KahanSummation<
-    T: Copy
-        + Default
-        + std::ops::Add<Output = T>
-        + std::ops::Sub<Output = T>
-        + std::ops::Add<U, Output = T>
-        + std::ops::Sub<U, Output = T>,
-    U: Copy + Default + std::ops::Add<Output = U> + std::ops::Sub<Output = U>,
-> {
-    sum: T,
-    compensation: U,
-}
-impl<
-        T: Copy
-            + Default
-            + std::ops::Add<Output = T>
-            + std::ops::Sub<Output = T>
-            + std::ops::Add<U, Output = T>
-            + std::ops::Sub<U, Output = T>,
-        U: Copy + Default + std::ops::Add<Output = U> + std::ops::Sub<Output = U> + From<T>,
-    > KahanSummation<T, U>
-{
-    pub(crate) fn add(&mut self, rhs: U) -> T {
-        let y = rhs - self.compensation;
-        let t = self.sum + y;
-        self.compensation = U::from((t - self.sum) - y);
-        self.sum = t;
-        t
-    }
-    pub(crate) fn current_sum(&self) -> T {
-        self.sum
-    }
-    pub(crate) fn set_sum(&mut self, sum: T) {
-        self.sum = sum;
-        self.reset_compensation();
-    }
-    pub(crate) fn reset_compensation(&mut self) {
-        self.compensation = Default::default();
-    }
-}
 
 #[derive(Clone, Control, Debug)]
 pub struct Oscillator {
@@ -94,7 +49,7 @@ pub struct Oscillator {
     // pops, transients, and suckage.
     //
     // Needs Kahan summation algorithm to avoid accumulation of FP errors.
-    cycle_position: KahanSummation<f64, f64>,
+    cycle_position: KahanSum<f64>,
 
     delta: f64,
     delta_needs_update: bool,
@@ -133,8 +88,8 @@ impl Ticks for Oscillator {
                 self.ticks = 0; // TODO: this might not be the right thing to do
 
                 self.update_delta();
-                self.cycle_position
-                    .set_sum((self.delta * self.ticks as f64).fract());
+                self.cycle_position =
+                    KahanSum::new_with_value((self.delta * self.ticks as f64).fract());
             } else {
                 self.ticks += 1;
             }
@@ -266,7 +221,7 @@ impl Oscillator {
     fn update_delta(&mut self) {
         if self.delta_needs_update {
             self.delta = self.adjusted_frequency() / self.sample_rate as f64;
-            self.cycle_position.reset_compensation();
+            //            self.cycle_position.reset_compensation();
             self.delta_needs_update = false;
         }
     }
@@ -295,7 +250,8 @@ impl Oscillator {
         let next_cycle_position_unrounded = if self.is_reset_pending {
             0.0
         } else {
-            self.cycle_position.add(self.delta)
+            self.cycle_position += self.delta;
+            self.cycle_position.sum()
         };
 
         self.should_sync = if self.is_reset_pending {
@@ -308,13 +264,13 @@ impl Oscillator {
             // take advantage of it to also record whether we should signal to
             // synced oscillators that it's time to sync.
             debug_assert_lt!(next_cycle_position_unrounded, 2.0);
-            self.cycle_position.add(-1.0);
+            self.cycle_position += -1.0;
             true
         } else {
             false
         };
 
-        self.cycle_position.current_sum()
+        self.cycle_position.sum()
     }
 
     // https://en.wikipedia.org/wiki/Sine_wave
