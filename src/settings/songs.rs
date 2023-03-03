@@ -259,7 +259,10 @@ impl SongSettings {
 
         let mut ids_to_paths: FxHashMap<String, ControlPath> = FxHashMap::default();
         for path_settings in &self.paths {
-            ids_to_paths.insert(path_settings.id.clone(), (*path_settings).into_control_path());
+            ids_to_paths.insert(
+                path_settings.id.clone(),
+                (*path_settings).into_control_path(),
+            );
         }
         for control_trip_settings in &self.trips {
             let trip_id = control_trip_settings.id.as_str();

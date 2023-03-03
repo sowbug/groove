@@ -2,9 +2,9 @@ use crate::{
     common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     controllers::{sequencers::MidiTickSequencer, Performance},
     entities::Entity,
-    instruments::{drumkit::Drumkit, welsh::WelshSynth},
+    instruments::drumkit::Drumkit,
     midi::programmers::MidiSmfReader,
-    settings::{patches::SynthPatch, songs::SongSettings},
+    settings::{patches::WelshPatchSettings, songs::SongSettings},
     Orchestrator,
 };
 use cpal::{
@@ -251,10 +251,10 @@ impl IOHelper {
                         orchestrator.sample_rate(),
                     )))
                 } else {
-                    Entity::WelshSynth(Box::new(WelshSynth::new_with(
-                        orchestrator.sample_rate(), // TODO: tie this better to actual reality
-                        SynthPatch::by_name("Piano"),
-                    )))
+                    Entity::WelshSynth(Box::new(
+                        WelshPatchSettings::by_name("Piano")
+                            .into_welsh_synth(orchestrator.sample_rate()),
+                    ))
                 },
             );
             orchestrator.connect_midi_downstream(synth_uid, channel);

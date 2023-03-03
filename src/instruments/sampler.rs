@@ -317,10 +317,7 @@ impl Sampler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        common::DEFAULT_SAMPLE_RATE, instruments::tests::is_voice_makes_any_sound_at_all,
-        utils::Paths,
-    };
+    use crate::{common::DEFAULT_SAMPLE_RATE, utils::Paths};
 
     #[test]
     fn test_loading() {
@@ -402,8 +399,10 @@ mod tests {
             SamplerVoice::new_with_samples(DEFAULT_SAMPLE_RATE, Arc::new(samples), 440.0);
         voice.note_on(1, 127);
 
+        // Skip a few frames in case attack is slow
+        voice.tick(5);
         assert!(
-            is_voice_makes_any_sound_at_all(&mut voice),
+            voice.value() != StereoSample::SILENCE,
             "once triggered, SamplerVoice should make a sound"
         );
     }

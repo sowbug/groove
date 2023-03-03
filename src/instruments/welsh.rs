@@ -1,19 +1,10 @@
 use super::{
-    envelopes::EnvelopeGenerator,
-    oscillators::{Oscillator, Waveform},
-    Dca, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, StealingVoiceStore,
-    Synthesizer,
+    envelopes::EnvelopeGenerator, oscillators::Oscillator, Dca, IsStereoSampleVoice, IsVoice,
+    PlaysNotes, PlaysNotesEventTracker, Synthesizer,
 };
 use crate::{
-    effects::{BiQuadFilter, FilterParams},
-    midi::GeneralMidiProgram,
-    settings::{
-        patches::{LfoRouting, SynthPatch, WaveformType},
-        LoadError,
-    },
-    utils::Paths,
+    effects::BiQuadFilter, midi::GeneralMidiProgram, settings::patches::WelshPatchSettings,
 };
-use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     control::F32ControlValue,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
@@ -27,46 +18,8 @@ use num_traits::FromPrimitive;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-// TODO: cache these as they're loaded
-impl SynthPatch {
-    pub fn patch_name_to_settings_name(name: &str) -> String {
-        name.from_case(Case::Camel)
-            .without_boundaries(&[Boundary::DigitLower])
-            .to_case(Case::Kebab)
-    }
-
-    pub fn new_from_yaml(yaml: &str) -> Result<Self, LoadError> {
-        serde_yaml::from_str(yaml).map_err(|e| {
-            println!("{e}");
-            LoadError::FormatError
-        })
-    }
-
-    pub fn by_name(name: &str) -> Self {
-        let mut filename = Paths::asset_path();
-        filename.push("patches");
-        filename.push("welsh");
-        filename.push(format!(
-            "{}.yaml",
-            Self::patch_name_to_settings_name(name.to_string().as_str())
-        ));
-        if let Ok(contents) = std::fs::read_to_string(&filename) {
-            match Self::new_from_yaml(&contents) {
-                Ok(patch) => patch,
-                Err(err) => {
-                    // TODO: this should return a failsafe patch, maybe a boring
-                    // square wave
-                    panic!("couldn't parse patch file: {err:?}");
-                }
-            }
-        } else {
-            panic!("couldn't read patch file named {:?}", &filename);
-        }
-    }
-}
-
 impl WelshSynth {
-    pub fn general_midi_preset(program: &GeneralMidiProgram) -> anyhow::Result<SynthPatch> {
+    pub fn general_midi_preset(program: &GeneralMidiProgram) -> anyhow::Result<WelshPatchSettings> {
         let mut delegated = false;
         let preset = match program {
             GeneralMidiProgram::AcousticGrand => "Piano",
@@ -411,8 +364,17 @@ impl WelshSynth {
         if delegated {
             eprintln!("Delegated {program} to {preset}");
         }
-        Ok(SynthPatch::by_name(preset))
+        Ok(WelshPatchSettings::by_name(preset))
     }
+}
+
+#[derive(Debug)]
+pub enum LfoRouting {
+    None,
+    Amplitude,
+    Pitch,
+    PulseWidth,
+    FilterCutoff,
 }
 
 #[derive(Debug)]
@@ -573,69 +535,6 @@ impl Ticks for WelshVoice {
     }
 }
 impl WelshVoice {
-    pub fn new_with(sample_rate: usize, preset: &SynthPatch) -> Self {
-        let mut r = Self {
-            amp_envelope: preset.amp_envelope.into_with(sample_rate),
-            lfo: preset.lfo.into_with(sample_rate),
-            lfo_routing: preset.lfo.routing,
-            lfo_depth: preset.lfo.depth.into(),
-            filter: BiQuadFilter::new_with(
-                &FilterParams::LowPass12db {
-                    cutoff: preset.filter_type_12db.cutoff_hz,
-                    q: BiQuadFilter::denormalize_q(preset.filter_resonance),
-                },
-                sample_rate,
-            ),
-            filter_cutoff_start: BiQuadFilter::frequency_to_percent(
-                preset.filter_type_12db.cutoff_hz,
-            ),
-            filter_cutoff_end: preset.filter_envelope_weight,
-            filter_envelope: preset.filter_envelope.into_with(sample_rate),
-            oscillators: Default::default(),
-            oscillator_2_sync: Default::default(),
-            oscillator_mix: Default::default(),
-            dca: Default::default(),
-            is_playing: Default::default(),
-            event_tracker: Default::default(),
-            sample: Default::default(),
-            ticks: Default::default(),
-        };
-        if !matches!(preset.oscillator_1.waveform, WaveformType::None) {
-            r.oscillators
-                .push(preset.oscillator_1.into_with(sample_rate));
-        }
-        if !matches!(preset.oscillator_2.waveform, WaveformType::None) {
-            let mut o = preset.oscillator_2.into_with(sample_rate);
-            if !preset.oscillator_2_track {
-                if let crate::settings::patches::OscillatorTune::Note(note) =
-                    preset.oscillator_2.tune
-                {
-                    o.set_fixed_frequency(note_to_frequency(note));
-                } else {
-                    panic!("Patch configured without oscillator 2 tracking, but tune is not a note specification");
-                }
-            }
-            r.oscillator_2_sync = preset.oscillator_2_sync;
-            r.oscillators.push(o);
-        }
-        r.oscillator_mix = if r.oscillators.len() == 0 {
-            0.0
-        } else if r.oscillators.len() == 1 {
-            1.0
-        } else if preset.oscillator_1.mix == 0.0 && preset.oscillator_2.mix == 0.0 {
-            1.0
-        } else {
-            let total = preset.oscillator_1.mix + preset.oscillator_2.mix;
-            (preset.oscillator_1.mix / total) as f64
-        };
-
-        if preset.noise > 0.0 {
-            r.oscillators
-                .push(Oscillator::new_with_waveform(sample_rate, Waveform::Noise));
-        }
-        r
-    }
-
     fn handle_pending_note_events(&mut self) {
         if self.event_tracker.steal_is_pending {
             self.handle_steal_event();
@@ -712,6 +611,39 @@ impl WelshVoice {
             o.set_frequency(frequency_hz);
         });
     }
+
+    pub(crate) fn new_with(
+        oscillators: Vec<Oscillator>,
+        oscillator_2_sync: bool,
+        oscillator_mix: f64,
+        amp_envelope: EnvelopeGenerator,
+        filter: BiQuadFilter,
+        filter_cutoff_start: f32,
+        filter_cutoff_end: f32,
+        filter_envelope: EnvelopeGenerator,
+        lfo: Oscillator,
+        lfo_routing: LfoRouting,
+        lfo_depth: Normal,
+    ) -> WelshVoice {
+        Self {
+            oscillators,
+            oscillator_2_sync,
+            oscillator_mix,
+            amp_envelope,
+            dca: Default::default(),
+            lfo,
+            lfo_routing,
+            lfo_depth,
+            filter,
+            filter_cutoff_start,
+            filter_cutoff_end,
+            filter_envelope,
+            is_playing: Default::default(),
+            event_tracker: Default::default(),
+            sample: Default::default(),
+            ticks: Default::default(),
+        }
+    }
 }
 
 #[derive(Control, Debug, Uid)]
@@ -767,14 +699,10 @@ impl HandlesMidi for WelshSynth {
     }
 }
 impl WelshSynth {
-    pub(crate) fn new_with(sample_rate: usize, preset: SynthPatch) -> Self {
-        let mut voice_store = Box::new(StealingVoiceStore::<WelshVoice>::new_with(sample_rate));
-        for _ in 0..8 {
-            voice_store.add_voice(Box::new(WelshVoice::new_with(sample_rate, &preset)));
-        }
+    pub fn new_with(inner_synth: Synthesizer<WelshVoice>) -> Self {
         Self {
             uid: Default::default(),
-            inner_synth: Synthesizer::<WelshVoice>::new_with(sample_rate, voice_store),
+            inner_synth,
             pan: Default::default(),
         }
     }
@@ -800,18 +728,8 @@ impl WelshSynth {
 
 #[cfg(test)]
 mod tests {
-    use super::WelshVoice;
     use super::*;
-    use crate::{
-        clock::Clock,
-        common::DEFAULT_SAMPLE_RATE,
-        instruments::{tests::is_voice_makes_any_sound_at_all, welsh::WaveformType},
-        settings::patches::{
-            EnvelopeSettings, FilterPreset, LfoPreset, LfoRouting, OscillatorSettings,
-            PolyphonySettings,
-        },
-        utils::tests::canonicalize_filename,
-    };
+    use crate::{clock::Clock, utils::tests::canonicalize_filename};
     use groove_core::SampleType;
 
     // TODO: refactor out to common test utilities
@@ -893,162 +811,4 @@ mod tests {
     //         }
     //     }
     // }
-
-    // TODO: get rid of this
-    fn write_sound(
-        source: &mut WelshVoice,
-        clock: &mut Clock,
-        duration: f64,
-        when: f64,
-        basename: &str,
-    ) {
-        let spec = hound::WavSpec {
-            channels: 2,
-            sample_rate: clock.sample_rate() as u32,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        const AMPLITUDE: SampleType = i16::MAX as SampleType;
-        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
-
-        let mut is_message_sent = false;
-        while clock.seconds() < duration {
-            if when <= clock.seconds() && !is_message_sent {
-                is_message_sent = true;
-                source.note_off(0);
-                source.handle_pending_note_events();
-                source.tick_envelopes();
-            }
-            source.tick(1);
-            let sample = source.value();
-            let _ = writer.write_sample((sample.0 .0 * AMPLITUDE) as i16);
-            let _ = writer.write_sample((sample.1 .0 * AMPLITUDE) as i16);
-            clock.tick(1);
-        }
-    }
-
-    fn cello_patch() -> SynthPatch {
-        SynthPatch {
-            name: SynthPatch::patch_name_to_settings_name("Cello"),
-            oscillator_1: OscillatorSettings {
-                waveform: WaveformType::PulseWidth(0.1),
-                ..Default::default()
-            },
-            oscillator_2: OscillatorSettings {
-                waveform: WaveformType::Square,
-                ..Default::default()
-            },
-            oscillator_2_track: true,
-            oscillator_2_sync: false,
-            noise: 0.0,
-            lfo: LfoPreset {
-                routing: LfoRouting::Amplitude,
-                waveform: WaveformType::Sine,
-                frequency: 7.5,
-                depth: crate::settings::patches::LfoDepth::Pct(0.05),
-            },
-            glide: 0.0,
-            unison: false,
-            polyphony: PolyphonySettings::Multi,
-            filter_type_24db: FilterPreset {
-                cutoff_hz: 40.0,
-                cutoff_pct: 0.1,
-            },
-            filter_type_12db: FilterPreset {
-                cutoff_hz: 40.0,
-                cutoff_pct: 0.1,
-            },
-            filter_resonance: 0.0,
-            filter_envelope_weight: 0.9,
-            filter_envelope: EnvelopeSettings {
-                attack: 0.0,
-                decay: 3.29,
-                sustain: 0.78,
-                release: EnvelopeSettings::MAX,
-            },
-            amp_envelope: EnvelopeSettings {
-                attack: 0.06,
-                decay: EnvelopeSettings::MAX,
-                sustain: 1.0,
-                release: 0.3,
-            },
-        }
-    }
-
-    fn test_patch() -> SynthPatch {
-        SynthPatch {
-            name: SynthPatch::patch_name_to_settings_name("Test"),
-            oscillator_1: OscillatorSettings {
-                waveform: WaveformType::Sawtooth,
-                ..Default::default()
-            },
-            oscillator_2: OscillatorSettings {
-                waveform: WaveformType::None,
-                ..Default::default()
-            },
-            oscillator_2_track: true,
-            oscillator_2_sync: false,
-            noise: 0.0,
-            lfo: LfoPreset {
-                routing: LfoRouting::None,
-                ..Default::default()
-            },
-            glide: 0.0,
-            unison: false,
-            polyphony: PolyphonySettings::Multi,
-            filter_type_24db: FilterPreset {
-                cutoff_hz: 40.0,
-                cutoff_pct: 0.1,
-            },
-            filter_type_12db: FilterPreset {
-                cutoff_hz: 20.0,
-                cutoff_pct: 0.05,
-            },
-            filter_resonance: 0.0,
-            filter_envelope_weight: 1.0,
-            filter_envelope: EnvelopeSettings {
-                attack: 5.0,
-                decay: EnvelopeSettings::MAX,
-                sustain: 1.0,
-                release: EnvelopeSettings::MAX,
-            },
-            amp_envelope: EnvelopeSettings {
-                attack: 0.5,
-                decay: EnvelopeSettings::MAX,
-                sustain: 1.0,
-                release: EnvelopeSettings::MAX,
-            },
-        }
-    }
-
-    #[test]
-    fn welsh_makes_any_sound_at_all() {
-        let mut voice = WelshVoice::new_with(DEFAULT_SAMPLE_RATE, &test_patch());
-        voice.note_on(60, 127);
-
-        assert!(
-            is_voice_makes_any_sound_at_all(&mut voice),
-            "once triggered, Welsh voice should make a sound"
-        );
-    }
-
-    #[test]
-    fn test_basic_synth_patch() {
-        let mut clock = Clock::new_test();
-        let mut voice = WelshVoice::new_with(clock.sample_rate(), &test_patch());
-        voice.note_on(60, 127);
-        voice.handle_pending_note_events();
-        voice.tick_envelopes();
-        write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
-    }
-
-    #[test]
-    fn test_basic_cello_patch() {
-        let mut clock = Clock::new_test();
-        let mut voice = WelshVoice::new_with(clock.sample_rate(), &cello_patch());
-        voice.note_on(60, 127);
-        voice.handle_pending_note_events();
-        voice.tick_envelopes();
-        write_sound(&mut voice, &mut clock, 5.0, 3.0, "voice_cello_c4");
-    }
 }

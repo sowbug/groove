@@ -148,7 +148,7 @@ impl<V: IsStereoSampleVoice> Ticks for Synthesizer<V> {
 }
 
 impl<V: IsStereoSampleVoice> Synthesizer<V> {
-    fn new_with(sample_rate: usize, voice_store: Box<dyn StoresVoices<Voice = V>>) -> Self {
+    pub fn new_with(sample_rate: usize, voice_store: Box<dyn StoresVoices<Voice = V>>) -> Self {
         Self {
             uid: Default::default(),
             sample_rate,
@@ -592,7 +592,7 @@ impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
             notes_playing: Default::default(),
         }
     }
-    fn add_voice(&mut self, voice: Box<V>) {
+    pub fn add_voice(&mut self, voice: Box<V>) {
         self.voices.push(voice);
         self.notes_playing.push(u7::from(0));
     }
@@ -1276,7 +1276,7 @@ impl AudioSource {
 
 #[cfg(test)]
 mod tests {
-    use super::{IsStereoSampleVoice, SimpleVoice};
+    use super::SimpleVoice;
     use crate::{
         common::DEFAULT_SAMPLE_RATE,
         instruments::{Dca, PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
@@ -1500,12 +1500,5 @@ mod tests {
         } else {
             panic!("ran out of notes unexpectedly");
         }
-    }
-
-    // It's your job to enqueue a note before calling this function.
-    pub(crate) fn is_voice_makes_any_sound_at_all(voice: &mut impl IsStereoSampleVoice) -> bool {
-        // Skip a few frames in case attack is slow
-        voice.tick(5);
-        voice.value() != StereoSample::SILENCE
     }
 }

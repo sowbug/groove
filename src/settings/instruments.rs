@@ -1,7 +1,7 @@
-use super::{patches::SynthPatch, MidiChannel};
+use super::{patches::WelshPatchSettings, MidiChannel};
 use crate::{
     entities::Entity,
-    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument, WelshSynth},
+    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument},
 };
 use groove_core::midi::note_description_to_frequency;
 use serde::{Deserialize, Serialize};
@@ -95,10 +95,9 @@ impl InstrumentSettings {
                 preset_name,
             } => (
                 *midi_input_channel,
-                Entity::WelshSynth(Box::new(WelshSynth::new_with(
-                    sample_rate,
-                    SynthPatch::by_name(preset_name),
-                ))),
+                Entity::WelshSynth(Box::new(
+                    WelshPatchSettings::by_name(preset_name).into_welsh_synth(sample_rate),
+                )),
             ),
             InstrumentSettings::Drumkit {
                 midi_input_channel,
