@@ -1,9 +1,10 @@
 use crate::{
+    common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     controllers::{sequencers::MidiTickSequencer, Performance},
     entities::Entity,
     instruments::{drumkit::Drumkit, welsh::WelshSynth},
     midi::programmers::MidiSmfReader,
-    settings::{patches::SynthPatch, songs::SongSettings, ClockSettings},
+    settings::{patches::SynthPatch, songs::SongSettings},
     Orchestrator,
 };
 use cpal::{
@@ -229,13 +230,12 @@ impl IOHelper {
 
     pub fn orchestrator_from_midi_file(filename: &str) -> Box<Orchestrator> {
         // TODO: where do BPM, time signature, etc. come from?
-        let clock_settings = ClockSettings::default();
-        let mut orchestrator = Box::new(Orchestrator::new_with_clock_settings(&clock_settings));
+        let mut orchestrator = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
 
         let data = std::fs::read(filename).unwrap();
         let mut sequencer = Box::new(MidiTickSequencer::new_with(
-            clock_settings.sample_rate(),
-            clock_settings.midi_ticks_per_second(),
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
         ));
         MidiSmfReader::program_sequencer(&mut sequencer, &data);
         let sequencer_uid = orchestrator.add(None, Entity::MidiTickSequencer(sequencer));

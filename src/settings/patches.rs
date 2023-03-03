@@ -1,4 +1,5 @@
-use groove_core::{Normal, ParameterType};
+use crate::instruments::oscillators::{Oscillator, Waveform};
+use groove_core::{BipolarNormal, Normal, ParameterType};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -47,6 +48,23 @@ pub enum WaveformType {
 
     TriangleSine, // TODO
 }
+impl Into<Waveform> for WaveformType {
+    fn into(self) -> Waveform {
+        match self {
+            WaveformType::None => Waveform::Sine,
+            WaveformType::Sine => Waveform::Sine,
+            WaveformType::Square => Waveform::Square,
+            WaveformType::PulseWidth(pct) => Waveform::PulseWidth(pct),
+            WaveformType::Triangle => Waveform::Triangle,
+            WaveformType::Sawtooth => Waveform::Sawtooth,
+            WaveformType::Noise => Waveform::Noise,
+            WaveformType::DebugZero => Waveform::DebugZero,
+            WaveformType::DebugMax => Waveform::DebugMax,
+            WaveformType::DebugMin => Waveform::DebugMin,
+            WaveformType::TriangleSine => Waveform::TriangleSine,
+        }
+    }
+}
 
 pub type GlideSettings = f32;
 
@@ -67,19 +85,6 @@ pub enum OscillatorTune {
     Osc { octave: i8, semi: i8, cent: i8 },
 }
 
-impl From<OscillatorTune> for f32 {
-    fn from(val: OscillatorTune) -> Self {
-        match val {
-            OscillatorTune::Note(_) => 1.0,
-            OscillatorTune::Float(value) => value,
-            OscillatorTune::Osc { octave, semi, cent } => {
-                OscillatorSettings::semis_and_cents(octave as i16 * 12 + semi as i16, cent as f64)
-                    as f32
-            }
-        }
-    }
-}
-
 impl From<OscillatorTune> for f64 {
     fn from(val: OscillatorTune) -> Self {
         match val {
@@ -89,6 +94,18 @@ impl From<OscillatorTune> for f64 {
                 OscillatorSettings::semis_and_cents(octave as i16 * 12 + semi as i16, cent as f64)
             }
         }
+    }
+}
+impl From<OscillatorTune> for f32 {
+    fn from(val: OscillatorTune) -> Self {
+        let r: f64 = val.into();
+        r as f32
+    }
+}
+impl From<OscillatorTune> for BipolarNormal {
+    fn from(val: OscillatorTune) -> Self {
+        let r: f64 = val.into();
+        BipolarNormal::new(r)
     }
 }
 
@@ -101,7 +118,6 @@ pub struct OscillatorSettings {
     #[serde(rename = "mix-pct")]
     pub mix: f32,
 }
-
 impl Default for OscillatorSettings {
     fn default() -> Self {
         Self {
@@ -115,7 +131,6 @@ impl Default for OscillatorSettings {
         }
     }
 }
-
 impl OscillatorSettings {
     #[allow(dead_code)]
     pub fn octaves(num: i16) -> f64 {
@@ -125,6 +140,10 @@ impl OscillatorSettings {
     pub fn semis_and_cents(semitones: i16, cents: f64) -> f64 {
         // https://en.wikipedia.org/wiki/Cent_(music)
         2.0f64.powf((semitones as f64 * 100.0 + cents) / 1200.0)
+    }
+
+    pub fn into_with(&self, sample_rate: usize) -> Oscillator {
+        Oscillator::new_with_waveform(sample_rate, self.waveform.into())
     }
 }
 

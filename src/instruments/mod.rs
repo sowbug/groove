@@ -8,7 +8,10 @@ pub(crate) mod oscillators;
 pub(crate) mod sampler;
 pub(crate) mod welsh;
 
-use self::{envelopes::EnvelopeGenerator, oscillators::Oscillator};
+use self::{
+    envelopes::EnvelopeGenerator,
+    oscillators::{Oscillator, Waveform},
+};
 use crate::{
     clock::ClockTimeUnit,
     settings::patches::{EnvelopeSettings, WaveformType},
@@ -1110,22 +1113,24 @@ impl TestInstrument {
         r
     }
 
+    // TODO: when we have a more specific control param type, we can do a real
+    // into/from
     #[allow(dead_code)]
     fn waveform(&self) -> f32 {
         match self.oscillator.waveform() {
-            WaveformType::Sawtooth => -1.0,
-            WaveformType::Square => 1.0,
+            Waveform::Sawtooth => -1.0,
+            Waveform::Square => 1.0,
             _ => 0.0,
         }
     }
 
     pub fn set_control_waveform(&mut self, value: F32ControlValue) {
         self.oscillator.set_waveform(if value.0 == -1.0 {
-            WaveformType::Sawtooth
+            Waveform::Sawtooth
         } else if value.0 == 1.0 {
-            WaveformType::Square
+            Waveform::Square
         } else {
-            WaveformType::Sine
+            Waveform::Sine
         });
     }
 

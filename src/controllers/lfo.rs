@@ -1,5 +1,6 @@
 use crate::{
-    instruments::oscillators::Oscillator, messages::EntityMessage, settings::patches::WaveformType,
+    instruments::oscillators::{Oscillator, Waveform},
+    messages::EntityMessage,
 };
 use core::fmt::Debug;
 use groove_core::{
@@ -36,11 +37,7 @@ impl TicksWithMessages<EntityMessage> for LfoController {
 }
 impl HandlesMidi for LfoController {}
 impl LfoController {
-    pub fn new_with(
-        sample_rate: usize,
-        waveform: WaveformType,
-        frequency_hz: ParameterType,
-    ) -> Self {
+    pub fn new_with(sample_rate: usize, waveform: Waveform, frequency_hz: ParameterType) -> Self {
         Self {
             uid: Default::default(),
             oscillator: Oscillator::new_with_type_and_frequency(

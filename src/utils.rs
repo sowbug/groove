@@ -81,8 +81,10 @@ pub mod tests {
         controllers::{orchestrator::Orchestrator, LfoController, TestController, Timer, Trigger},
         effects::TestEffect,
         entities::Entity,
-        instruments::{oscillators::Oscillator, TestInstrument, TestSynth, TestSynthControlParams},
-        settings::patches::WaveformType,
+        instruments::{
+            oscillators::{Oscillator, Waveform},
+            TestInstrument, TestSynth, TestSynthControlParams,
+        },
         utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
     };
     use convert_case::{Case, Casing};
@@ -234,7 +236,7 @@ pub mod tests {
             None,
             Entity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate()))),
         );
-        let lfo = LfoController::new_with(clock.sample_rate(), WaveformType::Sine, 2.0);
+        let lfo = LfoController::new_with(clock.sample_rate(), Waveform::Sine, 2.0);
         let lfo_uid = o.add(None, Entity::LfoController(Box::new(lfo)));
         let _ = o.link_control(
             lfo_uid,

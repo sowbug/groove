@@ -1,6 +1,8 @@
 use super::{
-    envelopes::EnvelopeGenerator, oscillators::Oscillator, Dca, IsStereoSampleVoice, IsVoice,
-    PlaysNotes, PlaysNotesEventTracker, StealingVoiceStore, Synthesizer,
+    envelopes::EnvelopeGenerator,
+    oscillators::{Oscillator, Waveform},
+    Dca, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, StealingVoiceStore,
+    Synthesizer,
 };
 use crate::{
     effects::{BiQuadFilter, FilterParams},
@@ -599,13 +601,11 @@ impl WelshVoice {
             ticks: Default::default(),
         };
         if !matches!(preset.oscillator_1.waveform, WaveformType::None) {
-            r.oscillators.push(Oscillator::new_from_preset(
-                sample_rate,
-                &preset.oscillator_1,
-            ));
+            r.oscillators
+                .push(preset.oscillator_1.into_with(sample_rate));
         }
         if !matches!(preset.oscillator_2.waveform, WaveformType::None) {
-            let mut o = Oscillator::new_from_preset(sample_rate, &preset.oscillator_2);
+            let mut o = preset.oscillator_2.into_with(sample_rate);
             if !preset.oscillator_2_track {
                 if let crate::settings::patches::OscillatorTune::Note(note) =
                     preset.oscillator_2.tune
@@ -630,10 +630,8 @@ impl WelshVoice {
         };
 
         if preset.noise > 0.0 {
-            r.oscillators.push(Oscillator::new_with_waveform(
-                sample_rate,
-                WaveformType::Noise,
-            ));
+            r.oscillators
+                .push(Oscillator::new_with_waveform(sample_rate, Waveform::Noise));
         }
         r
     }

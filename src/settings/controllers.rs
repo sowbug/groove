@@ -179,7 +179,7 @@ impl ControllerSettings {
                 midi_output_channel,
                 Entity::LfoController(Box::new(LfoController::new_with(
                     sample_rate,
-                    waveform,
+                    waveform.into(),
                     frequency as f64,
                 ))),
             ),

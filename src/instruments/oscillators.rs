@@ -1,4 +1,4 @@
-use crate::settings::patches::{LfoPreset, OscillatorSettings, WaveformType};
+use crate::settings::patches::LfoPreset;
 use groove_core::{
     control::F32ControlValue,
     traits::{Controllable, Generates, Resets, Ticks},
@@ -12,9 +12,24 @@ use std::fmt::Debug;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
+#[derive(Clone, Copy, Debug)]
+pub enum Waveform {
+    Sine,
+    Square,
+    PulseWidth(f32),
+    Triangle,
+    Sawtooth,
+    Noise,
+    DebugZero,
+    DebugMax,
+    DebugMin,
+
+    TriangleSine, // TODO
+}
+
 #[derive(Clone, Control, Debug)]
 pub struct Oscillator {
-    waveform: WaveformType,
+    waveform: Waveform,
 
     /// Hertz. Any positive number. 440 = A4
     frequency: ParameterType,
@@ -95,8 +110,7 @@ impl Ticks for Oscillator {
             }
 
             let cycle_position = self.calculate_cycle_position();
-            let waveform = self.waveform;
-            let amplitude_for_position = self.amplitude_for_position(&waveform, cycle_position);
+            let amplitude_for_position = self.amplitude_for_position(self.waveform, cycle_position);
             self.signal = BipolarNormal::from(amplitude_for_position).value();
 
             // We need this to be at the end of tick() because any code running
@@ -108,17 +122,22 @@ impl Ticks for Oscillator {
 
 impl Oscillator {
     pub fn new_with(sample_rate: usize) -> Self {
-        Self {
-            // See the _pola test. I kept running into non-bugs where I had a
-            // default oscillator in a chain, and wasted time debugging why the
-            // output was silent. The answer was that a default oscillator with
-            // waveform None and frequency 0.0 is indeed silent.
-            //
-            // One view is that a default oscillator should be quiet. Another
-            // view is that a quiet oscillator isn't doing its main job of
-            // helping make sound. Principle of Least Astonishment prevails.
-            waveform: WaveformType::Sine,
+        // See the _pola test. I kept running into non-bugs where I had a
+        // default oscillator in a chain, and wasted time debugging why the
+        // output was silent. The answer was that a default oscillator with
+        // waveform None and frequency 0.0 is indeed silent.
+        //
+        // One view is that a default oscillator should be quiet. Another
+        // view is that a quiet oscillator isn't doing its main job of
+        // helping make sound. Principle of Least Astonishment prevails.
+        Self::new_with_waveform(sample_rate, Waveform::Sine)
+    }
 
+    pub fn new_with_waveform(sample_rate: usize, waveform: Waveform) -> Self {
+        // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5
+        // is Square.
+        Self {
+            waveform,
             frequency: 440.0,
             fixed_frequency: Default::default(),
             frequency_tune: 1.0,
@@ -137,35 +156,19 @@ impl Oscillator {
         }
     }
 
-    pub fn new_with_waveform(sample_rate: usize, waveform: WaveformType) -> Self {
-        // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5
-        // is Square.
-        let mut r = Self::new_with(sample_rate);
-        r.waveform = waveform;
-        r
-    }
-
     pub(crate) fn new_with_type_and_frequency(
         sample_rate: usize,
-        waveform: WaveformType,
+        waveform: Waveform,
         frequency: f32,
     ) -> Self {
-        let mut r = Self::new_with(sample_rate);
-        r.waveform = waveform;
+        let mut r = Self::new_with_waveform(sample_rate, waveform);
         r.frequency = frequency as f64;
-        r
-    }
-
-    pub fn new_from_preset(sample_rate: usize, preset: &OscillatorSettings) -> Self {
-        let mut r = Self::new_with(sample_rate);
-        r.waveform = preset.waveform;
-        r.frequency_tune = preset.tune.into();
         r
     }
 
     pub fn new_lfo(sample_rate: usize, lfo_preset: &LfoPreset) -> Self {
         let mut r = Self::new_with(sample_rate);
-        r.waveform = lfo_preset.waveform;
+        r.waveform = lfo_preset.waveform.into();
         r.frequency = lfo_preset.frequency as f64;
         r
     }
@@ -194,11 +197,11 @@ impl Oscillator {
         self.delta_needs_update = true;
     }
 
-    pub fn waveform(&self) -> WaveformType {
+    pub fn waveform(&self) -> Waveform {
         self.waveform
     }
 
-    pub fn set_waveform(&mut self, waveform: WaveformType) {
+    pub fn set_waveform(&mut self, waveform: Waveform) {
         self.waveform = waveform;
     }
 
@@ -283,17 +286,16 @@ impl Oscillator {
     // formulas. The reason for them is to ensure that every waveform starts at
     // amplitude zero, which makes it a lot easier to avoid transients when a
     // waveform starts up. See Pirkle DSSPC++ p.133 for visualization.
-    fn amplitude_for_position(&mut self, waveform: &WaveformType, cycle_position: f64) -> f64 {
+    fn amplitude_for_position(&mut self, waveform: Waveform, cycle_position: f64) -> f64 {
         match waveform {
-            WaveformType::None => 0.0,
-            WaveformType::Sine => (cycle_position * 2.0 * PI).sin(),
-            WaveformType::Square => -(cycle_position - 0.5).signum(),
-            WaveformType::PulseWidth(duty_cycle) => -(cycle_position - *duty_cycle as f64).signum(),
-            WaveformType::Triangle => {
+            Waveform::Sine => (cycle_position * 2.0 * PI).sin(),
+            Waveform::Square => -(cycle_position - 0.5).signum(),
+            Waveform::PulseWidth(duty_cycle) => -(cycle_position - duty_cycle as f64).signum(),
+            Waveform::Triangle => {
                 4.0 * (cycle_position - (0.5 + cycle_position).floor()).abs() - 1.0
             }
-            WaveformType::Sawtooth => 2.0 * (cycle_position - (0.5 + cycle_position).floor()),
-            WaveformType::Noise => {
+            Waveform::Sawtooth => 2.0 * (cycle_position - (0.5 + cycle_position).floor()),
+            Waveform::Noise => {
                 // TODO: this is stateful, so random access will sound different
                 // from sequential, as will different sample rates. It also
                 // makes this method require mut. Is there a noise algorithm
@@ -305,22 +307,26 @@ impl Oscillator {
                 tmp
             }
             // TODO: figure out whether this was an either-or
-            WaveformType::TriangleSine => {
+            Waveform::TriangleSine => {
                 4.0 * (cycle_position - (0.75 + cycle_position).floor() + 0.25).abs() - 1.0
             }
-            WaveformType::DebugZero => 0.0,
-            WaveformType::DebugMax => 1.0,
-            WaveformType::DebugMin => -1.0,
+            Waveform::DebugZero => 0.0,
+            Waveform::DebugMax => 1.0,
+            Waveform::DebugMin => -1.0,
         }
+    }
+
+    pub fn set_frequency_tune(&mut self, frequency_tune: ParameterType) {
+        self.frequency_tune = frequency_tune;
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Oscillator, WaveformType};
+    use super::{Oscillator, Waveform};
     use crate::{
         common::DEFAULT_SAMPLE_RATE,
-        settings::patches::{OscillatorSettings, OscillatorTune},
+        settings::patches::OscillatorTune,
         traits::tests::DebugTicks,
         utils::{
             tests::{render_signal_as_audio_source, samples_match_known_good_wav_file},
@@ -342,20 +348,9 @@ mod tests {
         }
     }
 
-    fn create_oscillator(
-        waveform: WaveformType,
-        tune: OscillatorTune,
-        note: MidiNote,
-    ) -> Oscillator {
-        let sample_rate = DEFAULT_SAMPLE_RATE;
-        let mut oscillator = Oscillator::new_from_preset(
-            sample_rate,
-            &OscillatorSettings {
-                waveform,
-                tune,
-                ..Default::default()
-            },
-        );
+    fn create_oscillator(waveform: Waveform, tune: OscillatorTune, note: MidiNote) -> Oscillator {
+        let mut oscillator = Oscillator::new_with_waveform(DEFAULT_SAMPLE_RATE, waveform);
+        oscillator.set_frequency_tune(tune.into());
         oscillator.set_frequency(note_type_to_frequency(note));
         oscillator
     }
@@ -380,7 +375,7 @@ mod tests {
         const SAMPLE_RATE: usize = 63949; // Prime number
         const FREQUENCY: f32 = 499.0;
         let mut oscillator =
-            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, WaveformType::Square, FREQUENCY);
+            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
 
         // Below Nyquist limit
         assert_lt!(FREQUENCY, (SAMPLE_RATE / 2) as f32);
@@ -399,7 +394,7 @@ mod tests {
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: f32 = 128.0;
         let mut oscillator =
-            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, WaveformType::Square, FREQUENCY);
+            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
 
         let mut n_pos = 0;
         let mut n_neg = 0;
@@ -433,7 +428,7 @@ mod tests {
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: f32 = 2.0;
         let mut oscillator =
-            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, WaveformType::Square, FREQUENCY);
+            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
 
         oscillator.tick(1);
         assert_eq!(
@@ -478,11 +473,8 @@ mod tests {
     #[test]
     fn test_sine_wave_is_balanced() {
         const FREQUENCY: f32 = 1.0;
-        let mut oscillator = Oscillator::new_with_type_and_frequency(
-            DEFAULT_SAMPLE_RATE,
-            WaveformType::Sine,
-            FREQUENCY,
-        );
+        let mut oscillator =
+            Oscillator::new_with_type_and_frequency(DEFAULT_SAMPLE_RATE, Waveform::Sine, FREQUENCY);
 
         let mut n_pos = 0;
         let mut n_neg = 0;
@@ -515,7 +507,7 @@ mod tests {
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_type_and_frequency(
                 DEFAULT_SAMPLE_RATE,
-                WaveformType::Square,
+                Waveform::Square,
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
@@ -544,7 +536,7 @@ mod tests {
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_type_and_frequency(
                 DEFAULT_SAMPLE_RATE,
-                WaveformType::Sine,
+                Waveform::Sine,
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
@@ -573,7 +565,7 @@ mod tests {
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_type_and_frequency(
                 DEFAULT_SAMPLE_RATE,
-                WaveformType::Sawtooth,
+                Waveform::Sawtooth,
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
@@ -602,7 +594,7 @@ mod tests {
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_type_and_frequency(
                 DEFAULT_SAMPLE_RATE,
-                WaveformType::Triangle,
+                Waveform::Triangle,
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
@@ -622,7 +614,7 @@ mod tests {
     #[test]
     fn oscillator_modulated() {
         let mut oscillator = create_oscillator(
-            WaveformType::Sine,
+            Waveform::Sine,
             OscillatorTune::Osc {
                 octave: 0,
                 semi: 0,
