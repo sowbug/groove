@@ -10,11 +10,14 @@ use self::{
     instruments::InstrumentSettings,
 };
 use crate::{
-    clock::{BeatValue, PerfectTimeUnit, TimeSignature},
+    clock::{BeatValue, TimeSignature},
     controllers::{Note, Pattern},
     Orchestrator,
 };
-use groove_core::{time::Clock, ParameterType};
+use groove_core::{
+    time::{Clock, PerfectTimeUnit},
+    ParameterType,
+};
 use serde::{Deserialize, Serialize};
 
 pub type DeviceId = String;

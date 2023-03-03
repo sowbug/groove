@@ -343,6 +343,7 @@ mod tests {
     }
 
     //    #[test]
+    #[allow(dead_code)]
     fn test_reading_smpl_metadata() {
         let mut filename = Paths::test_data_path();
         filename.push("riff-with-smpl.wav");

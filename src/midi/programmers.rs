@@ -1,11 +1,14 @@
 use crate::{
-    clock::{BeatValue, MidiTicks, PerfectTimeUnit, TimeSignature},
+    clock::{BeatValue, TimeSignature},
     controllers::{
         patterns::{Note, Pattern},
         sequencers::{BeatSequencer, MidiTickSequencer},
     },
 };
-use groove_core::midi::{MidiChannel, MidiMessage};
+use groove_core::{
+    midi::{MidiChannel, MidiMessage},
+    time::{MidiTicks, PerfectTimeUnit},
+};
 use midly::TrackEventKind;
 use std::cmp;
 

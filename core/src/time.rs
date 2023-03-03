@@ -4,6 +4,11 @@ use crate::{
     traits::{Resets, Ticks},
     ParameterType,
 };
+use std::{
+    cmp::Ordering,
+    fmt::Display,
+    ops::{Add, Mul},
+};
 
 // A way to specify a time unit that Clock tracks.
 #[derive(Clone, Debug, Default)]
@@ -179,6 +184,110 @@ impl Resets for Clock {
         self.midi_ticks = 0;
     }
 }
+
+/// This is named facetiously. f32 has problems the way I'm using it. I'd like
+/// to replace with something better later on, but for now I'm going to try to
+/// use the struct to get type safety and make refactoring easier later on when
+/// I replace f32 with something else.
+///
+/// TODO: look into MMA's time representation that uses a 32-bit integer with
+/// some math that stretches it out usefully.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct PerfectTimeUnit(pub f64);
+
+impl Display for PerfectTimeUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+impl From<f32> for PerfectTimeUnit {
+    fn from(value: f32) -> Self {
+        PerfectTimeUnit(value as f64)
+    }
+}
+impl From<usize> for PerfectTimeUnit {
+    fn from(value: usize) -> Self {
+        PerfectTimeUnit(value as f64)
+    }
+}
+impl Add for PerfectTimeUnit {
+    type Output = PerfectTimeUnit;
+    fn add(self, rhs: Self) -> Self::Output {
+        PerfectTimeUnit(self.0 + rhs.0)
+    }
+}
+impl Mul for PerfectTimeUnit {
+    type Output = PerfectTimeUnit;
+    fn mul(self, rhs: Self) -> Self::Output {
+        PerfectTimeUnit(self.0 * rhs.0)
+    }
+}
+impl PartialOrd for PerfectTimeUnit {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+impl Ord for PerfectTimeUnit {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self > other {
+            return Ordering::Greater;
+        }
+        if self < other {
+            return Ordering::Less;
+        }
+        Ordering::Equal
+    }
+}
+impl Eq for PerfectTimeUnit {}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct MidiTicks(pub usize);
+
+#[allow(dead_code)]
+impl MidiTicks {
+    pub const MAX: MidiTicks = MidiTicks(usize::MAX);
+    pub const MIN: MidiTicks = MidiTicks(usize::MIN);
+}
+
+impl Display for MidiTicks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+impl From<f64> for MidiTicks {
+    fn from(value: f64) -> Self {
+        MidiTicks(value as usize)
+    }
+}
+impl Add for MidiTicks {
+    type Output = MidiTicks;
+    fn add(self, rhs: Self) -> Self::Output {
+        MidiTicks(self.0 + rhs.0)
+    }
+}
+impl Mul for MidiTicks {
+    type Output = MidiTicks;
+    fn mul(self, rhs: Self) -> Self::Output {
+        MidiTicks(self.0 * rhs.0)
+    }
+}
+impl PartialOrd for MidiTicks {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+impl Ord for MidiTicks {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self > other {
+            return Ordering::Greater;
+        }
+        if self < other {
+            return Ordering::Less;
+        }
+        Ordering::Equal
+    }
+}
+impl Eq for MidiTicks {}
 
 #[cfg(test)]
 mod tests {

@@ -1,8 +1,9 @@
 use super::sequencers::BeatSequencer;
-use crate::{clock::PerfectTimeUnit, messages::EntityMessage};
+use crate::messages::EntityMessage;
 use groove_core::{
     control::F32ControlValue,
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
+    time::PerfectTimeUnit,
     traits::{Controllable, HasUid, IsController, Resets, TicksWithMessages},
     ParameterType,
 };
@@ -155,7 +156,6 @@ impl Arpeggiator {
 mod tests {
     use super::Arpeggiator;
     use crate::{
-        clock::PerfectTimeUnit,
         common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::{orchestrator::Orchestrator, sequencers::BeatSequencer},
         entities::Entity,
@@ -163,7 +163,7 @@ mod tests {
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
-        time::Clock,
+        time::{Clock, PerfectTimeUnit},
     };
 
     // Orchestrator sends a Tick message to everyone in an undefined order, and
