@@ -9,7 +9,7 @@ use crate::{
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     traits::Resets,
-    StereoSample,
+    ParameterType, StereoSample,
 };
 use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
@@ -47,7 +47,7 @@ pub enum GrooveInput {
     Midi(MidiChannel, MidiMessage),
 
     /// Change BPM.
-    SetBpm(f32),
+    SetBpm(ParameterType),
 
     /// Change time signature.
     SetTimeSignature(TimeSignature),
@@ -64,7 +64,7 @@ pub enum GrooveInput {
 pub enum GrooveEvent {
     Ready(mpsc::Sender<GrooveInput>, Arc<Mutex<Orchestrator>>),
     SetClock(usize),
-    SetBpm(f32),
+    SetBpm(ParameterType),
     SetTimeSignature(TimeSignature),
     MidiToExternal(MidiChannel, MidiMessage),
     ProjectLoaded(String, Option<String>),
@@ -86,6 +86,7 @@ pub enum GrooveEvent {
 struct Runner {
     orchestrator: Arc<Mutex<Orchestrator>>,
     clock: Clock,
+    time_signature: TimeSignature,
     last_clock_update: Instant,
 
     messages: Vec<GrooveMessage>,
@@ -98,12 +99,14 @@ struct Runner {
 impl Runner {
     pub fn new_with(
         orchestrator: Arc<Mutex<Orchestrator>>,
+        clock: Clock,
         sender: mpsc::Sender<GrooveEvent>,
         receiver: mpsc::Receiver<GrooveInput>,
     ) -> Self {
         Self {
             orchestrator,
-            clock: Default::default(),
+            clock,
+            time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO: what's a good "don't know yet" value?
             last_clock_update: Instant::now(),
             messages: Default::default(),
             sender,
@@ -205,8 +208,8 @@ impl Runner {
                         }
                     }
                     GrooveInput::SetTimeSignature(time_signature) => {
-                        if time_signature != self.clock.settings().time_signature() {
-                            self.clock.set_time_signature(time_signature);
+                        if time_signature != self.time_signature {
+                            self.time_signature = time_signature;
                             self.publish_time_signature_update();
                         }
                     }
@@ -261,7 +264,7 @@ impl Runner {
     fn publish_clock_update(&mut self) {
         let now = Instant::now();
         if now.duration_since(self.last_clock_update).as_millis() > 15 {
-            self.post_event(GrooveEvent::SetClock(self.clock.samples()));
+            self.post_event(GrooveEvent::SetClock(self.clock.frames()));
             self.last_clock_update = now;
         }
     }
@@ -271,9 +274,7 @@ impl Runner {
     }
 
     fn publish_time_signature_update(&mut self) {
-        self.post_event(GrooveEvent::SetTimeSignature(
-            self.clock.settings().time_signature(),
-        ));
+        self.post_event(GrooveEvent::SetTimeSignature(self.time_signature));
     }
 
     pub fn start_audio(&mut self) {
@@ -341,8 +342,16 @@ impl GrooveSubscription {
                         let orchestrator = Arc::new(Mutex::new(t));
                         let orchestrator_for_app = Arc::clone(&orchestrator);
                         let handler = std::thread::spawn(move || {
-                            let mut runner =
-                                Runner::new_with(orchestrator, thread_sender, app_receiver);
+                            let mut runner = Runner::new_with(
+                                orchestrator,
+                                Clock::new_with(
+                                    clock_settings.sample_rate(),
+                                    clock_settings.bpm() as ParameterType,
+                                    clock_settings.midi_ticks_per_second(),
+                                ),
+                                thread_sender,
+                                app_receiver,
+                            );
                             runner.start_audio();
                             runner.do_loop();
                             runner.stop_audio();

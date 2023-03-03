@@ -818,8 +818,8 @@ mod tests {
 
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]
-    fn write_voice(voice: &mut WelshVoice, duration: f32, basename: &str) {
-        let mut clock = Clock::default();
+    fn write_voice(voice: &mut WelshVoice, duration: f64, basename: &str) {
+        let mut clock = Clock::new_test();
 
         let spec = hound::WavSpec {
             channels: 2,
@@ -900,8 +900,8 @@ mod tests {
     fn write_sound(
         source: &mut WelshVoice,
         clock: &mut Clock,
-        duration: f32,
-        when: f32,
+        duration: f64,
+        when: f64,
         basename: &str,
     ) {
         let spec = hound::WavSpec {
@@ -1036,7 +1036,7 @@ mod tests {
 
     #[test]
     fn test_basic_synth_patch() {
-        let mut clock = Clock::default();
+        let mut clock = Clock::new_test();
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &test_patch());
         voice.note_on(60, 127);
         voice.handle_pending_note_events();
@@ -1046,7 +1046,7 @@ mod tests {
 
     #[test]
     fn test_basic_cello_patch() {
-        let mut clock = Clock::default();
+        let mut clock = Clock::new_test();
         let mut voice = WelshVoice::new_with(clock.sample_rate(), &cello_patch());
         voice.note_on(60, 127);
         voice.handle_pending_note_events();

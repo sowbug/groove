@@ -9,7 +9,11 @@ use self::{
     effects::EffectSettings,
     instruments::InstrumentSettings,
 };
-use crate::clock::{BeatValue, TimeSignature};
+use crate::{
+    clock::{BeatValue, TimeSignature},
+    Clock,
+};
+use groove_core::ParameterType;
 use serde::{Deserialize, Serialize};
 
 pub type DeviceId = String;
@@ -123,11 +127,11 @@ impl ClockSettings {
         (self.bpm() / 60.0) / self.sample_rate() as f32
     }
 
+    #[allow(dead_code)]
     pub(crate) fn set_time_signature(&mut self, time_signature: TimeSignature) {
         self.time_signature = time_signature;
     }
 }
-
 impl Default for ClockSettings {
     fn default() -> Self {
         Self {
@@ -136,6 +140,15 @@ impl Default for ClockSettings {
             time_signature: TimeSignature { top: 4, bottom: 4 },
             midi_ticks_per_second: 960,
         }
+    }
+}
+impl Into<Clock> for ClockSettings {
+    fn into(self) -> Clock {
+        Clock::new_with(
+            self.sample_rate,
+            self.beats_per_minute as ParameterType,
+            self.midi_ticks_per_second,
+        )
     }
 }
 
@@ -149,8 +162,8 @@ pub struct ControlSettings {
 
 #[cfg(test)]
 impl ClockSettings {
-    const TEST_SAMPLE_RATE: usize = 256;
-    const TEST_BPM: f32 = 99.;
+    const TEST_SAMPLE_RATE: usize = 44100;
+    const TEST_BPM: f32 = 99.0;
     pub fn new_test() -> Self {
         Self::new_with(
             ClockSettings::TEST_SAMPLE_RATE,

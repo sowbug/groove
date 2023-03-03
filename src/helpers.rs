@@ -233,7 +233,10 @@ impl IOHelper {
         let mut orchestrator = Box::new(Orchestrator::new_with_clock_settings(&clock_settings));
 
         let data = std::fs::read(filename).unwrap();
-        let mut sequencer = Box::new(MidiTickSequencer::default());
+        let mut sequencer = Box::new(MidiTickSequencer::new_with(
+            clock_settings.sample_rate(),
+            clock_settings.midi_ticks_per_second(),
+        ));
         MidiSmfReader::program_sequencer(&mut sequencer, &data);
         let sequencer_uid = orchestrator.add(None, Entity::MidiTickSequencer(sequencer));
         orchestrator.connect_midi_upstream(sequencer_uid);

@@ -1,5 +1,6 @@
 use super::{patterns::PatternManager, sequencers::BeatSequencer, Performance};
 use crate::{
+    clock::TimeSignature,
     effects::Mixer,
     entities::Entity,
     helpers::IOHelper,
@@ -14,7 +15,7 @@ use dipstick::InputScope;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     traits::HasUid,
-    StereoSample,
+    ParameterType, StereoSample,
 };
 use groove_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -406,15 +407,12 @@ impl Orchestrator {
         self.title = title;
     }
 
-    pub fn new_with(
-        sample_rate: usize,
-        beats_per_minute: f32,
-        time_signature: (usize, usize),
-    ) -> Self {
+    pub fn new_with(sample_rate: usize, beats_per_minute: ParameterType) -> Self {
+        let ts = TimeSignature::default();
         Self::new_with_clock_settings(&ClockSettings::new_with(
             sample_rate,
-            beats_per_minute,
-            time_signature,
+            beats_per_minute as f32,
+            (ts.top, ts.bottom),
         ))
     }
 
@@ -444,7 +442,10 @@ impl Orchestrator {
         );
         r.beat_sequencer_uid = r.add(
             Some(Orchestrator::BEAT_SEQUENCER_UVID),
-            Entity::BeatSequencer(Box::new(BeatSequencer::new_with(&r.clock_settings))),
+            Entity::BeatSequencer(Box::new(BeatSequencer::new_with(
+                r.clock_settings.sample_rate(),
+                r.clock_settings.bpm() as ParameterType,
+            ))),
         );
         r.connect_midi_upstream(r.beat_sequencer_uid);
 
@@ -950,8 +951,7 @@ impl Store {
 pub mod tests {
     use super::Orchestrator;
     use crate::{
-        clock::Clock,
-        common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE, DEFAULT_TIME_SIGNATURE},
+        common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
         controllers::Timer,
         effects::gain::Gain,
         entities::Entity,
@@ -992,8 +992,7 @@ pub mod tests {
 
     #[test]
     fn gather_audio_basic() {
-        let mut o =
-            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let level_1_uid = o.add(
             None,
             Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -1026,8 +1025,7 @@ pub mod tests {
 
     #[test]
     fn gather_audio() {
-        let mut o =
-            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let level_1_uid = o.add(
             None,
             Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -1103,8 +1101,7 @@ pub mod tests {
 
     #[test]
     fn gather_audio_2() {
-        let mut o =
-            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let piano_1_uid = o.add(
             None,
             Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -1202,8 +1199,7 @@ pub mod tests {
 
     #[test]
     fn gather_audio_with_branches() {
-        let mut o =
-            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let instrument_1_uid = o.add(
             None,
             Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
@@ -1250,14 +1246,10 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_zero_timer() {
-        let mut o =
-            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(
             None,
-            Entity::Timer(Box::new(Timer::new_with(
-                ClockSettings::default().sample_rate(),
-                0.0,
-            ))),
+            Entity::Timer(Box::new(Timer::new_with(DEFAULT_SAMPLE_RATE, 0.0))),
         );
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -1288,11 +1280,11 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_ordinary_timer() {
-        let clock = Clock::new_with_sample_rate(44100);
-        let mut o = Orchestrator::new_with_clock_settings(clock.settings());
+        let clock_settings = ClockSettings::default();
+        let mut o = Orchestrator::new_with_clock_settings(&clock_settings);
         let _ = o.add(
             None,
-            Entity::Timer(Box::new(Timer::new_with(clock.sample_rate(), 1.0))),
+            Entity::Timer(Box::new(Timer::new_with(clock_settings.sample_rate(), 1.0))),
         );
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -1304,8 +1296,7 @@ pub mod tests {
 
     #[test]
     fn test_patch_fails_with_bad_id() {
-        let mut o =
-            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM, DEFAULT_TIME_SIGNATURE);
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         assert!(o.patch(3, 2).is_err());
     }
 }

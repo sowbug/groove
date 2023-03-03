@@ -1,6 +1,8 @@
-use crate::settings::ClockSettings;
 use anyhow::{anyhow, Error};
-use groove_core::traits::{Resets, Ticks};
+use groove_core::{
+    traits::{Resets, Ticks},
+    ParameterType,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
@@ -117,18 +119,23 @@ pub enum ClockTimeUnit {
 }
 
 /// A timekeeper that operates in terms of sample rate.
-///
-/// Like much of this project,
 #[derive(Clone, Debug)]
 pub struct Clock {
-    settings: ClockSettings,
+    /// The number of frames per second. Usually 44.1KHz for CD-quality audio.
+    sample_rate: usize,
+    bpm: ParameterType,
+    midi_ticks_per_second: usize,
 
-    samples: usize, // Samples since clock creation.
-    seconds: f32,   // Seconds elapsed since clock creation.
+    /// Samples since clock creation. It's called "frames" because tick() was
+    /// already being used as a verb by the Ticks trait, and "samples" is a very
+    /// overloaded term in digital audio. A synonymous term is "time slices,"
+    /// used when the emphasis is on division of work into small parts.
+    frames: usize,
 
+    seconds: f64, // Seconds elapsed since clock creation.
     // Beats elapsed since clock creation. Not
     // https://en.wikipedia.org/wiki/Swatch_Internet_Time
-    beats: f32,
+    beats: f64,
 
     // Typically 960 ticks per second
     midi_ticks: usize,
@@ -137,76 +144,61 @@ pub struct Clock {
     // last tick because this is the first.
     was_reset: bool,
 }
-impl Default for Clock {
-    fn default() -> Self {
+
+impl Clock {
+    pub fn new_with(
+        sample_rate: usize,
+        beats_per_minute: ParameterType,
+        midi_ticks_per_second: usize,
+    ) -> Self {
         Self {
-            settings: Default::default(),
-            samples: Default::default(),
+            sample_rate,
+            bpm: beats_per_minute,
+            midi_ticks_per_second,
+            frames: Default::default(),
             seconds: Default::default(),
             beats: Default::default(),
             midi_ticks: Default::default(),
             was_reset: true,
         }
     }
-}
-
-impl Clock {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn new_with(settings: &ClockSettings) -> Self {
-        Self {
-            settings: settings.clone(),
-            ..Default::default()
-        }
-    }
-
-    pub fn settings(&self) -> &ClockSettings {
-        &self.settings
-    }
 
     pub fn was_reset(&self) -> bool {
         self.was_reset
     }
 
-    pub fn samples(&self) -> usize {
-        self.samples
+    pub fn frames(&self) -> usize {
+        self.frames
     }
-    pub fn seconds(&self) -> f32 {
+    pub fn seconds(&self) -> f64 {
         self.seconds
     }
-    pub fn beats(&self) -> f32 {
+    pub fn beats(&self) -> f64 {
         self.beats
     }
     pub fn midi_ticks(&self) -> usize {
         self.midi_ticks
     }
     pub fn sample_rate(&self) -> usize {
-        self.settings().sample_rate()
+        self.sample_rate
     }
-    pub fn bpm(&self) -> f32 {
-        self.settings().bpm()
+    pub fn bpm(&self) -> ParameterType {
+        self.bpm
     }
-    pub fn set_bpm(&mut self, bpm: f32) {
+    pub fn set_bpm(&mut self, bpm: ParameterType) {
+        self.bpm = bpm;
         self.was_reset = true;
-        self.settings.set_bpm(bpm);
         self.update();
     }
 
-    pub fn set_samples(&mut self, value: usize) {
+    pub fn seek(&mut self, ticks: usize) {
+        self.frames = ticks;
         self.was_reset = true;
-        self.samples = value;
-        self.update();
-    }
-    pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
-        self.was_reset = true;
-        self.settings.set_time_signature(time_signature);
         self.update();
     }
     pub fn set_sample_rate(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
         self.was_reset = true;
-        self.settings.set_sample_rate(sample_rate);
         self.update();
     }
 
@@ -215,40 +207,47 @@ impl Clock {
     /// range of times that a given time slice includes, rather than just doing
     /// a <= comparison on each tick().
     #[allow(dead_code)]
-    pub(crate) fn next_slice_in_samples(&self) -> usize {
-        self.samples + 1
+    #[deprecated]
+    pub(crate) fn next_slice_in_frames(&self) -> usize {
+        self.frames + 1
     }
     #[allow(dead_code)]
-    pub(crate) fn next_slice_in_seconds(&self) -> f32 {
-        self.seconds_for_sample(self.samples + 1)
+    #[deprecated]
+    pub(crate) fn next_slice_in_seconds(&self) -> f64 {
+        self.seconds_for_frame(self.frames + 1)
     }
-    pub(crate) fn next_slice_in_beats(&self) -> f32 {
-        self.beats_for_sample(self.samples + 1)
+    #[deprecated]
+    pub(crate) fn next_slice_in_beats(&self) -> f64 {
+        self.beats_for_frame(self.frames + 1)
     }
 
     pub fn tick_batch(&mut self, count: usize) {
         self.was_reset = false;
-        self.samples += count;
+        self.frames += count;
         self.update();
     }
 
-    fn seconds_for_sample(&self, sample: usize) -> f32 {
-        sample as f32 / self.settings.sample_rate() as f32
+    /// Given a frame number, returns the number of seconds that have elapsed.
+    fn seconds_for_frame(&self, frame: usize) -> f64 {
+        frame as f64 / self.sample_rate as f64
     }
-    fn beats_for_sample(&self, sample: usize) -> f32 {
-        (self.settings.bpm() / 60.0) * self.seconds_for_sample(sample)
+    /// Given a frame number, returns the number of beats that have elapsed.
+    fn beats_for_frame(&self, frame: usize) -> f64 {
+        (self.bpm / 60.0) * self.seconds_for_frame(frame)
     }
-    fn midi_ticks_for_sample(&self, sample: usize) -> usize {
-        (self.settings.midi_ticks_per_second() as f32 * self.seconds_for_sample(sample)) as usize
+    /// Given a frame number, returns the number of MIDI ticks that have
+    /// elapsed.
+    fn midi_ticks_for_frame(&self, frame: usize) -> usize {
+        (self.midi_ticks_per_second as f64 * self.seconds_for_frame(frame)) as usize
     }
 
     fn update(&mut self) {
-        self.seconds = self.seconds_for_sample(self.samples);
-        self.beats = self.beats_for_sample(self.samples);
-        self.midi_ticks = self.midi_ticks_for_sample(self.samples);
+        self.seconds = self.seconds_for_frame(self.frames);
+        self.beats = self.beats_for_frame(self.frames);
+        self.midi_ticks = self.midi_ticks_for_frame(self.frames);
     }
 
-    pub(crate) fn time_for(&self, unit: &ClockTimeUnit) -> f32 {
+    pub(crate) fn time_for(&self, unit: &ClockTimeUnit) -> f64 {
         match unit {
             ClockTimeUnit::Seconds => self.seconds(),
             ClockTimeUnit::Beats => self.beats(),
@@ -265,7 +264,7 @@ impl Ticks for Clock {
             // https://github.com/sowbug/groove/issues/84 for discussion.
             self.was_reset = false;
         } else if tick_count != 0 {
-            self.samples += tick_count;
+            self.frames += tick_count;
             self.update();
         }
     }
@@ -274,7 +273,7 @@ impl Resets for Clock {
     fn reset(&mut self, sample_rate: usize) {
         self.set_sample_rate(sample_rate);
         self.was_reset = true;
-        self.samples = 0;
+        self.frames = 0;
         self.seconds = 0.0;
         self.beats = 0.0;
         self.midi_ticks = 0;
@@ -350,8 +349,8 @@ impl Display for MidiTicks {
         write!(f, "{:?}", self.0)
     }
 }
-impl From<f32> for MidiTicks {
-    fn from(value: f32) -> Self {
+impl From<f64> for MidiTicks {
+    fn from(value: f64) -> Self {
         MidiTicks(value as usize)
     }
 }
@@ -387,40 +386,36 @@ impl Eq for MidiTicks {}
 
 #[cfg(test)]
 mod tests {
-    use more_asserts::assert_lt;
-
     use super::*;
+    use crate::settings::ClockSettings;
+    use more_asserts::assert_lt;
 
     impl Clock {
         pub fn new_test() -> Self {
-            Self::new_with(&ClockSettings::new_test())
+            ClockSettings::new_test().into()
         }
 
         pub fn new_with_sample_rate(sample_rate: usize) -> Self {
-            let cs = ClockSettings::default();
-            Self::new_with(&ClockSettings::new_with(
-                sample_rate,
-                cs.bpm(),
-                (cs.time_signature().top, cs.time_signature().bottom),
-            ))
+            let mut cs = ClockSettings::default();
+            cs.set_sample_rate(sample_rate);
+            cs.into()
         }
 
-        pub fn debug_new_with_time(time: f32) -> Self {
-            let mut r = Self::new();
-            r.debug_set_seconds(time);
-            r
-        }
+        // pub fn debug_new_with_time(time: f32) -> Self {
+        //     let mut r = Self::new();
+        //     r.debug_set_seconds(time);
+        //     r
+        // }
 
         pub fn debug_set_seconds(&mut self, value: f32) {
             self.was_reset = true;
-            self.samples = (self.sample_rate() as f32 * value) as usize;
+            self.frames = (self.sample_rate() as f32 * value) as usize;
             self.update();
         }
 
-        pub fn debug_set_beats(&mut self, value: f32) {
+        pub fn debug_set_beats(&mut self, value: f64) {
             self.was_reset = true;
-            self.samples =
-                (self.sample_rate() as f32 * (60.0 * value / self.settings().bpm())) as usize;
+            self.frames = (self.sample_rate() as f64 * (60.0 * value / self.bpm)) as usize;
             self.update();
         }
     }
@@ -428,20 +423,20 @@ mod tests {
     #[test]
     fn clock_mainline_works() {
         const SAMPLE_RATE: usize = 256;
-        const BPM: f32 = 128.0;
-        const QUARTER_NOTE_OF_TICKS: usize = ((SAMPLE_RATE * 60) as f32 / BPM) as usize;
-        const SECONDS_PER_BEAT: f32 = 60.0 / BPM;
-        const ONE_SAMPLE_OF_SECONDS: f32 = 1.0 / SAMPLE_RATE as f32;
+        const BPM: ParameterType = 128.0;
+        const QUARTER_NOTE_OF_TICKS: usize = ((SAMPLE_RATE * 60) as f64 / BPM) as usize;
+        const SECONDS_PER_BEAT: f64 = 60.0 / BPM;
+        const ONE_SAMPLE_OF_SECONDS: f64 = 1.0 / SAMPLE_RATE as f64;
 
-        let clock_settings = ClockSettings::new_with(SAMPLE_RATE, BPM, (4, 4));
+        let clock_settings = ClockSettings::new_with(SAMPLE_RATE, BPM as f32, (4, 4));
 
         // Initial state. The Ticks trait specifies that state is valid for the
         // frame *after* calling tick(), so here we verify that after calling
         // tick() the first time, the tick counter remains unchanged.
-        let mut clock = Clock::new_with(&clock_settings);
+        let mut clock: Clock = clock_settings.into();
         clock.tick(1);
         assert_eq!(
-            clock.samples(),
+            clock.frames(),
             0,
             "After creation and then tick(), tick counter should remain at zero."
         );
@@ -452,33 +447,33 @@ mod tests {
         clock.reset(SAMPLE_RATE);
         clock.tick(1);
         assert_eq!(
-            clock.samples(),
+            clock.frames(),
             0,
             "After reset() and then tick(), tick counter should remain at zero."
         );
 
         // Check after one tick.
         clock.tick(1);
-        assert_eq!(clock.samples(), 1);
+        assert_eq!(clock.frames(), 1);
         assert_eq!(clock.seconds, ONE_SAMPLE_OF_SECONDS);
         assert_eq!(clock.beats(), (BPM / 60.0) * ONE_SAMPLE_OF_SECONDS);
 
         // Check around a full quarter note of ticks. minus one because we
         // already did one tick(), then minus another to test edge
         clock.tick(QUARTER_NOTE_OF_TICKS - 1 - 1);
-        assert_eq!(clock.samples(), QUARTER_NOTE_OF_TICKS - 1);
+        assert_eq!(clock.frames(), QUARTER_NOTE_OF_TICKS - 1);
         assert!(clock.seconds < SECONDS_PER_BEAT);
         assert_lt!(clock.beats(), 1.0);
 
         // Now right on the quarter note.
         clock.tick(1);
-        assert_eq!(clock.samples(), QUARTER_NOTE_OF_TICKS);
+        assert_eq!(clock.frames(), QUARTER_NOTE_OF_TICKS);
         assert_eq!(clock.seconds, SECONDS_PER_BEAT);
         assert_eq!(clock.beats(), 1.0);
 
         // One full minute.
         clock.tick(QUARTER_NOTE_OF_TICKS * (BPM - 1.0) as usize);
-        assert_eq!(clock.samples(), SAMPLE_RATE * 60);
+        assert_eq!(clock.frames(), SAMPLE_RATE * 60);
         assert_eq!(clock.seconds, 60.0);
         assert_eq!(clock.beats(), BPM);
     }
@@ -518,25 +513,25 @@ mod tests {
 
     #[test]
     fn test_clock_tells_us_when_it_jumps() {
-        let mut clock = Clock::default();
+        let mut clock = Clock::new_test();
 
-        let mut next_sample = clock.samples();
+        let mut next_sample = clock.frames();
         let mut first_time = true;
 
         for _ in 0..10 {
             clock.tick(1);
-            assert_eq!(clock.samples(), next_sample);
+            assert_eq!(clock.frames(), next_sample);
 
             // The first time through, the clock really is reset, because it had
             // no prior tick.
             assert!(first_time || !clock.was_reset());
 
             first_time = false;
-            next_sample = clock.next_slice_in_samples();
+            next_sample = clock.next_slice_in_frames();
         }
-        clock.set_samples(clock.samples() + 1);
+        clock.seek(clock.frames() + 1);
         assert!(clock.was_reset());
-        assert_eq!(clock.samples(), next_sample);
+        assert_eq!(clock.frames(), next_sample);
         clock.tick(1);
         assert!(!clock.was_reset());
     }

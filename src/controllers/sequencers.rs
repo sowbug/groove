@@ -1,12 +1,12 @@
 use crate::{
     clock::{Clock, MidiTicks, PerfectTimeUnit},
     messages::EntityMessage,
-    settings::ClockSettings,
 };
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{new_note_off, u7, HandlesMidi, MidiChannel, MidiMessage},
     traits::{HasUid, IsController, Resets, TicksWithMessages},
+    ParameterType,
 };
 use groove_macros::Uid;
 use rustc_hash::FxHashMap;
@@ -33,7 +33,7 @@ pub struct BeatSequencer {
 impl IsController<EntityMessage> for BeatSequencer {}
 impl HandlesMidi for BeatSequencer {}
 impl BeatSequencer {
-    pub(crate) fn new_with(clock_settings: &ClockSettings) -> Self {
+    pub(crate) fn new_with(sample_rate: usize, bpm: ParameterType) -> Self {
         Self {
             uid: Default::default(),
             next_instant: Default::default(),
@@ -42,7 +42,7 @@ impl BeatSequencer {
             is_disabled: Default::default(),
             should_stop_pending_notes: Default::default(),
             on_notes: Default::default(),
-            temp_hack_clock: Clock::new_with(clock_settings),
+            temp_hack_clock: Clock::new_with(sample_rate, bpm, 9999),
         }
     }
 
@@ -52,7 +52,7 @@ impl BeatSequencer {
         self.last_event_time = PerfectTimeUnit::default();
     }
 
-    pub(crate) fn cursor_in_beats(&self) -> f32 {
+    pub(crate) fn cursor_in_beats(&self) -> f64 {
         self.temp_hack_clock.beats()
     }
 
@@ -203,24 +203,16 @@ pub struct MidiTickSequencer {
 }
 impl IsController<EntityMessage> for MidiTickSequencer {}
 impl HandlesMidi for MidiTickSequencer {}
-impl Default for MidiTickSequencer {
-    fn default() -> Self {
-        Self {
-            uid: usize::default(),
-            next_instant: MidiTicks::MIN,
-            events: Default::default(),
-            last_event_time: MidiTicks::MIN,
-            is_disabled: Default::default(),
-
-            temp_hack_clock: Default::default(),
-        }
-    }
-}
-
 impl MidiTickSequencer {
-    #[allow(dead_code)]
-    pub(crate) fn new() -> Self {
-        Self::default()
+    pub(crate) fn new_with(sample_rate: usize, midi_ticks_per_second: usize) -> Self {
+        Self {
+            uid: Default::default(),
+            next_instant: Default::default(),
+            events: Default::default(),
+            last_event_time: Default::default(),
+            is_disabled: Default::default(),
+            temp_hack_clock: Clock::new_with(sample_rate, 9999.0, midi_ticks_per_second),
+        }
     }
 
     #[allow(dead_code)]
@@ -288,18 +280,18 @@ impl TicksWithMessages<EntityMessage> for MidiTickSequencer {
 
 #[cfg(test)]
 mod tests {
-    use groove_core::{
-        midi::{new_note_off, new_note_on, MidiChannel, MidiNote},
-        traits::{IsController, Ticks},
-    };
-
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         clock::{Clock, MidiTicks},
+        common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::orchestrator::Orchestrator,
         entities::Entity,
         instruments::TestInstrument,
         messages::EntityMessage,
+    };
+    use groove_core::{
+        midi::{new_note_off, new_note_on, MidiChannel, MidiNote},
+        traits::{IsController, Ticks},
     };
 
     impl BeatSequencer {
@@ -325,7 +317,7 @@ mod tests {
             //            let tpb = self.midi_ticks_per_second.0 as f32 /
             //            (clock.bpm() / 60.0);
             let tpb = 960.0 / (clock.bpm() / 60.0); // TODO: who should own the number of ticks/second?
-            MidiTicks::from(tpb * beat as f32)
+            MidiTicks::from(tpb * beat as f64)
         }
     }
 
@@ -359,9 +351,16 @@ mod tests {
     #[test]
     fn test_sequencer() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = 7;
-        let mut clock = Clock::default();
-        let mut o = Orchestrator::new_with_clock_settings(clock.settings());
-        let mut sequencer = Box::new(MidiTickSequencer::default());
+        let mut clock = Clock::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+        );
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
+        let mut sequencer = Box::new(MidiTickSequencer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+        ));
         let instrument = Box::new(TestInstrument::new_with(clock.sample_rate()));
         let device_uid = o.add(None, Entity::TestInstrument(instrument));
 

@@ -2,16 +2,13 @@ use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit, TimeSignature},
     instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
     messages::EntityMessage,
-    settings::{
-        controllers::{ControlPathSettings, ControlStep},
-        ClockSettings,
-    },
+    settings::controllers::{ControlPathSettings, ControlStep},
 };
 use core::fmt::Debug;
 use groove_core::{
     midi::HandlesMidi,
     traits::{HasUid, IsController, Resets, Ticks, TicksWithMessages},
-    SignalType,
+    ParameterType, SignalType,
 };
 use groove_macros::Uid;
 use std::ops::Range;
@@ -26,26 +23,31 @@ use std::ops::Range;
 #[derive(Debug, Uid)]
 pub struct ControlTrip {
     uid: usize,
+    clock: Clock,
     cursor_beats: f64,
     current_value: SignalType,
     envelope: SteppedEnvelope,
     is_finished: bool,
-
-    temp_hack_clock: Clock,
+    sample_rate: usize,
+    time_signature: TimeSignature,
+    bpm: ParameterType,
 }
 impl IsController<EntityMessage> for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
 
-    pub fn new_with(clock_settings: &ClockSettings) -> Self {
+    pub fn new_with(sample_rate: usize, time_signature: TimeSignature, bpm: ParameterType) -> Self {
         Self {
             uid: usize::default(),
+            clock: Clock::new_with(sample_rate, bpm, 9999),
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
             is_finished: true,
-            temp_hack_clock: Clock::new_with(clock_settings),
+            sample_rate,
+            time_signature,
+            bpm,
         }
     }
 
@@ -56,6 +58,8 @@ impl ControlTrip {
 
     // TODO: assert that these are added in time order, as SteppedEnvelope
     // currently isn't smart enough to handle out-of-order construction
+    //
+    // TODO - can the time_signature argument be optional, now that we have the one in self?
     pub fn add_path(&mut self, time_signature: &TimeSignature, path: &ControlPath) {
         // TODO: this is duplicated in programmers.rs. Refactor.
         let path_note_value = if path.note_value.is_some() {
@@ -107,9 +111,9 @@ impl TicksWithMessages<EntityMessage> for ControlTrip {
         let mut v = Vec::default();
         let mut ticks_completed = tick_count;
         for i in 0..tick_count {
-            self.temp_hack_clock.tick(1);
+            self.clock.tick(1);
             let has_value_changed = {
-                let time = self.envelope.time_for_unit(&self.temp_hack_clock);
+                let time = self.envelope.time_for_unit(&self.clock);
                 let step = self.envelope.step_for_time(time);
                 if step.interval.contains(&time) {
                     let value = self.envelope.value_for_step_at_time(step, time);
@@ -165,15 +169,18 @@ impl ControlPath {
 mod tests {
     use super::*;
     use crate::{
-        controllers::orchestrator::Orchestrator, effects::TestEffect,
-        effects::TestEffectControlParams, entities::Entity, instruments::TestInstrument,
+        common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
+        controllers::orchestrator::Orchestrator,
+        effects::TestEffect,
+        effects::TestEffectControlParams,
+        entities::Entity,
+        instruments::TestInstrument,
         instruments::TestInstrumentControlParams,
     };
     use groove_core::StereoSample;
 
     #[test]
     fn test_flat_step() {
-        let clock = Clock::default();
         let step_vec = vec![
             ControlStep::Flat { value: 0.9 },
             ControlStep::Flat { value: 0.1 },
@@ -186,7 +193,7 @@ mod tests {
             steps: step_vec,
         };
 
-        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
         let effect_uid = o.add(
             None,
             Entity::TestEffect(Box::new(TestEffect::new_with_test_values(
@@ -196,8 +203,9 @@ mod tests {
                 ClockTimeUnit::Beats,
             ))),
         );
-        let mut trip = ControlTrip::new_with(clock.settings());
-        trip.add_path(&clock.settings().time_signature(), &path);
+        let mut trip =
+            ControlTrip::new_with(DEFAULT_SAMPLE_RATE, TimeSignature::default(), DEFAULT_BPM);
+        trip.add_path(&TimeSignature::default(), &path);
         let controller_uid = o.add(None, Entity::ControlTrip(Box::new(trip)));
 
         // TODO: hmmm, effect with no audio source plugged into its input!
@@ -213,14 +221,13 @@ mod tests {
         let samples = o.run(&mut sample_buffer).unwrap();
 
         let expected_sample_len =
-            (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32).ceil()
+            (step_vec_len as f64 * (60.0 / DEFAULT_BPM) * DEFAULT_SAMPLE_RATE as f64).ceil()
                 as usize;
         assert_eq!(samples.len(), expected_sample_len);
     }
 
     #[test]
     fn test_slope_step() {
-        let clock = Clock::default();
         let step_vec = vec![
             ControlStep::new_slope(0.0, 1.0),
             ControlStep::new_slope(1.0, 0.5),
@@ -234,9 +241,9 @@ mod tests {
             steps: step_vec,
         };
 
-        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
         let instrument = Box::new(TestInstrument::new_with_test_values(
-            clock.sample_rate(),
+            DEFAULT_SAMPLE_RATE,
             INTERPOLATED_VALUES,
             0.0,
             0.5,
@@ -244,8 +251,12 @@ mod tests {
         ));
         let instrument_uid = o.add(None, Entity::TestInstrument(instrument));
         let _ = o.connect_to_main_mixer(instrument_uid);
-        let mut trip = Box::new(ControlTrip::new_with(clock.settings()));
-        trip.add_path(&clock.settings().time_signature(), &path);
+        let mut trip = Box::new(ControlTrip::new_with(
+            DEFAULT_SAMPLE_RATE,
+            TimeSignature::default(),
+            DEFAULT_BPM,
+        ));
+        trip.add_path(&TimeSignature::default(), &path);
         let controller_uid = o.add(None, Entity::ControlTrip(trip));
         let _ = o.link_control(
             controller_uid,
@@ -257,7 +268,7 @@ mod tests {
         let samples = o.run(&mut sample_buffer).unwrap();
 
         let expected_sample_len =
-            (step_vec_len as f32 * (60.0 / clock.bpm()) * clock.sample_rate() as f32).ceil()
+            (step_vec_len as f64 * (60.0 / DEFAULT_BPM) * DEFAULT_SAMPLE_RATE as f64).ceil()
                 as usize;
         assert_eq!(samples.len(), expected_sample_len);
     }

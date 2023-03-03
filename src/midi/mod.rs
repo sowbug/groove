@@ -10,7 +10,7 @@ pub(crate) mod subscription;
 
 // TODO copy and conform MidiMessage to MessageBounds so it can be a trait
 // associated type
-use crate::{clock::Clock, messages::MessageBounds};
+use crate::messages::MessageBounds;
 use crossbeam::deque::{Steal, Stealer, Worker};
 use enum_primitive_derive::Primitive;
 use groove_core::{
@@ -478,11 +478,7 @@ impl MidiOutputHandler {
 
     // TODO: this looks like old Updateable::update() because it was one. It's
     // free to evolve independently.
-    fn update(
-        &mut self,
-        _clock: &Clock,
-        message: MidiHandlerMessage,
-    ) -> Response<MidiHandlerMessage> {
+    fn update(&mut self, message: MidiHandlerMessage) -> Response<MidiHandlerMessage> {
         match message {
             MidiHandlerMessage::Midi(channel, message) => {
                 let event = LiveEvent::Midi {
@@ -540,7 +536,7 @@ impl Default for MidiHandler {
     }
 }
 impl MidiHandler {
-    fn update(&mut self, clock: &Clock, message: MidiHandlerMessage) -> Response<MidiHandlerEvent> {
+    fn update(&mut self, message: MidiHandlerMessage) -> Response<MidiHandlerEvent> {
         match message {
             MidiHandlerMessage::Tick => {
                 if let Some(midi_input) = &self.midi_input {
@@ -564,7 +560,7 @@ impl MidiHandler {
             }
             MidiHandlerMessage::Midi(_, _) => {
                 if self.midi_output.is_some() {
-                    self.midi_output.as_mut().unwrap().update(clock, message);
+                    self.midi_output.as_mut().unwrap().update(message);
                 }
             }
             _ => {}

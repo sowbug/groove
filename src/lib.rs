@@ -2,9 +2,10 @@
 
 // TODO: regularly scrutinize the re-exports and make sure they really should be
 // top-level
-pub use crate::clock::Clock;
-pub use crate::controllers::orchestrator::Orchestrator;
-pub use crate::entities::Entity;
+pub use clock::Clock;
+pub use clock::TimeSignature;
+pub use controllers::orchestrator::Orchestrator;
+pub use entities::Entity;
 
 pub mod common;
 pub mod controllers;

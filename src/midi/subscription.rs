@@ -1,5 +1,5 @@
 use super::{MidiHandler, MidiHandlerMessage, MidiPortLabel};
-use crate::{clock::Clock, traits::Response};
+use crate::traits::Response;
 use groove_core::midi::{MidiChannel, MidiMessage};
 use iced::{futures::channel::mpsc, subscription, Subscription};
 use std::{
@@ -134,10 +134,9 @@ impl Runner {
     }
 
     fn do_loop(&mut self) {
-        let clock = Clock::default();
         loop {
             let response = if let Ok(mut midi_handler) = self.midi_handler.lock() {
-                midi_handler.update(&clock, MidiHandlerMessage::Tick)
+                midi_handler.update(MidiHandlerMessage::Tick)
             } else {
                 Response::none()
             };
@@ -147,7 +146,7 @@ impl Runner {
                 match input {
                     MidiHandlerInput::Midi(channel, message) => {
                         if let Ok(mut midi_handler) = self.midi_handler.lock() {
-                            midi_handler.update(&clock, MidiHandlerMessage::Midi(channel, message));
+                            midi_handler.update(MidiHandlerMessage::Midi(channel, message));
                         }
                     }
                     MidiHandlerInput::QuitRequested => {

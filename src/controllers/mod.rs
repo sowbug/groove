@@ -14,7 +14,6 @@ pub(crate) mod sequencers;
 use crate::{
     clock::{Clock, ClockTimeUnit},
     messages::EntityMessage,
-    settings::ClockSettings,
 };
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
@@ -25,7 +24,7 @@ use groove_core::{
         Controllable, HasUid, IsController, IsEffect, Resets, Ticks, TicksWithMessages,
         TransformsAudio,
     },
-    BipolarNormal, Sample, StereoSample,
+    BipolarNormal, ParameterType, Sample, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use std::collections::VecDeque;
@@ -65,7 +64,9 @@ pub struct TestController {
     uid: usize,
     midi_channel_out: MidiChannel,
 
-    clock_settings: ClockSettings,
+    sample_rate: usize,
+    midi_ticks_per_second: usize,
+    bpm: ParameterType,
     clock: Clock,
 
     pub tempo: f32,
@@ -120,8 +121,8 @@ impl TicksWithMessages<EntityMessage> for TestController {
 }
 impl Resets for TestController {
     fn reset(&mut self, sample_rate: usize) {
-        self.clock_settings.set_sample_rate(sample_rate);
-        self.clock = Clock::new_with(&self.clock_settings);
+        self.sample_rate = sample_rate;
+        self.clock = Clock::new_with(sample_rate, self.bpm, self.midi_ticks_per_second);
     }
 }
 impl HandlesMidi for TestController {
@@ -148,9 +149,10 @@ impl HasUid for TestController {
     }
 }
 impl TestController {
-    pub fn new_with(clock_settings: &ClockSettings, midi_channel_out: MidiChannel) -> Self {
+    pub fn new_with(sample_rate: usize, bpm: ParameterType, midi_channel_out: MidiChannel) -> Self {
         Self::new_with_test_values(
-            clock_settings,
+            sample_rate,
+            bpm,
             midi_channel_out,
             Default::default(),
             Default::default(),
@@ -160,7 +162,8 @@ impl TestController {
     }
 
     pub fn new_with_test_values(
-        clock_settings: &ClockSettings,
+        sample_rate: usize,
+        bpm: ParameterType,
         midi_channel_out: MidiChannel,
         values: &[f32],
         checkpoint: f32,
@@ -170,8 +173,10 @@ impl TestController {
         Self {
             uid: Default::default(),
             midi_channel_out,
-            clock_settings: clock_settings.clone(),
-            clock: Clock::new_with(clock_settings),
+            sample_rate,
+            midi_ticks_per_second: 9999,
+            bpm,
+            clock: Clock::new_with(sample_rate, bpm, 9999),
             tempo: Default::default(),
             is_enabled: Default::default(),
             is_playing: Default::default(),

@@ -187,14 +187,15 @@ impl PatternProgrammer {
 mod tests {
     use super::*;
     use crate::{
-        clock::{BeatValue, Clock, TimeSignature},
+        clock::{BeatValue, TimeSignature},
+        common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
         controllers::Timer,
         entities::Entity,
         instruments::TestInstrument,
-        settings::{ClockSettings, PatternSettings},
+        settings::PatternSettings,
         Orchestrator,
     };
-    use groove_core::{traits::Resets, StereoSample};
+    use groove_core::StereoSample;
 
     #[allow(dead_code)]
     impl Pattern<PerfectTimeUnit> {
@@ -210,7 +211,7 @@ mod tests {
     #[test]
     fn test_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = BeatSequencer::new_with(&ClockSettings::default());
+        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
@@ -252,9 +253,9 @@ mod tests {
     // A pattern of all zeroes should last as long as a pattern of nonzeroes.
     #[test]
     fn test_empty_pattern() {
-        let clock_settings = ClockSettings::default();
-        let mut sequencer = Box::new(BeatSequencer::new_with(&clock_settings));
-        let mut programmer = PatternProgrammer::new_with(&clock_settings.time_signature());
+        let time_signature = TimeSignature::default();
+        let mut sequencer = Box::new(BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         let note_pattern = vec!["0".to_string()];
         let pattern_settings = PatternSettings {
@@ -271,18 +272,17 @@ mod tests {
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
         assert_eq!(
             programmer.cursor(),
-            PerfectTimeUnit::from(clock_settings.time_signature().top)
+            PerfectTimeUnit::from(time_signature.top)
         );
         assert_eq!(sequencer.debug_events().len(), 0);
 
-        let mut o = Orchestrator::new_with_clock_settings(&clock_settings);
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(None, Entity::BeatSequencer(sequencer));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(result) = o.run(&mut sample_buffer) {
             assert_eq!(
                 result.len(),
-                ((60.0 * 4.0 / clock_settings.bpm()) * clock_settings.sample_rate() as f32).ceil()
-                    as usize
+                ((60.0 * 4.0 / DEFAULT_BPM) * DEFAULT_SAMPLE_RATE as f64).ceil() as usize
             );
         }
     }
@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
-        let mut sequencer = BeatSequencer::new_with(&ClockSettings::default());
+        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time
@@ -335,7 +335,7 @@ mod tests {
     #[test]
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
-        let mut sequencer = BeatSequencer::new_with(&ClockSettings::default());
+        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
         let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern::<Note>::from_settings(&PatternSettings {
             id: String::from("test-pattern-inherit"),
@@ -353,9 +353,8 @@ mod tests {
     #[test]
     fn test_random_access() {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
-        let mut clock = Clock::default();
-        let mut o = Orchestrator::new_with_clock_settings(clock.settings());
-        let mut sequencer = Box::new(BeatSequencer::new_with(&ClockSettings::default()));
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
+        let mut sequencer = Box::new(BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
         let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
         let mut pattern = Pattern::<Note>::default();
 
@@ -389,14 +388,14 @@ mod tests {
         ]);
         programmer.insert_pattern_at_cursor(&mut sequencer, &INSTRUMENT_MIDI_CHANNEL, &pattern);
 
-        let midi_recorder = Box::new(TestInstrument::new_with(clock.sample_rate()));
+        let midi_recorder = Box::new(TestInstrument::new_with(DEFAULT_SAMPLE_RATE));
         let midi_recorder_uid = o.add(None, Entity::TestInstrument(midi_recorder));
         o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
 
         // Test recorder has seen nothing to start with.
         // TODO assert!(midi_recorder.debug_messages.is_empty());
 
-        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
         let _sequencer_uid = o.add(None, Entity::BeatSequencer(sequencer));
 
         let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -419,10 +418,10 @@ mod tests {
             // WRONG: beats past the start of the third note, which started at 2.0.
             // WRONG: Since the fourth note is zero-duration, it actually ends at 3.0,
             // WRONG: before the third note's note-off event happens.
-            const LAST_BEAT: f32 = 4.0;
+            const LAST_BEAT: f64 = 4.0;
             assert_eq!(
                 samples.len(),
-                (LAST_BEAT * 60.0 / clock.bpm() * clock.sample_rate() as f32).ceil() as usize
+                (LAST_BEAT * 60.0 / DEFAULT_BPM * DEFAULT_SAMPLE_RATE as f64).ceil() as usize
             );
         } else {
             assert!(false, "run failed");
@@ -432,7 +431,7 @@ mod tests {
         // TODO midi_recorder.debug_messages.clear();
 
         // Rewind clock to start.
-        clock.reset(clock.sample_rate());
+        //clock.reset(clock.sample_rate());
         let mut samples = [StereoSample::SILENCE; 1];
         // This shouldn't explode.
         let _ = o.tick(&mut samples);
@@ -442,7 +441,7 @@ mod tests {
 
         // Fast-forward to the end. Nothing else should fire. This is because
         // any tick() should do work for just the slice specified.
-        clock.debug_set_seconds(10.0);
+        //clock.debug_set_seconds(10.0);
         let _ = o.tick(&mut samples);
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
 
@@ -450,7 +449,8 @@ mod tests {
         // TODO midi_recorder.debug_messages.clear();
 
         // Move just past first note.
-        clock.set_samples(1);
+        // clock.set_samples(1); TODO: I don't think this is actually testing anything
+        // because I don't think clock was connected to orchestrator
 
         let mut sample_buffer = [StereoSample::SILENCE; 64];
 
@@ -458,7 +458,7 @@ mod tests {
         // first note off (not on!) and the second note on/off.
         let _ = o.add(
             None,
-            Entity::Timer(Box::new(Timer::new_with(clock.sample_rate(), 2.0))),
+            Entity::Timer(Box::new(Timer::new_with(DEFAULT_SAMPLE_RATE, 2.0))),
         );
         assert!(o.run(&mut sample_buffer).is_ok());
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 3);

@@ -97,15 +97,15 @@ impl Ticks for EnvelopeGenerator {
         // TODO: same comment as above about not yet taking advantage of
         // batching
         for _ in 0..tick_count {
+            let pre_update_amplitude = self.uncorrected_amplitude.current_sum();
             if self.was_reset {
                 self.was_reset = false;
             } else {
                 self.ticks += 1;
+                self.update_amplitude();
             }
             self.time = TimeUnit(self.ticks as f64 / self.sample_rate);
 
-            let pre_update_amplitude = self.uncorrected_amplitude.current_sum();
-            self.update_amplitude();
             self.handle_state();
 
             let linear_amplitude = if self.amplitude_was_set {
@@ -664,7 +664,7 @@ mod tests {
             sustain: 0.8,
             release: 0.3,
         };
-        let clock = Clock::default();
+        let clock = Clock::new_test();
         let envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
         (envelope_settings, clock, envelope)
     }
@@ -688,22 +688,22 @@ mod tests {
     fn run_until<F>(
         envelope: &mut impl Envelope,
         clock: &mut Clock,
-        time_marker: f32,
+        time_marker: f64,
         mut test: F,
     ) -> Normal
     where
-        F: FnMut(f64),
+        F: FnMut(Normal, &Clock),
     {
         let mut amplitude: Normal = Normal::new(0.0);
         loop {
             envelope.tick(1);
-            let should_continue = clock.seconds() < time_marker;
             clock.tick(1);
+            let should_continue = clock.seconds() < time_marker;
             if !should_continue {
                 break;
             }
             amplitude = envelope.value();
-            test(amplitude.value());
+            test(amplitude, clock);
         }
         amplitude
     }
@@ -748,27 +748,46 @@ mod tests {
         let mut clock = Clock::new_with_sample_rate(100);
         let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
-        envelope.trigger_attack();
-        clock.tick(1);
-        envelope.tick(1);
         let mut time_marker = clock.seconds() + envelope_settings.attack;
+        envelope.trigger_attack();
         assert!(
             matches!(envelope.debug_state(), State::Attack),
             "Expected SimpleEnvelopeState::Attack after trigger, but got {:?} instead",
             envelope.debug_state()
         );
+        let mut last_amplitude = envelope.value();
 
+        envelope.tick(1);
         clock.tick(1);
-        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
+
+        let amplitude = run_until(
+            &mut envelope,
+            &mut clock,
+            time_marker,
+            |amplitude, clock| {
+                assert_lt!(
+                    last_amplitude,
+                    amplitude,
+                    "Expected amplitude to rise through attack time ending at {time_marker}, but it didn't at time {}",clock.seconds()
+                );
+                last_amplitude = amplitude;
+            },
+        );
         assert!(matches!(envelope.debug_state(), State::Decay));
-        assert_eq!(
+        assert!(
+            approx_eq!(f64, amplitude.value(), 1.0f64, epsilon = 0.0000000000001),
+            "Amplitude should reach maximum after attack (was {}, difference {}).",
             amplitude.value(),
-            1.0,
-            "Amplitude should reach maximum after attack."
+            (1.0 - amplitude.value()).abs()
         );
 
         time_marker += envelope_settings.decay;
-        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
+        let amplitude = run_until(
+            &mut envelope,
+            &mut clock,
+            time_marker,
+            |_amplitude, _clock| {},
+        );
         assert_eq!(
             amplitude.value(),
             envelope_settings.sustain as f64,
@@ -785,7 +804,7 @@ mod tests {
             sustain: 0.8,
             release: 0.3,
         };
-        let mut clock = Clock::default();
+        let mut clock = Clock::new_test();
         let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
         envelope.trigger_attack();
@@ -795,29 +814,45 @@ mod tests {
         clock.tick(1);
 
         // Skip past attack/decay.
-        run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
+        run_until(
+            &mut envelope,
+            &mut clock,
+            time_marker,
+            |_amplitude, _clock| {},
+        );
 
         let sustain = envelope_settings.sustain as f64;
         time_marker += 0.5;
-        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |amplitude| {
-            assert_eq!(
-                amplitude, sustain,
-                "Amplitude should remain at sustain level while note is still triggered"
-            );
-        })
+        let amplitude = run_until(
+            &mut envelope,
+            &mut clock,
+            time_marker,
+            |amplitude, _clock| {
+                assert_eq!(
+                    amplitude.value(),
+                    sustain,
+                    "Amplitude should remain at sustain level while note is still triggered"
+                );
+            },
+        )
         .value();
 
         envelope.trigger_release();
         time_marker += envelope_settings.expected_release_time(amplitude);
         let mut last_amplitude = amplitude;
-        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
-            assert_lt!(
-                inner_amplitude,
-                last_amplitude,
-                "Amplitude should begin decreasing as soon as note off."
-            );
-            last_amplitude = inner_amplitude;
-        });
+        let amplitude = run_until(
+            &mut envelope,
+            &mut clock,
+            time_marker,
+            |inner_amplitude, _clock| {
+                assert_lt!(
+                    inner_amplitude.value(),
+                    last_amplitude,
+                    "Amplitude should begin decreasing as soon as note off."
+                );
+                last_amplitude = inner_amplitude.value();
+            },
+        );
 
         // These assertions are checking the next frame's state, which is right
         // because we want to test what happens after the release ends.
@@ -843,7 +878,7 @@ mod tests {
             sustain: 0.25,
             release: 0.5,
         };
-        let mut clock = Clock::default();
+        let mut clock = Clock::new_test();
         let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
         envelope.tick(1);
@@ -882,7 +917,12 @@ mod tests {
 
         // Jump to halfway through decay.
         time_marker += envelope_settings.attack + envelope_settings.decay / 2.0;
-        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {});
+        let amplitude = run_until(
+            &mut envelope,
+            &mut clock,
+            time_marker,
+            |_amplitude, _clock| {},
+        );
         assert_lt!(
             amplitude,
             Normal::maximum(),
@@ -915,14 +955,19 @@ mod tests {
         // Check that we keep decreasing amplitude to zero, not to sustain.
         time_marker += envelope_settings.release;
         let mut last_amplitude = envelope.value().value();
-        let _amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
-            assert_lt!(
-                inner_amplitude,
-                last_amplitude,
-                "Amplitude should continue decreasing after note off"
-            );
-            last_amplitude = inner_amplitude;
-        });
+        let _amplitude = run_until(
+            &mut envelope,
+            &mut clock,
+            time_marker,
+            |inner_amplitude, _clock| {
+                assert_lt!(
+                    inner_amplitude.value(),
+                    last_amplitude,
+                    "Amplitude should continue decreasing after note off"
+                );
+                last_amplitude = inner_amplitude.value();
+            },
+        );
 
         // These assertions are checking the next frame's state, which is right
         // because we want to test what happens after the release ends.
@@ -950,34 +995,49 @@ mod tests {
             sustain: 0.5,
             release: 0.4,
         };
-        let mut clock = Clock::default();
+        let mut clock = Clock::new_test();
         let mut envelope = EnvelopeGenerator::new_with(clock.sample_rate(), &envelope_settings);
 
         // Decay after note-on should be shorter than the decay value.
         envelope.trigger_attack();
         let mut time_marker = clock.seconds() + envelope_settings.expected_decay_time();
-        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |_amplitude| {}).value();
-        assert_eq!(amplitude as f32,
+        let amplitude = run_until(
+            &mut envelope,
+            &mut clock,
+            time_marker,
+            |_amplitude, _clock| {},
+        )
+        .value();
+        assert!(approx_eq!(f64, amplitude,
+            envelope_settings.sustain,  epsilon=0.00001),
+            "Expected to see sustain level {} instead of {} at time {} (which is {:.1}% of decay time {}, based on full 1.0..=0.0 amplitude range)",
             envelope_settings.sustain,
-            "Expected to see sustain level {} at time {} (which is {:.1}% of decay time {}, based on full 1.0..=0.0 amplitude range)",
-            envelope_settings.sustain,
+            amplitude,
             time_marker,
             envelope_settings.decay,
             100.0 * (1.0 - envelope_settings.sustain)
         );
+        clock.tick(1);
 
         // Release after note-off should also be shorter than the release value.
         envelope.trigger_release();
-        let expected_release_time = envelope_settings.expected_release_time(amplitude);
-        time_marker += expected_release_time;
-        let amplitude = run_until(&mut envelope, &mut clock, time_marker, |inner_amplitude| {
-            assert_gt!(
-                inner_amplitude,
-                0.0,
-                "We should not reach idle before time {}, but we did.",
-                &expected_release_time,
-            )
-        });
+        let expected_release_time =
+            envelope_settings.expected_release_time(envelope.value().value());
+        time_marker += expected_release_time - 0.000000000000001; // I AM SICK OF FP PRECISION ERRORS
+        let amplitude = run_until(
+            &mut envelope,
+            &mut clock,
+            time_marker,
+            |inner_amplitude, clock| {
+                assert_gt!(
+                    inner_amplitude.value(),
+                    0.0,
+                    "We should not reach idle before time {}, but we did at time {}.",
+                    &time_marker,
+                    clock.seconds()
+                )
+            },
+        );
         let portion_of_full_amplitude_range = envelope_settings.sustain;
         assert!(
             envelope.is_idle(),

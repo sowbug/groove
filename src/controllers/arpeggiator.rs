@@ -1,9 +1,10 @@
 use super::sequencers::BeatSequencer;
-use crate::{clock::PerfectTimeUnit, messages::EntityMessage, settings::ClockSettings};
+use crate::{clock::PerfectTimeUnit, messages::EntityMessage};
 use groove_core::{
     control::F32ControlValue,
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
     traits::{Controllable, HasUid, IsController, Resets, TicksWithMessages},
+    ParameterType,
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -77,11 +78,11 @@ impl HandlesMidi for Arpeggiator {
 }
 
 impl Arpeggiator {
-    pub fn new_with(clock_settings: &ClockSettings, midi_channel_out: MidiChannel) -> Self {
+    pub fn new_with(sample_rate: usize, bpm: ParameterType, midi_channel_out: MidiChannel) -> Self {
         Self {
             uid: Default::default(),
             midi_channel_out,
-            beat_sequencer: BeatSequencer::new_with(clock_settings),
+            beat_sequencer: BeatSequencer::new_with(sample_rate, bpm),
             note_semaphore: Default::default(),
         }
     }
@@ -155,7 +156,6 @@ mod tests {
     use super::Arpeggiator;
     use crate::{
         clock::{Clock, PerfectTimeUnit},
-        common::DEFAULT_SAMPLE_RATE,
         controllers::{orchestrator::Orchestrator, sequencers::BeatSequencer},
         entities::Entity,
         instruments::TestInstrument,
@@ -178,16 +178,17 @@ mod tests {
     // that note-on is skipped.
     #[test]
     fn arpeggiator_sends_command_on_correct_time_slice() {
-        let clock = Clock::default();
-        let mut sequencer = Box::new(BeatSequencer::new_with(clock.settings()));
+        let clock = Clock::new_test();
+        let mut sequencer = Box::new(BeatSequencer::new_with(clock.sample_rate(), clock.bpm()));
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
         let arpeggiator = Box::new(Arpeggiator::new_with(
-            clock.settings(),
+            clock.sample_rate(),
+            clock.bpm(),
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
         ));
-        let instrument = Box::new(TestInstrument::new_with(DEFAULT_SAMPLE_RATE));
-        let mut o = Orchestrator::new_with_clock_settings(clock.settings());
+        let instrument = Box::new(TestInstrument::new_with(clock.sample_rate()));
+        let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm());
 
         sequencer.insert(
             PerfectTimeUnit(0.0),

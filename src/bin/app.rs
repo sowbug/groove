@@ -4,6 +4,7 @@ mod gui;
 
 use groove::{
     app_version,
+    common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     controllers::{
         Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern,
         PatternManager, PatternMessage, SignalPassthroughController, TestController, Timer,
@@ -19,7 +20,7 @@ use groove::{
     },
     messages::{EntityMessage, GrooveMessage},
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
-    Clock, Entity, Orchestrator,
+    Clock, Entity, Orchestrator, TimeSignature,
 };
 use groove_core::{control::F32ControlValue, traits::HasUid, Normal, Sample};
 use gui::{
@@ -83,6 +84,7 @@ struct GrooveApp {
     orchestrator_sender: Option<mpsc::Sender<GrooveInput>>,
     orchestrator: Arc<Mutex<Orchestrator>>,
     clock_mirror: Clock, // this clock is just a cache of the real clock in Orchestrator.
+    time_signature_mirror: TimeSignature, // same
 
     // This is true when playback went all the way to the end of the song. The
     // reason it's nice to track this is that after pressing play and listening
@@ -104,8 +106,12 @@ impl Default for GrooveApp {
     fn default() -> Self {
         // TODO: these are (probably) temporary until the project is
         // loaded. Make sure they really need to be instantiated.
-        let clock = Clock::default();
-        let orchestrator = Orchestrator::new_with_clock_settings(clock.settings());
+        let clock = Clock::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+        );
+        let orchestrator = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let orchestrator = Arc::new(Mutex::new(orchestrator));
         Self {
             preferences: Default::default(),
@@ -118,6 +124,7 @@ impl Default for GrooveApp {
             orchestrator_sender: Default::default(),
             orchestrator: orchestrator.clone(),
             clock_mirror: clock,
+            time_signature_mirror: Default::default(),
             reached_end_of_playback: Default::default(),
             midi_handler_sender: Default::default(),
             midi_handler: Default::default(),
@@ -266,10 +273,10 @@ impl Application for GrooveApp {
                         }
                     }
                 }
-                GrooveEvent::SetClock(samples) => self.clock_mirror.set_samples(samples),
+                GrooveEvent::SetClock(samples) => self.clock_mirror.seek(samples),
                 GrooveEvent::SetBpm(bpm) => self.clock_mirror.set_bpm(bpm),
                 GrooveEvent::SetTimeSignature(time_signature) => {
-                    self.clock_mirror.set_time_signature(time_signature)
+                    self.time_signature_mirror = time_signature;
                 }
                 GrooveEvent::MidiToExternal(channel, message) => {
                     self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
@@ -754,20 +761,19 @@ impl GrooveApp {
             ))
         };
 
-        let time_signature = self.clock_mirror.settings().time_signature();
         let time_signature_view = {
             container(column![
-                text(format!("{}", time_signature.top))
+                text(format!("{}", self.time_signature_mirror.top))
                     .font(gui::SMALL_FONT)
                     .size(gui::SMALL_FONT_SIZE),
-                text(format!("{}", time_signature.bottom))
+                text(format!("{}", self.time_signature_mirror.bottom))
                     .font(gui::SMALL_FONT)
                     .size(gui::SMALL_FONT_SIZE)
             ])
         };
 
         let beat_counter = {
-            let denom = time_signature.top as f32;
+            let denom = self.time_signature_mirror.top as f64;
 
             let measures = (self.clock_mirror.beats() / denom) as usize;
             let beats = (self.clock_mirror.beats() % denom) as usize;

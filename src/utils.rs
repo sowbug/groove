@@ -77,7 +77,7 @@ pub mod tests {
     use super::Paths;
     use crate::{
         clock::Clock,
-        common::DEFAULT_SAMPLE_RATE,
+        common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
         controllers::{orchestrator::Orchestrator, LfoController, TestController, Timer, Trigger},
         effects::TestEffect,
         entities::Entity,
@@ -89,7 +89,7 @@ pub mod tests {
     use groove_core::{
         midi::MidiChannel,
         traits::{Generates, Resets, Ticks, TicksWithMessages},
-        Sample, SampleType, StereoSample,
+        ParameterType, Sample, SampleType, StereoSample,
     };
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
     use std::{fs, path::PathBuf};
@@ -163,8 +163,11 @@ pub mod tests {
 
     #[test]
     fn audio_routing_works() {
-        let mut clock = Clock::default();
-        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
+        let mut clock = Clock::new_test();
+        let mut o = Box::new(Orchestrator::new_with(
+            clock.sample_rate(),
+            clock.bpm() as ParameterType,
+        ));
 
         // A simple audio source.
         let synth_uid = o.add(
@@ -220,15 +223,18 @@ pub mod tests {
 
     #[test]
     fn control_routing_works() {
-        let mut clock = Clock::default();
-        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
+        let mut clock = Clock::new_test();
+        let mut o = Box::new(Orchestrator::new_with(
+            clock.sample_rate(),
+            clock.bpm() as ParameterType,
+        ));
 
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(
             None,
             Entity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate()))),
         );
-        let lfo = LfoController::new_with(clock.settings(), WaveformType::Sine, 2.0);
+        let lfo = LfoController::new_with(clock.sample_rate(), WaveformType::Sine, 2.0);
         let lfo_uid = o.add(None, Entity::LfoController(Box::new(lfo)));
         let _ = o.link_control(
             lfo_uid,
@@ -254,7 +260,7 @@ pub mod tests {
             // We should get exactly the right amount of audio.
             //
             // TODO: to get this to continue to pass, I changed sample_buffer to
-            // be an even divisor of 44100. Orchestrator should be smart enough not to
+            // be an even divisor of 44100.
             assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
 
             // It should not all be silence.
@@ -278,18 +284,18 @@ pub mod tests {
     fn midi_routing_works() {
         const TEST_MIDI_CHANNEL: MidiChannel = 7;
         const ARP_MIDI_CHANNEL: MidiChannel = 5;
-        let clock = Clock::default();
-        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
             None,
-            Entity::TestInstrument(Box::new(TestInstrument::new_with(clock.sample_rate()))),
+            Entity::TestInstrument(Box::new(TestInstrument::new_with(DEFAULT_SAMPLE_RATE))),
         );
         let arpeggiator_uid = o.add(
             None,
             Entity::TestController(Box::new(TestController::new_with(
-                clock.settings(),
+                DEFAULT_SAMPLE_RATE,
+                DEFAULT_BPM,
                 TEST_MIDI_CHANNEL,
             ))),
         );
@@ -306,7 +312,7 @@ pub mod tests {
         let _ = o.add(
             None,
             Entity::Timer(Box::new(Timer::new_with(
-                clock.sample_rate(),
+                DEFAULT_SAMPLE_RATE,
                 SECONDS as f32,
             ))),
         );
@@ -384,11 +390,10 @@ pub mod tests {
 
     #[test]
     fn test_groove_can_be_instantiated_in_new_generic_world() {
-        let mut clock = Clock::default();
-        let mut o = Box::new(Orchestrator::new_with_clock_settings(clock.settings()));
+        let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
 
         // A simple audio source.
-        let entity_groove = Entity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate())));
+        let entity_groove = Entity::TestSynth(Box::new(TestSynth::new_with(DEFAULT_SAMPLE_RATE)));
         let synth_uid = o.add(None, entity_groove);
 
         // A simple effect.
@@ -405,7 +410,7 @@ pub mod tests {
         let _ = o.add(
             None,
             Entity::Timer(Box::new(Timer::new_with(
-                clock.sample_rate(),
+                DEFAULT_SAMPLE_RATE,
                 SECONDS as f32,
             ))),
         );
@@ -414,14 +419,13 @@ pub mod tests {
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples_1) = o.run(&mut sample_buffer) {
             // We should get exactly the right amount of audio.
-            assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
+            assert_eq!(samples_1.len(), SECONDS * DEFAULT_SAMPLE_RATE);
 
             // It should not all be silence.
             assert!(!samples_1.iter().any(|&s| s != StereoSample::SILENCE));
 
             // Run again but without the negating effect in the mix.
             assert!(o.unpatch(synth_uid, effect_uid).is_ok());
-            clock.reset(clock.sample_rate());
             if let Ok(samples_2) = o.run(&mut sample_buffer) {
                 // The sample pairs should cancel each other out.
                 assert!(!samples_2.iter().any(|&s| s != StereoSample::SILENCE));

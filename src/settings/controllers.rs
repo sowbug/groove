@@ -1,10 +1,10 @@
-use super::{patches::WaveformType, ClockSettings, DeviceId, MidiChannel};
+use super::{patches::WaveformType, DeviceId, MidiChannel};
 use crate::{
     clock::BeatValue,
     controllers::{Arpeggiator, LfoController, SignalPassthroughController, TestController},
     entities::Entity,
 };
-use groove_core::SignalType;
+use groove_core::{ParameterType, SignalType};
 use serde::{Deserialize, Serialize};
 
 /// A ControlTrip contains successive ControlSteps. A ControlStep describes how
@@ -109,7 +109,8 @@ pub enum ControllerSettings {
 impl ControllerSettings {
     pub(crate) fn instantiate(
         &self,
-        clock_settings: &ClockSettings,
+        sample_rate: usize,
+        bpm: ParameterType,
         load_only_test_entities: bool,
     ) -> (MidiChannel, MidiChannel, Entity) {
         if load_only_test_entities {
@@ -137,7 +138,8 @@ impl ControllerSettings {
                 *midi_input_channel,
                 *midi_output_channel,
                 Entity::TestController(Box::new(TestController::new_with(
-                    clock_settings,
+                    sample_rate,
+                    bpm,
                     *midi_output_channel,
                 ))),
             );
@@ -150,7 +152,8 @@ impl ControllerSettings {
                 midi_input_channel,
                 midi_output_channel,
                 Entity::TestController(Box::new(TestController::new_with(
-                    clock_settings,
+                    sample_rate,
+                    bpm,
                     midi_output_channel,
                 ))),
             ),
@@ -161,7 +164,8 @@ impl ControllerSettings {
                 midi_input_channel,
                 midi_output_channel,
                 Entity::Arpeggiator(Box::new(Arpeggiator::new_with(
-                    clock_settings,
+                    sample_rate,
+                    bpm,
                     midi_output_channel,
                 ))),
             ),
@@ -174,7 +178,7 @@ impl ControllerSettings {
                 midi_input_channel,
                 midi_output_channel,
                 Entity::LfoController(Box::new(LfoController::new_with(
-                    clock_settings,
+                    sample_rate,
                     waveform,
                     frequency as f64,
                 ))),

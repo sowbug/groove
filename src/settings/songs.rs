@@ -13,6 +13,7 @@ use crate::{
     Orchestrator,
 };
 use anyhow::Result;
+use groove_core::ParameterType;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
@@ -111,8 +112,11 @@ impl SongSettings {
                     orchestrator.connect_midi_downstream(uid, channel);
                 }
                 DeviceSettings::Controller(id, settings) => {
-                    let (channel_in, _channel_out, entity) =
-                        settings.instantiate(clock_settings, load_only_test_entities);
+                    let (channel_in, _channel_out, entity) = settings.instantiate(
+                        clock_settings.sample_rate,
+                        clock_settings.bpm() as ParameterType,
+                        load_only_test_entities,
+                    );
                     let uid = orchestrator.add(Some(id), entity);
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
@@ -262,8 +266,11 @@ impl SongSettings {
         for control_trip_settings in &self.trips {
             let trip_id = control_trip_settings.id.as_str();
             if let Some(target_uid) = orchestrator.get_uid(&control_trip_settings.target.id) {
-                let mut control_trip =
-                    Box::new(ControlTrip::new_with(orchestrator.clock_settings()));
+                let mut control_trip = Box::new(ControlTrip::new_with(
+                    orchestrator.clock_settings().sample_rate(),
+                    orchestrator.clock_settings().time_signature(),
+                    orchestrator.clock_settings().bpm() as ParameterType,
+                ));
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
                         control_trip.add_path(time_signature, control_path);

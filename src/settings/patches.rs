@@ -1,4 +1,4 @@
-use groove_core::Normal;
+use groove_core::{Normal, ParameterType};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -133,10 +133,10 @@ impl OscillatorSettings {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct EnvelopeSettings {
-    pub attack: f32,
-    pub decay: f32,
-    pub sustain: f32,
-    pub release: f32,
+    pub attack: ParameterType,
+    pub decay: ParameterType,
+    pub sustain: ParameterType, // TODO: this should be a Normal
+    pub release: ParameterType,
 }
 impl Default for EnvelopeSettings {
     fn default() -> Self {
@@ -151,7 +151,7 @@ impl Default for EnvelopeSettings {
 
 impl EnvelopeSettings {
     #[allow(dead_code)]
-    pub const MAX: f32 = 10000.0; // TODO: what exactly does Welsh mean by "max"?
+    pub const MAX: f64 = 10000.0; // TODO: what exactly does Welsh mean by "max"?
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -219,13 +219,12 @@ mod tests {
         // Decay and release rates should be determined as if the envelope stages
         // were operating on a full 1.0..=0.0 amplitude range. Thus, the expected
         // time for the stage is not necessarily the same as the parameter.
-        pub(crate) fn expected_decay_time(&self) -> f32 {
+        pub(crate) fn expected_decay_time(&self) -> f64 {
             self.decay * (1.0 - self.sustain)
         }
 
-        pub(crate) fn expected_release_time(&self, current_amplitude: f64) -> f32 {
-            let current_amplitude = current_amplitude as f32;
-            self.release * (current_amplitude)
+        pub(crate) fn expected_release_time(&self, current_amplitude: f64) -> f64 {
+            self.release * current_amplitude
         }
     }
 

@@ -2,7 +2,7 @@ use anyhow::Ok;
 use clap::Parser;
 use groove::{
     app_version,
-    common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE, DEFAULT_TIME_SIGNATURE},
+    common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
     helpers::IOHelper,
     Orchestrator,
 };
@@ -65,11 +65,7 @@ fn main() -> anyhow::Result<()> {
 
             // TODO: this is temporary, to return the right type
             #[cfg(not(feature = "scripting"))]
-            Box::new(Orchestrator::new_with(
-                DEFAULT_SAMPLE_RATE,
-                DEFAULT_BPM,
-                DEFAULT_TIME_SIGNATURE,
-            ))
+            Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM))
         } else if input_filename.ends_with(".yaml")
             || input_filename.ends_with(".yml")
             || input_filename.ends_with(".nsn")
@@ -87,11 +83,7 @@ fn main() -> anyhow::Result<()> {
             }
             r
         } else {
-            Box::new(Orchestrator::new_with(
-                DEFAULT_SAMPLE_RATE,
-                DEFAULT_BPM,
-                DEFAULT_TIME_SIGNATURE,
-            ))
+            Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM))
         };
 
         orchestrator.set_enable_dev_experiment(args.debug);
