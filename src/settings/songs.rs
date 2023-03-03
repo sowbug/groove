@@ -85,7 +85,7 @@ impl SongSettings {
     }
 
     pub fn instantiate(&self, load_only_test_entities: bool) -> Result<Orchestrator> {
-        let mut o = Orchestrator::new_with_clock_settings(&self.clock_settings);
+        let mut o: Orchestrator = self.clock_settings.into();
         o.set_title(self.title.clone());
         self.instantiate_devices(&mut o, &self.clock_settings, load_only_test_entities);
         self.instantiate_patch_cables(&mut o)?;
@@ -267,9 +267,9 @@ impl SongSettings {
             let trip_id = control_trip_settings.id.as_str();
             if let Some(target_uid) = orchestrator.get_uid(&control_trip_settings.target.id) {
                 let mut control_trip = Box::new(ControlTrip::new_with(
-                    orchestrator.clock_settings().sample_rate(),
-                    orchestrator.clock_settings().time_signature(),
-                    orchestrator.clock_settings().bpm() as ParameterType,
+                    orchestrator.sample_rate(),
+                    orchestrator.time_signature(),
+                    orchestrator.bpm(),
                 ));
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {

@@ -12,7 +12,7 @@ use self::{
 use crate::{
     clock::{BeatValue, PerfectTimeUnit, TimeSignature},
     controllers::{Note, Pattern},
-    Clock,
+    Clock, Orchestrator,
 };
 use groove_core::ParameterType;
 use serde::{Deserialize, Serialize};
@@ -74,7 +74,7 @@ pub struct TrackSettings {
     pub pattern_ids: Vec<DeviceId>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ClockSettings {
     #[serde(skip)]
@@ -89,8 +89,8 @@ pub struct ClockSettings {
     #[serde(skip)]
     midi_ticks_per_second: usize,
 }
-
 impl ClockSettings {
+    #[allow(dead_code)]
     pub(crate) fn new_with(
         sample_rate: usize,
         beats_per_minute: f32,
@@ -170,6 +170,11 @@ impl Into<Clock> for ClockSettings {
             self.beats_per_minute as ParameterType,
             self.midi_ticks_per_second,
         )
+    }
+}
+impl Into<Orchestrator> for ClockSettings {
+    fn into(self) -> Orchestrator {
+        Orchestrator::new_with(self.sample_rate(), self.bpm() as ParameterType)
     }
 }
 

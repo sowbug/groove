@@ -6,7 +6,6 @@ use crate::{
     helpers::IOHelper,
     messages::{EntityMessage, GrooveMessage},
     metrics::DipstickWrapper,
-    settings::ClockSettings,
     traits::{Internal, Response},
     utils::Paths,
 };
@@ -25,8 +24,11 @@ use std::io::{self, Write};
 pub struct Orchestrator {
     uid: usize,
     title: Option<String>,
-    clock_settings: ClockSettings,
     store: Store,
+
+    sample_rate: usize,
+    time_signature: TimeSignature,
+    bpm: ParameterType,
 
     main_mixer_uid: usize,
     pattern_manager_uid: usize,
@@ -45,20 +47,6 @@ impl Orchestrator {
     pub const MAIN_MIXER_UVID: &str = "main-mixer";
     pub const PATTERN_MANAGER_UVID: &str = "pattern-manager";
     pub const BEAT_SEQUENCER_UVID: &str = "beat-sequencer";
-
-    pub fn clock_settings(&self) -> &ClockSettings {
-        &self.clock_settings
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn set_clock_settings(&mut self, clock_settings: &ClockSettings) {
-        self.clock_settings = clock_settings.clone();
-        // TODO: we'll need to propagate the changes to everyone who's paying attention
-    }
-
-    pub fn set_sample_rate(&mut self, sample_rate: usize) {
-        self.clock_settings.set_sample_rate(sample_rate);
-    }
 
     pub fn store(&self) -> &Store {
         &self.store
@@ -407,20 +395,14 @@ impl Orchestrator {
         self.title = title;
     }
 
-    pub fn new_with(sample_rate: usize, beats_per_minute: ParameterType) -> Self {
-        let ts = TimeSignature::default();
-        Self::new_with_clock_settings(&ClockSettings::new_with(
-            sample_rate,
-            beats_per_minute as f32,
-            (ts.top, ts.bottom),
-        ))
-    }
-
-    pub fn new_with_clock_settings(clock_settings: &ClockSettings) -> Self {
+    pub fn new_with(sample_rate: usize, bpm: ParameterType) -> Self {
+        let time_signature = TimeSignature::default();
         let mut r = Self {
             uid: Default::default(),
             title: Some("Untitled".to_string()),
-            clock_settings: clock_settings.clone(),
+            sample_rate,
+            time_signature,
+            bpm,
             store: Default::default(),
             main_mixer_uid: Default::default(),
             pattern_manager_uid: Default::default(),
@@ -442,10 +424,7 @@ impl Orchestrator {
         );
         r.beat_sequencer_uid = r.add(
             Some(Orchestrator::BEAT_SEQUENCER_UVID),
-            Entity::BeatSequencer(Box::new(BeatSequencer::new_with(
-                r.clock_settings.sample_rate(),
-                r.clock_settings.bpm() as ParameterType,
-            ))),
+            Entity::BeatSequencer(Box::new(BeatSequencer::new_with(sample_rate, bpm))),
         );
         r.connect_midi_upstream(r.beat_sequencer_uid);
 
@@ -686,10 +665,9 @@ impl Orchestrator {
         samples: &mut [StereoSample],
         quiet: bool,
     ) -> anyhow::Result<Performance> {
-        let sample_rate = self.clock_settings().sample_rate();
         let mut tick_count = 0;
-        let performance = Performance::new_with(sample_rate);
-        let progress_indicator_quantum: usize = sample_rate / 2;
+        let performance = Performance::new_with(self.sample_rate);
+        let progress_indicator_quantum: usize = self.sample_rate / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
 
         loop {
@@ -723,7 +701,7 @@ impl Orchestrator {
     }
 
     pub fn reset(&mut self) {
-        self.store.reset(self.clock_settings().sample_rate());
+        self.store.reset(self.sample_rate);
     }
 
     /// Runs the whole world for the given number of frames, returning each
@@ -764,6 +742,22 @@ impl Orchestrator {
 
     pub fn track_samples(&self) -> &[StereoSample] {
         &self.last_track_samples
+    }
+
+    pub fn sample_rate(&self) -> usize {
+        self.sample_rate
+    }
+
+    pub fn set_sample_rate(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
+    }
+
+    pub fn time_signature(&self) -> TimeSignature {
+        self.time_signature
+    }
+
+    pub fn bpm(&self) -> f64 {
+        self.bpm
     }
 }
 
@@ -956,7 +950,6 @@ pub mod tests {
         effects::gain::Gain,
         entities::Entity,
         instruments::AudioSource,
-        settings::ClockSettings,
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
@@ -1230,18 +1223,17 @@ pub mod tests {
 
     #[test]
     fn run_buffer_size_can_be_odd_number() {
-        let clock_settings = ClockSettings::default();
-        let mut o = Orchestrator::new_with_clock_settings(&clock_settings);
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(
             None,
-            Entity::Timer(Box::new(Timer::new_with(clock_settings.sample_rate(), 1.0))),
+            Entity::Timer(Box::new(Timer::new_with(DEFAULT_SAMPLE_RATE, 1.0))),
         );
 
         // Prime number
         let mut sample_buffer = [StereoSample::SILENCE; 17];
         let r = o.run(&mut sample_buffer);
         assert!(r.is_ok());
-        assert_eq!(r.unwrap().len(), clock_settings.sample_rate());
+        assert_eq!(r.unwrap().len(), DEFAULT_SAMPLE_RATE);
     }
 
     #[test]
@@ -1261,13 +1253,12 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_short_timer() {
-        let clock_settings = ClockSettings::default();
-        let mut o = Orchestrator::new_with_clock_settings(&clock_settings);
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(
             None,
             Entity::Timer(Box::new(Timer::new_with(
-                clock_settings.sample_rate(),
-                1.0 / clock_settings.sample_rate() as f32,
+                DEFAULT_SAMPLE_RATE,
+                1.0 / DEFAULT_SAMPLE_RATE as f32,
             ))),
         );
         let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -1280,11 +1271,10 @@ pub mod tests {
 
     #[test]
     fn orchestrator_sample_count_is_accurate_for_ordinary_timer() {
-        let clock_settings = ClockSettings::default();
-        let mut o = Orchestrator::new_with_clock_settings(&clock_settings);
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(
             None,
-            Entity::Timer(Box::new(Timer::new_with(clock_settings.sample_rate(), 1.0))),
+            Entity::Timer(Box::new(Timer::new_with(DEFAULT_SAMPLE_RATE, 1.0))),
         );
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {

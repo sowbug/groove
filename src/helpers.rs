@@ -248,11 +248,11 @@ impl IOHelper {
                 None,
                 if channel == 9 {
                     Entity::Drumkit(Box::new(Drumkit::new_from_files(
-                        orchestrator.clock_settings().sample_rate(),
+                        orchestrator.sample_rate(),
                     )))
                 } else {
                     Entity::WelshSynth(Box::new(WelshSynth::new_with(
-                        orchestrator.clock_settings().sample_rate(), // TODO: tie this better to actual reality
+                        orchestrator.sample_rate(), // TODO: tie this better to actual reality
                         SynthPatch::by_name("Piano"),
                     )))
                 },

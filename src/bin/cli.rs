@@ -92,9 +92,8 @@ fn main() -> anyhow::Result<()> {
         if !args.quiet {
             print!("Performing to queue ");
         }
-        let mut clock_settings = orchestrator.clock_settings().clone();
-        clock_settings.set_sample_rate(if args.wav {
-            44100
+        orchestrator.set_sample_rate(if args.wav {
+            DEFAULT_SAMPLE_RATE
         } else {
             IOHelper::get_output_device_sample_rate()
         });
