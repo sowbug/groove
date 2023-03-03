@@ -230,7 +230,11 @@ pub struct LfoPreset {
 }
 impl LfoPreset {
     pub fn into_with(&self, sample_rate: usize) -> Oscillator {
-        Oscillator::new_with_type_and_frequency(sample_rate, self.waveform.into(), self.frequency)
+        Oscillator::new_with_waveform_and_frequency(
+            sample_rate,
+            self.waveform.into(),
+            self.frequency as ParameterType,
+        )
     }
 }
 

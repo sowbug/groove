@@ -37,6 +37,8 @@ pub struct Oscillator {
     /// instead.
     fixed_frequency: ParameterType,
 
+    // TODO: this might be a new type that has an exponential effect.
+    //
     /// 1.0 is no change. 2.0 doubles the frequency. 0.5 halves it. Designed for
     /// pitch correction at construction time.
     frequency_tune: ParameterType,
@@ -155,13 +157,13 @@ impl Oscillator {
         }
     }
 
-    pub(crate) fn new_with_type_and_frequency(
+    pub(crate) fn new_with_waveform_and_frequency(
         sample_rate: usize,
         waveform: Waveform,
-        frequency: f32,
+        frequency: ParameterType,
     ) -> Self {
         let mut r = Self::new_with_waveform(sample_rate, waveform);
-        r.frequency = frequency as f64;
+        r.frequency = frequency;
         r
     }
 
@@ -318,7 +320,6 @@ mod tests {
     use super::{Oscillator, Waveform};
     use crate::{
         common::DEFAULT_SAMPLE_RATE,
-        settings::patches::OscillatorTune,
         traits::tests::DebugTicks,
         utils::{
             tests::{render_signal_as_audio_source, samples_match_known_good_wav_file},
@@ -340,10 +341,13 @@ mod tests {
         }
     }
 
-    fn create_oscillator(waveform: Waveform, tune: OscillatorTune, note: MidiNote) -> Oscillator {
-        let mut oscillator = Oscillator::new_with_waveform(DEFAULT_SAMPLE_RATE, waveform);
-        oscillator.set_frequency_tune(tune.into());
-        oscillator.set_frequency(note_type_to_frequency(note));
+    fn create_oscillator(waveform: Waveform, tune: ParameterType, note: MidiNote) -> Oscillator {
+        let mut oscillator = Oscillator::new_with_waveform_and_frequency(
+            DEFAULT_SAMPLE_RATE,
+            waveform,
+            note_type_to_frequency(note),
+        );
+        oscillator.set_frequency_tune(tune);
         oscillator
     }
 
@@ -365,12 +369,12 @@ mod tests {
     #[test]
     fn test_square_wave_is_correct_amplitude() {
         const SAMPLE_RATE: usize = 63949; // Prime number
-        const FREQUENCY: f32 = 499.0;
+        const FREQUENCY: ParameterType = 499.0;
         let mut oscillator =
-            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
+            Oscillator::new_with_waveform_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
 
         // Below Nyquist limit
-        assert_lt!(FREQUENCY, (SAMPLE_RATE / 2) as f32);
+        assert_lt!(FREQUENCY, (SAMPLE_RATE / 2) as ParameterType);
 
         for _ in 0..SAMPLE_RATE {
             oscillator.tick(1);
@@ -384,9 +388,9 @@ mod tests {
         // For this test, we want the sample rate and frequency to be nice even
         // numbers so that we don't have to deal with edge cases.
         const SAMPLE_RATE: usize = 65536;
-        const FREQUENCY: f32 = 128.0;
+        const FREQUENCY: ParameterType = 128.0;
         let mut oscillator =
-            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
+            Oscillator::new_with_waveform_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
 
         let mut n_pos = 0;
         let mut n_neg = 0;
@@ -418,9 +422,9 @@ mod tests {
     #[test]
     fn test_square_wave_shape_is_accurate() {
         const SAMPLE_RATE: usize = 65536;
-        const FREQUENCY: f32 = 2.0;
+        const FREQUENCY: ParameterType = 2.0;
         let mut oscillator =
-            Oscillator::new_with_type_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
+            Oscillator::new_with_waveform_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
 
         oscillator.tick(1);
         assert_eq!(
@@ -464,9 +468,12 @@ mod tests {
 
     #[test]
     fn test_sine_wave_is_balanced() {
-        const FREQUENCY: f32 = 1.0;
-        let mut oscillator =
-            Oscillator::new_with_type_and_frequency(DEFAULT_SAMPLE_RATE, Waveform::Sine, FREQUENCY);
+        const FREQUENCY: ParameterType = 1.0;
+        let mut oscillator = Oscillator::new_with_waveform_and_frequency(
+            DEFAULT_SAMPLE_RATE,
+            Waveform::Sine,
+            FREQUENCY,
+        );
 
         let mut n_pos = 0;
         let mut n_neg = 0;
@@ -497,7 +504,7 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc = Oscillator::new_with_type_and_frequency(
+            let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
                 Waveform::Square,
                 test_case.0,
@@ -526,7 +533,7 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc = Oscillator::new_with_type_and_frequency(
+            let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
                 Waveform::Sine,
                 test_case.0,
@@ -555,7 +562,7 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc = Oscillator::new_with_type_and_frequency(
+            let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
                 Waveform::Sawtooth,
                 test_case.0,
@@ -584,7 +591,7 @@ mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc = Oscillator::new_with_type_and_frequency(
+            let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
                 Waveform::Triangle,
                 test_case.0,
@@ -605,15 +612,7 @@ mod tests {
 
     #[test]
     fn oscillator_modulated() {
-        let mut oscillator = create_oscillator(
-            Waveform::Sine,
-            OscillatorTune::Osc {
-                octave: 0,
-                semi: 0,
-                cent: 0,
-            },
-            MidiNote::C4,
-        );
+        let mut oscillator = create_oscillator(Waveform::Sine, 1.0, MidiNote::C4);
         // Default
         assert_eq!(
             oscillator.adjusted_frequency(),

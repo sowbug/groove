@@ -40,10 +40,10 @@ impl LfoController {
     pub fn new_with(sample_rate: usize, waveform: Waveform, frequency_hz: ParameterType) -> Self {
         Self {
             uid: Default::default(),
-            oscillator: Oscillator::new_with_type_and_frequency(
+            oscillator: Oscillator::new_with_waveform_and_frequency(
                 sample_rate,
                 waveform,
-                frequency_hz as f32,
+                frequency_hz,
             ),
         }
     }
