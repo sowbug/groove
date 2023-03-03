@@ -192,7 +192,6 @@ mod tests {
         controllers::Timer,
         entities::Entity,
         instruments::TestInstrument,
-        settings::PatternSettings,
         Orchestrator,
     };
     use groove_core::StereoSample;
@@ -218,20 +217,37 @@ mod tests {
         // means that we should interpret this as TWO measures, the first having
         // four notes, and the second having just one note and three rests.
         let note_pattern = vec![
-            "1".to_string(),
-            "2".to_string(),
-            "3".to_string(),
-            "4".to_string(),
-            "5".to_string(),
+            Note {
+                key: 1,
+                velocity: 127,
+                duration: PerfectTimeUnit(1.0),
+            },
+            Note {
+                key: 2,
+                velocity: 127,
+                duration: PerfectTimeUnit(1.0),
+            },
+            Note {
+                key: 3,
+                velocity: 127,
+                duration: PerfectTimeUnit(1.0),
+            },
+            Note {
+                key: 4,
+                velocity: 127,
+                duration: PerfectTimeUnit(1.0),
+            },
+            Note {
+                key: 5,
+                velocity: 127,
+                duration: PerfectTimeUnit(1.0),
+            },
         ];
         let expected_note_count = note_pattern.len();
-        let pattern_settings = PatternSettings {
-            id: String::from("test-pattern"),
+        let pattern = Pattern::<Note> {
             note_value: Some(BeatValue::Quarter),
             notes: vec![note_pattern],
         };
-
-        let pattern = pattern_settings.into_pattern();
         assert_eq!(pattern.notes.len(), 1);
         assert_eq!(pattern.notes[0].len(), expected_note_count);
 
@@ -256,14 +272,16 @@ mod tests {
         let mut sequencer = Box::new(BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
-        let note_pattern = vec!["0".to_string()];
-        let pattern_settings = PatternSettings {
-            id: String::from("test-pattern"),
+        let note_pattern = vec![Note {
+            key: 0,
+            velocity: 127,
+            duration: PerfectTimeUnit(1.0),
+        }];
+        let pattern = Pattern {
             note_value: Some(BeatValue::Quarter),
             notes: vec![note_pattern],
         };
 
-        let pattern = pattern_settings.into_pattern();
         assert_eq!(pattern.notes.len(), 1); // one track of notes
         assert_eq!(pattern.notes[0].len(), 1); // one note in track
 
@@ -298,22 +316,28 @@ mod tests {
         // four quarter-notes in 7/8 time = 8 beats = 2 measures
         let mut note_pattern_1 = Vec::new();
         for i in 1..=4 {
-            note_pattern_1.push(i.to_string());
+            note_pattern_1.push(Note {
+                key: i,
+                velocity: 127,
+                duration: PerfectTimeUnit(1.0),
+            });
         }
         // eight quarter-notes in 7/8 time = 16 beats = 3 measures
         let mut note_pattern_2 = Vec::new();
         for i in 11..=18 {
-            note_pattern_2.push(i.to_string());
+            note_pattern_2.push(Note {
+                key: i,
+                velocity: 127,
+                duration: PerfectTimeUnit(1.0),
+            });
         }
         let len_1 = note_pattern_1.len();
         let len_2 = note_pattern_2.len();
-        let pattern_settings = PatternSettings {
-            id: String::from("test-pattern"),
+        let pattern = Pattern {
             note_value: Some(BeatValue::Quarter),
             notes: vec![note_pattern_1, note_pattern_2],
         };
 
-        let pattern = pattern_settings.into_pattern();
         let expected_note_count = len_1 + len_2;
         assert_eq!(pattern.notes.len(), 2);
         assert_eq!(pattern.notes[0].len(), len_1);
@@ -334,12 +358,14 @@ mod tests {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
         let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
         let mut programmer = PatternProgrammer::new_with(&time_signature);
-        let pattern_settings = PatternSettings {
-            id: String::from("test-pattern-inherit"),
+        let pattern = Pattern {
             note_value: None,
-            notes: vec![vec![String::from("1")]],
+            notes: vec![vec![Note {
+                key: 1,
+                velocity: 127,
+                duration: PerfectTimeUnit(1.0),
+            }]],
         };
-        let pattern = pattern_settings.into_pattern();
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
 
         assert_eq!(
