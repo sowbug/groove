@@ -78,8 +78,8 @@ impl SongSettings {
         //
         // TODO: think (again) about whether Serde structs should be closer or
         // farther to the heart of the model.
-        if settings.clock_settings.sample_rate() == 0 {
-            settings.clock_settings.set_sample_rate(44100);
+        if settings.clock_settings.sample_rate == 0 {
+            settings.clock_settings.sample_rate = 44100;
         }
         Ok(settings)
     }
@@ -91,7 +91,7 @@ impl SongSettings {
         self.instantiate_patch_cables(&mut o)?;
         self.instantiate_controls(&mut o)?;
         self.instantiate_tracks(&mut o);
-        self.instantiate_control_trips(&mut o, &self.clock_settings.time_signature());
+        self.instantiate_control_trips(&mut o, &self.clock_settings.time_signature.into());
         Ok(o)
     }
 
@@ -101,7 +101,7 @@ impl SongSettings {
         clock_settings: &ClockSettings,
         load_only_test_entities: bool,
     ) {
-        let sample_rate = self.clock_settings.sample_rate();
+        let sample_rate = self.clock_settings.sample_rate;
 
         for device in &self.devices {
             match device {
@@ -114,7 +114,7 @@ impl SongSettings {
                 DeviceSettings::Controller(id, settings) => {
                     let (channel_in, _channel_out, entity) = settings.instantiate(
                         clock_settings.sample_rate,
-                        clock_settings.bpm() as ParameterType,
+                        clock_settings.beats_per_minute as ParameterType,
                         load_only_test_entities,
                     );
                     let uid = orchestrator.add(Some(id), entity);
@@ -233,7 +233,8 @@ impl SongSettings {
         if let Some(Entity::BeatSequencer(sequencer)) =
             orchestrator.store_mut().get_mut(beat_sequencer_uid)
         {
-            let mut programmer = PatternProgrammer::new_with(&self.clock_settings.time_signature);
+            let mut programmer =
+                PatternProgrammer::new_with(&self.clock_settings.time_signature.into());
 
             for track in &self.tracks {
                 let channel = track.midi_channel;

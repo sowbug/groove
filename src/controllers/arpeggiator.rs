@@ -106,7 +106,7 @@ impl Arpeggiator {
 
         // TODO: this is a good place to start pulling the f32 time thread --
         // remove that ".into()" and deal with it
-        let start_beat = PerfectTimeUnit(self.beat_sequencer.cursor_in_beats().into());
+        let start_beat = PerfectTimeUnit(self.beat_sequencer.cursor_in_beats());
         self.insert_one_note(
             start_beat + PerfectTimeUnit(0.25 * 0.0),
             PerfectTimeUnit(0.25),

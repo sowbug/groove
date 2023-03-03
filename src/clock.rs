@@ -35,8 +35,7 @@ impl BeatValue {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TimeSignature {
     // The top number of a time signature tells how many beats are in a measure.
     // The bottom number tells the value of a beat. For example, if the bottom
@@ -71,7 +70,6 @@ pub struct TimeSignature {
     pub top: usize,
     pub bottom: usize,
 }
-
 impl TimeSignature {
     pub fn new_with(top: usize, bottom: usize) -> anyhow::Result<Self, Error> {
         if top == 0 {
@@ -89,7 +87,6 @@ impl TimeSignature {
         BeatValue::from_divisor(self.bottom as f32).unwrap()
     }
 }
-
 impl Default for TimeSignature {
     fn default() -> Self {
         Self { top: 4, bottom: 4 }

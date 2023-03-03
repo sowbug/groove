@@ -140,8 +140,8 @@ impl BeatSequencer {
 
     pub fn generate_midi_messages_for_current_frame(&mut self) -> Option<Vec<(u8, MidiMessage)>> {
         self.generate_midi_messages_for_interval(
-            PerfectTimeUnit(self.temp_hack_clock.beats().into()),
-            PerfectTimeUnit(self.temp_hack_clock.next_slice_in_beats().into()),
+            PerfectTimeUnit(self.temp_hack_clock.beats()),
+            PerfectTimeUnit(self.temp_hack_clock.next_slice_in_beats()),
         )
     }
 }
@@ -163,9 +163,9 @@ impl TicksWithMessages<EntityMessage> for BeatSequencer {
             return (None, 0);
         }
         let mut v = Vec::default();
-        let this_instant = PerfectTimeUnit(self.temp_hack_clock.beats().into());
+        let this_instant = PerfectTimeUnit(self.temp_hack_clock.beats());
         self.temp_hack_clock.tick_batch(tick_count);
-        self.next_instant = PerfectTimeUnit(self.temp_hack_clock.beats().into());
+        self.next_instant = PerfectTimeUnit(self.temp_hack_clock.beats());
 
         if self.should_stop_pending_notes {
             self.should_stop_pending_notes = false;

@@ -106,7 +106,7 @@ fn parse_control_data(
             .filter(|attr| attr.path.is_ident("controllable"))
             .collect();
         if !attrs.is_empty() {
-            let mut values = get_name_values(&attrs[0]);
+            let mut values = get_name_values(attrs[0]);
             if values.is_empty() {
                 values.push(f.ident.as_ref().unwrap().to_string());
             }

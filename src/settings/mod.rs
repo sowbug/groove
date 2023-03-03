@@ -87,85 +87,22 @@ pub struct ClockSettings {
     beats_per_minute: f32,
 
     #[serde(rename = "time-signature")]
-    time_signature: TimeSignature,
+    time_signature: TimeSignatureSettings,
 
     #[serde(skip)]
     midi_ticks_per_second: usize,
-}
-impl ClockSettings {
-    #[allow(dead_code)]
-    pub(crate) fn new_with(
-        sample_rate: usize,
-        beats_per_minute: f32,
-        time_signature: (usize, usize),
-    ) -> Self {
-        Self {
-            sample_rate,
-            beats_per_minute,
-            time_signature: TimeSignature {
-                top: time_signature.0,
-                bottom: time_signature.1,
-            },
-            midi_ticks_per_second: 960, // TODO
-        }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn new_defaults() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
-    pub fn sample_rate(&self) -> usize {
-        self.sample_rate
-    }
-
-    pub fn set_sample_rate(&mut self, sample_rate: usize) {
-        self.sample_rate = sample_rate;
-    }
-
-    pub fn midi_ticks_per_second(&self) -> usize {
-        self.midi_ticks_per_second
-    }
-
-    pub fn time_signature(&self) -> TimeSignature {
-        self.time_signature
-    }
-
-    pub fn bpm(&self) -> f32 {
-        self.beats_per_minute
-    }
-
-    pub fn set_bpm(&mut self, new_value: f32) {
-        self.beats_per_minute = new_value;
-    }
-
-    pub fn beats_to_samples(&self, beats: f32) -> usize {
-        let seconds = beats * 60.0 / self.beats_per_minute;
-        (seconds * self.sample_rate as f32) as usize
-    }
-
-    // TODO: Horrible precision problems
-    pub fn beats_per_sample(&self) -> f32 {
-        (self.bpm() / 60.0) / self.sample_rate() as f32
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn set_time_signature(&mut self, time_signature: TimeSignature) {
-        self.time_signature = time_signature;
-    }
 }
 impl Default for ClockSettings {
     fn default() -> Self {
         Self {
             sample_rate: 44100,
             beats_per_minute: 128.0,
-            time_signature: TimeSignature { top: 4, bottom: 4 },
+            time_signature: TimeSignatureSettings { top: 4, bottom: 4 },
             midi_ticks_per_second: 960,
         }
     }
 }
+#[allow(clippy::from_over_into)]
 impl Into<Clock> for ClockSettings {
     fn into(self) -> Clock {
         Clock::new_with(
@@ -175,9 +112,10 @@ impl Into<Clock> for ClockSettings {
         )
     }
 }
+#[allow(clippy::from_over_into)]
 impl Into<Orchestrator> for ClockSettings {
     fn into(self) -> Orchestrator {
-        Orchestrator::new_with(self.sample_rate(), self.bpm() as ParameterType)
+        Orchestrator::new_with(self.sample_rate, self.beats_per_minute as ParameterType)
     }
 }
 
@@ -189,15 +127,59 @@ pub struct ControlSettings {
     pub target: ControlTargetSettings,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct TimeSignatureSettings {
+    pub top: usize,
+    pub bottom: usize,
+}
+impl Default for TimeSignatureSettings {
+    fn default() -> Self {
+        Self { top: 4, bottom: 4 }
+    }
+}
+#[allow(clippy::from_over_into)]
+impl Into<TimeSignature> for TimeSignatureSettings {
+    fn into(self) -> TimeSignature {
+        let r = TimeSignature::new_with(self.top, self.bottom);
+        if let Ok(ts) = r {
+            ts
+        } else {
+            panic!("Failed to instantiate TimeSignature: {}", r.err().unwrap())
+        }
+    }
+}
+
 #[cfg(test)]
-impl ClockSettings {
-    const TEST_SAMPLE_RATE: usize = 44100;
-    const TEST_BPM: f32 = 99.0;
-    pub fn new_test() -> Self {
-        Self::new_with(
-            ClockSettings::TEST_SAMPLE_RATE,
-            ClockSettings::TEST_BPM,
-            (4, 4),
-        )
+mod tests {
+    use super::{ClockSettings, TimeSignatureSettings};
+
+    impl ClockSettings {
+        const TEST_SAMPLE_RATE: usize = 44100;
+        const TEST_BPM: f32 = 99.0;
+
+        pub(crate) fn new_with(
+            sample_rate: usize,
+            beats_per_minute: f32,
+            time_signature: (usize, usize),
+        ) -> Self {
+            Self {
+                sample_rate,
+                beats_per_minute,
+                time_signature: TimeSignatureSettings {
+                    top: time_signature.0,
+                    bottom: time_signature.1,
+                },
+                midi_ticks_per_second: 960, // TODO
+            }
+        }
+
+        pub fn new_test() -> Self {
+            Self::new_with(
+                ClockSettings::TEST_SAMPLE_RATE,
+                ClockSettings::TEST_BPM,
+                (4, 4),
+            )
+        }
     }
 }

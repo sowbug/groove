@@ -103,11 +103,11 @@ impl WelshPatchSettings {
             oscillators.push(Oscillator::new_with_waveform(sample_rate, Waveform::Noise));
         }
 
-        let oscillator_mix = if oscillators.len() == 0 {
+        let oscillator_mix = if oscillators.is_empty() {
             0.0
-        } else if oscillators.len() == 1 {
-            1.0
-        } else if self.oscillator_1.mix == 0.0 && self.oscillator_2.mix == 0.0 {
+        } else if oscillators.len() == 1
+            || (self.oscillator_1.mix == 0.0 && self.oscillator_2.mix == 0.0)
+        {
             1.0
         } else {
             let total = self.oscillator_1.mix + self.oscillator_2.mix;
@@ -176,6 +176,7 @@ pub enum WaveformType {
 
     TriangleSine, // TODO
 }
+#[allow(clippy::from_over_into)]
 impl Into<Waveform> for WaveformType {
     fn into(self) -> Waveform {
         match self {
@@ -320,6 +321,7 @@ pub enum LfoRoutingType {
     PulseWidth,
     FilterCutoff,
 }
+#[allow(clippy::from_over_into)]
 impl Into<LfoRouting> for LfoRoutingType {
     fn into(self) -> LfoRouting {
         match self {

@@ -168,8 +168,8 @@ impl Sampler {
         if let Ok(samples) = Self::read_samples_from_file(filename) {
             let samples = Arc::new(samples);
 
-            let root_frequency = if root_frequency.is_some() {
-                root_frequency.unwrap()
+            let root_frequency = if let Some(root_frequency) = root_frequency {
+                root_frequency
             } else if let Ok(root_frequency) = Self::read_riff_metadata(filename) {
                 note_to_frequency(root_frequency)
             } else {

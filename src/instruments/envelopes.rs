@@ -175,7 +175,7 @@ impl EnvelopeGenerator {
     }
 
     fn has_reached_target(&mut self) -> bool {
-        #[deny(clippy::if_same_then_else)]
+        #[allow(clippy::if_same_then_else)]
         let has_hit_target = if self.delta == 0.0 {
             // This is probably a degenerate case, but we don't want to be stuck
             // forever in the current state.
@@ -484,7 +484,7 @@ impl SteppedEnvelope {
     }
 
     pub(crate) fn time_for_unit(&self, clock: &Clock) -> f64 {
-        clock.time_for(&self.time_unit) as f64
+        clock.time_for(&self.time_unit)
     }
 }
 

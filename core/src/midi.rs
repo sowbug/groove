@@ -68,8 +68,8 @@ pub fn note_type_to_frequency(midi_note: MidiNote) -> ParameterType {
 }
 
 pub fn note_description_to_frequency(text: String, default: ParameterType) -> ParameterType {
-    if text.len() != 0 {
-        if text.contains(".") {
+    if !text.is_empty() {
+        if text.contains('.') {
             let frequency = text.parse::<ParameterType>().unwrap_or(default);
             if frequency > 0.0 {
                 return frequency;
