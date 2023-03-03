@@ -1,8 +1,8 @@
 use crate::{
     clock::{Clock, TimeSignature},
+    common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
     helpers::{AudioOutput, IOHelper},
     messages::GrooveMessage,
-    settings::ClockSettings,
     traits::Response,
     Orchestrator,
 };
@@ -336,18 +336,17 @@ impl GrooveSubscription {
 
                         // TODO: deal with output-device and sample-rate
                         // changes. This is a mess.
-                        let mut clock_settings = ClockSettings::default();
-                        clock_settings.set_sample_rate(IOHelper::get_output_device_sample_rate());
-                        let t = Orchestrator::new_with_clock_settings(&clock_settings);
+                        let sample_rate = IOHelper::get_output_device_sample_rate();
+                        let t = Orchestrator::new_with(sample_rate, DEFAULT_BPM);
                         let orchestrator = Arc::new(Mutex::new(t));
                         let orchestrator_for_app = Arc::clone(&orchestrator);
                         let handler = std::thread::spawn(move || {
                             let mut runner = Runner::new_with(
                                 orchestrator,
                                 Clock::new_with(
-                                    clock_settings.sample_rate(),
-                                    clock_settings.bpm() as ParameterType,
-                                    clock_settings.midi_ticks_per_second(),
+                                    sample_rate,
+                                    DEFAULT_BPM,
+                                    DEFAULT_MIDI_TICKS_PER_SECOND,
                                 ),
                                 thread_sender,
                                 app_receiver,
