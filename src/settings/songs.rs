@@ -214,12 +214,13 @@ impl SongSettings {
         if let Some(Entity::PatternManager(pattern_manager)) =
             orchestrator.store_mut().get_mut(pattern_manager_uid)
         {
-            for pattern_settings in &self.patterns {
-                let pattern = Pattern::<Note>::from_settings(pattern_settings);
-                if ids_to_patterns.contains_key(&pattern_settings.id) {
+            for pattern_settings in self.patterns.iter() {
+                let id = pattern_settings.id.clone();
+                let pattern: Pattern<Note> = (*pattern_settings).into_pattern();
+                if ids_to_patterns.contains_key(&id) {
                     eprintln!(
                         "WARNING: duplicate pattern ID {}. Skipping all but one!",
-                        pattern_settings.id
+                        id
                     );
                     continue;
                 }

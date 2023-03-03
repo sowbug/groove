@@ -43,8 +43,8 @@ pub struct PatternSettings {
     pub note_value: Option<BeatValue>,
     pub notes: Vec<Vec<String>>,
 }
-impl Into<Pattern<Note>> for PatternSettings {
-    fn into(self) -> Pattern<Note> {
+impl PatternSettings {
+    pub fn into_pattern(&self) -> Pattern<Note> {
         let mut r = Pattern::<Note> {
             note_value: self.note_value.clone(),
             notes: Vec::default(),

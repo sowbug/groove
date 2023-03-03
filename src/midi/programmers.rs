@@ -231,8 +231,7 @@ mod tests {
             notes: vec![note_pattern],
         };
 
-        let pattern = Pattern::from_settings(&pattern_settings);
-
+        let pattern = pattern_settings.into_pattern();
         assert_eq!(pattern.notes.len(), 1);
         assert_eq!(pattern.notes[0].len(), expected_note_count);
 
@@ -264,8 +263,7 @@ mod tests {
             notes: vec![note_pattern],
         };
 
-        let pattern = Pattern::from_settings(&pattern_settings);
-
+        let pattern = pattern_settings.into_pattern();
         assert_eq!(pattern.notes.len(), 1); // one track of notes
         assert_eq!(pattern.notes[0].len(), 1); // one note in track
 
@@ -315,8 +313,7 @@ mod tests {
             notes: vec![note_pattern_1, note_pattern_2],
         };
 
-        let pattern = Pattern::from_settings(&pattern_settings);
-
+        let pattern = pattern_settings.into_pattern();
         let expected_note_count = len_1 + len_2;
         assert_eq!(pattern.notes.len(), 2);
         assert_eq!(pattern.notes[0].len(), len_1);
@@ -337,11 +334,12 @@ mod tests {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
         let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
         let mut programmer = PatternProgrammer::new_with(&time_signature);
-        let pattern = Pattern::<Note>::from_settings(&PatternSettings {
+        let pattern_settings = PatternSettings {
             id: String::from("test-pattern-inherit"),
             note_value: None,
             notes: vec![vec![String::from("1")]],
-        });
+        };
+        let pattern = pattern_settings.into_pattern();
         programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
 
         assert_eq!(
