@@ -10,7 +10,8 @@ use self::{
     instruments::InstrumentSettings,
 };
 use crate::{
-    clock::{BeatValue, TimeSignature},
+    clock::{BeatValue, PerfectTimeUnit, TimeSignature},
+    controllers::{Note, Pattern},
     Clock,
 };
 use groove_core::ParameterType;
@@ -41,6 +42,26 @@ pub struct PatternSettings {
     pub id: DeviceId,
     pub note_value: Option<BeatValue>,
     pub notes: Vec<Vec<String>>,
+}
+impl Into<Pattern<Note>> for PatternSettings {
+    fn into(self) -> Pattern<Note> {
+        let mut r = Pattern::<Note> {
+            note_value: self.note_value.clone(),
+            notes: Vec::default(),
+        };
+        for note_sequence in self.notes.iter() {
+            let mut note_vec = Vec::default();
+            for note in note_sequence.iter() {
+                note_vec.push(Note {
+                    key: Pattern::<Note>::note_to_value(note),
+                    velocity: 127,
+                    duration: PerfectTimeUnit(1.0),
+                });
+            }
+            r.notes.push(note_vec);
+        }
+        r
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

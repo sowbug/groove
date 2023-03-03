@@ -386,19 +386,22 @@ impl Eq for MidiTicks {}
 
 #[cfg(test)]
 mod tests {
+    use crate::common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
+
     use super::*;
-    use crate::settings::ClockSettings;
     use more_asserts::assert_lt;
 
     impl Clock {
         pub fn new_test() -> Self {
-            ClockSettings::new_test().into()
+            Clock::new_with(
+                DEFAULT_SAMPLE_RATE,
+                DEFAULT_BPM,
+                DEFAULT_MIDI_TICKS_PER_SECOND,
+            )
         }
 
         pub fn new_with_sample_rate(sample_rate: usize) -> Self {
-            let mut cs = ClockSettings::default();
-            cs.set_sample_rate(sample_rate);
-            cs.into()
+            Self::new_with(sample_rate, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND)
         }
 
         // pub fn debug_new_with_time(time: f32) -> Self {
@@ -428,12 +431,10 @@ mod tests {
         const SECONDS_PER_BEAT: f64 = 60.0 / BPM;
         const ONE_SAMPLE_OF_SECONDS: f64 = 1.0 / SAMPLE_RATE as f64;
 
-        let clock_settings = ClockSettings::new_with(SAMPLE_RATE, BPM as f32, (4, 4));
-
         // Initial state. The Ticks trait specifies that state is valid for the
         // frame *after* calling tick(), so here we verify that after calling
         // tick() the first time, the tick counter remains unchanged.
-        let mut clock: Clock = clock_settings.into();
+        let mut clock = Clock::new_with(SAMPLE_RATE, BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
         clock.tick(1);
         assert_eq!(
             clock.frames(),

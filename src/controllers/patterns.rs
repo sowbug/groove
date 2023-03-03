@@ -1,6 +1,7 @@
 use crate::{
     clock::{BeatValue, PerfectTimeUnit},
     messages::EntityMessage,
+    settings::PatternSettings,
 };
 use groove_core::{
     midi::HandlesMidi,
@@ -36,7 +37,7 @@ impl<T: Default> Pattern<T> {
         }
     }
 
-    fn note_to_value(note: &str) -> u8 {
+    pub fn note_to_value(note: &str) -> u8 {
         // TODO https://en.wikipedia.org/wiki/Scientific_pitch_notation labels,
         // e.g., for General MIDI percussion
         note.parse().unwrap_or_default()
@@ -46,7 +47,7 @@ impl<T: Default> Pattern<T> {
 // TODO: I got eager with the <T> and then tired when I realized it would affect
 // more stuff. Thus there's only an implementation for Note.
 impl Pattern<Note> {
-    pub(crate) fn from_settings(settings: &crate::settings::PatternSettings) -> Self {
+    pub(crate) fn from_settings(settings: &PatternSettings) -> Self {
         let mut r = Self {
             note_value: settings.note_value.clone(),
             notes: Vec::new(),
