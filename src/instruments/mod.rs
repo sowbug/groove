@@ -12,10 +12,7 @@ use self::{
     envelopes::EnvelopeGenerator,
     oscillators::{Oscillator, Waveform},
 };
-use crate::{
-    clock::ClockTimeUnit,
-    settings::patches::{EnvelopeSettings, WaveformType},
-};
+use crate::clock::ClockTimeUnit;
 use anyhow::{anyhow, Result};
 use groove_core::{
     control::F32ControlValue,
@@ -24,7 +21,7 @@ use groove_core::{
         Controllable, Envelope, Generates, HasUid, IsInstrument, IsStereoSampleVoice, IsVoice,
         PlaysNotes, Resets, StoresVoices, Ticks,
     },
-    BipolarNormal, ParameterType, Sample, SampleType, StereoSample,
+    BipolarNormal, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use std::{
@@ -314,7 +311,7 @@ impl SimpleVoice {
         Self {
             sample_rate,
             oscillator: Oscillator::new_with(sample_rate),
-            envelope: EnvelopeGenerator::new_with(sample_rate, &EnvelopeSettings::default()),
+            envelope: EnvelopeGenerator::new_with(sample_rate, 0.0, 0.0, Normal::maximum(), 0.0),
             sample: Default::default(),
             is_playing: Default::default(),
             event_tracker: Default::default(),
@@ -746,15 +743,7 @@ impl FmVoice {
             carrier: Oscillator::new_with(sample_rate),
             modulator: Oscillator::new_with(sample_rate),
             modulator_depth: 0.2,
-            envelope: EnvelopeGenerator::new_with(
-                sample_rate,
-                &EnvelopeSettings {
-                    attack: 0.1,
-                    decay: 0.1,
-                    sustain: 0.8,
-                    release: 0.25,
-                },
-            ),
+            envelope: EnvelopeGenerator::new_with(sample_rate, 0.1, 0.1, Normal::new(0.8), 0.25),
             dca: Default::default(),
             is_playing: Default::default(),
             event_tracker: Default::default(),
@@ -963,7 +952,7 @@ pub struct TestInstrument {
 
     /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
     #[controllable]
-    pub waveform: PhantomData<WaveformType>, // interesting use of PhantomData
+    pub waveform: PhantomData<Waveform>, // interesting use of PhantomData
 
     #[controllable]
     pub fake_value: f32,
@@ -1223,7 +1212,10 @@ impl TestSynth {
             Box::new(Oscillator::new_with(sample_rate)),
             Box::new(EnvelopeGenerator::new_with(
                 sample_rate,
-                &EnvelopeSettings::default(),
+                0.0,
+                0.0,
+                Normal::maximum(),
+                0.0,
             )),
         )
     }

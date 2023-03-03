@@ -575,7 +575,7 @@ impl Ticks for WelshVoice {
 impl WelshVoice {
     pub fn new_with(sample_rate: usize, preset: &SynthPatch) -> Self {
         let mut r = Self {
-            amp_envelope: EnvelopeGenerator::new_with(sample_rate, &preset.amp_envelope),
+            amp_envelope: preset.amp_envelope.into_with(sample_rate),
             lfo: Oscillator::new_lfo(sample_rate, &preset.lfo),
             lfo_routing: preset.lfo.routing,
             lfo_depth: preset.lfo.depth.into(),
@@ -590,7 +590,7 @@ impl WelshVoice {
                 preset.filter_type_12db.cutoff_hz,
             ),
             filter_cutoff_end: preset.filter_envelope_weight,
-            filter_envelope: EnvelopeGenerator::new_with(sample_rate, &preset.filter_envelope),
+            filter_envelope: preset.filter_envelope.into_with(sample_rate),
             oscillators: Default::default(),
             oscillator_2_sync: Default::default(),
             oscillator_mix: Default::default(),

@@ -1,4 +1,7 @@
-use crate::instruments::oscillators::{Oscillator, Waveform};
+use crate::instruments::{
+    envelopes::EnvelopeGenerator,
+    oscillators::{Oscillator, Waveform},
+};
 use groove_core::{BipolarNormal, Normal, ParameterType};
 use serde::{Deserialize, Serialize};
 
@@ -167,10 +170,19 @@ impl Default for EnvelopeSettings {
         }
     }
 }
-
 impl EnvelopeSettings {
     #[allow(dead_code)]
     pub const MAX: f64 = 10000.0; // TODO: what exactly does Welsh mean by "max"?
+
+    pub fn into_with(&self, sample_rate: usize) -> EnvelopeGenerator {
+        EnvelopeGenerator::new_with(
+            sample_rate,
+            self.attack,
+            self.decay,
+            Normal::new(self.sustain),
+            self.release,
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -230,22 +242,8 @@ pub struct FilterPreset {
 
 #[cfg(test)]
 mod tests {
-    use super::EnvelopeSettings;
     use crate::settings::patches::OscillatorSettings;
     use assert_approx_eq::assert_approx_eq;
-
-    impl EnvelopeSettings {
-        // Decay and release rates should be determined as if the envelope stages
-        // were operating on a full 1.0..=0.0 amplitude range. Thus, the expected
-        // time for the stage is not necessarily the same as the parameter.
-        pub(crate) fn expected_decay_time(&self) -> f64 {
-            self.decay * (1.0 - self.sustain)
-        }
-
-        pub(crate) fn expected_release_time(&self, current_amplitude: f64) -> f64 {
-            self.release * current_amplitude
-        }
-    }
 
     #[test]
     fn test_oscillator_tuning_helpers() {
