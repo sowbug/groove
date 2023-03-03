@@ -1,6 +1,5 @@
-use crate::common::TimeUnit;
 use groove_core::{
-    time::{Clock, ClockTimeUnit},
+    time::{Clock, ClockTimeUnit, TimeUnit},
     traits::{Envelope, Generates, Resets, Ticks},
     Normal, ParameterType, SignalType,
 };
