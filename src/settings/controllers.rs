@@ -1,7 +1,10 @@
 use super::{patches::WaveformType, DeviceId, MidiChannel};
 use crate::{
     clock::BeatValue,
-    controllers::{Arpeggiator, LfoController, SignalPassthroughController, TestController},
+    controllers::{
+        control_trip::ControlStep, Arpeggiator, ControlPath, LfoController,
+        SignalPassthroughController, TestController,
+    },
     entities::Entity,
 };
 use groove_core::{ParameterType, SignalType};
@@ -13,8 +16,8 @@ use serde::{Deserialize, Serialize};
 /// from 0.5 to 0.7 linearly from beat twelve to beat sixteen." The ControlTrip
 /// knows which target that 0.5-0.7 applies to.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "kebab-case")]
-pub enum ControlStep {
+#[serde(rename = "control-step", rename_all = "kebab-case")]
+pub enum ControlStepSettings {
     /// Stairstep: one value per step.
     Flat { value: SignalType },
     /// Linear: start at one value and end at another.
@@ -33,16 +36,24 @@ pub enum ControlStep {
         // controllable.
     },
 }
-
-impl ControlStep {
-    pub fn new_flat(value: SignalType) -> crate::settings::controllers::ControlStep {
-        ControlStep::Flat { value }
-    }
-    pub fn new_slope(
-        start: SignalType,
-        end: SignalType,
-    ) -> crate::settings::controllers::ControlStep {
-        ControlStep::Slope { start, end }
+impl ControlStepSettings {
+    pub fn into_control_step(&self) -> ControlStep {
+        match self {
+            ControlStepSettings::Flat { value } => ControlStep::Flat { value: *value },
+            ControlStepSettings::Slope { start, end } => ControlStep::Slope {
+                start: *start,
+                end: *end,
+            },
+            ControlStepSettings::Logarithmic { start, end } => ControlStep::Logarithmic {
+                start: *start,
+                end: *end,
+            },
+            ControlStepSettings::Exponential { start, end } => ControlStep::Exponential {
+                start: *start,
+                end: *end,
+            },
+            ControlStepSettings::Triggered {} => ControlStep::Triggered {},
+        }
     }
 }
 
@@ -51,7 +62,19 @@ impl ControlStep {
 pub struct ControlPathSettings {
     pub id: DeviceId,
     pub note_value: Option<BeatValue>,
-    pub steps: Vec<ControlStep>,
+    pub steps: Vec<ControlStepSettings>,
+}
+impl ControlPathSettings {
+    pub fn into_control_path(&self) -> ControlPath {
+        let mut r = ControlPath {
+            note_value: self.note_value.clone(),
+            steps: Default::default(),
+        };
+        for step in self.steps.iter() {
+            r.steps.push(step.into_control_step());
+        }
+        r
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

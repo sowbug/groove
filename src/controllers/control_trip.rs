@@ -2,7 +2,6 @@ use crate::{
     clock::{BeatValue, Clock, ClockTimeUnit, TimeSignature},
     instruments::envelopes::{EnvelopeFunction, EnvelopeStep, SteppedEnvelope},
     messages::EntityMessage,
-    settings::controllers::{ControlPathSettings, ControlStep},
 };
 use core::fmt::Debug;
 use groove_core::{
@@ -12,6 +11,27 @@ use groove_core::{
 };
 use groove_macros::Uid;
 use std::ops::Range;
+
+#[derive(Clone, Copy, Debug)]
+pub enum ControlStep {
+    /// Stairstep: one value per step.
+    Flat { value: SignalType },
+    /// Linear: start at one value and end at another.
+    Slope { start: SignalType, end: SignalType },
+
+    /// Curved; starts out changing quickly and ends up changing slowly.
+    Logarithmic { start: SignalType, end: SignalType },
+
+    /// Curved; starts out changing slowly and ends up changing quickly.
+    Exponential { start: SignalType, end: SignalType },
+
+    /// Event-driven (TODO)
+    #[allow(dead_code)]
+    Triggered {
+        // TODO: if we implement this, then ControlTrips themselves
+        // controllable.
+    },
+}
 
 /// ControlTrip, ControlPath, and ControlStep help with
 /// [automation](https://en.wikipedia.org/wiki/Track_automation). Briefly, a
@@ -157,14 +177,6 @@ pub struct ControlPath {
     pub steps: Vec<ControlStep>,
 }
 
-impl ControlPath {
-    pub(crate) fn from_settings(settings: &ControlPathSettings) -> Self {
-        Self {
-            note_value: settings.note_value.clone(),
-            steps: settings.steps.clone(),
-        }
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,10 +241,22 @@ mod tests {
     #[test]
     fn test_slope_step() {
         let step_vec = vec![
-            ControlStep::new_slope(0.0, 1.0),
-            ControlStep::new_slope(1.0, 0.5),
-            ControlStep::new_slope(1.0, 0.0),
-            ControlStep::new_slope(0.0, 1.0),
+            ControlStep::Slope {
+                start: 0.0,
+                end: 1.0,
+            },
+            ControlStep::Slope {
+                start: 1.0,
+                end: 0.5,
+            },
+            ControlStep::Slope {
+                start: 1.0,
+                end: 0.0,
+            },
+            ControlStep::Slope {
+                start: 0.0,
+                end: 1.0,
+            },
         ];
         let step_vec_len = step_vec.len();
         const INTERPOLATED_VALUES: &[f32] = &[0.0, 0.5, 1.0, 0.75, 1.0, 0.5, 0.0, 0.5, 1.0];
