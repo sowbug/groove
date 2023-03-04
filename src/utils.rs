@@ -1,9 +1,7 @@
-use core::fmt::Debug;
 use std::{
     env::{current_dir, current_exe},
     path::PathBuf,
 };
-use strum_macros::{Display, EnumString};
 
 #[allow(dead_code)]
 pub(crate) fn transform_linear_to_mma_concave(linear_value: f64) -> f64 {
@@ -64,14 +62,6 @@ impl Paths {
     }
 }
 
-#[derive(Display, Debug, EnumString)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum TestLfoControlParams {
-    Frequency,
-}
-
-// Looking for TestLfo? Use LfoController instead!
-
 #[cfg(test)]
 pub mod tests {
     use super::Paths;
@@ -80,18 +70,16 @@ pub mod tests {
         controllers::{orchestrator::Orchestrator, LfoController, TestController, Timer, Trigger},
         effects::TestEffect,
         entities::Entity,
-        instruments::{
-            oscillators::{Oscillator, Waveform},
-            TestInstrument, TestSynth, TestSynthControlParams,
-        },
+        instruments::{TestInstrument, TestSynth, TestSynthControlParams},
         utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
     };
     use convert_case::{Case, Casing};
     use groove_core::{
+        generators::Waveform,
         midi::MidiChannel,
         time::Clock,
-        traits::{Generates, Resets, Ticks, TicksWithMessages},
-        ParameterType, Sample, SampleType, StereoSample,
+        traits::{Resets, TicksWithMessages},
+        ParameterType, StereoSample,
     };
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
     use std::{fs, path::PathBuf};
@@ -103,54 +91,6 @@ pub mod tests {
             path_buf.push(Self::TEST_DATA);
             path_buf
         }
-    }
-
-    fn read_samples_from_mono_wav_file(filename: &PathBuf) -> Vec<Sample> {
-        let mut reader = hound::WavReader::open(filename).unwrap();
-        let mut r = Vec::default();
-
-        for sample in reader.samples::<i16>() {
-            r.push(Sample::from(
-                sample.unwrap() as SampleType / i16::MAX as SampleType,
-            ));
-        }
-        r
-    }
-
-    pub fn samples_match_known_good_wav_file(
-        samples: Vec<Sample>,
-        filename: &PathBuf,
-        acceptable_deviation: SampleType,
-    ) -> bool {
-        let known_good_samples = read_samples_from_mono_wav_file(filename);
-        if known_good_samples.len() != samples.len() {
-            eprintln!("Provided samples of different length from known-good");
-            return false;
-        }
-        for i in 0..samples.len() {
-            if (samples[i] - known_good_samples[i]).0.abs() >= acceptable_deviation {
-                eprintln!(
-                    "Samples differed at position {i}: known-good {}, test {}",
-                    known_good_samples[i].0, samples[i].0
-                );
-                return false;
-            }
-        }
-        true
-    }
-
-    // For now, only Oscillator implements source_signal(). We'll probably make
-    // it a trait later.
-    pub fn render_signal_as_audio_source(
-        source: &mut Oscillator,
-        run_length_in_seconds: usize,
-    ) -> Vec<Sample> {
-        let mut samples = Vec::default();
-        for _ in 0..DEFAULT_SAMPLE_RATE * run_length_in_seconds {
-            source.tick(1);
-            samples.push(Sample::from(source.value()));
-        }
-        samples
     }
 
     pub fn canonicalize_filename(filename: &str) -> String {

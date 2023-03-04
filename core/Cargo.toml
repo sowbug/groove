@@ -7,7 +7,10 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.12"
 float-cmp = "0.9.0"
+hound = "3.5" # TODO: remove when we figure out how to isolate tests that load files
+kahan = "0.1.4"
 midly = "0.5.3"
 more-asserts = "0.3.1"
+nalgebra = "0.32.1"
 strum = "0.24.1"
 strum_macros = "0.24.2"

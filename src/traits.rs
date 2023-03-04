@@ -71,10 +71,6 @@ pub mod tests {
     use groove_core::traits::{Generates, Ticks};
     use rand::random;
 
-    pub trait DebugTicks: Ticks {
-        fn debug_tick_until(&mut self, tick_number: usize);
-    }
-
     // TODO: restore tests that test basic trait behavior, then figure out how
     // to run everyone implementing those traits through that behavior. For now,
     // this one just tests that a generic instrument doesn't panic when accessed

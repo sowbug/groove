@@ -8,6 +8,8 @@ use std::{
 /// The [control] module handles automation, or real-time automatic control of
 /// one entity's parameters by another entity's output.
 pub mod control;
+/// The [generators] module contains things that generate signals, like oscillators and envelopes.
+pub mod generators;
 /// The [midi] module knows about [MIDI](https://en.wikipedia.org/wiki/MIDI).
 pub mod midi;
 /// The [time] module handles digital-audio and musical time.

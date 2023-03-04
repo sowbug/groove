@@ -45,19 +45,13 @@ impl Performance {
     }
 }
 
-#[derive(Display, Debug, EnumString)]
-#[strum(serialize_all = "kebab_case")]
-pub(crate) enum TestControllerControlParams {
-    Tempo,
-}
-
 enum TestControllerAction {
     Nothing,
     NoteOn,
     NoteOff,
 }
 
-#[derive(Debug)]
+#[derive(Control, Debug, Uid)]
 pub struct TestController {
     uid: usize,
     midi_channel_out: MidiChannel,
@@ -67,6 +61,7 @@ pub struct TestController {
     bpm: ParameterType,
     clock: Clock,
 
+    #[controllable]
     pub tempo: f32,
     is_enabled: bool,
     is_playing: bool,
@@ -137,15 +132,6 @@ impl HandlesMidi for TestController {
         None
     }
 }
-impl HasUid for TestController {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid
-    }
-}
 impl TestController {
     pub fn new_with(sample_rate: usize, bpm: ParameterType, midi_channel_out: MidiChannel) -> Self {
         Self::new_with_test_values(
@@ -197,6 +183,10 @@ impl TestController {
             return TestControllerAction::NoteOff;
         }
         TestControllerAction::Nothing
+    }
+
+    pub fn set_control_tempo(&mut self, tempo: F32ControlValue) {
+        self.tempo = tempo.0;
     }
 }
 // impl TestsValues for TestController {

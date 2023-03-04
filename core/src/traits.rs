@@ -147,7 +147,7 @@ pub trait TransformsAudio: std::fmt::Debug {
 /// Describes the public interface of an envelope generator, which provides a
 /// normalized amplitude (0.0..=1.0) that changes over time according to its
 /// internal parameters, external triggers, and the progression of time.
-pub trait Envelope: Generates<Normal> + Send + std::fmt::Debug + Ticks {
+pub trait GeneratesEnvelope: Generates<Normal> + Send + std::fmt::Debug + Ticks {
     /// Triggers the envelope's active stage.
     fn trigger_attack(&mut self);
 
@@ -230,3 +230,12 @@ pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
 /// construct Voices, and then handle all the MIDI events properly for them.
 pub trait IsVoice<V>: Generates<V> + PlaysNotes + Send {}
 pub trait IsStereoSampleVoice: IsVoice<StereoSample> {}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::Ticks;
+
+    pub trait DebugTicks: Ticks {
+        fn debug_tick_until(&mut self, tick_number: usize);
+    }
+}

@@ -1,15 +1,17 @@
 use crate::{
     effects::{BiQuadFilter, FilterParams},
     instruments::{
-        envelopes::EnvelopeGenerator,
-        oscillators::{Oscillator, Waveform},
         welsh::{LfoRouting, WelshVoice},
         StealingVoiceStore, Synthesizer, WelshSynth,
     },
     utils::Paths,
 };
 use convert_case::{Boundary, Case, Casing};
-use groove_core::{midi::note_to_frequency, BipolarNormal, Normal, ParameterType};
+use groove_core::{
+    generators::{EnvelopeGenerator, Oscillator, Waveform},
+    midi::note_to_frequency,
+    BipolarNormal, Normal, ParameterType,
+};
 use serde::{Deserialize, Serialize};
 
 use super::LoadError;
