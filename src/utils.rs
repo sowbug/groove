@@ -5,7 +5,6 @@ use std::{
 
 use groove_core::midi::{MidiChannel, MidiMessage};
 use groove_toys::MessageMaker;
-
 use crate::messages::EntityMessage;
 
 #[allow(dead_code)]

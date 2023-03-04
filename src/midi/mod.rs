@@ -1,9 +1,4 @@
-use crate::traits::Response;
-use groove_core::midi::u4;
-use groove_core::traits::MessageBounds;
-pub use subscription::MidiHandlerEvent;
-pub use subscription::MidiHandlerInput;
-pub use subscription::MidiSubscription;
+pub use subscription::{MidiHandlerEvent, MidiHandlerInput, MidiSubscription};
 
 pub(crate) mod programmers;
 pub(crate) mod smf_reader;
@@ -11,6 +6,8 @@ pub(crate) mod subscription;
 
 // TODO copy and conform MidiMessage to MessageBounds so it can be a trait
 // associated type
+use crate::messages::Response;
+use groove_core::{midi::u4, traits::MessageBounds};
 use crossbeam::deque::{Steal, Stealer, Worker};
 use enum_primitive_derive::Primitive;
 use groove_core::{

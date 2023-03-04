@@ -1,5 +1,5 @@
 use super::{MidiHandler, MidiHandlerMessage, MidiPortLabel};
-use crate::traits::Response;
+use crate::messages::{Response, Internal};
 use groove_core::midi::{MidiChannel, MidiMessage};
 use iced::{futures::channel::mpsc, subscription, Subscription};
 use std::{
@@ -174,11 +174,11 @@ impl Runner {
 
     fn push_response(&mut self, response: Response<MidiHandlerEvent>) {
         match response.0 {
-            crate::traits::Internal::None => {}
-            crate::traits::Internal::Single(message) => {
+            Internal::None => {}
+            Internal::Single(message) => {
                 self.events.push(message);
             }
-            crate::traits::Internal::Batch(messages) => {
+            Internal::Batch(messages) => {
                 self.events.extend(messages);
             }
         }
