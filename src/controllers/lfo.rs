@@ -1,6 +1,4 @@
-use crate::{
-    messages::EntityMessage,
-};
+use crate::messages::EntityMessage;
 use core::fmt::Debug;
 use groove_core::{
     control::F32ControlValue,

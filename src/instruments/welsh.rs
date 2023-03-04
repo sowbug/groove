@@ -4,9 +4,12 @@ use crate::{
 };
 use groove_core::{
     control::F32ControlValue,
-    generators::{Oscillator, EnvelopeGenerator},
+    generators::{Envelope, Oscillator},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
-    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks, TransformsAudio, GeneratesEnvelope},
+    traits::{
+        Controllable, Generates, GeneratesEnvelope, HasUid, IsInstrument, Resets, Ticks,
+        TransformsAudio,
+    },
     BipolarNormal, Normal, ParameterType, Sample, StereoSample,
 };
 use groove_macros::{Control, Uid};
@@ -378,7 +381,7 @@ pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
     oscillator_2_sync: bool,
     oscillator_mix: f64, // 1.0 = entirely osc 0, 0.0 = entirely osc 1.
-    amp_envelope: EnvelopeGenerator,
+    amp_envelope: Envelope,
     dca: Dca,
 
     lfo: Oscillator,
@@ -388,7 +391,7 @@ pub struct WelshVoice {
     filter: BiQuadFilter,
     filter_cutoff_start: f32,
     filter_cutoff_end: f32,
-    filter_envelope: EnvelopeGenerator,
+    filter_envelope: Envelope,
 
     is_playing: bool,
     event_tracker: PlaysNotesEventTracker,
@@ -612,11 +615,11 @@ impl WelshVoice {
         oscillators: Vec<Oscillator>,
         oscillator_2_sync: bool,
         oscillator_mix: f64,
-        amp_envelope: EnvelopeGenerator,
+        amp_envelope: Envelope,
         filter: BiQuadFilter,
         filter_cutoff_start: f32,
         filter_cutoff_end: f32,
-        filter_envelope: EnvelopeGenerator,
+        filter_envelope: Envelope,
         lfo: Oscillator,
         lfo_routing: LfoRouting,
         lfo_depth: Normal,

@@ -11,7 +11,7 @@ pub(crate) mod welsh;
 use anyhow::{anyhow, Result};
 use groove_core::{
     control::F32ControlValue,
-    generators::{EnvelopeGenerator, Oscillator, Waveform},
+    generators::{Envelope, Oscillator, Waveform},
     midi::{note_to_frequency, u7, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
     traits::{
@@ -228,7 +228,7 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
 pub struct SimpleVoice {
     sample_rate: usize,
     oscillator: Oscillator,
-    envelope: EnvelopeGenerator,
+    envelope: Envelope,
 
     sample: StereoSample,
 
@@ -308,7 +308,7 @@ impl SimpleVoice {
         Self {
             sample_rate,
             oscillator: Oscillator::new_with(sample_rate),
-            envelope: EnvelopeGenerator::new_with(sample_rate, 0.0, 0.0, Normal::maximum(), 0.0),
+            envelope: Envelope::new_with(sample_rate, 0.0, 0.0, Normal::maximum(), 0.0),
             sample: Default::default(),
             is_playing: Default::default(),
             event_tracker: Default::default(),
@@ -660,7 +660,7 @@ pub struct FmVoice {
     carrier: Oscillator,
     modulator: Oscillator,
     modulator_depth: ParameterType,
-    envelope: EnvelopeGenerator,
+    envelope: Envelope,
     dca: Dca,
 
     is_playing: bool,
@@ -740,7 +740,7 @@ impl FmVoice {
             carrier: Oscillator::new_with(sample_rate),
             modulator: Oscillator::new_with(sample_rate),
             modulator_depth: 0.2,
-            envelope: EnvelopeGenerator::new_with(sample_rate, 0.1, 0.1, Normal::new(0.8), 0.25),
+            envelope: Envelope::new_with(sample_rate, 0.1, 0.1, Normal::new(0.8), 0.25),
             dca: Default::default(),
             is_playing: Default::default(),
             event_tracker: Default::default(),
@@ -1198,7 +1198,7 @@ impl TestSynth {
         Self::new_with_components(
             sample_rate,
             Box::new(Oscillator::new_with(sample_rate)),
-            Box::new(EnvelopeGenerator::new_with(
+            Box::new(Envelope::new_with(
                 sample_rate,
                 0.0,
                 0.0,

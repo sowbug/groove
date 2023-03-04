@@ -8,7 +8,7 @@ use crate::{
 };
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
-    generators::{EnvelopeGenerator, Oscillator, Waveform},
+    generators::{Envelope, Oscillator, Waveform},
     midi::note_to_frequency,
     BipolarNormal, Normal, ParameterType,
 };
@@ -302,8 +302,8 @@ impl EnvelopeSettings {
     #[allow(dead_code)]
     pub const MAX: f64 = 10000.0; // TODO: what exactly does Welsh mean by "max"?
 
-    pub fn into_with(&self, sample_rate: usize) -> EnvelopeGenerator {
-        EnvelopeGenerator::new_with(
+    pub fn into_with(&self, sample_rate: usize) -> Envelope {
+        Envelope::new_with(
             sample_rate,
             self.attack,
             self.decay,

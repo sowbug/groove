@@ -327,7 +327,7 @@ enum State {
 }
 
 #[derive(Debug)]
-pub struct EnvelopeGenerator {
+pub struct Envelope {
     sample_rate: f64,
     attack: ParameterType,
     decay: ParameterType,
@@ -363,7 +363,7 @@ pub struct EnvelopeGenerator {
     concave_b: f64,
     concave_c: f64,
 }
-impl GeneratesEnvelope for EnvelopeGenerator {
+impl GeneratesEnvelope for Envelope {
     fn trigger_attack(&mut self) {
         self.set_state(State::Attack);
     }
@@ -377,7 +377,7 @@ impl GeneratesEnvelope for EnvelopeGenerator {
         matches!(self.state, State::Idle)
     }
 }
-impl Generates<Normal> for EnvelopeGenerator {
+impl Generates<Normal> for Envelope {
     fn value(&self) -> Normal {
         self.corrected_amplitude
     }
@@ -392,14 +392,14 @@ impl Generates<Normal> for EnvelopeGenerator {
         }
     }
 }
-impl Resets for EnvelopeGenerator {
+impl Resets for Envelope {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate as f64;
         self.was_reset = true;
         // TODO: reset stuff
     }
 }
-impl Ticks for EnvelopeGenerator {
+impl Ticks for Envelope {
     fn tick(&mut self, tick_count: usize) {
         // TODO: same comment as above about not yet taking advantage of
         // batching
@@ -429,7 +429,7 @@ impl Ticks for EnvelopeGenerator {
         }
     }
 }
-impl EnvelopeGenerator {
+impl Envelope {
     pub fn new_with(
         sample_rate: usize,
         attack: ParameterType,
@@ -662,7 +662,7 @@ impl EnvelopeGenerator {
 
 #[cfg(test)]
 pub mod tests {
-    use super::{EnvelopeGenerator, Oscillator, State, Waveform};
+    use super::{Envelope, Oscillator, State, Waveform};
     use crate::{
         midi::{note_type_to_frequency, MidiNote},
         time::Clock,
@@ -1135,7 +1135,7 @@ pub mod tests {
         assert_eq!(cycles, FREQUENCY as usize);
     }
 
-    impl EnvelopeGenerator {
+    impl Envelope {
         fn debug_state(&self) -> &State {
             &self.state
         }
@@ -1166,8 +1166,7 @@ pub mod tests {
             DEFAULT_BPM,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         );
-        let envelope =
-            EnvelopeGenerator::new_with(clock.sample_rate(), 0.1, 0.2, Normal::new(0.8), 0.3);
+        let envelope = Envelope::new_with(clock.sample_rate(), 0.1, 0.2, Normal::new(0.8), 0.3);
         (clock, envelope)
     }
 
@@ -1246,8 +1245,7 @@ pub mod tests {
         const DECAY: f64 = 0.2;
         let sustain = Normal::new(0.8);
         const RELEASE: f64 = 0.3;
-        let mut envelope =
-            EnvelopeGenerator::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
+        let mut envelope = Envelope::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
 
         let mut time_marker = clock.seconds() + ATTACK;
         envelope.trigger_attack();
@@ -1318,8 +1316,7 @@ pub mod tests {
         const DECAY: ParameterType = 0.2;
         let sustain = Normal::new(0.8);
         const RELEASE: ParameterType = 0.3;
-        let mut envelope =
-            EnvelopeGenerator::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
+        let mut envelope = Envelope::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
 
         envelope.trigger_attack();
         envelope.tick(1);
@@ -1393,8 +1390,7 @@ pub mod tests {
         const DECAY: ParameterType = 5.22;
         let sustain = Normal::new(0.25);
         const RELEASE: ParameterType = 0.5;
-        let mut envelope =
-            EnvelopeGenerator::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
+        let mut envelope = Envelope::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
 
         envelope.tick(1);
         clock.tick(1);
@@ -1514,8 +1510,7 @@ pub mod tests {
         const DECAY: ParameterType = 0.8;
         let sustain = Normal::new(0.5);
         const RELEASE: ParameterType = 0.4;
-        let mut envelope =
-            EnvelopeGenerator::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
+        let mut envelope = Envelope::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
 
         // Decay after note-on should be shorter than the decay value.
         envelope.trigger_attack();
@@ -1569,7 +1564,7 @@ pub mod tests {
     // https://docs.google.com/spreadsheets/d/1DSkut7rLG04Qx_zOy3cfI7PMRoGJVr9eaP5sDrFfppQ/edit#gid=0
     #[test]
     fn coeff() {
-        let (a, b, c) = EnvelopeGenerator::calculate_coefficients(0.0, 1.0, 0.5, 0.25, 1.0, 0.0);
+        let (a, b, c) = Envelope::calculate_coefficients(0.0, 1.0, 0.5, 0.25, 1.0, 0.0);
         assert_eq!(a, 1.0);
         assert_eq!(b, -2.0);
         assert_eq!(c, 1.0);
@@ -1577,8 +1572,7 @@ pub mod tests {
 
     #[test]
     fn envelope_amplitude_batching() {
-        let mut e =
-            EnvelopeGenerator::new_with(DEFAULT_SAMPLE_RATE, 0.1, 0.2, Normal::new(0.5), 0.3);
+        let mut e = Envelope::new_with(DEFAULT_SAMPLE_RATE, 0.1, 0.2, Normal::new(0.5), 0.3);
 
         // Initialize the buffer with a nonsense value so we know it got
         // overwritten by the method we're about to call.
@@ -1608,7 +1602,7 @@ pub mod tests {
 
     #[test]
     fn envelope_shutdown_state() {
-        let mut e = EnvelopeGenerator::new_with(2000, 0.0, 0.0, Normal::maximum(), 0.5);
+        let mut e = Envelope::new_with(2000, 0.0, 0.0, Normal::maximum(), 0.5);
 
         // With sample rate 1000, each sample is 0.5 millisecond.
         let mut amplitudes: [Normal; 10] = [Normal::default(); 10];
