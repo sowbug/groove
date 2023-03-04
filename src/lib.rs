@@ -17,7 +17,6 @@ pub mod midi;
 pub(crate) mod entities;
 pub(crate) mod metrics;
 pub(crate) mod settings;
-pub(crate) mod traits;
 pub(crate) mod utils;
 
 // https://stackoverflow.com/a/65972328/344467

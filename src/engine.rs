@@ -1,8 +1,7 @@
 use crate::{
     common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
     helpers::{AudioOutput, IOHelper},
-    messages::GrooveMessage,
-    traits::Response,
+    messages::{GrooveMessage, Internal, Response},
     Orchestrator,
 };
 use groove_core::{
@@ -119,11 +118,11 @@ impl Runner {
 
     fn push_response(&mut self, response: Response<GrooveMessage>) {
         match response.0 {
-            crate::traits::Internal::None => {}
-            crate::traits::Internal::Single(message) => {
+            Internal::None => {}
+            Internal::Single(message) => {
                 self.messages.push(message);
             }
-            crate::traits::Internal::Batch(messages) => {
+            Internal::Batch(messages) => {
                 self.messages.extend(messages);
             }
         }

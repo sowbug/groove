@@ -5,7 +5,7 @@ use crate::{
     helpers::IOHelper,
     messages::{EntityMessage, GrooveMessage},
     metrics::DipstickWrapper,
-    traits::{Internal, Response},
+    messages::{Internal, Response},
     utils::Paths,
 };
 use anyhow::anyhow;
