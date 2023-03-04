@@ -4,8 +4,8 @@ use crate::{
     entities::Entity,
     helpers::IOHelper,
     messages::{EntityMessage, GrooveMessage},
-    metrics::DipstickWrapper,
     messages::{Internal, Response},
+    metrics::DipstickWrapper,
     utils::Paths,
 };
 use anyhow::anyhow;

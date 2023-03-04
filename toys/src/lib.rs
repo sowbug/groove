@@ -12,7 +12,6 @@ mod controllers;
 mod effects;
 mod instruments;
 
-
 // NOTE: The Test... entities are in the non-tests module because they're
 // sometimes useful as simple real entities to substitute in for production
 // ones, for example if we're trying to determine whether an entity is
