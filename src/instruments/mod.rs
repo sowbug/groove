@@ -4,7 +4,6 @@ pub use welsh::WelshSynth;
 
 pub(crate) mod drumkit;
 pub(crate) mod envelopes;
-pub(crate) mod oscillators;
 pub(crate) mod sampler;
 pub(crate) mod welsh;
 
