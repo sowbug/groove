@@ -223,7 +223,7 @@ impl Delay {
         self.delay.set_delay_seconds(delay_seconds);
     }
 
-    pub(crate) fn set_control_seconds(&mut self, value: F32ControlValue) {
+    pub fn set_control_seconds(&mut self, value: F32ControlValue) {
         self.set_seconds(value.0);
     }
 }

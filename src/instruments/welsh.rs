@@ -1,4 +1,4 @@
-use super::{Dca, IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, Synthesizer};
+use super::{IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, Synthesizer};
 use crate::{
     effects::BiQuadFilter, midi::GeneralMidiProgram, settings::patches::WelshPatchSettings,
 };
@@ -10,7 +10,7 @@ use groove_core::{
         Controllable, Generates, GeneratesEnvelope, HasUid, IsInstrument, Resets, Ticks,
         TransformsAudio,
     },
-    BipolarNormal, Normal, ParameterType, Sample, StereoSample,
+    BipolarNormal, Dca, Normal, ParameterType, Sample, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use num_traits::FromPrimitive;

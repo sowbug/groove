@@ -61,7 +61,7 @@ impl Bitcrusher {
         self.c = 2.0f64.powi(self.bits_to_crush as i32);
     }
 
-    pub(crate) fn set_control_bits_to_crush(&mut self, value: F32ControlValue) {
+    pub fn set_control_bits_to_crush(&mut self, value: F32ControlValue) {
         self.set_bits_to_crush(
             self.bits_to_crush_int_range
                 .unmap_to_value(Normal::from_clipped(value.0)) as u8,

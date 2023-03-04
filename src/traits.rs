@@ -67,8 +67,9 @@ impl<T> Response<T> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::{common::DEFAULT_SAMPLE_RATE, instruments::TestInstrument};
+    use crate::common::DEFAULT_SAMPLE_RATE;
     use groove_core::traits::{Generates, Ticks};
+    use groove_toys::ToyInstrument;
     use rand::random;
 
     // TODO: restore tests that test basic trait behavior, then figure out how
@@ -77,16 +78,10 @@ pub mod tests {
     // for non-consecutive time slices.
     #[test]
     fn test_sources_audio_random_access() {
-        let mut instrument = TestInstrument::new_with(DEFAULT_SAMPLE_RATE);
+        let mut instrument = ToyInstrument::new_with(DEFAULT_SAMPLE_RATE);
         for _ in 0..100 {
             instrument.tick(random::<usize>() % 10);
             let _ = instrument.value();
-        }
-    }
-
-    impl TestInstrument {
-        pub fn dump_messages(&self) {
-            dbg!(&self.debug_messages);
         }
     }
 }

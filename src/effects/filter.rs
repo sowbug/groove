@@ -382,19 +382,19 @@ impl BiQuadFilter {
         }
     }
 
-    pub(crate) fn set_control_cutoff(&mut self, value: F32ControlValue) {
+    pub fn set_control_cutoff(&mut self, value: F32ControlValue) {
         self.set_cutoff_pct(value.0);
     }
-    pub(crate) fn set_control_q(&mut self, value: F32ControlValue) {
+    pub fn set_control_q(&mut self, value: F32ControlValue) {
         self.set_param2(Self::denormalize_q(value.0));
     }
-    pub(crate) fn set_control_bandwidth(&mut self, value: F32ControlValue) {
+    pub fn set_control_bandwidth(&mut self, value: F32ControlValue) {
         self.set_param2(value.0);
     }
-    pub(crate) fn set_control_db_gain(&mut self, value: F32ControlValue) {
+    pub fn set_control_db_gain(&mut self, value: F32ControlValue) {
         self.set_param2(value.0);
     }
-    pub(crate) fn set_control_passband_ripple(&mut self, value: F32ControlValue) {
+    pub fn set_control_passband_ripple(&mut self, value: F32ControlValue) {
         self.set_param2(value.0 * 2.0 * std::f32::consts::PI);
     }
 

@@ -159,12 +159,12 @@ mod tests {
         common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::{orchestrator::Orchestrator, sequencers::BeatSequencer},
         entities::Entity,
-        instruments::TestInstrument,
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
         time::{Clock, PerfectTimeUnit},
     };
+    use groove_toys::ToyInstrument;
 
     // Orchestrator sends a Tick message to everyone in an undefined order, and
     // routes the resulting messages to everyone in yet another undefined order.
@@ -195,7 +195,7 @@ mod tests {
             clock.bpm(),
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
         ));
-        let instrument = Box::new(TestInstrument::new_with(clock.sample_rate()));
+        let instrument = Box::new(ToyInstrument::new_with(clock.sample_rate()));
         let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm());
 
         sequencer.insert(

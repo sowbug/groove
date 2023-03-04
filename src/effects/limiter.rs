@@ -68,11 +68,11 @@ impl Limiter {
         self.max = value;
     }
 
-    pub(crate) fn set_control_min(&mut self, value: F32ControlValue) {
+    pub fn set_control_min(&mut self, value: F32ControlValue) {
         self.set_min(value.0);
     }
 
-    pub(crate) fn set_control_max(&mut self, value: F32ControlValue) {
+    pub fn set_control_max(&mut self, value: F32ControlValue) {
         self.set_max(value.0);
     }
 }

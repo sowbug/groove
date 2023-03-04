@@ -8,11 +8,10 @@ use crate::{
     effects::{
         bitcrusher::Bitcrusher, chorus::Chorus, compressor::Compressor, delay::Delay,
         filter::BiQuadFilter, gain::Gain, limiter::Limiter, mixer::Mixer, reverb::Reverb,
-        TestEffect,
     },
     instruments::{
         drumkit::Drumkit, sampler::Sampler, welsh::WelshSynth, AudioSource, FmSynthesizer,
-        SimpleSynthesizer, TestInstrument, TestSynth,
+        SimpleSynthesizer, TestSynth,
     },
     messages::EntityMessage,
 };
@@ -20,6 +19,7 @@ use groove_core::{
     midi::HandlesMidi,
     traits::{Controllable, HasUid, IsController, IsEffect, IsInstrument},
 };
+use groove_toys::{ToyEffect, ToyInstrument};
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
@@ -67,7 +67,7 @@ boxed_entity_enum_and_common_crackers! {
     Limiter: Limiter,
     Mixer: Mixer,
     Reverb: Reverb,
-    TestEffect: TestEffect,
+    ToyEffect: ToyEffect,
 
     // Instruments
     AudioSource: AudioSource,
@@ -75,7 +75,7 @@ boxed_entity_enum_and_common_crackers! {
     FmSynthesizer: FmSynthesizer,
     Sampler: Sampler,
     SimpleSynthesizer: SimpleSynthesizer,
-    TestInstrument: TestInstrument,
+    TestInstrument: ToyInstrument,
     TestSynth: TestSynth,
     WelshSynth: WelshSynth,
 }
@@ -110,7 +110,7 @@ controllable_crackers! {
     Gain,
     Limiter,
     Reverb,
-    TestEffect,
+    ToyEffect,
     TestInstrument,
     TestSynth,
     WelshSynth,
@@ -175,7 +175,7 @@ effect_crackers! {
     Mixer,
     Reverb,
     SignalPassthroughController,
-    TestEffect,
+    ToyEffect,
 }
 
 macro_rules! instrument_crackers {

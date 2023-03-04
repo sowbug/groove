@@ -131,7 +131,7 @@ fn parse_control_data(
     let enum_block = quote! {
         #[derive(Display, Debug, EnumString, FromRepr)]
         #[strum(serialize_all = "kebab_case")]
-        pub(crate) enum #enum_name {
+        pub enum #enum_name {
             #( #enum_variant_names ),*
         }
     };

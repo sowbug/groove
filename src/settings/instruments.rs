@@ -1,9 +1,10 @@
 use super::{patches::WelshPatchSettings, MidiChannel};
 use crate::{
     entities::Entity,
-    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument},
+    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer},
 };
 use groove_core::midi::note_description_to_frequency;
+use groove_toys::ToyInstrument;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -78,13 +79,13 @@ impl InstrumentSettings {
             };
             return (
                 midi_input_channel,
-                Entity::TestInstrument(Box::new(TestInstrument::new_with(sample_rate))),
+                Entity::TestInstrument(Box::new(ToyInstrument::new_with(sample_rate))),
             );
         }
         match self {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,
-                Entity::TestInstrument(Box::new(TestInstrument::new_with(sample_rate))),
+                Entity::TestInstrument(Box::new(ToyInstrument::new_with(sample_rate))),
             ),
             InstrumentSettings::SimpleSynth { midi_input_channel } => (
                 *midi_input_channel,

@@ -68,9 +68,8 @@ pub mod tests {
     use crate::{
         common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::{orchestrator::Orchestrator, LfoController, TestController, Timer, Trigger},
-        effects::TestEffect,
         entities::Entity,
-        instruments::{TestInstrument, TestSynth, TestSynthControlParams},
+        instruments::{TestSynth, TestSynthControlParams},
         utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
     };
     use convert_case::{Case, Casing};
@@ -81,6 +80,7 @@ pub mod tests {
         traits::{Resets, TicksWithMessages},
         ParameterType, StereoSample,
     };
+    use groove_toys::{ToyEffect, ToyInstrument};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
     use std::{fs, path::PathBuf};
 
@@ -122,7 +122,7 @@ pub mod tests {
         );
 
         // A simple effect.
-        let effect_uid = o.add(None, Entity::TestEffect(Box::new(TestEffect::default())));
+        let effect_uid = o.add(None, Entity::ToyEffect(Box::new(ToyEffect::default())));
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -239,7 +239,7 @@ pub mod tests {
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
             None,
-            Entity::TestInstrument(Box::new(TestInstrument::new_with(DEFAULT_SAMPLE_RATE))),
+            Entity::TestInstrument(Box::new(ToyInstrument::new_with(DEFAULT_SAMPLE_RATE))),
         );
         let arpeggiator_uid = o.add(
             None,
@@ -347,7 +347,7 @@ pub mod tests {
         let synth_uid = o.add(None, entity_groove);
 
         // A simple effect.
-        let effect_uid = o.add(None, Entity::TestEffect(Box::new(TestEffect::default())));
+        let effect_uid = o.add(None, Entity::ToyEffect(Box::new(ToyEffect::default())));
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());

@@ -9,14 +9,10 @@ use groove::{
         Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern,
         PatternManager, PatternMessage, SignalPassthroughController, TestController, Timer,
     },
-    effects::{
-        BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb,
-        TestEffect,
-    },
+    effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
     engine::{GrooveEvent, GrooveInput, GrooveSubscription},
     instruments::{
-        AudioSource, Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, TestInstrument, TestSynth,
-        WelshSynth,
+        AudioSource, Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, TestSynth, WelshSynth,
     },
     messages::{EntityMessage, GrooveMessage},
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
@@ -28,6 +24,7 @@ use groove_core::{
     traits::HasUid,
     Normal, Sample,
 };
+use groove_toys::{ToyEffect, ToyInstrument};
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
     play_icon, skip_to_prev_icon, stop_icon, GuiStuff,
@@ -533,7 +530,7 @@ impl GrooveApp {
             Entity::SignalPassthroughController(e) => self.signal_controller_view(e),
             Entity::SimpleSynthesizer(e) => self.simple_synthesizer_view(e),
             Entity::TestController(e) => self.test_controller_view(e),
-            Entity::TestEffect(e) => self.test_effect_view(e),
+            Entity::ToyEffect(e) => self.toy_effect_view(e),
             Entity::TestInstrument(e) => self.test_instrument_view(e),
             Entity::TestSynth(e) => self.test_synth_view(e),
             Entity::Timer(e) => self.timer_view(e),
@@ -817,17 +814,17 @@ impl GrooveApp {
         )
     }
 
-    fn test_effect_view(&self, e: &TestEffect) -> Element<EntityMessage> {
+    fn toy_effect_view(&self, e: &ToyEffect) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<TestEffect>(),
+            type_name::<ToyEffect>(),
             GuiStuff::<EntityMessage>::container_text(format!("Value: {}", e.my_value()).as_str())
                 .into(),
         )
     }
 
-    fn test_instrument_view(&self, e: &TestInstrument) -> Element<EntityMessage> {
+    fn test_instrument_view(&self, e: &ToyInstrument) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<TestInstrument>(),
+            type_name::<ToyInstrument>(),
             GuiStuff::<EntityMessage>::container_text(
                 format!("Fake value: {}", e.fake_value()).as_str(),
             )

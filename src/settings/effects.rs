@@ -1,11 +1,12 @@
 use crate::{
     effects::{
         BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, FilterParams, Gain, Limiter, Mixer,
-        Reverb, TestEffect,
+        Reverb,
     },
     entities::Entity,
 };
 use groove_core::{BipolarNormal, Normal, SampleType};
+use groove_toys::ToyEffect;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -68,10 +69,10 @@ pub enum EffectSettings {
 impl EffectSettings {
     pub(crate) fn instantiate(&self, sample_rate: usize, load_only_test_entities: bool) -> Entity {
         if load_only_test_entities {
-            return Entity::TestEffect(Box::new(TestEffect::default()));
+            return Entity::ToyEffect(Box::new(ToyEffect::default()));
         }
         match *self {
-            EffectSettings::Test {} => Entity::TestEffect(Box::new(TestEffect::default())),
+            EffectSettings::Test {} => Entity::ToyEffect(Box::new(ToyEffect::default())),
             EffectSettings::Mixer {} => Entity::Mixer(Box::new(Mixer::default())),
             EffectSettings::Limiter { min, max } => Entity::Limiter(Box::new(Limiter::new_with(
                 BipolarNormal::from(min),

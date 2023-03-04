@@ -314,6 +314,38 @@ impl From<Sample> for BipolarNormal {
     }
 }
 
+/// The Digitally Controller Amplifier (DCA) handles gain and pan for many kinds
+/// of synths.
+///
+/// See DSSPC++, Section 7.9 for requirements. TODO: implement
+#[derive(Debug)]
+pub struct Dca {
+    gain: f64,
+    pan: f64,
+}
+impl Default for Dca {
+    fn default() -> Self {
+        Self {
+            gain: 1.0,
+            pan: 0.0,
+        }
+    }
+}
+impl Dca {
+    #[allow(dead_code)]
+    pub fn set_pan(&mut self, value: BipolarNormal) {
+        self.pan = value.value()
+    }
+
+    pub fn transform_audio_to_stereo(&mut self, input_sample: Sample) -> StereoSample {
+        // See Pirkle, DSSPC++, p.73
+        let input_sample: f64 = input_sample.0 * self.gain;
+        let left_pan: f64 = 1.0 - 0.25 * (self.pan + 1.0).powi(2);
+        let right_pan: f64 = 1.0 - (0.5 * self.pan - 0.5).powi(2);
+        StereoSample::new_from_f64(left_pan * input_sample, right_pan * input_sample)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -380,6 +412,32 @@ mod tests {
             Normal::from(Sample(0.0)),
             Normal::new(0.5),
             "Converting Sample 0.0 to Normal should yield 0.5"
+        );
+    }
+
+    #[test]
+    fn dca_mainline() {
+        let mut dca = Dca::default();
+        const VALUE_IN: Sample = Sample(0.5);
+        const VALUE: f64 = 0.5;
+        assert_eq!(
+            dca.transform_audio_to_stereo(VALUE_IN),
+            StereoSample::new_from_f64(VALUE * 0.75, VALUE * 0.75),
+            "Pan center should give 75% equally to each channel"
+        );
+
+        dca.set_pan(BipolarNormal::new(-1.0));
+        assert_eq!(
+            dca.transform_audio_to_stereo(VALUE_IN),
+            StereoSample::new_from_f64(VALUE, 0.0),
+            "Pan left should give 100% to left channel"
+        );
+
+        dca.set_pan(BipolarNormal::new(1.0));
+        assert_eq!(
+            dca.transform_audio_to_stereo(VALUE_IN),
+            StereoSample::new_from_f64(0.0, VALUE),
+            "Pan right should give 100% to right channel"
         );
     }
 }

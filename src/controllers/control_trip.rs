@@ -183,13 +183,11 @@ mod tests {
     use crate::{
         common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
         controllers::orchestrator::Orchestrator,
-        effects::TestEffect,
-        effects::TestEffectControlParams,
         entities::Entity,
-        instruments::TestInstrument,
-        instruments::TestInstrumentControlParams,
     };
     use groove_core::StereoSample;
+    use groove_toys::{ToyEffect, ToyInstrument};
+    use groove_toys::{ToyEffectControlParams, ToyInstrumentControlParams};
 
     #[test]
     fn test_flat_step() {
@@ -208,7 +206,7 @@ mod tests {
         let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
         let effect_uid = o.add(
             None,
-            Entity::TestEffect(Box::new(TestEffect::new_with_test_values(
+            Entity::ToyEffect(Box::new(ToyEffect::new_with_test_values(
                 &[0.9, 0.1, 0.2, 0.3],
                 0.0,
                 1.0,
@@ -226,7 +224,7 @@ mod tests {
         let _ = o.link_control(
             controller_uid,
             effect_uid,
-            &TestEffectControlParams::MyValue.to_string(),
+            &ToyEffectControlParams::MyValue.to_string(),
         );
 
         let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -266,7 +264,7 @@ mod tests {
         };
 
         let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
-        let instrument = Box::new(TestInstrument::new_with_test_values(
+        let instrument = Box::new(ToyInstrument::new_with_test_values(
             DEFAULT_SAMPLE_RATE,
             INTERPOLATED_VALUES,
             0.0,
@@ -285,7 +283,7 @@ mod tests {
         let _ = o.link_control(
             controller_uid,
             instrument_uid,
-            &TestInstrumentControlParams::FakeValue.to_string(),
+            &ToyInstrumentControlParams::FakeValue.to_string(),
         );
 
         let mut sample_buffer = [StereoSample::SILENCE; 64];

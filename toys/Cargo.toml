@@ -1,0 +1,11 @@
+# Copyright (c) 2023 Mike Tsao. All rights reserved.
+[package]
+name = "groove-toys"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+groove-core = { path = "../core" }
+groove-macros = { path = "../macros" }
+strum = "0.24.1"
+strum_macros = "0.24.2"

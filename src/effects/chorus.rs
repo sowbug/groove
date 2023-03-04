@@ -65,7 +65,7 @@ impl Chorus {
         self.wet_dry_mix = wet_pct;
     }
 
-    pub(crate) fn set_control_wet_dry_mix(&mut self, value: F32ControlValue) {
+    pub fn set_control_wet_dry_mix(&mut self, value: F32ControlValue) {
         self.set_wet_dry_mix(value.0);
     }
 }

@@ -76,7 +76,7 @@ impl Reverb {
         self.attenuation = attenuation;
     }
 
-    pub(crate) fn set_control_attenuation(&mut self, attenuation: F32ControlValue) {
+    pub fn set_control_attenuation(&mut self, attenuation: F32ControlValue) {
         self.set_attenuation(attenuation.0);
     }
 
@@ -84,7 +84,7 @@ impl Reverb {
         self.wet_dry_mix = mix;
     }
 
-    pub(crate) fn set_control_wet_dry_mix(&mut self, mix: F32ControlValue) {
+    pub fn set_control_wet_dry_mix(&mut self, mix: F32ControlValue) {
         self.set_wet_dry_mix(mix.0);
     }
 }

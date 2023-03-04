@@ -283,7 +283,6 @@ mod tests {
         common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::orchestrator::Orchestrator,
         entities::Entity,
-        instruments::TestInstrument,
         messages::EntityMessage,
     };
     use groove_core::{
@@ -291,6 +290,7 @@ mod tests {
         time::{Clock, MidiTicks},
         traits::{IsController, Ticks},
     };
+    use groove_toys::ToyInstrument;
 
     impl BeatSequencer {
         pub fn debug_events(&self) -> &BeatEventsMap {
@@ -359,7 +359,7 @@ mod tests {
             DEFAULT_SAMPLE_RATE,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         ));
-        let instrument = Box::new(TestInstrument::new_with(clock.sample_rate()));
+        let instrument = Box::new(ToyInstrument::new_with(clock.sample_rate()));
         let device_uid = o.add(None, Entity::TestInstrument(instrument));
 
         sequencer.insert(

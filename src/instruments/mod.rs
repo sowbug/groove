@@ -10,22 +10,16 @@ pub(crate) mod welsh;
 use anyhow::{anyhow, Result};
 use groove_core::{
     control::F32ControlValue,
-    generators::{Envelope, Oscillator, Waveform},
+    generators::{Envelope, Oscillator},
     midi::{note_to_frequency, u7, HandlesMidi, MidiChannel, MidiMessage},
-    time::ClockTimeUnit,
     traits::{
         Controllable, Generates, GeneratesEnvelope, HasUid, IsInstrument, IsStereoSampleVoice,
         IsVoice, PlaysNotes, Resets, StoresVoices, Ticks,
     },
-    BipolarNormal, Normal, ParameterType, Sample, SampleType, StereoSample,
+    BipolarNormal, Dca, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};
-use std::{
-    collections::{HashMap, VecDeque},
-    fmt::Debug,
-    marker::PhantomData,
-    str::FromStr,
-};
+use std::{collections::HashMap, fmt::Debug, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Debug, Default)]
@@ -158,7 +152,7 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
         self.pitch_bend = pitch_bend;
     }
 
-    pub(crate) fn set_control_pitch_bend(&mut self, pitch_bend: F32ControlValue) {
+    pub fn set_control_pitch_bend(&mut self, pitch_bend: F32ControlValue) {
         self.set_pitch_bend(pitch_bend.0);
     }
 
@@ -166,7 +160,7 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
         self.channel_aftertouch = channel_aftertouch;
     }
 
-    pub(crate) fn set_control_channel_aftertouch(&mut self, channel_aftertouch: F32ControlValue) {
+    pub fn set_control_channel_aftertouch(&mut self, channel_aftertouch: F32ControlValue) {
         // TODO - will this ever be needed? Do we need to introduce a whole new
         // schema to describe non-f32 control parameters?
         //
@@ -184,7 +178,7 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
         self.voice_store.set_pan(pan);
     }
 
-    pub(crate) fn set_control_pan(&mut self, value: F32ControlValue) {
+    pub fn set_control_pan(&mut self, value: F32ControlValue) {
         // TODO: more toil. Let me say this is a bipolar normal
         self.set_pan(value.0 * 2.0 - 1.0);
     }
@@ -902,227 +896,6 @@ pub(crate) struct FmSynthesizerPreset {
     modulator_frequency_hz: ParameterType,
 }
 
-/// The Digitally Controller Amplifier (DCA) handles gain and pan for many kinds
-/// of synths.
-///
-/// See DSSPC++, Section 7.9 for requirements. TODO: implement
-#[derive(Debug)]
-pub(crate) struct Dca {
-    gain: f64,
-    pan: f64,
-}
-impl Default for Dca {
-    fn default() -> Self {
-        Self {
-            gain: 1.0,
-            pan: 0.0,
-        }
-    }
-}
-impl Dca {
-    #[allow(dead_code)]
-    pub(crate) fn set_pan(&mut self, value: BipolarNormal) {
-        self.pan = value.value()
-    }
-
-    pub(crate) fn transform_audio_to_stereo(&mut self, input_sample: Sample) -> StereoSample {
-        // See Pirkle, DSSPC++, p.73
-        let input_sample: f64 = input_sample.0 * self.gain;
-        let left_pan: f64 = 1.0 - 0.25 * (self.pan + 1.0).powi(2);
-        let right_pan: f64 = 1.0 - (0.5 * self.pan - 0.5).powi(2);
-        StereoSample::new_from_f64(left_pan * input_sample, right_pan * input_sample)
-    }
-}
-
-/// A simple implementation of IsInstrument that's useful for testing and
-/// debugging. Uses a default Oscillator to produce sound, and its "envelope" is
-/// just a boolean that responds to MIDI NoteOn/NoteOff.
-///
-/// To act as a controller target, it has two parameters: Oscillator waveform
-/// and frequency.
-#[derive(Control, Debug, Uid)]
-pub struct TestInstrument {
-    uid: usize,
-    sample_rate: usize,
-    sample: StereoSample,
-
-    /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
-    #[controllable]
-    pub waveform: PhantomData<Waveform>, // interesting use of PhantomData
-
-    #[controllable]
-    pub fake_value: f32,
-
-    oscillator: Oscillator,
-    dca: Dca,
-    pub is_playing: bool,
-    pub received_count: usize,
-    pub handled_count: usize,
-
-    pub checkpoint_values: VecDeque<f32>,
-    pub checkpoint: f32,
-    pub checkpoint_delta: f32,
-    pub time_unit: ClockTimeUnit,
-
-    pub debug_messages: Vec<MidiMessage>,
-}
-impl IsInstrument for TestInstrument {}
-impl Generates<StereoSample> for TestInstrument {
-    fn value(&self) -> StereoSample {
-        self.sample
-    }
-
-    #[allow(unused_variables)]
-    fn batch_values(&mut self, values: &mut [StereoSample]) {
-        todo!()
-    }
-}
-impl Resets for TestInstrument {
-    fn reset(&mut self, sample_rate: usize) {
-        self.oscillator.reset(sample_rate);
-    }
-}
-impl Ticks for TestInstrument {
-    fn tick(&mut self, tick_count: usize) {
-        self.oscillator.tick(tick_count);
-        // If we've been asked to assert values at checkpoints, do so.
-
-        // TODODODODO
-        // if !self.checkpoint_values.is_empty() && clock.time_for(&self.time_unit) >= self.checkpoint
-        // {
-        //     const SAD_FLOAT_DIFF: f32 = 1.0e-2;
-        //     assert_approx_eq!(self.fake_value, self.checkpoint_values[0], SAD_FLOAT_DIFF);
-        //     self.checkpoint += self.checkpoint_delta;
-        //     self.checkpoint_values.pop_front();
-        // }
-        self.sample = if self.is_playing {
-            self.dca
-                .transform_audio_to_stereo(Sample::from(self.oscillator.value()))
-        } else {
-            StereoSample::SILENCE
-        };
-    }
-}
-impl HandlesMidi for TestInstrument {
-    fn handle_midi_message(
-        &mut self,
-        message: &MidiMessage,
-    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
-        self.debug_messages.push(*message);
-        self.received_count += 1;
-
-        match message {
-            MidiMessage::NoteOn { key, vel: _ } => {
-                self.is_playing = true;
-                self.oscillator
-                    .set_frequency(note_to_frequency(key.as_int()));
-            }
-            MidiMessage::NoteOff { key: _, vel: _ } => {
-                self.is_playing = false;
-            }
-            _ => {}
-        }
-        None
-    }
-}
-// impl TestsValues for TestInstrument {
-//     fn has_checkpoint_values(&self) -> bool {
-//         !self.checkpoint_values.is_empty()
-//     }
-
-//     fn time_unit(&self) -> &ClockTimeUnit {
-//         &self.time_unit
-//     }
-
-//     fn checkpoint_time(&self) -> f32 {
-//         self.checkpoint
-//     }
-
-//     fn advance_checkpoint_time(&mut self) {
-//         self.checkpoint += self.checkpoint_delta;
-//     }
-
-//     fn value_to_check(&self) -> f32 {
-//         self.fake_value
-//     }
-
-//     fn pop_checkpoint_value(&mut self) -> Option<f32> {
-//         self.checkpoint_values.pop_front()
-//     }
-// }
-impl TestInstrument {
-    pub fn new_with(sample_rate: usize) -> Self {
-        let mut r = Self {
-            uid: Default::default(),
-            waveform: Default::default(),
-            sample_rate,
-            sample: Default::default(),
-            fake_value: Default::default(),
-            oscillator: Oscillator::new_with(sample_rate),
-            dca: Default::default(),
-            is_playing: Default::default(),
-            received_count: Default::default(),
-            handled_count: Default::default(),
-            checkpoint_values: Default::default(),
-            checkpoint: Default::default(),
-            checkpoint_delta: Default::default(),
-            time_unit: Default::default(),
-            debug_messages: Default::default(),
-        };
-        r.sample_rate = sample_rate;
-
-        r
-    }
-
-    pub fn new_with_test_values(
-        sample_rate: usize,
-        values: &[f32],
-        checkpoint: f32,
-        checkpoint_delta: f32,
-        time_unit: ClockTimeUnit,
-    ) -> Self {
-        let mut r = Self::new_with(sample_rate);
-        r.checkpoint_values = VecDeque::from(Vec::from(values));
-        r.checkpoint = checkpoint;
-        r.checkpoint_delta = checkpoint_delta;
-        r.time_unit = time_unit;
-        r
-    }
-
-    // TODO: when we have a more specific control param type, we can do a real
-    // into/from
-    #[allow(dead_code)]
-    fn waveform(&self) -> f32 {
-        match self.oscillator.waveform() {
-            Waveform::Sawtooth => -1.0,
-            Waveform::Square => 1.0,
-            _ => 0.0,
-        }
-    }
-
-    pub fn set_control_waveform(&mut self, value: F32ControlValue) {
-        self.oscillator.set_waveform(if value.0 == -1.0 {
-            Waveform::Sawtooth
-        } else if value.0 == 1.0 {
-            Waveform::Square
-        } else {
-            Waveform::Sine
-        });
-    }
-
-    pub fn set_fake_value(&mut self, fake_value: f32) {
-        self.fake_value = fake_value;
-    }
-
-    pub fn fake_value(&self) -> f32 {
-        self.fake_value
-    }
-
-    pub(crate) fn set_control_fake_value(&mut self, fake_value: F32ControlValue) {
-        self.set_fake_value(fake_value.0);
-    }
-}
-
 #[derive(Control, Debug, Uid)]
 pub struct TestSynth {
     uid: usize,
@@ -1266,13 +1039,13 @@ mod tests {
     use super::SimpleVoice;
     use crate::{
         common::DEFAULT_SAMPLE_RATE,
-        instruments::{Dca, PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
+        instruments::{PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
     };
     use float_cmp::approx_eq;
     use groove_core::{
         midi::{note_to_frequency, u7},
         traits::Ticks,
-        BipolarNormal, ParameterType, Sample, StereoSample,
+        ParameterType,
     };
 
     impl SimpleVoice {
@@ -1281,32 +1054,6 @@ mod tests {
             // TODO bring back when this moves elsewhere
             //     self.envelope.debug_is_shutting_down()
         }
-    }
-
-    #[test]
-    fn dca_mainline() {
-        let mut dca = Dca::default();
-        const VALUE_IN: Sample = Sample(0.5);
-        const VALUE: f64 = 0.5;
-        assert_eq!(
-            dca.transform_audio_to_stereo(VALUE_IN),
-            StereoSample::new_from_f64(VALUE * 0.75, VALUE * 0.75),
-            "Pan center should give 75% equally to each channel"
-        );
-
-        dca.set_pan(BipolarNormal::new(-1.0));
-        assert_eq!(
-            dca.transform_audio_to_stereo(VALUE_IN),
-            StereoSample::new_from_f64(VALUE, 0.0),
-            "Pan left should give 100% to left channel"
-        );
-
-        dca.set_pan(BipolarNormal::new(1.0));
-        assert_eq!(
-            dca.transform_audio_to_stereo(VALUE_IN),
-            StereoSample::new_from_f64(0.0, VALUE),
-            "Pan right should give 100% to right channel"
-        );
     }
 
     #[test]

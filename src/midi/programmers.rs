@@ -190,13 +190,13 @@ mod tests {
         common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
         controllers::Timer,
         entities::Entity,
-        instruments::TestInstrument,
         Orchestrator,
     };
     use groove_core::{
         time::{BeatValue, TimeSignature},
         StereoSample,
     };
+    use groove_toys::ToyInstrument;
 
     #[allow(dead_code)]
     impl Pattern<PerfectTimeUnit> {
@@ -414,7 +414,7 @@ mod tests {
         ]);
         programmer.insert_pattern_at_cursor(&mut sequencer, &INSTRUMENT_MIDI_CHANNEL, &pattern);
 
-        let midi_recorder = Box::new(TestInstrument::new_with(DEFAULT_SAMPLE_RATE));
+        let midi_recorder = Box::new(ToyInstrument::new_with(DEFAULT_SAMPLE_RATE));
         let midi_recorder_uid = o.add(None, Entity::TestInstrument(midi_recorder));
         o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
 
