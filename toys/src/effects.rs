@@ -2,8 +2,9 @@
 
 use groove_core::{
     control::F32ControlValue,
+    time::ClockTimeUnit,
     traits::{Controllable, HasUid, IsEffect, TransformsAudio},
-    Sample, time::ClockTimeUnit,
+    Sample,
 };
 use groove_macros::Control;
 use std::collections::VecDeque;
