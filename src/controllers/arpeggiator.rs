@@ -209,7 +209,7 @@ mod tests {
 
         let arpeggiator_uid = o.add(None, Entity::Arpeggiator(arpeggiator));
         o.connect_midi_downstream(arpeggiator_uid, MIDI_CHANNEL_SEQUENCER_TO_ARP);
-        let instrument_uid = o.add(None, Entity::TestInstrument(instrument));
+        let instrument_uid = o.add(None, Entity::ToyInstrument(instrument));
         o.connect_midi_downstream(instrument_uid, MIDI_CHANNEL_ARP_TO_INSTRUMENT);
         let _sequencer_uid = o.add(None, Entity::BeatSequencer(sequencer));
 

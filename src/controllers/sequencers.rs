@@ -360,7 +360,7 @@ mod tests {
             DEFAULT_MIDI_TICKS_PER_SECOND,
         ));
         let instrument = Box::new(ToyInstrument::new_with(clock.sample_rate()));
-        let device_uid = o.add(None, Entity::TestInstrument(instrument));
+        let device_uid = o.add(None, Entity::ToyInstrument(instrument));
 
         sequencer.insert(
             sequencer.tick_for_beat(&clock, 0),

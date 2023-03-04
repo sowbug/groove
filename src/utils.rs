@@ -3,6 +3,11 @@ use std::{
     path::PathBuf,
 };
 
+use groove_core::midi::{MidiChannel, MidiMessage};
+use groove_toys::MessageMaker;
+
+use crate::messages::EntityMessage;
+
 #[allow(dead_code)]
 pub(crate) fn transform_linear_to_mma_concave(linear_value: f64) -> f64 {
     const MAX_VALUE: f64 = 1.0;
@@ -62,15 +67,24 @@ impl Paths {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct ToyMessageMaker {}
+impl MessageMaker for ToyMessageMaker {
+    type Message = EntityMessage;
+
+    fn midi(&self, channel: MidiChannel, message: MidiMessage) -> Self::Message {
+        EntityMessage::Midi(channel, message)
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::Paths;
     use crate::{
         common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
-        controllers::{orchestrator::Orchestrator, LfoController, TestController, Timer, Trigger},
+        controllers::{orchestrator::Orchestrator, LfoController, Timer, Trigger},
         entities::Entity,
-        instruments::{TestSynth, TestSynthControlParams},
-        utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
+        utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex, ToyMessageMaker},
     };
     use convert_case::{Case, Casing};
     use groove_core::{
@@ -80,7 +94,7 @@ pub mod tests {
         traits::{Resets, TicksWithMessages},
         ParameterType, StereoSample,
     };
-    use groove_toys::{ToyEffect, ToyInstrument};
+    use groove_toys::{ToyController, ToyEffect, ToyInstrument, ToySynth, ToySynthControlParams};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
     use std::{fs, path::PathBuf};
 
@@ -118,7 +132,7 @@ pub mod tests {
         // A simple audio source.
         let synth_uid = o.add(
             None,
-            Entity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate()))),
+            Entity::ToySynth(Box::new(ToySynth::new_with(clock.sample_rate()))),
         );
 
         // A simple effect.
@@ -182,14 +196,14 @@ pub mod tests {
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(
             None,
-            Entity::TestSynth(Box::new(TestSynth::new_with(clock.sample_rate()))),
+            Entity::ToySynth(Box::new(ToySynth::new_with(clock.sample_rate()))),
         );
         let lfo = LfoController::new_with(clock.sample_rate(), Waveform::Sine, 2.0);
         let lfo_uid = o.add(None, Entity::LfoController(Box::new(lfo)));
         let _ = o.link_control(
             lfo_uid,
             synth_1_uid,
-            &TestSynthControlParams::OscillatorModulation.to_string(),
+            &ToySynthControlParams::OscillatorModulation.to_string(),
         );
 
         // We'll hear the synth's audio output.
@@ -239,14 +253,15 @@ pub mod tests {
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
             None,
-            Entity::TestInstrument(Box::new(ToyInstrument::new_with(DEFAULT_SAMPLE_RATE))),
+            Entity::ToyInstrument(Box::new(ToyInstrument::new_with(DEFAULT_SAMPLE_RATE))),
         );
         let arpeggiator_uid = o.add(
             None,
-            Entity::TestController(Box::new(TestController::new_with(
+            Entity::ToyController(Box::new(ToyController::new_with(
                 DEFAULT_SAMPLE_RATE,
                 DEFAULT_BPM,
                 TEST_MIDI_CHANNEL,
+                Box::new(ToyMessageMaker {}),
             ))),
         );
 
@@ -343,7 +358,7 @@ pub mod tests {
         let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
 
         // A simple audio source.
-        let entity_groove = Entity::TestSynth(Box::new(TestSynth::new_with(DEFAULT_SAMPLE_RATE)));
+        let entity_groove = Entity::ToySynth(Box::new(ToySynth::new_with(DEFAULT_SAMPLE_RATE)));
         let synth_uid = o.add(None, entity_groove);
 
         // A simple effect.

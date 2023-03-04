@@ -53,14 +53,14 @@ impl Gain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::AudioSource;
     use groove_core::{traits::Generates, StereoSample};
+    use groove_toys::ToyAudioSource;
 
     #[test]
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(Normal::new(0.5));
         assert_eq!(
-            gain.transform_audio(AudioSource::new_with(AudioSource::LOUD).value()),
+            gain.transform_audio(ToyAudioSource::new_with(ToyAudioSource::LOUD).value()),
             StereoSample::from(0.5)
         );
     }

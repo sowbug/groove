@@ -6,6 +6,8 @@ use crate::{
     Normal, Sample, StereoSample,
 };
 
+pub trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {}
+
 /// An IsController controls things in the system that implement Controllable.
 /// Examples are sequencers, arpeggiators, and discrete LFOs (as contrasted with
 /// LFOs that are integrated into other instruments).

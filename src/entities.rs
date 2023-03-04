@@ -3,15 +3,14 @@ use crate::{
         arpeggiator::Arpeggiator,
         patterns::PatternManager,
         sequencers::{BeatSequencer, MidiTickSequencer},
-        ControlTrip, LfoController, SignalPassthroughController, TestController, Timer,
+        ControlTrip, LfoController, SignalPassthroughController, Timer,
     },
     effects::{
         bitcrusher::Bitcrusher, chorus::Chorus, compressor::Compressor, delay::Delay,
         filter::BiQuadFilter, gain::Gain, limiter::Limiter, mixer::Mixer, reverb::Reverb,
     },
     instruments::{
-        drumkit::Drumkit, sampler::Sampler, welsh::WelshSynth, AudioSource, FmSynthesizer,
-        SimpleSynthesizer, TestSynth,
+        drumkit::Drumkit, sampler::Sampler, welsh::WelshSynth, FmSynthesizer, SimpleSynthesizer,
     },
     messages::EntityMessage,
 };
@@ -19,7 +18,7 @@ use groove_core::{
     midi::HandlesMidi,
     traits::{Controllable, HasUid, IsController, IsEffect, IsInstrument},
 };
-use groove_toys::{ToyEffect, ToyInstrument};
+use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
@@ -54,7 +53,7 @@ boxed_entity_enum_and_common_crackers! {
     LfoController: LfoController,
     PatternManager: PatternManager,
     SignalPassthroughController: SignalPassthroughController,
-    TestController: TestController,
+    ToyController: ToyController<EntityMessage>,
     Timer: Timer,
 
     // Effects
@@ -70,13 +69,13 @@ boxed_entity_enum_and_common_crackers! {
     ToyEffect: ToyEffect,
 
     // Instruments
-    AudioSource: AudioSource,
     Drumkit: Drumkit,
     FmSynthesizer: FmSynthesizer,
     Sampler: Sampler,
     SimpleSynthesizer: SimpleSynthesizer,
-    TestInstrument: ToyInstrument,
-    TestSynth: TestSynth,
+    ToyAudioSource: ToyAudioSource,
+    ToyInstrument: ToyInstrument,
+    ToySynth: ToySynth,
     WelshSynth: WelshSynth,
 }
 
@@ -111,8 +110,8 @@ controllable_crackers! {
     Limiter,
     Reverb,
     ToyEffect,
-    TestInstrument,
-    TestSynth,
+    ToyInstrument,
+    ToySynth,
     WelshSynth,
 }
 
@@ -142,7 +141,7 @@ controller_crackers! {
     MidiTickSequencer,
     PatternManager,
     SignalPassthroughController,
-    TestController,
+    ToyController,
     Timer,
 }
 
@@ -197,13 +196,13 @@ macro_rules! instrument_crackers {
     };
 }
 instrument_crackers! {
-    AudioSource,
+    ToyAudioSource,
     Drumkit,
     FmSynthesizer,
     Sampler,
     SimpleSynthesizer,
-    TestInstrument,
-    TestSynth,
+    ToyInstrument,
+    ToySynth,
     WelshSynth,
 }
 
@@ -228,7 +227,7 @@ macro_rules! handles_midi_crackers {
 
 handles_midi_crackers! {
     Arpeggiator,
-    AudioSource,
+    ToyAudioSource,
     BeatSequencer,
     ControlTrip,
     Drumkit,
@@ -239,9 +238,9 @@ handles_midi_crackers! {
     Sampler,
     SignalPassthroughController,
     SimpleSynthesizer,
-    TestController,
-    TestInstrument,
-    TestSynth,
+    ToyController,
+    ToyInstrument,
+    ToySynth,
     Timer,
     WelshSynth,
 }

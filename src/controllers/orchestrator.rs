@@ -949,12 +949,12 @@ pub mod tests {
         controllers::Timer,
         effects::gain::Gain,
         entities::Entity,
-        instruments::AudioSource,
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
         Normal, StereoSample,
     };
+    use groove_toys::ToyAudioSource;
 
     impl Orchestrator {
         /// Warning! This method exists only as a debug shortcut to
@@ -988,11 +988,11 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let level_1_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.1))),
         );
         let level_2_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.2))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.2))),
         );
 
         // Nothing connected: should output silence.
@@ -1021,7 +1021,7 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let level_1_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.1))),
         );
         let gain_1_uid = o.add(
             None,
@@ -1029,15 +1029,15 @@ pub mod tests {
         );
         let level_2_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.2))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.2))),
         );
         let level_3_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.3))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.3))),
         );
         let level_4_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.4))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.4))),
         );
 
         // Nothing connected: should output silence.
@@ -1097,7 +1097,7 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let piano_1_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.1))),
         );
         let low_pass_1_uid = o.add(
             None,
@@ -1110,7 +1110,7 @@ pub mod tests {
 
         let bassline_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.3))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.3))),
         );
         let gain_2_uid = o.add(
             None,
@@ -1119,7 +1119,7 @@ pub mod tests {
 
         let synth_1_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.5))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.5))),
         );
         let gain_3_uid = o.add(
             None,
@@ -1128,7 +1128,7 @@ pub mod tests {
 
         let drum_1_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.7))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.7))),
         );
 
         // First chain.
@@ -1195,15 +1195,15 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let instrument_1_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.1))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.1))),
         );
         let instrument_2_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.3))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.3))),
         );
         let instrument_3_uid = o.add(
             None,
-            Entity::AudioSource(Box::new(AudioSource::new_with(0.5))),
+            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.5))),
         );
         let effect_1_uid = o.add(
             None,

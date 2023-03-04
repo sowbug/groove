@@ -64,24 +64,3 @@ impl<T> Response<T> {
 //     fn value_to_check(&self) -> f32;
 //     fn pop_checkpoint_value(&mut self) -> Option<f32>;
 // }
-
-#[cfg(test)]
-pub mod tests {
-    use crate::common::DEFAULT_SAMPLE_RATE;
-    use groove_core::traits::{Generates, Ticks};
-    use groove_toys::ToyInstrument;
-    use rand::random;
-
-    // TODO: restore tests that test basic trait behavior, then figure out how
-    // to run everyone implementing those traits through that behavior. For now,
-    // this one just tests that a generic instrument doesn't panic when accessed
-    // for non-consecutive time slices.
-    #[test]
-    fn test_sources_audio_random_access() {
-        let mut instrument = ToyInstrument::new_with(DEFAULT_SAMPLE_RATE);
-        for _ in 0..100 {
-            instrument.tick(random::<usize>() % 10);
-            let _ = instrument.value();
-        }
-    }
-}

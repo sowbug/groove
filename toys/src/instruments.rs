@@ -2,11 +2,11 @@
 
 use groove_core::{
     control::F32ControlValue,
-    generators::{Oscillator, Waveform},
+    generators::{Envelope, Oscillator, Waveform},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
-    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
-    Dca, Sample, StereoSample,
+    traits::{Controllable, Generates, GeneratesEnvelope, HasUid, IsInstrument, Resets, Ticks},
+    BipolarNormal, Dca, Normal, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, str::FromStr};
@@ -202,5 +202,164 @@ impl ToyInstrument {
 
     pub fn dump_messages(&self) {
         dbg!(&self.debug_messages);
+    }
+}
+
+#[derive(Control, Debug, Uid)]
+pub struct ToySynth {
+    uid: usize,
+    sample_rate: usize,
+    sample: StereoSample,
+
+    #[controllable]
+    oscillator_modulation: BipolarNormal,
+
+    oscillator: Box<Oscillator>,
+    envelope: Box<dyn GeneratesEnvelope>,
+}
+impl IsInstrument for ToySynth {}
+impl Generates<StereoSample> for ToySynth {
+    fn value(&self) -> StereoSample {
+        self.sample
+    }
+
+    #[allow(unused_variables)]
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Resets for ToySynth {
+    fn reset(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
+        self.oscillator.reset(sample_rate);
+    }
+}
+impl Ticks for ToySynth {
+    fn tick(&mut self, tick_count: usize) {
+        // TODO: I don't think this can play sounds, because I don't see how the
+        // envelope ever gets triggered.
+        self.oscillator.tick(tick_count);
+        self.envelope.tick(tick_count);
+        self.sample = StereoSample::from(self.oscillator.value() * self.envelope.value().value());
+    }
+}
+impl HandlesMidi for ToySynth {}
+impl ToySynth {
+    pub fn new_with_components(
+        sample_rate: usize,
+        oscillator: Box<Oscillator>,
+        envelope: Box<dyn GeneratesEnvelope>,
+    ) -> Self {
+        Self {
+            uid: Default::default(),
+            sample_rate,
+            sample: Default::default(),
+            oscillator_modulation: Default::default(),
+            oscillator,
+            envelope,
+        }
+    }
+
+    pub fn oscillator_modulation(&self) -> BipolarNormal {
+        self.oscillator.frequency_modulation()
+    }
+
+    pub fn set_oscillator_modulation(&mut self, oscillator_modulation: BipolarNormal) {
+        self.oscillator_modulation = oscillator_modulation;
+        self.oscillator
+            .set_frequency_modulation(oscillator_modulation);
+    }
+
+    pub fn set_control_oscillator_modulation(&mut self, oscillator_modulation: F32ControlValue) {
+        self.set_oscillator_modulation(BipolarNormal::from(oscillator_modulation.0));
+    }
+
+    pub fn new_with(sample_rate: usize) -> Self {
+        Self::new_with_components(
+            sample_rate,
+            Box::new(Oscillator::new_with(sample_rate)),
+            Box::new(Envelope::new_with(
+                sample_rate,
+                0.0,
+                0.0,
+                Normal::maximum(),
+                0.0,
+            )),
+        )
+    }
+}
+
+#[derive(Control, Debug, Default, Uid)]
+pub struct ToyAudioSource {
+    uid: usize,
+
+    #[controllable]
+    level: SampleType,
+}
+impl IsInstrument for ToyAudioSource {}
+impl Generates<StereoSample> for ToyAudioSource {
+    fn value(&self) -> StereoSample {
+        StereoSample::from(self.level)
+    }
+
+    #[allow(unused_variables)]
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Resets for ToyAudioSource {
+    fn reset(&mut self, _sample_rate: usize) {}
+}
+impl Ticks for ToyAudioSource {
+    fn tick(&mut self, _tick_count: usize) {}
+}
+impl HandlesMidi for ToyAudioSource {}
+#[allow(dead_code)]
+impl ToyAudioSource {
+    pub const TOO_LOUD: SampleType = 1.1;
+    pub const LOUD: SampleType = 1.0;
+    pub const SILENT: SampleType = 0.0;
+    pub const QUIET: SampleType = -1.0;
+    pub const TOO_QUIET: SampleType = -1.1;
+
+    pub fn new_with(level: SampleType) -> Self {
+        Self {
+            level,
+            ..Default::default()
+        }
+    }
+
+    pub fn level(&self) -> SampleType {
+        self.level
+    }
+
+    pub fn set_level(&mut self, level: SampleType) {
+        self.level = level;
+    }
+
+    fn set_control_level(&mut self, level: F32ControlValue) {
+        self.set_level(level.0 as f64);
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use crate::ToyInstrument;
+    use groove_core::traits::{Generates, Ticks};
+    use rand::random;
+
+    const DEFAULT_SAMPLE_RATE: usize = 44100;
+
+    // TODO: restore tests that test basic trait behavior, then figure out how
+    // to run everyone implementing those traits through that behavior. For now,
+    // this one just tests that a generic instrument doesn't panic when accessed
+    // for non-consecutive time slices.
+    #[test]
+    fn test_sources_audio_random_access() {
+        let mut instrument = ToyInstrument::new_with(DEFAULT_SAMPLE_RATE);
+        for _ in 0..100 {
+            instrument.tick(random::<usize>() % 10);
+            let _ = instrument.value();
+        }
     }
 }

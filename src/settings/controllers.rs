@@ -2,11 +2,13 @@ use super::{patches::WaveformType, BeatValueSettings, DeviceId, MidiChannel};
 use crate::{
     controllers::{
         control_trip::ControlStep, Arpeggiator, ControlPath, LfoController,
-        SignalPassthroughController, TestController,
+        SignalPassthroughController,
     },
     entities::Entity,
+    utils::ToyMessageMaker,
 };
 use groove_core::{ParameterType, SignalType};
+use groove_toys::ToyController;
 use serde::{Deserialize, Serialize};
 
 /// A ControlTrip contains successive ControlSteps. A ControlStep describes how
@@ -164,10 +166,11 @@ impl ControllerSettings {
             return (
                 *midi_input_channel,
                 *midi_output_channel,
-                Entity::TestController(Box::new(TestController::new_with(
+                Entity::ToyController(Box::new(ToyController::new_with(
                     sample_rate,
                     bpm,
                     *midi_output_channel,
+                    Box::new(ToyMessageMaker {}),
                 ))),
             );
         }
@@ -178,10 +181,11 @@ impl ControllerSettings {
             } => (
                 midi_input_channel,
                 midi_output_channel,
-                Entity::TestController(Box::new(TestController::new_with(
+                Entity::ToyController(Box::new(ToyController::new_with(
                     sample_rate,
                     bpm,
                     midi_output_channel,
+                    Box::new(ToyMessageMaker {}),
                 ))),
             ),
             ControllerSettings::Arpeggiator {

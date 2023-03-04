@@ -79,13 +79,13 @@ impl InstrumentSettings {
             };
             return (
                 midi_input_channel,
-                Entity::TestInstrument(Box::new(ToyInstrument::new_with(sample_rate))),
+                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(sample_rate))),
             );
         }
         match self {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,
-                Entity::TestInstrument(Box::new(ToyInstrument::new_with(sample_rate))),
+                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(sample_rate))),
             ),
             InstrumentSettings::SimpleSynth { midi_input_channel } => (
                 *midi_input_channel,

@@ -7,13 +7,11 @@ use groove::{
     common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     controllers::{
         Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern,
-        PatternManager, PatternMessage, SignalPassthroughController, TestController, Timer,
+        PatternManager, PatternMessage, SignalPassthroughController, Timer,
     },
     effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
     engine::{GrooveEvent, GrooveInput, GrooveSubscription},
-    instruments::{
-        AudioSource, Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, TestSynth, WelshSynth,
-    },
+    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
     messages::{EntityMessage, GrooveMessage},
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
     Entity, Orchestrator,
@@ -24,7 +22,7 @@ use groove_core::{
     traits::HasUid,
     Normal, Sample,
 };
-use groove_toys::{ToyEffect, ToyInstrument};
+use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
     play_icon, skip_to_prev_icon, stop_icon, GuiStuff,
@@ -509,7 +507,7 @@ impl GrooveApp {
     fn entity_view(&self, entity: &Entity) -> Element<EntityMessage> {
         match entity {
             Entity::Arpeggiator(e) => self.arpeggiator_view(e),
-            Entity::AudioSource(e) => self.audio_source_view(e),
+            Entity::ToyAudioSource(e) => self.audio_source_view(e),
             Entity::BeatSequencer(e) => self.beat_sequencer_view(e),
             Entity::BiQuadFilter(e) => self.biquad_filter_view(e),
             Entity::Bitcrusher(e) => self.bitcrusher_view(e),
@@ -529,10 +527,10 @@ impl GrooveApp {
             Entity::Sampler(e) => self.sampler_view(e),
             Entity::SignalPassthroughController(e) => self.signal_controller_view(e),
             Entity::SimpleSynthesizer(e) => self.simple_synthesizer_view(e),
-            Entity::TestController(e) => self.test_controller_view(e),
+            Entity::ToyController(e) => self.test_controller_view(e),
             Entity::ToyEffect(e) => self.toy_effect_view(e),
-            Entity::TestInstrument(e) => self.test_instrument_view(e),
-            Entity::TestSynth(e) => self.test_synth_view(e),
+            Entity::ToyInstrument(e) => self.test_instrument_view(e),
+            Entity::ToySynth(e) => self.test_synth_view(e),
             Entity::Timer(e) => self.timer_view(e),
             Entity::WelshSynth(e) => self.welsh_synth_view(e),
         }
@@ -806,9 +804,9 @@ impl GrooveApp {
         )
     }
 
-    fn test_controller_view(&self, e: &TestController) -> Element<EntityMessage> {
+    fn test_controller_view(&self, e: &ToyController<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<TestController>(),
+            type_name::<ToyController<EntityMessage>>(),
             GuiStuff::<EntityMessage>::container_text(format!("Tempo: {}", e.tempo).as_str())
                 .into(),
         )
@@ -832,9 +830,9 @@ impl GrooveApp {
         )
     }
 
-    fn test_synth_view(&self, _: &TestSynth) -> Element<EntityMessage> {
+    fn test_synth_view(&self, _: &ToySynth) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<TestSynth>(),
+            type_name::<ToySynth>(),
             GuiStuff::<EntityMessage>::container_text("Nothing").into(),
         )
     }
@@ -882,9 +880,9 @@ impl GrooveApp {
         ])
         .into()
     }
-    fn audio_source_view(&self, e: &AudioSource) -> Element<EntityMessage> {
+    fn audio_source_view(&self, e: &ToyAudioSource) -> Element<EntityMessage> {
         GuiStuff::titled_container(
-            type_name::<AudioSource>(),
+            type_name::<ToyAudioSource>(),
             GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
                 .into(),
         )

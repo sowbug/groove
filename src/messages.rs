@@ -1,11 +1,10 @@
 use crate::controllers::PatternMessage;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
+    traits::MessageBounds,
     StereoSample,
 };
 use iced_audio::Normal;
-
-pub(crate) trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {} // TODO: that 'static scares me
 
 #[derive(Clone, Debug)]
 pub enum GrooveMessage {

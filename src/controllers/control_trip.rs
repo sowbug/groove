@@ -271,7 +271,7 @@ mod tests {
             0.5,
             ClockTimeUnit::Beats,
         ));
-        let instrument_uid = o.add(None, Entity::TestInstrument(instrument));
+        let instrument_uid = o.add(None, Entity::ToyInstrument(instrument));
         let _ = o.connect_to_main_mixer(instrument_uid);
         let mut trip = Box::new(ControlTrip::new_with(
             DEFAULT_SAMPLE_RATE,
