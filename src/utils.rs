@@ -3,9 +3,9 @@ use std::{
     path::PathBuf,
 };
 
+use crate::messages::EntityMessage;
 use groove_core::midi::{MidiChannel, MidiMessage};
 use groove_toys::MessageMaker;
-use crate::messages::EntityMessage;
 
 #[allow(dead_code)]
 pub(crate) fn transform_linear_to_mma_concave(linear_value: f64) -> f64 {

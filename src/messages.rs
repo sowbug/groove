@@ -1,4 +1,3 @@
-use std::fmt::Debug;
 use crate::controllers::PatternMessage;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
@@ -6,6 +5,7 @@ use groove_core::{
     StereoSample,
 };
 use iced_audio::Normal;
+use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
 pub enum GrooveMessage {

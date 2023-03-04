@@ -7,9 +7,9 @@ pub(crate) mod subscription;
 // TODO copy and conform MidiMessage to MessageBounds so it can be a trait
 // associated type
 use crate::messages::Response;
-use groove_core::{midi::u4, traits::MessageBounds};
 use crossbeam::deque::{Steal, Stealer, Worker};
 use enum_primitive_derive::Primitive;
+use groove_core::{midi::u4, traits::MessageBounds};
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     traits::HasUid,

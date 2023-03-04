@@ -1,5 +1,5 @@
 use super::{MidiHandler, MidiHandlerMessage, MidiPortLabel};
-use crate::messages::{Response, Internal};
+use crate::messages::{Internal, Response};
 use groove_core::midi::{MidiChannel, MidiMessage};
 use iced::{futures::channel::mpsc, subscription, Subscription};
 use std::{
