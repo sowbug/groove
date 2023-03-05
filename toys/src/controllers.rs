@@ -24,6 +24,8 @@ pub trait MessageMaker: Send + Debug {
     fn midi(&self, channel: MidiChannel, message: MidiMessage) -> Self::Message;
 }
 
+/// An [groove_core::traits::IsController] that emits a MIDI note-on event on
+/// each beat, and a note-off event on each half-beat.
 #[derive(Control, Debug, Uid)]
 pub struct ToyController<M: MessageBounds> {
     uid: usize,

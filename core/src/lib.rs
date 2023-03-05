@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! Fundamental structs and traits.
+
 use std::{
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},

@@ -12,12 +12,10 @@ use groove_macros::{Control, Uid};
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
-/// A simple implementation of IsInstrument that's useful for testing and
-/// debugging. Uses a default Oscillator to produce sound, and its "envelope" is
-/// just a boolean that responds to MIDI NoteOn/NoteOff.
-///
-/// To act as a controller target, it has two parameters: Oscillator waveform
-/// and frequency.
+/// An [groove_core::traits::IsInstrument]. Uses a default Oscillator to produce
+/// sound. Its "envelope" is just a boolean that responds to MIDI
+/// NoteOn/NoteOff. [Controllable](groove_core::traits::Controllable) by two
+/// parameters: Oscillator waveform and frequency.
 #[derive(Control, Debug, Uid)]
 pub struct ToyInstrument {
     uid: usize,
@@ -205,6 +203,8 @@ impl ToyInstrument {
     }
 }
 
+/// Another [groove_core::traits::IsInstrument]. Doesn't respond to any events,
+/// so it's not currently useful.
 #[derive(Control, Debug, Uid)]
 pub struct ToySynth {
     uid: usize,
@@ -289,6 +289,8 @@ impl ToySynth {
     }
 }
 
+/// Produces a constant audio signal. It's good for testing to ensure that a
+/// known signal value gets all the way through the pipeline.
 #[derive(Control, Debug, Default, Uid)]
 pub struct ToyAudioSource {
     uid: usize,

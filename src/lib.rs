@@ -1,5 +1,7 @@
 #![allow(clippy::box_default)]
 
+//! A DAW (digital audio workstation) engine.
+
 // TODO: regularly scrutinize the re-exports and make sure they really should be
 // top-level
 pub use controllers::orchestrator::Orchestrator;
