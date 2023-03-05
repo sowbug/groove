@@ -5,9 +5,13 @@
 //! aren't likely to be useful in real music prduction.
 
 // TODO: how to make the ControlParams export automatic? Should it be?
-pub use controllers::{MessageMaker, ToyController};
+pub use controllers::{MessageMaker, ToyController, ToyControllerControlParams};
 pub use effects::ToyEffect;
-pub use instruments::{ToyAudioSource, ToyInstrument, ToySynth};
+pub use effects::ToyEffectControlParams;
+pub use instruments::{
+    ToyAudioSource, ToyAudioSourceControlParams, ToyInstrument, ToyInstrumentControlParams,
+    ToySynth, ToySynthControlParams,
+};
 
 mod controllers;
 mod effects;
