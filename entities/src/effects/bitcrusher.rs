@@ -4,7 +4,6 @@ use groove_core::{
     Sample, SampleType,
 };
 use groove_macros::{Control, Uid};
-use iced_audio::{IntRange, Normal};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
@@ -19,8 +18,6 @@ pub struct Bitcrusher {
     bits_to_crush: u8,
 
     c: SampleType,
-
-    bits_to_crush_int_range: IntRange,
 }
 impl IsEffect for Bitcrusher {}
 impl TransformsAudio for Bitcrusher {
@@ -37,11 +34,10 @@ impl Default for Bitcrusher {
     }
 }
 impl Bitcrusher {
-    pub(crate) fn new_with(bits_to_crush: u8) -> Self {
+    pub fn new_with(bits_to_crush: u8) -> Self {
         let mut r = Self {
             uid: Default::default(),
             bits_to_crush,
-            bits_to_crush_int_range: IntRange::new(0, 15),
             c: Default::default(),
         };
         r.update_c();
@@ -62,14 +58,7 @@ impl Bitcrusher {
     }
 
     pub fn set_control_bits_to_crush(&mut self, value: F32ControlValue) {
-        self.set_bits_to_crush(
-            self.bits_to_crush_int_range
-                .unmap_to_value(Normal::from_clipped(value.0)) as u8,
-        );
-    }
-
-    pub fn bits_to_crush_int_range(&self) -> IntRange {
-        self.bits_to_crush_int_range
+        self.set_bits_to_crush((value.0 * 16.0).floor() as u8);
     }
 }
 

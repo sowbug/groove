@@ -45,7 +45,7 @@ impl Chorus {
         Self::default()
     }
 
-    pub(crate) fn new_with(
+    pub fn new_with(
         sample_rate: usize,
         wet_dry_mix: f32,
         voices: usize,

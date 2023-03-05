@@ -208,7 +208,7 @@ impl Delay {
         Self::default()
     }
 
-    pub(crate) fn new_with(sample_rate: usize, delay_seconds: f32) -> Self {
+    pub fn new_with(sample_rate: usize, delay_seconds: f32) -> Self {
         Self {
             delay: DelayLine::new_with(sample_rate, delay_seconds, 1.0),
             ..Default::default()
@@ -232,7 +232,8 @@ impl Delay {
 mod tests {
     use super::*;
     use crate::DEFAULT_SAMPLE_RATE;
-    use assert_approx_eq::assert_approx_eq;
+    use float_cmp::approx_eq;
+    use groove_core::SampleType;
     use more_asserts::{assert_gt, assert_lt};
     use rand::random;
 
@@ -298,18 +299,20 @@ mod tests {
         assert_eq!(delay.pop_output(Sample::from(0.5)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
-        assert_approx_eq!(
+        assert!(approx_eq!(
+            SampleType,
             delay.pop_output(Sample::from(0.0)).0,
             Sample::from(0.5 * 0.01).0,
-            0.001
-        );
+            epsilon=0.001
+        ));
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
-        assert_approx_eq!(
+        assert!(approx_eq!(
+            SampleType,
             delay.pop_output(Sample::from(0.0)).0,
             Sample::from(0.5 * 0.01 * 0.01).0,
-            0.001
-        );
+            epsilon=0.001
+        ));
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
     }

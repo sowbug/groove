@@ -1,6 +1,5 @@
 use super::LoadError;
 use crate::{
-    effects::{BiQuadFilter, FilterParams},
     instruments::{
         welsh::{LfoRouting, WelshVoice},
         StealingVoiceStore, Synthesizer, WelshSynth,
@@ -13,6 +12,7 @@ use groove_core::{
     midi::note_to_frequency,
     BipolarNormal, Normal, ParameterType,
 };
+use groove_entities::effects::{BiQuadFilter, FilterParams};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

@@ -120,16 +120,8 @@ impl Compressor {
 
 #[cfg(test)]
 mod tests {
-    use crate::{effects::compressor::Compressor, entities::Entity};
+    use crate::effects::compressor::Compressor;
     use groove_core::{traits::TransformsAudio, Sample, SampleType};
-
-    #[test]
-    fn compressor_exists() {
-        let fx = Compressor::default();
-        let entity = Entity::Compressor(Box::new(fx));
-        assert!(entity.as_controllable().is_some());
-        assert!(entity.as_is_effect().is_some());
-    }
 
     #[test]
     fn basic_compressor() {

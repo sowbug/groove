@@ -1,11 +1,8 @@
-use crate::{
-    effects::{
-        BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, FilterParams, Gain, Limiter, Mixer,
-        Reverb,
-    },
-    entities::Entity,
-};
+use crate::entities::Entity;
 use groove_core::{BipolarNormal, Normal, SampleType};
+use groove_entities::effects::{
+    BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, FilterParams, Gain, Limiter, Mixer, Reverb,
+};
 use groove_toys::ToyEffect;
 use serde::{Deserialize, Serialize};
 

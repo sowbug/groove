@@ -5,10 +5,6 @@ use crate::{
         sequencers::{BeatSequencer, MidiTickSequencer},
         ControlTrip, LfoController, SignalPassthroughController, Timer,
     },
-    effects::{
-        bitcrusher::Bitcrusher, chorus::Chorus, compressor::Compressor, delay::Delay,
-        filter::BiQuadFilter, gain::Gain, limiter::Limiter, mixer::Mixer, reverb::Reverb,
-    },
     instruments::{
         drumkit::Drumkit, sampler::Sampler, welsh::WelshSynth, FmSynthesizer, SimpleSynthesizer,
     },
@@ -17,6 +13,10 @@ use crate::{
 use groove_core::{
     midi::HandlesMidi,
     traits::{Controllable, HasUid, IsController, IsEffect, IsInstrument},
+};
+use groove_entities::effects::{
+    BiQuadFilter, Gain, Limiter, Mixer, Reverb, Bitcrusher,
+    Chorus, Compressor, Delay,
 };
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 

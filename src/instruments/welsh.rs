@@ -1,7 +1,5 @@
 use super::{IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, Synthesizer};
-use crate::{
-    effects::BiQuadFilter, midi::GeneralMidiProgram, settings::patches::WelshPatchSettings,
-};
+use crate::{midi::GeneralMidiProgram, settings::patches::WelshPatchSettings};
 use groove_core::{
     control::F32ControlValue,
     generators::{Envelope, Oscillator},
@@ -12,6 +10,7 @@ use groove_core::{
     },
     BipolarNormal, Dca, Normal, ParameterType, Sample, StereoSample,
 };
+use groove_entities::effects::BiQuadFilter;
 use groove_macros::{Control, Uid};
 use num_traits::FromPrimitive;
 use std::str::FromStr;

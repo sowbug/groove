@@ -44,7 +44,7 @@ impl Limiter {
         Self::default()
     }
 
-    pub(crate) fn new_with(min: BipolarNormal, max: BipolarNormal) -> Self {
+    pub fn new_with(min: BipolarNormal, max: BipolarNormal) -> Self {
         Self {
             min: min.value() as f32,
             max: max.value() as f32,

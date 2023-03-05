@@ -1,6 +1,5 @@
 use super::{patterns::PatternManager, sequencers::BeatSequencer, Performance};
 use crate::{
-    effects::Mixer,
     entities::Entity,
     helpers::IOHelper,
     messages::{EntityMessage, GrooveMessage},
@@ -16,6 +15,7 @@ use groove_core::{
     traits::HasUid,
     ParameterType, StereoSample,
 };
+use groove_entities::effects::Mixer;
 use groove_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::io::{self, Write};
@@ -946,7 +946,6 @@ pub mod tests {
     use super::Orchestrator;
     use crate::{
         controllers::Timer,
-        effects::gain::Gain,
         entities::Entity,
         {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
     };
@@ -954,6 +953,7 @@ pub mod tests {
         midi::{MidiChannel, MidiMessage},
         Normal, StereoSample,
     };
+    use groove_entities::effects::Gain;
     use groove_toys::ToyAudioSource;
 
     impl Orchestrator {

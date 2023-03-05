@@ -8,7 +8,6 @@ use groove::{
         Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern,
         PatternManager, PatternMessage, SignalPassthroughController, Timer,
     },
-    effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
     engine::{GrooveEvent, GrooveInput, GrooveSubscription},
     instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
     messages::{EntityMessage, GrooveMessage},
@@ -20,6 +19,9 @@ use groove_core::{
     time::{Clock, TimeSignature},
     traits::HasUid,
     Normal, Sample,
+};
+use groove_entities::effects::{
+    BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb,
 };
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use gui::{
@@ -38,7 +40,7 @@ use iced::{
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Renderer, Settings, Size, Subscription,
 };
-use iced_audio::{HSlider, Knob, Normal as IcedNormal, NormalParam};
+use iced_audio::{HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
 use rustc_hash::FxHashMap;
 use std::{
     any::type_name,
@@ -427,9 +429,7 @@ impl GrooveApp {
                     },
                     Entity::Bitcrusher(e) => match message {
                         EntityMessage::HSliderInt(value) => {
-                            e.set_bits_to_crush(
-                                e.bits_to_crush_int_range().unmap_to_value(value) as u8
-                            );
+                            e.set_bits_to_crush(value.as_f32() as u8);
                         }
                         _ => todo!(),
                     },
@@ -972,8 +972,7 @@ impl GrooveApp {
     fn bitcrusher_view(&self, e: &Bitcrusher) -> Element<EntityMessage> {
         let title = format!("{}: {}", type_name::<Bitcrusher>(), e.bits_to_crush());
         let contents = container(row![HSlider::new(
-            e.bits_to_crush_int_range()
-                .normal_param(e.bits_to_crush() as i32, 8),
+            IntRange::new(0, 15).normal_param(e.bits_to_crush().into(), 8),
             EntityMessage::HSliderInt
         )])
         .padding(20);
