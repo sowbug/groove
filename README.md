@@ -37,6 +37,15 @@ I use VSCode on Ubuntu 20.04 for development.
   section. Or try `cargo install` if you want the current binaries installed in
   your PATH (not recommended).
 
+### Useful developer tools
+
+- `cargo-deb` produces Debian `.deb` packages from your crate.
+- `cargo-expand` helps with macro debugging.
+- `cargo-license` lists crate licenses.
+- `cargo-machete` helps find unused crates listed as `Cargo.toml` dependencies.
+- `cargo-tree` lists crate dependencies.
+- `cross` produces cross-compiled builds.
+
 ## High-level project status
 
 - There are CLI (command-line interface) and GUI (graphical user interface)
@@ -126,6 +135,7 @@ phenomenon](https://en.wikipedia.org/wiki/Frequency_illusion) is marvelous.
   synthesizer based on Circle, Munt, and FluidSynth.
 - [musikcube](https://github.com/clangen/musikcube) a cross-platform,
   terminal-based music player, audio engine, metadata indexer, and server in c++
+- [Nannou](https://nannou.cc/) is a library that aims to make it easy for artists to express themselves with simple, fast, reliable code.
 - [Noise2Music](https://noise2music.github.io/): A series of diffusion models
   trained to generate high-quality 30-second music clips from text prompts.
 - [Sonic Pi](https://sonic-pi.net/)
