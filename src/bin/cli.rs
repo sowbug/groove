@@ -2,14 +2,15 @@ use anyhow::Ok;
 use clap::Parser;
 use groove::{
     app_version,
-    common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
     helpers::IOHelper,
-    Orchestrator,
+    Orchestrator, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::StereoSample;
 use regex::Regex;
 use std::time::Instant;
-//use groove::ScriptEngine;
+
+#[cfg(feature = "scripting")]
+use groove::ScriptEngine;
 
 #[derive(Parser, Debug, Default)]
 #[clap(author, about, long_about = None)]

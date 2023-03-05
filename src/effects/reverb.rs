@@ -92,7 +92,7 @@ impl Reverb {
 #[cfg(test)]
 mod tests {
     use super::Reverb;
-    use crate::common::DEFAULT_SAMPLE_RATE;
+    use crate::DEFAULT_SAMPLE_RATE;
     use groove_core::{traits::TransformsAudio, Sample};
 
     #[test]

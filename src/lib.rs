@@ -7,7 +7,6 @@
 pub use controllers::orchestrator::Orchestrator;
 pub use entities::Entity;
 
-pub mod common;
 pub mod controllers;
 pub mod effects;
 pub mod engine;
@@ -26,6 +25,15 @@ pub fn app_version() -> &'static str {
     option_env!("GIT_DESCRIBE")
         .unwrap_or(option_env!("GIT_REV_PARSE").unwrap_or(env!("CARGO_PKG_VERSION")))
 }
+
+use groove_core::ParameterType;
+
+// TODO: these should be #[cfg(test)] because nobody should be assuming these
+// values
+pub const DEFAULT_SAMPLE_RATE: usize = 44100;
+pub const DEFAULT_BPM: ParameterType = 128.0;
+pub const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);
+pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
 #[cfg(feature = "scripting")]
 pub(crate) mod scripting;

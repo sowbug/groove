@@ -187,10 +187,9 @@ impl PatternProgrammer {
 mod tests {
     use super::*;
     use crate::{
-        common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
         controllers::Timer,
         entities::Entity,
-        Orchestrator,
+        Orchestrator, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
     };
     use groove_core::{
         time::{BeatValue, TimeSignature},

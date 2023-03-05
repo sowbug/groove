@@ -231,7 +231,7 @@ impl Delay {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::DEFAULT_SAMPLE_RATE;
+    use crate::DEFAULT_SAMPLE_RATE;
     use assert_approx_eq::assert_approx_eq;
     use more_asserts::{assert_gt, assert_lt};
     use rand::random;

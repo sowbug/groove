@@ -729,8 +729,8 @@ impl WelshSynth {
 mod tests {
     use super::*;
     use crate::{
-        common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         utils::tests::canonicalize_filename,
+        {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     };
     use groove_core::{time::Clock, SampleType};
 

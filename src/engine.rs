@@ -1,8 +1,7 @@
 use crate::{
-    common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
     helpers::{AudioOutput, IOHelper},
     messages::{GrooveMessage, Internal, Response},
-    Orchestrator,
+    Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
 };
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
@@ -12,7 +11,6 @@ use groove_core::{
 };
 use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
-
 use std::{
     sync::{Arc, Mutex},
     thread::JoinHandle,

@@ -1,3 +1,4 @@
+use super::LoadError;
 use crate::{
     effects::{BiQuadFilter, FilterParams},
     instruments::{
@@ -13,8 +14,6 @@ use groove_core::{
     BipolarNormal, Normal, ParameterType,
 };
 use serde::{Deserialize, Serialize};
-
-use super::LoadError;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -392,10 +391,9 @@ pub struct FilterPreset {
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
-        instruments::welsh::WelshVoice,
-        settings::patches::OscillatorSettings,
-        utils::tests::canonicalize_filename,
+        instruments::welsh::WelshVoice, settings::patches::OscillatorSettings,
+        utils::tests::canonicalize_filename, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND,
+        DEFAULT_SAMPLE_RATE,
     };
     use assert_approx_eq::assert_approx_eq;
     use groove_core::{

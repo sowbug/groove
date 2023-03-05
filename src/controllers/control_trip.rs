@@ -181,9 +181,9 @@ pub struct ControlPath {
 mod tests {
     use super::*;
     use crate::{
-        common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
         controllers::orchestrator::Orchestrator,
         entities::Entity,
+        {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
     };
     use groove_core::StereoSample;
     use groove_toys::{ToyEffect, ToyInstrument};

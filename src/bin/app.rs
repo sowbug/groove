@@ -4,7 +4,6 @@ mod gui;
 
 use groove::{
     app_version,
-    common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     controllers::{
         Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern,
         PatternManager, PatternMessage, SignalPassthroughController, Timer,
@@ -14,7 +13,7 @@ use groove::{
     instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
     messages::{EntityMessage, GrooveMessage},
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
-    Entity, Orchestrator,
+    Entity, Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::{
     control::F32ControlValue,

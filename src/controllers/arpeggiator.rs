@@ -156,9 +156,9 @@ impl Arpeggiator {
 mod tests {
     use super::Arpeggiator;
     use crate::{
-        common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::{orchestrator::Orchestrator, sequencers::BeatSequencer},
         entities::Entity,
+        {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},

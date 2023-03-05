@@ -1,11 +1,10 @@
+use crate::messages::EntityMessage;
+use groove_core::midi::{MidiChannel, MidiMessage};
+use groove_toys::MessageMaker;
 use std::{
     env::{current_dir, current_exe},
     path::PathBuf,
 };
-
-use crate::messages::EntityMessage;
-use groove_core::midi::{MidiChannel, MidiMessage};
-use groove_toys::MessageMaker;
 
 #[allow(dead_code)]
 pub(crate) fn transform_linear_to_mma_concave(linear_value: f64) -> f64 {
@@ -80,10 +79,10 @@ impl MessageMaker for ToyMessageMaker {
 pub mod tests {
     use super::Paths;
     use crate::{
-        common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::{orchestrator::Orchestrator, LfoController, Timer, Trigger},
         entities::Entity,
         utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex, ToyMessageMaker},
+        DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
     };
     use convert_case::{Case, Casing};
     use groove_core::{

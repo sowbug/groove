@@ -945,10 +945,10 @@ impl Store {
 pub mod tests {
     use super::Orchestrator;
     use crate::{
-        common::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
         controllers::Timer,
         effects::gain::Gain,
         entities::Entity,
+        {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},

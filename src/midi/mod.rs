@@ -1,7 +1,6 @@
 pub use subscription::{MidiHandlerEvent, MidiHandlerInput, MidiSubscription};
 
 pub(crate) mod programmers;
-pub(crate) mod smf_reader;
 pub(crate) mod subscription;
 
 // TODO copy and conform MidiMessage to MessageBounds so it can be a trait

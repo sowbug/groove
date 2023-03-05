@@ -900,8 +900,8 @@ pub(crate) struct FmSynthesizerPreset {
 mod tests {
     use super::SimpleVoice;
     use crate::{
-        common::DEFAULT_SAMPLE_RATE,
         instruments::{PlaysNotes, SimpleVoiceStore, StealingVoiceStore, StoresVoices},
+        DEFAULT_SAMPLE_RATE,
     };
     use float_cmp::approx_eq;
     use groove_core::{

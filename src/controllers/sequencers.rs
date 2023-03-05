@@ -280,10 +280,10 @@ impl TicksWithMessages<EntityMessage> for MidiTickSequencer {
 mod tests {
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
-        common::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         controllers::orchestrator::Orchestrator,
         entities::Entity,
         messages::EntityMessage,
+        {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     };
     use groove_core::{
         midi::{new_note_off, new_note_on, MidiChannel, MidiNote},
