@@ -23,7 +23,6 @@ pub struct FmVoice {
     envelope: Envelope,
     dca: Dca,
 
-    is_playing: bool,
     note_on_key: u8,
     note_on_velocity: u8,
     steal_is_underway: bool,
@@ -32,7 +31,7 @@ impl IsStereoSampleVoice for FmVoice {}
 impl IsVoice<StereoSample> for FmVoice {}
 impl PlaysNotes for FmVoice {
     fn is_playing(&self) -> bool {
-        self.is_playing
+        !self.envelope.is_idle()
     }
 
     fn note_on(&mut self, key: u8, velocity: u8) {
@@ -78,6 +77,7 @@ impl Resets for FmVoice {
 }
 impl Ticks for FmVoice {
     fn tick(&mut self, tick_count: usize) {
+        let was_playing = self.is_playing();
         self.carrier.set_frequency_modulation(BipolarNormal::from(
             self.modulator.value() * self.modulator_depth,
         ));
@@ -85,9 +85,7 @@ impl Ticks for FmVoice {
         self.carrier.tick(tick_count);
         self.modulator.tick(tick_count);
         let r = self.carrier.value() * self.envelope.value().value();
-        let is_playing = self.is_playing;
-        self.is_playing = !self.envelope.is_idle();
-        if is_playing && !self.is_playing {
+        if was_playing && !self.is_playing() {
             if self.steal_is_underway {
                 self.steal_is_underway = false;
                 self.note_on(self.note_on_key, self.note_on_velocity);
@@ -105,7 +103,6 @@ impl FmVoice {
             modulator_depth: 0.2,
             envelope: Envelope::new_with(sample_rate, 0.1, 0.1, Normal::new(0.8), 0.25),
             dca: Default::default(),
-            is_playing: Default::default(),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
             steal_is_underway: Default::default(),

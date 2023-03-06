@@ -182,7 +182,7 @@ impl<V: IsStereoSampleVoice> Ticks for StealingVoiceStore<V> {
     }
 }
 impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
-    #[deprecated]
+    #[deprecated(note = "private use is OK. Prefer new_with_voice instead")]
     fn new_with(_sample_rate: usize) -> Self {
         Self {
             sample: Default::default(),
@@ -202,7 +202,9 @@ impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
         voice_store
     }
 
-    #[deprecated]
+    #[deprecated(
+        note = "private use is OK. Prefer new_with_voice instead, which calls add_voice for you"
+    )]
     fn add_voice(&mut self, voice: Box<V>) {
         self.voices.push(voice);
         self.notes_playing.push(u7::from(0));

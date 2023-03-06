@@ -39,7 +39,6 @@ pub struct WelshVoice {
     filter_cutoff_end: f32,
     filter_envelope: Envelope,
 
-    is_playing: bool,
     note_on_key: u8,
     note_on_velocity: u8,
     steal_is_underway: bool,
@@ -51,7 +50,7 @@ impl IsStereoSampleVoice for WelshVoice {}
 impl IsVoice<StereoSample> for WelshVoice {}
 impl PlaysNotes for WelshVoice {
     fn is_playing(&self) -> bool {
-        self.is_playing
+        !self.amp_envelope.is_idle()
     }
     fn note_on(&mut self, key: u8, velocity: u8) {
         if self.is_playing() {
@@ -184,18 +183,13 @@ impl Ticks for WelshVoice {
 }
 impl WelshVoice {
     fn tick_envelopes(&mut self) -> (Normal, Normal) {
+        let was_playing = self.is_playing();
         self.amp_envelope.tick(1);
         let amp_amplitude = self.amp_envelope.value();
         self.filter_envelope.tick(1);
         let filter_amplitude = self.filter_envelope.value();
 
-        // TODO: I think this is setting is_playing a tick too early, but when I
-        // moved it, it broke something else (the synth was deleting the note
-        // because it no longer appeared to be playing). Fragile. Fix.
-        let is_playing = self.is_playing;
-        self.is_playing = !self.amp_envelope.is_idle();
-
-        if is_playing && !self.is_playing {
+        if was_playing && !self.is_playing() {
             if self.steal_is_underway {
                 self.steal_is_underway = false;
                 self.note_on(self.note_on_key, self.note_on_velocity);
@@ -239,7 +233,6 @@ impl WelshVoice {
             filter_cutoff_start,
             filter_cutoff_end,
             filter_envelope,
-            is_playing: Default::default(),
             sample: Default::default(),
             ticks: Default::default(),
             note_on_key: Default::default(),
