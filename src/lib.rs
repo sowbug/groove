@@ -9,7 +9,6 @@ pub use orchestrator::Orchestrator;
 
 pub mod helpers;
 pub mod messages;
-pub mod midi;
 pub mod subscriptions;
 
 pub(crate) mod entities;
