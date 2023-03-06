@@ -79,10 +79,9 @@ impl MessageMaker for ToyMessageMaker {
 pub mod tests {
     use super::Paths;
     use crate::{
-        controllers::Orchestrator,
         entities::Entity,
         utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex, ToyMessageMaker},
-        DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
+        Orchestrator, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
     };
     use groove_core::{
         generators::Waveform,

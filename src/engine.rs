@@ -1,8 +1,7 @@
 use crate::{
-    controllers::Orchestrator,
     helpers::{AudioOutput, IOHelper},
     messages::{GrooveMessage, Internal, Response},
-    {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
+    Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
 };
 use groove_core::{
     midi::{MidiChannel, MidiMessage},

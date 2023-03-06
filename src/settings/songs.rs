@@ -2,7 +2,7 @@ use super::{
     controllers::{ControlPathSettings, ControlTripSettings},
     ClockSettings, ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
 };
-use crate::{controllers::Orchestrator, entities::Entity, midi::programmers::PatternProgrammer};
+use crate::{entities::Entity, midi::programmers::PatternProgrammer, Orchestrator};
 use anyhow::Result;
 use groove_core::{time::TimeSignature, ParameterType};
 use groove_entities::controllers::{ControlPath, ControlTrip, Note, Pattern};

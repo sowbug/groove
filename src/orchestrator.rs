@@ -7,6 +7,8 @@ use crate::{
     utils::Paths,
 };
 use anyhow::anyhow;
+use core::fmt::Debug;
+use crossbeam::deque::Worker;
 use dipstick::InputScope;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
@@ -22,7 +24,21 @@ use groove_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::io::{self, Write};
 
-use super::Performance;
+/// A Performance holds the output of an Orchestrator run.
+#[derive(Debug)]
+pub struct Performance {
+    pub sample_rate: usize,
+    pub worker: Worker<StereoSample>,
+}
+
+impl Performance {
+    pub fn new_with(sample_rate: usize) -> Self {
+        Self {
+            sample_rate,
+            worker: Worker::<StereoSample>::new_fifo(),
+        }
+    }
+}
 
 #[derive(Debug, Uid)]
 pub struct Orchestrator {
