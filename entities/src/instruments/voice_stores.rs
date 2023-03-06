@@ -278,7 +278,7 @@ impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
 mod tests {
     use crate::{
         instruments::{SimpleVoice, StealingVoiceStore, VoiceStore},
-        DEFAULT_SAMPLE_RATE,
+        tests::DEFAULT_SAMPLE_RATE,
     };
     use float_cmp::approx_eq;
     use groove_core::{

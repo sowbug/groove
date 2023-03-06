@@ -125,7 +125,7 @@ impl Drumkit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DEFAULT_SAMPLE_RATE;
+    use crate::tests::DEFAULT_SAMPLE_RATE;
 
     #[test]
     fn test_loading() {

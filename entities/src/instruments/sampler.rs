@@ -317,7 +317,7 @@ impl Sampler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{tests::test_data_path, DEFAULT_SAMPLE_RATE};
+    use crate::{tests::test_data_path, tests::DEFAULT_SAMPLE_RATE};
 
     #[test]
     fn test_loading() {

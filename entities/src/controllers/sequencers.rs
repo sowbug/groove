@@ -285,7 +285,7 @@ mod tests {
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         messages::EntityMessage,
-        {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     };
     use groove_core::{
         midi::{new_note_off, new_note_on, MidiChannel, MidiNote},

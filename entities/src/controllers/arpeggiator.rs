@@ -155,13 +155,10 @@ impl Arpeggiator {
 mod tests {
     use super::Arpeggiator;
     use crate::{
-        controllers::sequencers::BeatSequencer, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND,
-        DEFAULT_SAMPLE_RATE,
+        controllers::sequencers::BeatSequencer,
+        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     };
-    use groove_core::{
-        midi::{MidiChannel, MidiMessage},
-        time::{Clock, PerfectTimeUnit},
-    };
+    use groove_core::{midi::MidiChannel, time::Clock};
     use groove_toys::ToyInstrument;
 
     // Orchestrator sends a Tick message to everyone in an undefined order, and

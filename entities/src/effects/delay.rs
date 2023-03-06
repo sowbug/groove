@@ -232,7 +232,7 @@ impl Delay {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DEFAULT_SAMPLE_RATE;
+    use crate::tests::DEFAULT_SAMPLE_RATE;
     use float_cmp::approx_eq;
     use groove_core::SampleType;
     use more_asserts::{assert_gt, assert_lt};

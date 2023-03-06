@@ -9,16 +9,9 @@ pub mod effects;
 pub mod instruments;
 mod messages;
 
-use groove_core::ParameterType;
 use std::{env::current_dir, path::PathBuf};
 
-// TODO: these should be #[cfg(test)] because nobody should be assuming these
-// values
-const DEFAULT_SAMPLE_RATE: usize = 44100;
-const DEFAULT_BPM: ParameterType = 128.0;
-const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);
-const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
-
+// TODO: find a home
 const ASSETS: &str = "assets";
 
 // These functions are adapted from groove::utils::Paths. I didn't want to
@@ -43,7 +36,14 @@ pub(crate) fn asset_path() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use crate::cwd;
+    use groove_core::ParameterType;
     use std::path::PathBuf;
+
+    pub(crate) const DEFAULT_SAMPLE_RATE: usize = 44100;
+    pub(crate) const DEFAULT_BPM: ParameterType = 128.0;
+    #[allow(dead_code)]
+    pub(crate) const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);
+    pub(crate) const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
     pub(crate) fn test_data_path() -> PathBuf {
         const TEST_DATA: &str = "test-data";

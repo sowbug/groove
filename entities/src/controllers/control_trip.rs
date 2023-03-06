@@ -178,11 +178,6 @@ pub struct ControlPath {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DEFAULT_BPM, DEFAULT_SAMPLE_RATE};
-    use groove_core::StereoSample;
-    use groove_toys::{
-        ToyEffect, ToyEffectControlParams, ToyInstrument, ToyInstrumentControlParams,
-    };
 
     #[test]
     fn test_flat_step() {
