@@ -113,17 +113,12 @@ impl Clock {
     /// whatever unit is requested. The usage is to accurately identify the
     /// range of times that a given time slice includes, rather than just doing
     /// a <= comparison on each tick().
-    #[allow(dead_code)]
-    #[deprecated]
     pub fn next_slice_in_frames(&self) -> usize {
         self.frames + 1
     }
-    #[allow(dead_code)]
-    #[deprecated]
     pub fn next_slice_in_seconds(&self) -> f64 {
         self.seconds_for_frame(self.frames + 1)
     }
-    #[deprecated]
     pub fn next_slice_in_beats(&self) -> f64 {
         self.beats_for_frame(self.frames + 1)
     }
