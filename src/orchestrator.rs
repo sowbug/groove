@@ -499,12 +499,8 @@ impl Orchestrator {
         Response::batch(unhandled_commands)
     }
 
-    // Call every Controller's tick() and handle their responses. This is
-    // pub(crate) only for testing by arpeggiator, which is bad
-    //
-    // TODO: figure out how to help Arpeggiator test without exposing these
-    // internals.
-    pub(crate) fn handle_tick(&mut self, tick_count: usize) -> (Response<GrooveEvent>, usize) {
+    // Call every Controller's tick() and handle their responses.
+    fn handle_tick(&mut self, tick_count: usize) -> (Response<GrooveEvent>, usize) {
         let mut max_ticks_completed = 0;
         (
             Response::batch(
@@ -536,8 +532,8 @@ impl Orchestrator {
 
     fn broadcast_midi_messages(&mut self, channel_message_tuples: &[(MidiChannel, MidiMessage)]) {
         let mut v = Vec::from(channel_message_tuples);
-        for (channel, message) in channel_message_tuples {
-            if let Some(responses) = self.broadcast_midi_message(channel, message) {
+        while let Some((channel, message)) = v.pop() {
+            if let Some(responses) = self.broadcast_midi_message(&channel, &message) {
                 v.extend(responses);
             }
         }
