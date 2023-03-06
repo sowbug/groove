@@ -46,16 +46,6 @@ impl<T: Default> Pattern<T> {
     }
 }
 
-impl Pattern<PerfectTimeUnit> {
-    fn value_to_note(value: u8) -> Note {
-        Note {
-            key: value,
-            velocity: 127,
-            duration: PerfectTimeUnit(0.25),
-        }
-    }
-}
-
 // TODO: why is there so much paperwork for a vector?
 #[derive(Clone, Debug, Default, Uid)]
 pub struct PatternManager {
