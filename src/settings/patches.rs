@@ -229,12 +229,6 @@ impl From<OscillatorTune> for f32 {
         r as f32
     }
 }
-impl From<OscillatorTune> for BipolarNormal {
-    fn from(val: OscillatorTune) -> Self {
-        let r: f64 = val.into();
-        BipolarNormal::new(r)
-    }
-}
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -270,7 +264,9 @@ impl OscillatorSettings {
     }
 
     pub fn into_with(&self, sample_rate: usize) -> Oscillator {
-        Oscillator::new_with_waveform(sample_rate, self.waveform.into())
+        let mut r = Oscillator::new_with_waveform(sample_rate, self.waveform.into());
+        r.set_frequency_tune(self.tune.into());
+        r
     }
 }
 
