@@ -8,7 +8,7 @@ use groove_core::{
 };
 use groove_entities::{
     effects::{BiQuadFilter, FilterParams},
-    instruments::{LfoRouting, StealingVoiceStore, WelshSynth, WelshVoice},
+    instruments::{FmVoice, LfoRouting, StealingVoiceStore, VoiceStore, WelshSynth, WelshVoice},
 };
 use serde::{Deserialize, Serialize};
 
@@ -728,6 +728,26 @@ impl WelshPatchSettings {
             eprintln!("Delegated {program} to {preset}");
         }
         Ok(WelshPatchSettings::by_name(preset))
+    }
+}
+
+pub(crate) struct FmSynthesizerPreset {
+    modulator_frequency_hz: ParameterType,
+}
+
+impl FmSynthesizerPreset {
+    pub fn into_voice_store(&self, sample_rate: usize) -> VoiceStore<FmVoice> {
+        VoiceStore::<FmVoice>::new_with_voice(sample_rate, 8, || self.into_voice(sample_rate))
+    }
+
+    pub fn into_voice(&self, sample_rate: usize) -> FmVoice {
+        FmVoice::new_with_modulator_frequency(sample_rate, self.modulator_frequency_hz)
+    }
+
+    pub fn from_name(_name: &str) -> FmSynthesizerPreset {
+        FmSynthesizerPreset {
+            modulator_frequency_hz: 388.0,
+        }
     }
 }
 

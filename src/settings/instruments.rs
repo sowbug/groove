@@ -1,5 +1,8 @@
-use super::{patches::WelshPatchSettings, MidiChannel};
-use crate::{entities::Entity, instruments::FmSynthesizerPreset};
+use super::{
+    patches::{FmSynthesizerPreset, WelshPatchSettings},
+    MidiChannel,
+};
+use crate::entities::Entity;
 use groove_core::midi::note_description_to_frequency;
 use groove_entities::instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer};
 use groove_toys::ToyInstrument;

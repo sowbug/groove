@@ -9,7 +9,6 @@ pub use orchestrator::Orchestrator;
 
 pub mod engine;
 pub mod helpers;
-pub mod instruments;
 pub mod messages;
 pub mod midi;
 
