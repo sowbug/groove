@@ -2,7 +2,9 @@
 
 //! Fundamental structs and traits.
 
+use convert_case::{Case, Casing};
 use std::{
+    fs,
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
@@ -346,6 +348,16 @@ impl Dca {
         let right_pan: f64 = 1.0 - (0.5 * self.pan - 0.5).powi(2);
         StereoSample::new_from_f64(left_pan * input_sample, right_pan * input_sample)
     }
+}
+
+pub fn canonicalize_filename(filename: &str) -> String {
+    const OUT_DIR: &str = "out";
+    let result = fs::create_dir_all(OUT_DIR);
+    if result.is_err() {
+        panic!();
+    }
+    let snake_filename = filename.to_case(Case::Snake);
+    format!("{OUT_DIR}/{snake_filename}.wav")
 }
 
 #[cfg(test)]

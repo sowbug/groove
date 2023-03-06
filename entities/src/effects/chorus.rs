@@ -1,7 +1,8 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use super::delay::{DelayLine, Delays};
 use groove_core::{
-    control::F32ControlValue,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    traits::{IsEffect, TransformsAudio},
     Sample, SampleType,
 };
 use groove_macros::{Control, Uid};
@@ -65,7 +66,7 @@ impl Chorus {
         self.wet_dry_mix = wet_pct;
     }
 
-    pub fn set_control_wet_dry_mix(&mut self, value: F32ControlValue) {
+    pub fn set_control_wet_dry_mix(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_wet_dry_mix(value.0);
     }
 }

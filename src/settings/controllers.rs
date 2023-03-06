@@ -1,13 +1,9 @@
 use super::{patches::WaveformType, BeatValueSettings, DeviceId, MidiChannel};
-use crate::{
-    controllers::{
-        control_trip::ControlStep, Arpeggiator, ControlPath, LfoController,
-        SignalPassthroughController,
-    },
-    entities::Entity,
-    utils::ToyMessageMaker,
-};
+use crate::{entities::Entity, utils::ToyMessageMaker};
 use groove_core::{ParameterType, SignalType};
+use groove_entities::controllers::{
+    Arpeggiator, ControlPath, ControlStep, LfoController, SignalPassthroughController,
+};
 use groove_toys::ToyController;
 use serde::{Deserialize, Serialize};
 

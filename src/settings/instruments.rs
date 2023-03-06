@@ -1,9 +1,7 @@
 use super::{patches::WelshPatchSettings, MidiChannel};
-use crate::{
-    entities::Entity,
-    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer},
-};
+use crate::{entities::Entity, instruments::FmSynthesizerPreset};
 use groove_core::midi::note_description_to_frequency;
+use groove_entities::instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer};
 use groove_toys::ToyInstrument;
 use serde::{Deserialize, Serialize};
 
@@ -130,12 +128,14 @@ impl InstrumentSettings {
             }
             InstrumentSettings::FmSynthesizer {
                 midi_input_channel,
-                preset_name: preset,
+                preset_name,
             } => (
                 *midi_input_channel,
-                Entity::FmSynthesizer(Box::new(FmSynthesizer::new_with_preset(
+                Entity::FmSynthesizer(Box::new(FmSynthesizer::new_with_voice_store(
                     sample_rate,
-                    &FmSynthesizer::preset_for_name(preset),
+                    Box::new(
+                        FmSynthesizerPreset::from_name(preset_name).into_voice_store(sample_rate),
+                    ),
                 ))),
             ),
         }

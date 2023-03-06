@@ -1,6 +1,7 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use groove_core::{
-    control::F32ControlValue,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    traits::{IsEffect, TransformsAudio},
     Sample, SignalType,
 };
 use groove_macros::{Control, Uid};
@@ -223,7 +224,7 @@ impl Delay {
         self.delay.set_delay_seconds(delay_seconds);
     }
 
-    pub fn set_control_seconds(&mut self, value: F32ControlValue) {
+    pub fn set_control_seconds(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_seconds(value.0);
     }
 }
@@ -303,7 +304,7 @@ mod tests {
             SampleType,
             delay.pop_output(Sample::from(0.0)).0,
             Sample::from(0.5 * 0.01).0,
-            epsilon=0.001
+            epsilon = 0.001
         ));
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
@@ -311,7 +312,7 @@ mod tests {
             SampleType,
             delay.pop_output(Sample::from(0.0)).0,
             Sample::from(0.5 * 0.01 * 0.01).0,
-            epsilon=0.001
+            epsilon = 0.001
         ));
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);

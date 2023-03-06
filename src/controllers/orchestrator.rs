@@ -1,8 +1,7 @@
-use super::{patterns::PatternManager, sequencers::BeatSequencer, Performance};
 use crate::{
     entities::Entity,
     helpers::IOHelper,
-    messages::{EntityMessage, GrooveMessage},
+    messages::GrooveMessage,
     messages::{Internal, Response},
     metrics::DipstickWrapper,
     utils::Paths,
@@ -12,13 +11,18 @@ use dipstick::InputScope;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::TimeSignature,
-    traits::HasUid,
     ParameterType, StereoSample,
 };
-use groove_entities::effects::Mixer;
+use groove_entities::{
+    controllers::{BeatSequencer, PatternManager},
+    effects::Mixer,
+    EntityMessage,
+};
 use groove_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::io::{self, Write};
+
+use super::Performance;
 
 #[derive(Debug, Uid)]
 pub struct Orchestrator {
@@ -459,7 +463,6 @@ impl Orchestrator {
                         EntityMessage::ControlF32(value) => {
                             self.dispatch_control_f32(uid, value);
                         }
-                        EntityMessage::PatternMessage(_, _) => todo!(),
                         _ => todo!(),
                     },
                     GrooveMessage::MidiFromExternal(channel, message) => {
@@ -593,8 +596,10 @@ impl Orchestrator {
         for (target_uid, param_id) in control_links {
             if let Some(entity) = self.store.get_mut(target_uid) {
                 if let Some(entity) = entity.as_controllable_mut() {
-                    entity
-                        .set_by_control_index(param_id, crate::controllers::F32ControlValue(value));
+                    entity.set_by_control_index(
+                        param_id,
+                        groove_core::control::F32ControlValue(value),
+                    );
                 }
             }
         }
@@ -945,7 +950,6 @@ impl Store {
 pub mod tests {
     use super::Orchestrator;
     use crate::{
-        controllers::Timer,
         entities::Entity,
         {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
     };
@@ -953,7 +957,7 @@ pub mod tests {
         midi::{MidiChannel, MidiMessage},
         Normal, StereoSample,
     };
-    use groove_entities::effects::Gain;
+    use groove_entities::{controllers::Timer, effects::Gain};
     use groove_toys::ToyAudioSource;
 
     impl Orchestrator {

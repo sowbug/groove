@@ -1,10 +1,9 @@
 use crate::{
-    controllers::{sequencers::MidiTickSequencer, Performance},
+    controllers::{Orchestrator, Performance},
     entities::Entity,
-    instruments::drumkit::Drumkit,
     midi::programmers::MidiSmfReader,
     settings::{patches::WelshPatchSettings, songs::SongSettings},
-    Orchestrator, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
+    DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -12,6 +11,7 @@ use cpal::{
 };
 use crossbeam::{deque::Steal, queue::ArrayQueue};
 use groove_core::{SampleType, StereoSample};
+use groove_entities::{controllers::MidiTickSequencer, instruments::Drumkit};
 use std::sync::{Arc, Condvar, Mutex};
 
 pub struct AudioOutput {

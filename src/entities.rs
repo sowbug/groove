@@ -1,22 +1,15 @@
-use crate::{
-    controllers::{
-        arpeggiator::Arpeggiator,
-        patterns::PatternManager,
-        sequencers::{BeatSequencer, MidiTickSequencer},
-        ControlTrip, LfoController, SignalPassthroughController, Timer,
-    },
-    instruments::{
-        drumkit::Drumkit, sampler::Sampler, welsh::WelshSynth, FmSynthesizer, SimpleSynthesizer,
-    },
-    messages::EntityMessage,
-};
 use groove_core::{
     midi::HandlesMidi,
     traits::{Controllable, HasUid, IsController, IsEffect, IsInstrument},
 };
-use groove_entities::effects::{
-    BiQuadFilter, Gain, Limiter, Mixer, Reverb, Bitcrusher,
-    Chorus, Compressor, Delay,
+use groove_entities::{
+    controllers::{
+        Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, PatternManager,
+        SignalPassthroughController, Timer,
+    },
+    effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
+    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
+    EntityMessage,
 };
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 
@@ -49,7 +42,7 @@ boxed_entity_enum_and_common_crackers! {
     Arpeggiator: Arpeggiator,
     BeatSequencer: BeatSequencer,
     ControlTrip: ControlTrip,
-    MidiTickSequencer:MidiTickSequencer,
+    MidiTickSequencer: MidiTickSequencer,
     LfoController: LfoController,
     PatternManager: PatternManager,
     SignalPassthroughController: SignalPassthroughController,

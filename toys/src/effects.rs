@@ -1,12 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    control::F32ControlValue,
     time::ClockTimeUnit,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    traits::{IsEffect, TransformsAudio},
     Sample,
 };
-use groove_macros::Control;
+use groove_macros::{Control, Uid};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -14,7 +13,7 @@ use strum_macros::{Display, EnumString, FromRepr};
 
 /// An [groove_core::traits::IsEffect] that negates the input signal.
 
-#[derive(Control, Debug, Default)]
+#[derive(Control, Debug, Default, Uid)]
 pub struct ToyEffect {
     uid: usize,
 
@@ -31,15 +30,6 @@ impl TransformsAudio for ToyEffect {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         /////////////////////// TODO        self.check_values(clock);
         -input_sample
-    }
-}
-impl HasUid for ToyEffect {
-    fn uid(&self) -> usize {
-        self.uid
-    }
-
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
     }
 }
 // impl TestsValues for ToyEffect {
@@ -91,7 +81,7 @@ impl ToyEffect {
         self.my_value
     }
 
-    pub fn set_control_my_value(&mut self, my_value: F32ControlValue) {
+    pub fn set_control_my_value(&mut self, my_value: groove_core::control::F32ControlValue) {
         self.set_my_value(my_value.0);
     }
 }

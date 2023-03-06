@@ -1,6 +1,7 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use groove_core::{
-    control::F32ControlValue,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    traits::{IsEffect, TransformsAudio},
     Sample,
 };
 use groove_macros::{Control, Uid};
@@ -382,19 +383,19 @@ impl BiQuadFilter {
         }
     }
 
-    pub fn set_control_cutoff(&mut self, value: F32ControlValue) {
+    pub fn set_control_cutoff(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_cutoff_pct(value.0);
     }
-    pub fn set_control_q(&mut self, value: F32ControlValue) {
+    pub fn set_control_q(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_param2(Self::denormalize_q(value.0));
     }
-    pub fn set_control_bandwidth(&mut self, value: F32ControlValue) {
+    pub fn set_control_bandwidth(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_param2(value.0);
     }
-    pub fn set_control_db_gain(&mut self, value: F32ControlValue) {
+    pub fn set_control_db_gain(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_param2(value.0);
     }
-    pub fn set_control_passband_ripple(&mut self, value: F32ControlValue) {
+    pub fn set_control_passband_ripple(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_param2(value.0 * 2.0 * std::f32::consts::PI);
     }
 

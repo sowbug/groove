@@ -1,12 +1,9 @@
-use super::{SimpleVoiceStore, Synthesizer};
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use anyhow::{anyhow, Result};
 use groove_core::{
-    control::F32ControlValue,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
-    traits::{
-        Controllable, Generates, HasUid, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
-        Resets, Ticks,
-    },
+    traits::{Generates, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes, Resets, Ticks},
     ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};
@@ -18,6 +15,8 @@ use std::{
     sync::Arc,
 };
 use strum_macros::{Display, EnumString, FromRepr};
+
+use super::{synthesizer::Synthesizer, voice_stores::VoiceStore};
 
 #[derive(Debug)]
 pub(crate) struct SamplerVoice {
@@ -180,8 +179,9 @@ impl Sampler {
                 uid: Default::default(),
                 inner_synth: Synthesizer::<SamplerVoice>::new_with(
                     sample_rate,
-                    Box::new(SimpleVoiceStore::<SamplerVoice>::new_with_voice(
+                    Box::new(VoiceStore::<SamplerVoice>::new_with_voice(
                         sample_rate,
+                        8,
                         || {
                             SamplerVoice::new_with_samples(
                                 sample_rate,
@@ -317,11 +317,11 @@ impl Sampler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{utils::Paths, DEFAULT_SAMPLE_RATE};
+    use crate::{tests::test_data_path, DEFAULT_SAMPLE_RATE};
 
     #[test]
     fn test_loading() {
-        let mut filename = Paths::test_data_path();
+        let mut filename = test_data_path();
         filename.push("stereo-pluck.wav");
         let sampler =
             Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap(), None);
@@ -330,13 +330,13 @@ mod tests {
 
     #[test]
     fn test_reading_acidized_metadata() {
-        let mut filename = Paths::test_data_path();
+        let mut filename = test_data_path();
         filename.push("riff-acidized.wav");
         let root_note = Sampler::read_riff_metadata(filename.to_str().unwrap());
         assert!(root_note.is_ok());
         assert_eq!(root_note.unwrap(), 57);
 
-        let mut filename = Paths::test_data_path();
+        let mut filename = test_data_path();
         filename.push("riff-not-acidized.wav");
         let root_note = Sampler::read_riff_metadata(filename.to_str().unwrap());
         assert!(root_note.is_err());
@@ -345,7 +345,7 @@ mod tests {
     //    #[test]
     #[allow(dead_code)]
     fn test_reading_smpl_metadata() {
-        let mut filename = Paths::test_data_path();
+        let mut filename = test_data_path();
         filename.push("riff-with-smpl.wav");
         let root_note = Sampler::read_riff_metadata(filename.to_str().unwrap());
         assert!(root_note.is_ok());
@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn test_loading_with_root_frequency() {
-        let mut filename = Paths::test_data_path();
+        let mut filename = test_data_path();
         filename.push("riff-acidized.wav");
 
         let sampler =
@@ -376,7 +376,7 @@ mod tests {
             "specified parameter should override acidized WAV's embedded root note"
         );
 
-        let mut filename = Paths::test_data_path();
+        let mut filename = test_data_path();
         filename.push("riff-not-acidized.wav");
 
         let sampler = Sampler::new_with_filename(

@@ -4,24 +4,24 @@ mod gui;
 
 use groove::{
     app_version,
-    controllers::{
-        Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern,
-        PatternManager, PatternMessage, SignalPassthroughController, Timer,
-    },
     engine::{GrooveEvent, GrooveInput, GrooveSubscription},
-    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
-    messages::{EntityMessage, GrooveMessage},
+    messages::GrooveMessage,
     midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
     Entity, Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::{
-    control::F32ControlValue,
     time::{Clock, TimeSignature},
     traits::HasUid,
     Normal, Sample,
 };
-use groove_entities::effects::{
-    BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb,
+use groove_entities::{
+    controllers::{
+        Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern,
+        PatternManager, PatternMessage, SignalPassthroughController, Timer,
+    },
+    effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
+    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
+    EntityMessage,
 };
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use gui::{
@@ -444,18 +444,13 @@ impl GrooveApp {
                         _ => todo!(),
                     },
                     Entity::WelshSynth(e) => match message {
-                        EntityMessage::Knob(value) => {
+                        EntityMessage::IcedKnob(value) => {
                             // TODO: it's annoying to have to plumb this through. I want
                             // everything #controllable to automatically generate the
                             // scaffolding for UI.
-                            e.set_control_pan(F32ControlValue(value.as_f32()));
-                        }
-                        _ => todo!(),
-                    },
-                    #[allow(unused_variables)]
-                    Entity::PatternManager(e) => match message {
-                        EntityMessage::PatternMessage(uid, message) => {
-                            todo!()
+                            e.set_control_pan(groove_core::control::F32ControlValue(
+                                value.as_f32(),
+                            ));
                         }
                         _ => todo!(),
                     },
@@ -526,7 +521,7 @@ impl GrooveApp {
             Entity::Sampler(e) => self.sampler_view(e),
             Entity::SignalPassthroughController(e) => self.signal_controller_view(e),
             Entity::SimpleSynthesizer(e) => self.simple_synthesizer_view(e),
-            Entity::ToyController(e) => self.test_controller_view(e),
+            Entity::ToyController(e) => self.toy_controller_view(e),
             Entity::ToyEffect(e) => self.toy_effect_view(e),
             Entity::ToyInstrument(e) => self.test_instrument_view(e),
             Entity::ToySynth(e) => self.test_synth_view(e),
@@ -630,7 +625,7 @@ impl GrooveApp {
                     value: IcedNormal::from_clipped((e.pan() + 1.0) / 2.0),
                     default: IcedNormal::from_clipped(0.5),
                 },
-                EntityMessage::Knob,
+                EntityMessage::IcedKnob,
             )
             .into();
             container(column![
@@ -803,7 +798,7 @@ impl GrooveApp {
         )
     }
 
-    fn test_controller_view(&self, e: &ToyController<EntityMessage>) -> Element<EntityMessage> {
+    fn toy_controller_view(&self, e: &ToyController<EntityMessage>) -> Element<EntityMessage> {
         GuiStuff::titled_container(
             type_name::<ToyController<EntityMessage>>(),
             GuiStuff::<EntityMessage>::container_text(format!("Tempo: {}", e.tempo).as_str())

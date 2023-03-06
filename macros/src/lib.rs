@@ -15,7 +15,7 @@ pub fn uid_derive(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #[automatically_derived]
-        impl #generics HasUid for #name #ty_generics {
+        impl #generics groove_core::traits::HasUid for #name #ty_generics {
             fn uid(&self) -> usize {
                 self.uid
             }
@@ -136,7 +136,7 @@ fn parse_control_data(
         }
     };
     let controllable_block = quote! {
-        impl #generics Controllable for #struct_name #ty_generics {
+        impl #generics groove_core::traits::Controllable for #struct_name #ty_generics {
             fn control_index_for_name(&self, name: &str) -> usize {
                 if let Ok(param) = #enum_name::from_str(name) {
                     param as usize
@@ -145,7 +145,7 @@ fn parse_control_data(
                     usize::MAX
                 }
             }
-            fn set_by_control_index(&mut self, index: usize, value: F32ControlValue) {
+            fn set_by_control_index(&mut self, index: usize, value: groove_core::control::F32ControlValue) {
                 if let Some(param) = #enum_name::from_repr(index) {
                     match param {
                         #( #enum_name::#enum_variant_names => {self.#setter_names(value); } ),*

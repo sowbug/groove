@@ -1,6 +1,7 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use groove_core::{
-    control::F32ControlValue,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    traits::{IsEffect, TransformsAudio},
     Sample, SampleType,
 };
 use groove_macros::{Control, Uid};
@@ -101,19 +102,19 @@ impl Compressor {
         self.release = release;
     }
 
-    pub fn set_control_threshold(&mut self, threshold: F32ControlValue) {
+    pub fn set_control_threshold(&mut self, threshold: groove_core::control::F32ControlValue) {
         self.threshold = threshold.0;
     }
 
-    pub fn set_control_ratio(&mut self, ratio: F32ControlValue) {
+    pub fn set_control_ratio(&mut self, ratio: groove_core::control::F32ControlValue) {
         self.ratio = ratio.0;
     }
 
-    pub fn set_control_attack(&mut self, attack: F32ControlValue) {
+    pub fn set_control_attack(&mut self, attack: groove_core::control::F32ControlValue) {
         self.attack = attack.0;
     }
 
-    pub fn set_control_release(&mut self, release: F32ControlValue) {
+    pub fn set_control_release(&mut self, release: groove_core::control::F32ControlValue) {
         self.release = release.0;
     }
 }

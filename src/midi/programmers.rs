@@ -1,11 +1,8 @@
-use crate::controllers::{
-    patterns::{Note, Pattern},
-    sequencers::{BeatSequencer, MidiTickSequencer},
-};
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{BeatValue, MidiTicks, PerfectTimeUnit, TimeSignature},
 };
+use groove_entities::controllers::{BeatSequencer, MidiTickSequencer, Note, Pattern};
 use midly::TrackEventKind;
 use std::cmp;
 
@@ -187,7 +184,6 @@ impl PatternProgrammer {
 mod tests {
     use super::*;
     use crate::{
-        controllers::Timer,
         entities::Entity,
         Orchestrator, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
     };
@@ -195,18 +191,8 @@ mod tests {
         time::{BeatValue, TimeSignature},
         StereoSample,
     };
+    use groove_entities::controllers::Timer;
     use groove_toys::ToyInstrument;
-
-    #[allow(dead_code)]
-    impl Pattern<PerfectTimeUnit> {
-        fn value_to_note(value: u8) -> Note {
-            Note {
-                key: value,
-                velocity: 127,
-                duration: PerfectTimeUnit(0.25),
-            }
-        }
-    }
 
     #[test]
     fn test_pattern() {

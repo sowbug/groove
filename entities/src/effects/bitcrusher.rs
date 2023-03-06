@@ -1,6 +1,7 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use groove_core::{
-    control::F32ControlValue,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    traits::{IsEffect, TransformsAudio},
     Sample, SampleType,
 };
 use groove_macros::{Control, Uid};
@@ -57,7 +58,7 @@ impl Bitcrusher {
         self.c = 2.0f64.powi(self.bits_to_crush as i32);
     }
 
-    pub fn set_control_bits_to_crush(&mut self, value: F32ControlValue) {
+    pub fn set_control_bits_to_crush(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_bits_to_crush((value.0 * 16.0).floor() as u8);
     }
 }

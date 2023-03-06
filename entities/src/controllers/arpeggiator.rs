@@ -1,10 +1,9 @@
 use super::sequencers::BeatSequencer;
 use crate::messages::EntityMessage;
 use groove_core::{
-    control::F32ControlValue,
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
     time::PerfectTimeUnit,
-    traits::{Controllable, HasUid, IsController, Resets, TicksWithMessages},
+    traits::{IsController, Resets, TicksWithMessages},
     ParameterType,
 };
 use groove_macros::{Control, Uid};
@@ -156,9 +155,8 @@ impl Arpeggiator {
 mod tests {
     use super::Arpeggiator;
     use crate::{
-        controllers::{orchestrator::Orchestrator, sequencers::BeatSequencer},
-        entities::Entity,
-        {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+        controllers::sequencers::BeatSequencer, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND,
+        DEFAULT_SAMPLE_RATE,
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
@@ -196,22 +194,22 @@ mod tests {
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
         ));
         let instrument = Box::new(ToyInstrument::new_with(clock.sample_rate()));
-        let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm());
+        // let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm());
 
-        sequencer.insert(
-            PerfectTimeUnit(0.0),
-            MIDI_CHANNEL_SEQUENCER_TO_ARP,
-            MidiMessage::NoteOn {
-                key: 99.into(),
-                vel: 88.into(),
-            },
-        );
+        // sequencer.insert(
+        //     PerfectTimeUnit(0.0),
+        //     MIDI_CHANNEL_SEQUENCER_TO_ARP,
+        //     MidiMessage::NoteOn {
+        //         key: 99.into(),
+        //         vel: 88.into(),
+        //     },
+        // );
 
-        let arpeggiator_uid = o.add(None, Entity::Arpeggiator(arpeggiator));
-        o.connect_midi_downstream(arpeggiator_uid, MIDI_CHANNEL_SEQUENCER_TO_ARP);
-        let instrument_uid = o.add(None, Entity::ToyInstrument(instrument));
-        o.connect_midi_downstream(instrument_uid, MIDI_CHANNEL_ARP_TO_INSTRUMENT);
-        let _sequencer_uid = o.add(None, Entity::BeatSequencer(sequencer));
+        // let arpeggiator_uid = o.add(None, Entity::Arpeggiator(arpeggiator));
+        // o.connect_midi_downstream(arpeggiator_uid, MIDI_CHANNEL_SEQUENCER_TO_ARP);
+        // let instrument_uid = o.add(None, Entity::ToyInstrument(instrument));
+        // o.connect_midi_downstream(instrument_uid, MIDI_CHANNEL_ARP_TO_INSTRUMENT);
+        // let _sequencer_uid = o.add(None, Entity::BeatSequencer(sequencer));
 
         // let command = o.handle_tick(1);
         // if let Internal::Batch(messages) = command.0 {

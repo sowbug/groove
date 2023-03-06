@@ -2,10 +2,9 @@
 
 use core::fmt::Debug;
 use groove_core::{
-    control::F32ControlValue,
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
     time::{Clock, ClockTimeUnit},
-    traits::{Controllable, HasUid, IsController, MessageBounds, Resets, Ticks, TicksWithMessages},
+    traits::{IsController, MessageBounds, Resets, Ticks, TicksWithMessages},
     ParameterType,
 };
 use groove_macros::{Control, Uid};
@@ -173,7 +172,7 @@ impl<M: MessageBounds> ToyController<M> {
         TestControllerAction::Nothing
     }
 
-    pub fn set_control_tempo(&mut self, tempo: F32ControlValue) {
+    pub fn set_control_tempo(&mut self, tempo: groove_core::control::F32ControlValue) {
         self.tempo = tempo.0;
     }
 }

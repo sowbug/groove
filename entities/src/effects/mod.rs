@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 pub use bitcrusher::Bitcrusher;
 pub use chorus::Chorus;
 pub use compressor::Compressor;

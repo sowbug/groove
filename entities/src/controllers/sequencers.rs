@@ -3,7 +3,7 @@ use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{new_note_off, u7, HandlesMidi, MidiChannel, MidiMessage},
     time::{Clock, MidiTicks, PerfectTimeUnit},
-    traits::{HasUid, IsController, Resets, TicksWithMessages},
+    traits::{IsController, Resets, TicksWithMessages},
     ParameterType,
 };
 use groove_macros::Uid;
@@ -31,7 +31,7 @@ pub struct BeatSequencer {
 impl IsController<EntityMessage> for BeatSequencer {}
 impl HandlesMidi for BeatSequencer {}
 impl BeatSequencer {
-    pub(crate) fn new_with(sample_rate: usize, bpm: ParameterType) -> Self {
+    pub fn new_with(sample_rate: usize, bpm: ParameterType) -> Self {
         Self {
             uid: Default::default(),
             next_instant: Default::default(),
@@ -54,12 +54,7 @@ impl BeatSequencer {
         self.temp_hack_clock.beats()
     }
 
-    pub(crate) fn insert(
-        &mut self,
-        when: PerfectTimeUnit,
-        channel: MidiChannel,
-        message: MidiMessage,
-    ) {
+    pub fn insert(&mut self, when: PerfectTimeUnit, channel: MidiChannel, message: MidiMessage) {
         self.events.insert(when, (channel, message));
         if when > self.last_event_time {
             self.last_event_time = when;
@@ -144,6 +139,15 @@ impl BeatSequencer {
             PerfectTimeUnit(self.temp_hack_clock.next_slice_in_beats()),
         )
     }
+
+    pub fn debug_events(&self) -> &BeatEventsMap {
+        &self.events
+    }
+
+    #[allow(dead_code)]
+    pub fn debug_dump_events(&self) {
+        println!("{:?}", self.events);
+    }
 }
 impl Resets for BeatSequencer {
     fn reset(&mut self, sample_rate: usize) {
@@ -202,7 +206,7 @@ pub struct MidiTickSequencer {
 impl IsController<EntityMessage> for MidiTickSequencer {}
 impl HandlesMidi for MidiTickSequencer {}
 impl MidiTickSequencer {
-    pub(crate) fn new_with(sample_rate: usize, midi_ticks_per_second: usize) -> Self {
+    pub fn new_with(sample_rate: usize, midi_ticks_per_second: usize) -> Self {
         Self {
             uid: Default::default(),
             next_instant: Default::default(),
@@ -221,7 +225,7 @@ impl MidiTickSequencer {
         self.last_event_time = MidiTicks::MIN;
     }
 
-    pub(crate) fn insert(&mut self, when: MidiTicks, channel: MidiChannel, message: MidiMessage) {
+    pub fn insert(&mut self, when: MidiTicks, channel: MidiChannel, message: MidiMessage) {
         self.events.insert(when, (channel, message));
         if when >= self.last_event_time {
             self.last_event_time = when;
@@ -280,8 +284,6 @@ impl TicksWithMessages<EntityMessage> for MidiTickSequencer {
 mod tests {
     use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
     use crate::{
-        controllers::orchestrator::Orchestrator,
-        entities::Entity,
         messages::EntityMessage,
         {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     };
@@ -291,17 +293,6 @@ mod tests {
         traits::{IsController, Ticks},
     };
     use groove_toys::ToyInstrument;
-
-    impl BeatSequencer {
-        pub fn debug_events(&self) -> &BeatEventsMap {
-            &self.events
-        }
-
-        #[allow(dead_code)]
-        pub fn debug_dump_events(&self) {
-            println!("{:?}", self.events);
-        }
-    }
 
     impl MidiTickSequencer {
         #[allow(dead_code)]
@@ -354,53 +345,53 @@ mod tests {
             DEFAULT_BPM,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         );
-        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let mut sequencer = Box::new(MidiTickSequencer::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        ));
-        let instrument = Box::new(ToyInstrument::new_with(clock.sample_rate()));
-        let device_uid = o.add(None, Entity::ToyInstrument(instrument));
+        // let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
+        // let mut sequencer = Box::new(MidiTickSequencer::new_with(
+        //     DEFAULT_SAMPLE_RATE,
+        //     DEFAULT_MIDI_TICKS_PER_SECOND,
+        // ));
+        // let instrument = Box::new(ToyInstrument::new_with(clock.sample_rate()));
+        // let device_uid = o.add(None, Entity::ToyInstrument(instrument));
 
-        sequencer.insert(
-            sequencer.tick_for_beat(&clock, 0),
-            DEVICE_MIDI_CHANNEL,
-            new_note_on(MidiNote::C4 as u8, 127),
-        );
-        sequencer.insert(
-            sequencer.tick_for_beat(&clock, 1),
-            DEVICE_MIDI_CHANNEL,
-            new_note_off(MidiNote::C4 as u8, 0),
-        );
-        const SEQUENCER_ID: &str = "seq";
-        let _sequencer_uid = o.add(Some(SEQUENCER_ID), Entity::MidiTickSequencer(sequencer));
-        o.connect_midi_downstream(device_uid, DEVICE_MIDI_CHANNEL);
+        // sequencer.insert(
+        //     sequencer.tick_for_beat(&clock, 0),
+        //     DEVICE_MIDI_CHANNEL,
+        //     new_note_on(MidiNote::C4 as u8, 127),
+        // );
+        // sequencer.insert(
+        //     sequencer.tick_for_beat(&clock, 1),
+        //     DEVICE_MIDI_CHANNEL,
+        //     new_note_off(MidiNote::C4 as u8, 0),
+        // );
+        // const SEQUENCER_ID: &str = "seq";
+        // let _sequencer_uid = o.add(Some(SEQUENCER_ID), Entity::MidiTickSequencer(sequencer));
+        // o.connect_midi_downstream(device_uid, DEVICE_MIDI_CHANNEL);
 
-        // TODO: figure out a reasonable way to test these things once they're
-        // inside Store, and their type information has been erased. Maybe we
-        // can send messages asking for state. Maybe we can send things that the
-        // entities themselves assert.
-        if let Some(entity) = o.get_mut(SEQUENCER_ID) {
-            if let Some(sequencer) = entity.as_is_controller_mut() {
-                advance_one_midi_tick(&mut clock, sequencer);
-                {
-                    // assert!(instrument.is_playing);
-                    // assert_eq!(instrument.received_count, 1);
-                    // assert_eq!(instrument.handled_count, 1);
-                }
-            }
-        }
+        // // TODO: figure out a reasonable way to test these things once they're
+        // // inside Store, and their type information has been erased. Maybe we
+        // // can send messages asking for state. Maybe we can send things that the
+        // // entities themselves assert.
+        // if let Some(entity) = o.get_mut(SEQUENCER_ID) {
+        //     if let Some(sequencer) = entity.as_is_controller_mut() {
+        //         advance_one_midi_tick(&mut clock, sequencer);
+        //         {
+        //             // assert!(instrument.is_playing);
+        //             // assert_eq!(instrument.received_count, 1);
+        //             // assert_eq!(instrument.handled_count, 1);
+        //         }
+        //     }
+        // }
 
-        if let Some(entity) = o.get_mut(SEQUENCER_ID) {
-            if let Some(sequencer) = entity.as_is_controller_mut() {
-                advance_to_next_beat(&mut clock, sequencer);
-                {
-                    // assert!(!instrument.is_playing);
-                    // assert_eq!(instrument.received_count, 2);
-                    // assert_eq!(&instrument.handled_count, &2);
-                }
-            }
-        }
+        // if let Some(entity) = o.get_mut(SEQUENCER_ID) {
+        //     if let Some(sequencer) = entity.as_is_controller_mut() {
+        //         advance_to_next_beat(&mut clock, sequencer);
+        //         {
+        //             // assert!(!instrument.is_playing);
+        //             // assert_eq!(instrument.received_count, 2);
+        //             // assert_eq!(&instrument.handled_count, &2);
+        //         }
+        //     }
+        // }
     }
 
     // TODO: re-enable later.......................................................................

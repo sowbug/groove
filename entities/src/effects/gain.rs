@@ -1,6 +1,7 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use groove_core::{
-    control::F32ControlValue,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    traits::{IsEffect, TransformsAudio},
     Normal, Sample,
 };
 use groove_macros::{Control, Uid};
@@ -45,7 +46,7 @@ impl Gain {
         self.ceiling = ceiling;
     }
 
-    pub fn set_control_ceiling(&mut self, value: F32ControlValue) {
+    pub fn set_control_ceiling(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_ceiling(Normal::new_from_f32(value.0));
     }
 }

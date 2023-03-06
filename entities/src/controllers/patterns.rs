@@ -3,7 +3,7 @@ use groove_core::{
     midi::HandlesMidi,
     time::BeatValue,
     time::PerfectTimeUnit,
-    traits::{HasUid, IsController, Resets, TicksWithMessages},
+    traits::{IsController, Resets, TicksWithMessages},
 };
 use groove_macros::Uid;
 use std::fmt::Debug;
@@ -42,6 +42,16 @@ impl<T: Default> Pattern<T> {
     }
 }
 
+impl Pattern<PerfectTimeUnit> {
+    fn value_to_note(value: u8) -> Note {
+        Note {
+            key: value,
+            velocity: 127,
+            duration: PerfectTimeUnit(0.25),
+        }
+    }
+}
+
 // TODO: why is there so much paperwork for a vector?
 #[derive(Clone, Debug, Default, Uid)]
 pub struct PatternManager {
@@ -64,7 +74,7 @@ impl PatternManager {
         Self::default()
     }
 
-    pub(crate) fn register(&mut self, pattern: Pattern<Note>) {
+    pub fn register(&mut self, pattern: Pattern<Note>) {
         self.patterns.push(pattern);
     }
 

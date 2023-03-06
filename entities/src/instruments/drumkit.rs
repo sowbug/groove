@@ -1,12 +1,13 @@
+use crate::asset_path;
+
 use super::{
-    sampler::{Sampler, SamplerVoice},
-    Synthesizer, VoicePerNoteStore,
+    sampler::SamplerVoice, synthesizer::Synthesizer, voice_stores::VoicePerNoteStore, Sampler,
 };
-use crate::{midi::GeneralMidiPercussionProgram, utils::Paths};
 use groove_core::{
-    control::F32ControlValue,
-    midi::{note_to_frequency, u7, HandlesMidi, MidiChannel, MidiMessage},
-    traits::{Controllable, Generates, HasUid, IsInstrument, Resets, Ticks},
+    midi::{
+        note_to_frequency, u7, GeneralMidiPercussionProgram, HandlesMidi, MidiChannel, MidiMessage,
+    },
+    traits::{Generates, IsInstrument, Resets, Ticks},
     StereoSample,
 };
 use groove_macros::{Control, Uid};
@@ -49,9 +50,7 @@ impl HandlesMidi for Drumkit {
 }
 
 impl Drumkit {
-    pub(crate) fn new_from_files(sample_rate: usize) -> Self {
-        let mut voice_store = Box::new(VoicePerNoteStore::<SamplerVoice>::new_with(sample_rate));
-
+    pub fn new_from_files(sample_rate: usize) -> Self {
         let samples: [(GeneralMidiPercussionProgram, &str); 21] = [
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
             (GeneralMidiPercussionProgram::ElectricBassDrum, "BD B"),
@@ -75,10 +74,11 @@ impl Drumkit {
             (GeneralMidiPercussionProgram::HighAgogo, "Tom Hi"),
             (GeneralMidiPercussionProgram::LowAgogo, "Tom Lo"),
         ];
-        let mut base_dir = Paths::asset_path();
+        let mut base_dir = asset_path();
         base_dir.push("samples");
         base_dir.push("707");
 
+        let mut voice_store = Box::new(VoicePerNoteStore::<SamplerVoice>::new_with(sample_rate));
         for (program, asset_name) in samples {
             let mut path = base_dir.clone();
             path.push(format!("{asset_name} 707.wav").as_str());
@@ -101,6 +101,7 @@ impl Drumkit {
                 eprintln!("Unable to load sample {asset_name}.");
             }
         }
+
         Self::new_with(sample_rate, voice_store, "707")
     }
 

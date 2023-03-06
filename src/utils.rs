@@ -1,5 +1,5 @@
-use crate::messages::EntityMessage;
 use groove_core::midi::{MidiChannel, MidiMessage};
+use groove_entities::EntityMessage;
 use groove_toys::MessageMaker;
 use std::{
     env::{current_dir, current_exe},
@@ -79,12 +79,11 @@ impl MessageMaker for ToyMessageMaker {
 pub mod tests {
     use super::Paths;
     use crate::{
-        controllers::{orchestrator::Orchestrator, LfoController, Timer, Trigger},
+        controllers::Orchestrator,
         entities::Entity,
         utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex, ToyMessageMaker},
         DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
     };
-    use convert_case::{Case, Casing};
     use groove_core::{
         generators::Waveform,
         midi::MidiChannel,
@@ -92,9 +91,10 @@ pub mod tests {
         traits::{Resets, TicksWithMessages},
         ParameterType, StereoSample,
     };
+    use groove_entities::controllers::{LfoController, Timer, Trigger};
     use groove_toys::{ToyController, ToyEffect, ToyInstrument, ToySynth, ToySynthControlParams};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
-    use std::{fs, path::PathBuf};
+    use std::path::PathBuf;
 
     impl Paths {
         const TEST_DATA: &str = "test-data";
@@ -103,16 +103,6 @@ pub mod tests {
             path_buf.push(Self::TEST_DATA);
             path_buf
         }
-    }
-
-    pub fn canonicalize_filename(filename: &str) -> String {
-        const OUT_DIR: &str = "out";
-        let result = fs::create_dir_all(OUT_DIR);
-        if result.is_err() {
-            panic!();
-        }
-        let snake_filename = filename.to_case(Case::Snake);
-        format!("{OUT_DIR}/{snake_filename}.wav")
     }
 
     #[test]

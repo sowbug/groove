@@ -1,10 +1,9 @@
 use crate::messages::EntityMessage;
 use core::fmt::Debug;
 use groove_core::{
-    control::F32ControlValue,
     generators::{Oscillator, Waveform},
     midi::HandlesMidi,
-    traits::{Controllable, Generates, HasUid, IsController, Resets, Ticks, TicksWithMessages},
+    traits::{Generates, IsController, Resets, Ticks, TicksWithMessages},
     BipolarNormal, ParameterType,
 };
 use groove_macros::{Control, Uid};

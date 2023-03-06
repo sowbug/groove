@@ -4,7 +4,7 @@
 
 // TODO: regularly scrutinize the re-exports and make sure they really should be
 // top-level
-pub use controllers::orchestrator::Orchestrator;
+pub use controllers::Orchestrator;
 pub use entities::Entity;
 
 pub mod controllers;

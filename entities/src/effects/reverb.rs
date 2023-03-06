@@ -1,7 +1,8 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use groove_core::{
-    control::F32ControlValue,
-    traits::{Controllable, HasUid, IsEffect, TransformsAudio},
+    traits::{IsEffect, TransformsAudio},
     Sample,
 };
 use groove_macros::{Control, Uid};
@@ -76,7 +77,7 @@ impl Reverb {
         self.attenuation = attenuation;
     }
 
-    pub fn set_control_attenuation(&mut self, attenuation: F32ControlValue) {
+    pub fn set_control_attenuation(&mut self, attenuation: groove_core::control::F32ControlValue) {
         self.set_attenuation(attenuation.0);
     }
 
@@ -84,7 +85,7 @@ impl Reverb {
         self.wet_dry_mix = mix;
     }
 
-    pub fn set_control_wet_dry_mix(&mut self, mix: F32ControlValue) {
+    pub fn set_control_wet_dry_mix(&mut self, mix: groove_core::control::F32ControlValue) {
         self.set_wet_dry_mix(mix.0);
     }
 }

@@ -1,11 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    control::F32ControlValue,
     generators::{Envelope, Oscillator, Waveform},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
-    traits::{Controllable, Generates, GeneratesEnvelope, HasUid, IsInstrument, Resets, Ticks},
+    traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
     BipolarNormal, Dca, Normal, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};
@@ -176,7 +175,7 @@ impl ToyInstrument {
         }
     }
 
-    pub fn set_control_waveform(&mut self, value: F32ControlValue) {
+    pub fn set_control_waveform(&mut self, value: groove_core::control::F32ControlValue) {
         self.oscillator.set_waveform(if value.0 == -1.0 {
             Waveform::Sawtooth
         } else if value.0 == 1.0 {
@@ -194,7 +193,7 @@ impl ToyInstrument {
         self.fake_value
     }
 
-    pub fn set_control_fake_value(&mut self, fake_value: F32ControlValue) {
+    pub fn set_control_fake_value(&mut self, fake_value: groove_core::control::F32ControlValue) {
         self.set_fake_value(fake_value.0);
     }
 
@@ -270,7 +269,10 @@ impl ToySynth {
             .set_frequency_modulation(oscillator_modulation);
     }
 
-    pub fn set_control_oscillator_modulation(&mut self, oscillator_modulation: F32ControlValue) {
+    pub fn set_control_oscillator_modulation(
+        &mut self,
+        oscillator_modulation: groove_core::control::F32ControlValue,
+    ) {
         self.set_oscillator_modulation(BipolarNormal::from(oscillator_modulation.0));
     }
 
@@ -339,7 +341,7 @@ impl ToyAudioSource {
         self.level = level;
     }
 
-    fn set_control_level(&mut self, level: F32ControlValue) {
+    fn set_control_level(&mut self, level: groove_core::control::F32ControlValue) {
         self.set_level(level.0 as f64);
     }
 }

@@ -1,370 +1,17 @@
-use super::{IsStereoSampleVoice, IsVoice, PlaysNotes, PlaysNotesEventTracker, Synthesizer};
-use crate::{midi::GeneralMidiProgram, settings::patches::WelshPatchSettings};
+use super::{synthesizer::Synthesizer, PlaysNotesEventTracker};
+use crate::effects::BiQuadFilter;
 use groove_core::{
-    control::F32ControlValue,
     generators::{Envelope, Oscillator},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
-        Controllable, Generates, GeneratesEnvelope, HasUid, IsInstrument, Resets, Ticks,
-        TransformsAudio,
+        Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
+        Resets, StoresVoices, Ticks, TransformsAudio,
     },
     BipolarNormal, Dca, Normal, ParameterType, Sample, StereoSample,
 };
-use groove_entities::effects::BiQuadFilter;
 use groove_macros::{Control, Uid};
-use num_traits::FromPrimitive;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
-
-impl WelshSynth {
-    pub fn general_midi_preset(program: &GeneralMidiProgram) -> anyhow::Result<WelshPatchSettings> {
-        let mut delegated = false;
-        let preset = match program {
-            GeneralMidiProgram::AcousticGrand => "Piano",
-            GeneralMidiProgram::BrightAcoustic => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::ElectricGrand => "ElectricPiano",
-            GeneralMidiProgram::HonkyTonk => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::ElectricPiano1 => "ElectricPiano",
-            GeneralMidiProgram::ElectricPiano2 => "ElectricPiano",
-            GeneralMidiProgram::Harpsichord => "Harpsichord",
-            GeneralMidiProgram::Clav => "Clavichord",
-            GeneralMidiProgram::Celesta => "Celeste",
-            GeneralMidiProgram::Glockenspiel => "Glockenspiel",
-            GeneralMidiProgram::MusicBox => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Vibraphone => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Marimba => "Marimba",
-            GeneralMidiProgram::Xylophone => "Xylophone",
-            GeneralMidiProgram::TubularBells => "Bell",
-            GeneralMidiProgram::Dulcimer => "Dulcimer",
-            GeneralMidiProgram::DrawbarOrgan => {
-                "Organ" // TODO dup
-            }
-            GeneralMidiProgram::PercussiveOrgan => {
-                "Organ" // TODO dup
-            }
-            GeneralMidiProgram::RockOrgan => {
-                "Organ" // TODO dup
-            }
-            GeneralMidiProgram::ChurchOrgan => {
-                "Organ" // TODO dup
-            }
-            GeneralMidiProgram::ReedOrgan => {
-                "Organ" // TODO dup
-            }
-            GeneralMidiProgram::Accordion => "Accordion",
-            GeneralMidiProgram::Harmonica => "Harmonica",
-            GeneralMidiProgram::TangoAccordion => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::AcousticGuitarNylon => "GuitarAcoustic",
-            GeneralMidiProgram::AcousticGuitarSteel => {
-                "GuitarAcoustic" // TODO dup
-            }
-            GeneralMidiProgram::ElectricGuitarJazz => {
-                "GuitarElectric" // TODO dup
-            }
-            GeneralMidiProgram::ElectricGuitarClean => {
-                "GuitarElectric" // TODO dup
-            }
-            GeneralMidiProgram::ElectricGuitarMuted => {
-                "GuitarElectric" // TODO dup
-            }
-            GeneralMidiProgram::OverdrivenGuitar => {
-                "GuitarElectric" // TODO dup
-            }
-            GeneralMidiProgram::DistortionGuitar => {
-                "GuitarElectric" // TODO dup
-            }
-            GeneralMidiProgram::GuitarHarmonics => {
-                "GuitarElectric" // TODO dup
-            }
-            GeneralMidiProgram::AcousticBass => "DoubleBass",
-            GeneralMidiProgram::ElectricBassFinger => "StandupBass",
-            GeneralMidiProgram::ElectricBassPick => "AcidBass",
-            GeneralMidiProgram::FretlessBass => {
-                "DetroitBass" // TODO same?
-            }
-            GeneralMidiProgram::SlapBass1 => "FunkBass",
-            GeneralMidiProgram::SlapBass2 => "FunkBass",
-            GeneralMidiProgram::SynthBass1 => "DigitalBass",
-            GeneralMidiProgram::SynthBass2 => "DigitalBass",
-            GeneralMidiProgram::Violin => "Violin",
-            GeneralMidiProgram::Viola => "Viola",
-            GeneralMidiProgram::Cello => "Cello",
-            GeneralMidiProgram::Contrabass => "Contrabassoon",
-            GeneralMidiProgram::TremoloStrings => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::PizzicatoStrings => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::OrchestralHarp => "Harp",
-            GeneralMidiProgram::Timpani => "Timpani",
-            GeneralMidiProgram::StringEnsemble1 => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::StringEnsemble2 => {
-                "StringsPwm" // TODO same?
-            }
-            GeneralMidiProgram::Synthstrings1 => "StringsPwm", // TODO same?
-
-            GeneralMidiProgram::Synthstrings2 => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::ChoirAahs => "Angels",
-
-            GeneralMidiProgram::VoiceOohs => "Choir",
-            GeneralMidiProgram::SynthVoice => "VocalFemale",
-
-            GeneralMidiProgram::OrchestraHit => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Trumpet => "Trumpet",
-            GeneralMidiProgram::Trombone => "Trombone",
-            GeneralMidiProgram::Tuba => "Tuba",
-            GeneralMidiProgram::MutedTrumpet => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::FrenchHorn => "FrenchHorn",
-
-            GeneralMidiProgram::BrassSection => "BrassSection",
-
-            GeneralMidiProgram::Synthbrass1 => {
-                "BrassSection" // TODO dup
-            }
-            GeneralMidiProgram::Synthbrass2 => {
-                "BrassSection" // TODO dup
-            }
-            GeneralMidiProgram::SopranoSax => {
-                "Saxophone" // TODO dup
-            }
-            GeneralMidiProgram::AltoSax => "Saxophone",
-            GeneralMidiProgram::TenorSax => {
-                "Saxophone" // TODO dup
-            }
-            GeneralMidiProgram::BaritoneSax => {
-                "Saxophone" // TODO dup
-            }
-            GeneralMidiProgram::Oboe => "Oboe",
-            GeneralMidiProgram::EnglishHorn => "EnglishHorn",
-            GeneralMidiProgram::Bassoon => "Bassoon",
-            GeneralMidiProgram::Clarinet => "Clarinet",
-            GeneralMidiProgram::Piccolo => "Piccolo",
-            GeneralMidiProgram::Flute => "Flute",
-            GeneralMidiProgram::Recorder => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::PanFlute => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::BlownBottle => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Shakuhachi => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Whistle => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Ocarina => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Lead1Square => {
-                "MonoSolo" // TODO: same?
-            }
-            GeneralMidiProgram::Lead2Sawtooth => {
-                "Trance5th" // TODO: same?
-            }
-            GeneralMidiProgram::Lead3Calliope => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Lead4Chiff => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Lead5Charang => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Lead6Voice => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Lead7Fifths => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Lead8BassLead => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Pad1NewAge => {
-                "NewAgeLead" // TODO pad or lead?
-            }
-            GeneralMidiProgram::Pad2Warm => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Pad3Polysynth => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Pad4Choir => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Pad5Bowed => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Pad6Metallic => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Pad7Halo => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Pad8Sweep => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Fx1Rain => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Fx2Soundtrack => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Fx3Crystal => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Fx4Atmosphere => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Fx5Brightness => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Fx6Goblins => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Fx7Echoes => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Fx8SciFi => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Sitar => "Sitar",
-            GeneralMidiProgram::Banjo => "Banjo",
-            GeneralMidiProgram::Shamisen => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Koto => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Kalimba => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Bagpipe => "Bagpipes",
-            GeneralMidiProgram::Fiddle => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Shanai => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::TinkleBell => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Agogo => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::SteelDrums => {
-                "WheelsOfSteel" // TODO same?
-            }
-            GeneralMidiProgram::Woodblock => "SideStick",
-            GeneralMidiProgram::TaikoDrum => {
-                // XXXXXXXXXXXXX TMP
-                "Cello" // TODO substitute.....
-            }
-            GeneralMidiProgram::MelodicTom => "Bongos",
-            GeneralMidiProgram::SynthDrum => "SnareDrum",
-            GeneralMidiProgram::ReverseCymbal => "Cymbal",
-            GeneralMidiProgram::GuitarFretNoise => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::BreathNoise => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Seashore => "OceanWavesWithFoghorn",
-            GeneralMidiProgram::BirdTweet => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::TelephoneRing => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Helicopter => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Applause => {
-                delegated = true;
-                "Piano"
-            }
-            GeneralMidiProgram::Gunshot => {
-                delegated = true;
-                "Piano"
-            }
-        };
-        if delegated {
-            eprintln!("Delegated {program} to {preset}");
-        }
-        Ok(WelshPatchSettings::by_name(preset))
-    }
-}
 
 #[derive(Debug)]
 pub enum LfoRouting {
@@ -610,7 +257,7 @@ impl WelshVoice {
         });
     }
 
-    pub(crate) fn new_with(
+    pub fn new_with(
         oscillators: Vec<Oscillator>,
         oscillator_2_sync: bool,
         oscillator_mix: f64,
@@ -682,25 +329,30 @@ impl HandlesMidi for WelshSynth {
         message: &MidiMessage,
     ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
         match message {
+            #[allow(unused_variables)]
             MidiMessage::ProgramChange { program } => {
-                if let Some(program) = GeneralMidiProgram::from_u8(program.as_int()) {
-                    if let Ok(_preset) = WelshSynth::general_midi_preset(&program) {
-                        //  self.preset = preset;
-                    } else {
-                        println!("unrecognized patch from MIDI program change: {}", &program);
-                    }
-                }
-                None
+                todo!()
+                // if let Some(program) = GeneralMidiProgram::from_u8(program.as_int()) {
+                //     if let Ok(_preset) = WelshSynth::general_midi_preset(&program) {
+                //         //  self.preset = preset;
+                //     } else {
+                //         println!("unrecognized patch from MIDI program change: {}", &program);
+                //     }
+                // }
+                // None
             }
             _ => self.inner_synth.handle_midi_message(message),
         }
     }
 }
 impl WelshSynth {
-    pub fn new_with(inner_synth: Synthesizer<WelshVoice>) -> Self {
+    pub fn new_with(
+        sample_rate: usize,
+        voice_store: Box<dyn StoresVoices<Voice = WelshVoice>>,
+    ) -> Self {
         Self {
             uid: Default::default(),
-            inner_synth,
+            inner_synth: Synthesizer::<WelshVoice>::new_with(sample_rate, voice_store),
             pan: Default::default(),
         }
     }
@@ -718,7 +370,7 @@ impl WelshSynth {
         self.inner_synth.set_pan(pan);
     }
 
-    pub fn set_control_pan(&mut self, value: F32ControlValue) {
+    pub fn set_control_pan(&mut self, value: groove_core::control::F32ControlValue) {
         // TODO: more toil. Let me say this is a bipolar normal
         self.set_pan(value.0 * 2.0 - 1.0);
     }
@@ -727,11 +379,8 @@ impl WelshSynth {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        utils::tests::canonicalize_filename,
-        {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
-    };
-    use groove_core::{time::Clock, SampleType};
+    use crate::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
+    use groove_core::{canonicalize_filename, time::Clock, SampleType};
 
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]

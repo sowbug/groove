@@ -4,19 +4,18 @@ pub(crate) mod instruments;
 pub(crate) mod patches;
 pub(crate) mod songs;
 
+use crate::controllers::Orchestrator;
+
 use self::{
     controllers::{ControlTargetSettings, ControllerSettings},
     effects::EffectSettings,
     instruments::InstrumentSettings,
 };
-use crate::{
-    controllers::{Note, Pattern},
-    Orchestrator,
-};
 use groove_core::{
     time::{BeatValue, Clock, PerfectTimeUnit, TimeSignature},
     ParameterType,
 };
+use groove_entities::controllers::{Note, Pattern};
 use serde::{Deserialize, Serialize};
 use strum_macros::FromRepr;
 
