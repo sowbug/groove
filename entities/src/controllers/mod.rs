@@ -178,3 +178,19 @@ impl SignalPassthroughController {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::controllers::Trigger;
+    use groove_core::traits::TicksWithMessages;
+
+    #[test]
+    fn instantiate_trigger() {
+        let mut trigger = Trigger::new_with(44100, 1.0, 0.5);
+
+        // asserting that 5 returned 5 confirms that the trigger isn't done yet.
+        let (m, count) = trigger.tick(5);
+        assert!(m.is_none());
+        assert_eq!(count, 5);
+    }
+}

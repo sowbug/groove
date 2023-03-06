@@ -84,13 +84,10 @@ pub mod tests {
         Orchestrator, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
     };
     use groove_core::{
-        generators::Waveform,
-        midi::MidiChannel,
-        time::Clock,
-        traits::{Resets, TicksWithMessages},
-        ParameterType, StereoSample,
+        generators::Waveform, midi::MidiChannel, time::Clock, traits::Resets, ParameterType,
+        StereoSample,
     };
-    use groove_entities::controllers::{LfoController, Timer, Trigger};
+    use groove_entities::controllers::{LfoController, Timer};
     use groove_toys::{ToyController, ToyEffect, ToyInstrument, ToySynth, ToySynthControlParams};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
     use std::path::PathBuf;
@@ -423,15 +420,5 @@ pub mod tests {
             let x = x as f64 / 100.0;
             assert_ge!(transform_linear_to_mma_convex(x), x);
         }
-    }
-
-    #[test]
-    fn instantiate_trigger() {
-        let mut trigger = Trigger::new_with(44100, 1.0, 0.5);
-
-        // asserting that 5 returned 5 confirms that the trigger isn't done yet.
-        let (m, count) = trigger.tick(5);
-        assert!(m.is_none());
-        assert_eq!(count, 5);
     }
 }
