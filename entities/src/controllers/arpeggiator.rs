@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::sequencers::BeatSequencer;
-use crate::messages::EntityMessage;
+use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
     time::PerfectTimeUnit,

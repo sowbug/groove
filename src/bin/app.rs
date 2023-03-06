@@ -4,7 +4,7 @@ mod gui;
 
 use groove::{
     app_version,
-    messages::GrooveMessage,
+    messages::GrooveEvent,
     subscriptions::{
         EngineEvent, EngineInput, EngineSubscription, MidiHandler, MidiHandlerEvent,
         MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
@@ -149,7 +149,7 @@ pub enum AppMessage {
     PrefsLoaded(Result<Preferences, LoadError>),
     PrefsSaved(Result<(), SaveError>),
     ControlBarMessage(ControlBarMessage),
-    GrooveMessage(GrooveMessage),
+    GrooveEvent(GrooveEvent),
     EngineEvent(EngineEvent),
     MidiHandlerMessage(MidiHandlerMessage),
     MidiHandlerEvent(MidiHandlerEvent),
@@ -310,8 +310,8 @@ impl Application for GrooveApp {
                     // we won't do anything about it.
                 }
             },
-            AppMessage::GrooveMessage(message) => match message {
-                GrooveMessage::EntityMessage(uid, message) => match message {
+            AppMessage::GrooveEvent(event) => match event {
+                GrooveEvent::EntityMessage(uid, message) => match message {
                     EntityMessage::ExpandPressed => {
                         // Find whoever else is expanded and maybe collapse them
                         self.set_entity_view_state(uid, EntityViewState::Expanded);
@@ -326,9 +326,8 @@ impl Application for GrooveApp {
                 _ => todo!(),
             },
             AppMessage::PrefsSaved(r) => {
-                println!("got PrefsSaved");
                 if self.should_exit {
-                    println!("calling close()");
+                    eprintln!("calling close()");
                     return window::close::<Self::Message>();
                 } else {
                     match r {
@@ -363,7 +362,7 @@ impl Application for GrooveApp {
         let main_content = match self.current_view {
             MainViews::Unstructured => {
                 let project_view: Element<AppMessage> =
-                    self.orchestrator_view().map(AppMessage::GrooveMessage);
+                    self.orchestrator_view().map(AppMessage::GrooveEvent);
                 let midi_view: Element<AppMessage> =
                     self.midi_view().map(AppMessage::MidiHandlerMessage);
                 let scrollable_content = column![midi_view, project_view];
@@ -373,7 +372,7 @@ impl Application for GrooveApp {
             }
             MainViews::New => {
                 let project_view: Element<AppMessage> =
-                    self.orchestrator_new_view().map(AppMessage::GrooveMessage);
+                    self.orchestrator_new_view().map(AppMessage::GrooveEvent);
                 let scrollable = container(scrollable(project_view)).width(Length::FillPortion(1));
                 container(scrollable)
             }
@@ -462,9 +461,9 @@ impl GrooveApp {
         }
     }
 
-    fn orchestrator_view(&self) -> Element<GrooveMessage> {
+    fn orchestrator_view(&self) -> Element<GrooveEvent> {
         if let Ok(orchestrator) = self.orchestrator.lock() {
-            let canvas: Element<'_, GrooveMessage, Renderer<<GrooveApp as Application>::Theme>> =
+            let canvas: Element<'_, GrooveEvent, Renderer<<GrooveApp as Application>::Theme>> =
                 Canvas::new(&self.gui_state)
                     .width(Length::Fill)
                     .height(Length::Fixed((32 * 4) as f32))
@@ -476,7 +475,7 @@ impl GrooveApp {
                 .fold(Vec::new(), |mut v, (&uid, e)| {
                     v.push(
                         self.entity_view(e)
-                            .map(move |message| GrooveMessage::EntityMessage(uid, message)),
+                            .map(move |message| GrooveEvent::EntityMessage(uid, message)),
                     );
                     v
                 });
@@ -487,9 +486,9 @@ impl GrooveApp {
         }
     }
 
-    fn orchestrator_new_view(&self) -> Element<GrooveMessage> {
+    fn orchestrator_new_view(&self) -> Element<GrooveEvent> {
         if let Ok(_orchestrator) = self.orchestrator.lock() {
-            let canvas: Element<'_, GrooveMessage, Renderer<<GrooveApp as Application>::Theme>> =
+            let canvas: Element<'_, GrooveEvent, Renderer<<GrooveApp as Application>::Theme>> =
                 Canvas::new(&self.gui_state)
                     .width(Length::Fill)
                     .height(Length::Fixed((32 * 4) as f32))

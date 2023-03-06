@@ -1,8 +1,7 @@
 use crate::{
     entities::Entity,
     helpers::IOHelper,
-    messages::GrooveMessage,
-    messages::{Internal, Response},
+    messages::{GrooveEvent, GrooveInput, Internal, Response},
     metrics::DipstickWrapper,
     utils::Paths,
 };
@@ -451,10 +450,10 @@ impl Orchestrator {
         r
     }
 
-    pub(crate) fn update(&mut self, message: GrooveMessage) -> Response<GrooveMessage> {
+    pub(crate) fn update(&mut self, input: GrooveInput) -> Response<GrooveEvent> {
         let mut unhandled_commands = Vec::new();
         let mut commands = Vec::new();
-        commands.push(Response::single(message));
+        commands.push(Response::single(input));
         while let Some(command) = commands.pop() {
             let mut messages = Vec::new();
             match command.0 {
@@ -464,16 +463,16 @@ impl Orchestrator {
             }
             while let Some(message) = messages.pop() {
                 match message {
-                    GrooveMessage::EntityMessage(uid, message) => match message {
+                    GrooveInput::EntityMessage(uid, event) => match event {
                         EntityMessage::Midi(channel, message) => {
                             // We could have pushed this onto the regular
                             // commands vector, and then instead of panicking on
                             // the MidiToExternal match, handle it by pushing it
                             // onto the other vector. It is slightly simpler, if
                             // less elegant, to do it this way.
-                            unhandled_commands.push(Response::single(
-                                GrooveMessage::MidiToExternal(channel, message),
-                            ));
+                            unhandled_commands.push(Response::single(GrooveEvent::MidiToExternal(
+                                channel, message,
+                            )));
                             self.broadcast_midi_messages(&[(channel, message)]);
                         }
                         EntityMessage::ControlF32(value) => {
@@ -481,19 +480,10 @@ impl Orchestrator {
                         }
                         _ => todo!(),
                     },
-                    GrooveMessage::MidiFromExternal(channel, message) => {
+                    GrooveInput::MidiFromExternal(channel, message) => {
                         self.broadcast_midi_messages(&[(channel, message)]);
                     }
-                    GrooveMessage::MidiToExternal(_, _) => {
-                        panic!("Orchestrator should not handle MidiToExternal");
-                    }
-                    GrooveMessage::AudioOutput(_) => {
-                        panic!("AudioOutput shouldn't exist at this point in the pipeline");
-                    }
-                    GrooveMessage::OutputComplete => {
-                        panic!("OutputComplete shouldn't exist at this point in the pipeline");
-                    }
-                    GrooveMessage::LoadProject(filename) => {
+                    GrooveInput::LoadProject(filename) => {
                         let mut path = Paths::project_path();
                         path.push(filename.clone());
                         if let Ok(settings) =
@@ -503,13 +493,10 @@ impl Orchestrator {
                                 let title = instance.title.clone();
                                 *self = instance;
                                 unhandled_commands.push(Response::single(
-                                    GrooveMessage::LoadedProject(filename, title),
+                                    GrooveEvent::LoadedProject(filename, title),
                                 ));
                             }
                         }
-                    }
-                    GrooveMessage::LoadedProject(_, _) => {
-                        panic!("this is only sent by us, never received")
                     }
                 }
             }
@@ -517,12 +504,12 @@ impl Orchestrator {
         Response::batch(unhandled_commands)
     }
 
-    // Call every Controller's tick() and return their responses. This is
+    // Call every Controller's tick() and handle their responses. This is
     // pub(crate) only for testing by arpeggiator, which is bad
     //
     // TODO: figure out how to help Arpeggiator test without exposing these
     // internals.
-    pub(crate) fn handle_tick(&mut self, tick_count: usize) -> (Response<GrooveMessage>, usize) {
+    pub(crate) fn handle_tick(&mut self, tick_count: usize) -> (Response<GrooveEvent>, usize) {
         let mut max_ticks_completed = 0;
         (
             Response::batch(
@@ -536,13 +523,12 @@ impl Orchestrator {
                                     max_ticks_completed = ticks_completed;
                                 }
                                 if let Some(messages) = message_opt {
-                                    // TODO clone, ouch
-                                    v.push(Self::entity_command_to_groove_command(
-                                        uid,
-                                        Response::batch(
-                                            messages.iter().map(|m| Response::single(m.clone())),
-                                        ),
-                                    ));
+                                    for message in messages {
+                                        // This is where outputs get turned into inputs.
+                                        v.push(
+                                            self.update(GrooveInput::EntityMessage(uid, message)),
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -551,21 +537,6 @@ impl Orchestrator {
             ),
             max_ticks_completed,
         )
-    }
-
-    fn entity_command_to_groove_command(
-        uid: usize,
-        command: Response<EntityMessage>,
-    ) -> Response<GrooveMessage> {
-        match command.0 {
-            Internal::None => Response::none(),
-            Internal::Single(message) => {
-                Response::single(GrooveMessage::EntityMessage(uid, message))
-            }
-            Internal::Batch(messages) => Response::batch(messages.iter().map(move |message| {
-                Response::single(GrooveMessage::EntityMessage(uid, message.clone()))
-            })),
-        }
     }
 
     fn broadcast_midi_messages(&mut self, channel_message_tuples: &[(MidiChannel, MidiMessage)]) {
@@ -619,43 +590,6 @@ impl Orchestrator {
                 }
             }
         }
-    }
-
-    pub fn peek_command(command: &Response<GrooveMessage>) -> (StereoSample, bool) {
-        let mut debug_matched_audio_output = false;
-        let mut sample = StereoSample::default();
-        let mut done = false;
-        match &command.0 {
-            Internal::None => {}
-            Internal::Single(message) => match message {
-                // GrooveMessage::EntityMessage - shouldn't escape from Orchestrator
-                // GrooveMessage::MidiFromExternal - should go only downstream
-                // GrooveMessage::MidiToExternal - ignore and let app handle it
-                // GrooveMessage::AudioOutput - let app handle it
-                GrooveMessage::AudioOutput(msg_sample) => {
-                    debug_matched_audio_output = true;
-                    sample = *msg_sample;
-                }
-                GrooveMessage::OutputComplete => {
-                    done = true;
-                }
-                _ => {}
-            },
-            Internal::Batch(messages) => {
-                messages.iter().for_each(|message| match message {
-                    GrooveMessage::AudioOutput(msg_sample) => {
-                        debug_matched_audio_output = true;
-                        sample = *msg_sample;
-                    }
-                    GrooveMessage::OutputComplete => {
-                        done = true;
-                    }
-                    _ => {}
-                });
-            }
-        }
-        debug_assert!(debug_matched_audio_output);
-        (sample, done)
     }
 
     // TODO: we're not very crisp about what "done" means. I think the current
@@ -735,18 +669,10 @@ impl Orchestrator {
     /// than the slice length, then the performance is complete.
     pub(crate) fn tick(&mut self, samples: &mut [StereoSample]) -> usize {
         let tick_count = samples.len();
-        let (commands, ticks_completed) = self.handle_tick(tick_count);
-        match commands.0 {
-            Internal::None => {}
-            Internal::Single(message) => {
-                self.update(message);
-            }
-            Internal::Batch(messages) => {
-                for message in messages {
-                    self.update(message);
-                }
-            }
-        }
+
+        // TODO: I suspect external MIDI (our events going to external hardware)
+        // is broken because these commands never see the light of day
+        let (_commands, ticks_completed) = self.handle_tick(tick_count);
         self.gather_audio(samples);
 
         ticks_completed

@@ -9,17 +9,20 @@ use groove_entities::EntityMessage;
 use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
-pub enum GrooveMessage {
-    /// A wrapped EntityMessage that contains the uid of the receipient in
-    /// addition to the EntityMessage.
+pub enum GrooveInput {
     EntityMessage(usize, EntityMessage),
 
     /// A MIDI message that has arrived from outside Groove, typically from
     /// MidiInputHandler.
     MidiFromExternal(MidiChannel, MidiMessage),
 
-    /// A MIDI message that should be routed from Groove to outside.
-    MidiToExternal(MidiChannel, MidiMessage),
+    LoadProject(String),
+}
+impl MessageBounds for GrooveInput {}
+
+#[derive(Clone, Debug)]
+pub enum GrooveEvent {
+    EntityMessage(usize, EntityMessage),
 
     /// An audio sample for the current time slice. Intended to be sent in
     /// response to a downstream Tick, and consumed by the application.
@@ -29,10 +32,12 @@ pub enum GrooveMessage {
     /// in response to a downstream Tick, and consumed by the application.
     OutputComplete,
 
-    LoadProject(String),
+    /// A MIDI message that should be routed from Groove to outside.
+    MidiToExternal(MidiChannel, MidiMessage),
+
     LoadedProject(String, Option<String>),
 }
-impl MessageBounds for GrooveMessage {}
+impl MessageBounds for GrooveEvent {}
 
 #[derive(Debug)]
 pub struct Response<T>(pub Internal<T>);

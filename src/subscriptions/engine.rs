@@ -5,7 +5,7 @@
 
 use crate::{
     helpers::{AudioOutput, IOHelper},
-    messages::{GrooveMessage, Internal, Response},
+    messages::{GrooveEvent, GrooveInput, Internal, Response},
     Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
 };
 use groove_core::{
@@ -91,7 +91,7 @@ struct Runner {
     time_signature: TimeSignature,
     last_clock_update: Instant,
 
-    messages: Vec<GrooveMessage>,
+    events: Vec<GrooveEvent>,
     sender: mpsc::Sender<EngineEvent>,
     receiver: mpsc::Receiver<EngineInput>,
     audio_output: Option<AudioOutput>,
@@ -110,7 +110,7 @@ impl Runner {
             clock,
             time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO: what's a good "don't know yet" value?
             last_clock_update: Instant::now(),
-            messages: Default::default(),
+            events: Default::default(),
             sender,
             receiver,
             audio_output: None,
@@ -119,14 +119,14 @@ impl Runner {
         }
     }
 
-    fn push_response(&mut self, response: Response<GrooveMessage>) {
+    fn push_response(&mut self, response: Response<GrooveEvent>) {
         match response.0 {
             Internal::None => {}
             Internal::Single(message) => {
-                self.messages.push(message);
+                self.events.push(message);
             }
             Internal::Batch(messages) => {
-                self.messages.extend(messages);
+                self.events.extend(messages);
             }
         }
     }
@@ -143,22 +143,22 @@ impl Runner {
     fn handle_pending_messages(&mut self) -> (StereoSample, bool) {
         let mut sample = StereoSample::default();
         let mut done = false;
-        while let Some(message) = self.messages.pop() {
-            match message {
-                GrooveMessage::AudioOutput(output_sample) => sample = output_sample,
-                GrooveMessage::OutputComplete => {
+        while let Some(event) = self.events.pop() {
+            match event {
+                GrooveEvent::AudioOutput(output_sample) => sample = output_sample,
+                GrooveEvent::OutputComplete => {
                     done = true;
                     self.post_event(EngineEvent::OutputComplete);
                 }
-                GrooveMessage::MidiToExternal(channel, message) => {
+                GrooveEvent::MidiToExternal(channel, message) => {
                     self.post_event(EngineEvent::MidiToExternal(channel, message))
                 }
-                GrooveMessage::LoadedProject(filename, title) => {
+                GrooveEvent::LoadedProject(filename, title) => {
                     self.post_event(EngineEvent::ProjectLoaded(filename, title))
                 }
-                GrooveMessage::EntityMessage(_, _) => todo!(),
-                GrooveMessage::MidiFromExternal(_, _) => todo!(),
-                GrooveMessage::LoadProject(_) => todo!(),
+                GrooveEvent::EntityMessage(_, _) => {
+                    panic!("this should have been handled by now")
+                }
             }
         }
         (sample, done)
@@ -192,7 +192,7 @@ impl Runner {
                     EngineInput::LoadProject(filename) => {
                         self.clock.reset(self.clock.sample_rate());
                         is_playing = false;
-                        messages.push(GrooveMessage::LoadProject(filename));
+                        messages.push(GrooveInput::LoadProject(filename));
                     }
                     EngineInput::Play => is_playing = true,
                     EngineInput::Pause => is_playing = false,
@@ -200,7 +200,7 @@ impl Runner {
                         self.clock.reset(self.clock.sample_rate());
                     }
                     EngineInput::Midi(channel, message) => {
-                        messages.push(GrooveMessage::MidiFromExternal(channel, message))
+                        messages.push(GrooveInput::MidiFromExternal(channel, message))
                     }
                     EngineInput::QuitRequested => break,
                     EngineInput::SetBpm(bpm) => {

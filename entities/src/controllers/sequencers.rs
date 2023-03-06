@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::messages::EntityMessage;
+use crate::EntityMessage;
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{new_note_off, u7, HandlesMidi, MidiChannel, MidiMessage},
