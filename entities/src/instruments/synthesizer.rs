@@ -1,4 +1,4 @@
-use super::{PlaysNotesEventTracker, VoiceStore};
+use super::VoiceStore;
 use groove_core::{
     generators::{Envelope, Oscillator},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
@@ -147,7 +147,9 @@ pub struct SimpleVoice {
     sample: StereoSample,
 
     is_playing: bool,
-    event_tracker: PlaysNotesEventTracker,
+    note_on_key: u8,
+    note_on_velocity: u8,
+    steal_is_underway: bool,
 }
 impl IsStereoSampleVoice for SimpleVoice {}
 impl IsVoice<StereoSample> for SimpleVoice {}
@@ -156,24 +158,24 @@ impl PlaysNotes for SimpleVoice {
         self.is_playing
     }
 
-    fn has_pending_events(&self) -> bool {
-        self.event_tracker.has_pending_events()
-    }
-
     fn note_on(&mut self, key: u8, velocity: u8) {
-        if self.is_active() {
-            self.event_tracker.enqueue_steal(key, velocity);
+        if self.is_playing() {
+            self.steal_is_underway = true;
+            self.note_on_key = key;
+            self.note_on_velocity = velocity;
         } else {
-            self.event_tracker.enqueue_note_on(key, velocity);
+            self.set_frequency_hz(note_to_frequency(key));
+            self.envelope.trigger_attack();
+            self.update_is_playing();
         }
     }
 
-    fn aftertouch(&mut self, velocity: u8) {
-        self.event_tracker.enqueue_aftertouch(velocity);
+    fn aftertouch(&mut self, _velocity: u8) {
+        todo!()
     }
 
-    fn note_off(&mut self, velocity: u8) {
-        self.event_tracker.enqueue_note_off(velocity);
+    fn note_off(&mut self, _velocity: u8) {
+        self.envelope.trigger_release();
     }
 
     fn set_pan(&mut self, _value: f32) {
@@ -197,19 +199,20 @@ impl Resets for SimpleVoice {
         self.sample_rate = sample_rate;
         self.oscillator.reset(sample_rate);
         self.envelope.reset(sample_rate);
-        self.event_tracker.reset();
     }
 }
 impl Ticks for SimpleVoice {
     fn tick(&mut self, tick_count: usize) {
         for _ in 0..tick_count {
-            self.handle_pending_note_events();
             self.oscillator.tick(1);
             self.envelope.tick(1);
             let is_playing = self.is_playing;
-            self.is_playing = !self.envelope.is_idle();
+            self.update_is_playing();
             if is_playing && !self.is_playing {
-                self.event_tracker.handle_steal_end();
+                if self.steal_is_underway {
+                    self.steal_is_underway = false;
+                    self.note_on(self.note_on_key, self.note_on_velocity);
+                }
             }
             self.sample =
                 StereoSample::from(self.oscillator.value() * self.envelope.value().value());
@@ -225,55 +228,17 @@ impl SimpleVoice {
             envelope: Envelope::new_with(sample_rate, 0.0, 0.0, Normal::maximum(), 0.0),
             sample: Default::default(),
             is_playing: Default::default(),
-            event_tracker: Default::default(),
+            note_on_key: Default::default(),
+            note_on_velocity: Default::default(),
+            steal_is_underway: Default::default(),
         }
     }
     fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {
         self.oscillator.set_frequency(frequency_hz);
     }
-    fn handle_pending_note_events(&mut self) {
-        if self.event_tracker.steal_is_pending {
-            self.handle_steal_event()
-        }
-        if self.event_tracker.note_on_is_pending && self.event_tracker.note_off_is_pending {
-            // Handle the case where both are pending at the same time.
-            if self.is_playing {
-                self.handle_note_off_event();
-                self.handle_note_on_event();
-            } else {
-                self.handle_note_on_event();
-                self.handle_note_off_event();
-            }
-        } else {
-            if self.event_tracker.note_off_is_pending {
-                self.handle_note_off_event();
-            }
-            if self.event_tracker.note_on_is_pending {
-                self.handle_note_on_event();
-            }
-        }
-        if self.event_tracker.aftertouch_is_pending {
-            self.handle_aftertouch_event();
-        }
-        self.event_tracker.clear_pending();
-    }
 
-    fn handle_note_on_event(&mut self) {
-        self.set_frequency_hz(note_to_frequency(self.event_tracker.note_on_key));
-        self.envelope.trigger_attack();
-    }
-
-    fn handle_aftertouch_event(&mut self) {
-        // TODO: do something
-    }
-
-    fn handle_note_off_event(&mut self) {
-        self.envelope.trigger_release();
-    }
-
-    fn handle_steal_event(&mut self) {
-        self.event_tracker.handle_steal_start();
-        self.envelope.trigger_shutdown();
+    fn update_is_playing(&mut self) {
+        self.is_playing = !self.envelope.is_idle();
     }
 }
 

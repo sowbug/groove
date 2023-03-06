@@ -177,16 +177,6 @@ pub trait PlaysNotes {
     /// Whether the entity is currently making sound.
     fn is_playing(&self) -> bool;
 
-    /// Whether the entity has been asked to enqueue anything.
-    #[deprecated]
-    fn has_pending_events(&self) -> bool;
-
-    /// Whether the entity has any work to do (either is_playing or
-    /// has_pending_events).
-    fn is_active(&self) -> bool {
-        self.is_playing() || self.has_pending_events()
-    }
-
     /// Initiates a note-on event. Depending on implementation, might initiate a
     /// steal (tell envelope to go to shutdown state, then do note-on when
     /// that's done).
