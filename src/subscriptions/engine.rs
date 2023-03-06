@@ -1,3 +1,8 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
+//! The [engine] module contains the main interface, a Subscription, between the
+//! Iced app and the Groove engine.
+
 use crate::{
     helpers::{AudioOutput, IOHelper},
     messages::{GrooveMessage, Internal, Response},
@@ -19,7 +24,7 @@ use std::{
 
 enum State {
     Start,
-    Ready(JoinHandle<()>, mpsc::Receiver<GrooveEvent>),
+    Ready(JoinHandle<()>, mpsc::Receiver<EngineEvent>),
     Ending(JoinHandle<()>),
     Idle,
 }
@@ -27,7 +32,7 @@ enum State {
 /// A GrooveInput is a kind of message that acts as input from the subscriber
 /// (the app) to the subscription publisher (the Groove engine).
 #[derive(Clone, Debug)]
-pub enum GrooveInput {
+pub enum EngineInput {
     /// Load the project at the given file path.
     LoadProject(String),
 
@@ -58,8 +63,8 @@ pub enum GrooveInput {
 /// could have also called it a GrooveOutput, but other examples of Iced
 /// subscriptions use the term "event," so we're going with that.
 #[derive(Clone, Debug)]
-pub enum GrooveEvent {
-    Ready(mpsc::Sender<GrooveInput>, Arc<Mutex<Orchestrator>>),
+pub enum EngineEvent {
+    Ready(mpsc::Sender<EngineInput>, Arc<Mutex<Orchestrator>>),
     SetClock(usize),
     SetBpm(ParameterType),
     SetTimeSignature(TimeSignature),
@@ -87,8 +92,8 @@ struct Runner {
     last_clock_update: Instant,
 
     messages: Vec<GrooveMessage>,
-    sender: mpsc::Sender<GrooveEvent>,
-    receiver: mpsc::Receiver<GrooveInput>,
+    sender: mpsc::Sender<EngineEvent>,
+    receiver: mpsc::Receiver<EngineInput>,
     audio_output: Option<AudioOutput>,
 
     buffer_target: usize,
@@ -97,8 +102,8 @@ impl Runner {
     pub fn new_with(
         orchestrator: Arc<Mutex<Orchestrator>>,
         clock: Clock,
-        sender: mpsc::Sender<GrooveEvent>,
-        receiver: mpsc::Receiver<GrooveInput>,
+        sender: mpsc::Sender<EngineEvent>,
+        receiver: mpsc::Receiver<EngineInput>,
     ) -> Self {
         Self {
             orchestrator,
@@ -126,7 +131,7 @@ impl Runner {
         }
     }
 
-    fn post_event(&mut self, event: GrooveEvent) {
+    fn post_event(&mut self, event: EngineEvent) {
         let _ = self.sender.try_send(event);
     }
 
@@ -143,13 +148,13 @@ impl Runner {
                 GrooveMessage::AudioOutput(output_sample) => sample = output_sample,
                 GrooveMessage::OutputComplete => {
                     done = true;
-                    self.post_event(GrooveEvent::OutputComplete);
+                    self.post_event(EngineEvent::OutputComplete);
                 }
                 GrooveMessage::MidiToExternal(channel, message) => {
-                    self.post_event(GrooveEvent::MidiToExternal(channel, message))
+                    self.post_event(EngineEvent::MidiToExternal(channel, message))
                 }
                 GrooveMessage::LoadedProject(filename, title) => {
-                    self.post_event(GrooveEvent::ProjectLoaded(filename, title))
+                    self.post_event(EngineEvent::ProjectLoaded(filename, title))
                 }
                 GrooveMessage::EntityMessage(_, _) => todo!(),
                 GrooveMessage::MidiFromExternal(_, _) => todo!(),
@@ -184,27 +189,27 @@ impl Runner {
                 match input {
                     // TODO: many of these are in the wrong place. This loop
                     // should be tight and dumb.
-                    GrooveInput::LoadProject(filename) => {
+                    EngineInput::LoadProject(filename) => {
                         self.clock.reset(self.clock.sample_rate());
                         is_playing = false;
                         messages.push(GrooveMessage::LoadProject(filename));
                     }
-                    GrooveInput::Play => is_playing = true,
-                    GrooveInput::Pause => is_playing = false,
-                    GrooveInput::SkipToStart => {
+                    EngineInput::Play => is_playing = true,
+                    EngineInput::Pause => is_playing = false,
+                    EngineInput::SkipToStart => {
                         self.clock.reset(self.clock.sample_rate());
                     }
-                    GrooveInput::Midi(channel, message) => {
+                    EngineInput::Midi(channel, message) => {
                         messages.push(GrooveMessage::MidiFromExternal(channel, message))
                     }
-                    GrooveInput::QuitRequested => break,
-                    GrooveInput::SetBpm(bpm) => {
+                    EngineInput::QuitRequested => break,
+                    EngineInput::SetBpm(bpm) => {
                         if bpm != self.clock.bpm() {
                             self.clock.set_bpm(bpm);
                             self.publish_bpm_update();
                         }
                     }
-                    GrooveInput::SetTimeSignature(time_signature) => {
+                    EngineInput::SetTimeSignature(time_signature) => {
                         if time_signature != self.time_signature {
                             self.time_signature = time_signature;
                             self.publish_time_signature_update();
@@ -261,17 +266,17 @@ impl Runner {
     fn publish_clock_update(&mut self) {
         let now = Instant::now();
         if now.duration_since(self.last_clock_update).as_millis() > 15 {
-            self.post_event(GrooveEvent::SetClock(self.clock.frames()));
+            self.post_event(EngineEvent::SetClock(self.clock.frames()));
             self.last_clock_update = now;
         }
     }
 
     fn publish_bpm_update(&mut self) {
-        self.post_event(GrooveEvent::SetBpm(self.clock.bpm()));
+        self.post_event(EngineEvent::SetBpm(self.clock.bpm()));
     }
 
     fn publish_time_signature_update(&mut self) {
-        self.post_event(GrooveEvent::SetTimeSignature(self.time_signature));
+        self.post_event(EngineEvent::SetTimeSignature(self.time_signature));
     }
 
     pub fn start_audio(&mut self) {
@@ -313,11 +318,11 @@ impl Runner {
 /// GrooveSubscription is the Iced Subscription for the Groove engine. It
 /// creates the MPSC channels and spawns the Orchestrator/Runner in a thread. It
 /// also knows how to signal the thread to quit when it's time.
-pub struct GrooveSubscription {}
-impl GrooveSubscription {
-    pub fn subscription() -> Subscription<GrooveEvent> {
+pub struct EngineSubscription {}
+impl EngineSubscription {
+    pub fn subscription() -> Subscription<EngineEvent> {
         subscription::unfold(
-            std::any::TypeId::of::<GrooveSubscription>(),
+            std::any::TypeId::of::<EngineSubscription>(),
             State::Start,
             |state| async move {
                 match state {
@@ -325,11 +330,11 @@ impl GrooveSubscription {
                         // This channel lets the app send us messages.
                         //
                         // TODO: what's the right number for the buffer size?
-                        let (app_sender, app_receiver) = mpsc::channel::<GrooveInput>(1024);
+                        let (app_sender, app_receiver) = mpsc::channel::<EngineInput>(1024);
 
                         // This channel surfaces event messages from
                         // Runner/Orchestrator as subscription events.
-                        let (thread_sender, thread_receiver) = mpsc::channel::<GrooveEvent>(1024);
+                        let (thread_sender, thread_receiver) = mpsc::channel::<EngineEvent>(1024);
 
                         // TODO: deal with output-device and sample-rate
                         // changes. This is a mess.
@@ -354,7 +359,7 @@ impl GrooveSubscription {
                         });
 
                         (
-                            Some(GrooveEvent::Ready(app_sender, orchestrator_for_app)),
+                            Some(EngineEvent::Ready(app_sender, orchestrator_for_app)),
                             State::Ready(handler, thread_receiver),
                         )
                     }
@@ -362,8 +367,8 @@ impl GrooveSubscription {
                         use iced_native::futures::StreamExt;
 
                         let groove_event = receiver.select_next_some().await;
-                        if let GrooveEvent::Quit = groove_event {
-                            (Some(GrooveEvent::Quit), State::Ending(handler))
+                        if let EngineEvent::Quit = groove_event {
+                            (Some(EngineEvent::Quit), State::Ending(handler))
                         } else {
                             (Some(groove_event), State::Ready(handler, receiver))
                         }

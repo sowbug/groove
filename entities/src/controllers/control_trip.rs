@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use crate::messages::EntityMessage;
 use core::fmt::Debug;
 use groove_core::{

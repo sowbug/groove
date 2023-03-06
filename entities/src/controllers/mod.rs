@@ -9,8 +9,8 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 pub use lfo::LfoController;
-pub use patterns::{Note, Pattern, PatternManager, PatternMessage};
-pub use sequencers::{BeatSequencer, MidiTickSequencer};
+pub use patterns::{Note, Pattern, PatternManager, PatternMessage, PatternProgrammer};
+pub use sequencers::{BeatSequencer, MidiSmfReader, MidiTickSequencer};
 
 mod arpeggiator;
 mod control_trip;

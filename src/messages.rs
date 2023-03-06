@@ -1,3 +1,5 @@
+//! The [messages] module defines the App's Iced messages.
+
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     traits::MessageBounds,

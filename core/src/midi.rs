@@ -14,12 +14,11 @@ use strum_macros::Display;
 //     Controller,
 // }
 
+use crate::ParameterType;
 pub use midly::{
     num::{u4, u7},
     MidiMessage,
 };
-
-use crate::ParameterType;
 
 pub type MidiChannel = u8;
 

@@ -1,6 +1,8 @@
+//! The [helpers] module contains structs and methods that make it easier to use
+//! the Groove engine.
+
 use crate::{
     entities::Entity,
-    midi::programmers::MidiSmfReader,
     orchestrator::Performance,
     settings::{patches::WelshPatchSettings, songs::SongSettings},
     Orchestrator, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
@@ -11,7 +13,10 @@ use cpal::{
 };
 use crossbeam::{deque::Steal, queue::ArrayQueue};
 use groove_core::{SampleType, StereoSample};
-use groove_entities::{controllers::MidiTickSequencer, instruments::Drumkit};
+use groove_entities::{
+    controllers::{MidiSmfReader, MidiTickSequencer},
+    instruments::Drumkit,
+};
 use std::sync::{Arc, Condvar, Mutex};
 
 pub struct AudioOutput {

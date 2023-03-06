@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use super::sequencers::BeatSequencer;
 use crate::messages::EntityMessage;
 use groove_core::{

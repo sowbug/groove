@@ -2,10 +2,10 @@ use super::{
     controllers::{ControlPathSettings, ControlTripSettings},
     ClockSettings, ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
 };
-use crate::{entities::Entity, midi::programmers::PatternProgrammer, Orchestrator};
+use crate::{entities::Entity, Orchestrator};
 use anyhow::Result;
 use groove_core::{time::TimeSignature, ParameterType};
-use groove_entities::controllers::{ControlPath, ControlTrip, Note, Pattern};
+use groove_entities::controllers::{ControlPath, ControlTrip, Note, Pattern, PatternProgrammer};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 

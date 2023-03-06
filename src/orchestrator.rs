@@ -971,10 +971,14 @@ pub mod tests {
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
+        time::{BeatValue, PerfectTimeUnit, TimeSignature},
         Normal, StereoSample,
     };
-    use groove_entities::{controllers::Timer, effects::Gain};
-    use groove_toys::ToyAudioSource;
+    use groove_entities::{
+        controllers::{BeatSequencer, Note, Pattern, PatternProgrammer, Timer},
+        effects::Gain,
+    };
+    use groove_toys::{ToyAudioSource, ToyInstrument};
 
     impl Orchestrator {
         /// Warning! This method exists only as a debug shortcut to
@@ -1308,5 +1312,188 @@ pub mod tests {
     fn test_patch_fails_with_bad_id() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         assert!(o.patch(3, 2).is_err());
+    }
+
+    // TODO: a bunch of these tests belong in the entities crate, but I
+    // implemented them using Orchestrator, so they can't fit there now.
+    // Reimplement as smaller tests.
+
+    #[test]
+    fn test_pattern_default_note_value() {
+        let time_signature = TimeSignature::new_with(7, 4).expect("failed");
+        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
+        let mut programmer = PatternProgrammer::new_with(&time_signature);
+        let pattern = Pattern {
+            note_value: None,
+            notes: vec![vec![Note {
+                key: 1,
+                velocity: 127,
+                duration: PerfectTimeUnit(1.0),
+            }]],
+        };
+        programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
+
+        assert_eq!(
+            programmer.cursor(),
+            PerfectTimeUnit::from(time_signature.top)
+        );
+    }
+
+    #[test]
+    fn test_random_access() {
+        const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
+        let mut sequencer = Box::new(BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
+        let mut pattern = Pattern::<Note>::default();
+
+        const NOTE_VALUE: BeatValue = BeatValue::Quarter;
+        pattern.note_value = Some(NOTE_VALUE);
+        pattern.notes.push(vec![
+            // Normal duration
+            Note {
+                key: 1,
+                velocity: 40,
+                duration: PerfectTimeUnit(1.0),
+            },
+            // A little bit shorter
+            Note {
+                key: 2,
+                velocity: 41,
+                duration: PerfectTimeUnit(0.99),
+            },
+            // A little bit longer
+            Note {
+                key: 3,
+                velocity: 42,
+                duration: PerfectTimeUnit(1.01),
+            },
+            // Zero duration!
+            Note {
+                key: 4,
+                velocity: 43,
+                duration: PerfectTimeUnit(0.0),
+            },
+        ]);
+        programmer.insert_pattern_at_cursor(&mut sequencer, &INSTRUMENT_MIDI_CHANNEL, &pattern);
+
+        let midi_recorder = Box::new(ToyInstrument::new_with(DEFAULT_SAMPLE_RATE));
+        let midi_recorder_uid = o.add(None, Entity::ToyInstrument(midi_recorder));
+        o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
+
+        // Test recorder has seen nothing to start with.
+        // TODO assert!(midi_recorder.debug_messages.is_empty());
+
+        let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let _sequencer_uid = o.add(None, Entity::BeatSequencer(sequencer));
+
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        if let Ok(samples) = o.run(&mut sample_buffer) {
+            // We should have gotten one on and one off for each note in the
+            // pattern.
+            // TODO
+            // assert_eq!(
+            //     midi_recorder.debug_messages.len(),
+            //     pattern.notes[0].len() * 2
+            // );
+
+            // TODO sequencer.debug_dump_events();
+
+            // The comment below is incorrect; it was true when the beat sequencer
+            // ended after sending the last note event, rather than thinking in
+            // terms of full measures.
+            //
+            // WRONG: The clock should stop at the last note-off, which is 1.01
+            // WRONG: beats past the start of the third note, which started at 2.0.
+            // WRONG: Since the fourth note is zero-duration, it actually ends at 3.0,
+            // WRONG: before the third note's note-off event happens.
+            const LAST_BEAT: f64 = 4.0;
+            assert_eq!(
+                samples.len(),
+                (LAST_BEAT * 60.0 / DEFAULT_BPM * DEFAULT_SAMPLE_RATE as f64).ceil() as usize
+            );
+        } else {
+            assert!(false, "run failed");
+        }
+
+        // Start test recorder over again.
+        // TODO midi_recorder.debug_messages.clear();
+
+        // Rewind clock to start.
+        //clock.reset(clock.sample_rate());
+        let mut samples = [StereoSample::SILENCE; 1];
+        // This shouldn't explode.
+        let _ = o.tick(&mut samples);
+
+        // Only the first time slice's events should have fired.
+        // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
+
+        // Fast-forward to the end. Nothing else should fire. This is because
+        // any tick() should do work for just the slice specified.
+        //clock.debug_set_seconds(10.0);
+        let _ = o.tick(&mut samples);
+        // TODO assert_eq!(midi_recorder.debug_messages.len(), 1);
+
+        // Start test recorder over again.
+        // TODO midi_recorder.debug_messages.clear();
+
+        // Move just past first note.
+        // clock.set_samples(1); TODO: I don't think this is actually testing anything
+        // because I don't think clock was connected to orchestrator
+
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+
+        // Keep going until just before half of second beat. We should see the
+        // first note off (not on!) and the second note on/off.
+        let _ = o.add(
+            None,
+            Entity::Timer(Box::new(Timer::new_with(DEFAULT_SAMPLE_RATE, 2.0))),
+        );
+        assert!(o.run(&mut sample_buffer).is_ok());
+        // TODO assert_eq!(midi_recorder.debug_messages.len(), 3);
+
+        // Keep ticking through start of second beat. Should see one more event:
+        // #3 on.
+        assert!(o.run(&mut sample_buffer).is_ok());
+        // TODO dbg!(&midi_recorder.debug_messages);
+        // TODO assert_eq!(midi_recorder.debug_messages.len(), 4);
+    }
+
+    // A pattern of all zeroes should last as long as a pattern of nonzeroes.
+    #[test]
+    fn test_empty_pattern() {
+        let time_signature = TimeSignature::default();
+        let mut sequencer = Box::new(BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut programmer = PatternProgrammer::new_with(&time_signature);
+
+        let note_pattern = vec![Note {
+            key: 0,
+            velocity: 127,
+            duration: PerfectTimeUnit(1.0),
+        }];
+        let pattern = Pattern {
+            note_value: Some(BeatValue::Quarter),
+            notes: vec![note_pattern],
+        };
+
+        assert_eq!(pattern.notes.len(), 1); // one track of notes
+        assert_eq!(pattern.notes[0].len(), 1); // one note in track
+
+        programmer.insert_pattern_at_cursor(&mut sequencer, &0, &pattern);
+        assert_eq!(
+            programmer.cursor(),
+            PerfectTimeUnit::from(time_signature.top)
+        );
+        assert_eq!(sequencer.debug_events().len(), 0);
+
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
+        let _ = o.add(None, Entity::BeatSequencer(sequencer));
+        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        if let Ok(result) = o.run(&mut sample_buffer) {
+            assert_eq!(
+                result.len(),
+                ((60.0 * 4.0 / DEFAULT_BPM) * DEFAULT_SAMPLE_RATE as f64).ceil() as usize
+            );
+        }
     }
 }

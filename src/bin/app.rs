@@ -4,9 +4,11 @@ mod gui;
 
 use groove::{
     app_version,
-    engine::{GrooveEvent, GrooveInput, GrooveSubscription},
     messages::GrooveMessage,
-    midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription},
+    subscriptions::{
+        EngineEvent, EngineInput, EngineSubscription, MidiHandler, MidiHandlerEvent,
+        MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
+    },
     Entity, Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::{
@@ -82,7 +84,7 @@ struct GrooveApp {
 
     // Model
     project_title: Option<String>,
-    orchestrator_sender: Option<mpsc::Sender<GrooveInput>>,
+    orchestrator_sender: Option<mpsc::Sender<EngineInput>>,
     orchestrator: Arc<Mutex<Orchestrator>>,
     clock_mirror: Clock, // this clock is just a cache of the real clock in Orchestrator.
     time_signature_mirror: TimeSignature, // same
@@ -148,7 +150,7 @@ pub enum AppMessage {
     PrefsSaved(Result<(), SaveError>),
     ControlBarMessage(ControlBarMessage),
     GrooveMessage(GrooveMessage),
-    GrooveEvent(GrooveEvent),
+    EngineEvent(EngineEvent),
     MidiHandlerMessage(MidiHandlerMessage),
     MidiHandlerEvent(MidiHandlerEvent),
     Tick(Instant),
@@ -212,18 +214,18 @@ impl Application for GrooveApp {
                 // midi
                 ControlBarMessage::Play => {
                     if self.reached_end_of_playback {
-                        self.post_to_orchestrator(GrooveInput::SkipToStart);
+                        self.post_to_orchestrator(EngineInput::SkipToStart);
                         self.reached_end_of_playback = false;
                     }
-                    self.post_to_orchestrator(GrooveInput::Play);
+                    self.post_to_orchestrator(EngineInput::Play);
                     self.state = State::Playing
                 }
                 ControlBarMessage::Stop => {
-                    self.post_to_orchestrator(GrooveInput::Pause);
+                    self.post_to_orchestrator(EngineInput::Pause);
                     self.reached_end_of_playback = false;
                     match self.state {
                         State::Idle => {
-                            self.post_to_orchestrator(GrooveInput::SkipToStart);
+                            self.post_to_orchestrator(EngineInput::SkipToStart);
                         }
                         State::Playing => self.state = State::Idle,
                     }
@@ -231,7 +233,7 @@ impl Application for GrooveApp {
                 ControlBarMessage::SkipToStart => todo!(),
                 ControlBarMessage::Bpm(value) => {
                     if let Ok(bpm) = value.parse() {
-                        self.post_to_orchestrator(GrooveInput::SetBpm(bpm));
+                        self.post_to_orchestrator(EngineInput::SetBpm(bpm));
                     }
                 }
             },
@@ -256,8 +258,8 @@ impl Application for GrooveApp {
                     panic!("We send this. A coding error exists if we receive it.")
                 }
             },
-            AppMessage::GrooveEvent(event) => match event {
-                GrooveEvent::Ready(sender, orchestrator) => {
+            AppMessage::EngineEvent(event) => match event {
+                EngineEvent::Ready(sender, orchestrator) => {
                     self.orchestrator_sender = Some(sender);
                     self.orchestrator = orchestrator.clone();
                     self.gui_state.set_orchestrator(orchestrator);
@@ -268,27 +270,27 @@ impl Application for GrooveApp {
                     if self.preferences.should_reload_last_project {
                         if let Some(last_project_filename) = &self.preferences.last_project_filename
                         {
-                            self.post_to_orchestrator(GrooveInput::LoadProject(
+                            self.post_to_orchestrator(EngineInput::LoadProject(
                                 last_project_filename.to_string(),
                             ));
                         }
                     }
                 }
-                GrooveEvent::SetClock(samples) => self.clock_mirror.seek(samples),
-                GrooveEvent::SetBpm(bpm) => self.clock_mirror.set_bpm(bpm),
-                GrooveEvent::SetTimeSignature(time_signature) => {
+                EngineEvent::SetClock(samples) => self.clock_mirror.seek(samples),
+                EngineEvent::SetBpm(bpm) => self.clock_mirror.set_bpm(bpm),
+                EngineEvent::SetTimeSignature(time_signature) => {
                     self.time_signature_mirror = time_signature;
                 }
-                GrooveEvent::MidiToExternal(channel, message) => {
+                EngineEvent::MidiToExternal(channel, message) => {
                     self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
                 }
-                GrooveEvent::AudioOutput(_) => todo!(),
-                GrooveEvent::OutputComplete => {
+                EngineEvent::AudioOutput(_) => todo!(),
+                EngineEvent::OutputComplete => {
                     self.reached_end_of_playback = true;
                     self.state = State::Idle;
                 }
-                GrooveEvent::Quit => todo!(),
-                GrooveEvent::ProjectLoaded(filename, title) => {
+                EngineEvent::Quit => todo!(),
+                EngineEvent::ProjectLoaded(filename, title) => {
                     self.preferences.last_project_filename = Some(filename);
                     self.project_title = title;
                 }
@@ -347,7 +349,7 @@ impl Application for GrooveApp {
             window::frames().map(AppMessage::Tick),
         ];
         if self.is_pref_load_complete {
-            v.push(GrooveSubscription::subscription().map(AppMessage::GrooveEvent));
+            v.push(EngineSubscription::subscription().map(AppMessage::EngineEvent));
         }
         Subscription::batch(v)
     }
@@ -409,7 +411,7 @@ impl GrooveApp {
         }
     }
 
-    fn post_to_orchestrator(&mut self, input: GrooveInput) {
+    fn post_to_orchestrator(&mut self, input: EngineInput) {
         if let Some(sender) = self.orchestrator_sender.as_mut() {
             // TODO: deal with this
             let _ = sender.try_send(input);
@@ -1003,7 +1005,7 @@ impl GrooveApp {
         //
         // This is needed to stop an ALSA buffer underrun on close
         self.post_to_midi_handler(MidiHandlerInput::QuitRequested);
-        self.post_to_orchestrator(GrooveInput::QuitRequested);
+        self.post_to_orchestrator(EngineInput::QuitRequested);
 
         // Let the PrefsSaved message handler know that it's time to go.
         self.should_exit = true;
