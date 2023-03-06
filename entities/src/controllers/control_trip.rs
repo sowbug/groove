@@ -195,7 +195,7 @@ mod tests {
             steps: step_vec,
         };
 
-        // let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        // let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         // let effect_uid = o.add(
         //     None,
         //     Entity::ToyEffect(Box::new(ToyEffect::new_with_test_values(
@@ -255,7 +255,7 @@ mod tests {
             steps: step_vec,
         };
 
-        // let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        // let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         // let instrument = Box::new(ToyInstrument::new_with_test_values(
         //     DEFAULT_SAMPLE_RATE,
         //     INTERPOLATED_VALUES,
