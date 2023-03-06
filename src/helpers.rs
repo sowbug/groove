@@ -1,9 +1,9 @@
 use crate::{
-    controllers::{Orchestrator, Performance},
     entities::Entity,
     midi::programmers::MidiSmfReader,
+    orchestrator::Performance,
     settings::{patches::WelshPatchSettings, songs::SongSettings},
-    DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
+    Orchestrator, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},

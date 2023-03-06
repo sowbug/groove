@@ -4,10 +4,9 @@
 
 // TODO: regularly scrutinize the re-exports and make sure they really should be
 // top-level
-pub use controllers::Orchestrator;
 pub use entities::Entity;
+pub use orchestrator::Orchestrator;
 
-pub mod controllers;
 pub mod engine;
 pub mod helpers;
 pub mod instruments;
@@ -16,6 +15,7 @@ pub mod midi;
 
 pub(crate) mod entities;
 pub(crate) mod metrics;
+pub(crate) mod orchestrator;
 pub(crate) mod settings;
 pub(crate) mod utils;
 

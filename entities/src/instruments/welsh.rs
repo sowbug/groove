@@ -1,4 +1,4 @@
-use super::{synthesizer::Synthesizer, PlaysNotesEventTracker};
+use super::synthesizer::Synthesizer;
 use crate::effects::BiQuadFilter;
 use groove_core::{
     generators::{Envelope, Oscillator},
@@ -39,8 +39,9 @@ pub struct WelshVoice {
     filter_cutoff_end: f32,
     filter_envelope: Envelope,
 
-    is_playing: bool,
-    event_tracker: PlaysNotesEventTracker,
+    note_on_key: u8,
+    note_on_velocity: u8,
+    steal_is_underway: bool,
 
     sample: StereoSample,
     ticks: usize,
@@ -49,23 +50,26 @@ impl IsStereoSampleVoice for WelshVoice {}
 impl IsVoice<StereoSample> for WelshVoice {}
 impl PlaysNotes for WelshVoice {
     fn is_playing(&self) -> bool {
-        self.is_playing
-    }
-    fn has_pending_events(&self) -> bool {
-        self.event_tracker.has_pending_events()
+        !self.amp_envelope.is_idle()
     }
     fn note_on(&mut self, key: u8, velocity: u8) {
-        if self.is_active() {
-            self.event_tracker.enqueue_steal(key, velocity);
+        if self.is_playing() {
+            self.steal_is_underway = true;
+            self.note_on_key = key;
+            self.note_on_velocity = velocity;
+            self.amp_envelope.trigger_shutdown();
         } else {
-            self.event_tracker.enqueue_note_on(key, velocity);
+            self.amp_envelope.trigger_attack();
+            self.filter_envelope.trigger_attack();
+            self.set_frequency_hz(note_to_frequency(key));
         }
     }
-    fn aftertouch(&mut self, velocity: u8) {
-        self.event_tracker.enqueue_aftertouch(velocity);
+    fn aftertouch(&mut self, _velocity: u8) {
+        // TODO: do something
     }
-    fn note_off(&mut self, velocity: u8) {
-        self.event_tracker.enqueue_note_off(velocity);
+    fn note_off(&mut self, _velocity: u8) {
+        self.amp_envelope.trigger_release();
+        self.filter_envelope.trigger_release();
     }
     fn set_pan(&mut self, value: f32) {
         self.dca.set_pan(BipolarNormal::from(value))
@@ -88,14 +92,12 @@ impl Resets for WelshVoice {
         self.oscillators
             .iter_mut()
             .for_each(|o| o.reset(sample_rate));
-        self.event_tracker.reset();
     }
 }
 impl Ticks for WelshVoice {
     fn tick(&mut self, tick_count: usize) {
         for _ in 0..tick_count {
             self.ticks += 1;
-            self.handle_pending_note_events();
             // It's important for the envelope tick() methods to be called after
             // their handle_note_* methods are called, but before we check whether
             // amp_envelope.is_idle(), because the tick() methods are what determine
@@ -180,73 +182,21 @@ impl Ticks for WelshVoice {
     }
 }
 impl WelshVoice {
-    fn handle_pending_note_events(&mut self) {
-        if self.event_tracker.steal_is_pending {
-            self.handle_steal_event();
-        } else if self.event_tracker.steal_is_underway {
-            // We don't want any interruptions
-        } else {
-            if self.event_tracker.note_on_is_pending && self.event_tracker.note_off_is_pending {
-                // Handle the case where both are pending at the same time.
-                if self.is_playing {
-                    self.handle_note_off_event();
-                    self.handle_note_on_event();
-                } else {
-                    self.handle_note_on_event();
-                    self.handle_note_off_event();
-                }
-            } else {
-                if self.event_tracker.note_off_is_pending {
-                    self.handle_note_off_event();
-                }
-                if self.event_tracker.note_on_is_pending {
-                    self.handle_note_on_event();
-                }
-            }
-            if self.event_tracker.aftertouch_is_pending {
-                self.handle_aftertouch_event();
-            }
-        }
-        self.event_tracker.clear_pending();
-    }
-
     fn tick_envelopes(&mut self) -> (Normal, Normal) {
+        let was_playing = self.is_playing();
         self.amp_envelope.tick(1);
         let amp_amplitude = self.amp_envelope.value();
         self.filter_envelope.tick(1);
         let filter_amplitude = self.filter_envelope.value();
 
-        // TODO: I think this is setting is_playing a tick too early, but when I
-        // moved it, it broke something else (the synth was deleting the note
-        // because it no longer appeared to be playing). Fragile. Fix.
-        let is_playing = self.is_playing;
-        self.is_playing = !self.amp_envelope.is_idle();
-
-        if is_playing && !self.is_playing {
-            self.event_tracker.handle_steal_end();
+        if was_playing && !self.is_playing() {
+            if self.steal_is_underway {
+                self.steal_is_underway = false;
+                self.note_on(self.note_on_key, self.note_on_velocity);
+            }
         }
 
         (amp_amplitude, filter_amplitude)
-    }
-
-    fn handle_note_on_event(&mut self) {
-        self.amp_envelope.trigger_attack();
-        self.filter_envelope.trigger_attack();
-        self.set_frequency_hz(note_to_frequency(self.event_tracker.note_on_key));
-    }
-
-    fn handle_steal_event(&mut self) {
-        self.event_tracker.handle_steal_start();
-        self.amp_envelope.trigger_shutdown();
-    }
-
-    fn handle_aftertouch_event(&mut self) {
-        // TODO: do something
-    }
-
-    fn handle_note_off_event(&mut self) {
-        self.amp_envelope.trigger_release();
-        self.filter_envelope.trigger_release();
     }
 
     fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {
@@ -283,10 +233,11 @@ impl WelshVoice {
             filter_cutoff_start,
             filter_cutoff_end,
             filter_envelope,
-            is_playing: Default::default(),
-            event_tracker: Default::default(),
             sample: Default::default(),
             ticks: Default::default(),
+            note_on_key: Default::default(),
+            note_on_velocity: Default::default(),
+            steal_is_underway: Default::default(),
         }
     }
 }
@@ -406,13 +357,11 @@ mod tests {
             if clock.seconds() >= 0.0 && last_recognized_time_point < 0.0 {
                 last_recognized_time_point = clock.seconds();
                 voice.note_on(60, 127);
-                voice.handle_pending_note_events();
                 voice.tick_envelopes();
             } else if clock.seconds() >= time_note_off && last_recognized_time_point < time_note_off
             {
                 last_recognized_time_point = clock.seconds();
                 voice.note_off(127);
-                voice.handle_pending_note_events();
                 voice.tick_envelopes();
             }
 

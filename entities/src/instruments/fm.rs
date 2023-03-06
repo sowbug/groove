@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{synthesizer::Synthesizer, PlaysNotesEventTracker};
+use super::synthesizer::Synthesizer;
 use groove_core::{
     generators::{Envelope, Oscillator},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
@@ -23,34 +23,35 @@ pub struct FmVoice {
     envelope: Envelope,
     dca: Dca,
 
-    is_playing: bool,
-    event_tracker: PlaysNotesEventTracker,
+    note_on_key: u8,
+    note_on_velocity: u8,
+    steal_is_underway: bool,
 }
 impl IsStereoSampleVoice for FmVoice {}
 impl IsVoice<StereoSample> for FmVoice {}
 impl PlaysNotes for FmVoice {
     fn is_playing(&self) -> bool {
-        self.is_playing
-    }
-
-    fn has_pending_events(&self) -> bool {
-        self.event_tracker.has_pending_events()
+        !self.envelope.is_idle()
     }
 
     fn note_on(&mut self, key: u8, velocity: u8) {
-        if self.is_active() {
-            self.event_tracker.enqueue_steal(key, velocity);
+        if self.is_playing() {
+            self.steal_is_underway = true;
+            self.note_on_key = key;
+            self.note_on_velocity = velocity;
+            self.envelope.trigger_shutdown();
         } else {
-            self.event_tracker.enqueue_note_on(key, velocity);
+            self.set_frequency_hz(note_to_frequency(key));
+            self.envelope.trigger_attack();
         }
     }
 
-    fn aftertouch(&mut self, velocity: u8) {
-        self.event_tracker.enqueue_aftertouch(velocity);
+    fn aftertouch(&mut self, _velocity: u8) {
+        todo!()
     }
 
-    fn note_off(&mut self, velocity: u8) {
-        self.event_tracker.enqueue_note_off(velocity);
+    fn note_off(&mut self, _velocity: u8) {
+        self.envelope.trigger_release();
     }
 
     fn set_pan(&mut self, value: f32) {
@@ -59,7 +60,7 @@ impl PlaysNotes for FmVoice {
 }
 impl Generates<StereoSample> for FmVoice {
     fn value(&self) -> StereoSample {
-        todo!()
+        self.sample
     }
 
     #[allow(unused_variables)]
@@ -72,12 +73,11 @@ impl Resets for FmVoice {
         self.envelope.reset(sample_rate);
         self.carrier.reset(sample_rate);
         self.modulator.reset(sample_rate);
-        self.event_tracker.reset();
     }
 }
 impl Ticks for FmVoice {
     fn tick(&mut self, tick_count: usize) {
-        self.handle_pending_note_events();
+        let was_playing = self.is_playing();
         self.carrier.set_frequency_modulation(BipolarNormal::from(
             self.modulator.value() * self.modulator_depth,
         ));
@@ -85,10 +85,11 @@ impl Ticks for FmVoice {
         self.carrier.tick(tick_count);
         self.modulator.tick(tick_count);
         let r = self.carrier.value() * self.envelope.value().value();
-        let is_playing = self.is_playing;
-        self.is_playing = !self.envelope.is_idle();
-        if is_playing && !self.is_playing {
-            self.event_tracker.handle_steal_end();
+        if was_playing && !self.is_playing() {
+            if self.steal_is_underway {
+                self.steal_is_underway = false;
+                self.note_on(self.note_on_key, self.note_on_velocity);
+            }
         }
         self.sample = self.dca.transform_audio_to_stereo(Sample(r));
     }
@@ -102,8 +103,9 @@ impl FmVoice {
             modulator_depth: 0.2,
             envelope: Envelope::new_with(sample_rate, 0.1, 0.1, Normal::new(0.8), 0.25),
             dca: Default::default(),
-            is_playing: Default::default(),
-            event_tracker: Default::default(),
+            note_on_key: Default::default(),
+            note_on_velocity: Default::default(),
+            steal_is_underway: Default::default(),
         }
     }
 
@@ -116,50 +118,6 @@ impl FmVoice {
         let mut r = Self::new_with(sample_rate);
         r.modulator = modulator;
         r
-    }
-    fn handle_pending_note_events(&mut self) {
-        if self.event_tracker.steal_is_pending {
-            self.handle_steal_event();
-        }
-        if self.event_tracker.note_on_is_pending && self.event_tracker.note_off_is_pending {
-            // Handle the case where both are pending at the same time.
-            if self.is_playing {
-                self.handle_note_off_event();
-                self.handle_note_on_event();
-            } else {
-                self.handle_note_on_event();
-                self.handle_note_off_event();
-            }
-        } else {
-            if self.event_tracker.note_off_is_pending {
-                self.handle_note_off_event();
-            }
-            if self.event_tracker.note_on_is_pending {
-                self.handle_note_on_event();
-            }
-        }
-        if self.event_tracker.aftertouch_is_pending {
-            self.handle_aftertouch_event();
-        }
-        self.event_tracker.clear_pending();
-    }
-
-    fn handle_note_on_event(&mut self) {
-        self.set_frequency_hz(note_to_frequency(self.event_tracker.note_on_key));
-        self.envelope.trigger_attack();
-    }
-
-    fn handle_aftertouch_event(&mut self) {
-        // TODO: do something
-    }
-
-    fn handle_note_off_event(&mut self) {
-        self.envelope.trigger_release();
-    }
-
-    fn handle_steal_event(&mut self) {
-        self.event_tracker.handle_steal_start();
-        self.envelope.trigger_shutdown();
     }
 
     #[allow(dead_code)]

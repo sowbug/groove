@@ -4,13 +4,12 @@ pub(crate) mod instruments;
 pub(crate) mod patches;
 pub(crate) mod songs;
 
-use crate::controllers::Orchestrator;
-
 use self::{
     controllers::{ControlTargetSettings, ControllerSettings},
     effects::EffectSettings,
     instruments::InstrumentSettings,
 };
+use crate::Orchestrator;
 use groove_core::{
     time::{BeatValue, Clock, PerfectTimeUnit, TimeSignature},
     ParameterType,

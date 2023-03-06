@@ -4,7 +4,7 @@ use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     generators::{Envelope, Oscillator, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
-    BipolarNormal, Normal, ParameterType,
+    Normal, ParameterType,
 };
 use groove_entities::{
     effects::{BiQuadFilter, FilterParams},

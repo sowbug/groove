@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use super::{synthesizer::Synthesizer, voice_stores::VoiceStore};
 use anyhow::{anyhow, Result};
 use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
@@ -15,8 +16,6 @@ use std::{
     sync::Arc,
 };
 use strum_macros::{Display, EnumString, FromRepr};
-
-use super::{synthesizer::Synthesizer, voice_stores::VoiceStore};
 
 #[derive(Debug)]
 pub(crate) struct SamplerVoice {
@@ -36,10 +35,6 @@ impl IsStereoSampleVoice for SamplerVoice {}
 impl PlaysNotes for SamplerVoice {
     fn is_playing(&self) -> bool {
         self.is_playing
-    }
-
-    fn has_pending_events(&self) -> bool {
-        false
     }
 
     #[allow(unused_variables)]

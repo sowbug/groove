@@ -34,7 +34,7 @@ impl<V: IsStereoSampleVoice> StoresVoices for VoiceStore<V> {
         }
         // If we can find an inactive voice, return it.
         for (index, voice) in self.voices.iter().enumerate() {
-            if voice.is_active() {
+            if voice.is_playing() {
                 continue;
             }
             self.notes_playing[index] = *key;
@@ -72,7 +72,7 @@ impl<V: IsStereoSampleVoice> Ticks for VoiceStore<V> {
         self.voices.iter_mut().for_each(|v| v.tick(tick_count));
         self.sample = self.voices.iter().map(|v| v.value()).sum();
         self.voices.iter().enumerate().for_each(|(index, voice)| {
-            if !voice.is_active() {
+            if !voice.is_playing() {
                 self.notes_playing[index] = u7::from(0);
             }
         });
@@ -131,7 +131,7 @@ impl<V: IsStereoSampleVoice> StoresVoices for StealingVoiceStore<V> {
         }
         // If we can find an inactive voice, return it.
         for (index, voice) in self.voices.iter().enumerate() {
-            if voice.is_active() {
+            if voice.is_playing() {
                 continue;
             }
             self.notes_playing[index] = *key;
@@ -175,14 +175,14 @@ impl<V: IsStereoSampleVoice> Ticks for StealingVoiceStore<V> {
         self.voices.iter_mut().for_each(|v| v.tick(tick_count));
         self.sample = self.voices.iter().map(|v| v.value()).sum();
         self.voices.iter().enumerate().for_each(|(index, voice)| {
-            if !voice.is_active() {
+            if !voice.is_playing() {
                 self.notes_playing[index] = u7::from(0);
             }
         });
     }
 }
 impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
-    #[deprecated]
+    #[deprecated(note = "private use is OK. Prefer new_with_voice instead")]
     fn new_with(_sample_rate: usize) -> Self {
         Self {
             sample: Default::default(),
@@ -202,7 +202,9 @@ impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
         voice_store
     }
 
-    #[deprecated]
+    #[deprecated(
+        note = "private use is OK. Prefer new_with_voice instead, which calls add_voice for you"
+    )]
     fn add_voice(&mut self, voice: Box<V>) {
         self.voices.push(voice);
         self.notes_playing.push(u7::from(0));
@@ -374,21 +376,19 @@ mod tests {
         // Request multiple voices during the same tick.
         if let Ok(voice) = voice_store.get_voice(&u7::from(60)) {
             voice.note_on(60, 127);
-            assert!(!voice.is_playing(), "New voice shouldn't be marked is_playing() until both attack() and the next source_audio() have completed");
+            assert!(
+                voice.is_playing(),
+                "New voice should be marked is_playing() immediately after attack()"
+            );
         }
         if let Ok(voice) = voice_store.get_voice(&u7::from(61)) {
             voice.note_on(61, 127);
-            assert!(!voice.is_playing(), "New voice shouldn't be marked is_playing() until both attack() and the next source_audio() have completed");
+            assert!(
+                voice.is_playing(),
+                "New voice should be marked is_playing() immediately after attack()"
+            );
         }
 
-        // To beat a dead horse, pending operations like attack() and release()
-        // aren't fulfilled until the next tick, which happens as part of
-        // source_audio().
-        assert_eq!(
-            voice_store.active_voice_count(),
-            0,
-            "voices shouldn't be marked as playing until next source_audio()"
-        );
         voice_store.tick(1);
         assert_eq!(voice_store.active_voice_count(), 2, "voices with pending attacks() should have been handled, and they should now be is_playing()");
 
