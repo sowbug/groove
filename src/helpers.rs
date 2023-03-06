@@ -232,9 +232,9 @@ impl IOHelper {
         Ok(settings)
     }
 
-    pub fn orchestrator_from_midi_file(filename: &str) -> Box<Orchestrator> {
+    pub fn orchestrator_from_midi_file(filename: &str) -> Orchestrator {
         // TODO: where do BPM, time signature, etc. come from?
-        let mut orchestrator = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut orchestrator = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
 
         let data = std::fs::read(filename).unwrap();
         let mut sequencer = Box::new(MidiTickSequencer::new_with(
@@ -243,7 +243,6 @@ impl IOHelper {
         ));
         MidiSmfReader::program_sequencer(&mut sequencer, &data);
         let sequencer_uid = orchestrator.add(None, Entity::MidiTickSequencer(sequencer));
-        orchestrator.connect_midi_upstream(sequencer_uid);
 
         // TODO: this is a hack. We need only the number of channels used in the
         // SMF, but a few idle ones won't hurt for now.

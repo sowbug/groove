@@ -108,10 +108,7 @@ pub mod tests {
             DEFAULT_BPM,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         );
-        let mut o = Box::new(Orchestrator::new_with(
-            clock.sample_rate(),
-            clock.bpm() as ParameterType,
-        ));
+        let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm() as ParameterType);
 
         // A simple audio source.
         let synth_uid = o.add(
@@ -172,10 +169,7 @@ pub mod tests {
             DEFAULT_BPM,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         );
-        let mut o = Box::new(Orchestrator::new_with(
-            clock.sample_rate(),
-            clock.bpm() as ParameterType,
-        ));
+        let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm() as ParameterType);
 
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(
@@ -232,7 +226,7 @@ pub mod tests {
     fn midi_routing_works() {
         const TEST_MIDI_CHANNEL: MidiChannel = 7;
         const ARP_MIDI_CHANNEL: MidiChannel = 5;
-        let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(
@@ -339,7 +333,7 @@ pub mod tests {
 
     #[test]
     fn test_groove_can_be_instantiated_in_new_generic_world() {
-        let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
 
         // A simple audio source.
         let entity_groove = Entity::ToySynth(Box::new(ToySynth::new_with(DEFAULT_SAMPLE_RATE)));

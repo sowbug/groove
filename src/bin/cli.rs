@@ -66,16 +66,14 @@ fn main() -> anyhow::Result<()> {
 
             // TODO: this is temporary, to return the right type
             #[cfg(not(feature = "scripting"))]
-            Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM))
+            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM)
         } else if input_filename.ends_with(".yaml")
             || input_filename.ends_with(".yml")
             || input_filename.ends_with(".nsn")
         {
             let start_instant = Instant::now();
-            let r = Box::new(
-                IOHelper::song_settings_from_yaml_file(input_filename.as_str())?
-                    .instantiate(args.debug)?,
-            );
+            let r = IOHelper::song_settings_from_yaml_file(input_filename.as_str())?
+                .instantiate(args.debug)?;
             if args.perf {
                 println!(
                     "Orchestrator instantiation time: {:.2?}",
@@ -84,7 +82,7 @@ fn main() -> anyhow::Result<()> {
             }
             r
         } else {
-            Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM))
+            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM)
         };
 
         orchestrator.set_enable_dev_experiment(args.debug);

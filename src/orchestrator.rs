@@ -227,7 +227,6 @@ impl Orchestrator {
         Ok(()) // TODO: do we ever care about this result?
     }
 
-    #[allow(dead_code)]
     pub(crate) fn connect_to_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
         self.patch(source_uid, self.main_mixer_uid)
     }
@@ -357,9 +356,6 @@ impl Orchestrator {
         }
     }
 
-    #[allow(unused_variables)]
-    pub(crate) fn connect_midi_upstream(&self, source_uid: usize) {}
-
     pub fn connect_midi_downstream(
         &mut self,
         receiver_uid: usize,
@@ -445,7 +441,6 @@ impl Orchestrator {
             Some(Orchestrator::BEAT_SEQUENCER_UVID),
             Entity::BeatSequencer(Box::new(BeatSequencer::new_with(sample_rate, bpm))),
         );
-        r.connect_midi_upstream(r.beat_sequencer_uid);
 
         r
     }
@@ -893,15 +888,15 @@ pub mod tests {
     use super::Orchestrator;
     use crate::{
         entities::Entity,
-        {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
+        DEFAULT_MIDI_TICKS_PER_SECOND, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
-        time::{BeatValue, PerfectTimeUnit, TimeSignature},
+        time::{BeatValue, Clock, PerfectTimeUnit, TimeSignature},
         Normal, StereoSample,
     };
     use groove_entities::{
-        controllers::{BeatSequencer, Note, Pattern, PatternProgrammer, Timer},
+        controllers::{Arpeggiator, BeatSequencer, Note, Pattern, PatternProgrammer, Timer},
         effects::Gain,
     };
     use groove_toys::{ToyAudioSource, ToyInstrument};
@@ -1310,7 +1305,7 @@ pub mod tests {
         // Test recorder has seen nothing to start with.
         // TODO assert!(midi_recorder.debug_messages.is_empty());
 
-        let mut o = Box::new(Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _sequencer_uid = o.add(None, Entity::BeatSequencer(sequencer));
 
         let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -1420,6 +1415,75 @@ pub mod tests {
                 result.len(),
                 ((60.0 * 4.0 / DEFAULT_BPM) * DEFAULT_SAMPLE_RATE as f64).ceil() as usize
             );
+        }
+    }
+
+    // Orchestrator sends a Tick message to everyone in an undefined order, and
+    // routes the resulting messages to everyone in yet another undefined order.
+    // This causes a problem. If we have a sequencer driving an arpeggiator, and
+    // the two together are supposed to play a note at Time 0, then it's
+    // possible that the events will happen as follows:
+    //
+    // Tick to Arp -> nothing emitted, because it's not playing Tick to
+    // Sequencer -> emit Midi, delivered straight to Arp
+    //
+    // and that's pretty much it, because the event loop is done. Worse, the Arp
+    // will never send the note-on MIDI message to its downstream instrument(s),
+    // because by the time of its next Tick (when it calculates when to send
+    // stuff), it's Time 1, but the note should have been sent at Time 0, so
+    // that note-on is skipped.
+    #[test]
+    fn sequencer_to_arp_to_instrument_works() {
+        let clock = Clock::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_BPM,
+            DEFAULT_MIDI_TICKS_PER_SECOND,
+        );
+        let mut sequencer = Box::new(BeatSequencer::new_with(clock.sample_rate(), clock.bpm()));
+        const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
+        const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
+        let arpeggiator = Box::new(Arpeggiator::new_with(
+            clock.sample_rate(),
+            clock.bpm(),
+            MIDI_CHANNEL_ARP_TO_INSTRUMENT,
+        ));
+        let instrument = Box::new(ToyInstrument::new_with(clock.sample_rate()));
+        let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm());
+
+        sequencer.insert(
+            PerfectTimeUnit(0.0),
+            MIDI_CHANNEL_SEQUENCER_TO_ARP,
+            MidiMessage::NoteOn {
+                key: 99.into(),
+                vel: 88.into(),
+            },
+        );
+
+        let _sequencer_uid = o.add(None, Entity::BeatSequencer(sequencer));
+        let arpeggiator_uid = o.add(None, Entity::Arpeggiator(arpeggiator));
+        o.connect_midi_downstream(arpeggiator_uid, MIDI_CHANNEL_SEQUENCER_TO_ARP);
+        let instrument_uid = o.add(None, Entity::ToyInstrument(instrument));
+        o.connect_midi_downstream(instrument_uid, MIDI_CHANNEL_ARP_TO_INSTRUMENT);
+
+        let _ = o.connect_to_main_mixer(instrument_uid);
+        let mut buffer = [StereoSample::SILENCE; 64];
+        let performance = o.run(&mut buffer);
+        if let Ok(samples) = performance {
+            assert!(samples.iter().any(|s| *s != StereoSample::SILENCE));
+
+            // TODO: this assertion fails for serious reasons: Orchestrator
+            // calls entity tick() methods in arbitrary order, so depending on
+            // how the hash-table gods are feeling, the sequencer might trigger
+            // the arp on this cycle, or the arp might run first and decide
+            // there's nothing to do. If we want to get this right, then either
+            // there's an iterative step where we keep dispatching messages
+            // until there are no more (and risk cycles), or beforehand we
+            // determine the dependency graph (and detect cycles), and then call
+            // everyone in the right order.
+            #[cfg(disabled)]
+            assert_ne!(samples[0], StereoSample::SILENCE, "if the sequencer drove the arp, and the arp drove the instrument, then we should hear sound on sample #0");
+        } else {
+            panic!("run failed");
         }
     }
 }
