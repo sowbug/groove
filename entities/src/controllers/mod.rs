@@ -2,12 +2,6 @@
 
 pub use arpeggiator::Arpeggiator;
 pub use control_trip::{ControlPath, ControlStep, ControlTrip};
-use groove_core::{
-    midi::HandlesMidi,
-    traits::{IsController, IsEffect, Resets, TicksWithMessages, TransformsAudio},
-    BipolarNormal, Sample, StereoSample,
-};
-use groove_macros::{Control, Uid};
 pub use lfo::LfoController;
 pub use patterns::{Note, Pattern, PatternManager, PatternMessage, PatternProgrammer};
 pub use sequencers::{BeatSequencer, MidiSmfReader, MidiTickSequencer};
@@ -19,6 +13,12 @@ mod patterns;
 mod sequencers;
 
 use crate::EntityMessage;
+use groove_core::{
+    midi::HandlesMidi,
+    traits::{IsController, IsEffect, Resets, TicksWithMessages, TransformsAudio},
+    BipolarNormal, Sample, StereoSample,
+};
+use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
