@@ -47,7 +47,7 @@ impl Performance {
 /// and control relationships. When you're ready to render a song, it creates a
 /// stream of [StereoSample]s that can be fed to the computer's sound card or
 /// exported as a WAV file.
-/// 
+///
 /// It's not necessary to use [Orchestrator] to take advantage of this crate's
 /// musical capabilities, but all the entities were designed to work smoothly
 /// with it.
@@ -236,10 +236,7 @@ impl Orchestrator {
     /// TODO: when we get more interactive, we'll need to think more
     /// transactionally, and validate the whole chain before plugging in
     /// anything.
-    pub fn patch_chain_to_main_mixer(
-        &mut self,
-        entity_uids: &[usize],
-    ) -> anyhow::Result<()> {
+    pub fn patch_chain_to_main_mixer(&mut self, entity_uids: &[usize]) -> anyhow::Result<()> {
         let mut previous_entity_uid = None;
         for &entity_uid in entity_uids {
             if let Some(previous_uid) = previous_entity_uid {
