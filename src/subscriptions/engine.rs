@@ -3,17 +3,19 @@
 //! The [engine] module contains the main interface, a Subscription, between the
 //! Iced app and the Groove engine.
 
-use crate::{
-    helpers::{AudioOutput, IOHelper},
-    messages::{GrooveEvent, GrooveInput, Internal, Response},
-    Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
-};
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{Clock, TimeSignature},
     traits::Resets,
+    util::Paths,
     ParameterType, StereoSample,
 };
+use groove_orchestration::{
+    helpers::{AudioOutput, IOHelper},
+    messages::{GrooveEvent, GrooveInput, Internal, Response},
+    Orchestrator,
+};
+use groove_settings::SongSettings;
 use iced::futures::channel::mpsc;
 use iced_native::subscription::{self, Subscription};
 use std::{
@@ -21,6 +23,8 @@ use std::{
     thread::JoinHandle,
     time::{Duration, Instant},
 };
+
+use crate::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
 
 enum State {
     Start,
@@ -192,7 +196,7 @@ impl Runner {
                     EngineInput::LoadProject(filename) => {
                         self.clock.reset(self.clock.sample_rate());
                         is_playing = false;
-                        messages.push(GrooveInput::LoadProject(filename));
+                        self.load_project(filename);
                     }
                     EngineInput::Play => is_playing = true,
                     EngineInput::Pause => is_playing = false,
@@ -218,10 +222,9 @@ impl Runner {
                 }
             }
 
-            // Forward any messages that were meant for Orchestrator.
-            // Any responses we get at this point are to messages that aren't
-            // Tick, so we can ignore the return values from
-            // send_pending_messages().
+            // Forward any messages that were meant for Orchestrator. Any
+            // responses we get at this point are to messages that aren't Tick,
+            // so we can ignore the return values from send_pending_messages().
             while let Some(message) = messages.pop() {
                 let response = if let Ok(mut o) = self.orchestrator.lock() {
                     o.update(message)
@@ -262,7 +265,8 @@ impl Runner {
         }
     }
 
-    /// Periodically sends out an event telling the app what time we think it is.
+    /// Periodically sends out an event telling the app what time we think it
+    /// is.
     fn publish_clock_update(&mut self) {
         let now = Instant::now();
         if now.duration_since(self.last_clock_update).as_millis() > 15 {
@@ -312,6 +316,19 @@ impl Runner {
                 }
             }
         }
+    }
+
+    fn load_project(&mut self, filename: String) -> Response<GrooveEvent> {
+        let mut path = Paths::project_path();
+        path.push(filename.clone());
+        if let Ok(settings) = SongSettings::new_from_yaml_file(path.to_str().unwrap()) {
+            if let Ok(instance) = settings.instantiate(false) {
+                let title = instance.title();
+                self.orchestrator = Arc::new(Mutex::new(instance)); // TODO: this can't be right, because the app doesn't know about the new one
+                return Response::single(GrooveEvent::LoadedProject(filename, title));
+            }
+        }
+        return Response::none();
     }
 }
 

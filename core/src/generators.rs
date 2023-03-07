@@ -797,16 +797,18 @@ impl SteppedEnvelope {
 
 #[cfg(test)]
 pub mod tests {
+    use std::path::PathBuf;
+
     use super::*;
     use crate::{
         midi::{note_type_to_frequency, MidiNote},
         time::Clock,
         traits::{tests::DebugTicks, Generates, GeneratesEnvelope, Resets, Ticks},
+        util::Paths,
         BipolarNormal, Normal, ParameterType, Sample, SampleType,
     };
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
-    use std::{env::current_dir, path::PathBuf};
 
     const DEFAULT_SAMPLE_RATE: usize = 44100;
     const DEFAULT_BPM: ParameterType = 128.0;
@@ -1023,26 +1025,6 @@ pub mod tests {
         true
     }
 
-    // This function and the next one are adapted from groove::utils::Paths. I
-    // didn't want to move that whole thing because I'd like this core crate to
-    // remain I/O agnostic.
-    fn cwd() -> PathBuf {
-        PathBuf::from(
-            current_dir()
-                .ok()
-                .map(PathBuf::into_os_string)
-                .and_then(|exe| exe.into_string().ok())
-                .unwrap(),
-        )
-    }
-
-    fn test_data_path() -> PathBuf {
-        const TEST_DATA: &str = "test-data";
-        let mut path_buf = cwd();
-        path_buf.push(TEST_DATA);
-        path_buf
-    }
-
     #[test]
     fn square_matches_known_good() {
         let test_cases = vec![
@@ -1059,7 +1041,7 @@ pub mod tests {
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = test_data_path();
+            let mut filename = Paths::test_data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("square-{}.wav", test_case.1));
@@ -1088,7 +1070,7 @@ pub mod tests {
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = test_data_path();
+            let mut filename = Paths::test_data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("sine-{}.wav", test_case.1));
@@ -1117,7 +1099,7 @@ pub mod tests {
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = test_data_path();
+            let mut filename = Paths::test_data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("sawtooth-{}.wav", test_case.1));
@@ -1146,7 +1128,7 @@ pub mod tests {
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = test_data_path();
+            let mut filename = Paths::test_data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("triangle-{}.wav", test_case.1));

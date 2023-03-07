@@ -1,13 +1,15 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use anyhow::Ok;
 use clap::Parser;
 use groove::{
-    app_version,
-    helpers::IOHelper,
-    Orchestrator, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
+    app_version, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::StereoSample;
+use groove_orchestration::{helpers::IOHelper, Orchestrator};
+use groove_settings::SongSettings;
 use regex::Regex;
-use std::time::Instant;
+use std::{path::PathBuf, time::Instant};
 
 #[cfg(feature = "scripting")]
 use groove::ScriptEngine;
@@ -72,7 +74,7 @@ fn main() -> anyhow::Result<()> {
             || input_filename.ends_with(".nsn")
         {
             let start_instant = Instant::now();
-            let r = IOHelper::song_settings_from_yaml_file(input_filename.as_str())?
+            let r = SongSettings::new_from_yaml_file(input_filename.as_str())?
                 .instantiate(args.debug)?;
             if args.perf {
                 println!(
@@ -125,7 +127,10 @@ fn main() -> anyhow::Result<()> {
             if input_filename == output_filename {
                 panic!("would overwrite input file; couldn't generate output filename");
             }
-            IOHelper::send_performance_to_file(&performance, &output_filename)?;
+            IOHelper::send_performance_to_file(
+                &performance,
+                &PathBuf::from(output_filename.to_string()),
+            )?;
         } else {
             IOHelper::send_performance_to_output_device(&performance)?;
         }

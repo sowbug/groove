@@ -1,15 +1,16 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 #![windows_subsystem = "windows"]
 
 mod gui;
 
 use groove::{
     app_version,
-    messages::GrooveEvent,
     subscriptions::{
         EngineEvent, EngineInput, EngineSubscription, MidiHandler, MidiHandlerEvent,
         MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
     },
-    Entity, Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+    {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::{
     time::{Clock, TimeSignature},
@@ -25,6 +26,7 @@ use groove_entities::{
     instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
     EntityMessage,
 };
+use groove_orchestration::{messages::GrooveEvent, Entity, Orchestrator};
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
@@ -662,6 +664,7 @@ impl GrooveApp {
                 .width(iced::Length::FillPortion(1));
                 let (input_selected, input_options) =
                     midi_handler.midi_input().as_ref().unwrap().labels();
+
                 let input_menu = row![
                     GuiStuff::<EntityMessage>::container_text("Input")
                         .width(iced::Length::FillPortion(1)),
@@ -675,16 +678,15 @@ impl GrooveApp {
                 ];
                 let (output_selected, output_options) =
                     midi_handler.midi_output().as_ref().unwrap().labels();
+                let x = pick_list(
+                    output_options,
+                    output_selected.clone(),
+                    MidiHandlerMessage::OutputSelected,
+                );
                 let output_menu = row![
                     GuiStuff::<EntityMessage>::container_text("Output")
                         .width(iced::Length::FillPortion(1)),
-                    pick_list(
-                        output_options,
-                        output_selected.clone(),
-                        MidiHandlerMessage::OutputSelected,
-                    )
-                    .font(gui::SMALL_FONT)
-                    .width(iced::Length::FillPortion(3))
+                    x.font(gui::SMALL_FONT).width(iced::Length::FillPortion(3))
                 ];
                 let port_menus =
                     container(column![input_menu, output_menu]).width(iced::Length::FillPortion(7));

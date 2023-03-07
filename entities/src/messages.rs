@@ -5,6 +5,7 @@ use groove_core::{
     midi::{MidiChannel, MidiMessage},
     traits::MessageBounds,
 };
+use groove_toys::MessageMaker;
 use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
@@ -36,3 +37,18 @@ pub enum EntityMessage {
     CollapsePressed,
 }
 impl MessageBounds for EntityMessage {}
+
+// core_entities must know about core_toys, because it creates the monolithic
+// matching blocks that contain all entities. So it's not too weird for this
+// crate to also include a mapper of abstract messages to concrete
+// EntityMessages. If this becomes too much of an architectural sore thumb, it's
+// OK for everyone using ToyController to create their own ToyMessageMaker.
+#[derive(Debug)]
+pub struct ToyMessageMaker {}
+impl MessageMaker for ToyMessageMaker {
+    type Message = EntityMessage;
+
+    fn midi(&self, channel: MidiChannel, message: MidiMessage) -> Self::Message {
+        EntityMessage::Midi(channel, message)
+    }
+}

@@ -2,16 +2,14 @@
 
 // TODO copy and conform MidiMessage to MessageBounds so it can be a trait
 // associated type
-use crate::messages::{Internal, Response};
 use crossbeam::deque::{Steal, Stealer, Worker};
 use groove_core::{
     midi::{u4, LiveEvent, MidiChannel, MidiMessage},
     traits::MessageBounds,
 };
-use groove_macros::Uid;
+use groove_orchestration::messages::{Internal, Response};
 use iced::{futures::channel::mpsc, subscription, Subscription};
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
-use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
     sync::{Arc, Mutex},
@@ -202,15 +200,6 @@ impl Runner {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Copy, Default)]
-pub enum MidiMessageType {
-    #[default] // there isn't any sensible default here, so we pick something loud
-    NoteOn = 0b1001,
-    NoteOff = 0b1000,
-    ProgramChange = 0b1100,
-    Controller,
-}
-
 pub type MidiInputStealer = Stealer<(u64, u8, MidiMessage)>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -351,9 +340,7 @@ impl std::fmt::Debug for MidiInputHandler {
 }
 
 /// Outputs MIDI messages to external MIDI devices.
-#[derive(Uid)]
 pub struct MidiOutputHandler {
-    uid: usize,
     midi: Option<MidiOutput>,
     active_port: Option<MidiPortLabel>,
     labels: Vec<MidiPortLabel>,
@@ -370,7 +357,6 @@ impl MidiOutputHandler {
     pub fn new() -> anyhow::Result<Self> {
         if let Ok(midi_out) = MidiOutput::new("Groove MIDI output") {
             Ok(Self {
-                uid: Default::default(),
                 midi: Some(midi_out),
                 active_port: Default::default(),
                 labels: Default::default(),
@@ -510,9 +496,8 @@ pub enum MidiHandlerMessage {
 }
 impl MessageBounds for MidiHandlerMessage {}
 
-#[derive(Debug, Uid)]
+#[derive(Debug)]
 pub struct MidiHandler {
-    uid: usize,
     midi_input: Option<MidiInputHandler>,
     midi_output: Option<MidiOutputHandler>,
 
@@ -523,7 +508,6 @@ impl Default for MidiHandler {
         let midi_input = MidiInputHandler::new().ok();
         let midi_output = MidiOutputHandler::new().ok();
         Self {
-            uid: Default::default(),
             midi_input,
             midi_output,
             activity_tick: Instant::now(),

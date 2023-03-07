@@ -1,14 +1,12 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use crate::{
     entities::Entity,
-    helpers::IOHelper,
     messages::{GrooveEvent, GrooveInput, Internal, Response},
-    metrics::DipstickWrapper,
-    utils::Paths,
 };
 use anyhow::anyhow;
 use core::fmt::Debug;
 use crossbeam::deque::Worker;
-use dipstick::InputScope;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::TimeSignature,
@@ -22,6 +20,11 @@ use groove_entities::{
 use groove_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::io::{self, Write};
+
+#[cfg(feature = "metrics")]
+use dipstick::InputScope;
+#[cfg(feature = "metrics")]
+use metrics::DipstickWrapper;
 
 /// A Performance holds the output of an Orchestrator run.
 #[derive(Debug)]
@@ -53,7 +56,9 @@ pub struct Orchestrator {
     pattern_manager_uid: usize,
     beat_sequencer_uid: usize,
 
+    #[cfg(feature = "metrics")]
     metrics: DipstickWrapper,
+
     enable_dev_experiment: bool,
     should_output_perf: bool,
 
@@ -67,6 +72,7 @@ impl Orchestrator {
     pub const PATTERN_MANAGER_UVID: &str = "pattern-manager";
     pub const BEAT_SEQUENCER_UVID: &str = "beat-sequencer";
 
+    #[cfg(feature = "metrics")]
     fn install_entity_metric(&mut self, uvid: Option<&str>, uid: usize) {
         let name = format!("entity {}", uvid.unwrap_or(format!("uid {uid}").as_str()));
         self.metrics
@@ -75,9 +81,14 @@ impl Orchestrator {
     }
 
     pub fn add(&mut self, uvid: Option<&str>, entity: Entity) -> usize {
+        #[cfg(feature = "metrics")]
         self.metrics.entity_count.mark();
+
         let uid = self.store.add(uvid, entity);
+
+        #[cfg(feature = "metrics")]
         self.install_entity_metric(uvid, uid);
+
         uid
     }
 
@@ -103,11 +114,11 @@ impl Orchestrator {
         self.store.get_by_uvid_mut(uvid)
     }
 
-    pub(crate) fn get_uid_by_uvid(&self, uvid: &str) -> Option<usize> {
+    pub fn get_uid_by_uvid(&self, uvid: &str) -> Option<usize> {
         self.store.get_uid(uvid)
     }
 
-    pub(crate) fn link_control(
+    pub fn link_control(
         &mut self,
         controller_uid: usize,
         target_uid: usize,
@@ -154,7 +165,7 @@ impl Orchestrator {
         self.store.unlink_control(controller_uid, target_uid);
     }
 
-    pub(crate) fn patch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
+    pub fn patch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
         // TODO: detect loops
 
         // Validate that input_uid refers to something that has audio input
@@ -270,13 +281,17 @@ impl Orchestrator {
                 ToVisit(usize),
                 CollectResultFor(usize, StereoSample),
             }
+            #[cfg(feature = "metrics")]
             let gather_audio_start_time = self.metrics.gather_audio_fn_timer.start();
+
             let mut stack = Vec::new();
             let mut sum = StereoSample::default();
             stack.push(StackEntry::ToVisit(self.main_mixer_uid));
 
+            #[cfg(feature = "metrics")]
             self.metrics.mark_stack_loop_entry.mark();
             while let Some(entry) = stack.pop() {
+                #[cfg(feature = "metrics")]
                 self.metrics.mark_stack_loop_iteration.mark();
                 match entry {
                     StackEntry::ToVisit(uid) => {
@@ -291,6 +306,7 @@ impl Orchestrator {
                             // If it's a leaf, eval it now and add it to the
                             // running sum.
                             if let Some(entity) = entity.as_is_instrument_mut() {
+                                #[cfg(feature = "metrics")]
                                 if let Some(timer) = self.metrics.entity_audio_times.get(&uid) {
                                     let start_time = timer.start();
                                     entity.tick(1);
@@ -298,6 +314,10 @@ impl Orchestrator {
                                 } else {
                                     entity.tick(1);
                                 }
+
+                                #[cfg(not(feature = "metrics"))]
+                                entity.tick(1);
+
                                 self.last_samples.insert(uid, entity.value());
                                 sum += entity.value();
                             } else if entity.as_is_effect().is_some() {
@@ -330,6 +350,7 @@ impl Orchestrator {
                     StackEntry::CollectResultFor(uid, accumulated_sum) => {
                         if let Some(entity) = self.store.get_mut(uid) {
                             if let Some(entity) = entity.as_is_effect_mut() {
+                                #[cfg(feature = "metrics")]
                                 let entity_value = if let Some(timer) =
                                     self.metrics.entity_audio_times.get(&uid)
                                 {
@@ -340,6 +361,10 @@ impl Orchestrator {
                                 } else {
                                     entity.transform_audio(sum)
                                 };
+
+                                #[cfg(not(feature = "metrics"))]
+                                let entity_value = entity.transform_audio(sum);
+
                                 sum = accumulated_sum + entity_value;
                                 self.last_samples.insert(uid, entity_value);
                             }
@@ -347,9 +372,12 @@ impl Orchestrator {
                     }
                 }
             }
+
+            #[cfg(feature = "metrics")]
             self.metrics
                 .gather_audio_fn_timer
                 .stop(gather_audio_start_time);
+
             *sample = sum;
         }
         self.last_track_samples.clear();
@@ -410,7 +438,7 @@ impl Orchestrator {
         self.pattern_manager_uid
     }
 
-    pub(crate) fn set_title(&mut self, title: Option<String>) {
+    pub fn set_title(&mut self, title: Option<String>) {
         self.title = title;
     }
 
@@ -426,6 +454,7 @@ impl Orchestrator {
             main_mixer_uid: Default::default(),
             pattern_manager_uid: Default::default(),
             beat_sequencer_uid: Default::default(),
+            #[cfg(feature = "metrics")]
             metrics: Default::default(),
             enable_dev_experiment: Default::default(),
             should_output_perf: Default::default(),
@@ -449,7 +478,7 @@ impl Orchestrator {
         r
     }
 
-    pub(crate) fn update(&mut self, input: GrooveInput) -> Response<GrooveEvent> {
+    pub fn update(&mut self, input: GrooveInput) -> Response<GrooveEvent> {
         let mut unhandled_commands = Vec::new();
         let mut commands = Vec::new();
         commands.push(Response::single(input));
@@ -481,21 +510,6 @@ impl Orchestrator {
                     },
                     GrooveInput::MidiFromExternal(channel, message) => {
                         self.broadcast_midi_messages(&[(channel, message)]);
-                    }
-                    GrooveInput::LoadProject(filename) => {
-                        let mut path = Paths::project_path();
-                        path.push(filename.clone());
-                        if let Ok(settings) =
-                            IOHelper::song_settings_from_yaml_file(path.to_str().unwrap())
-                        {
-                            if let Ok(instance) = settings.instantiate(false) {
-                                let title = instance.title.clone();
-                                *self = instance;
-                                unhandled_commands.push(Response::single(
-                                    GrooveEvent::LoadedProject(filename, title),
-                                ));
-                            }
-                        }
                     }
                 }
             }
@@ -642,6 +656,7 @@ impl Orchestrator {
         if !quiet {
             println!();
         }
+        #[cfg(feature = "metrics")]
         if self.should_output_perf {
             self.metrics.report();
         }
@@ -660,7 +675,7 @@ impl Orchestrator {
     ///
     /// Returns the actual number of frames filled. If this number is shorter
     /// than the slice length, then the performance is complete.
-    pub(crate) fn tick(&mut self, samples: &mut [StereoSample]) -> usize {
+    pub fn tick(&mut self, samples: &mut [StereoSample]) -> usize {
         let tick_count = samples.len();
 
         // TODO: I suspect external MIDI (our events going to external hardware)
@@ -698,6 +713,15 @@ impl Orchestrator {
 
     pub fn bpm(&self) -> f64 {
         self.bpm
+    }
+
+    pub fn title(&self) -> Option<String> {
+        // TODO: why is this so awful?
+        if let Some(title) = &self.title {
+            Some(title.clone())
+        } else {
+            None
+        }
     }
 }
 

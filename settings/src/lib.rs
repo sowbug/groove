@@ -1,3 +1,7 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
+pub use songs::SongSettings;
+
 pub(crate) mod controllers;
 pub(crate) mod effects;
 pub(crate) mod instruments;
@@ -9,12 +13,12 @@ use self::{
     effects::EffectSettings,
     instruments::InstrumentSettings,
 };
-use crate::Orchestrator;
 use groove_core::{
     time::{BeatValue, Clock, PerfectTimeUnit, TimeSignature},
     ParameterType,
 };
 use groove_entities::controllers::{Note, Pattern};
+use groove_orchestration::Orchestrator;
 use serde::{Deserialize, Serialize};
 use strum_macros::FromRepr;
 

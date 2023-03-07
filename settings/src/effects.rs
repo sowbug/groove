@@ -1,8 +1,10 @@
-use crate::entities::Entity;
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use groove_core::{BipolarNormal, Normal, SampleType};
 use groove_entities::effects::{
     BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, FilterParams, Gain, Limiter, Mixer, Reverb,
 };
+use groove_orchestration::Entity;
 use groove_toys::ToyEffect;
 use serde::{Deserialize, Serialize};
 

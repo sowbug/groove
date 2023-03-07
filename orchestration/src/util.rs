@@ -1,10 +1,4 @@
-use groove_core::midi::{MidiChannel, MidiMessage};
-use groove_entities::EntityMessage;
-use groove_toys::MessageMaker;
-use std::{
-    env::{current_dir, current_exe},
-    path::PathBuf,
-};
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 #[allow(dead_code)]
 pub(crate) fn transform_linear_to_mma_concave(linear_value: f64) -> f64 {
@@ -26,80 +20,20 @@ pub(crate) fn transform_linear_to_mma_convex(linear_value: f64) -> f64 {
     }
 }
 
-pub struct Paths {}
-impl Paths {
-    const ASSETS: &str = "assets";
-    const PROJECTS: &str = "projects";
-
-    pub fn asset_path() -> PathBuf {
-        let mut path_buf = Paths::cwd();
-        path_buf.push(Self::ASSETS);
-        path_buf
-    }
-
-    pub fn project_path() -> PathBuf {
-        let mut path_buf = Paths::cwd();
-        path_buf.push(Self::PROJECTS);
-        path_buf
-    }
-
-    pub(crate) fn cwd() -> PathBuf {
-        PathBuf::from(
-            current_dir()
-                .ok()
-                .map(PathBuf::into_os_string)
-                .and_then(|exe| exe.into_string().ok())
-                .unwrap(),
-        )
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn exe_path() -> PathBuf {
-        PathBuf::from(
-            current_exe()
-                .ok()
-                .map(PathBuf::into_os_string)
-                .and_then(|exe| exe.into_string().ok())
-                .unwrap(),
-        )
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct ToyMessageMaker {}
-impl MessageMaker for ToyMessageMaker {
-    type Message = EntityMessage;
-
-    fn midi(&self, channel: MidiChannel, message: MidiMessage) -> Self::Message {
-        EntityMessage::Midi(channel, message)
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
-    use super::Paths;
     use crate::{
         entities::Entity,
-        utils::{transform_linear_to_mma_concave, transform_linear_to_mma_convex, ToyMessageMaker},
+        util::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
         Orchestrator, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
     };
     use groove_core::{
         generators::Waveform, midi::MidiChannel, time::Clock, traits::Resets, ParameterType,
         StereoSample,
     };
-    use groove_entities::controllers::{LfoController, Timer};
+    use groove_entities::{controllers::{LfoController, Timer}, ToyMessageMaker};
     use groove_toys::{ToyController, ToyEffect, ToyInstrument, ToySynth, ToySynthControlParams};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
-    use std::path::PathBuf;
-
-    impl Paths {
-        const TEST_DATA: &str = "test-data";
-        pub fn test_data_path() -> PathBuf {
-            let mut path_buf = Paths::cwd();
-            path_buf.push(Self::TEST_DATA);
-            path_buf
-        }
-    }
 
     #[test]
     fn audio_routing_works() {

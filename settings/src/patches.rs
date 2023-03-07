@@ -1,9 +1,11 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use super::LoadError;
-use crate::utils::Paths;
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     generators::{Envelope, Oscillator, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
+    util::Paths,
     Normal, ParameterType,
 };
 use groove_entities::{
@@ -87,8 +89,7 @@ impl WelshPatchSettings {
         if !matches!(self.oscillator_2.waveform, WaveformType::None) {
             let mut o = self.oscillator_2.into_with(sample_rate);
             if !self.oscillator_2_track {
-                if let crate::settings::patches::OscillatorTune::Note(note) = self.oscillator_2.tune
-                {
+                if let OscillatorTune::Note(note) = self.oscillator_2.tune {
                     o.set_fixed_frequency(note_to_frequency(note));
                 } else {
                     panic!("Patch configured without oscillator 2 tracking, but tune is not a note specification");
@@ -753,11 +754,13 @@ impl FmSynthesizerPreset {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        settings::patches::OscillatorSettings, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND,
-        DEFAULT_SAMPLE_RATE,
+    use crate::patches::OscillatorSettings;
+
+    use super::{
+        EnvelopeSettings, FilterPreset, LfoDepth, LfoPreset, LfoRoutingType, PolyphonySettings,
+        WaveformType, WelshPatchSettings,
     };
-    use assert_approx_eq::assert_approx_eq;
+    use float_cmp::approx_eq;
     use groove_core::{
         canonicalize_filename,
         time::Clock,
@@ -765,14 +768,10 @@ mod tests {
         SampleType, StereoSample,
     };
     use groove_entities::instruments::WelshVoice;
-
-    use super::{
-        EnvelopeSettings, FilterPreset, LfoPreset, LfoRoutingType, PolyphonySettings, WaveformType,
-        WelshPatchSettings,
-    };
+    use groove_orchestration::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
 
     #[test]
-    fn test_oscillator_tuning_helpers() {
+    fn oscillator_tuning_helpers() {
         // tune
         assert_eq!(OscillatorSettings::octaves(0), 1.0);
         assert_eq!(OscillatorSettings::octaves(1), 2.0);
@@ -782,7 +781,14 @@ mod tests {
 
         assert_eq!(OscillatorSettings::semis_and_cents(0, 0.0), 1.0);
         assert_eq!(OscillatorSettings::semis_and_cents(12, 0.0), 2.0);
-        assert_approx_eq!(OscillatorSettings::semis_and_cents(5, 0.0), 1.334_839_6); // 349.2282÷261.6256, F4÷C4
+        assert!(
+            approx_eq!(
+                f64,
+                OscillatorSettings::semis_and_cents(5, 0.0),
+                1.334_839_854_170_034_4
+            ),
+            "semis_and_cents() should give sane results"
+        ); // 349.2282÷261.6256, F4÷C4
         assert_eq!(
             OscillatorSettings::semis_and_cents(0, -100.0),
             2.0f64.powf(-100.0 / 1200.0)
@@ -851,7 +857,7 @@ mod tests {
                 routing: LfoRoutingType::Amplitude,
                 waveform: WaveformType::Sine,
                 frequency: 7.5,
-                depth: crate::settings::patches::LfoDepth::Pct(0.05),
+                depth: LfoDepth::Pct(0.05),
             },
             glide: 0.0,
             unison: false,

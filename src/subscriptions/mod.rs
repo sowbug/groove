@@ -2,7 +2,7 @@
 
 pub use engine::{EngineEvent, EngineInput, EngineSubscription};
 pub use midi::{
-    MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
+    MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiSubscription, MidiPortLabel,
 };
 pub use midly::live::LiveEvent;
 

@@ -5,15 +5,6 @@ pub use midly::live::LiveEvent;
 use std::fmt::Debug;
 use strum_macros::Display;
 
-// #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Copy, Default)]
-// pub enum MidiMessageType {
-//     #[default] // there isn't any sensible default here, so we pick something loud
-//     NoteOn = 0b1001,
-//     NoteOff = 0b1000,
-//     ProgramChange = 0b1100,
-//     Controller,
-// }
-
 use crate::ParameterType;
 pub use midly::{
     num::{u4, u7},

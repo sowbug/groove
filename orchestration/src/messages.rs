@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 //! The [messages] module defines the App's Iced messages.
 
 use groove_core::{
@@ -15,8 +17,6 @@ pub enum GrooveInput {
     /// A MIDI message that has arrived from outside Groove, typically from
     /// MidiInputHandler.
     MidiFromExternal(MidiChannel, MidiMessage),
-
-    LoadProject(String),
 }
 impl MessageBounds for GrooveInput {}
 

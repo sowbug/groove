@@ -1,5 +1,3 @@
-use crate::asset_path;
-
 use super::{
     sampler::SamplerVoice, synthesizer::Synthesizer, voice_stores::VoicePerNoteStore, Sampler,
 };
@@ -8,7 +6,7 @@ use groove_core::{
         note_to_frequency, u7, GeneralMidiPercussionProgram, HandlesMidi, MidiChannel, MidiMessage,
     },
     traits::{Generates, IsInstrument, Resets, Ticks},
-    StereoSample,
+    StereoSample, util::Paths,
 };
 use groove_macros::{Control, Uid};
 use std::{str::FromStr, sync::Arc};
@@ -74,7 +72,7 @@ impl Drumkit {
             (GeneralMidiPercussionProgram::HighAgogo, "Tom Hi"),
             (GeneralMidiPercussionProgram::LowAgogo, "Tom Lo"),
         ];
-        let mut base_dir = asset_path();
+        let mut base_dir = Paths::asset_path();
         base_dir.push("samples");
         base_dir.push("707");
 

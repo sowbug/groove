@@ -1,9 +1,14 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use super::{patches::WaveformType, BeatValueSettings, DeviceId, MidiChannel};
-use crate::{entities::Entity, utils::ToyMessageMaker};
 use groove_core::{ParameterType, SignalType};
-use groove_entities::controllers::{
-    Arpeggiator, ControlPath, ControlStep, LfoController, SignalPassthroughController,
+use groove_entities::{
+    controllers::{
+        Arpeggiator, ControlPath, ControlStep, LfoController, SignalPassthroughController,
+    },
+    ToyMessageMaker,
 };
+use groove_orchestration::Entity;
 use groove_toys::ToyController;
 use serde::{Deserialize, Serialize};
 

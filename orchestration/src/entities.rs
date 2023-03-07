@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use groove_core::{
     midi::HandlesMidi,
     traits::{Controllable, HasUid, IsController, IsEffect, IsInstrument},

@@ -1,10 +1,12 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use super::{
     patches::{FmSynthesizerPreset, WelshPatchSettings},
     MidiChannel,
 };
-use crate::entities::Entity;
 use groove_core::midi::note_description_to_frequency;
 use groove_entities::instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer};
+use groove_orchestration::Entity;
 use groove_toys::ToyInstrument;
 use serde::{Deserialize, Serialize};
 

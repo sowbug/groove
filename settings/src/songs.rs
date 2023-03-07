@@ -1,11 +1,13 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use super::{
     controllers::{ControlPathSettings, ControlTripSettings},
     ClockSettings, ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
 };
-use crate::{entities::Entity, Orchestrator};
 use anyhow::Result;
 use groove_core::{time::TimeSignature, ParameterType};
 use groove_entities::controllers::{ControlPath, ControlTrip, Note, Pattern, PatternProgrammer};
+use groove_orchestration::{Entity, Orchestrator};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
@@ -58,6 +60,11 @@ impl SongSettings {
         Self {
             ..Default::default()
         }
+    }
+
+    // TODO: this should take a PathBuf so it's easier to tell YAML from filenames
+    pub fn new_from_yaml_file(filename: &str) -> anyhow::Result<Self> {
+        Self::new_from_yaml(std::fs::read_to_string(filename)?.as_str())
     }
 
     pub fn new_from_yaml(yaml: &str) -> anyhow::Result<Self> {
@@ -299,97 +306,6 @@ impl SongSettings {
 #[cfg(test)]
 mod tests {
     use super::SongSettings;
-    use crate::app_version;
-    use crate::helpers::IOHelper;
-    use crate::utils::Paths;
-    use crossbeam::deque::Steal;
-    use groove_core::StereoSample;
-    use std::fs::File;
-    use std::io::prelude::*;
-    use std::time::Instant;
-
-    #[test]
-    fn yaml_loads_and_parses() {
-        let mut path = Paths::test_data_path();
-        path.push("kitchen-sink.yaml");
-        let yaml = std::fs::read_to_string(path)
-            .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
-        let song_settings = SongSettings::new_from_yaml(yaml.as_str())
-            .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
-        let mut orchestrator = song_settings
-            .instantiate(false)
-            .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
-        let mut sample_buffer = [StereoSample::SILENCE; 64];
-        let performance = orchestrator
-            .run_performance(&mut sample_buffer, false)
-            .unwrap_or_else(|err| panic!("performance failed: {:?}", err));
-
-        assert!(
-            !performance.worker.is_empty(),
-            "Orchestrator reported successful performance, but performance is empty."
-        );
-
-        let stealer = performance.worker.stealer();
-        let mut found_non_silence = false;
-        loop {
-            if let Steal::Success(sample) = stealer.steal() {
-                if sample != StereoSample::SILENCE {
-                    found_non_silence = true;
-                    continue;
-                }
-            }
-            break;
-        }
-        assert!(found_non_silence, "Performance contains only silence.");
-
-        // TODO: maybe make a Paths:: function for out/
-        assert!(IOHelper::send_performance_to_file(
-            &performance,
-            "out/test_yaml_loads_and_parses-kitchen-sink.wav",
-        )
-        .is_ok());
-    }
-
-    #[test]
-    fn spit_out_perf_data() {
-        let mut path = Paths::test_data_path();
-        path.push("perf-1.yaml");
-        let yaml = std::fs::read_to_string(path)
-            .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
-        let song_settings = SongSettings::new_from_yaml(yaml.as_str())
-            .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
-        let mut orchestrator = song_settings
-            .instantiate(false)
-            .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
-
-        let start_instant = Instant::now();
-        let mut samples = [StereoSample::SILENCE; 64];
-        let performance = orchestrator
-            .run_performance(&mut samples, false)
-            .unwrap_or_else(|err| panic!("performance failed: {:?}", err));
-        let elapsed = start_instant.elapsed();
-        let frame_count = performance.worker.len();
-
-        let mut file = File::create("perf-output.txt").unwrap();
-        let output = format!(
-            "Version    : {}\n\
-\n\
-Elapsed    : {:0.3}s\n\
-Frames     : {}\n\
-Frames/msec: {:.2?} (goal >{:.2?})\n\
-usec/frame : {:.2?} (goal <{:.2?})",
-            app_version(),
-            elapsed.as_secs_f32(),
-            frame_count,
-            frame_count as f32 / start_instant.elapsed().as_millis() as f32,
-            performance.sample_rate as f32 / 1000.0,
-            start_instant.elapsed().as_micros() as f32 / frame_count as f32,
-            1000000.0 / performance.sample_rate as f32
-        );
-        let _ = file.write(output.as_bytes());
-
-        assert!(IOHelper::send_performance_to_file(&performance, "out/perf-1.wav",).is_ok());
-    }
 
     #[test]
     fn test_empty_file_fails_with_proper_error() {
@@ -414,21 +330,6 @@ usec/frame : {:.2?} (goal <{:.2?})",
         assert_eq!(
             r.unwrap_err().to_string(),
             "missing field `clock` at line 2 column 3"
-        );
-    }
-
-    #[test]
-    fn test_patching_to_device_with_no_input_fails_with_proper_error() {
-        let mut path = Paths::project_path();
-        path.push("tests/instruments-have-no-inputs.yaml");
-        let yaml = std::fs::read_to_string(path)
-            .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
-        let song_settings = SongSettings::new_from_yaml(yaml.as_str())
-            .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
-        let r = song_settings.instantiate(false);
-        assert_eq!(
-            r.unwrap_err().to_string(),
-            "Input device doesn't transform audio and can't be patched from output device"
         );
     }
 }

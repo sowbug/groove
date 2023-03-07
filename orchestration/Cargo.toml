@@ -1,0 +1,20 @@
+[package]
+name = "groove-orchestration"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.12"
+cpal = "0.15.0"
+crossbeam = "0.8"
+dipstick = { version = "0.9.0", optional = true }
+groove-core = { path = "../core" }
+groove-entities = { path = "../entities" }
+groove-macros = { path = "../macros" }
+groove-toys = { path = "../toys" }
+hound = "3.5"
+more-asserts = "0.3.1"
+rustc-hash = "1.1.0"
+
+[features]
+metrics = ["dep:dipstick"]

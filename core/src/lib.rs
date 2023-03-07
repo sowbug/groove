@@ -21,6 +21,9 @@ pub mod time;
 /// The [traits] module describes the public interfaces that are central to the
 /// Groove system.
 pub mod traits;
+/// The [util] module contains various helper functions that keep different
+/// parts of the system consistent.
+pub mod util;
 
 /// [SampleType] is the underlying primitive that makes up [MonoSample] and
 /// [StereoSample]. It exists as a transition aid while we migrate from

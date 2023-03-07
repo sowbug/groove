@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use dipstick::{stats_all, AtomicBucket, Input, InputScope, Marker, Stream, Timer};
 use rustc_hash::FxHashMap;
 use std::fmt::Debug;
