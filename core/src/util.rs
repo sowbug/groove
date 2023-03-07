@@ -2,6 +2,7 @@
 
 use std::{
     env::{current_dir, current_exe},
+    fs,
     path::PathBuf,
 };
 
@@ -52,9 +53,16 @@ impl Paths {
 
     //#[cfg(test)]
     pub fn out_path() -> PathBuf {
-        const OUT_DATA: &str = "out";
+        const OUT_DATA: &str = "target";
         let mut path_buf = Self::cwd();
         path_buf.push(OUT_DATA);
-        path_buf
+        if let Ok(_) = fs::create_dir_all(&path_buf) {
+            path_buf
+        } else {
+            panic!(
+                "Could not create output directory {:?} for writing",
+                &path_buf
+            );
+        }
     }
 }
