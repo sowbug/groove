@@ -67,14 +67,6 @@ impl Orchestrator {
     pub const PATTERN_MANAGER_UVID: &str = "pattern-manager";
     pub const BEAT_SEQUENCER_UVID: &str = "beat-sequencer";
 
-    pub fn store(&self) -> &Store {
-        &self.store
-    }
-
-    pub fn store_mut(&mut self) -> &mut Store {
-        &mut self.store
-    }
-
     fn install_entity_metric(&mut self, uvid: Option<&str>, uid: usize) {
         let name = format!("entity {}", uvid.unwrap_or(format!("uid {uid}").as_str()));
         self.metrics
@@ -89,17 +81,29 @@ impl Orchestrator {
         uid
     }
 
+    pub fn entity_iter(&self) -> std::collections::hash_map::Iter<usize, Entity> {
+        self.store.iter()
+    }
+
+    pub fn get(&self, uid: usize) -> Option<&Entity> {
+        self.store.get(uid)
+    }
+
+    pub fn get_mut(&mut self, uid: usize) -> Option<&mut Entity> {
+        self.store.get_mut(uid)
+    }
+
     #[allow(dead_code)]
-    pub(crate) fn get(&self, uvid: &str) -> Option<&Entity> {
+    pub(crate) fn get_by_uvid(&self, uvid: &str) -> Option<&Entity> {
         self.store.get_by_uvid(uvid)
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get_mut(&mut self, uvid: &str) -> Option<&mut Entity> {
+    pub(crate) fn get_by_uvid_mut(&mut self, uvid: &str) -> Option<&mut Entity> {
         self.store.get_by_uvid_mut(uvid)
     }
 
-    pub(crate) fn get_uid(&self, uvid: &str) -> Option<usize> {
+    pub(crate) fn get_uid_by_uvid(&self, uvid: &str) -> Option<usize> {
         self.store.get_uid(uvid)
     }
 
@@ -361,7 +365,7 @@ impl Orchestrator {
         receiver_uid: usize,
         receiver_midi_channel: MidiChannel,
     ) {
-        if let Some(e) = self.store().get(receiver_uid) {
+        if let Some(e) = self.get(receiver_uid) {
             if e.as_handles_midi().is_some() {
                 self.store
                     .connect_midi_receiver(receiver_uid, receiver_midi_channel);
@@ -503,29 +507,23 @@ impl Orchestrator {
     fn handle_tick(&mut self, tick_count: usize) -> (Response<GrooveEvent>, usize) {
         let mut max_ticks_completed = 0;
         (
-            Response::batch(
-                self.store()
-                    .controller_uids()
-                    .fold(Vec::new(), |mut v, uid| {
-                        if let Some(e) = self.store_mut().get_mut(uid) {
-                            if let Some(e) = e.as_is_controller_mut() {
-                                let (message_opt, ticks_completed) = e.tick(tick_count);
-                                if ticks_completed > max_ticks_completed {
-                                    max_ticks_completed = ticks_completed;
-                                }
-                                if let Some(messages) = message_opt {
-                                    for message in messages {
-                                        // This is where outputs get turned into inputs.
-                                        v.push(
-                                            self.update(GrooveInput::EntityMessage(uid, message)),
-                                        );
-                                    }
-                                }
+            Response::batch(self.store.controller_uids().fold(Vec::new(), |mut v, uid| {
+                if let Some(e) = self.store.get_mut(uid) {
+                    if let Some(e) = e.as_is_controller_mut() {
+                        let (message_opt, ticks_completed) = e.tick(tick_count);
+                        if ticks_completed > max_ticks_completed {
+                            max_ticks_completed = ticks_completed;
+                        }
+                        if let Some(messages) = message_opt {
+                            for message in messages {
+                                // This is where outputs get turned into inputs.
+                                v.push(self.update(GrooveInput::EntityMessage(uid, message)));
                             }
                         }
-                        v
-                    }),
-            ),
+                    }
+                }
+                v
+            })),
             max_ticks_completed,
         )
     }
@@ -703,8 +701,10 @@ impl Orchestrator {
     }
 }
 
+/// Keeps all [Entity] in one place, and manages their relationships, such as
+/// patch cables.
 #[derive(Debug, Default)]
-pub struct Store {
+pub(crate) struct Store {
     last_uid: usize,
     uid_to_item: FxHashMap<usize, Entity>,
 

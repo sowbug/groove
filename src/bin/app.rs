@@ -419,7 +419,7 @@ impl GrooveApp {
 
     fn entity_update(&mut self, uid: usize, message: EntityMessage) {
         if let Ok(mut o) = self.orchestrator.lock() {
-            if let Some(entity) = o.store_mut().get_mut(uid) {
+            if let Some(entity) = o.get_mut(uid) {
                 // TODO: we don't have a real clock here... solve this.
                 match entity {
                     Entity::BiQuadFilter(e) => match message {
@@ -470,8 +470,7 @@ impl GrooveApp {
                     .into();
 
             let mut views = orchestrator
-                .store()
-                .iter()
+                .entity_iter()
                 .fold(Vec::new(), |mut v, (&uid, e)| {
                     v.push(
                         self.entity_view(e)

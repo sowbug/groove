@@ -130,8 +130,8 @@ impl SongSettings {
             let mut last_device_uvid: Option<DeviceId> = None;
             for device_uvid in patch_cable {
                 if let Some(last_device_uvid) = last_device_uvid {
-                    match orchestrator.get_uid(&last_device_uvid) {
-                        Some(last_device_uid) => match orchestrator.get_uid(device_uvid) {
+                    match orchestrator.get_uid_by_uvid(&last_device_uvid) {
+                        Some(last_device_uid) => match orchestrator.get_uid_by_uvid(device_uvid) {
                             Some(device_uid) => {
                                 if let Err(e) = orchestrator.patch(last_device_uid, device_uid) {
                                     eprintln!("Error when patching input {device_uvid} to output {last_device_uvid}: {e}");
@@ -160,7 +160,7 @@ impl SongSettings {
             let target_param_name = control.target.param.as_str();
 
             let controller_uid;
-            if let Some(uid) = orchestrator.store().get_uid(source_uvid) {
+            if let Some(uid) = orchestrator.get_uid_by_uvid(source_uvid) {
                 controller_uid = uid;
             } else {
                 eprintln!(
@@ -170,7 +170,7 @@ impl SongSettings {
                 continue;
             }
             let target_uid;
-            if let Some(uid) = orchestrator.store().get_uid(target_uvid) {
+            if let Some(uid) = orchestrator.get_uid_by_uvid(target_uvid) {
                 target_uid = uid;
             } else {
                 eprintln!(
@@ -204,7 +204,7 @@ impl SongSettings {
         let mut ids_to_patterns = FxHashMap::default();
         let pattern_manager_uid = orchestrator.pattern_manager_uid();
         if let Some(Entity::PatternManager(pattern_manager)) =
-            orchestrator.store_mut().get_mut(pattern_manager_uid)
+            orchestrator.get_mut(pattern_manager_uid)
         {
             for pattern_settings in self.patterns.iter() {
                 let id = pattern_settings.id.clone();
@@ -222,9 +222,7 @@ impl SongSettings {
         }
 
         let beat_sequencer_uid = orchestrator.beat_sequencer_uid();
-        if let Some(Entity::BeatSequencer(sequencer)) =
-            orchestrator.store_mut().get_mut(beat_sequencer_uid)
-        {
+        if let Some(Entity::BeatSequencer(sequencer)) = orchestrator.get_mut(beat_sequencer_uid) {
             let mut programmer =
                 PatternProgrammer::new_with(&self.clock_settings.time_signature.into());
 
@@ -259,7 +257,8 @@ impl SongSettings {
         }
         for control_trip_settings in &self.trips {
             let trip_id = control_trip_settings.id.as_str();
-            if let Some(target_uid) = orchestrator.get_uid(&control_trip_settings.target.id) {
+            if let Some(target_uid) = orchestrator.get_uid_by_uvid(&control_trip_settings.target.id)
+            {
                 let mut control_trip = Box::new(ControlTrip::new_with(
                     orchestrator.sample_rate(),
                     orchestrator.time_signature(),
