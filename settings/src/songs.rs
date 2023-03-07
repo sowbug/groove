@@ -104,25 +104,25 @@ impl SongSettings {
 
         for device in &self.devices {
             match device {
-                DeviceSettings::Instrument(id, settings) => {
+                DeviceSettings::Instrument(uvid, settings) => {
                     let (channel, entity) =
                         settings.instantiate(sample_rate, load_only_test_entities);
-                    let uid = orchestrator.add(Some(id), entity);
+                    let uid = orchestrator.add_with_uvid(entity, uvid);
                     orchestrator.connect_midi_downstream(uid, channel);
                 }
-                DeviceSettings::Controller(id, settings) => {
+                DeviceSettings::Controller(uvid, settings) => {
                     let (channel_in, _channel_out, entity) = settings.instantiate(
                         clock_settings.sample_rate,
                         clock_settings.beats_per_minute as ParameterType,
                         load_only_test_entities,
                     );
-                    let uid = orchestrator.add(Some(id), entity);
+                    let uid = orchestrator.add_with_uvid(entity, uvid);
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
                 }
-                DeviceSettings::Effect(id, settings) => {
+                DeviceSettings::Effect(uvid, settings) => {
                     let entity = settings.instantiate(sample_rate, load_only_test_entities);
-                    let _uid = orchestrator.add(Some(id), entity);
+                    let _uid = orchestrator.add_with_uvid(entity, uvid);
                 }
             }
         }
@@ -263,7 +263,7 @@ impl SongSettings {
             );
         }
         for control_trip_settings in &self.trips {
-            let trip_id = control_trip_settings.id.as_str();
+            let trip_uvid = control_trip_settings.id.as_str();
             if let Some(target_uid) = orchestrator.get_uid_by_uvid(&control_trip_settings.target.id)
             {
                 let mut control_trip = Box::new(ControlTrip::new_with(
@@ -277,12 +277,12 @@ impl SongSettings {
                     } else {
                         eprintln!(
                             "Warning: trip {} refers to nonexistent path {}",
-                            trip_id, path_id
+                            trip_uvid, path_id
                         );
                     }
                 }
                 let controller_uid =
-                    orchestrator.add(Some(trip_id), Entity::ControlTrip(control_trip));
+                    orchestrator.add_with_uvid(Entity::ControlTrip(control_trip), trip_uvid);
                 if let Err(err_result) = orchestrator.link_control(
                     controller_uid,
                     target_uid,
@@ -290,13 +290,13 @@ impl SongSettings {
                 ) {
                     eprintln!(
                         "Warning: trip {} not added because of error '{}'",
-                        trip_id, err_result
+                        trip_uvid, err_result
                     );
                 }
             } else {
                 eprintln!(
                     "Warning: trip {} controls nonexistent entity {}",
-                    trip_id, control_trip_settings.target.id
+                    trip_uvid, control_trip_settings.target.id
                 );
             }
         }

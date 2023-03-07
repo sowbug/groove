@@ -31,7 +31,10 @@ pub mod tests {
         generators::Waveform, midi::MidiChannel, time::Clock, traits::Resets, ParameterType,
         StereoSample,
     };
-    use groove_entities::{controllers::{LfoController, Timer}, ToyMessageMaker};
+    use groove_entities::{
+        controllers::{LfoController, Timer},
+        ToyMessageMaker,
+    };
     use groove_toys::{ToyController, ToyEffect, ToyInstrument, ToySynth, ToySynthControlParams};
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
 
@@ -45,13 +48,12 @@ pub mod tests {
         let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm() as ParameterType);
 
         // A simple audio source.
-        let synth_uid = o.add(
-            None,
-            Entity::ToySynth(Box::new(ToySynth::new_with(clock.sample_rate()))),
-        );
+        let synth_uid = o.add(Entity::ToySynth(Box::new(ToySynth::new_with(
+            clock.sample_rate(),
+        ))));
 
         // A simple effect.
-        let effect_uid = o.add(None, Entity::ToyEffect(Box::new(ToyEffect::default())));
+        let effect_uid = o.add(Entity::ToyEffect(Box::new(ToyEffect::default())));
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -61,13 +63,10 @@ pub mod tests {
 
         // Run the main loop for a while.
         const SECONDS: usize = 1;
-        let _ = o.add(
-            None,
-            Entity::Timer(Box::new(Timer::new_with(
-                clock.sample_rate(),
-                SECONDS as f32,
-            ))),
-        );
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
+            clock.sample_rate(),
+            SECONDS as f32,
+        ))));
 
         // Gather the audio output.
         let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -106,12 +105,11 @@ pub mod tests {
         let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm() as ParameterType);
 
         // The synth's frequency is modulated by the LFO.
-        let synth_1_uid = o.add(
-            None,
-            Entity::ToySynth(Box::new(ToySynth::new_with(clock.sample_rate()))),
-        );
+        let synth_1_uid = o.add(Entity::ToySynth(Box::new(ToySynth::new_with(
+            clock.sample_rate(),
+        ))));
         let lfo = LfoController::new_with(clock.sample_rate(), Waveform::Sine, 2.0);
-        let lfo_uid = o.add(None, Entity::LfoController(Box::new(lfo)));
+        let lfo_uid = o.add(Entity::LfoController(Box::new(lfo)));
         let _ = o.link_control(
             lfo_uid,
             synth_1_uid,
@@ -122,13 +120,10 @@ pub mod tests {
         let _ = o.connect_to_main_mixer(synth_1_uid);
 
         const SECONDS: usize = 1;
-        let _ = o.add(
-            None,
-            Entity::Timer(Box::new(Timer::new_with(
-                clock.sample_rate(),
-                SECONDS as f32,
-            ))),
-        );
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
+            clock.sample_rate(),
+            SECONDS as f32,
+        ))));
 
         // Gather the audio output.
         let mut sample_buffer = [StereoSample::SILENCE; 12];
@@ -163,19 +158,15 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
-        let instrument_uid = o.add(
-            None,
-            Entity::ToyInstrument(Box::new(ToyInstrument::new_with(DEFAULT_SAMPLE_RATE))),
-        );
-        let arpeggiator_uid = o.add(
-            None,
-            Entity::ToyController(Box::new(ToyController::new_with(
-                DEFAULT_SAMPLE_RATE,
-                DEFAULT_BPM,
-                TEST_MIDI_CHANNEL,
-                Box::new(ToyMessageMaker {}),
-            ))),
-        );
+        let instrument_uid = o.add(Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
+            DEFAULT_SAMPLE_RATE,
+        ))));
+        let arpeggiator_uid = o.add(Entity::ToyController(Box::new(ToyController::new_with(
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_BPM,
+            TEST_MIDI_CHANNEL,
+            Box::new(ToyMessageMaker {}),
+        ))));
 
         // We'll hear the instrument.
         assert!(o.connect_to_main_mixer(instrument_uid).is_ok());
@@ -186,13 +177,10 @@ pub mod tests {
         o.connect_midi_downstream(arpeggiator_uid, ARP_MIDI_CHANNEL);
 
         const SECONDS: usize = 1;
-        let _ = o.add(
-            None,
-            Entity::Timer(Box::new(Timer::new_with(
-                DEFAULT_SAMPLE_RATE,
-                SECONDS as f32,
-            ))),
-        );
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            SECONDS as f32,
+        ))));
 
         // Everything is hooked up. Let's run it and hear what we got.
         let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -271,10 +259,10 @@ pub mod tests {
 
         // A simple audio source.
         let entity_groove = Entity::ToySynth(Box::new(ToySynth::new_with(DEFAULT_SAMPLE_RATE)));
-        let synth_uid = o.add(None, entity_groove);
+        let synth_uid = o.add(entity_groove);
 
         // A simple effect.
-        let effect_uid = o.add(None, Entity::ToyEffect(Box::new(ToyEffect::default())));
+        let effect_uid = o.add(Entity::ToyEffect(Box::new(ToyEffect::default())));
 
         // Connect the audio's output to the effect's input.
         assert!(o.patch(synth_uid, effect_uid).is_ok());
@@ -284,13 +272,10 @@ pub mod tests {
 
         // Run the main loop for a while.
         const SECONDS: usize = 1;
-        let _ = o.add(
-            None,
-            Entity::Timer(Box::new(Timer::new_with(
-                DEFAULT_SAMPLE_RATE,
-                SECONDS as f32,
-            ))),
-        );
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            SECONDS as f32,
+        ))));
 
         // Gather the audio output.
         let mut sample_buffer = [StereoSample::SILENCE; 64];

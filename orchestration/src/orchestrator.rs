@@ -80,14 +80,26 @@ impl Orchestrator {
             .insert(uid, self.metrics.bucket.timer(name.as_str()));
     }
 
-    pub fn add(&mut self, uvid: Option<&str>, entity: Entity) -> usize {
+    pub fn add(&mut self, entity: Entity) -> usize {
         #[cfg(feature = "metrics")]
         self.metrics.entity_count.mark();
 
-        let uid = self.store.add(uvid, entity);
+        let uid = self.store.add(None, entity);
 
         #[cfg(feature = "metrics")]
-        self.install_entity_metric(uvid, uid);
+        self.install_entity_metric(None, uid);
+
+        uid
+    }
+
+    pub fn add_with_uvid(&mut self, entity: Entity, uvid: &str) -> usize {
+        #[cfg(feature = "metrics")]
+        self.metrics.entity_count.mark();
+
+        let uid = self.store.add(Some(uvid), entity);
+
+        #[cfg(feature = "metrics")]
+        self.install_entity_metric(Some(uvid), uid);
 
         uid
     }
@@ -215,8 +227,7 @@ impl Orchestrator {
     /// TODO: when we get more interactive, we'll need to think more
     /// transactionally, and validate the whole chain before plugging in
     /// anything.
-    #[allow(dead_code)]
-    pub(crate) fn patch_chain_to_main_mixer(
+    pub fn patch_chain_to_main_mixer(
         &mut self,
         entity_uids: &[usize],
     ) -> anyhow::Result<()> {
@@ -462,17 +473,17 @@ impl Orchestrator {
             main_mixer_source_uids: Default::default(),
             last_samples: Default::default(),
         };
-        r.main_mixer_uid = r.add(
-            Some(Orchestrator::MAIN_MIXER_UVID),
+        r.main_mixer_uid = r.add_with_uvid(
             Entity::Mixer(Box::new(Mixer::default())),
+            Self::MAIN_MIXER_UVID,
         );
-        r.pattern_manager_uid = r.add(
-            Some(Orchestrator::PATTERN_MANAGER_UVID),
+        r.pattern_manager_uid = r.add_with_uvid(
             Entity::PatternManager(Box::new(PatternManager::default())),
+            Self::PATTERN_MANAGER_UVID,
         );
-        r.beat_sequencer_uid = r.add(
-            Some(Orchestrator::BEAT_SEQUENCER_UVID),
+        r.beat_sequencer_uid = r.add_with_uvid(
             Entity::BeatSequencer(Box::new(BeatSequencer::new_with(sample_rate, bpm))),
+            Self::BEAT_SEQUENCER_UVID,
         );
 
         r
@@ -610,12 +621,12 @@ impl Orchestrator {
     // should return true in the Terminates trait.
     //
     // TODO: unit-test it!
-    pub fn run(&mut self, samples: &mut [StereoSample]) -> anyhow::Result<Vec<StereoSample>> {
+    pub fn run(&mut self, buffer: &mut [StereoSample]) -> anyhow::Result<Vec<StereoSample>> {
         let mut performance_samples = Vec::<StereoSample>::new();
         loop {
-            let ticks_completed = self.tick(samples);
-            performance_samples.extend(&samples[0..ticks_completed]);
-            if ticks_completed < samples.len() {
+            let ticks_completed = self.tick(buffer);
+            performance_samples.extend(&buffer[0..ticks_completed]);
+            if ticks_completed < buffer.len() {
                 break;
             }
         }
@@ -624,7 +635,7 @@ impl Orchestrator {
 
     pub fn run_performance(
         &mut self,
-        samples: &mut [StereoSample],
+        buffer: &mut [StereoSample],
         quiet: bool,
     ) -> anyhow::Result<Performance> {
         let mut tick_count = 0;
@@ -633,7 +644,7 @@ impl Orchestrator {
         let mut next_progress_indicator: usize = progress_indicator_quantum;
 
         loop {
-            let ticks_completed = self.tick(samples);
+            let ticks_completed = self.tick(buffer);
             if next_progress_indicator <= tick_count {
                 if !quiet {
                     print!(".");
@@ -642,10 +653,10 @@ impl Orchestrator {
                 next_progress_indicator += progress_indicator_quantum;
             }
             tick_count += ticks_completed;
-            if ticks_completed < samples.len() {
+            if ticks_completed < buffer.len() {
                 break;
             }
-            for (i, sample) in samples.iter().enumerate() {
+            for (i, sample) in buffer.iter().enumerate() {
                 if i < ticks_completed {
                     performance.worker.push(*sample);
                 } else {
@@ -955,14 +966,12 @@ pub mod tests {
     #[test]
     fn gather_audio_basic() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let level_1_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.1))),
-        );
-        let level_2_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.2))),
-        );
+        let level_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.1,
+        ))));
+        let level_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.2,
+        ))));
 
         // Nothing connected: should output silence.
         let mut samples: [StereoSample; 1] = Default::default();
@@ -988,26 +997,19 @@ pub mod tests {
     #[test]
     fn gather_audio() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let level_1_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.1))),
-        );
-        let gain_1_uid = o.add(
-            None,
-            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))),
-        );
-        let level_2_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.2))),
-        );
-        let level_3_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.3))),
-        );
-        let level_4_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.4))),
-        );
+        let level_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.1,
+        ))));
+        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))));
+        let level_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.2,
+        ))));
+        let level_3_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.3,
+        ))));
+        let level_4_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.4,
+        ))));
 
         // Nothing connected: should output silence.
         let mut samples: [StereoSample; 1] = Default::default();
@@ -1064,41 +1066,25 @@ pub mod tests {
     #[test]
     fn gather_audio_2() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let piano_1_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.1))),
-        );
-        let low_pass_1_uid = o.add(
-            None,
-            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.2)))),
-        );
-        let gain_1_uid = o.add(
-            None,
-            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.4)))),
-        );
+        let piano_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.1,
+        ))));
+        let low_pass_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.2)))));
+        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.4)))));
 
-        let bassline_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.3))),
-        );
-        let gain_2_uid = o.add(
-            None,
-            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.6)))),
-        );
+        let bassline_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.3,
+        ))));
+        let gain_2_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.6)))));
 
-        let synth_1_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.5))),
-        );
-        let gain_3_uid = o.add(
-            None,
-            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.8)))),
-        );
+        let synth_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.5,
+        ))));
+        let gain_3_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.8)))));
 
-        let drum_1_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.7))),
-        );
+        let drum_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.7,
+        ))));
 
         // First chain.
         assert!(o
@@ -1162,22 +1148,16 @@ pub mod tests {
     #[test]
     fn gather_audio_with_branches() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let instrument_1_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.1))),
-        );
-        let instrument_2_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.3))),
-        );
-        let instrument_3_uid = o.add(
-            None,
-            Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(0.5))),
-        );
-        let effect_1_uid = o.add(
-            None,
-            Entity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))),
-        );
+        let instrument_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.1,
+        ))));
+        let instrument_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.3,
+        ))));
+        let instrument_3_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
+            0.5,
+        ))));
+        let effect_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))));
 
         assert!(o.patch_chain_to_main_mixer(&[instrument_1_uid]).is_ok());
         assert!(o.patch_chain_to_main_mixer(&[effect_1_uid]).is_ok());
@@ -1193,10 +1173,10 @@ pub mod tests {
     #[test]
     fn run_buffer_size_can_be_odd_number() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let _ = o.add(
-            None,
-            Entity::Timer(Box::new(Timer::new_with(DEFAULT_SAMPLE_RATE, 1.0))),
-        );
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            1.0,
+        ))));
 
         // Prime number
         let mut sample_buffer = [StereoSample::SILENCE; 17];
@@ -1208,10 +1188,10 @@ pub mod tests {
     #[test]
     fn orchestrator_sample_count_is_accurate_for_zero_timer() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let _ = o.add(
-            None,
-            Entity::Timer(Box::new(Timer::new_with(DEFAULT_SAMPLE_RATE, 0.0))),
-        );
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            0.0,
+        ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), 0);
@@ -1223,13 +1203,10 @@ pub mod tests {
     #[test]
     fn orchestrator_sample_count_is_accurate_for_short_timer() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let _ = o.add(
-            None,
-            Entity::Timer(Box::new(Timer::new_with(
-                DEFAULT_SAMPLE_RATE,
-                1.0 / DEFAULT_SAMPLE_RATE as f32,
-            ))),
-        );
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            1.0 / DEFAULT_SAMPLE_RATE as f32,
+        ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), 1);
@@ -1241,10 +1218,10 @@ pub mod tests {
     #[test]
     fn orchestrator_sample_count_is_accurate_for_ordinary_timer() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let _ = o.add(
-            None,
-            Entity::Timer(Box::new(Timer::new_with(DEFAULT_SAMPLE_RATE, 1.0))),
-        );
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            1.0,
+        ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
             assert_eq!(samples.len(), 44100);
@@ -1323,14 +1300,14 @@ pub mod tests {
         programmer.insert_pattern_at_cursor(&mut sequencer, &INSTRUMENT_MIDI_CHANNEL, &pattern);
 
         let midi_recorder = Box::new(ToyInstrument::new_with(DEFAULT_SAMPLE_RATE));
-        let midi_recorder_uid = o.add(None, Entity::ToyInstrument(midi_recorder));
+        let midi_recorder_uid = o.add(Entity::ToyInstrument(midi_recorder));
         o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
 
         // Test recorder has seen nothing to start with.
         // TODO assert!(midi_recorder.debug_messages.is_empty());
 
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let _sequencer_uid = o.add(None, Entity::BeatSequencer(sequencer));
+        let _sequencer_uid = o.add(Entity::BeatSequencer(sequencer));
 
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -1390,10 +1367,10 @@ pub mod tests {
 
         // Keep going until just before half of second beat. We should see the
         // first note off (not on!) and the second note on/off.
-        let _ = o.add(
-            None,
-            Entity::Timer(Box::new(Timer::new_with(DEFAULT_SAMPLE_RATE, 2.0))),
-        );
+        let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            2.0,
+        ))));
         assert!(o.run(&mut sample_buffer).is_ok());
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 3);
 
@@ -1432,7 +1409,7 @@ pub mod tests {
         assert_eq!(sequencer.debug_events().len(), 0);
 
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let _ = o.add(None, Entity::BeatSequencer(sequencer));
+        let _ = o.add(Entity::BeatSequencer(sequencer));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(result) = o.run(&mut sample_buffer) {
             assert_eq!(
@@ -1483,10 +1460,10 @@ pub mod tests {
             },
         );
 
-        let _sequencer_uid = o.add(None, Entity::BeatSequencer(sequencer));
-        let arpeggiator_uid = o.add(None, Entity::Arpeggiator(arpeggiator));
+        let _sequencer_uid = o.add(Entity::BeatSequencer(sequencer));
+        let arpeggiator_uid = o.add(Entity::Arpeggiator(arpeggiator));
         o.connect_midi_downstream(arpeggiator_uid, MIDI_CHANNEL_SEQUENCER_TO_ARP);
-        let instrument_uid = o.add(None, Entity::ToyInstrument(instrument));
+        let instrument_uid = o.add(Entity::ToyInstrument(instrument));
         o.connect_midi_downstream(instrument_uid, MIDI_CHANNEL_ARP_TO_INSTRUMENT);
 
         let _ = o.connect_to_main_mixer(instrument_uid);

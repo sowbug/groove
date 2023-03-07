@@ -3,8 +3,66 @@
 #![allow(clippy::box_default)]
 
 //! A DAW (digital audio workstation) engine.
+//!
+//! ```
+//! use groove::{Entity, Orchestrator};
+//! use groove_core::{
+//!     midi::{MidiChannel, new_note_off, new_note_on},
+//!     time::PerfectTimeUnit,
+//!     StereoSample,
+//! };
+//!
+//! use groove_entities::{controllers::BeatSequencer, effects::Compressor};
+//! use groove_toys::ToySynth;
+//!
+//! const SAMPLE_RATE: usize = 44100;
+//! const BPM: f64 = 128.0;
+//! const MIDI_0: MidiChannel = 0;
+//!
+//! // Provide a working buffer for audio.
+//! let mut buffer = [StereoSample::SILENCE; 64];
+//!
+//! // ToySynth is a MIDI instrument that makes simple sounds.
+//! let synth = ToySynth::new_with(SAMPLE_RATE);
+//!
+//! // Sequencer sends MIDI commands to the synth.
+//! let mut sequencer = BeatSequencer::new_with(SAMPLE_RATE, BPM);
+//!
+//! // There are lots of different ways to populate the sequencer with notes.
+//! sequencer.insert(PerfectTimeUnit(0.0), MIDI_0, new_note_on(69, 100));
+//! sequencer.insert(PerfectTimeUnit(1.0), MIDI_0, new_note_off(69, 100));
+//!
+//! // An effect takes the edge off the synth.
+//! let compressor = Compressor::new_with(0.8, 0.5, 0.05, 0.1);
+//!
+//! // Orchestrator understands the relationships among the
+//! // instruments, controllers, and effects, and uses them to
+//! // produce a song.
+//! let mut orchestrator = Orchestrator::new_with(SAMPLE_RATE, BPM);
+//!
+//! // Tell the orchestrator about everything.
+//! let synth_id = orchestrator.add(Entity::ToySynth(Box::new(synth)));
+//! let _sequencer_id = orchestrator.add(Entity::BeatSequencer(Box::new(sequencer)));
+//! let compressor_id = orchestrator.add(Entity::Compressor(Box::new(compressor)));
+//!
+//! // Plug in the audio outputs.
+//! let _ = orchestrator.patch_chain_to_main_mixer(&[synth_id, compressor_id]);
+//!
+//! // Connect MIDI.
+//! orchestrator.connect_midi_downstream(synth_id, MIDI_0);
+//!
+//! // Ask the orchestrator to render the performance.
+//! if let Ok(samples) = orchestrator.run(&mut buffer) {
+//!     println!("{}", samples.len());
+//!     assert!(samples
+//!         .iter()
+//!         .any(|sample| *sample != StereoSample::SILENCE));
+//! }
+//! ```
 
 pub mod subscriptions;
+pub use groove_orchestration::Entity;
+pub use groove_orchestration::Orchestrator;
 
 use groove_core::ParameterType;
 

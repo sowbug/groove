@@ -2,7 +2,7 @@
 
 use groove_core::{
     generators::{Envelope, Oscillator, Waveform},
-    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
+    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiNote},
     time::ClockTimeUnit,
     traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
     BipolarNormal, Dca, Normal, Sample, SampleType, StereoSample,
@@ -235,14 +235,31 @@ impl Resets for ToySynth {
 }
 impl Ticks for ToySynth {
     fn tick(&mut self, tick_count: usize) {
-        // TODO: I don't think this can play sounds, because I don't see how the
-        // envelope ever gets triggered.
         self.oscillator.tick(tick_count);
         self.envelope.tick(tick_count);
         self.sample = StereoSample::from(self.oscillator.value() * self.envelope.value().value());
     }
 }
-impl HandlesMidi for ToySynth {}
+impl HandlesMidi for ToySynth {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        #[allow(unused_variables)]
+        match message {
+            MidiMessage::NoteOff { key, vel } => {
+                self.envelope.trigger_release();
+            }
+            MidiMessage::NoteOn { key, vel } => {
+                self.envelope.trigger_attack();
+                self.oscillator
+                    .set_frequency(note_to_frequency((*key).as_int()));
+            }
+            _ => todo!(),
+        }
+        None
+    }
+}
 impl ToySynth {
     pub fn new_with_components(
         sample_rate: usize,

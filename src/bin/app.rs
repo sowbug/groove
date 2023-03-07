@@ -10,7 +10,7 @@ use groove::{
         EngineEvent, EngineInput, EngineSubscription, MidiHandler, MidiHandlerEvent,
         MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
     },
-    {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+    Entity, Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::{
     time::{Clock, TimeSignature},
@@ -26,7 +26,7 @@ use groove_entities::{
     instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
     EntityMessage,
 };
-use groove_orchestration::{messages::GrooveEvent, Entity, Orchestrator};
+use groove_orchestration::messages::GrooveEvent;
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use gui::{
     persistence::{LoadError, Preferences, SaveError},
