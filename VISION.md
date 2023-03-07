@@ -100,3 +100,4 @@ the many people who contributed to its lineage over the years. Most new music is
 heavily influenced by existing music and thousands of years of evolving styles.
 This workflow change incorporates that evolution into a song's explicit
 documentary history.
+\n
