@@ -557,7 +557,11 @@ impl Orchestrator {
                         if let Some(messages) = e.handle_midi_message(message) {
                             v.extend(messages);
                         }
+                    } else {
+                        panic!("tried to send MIDI to something that doesn't handle it")
                     }
+                } else {
+                    panic!("tried to send MIDI to a bad UID")
                 }
                 v
             },
