@@ -264,7 +264,7 @@
         }
       },
       "args": [
-        "midi_files${pathSeparator}major-scale-spaced-notes.mid"
+        "test-data${pathSeparator}midi${pathSeparator}major-scale-spaced-notes.mid"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -284,7 +284,7 @@
         }
       },
       "args": [
-        "midi_files${pathSeparator}major-scale-spaced-notes.mid",
+        "test-data${pathSeparator}midi${pathSeparator}major-scale-spaced-notes.mid",
         "--wav",
         "major-scale-cello.wav"
       ],
@@ -306,7 +306,7 @@
         }
       },
       "args": [
-        "midi_files${pathSeparator}d-gonnamakeyousweat.mid"
+        "test-data${pathSeparator}midi${pathSeparator}d-gonnamakeyousweat.mid"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -326,7 +326,7 @@
         }
       },
       "args": [
-        "midi_files${pathSeparator}d-gonnamakeyousweat.mid",
+        "test-data${pathSeparator}midi${pathSeparator}d-gonnamakeyousweat.mid",
         "--wav",
         "Gonna_Make_You_Sweat.wav"
       ],
@@ -348,7 +348,7 @@
         }
       },
       "args": [
-        "midi_files${pathSeparator}multi-channel.mid",
+        "test-data${pathSeparator}midi${pathSeparator}multi-channel.mid",
         "--wav",
         "multi-channel.wav"
       ],
