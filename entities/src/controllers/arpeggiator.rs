@@ -152,14 +152,3 @@ impl Arpeggiator {
         );
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::Arpeggiator;
-    use crate::{
-        controllers::sequencers::BeatSequencer,
-        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
-    };
-    use groove_core::{midi::MidiChannel, time::Clock};
-    use groove_toys::ToyInstrument;
-}
