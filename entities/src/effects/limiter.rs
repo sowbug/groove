@@ -21,7 +21,7 @@ impl Default for Limiter {
     fn default() -> Self {
         Self {
             uid: Default::default(),
-            min: BipolarNormal::MIN as f32,
+            min: BipolarNormal::MIN as f32, // TODO: this should be a regular Normal, since we don't have negatives
             max: BipolarNormal::MAX as f32,
         }
     }
