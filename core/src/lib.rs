@@ -9,20 +9,19 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
-/// The [control] module handles automation, or real-time automatic control of
-/// one entity's parameters by another entity's output.
+/// Handles automation, or real-time automatic control of one entity's
+/// parameters by another entity's output.
 pub mod control;
-/// The [generators] module contains things that generate signals, like oscillators and envelopes.
+/// Contains things that generate signals, like oscillators and envelopes.
 pub mod generators;
-/// The [midi] module knows about [MIDI](https://en.wikipedia.org/wiki/MIDI).
+/// Knows about [MIDI](https://en.wikipedia.org/wiki/MIDI).
 pub mod midi;
-/// The [time] module handles digital-audio and musical time.
+/// Handles digital-audio, wall-clock, and musical time.
 pub mod time;
-/// The [traits] module describes the public interfaces that are central to the
-/// Groove system.
+/// Describes major public interfaces.
 pub mod traits;
-/// The [util] module contains various helper functions that keep different
-/// parts of the system consistent.
+/// Contains various helper functions that keep different parts of the system
+/// consistent.
 pub mod util;
 
 /// [SampleType] is the underlying primitive that makes up [MonoSample] and

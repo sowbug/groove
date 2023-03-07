@@ -17,6 +17,8 @@ use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySy
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 
+/// An [Entity] wraps a musical device, giving it the ability to be managed by
+/// [Orchestrator] and automated by other devices in the system.
 macro_rules! boxed_entity_enum_and_common_crackers {
     ($($variant:ident: $type:ty,)*) => {
         #[derive(Debug)]

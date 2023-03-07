@@ -61,8 +61,7 @@
 //! ```
 
 pub mod subscriptions;
-pub use groove_orchestration::Entity;
-pub use groove_orchestration::Orchestrator;
+pub use groove_orchestration::{Entity, Orchestrator};
 
 use groove_core::ParameterType;
 

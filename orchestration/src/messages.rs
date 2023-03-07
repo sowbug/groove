@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-//! The [messages] module defines the App's Iced messages.
+//! The [messages](crate::messages) module defines the app's Iced messages.
 
 use groove_core::{
     midi::{MidiChannel, MidiMessage},

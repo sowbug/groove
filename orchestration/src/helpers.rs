@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-//! The [helpers] module contains structs and methods that make it easier to use
-//! the Groove engine.
+//! The [helpers](crate::helpers) module contains structs and methods that make
+//! it easier to use the Groove engine.
 
 use crate::{orchestrator::Performance, Orchestrator};
 use anyhow::anyhow;

@@ -2,7 +2,7 @@
 
 use groove_core::{
     generators::{Envelope, Oscillator, Waveform},
-    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage, MidiNote},
+    midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
     traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
     BipolarNormal, Dca, Normal, Sample, SampleType, StereoSample,
