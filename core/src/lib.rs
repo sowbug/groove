@@ -138,6 +138,11 @@ impl From<StereoSample> for Sample {
         Sample((value.0 .0 + value.1 .0) * 0.5)
     }
 }
+impl From<BipolarNormal> for Sample {
+    fn from(value: BipolarNormal) -> Self {
+        Sample(value.0)
+    }
+}
 
 // TODO: I'm not convinced this is useful.
 /// [MonoSample] is a single-channel sample. It exists separately from [Sample]
@@ -228,6 +233,7 @@ pub struct RangedF64<const LOWER: i8, const UPPER: i8>(f64);
 impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
     pub const MAX: f64 = UPPER as f64;
     pub const MIN: f64 = LOWER as f64;
+    pub const ZERO: f64 = 0.0;
 
     pub fn new(value: f64) -> Self {
         Self(value.clamp(Self::MIN, Self::MAX))
@@ -235,11 +241,14 @@ impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
     pub fn new_from_f32(value: f32) -> Self {
         Self::new(value as f64)
     }
-    pub fn maximum() -> Self {
+    pub const fn maximum() -> Self {
         Self(Self::MAX)
     }
-    pub fn minimum() -> Self {
+    pub const fn minimum() -> Self {
         Self(Self::MIN)
+    }
+    pub const fn zero() -> Self {
+        Self(Self::ZERO)
     }
     pub fn value(&self) -> f64 {
         self.0.clamp(Self::MIN, Self::MAX)
@@ -312,11 +321,28 @@ impl From<Sample> for Normal {
         Self(value.0 * 0.5 + 0.5)
     }
 }
+impl From<BipolarNormal> for Normal {
+    fn from(value: BipolarNormal) -> Self {
+        Self(value.value() * 0.5 + 0.5)
+    }
+}
 impl From<Sample> for BipolarNormal {
     // A [Sample] has the same range as a [BipolarNormal], so no conversion is
     // necessary.
     fn from(value: Sample) -> Self {
         Self(value.0)
+    }
+}
+impl Mul<Normal> for BipolarNormal {
+    type Output = BipolarNormal;
+
+    fn mul(self, rhs: Normal) -> Self::Output {
+        Self(self.0 * rhs.value())
+    }
+}
+impl From<BipolarNormal> for StereoSample {
+    fn from(value: BipolarNormal) -> Self {
+        StereoSample::from(value.value())
     }
 }
 
@@ -428,6 +454,25 @@ mod tests {
             Normal::from(Sample(0.0)),
             Normal::new(0.5),
             "Converting Sample 0.0 to Normal should yield 0.5"
+        );
+    }
+
+    #[test]
+    fn convert_bipolar_normal_to_normal() {
+        assert_eq!(
+            Normal::from(BipolarNormal::from(-1.0)),
+            Normal::new(0.0),
+            "Bipolar -> Normal wrong"
+        );
+        assert_eq!(
+            Normal::from(BipolarNormal::from(0.0)),
+            Normal::new(0.5),
+            "Bipolar -> Normal wrong"
+        );
+        assert_eq!(
+            Normal::from(BipolarNormal::from(1.0)),
+            Normal::new(1.0),
+            "Bipolar -> Normal wrong"
         );
     }
 
