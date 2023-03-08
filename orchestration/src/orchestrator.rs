@@ -42,11 +42,11 @@ impl Performance {
     }
 }
 
-/// [Orchestrator] tracks all [Entities](Entity) (controllers, effects, and
-/// instruments). It manages their virtual patch cables, virtual MIDI cables,
-/// and control relationships. When you're ready to render a song, it creates a
-/// stream of [StereoSample]s that can be fed to the computer's sound card or
-/// exported as a WAV file.
+/// [Orchestrator] manages all [Entities](Entity) (controllers, effects, and
+/// instruments). It also manages their virtual patch cables, virtual MIDI
+/// cables, and control relationships. When you're ready to render a song, it
+/// creates a stream of [StereoSample]s that can be fed to the computer's sound
+/// card or exported as a WAV file.
 ///
 /// It's not necessary to use [Orchestrator] to take advantage of this crate's
 /// musical capabilities, but all the entities were designed to work smoothly

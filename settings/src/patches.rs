@@ -387,6 +387,7 @@ pub struct FilterPreset {
 }
 
 impl WelshPatchSettings {
+    #[allow(dead_code)]
     pub fn general_midi_preset(program: &GeneralMidiProgram) -> anyhow::Result<WelshPatchSettings> {
         let mut delegated = false;
         let preset = match program {
@@ -761,6 +762,7 @@ impl FmSynthesizerPreset {
         )
     }
 
+    #[allow(dead_code)]
     pub fn from_name(_name: &str) -> FmSynthesizerPreset {
         let modulator_envelope = AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.0);
         let carrier_envelope = AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.0);

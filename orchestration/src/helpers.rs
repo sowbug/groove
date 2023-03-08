@@ -223,6 +223,7 @@ impl IOHelper {
             .0 as usize
     }
 
+    #[allow(unused_variables)]
     pub fn orchestrator_from_midi_file(filename: &str) -> Orchestrator {
         // // TODO: where do BPM, time signature, etc. come from?
         // let mut orchestrator = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);

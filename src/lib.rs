@@ -1,6 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 #![allow(clippy::box_default)]
+#![warn(missing_docs)]
+#![warn(missing_doc_code_examples)]
 
 //! A DAW (digital audio workstation) engine.
 //!
@@ -60,6 +62,8 @@
 //! }
 //! ```
 
+/// Contains Iced [Subscriptions](iced_native::subscription::Subscription) for
+/// working with this crate.
 pub mod subscriptions;
 pub use groove_orchestration::{Entity, Orchestrator};
 
@@ -67,12 +71,17 @@ use groove_core::ParameterType;
 
 // TODO: these should be #[cfg(test)] because nobody should be assuming these
 // values
+/// A typical sample rate.
 pub const DEFAULT_SAMPLE_RATE: usize = 44100;
+/// A typical BPM (beats per minute) for EDM.
 pub const DEFAULT_BPM: ParameterType = 128.0;
+/// The most common time signature
 pub const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);
+/// A typical tick-per-second rate for a MIDI file.
 pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
 // https://stackoverflow.com/a/65972328/344467
+/// A string that's good for displaying build information for the user.
 pub fn app_version() -> &'static str {
     option_env!("GIT_DESCRIBE")
         .unwrap_or(option_env!("GIT_REV_PARSE").unwrap_or(env!("CARGO_PKG_VERSION")))
