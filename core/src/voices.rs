@@ -8,7 +8,7 @@ use crate::{
 use anyhow::{anyhow, Result};
 use rustc_hash::FxHashMap;
 
-/// A [StoresVoices](groove_core::traits::StoresVoices) that fails when too many
+/// A [StoresVoices](crate::traits::StoresVoices) that fails when too many
 /// voices are used simultaneously.
 #[derive(Debug)]
 pub struct VoiceStore<V: IsStereoSampleVoice> {
@@ -105,8 +105,7 @@ impl<V: IsStereoSampleVoice> VoiceStore<V> {
     }
 }
 
-/// A [StoresVoices](groove_core::traits::StoresVoices) that steals voices as
-/// needed.
+/// A [StoresVoices](crate::traits::StoresVoices) that steals voices as needed.
 #[derive(Debug)]
 pub struct StealingVoiceStore<V: IsStereoSampleVoice> {
     sample: StereoSample,
@@ -138,7 +137,8 @@ impl<V: IsStereoSampleVoice> StoresVoices for StealingVoiceStore<V> {
             return Ok(&mut self.voices[index]);
         }
 
-        // We need to steal a voice. For now, let's just pick the first one in the list.
+        // We need to steal a voice. For now, let's just pick the first one in
+        // the list.
         let index = 0;
         self.notes_playing[index] = *key;
         return Ok(&mut self.voices[index]);
@@ -211,9 +211,10 @@ impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
     }
 }
 
-/// A [StoresVoices](groove_core::traits::StoresVoices) that assumes a specific
-/// voice is dedicated to each note. A good example is a drumkit sampler, which
-/// uses the same [Voice] whenever a particular sample is played..
+/// A [StoresVoices](crate::traits::StoresVoices) that assumes a specific voice
+/// is dedicated to each note. A good example is a drumkit sampler, which uses
+/// the same [IsVoice](crate::traits::IsVoice) whenever a particular sample is
+/// played.
 #[derive(Debug)]
 pub struct VoicePerNoteStore<V: IsStereoSampleVoice> {
     sample: StereoSample,
