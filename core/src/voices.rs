@@ -278,7 +278,7 @@ impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use crate::{
         generators::{AdsrParams, Envelope, Oscillator},
         midi::{note_to_frequency, u7},
@@ -369,7 +369,7 @@ mod tests {
     }
 
     impl TestVoice {
-        fn new_with(sample_rate: usize) -> Self {
+        pub(crate) fn new_with(sample_rate: usize) -> Self {
             Self {
                 sample_rate,
                 oscillator: Oscillator::new_with(sample_rate),

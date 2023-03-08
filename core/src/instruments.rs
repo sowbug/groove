@@ -110,3 +110,71 @@ impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        instruments::Synthesizer,
+        midi::{new_note_on, HandlesMidi, MidiChannel, MidiMessage},
+        tests::DEFAULT_SAMPLE_RATE,
+        traits::{Generates, Resets, Ticks},
+        voices::{tests::TestVoice, VoiceStore},
+        StereoSample,
+    };
+
+    #[derive(Debug)]
+    pub struct TestSynthesizer {
+        inner_synth: Synthesizer<TestVoice>,
+    }
+    impl HandlesMidi for TestSynthesizer {
+        fn handle_midi_message(
+            &mut self,
+            message: &MidiMessage,
+        ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+            self.inner_synth.handle_midi_message(message)
+        }
+    }
+    impl Generates<StereoSample> for TestSynthesizer {
+        fn value(&self) -> StereoSample {
+            self.inner_synth.value()
+        }
+
+        fn batch_values(&mut self, values: &mut [StereoSample]) {
+            self.inner_synth.batch_values(values)
+        }
+    }
+    impl Resets for TestSynthesizer {
+        fn reset(&mut self, sample_rate: usize) {
+            self.inner_synth.reset(sample_rate);
+        }
+    }
+    impl Ticks for TestSynthesizer {
+        fn tick(&mut self, tick_count: usize) {
+            self.inner_synth.tick(tick_count);
+        }
+    }
+    impl TestSynthesizer {
+        pub fn new(sample_rate: usize) -> Self {
+            Self {
+                inner_synth: Synthesizer::<TestVoice>::new_with(
+                    sample_rate,
+                    Box::new(VoiceStore::<TestVoice>::new_with_voice(
+                        sample_rate,
+                        4,
+                        || TestVoice::new_with(sample_rate),
+                    )),
+                ),
+            }
+        }
+    }
+
+    #[test]
+    fn mainline_test_synthesizer() {
+        let mut s = TestSynthesizer::new(DEFAULT_SAMPLE_RATE);
+        s.handle_midi_message(&new_note_on(100, 99));
+
+        // Tick a few because the oscillator correctly starts at zero.
+        s.tick(3);
+        assert!(s.value() != StereoSample::from(StereoSample::SILENCE));
+    }
+}

@@ -23,7 +23,7 @@ use groove_entities::{
         PatternMessage, Sequencer, SignalPassthroughController, Timer,
     },
     effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
-    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
+    instruments::{Drumkit, FmSynthesizer, Sampler, WelshSynth},
     EntityMessage,
 };
 use groove_orchestration::messages::GrooveEvent;
@@ -522,7 +522,6 @@ impl GrooveApp {
             Entity::Reverb(e) => self.reverb_view(e),
             Entity::Sampler(e) => self.sampler_view(e),
             Entity::SignalPassthroughController(e) => self.signal_controller_view(e),
-            Entity::SimpleSynthesizer(e) => self.simple_synthesizer_view(e),
             Entity::ToyController(e) => self.toy_controller_view(e),
             Entity::ToyEffect(e) => self.toy_effect_view(e),
             Entity::ToyInstrument(e) => self.test_instrument_view(e),
@@ -603,15 +602,6 @@ impl GrooveApp {
     fn sampler_view(&self, e: &Sampler) -> Element<EntityMessage> {
         let title = type_name::<Sampler>();
         let contents = format!("Coming soon: {}", e.uid());
-        GuiStuff::titled_container(
-            title,
-            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-        )
-    }
-
-    fn simple_synthesizer_view(&self, e: &SimpleSynthesizer) -> Element<EntityMessage> {
-        let title = type_name::<SimpleSynthesizer>();
-        let contents = format!("notes playing: {}", e.notes_playing());
         GuiStuff::titled_container(
             title,
             GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),

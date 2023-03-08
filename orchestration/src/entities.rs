@@ -10,7 +10,7 @@ use groove_entities::{
         SignalPassthroughController, Timer,
     },
     effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
-    instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
+    instruments::{Drumkit, FmSynthesizer, Sampler, WelshSynth},
     EntityMessage,
 };
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
@@ -69,7 +69,6 @@ boxed_entity_enum_and_common_crackers! {
     Drumkit: Drumkit,
     FmSynthesizer: FmSynthesizer,
     Sampler: Sampler,
-    SimpleSynthesizer: SimpleSynthesizer,
     ToyAudioSource: ToyAudioSource,
     ToyInstrument: ToyInstrument,
     ToySynth: ToySynth,
@@ -197,7 +196,6 @@ instrument_crackers! {
     Drumkit,
     FmSynthesizer,
     Sampler,
-    SimpleSynthesizer,
     ToyInstrument,
     ToySynth,
     WelshSynth,
@@ -234,7 +232,6 @@ handles_midi_crackers! {
     PatternManager,
     Sampler,
     SignalPassthroughController,
-    SimpleSynthesizer,
     ToyController,
     ToyInstrument,
     ToySynth,

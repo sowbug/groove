@@ -6,7 +6,7 @@ use super::{
 };
 use crate::patches::EnvelopeSettings;
 use groove_core::{midi::note_description_to_frequency, Normal};
-use groove_entities::instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer};
+use groove_entities::instruments::{Drumkit, FmSynthesizer, Sampler};
 use groove_orchestration::Entity;
 use groove_toys::ToyInstrument;
 use serde::{Deserialize, Serialize};
@@ -16,11 +16,6 @@ use serde::{Deserialize, Serialize};
 pub enum InstrumentSettings {
     #[serde(rename_all = "kebab-case")]
     Test {
-        #[serde(rename = "midi-in")]
-        midi_input_channel: MidiChannel,
-    },
-    #[serde(rename_all = "kebab-case")]
-    SimpleSynth {
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
     },
@@ -75,7 +70,6 @@ impl InstrumentSettings {
         if load_only_test_entities {
             let midi_input_channel = match self {
                 InstrumentSettings::Test { midi_input_channel } => *midi_input_channel,
-                InstrumentSettings::SimpleSynth { midi_input_channel } => *midi_input_channel,
                 InstrumentSettings::Welsh {
                     midi_input_channel, ..
                 } => *midi_input_channel,
@@ -98,10 +92,6 @@ impl InstrumentSettings {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,
                 Entity::ToyInstrument(Box::new(ToyInstrument::new_with(sample_rate))),
-            ),
-            InstrumentSettings::SimpleSynth { midi_input_channel } => (
-                *midi_input_channel,
-                Entity::SimpleSynthesizer(Box::new(SimpleSynthesizer::new(sample_rate))),
             ),
             InstrumentSettings::Welsh {
                 midi_input_channel,
