@@ -81,7 +81,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}demos/controllers/sidechain.yaml"
+        "projects${pathSeparator}demos/instruments/fm-synthesizer.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },

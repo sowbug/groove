@@ -4,7 +4,7 @@ use super::{
     patches::{FmSynthesizerPreset, WelshPatchSettings},
     MidiChannel,
 };
-use groove_core::midi::note_description_to_frequency;
+use groove_core::{midi::note_description_to_frequency, Normal};
 use groove_entities::instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer};
 use groove_orchestration::Entity;
 use groove_toys::ToyInstrument;
@@ -51,8 +51,12 @@ pub enum InstrumentSettings {
     FmSynthesizer {
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
-        #[serde(rename = "preset")]
-        preset_name: String,
+        // #[serde(rename = "preset")]
+        // preset_name: String,
+        #[serde(rename = "ratio")]
+        modulator_ratio: f64,
+        #[serde(rename = "depth")]
+        modulator_depth: f64,
     },
     // TODO Sampler
 }
@@ -133,13 +137,18 @@ impl InstrumentSettings {
             }
             InstrumentSettings::FmSynthesizer {
                 midi_input_channel,
-                preset_name,
+                modulator_ratio,
+                modulator_depth,
             } => (
                 *midi_input_channel,
                 Entity::FmSynthesizer(Box::new(FmSynthesizer::new_with_voice_store(
                     sample_rate,
                     Box::new(
-                        FmSynthesizerPreset::from_name(preset_name).into_voice_store(sample_rate),
+                        FmSynthesizerPreset {
+                            modulator_ratio: *modulator_ratio,
+                            modulator_depth: Normal::from(*modulator_depth),
+                        }
+                        .into_voice_store(sample_rate),
                     ),
                 ))),
             ),

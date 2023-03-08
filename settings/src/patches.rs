@@ -103,14 +103,14 @@ impl WelshPatchSettings {
         }
 
         let oscillator_mix = if oscillators.is_empty() {
-            0.0
+            Normal::zero()
         } else if oscillators.len() == 1
             || (self.oscillator_1.mix == 0.0 && self.oscillator_2.mix == 0.0)
         {
-            1.0
+            Normal::maximum()
         } else {
             let total = self.oscillator_1.mix + self.oscillator_2.mix;
-            (self.oscillator_1.mix / total) as f64
+            Normal::from(self.oscillator_1.mix / total)
         };
 
         //        WelshVoice::new_with(oscillators, oscillator_mix, oscillator_2_sync, )
@@ -732,8 +732,9 @@ impl WelshPatchSettings {
     }
 }
 
-pub(crate) struct FmSynthesizerPreset {
-    modulator_frequency_hz: ParameterType,
+pub struct FmSynthesizerPreset {
+    pub modulator_ratio: ParameterType,
+    pub modulator_depth: Normal,
 }
 
 impl FmSynthesizerPreset {
@@ -742,12 +743,13 @@ impl FmSynthesizerPreset {
     }
 
     pub fn into_voice(&self, sample_rate: usize) -> FmVoice {
-        FmVoice::new_with_modulator_frequency(sample_rate, self.modulator_frequency_hz)
+        FmVoice::new_with(sample_rate, self.modulator_ratio, self.modulator_depth)
     }
 
     pub fn from_name(_name: &str) -> FmSynthesizerPreset {
         FmSynthesizerPreset {
-            modulator_frequency_hz: 1600.0,
+            modulator_ratio: 2.0,
+            modulator_depth: Normal::maximum(),
         }
     }
 }

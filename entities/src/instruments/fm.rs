@@ -19,8 +19,13 @@ pub struct FmVoice {
     sample: StereoSample,
     carrier: Oscillator,
     modulator: Oscillator,
+
+    /// modulator_frequency is based on carrier frequency and modulator_ratio
     modulator_ratio: ParameterType,
+
+    /// modulator_depth 0.0 means no modulation; 1.0 means maximum
     modulator_depth: Normal,
+
     carrier_envelope: Envelope,
     modulator_envelope: Envelope,
     dca: Dca,
@@ -84,18 +89,18 @@ impl Resets for FmVoice {
 impl Ticks for FmVoice {
     fn tick(&mut self, tick_count: usize) {
         if self.is_playing() {
-            self.carrier.set_frequency_modulation(BipolarNormal::from(
-                self.modulator.value()
-                    * self.modulator_envelope.value().value()
-                    * self.modulator_depth.value(),
-            ));
-            let r = self.carrier.value() * self.carrier_envelope.value().value();
+            let modulator_magnitude =
+                self.modulator.value() * self.modulator_envelope.value() * self.modulator_depth;
+            let modulator_thing = modulator_magnitude.value() * 100.0;
+            self.carrier
+                .set_additive_frequency_modulation(modulator_thing);
+            let r = self.carrier.value() * self.carrier_envelope.value();
             self.carrier_envelope.tick(tick_count);
             self.modulator_envelope.tick(tick_count);
             self.carrier.tick(tick_count);
             self.modulator.tick(tick_count);
             if self.is_playing() {
-                self.sample = self.dca.transform_audio_to_stereo(Sample(r));
+                self.sample = self.dca.transform_audio_to_stereo(Sample::from(r));
                 return;
             } else if self.steal_is_underway {
                 self.steal_is_underway = false;
@@ -106,34 +111,25 @@ impl Ticks for FmVoice {
     }
 }
 impl FmVoice {
-    pub(crate) fn new_with(sample_rate: usize) -> Self {
+    pub fn new_with(
+        sample_rate: usize,
+        modulator_ratio: ParameterType,
+        modulator_depth: Normal,
+    ) -> Self {
         Self {
             sample: Default::default(),
             carrier: Oscillator::new_with(sample_rate),
             modulator: Oscillator::new_with_waveform(sample_rate, Waveform::Sine),
-            modulator_ratio: 1.0, // modulator frequency is this ratio of carrier frequency
-            modulator_depth: Normal::from(0.8),
+            modulator_ratio,
+            modulator_depth,
             carrier_envelope: Envelope::new_with(sample_rate, 0.0, 0.0, Normal::maximum(), 0.1),
-            modulator_envelope: Envelope::new_with(sample_rate, 0.0, 0.5, Normal::from(0.1), 0.0),
+           // modulator_envelope: Envelope::new_with(sample_rate, 0.0, 0.0, Normal::maximum(), 0.1),
+                       modulator_envelope: Envelope::new_with(sample_rate, 0.0, 0.5, Normal::from(0.1), 0.0),
             dca: Default::default(),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
             steal_is_underway: Default::default(),
         }
-    }
-
-    pub fn new_with_modulator_frequency(
-        sample_rate: usize,
-        modulator_frequency: ParameterType,
-    ) -> Self {
-        let mut r = Self::new_with(sample_rate);
-        r.modulator = Oscillator::new_with_waveform_and_frequency(
-            sample_rate,
-            Waveform::Sine,
-            modulator_frequency,
-        );
-        r.modulator.set_phase_offset(Normal::from(0.5));
-        r
     }
 
     #[allow(dead_code)]

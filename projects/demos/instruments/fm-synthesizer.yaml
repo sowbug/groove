@@ -10,7 +10,8 @@ devices:
       - instrument-1
       - fm-synthesizer:
           midi-in: 0
-          preset: none
+          ratio: 2.0
+          depth: 0.1
   - effect:
       - gain-1
       - gain:

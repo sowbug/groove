@@ -26,7 +26,7 @@ pub enum LfoRouting {
 pub struct WelshVoice {
     oscillators: Vec<Oscillator>,
     oscillator_2_sync: bool,
-    oscillator_mix: f64, // 1.0 = entirely osc 0, 0.0 = entirely osc 1.
+    oscillator_mix: Normal, // 1.0 = entirely osc 0, 0.0 = entirely osc 1.
     amp_envelope: Envelope,
     dca: Dca,
 
@@ -126,7 +126,7 @@ impl Ticks for WelshVoice {
                 // LFO
                 let lfo = self.lfo.value();
                 if matches!(self.lfo_routing, LfoRouting::Pitch) {
-                    let lfo_for_pitch = lfo * self.lfo_depth.value();
+                    let lfo_for_pitch = lfo * self.lfo_depth;
                     for o in self.oscillators.iter_mut() {
                         o.set_frequency_modulation(BipolarNormal::from(lfo_for_pitch));
                     }
@@ -135,14 +135,15 @@ impl Ticks for WelshVoice {
                 // Oscillators
                 let len = self.oscillators.len();
                 let osc_sum = match len {
-                    0 => 0.0,
+                    0 => BipolarNormal::from(0.0),
                     1 => self.oscillators[0].value() * self.oscillator_mix,
                     2 => {
                         if self.oscillator_2_sync && self.oscillators[0].should_sync() {
                             self.oscillators[1].sync();
                         }
                         self.oscillators[0].value() * self.oscillator_mix
-                            + self.oscillators[1].value() * (1.0 - self.oscillator_mix)
+                            + self.oscillators[1].value()
+                                * (Normal::maximum() - self.oscillator_mix)
                     }
                     _ => todo!(),
                 };
@@ -157,23 +158,24 @@ impl Ticks for WelshVoice {
                             * filter_env_amplitude.value() as f32;
                     self.filter.set_cutoff_pct(new_cutoff_percentage);
                 } else if matches!(self.lfo_routing, LfoRouting::FilterCutoff) {
-                    let lfo_for_cutoff = lfo * self.lfo_depth.value();
-                    self.filter
-                        .set_cutoff_pct(self.filter_cutoff_start * (1.0 + lfo_for_cutoff as f32));
+                    let lfo_for_cutoff = lfo * self.lfo_depth;
+                    self.filter.set_cutoff_pct(
+                        self.filter_cutoff_start * (1.0 + lfo_for_cutoff.value_as_f32()),
+                    );
                 }
                 let filtered_mix = self.filter.transform_channel(0, Sample::from(osc_sum)).0;
 
                 // LFO amplitude modulation
-                let lfo_for_amplitude = if matches!(self.lfo_routing, LfoRouting::Amplitude) {
-                    // LFO ranges from [-1, 1], so convert to something that can silence or double the volume.
-                    lfo * self.lfo_depth.value() + 1.0
-                } else {
-                    1.0
-                };
+                let lfo_for_amplitude =
+                    Normal::from(if matches!(self.lfo_routing, LfoRouting::Amplitude) {
+                        lfo * self.lfo_depth
+                    } else {
+                        BipolarNormal::zero()
+                    });
 
                 // Final
                 self.dca.transform_audio_to_stereo(Sample(
-                    filtered_mix * amp_env_amplitude.value() * lfo_for_amplitude,
+                    filtered_mix * amp_env_amplitude.value() * lfo_for_amplitude.value(),
                 ))
             } else {
                 StereoSample::SILENCE
@@ -210,7 +212,7 @@ impl WelshVoice {
     pub fn new_with(
         oscillators: Vec<Oscillator>,
         oscillator_2_sync: bool,
-        oscillator_mix: f64,
+        oscillator_mix: Normal,
         amp_envelope: Envelope,
         filter: BiQuadFilter,
         filter_cutoff_start: f32,

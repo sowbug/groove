@@ -212,7 +212,7 @@ impl Ticks for SimpleVoice {
                 }
             }
             self.sample =
-                StereoSample::from(self.oscillator.value() * self.envelope.value().value());
+                StereoSample::from(self.oscillator.value() * self.envelope.value());
         }
     }
 }
