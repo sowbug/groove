@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-//! The [engine] module contains the main interface, a Subscription, between the
-//! Iced app and the Groove engine.
+//! The [engine] module contains the main `Subscription` interface between the
+//! engine and the app that is embedding it.
 
 use groove_core::{
     midi::{MidiChannel, MidiMessage},

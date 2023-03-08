@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::sequencers::BeatSequencer;
+use super::sequencers::Sequencer;
 use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
@@ -12,11 +12,17 @@ use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
+/// [Arpeggiator] creates [arpeggios](https://en.wikipedia.org/wiki/Arpeggio),
+/// which "is a type of broken chord in which the notes that compose a chord are
+/// individually and quickly sounded in a progressive rising or descending
+/// order." You can also think of it as a hybrid MIDI instrument and MIDI
+/// controller; you play it with MIDI, but instead of producing audio, it
+/// produces more MIDI.
 #[derive(Control, Debug, Uid)]
 pub struct Arpeggiator {
     uid: usize,
     midi_channel_out: MidiChannel,
-    beat_sequencer: BeatSequencer,
+    sequencer: Sequencer,
 
     // A poor-man's semaphore that allows note-off events to overlap with the
     // current note without causing it to shut off. Example is a legato
@@ -31,7 +37,7 @@ impl TicksWithMessages<EntityMessage> for Arpeggiator {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
-        self.beat_sequencer.tick(tick_count)
+        self.sequencer.tick(tick_count)
     }
 }
 impl HandlesMidi for Arpeggiator {
@@ -45,12 +51,12 @@ impl HandlesMidi for Arpeggiator {
                 if self.note_semaphore < 0 {
                     self.note_semaphore = 0;
                 }
-                self.beat_sequencer.enable(self.note_semaphore > 0);
+                self.sequencer.enable(self.note_semaphore > 0);
             }
             MidiMessage::NoteOn { key, vel } => {
                 self.note_semaphore += 1;
                 self.rebuild_sequence(key.as_int(), vel.as_int());
-                self.beat_sequencer.enable(true);
+                self.sequencer.enable(true);
 
                 // TODO: this scratches the itch of needing to respond
                 // to a note-down with a note *during this slice*, but
@@ -62,9 +68,7 @@ impl HandlesMidi for Arpeggiator {
                 // going to send, and another to send it), and an
                 // internal memory of which notes we've asked the
                 // downstream to play. TODO TODO TODO
-                return self
-                    .beat_sequencer
-                    .generate_midi_messages_for_current_frame();
+                return self.sequencer.generate_midi_messages_for_current_frame();
             }
             MidiMessage::Aftertouch { key: _, vel: _ } => todo!(),
             MidiMessage::Controller {
@@ -84,7 +88,7 @@ impl Arpeggiator {
         Self {
             uid: Default::default(),
             midi_channel_out,
-            beat_sequencer: BeatSequencer::new_with(sample_rate, bpm),
+            sequencer: Sequencer::new_with(sample_rate, bpm),
             note_semaphore: Default::default(),
         }
     }
@@ -96,18 +100,18 @@ impl Arpeggiator {
         key: u8,
         vel: u8,
     ) {
-        self.beat_sequencer
+        self.sequencer
             .insert(when, self.midi_channel_out, new_note_on(key, vel));
-        self.beat_sequencer
+        self.sequencer
             .insert(when + duration, self.midi_channel_out, new_note_off(key, 0));
     }
 
     fn rebuild_sequence(&mut self, key: u8, vel: u8) {
-        self.beat_sequencer.clear();
+        self.sequencer.clear();
 
         // TODO: this is a good place to start pulling the f32 time thread --
         // remove that ".into()" and deal with it
-        let start_beat = PerfectTimeUnit(self.beat_sequencer.cursor_in_beats());
+        let start_beat = PerfectTimeUnit(self.sequencer.cursor_in_beats());
         self.insert_one_note(
             start_beat + PerfectTimeUnit(0.25 * 0.0),
             PerfectTimeUnit(0.25),

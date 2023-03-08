@@ -18,8 +18,10 @@ use std::{
 
 pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
 
+/// [Sequencer] produces MIDI according to a programmed sequence. Its unit of
+/// time is the beat.
 #[derive(Debug, Uid)]
-pub struct BeatSequencer {
+pub struct Sequencer {
     uid: usize,
     next_instant: PerfectTimeUnit,
     events: BeatEventsMap,
@@ -31,9 +33,9 @@ pub struct BeatSequencer {
 
     temp_hack_clock: Clock,
 }
-impl IsController<EntityMessage> for BeatSequencer {}
-impl HandlesMidi for BeatSequencer {}
-impl BeatSequencer {
+impl IsController<EntityMessage> for Sequencer {}
+impl HandlesMidi for Sequencer {}
+impl Sequencer {
     pub fn new_with(sample_rate: usize, bpm: ParameterType) -> Self {
         Self {
             uid: Default::default(),
@@ -152,13 +154,13 @@ impl BeatSequencer {
         println!("{:?}", self.events);
     }
 }
-impl Resets for BeatSequencer {
+impl Resets for Sequencer {
     fn reset(&mut self, sample_rate: usize) {
         self.temp_hack_clock.set_sample_rate(sample_rate);
         self.temp_hack_clock.reset(sample_rate);
     }
 }
-impl TicksWithMessages<EntityMessage> for BeatSequencer {
+impl TicksWithMessages<EntityMessage> for Sequencer {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
@@ -196,6 +198,9 @@ impl TicksWithMessages<EntityMessage> for BeatSequencer {
 
 pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
 
+/// [MidiTickSequencer] is another kind of sequencer whose time unit is the MIDI
+/// tick. It exists to make it easy for [MidiSmfReader] to turn MIDI files into
+/// sequences.
 #[derive(Debug, Uid)]
 pub struct MidiTickSequencer {
     uid: usize,
@@ -283,6 +288,8 @@ impl TicksWithMessages<EntityMessage> for MidiTickSequencer {
     }
 }
 
+/// [MidiSmfReader] parses MIDI SMF files and programs [MidiTickSequencer] with
+/// the data it finds.
 pub struct MidiSmfReader {}
 impl MidiSmfReader {
     pub fn program_sequencer(sequencer: &mut MidiTickSequencer, data: &[u8]) {
@@ -367,7 +374,7 @@ impl MidiSmfReader {
 
 #[cfg(test)]
 mod tests {
-    use super::{BeatEventsMap, BeatSequencer, MidiTickEventsMap, MidiTickSequencer};
+    use super::{BeatEventsMap, MidiTickEventsMap, MidiTickSequencer, Sequencer};
     use crate::{
         messages::EntityMessage,
         tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},

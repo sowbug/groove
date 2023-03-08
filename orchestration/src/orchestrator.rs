@@ -13,7 +13,7 @@ use groove_core::{
     ParameterType, StereoSample,
 };
 use groove_entities::{
-    controllers::{BeatSequencer, PatternManager},
+    controllers::{PatternManager, Sequencer},
     effects::Mixer,
     EntityMessage,
 };
@@ -63,7 +63,7 @@ pub struct Orchestrator {
 
     main_mixer_uid: usize,
     pattern_manager_uid: usize,
-    beat_sequencer_uid: usize,
+    sequencer_uid: usize,
 
     #[cfg(feature = "metrics")]
     metrics: DipstickWrapper,
@@ -443,8 +443,8 @@ impl Orchestrator {
         self.should_output_perf = value;
     }
 
-    pub fn beat_sequencer_uid(&self) -> usize {
-        self.beat_sequencer_uid
+    pub fn sequencer_uid(&self) -> usize {
+        self.sequencer_uid
     }
 
     pub fn main_mixer_uid(&self) -> usize {
@@ -470,7 +470,7 @@ impl Orchestrator {
             store: Default::default(),
             main_mixer_uid: Default::default(),
             pattern_manager_uid: Default::default(),
-            beat_sequencer_uid: Default::default(),
+            sequencer_uid: Default::default(),
             #[cfg(feature = "metrics")]
             metrics: Default::default(),
             enable_dev_experiment: Default::default(),
@@ -487,8 +487,8 @@ impl Orchestrator {
             Entity::PatternManager(Box::new(PatternManager::default())),
             Self::PATTERN_MANAGER_UVID,
         );
-        r.beat_sequencer_uid = r.add_with_uvid(
-            Entity::BeatSequencer(Box::new(BeatSequencer::new_with(sample_rate, bpm))),
+        r.sequencer_uid = r.add_with_uvid(
+            Entity::Sequencer(Box::new(Sequencer::new_with(sample_rate, bpm))),
             Self::BEAT_SEQUENCER_UVID,
         );
 
@@ -937,7 +937,7 @@ pub mod tests {
         Normal, StereoSample,
     };
     use groove_entities::{
-        controllers::{Arpeggiator, BeatSequencer, Note, Pattern, PatternProgrammer, Timer},
+        controllers::{Arpeggiator, Note, Pattern, PatternProgrammer, Sequencer, Timer},
         effects::Gain,
     };
     use groove_toys::{ToyAudioSource, ToyInstrument};
@@ -1249,7 +1249,7 @@ pub mod tests {
     #[test]
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
-        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
+        let mut sequencer = Sequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
         let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern {
             note_value: None,
@@ -1271,7 +1271,7 @@ pub mod tests {
     fn test_random_access() {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let mut sequencer = Box::new(BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut sequencer = Box::new(Sequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
         let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
         let mut pattern = Pattern::<Note>::default();
 
@@ -1313,7 +1313,7 @@ pub mod tests {
         // TODO assert!(midi_recorder.debug_messages.is_empty());
 
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let _sequencer_uid = o.add(Entity::BeatSequencer(sequencer));
+        let _sequencer_uid = o.add(Entity::Sequencer(sequencer));
 
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -1391,7 +1391,7 @@ pub mod tests {
     #[test]
     fn test_empty_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = Box::new(BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut sequencer = Box::new(Sequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         let note_pattern = vec![Note {
@@ -1415,7 +1415,7 @@ pub mod tests {
         assert_eq!(sequencer.debug_events().len(), 0);
 
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let _ = o.add(Entity::BeatSequencer(sequencer));
+        let _ = o.add(Entity::Sequencer(sequencer));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(result) = o.run(&mut sample_buffer) {
             assert_eq!(
@@ -1446,7 +1446,7 @@ pub mod tests {
             DEFAULT_BPM,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         );
-        let mut sequencer = Box::new(BeatSequencer::new_with(clock.sample_rate(), clock.bpm()));
+        let mut sequencer = Box::new(Sequencer::new_with(clock.sample_rate(), clock.bpm()));
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
         let arpeggiator = Box::new(Arpeggiator::new_with(
@@ -1466,7 +1466,7 @@ pub mod tests {
             },
         );
 
-        let _sequencer_uid = o.add(Entity::BeatSequencer(sequencer));
+        let _sequencer_uid = o.add(Entity::Sequencer(sequencer));
         let arpeggiator_uid = o.add(Entity::Arpeggiator(arpeggiator));
         o.connect_midi_downstream(arpeggiator_uid, MIDI_CHANNEL_SEQUENCER_TO_ARP);
         let instrument_uid = o.add(Entity::ToyInstrument(instrument));

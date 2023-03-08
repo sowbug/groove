@@ -12,7 +12,7 @@
 //!     StereoSample,
 //! };
 //!
-//! use groove_entities::{controllers::BeatSequencer, effects::Compressor};
+//! use groove_entities::{controllers::Sequencer, effects::Compressor};
 //! use groove_toys::ToySynth;
 //!
 //! const SAMPLE_RATE: usize = 44100;
@@ -26,7 +26,7 @@
 //! let synth = ToySynth::new_with(SAMPLE_RATE);
 //!
 //! // Sequencer sends MIDI commands to the synth.
-//! let mut sequencer = BeatSequencer::new_with(SAMPLE_RATE, BPM);
+//! let mut sequencer = Sequencer::new_with(SAMPLE_RATE, BPM);
 //!
 //! // There are lots of different ways to populate the sequencer with notes.
 //! sequencer.insert(PerfectTimeUnit(0.0), MIDI_0, new_note_on(69, 100));
@@ -42,7 +42,7 @@
 //!
 //! // Tell the orchestrator about everything.
 //! let synth_id = orchestrator.add(Entity::ToySynth(Box::new(synth)));
-//! let _sequencer_id = orchestrator.add(Entity::BeatSequencer(Box::new(sequencer)));
+//! let _sequencer_id = orchestrator.add(Entity::Sequencer(Box::new(sequencer)));
 //! let compressor_id = orchestrator.add(Entity::Compressor(Box::new(compressor)));
 //!
 //! // Plug in the audio outputs.

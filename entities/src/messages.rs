@@ -8,6 +8,10 @@ use groove_core::{
 use groove_toys::MessageMaker;
 use std::fmt::Debug;
 
+/// An [EntityMessage] describes how external components, such as an application
+/// GUI, communicate with [Entities](Entity). Some variants, such as `Midi` and
+/// `ControlF32`, go in the other direction; Entities send them to the rest of
+/// the system.
 #[derive(Clone, Debug)]
 pub enum EntityMessage {
     /// A MIDI message sent to a channel. In most cases, MidiChannel is

@@ -19,8 +19,8 @@ use groove_core::{
 };
 use groove_entities::{
     controllers::{
-        Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern,
-        PatternManager, PatternMessage, SignalPassthroughController, Timer,
+        Arpeggiator, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern, PatternManager,
+        PatternMessage, Sequencer, SignalPassthroughController, Timer,
     },
     effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
     instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer, WelshSynth},
@@ -504,7 +504,7 @@ impl GrooveApp {
         match entity {
             Entity::Arpeggiator(e) => self.arpeggiator_view(e),
             Entity::ToyAudioSource(e) => self.audio_source_view(e),
-            Entity::BeatSequencer(e) => self.beat_sequencer_view(e),
+            Entity::Sequencer(e) => self.sequencer_view(e),
             Entity::BiQuadFilter(e) => self.biquad_filter_view(e),
             Entity::Bitcrusher(e) => self.bitcrusher_view(e),
             Entity::Chorus(e) => self.chorus_view(e),
@@ -786,7 +786,7 @@ impl GrooveApp {
         row![time_counter, time_signature_view, beat_counter].into()
     }
 
-    fn beat_sequencer_view(&self, e: &BeatSequencer) -> Element<EntityMessage> {
+    fn sequencer_view(&self, e: &Sequencer) -> Element<EntityMessage> {
         self.collapsing_box("Sequencer", e.uid(), || {
             let contents = format!("{}", e.next_instant());
             GuiStuff::<EntityMessage>::container_text(contents.as_str()).into()

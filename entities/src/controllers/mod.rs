@@ -4,7 +4,7 @@ pub use arpeggiator::Arpeggiator;
 pub use control_trip::{ControlPath, ControlStep, ControlTrip};
 pub use lfo::LfoController;
 pub use patterns::{Note, Pattern, PatternManager, PatternMessage, PatternProgrammer};
-pub use sequencers::{BeatSequencer, MidiSmfReader, MidiTickSequencer};
+pub use sequencers::{MidiSmfReader, MidiTickSequencer, Sequencer};
 
 mod arpeggiator;
 mod control_trip;
@@ -22,7 +22,9 @@ use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-/// Timer Terminates (in the Terminates trait sense) after a specified amount of time.
+/// [Timer] runs for a specified amount of time, then indicates that it's done.
+/// It is useful when you need something to happen after a certain amount of
+/// wall-clock time, rather than musical time.
 #[derive(Debug, Uid)]
 pub struct Timer {
     uid: usize,
@@ -75,9 +77,8 @@ impl TicksWithMessages<EntityMessage> for Timer {
     }
 }
 
-/// Trigger issues a ControlF32 message after a specified amount of time.
-///
-/// TODO: needs tests!
+// TODO: needs tests!
+/// [Trigger] issues a control signal after a specified amount of time.
 #[derive(Debug, Uid)]
 pub struct Trigger {
     uid: usize,

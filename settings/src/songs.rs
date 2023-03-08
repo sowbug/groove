@@ -228,8 +228,8 @@ impl SongSettings {
             }
         }
 
-        let beat_sequencer_uid = orchestrator.beat_sequencer_uid();
-        if let Some(Entity::BeatSequencer(sequencer)) = orchestrator.get_mut(beat_sequencer_uid) {
+        let sequencer_uid = orchestrator.sequencer_uid();
+        if let Some(Entity::Sequencer(sequencer)) = orchestrator.get_mut(sequencer_uid) {
             let mut programmer =
                 PatternProgrammer::new_with(&self.clock_settings.time_signature.into());
 

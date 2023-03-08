@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use super::Sequencer;
 use crate::messages::EntityMessage;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
@@ -10,14 +11,16 @@ use groove_macros::Uid;
 use std::cmp;
 use std::fmt::Debug;
 
-use super::BeatSequencer;
-
+/// [PatternMessage] specifies interactions that can happen between
+/// [PatternManager] and other components such as an application GUI.
 #[derive(Clone, Debug)]
 pub enum PatternMessage {
     SomethingHappened,
     ButtonPressed,
 }
 
+/// A [Note] represents a key-down and key-up event pair that lasts for a
+/// specified duration.
 #[derive(Clone, Debug, Default)]
 pub struct Note {
     pub key: u8,
@@ -25,6 +28,8 @@ pub struct Note {
     pub duration: PerfectTimeUnit, // expressed as multiple of the containing Pattern's note value.
 }
 
+/// A [Pattern] is a series of [Note] rows that play simultaneously.
+/// [PatternManager] uses [Patterns](Pattern) to program a [Sequencer].
 #[derive(Clone, Debug, Default)]
 pub struct Pattern<T: Default> {
     pub note_value: Option<BeatValue>,
@@ -46,7 +51,9 @@ impl<T: Default> Pattern<T> {
     }
 }
 
-// TODO: why is there so much paperwork for a vector?
+// There is so much paperwork for a vector because this will eventually become a
+// substantial part of the GUI experience.
+/// [PatternManager] stores all the [Patterns] that make up a song.
 #[derive(Clone, Debug, Default, Uid)]
 pub struct PatternManager {
     uid: usize,
@@ -77,6 +84,9 @@ impl PatternManager {
     }
 }
 
+/// [PatternProgrammer] knows how to insert a given [Pattern] into a given
+/// [Sequencer], respecting the [groove_core::time::TimeSignature] that it was
+/// given at creation.
 #[derive(Debug)]
 pub struct PatternProgrammer {
     time_signature: TimeSignature,
@@ -105,7 +115,7 @@ impl PatternProgrammer {
 
     pub fn insert_pattern_at_cursor(
         &mut self,
-        sequencer: &mut BeatSequencer,
+        sequencer: &mut Sequencer,
         channel: &MidiChannel,
         pattern: &Pattern<Note>,
     ) {
@@ -177,7 +187,7 @@ mod tests {
     #[test]
     fn test_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
+        let mut sequencer = Sequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
@@ -235,7 +245,7 @@ mod tests {
     #[test]
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
-        let mut sequencer = BeatSequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
+        let mut sequencer = Sequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time

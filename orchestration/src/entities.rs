@@ -6,7 +6,7 @@ use groove_core::{
 };
 use groove_entities::{
     controllers::{
-        Arpeggiator, BeatSequencer, ControlTrip, LfoController, MidiTickSequencer, PatternManager,
+        Arpeggiator, ControlTrip, LfoController, MidiTickSequencer, PatternManager, Sequencer,
         SignalPassthroughController, Timer,
     },
     effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
@@ -44,7 +44,7 @@ macro_rules! boxed_entity_enum_and_common_crackers {
 boxed_entity_enum_and_common_crackers! {
     // Controllers
     Arpeggiator: Arpeggiator,
-    BeatSequencer: BeatSequencer,
+    Sequencer: Sequencer,
     ControlTrip: ControlTrip,
     MidiTickSequencer: MidiTickSequencer,
     LfoController: LfoController,
@@ -132,7 +132,7 @@ macro_rules! controller_crackers {
 }
 controller_crackers! {
     Arpeggiator,
-    BeatSequencer,
+    Sequencer,
     ControlTrip,
     LfoController,
     MidiTickSequencer,
@@ -225,7 +225,7 @@ macro_rules! handles_midi_crackers {
 handles_midi_crackers! {
     Arpeggiator,
     ToyAudioSource,
-    BeatSequencer,
+    Sequencer,
     ControlTrip,
     Drumkit,
     FmSynthesizer,
