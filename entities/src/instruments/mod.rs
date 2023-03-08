@@ -14,7 +14,6 @@ pub use welsh::WelshSynth;
 pub use welsh::WelshVoice;
 
 mod drumkit;
-mod envelopes;
 mod fm;
 mod sampler;
 mod synthesizer;
