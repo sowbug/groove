@@ -100,7 +100,7 @@ impl FmVoice {
             sample: Default::default(),
             carrier: Oscillator::new_with(sample_rate),
             modulator: Oscillator::new_with(sample_rate),
-            modulator_depth: 0.2,
+            modulator_depth: 100.0,
             envelope: Envelope::new_with(sample_rate, 0.1, 0.1, Normal::new(0.8), 0.25),
             dca: Default::default(),
             note_on_key: Default::default(),
