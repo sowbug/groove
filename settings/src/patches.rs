@@ -747,7 +747,7 @@ impl FmSynthesizerPreset {
 
     pub fn from_name(_name: &str) -> FmSynthesizerPreset {
         FmSynthesizerPreset {
-            modulator_frequency_hz: 388.0,
+            modulator_frequency_hz: 1600.0,
         }
     }
 }

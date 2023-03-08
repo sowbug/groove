@@ -2,7 +2,7 @@
 
 use super::synthesizer::Synthesizer;
 use groove_core::{
-    generators::{Envelope, Oscillator},
+    generators::{Envelope, Oscillator, Waveform},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
@@ -19,8 +19,10 @@ pub struct FmVoice {
     sample: StereoSample,
     carrier: Oscillator,
     modulator: Oscillator,
-    modulator_depth: ParameterType,
-    envelope: Envelope,
+    modulator_ratio: ParameterType,
+    modulator_depth: Normal,
+    carrier_envelope: Envelope,
+    modulator_envelope: Envelope,
     dca: Dca,
 
     note_on_key: u8,
@@ -31,7 +33,7 @@ impl IsStereoSampleVoice for FmVoice {}
 impl IsVoice<StereoSample> for FmVoice {}
 impl PlaysNotes for FmVoice {
     fn is_playing(&self) -> bool {
-        !self.envelope.is_idle()
+        !self.carrier_envelope.is_idle()
     }
 
     fn note_on(&mut self, key: u8, velocity: u8) {
@@ -39,10 +41,12 @@ impl PlaysNotes for FmVoice {
             self.steal_is_underway = true;
             self.note_on_key = key;
             self.note_on_velocity = velocity;
-            self.envelope.trigger_shutdown();
+            self.carrier_envelope.trigger_shutdown();
+            self.modulator_envelope.trigger_shutdown();
         } else {
             self.set_frequency_hz(note_to_frequency(key));
-            self.envelope.trigger_attack();
+            self.carrier_envelope.trigger_attack();
+            self.modulator_envelope.trigger_attack();
         }
     }
 
@@ -51,7 +55,8 @@ impl PlaysNotes for FmVoice {
     }
 
     fn note_off(&mut self, _velocity: u8) {
-        self.envelope.trigger_release();
+        self.carrier_envelope.trigger_release();
+        self.modulator_envelope.trigger_release();
     }
 
     fn set_pan(&mut self, value: f32) {
@@ -70,28 +75,34 @@ impl Generates<StereoSample> for FmVoice {
 }
 impl Resets for FmVoice {
     fn reset(&mut self, sample_rate: usize) {
-        self.envelope.reset(sample_rate);
+        self.carrier_envelope.reset(sample_rate);
+        self.modulator_envelope.reset(sample_rate);
         self.carrier.reset(sample_rate);
         self.modulator.reset(sample_rate);
     }
 }
 impl Ticks for FmVoice {
     fn tick(&mut self, tick_count: usize) {
-        let was_playing = self.is_playing();
-        self.carrier.set_frequency_modulation(BipolarNormal::from(
-            self.modulator.value() * self.modulator_depth,
-        ));
-        self.envelope.tick(tick_count);
-        self.carrier.tick(tick_count);
-        self.modulator.tick(tick_count);
-        let r = self.carrier.value() * self.envelope.value().value();
-        if was_playing && !self.is_playing() {
-            if self.steal_is_underway {
+        if self.is_playing() {
+            self.carrier.set_frequency_modulation(BipolarNormal::from(
+                self.modulator.value()
+                    * self.modulator_envelope.value().value()
+                    * self.modulator_depth.value(),
+            ));
+            let r = self.carrier.value() * self.carrier_envelope.value().value();
+            self.carrier_envelope.tick(tick_count);
+            self.modulator_envelope.tick(tick_count);
+            self.carrier.tick(tick_count);
+            self.modulator.tick(tick_count);
+            if self.is_playing() {
+                self.sample = self.dca.transform_audio_to_stereo(Sample(r));
+                return;
+            } else if self.steal_is_underway {
                 self.steal_is_underway = false;
                 self.note_on(self.note_on_key, self.note_on_velocity);
             }
         }
-        self.sample = self.dca.transform_audio_to_stereo(Sample(r));
+        self.sample = StereoSample::SILENCE;
     }
 }
 impl FmVoice {
@@ -99,9 +110,11 @@ impl FmVoice {
         Self {
             sample: Default::default(),
             carrier: Oscillator::new_with(sample_rate),
-            modulator: Oscillator::new_with(sample_rate),
-            modulator_depth: 100.0,
-            envelope: Envelope::new_with(sample_rate, 0.1, 0.1, Normal::new(0.8), 0.25),
+            modulator: Oscillator::new_with_waveform(sample_rate, Waveform::Sine),
+            modulator_ratio: 1.0, // modulator frequency is this ratio of carrier frequency
+            modulator_depth: Normal::from(0.8),
+            carrier_envelope: Envelope::new_with(sample_rate, 0.0, 0.0, Normal::maximum(), 0.1),
+            modulator_envelope: Envelope::new_with(sample_rate, 0.0, 0.5, Normal::from(0.1), 0.0),
             dca: Default::default(),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
@@ -113,10 +126,13 @@ impl FmVoice {
         sample_rate: usize,
         modulator_frequency: ParameterType,
     ) -> Self {
-        let mut modulator = Oscillator::new_with(sample_rate);
-        modulator.set_frequency(modulator_frequency);
         let mut r = Self::new_with(sample_rate);
-        r.modulator = modulator;
+        r.modulator = Oscillator::new_with_waveform_and_frequency(
+            sample_rate,
+            Waveform::Sine,
+            modulator_frequency,
+        );
+        r.modulator.set_phase_offset(Normal::from(0.5));
         r
     }
 
@@ -132,6 +148,8 @@ impl FmVoice {
 
     fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {
         self.carrier.set_frequency(frequency_hz);
+        self.modulator
+            .set_frequency(frequency_hz * self.modulator_ratio);
     }
 }
 

@@ -23,6 +23,10 @@ patterns:
     notes:
       - [60, 62, 64, 65, 67, 69, 71, 72]
   - id: basic-2
+    note-value: eighth
+    notes:
+      - [36, 38, 40, 41, 43, 45, 47, 48]
+  - id: basic-3
     note-value: whole
     notes:
       - [48]

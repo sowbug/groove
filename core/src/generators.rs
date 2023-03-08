@@ -68,6 +68,8 @@ pub struct Oscillator {
     // Needs Kahan summation algorithm to avoid accumulation of FP errors.
     cycle_position: KahanSum<f64>,
 
+    phase_offset: Normal,
+
     delta: f64,
     delta_needs_update: bool,
 
@@ -150,6 +152,7 @@ impl Oscillator {
             ticks: Default::default(),
             signal: Default::default(),
             cycle_position: Default::default(),
+            phase_offset: Default::default(),
             delta: Default::default(),
             delta_needs_update: true,
             should_sync: Default::default(),
@@ -169,12 +172,11 @@ impl Oscillator {
     }
 
     fn adjusted_frequency(&self) -> f64 {
-        let tmp = if self.fixed_frequency == 0.0 {
-            self.frequency * (self.frequency_tune)
+        (if self.fixed_frequency == 0.0 {
+            self.frequency * self.frequency_tune
         } else {
             self.fixed_frequency
-        };
-        tmp * 2.0f64.powf(self.frequency_modulation.value())
+        }) * 2.0f64.powf(self.frequency_modulation.value())
     }
 
     pub fn set_frequency(&mut self, frequency: ParameterType) {
@@ -282,6 +284,7 @@ impl Oscillator {
     // amplitude zero, which makes it a lot easier to avoid transients when a
     // waveform starts up. See Pirkle DSSPC++ p.133 for visualization.
     fn amplitude_for_position(&mut self, waveform: Waveform, cycle_position: f64) -> f64 {
+        let cycle_position = cycle_position + self.phase_offset.value();
         match waveform {
             Waveform::Sine => (cycle_position * 2.0 * PI).sin(),
             Waveform::Square => -(cycle_position - 0.5).signum(),
@@ -313,6 +316,10 @@ impl Oscillator {
 
     pub fn set_frequency_tune(&mut self, frequency_tune: ParameterType) {
         self.frequency_tune = frequency_tune;
+    }
+
+    pub fn set_phase_offset(&mut self, phase: Normal) {
+        self.phase_offset = phase;
     }
 }
 
