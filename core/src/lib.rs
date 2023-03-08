@@ -14,6 +14,9 @@ use std::{
 pub mod control;
 /// Contains things that generate signals, like oscillators and envelopes.
 pub mod generators;
+/// Building blocks for higher-level musical instruments. Useful if your project
+/// needs Groove's synth voices but not all its baggage.
+pub mod instruments;
 /// Knows about [MIDI](https://en.wikipedia.org/wiki/MIDI).
 pub mod midi;
 /// Handles digital-audio, wall-clock, and musical time.

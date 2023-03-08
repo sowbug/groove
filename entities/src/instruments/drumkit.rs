@@ -1,9 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{
-    sampler::SamplerVoice, synthesizer::Synthesizer, voice_stores::VoicePerNoteStore, Sampler,
-};
+use super::{sampler::SamplerVoice, voice_stores::VoicePerNoteStore, Sampler};
 use groove_core::{
+    instruments::Synthesizer,
     midi::{
         note_to_frequency, u7, GeneralMidiPercussionProgram, HandlesMidi, MidiChannel, MidiMessage,
     },
