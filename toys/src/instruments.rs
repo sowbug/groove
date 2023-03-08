@@ -11,10 +11,10 @@ use groove_macros::{Control, Uid};
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, str::FromStr};
 use strum_macros::{Display, EnumString, FromRepr};
 
-/// An [groove_core::traits::IsInstrument]. Uses a default Oscillator to produce
-/// sound. Its "envelope" is just a boolean that responds to MIDI
-/// NoteOn/NoteOff. [Controllable](groove_core::traits::Controllable) by two
-/// parameters: Oscillator waveform and frequency.
+/// An [IsInstrument](groove_core::traits::IsInstrument) that uses a default
+/// Oscillator to produce sound. Its "envelope" is just a boolean that responds
+/// to MIDI NoteOn/NoteOff. [Controllable](groove_core::traits::Controllable) by
+/// two parameters: Oscillator waveform and frequency.
 #[derive(Control, Debug, Uid)]
 pub struct ToyInstrument {
     uid: usize,
@@ -202,8 +202,8 @@ impl ToyInstrument {
     }
 }
 
-/// Another [groove_core::traits::IsInstrument]. Doesn't respond to any events,
-/// so it's not currently useful.
+/// Another [IsInstrument](groove_core::traits::IsInstrument) that was designed
+/// for black-box debugging.
 #[derive(Control, Debug, Uid)]
 pub struct ToySynth {
     uid: usize,
@@ -308,8 +308,8 @@ impl ToySynth {
     }
 }
 
-/// Produces a constant audio signal. It's good for testing to ensure that a
-/// known signal value gets all the way through the pipeline.
+/// Produces a constant audio signal. Used for ensuring that a known signal
+/// value gets all the way through the pipeline.
 #[derive(Control, Debug, Default, Uid)]
 pub struct ToyAudioSource {
     uid: usize,

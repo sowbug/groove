@@ -11,8 +11,7 @@ use std::fmt::Debug;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString, FromRepr};
 
-/// An [groove_core::traits::IsEffect] that negates the input signal.
-
+/// An [IsEffect](groove_core::traits::IsEffect) that negates the input signal.
 #[derive(Control, Debug, Default, Uid)]
 pub struct ToyEffect {
     uid: usize,
