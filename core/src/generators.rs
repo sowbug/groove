@@ -1186,33 +1186,33 @@ pub mod tests {
             note_type_to_frequency(MidiNote::C4) as f64
         );
 
-        // // Explicitly zero (none)
-        // oscillator.set_frequency_modulation(BipolarNormal::from(0.0));
-        // assert_eq!(
-        //     oscillator.adjusted_frequency(),
-        //     note_type_to_frequency(MidiNote::C4) as f64
-        // );
+        // Explicitly zero (none)
+        oscillator.set_frequency_modulation(BipolarNormal::from(0.0));
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            note_type_to_frequency(MidiNote::C4) as f64
+        );
 
-        // // Max
-        // oscillator.set_frequency_modulation(BipolarNormal::from(1.0));
-        // assert_eq!(
-        //     oscillator.adjusted_frequency(),
-        //     note_type_to_frequency(MidiNote::C5) as f64
-        // );
+        // Max
+        oscillator.set_frequency_modulation(BipolarNormal::from(1.0));
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            note_type_to_frequency(MidiNote::C5) as f64
+        );
 
-        // // Min
-        // oscillator.set_frequency_modulation(BipolarNormal::from(-1.0));
-        // assert_eq!(
-        //     oscillator.adjusted_frequency(),
-        //     note_type_to_frequency(MidiNote::C3) as f64
-        // );
+        // Min
+        oscillator.set_frequency_modulation(BipolarNormal::from(-1.0));
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            note_type_to_frequency(MidiNote::C3) as f64
+        );
 
-        // // Halfway between zero and max
-        // oscillator.set_frequency_modulation(BipolarNormal::from(0.5));
-        // assert_eq!(
-        //     oscillator.adjusted_frequency(),
-        //     note_type_to_frequency(MidiNote::C4) as f64 * 2.0f64.sqrt()
-        // );
+        // Halfway between zero and max
+        oscillator.set_frequency_modulation(BipolarNormal::from(0.5));
+        assert_eq!(
+            oscillator.adjusted_frequency(),
+            note_type_to_frequency(MidiNote::C4) as f64 * 2.0f64.sqrt()
+        );
     }
 
     #[test]
