@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::voice_stores::VoiceStore;
 use anyhow::{anyhow, Result};
 use groove_core::{
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{Generates, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes, Resets, Ticks},
+    voices::VoiceStore,
     ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};

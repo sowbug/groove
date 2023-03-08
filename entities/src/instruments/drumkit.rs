@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{sampler::SamplerVoice, voice_stores::VoicePerNoteStore, Sampler};
+use super::{sampler::SamplerVoice, Sampler};
 use groove_core::{
     instruments::Synthesizer,
     midi::{
@@ -8,6 +8,7 @@ use groove_core::{
     },
     traits::{Generates, IsInstrument, Resets, Ticks},
     util::Paths,
+    voices::VoicePerNoteStore,
     StereoSample,
 };
 use groove_macros::{Control, Uid};

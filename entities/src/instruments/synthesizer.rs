@@ -1,6 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::VoiceStore;
 use groove_core::{
     generators::{AdsrParams, Envelope, Oscillator},
     instruments::Synthesizer,
@@ -9,6 +8,7 @@ use groove_core::{
         Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
         Resets, Ticks,
     },
+    voices::VoiceStore,
     Normal, ParameterType, StereoSample,
 };
 use groove_macros::{Control, Uid};

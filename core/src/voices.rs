@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use anyhow::{anyhow, Result};
-use groove_core::{
+use crate::{
     midi::u7,
     traits::{Generates, IsStereoSampleVoice, Resets, StoresVoices, Ticks},
     StereoSample,
 };
+use anyhow::{anyhow, Result};
 use rustc_hash::FxHashMap;
 
 /// A [StoresVoices](groove_core::traits::StoresVoices) that fails when too many
@@ -279,22 +279,129 @@ impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        instruments::{SimpleVoice, StealingVoiceStore, VoiceStore},
+        generators::{AdsrParams, Envelope, Oscillator},
+        midi::{note_to_frequency, u7},
         tests::DEFAULT_SAMPLE_RATE,
+        traits::{GeneratesEnvelope, IsVoice, PlaysNotes, StoresVoices, Ticks},
+        voices::{Generates, IsStereoSampleVoice, Resets, StealingVoiceStore, VoiceStore},
+        Normal, ParameterType, StereoSample,
     };
     use float_cmp::approx_eq;
-    use groove_core::{
-        midi::{note_to_frequency, u7},
-        traits::{PlaysNotes, StoresVoices, Ticks},
-        ParameterType,
-    };
     use more_asserts::assert_gt;
+
+    #[derive(Debug)]
+    pub struct TestVoice {
+        sample_rate: usize,
+        oscillator: Oscillator,
+        envelope: Envelope,
+
+        sample: StereoSample,
+
+        note_on_key: u8,
+        note_on_velocity: u8,
+        steal_is_underway: bool,
+    }
+    impl IsStereoSampleVoice for TestVoice {}
+    impl IsVoice<StereoSample> for TestVoice {}
+    impl PlaysNotes for TestVoice {
+        fn is_playing(&self) -> bool {
+            !self.envelope.is_idle()
+        }
+
+        fn note_on(&mut self, key: u8, velocity: u8) {
+            if self.is_playing() {
+                self.steal_is_underway = true;
+                self.note_on_key = key;
+                self.note_on_velocity = velocity;
+            } else {
+                self.set_frequency_hz(note_to_frequency(key));
+                self.envelope.trigger_attack();
+            }
+        }
+
+        fn aftertouch(&mut self, _velocity: u8) {
+            todo!()
+        }
+
+        fn note_off(&mut self, _velocity: u8) {
+            self.envelope.trigger_release();
+        }
+
+        fn set_pan(&mut self, _value: f32) {
+            // We don't handle this.
+        }
+    }
+    impl Generates<StereoSample> for TestVoice {
+        fn value(&self) -> StereoSample {
+            self.sample
+        }
+
+        fn batch_values(&mut self, values: &mut [StereoSample]) {
+            for sample in values {
+                self.tick(1);
+                *sample = self.value();
+            }
+        }
+    }
+    impl Resets for TestVoice {
+        fn reset(&mut self, sample_rate: usize) {
+            self.sample_rate = sample_rate;
+            self.oscillator.reset(sample_rate);
+            self.envelope.reset(sample_rate);
+        }
+    }
+    impl Ticks for TestVoice {
+        fn tick(&mut self, tick_count: usize) {
+            for _ in 0..tick_count {
+                let was_playing = self.is_playing();
+                self.oscillator.tick(1);
+                self.envelope.tick(1);
+                if was_playing && !self.is_playing() {
+                    if self.steal_is_underway {
+                        self.steal_is_underway = false;
+                        self.note_on(self.note_on_key, self.note_on_velocity);
+                    }
+                }
+                self.sample = StereoSample::from(self.oscillator.value() * self.envelope.value());
+            }
+        }
+    }
+
+    impl TestVoice {
+        fn new_with(sample_rate: usize) -> Self {
+            Self {
+                sample_rate,
+                oscillator: Oscillator::new_with(sample_rate),
+                envelope: Envelope::new_with(
+                    sample_rate,
+                    AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
+                ),
+                sample: Default::default(),
+                note_on_key: Default::default(),
+                note_on_velocity: Default::default(),
+                steal_is_underway: Default::default(),
+            }
+        }
+        fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {
+            self.oscillator.set_frequency(frequency_hz);
+        }
+
+        fn debug_is_shutting_down(&self) -> bool {
+            true
+            // TODO bring back when this moves elsewhere
+            //     self.envelope.debug_is_shutting_down()
+        }
+
+        fn debug_oscillator_frequency(&self) -> ParameterType {
+            self.oscillator.frequency()
+        }
+    }
 
     #[test]
     fn simple_voice_store_mainline() {
         let mut voice_store =
-            VoiceStore::<SimpleVoice>::new_with_voice(DEFAULT_SAMPLE_RATE, 2, || {
-                SimpleVoice::new_with(DEFAULT_SAMPLE_RATE)
+            VoiceStore::<TestVoice>::new_with_voice(DEFAULT_SAMPLE_RATE, 2, || {
+                TestVoice::new_with(DEFAULT_SAMPLE_RATE)
             });
         assert_gt!(!voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
@@ -320,7 +427,7 @@ mod tests {
             assert!(voice.is_playing());
             voice.note_off(127);
 
-            // All SimpleVoice envelope times are instantaneous, so we know the
+            // All TestVoice envelope times are instantaneous, so we know the
             // release completes after asking for the next sample.
             voice.tick(1);
             assert!(!voice.is_playing());
@@ -330,8 +437,8 @@ mod tests {
     #[test]
     fn stealing_voice_store_mainline() {
         let mut voice_store =
-            StealingVoiceStore::<SimpleVoice>::new_with_voice(DEFAULT_SAMPLE_RATE, 2, || {
-                SimpleVoice::new_with(DEFAULT_SAMPLE_RATE)
+            StealingVoiceStore::<TestVoice>::new_with_voice(DEFAULT_SAMPLE_RATE, 2, || {
+                TestVoice::new_with(DEFAULT_SAMPLE_RATE)
             });
         assert_gt!(voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
@@ -367,8 +474,8 @@ mod tests {
     #[test]
     fn voice_store_simultaneous_events() {
         let mut voice_store =
-            VoiceStore::<SimpleVoice>::new_with_voice(DEFAULT_SAMPLE_RATE, 2, || {
-                SimpleVoice::new_with(DEFAULT_SAMPLE_RATE)
+            VoiceStore::<TestVoice>::new_with_voice(DEFAULT_SAMPLE_RATE, 2, || {
+                TestVoice::new_with(DEFAULT_SAMPLE_RATE)
             });
         assert_gt!(voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
@@ -421,7 +528,7 @@ mod tests {
         // Finally, mark a note done and then ask for a new one. We should get
         // assigned the one we just gave up.
         //
-        // Note that we're taking advantage of the fact that SimpleVoice has
+        // Note that we're taking advantage of the fact that TestVoice has
         // instantaneous envelope parameters, which means we can treat the
         // release as the same as the note stopping playing. For most voices
         // with nonzero release, we'd have to wait more time for the voice to

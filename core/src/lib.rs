@@ -26,6 +26,8 @@ pub mod traits;
 /// Contains various helper functions that keep different parts of the system
 /// consistent.
 pub mod util;
+/// Contains things that make up instrument voices.
+pub mod voices;
 
 /// [SampleType] is the underlying primitive that makes up [MonoSample] and
 /// [StereoSample]. It exists as a transition aid while we migrate from
@@ -395,6 +397,13 @@ pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ParameterType;
+
+    pub(crate) const DEFAULT_SAMPLE_RATE: usize = 44100;
+    pub(crate) const DEFAULT_BPM: ParameterType = 128.0;
+    #[allow(dead_code)]
+    pub(crate) const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);
+    pub(crate) const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
     #[test]
     fn mono_to_stereo() {

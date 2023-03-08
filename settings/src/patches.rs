@@ -6,11 +6,12 @@ use groove_core::{
     generators::{AdsrParams, Envelope, Oscillator, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
     util::Paths,
+    voices::{StealingVoiceStore, VoiceStore},
     Normal, ParameterType,
 };
 use groove_entities::{
     effects::{BiQuadFilter, FilterParams},
-    instruments::{FmVoice, LfoRouting, StealingVoiceStore, VoiceStore, WelshSynth, WelshVoice},
+    instruments::{FmVoice, LfoRouting, WelshSynth, WelshVoice},
 };
 use serde::{Deserialize, Serialize};
 
