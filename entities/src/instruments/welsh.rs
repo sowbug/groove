@@ -187,20 +187,19 @@ impl Ticks for WelshVoice {
 }
 impl WelshVoice {
     fn tick_envelopes(&mut self) -> (Normal, Normal) {
-        let was_playing = self.is_playing();
-        self.amp_envelope.tick(1);
-        let amp_amplitude = self.amp_envelope.value();
-        self.filter_envelope.tick(1);
-        let filter_amplitude = self.filter_envelope.value();
+        if self.is_playing() {
+            self.amp_envelope.tick(1);
+            self.filter_envelope.tick(1);
+            if self.is_playing() {
+                return (self.amp_envelope.value(), self.filter_envelope.value());
+            }
 
-        if was_playing && !self.is_playing() {
             if self.steal_is_underway {
                 self.steal_is_underway = false;
                 self.note_on(self.note_on_key, self.note_on_velocity);
             }
         }
-
-        (amp_amplitude, filter_amplitude)
+        (Normal::zero(), Normal::zero())
     }
 
     fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {

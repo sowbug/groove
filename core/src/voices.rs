@@ -354,17 +354,20 @@ pub(crate) mod tests {
     impl Ticks for TestVoice {
         fn tick(&mut self, tick_count: usize) {
             for _ in 0..tick_count {
-                let was_playing = self.is_playing();
-                self.oscillator.tick(1);
-                self.envelope.tick(1);
-                if was_playing && !self.is_playing() {
-                    if self.steal_is_underway {
+                if self.is_playing() {
+                    self.oscillator.tick(1);
+                    self.envelope.tick(1);
+                    if !self.is_playing() && self.steal_is_underway {
                         self.steal_is_underway = false;
                         self.note_on(self.note_on_key, self.note_on_velocity);
                     }
                 }
-                self.sample = StereoSample::from(self.oscillator.value() * self.envelope.value());
             }
+            self.sample = if self.is_playing() {
+                StereoSample::from(self.oscillator.value() * self.envelope.value())
+            } else {
+                StereoSample::from(StereoSample::SILENCE)
+            };
         }
     }
 

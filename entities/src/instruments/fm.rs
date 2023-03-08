@@ -97,25 +97,30 @@ impl Resets for FmVoice {
 }
 impl Ticks for FmVoice {
     fn tick(&mut self, tick_count: usize) {
-        if self.is_playing() {
-            let modulator_magnitude =
-                self.modulator.value() * self.modulator_envelope.value() * self.modulator_depth;
-            self.carrier
-                .set_linear_frequency_modulation(modulator_magnitude.value() * self.modulator_beta);
-            let r = self.carrier.value() * self.carrier_envelope.value();
-            self.carrier_envelope.tick(tick_count);
-            self.modulator_envelope.tick(tick_count);
-            self.carrier.tick(tick_count);
-            self.modulator.tick(tick_count);
+        let mut r = BipolarNormal::from(0.0);
+        for _ in 0..tick_count {
             if self.is_playing() {
-                self.sample = self.dca.transform_audio_to_stereo(Sample::from(r));
-                return;
-            } else if self.steal_is_underway {
-                self.steal_is_underway = false;
-                self.note_on(self.note_on_key, self.note_on_velocity);
+                let modulator_magnitude =
+                    self.modulator.value() * self.modulator_envelope.value() * self.modulator_depth;
+                self.carrier.set_linear_frequency_modulation(
+                    modulator_magnitude.value() * self.modulator_beta,
+                );
+                r = self.carrier.value() * self.carrier_envelope.value();
+                self.carrier_envelope.tick(tick_count);
+                self.modulator_envelope.tick(tick_count);
+                self.carrier.tick(tick_count);
+                self.modulator.tick(tick_count);
+                if !self.is_playing() && self.steal_is_underway {
+                    self.steal_is_underway = false;
+                    self.note_on(self.note_on_key, self.note_on_velocity);
+                }
             }
         }
-        self.sample = StereoSample::SILENCE;
+        self.sample = if self.is_playing() {
+            self.dca.transform_audio_to_stereo(Sample::from(r))
+        } else {
+            StereoSample::from(StereoSample::SILENCE)
+        };
     }
 }
 impl FmVoice {

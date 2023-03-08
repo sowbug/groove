@@ -246,6 +246,13 @@ impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
     pub fn new_from_f32(value: f32) -> Self {
         Self::new(value as f64)
     }
+    // These methods are annoying because they're inconsistent with the others
+    // in this file. For example, StereoSample::MAX is a struct, not a
+    // primitive. I think this happened because (1) a generic can't define a
+    // constant like that -- which is reasonable -- but (2) I then defined
+    // Normal/BipolarNormal etc. as old-style types, which meant I couldn't put
+    // any consts inside them. TODO: try a new one of the newtype style, and
+    // then take a afternoon converting the world to the new ones.
     pub const fn maximum() -> Self {
         Self(Self::MAX)
     }
