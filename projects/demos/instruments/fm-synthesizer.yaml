@@ -15,9 +15,9 @@ devices:
           beta: 15.0
           carrier-envelope:
             attack: 0.0
-            decay: 0.0
-            sustain: 1.0
-            release: 0.0
+            decay: 0.05
+            sustain: 0.9
+            release: 0.5
           modulator-envelope:
             attack: 0.0
             decay: 0.8
