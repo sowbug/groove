@@ -2,9 +2,9 @@
 
 //! Fundamental structs and traits.
 
+use crate::util::Paths;
 use convert_case::{Case, Casing};
 use std::{
-    fs,
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
@@ -378,14 +378,15 @@ impl Dca {
     }
 }
 
-pub fn canonicalize_filename(filename: &str) -> String {
-    const OUT_DIR: &str = "out";
-    let result = fs::create_dir_all(OUT_DIR);
-    if result.is_err() {
-        panic!();
+pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
+    let mut path = Paths::out_path();
+    let snake_filename = format!("{}.wav", filename.to_case(Case::Snake)).to_string();
+    path.push(snake_filename);
+    if let Some(path) = path.to_str() {
+        path.to_string()
+    } else {
+        panic!("trouble creating output path")
     }
-    let snake_filename = filename.to_case(Case::Snake);
-    format!("{OUT_DIR}/{snake_filename}.wav")
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@ use super::{
     patches::{FmSynthesizerPreset, WelshPatchSettings},
     MidiChannel,
 };
+use crate::patches::EnvelopeSettings;
 use groove_core::{midi::note_description_to_frequency, Normal};
 use groove_entities::instruments::{Drumkit, FmSynthesizer, Sampler, SimpleSynthesizer};
 use groove_orchestration::Entity;
@@ -57,8 +58,12 @@ pub enum InstrumentSettings {
         modulator_ratio: f64,
         #[serde(rename = "depth")]
         modulator_depth: f64,
+        #[serde(rename = "beta")]
+        modulator_beta: f64,
+
+        carrier_envelope: EnvelopeSettings,
+        modulator_envelope: EnvelopeSettings,
     },
-    // TODO Sampler
 }
 
 impl InstrumentSettings {
@@ -139,6 +144,9 @@ impl InstrumentSettings {
                 midi_input_channel,
                 modulator_ratio,
                 modulator_depth,
+                modulator_beta,
+                carrier_envelope,
+                modulator_envelope,
             } => (
                 *midi_input_channel,
                 Entity::FmSynthesizer(Box::new(FmSynthesizer::new_with_voice_store(
@@ -147,6 +155,9 @@ impl InstrumentSettings {
                         FmSynthesizerPreset {
                             modulator_ratio: *modulator_ratio,
                             modulator_depth: Normal::from(*modulator_depth),
+                            modulator_beta: *modulator_beta,
+                            carrier_envelope: carrier_envelope.into_adsr_params(),
+                            modulator_envelope: modulator_envelope.into_adsr_params(),
                         }
                         .into_voice_store(sample_rate),
                     ),

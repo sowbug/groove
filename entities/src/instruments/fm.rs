@@ -2,7 +2,7 @@
 
 use super::synthesizer::Synthesizer;
 use groove_core::{
-    generators::{Envelope, Oscillator, Waveform},
+    generators::{AdsrParams, Envelope, Oscillator, Waveform},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
@@ -25,6 +25,15 @@ pub struct FmVoice {
 
     /// modulator_depth 0.0 means no modulation; 1.0 means maximum
     modulator_depth: Normal,
+
+    /// Ranges from 0.0 to very high.
+    ///
+    /// - 0.0: no effect
+    /// - 0.1: change is visible on scope but not audible
+    /// - 1.0: audible change
+    /// - 10.0: dramatic change,
+    /// - 100.0: extreme.
+    modulator_beta: ParameterType,
 
     carrier_envelope: Envelope,
     modulator_envelope: Envelope,
@@ -91,9 +100,8 @@ impl Ticks for FmVoice {
         if self.is_playing() {
             let modulator_magnitude =
                 self.modulator.value() * self.modulator_envelope.value() * self.modulator_depth;
-            let modulator_thing = modulator_magnitude.value() * 100.0;
             self.carrier
-                .set_additive_frequency_modulation(modulator_thing);
+                .set_linear_frequency_modulation(modulator_magnitude.value() * self.modulator_beta);
             let r = self.carrier.value() * self.carrier_envelope.value();
             self.carrier_envelope.tick(tick_count);
             self.modulator_envelope.tick(tick_count);
@@ -115,6 +123,9 @@ impl FmVoice {
         sample_rate: usize,
         modulator_ratio: ParameterType,
         modulator_depth: Normal,
+        modulator_beta: ParameterType,
+        carrier_envelope: AdsrParams,
+        modulator_envelope: AdsrParams,
     ) -> Self {
         Self {
             sample: Default::default(),
@@ -122,9 +133,9 @@ impl FmVoice {
             modulator: Oscillator::new_with_waveform(sample_rate, Waveform::Sine),
             modulator_ratio,
             modulator_depth,
-            carrier_envelope: Envelope::new_with(sample_rate, 0.0, 0.0, Normal::maximum(), 0.1),
-           // modulator_envelope: Envelope::new_with(sample_rate, 0.0, 0.0, Normal::maximum(), 0.1),
-                       modulator_envelope: Envelope::new_with(sample_rate, 0.0, 0.5, Normal::from(0.1), 0.0),
+            modulator_beta,
+            carrier_envelope: Envelope::new_with(sample_rate, carrier_envelope),
+            modulator_envelope: Envelope::new_with(sample_rate, modulator_envelope),
             dca: Default::default(),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),

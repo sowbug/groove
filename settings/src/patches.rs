@@ -3,7 +3,7 @@
 use super::LoadError;
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
-    generators::{Envelope, Oscillator, Waveform},
+    generators::{AdsrParams, Envelope, Oscillator, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
     util::Paths,
     Normal, ParameterType,
@@ -295,14 +295,17 @@ impl EnvelopeSettings {
     #[allow(dead_code)]
     pub const MAX: f64 = 10000.0; // TODO: what exactly does Welsh mean by "max"?
 
-    pub fn into_with(&self, sample_rate: usize) -> Envelope {
-        Envelope::new_with(
-            sample_rate,
+    pub fn into_adsr_params(&self) -> AdsrParams {
+        AdsrParams::new_with(
             self.attack,
             self.decay,
             Normal::new(self.sustain),
             self.release,
         )
+    }
+
+    pub fn into_with(&self, sample_rate: usize) -> Envelope {
+        Envelope::new_with(sample_rate, self.into_adsr_params())
     }
 }
 
@@ -733,8 +736,12 @@ impl WelshPatchSettings {
 }
 
 pub struct FmSynthesizerPreset {
-    pub modulator_ratio: ParameterType,
+    pub modulator_ratio: ParameterType, // TODO: needs a ratio type, which I suppose would range from 0..infinity.
     pub modulator_depth: Normal,
+    pub modulator_beta: f64,
+
+    pub carrier_envelope: AdsrParams,
+    pub modulator_envelope: AdsrParams,
 }
 
 impl FmSynthesizerPreset {
@@ -743,28 +750,39 @@ impl FmSynthesizerPreset {
     }
 
     pub fn into_voice(&self, sample_rate: usize) -> FmVoice {
-        FmVoice::new_with(sample_rate, self.modulator_ratio, self.modulator_depth)
+        FmVoice::new_with(
+            sample_rate,
+            self.modulator_ratio,
+            self.modulator_depth,
+            self.modulator_beta,
+            self.carrier_envelope,
+            self.modulator_envelope,
+        )
     }
 
     pub fn from_name(_name: &str) -> FmSynthesizerPreset {
+        let modulator_envelope = AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.0);
+        let carrier_envelope = AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.0);
         FmSynthesizerPreset {
-            modulator_ratio: 2.0,
-            modulator_depth: Normal::maximum(),
+            modulator_ratio: 2.0,               // Modulator frequency is 2x carrier
+            modulator_depth: Normal::maximum(), // full strength
+            modulator_beta: 1.0,                // per Wikipedia, this one is visible and audible
+            carrier_envelope,
+            modulator_envelope,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::patches::OscillatorSettings;
-
     use super::{
         EnvelopeSettings, FilterPreset, LfoDepth, LfoPreset, LfoRoutingType, PolyphonySettings,
         WaveformType, WelshPatchSettings,
     };
+    use crate::patches::OscillatorSettings;
     use float_cmp::approx_eq;
     use groove_core::{
-        canonicalize_filename,
+        canonicalize_output_filename_and_path,
         time::Clock,
         traits::{Generates, PlaysNotes, Ticks},
         SampleType, StereoSample,
@@ -825,7 +843,9 @@ mod tests {
             sample_format: hound::SampleFormat::Int,
         };
         const AMPLITUDE: SampleType = i16::MAX as SampleType;
-        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
+        let mut writer =
+            hound::WavWriter::create(canonicalize_output_filename_and_path(basename), spec)
+                .unwrap();
 
         let mut is_message_sent = false;
         while clock.seconds() < duration {

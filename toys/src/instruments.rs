@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Envelope, Oscillator, Waveform},
+    generators::{AdsrParams, Envelope, Oscillator, Waveform},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
     traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
@@ -237,7 +237,8 @@ impl Ticks for ToySynth {
     fn tick(&mut self, tick_count: usize) {
         self.oscillator.tick(tick_count);
         self.envelope.tick(tick_count);
-        self.sample = StereoSample::from(self.oscillator.value() * self.envelope.value().value());
+        self.sample =
+            StereoSample::from(self.oscillator.value().value() * self.envelope.value().value());
     }
 }
 impl HandlesMidi for ToySynth {
@@ -299,10 +300,7 @@ impl ToySynth {
             Box::new(Oscillator::new_with(sample_rate)),
             Box::new(Envelope::new_with(
                 sample_rate,
-                0.0,
-                0.0,
-                Normal::maximum(),
-                0.0,
+                AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
             )),
         )
     }

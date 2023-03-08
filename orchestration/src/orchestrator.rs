@@ -259,6 +259,7 @@ impl Orchestrator {
         Ok(()) // TODO: do we ever care about this result?
     }
 
+    #[allow(dead_code)]
     pub(crate) fn connect_to_main_mixer(&mut self, source_uid: usize) -> anyhow::Result<()> {
         self.patch(source_uid, self.main_mixer_uid)
     }

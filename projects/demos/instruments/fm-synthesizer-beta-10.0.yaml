@@ -1,7 +1,11 @@
 ---
-title: "FM Synthesizer - simple bass"
+# This series of projects helps tune the FM synth to match the behavior shown in
+# the "Waveforms for each β" image in
+# https://en.wikipedia.org/wiki/Frequency_modulation_synthesis, which is
+# screenshotted in this project at doc/fm-synthesis-examples.png.
+title: "FM Synthesizer, beta 10.0"
 clock:
-  bpm: 60.0
+  bpm: 480.0
   time-signature:
     - 4
     - 4
@@ -12,7 +16,7 @@ devices:
           midi-in: 0
           ratio: 2.0
           depth: 1.0
-          beta: 15.0
+          beta: 10.0
           carrier-envelope:
             attack: 0.0
             decay: 0.0
@@ -20,8 +24,8 @@ devices:
             release: 0.0
           modulator-envelope:
             attack: 0.0
-            decay: 0.8
-            sustain: 0.2
+            decay: 0.0
+            sustain: 1.0
             release: 0.0
   - effect:
       - gain-1
@@ -30,14 +34,11 @@ devices:
 patch-cables:
   - [instrument-1, gain-1, main-mixer]
 patterns:
-  - id: basic-1
-    note-value: eighth
+  - id: single-long-note
+    note-value: whole
     notes:
-      - [36, 38, 40, 41, 43, 45, 47, 48]
-  - id: silent-measure-1
-    notes:
-      - [0]
+      - [69]
 tracks:
   - id: track-1
     midi-channel: 0
-    patterns: [basic-1, silent-measure-1]
+    patterns: [single-long-note]

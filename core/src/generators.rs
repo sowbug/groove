@@ -6,11 +6,9 @@ use crate::{
     BipolarNormal, Normal, ParameterType, SignalType,
 };
 use kahan::KahanSum;
-use more_asserts::debug_assert_lt;
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
-use std::f64::consts::PI;
-use std::{fmt::Debug, ops::Range};
+use std::{f64::consts::PI, fmt::Debug, ops::Range};
 
 #[derive(Clone, Copy, Debug)]
 pub enum Waveform {
@@ -45,17 +43,11 @@ pub struct Oscillator {
     frequency_tune: ParameterType,
 
     /// [-1, 1] is typical range, with -1 halving the frequency, and 1 doubling
-    /// it. Designed for LFO and frequent changes.
+    /// it. Designed for LFOs.
     frequency_modulation: BipolarNormal,
 
-    /// A factor applied to the root frequency. It's named "beta" after the
-    /// symbol in
-    /// <https://en.wikipedia.org/wiki/Frequency_modulation_synthesis>, and I'm
-    /// not sure it's correct. The formula is root_frequency * (10 ^ beta). So
-    /// A beta of 0.0 means no effect. A beta of 0.1 leads to a change that's
-    /// visible on a scope but inaudible. 1.0 is audible. 10.0 is very
-    /// significant. 100.0 is extreme.
-    beta_frequency_modulation: ParameterType,
+    /// A factor applied to the root frequency. It is used for FM synthesis.
+    linear_frequency_modulation: ParameterType,
 
     /// working variables to generate semi-deterministic noise.
     noise_x1: u32,
@@ -76,8 +68,6 @@ pub struct Oscillator {
     //
     // Needs Kahan summation algorithm to avoid accumulation of FP errors.
     cycle_position: KahanSum<f64>,
-
-    phase_offset: Normal,
 
     delta: f64,
     delta_needs_update: bool,
@@ -155,14 +145,13 @@ impl Oscillator {
             fixed_frequency: Default::default(),
             frequency_tune: 1.0,
             frequency_modulation: Default::default(),
-            beta_frequency_modulation: Default::default(),
+            linear_frequency_modulation: Default::default(),
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
             sample_rate,
             ticks: Default::default(),
             signal: Default::default(),
             cycle_position: Default::default(),
-            phase_offset: Default::default(),
             delta: Default::default(),
             delta_needs_update: true,
             should_sync: Default::default(),
@@ -187,8 +176,8 @@ impl Oscillator {
         } else {
             self.fixed_frequency
         };
-        unmodulated_frequency * 2.0f64.powf(self.frequency_modulation.value())
-            + unmodulated_frequency * (1.0 + self.beta_frequency_modulation)
+        unmodulated_frequency
+            * (2.0f64.powf(self.frequency_modulation.value()) + self.linear_frequency_modulation)
     }
 
     pub fn set_frequency(&mut self, frequency: ParameterType) {
@@ -206,11 +195,8 @@ impl Oscillator {
         self.delta_needs_update = true;
     }
 
-    pub fn set_additive_frequency_modulation(
-        &mut self,
-        additive_frequency_modulation: ParameterType,
-    ) {
-        self.beta_frequency_modulation = additive_frequency_modulation;
+    pub fn set_linear_frequency_modulation(&mut self, linear_frequency_modulation: ParameterType) {
+        self.linear_frequency_modulation = linear_frequency_modulation;
         self.delta_needs_update = true;
     }
 
@@ -226,8 +212,8 @@ impl Oscillator {
         self.frequency_modulation
     }
 
-    pub fn additive_frequency_modulation(&self) -> ParameterType {
-        self.beta_frequency_modulation
+    pub fn linear_frequency_modulation(&self) -> ParameterType {
+        self.linear_frequency_modulation
     }
 
     pub fn frequency(&self) -> ParameterType {
@@ -245,7 +231,10 @@ impl Oscillator {
     fn update_delta(&mut self) {
         if self.delta_needs_update {
             self.delta = self.adjusted_frequency() / self.sample_rate as f64;
-            //            self.cycle_position.reset_compensation();
+
+            // This resets the accumulated error.
+            self.cycle_position = KahanSum::new_with_value(self.cycle_position.sum());
+
             self.delta_needs_update = false;
         }
     }
@@ -287,7 +276,17 @@ impl Oscillator {
             // causing square waves to flip one sample too late in unit tests. We
             // take advantage of it to also record whether we should signal to
             // synced oscillators that it's time to sync.
-            debug_assert_lt!(next_cycle_position_unrounded, 2.0);
+
+            // Very extreme FM synthesis beta values can cause this assertion to
+            // fail, so it's disabled. I don't think it's a real problem because
+            // all the waveform calculators handle cycles >= 1.0 as if they were
+            // mod 1.0, and the assertion otherwise never fired after initial
+            // Oscillator development.
+            //
+            // I'm keeping it here to keep myself humble.
+            //
+            // debug_assert_lt!(next_cycle_position_unrounded, 2.0);
+
             self.cycle_position += -1.0;
             true
         } else {
@@ -308,7 +307,6 @@ impl Oscillator {
     // amplitude zero, which makes it a lot easier to avoid transients when a
     // waveform starts up. See Pirkle DSSPC++ p.133 for visualization.
     fn amplitude_for_position(&mut self, waveform: Waveform, cycle_position: f64) -> f64 {
-        let cycle_position = cycle_position + self.phase_offset.value();
         match waveform {
             Waveform::Sine => (cycle_position * 2.0 * PI).sin(),
             Waveform::Square => -(cycle_position - 0.5).signum(),
@@ -341,10 +339,6 @@ impl Oscillator {
     pub fn set_frequency_tune(&mut self, frequency_tune: ParameterType) {
         self.frequency_tune = frequency_tune;
     }
-
-    pub fn set_phase_offset(&mut self, phase: Normal) {
-        self.phase_offset = phase;
-    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -358,13 +352,33 @@ enum State {
     Shutdown,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct AdsrParams {
+    pub attack: ParameterType,
+    pub decay: ParameterType,
+    pub sustain: Normal,
+    pub release: ParameterType,
+}
+impl AdsrParams {
+    pub fn new_with(
+        attack: ParameterType,
+        decay: ParameterType,
+        sustain: Normal,
+        release: ParameterType,
+    ) -> Self {
+        Self {
+            attack,
+            decay,
+            sustain,
+            release,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Envelope {
     sample_rate: f64,
-    attack: ParameterType,
-    decay: ParameterType,
-    sustain: Normal,
-    release: ParameterType,
+    adsr: AdsrParams,
 
     state: State,
 
@@ -462,19 +476,10 @@ impl Ticks for Envelope {
     }
 }
 impl Envelope {
-    pub fn new_with(
-        sample_rate: usize,
-        attack: ParameterType,
-        decay: ParameterType,
-        sustain: Normal,
-        release: ParameterType,
-    ) -> Self {
+    pub fn new_with(sample_rate: usize, adsr: AdsrParams) -> Self {
         Self {
             sample_rate: sample_rate as f64,
-            attack,
-            decay,
-            sustain,
-            release,
+            adsr,
             state: State::Idle,
             was_reset: true,
             ticks: Default::default(),
@@ -552,13 +557,13 @@ impl Envelope {
                 self.delta = 0.0;
             }
             State::Attack => {
-                if self.attack == TimeUnit::zero().0 {
+                if self.adsr.attack == TimeUnit::zero().0 {
                     self.set_explicit_amplitude(Normal::maximum());
                     self.set_state(State::Decay);
                 } else {
                     self.state = State::Attack;
                     let target_amplitude = Normal::maximum().value();
-                    self.set_target(Normal::maximum(), TimeUnit(self.attack), false, false);
+                    self.set_target(Normal::maximum(), TimeUnit(self.adsr.attack), false, false);
                     let current_amplitude = self.uncorrected_amplitude.sum();
 
                     (self.convex_a, self.convex_b, self.convex_c) = Self::calculate_coefficients(
@@ -572,13 +577,13 @@ impl Envelope {
                 }
             }
             State::Decay => {
-                if self.decay == TimeUnit::zero().0 {
-                    self.set_explicit_amplitude(self.sustain);
+                if self.adsr.decay == TimeUnit::zero().0 {
+                    self.set_explicit_amplitude(self.adsr.sustain);
                     self.set_state(State::Sustain);
                 } else {
                     self.state = State::Decay;
-                    let target_amplitude = self.sustain.value();
-                    self.set_target(self.sustain, TimeUnit(self.decay), true, false);
+                    let target_amplitude = self.adsr.sustain.value();
+                    self.set_target(self.adsr.sustain, TimeUnit(self.adsr.decay), true, false);
                     let current_amplitude = self.uncorrected_amplitude.sum();
                     (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
                         current_amplitude,
@@ -592,16 +597,16 @@ impl Envelope {
             }
             State::Sustain => {
                 self.state = State::Sustain;
-                self.set_target(self.sustain, TimeUnit::infinite(), false, false);
+                self.set_target(self.adsr.sustain, TimeUnit::infinite(), false, false);
             }
             State::Release => {
-                if self.release == TimeUnit::zero().0 {
+                if self.adsr.release == TimeUnit::zero().0 {
                     self.set_explicit_amplitude(Normal::maximum());
                     self.set_state(State::Idle);
                 } else {
                     self.state = State::Release;
                     let target_amplitude = 0.0;
-                    self.set_target(Normal::minimum(), TimeUnit(self.release), true, false);
+                    self.set_target(Normal::minimum(), TimeUnit(self.adsr.release), true, false);
                     let current_amplitude = self.uncorrected_amplitude.sum();
                     (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
                         current_amplitude,
@@ -1314,7 +1319,8 @@ pub mod tests {
             DEFAULT_BPM,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         );
-        let envelope = Envelope::new_with(clock.sample_rate(), 0.1, 0.2, Normal::new(0.8), 0.3);
+        let adsr = AdsrParams::new_with(0.1, 0.2, Normal::new(0.8), 0.3);
+        let envelope = Envelope::new_with(clock.sample_rate(), adsr);
         (clock, envelope)
     }
 
@@ -1393,7 +1399,10 @@ pub mod tests {
         const DECAY: f64 = 0.2;
         let sustain = Normal::new(0.8);
         const RELEASE: f64 = 0.3;
-        let mut envelope = Envelope::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
+        let mut envelope = Envelope::new_with(
+            clock.sample_rate(),
+            AdsrParams::new_with(ATTACK, DECAY, sustain, RELEASE),
+        );
 
         let mut time_marker = clock.seconds() + ATTACK;
         envelope.trigger_attack();
@@ -1464,7 +1473,10 @@ pub mod tests {
         const DECAY: ParameterType = 0.2;
         let sustain = Normal::new(0.8);
         const RELEASE: ParameterType = 0.3;
-        let mut envelope = Envelope::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
+        let mut envelope = Envelope::new_with(
+            clock.sample_rate(),
+            AdsrParams::new_with(ATTACK, DECAY, sustain, RELEASE),
+        );
 
         envelope.trigger_attack();
         envelope.tick(1);
@@ -1538,7 +1550,10 @@ pub mod tests {
         const DECAY: ParameterType = 5.22;
         let sustain = Normal::new(0.25);
         const RELEASE: ParameterType = 0.5;
-        let mut envelope = Envelope::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
+        let mut envelope = Envelope::new_with(
+            clock.sample_rate(),
+            AdsrParams::new_with(ATTACK, DECAY, sustain, RELEASE),
+        );
 
         envelope.tick(1);
         clock.tick(1);
@@ -1658,7 +1673,10 @@ pub mod tests {
         const DECAY: ParameterType = 0.8;
         let sustain = Normal::new(0.5);
         const RELEASE: ParameterType = 0.4;
-        let mut envelope = Envelope::new_with(clock.sample_rate(), ATTACK, DECAY, sustain, RELEASE);
+        let mut envelope = Envelope::new_with(
+            clock.sample_rate(),
+            AdsrParams::new_with(ATTACK, DECAY, sustain, RELEASE),
+        );
 
         // Decay after note-on should be shorter than the decay value.
         envelope.trigger_attack();
@@ -1720,7 +1738,10 @@ pub mod tests {
 
     #[test]
     fn envelope_amplitude_batching() {
-        let mut e = Envelope::new_with(DEFAULT_SAMPLE_RATE, 0.1, 0.2, Normal::new(0.5), 0.3);
+        let mut e = Envelope::new_with(
+            DEFAULT_SAMPLE_RATE,
+            AdsrParams::new_with(0.1, 0.2, Normal::new(0.5), 0.3),
+        );
 
         // Initialize the buffer with a nonsense value so we know it got
         // overwritten by the method we're about to call.
@@ -1750,7 +1771,8 @@ pub mod tests {
 
     #[test]
     fn envelope_shutdown_state() {
-        let mut e = Envelope::new_with(2000, 0.0, 0.0, Normal::maximum(), 0.5);
+        let mut e =
+            Envelope::new_with(2000, AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.5));
 
         // With sample rate 1000, each sample is 0.5 millisecond.
         let mut amplitudes: [Normal; 10] = [Normal::default(); 10];

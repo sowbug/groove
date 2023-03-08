@@ -1,6 +1,6 @@
 use super::VoiceStore;
 use groove_core::{
-    generators::{Envelope, Oscillator},
+    generators::{AdsrParams, Envelope, Oscillator},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
@@ -211,8 +211,7 @@ impl Ticks for SimpleVoice {
                     self.note_on(self.note_on_key, self.note_on_velocity);
                 }
             }
-            self.sample =
-                StereoSample::from(self.oscillator.value() * self.envelope.value());
+            self.sample = StereoSample::from(self.oscillator.value() * self.envelope.value());
         }
     }
 }
@@ -222,7 +221,10 @@ impl SimpleVoice {
         Self {
             sample_rate,
             oscillator: Oscillator::new_with(sample_rate),
-            envelope: Envelope::new_with(sample_rate, 0.0, 0.0, Normal::maximum(), 0.0),
+            envelope: Envelope::new_with(
+                sample_rate,
+                AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
+            ),
             sample: Default::default(),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),

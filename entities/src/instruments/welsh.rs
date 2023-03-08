@@ -333,7 +333,7 @@ impl WelshSynth {
 mod tests {
     use super::*;
     use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
-    use groove_core::{canonicalize_filename, time::Clock, SampleType};
+    use groove_core::{canonicalize_output_filename_and_path, time::Clock, SampleType};
 
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]
@@ -351,7 +351,9 @@ mod tests {
             sample_format: hound::SampleFormat::Int,
         };
         const AMPLITUDE: SampleType = i16::MAX as SampleType;
-        let mut writer = hound::WavWriter::create(canonicalize_filename(basename), spec).unwrap();
+        let mut writer =
+            hound::WavWriter::create(canonicalize_output_filename_and_path(basename), spec)
+                .unwrap();
 
         let mut last_recognized_time_point = -1.;
         let time_note_off = duration / 2.0;
