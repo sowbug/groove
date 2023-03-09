@@ -79,16 +79,14 @@ impl<V: IsStereoSampleVoice> Ticks for VoiceStore<V> {
     }
 }
 impl<V: IsStereoSampleVoice> VoiceStore<V> {
-    #[deprecated]
-    pub(crate) fn new_with(_sample_rate: usize) -> Self {
+    fn new_with(_sample_rate: usize) -> Self {
         Self {
             sample: Default::default(),
             voices: Default::default(),
             notes_playing: Default::default(),
         }
     }
-    #[deprecated]
-    pub(crate) fn add_voice(&mut self, voice: Box<V>) {
+    fn add_voice(&mut self, voice: Box<V>) {
         self.voices.push(voice);
         self.notes_playing.push(u7::from(0));
     }
@@ -182,7 +180,6 @@ impl<V: IsStereoSampleVoice> Ticks for StealingVoiceStore<V> {
     }
 }
 impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
-    #[deprecated(note = "private use is OK. Prefer new_with_voice instead")]
     fn new_with(_sample_rate: usize) -> Self {
         Self {
             sample: Default::default(),
@@ -202,9 +199,6 @@ impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
         voice_store
     }
 
-    #[deprecated(
-        note = "private use is OK. Prefer new_with_voice instead, which calls add_voice for you"
-    )]
     fn add_voice(&mut self, voice: Box<V>) {
         self.voices.push(voice);
         self.notes_playing.push(u7::from(0));
@@ -263,7 +257,6 @@ impl<V: IsStereoSampleVoice> Ticks for VoicePerNoteStore<V> {
     }
 }
 impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
-    #[deprecated]
     pub fn new_with(_sample_rate: usize) -> Self {
         Self {
             sample: Default::default(),
@@ -271,7 +264,17 @@ impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
         }
     }
 
-    #[deprecated]
+    pub fn new_with_voices(
+        sample_rate: usize,
+        mut voice_iter: impl Iterator<Item = (u7, V)>,
+    ) -> Self {
+        let mut voice_store = Self::new_with(sample_rate);
+        while let Some((key, voice)) = voice_iter.next() {
+            voice_store.add_voice(key, Box::new(voice));
+        }
+        voice_store
+    }
+
     pub fn add_voice(&mut self, key: u7, voice: Box<V>) {
         self.voices.insert(key, voice);
     }

@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::{sampler::SamplerVoice, Sampler};
+use anyhow::anyhow;
 use groove_core::{
     instruments::Synthesizer,
     midi::{
@@ -52,7 +53,7 @@ impl HandlesMidi for Drumkit {
 
 impl Drumkit {
     pub fn new_from_files(sample_rate: usize) -> Self {
-        let samples: [(GeneralMidiPercussionProgram, &str); 21] = [
+        let samples = vec![
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
             (GeneralMidiPercussionProgram::ElectricBassDrum, "BD B"),
             (GeneralMidiPercussionProgram::ClosedHiHat, "CH"),
@@ -79,31 +80,35 @@ impl Drumkit {
         base_dir.push("samples");
         base_dir.push("707");
 
-        let mut voice_store = Box::new(VoicePerNoteStore::<SamplerVoice>::new_with(sample_rate));
-        for (program, asset_name) in samples {
-            let mut path = base_dir.clone();
-            path.push(format!("{asset_name} 707.wav").as_str());
+        Self::new_with(
+            sample_rate,
+            Box::new(VoicePerNoteStore::<SamplerVoice>::new_with_voices(
+                sample_rate,
+                samples.into_iter().flat_map(|(program, asset_name)| {
+                    let mut path = base_dir.clone();
+                    path.push(format!("{asset_name} 707.wav").as_str());
 
-            if let Some(filename) = path.to_str() {
-                if let Ok(samples) = Sampler::read_samples_from_file(filename) {
-                    let program = program as u8;
-                    voice_store.add_voice(
-                        u7::from(program),
-                        Box::new(SamplerVoice::new_with_samples(
-                            sample_rate,
-                            Arc::new(samples),
-                            note_to_frequency(program),
-                        )),
-                    );
-                } else {
-                    eprintln!("Unable to load sample from file {filename}.");
-                }
-            } else {
-                eprintln!("Unable to load sample {asset_name}.");
-            }
-        }
-
-        Self::new_with(sample_rate, voice_store, "707")
+                    if let Some(filename) = path.to_str() {
+                        if let Ok(samples) = Sampler::read_samples_from_file(filename) {
+                            let program = program as u8;
+                            Ok((
+                                u7::from(program),
+                                SamplerVoice::new_with_samples(
+                                    sample_rate,
+                                    Arc::new(samples),
+                                    note_to_frequency(program),
+                                ),
+                            ))
+                        } else {
+                            Err(anyhow!("Unable to load sample from file {filename}."))
+                        }
+                    } else {
+                        Err(anyhow!("Unable to load sample {asset_name}."))
+                    }
+                }),
+            )),
+            "707",
+        )
     }
 
     pub fn kit_name(&self) -> &str {
