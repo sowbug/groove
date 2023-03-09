@@ -1,10 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 pub use engine::{EngineEvent, EngineInput, EngineSubscription};
-pub use midi::{
-    MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiHandlerMessage, MidiPortLabel,
-    MidiSubscription,
-};
+pub use midi::{MidiHandler, MidiHandlerEvent, MidiHandlerInput, MidiPortLabel, MidiSubscription};
 pub use midly::live::LiveEvent;
 
 mod engine;

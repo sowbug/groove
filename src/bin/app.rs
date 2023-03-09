@@ -10,7 +10,7 @@ use groove::{
     app_version,
     subscriptions::{
         EngineEvent, EngineInput, EngineSubscription, MidiHandler, MidiHandlerEvent,
-        MidiHandlerInput, MidiHandlerMessage, MidiSubscription,
+        MidiHandlerInput, MidiSubscription,
     },
     Entity, Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
 };
@@ -138,7 +138,7 @@ pub enum AppMessage {
     ControlBarMessage(ControlBarMessage),
     GrooveEvent(GrooveEvent),
     EngineEvent(EngineEvent),
-    MidiHandlerMessage(MidiHandlerMessage),
+    MidiHandlerInput(MidiHandlerInput),
     MidiHandlerEvent(MidiHandlerEvent),
     Tick(Instant),
     Event(iced::Event),
@@ -229,17 +229,14 @@ impl Application for GrooveApp {
                     self.handle_keyboard_event(e);
                 }
             }
-            AppMessage::MidiHandlerMessage(message) => match message {
-                MidiHandlerMessage::InputSelected(which) => {
+            AppMessage::MidiHandlerInput(message) => match message {
+                MidiHandlerInput::SelectMidiInput(which) => {
                     self.post_to_midi_handler(MidiHandlerInput::SelectMidiInput(which));
                 }
-                MidiHandlerMessage::OutputSelected(which) => {
+                MidiHandlerInput::SelectMidiOutput(which) => {
                     self.post_to_midi_handler(MidiHandlerInput::SelectMidiOutput(which));
                 }
-                MidiHandlerMessage::Tick => todo!(),
-                MidiHandlerMessage::Midi(_, _) => {
-                    panic!("We send this. A coding error exists if we receive it.")
-                }
+                _ => todo!("Remaining MidiHandlerInput messages should be handled internally"),
             },
             AppMessage::EngineEvent(event) => match event {
                 EngineEvent::Ready(sender, orchestrator) => {
@@ -338,7 +335,7 @@ impl Application for GrooveApp {
                 let project_view: Element<AppMessage> =
                     self.orchestrator_view().map(AppMessage::GrooveEvent);
                 let midi_view: Element<AppMessage> =
-                    self.midi_view().map(AppMessage::MidiHandlerMessage);
+                    self.midi_view().map(AppMessage::MidiHandlerInput);
                 let scrollable_content = column![midi_view, project_view];
                 let scrollable =
                     container(scrollable(scrollable_content)).width(Length::FillPortion(1));
@@ -489,7 +486,7 @@ impl GrooveApp {
         }
     }
 
-    fn midi_view(&self) -> Element<MidiHandlerMessage> {
+    fn midi_view(&self) -> Element<MidiHandlerInput> {
         if let Some(midi_handler) = &self.midi_handler {
             if let Ok(midi_handler) = midi_handler.lock() {
                 let activity_text = container(GuiStuff::<EntityMessage>::container_text(
@@ -511,7 +508,7 @@ impl GrooveApp {
                     pick_list(
                         input_options,
                         input_selected.clone(),
-                        MidiHandlerMessage::InputSelected,
+                        MidiHandlerInput::SelectMidiInput,
                     )
                     .font(gui::SMALL_FONT)
                     .width(iced::Length::FillPortion(3))
@@ -521,7 +518,7 @@ impl GrooveApp {
                 let x = pick_list(
                     output_options,
                     output_selected.clone(),
-                    MidiHandlerMessage::OutputSelected,
+                    MidiHandlerInput::SelectMidiOutput,
                 );
                 let output_menu = row![
                     GuiStuff::<EntityMessage>::container_text("Output")

@@ -178,6 +178,9 @@ impl Runner {
                         }
                     }
                     MidiHandlerInput::QuitRequested => {
+                        if let Ok(mut midi_handler) = self.midi_handler.lock() {
+                            midi_handler.stop();
+                        }
                         self.push_response(Response::single(MidiHandlerEvent::Quit));
                         self.send_pending_messages();
                         break;
@@ -502,8 +505,9 @@ impl MidiOutputHandler {
     }
 }
 
+/// Messages used
 #[derive(Clone, Debug, Default)]
-pub enum MidiHandlerMessage {
+enum MidiHandlerMessage {
     /// It's time to do periodic work.
     #[default]
     Tick,
@@ -511,13 +515,10 @@ pub enum MidiHandlerMessage {
     /// A MIDI message sent by Groove to MidiHandler for output to external MIDI
     /// devices.
     Midi(MidiChannel, MidiMessage),
-
-    /// A new MIDI input or output has been selected in the UI.
-    InputSelected(MidiPortLabel),
-    OutputSelected(MidiPortLabel),
 }
 impl MessageBounds for MidiHandlerMessage {}
 
+/// Manages the external MIDI interface.
 #[derive(Debug)]
 pub struct MidiHandler {
     midi_input: Option<MidiInputHandler>,
@@ -564,12 +565,11 @@ impl MidiHandler {
                     self.midi_output.as_mut().unwrap().update(message);
                 }
             }
-            _ => {}
         }
         Response::none()
     }
 
-    pub fn start(&mut self) -> anyhow::Result<()> {
+    fn start(&mut self) -> anyhow::Result<()> {
         if self.midi_input.is_some() {
             self.midi_input.as_mut().unwrap().start()?;
         }
@@ -579,7 +579,7 @@ impl MidiHandler {
         Ok(())
     }
 
-    pub fn stop(&mut self) {
+    fn stop(&mut self) {
         if self.midi_input.is_some() {
             self.midi_input.as_mut().unwrap().stop();
         }
@@ -588,7 +588,7 @@ impl MidiHandler {
         }
     }
 
-    pub fn select_input(&mut self, which: MidiPortLabel) {
+    fn select_input(&mut self, which: MidiPortLabel) {
         if self.midi_input.is_some()
             && self
                 .midi_input
@@ -601,7 +601,7 @@ impl MidiHandler {
         }
     }
 
-    pub fn select_output(&mut self, which: MidiPortLabel) {
+    fn select_output(&mut self, which: MidiPortLabel) {
         if self.midi_output.is_some()
             && self
                 .midi_output
@@ -614,14 +614,24 @@ impl MidiHandler {
         }
     }
 
+    #[doc(hidden)]
+    /// Provides a point of reference for the last MIDI activity. Used by the
+    /// GUI to blink a dot on activity. This is bad architecture and should be
+    /// redesigned.
     pub fn activity_tick(&self) -> Instant {
         self.activity_tick
     }
 
+    #[doc(hidden)]
+    /// Provides UI labels. This is bad architecture and
+    /// should be redesigned.
     pub fn midi_input(&self) -> Option<&MidiInputHandler> {
         self.midi_input.as_ref()
     }
 
+    #[doc(hidden)]
+    /// Provides UI labels. This is bad architecture and
+    /// should be redesigned.
     pub fn midi_output(&self) -> Option<&MidiOutputHandler> {
         self.midi_output.as_ref()
     }
