@@ -1,5 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! The [midi](crate::subscriptions::midi) module contains the
+//! [Subscription](iced_native::subscription::Subscription) interface for the
+//! [Groove](groove_core::Groove) MIDI engine.
+
 // TODO copy and conform MidiMessage to MessageBounds so it can be a trait
 // associated type
 use crossbeam::deque::{Steal, Stealer, Worker};
@@ -17,6 +21,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// [MidiHandlerInput] messages allow the subscriber to communicate with the
+/// MIDI engine through [MidiSubscription].
 #[derive(Clone, Debug)]
 pub enum MidiHandlerInput {
     /// The user has picked a MIDI input. Switch to it.
@@ -25,23 +31,33 @@ pub enum MidiHandlerInput {
     /// The user has picked a MIDI output. Switch to it.
     SelectMidiOutput(MidiPortLabel),
 
-    /// We've been asked to send a MIDI message to external hardware.
+    /// We've been asked to send a MIDI message to external hardware. Normally
+    /// these messages come from
+    /// [EngineSubscription](crate::subscriptions::EngineSubscription).
     Midi(MidiChannel, MidiMessage),
 
-    /// This subscription thread should end.
+    /// The app is ready to quit, so the [MidiSubscription] should end.
     QuitRequested,
 }
 
+/// The [MidiSubscription] subscriber receives [MidiHandlerEvent] messages from
+/// the MIDI engine.
 #[derive(Clone, Debug)]
 pub enum MidiHandlerEvent {
-    /// Our subscription thread has successfully started. Here is what the app
-    /// will need to communicate with it.
+    /// The subscription thread has successfully started, and sends this event
+    /// first. It contains a message channel for further communication from the
+    /// subscriber to the MIDI engine, and a reference to [MidiHandler] for
+    /// interacting directly with it.
     Ready(mpsc::Sender<MidiHandlerInput>, Arc<Mutex<MidiHandler>>),
 
-    /// A MIDI message has arrived from external hardware. Handle it in the app.
+    /// A MIDI message has arrived from external hardware and should be handled
+    /// in the app (probably by forwarding it to
+    /// [EngineInput](crate::subscriptions::EngineInput::Midi)).
     Midi(MidiChannel, MidiMessage),
 
-    /// We have successfully processed MidiHandlerInput::QuitRequested.
+    /// The MIDI engine has successfully processed
+    /// [MidiHandlerInput::QuitRequested], and it's OK to end the
+    /// [MidiSubscription].
     Quit,
 }
 
@@ -52,8 +68,11 @@ enum State {
     Idle,
 }
 
+/// [MidiSubscription] provides an interface to the external MIDI world.
 pub struct MidiSubscription {}
 impl MidiSubscription {
+    /// Starts the subscription. The first message sent with the subscription
+    /// will be [MidiHandlerEvent::Ready].
     pub fn subscription() -> Subscription<MidiHandlerEvent> {
         subscription::unfold(
             std::any::TypeId::of::<MidiSubscription>(),
@@ -202,6 +221,7 @@ impl Runner {
 
 pub type MidiInputStealer = Stealer<(u64, u8, MidiMessage)>;
 
+/// Provides user-friendly strings for displaying available MIDI ports.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MidiPortLabel {
     index: usize,
@@ -214,9 +234,10 @@ impl std::fmt::Display for MidiPortLabel {
     }
 }
 
-/// Handles MIDI input coming from outside Groove. For example, if you have a
-/// MIDI keyboard plugged into your computer's USB, you should be able to use
-/// that keyboard to input notes into Groove, and MidiInputHandler manages that.
+/// Handles MIDI input coming from outside [Groove](groove_core::Groove). For
+/// example, if you have a MIDI keyboard plugged into your computer's USB, you
+/// should be able to use that keyboard to input notes, and [MidiInputHandler]
+/// manages that.
 pub struct MidiInputHandler {
     midi: Option<MidiInput>,
     active_port: Option<MidiPortLabel>,
@@ -339,6 +360,7 @@ impl std::fmt::Debug for MidiInputHandler {
     }
 }
 
+// TODO: these shouldn't need to be public.
 /// Outputs MIDI messages to external MIDI devices.
 pub struct MidiOutputHandler {
     midi: Option<MidiOutput>,

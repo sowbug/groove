@@ -1,7 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-//! The [engine] module contains the main `Subscription` interface between the
-//! engine and the app that is embedding it.
+//! The [engine](crate::subscriptions::engine) module contains the
+//! [Subscription](iced_native::subscription::Subscription) interface between
+//! the [Groove](groove_core::Groove) engine and the app subscribing to it.
 
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
@@ -33,8 +34,7 @@ enum State {
     Idle,
 }
 
-/// A GrooveInput is a kind of message that acts as input from the subscriber
-/// (the app) to the subscription publisher (the Groove engine).
+/// The subscriber sends [EngineInput] messages to communicate with the engine.
 #[derive(Clone, Debug)]
 pub enum EngineInput {
     /// Load the project at the given file path.
@@ -62,33 +62,55 @@ pub enum EngineInput {
     QuitRequested,
 }
 
-/// A GrooveEvent is a kind of message that lets the subscriber (the app) know
-/// something happened with the subscription publisher (the Groove engine). We
-/// could have also called it a GrooveOutput, but other examples of Iced
-/// subscriptions use the term "event," so we're going with that.
+/// The engine sends [EngineEvent] messages to subscribers whenever interesting
+/// things happen.
 #[derive(Clone, Debug)]
 pub enum EngineEvent {
+    /// This is the first event that the engine sends to subscribers. It gives a
+    /// channel to send [EngineInput] back to the engine, and an [Orchestrator]
+    /// reference that's necessary for building GUI views.
     Ready(mpsc::Sender<EngineInput>, Arc<Mutex<Orchestrator>>),
+
+    /// Sends the engine's current frame. Useful for the GUI to keep the control
+    /// bar's clock in sync.
     SetClock(usize),
+
+    /// Sends an updated BPM (beats per minute) whenever it changes.
     SetBpm(ParameterType),
+
+    /// Sends an updated global time signature whenever it changes. Note that
+    /// individual components might have independent time signatures that
+    /// operate on their own time.
     SetTimeSignature(TimeSignature),
+
+    /// The engine has generated a MIDI message suitable for forwarding to
+    /// external MIDI hardware.
     MidiToExternal(MidiChannel, MidiMessage),
+
+    /// A new project has loaded with the given filename and optional title.
     ProjectLoaded(String, Option<String>),
+
+    /// The engine has produced a frame of audio.
     AudioOutput(StereoSample),
+
+    /// The current performance is complete.
     OutputComplete,
+
+    /// The engine has received an [EngineInput::QuitRequested] message, has
+    /// successfully processed it, and is now ready for its subscription to end.
     Quit,
 }
 
-/// Runner is the glue between Groove (the audio engine) and the Iced
-/// Subscription interface. It takes input/output going over the MPSC channels
-/// and converts them to work with Groove. It's also the thing that knows that
-/// Groove is running in a separate thread, so it manages the Arc<Mutex<>> that
-/// lets app messages arrive asynchronously.
+/// [Runner] is the glue between the audio engine and the Iced [Subscription]
+/// interface. It takes input/output going over the MPSC channels and converts
+/// them to work with the engine. It's also the thing that knows that the engine
+/// is running in a separate thread, so it manages the
+/// [Arc<Mutex<Orchestrator>>] that lets app messages arrive asynchronously.
 ///
-/// Runner also spins up AudioOutput, which is another thread. This might make
-/// more sense as its own subscription, so that the app can arrange for
-/// GrooveSubscription audio output to be routed to the audio system. For now
-/// it's not causing any trouble.
+/// [Runner] also spins up [AudioOutput] in its own thread. This might make more
+/// sense as its own subscription, so that the app can arrange for
+/// [EngineSubscription] audio output to be routed to the audio system. But for
+/// now, it's not causing any trouble, so we're keeping it where it is.
 struct Runner {
     orchestrator: Arc<Mutex<Orchestrator>>,
     clock: Clock,
@@ -332,11 +354,14 @@ impl Runner {
     }
 }
 
-/// GrooveSubscription is the Iced Subscription for the Groove engine. It
-/// creates the MPSC channels and spawns the Orchestrator/Runner in a thread. It
-/// also knows how to signal the thread to quit when it's time.
+/// [EngineSubscription] is the Iced [Subscription] for the
+/// [Groove](groove_core::Groove) engine. It manages communication channels and
+/// thread lifetime. It also knows how to signal the thread to quit when it's
+/// time.
 pub struct EngineSubscription {}
 impl EngineSubscription {
+    /// Starts the subscription. The first message sent with the subscription
+    /// will be [EngineEvent::Ready].
     pub fn subscription() -> Subscription<EngineEvent> {
         subscription::unfold(
             std::any::TypeId::of::<EngineSubscription>(),

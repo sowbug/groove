@@ -9,6 +9,10 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
+/// This struct doesn't do anything. It exists only to let the doc system know
+/// what the name of the project is.
+pub struct Groove;
+
 /// Handles automation, or real-time automatic control of one entity's
 /// parameters by another entity's output.
 pub mod control;
