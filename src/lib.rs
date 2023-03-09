@@ -4,24 +4,23 @@
 #![warn(missing_docs)]
 #![warn(missing_doc_code_examples)]
 
-//! A DAW (digital audio workstation) engine.
+//! An audio engine designed for making a DAW (digital audio workstation).
 //!
 //! ```
-//! use groove::{Entity, Orchestrator};
-//! use groove_core::{
-//!     midi::{MidiChannel, new_note_off, new_note_on},
-//!     time::PerfectTimeUnit,
-//!     StereoSample,
-//! };
-//!
-//! use groove_entities::{controllers::Sequencer, effects::Compressor};
-//! use groove_toys::ToySynth;
-//!
-//! const SAMPLE_RATE: usize = 44100;
-//! const BPM: f64 = 128.0;
-//! const MIDI_0: MidiChannel = 0;
-//!
-//! // Provide a working buffer for audio.
+//! # use groove::{Entity, Orchestrator};
+//! # use groove_core::{
+//! #     midi::{MidiChannel, new_note_off, new_note_on},
+//! #     time::PerfectTimeUnit,
+//! #     StereoSample,
+//! # };
+//! # use groove_entities::{controllers::Sequencer, effects::Compressor};
+//! # use groove_toys::ToySynth;
+//! #
+//! # const SAMPLE_RATE: usize = 44100;
+//! # const BPM: f64 = 128.0;
+//! # const MIDI_0: MidiChannel = 0;
+//! #
+//! // The system needs a working buffer for audio.
 //! let mut buffer = [StereoSample::SILENCE; 64];
 //!
 //! // ToySynth is a MIDI instrument that makes simple sounds.
@@ -42,23 +41,26 @@
 //! // produce a song.
 //! let mut orchestrator = Orchestrator::new_with(SAMPLE_RATE, BPM);
 //!
-//! // Tell the orchestrator about everything.
+//! // Each "entity" has an ID that is used to connect them.
 //! let synth_id = orchestrator.add(Entity::ToySynth(Box::new(synth)));
 //! let _sequencer_id = orchestrator.add(Entity::Sequencer(Box::new(sequencer)));
 //! let compressor_id = orchestrator.add(Entity::Compressor(Box::new(compressor)));
 //!
-//! // Plug in the audio outputs.
-//! let _ = orchestrator.patch_chain_to_main_mixer(&[synth_id, compressor_id]);
+//! // The synth's output goes to the compressor's input, and then the
+//! // compressor's output goes to the main mixer.
+//! assert!(orchestrator.patch_chain_to_main_mixer(&[synth_id, compressor_id]).is_ok());
 //!
-//! // Connect MIDI.
+//! // Virtual MIDI cables let devices send messages to other devices.
 //! orchestrator.connect_midi_downstream(synth_id, MIDI_0);
 //!
-//! // Ask the orchestrator to render the performance.
+//! // Once everything is set up, the orchestrator renders an audio stream.
 //! if let Ok(samples) = orchestrator.run(&mut buffer) {
-//!     println!("{}", samples.len());
+//!     println!("Created a stream of {} samples.", samples.len());
 //!     assert!(samples
 //!         .iter()
 //!         .any(|sample| *sample != StereoSample::SILENCE));
+//!
+//!     // not shown: writing stream to WAV file
 //! }
 //! ```
 
@@ -71,17 +73,22 @@ use groove_core::ParameterType;
 
 // TODO: these should be #[cfg(test)] because nobody should be assuming these
 // values
+
+#[doc(hidden)]
 /// A typical sample rate.
 pub const DEFAULT_SAMPLE_RATE: usize = 44100;
+#[doc(hidden)]
 /// A typical BPM (beats per minute) for EDM.
 pub const DEFAULT_BPM: ParameterType = 128.0;
+#[doc(hidden)]
 /// The most common time signature
 pub const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);
+#[doc(hidden)]
 /// A typical tick-per-second rate for a MIDI file.
 pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
 // https://stackoverflow.com/a/65972328/344467
-/// A string that's good for displaying build information for the user.
+/// A string that's useful for displaying build information to end users.
 pub fn app_version() -> &'static str {
     option_env!("GIT_DESCRIBE")
         .unwrap_or(option_env!("GIT_REV_PARSE").unwrap_or(env!("CARGO_PKG_VERSION")))

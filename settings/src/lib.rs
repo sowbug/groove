@@ -1,5 +1,13 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! The `groove-settings` crate manages serialization. Why is this more than
+//! `#[derive(Deserialize, Serialize)]`? Because the
+//! [Groove](groove_core::Groove) vision is that project files be as easy to work with
+//! as a GUI DAW, and that means that the file format should remain relatively
+//! stable, even if the structs that understand that format change. Keeping a
+//! set of serialized structs separate from the inner engine helps reduce
+//! file-format churn.
+
 pub use songs::SongSettings;
 
 pub(crate) mod controllers;

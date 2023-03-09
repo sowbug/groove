@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! This crate is a rudimentary DAW.
+
 #![windows_subsystem = "windows"]
 
 mod gui;

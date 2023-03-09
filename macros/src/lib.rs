@@ -1,3 +1,7 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
+//! This crate provides macros that make Entity development easier.
+
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
@@ -6,6 +10,9 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Generics};
 use syn::{Attribute, Ident};
 use syn::{Lit, NestedMeta};
 
+/// The Uid macro derives the boilerplate necessary for the HasUid trait. If a
+/// device needs to interoperate with Orchestrator, then it needs to have a
+/// unique ID. Deriving with this macro makes that happen.
 #[proc_macro_derive(Uid)]
 pub fn uid_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -28,6 +35,13 @@ pub fn uid_derive(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/// The Control macro derives the infrastructure that makes an entity
+/// controllable (automatable). By annotating each controllable field with
+/// `#[controllable]`, the entity exposes a public API that Orchestrator uses to
+/// manipulate those fields. Note that adding the `#[controllable]` annotation
+/// isn't enough; for each field, you should also add a method called
+/// `set_control_FIELDNAME()` that takes a control type, such as
+/// [F32ControlValue](groove_core::control::F32ControlValue).
 #[proc_macro_derive(Control, attributes(controllable))]
 pub fn control_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

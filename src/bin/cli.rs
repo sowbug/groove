@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! The CLI (command-line interface) tool renders project files.
+
 use anyhow::Ok;
 use clap::Parser;
 use groove::{

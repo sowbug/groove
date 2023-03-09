@@ -1,9 +1,14 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+//! This crate provides the [crate::Orchestrator] struct, which coordinates the
+//! generation of audio from all the [Entities](entities::Entity) in the
+//! system.
+
 use groove_core::ParameterType;
 
 pub use entities::Entity;
 pub use orchestrator::Orchestrator;
+pub use orchestrator::Performance;
 
 pub mod helpers;
 pub mod messages;

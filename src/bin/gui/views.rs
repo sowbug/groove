@@ -1,3 +1,5 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
 use super::{GuiStuff, LARGE_FONT, LARGE_FONT_SIZE, SMALL_FONT};
 use groove::Entity;
 use groove_core::traits::HasUid;
