@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub mod persistence;
+pub(crate) mod persistence;
+pub(crate) mod views;
 
 use iced::widget::Text;
 use iced::{

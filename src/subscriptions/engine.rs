@@ -87,7 +87,8 @@ pub enum EngineEvent {
     /// external MIDI hardware.
     MidiToExternal(MidiChannel, MidiMessage),
 
-    /// A new project has loaded with the given filename and optional title.
+    /// A new project has loaded. For convenience, the filename and optional
+    /// project title are included.
     ProjectLoaded(String, Option<String>),
 
     /// The engine has produced a frame of audio.
@@ -179,7 +180,7 @@ impl Runner {
                 GrooveEvent::MidiToExternal(channel, message) => {
                     self.post_event(EngineEvent::MidiToExternal(channel, message))
                 }
-                GrooveEvent::LoadedProject(filename, title) => {
+                GrooveEvent::ProjectLoaded(filename, title) => {
                     self.post_event(EngineEvent::ProjectLoaded(filename, title))
                 }
                 GrooveEvent::EntityMessage(_, _) => {
@@ -218,7 +219,8 @@ impl Runner {
                     EngineInput::LoadProject(filename) => {
                         self.clock.reset(self.clock.sample_rate());
                         is_playing = false;
-                        self.load_project(filename);
+                        let response = self.load_project(filename);
+                        self.push_response(response);
                     }
                     EngineInput::Play => is_playing = true,
                     EngineInput::Pause => is_playing = false,
@@ -346,8 +348,14 @@ impl Runner {
         if let Ok(settings) = SongSettings::new_from_yaml_file(path.to_str().unwrap()) {
             if let Ok(instance) = settings.instantiate(false) {
                 let title = instance.title();
-                self.orchestrator = Arc::new(Mutex::new(instance)); // TODO: this can't be right, because the app doesn't know about the new one
-                return Response::single(GrooveEvent::LoadedProject(filename, title));
+                if let Ok(mut o) = self.orchestrator.lock() {
+                    // I'm amazed this works whenever I see it, but I think it's
+                    // just saying that we're replacing what the reference
+                    // points to with new content. I don't see how that can
+                    // work, but it does work.
+                    *o = instance;
+                }
+                return Response::single(GrooveEvent::ProjectLoaded(filename, title));
             }
         }
         return Response::none();

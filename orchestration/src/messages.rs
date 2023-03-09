@@ -35,7 +35,9 @@ pub enum GrooveEvent {
     /// A MIDI message that should be routed from Groove to outside.
     MidiToExternal(MidiChannel, MidiMessage),
 
-    LoadedProject(String, Option<String>),
+    /// The engine has loaded a new project with the supplied filename and
+    /// optional title.
+    ProjectLoaded(String, Option<String>),
 }
 impl MessageBounds for GrooveEvent {}
 
