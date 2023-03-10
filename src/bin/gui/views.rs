@@ -14,8 +14,8 @@ use groove_entities::{
 };
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use iced::{
-    widget::{button, column, container, pick_list, row, text},
-    Element,
+    widget::{button, column, container, pick_list, row, text, Column},
+    Alignment, Element, Length,
 };
 use iced_audio::{FloatRange, HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
 use rustc_hash::FxHashMap;
@@ -28,12 +28,30 @@ pub(crate) enum EntityViewState {
     Expanded,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct EntityViewGenerator {
     entity_view_states: FxHashMap<usize, EntityViewState>,
+
+    pub(crate) fm_synthesizer_ratio_range: IntRange,
+    pub(crate) fm_synthesizer_beta_range: FloatRange,
+}
+impl Default for EntityViewGenerator {
+    fn default() -> Self {
+        Self {
+            entity_view_states: Default::default(),
+            fm_synthesizer_ratio_range: IntRange::new(1, 32),
+            fm_synthesizer_beta_range: FloatRange::new(0.5, 32.0),
+        }
+    }
 }
 
 impl EntityViewGenerator {
+    const LABEL_FONT_SIZE: u16 = 14;
+
+    const ITEM_OUTER_PADDING: u16 = 16;
+    const ITEM_PADDING: u16 = 8;
+    const ITEM_WIDTH: Length = Length::Fixed(48.0);
+
     pub(crate) fn set_entity_view_state(&mut self, uid: usize, new_state: EntityViewState) {
         self.entity_view_states.insert(uid, new_state);
     }
@@ -115,7 +133,7 @@ impl EntityViewGenerator {
             IntRange::new(0, 15).normal_param(e.bits_to_crush().into(), 8),
             EntityMessage::HSliderInt
         )])
-        .padding(20);
+        .padding(Self::ITEM_OUTER_PADDING);
         GuiStuff::titled_container(&title, contents.into())
     }
 
@@ -148,7 +166,9 @@ impl EntityViewGenerator {
                 },
                 EntityMessage::HSliderInt,
             );
-            container(row![slider]).padding(20).into()
+            container(row![slider])
+                .padding(Self::ITEM_OUTER_PADDING)
+                .into()
         })
     }
 
@@ -188,32 +208,53 @@ impl EntityViewGenerator {
 
     fn fm_synthesizer_view(&self, e: &FmSynthesizer) -> Element<EntityMessage> {
         self.collapsing_box("FM", e.uid(), || {
-            let depth_slider = row![
-                text("depth"),
-                HSlider::new(
+            let depth = e.depth().value_as_f32();
+            let label_depth = text("Depth").size(Self::LABEL_FONT_SIZE);
+            let text_depth =
+                text(format!("{:0.1}%", depth * 100.0).as_str()).size(Self::LABEL_FONT_SIZE);
+            let ratio = e.ratio();
+            let label_ratio = text("Ratio").size(Self::LABEL_FONT_SIZE);
+            let text_ratio = text(format!("{:0.2}", ratio).as_str()).size(Self::LABEL_FONT_SIZE);
+            let beta = e.beta();
+            let label_beta = text("Beta").size(Self::LABEL_FONT_SIZE);
+            let text_beta = text(format!("{:0.2}", beta).as_str()).size(Self::LABEL_FONT_SIZE);
+            let depth_slider = Column::new()
+                .push(label_depth)
+                .push(Knob::new(
                     NormalParam {
-                        value: IcedNormal::from_clipped(e.depth().value_as_f32()),
+                        value: IcedNormal::from_clipped(depth),
                         default: IcedNormal::from_clipped(0.5),
                     },
-                    EntityMessage::HSliderInt,
-                )
-            ];
-            let ratio_slider = row![
-                text("ratio"),
-                HSlider::new(
-                    FloatRange::new(0.5, 32.0).normal_param(e.ratio() as f32, 2.0),
-                    EntityMessage::HSliderInt1,
-                )
-            ];
-            let beta_slider = row![
-                text("beta"),
-                HSlider::new(
-                    FloatRange::new(0.5, 32.0).normal_param(e.beta() as f32, 2.0),
-                    EntityMessage::HSliderInt2,
-                )
-            ];
-            container(column![depth_slider, ratio_slider, beta_slider])
-                .padding(20)
+                    EntityMessage::Knob,
+                ))
+                .push(text_depth)
+                .align_items(Alignment::Center)
+                .padding(Self::ITEM_PADDING)
+                .width(Self::ITEM_WIDTH);
+            let ratio_slider = Column::new()
+                .push(label_ratio)
+                .push(Knob::new(
+                    self.fm_synthesizer_ratio_range
+                        .normal_param(ratio as i32, 2),
+                    EntityMessage::Knob2,
+                ))
+                .push(text_ratio)
+                .align_items(Alignment::Center)
+                .padding(Self::ITEM_PADDING)
+                .width(Self::ITEM_WIDTH);
+            let beta_slider = Column::new()
+                .push(label_beta)
+                .push(Knob::new(
+                    self.fm_synthesizer_beta_range
+                        .normal_param(beta as f32, 2.0),
+                    EntityMessage::Knob3,
+                ))
+                .push(text_beta)
+                .align_items(Alignment::Center)
+                .padding(Self::ITEM_PADDING)
+                .width(Self::ITEM_WIDTH);
+            container(row![depth_slider, ratio_slider, beta_slider])
+                .padding(Self::ITEM_OUTER_PADDING)
                 .into()
         })
     }
@@ -227,7 +268,9 @@ impl EntityViewGenerator {
                 },
                 EntityMessage::HSliderInt,
             );
-            container(row![slider]).padding(20).into()
+            container(row![slider])
+                .padding(Self::ITEM_OUTER_PADDING)
+                .into()
         })
     }
 
@@ -240,7 +283,9 @@ impl EntityViewGenerator {
                 },
                 EntityMessage::HSliderInt,
             );
-            container(row![slider]).padding(20).into()
+            container(row![slider])
+                .padding(Self::ITEM_OUTER_PADDING)
+                .into()
         })
     }
 
@@ -389,7 +434,7 @@ impl EntityViewGenerator {
                     value: IcedNormal::from_clipped((e.pan() + 1.0) / 2.0),
                     default: IcedNormal::from_clipped(0.5),
                 },
-                EntityMessage::IcedKnob,
+                EntityMessage::Knob,
             )
             .into();
             container(column![

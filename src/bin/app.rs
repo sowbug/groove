@@ -433,7 +433,7 @@ impl GrooveApp {
                         _ => todo!(),
                     },
                     Entity::WelshSynth(e) => match message {
-                        EntityMessage::IcedKnob(value) => {
+                        EntityMessage::Knob(value) => {
                             // TODO: it's annoying to have to plumb this through. I want
                             // everything #controllable to automatically generate the
                             // scaffolding for UI.
@@ -463,16 +463,22 @@ impl GrooveApp {
                         EntityMessage::Midi(_, _) => todo!(),
                         EntityMessage::ControlF32(_) => todo!(),
                         EntityMessage::PatternMessage(_, _) => todo!(),
-                        EntityMessage::HSliderInt(depth) => {
-                            e.set_depth(Normal::from(depth.as_f32()))
-                        }
-                        EntityMessage::HSliderInt1(ratio) => {
-                            e.set_ratio(FloatRange::new(0.5, 32.0).unmap_to_value(ratio) as f64)
-                        }
-                        EntityMessage::HSliderInt2(beta) => e.set_beta(beta.as_f32() as f64),
+                        EntityMessage::HSliderInt(_) => todo!(),
+                        EntityMessage::HSliderInt2(_) => todo!(),
                         EntityMessage::HSliderInt3(_) => todo!(),
                         EntityMessage::HSliderInt4(_) => todo!(),
-                        EntityMessage::IcedKnob(_) => todo!(),
+                        EntityMessage::Knob(depth) => e.set_depth(Normal::from(depth.as_f32())),
+                        EntityMessage::Knob2(ratio) => e.set_ratio(
+                            self.entity_view_generator
+                                .fm_synthesizer_ratio_range
+                                .unmap_to_value(ratio) as f64,
+                        ),
+                        EntityMessage::Knob3(beta) => e.set_beta(
+                            self.entity_view_generator
+                                .fm_synthesizer_beta_range
+                                .unmap_to_value(beta) as f64,
+                        ),
+                        EntityMessage::Knob4(_) => todo!(),
                         EntityMessage::PickListSelected(_) => todo!(),
                         EntityMessage::ExpandPressed => todo!(),
                         EntityMessage::CollapsePressed => todo!(),

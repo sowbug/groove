@@ -32,11 +32,13 @@ pub enum EntityMessage {
 
     /// iced_audio convention.
     HSliderInt(iced_audio::Normal),
-    HSliderInt1(iced_audio::Normal),
     HSliderInt2(iced_audio::Normal),
     HSliderInt3(iced_audio::Normal),
     HSliderInt4(iced_audio::Normal),
-    IcedKnob(iced_audio::Normal),
+    Knob(iced_audio::Normal),
+    Knob2(iced_audio::Normal),
+    Knob3(iced_audio::Normal),
+    Knob4(iced_audio::Normal),
 
     PickListSelected(String),
 
