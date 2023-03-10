@@ -9,7 +9,7 @@ use groove_core::{
         Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
         Resets, StoresVoices, Ticks, TransformsAudio,
     },
-    BipolarNormal, Dca, Normal, ParameterType, Sample, StereoSample,
+    BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -228,7 +228,7 @@ impl WelshVoice {
             oscillator_2_sync,
             oscillator_mix,
             amp_envelope,
-            dca: Default::default(),
+            dca: Dca::new_with_params(&DcaParams::default()),
             lfo,
             lfo_routing,
             lfo_depth,

@@ -408,7 +408,6 @@ impl GrooveApp {
     fn entity_update(&mut self, uid: usize, message: EntityMessage) {
         if let Ok(mut o) = self.orchestrator.lock() {
             if let Some(entity) = o.get_mut(uid) {
-                // TODO: we don't have a real clock here... solve this.
                 match entity {
                     Entity::BiQuadFilter(e) => match message {
                         EntityMessage::HSliderInt(value) => {
@@ -559,15 +558,17 @@ impl GrooveApp {
                 ];
                 let (output_selected, output_options) =
                     midi_handler.midi_output().as_ref().unwrap().labels();
-                let x = pick_list(
-                    output_options,
-                    output_selected.clone(),
-                    MidiHandlerInput::SelectMidiOutput,
-                );
+
                 let output_menu = row![
                     GuiStuff::<EntityMessage>::container_text("Output")
                         .width(iced::Length::FillPortion(1)),
-                    x.font(gui::SMALL_FONT).width(iced::Length::FillPortion(3))
+                    pick_list(
+                        output_options,
+                        output_selected.clone(),
+                        MidiHandlerInput::SelectMidiOutput,
+                    )
+                    .font(gui::SMALL_FONT)
+                    .width(iced::Length::FillPortion(3))
                 ];
                 let port_menus =
                     container(column![input_menu, output_menu]).width(iced::Length::FillPortion(7));

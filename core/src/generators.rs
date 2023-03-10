@@ -353,13 +353,13 @@ enum State {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct AdsrParams {
+pub struct EnvelopeParams {
     pub attack: ParameterType,
     pub decay: ParameterType,
     pub sustain: Normal,
     pub release: ParameterType,
 }
-impl AdsrParams {
+impl EnvelopeParams {
     pub fn new_with(
         attack: ParameterType,
         decay: ParameterType,
@@ -378,7 +378,7 @@ impl AdsrParams {
 #[derive(Debug)]
 pub struct Envelope {
     sample_rate: f64,
-    adsr: AdsrParams,
+    adsr: EnvelopeParams,
 
     state: State,
 
@@ -476,7 +476,7 @@ impl Ticks for Envelope {
     }
 }
 impl Envelope {
-    pub fn new_with(sample_rate: usize, adsr: AdsrParams) -> Self {
+    pub fn new_with(sample_rate: usize, adsr: EnvelopeParams) -> Self {
         Self {
             sample_rate: sample_rate as f64,
             adsr,
@@ -1319,7 +1319,7 @@ pub mod tests {
             DEFAULT_BPM,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         );
-        let adsr = AdsrParams::new_with(0.1, 0.2, Normal::new(0.8), 0.3);
+        let adsr = EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.8), 0.3);
         let envelope = Envelope::new_with(clock.sample_rate(), adsr);
         (clock, envelope)
     }
@@ -1401,7 +1401,7 @@ pub mod tests {
         const RELEASE: f64 = 0.3;
         let mut envelope = Envelope::new_with(
             clock.sample_rate(),
-            AdsrParams::new_with(ATTACK, DECAY, sustain, RELEASE),
+            EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE),
         );
 
         let mut time_marker = clock.seconds() + ATTACK;
@@ -1475,7 +1475,7 @@ pub mod tests {
         const RELEASE: ParameterType = 0.3;
         let mut envelope = Envelope::new_with(
             clock.sample_rate(),
-            AdsrParams::new_with(ATTACK, DECAY, sustain, RELEASE),
+            EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE),
         );
 
         envelope.trigger_attack();
@@ -1552,7 +1552,7 @@ pub mod tests {
         const RELEASE: ParameterType = 0.5;
         let mut envelope = Envelope::new_with(
             clock.sample_rate(),
-            AdsrParams::new_with(ATTACK, DECAY, sustain, RELEASE),
+            EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE),
         );
 
         envelope.tick(1);
@@ -1675,7 +1675,7 @@ pub mod tests {
         const RELEASE: ParameterType = 0.4;
         let mut envelope = Envelope::new_with(
             clock.sample_rate(),
-            AdsrParams::new_with(ATTACK, DECAY, sustain, RELEASE),
+            EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE),
         );
 
         // Decay after note-on should be shorter than the decay value.
@@ -1740,7 +1740,7 @@ pub mod tests {
     fn envelope_amplitude_batching() {
         let mut e = Envelope::new_with(
             DEFAULT_SAMPLE_RATE,
-            AdsrParams::new_with(0.1, 0.2, Normal::new(0.5), 0.3),
+            EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.5), 0.3),
         );
 
         // Initialize the buffer with a nonsense value so we know it got
@@ -1771,8 +1771,10 @@ pub mod tests {
 
     #[test]
     fn envelope_shutdown_state() {
-        let mut e =
-            Envelope::new_with(2000, AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.5));
+        let mut e = Envelope::new_with(
+            2000,
+            EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.5),
+        );
 
         // With sample rate 1000, each sample is 0.5 millisecond.
         let mut amplitudes: [Normal; 10] = [Normal::default(); 10];

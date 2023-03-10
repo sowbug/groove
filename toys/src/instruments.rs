@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{AdsrParams, Envelope, Oscillator, Waveform},
+    generators::{Envelope, EnvelopeParams, Oscillator, Waveform},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
     traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
-    BipolarNormal, Dca, Normal, Sample, SampleType, StereoSample,
+    BipolarNormal, Dca, DcaParams, Normal, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, str::FromStr};
@@ -134,7 +134,7 @@ impl ToyInstrument {
             sample: Default::default(),
             fake_value: Default::default(),
             oscillator: Oscillator::new_with(sample_rate),
-            dca: Default::default(),
+            dca: Dca::new_with_params(&DcaParams::default()),
             is_playing: Default::default(),
             received_count: Default::default(),
             handled_count: Default::default(),
@@ -300,7 +300,7 @@ impl ToySynth {
             Box::new(Oscillator::new_with(sample_rate)),
             Box::new(Envelope::new_with(
                 sample_rate,
-                AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
+                EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
             )),
         )
     }

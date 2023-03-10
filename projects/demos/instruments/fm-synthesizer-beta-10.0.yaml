@@ -14,19 +14,20 @@ devices:
       - instrument-1
       - fm-synthesizer:
           midi-in: 0
-          ratio: 2.0
-          depth: 1.0
-          beta: 10.0
-          carrier-envelope:
-            attack: 0.0
-            decay: 0.0
-            sustain: 1.0
-            release: 0.0
-          modulator-envelope:
-            attack: 0.0
-            decay: 0.0
-            sustain: 1.0
-            release: 0.0
+          voice:
+            ratio: 2.0
+            depth: 1.0
+            beta: 10.0
+            carrier-envelope:
+              attack: 0.0
+              decay: 0.0
+              sustain: 1.0
+              release: 0.0
+            modulator-envelope:
+              attack: 0.0
+              decay: 0.0
+              sustain: 1.0
+              release: 0.0
   - effect:
       - gain-1
       - gain:

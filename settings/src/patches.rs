@@ -1,17 +1,18 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::LoadError;
+use crate::generators::EnvelopeSettings;
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
-    generators::{AdsrParams, Envelope, Oscillator, Waveform},
+    generators::{Oscillator, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
     util::Paths,
     voices::{StealingVoiceStore, VoiceStore},
-    Normal, ParameterType,
+    DcaParams, Normal, ParameterType,
 };
 use groove_entities::{
     effects::{BiQuadFilter, FilterParams},
-    instruments::{FmVoice, LfoRouting, WelshSynth, WelshVoice},
+    instruments::{FmVoice, FmVoiceParams, LfoRouting, WelshSynth, WelshVoice},
 };
 use serde::{Deserialize, Serialize};
 
@@ -114,9 +115,7 @@ impl WelshPatchSettings {
             Normal::from(self.oscillator_1.mix / total)
         };
 
-        //        WelshVoice::new_with(oscillators, oscillator_mix, oscillator_2_sync, )
-
-        let amp_envelope = self.amp_envelope.into_with(sample_rate);
+        let amp_envelope = self.amp_envelope.into_envelope(sample_rate);
         let lfo = self.lfo.into_with(sample_rate);
         let lfo_routing = self.lfo.routing.into();
         let lfo_depth = self.lfo.depth.into();
@@ -130,7 +129,7 @@ impl WelshPatchSettings {
         let filter_cutoff_start =
             BiQuadFilter::frequency_to_percent(self.filter_type_12db.cutoff_hz);
         let filter_cutoff_end = self.filter_envelope_weight;
-        let filter_envelope = self.filter_envelope.into_with(sample_rate);
+        let filter_envelope = self.filter_envelope.into_envelope(sample_rate);
 
         WelshVoice::new_with(
             oscillators,
@@ -269,44 +268,6 @@ impl OscillatorSettings {
         let mut r = Oscillator::new_with_waveform(sample_rate, self.waveform.into());
         r.set_frequency_tune(self.tune.into());
         r
-    }
-}
-
-// attack/decay/release are in time units.
-// sustain is a 0..=1 percentage.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub struct EnvelopeSettings {
-    pub attack: ParameterType,
-    pub decay: ParameterType,
-    pub sustain: ParameterType, // TODO: this should be a Normal
-    pub release: ParameterType,
-}
-impl Default for EnvelopeSettings {
-    fn default() -> Self {
-        Self {
-            attack: 0.0,
-            decay: 0.0,
-            sustain: 1.0,
-            release: 0.0,
-        }
-    }
-}
-impl EnvelopeSettings {
-    #[allow(dead_code)]
-    pub const MAX: f64 = 10000.0; // TODO: what exactly does Welsh mean by "max"?
-
-    pub fn into_adsr_params(&self) -> AdsrParams {
-        AdsrParams::new_with(
-            self.attack,
-            self.decay,
-            Normal::new(self.sustain),
-            self.release,
-        )
-    }
-
-    pub fn into_with(&self, sample_rate: usize) -> Envelope {
-        Envelope::new_with(sample_rate, self.into_adsr_params())
     }
 }
 
@@ -737,39 +698,45 @@ impl WelshPatchSettings {
     }
 }
 
-pub struct FmSynthesizerPreset {
-    pub modulator_ratio: ParameterType, // TODO: needs a ratio type, which I suppose would range from 0..infinity.
-    pub modulator_depth: Normal,
-    pub modulator_beta: f64,
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct FmSynthesizerSettings {
+    pub ratio: ParameterType, // TODO: needs a ratio type, which I suppose would range from 0..infinity.
+    pub depth: ParameterType,
+    pub beta: ParameterType,
 
-    pub carrier_envelope: AdsrParams,
-    pub modulator_envelope: AdsrParams,
+    pub carrier_envelope: EnvelopeSettings,
+    pub modulator_envelope: EnvelopeSettings,
 }
 
-impl FmSynthesizerPreset {
+impl FmSynthesizerSettings {
     pub fn into_voice_store(&self, sample_rate: usize) -> VoiceStore<FmVoice> {
         VoiceStore::<FmVoice>::new_with_voice(sample_rate, 8, || self.into_voice(sample_rate))
     }
 
+    pub fn into_params(&self) -> FmVoiceParams {
+        FmVoiceParams {
+            depth: Normal::from(self.depth),
+            ratio: self.ratio,
+            beta: self.beta,
+            carrier_envelope: self.carrier_envelope.into_params(),
+            modulator_envelope: self.modulator_envelope.into_params(),
+            dca: DcaParams::default(),
+        }
+    }
+
     pub fn into_voice(&self, sample_rate: usize) -> FmVoice {
-        FmVoice::new_with(
-            sample_rate,
-            self.modulator_depth,
-            self.modulator_ratio,
-            self.modulator_beta,
-            self.carrier_envelope,
-            self.modulator_envelope,
-        )
+        FmVoice::new_with_params(sample_rate, &self.into_params())
     }
 
     #[allow(dead_code)]
-    pub fn from_name(_name: &str) -> FmSynthesizerPreset {
-        let modulator_envelope = AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.0);
-        let carrier_envelope = AdsrParams::new_with(0.0, 0.0, Normal::maximum(), 0.0);
-        FmSynthesizerPreset {
-            modulator_ratio: 2.0,               // Modulator frequency is 2x carrier
-            modulator_depth: Normal::maximum(), // full strength
-            modulator_beta: 1.0,                // per Wikipedia, this one is visible and audible
+    pub fn from_name(_name: &str) -> FmSynthesizerSettings {
+        let carrier_envelope = EnvelopeSettings::default();
+        let modulator_envelope = EnvelopeSettings::default();
+        FmSynthesizerSettings {
+            ratio: 2.0, // Modulator frequency is 2x carrier
+            depth: 1.0, // full strength
+            beta: 1.0,  // per Wikipedia, this one is visible and audible
             carrier_envelope,
             modulator_envelope,
         }
