@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
+    control::F32ControlValue,
     generators::{AdsrParams, Envelope, Oscillator, Waveform},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
@@ -20,11 +21,11 @@ pub struct FmVoice {
     carrier: Oscillator,
     modulator: Oscillator,
 
-    /// modulator_frequency is based on carrier frequency and modulator_ratio
-    modulator_ratio: ParameterType,
-
     /// modulator_depth 0.0 means no modulation; 1.0 means maximum
     modulator_depth: Normal,
+
+    /// modulator_frequency is based on carrier frequency and modulator_ratio
+    modulator_ratio: ParameterType,
 
     /// Ranges from 0.0 to very high.
     ///
@@ -73,8 +74,8 @@ impl PlaysNotes for FmVoice {
         self.modulator_envelope.trigger_release();
     }
 
-    fn set_pan(&mut self, value: f32) {
-        self.dca.set_pan(BipolarNormal::from(value));
+    fn set_pan(&mut self, value: BipolarNormal) {
+        self.dca.set_pan(value);
     }
 }
 impl Generates<StereoSample> for FmVoice {
@@ -126,8 +127,8 @@ impl Ticks for FmVoice {
 impl FmVoice {
     pub fn new_with(
         sample_rate: usize,
-        modulator_ratio: ParameterType,
         modulator_depth: Normal,
+        modulator_ratio: ParameterType,
         modulator_beta: ParameterType,
         carrier_envelope: AdsrParams,
         modulator_envelope: AdsrParams,
@@ -136,8 +137,8 @@ impl FmVoice {
             sample: Default::default(),
             carrier: Oscillator::new_with(sample_rate),
             modulator: Oscillator::new_with_waveform(sample_rate, Waveform::Sine),
-            modulator_ratio,
             modulator_depth,
+            modulator_ratio,
             modulator_beta,
             carrier_envelope: Envelope::new_with(sample_rate, carrier_envelope),
             modulator_envelope: Envelope::new_with(sample_rate, modulator_envelope),
@@ -163,12 +164,45 @@ impl FmVoice {
         self.modulator
             .set_frequency(frequency_hz * self.modulator_ratio);
     }
+
+    pub fn set_modulator_depth(&mut self, modulator_depth: Normal) {
+        self.modulator_depth = modulator_depth;
+    }
+
+    pub fn set_modulator_ratio(&mut self, modulator_ratio: ParameterType) {
+        self.modulator_ratio = modulator_ratio;
+    }
+
+    pub fn set_modulator_beta(&mut self, modulator_beta: ParameterType) {
+        self.modulator_beta = modulator_beta;
+    }
+
+    pub fn modulator_depth(&self) -> Normal {
+        self.modulator_depth
+    }
+
+    pub fn modulator_ratio(&self) -> f64 {
+        self.modulator_ratio
+    }
+
+    pub fn modulator_beta(&self) -> f64 {
+        self.modulator_beta
+    }
 }
 
 #[derive(Control, Debug, Uid)]
 pub struct FmSynthesizer {
     uid: usize,
     inner_synth: Synthesizer<FmVoice>,
+
+    #[controllable]
+    depth: Normal,
+
+    #[controllable]
+    ratio: ParameterType,
+
+    #[controllable]
+    beta: ParameterType,
 }
 impl IsInstrument for FmSynthesizer {}
 impl Generates<StereoSample> for FmSynthesizer {
@@ -203,9 +237,71 @@ impl FmSynthesizer {
         sample_rate: usize,
         voice_store: Box<dyn StoresVoices<Voice = FmVoice>>,
     ) -> Self {
+        let (depth, ratio, beta) = if let Some(first_voice) = voice_store.voices().next() {
+            (
+                first_voice.modulator_depth(),
+                first_voice.modulator_ratio(),
+                first_voice.modulator_beta(),
+            )
+        } else {
+            (Default::default(), Default::default(), Default::default())
+        };
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<FmVoice>::new_with(sample_rate, voice_store),
+            depth,
+            ratio,
+            beta,
         }
+    }
+
+    pub fn set_depth(&mut self, depth: Normal) {
+        self.depth = depth;
+        self.inner_synth
+            .voices_mut()
+            .for_each(|v| v.set_modulator_depth(depth));
+    }
+
+    pub fn set_ratio(&mut self, ratio: ParameterType) {
+        self.ratio = ratio;
+        self.inner_synth
+            .voices_mut()
+            .for_each(|v| v.set_modulator_ratio(ratio));
+    }
+
+    pub fn set_beta(&mut self, beta: ParameterType) {
+        self.beta = beta;
+        self.inner_synth
+            .voices_mut()
+            .for_each(|v| v.set_modulator_beta(beta));
+    }
+
+    pub fn set_control_depth(&mut self, depth: F32ControlValue) {
+        self.set_depth(Normal::from(depth.0));
+    }
+
+    // TODO: this is another case where having a better-defined incoming type
+    // would help us do the right thing. We're mapping 0.0...1.0 to 0.0..very
+    // high, but probably not higher than 32 or 64, and integer ratios make more
+    // sense than fractional ones. What's that?
+    pub fn set_control_ratio(&mut self, ratio: F32ControlValue) {
+        self.set_ratio(ratio.0 as ParameterType);
+    }
+
+    // TODO same
+    pub fn set_control_beta(&mut self, beta: F32ControlValue) {
+        self.set_beta(beta.0 as ParameterType);
+    }
+
+    pub fn depth(&self) -> Normal {
+        self.depth
+    }
+
+    pub fn ratio(&self) -> f64 {
+        self.ratio
+    }
+
+    pub fn beta(&self) -> f64 {
+        self.beta
     }
 }

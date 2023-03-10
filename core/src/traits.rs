@@ -3,7 +3,7 @@
 use crate::{
     control::F32ControlValue,
     midi::{u7, HandlesMidi},
-    Normal, Sample, StereoSample,
+    BipolarNormal, Normal, Sample, StereoSample,
 };
 
 pub trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {}
@@ -190,7 +190,7 @@ pub trait PlaysNotes {
     fn note_off(&mut self, velocity: u8);
 
     /// Sets this entity's left-right balance.
-    fn set_pan(&mut self, value: f32);
+    fn set_pan(&mut self, value: BipolarNormal);
 }
 
 // TODO: I didn't want StoresVoices to know anything about audio (i.e.,
@@ -206,16 +206,18 @@ pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
     /// not to dynamically allocate new voices.
     fn voice_count(&self) -> usize;
 
-    /// The number of voices reporting is_playing() true. Notably, this excludes
-    /// any voice with pending events. So if you call attack() on a voice in the
-    /// store but don't tick it, the voice-store active number won't include it.
+    /// The number of voices reporting is_playing() true.
     fn active_voice_count(&self) -> usize;
 
     /// Fails if we run out of idle voices and can't steal any active ones.
     fn get_voice(&mut self, key: &u7) -> anyhow::Result<&mut Box<Self::Voice>>;
 
-    /// Uh-oh, StoresVoices is turning into a synth
-    fn set_pan(&mut self, value: f32);
+    /// All the voices.
+    // Thanks to https://stackoverflow.com/a/58612273/344467 for the lifetime magic
+    fn voices<'a>(&'a self) -> Box<dyn Iterator<Item = &Box<Self::Voice>> + 'a>;
+
+    /// All the voices as a mutable iterator.
+    fn voices_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut Box<Self::Voice>> + 'a>;
 }
 
 /// A synthesizer is composed of Voices. Ideally, a synth will know how to

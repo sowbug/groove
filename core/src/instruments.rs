@@ -14,7 +14,7 @@ use crate::{
 /// [Controllable](crate::traits::Controllable) as needed.
 ///
 /// [Synthesizer] exists so that this crate's synthesizer voices can be used in
-/// other projects without needing all the other Groove crates.
+/// other projects without needing all the other crates.
 #[derive(Debug)]
 pub struct Synthesizer<V: IsStereoSampleVoice> {
     sample_rate: usize,
@@ -60,6 +60,15 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
             pan: Default::default(),
         }
     }
+
+    pub fn voices<'a>(&'a self) -> Box<dyn Iterator<Item = &Box<V>> + 'a> {
+        self.voice_store.voices()
+    }
+
+    pub fn voices_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut Box<V>> + 'a> {
+        self.voice_store.voices_mut()
+    }
+
     pub fn set_pitch_bend(&mut self, pitch_bend: f32) {
         self.pitch_bend = pitch_bend;
     }
@@ -70,11 +79,6 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
 
     pub fn pan(&self) -> f32 {
         self.pan
-    }
-
-    pub fn set_pan(&mut self, pan: f32) {
-        self.pan = pan;
-        self.voice_store.set_pan(pan);
     }
 }
 impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {

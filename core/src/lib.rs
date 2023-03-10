@@ -361,6 +361,11 @@ impl From<BipolarNormal> for StereoSample {
         StereoSample::from(value.value())
     }
 }
+impl From<Normal> for BipolarNormal {
+    fn from(value: Normal) -> Self {
+        Self(value.value() * 2.0 - 1.0)
+    }
+}
 
 /// The Digitally Controller Amplifier (DCA) handles gain and pan for many kinds
 /// of synths.
@@ -492,6 +497,25 @@ mod tests {
             Normal::from(BipolarNormal::from(1.0)),
             Normal::new(1.0),
             "Bipolar -> Normal wrong"
+        );
+    }
+
+    #[test]
+    fn convert_normal_to_bipolar_normal() {
+        assert_eq!(
+            BipolarNormal::from(Normal::from(0.0)),
+            BipolarNormal::new(-1.0),
+            "Normal -> Bipolar wrong"
+        );
+        assert_eq!(
+            BipolarNormal::from(Normal::from(0.5)),
+            BipolarNormal::new(0.0),
+            "Normal -> Bipolar wrong"
+        );
+        assert_eq!(
+            BipolarNormal::from(Normal::from(1.0)),
+            BipolarNormal::new(1.0),
+            "Normal -> Bipolar wrong"
         );
     }
 

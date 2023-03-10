@@ -754,8 +754,8 @@ impl FmSynthesizerPreset {
     pub fn into_voice(&self, sample_rate: usize) -> FmVoice {
         FmVoice::new_with(
             sample_rate,
-            self.modulator_ratio,
             self.modulator_depth,
+            self.modulator_ratio,
             self.modulator_beta,
             self.carrier_envelope,
             self.modulator_envelope,

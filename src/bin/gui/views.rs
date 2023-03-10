@@ -17,7 +17,7 @@ use iced::{
     widget::{button, column, container, pick_list, row, text},
     Element,
 };
-use iced_audio::{HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
+use iced_audio::{FloatRange, HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
 use rustc_hash::FxHashMap;
 use std::any::type_name;
 
@@ -188,14 +188,33 @@ impl EntityViewGenerator {
 
     fn fm_synthesizer_view(&self, e: &FmSynthesizer) -> Element<EntityMessage> {
         self.collapsing_box("FM", e.uid(), || {
-            let slider = HSlider::new(
-                NormalParam {
-                    value: IcedNormal::from_clipped(42.0), // TODO
-                    default: IcedNormal::from_clipped(1.0),
-                },
-                EntityMessage::HSliderInt,
-            );
-            container(row![slider]).padding(20).into()
+            let depth_slider = row![
+                text("depth"),
+                HSlider::new(
+                    NormalParam {
+                        value: IcedNormal::from_clipped(e.depth().value_as_f32()),
+                        default: IcedNormal::from_clipped(0.5),
+                    },
+                    EntityMessage::HSliderInt,
+                )
+            ];
+            let ratio_slider = row![
+                text("ratio"),
+                HSlider::new(
+                    FloatRange::new(0.5, 32.0).normal_param(e.ratio() as f32, 2.0),
+                    EntityMessage::HSliderInt1,
+                )
+            ];
+            let beta_slider = row![
+                text("beta"),
+                HSlider::new(
+                    FloatRange::new(0.5, 32.0).normal_param(e.beta() as f32, 2.0),
+                    EntityMessage::HSliderInt2,
+                )
+            ];
+            container(column![depth_slider, ratio_slider, beta_slider])
+                .padding(20)
+                .into()
         })
     }
 

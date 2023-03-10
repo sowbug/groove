@@ -73,8 +73,8 @@ impl PlaysNotes for WelshVoice {
         self.amp_envelope.trigger_release();
         self.filter_envelope.trigger_release();
     }
-    fn set_pan(&mut self, value: f32) {
-        self.dca.set_pan(BipolarNormal::from(value))
+    fn set_pan(&mut self, value: BipolarNormal) {
+        self.dca.set_pan(value)
     }
 }
 impl Generates<StereoSample> for WelshVoice {
@@ -320,13 +320,12 @@ impl WelshSynth {
         self.inner_synth.pan()
     }
 
-    pub fn set_pan(&mut self, pan: f32) {
-        self.inner_synth.set_pan(pan);
+    pub fn set_pan(&mut self, pan: BipolarNormal) {
+        self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
     }
 
     pub fn set_control_pan(&mut self, value: groove_core::control::F32ControlValue) {
-        // TODO: more toil. Let me say this is a bipolar normal
-        self.set_pan(value.0 * 2.0 - 1.0);
+        self.set_pan(BipolarNormal::from(Normal::new_from_f32(value.0)));
     }
 }
 

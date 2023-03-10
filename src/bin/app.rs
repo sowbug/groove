@@ -38,6 +38,7 @@ use iced::{
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Renderer, Settings, Size, Subscription,
 };
+use iced_audio::FloatRange;
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -442,7 +443,44 @@ impl GrooveApp {
                         }
                         _ => todo!(),
                     },
-                    _ => todo!(),
+                    Entity::Arpeggiator(_) => todo!(),
+                    Entity::Sequencer(_) => todo!(),
+                    Entity::ControlTrip(_) => todo!(),
+                    Entity::MidiTickSequencer(_) => todo!(),
+                    Entity::LfoController(_) => todo!(),
+                    Entity::PatternManager(_) => todo!(),
+                    Entity::SignalPassthroughController(_) => todo!(),
+                    Entity::ToyController(_) => todo!(),
+                    Entity::Timer(_) => todo!(),
+                    Entity::Chorus(_) => todo!(),
+                    Entity::Delay(_) => todo!(),
+                    Entity::Limiter(_) => todo!(),
+                    Entity::Mixer(_) => todo!(),
+                    Entity::Reverb(_) => todo!(),
+                    Entity::ToyEffect(_) => todo!(),
+                    Entity::Drumkit(_) => todo!(),
+                    Entity::FmSynthesizer(e) => match message {
+                        EntityMessage::Midi(_, _) => todo!(),
+                        EntityMessage::ControlF32(_) => todo!(),
+                        EntityMessage::PatternMessage(_, _) => todo!(),
+                        EntityMessage::HSliderInt(depth) => {
+                            e.set_depth(Normal::from(depth.as_f32()))
+                        }
+                        EntityMessage::HSliderInt1(ratio) => {
+                            e.set_ratio(FloatRange::new(0.5, 32.0).unmap_to_value(ratio) as f64)
+                        }
+                        EntityMessage::HSliderInt2(beta) => e.set_beta(beta.as_f32() as f64),
+                        EntityMessage::HSliderInt3(_) => todo!(),
+                        EntityMessage::HSliderInt4(_) => todo!(),
+                        EntityMessage::IcedKnob(_) => todo!(),
+                        EntityMessage::PickListSelected(_) => todo!(),
+                        EntityMessage::ExpandPressed => todo!(),
+                        EntityMessage::CollapsePressed => todo!(),
+                    },
+                    Entity::Sampler(_) => todo!(),
+                    Entity::ToyAudioSource(_) => todo!(),
+                    Entity::ToyInstrument(_) => todo!(),
+                    Entity::ToySynth(_) => todo!(),
                 }
             }
         }

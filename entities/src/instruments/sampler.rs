@@ -6,7 +6,7 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{Generates, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes, Resets, Ticks},
     voices::VoiceStore,
-    ParameterType, Sample, SampleType, StereoSample,
+    BipolarNormal, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_macros::{Control, Uid};
 use hound::WavReader;
@@ -58,7 +58,7 @@ impl PlaysNotes for SamplerVoice {
     }
 
     #[allow(unused_variables)]
-    fn set_pan(&mut self, value: f32) {
+    fn set_pan(&mut self, value: BipolarNormal) {
         todo!()
     }
 }

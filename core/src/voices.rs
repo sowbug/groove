@@ -44,10 +44,12 @@ impl<V: IsStereoSampleVoice> StoresVoices for VoiceStore<V> {
         Err(anyhow!("out of voices"))
     }
 
-    fn set_pan(&mut self, value: f32) {
-        for voice in self.voices.iter_mut() {
-            voice.set_pan(value);
-        }
+    fn voices<'a>(&'a self) -> Box<dyn Iterator<Item = &Box<Self::Voice>> + 'a> {
+        Box::new(self.voices.iter())
+    }
+
+    fn voices_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut Box<Self::Voice>> + 'a> {
+        Box::new(self.voices.iter_mut())
     }
 }
 impl<V: IsStereoSampleVoice> Generates<StereoSample> for VoiceStore<V> {
@@ -145,10 +147,12 @@ impl<V: IsStereoSampleVoice> StoresVoices for StealingVoiceStore<V> {
         Err(anyhow!("out of voices"))
     }
 
-    fn set_pan(&mut self, value: f32) {
-        for voice in self.voices.iter_mut() {
-            voice.set_pan(value);
-        }
+    fn voices<'a>(&'a self) -> Box<dyn Iterator<Item = &Box<Self::Voice>> + 'a> {
+        Box::new(self.voices.iter())
+    }
+
+    fn voices_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut Box<Self::Voice>> + 'a> {
+        Box::new(self.voices.iter_mut())
     }
 }
 impl<V: IsStereoSampleVoice> Generates<StereoSample> for StealingVoiceStore<V> {
@@ -220,19 +224,25 @@ impl<V: IsStereoSampleVoice> StoresVoices for VoicePerNoteStore<V> {
     fn voice_count(&self) -> usize {
         self.voices.len()
     }
+
     fn active_voice_count(&self) -> usize {
         self.voices.iter().filter(|(_k, v)| v.is_playing()).count()
     }
+
     fn get_voice(&mut self, key: &u7) -> Result<&mut Box<Self::Voice>> {
         if let Some(voice) = self.voices.get_mut(key) {
             return Ok(voice);
         }
         Err(anyhow!("no voice for key {}", key))
     }
-    fn set_pan(&mut self, value: f32) {
-        for voice in self.voices.iter_mut() {
-            voice.1.set_pan(value);
-        }
+
+    fn voices<'a>(&'a self) -> Box<dyn Iterator<Item = &Box<Self::Voice>> + 'a> {
+        Box::new(self.voices.values())
+    }
+
+    fn voices_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut Box<Self::Voice>> + 'a> {
+        let values = self.voices.values_mut();
+        Box::new(values)
     }
 }
 impl<V: IsStereoSampleVoice> Generates<StereoSample> for VoicePerNoteStore<V> {
@@ -288,7 +298,7 @@ pub(crate) mod tests {
         tests::DEFAULT_SAMPLE_RATE,
         traits::{GeneratesEnvelope, IsVoice, PlaysNotes, StoresVoices, Ticks},
         voices::{Generates, IsStereoSampleVoice, Resets, StealingVoiceStore, VoiceStore},
-        Normal, ParameterType, StereoSample,
+        BipolarNormal, Normal, ParameterType, StereoSample,
     };
     use float_cmp::approx_eq;
     use more_asserts::assert_gt;
@@ -331,7 +341,7 @@ pub(crate) mod tests {
             self.envelope.trigger_release();
         }
 
-        fn set_pan(&mut self, _value: f32) {
+        fn set_pan(&mut self, _value: BipolarNormal) {
             // We don't handle this.
         }
     }
