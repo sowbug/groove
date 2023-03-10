@@ -69,7 +69,12 @@ enum State {
 }
 
 /// [MidiSubscription] provides an interface to the external MIDI world.
-pub struct MidiSubscription {}
+pub struct MidiSubscription {
+    midi_handler: Arc<Mutex<MidiHandler>>,
+    sender: mpsc::Sender<MidiHandlerEvent>,
+    receiver: mpsc::Receiver<MidiHandlerInput>,
+    events: Vec<MidiHandlerEvent>,
+}
 impl MidiSubscription {
     /// Starts the subscription. The first message sent with the subscription
     /// will be [MidiHandlerEvent::Ready].
@@ -89,9 +94,9 @@ impl MidiSubscription {
                         let midi_handler = Arc::new(Mutex::new(t));
                         let midi_handler_for_app = Arc::clone(&midi_handler);
                         let handler = std::thread::spawn(move || {
-                            let mut runner =
-                                Runner::new_with(midi_handler, thread_sender, app_receiver);
-                            runner.do_loop();
+                            let mut subscription =
+                                Self::new_with(midi_handler, thread_sender, app_receiver);
+                            subscription.do_loop();
                         });
 
                         (
@@ -139,15 +144,7 @@ impl MidiSubscription {
             },
         )
     }
-}
 
-struct Runner {
-    midi_handler: Arc<Mutex<MidiHandler>>,
-    sender: mpsc::Sender<MidiHandlerEvent>,
-    receiver: mpsc::Receiver<MidiHandlerInput>,
-    events: Vec<MidiHandlerEvent>,
-}
-impl Runner {
     fn new_with(
         midi_handler: Arc<Mutex<MidiHandler>>,
         thread_sender: mpsc::Sender<MidiHandlerEvent>,

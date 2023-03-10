@@ -102,17 +102,14 @@ pub enum EngineEvent {
     Quit,
 }
 
-/// [Runner] is the glue between the audio engine and the Iced [Subscription]
-/// interface. It takes input/output going over the MPSC channels and converts
-/// them to work with the engine. It's also the thing that knows that the engine
-/// is running in a separate thread, so it manages the
-/// [Arc<Mutex<Orchestrator>>] that lets app messages arrive asynchronously.
+/// [EngineSubscription] is the glue between the audio engine and the Iced
+/// [Subscription] interface.
 ///
-/// [Runner] also spins up [AudioOutput] in its own thread. This might make more
-/// sense as its own subscription, so that the app can arrange for
-/// [EngineSubscription] audio output to be routed to the audio system. But for
-/// now, it's not causing any trouble, so we're keeping it where it is.
-struct Runner {
+/// [EngineSubscription] also spins up [AudioOutput] in its own thread. This
+/// might make more sense as its own subscription, so that the app can arrange
+/// for [EngineSubscription] audio output to be routed to the audio system. But
+/// for now, it's not causing any trouble, so we're keeping it where it is.
+pub struct EngineSubscription {
     orchestrator: Arc<Mutex<Orchestrator>>,
     clock: Clock,
     time_signature: TimeSignature,
@@ -125,8 +122,82 @@ struct Runner {
 
     buffer_target: usize,
 }
-impl Runner {
-    pub fn new_with(
+impl EngineSubscription {
+    /// Starts the subscription. The first message sent with the subscription
+    /// will be [EngineEvent::Ready].
+    pub fn subscription() -> Subscription<EngineEvent> {
+        subscription::unfold(
+            std::any::TypeId::of::<EngineSubscription>(),
+            State::Start,
+            |state| async move {
+                match state {
+                    State::Start => {
+                        // This channel lets the app send us messages.
+                        //
+                        // TODO: what's the right number for the buffer size?
+                        let (app_sender, app_receiver) = mpsc::channel::<EngineInput>(1024);
+
+                        // This channel surfaces engine event messages as
+                        // subscription events.
+                        let (thread_sender, thread_receiver) = mpsc::channel::<EngineEvent>(1024);
+
+                        // TODO: deal with output-device and sample-rate
+                        // changes. This is a mess.
+                        let sample_rate = IOHelper::get_output_device_sample_rate();
+                        let t = Orchestrator::new_with(sample_rate, DEFAULT_BPM);
+                        let orchestrator = Arc::new(Mutex::new(t));
+                        let orchestrator_for_app = Arc::clone(&orchestrator);
+                        let handler = std::thread::spawn(move || {
+                            let mut subscription = Self::new_with(
+                                orchestrator,
+                                Clock::new_with(
+                                    sample_rate,
+                                    DEFAULT_BPM,
+                                    DEFAULT_MIDI_TICKS_PER_SECOND,
+                                ),
+                                thread_sender,
+                                app_receiver,
+                            );
+                            subscription.start_audio();
+                            subscription.do_loop();
+                            subscription.stop_audio();
+                        });
+
+                        (
+                            Some(EngineEvent::Ready(app_sender, orchestrator_for_app)),
+                            State::Ready(handler, thread_receiver),
+                        )
+                    }
+                    State::Ready(handler, mut receiver) => {
+                        use iced_native::futures::StreamExt;
+
+                        let groove_event = receiver.select_next_some().await;
+                        if let EngineEvent::Quit = groove_event {
+                            (Some(EngineEvent::Quit), State::Ending(handler))
+                        } else {
+                            (Some(groove_event), State::Ready(handler, receiver))
+                        }
+                    }
+                    State::Ending(handler) => {
+                        let _ = handler.join();
+                        // See https://github.com/iced-rs/iced/issues/1348
+                        (None, State::Idle)
+                    }
+                    State::Idle => {
+                        // I took this line from
+                        // https://github.com/iced-rs/iced/issues/336, but I
+                        // don't understand why it helps. I think it's necessary
+                        // for the system to get a chance to process all the
+                        // subscription results.
+                        let _: () = iced::futures::future::pending().await;
+                        (None, State::Idle)
+                    }
+                }
+            },
+        )
+    }
+
+    fn new_with(
         orchestrator: Arc<Mutex<Orchestrator>>,
         clock: Clock,
         sender: mpsc::Sender<EngineEvent>,
@@ -203,7 +274,7 @@ impl Runner {
         }
     }
 
-    pub fn do_loop(&mut self) {
+    fn do_loop(&mut self) {
         let mut samples = [StereoSample::SILENCE; 64];
         let mut is_playing = false;
         loop {
@@ -307,13 +378,13 @@ impl Runner {
         self.post_event(EngineEvent::SetTimeSignature(self.time_signature));
     }
 
-    pub fn start_audio(&mut self) {
+    fn start_audio(&mut self) {
         let mut audio_output = AudioOutput::default();
         audio_output.start();
         self.audio_output = Some(audio_output);
     }
 
-    pub fn stop_audio(&mut self) {
+    fn stop_audio(&mut self) {
         if let Some(audio_output) = self.audio_output.as_mut() {
             audio_output.stop();
         }
@@ -359,86 +430,5 @@ impl Runner {
             }
         }
         return Response::none();
-    }
-}
-
-/// [EngineSubscription] is the Iced [Subscription] for the
-/// [Groove](groove_core::Groove) engine. It manages communication channels and
-/// thread lifetime. It also knows how to signal the thread to quit when it's
-/// time.
-pub struct EngineSubscription {}
-impl EngineSubscription {
-    /// Starts the subscription. The first message sent with the subscription
-    /// will be [EngineEvent::Ready].
-    pub fn subscription() -> Subscription<EngineEvent> {
-        subscription::unfold(
-            std::any::TypeId::of::<EngineSubscription>(),
-            State::Start,
-            |state| async move {
-                match state {
-                    State::Start => {
-                        // This channel lets the app send us messages.
-                        //
-                        // TODO: what's the right number for the buffer size?
-                        let (app_sender, app_receiver) = mpsc::channel::<EngineInput>(1024);
-
-                        // This channel surfaces event messages from
-                        // Runner/Orchestrator as subscription events.
-                        let (thread_sender, thread_receiver) = mpsc::channel::<EngineEvent>(1024);
-
-                        // TODO: deal with output-device and sample-rate
-                        // changes. This is a mess.
-                        let sample_rate = IOHelper::get_output_device_sample_rate();
-                        let t = Orchestrator::new_with(sample_rate, DEFAULT_BPM);
-                        let orchestrator = Arc::new(Mutex::new(t));
-                        let orchestrator_for_app = Arc::clone(&orchestrator);
-                        let handler = std::thread::spawn(move || {
-                            let mut runner = Runner::new_with(
-                                orchestrator,
-                                Clock::new_with(
-                                    sample_rate,
-                                    DEFAULT_BPM,
-                                    DEFAULT_MIDI_TICKS_PER_SECOND,
-                                ),
-                                thread_sender,
-                                app_receiver,
-                            );
-                            runner.start_audio();
-                            runner.do_loop();
-                            runner.stop_audio();
-                        });
-
-                        (
-                            Some(EngineEvent::Ready(app_sender, orchestrator_for_app)),
-                            State::Ready(handler, thread_receiver),
-                        )
-                    }
-                    State::Ready(handler, mut receiver) => {
-                        use iced_native::futures::StreamExt;
-
-                        let groove_event = receiver.select_next_some().await;
-                        if let EngineEvent::Quit = groove_event {
-                            (Some(EngineEvent::Quit), State::Ending(handler))
-                        } else {
-                            (Some(groove_event), State::Ready(handler, receiver))
-                        }
-                    }
-                    State::Ending(handler) => {
-                        let _ = handler.join();
-                        // See https://github.com/iced-rs/iced/issues/1348
-                        (None, State::Idle)
-                    }
-                    State::Idle => {
-                        // I took this line from
-                        // https://github.com/iced-rs/iced/issues/336, but I
-                        // don't understand why it helps. I think it's necessary
-                        // for the system to get a chance to process all the
-                        // subscription results.
-                        let _: () = iced::futures::future::pending().await;
-                        (None, State::Idle)
-                    }
-                }
-            },
-        )
     }
 }
