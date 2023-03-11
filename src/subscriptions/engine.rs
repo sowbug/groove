@@ -338,11 +338,12 @@ impl EngineSubscription {
             let (_, _) = self.handle_pending_messages();
 
             if is_playing {
-                let ticks_completed = if let Ok(mut o) = self.orchestrator.lock() {
+                let (response, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
                     o.tick(&mut samples)
                 } else {
-                    0
+                    (Response::none(), 0)
                 };
+                self.push_response(response);
                 if ticks_completed < samples.len() {
                     is_playing = false;
                 }

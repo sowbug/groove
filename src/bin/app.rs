@@ -186,7 +186,6 @@ impl Application for GrooveApp {
     }
 
     fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
-        //        dbg!(&message, Instant::now());
         match message {
             AppMessage::PrefsLoaded(Ok(preferences)) => {
                 self.preferences = preferences;
@@ -300,12 +299,16 @@ impl Application for GrooveApp {
                     // record that we're ready. For now, it's nice to know, but
                     // we won't do anything about it.
                 }
-                MidiHandlerEvent::InputPorts(ports, active_port) => {
+                MidiHandlerEvent::InputPorts(ports) => {
                     self.midi_input_ports = ports;
-                    self.midi_input_port_active = active_port;
                 }
-                MidiHandlerEvent::OutputPorts(ports, active_port) => {
+                MidiHandlerEvent::InputPortSelected(port) => {
+                    self.midi_input_port_active = port;
+                }
+                MidiHandlerEvent::OutputPorts(ports) => {
                     self.midi_output_ports = ports;
+                }
+                MidiHandlerEvent::OutputPortSelected(active_port) => {
                     self.midi_output_port_active = active_port;
                 }
             },
@@ -415,11 +418,8 @@ impl GrooveApp {
 
     fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
         if let Some(sender) = self.midi_handler_sender.as_mut() {
-            eprintln!("App sending {:?}", &input);
-            if let Ok(_) = sender.send(input) {
-                eprintln!("sent");
-            } else {
-                eprintln!("sending failed... why?");
+            if let Err(e) = sender.send(input) {
+                eprintln!("sending failed... why? {:?}", e);
             }
         }
     }

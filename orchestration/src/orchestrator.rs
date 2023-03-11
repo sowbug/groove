@@ -631,7 +631,8 @@ impl Orchestrator {
     pub fn run(&mut self, buffer: &mut [StereoSample]) -> anyhow::Result<Vec<StereoSample>> {
         let mut performance_samples = Vec::<StereoSample>::new();
         loop {
-            let ticks_completed = self.tick(buffer);
+            // If we want external MIDI to work here, then we need to figure out what to do with commands.
+            let (_commands, ticks_completed) = self.tick(buffer);
             performance_samples.extend(&buffer[0..ticks_completed]);
             if ticks_completed < buffer.len() {
                 break;
@@ -651,7 +652,8 @@ impl Orchestrator {
         let mut next_progress_indicator: usize = progress_indicator_quantum;
 
         loop {
-            let ticks_completed = self.tick(buffer);
+            // If we want external MIDI to work here, then we need to figure out what to do with commands.
+            let (_commands, ticks_completed) = self.tick(buffer);
             if next_progress_indicator <= tick_count {
                 if !quiet {
                     print!(".");
@@ -693,15 +695,12 @@ impl Orchestrator {
     ///
     /// Returns the actual number of frames filled. If this number is shorter
     /// than the slice length, then the performance is complete.
-    pub fn tick(&mut self, samples: &mut [StereoSample]) -> usize {
+    pub fn tick(&mut self, samples: &mut [StereoSample]) -> (Response<GrooveEvent>, usize) {
         let tick_count = samples.len();
-
-        // TODO: I suspect external MIDI (our events going to external hardware)
-        // is broken because these commands never see the light of day
-        let (_commands, ticks_completed) = self.handle_tick(tick_count);
+        let (commands, ticks_completed) = self.handle_tick(tick_count);
         self.gather_audio(samples);
 
-        ticks_completed
+        (commands, ticks_completed)
     }
 
     pub fn last_track_sample(&self, index: usize) -> &StereoSample {

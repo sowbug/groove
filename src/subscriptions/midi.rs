@@ -9,11 +9,7 @@ use groove_orchestration::messages::Response;
 use iced::futures::channel::mpsc as iced_mpsc;
 use iced::{subscription, Subscription};
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection, SendError};
-use std::{
-    fmt::Debug,
-    sync::{mpsc, Arc, Mutex},
-    thread::JoinHandle,
-};
+use std::{fmt::Debug, sync::mpsc, thread::JoinHandle};
 
 /// [MidiHandlerInput] messages allow the subscriber to communicate with the
 /// MIDI engine through [MidiSubscription].
@@ -46,11 +42,17 @@ pub enum MidiHandlerEvent {
     /// subscriber to the MIDI engine.
     Ready(mpsc::Sender<MidiHandlerInput>),
 
-    /// The MIDI input ports have been updated, and/or a new active port has been selected.
-    InputPorts(Vec<MidiPortDescriptor>, Option<MidiPortDescriptor>),
+    /// The MIDI input ports have been updated.
+    InputPorts(Vec<MidiPortDescriptor>),
 
-    /// The MIDI output ports have been updated, and/or a new active port has been selected.
-    OutputPorts(Vec<MidiPortDescriptor>, Option<MidiPortDescriptor>),
+    /// A new input port has been selected.
+    InputPortSelected(Option<MidiPortDescriptor>),
+
+    /// The MIDI output ports have been updated.
+    OutputPorts(Vec<MidiPortDescriptor>),
+
+    /// A new output port has been selected.
+    OutputPortSelected(Option<MidiPortDescriptor>),
 
     /// A MIDI message has arrived from external hardware and should be handled
     /// in the app (probably by forwarding it to
@@ -65,7 +67,7 @@ pub enum MidiHandlerEvent {
 
 /// [MidiSubscription] provides an interface to the external MIDI world.
 pub struct MidiSubscription {
-    midi_handler: Arc<Mutex<MidiHandler>>,
+    midi_handler: MidiHandler,
     receiver: mpsc::Receiver<MidiHandlerInput>,
 }
 impl MidiSubscription {
@@ -82,10 +84,13 @@ impl MidiSubscription {
                         let (thread_sender, thread_receiver) =
                             iced_mpsc::channel::<MidiHandlerEvent>(1024);
 
-                        let mut t = MidiHandler::new_with(thread_sender);
-                        let _ = t.start();
-                        let midi_handler = Arc::new(Mutex::new(t));
                         let handler = std::thread::spawn(move || {
+                            // This could have been done inside the constructor,
+                            // but it's legacy code and I don't think it makes a
+                            // difference.
+                            let mut midi_handler = MidiHandler::new_with(thread_sender);
+                            let _ = midi_handler.start();
+
                             let mut subscription = Self::new_with(midi_handler, app_receiver);
                             subscription.do_loop();
                         });
@@ -124,16 +129,17 @@ impl MidiSubscription {
         )
     }
 
-    fn new_with(
-        midi_handler: Arc<Mutex<MidiHandler>>,
-        app_receiver: mpsc::Receiver<MidiHandlerInput>,
-    ) -> Self {
+    fn new_with(midi_handler: MidiHandler, app_receiver: mpsc::Receiver<MidiHandlerInput>) -> Self {
         Self {
             midi_handler,
             receiver: app_receiver,
         }
     }
 
+    // This could be moved into MidiHandler, and pretty much get rid of what
+    // used to be the Runner structure, and later MidiSubscription's methods.
+    // MidiHandler already knows about channels, so it's not isolated from the
+    // subscription stuff. Maybe TODO
     fn do_loop(&mut self) {
         loop {
             if let Ok(input) = self.receiver.recv() {
@@ -142,15 +148,13 @@ impl MidiSubscription {
                 } else {
                     false
                 };
-                if let Ok(mut midi_handler) = self.midi_handler.lock() {
-                    midi_handler.update(input);
-                } else {
-                    eprintln!("MidiSubscription channel sender has hung up. Exiting...");
-                    break;
-                }
+                self.midi_handler.update(input);
                 if time_to_quit {
                     break;
                 }
+            } else {
+                eprintln!("MidiSubscription channel sender has hung up. Exiting...");
+                break;
             }
         }
     }
@@ -199,81 +203,109 @@ impl MidiInputHandler {
     }
 
     fn refresh_ports(&mut self) {
-        if self.midi.is_some() {
-            let ports = self.midi.as_ref().unwrap().ports();
+        // This won't work if we have an active connection. I think that's by
+        // design. So we have to be careful, because if we ever want to refresh
+        // the ports, we'll need to disconnect -- which means we can't piggyback
+        // the active port on the InputPorts/OutputPorts messages, because that
+        // would mean disconnecting the connection, which would mean the active
+        // port is no longer active!
+        if let Some(midi) = self.midi.as_mut() {
+            let ports = midi.ports();
             let descriptors: Vec<MidiPortDescriptor> = ports
                 .iter()
                 .enumerate()
                 .map(|(index, port)| MidiPortDescriptor {
                     index,
-                    name: self
-                        .midi
-                        .as_ref()
-                        .unwrap()
+                    name: midi
                         .port_name(port)
                         .unwrap_or("[unnamed input]".to_string()),
                 })
                 .collect();
-            let _ = self.sender.try_send(MidiHandlerEvent::InputPorts(
-                descriptors,
-                self.active_port.clone(),
-            ));
+            let _ = self
+                .sender
+                .try_send(MidiHandlerEvent::InputPorts(descriptors));
         }
     }
 
-    // TODO: there's a race condition here. The label indexes are not
-    // necessarily in sync with the current list of ports. I need to investigate
-    // whether there's a more stable way to refer to individual ports.
+    // TODO: this has a race condition. The label indexes are not necessarily in
+    // sync with the current list of ports. I need to investigate whether
+    // there's a more stable way to refer to individual ports.
+    //
+    // I think the question boils down to how long a MidiInputPort is valid.
     pub fn select_port(&mut self, index: usize) -> anyhow::Result<()> {
         if self.midi.is_none() {
+            // self.connection is probably Some()
             self.stop();
+            // so now self.midi should be Some()
             if self.midi.is_none() {
                 return Err(anyhow::Error::msg("MIDI input is not active".to_string()));
             }
         }
-        let ports = self.midi.as_ref().unwrap().ports();
-        if index >= ports.len() {
-            return Err(anyhow::Error::msg(format!(
-                "MIDI input port #{index} is no longer valid"
-            )));
-        }
-        self.stop();
-        self.active_port = None;
 
-        let selected_port = &ports[index];
-        let selected_port_name = &self
-            .midi
-            .as_ref()
-            .unwrap()
-            .port_name(&ports[index])
-            .unwrap_or("[unknown]".to_string());
-        let selected_port_label = MidiPortDescriptor {
-            index,
-            name: selected_port_name.clone(),
-        };
-
-        // We need to clone our copy because we don't want the thread holding
-        // onto a self reference.
-        let mut sender_clone = self.sender.clone();
-
-        match self.midi.take().unwrap().connect(
-            selected_port,
-            "Groove input",
-            move |_, event, _| {
-                let event = LiveEvent::parse(event).unwrap();
-                if let LiveEvent::Midi { channel, message } = event {
-                    let _ = sender_clone
-                        .try_send(MidiHandlerEvent::Midi(MidiChannel::from(channel), message));
-                }
-            },
-            (),
-        ) {
-            Ok(conn) => {
-                self.connection = Some(conn);
-                self.active_port = Some(selected_port_label);
-                Ok(())
+        // The connection is closed, so self.midi should be Some()
+        if let Some(midi) = self.midi.as_mut() {
+            let ports = midi.ports();
+            if index >= ports.len() {
+                return Err(anyhow::Error::msg(format!(
+                    "MIDI input port #{index} is no longer valid"
+                )));
             }
-            Err(err) => Err(anyhow::Error::msg(err.to_string())),
+
+            // This was here, but I don't think it can do anything at this point.
+            //        self.stop();
+
+            self.active_port = None;
+
+            let selected_port = &ports[index];
+            let selected_port_name = &midi
+                .port_name(&ports[index])
+                .unwrap_or("[unknown]".to_string());
+            let selected_port_label = MidiPortDescriptor {
+                index,
+                name: selected_port_name.clone(),
+            };
+
+            // We need to clone our copy because we don't want the thread holding
+            // onto a self reference.
+            let mut sender_clone = self.sender.clone();
+
+            // I don't know how this take() works when we've already gotten the
+            // mutable midi at the top of this block. Maybe it's because we
+            // don't refer to that local &mut midi after this point. If so, the
+            // bounds checker is being pretty smart.
+            match self.midi.take().unwrap().connect(
+                selected_port,
+                "Groove input",
+                move |_, event, _| {
+                    if let Ok(event) = LiveEvent::parse(event) {
+                        if let LiveEvent::Midi { channel, message } = event {
+                            let _ = sender_clone.try_send(MidiHandlerEvent::Midi(
+                                MidiChannel::from(channel),
+                                message,
+                            ));
+                        }
+                    }
+                },
+                (),
+            ) {
+                // By this point, the self.midi is None, and the conn we just
+                // got back is active.
+                //
+                // The thing that's super-weird about this API is that either
+                // self.midi or self.connection has the MidiInput or MidiOutput,
+                // but never both at the same time. It keeps getting passed
+                // back/forth like a hot potato.
+                Ok(conn) => {
+                    self.connection = Some(conn);
+                    self.active_port = Some(selected_port_label);
+                    Ok(())
+                }
+                Err(err) => Err(anyhow::Error::msg(err.to_string())),
+            }
+        } else {
+            // This shouldn't happen; if it did, it means we had a
+            // Some(self.midi) and then a None immediately after.
+            Ok(())
         }
     }
 
@@ -327,23 +359,19 @@ impl MidiOutputHandler {
     }
 
     fn refresh_ports(&mut self) {
-        if self.midi.is_some() {
-            let ports = self.midi.as_ref().unwrap().ports();
+        if let Some(midi) = self.midi.as_mut() {
+            let ports = midi.ports();
             let _ = self.sender.try_send(MidiHandlerEvent::OutputPorts(
                 ports
                     .iter()
                     .enumerate()
                     .map(|(index, port)| MidiPortDescriptor {
                         index,
-                        name: self
-                            .midi
-                            .as_ref()
-                            .unwrap()
+                        name: midi
                             .port_name(port)
                             .unwrap_or("[unnamed output]".to_string()),
                     })
                     .collect(),
-                self.active_port.clone(),
             ));
         }
     }
@@ -351,43 +379,46 @@ impl MidiOutputHandler {
     // TODO: race condition.
     pub fn select_port(&mut self, index: usize) -> anyhow::Result<()> {
         if self.midi.is_none() {
+            // self.connection is probably Some()
             self.stop();
+            // so now self.midi should be Some()
             if self.midi.is_none() {
-                return Err(anyhow::Error::msg("MIDI output is not active".to_string()));
+                return Err(anyhow::Error::msg("MIDI input is not active".to_string()));
             }
         }
-        let ports = self.midi.as_ref().unwrap().ports();
-        if index >= ports.len() {
-            return Err(anyhow::Error::msg(format!(
-                "MIDI output port #{index} is no longer valid"
-            )));
-        }
-        self.stop();
-        self.active_port = None;
 
-        let selected_port = &ports[index];
-        let selected_port_name = &self
-            .midi
-            .as_ref()
-            .unwrap()
-            .port_name(&ports[index])
-            .unwrap_or("[unknown]".to_string());
-        let selected_port_label = MidiPortDescriptor {
-            index,
-            name: selected_port_name.clone(),
-        };
-        match self
-            .midi
-            .take()
-            .unwrap()
-            .connect(selected_port, "Groove output")
-        {
-            Ok(conn) => {
-                self.connection = Some(conn);
-                self.active_port = Some(selected_port_label);
-                Ok(())
+        if let Some(midi) = self.midi.as_mut() {
+            let ports = midi.ports();
+            if index >= ports.len() {
+                return Err(anyhow::Error::msg(format!(
+                    "MIDI output port #{index} is no longer valid"
+                )));
             }
-            Err(err) => Err(anyhow::Error::msg(err.to_string())),
+            self.active_port = None;
+
+            let selected_port = &ports[index];
+            let selected_port_name = &midi
+                .port_name(&ports[index])
+                .unwrap_or("[unknown]".to_string());
+            let selected_port_label = MidiPortDescriptor {
+                index,
+                name: selected_port_name.clone(),
+            };
+            match self
+                .midi
+                .take()
+                .unwrap()
+                .connect(selected_port, "Groove output")
+            {
+                Ok(conn) => {
+                    self.connection = Some(conn);
+                    self.active_port = Some(selected_port_label);
+                    Ok(())
+                }
+                Err(err) => Err(anyhow::Error::msg(err.to_string())),
+            }
+        } else {
+            Ok(())
         }
     }
 
@@ -484,7 +515,9 @@ impl MidiHandler {
     fn select_input(&mut self, which: MidiPortDescriptor) {
         if let Some(input) = self.midi_input.as_mut() {
             if let Ok(_) = input.select_port(which.index) {
-                input.refresh_ports();
+                let _ = self.sender.try_send(MidiHandlerEvent::InputPortSelected(
+                    input.active_port.clone(),
+                ));
             }
         };
     }
@@ -492,7 +525,9 @@ impl MidiHandler {
     fn select_output(&mut self, which: MidiPortDescriptor) {
         if let Some(output) = self.midi_output.as_mut() {
             if let Ok(_) = output.select_port(which.index) {
-                output.refresh_ports();
+                let _ = self.sender.try_send(MidiHandlerEvent::OutputPortSelected(
+                    output.active_port.clone(),
+                ));
             }
         };
     }
