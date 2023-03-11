@@ -114,6 +114,7 @@ pub struct EngineSubscription {
     clock: Clock,
     time_signature: TimeSignature,
     last_clock_update: Instant,
+    last_reported_frames: usize,
 
     events: Vec<GrooveEvent>,
     sender: mpsc::Sender<EngineEvent>,
@@ -121,6 +122,9 @@ pub struct EngineSubscription {
     audio_output: Option<AudioOutput>,
 
     buffer_target: usize,
+
+    yes: f64,
+    check: f64,
 }
 impl EngineSubscription {
     /// Starts the subscription. The first message sent with the subscription
@@ -208,12 +212,16 @@ impl EngineSubscription {
             clock,
             time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO: what's a good "don't know yet" value?
             last_clock_update: Instant::now(),
+            last_reported_frames: usize::MAX,
             events: Default::default(),
             sender,
             receiver,
             audio_output: None,
 
             buffer_target: 2048,
+
+            yes: 0.0,
+            check: 0.0,
         }
     }
 
@@ -280,8 +288,7 @@ impl EngineSubscription {
         loop {
             self.publish_clock_update();
 
-            // Handle any received messages before asking Orchestrator to handle
-            // Tick.
+            // Handle any received messages before Orchestrator::update().
             let mut messages = Vec::new();
             while let Ok(Some(input)) = self.receiver.try_next() {
                 match input {
@@ -356,6 +363,8 @@ impl EngineSubscription {
                     self.dispatch_samples(&samples, ticks_completed);
                     self.wait_for_audio_buffer();
                 }
+            } else {
+                std::thread::sleep(Duration::from_millis(100));
             }
         }
     }
@@ -365,9 +374,21 @@ impl EngineSubscription {
     fn publish_clock_update(&mut self) {
         let now = Instant::now();
         if now.duration_since(self.last_clock_update).as_millis() > 15 {
-            self.post_event(EngineEvent::SetClock(self.clock.frames()));
-            self.last_clock_update = now;
+            let frames = self.clock.frames();
+            if frames != self.last_reported_frames {
+                self.last_reported_frames = frames;
+                self.post_event(EngineEvent::SetClock(frames));
+                self.last_clock_update = now;
+                self.yes += 1.0;
+            }
+            // eprintln!(
+            //     "Duty cycle is {:0.2}/{:0.2} {:0.2}%",
+            //     self.yes,
+            //     self.check,
+            //     self.yes / self.check
+            // );
         }
+        self.check += 1.0;
     }
 
     fn publish_bpm_update(&mut self) {

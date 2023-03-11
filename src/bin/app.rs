@@ -9,8 +9,8 @@ mod gui;
 use groove::{
     app_version,
     subscriptions::{
-        EngineEvent, EngineInput, EngineSubscription, MidiHandler, MidiHandlerEvent,
-        MidiHandlerInput, MidiSubscription,
+        EngineEvent, EngineInput, EngineSubscription, MidiHandlerEvent, MidiHandlerInput,
+        MidiPortDescriptor, MidiSubscription,
     },
     Entity, Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
 };
@@ -26,9 +26,9 @@ use gui::{
     views::{EntityViewGenerator, EntityViewState},
     GuiStuff,
 };
+use iced::futures::channel::mpsc as iced_mpsc;
 use iced::{
     alignment, executor,
-    futures::channel::mpsc,
     theme::{self, Theme},
     widget::{
         button,
@@ -38,9 +38,9 @@ use iced::{
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Renderer, Settings, Size, Subscription,
 };
-use iced_audio::FloatRange;
+
 use std::{
-    sync::{Arc, Mutex},
+    sync::{mpsc, Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -71,7 +71,7 @@ struct GrooveApp {
 
     // Model
     project_title: Option<String>,
-    orchestrator_sender: Option<mpsc::Sender<EngineInput>>,
+    orchestrator_sender: Option<iced_mpsc::Sender<EngineInput>>,
     orchestrator: Arc<Mutex<Orchestrator>>,
     clock_mirror: Clock, // this clock is just a cache of the real clock in Orchestrator.
     time_signature_mirror: TimeSignature, // same
@@ -86,8 +86,12 @@ struct GrooveApp {
     // the stopped clock and get that answer.
     reached_end_of_playback: bool,
 
+    last_midi_activity: Instant,
     midi_handler_sender: Option<mpsc::Sender<MidiHandlerInput>>,
-    midi_handler: Option<Arc<Mutex<MidiHandler>>>,
+    midi_input_ports: Vec<MidiPortDescriptor>,
+    midi_input_port_active: Option<MidiPortDescriptor>,
+    midi_output_ports: Vec<MidiPortDescriptor>,
+    midi_output_port_active: Option<MidiPortDescriptor>,
 
     gui_state: GuiState,
 
@@ -117,8 +121,12 @@ impl Default for GrooveApp {
             clock_mirror: clock,
             time_signature_mirror: Default::default(),
             reached_end_of_playback: Default::default(),
+            last_midi_activity: Instant::now(),
             midi_handler_sender: Default::default(),
-            midi_handler: Default::default(),
+            midi_input_ports: Default::default(),
+            midi_input_port_active: Default::default(),
+            midi_output_ports: Default::default(),
+            midi_output_port_active: Default::default(),
             gui_state: GuiState::new(orchestrator),
             entity_view_generator: Default::default(),
         }
@@ -178,6 +186,7 @@ impl Application for GrooveApp {
     }
 
     fn update(&mut self, message: AppMessage) -> Command<AppMessage> {
+        //        dbg!(&message, Instant::now());
         match message {
             AppMessage::PrefsLoaded(Ok(preferences)) => {
                 self.preferences = preferences;
@@ -278,18 +287,26 @@ impl Application for GrooveApp {
                 }
             },
             AppMessage::MidiHandlerEvent(event) => match event {
-                MidiHandlerEvent::Ready(sender, midi_handler) => {
+                MidiHandlerEvent::Ready(sender) => {
                     self.midi_handler_sender = Some(sender);
-                    self.midi_handler = Some(midi_handler);
                 }
                 #[allow(unused_variables)]
-                MidiHandlerEvent::Midi(channel, event) => {
+                MidiHandlerEvent::Midi(channel, message) => {
+                    self.last_midi_activity = Instant::now();
                     // TODO
                 }
                 MidiHandlerEvent::Quit => {
                     // TODO: If we were waiting for this to shut down, then
                     // record that we're ready. For now, it's nice to know, but
                     // we won't do anything about it.
+                }
+                MidiHandlerEvent::InputPorts(ports, active_port) => {
+                    self.midi_input_ports = ports;
+                    self.midi_input_port_active = active_port;
+                }
+                MidiHandlerEvent::OutputPorts(ports, active_port) => {
+                    self.midi_output_ports = ports;
+                    self.midi_output_port_active = active_port;
                 }
             },
             AppMessage::GrooveEvent(event) => match event {
@@ -372,6 +389,11 @@ impl Application for GrooveApp {
         let mut v = vec![
             iced_native::subscription::events().map(AppMessage::Event),
             MidiSubscription::subscription().map(AppMessage::MidiHandlerEvent),
+            // TODO: this is for the canvas experiment I was doing. It's
+            //disabled for now because it's spinning the CPU (which is as
+            //expected because we weren't trying to be intelligent about when to
+            //clear the canvas).
+            #[cfg(disabled)]
             window::frames().map(AppMessage::Tick),
         ];
         if self.is_pref_load_complete {
@@ -393,8 +415,12 @@ impl GrooveApp {
 
     fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
         if let Some(sender) = self.midi_handler_sender.as_mut() {
-            // TODO: deal with this
-            let _ = sender.try_send(input);
+            eprintln!("App sending {:?}", &input);
+            if let Ok(_) = sender.send(input) {
+                eprintln!("sent");
+            } else {
+                eprintln!("sending failed... why?");
+            }
         }
     }
 
@@ -530,61 +556,38 @@ impl GrooveApp {
     }
 
     fn midi_view(&self) -> Element<MidiHandlerInput> {
-        if let Some(midi_handler) = &self.midi_handler {
-            if let Ok(midi_handler) = midi_handler.lock() {
-                let activity_text = container(GuiStuff::<EntityMessage>::container_text(
-                    if Instant::now().duration_since(midi_handler.activity_tick())
-                        > Duration::from_millis(250)
-                    {
-                        " "
-                    } else {
-                        "•"
-                    },
-                ))
-                .width(iced::Length::FillPortion(1));
-                let (input_selected, input_options) =
-                    midi_handler.midi_input().as_ref().unwrap().labels();
-
-                let input_menu = row![
-                    GuiStuff::<EntityMessage>::container_text("Input")
-                        .width(iced::Length::FillPortion(1)),
-                    pick_list(
-                        input_options,
-                        input_selected.clone(),
-                        MidiHandlerInput::SelectMidiInput,
-                    )
-                    .font(gui::SMALL_FONT)
-                    .width(iced::Length::FillPortion(3))
-                ];
-                let (output_selected, output_options) =
-                    midi_handler.midi_output().as_ref().unwrap().labels();
-
-                let output_menu = row![
-                    GuiStuff::<EntityMessage>::container_text("Output")
-                        .width(iced::Length::FillPortion(1)),
-                    pick_list(
-                        output_options,
-                        output_selected.clone(),
-                        MidiHandlerInput::SelectMidiOutput,
-                    )
-                    .font(gui::SMALL_FONT)
-                    .width(iced::Length::FillPortion(3))
-                ];
-                let port_menus =
-                    container(column![input_menu, output_menu]).width(iced::Length::FillPortion(7));
-                GuiStuff::titled_container(
-                    "MIDI",
-                    container(row![activity_text, port_menus]).into(),
-                )
+        let activity_text = container(GuiStuff::<EntityMessage>::container_text(
+            if Instant::now().duration_since(self.last_midi_activity) > Duration::from_millis(250) {
+                " "
             } else {
-                panic!()
-            }
-        } else {
-            GuiStuff::titled_container(
-                "MIDI",
-                GuiStuff::<EntityMessage>::container_text("Initializing...").into(),
+                "•"
+            },
+        ))
+        .width(iced::Length::FillPortion(1));
+        let input_menu = row![
+            GuiStuff::<EntityMessage>::container_text("Input").width(iced::Length::FillPortion(1)),
+            pick_list(
+                &self.midi_input_ports,
+                self.midi_input_port_active.clone(),
+                MidiHandlerInput::SelectMidiInput,
             )
-        }
+            .font(gui::SMALL_FONT)
+            .width(iced::Length::FillPortion(3))
+        ];
+
+        let output_menu = row![
+            GuiStuff::<EntityMessage>::container_text("Output").width(iced::Length::FillPortion(1)),
+            pick_list(
+                &self.midi_output_ports,
+                self.midi_output_port_active.clone(),
+                MidiHandlerInput::SelectMidiOutput,
+            )
+            .font(gui::SMALL_FONT)
+            .width(iced::Length::FillPortion(3))
+        ];
+        let port_menus =
+            container(column![input_menu, output_menu]).width(iced::Length::FillPortion(7));
+        GuiStuff::titled_container("MIDI", container(row![activity_text, port_menus]).into())
     }
 
     fn control_bar_view(&self) -> Element<ControlBarMessage> {
