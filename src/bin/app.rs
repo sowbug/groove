@@ -32,8 +32,7 @@ use iced::{
     widget::{
         button,
         canvas::{self, Cache, Cursor},
-        column, container, pick_list, row, scrollable, text, text_input, Button, Canvas, Column,
-        Container,
+        column, container, pick_list, row, scrollable, text, text_input, Canvas, Column, Container,
     },
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Renderer, Settings, Size, Subscription,
@@ -325,15 +324,55 @@ impl Application for GrooveApp {
                 }
                 MidiHandlerEvent::InputPorts(ports) => {
                     self.midi_input_ports = ports;
+                    if self.midi_input_port_active.is_none() {
+                        if let Some(selected) = &self.preferences.selected_midi_input {
+                            if let Some(sender) = self.midi_handler_sender.as_mut() {
+                                for descriptor in &self.midi_input_ports {
+                                    if selected == descriptor.name() {
+                                        let _ = sender.send(MidiHandlerInput::SelectMidiInput(
+                                            descriptor.clone(),
+                                        ));
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        self.preferences.selected_midi_input = None; // to prevent loops
+                    }
                 }
                 MidiHandlerEvent::InputPortSelected(port) => {
+                    if let Some(port) = &port {
+                        self.preferences.selected_midi_input = Some(port.name().to_string());
+                    } else {
+                        self.preferences.selected_midi_input = None;
+                    }
                     self.midi_input_port_active = port;
                 }
                 MidiHandlerEvent::OutputPorts(ports) => {
                     self.midi_output_ports = ports;
+                    if self.midi_output_port_active.is_none() {
+                        if let Some(selected) = &self.preferences.selected_midi_output {
+                            if let Some(sender) = self.midi_handler_sender.as_mut() {
+                                for descriptor in &self.midi_output_ports {
+                                    if selected == descriptor.name() {
+                                        let _ = sender.send(MidiHandlerInput::SelectMidiOutput(
+                                            descriptor.clone(),
+                                        ));
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        self.preferences.selected_midi_output = None; // to prevent loops
+                    }
                 }
-                MidiHandlerEvent::OutputPortSelected(active_port) => {
-                    self.midi_output_port_active = active_port;
+                MidiHandlerEvent::OutputPortSelected(port) => {
+                    if let Some(port) = &port {
+                        self.preferences.selected_midi_output = Some(port.name().to_string());
+                    } else {
+                        self.preferences.selected_midi_output = None;
+                    }
+                    self.midi_output_port_active = port;
                 }
             },
             AppMessage::GrooveEvent(event) => match event {

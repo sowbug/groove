@@ -166,7 +166,17 @@ pub struct MidiPortDescriptor {
     index: usize,
     name: String,
 }
+impl MidiPortDescriptor {
+    /// The port descriptor's index.
+    pub fn index(&self) -> usize {
+        self.index
+    }
 
+    /// The port descriptor's human-readable name.
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
+    }
+}
 impl std::fmt::Display for MidiPortDescriptor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)
