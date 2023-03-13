@@ -225,6 +225,7 @@ impl AudioOutput {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn sample_rate(&self) -> usize {
         self.sample_rate
     }
