@@ -1,6 +1,13 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use native_dialog::FileDialog;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+#[derive(Debug, Clone)]
+pub enum OpenError {
+    Unknown,
+}
 
 #[derive(Debug, Clone)]
 pub enum LoadError {
@@ -64,7 +71,7 @@ impl Preferences {
         serde_json::from_str(&contents).map_err(|_| LoadError::Format)
     }
 
-    pub async fn save_prefs(self) -> Result<(), SaveError> {
+    pub(crate) async fn save_prefs(self) -> Result<(), SaveError> {
         use async_std::prelude::*;
 
         let json = serde_json::to_string_pretty(&self).map_err(|_| SaveError::Format)?;
@@ -94,5 +101,21 @@ impl Preferences {
         // async_std::task::sleep(std::time::Duration::from_secs(2)).await;
 
         Ok(())
+    }
+
+    pub(crate) async fn open_dialog() -> Result<Option<PathBuf>, OpenError> {
+        if let Ok(path) = FileDialog::new()
+            .add_filter("YAML", &["yml", "yaml"])
+            .add_filter("Groove Projects", &["nsn"])
+            .show_open_single_file()
+        {
+            if let Some(path) = path {
+                Ok(Some(path))
+            } else {
+                Ok(None)
+            }
+        } else {
+            Err(OpenError::Unknown)
+        }
     }
 }

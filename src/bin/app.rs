@@ -21,7 +21,7 @@ use groove_core::{
 use groove_entities::EntityMessage;
 use groove_orchestration::messages::GrooveEvent;
 use gui::{
-    persistence::{LoadError, Preferences, SaveError},
+    persistence::{LoadError, OpenError, Preferences, SaveError},
     play_icon, skip_to_prev_icon, stop_icon,
     views::{EntityViewGenerator, EntityViewState},
     GuiStuff,
@@ -32,12 +32,14 @@ use iced::{
     widget::{
         button,
         canvas::{self, Cache, Cursor},
-        column, container, pick_list, row, scrollable, text, text_input, Canvas, Column, Container,
+        column, container, pick_list, row, scrollable, text, text_input, Button, Canvas, Column,
+        Container,
     },
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Renderer, Settings, Size, Subscription,
 };
 use std::{
+    path::PathBuf,
     sync::{mpsc, Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -151,6 +153,7 @@ pub enum AppMessage {
     MidiHandlerEvent(MidiHandlerEvent),
     Tick(Instant),
     Event(iced::Event),
+    OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
 }
 
 #[derive(Debug, Clone)]
@@ -159,6 +162,7 @@ pub enum ControlBarMessage {
     Stop,
     SkipToStart,
     Bpm(String),
+    OpenProject,
 }
 
 impl Application for GrooveApp {
@@ -202,8 +206,17 @@ impl Application for GrooveApp {
                 self.gui_state.update_state();
             }
             AppMessage::ControlBarMessage(message) => match message {
-                // TODO: not sure if we need ticking for now. it's playing OR
-                // midi
+                // TODO: try to get in the habit of putting less logic in the
+                // user-action messages like Play/Stop, and putting more logic
+                // in the system-action (react?) messages like most
+                // EngineEvents. The engine is the model, and it's in charge of
+                // consistency/consequences. If you spray logic in the view,
+                // then it gets lost when the GUI evolves, and it's too tempting
+                // to develop critical parts of the logic in the view.
+                //
+                // The Play logic is a good example: it's intricate, and there
+                // isn't any good reason why the model wouldn't know how to
+                // handle these actions properly.
                 ControlBarMessage::Play => {
                     if self.reached_end_of_playback {
                         self.post_to_orchestrator(EngineInput::SkipToStart);
@@ -227,6 +240,12 @@ impl Application for GrooveApp {
                     if let Ok(bpm) = value.parse() {
                         self.post_to_orchestrator(EngineInput::SetBpm(bpm));
                     }
+                }
+                ControlBarMessage::OpenProject => {
+                    return Command::perform(
+                        Preferences::open_dialog(),
+                        AppMessage::OpenDialogComplete,
+                    )
                 }
             },
             AppMessage::Event(event) => {
@@ -344,6 +363,16 @@ impl Application for GrooveApp {
                     }
                 }
             }
+            AppMessage::OpenDialogComplete(path_buf) => match path_buf {
+                Ok(path) => {
+                    if let Some(path) = path {
+                        if let Some(path) = path.to_str() {
+                            self.post_to_orchestrator(EngineInput::LoadProject(path.to_string()));
+                        }
+                    }
+                }
+                Err(_) => todo!(),
+            },
         }
 
         Command::none()
@@ -624,6 +653,8 @@ impl GrooveApp {
                     format!("{:0.2}%", self.audio_buffer_fullness.value() * 100.0).as_str()
                 )))
                 .width(Length::FillPortion(1)),
+                container(button("Open").on_press(ControlBarMessage::OpenProject))
+                    .width(Length::FillPortion(1)),
                 container(text(app_version())).align_x(alignment::Horizontal::Right)
             ]
             .padding(8)
