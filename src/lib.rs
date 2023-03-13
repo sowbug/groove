@@ -64,6 +64,8 @@
 //! }
 //! ```
 
+/// Helps send audio to the outside world.
+pub mod audio;
 /// Contains Iced [Subscriptions](iced_native::subscription::Subscription) for
 /// working with this crate.
 pub mod subscriptions;

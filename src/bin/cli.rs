@@ -5,7 +5,9 @@
 use anyhow::Ok;
 use clap::Parser;
 use groove::{
-    app_version, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
+    app_version,
+    audio::send_performance_to_output_device,
+    {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::StereoSample;
 use groove_orchestration::{helpers::IOHelper, Orchestrator};
@@ -134,7 +136,7 @@ fn main() -> anyhow::Result<()> {
                 &PathBuf::from(output_filename.to_string()),
             )?;
         } else {
-            IOHelper::send_performance_to_output_device(&performance)?;
+            send_performance_to_output_device(&performance)?;
         }
     }
     Ok(())

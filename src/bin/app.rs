@@ -26,19 +26,17 @@ use gui::{
     views::{EntityViewGenerator, EntityViewState},
     GuiStuff,
 };
-use iced::futures::channel::mpsc as iced_mpsc;
 use iced::{
     alignment, executor,
     theme::{self, Theme},
     widget::{
         button,
         canvas::{self, Cache, Cursor},
-        column, container, pick_list, row, scrollable, text, text_input, Canvas, Container,
+        column, container, pick_list, row, scrollable, text, text_input, Canvas, Column, Container,
     },
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Renderer, Settings, Size, Subscription,
 };
-
 use std::{
     sync::{mpsc, Arc, Mutex},
     time::{Duration, Instant},
@@ -71,10 +69,11 @@ struct GrooveApp {
 
     // Model
     project_title: Option<String>,
-    orchestrator_sender: Option<iced_mpsc::Sender<EngineInput>>,
+    orchestrator_sender: Option<mpsc::Sender<EngineInput>>,
     orchestrator: Arc<Mutex<Orchestrator>>,
     clock_mirror: Clock, // this clock is just a cache of the real clock in Orchestrator.
     time_signature_mirror: TimeSignature, // same
+    audio_buffer_fullness: Normal,
 
     // This is true when playback went all the way to the end of the song. The
     // reason it's nice to track this is that after pressing play and listening
@@ -120,6 +119,7 @@ impl Default for GrooveApp {
             orchestrator: orchestrator.clone(),
             clock_mirror: clock,
             time_signature_mirror: Default::default(),
+            audio_buffer_fullness: Default::default(),
             reached_end_of_playback: Default::default(),
             last_midi_activity: Instant::now(),
             midi_handler_sender: Default::default(),
@@ -231,7 +231,6 @@ impl Application for GrooveApp {
             },
             AppMessage::Event(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {
-                    println!("got CloseRequested");
                     return self.handle_close_requested_event();
                 }
                 if let Event::Keyboard(e) = event {
@@ -278,11 +277,17 @@ impl Application for GrooveApp {
                     self.reached_end_of_playback = true;
                     self.state = State::Idle;
                 }
-                EngineEvent::Quit => todo!(),
+                EngineEvent::Quit => {
+                    // Our EngineInput::QuitRequested has been handled. We have
+                    // nothing to do at this point.
+                }
                 EngineEvent::ProjectLoaded(filename, title) => {
                     self.preferences.last_project_filename = Some(filename);
                     self.project_title = title;
                     self.entity_view_generator.reset();
+                }
+                EngineEvent::AudioBufferFullness(percentage) => {
+                    self.audio_buffer_fullness = percentage;
                 }
             },
             AppMessage::MidiHandlerEvent(event) => match event {
@@ -331,7 +336,6 @@ impl Application for GrooveApp {
             },
             AppMessage::PrefsSaved(r) => {
                 if self.should_exit {
-                    eprintln!("calling close()");
                     return window::close::<Self::Message>();
                 } else {
                     match r {
@@ -418,8 +422,9 @@ impl GrooveApp {
 
     fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
         if let Some(sender) = self.midi_handler_sender.as_mut() {
+            let i2 = input.clone(); // TODO: don't check this in
             if let Err(e) = sender.send(input) {
-                eprintln!("sending failed... why? {:?}", e);
+                eprintln!("sending failed... why? {:?} {:?}", i2, e);
             }
         }
     }
@@ -427,7 +432,7 @@ impl GrooveApp {
     fn post_to_orchestrator(&mut self, input: EngineInput) {
         if let Some(sender) = self.orchestrator_sender.as_mut() {
             // TODO: deal with this
-            let _ = sender.try_send(input);
+            let _ = sender.send(input);
         }
     }
 
@@ -615,6 +620,10 @@ impl GrooveApp {
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::FillPortion(1)),
                 container(self.clock_view()).width(Length::FillPortion(1)),
+                container(Column::new().push(text("Audio")).push(text(
+                    format!("{:0.2}%", self.audio_buffer_fullness.value() * 100.0).as_str()
+                )))
+                .width(Length::FillPortion(1)),
                 container(text(app_version())).align_x(alignment::Horizontal::Right)
             ]
             .padding(8)

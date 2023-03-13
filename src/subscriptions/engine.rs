@@ -4,32 +4,31 @@
 //! [Subscription](iced_native::subscription::Subscription) interface between
 //! the [Groove](groove_core::Groove) engine and the app subscribing to it.
 
+use crate::{audio::AudioOutput, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{Clock, TimeSignature},
     traits::Resets,
     util::Paths,
-    ParameterType, StereoSample,
+    Normal, ParameterType, StereoSample,
 };
 use groove_orchestration::{
-    helpers::{AudioOutput, IOHelper},
+    helpers::IOHelper,
     messages::{GrooveEvent, GrooveInput, Internal, Response},
     Orchestrator,
 };
 use groove_settings::SongSettings;
-use iced::futures::channel::mpsc;
+use iced::futures::channel::mpsc as iced_mpsc;
 use iced_native::subscription::{self, Subscription};
 use std::{
-    sync::{Arc, Mutex},
+    sync::{mpsc, Arc, Mutex},
     thread::JoinHandle,
-    time::{Duration, Instant},
+    time::Instant,
 };
-
-use crate::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
 
 enum State {
     Start,
-    Ready(JoinHandle<()>, mpsc::Receiver<EngineEvent>),
+    Ready(JoinHandle<()>, iced_mpsc::Receiver<EngineEvent>),
     Ending(JoinHandle<()>),
     Idle,
 }
@@ -37,6 +36,11 @@ enum State {
 /// The subscriber sends [EngineInput] messages to communicate with the engine.
 #[derive(Clone, Debug)]
 pub enum EngineInput {
+    /// The consumer of the audio engine's output is ready to handle more audio,
+    /// and it requests the given number of buffers. (The size of a buffer is
+    /// currently known by everyone, TODO to make that more explicit.)
+    GenerateAudio(u8),
+
     /// Load the project at the given file path.
     LoadProject(String),
 
@@ -97,6 +101,9 @@ pub enum EngineEvent {
     /// The current performance is complete.
     OutputComplete,
 
+    /// How full our audio output buffer is, as a percentage.
+    AudioBufferFullness(Normal),
+
     /// The engine has received an [EngineInput::QuitRequested] message, has
     /// successfully processed it, and is now ready for its subscription to end.
     Quit,
@@ -110,23 +117,39 @@ pub enum EngineEvent {
 /// for [EngineSubscription] audio output to be routed to the audio system. But
 /// for now, it's not causing any trouble, so we're keeping it where it is.
 pub struct EngineSubscription {
+    // Orchestrator is wrapped in a mutex because we've chosen to give the app
+    // direct access to it while building the GUI view.
     orchestrator: Arc<Mutex<Orchestrator>>,
     clock: Clock,
     time_signature: TimeSignature,
     last_clock_update: Instant,
     last_reported_frames: usize,
+    is_playing: bool,
 
     events: Vec<GrooveEvent>,
-    sender: mpsc::Sender<EngineEvent>,
+    sender: iced_mpsc::Sender<EngineEvent>,
     receiver: mpsc::Receiver<EngineInput>,
-    audio_output: Option<AudioOutput>,
-
-    buffer_target: usize,
+    audio_output: AudioOutput,
 
     yes: f64,
     check: f64,
 }
 impl EngineSubscription {
+    /// The size of a single unit of engine work. At 44.1KHz, this corresponds
+    /// to 1.45 milliseconds of audio. Higher means less overhead per sample,
+    /// and lower means two things: first, less latency because buffers aren't
+    /// sent to the output device until they're complete; and second, more
+    /// precise automation because we aggregate all MIDI and control events for
+    /// a single buffer, applying them all at the start of the buffer rather
+    /// than the exact time slice when they're scheduled.
+    ///
+    /// This should eventually be adjustable. For a live performance, being a
+    /// millisecond or two off isn't a big deal. But for a final rendering of an
+    /// audio track, where it's OK if the PC can't keep up real-time, and very
+    /// precise event timing is desirable, it makes more sense to choose a
+    /// buffer size of 1 sample.
+    pub const ENGINE_BUFFER_SIZE: usize = 64;
+
     /// Starts the subscription. The first message sent with the subscription
     /// will be [EngineEvent::Ready].
     pub fn subscription() -> Subscription<EngineEvent> {
@@ -139,11 +162,14 @@ impl EngineSubscription {
                         // This channel lets the app send us messages.
                         //
                         // TODO: what's the right number for the buffer size?
-                        let (app_sender, app_receiver) = mpsc::channel::<EngineInput>(1024);
+                        let (app_sender, app_receiver) = mpsc::channel::<EngineInput>();
 
                         // This channel surfaces engine event messages as
                         // subscription events.
-                        let (thread_sender, thread_receiver) = mpsc::channel::<EngineEvent>(1024);
+                        let (thread_sender, thread_receiver) =
+                            iced_mpsc::channel::<EngineEvent>(1024);
+
+                        let input_sender = app_sender.clone();
 
                         // TODO: deal with output-device and sample-rate
                         // changes. This is a mess.
@@ -152,6 +178,7 @@ impl EngineSubscription {
                         let orchestrator = Arc::new(Mutex::new(t));
                         let orchestrator_for_app = Arc::clone(&orchestrator);
                         let handler = std::thread::spawn(move || {
+                            let audio_output = AudioOutput::new_with(input_sender.clone());
                             let mut subscription = Self::new_with(
                                 orchestrator,
                                 Clock::new_with(
@@ -161,6 +188,7 @@ impl EngineSubscription {
                                 ),
                                 thread_sender,
                                 app_receiver,
+                                audio_output,
                             );
                             subscription.start_audio();
                             subscription.do_loop();
@@ -204,8 +232,9 @@ impl EngineSubscription {
     fn new_with(
         orchestrator: Arc<Mutex<Orchestrator>>,
         clock: Clock,
-        sender: mpsc::Sender<EngineEvent>,
+        sender: iced_mpsc::Sender<EngineEvent>,
         receiver: mpsc::Receiver<EngineInput>,
+        audio_output: AudioOutput,
     ) -> Self {
         Self {
             orchestrator,
@@ -213,12 +242,11 @@ impl EngineSubscription {
             time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO: what's a good "don't know yet" value?
             last_clock_update: Instant::now(),
             last_reported_frames: usize::MAX,
+            is_playing: Default::default(),
             events: Default::default(),
             sender,
             receiver,
-            audio_output: None,
-
-            buffer_target: 2048,
+            audio_output,
 
             yes: 0.0,
             check: 0.0,
@@ -271,44 +299,37 @@ impl EngineSubscription {
     }
 
     fn dispatch_samples(&mut self, samples: &[StereoSample], sample_count: usize) {
-        if let Some(output) = self.audio_output.as_mut() {
-            for (i, sample) in samples.iter().enumerate() {
-                if i < sample_count {
-                    let _ = output.push(*sample);
-                } else {
-                    break;
-                }
-            }
-        }
+        let _ = self.audio_output.push_buffer(&samples[0..sample_count]);
     }
 
     fn do_loop(&mut self) {
-        let mut samples = [StereoSample::SILENCE; 64];
-        let mut is_playing = false;
         loop {
-            self.publish_clock_update();
-
-            // Handle any received messages before Orchestrator::update().
             let mut messages = Vec::new();
-            while let Ok(Some(input)) = self.receiver.try_next() {
+            if let Ok(input) = self.receiver.recv() {
+                self.publish_dashboard_updates();
+
                 match input {
+                    EngineInput::GenerateAudio(buffer_count) => self.generate_audio(buffer_count),
                     // TODO: many of these are in the wrong place. This loop
                     // should be tight and dumb.
                     EngineInput::LoadProject(filename) => {
                         self.clock.reset(self.clock.sample_rate());
-                        is_playing = false;
+                        self.is_playing = false;
                         let response = self.load_project(filename);
                         self.push_response(response);
                     }
-                    EngineInput::Play => is_playing = true,
-                    EngineInput::Pause => is_playing = false,
+                    EngineInput::Play => self.is_playing = true,
+                    EngineInput::Pause => self.is_playing = false,
                     EngineInput::SkipToStart => {
                         self.clock.reset(self.clock.sample_rate());
                     }
                     EngineInput::Midi(channel, message) => {
                         messages.push(GrooveInput::MidiFromExternal(channel, message))
                     }
-                    EngineInput::QuitRequested => break,
+                    EngineInput::QuitRequested => {
+                        self.post_event(EngineEvent::Quit);
+                        break;
+                    }
                     EngineInput::SetBpm(bpm) => {
                         if bpm != self.clock.bpm() {
                             self.clock.set_bpm(bpm);
@@ -322,59 +343,33 @@ impl EngineSubscription {
                         }
                     }
                 }
-            }
 
-            // Forward any messages that were meant for Orchestrator. Any
-            // responses we get at this point are to messages that aren't Tick,
-            // so we can ignore the return values from send_pending_messages().
-            while let Some(message) = messages.pop() {
-                let response = if let Ok(mut o) = self.orchestrator.lock() {
-                    o.update(message)
-                } else {
-                    Response::none()
-                };
-                self.push_response(response);
-            }
-            let (_, _) = self.handle_pending_messages();
-
-            if is_playing {
-                let (response, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
-                    o.tick(&mut samples)
-                } else {
-                    (Response::none(), 0)
-                };
-                self.push_response(response);
-                if ticks_completed < samples.len() {
-                    is_playing = false;
+                // Forward any messages that were meant for Orchestrator. Any
+                // responses we get at this point are to messages that aren't Tick,
+                // so we can ignore the return values from send_pending_messages().
+                while let Some(message) = messages.pop() {
+                    let response = if let Ok(mut o) = self.orchestrator.lock() {
+                        o.update(message)
+                    } else {
+                        Response::none()
+                    };
+                    self.push_response(response);
                 }
-
-                // This clock is used to tell the app where we are in the song,
-                // so even though it looks like it's not helping here in the
-                // loop, it's necessary. We have it before the second is_playing
-                // test because the tick() that returns false still produced
-                // some samples, so we want the clock to reflect that.
-                self.clock.tick_batch(ticks_completed);
-
-                // TODO: this might cut off the end of the buffer if it doesn't
-                // end on a 64-sample boundary. Would make sense to change
-                // tick() to return the number of samples it was able to fill,
-                // and then propagate that number through to dispatch_samples()
-                // et seq.
-                if is_playing {
-                    self.dispatch_samples(&samples, ticks_completed);
-                    self.wait_for_audio_buffer();
-                }
+                let (_, _) = self.handle_pending_messages();
             } else {
-                std::thread::sleep(Duration::from_millis(100));
+                // In the normal case, we will break when we get the
+                // QuitRequested message. This break catches the case where the
+                // senders unexpectedly died.
+                eprintln!("Unexpected termination of EngineInput senders");
+                break;
             }
         }
     }
 
-    /// Periodically sends out an event telling the app what time we think it
-    /// is.
-    fn publish_clock_update(&mut self) {
+    /// Periodically sends out events useful for GUI display.
+    fn publish_dashboard_updates(&mut self) {
         let now = Instant::now();
-        if now.duration_since(self.last_clock_update).as_millis() > 15 {
+        if now.duration_since(self.last_clock_update).as_millis() > (1000 / 30) {
             let frames = self.clock.frames();
             if frames != self.last_reported_frames {
                 self.last_reported_frames = frames;
@@ -382,12 +377,23 @@ impl EngineSubscription {
                 self.last_clock_update = now;
                 self.yes += 1.0;
             }
-            // eprintln!(
-            //     "Duty cycle is {:0.2}/{:0.2} {:0.2}%",
-            //     self.yes,
-            //     self.check,
-            //     self.yes / self.check
-            // );
+
+            // TODO: this is active only while the project is playing. I wanted
+            // it whenever the app is open, but it caused 30% CPU usage,
+            // probably because of app redraws.
+            if self.is_playing {
+                self.post_event(EngineEvent::AudioBufferFullness(Normal::from(
+                    self.audio_output.buffer_utilization(),
+                )));
+            }
+
+            #[cfg(disabled)]
+            eprintln!(
+                "Duty cycle is {:0.2}/{:0.2} {:0.2}%",
+                self.yes,
+                self.check,
+                self.yes / self.check
+            );
         }
         self.check += 1.0;
     }
@@ -401,38 +407,11 @@ impl EngineSubscription {
     }
 
     fn start_audio(&mut self) {
-        let mut audio_output = AudioOutput::default();
-        audio_output.start();
-        self.audio_output = Some(audio_output);
+        self.audio_output.start();
     }
 
     fn stop_audio(&mut self) {
-        if let Some(audio_output) = self.audio_output.as_mut() {
-            audio_output.stop();
-        }
-        self.audio_output = None;
-    }
-
-    // TODO: visualize buffer
-    fn wait_for_audio_buffer(&mut self) {
-        if let Some(output) = self.audio_output.as_ref() {
-            let buffer_len = output.buffer_len();
-            if buffer_len < self.buffer_target / 4 {
-                self.buffer_target *= 2;
-                if self.buffer_target > 4096 {
-                    self.buffer_target = 4096;
-                }
-            } else if buffer_len >= self.buffer_target * 2 {
-                self.buffer_target *= 8;
-                self.buffer_target /= 10;
-            } else if buffer_len >= self.buffer_target {
-                let mut time_to_sleep = 2;
-                while output.buffer_len() >= self.buffer_target {
-                    std::thread::sleep(Duration::from_micros(time_to_sleep));
-                    time_to_sleep *= 2;
-                }
-            }
-        }
+        self.audio_output.stop();
     }
 
     fn load_project(&mut self, filename: String) -> Response<GrooveEvent> {
@@ -452,5 +431,33 @@ impl EngineSubscription {
             }
         }
         return Response::none();
+    }
+
+    fn generate_audio(&mut self, buffer_count: u8) {
+        let mut samples = [StereoSample::SILENCE; Self::ENGINE_BUFFER_SIZE];
+        for _ in 0..buffer_count {
+            if self.is_playing {
+                let (response, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
+                    o.tick(&mut samples)
+                } else {
+                    (Response::none(), 0)
+                };
+                self.push_response(response);
+                if ticks_completed < samples.len() {
+                    self.is_playing = false;
+                }
+
+                // This clock is used to tell the app where we are in the song,
+                // so even though it looks like it's not helping here in the
+                // loop, it's necessary. We have it before the second is_playing
+                // test because the tick() that returns false still produced
+                // some samples, so we want the clock to reflect that.
+                self.clock.tick_batch(ticks_completed);
+
+                self.dispatch_samples(&samples, ticks_completed);
+            } else {
+                self.dispatch_samples(&samples, samples.len());
+            }
+        }
     }
 }
