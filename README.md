@@ -2,6 +2,17 @@
 
 A digital audio workstation (DAW) engine.
 
+## High-level project status
+
+- There are CLI (command-line interface) and GUI (graphical user interface)
+  versions of the app. The CLI is theoretically capable of producing a song, if
+  tediously. The GUI mostly proves that I know how to write a GUI, but it's
+  useless for anything else right now.
+- Aside from the CLI workflow being difficult, there aren't many components --
+  just a couple instruments, a few effects, and a controller (automation)
+  system. So even if you liked the workflow, you don't have a rich library of
+  tools to work with.
+
 ## Getting started (music producers)
 
 1. Don't get your hopes up.
@@ -9,14 +20,14 @@ A digital audio workstation (DAW) engine.
    and unzip it somewhere. If you're on an ARM Chromebook or a Raspberry Pi, try
    the `aarch64` build first, and if that doesn't work, try `armv7`.
 3. Using the command line, `cd` to the directory you just unzipped.
-4. Render `projects/drums-filtered.yaml` with `groove-cli`. For Windows, that's
-   `groove-cli projects\drums-filtered.yaml`, and for Linux/OSX it's
-   `./groove-cli projects/drums-filtered.yaml`). You should hear a 707 beat
+4. Render `projects/drums-filtered-24db.yaml` with `groove-cli`. For Windows,
+   that's `groove-cli projects\drums-filtered-24db.yaml`, and for Linux/OSX it's
+   `./groove-cli projects/drums-filtered-24db.yaml`. You should hear a 707 beat
    through a rising low-pass filter. If you don't, file a bug.
-5. Open `projects/drum-filtered.yaml` in your favorite text editor, and change
-   `bpm: 128.0` to `bpm: 200.0`. Play the track again. Congratulations, you're
-   now the world's newest [DnB](https://en.wikipedia.org/wiki/Drum_and_bass)
-   producer.
+5. Open `projects/drum-filtered-24db.yaml` in your favorite text editor, and
+   change `bpm: 128.0` to `bpm: 200.0`. Play the track again. Congratulations,
+   you're now the world's newest
+   [DnB](https://en.wikipedia.org/wiki/Drum_and_bass) producer.
 6. Take a look at all the other projects in the `projects` directory. Render
    them, tweak them, and make new ones!
 7. Launch the `groove-gui` executable. It won't do anything useful, but you
@@ -30,14 +41,14 @@ I use VSCode on Ubuntu 20.04 for development.
 
 - Visit <https://rustup.rs/> to install the Rust toolchain. We build the
   official releases with `nightly`, but for now we aren't using anything more
-  advanced than what `stable` provides.
+  advanced than what `stable` provides, so it's OK to install just that one.
 - If you're developing on Linux, `apt install` the packages you find buried
-  somewhere in `.github/workflows/build.yml`
+  somewhere in `.github/workflows/build.yml`.
 - `cargo build`, and then try the commands listed in the other Getting Started
   section. Or try `cargo install` if you want the current binaries installed in
   your PATH (not recommended).
 
-### Useful developer tools
+### Useful developer tools (not specific to this project)
 
 - `cargo-deb` produces Debian `.deb` packages from your crate.
 - `cargo-expand` helps with macro debugging.
@@ -45,17 +56,6 @@ I use VSCode on Ubuntu 20.04 for development.
 - `cargo-machete` helps find unused crates listed as `Cargo.toml` dependencies.
 - `cargo-tree` lists crate dependencies.
 - `cross` produces cross-compiled builds.
-
-## High-level project status
-
-- There are CLI (command-line interface) and GUI (graphical user interface)
-  versions of the app. The CLI is theoretically capable of producing a song, if
-  tediously. The GUI mostly proves that I know how to write a GUI, but it's
-  useless for anything else right now.
-- Aside from the CLI workflow being difficult, there aren't many components --
-  just a couple instruments, a few effects, and a controller (automation)
-  system. So even if you liked the workflow, you don't have a rich library of
-  tools to work with.
 
 ## Current Features
 
@@ -65,32 +65,35 @@ I use VSCode on Ubuntu 20.04 for development.
   Cookbook](https://www.amazon.com/Welshs-Synthesizer-Cookbook-Programming-Universal/dp/B000ERHA4S/),
   3rd edition, by Fred Welsh ([website](https://synthesizer-cookbook.com/)). As
   of this README's last update, most of them sound OK, though they could all use
-  some tuning, and portamento/unison aren't implemented.
-- Sampler. Doesn't yet know anything about tones; in other words, it just plays
-  back WAV data at the original speed, which works fine for a drumkit but not so
-  well for tonal sounds that you expect to use melodically.
+  some tuning. Portamento/unison aren't implemented, and some sounds are
+  inoperable because I haven't yet implemented less common LFO routing paths.
+- A single-operator FM synthesizer. The modulator has its own envelope!
+- Sampler. If it can figure out the root frequency from the WAV file's metadata,
+  then it will play the sample at the right adjusted frequency for whichever
+  note it's playing. That means there will be sampling artifacts.
+- Sampler-based drumkit.
 - Sequencer with a MIDI SMF reader (the MIDI reader is broken right now).
 - A declarative project language, which makes it easy to produce songs in YAML
   or JSON format (JSON only in theory, but we get it for free thanks to
   [serde](https://serde.rs/)).
 - A few audio effects (gain, limiter, bitcrusher, chorus, compressor, delay,
-  filters). Some of them are just plain wrong.
+  reverb, filters). Some of them are just plain wrong.
 - Basic automation.
 - Output to WAV file or speaker.
-- A very simple [Iced](https://iced.rs/)-based GUI.
+- An [Iced](https://iced.rs/)-based GUI that is read-only and very incomplete.
 - Plenty of bugs.
 
 ## On the roadmap
 
 - More of everything: synths, filters, effects. High-priority gaps to fill are a
-  wavetable synth, an FM synth, a proper sampler, and effects that deserve their
+  wavetable synth, a time-stretching sampler, and effects that deserve their
   name.
 - A better automation design. The vision is intuitively configurable envelopes
   that can be used throughout the system.
-- Scripting. Currently I'm experimenting with [rhai](https://rhai.rs/), but I
-  don't know whether a JavaScript-y language is right for this domain. It might
-  be better just to turn the whole thing into a crate and let others wrap it in
-  scripting technology.
+- Scripting. I experimented with [rhai](https://rhai.rs/), but I don't know
+  whether a JavaScript-y language is right for this domain. It might be better
+  just to turn the whole thing into a crate and let others wrap it in scripting
+  technology.
 - MIDI input/output (this works very crudely right now; all MIDI notes are
   routed externally, and a small white dot appears in the GUI when it detects
   any MIDI input).
@@ -135,7 +138,8 @@ phenomenon](https://en.wikipedia.org/wiki/Frequency_illusion) is marvelous.
   synthesizer based on Circle, Munt, and FluidSynth.
 - [musikcube](https://github.com/clangen/musikcube) a cross-platform,
   terminal-based music player, audio engine, metadata indexer, and server in c++
-- [Nannou](https://nannou.cc/) is a library that aims to make it easy for artists to express themselves with simple, fast, reliable code.
+- [Nannou](https://nannou.cc/) is a library that aims to make it easy for
+  artists to express themselves with simple, fast, reliable code.
 - [Noise2Music](https://noise2music.github.io/): A series of diffusion models
   trained to generate high-quality 30-second music clips from text prompts.
 - [Sonic Pi](https://sonic-pi.net/)
