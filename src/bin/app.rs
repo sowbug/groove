@@ -16,7 +16,7 @@ use groove::{
 };
 use groove_core::{
     time::{Clock, TimeSignature},
-    Normal, Sample,
+    Normal, Sample, StereoSample,
 };
 use groove_entities::EntityMessage;
 use groove_orchestration::messages::GrooveEvent;
@@ -37,6 +37,7 @@ use iced::{
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Renderer, Settings, Size, Subscription,
 };
+use native_dialog::{MessageDialog, MessageType};
 use std::{
     path::PathBuf,
     sync::{mpsc, Arc, Mutex},
@@ -153,6 +154,7 @@ pub enum AppMessage {
     Tick(Instant),
     Event(iced::Event),
     OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
+    ExportComplete(Result<(), SaveError>),
 }
 
 #[derive(Debug, Clone)]
@@ -162,6 +164,8 @@ pub enum ControlBarMessage {
     SkipToStart,
     Bpm(String),
     OpenProject,
+    ExportWav,
+    ExportMp3,
 }
 
 impl Application for GrooveApp {
@@ -245,6 +249,34 @@ impl Application for GrooveApp {
                         Preferences::open_dialog(),
                         AppMessage::OpenDialogComplete,
                     )
+                }
+                ControlBarMessage::ExportWav => {
+                    let _ = MessageDialog::new()
+                        .set_type(MessageType::Info)
+                        .set_title("Export WAV")
+                        .set_text("Hold on a moment while we render the project!")
+                        .show_alert()
+                        .unwrap();
+                    if let Ok(mut o) = self.orchestrator.lock() {
+                        let mut sample_buffer = [StereoSample::SILENCE; 64];
+                        if let Ok(performance) = o.run_performance(&mut sample_buffer, true) {
+                            return Command::perform(
+                                Preferences::export_to_wav(performance),
+                                AppMessage::ExportComplete,
+                            );
+                        }
+                    }
+                }
+                ControlBarMessage::ExportMp3 => {
+                    if let Ok(mut o) = self.orchestrator.lock() {
+                        let mut sample_buffer = [StereoSample::SILENCE; 64];
+                        if let Ok(performance) = o.run_performance(&mut sample_buffer, true) {
+                            return Command::perform(
+                                Preferences::export_to_mp3(performance),
+                                AppMessage::ExportComplete,
+                            );
+                        }
+                    }
                 }
             },
             AppMessage::Event(event) => {
@@ -412,6 +444,9 @@ impl Application for GrooveApp {
                 }
                 Err(_) => todo!(),
             },
+            AppMessage::ExportComplete(_) => {
+                // great
+            }
         }
 
         Command::none()
@@ -694,6 +729,10 @@ impl GrooveApp {
                 .width(Length::FillPortion(1)),
                 container(button("Open").on_press(ControlBarMessage::OpenProject))
                     .width(Length::FillPortion(1)),
+                container(button("Export WAV").on_press(ControlBarMessage::ExportWav))
+                    .width(Length::FillPortion(1)),
+                container(button("Export MP3") /* disabled for now .on_press(ControlBarMessage::ExportMp3) */
+            ).width(Length::FillPortion(1)),
                 container(text(app_version())).align_x(alignment::Horizontal::Right)
             ]
             .padding(8)

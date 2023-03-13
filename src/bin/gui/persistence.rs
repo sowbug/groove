@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use groove_orchestration::{helpers::IOHelper, Performance};
 use native_dialog::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -117,5 +118,34 @@ impl Preferences {
         } else {
             Err(OpenError::Unknown)
         }
+    }
+
+    pub(crate) async fn export_to_wav(performance: Performance) -> Result<(), SaveError> {
+        if let Ok(path) = FileDialog::new()
+            .set_filename("output.wav")
+            .show_save_single_file()
+        {
+            if let Some(path) = path {
+                if let Ok(_) = IOHelper::send_performance_to_file(&performance, &path) {
+                    return Ok(());
+                }
+            }
+        }
+        Err(SaveError::Write)
+    }
+
+    pub(crate) async fn export_to_mp3(performance: Performance) -> Result<(), SaveError> {
+        if let Ok(path) = FileDialog::new()
+            .set_filename("output.mp3")
+            .show_save_single_file()
+        {
+            if let Some(path) = path {
+                // TODO: have to find a properly licensed MP3 encoding library
+                if let Ok(_) = IOHelper::send_performance_to_file(&performance, &path) {
+                    return Ok(());
+                }
+            }
+        }
+        Err(SaveError::Write)
     }
 }
