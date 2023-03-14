@@ -3,13 +3,13 @@
 pub(crate) mod persistence;
 pub(crate) mod views;
 
-use iced::widget::Text;
 use iced::{
     alignment::{self, Vertical},
     theme,
-    widget::{self, button, column, container, row, text},
+    widget::{self, button, column, container, row, svg, text, Button, Text},
     Color, Element, Font, Length, Renderer, Theme,
 };
+use iced_native::{svg::Handle, widget::Svg};
 use std::marker::PhantomData;
 
 pub const SMALL_FONT_SIZE: u16 = 16;
@@ -47,7 +47,7 @@ impl container::StyleSheet for TitledContainerTitleStyle {
     }
 }
 
-struct NumberContainerStyle {
+pub(crate) struct NumberContainerStyle {
     _theme: iced::Theme,
 }
 
@@ -193,6 +193,56 @@ fn icon<'a>(unicode: char) -> Text<'a> {
         .size(20)
 }
 
+pub(crate) enum IconType {
+    Start,
+    Play,
+    Pause,
+    Stop,
+    OpenProject,
+    ExportWav,
+    ExportMp3,
+}
+
+pub(crate) struct Icons;
+impl Icons {
+    pub const SIZE: f32 = 40.0;
+
+    pub fn button_icon<T>(icon_type: IconType) -> Button<'static, T> {
+        button(Self::icon(icon_type))
+            .width(Length::Fixed(Self::SIZE))
+            .height(Length::Fixed(Self::SIZE))
+    }
+
+    pub fn icon(icon_type: IconType) -> Svg<Renderer> {
+        let resource_name: &[u8] = match icon_type {
+            IconType::Start => {
+                include_bytes!("../../../res/bootstrap-icons-1.10.3/skip-start-fill.svg")
+            }
+            IconType::Play => include_bytes!("../../../res/bootstrap-icons-1.10.3/play-fill.svg"),
+            IconType::Pause => include_bytes!("../../../res/bootstrap-icons-1.10.3/pause-fill.svg"),
+            IconType::Stop => include_bytes!("../../../res/bootstrap-icons-1.10.3/stop-fill.svg"),
+            IconType::OpenProject => {
+                include_bytes!("../../../res/bootstrap-icons-1.10.3/folder2-open.svg")
+            }
+            IconType::ExportWav => {
+                include_bytes!("../../../res/bootstrap-icons-1.10.3/filetype-wav.svg")
+            }
+            IconType::ExportMp3 => {
+                include_bytes!("../../../res/bootstrap-icons-1.10.3/filetype-mp3.svg")
+            }
+        };
+        Self::styled_svg_from_memory(resource_name)
+    }
+
+    fn styled_svg_from_memory(bytes: &'static [u8]) -> Svg<Renderer> {
+        Svg::new(Handle::from_memory(bytes)).style(theme::Svg::custom_fn(|_theme| {
+            svg::Appearance {
+                color: Some(Color::WHITE),
+            }
+        }))
+    }
+}
+
 // https://fonts.google.com/icons?selected=Material+Icons
 pub fn expand_more_icon<'a>() -> Text<'a> {
     icon('\u{e5cf}')
@@ -211,17 +261,6 @@ pub fn delete_icon<'a>() -> Text<'a> {
 #[allow(dead_code)]
 pub fn settings_icon<'a>() -> Text<'a> {
     icon('\u{e8b8}')
-}
-#[allow(dead_code)]
-pub fn play_icon<'a>() -> Text<'a> {
-    icon('\u{e037}')
-}
-#[allow(dead_code)]
-pub fn pause_icon<'a>() -> Text<'a> {
-    icon('\u{e034}')
-}
-pub fn stop_icon<'a>() -> Text<'a> {
-    icon('\u{e047}')
 }
 #[allow(dead_code)]
 pub fn rewind_icon<'a>() -> Text<'a> {
@@ -246,9 +285,6 @@ pub fn muted_music_icon<'a>() -> Text<'a> {
 #[allow(dead_code)]
 pub fn unmuted_music_icon<'a>() -> Text<'a> {
     icon('\u{e405}')
-}
-pub fn skip_to_prev_icon<'a>() -> Text<'a> {
-    icon('\u{e045}')
 }
 #[allow(dead_code)]
 pub fn skip_to_next_icon<'a>() -> Text<'a> {

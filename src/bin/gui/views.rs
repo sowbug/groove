@@ -1,8 +1,16 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{GuiStuff, LARGE_FONT, LARGE_FONT_SIZE, SMALL_FONT};
-use groove::Entity;
-use groove_core::traits::HasUid;
+use crate::ControlBarMessage;
+use super::{
+    GuiStuff, IconType, Icons, LARGE_FONT, LARGE_FONT_SIZE, NUMBERS_FONT, NUMBERS_FONT_SIZE,
+    SMALL_FONT, SMALL_FONT_SIZE,
+};
+use groove::{app_version, Entity};
+use groove_core::{
+    time::{Clock, TimeSignature},
+    traits::HasUid,
+    Normal, ParameterType,
+};
 use groove_entities::{
     controllers::{
         Arpeggiator, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern, PatternManager,
@@ -14,8 +22,9 @@ use groove_entities::{
 };
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use iced::{
-    widget::{button, column, container, pick_list, row, text, Column},
-    Alignment, Element, Length,
+    alignment, theme,
+    widget::{button, column, container, pick_list, row, text, text_input, Column, Container, Row},
+    Alignment, Element, Length, Theme,
 };
 use iced_audio::{FloatRange, HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
 use rustc_hash::FxHashMap;
@@ -29,13 +38,13 @@ pub(crate) enum EntityViewState {
 }
 
 #[derive(Debug)]
-pub(crate) struct EntityViewGenerator {
+pub(crate) struct EntityView {
     entity_view_states: FxHashMap<usize, EntityViewState>,
 
     pub(crate) fm_synthesizer_ratio_range: IntRange,
     pub(crate) fm_synthesizer_beta_range: FloatRange,
 }
-impl Default for EntityViewGenerator {
+impl Default for EntityView {
     fn default() -> Self {
         Self {
             entity_view_states: Default::default(),
@@ -44,8 +53,7 @@ impl Default for EntityViewGenerator {
         }
     }
 }
-
-impl EntityViewGenerator {
+impl EntityView {
     const LABEL_FONT_SIZE: u16 = 14;
 
     const ITEM_OUTER_PADDING: u16 = 16;
@@ -60,7 +68,7 @@ impl EntityViewGenerator {
         self.entity_view_states.clear();
     }
 
-    pub(crate) fn entity_view(&self, entity: &Entity) -> Element<EntityMessage> {
+    pub(crate) fn view(&self, entity: &Entity) -> Element<EntityMessage> {
         match entity {
             Entity::Arpeggiator(e) => self.arpeggiator_view(e),
             Entity::BiQuadFilter(e) => self.biquad_filter_view(e),
@@ -446,5 +454,166 @@ impl EntityViewGenerator {
             ])
             .into()
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct ControlBarView {
+    clock: Clock,
+    time_signature: TimeSignature,
+    audio_buffer_fullness: Normal,
+}
+impl ControlBarView {
+    pub fn new_with(clock: Clock, time_signature: TimeSignature) -> Self {
+        Self {
+            clock,
+            time_signature,
+            audio_buffer_fullness: Default::default(),
+        }
+    }
+
+    pub fn set_clock(&mut self, frames: usize) {
+        self.clock.seek(frames);
+    }
+
+    pub fn set_bpm(&mut self, bpm: ParameterType) {
+        self.clock.set_bpm(bpm);
+    }
+
+    pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
+        self.time_signature = time_signature;
+    }
+
+    pub fn view(&self, is_playing: bool) -> Element<ControlBarMessage> {
+        let full_row = Row::new()
+            .push(self.bpm_view())
+            .push(self.media_buttons(is_playing))
+            .push(self.clock_view())
+            .push(self.util_buttons())
+            .align_items(Alignment::Center);
+
+        container(full_row)
+            .width(Length::Fill)
+            .padding(4)
+            .style(theme::Container::Box)
+            .into()
+    }
+
+    fn media_buttons(&self, is_playing: bool) -> Container<ControlBarMessage> {
+        let start_button =
+            Icons::button_icon(IconType::Start).on_press(ControlBarMessage::SkipToStart);
+        let play_button = (if is_playing {
+            Icons::button_icon(IconType::Pause)
+        } else {
+            Icons::button_icon(IconType::Play)
+        })
+        .on_press(ControlBarMessage::Play);
+        let stop_button = Icons::button_icon(IconType::Stop).on_press(ControlBarMessage::Stop);
+        container(
+            Row::new()
+                .push(start_button)
+                .push(play_button)
+                .push(stop_button),
+        )
+    }
+
+    fn clock_view(&self) -> Element<ControlBarMessage> {
+        let time_counter = {
+            let minutes: u8 = (self.clock.seconds() / 60.0).floor() as u8;
+            let seconds = self.clock.seconds() as usize % 60;
+            let thousandths = (self.clock.seconds().fract() * 1000.0) as u16;
+            container(
+                text(format!("{minutes:03}:{seconds:02}:{thousandths:03}"))
+                    .font(NUMBERS_FONT)
+                    .size(NUMBERS_FONT_SIZE),
+            )
+            .style(theme::Container::Custom(
+                GuiStuff::<ControlBarMessage>::number_box_style(&Theme::Dark),
+            ))
+            .align_x(alignment::Horizontal::Center)
+        };
+
+        let time_signature_view = {
+            container(
+                Column::new()
+                    .push(
+                        text(format!("{}", self.time_signature.top))
+                            .font(SMALL_FONT)
+                            .size(SMALL_FONT_SIZE),
+                    )
+                    .push(
+                        text(format!("{}", self.time_signature.bottom))
+                            .font(SMALL_FONT)
+                            .size(SMALL_FONT_SIZE),
+                    )
+                    .width(Length::Fixed(16.0))
+                    .align_items(Alignment::Center),
+            )
+        };
+
+        let beat_counter = {
+            let denom = self.time_signature.top as f64;
+
+            let measures = (self.clock.beats() / denom) as usize;
+            let beats = (self.clock.beats() % denom) as usize;
+            let fractional = (self.clock.beats().fract() * 10000.0) as usize;
+            container(
+                text(format!("{measures:04}m{beats:02}b{fractional:04}"))
+                    .font(NUMBERS_FONT)
+                    .size(NUMBERS_FONT_SIZE),
+            )
+            .style(theme::Container::Custom(
+                GuiStuff::<ControlBarMessage>::number_box_style(&Theme::Dark),
+            ))
+            .align_x(alignment::Horizontal::Center)
+        };
+        Row::new()
+            .push(time_counter)
+            .push(time_signature_view)
+            .push(beat_counter)
+            .align_items(Alignment::Center)
+            .padding(8)
+            .into()
+    }
+
+    fn bpm_view(&self) -> Container<ControlBarMessage> {
+        container(
+            text_input(
+                "BPM",
+                self.clock.bpm().round().to_string().as_str(),
+                ControlBarMessage::Bpm,
+            )
+            .font(SMALL_FONT)
+            .size(SMALL_FONT_SIZE),
+        )
+        .width(Length::Fixed(60.0))
+        .padding(8)
+    }
+
+    fn util_buttons(&self) -> Container<ControlBarMessage> {
+        let audiobuf_container = container(Column::new().push(text("Audio")).push(text(
+            format!("{:0.2}%", self.audio_buffer_fullness.value() * 100.0).as_str(),
+        )))
+        .width(Length::FillPortion(1));
+        let open_button =
+            Icons::button_icon(IconType::OpenProject).on_press(ControlBarMessage::OpenProject);
+        let export_wav_button =
+            Icons::button_icon(IconType::ExportWav).on_press(ControlBarMessage::ExportWav);
+        let export_mp3_button = Icons::button_icon(IconType::ExportMp3); /* disabled for now .on_press(ControlBarMessage::ExportMp3) */
+        let app_version = container(text(app_version())).align_x(alignment::Horizontal::Right);
+
+        container(
+            Row::new()
+                .push(audiobuf_container)
+                .push(open_button)
+                .push(export_wav_button)
+                .push(export_mp3_button)
+                .push(app_version)
+                .align_items(Alignment::Center),
+        )
+    }
+
+    pub fn set_audio_buffer_fullness(&mut self, audio_buffer_fullness: Normal) {
+        self.audio_buffer_fullness = audio_buffer_fullness;
     }
 }

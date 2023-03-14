@@ -7,7 +7,6 @@
 mod gui;
 
 use groove::{
-    app_version,
     subscriptions::{
         EngineEvent, EngineInput, EngineSubscription, MidiHandlerEvent, MidiHandlerInput,
         MidiPortDescriptor, MidiSubscription,
@@ -22,17 +21,15 @@ use groove_entities::EntityMessage;
 use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
-    play_icon, skip_to_prev_icon, stop_icon,
-    views::{EntityViewGenerator, EntityViewState},
+    views::{ControlBarView, EntityView, EntityViewState},
     GuiStuff,
 };
 use iced::{
     alignment, executor,
-    theme::{self, Theme},
+    theme::Theme,
     widget::{
-        button,
         canvas::{self, Cache, Cursor},
-        column, container, pick_list, row, scrollable, text, text_input, Canvas, Column, Container,
+        column, container, pick_list, row, scrollable, Canvas, Container,
     },
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Renderer, Settings, Size, Subscription,
@@ -68,14 +65,12 @@ struct GrooveApp {
 
     // View
     current_view: MainViews,
+    control_bar_view: ControlBarView,
 
     // Model
     project_title: Option<String>,
     orchestrator_sender: Option<mpsc::Sender<EngineInput>>,
     orchestrator: Arc<Mutex<Orchestrator>>,
-    clock_mirror: Clock, // this clock is just a cache of the real clock in Orchestrator.
-    time_signature_mirror: TimeSignature, // same
-    audio_buffer_fullness: Normal,
 
     // This is true when playback went all the way to the end of the song. The
     // reason it's nice to track this is that after pressing play and listening
@@ -96,17 +91,12 @@ struct GrooveApp {
 
     gui_state: GuiState,
 
-    entity_view_generator: EntityViewGenerator,
+    entity_view_generator: EntityView,
 }
 impl Default for GrooveApp {
     fn default() -> Self {
         // TODO: these are (probably) temporary until the project is
         // loaded. Make sure they really need to be instantiated.
-        let clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
         let orchestrator = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let orchestrator = Arc::new(Mutex::new(orchestrator));
         Self {
@@ -116,12 +106,17 @@ impl Default for GrooveApp {
             state: Default::default(),
             should_exit: Default::default(),
             current_view: Default::default(),
+            control_bar_view: ControlBarView::new_with(
+                Clock::new_with(
+                    DEFAULT_SAMPLE_RATE,
+                    DEFAULT_BPM,
+                    DEFAULT_MIDI_TICKS_PER_SECOND,
+                ),
+                TimeSignature::default(),
+            ),
             project_title: None,
             orchestrator_sender: Default::default(),
             orchestrator: orchestrator.clone(),
-            clock_mirror: clock,
-            time_signature_mirror: Default::default(),
-            audio_buffer_fullness: Default::default(),
             reached_end_of_playback: Default::default(),
             last_midi_activity: Instant::now(),
             midi_handler_sender: Default::default(),
@@ -314,10 +309,10 @@ impl Application for GrooveApp {
                         }
                     }
                 }
-                EngineEvent::SetClock(samples) => self.clock_mirror.seek(samples),
-                EngineEvent::SetBpm(bpm) => self.clock_mirror.set_bpm(bpm),
+                EngineEvent::SetClock(samples) => self.control_bar_view.set_clock(samples),
+                EngineEvent::SetBpm(bpm) => self.control_bar_view.set_bpm(bpm),
                 EngineEvent::SetTimeSignature(time_signature) => {
-                    self.time_signature_mirror = time_signature;
+                    self.control_bar_view.set_time_signature(time_signature);
                 }
                 EngineEvent::MidiToExternal(channel, message) => {
                     self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
@@ -337,7 +332,7 @@ impl Application for GrooveApp {
                     self.entity_view_generator.reset();
                 }
                 EngineEvent::AudioBufferFullness(percentage) => {
-                    self.audio_buffer_fullness = percentage;
+                    self.control_bar_view.set_audio_buffer_fullness(percentage);
                 }
             },
             AppMessage::MidiHandlerEvent(event) => match event {
@@ -457,7 +452,10 @@ impl Application for GrooveApp {
             State::Idle | State::Playing => {}
         }
 
-        let control_bar = self.control_bar_view().map(AppMessage::ControlBarMessage);
+        let control_bar: Element<AppMessage> = self
+            .control_bar_view
+            .view(matches!(self.state, State::Playing))
+            .map(AppMessage::ControlBarMessage);
         let main_content = match self.current_view {
             MainViews::Unstructured => {
                 let project_view: Element<AppMessage> =
@@ -638,7 +636,7 @@ impl GrooveApp {
                 .fold(Vec::new(), |mut v, (&uid, e)| {
                     v.push(
                         self.entity_view_generator
-                            .entity_view(e)
+                            .view(e)
                             .map(move |message| GrooveEvent::EntityMessage(uid, message)),
                     );
                     v
@@ -698,96 +696,32 @@ impl GrooveApp {
         GuiStuff::titled_container("MIDI", container(row![activity_text, port_menus]).into())
     }
 
-    fn control_bar_view(&self) -> Element<ControlBarMessage> {
-        container(
-            row![
-                text_input(
-                    "BPM",
-                    self.clock_mirror.bpm().round().to_string().as_str(),
-                    ControlBarMessage::Bpm
-                )
-                .font(gui::SMALL_FONT)
-                .size(gui::SMALL_FONT_SIZE)
-                .width(Length::Fixed(60.0)),
-                container(row![
-                    button(skip_to_prev_icon())
-                        .width(Length::Fixed(32.0))
-                        .on_press(ControlBarMessage::SkipToStart),
-                    button(play_icon())
-                        .width(Length::Fixed(32.0))
-                        .on_press(ControlBarMessage::Play),
-                    button(stop_icon())
-                        .width(Length::Fixed(32.0))
-                        .on_press(ControlBarMessage::Stop)
-                ])
-                .align_x(alignment::Horizontal::Center)
-                .width(Length::FillPortion(1)),
-                container(self.clock_view()).width(Length::FillPortion(1)),
-                container(Column::new().push(text("Audio")).push(text(
-                    format!("{:0.2}%", self.audio_buffer_fullness.value() * 100.0).as_str()
-                )))
-                .width(Length::FillPortion(1)),
-                container(button("Open").on_press(ControlBarMessage::OpenProject))
-                    .width(Length::FillPortion(1)),
-                container(button("Export WAV").on_press(ControlBarMessage::ExportWav))
-                    .width(Length::FillPortion(1)),
-                container(button("Export MP3") /* disabled for now .on_press(ControlBarMessage::ExportMp3) */
-            ).width(Length::FillPortion(1)),
-                container(text(app_version())).align_x(alignment::Horizontal::Right)
-            ]
-            .padding(8)
-            .spacing(4)
-            .align_items(Alignment::Center),
-        )
-        .width(Length::Fill)
-        .padding(4)
-        .style(theme::Container::Box)
-        .into()
-    }
+    // fn control_bar_view(&self) -> Element<ControlBarMessage> {
+    //     self.control_bar
 
-    fn clock_view(&self) -> Element<ControlBarMessage> {
-        let time_counter = {
-            let minutes: u8 = (self.clock_mirror.seconds() / 60.0).floor() as u8;
-            let seconds = self.clock_mirror.seconds() as usize % 60;
-            let thousandths = (self.clock_mirror.seconds().fract() * 1000.0) as u16;
-            container(
-                text(format!("{minutes:02}:{seconds:02}:{thousandths:03}"))
-                    .font(gui::NUMBERS_FONT)
-                    .size(gui::NUMBERS_FONT_SIZE),
-            )
-            .style(theme::Container::Custom(
-                GuiStuff::<ControlBarMessage>::number_box_style(&Theme::Dark),
-            ))
-        };
+    // row![
+    // ,
+    //                 container([,
+    // ,
 
-        let time_signature_view = {
-            container(column![
-                text(format!("{}", self.time_signature_mirror.top))
-                    .font(gui::SMALL_FONT)
-                    .size(gui::SMALL_FONT_SIZE),
-                text(format!("{}", self.time_signature_mirror.bottom))
-                    .font(gui::SMALL_FONT)
-                    .size(gui::SMALL_FONT_SIZE)
-            ])
-        };
-
-        let beat_counter = {
-            let denom = self.time_signature_mirror.top as f64;
-
-            let measures = (self.clock_mirror.beats() / denom) as usize;
-            let beats = (self.clock_mirror.beats() % denom) as usize;
-            let fractional = (self.clock_mirror.beats().fract() * 10000.0) as usize;
-            container(
-                text(format!("{measures:04}m{beats:02}b{fractional:03}"))
-                    .font(gui::NUMBERS_FONT)
-                    .size(gui::NUMBERS_FONT_SIZE),
-            )
-            .style(theme::Container::Custom(
-                GuiStuff::<AppMessage>::number_box_style(&Theme::Dark),
-            ))
-        };
-        row![time_counter, time_signature_view, beat_counter].into()
-    }
+    //                 ])
+    //                 .align_x(alignment::Horizontal::Center)
+    //                 .width(Length::FillPortion(1)),
+    //                 ,
+    // ,
+    //                 container()
+    //                     .width(Length::FillPortion(1)),
+    //                 container()
+    //                     .width(Length::FillPortion(1)),
+    //                 container(
+    //             ).width(Length::FillPortion(1)),
+    //                 container(text(app_version())).align_x(alignment::Horizontal::Right)
+    //             ]
+    //             .padding(8)
+    //             .spacing(4)
+    //             .align_items(Alignment::Center),
+    //         )
+    //    }
 
     fn switch_main_view(&mut self) {
         self.current_view = match self.current_view {

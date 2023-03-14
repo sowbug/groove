@@ -26,7 +26,7 @@ groove-orchestration = { path = "orchestration" }
 groove-settings = { path = "settings" }
 groove-toys = { path = "toys" }
 hound = "3.5"
-iced = { version = "0.8.0", features = ["smol", "canvas"] }
+iced = { version = "0.8.0", features = ["smol", "canvas", "svg"] }
 iced_audio = "0.11.0"
 iced_native = "0.9.1"
 midir = "0.8.0"
