@@ -1,10 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::ControlBarMessage;
 use super::{
     GuiStuff, IconType, Icons, LARGE_FONT, LARGE_FONT_SIZE, NUMBERS_FONT, NUMBERS_FONT_SIZE,
     SMALL_FONT, SMALL_FONT_SIZE,
 };
+use crate::ControlBarMessage;
 use groove::{app_version, Entity};
 use groove_core::{
     time::{Clock, TimeSignature},
