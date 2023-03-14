@@ -98,3 +98,10 @@ assets = [
     ["target/release/groove-cli", "usr/bin/", "755"],
     ["target/release/groove-gui", "usr/bin/", "755"],
 ]
+
+[package.metadata.bundle.bin.groove-gui]
+name = "Groove"
+identifier = "com.sowbug.groove-gui"
+resources = ["LICENSE.txt", "README.md", "assets/**/*.yaml", "assets/**/*.wav", "projects/**/*.yaml"]
+icon = ["assets-nodist/icons/app-icon-*.png"]
+category = "Music"
