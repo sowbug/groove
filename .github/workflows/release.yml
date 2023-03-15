@@ -72,6 +72,13 @@ jobs:
           leading_dir: true
           archive: groove-$tag-$target
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload installer
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            target/release/*.msi
+            target/release/*.deb
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   release-cross:
     runs-on: ubuntu-latest
@@ -88,6 +95,8 @@ jobs:
           toolchain: nightly
           target: ${{ matrix.target }}
           override: true
+      - name: Install cargo components
+        run: cargo install cargo-bundle
       - name: Set version environment variables
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#environment-files
         # https://stackoverflow.com/a/65972328/344467
@@ -100,6 +109,8 @@ jobs:
           use-cross: true
           command: build
           args: --release --target ${{ matrix.target }}
+      - name: Build installer
+        run: cargo bundle --bin groove-gui --release --target ${{ matrix.target }}
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
