@@ -109,3 +109,9 @@ identifier = "com.sowbug.groove-gui"
 resources = ["LICENSE.txt", "README.md", "assets/**/*.yaml", "assets/**/*.wav", "projects/**/*.yaml"]
 icon = ["assets-nodist/icons/app-icon-*.png"]
 category = "Music"
+
+[package.metadata.bundle.bin.groove-cli]
+name = "Groove CLI"
+identifier = "com.sowbug.groove-cli"
+linux_use_terminal = true
+resources = ["LICENSE.txt", "README.md", "assets/**/*.yaml", "assets/**/*.wav", "projects/**/*.yaml"]
