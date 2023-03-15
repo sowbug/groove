@@ -445,7 +445,7 @@ impl Application for GrooveApp {
             AppMessage::ExportComplete(_) => {
                 // great
             }
-            AppMessage::AutomationEvent(_) => todo!(),
+            AppMessage::AutomationEvent(message) => self.automation_view.update(message),
         }
 
         Command::none()

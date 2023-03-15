@@ -29,8 +29,8 @@ use iced::{
     Alignment, Element, Length, Renderer, Theme,
 };
 use iced_audio::{FloatRange, HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
-use iced_aw::{native::Badge, Card};
-use iced_native::{widget::Tree, Event, Widget};
+use iced_aw::{native::Badge, style::BadgeStyles, Card};
+use iced_native::{mouse, widget::Tree, Event, Widget};
 use rustc_hash::FxHashMap;
 use std::any::type_name;
 
@@ -623,20 +623,32 @@ impl ControlBarView {
 }
 
 struct ControlTargetWidget<'a, Message> {
-    id: String,
     inner: Element<'a, Message>,
+    on_mousein: Option<Message>,
+    on_mouseout: Option<Message>,
+    on_mousedown: Option<Message>,
+    on_mouseup: Option<Message>,
 }
 impl<'a, Message> ControlTargetWidget<'a, Message>
 where
     Message: 'a + Clone,
 {
-    pub fn new<T>(id: &str, content: T) -> Self
+    pub fn new<T>(
+        content: T,
+        on_mousein: Option<Message>,
+        on_mouseout: Option<Message>,
+        on_mousedown: Option<Message>,
+        on_mouseup: Option<Message>,
+    ) -> Self
     where
         T: Into<Element<'a, Message>>,
     {
         Self {
-            id: id.to_string(),
             inner: content.into(),
+            on_mousein,
+            on_mouseout,
+            on_mousedown,
+            on_mouseup,
         }
     }
 }
@@ -653,24 +665,50 @@ where
         cursor_position: iced::Point,
         _renderer: &Renderer,
         _clipboard: &mut dyn iced_native::Clipboard,
-        _shell: &mut iced_native::Shell<'_, Message>,
+        shell: &mut iced_native::Shell<'_, Message>,
     ) -> iced::event::Status {
+        let content_bounds = layout.children().next().unwrap().bounds();
+        let in_bounds = content_bounds.contains(cursor_position);
+
         match event {
-            Event::Keyboard(e) => {
-                eprintln!("Keyboard {:?}", &e);
-            }
-            Event::Mouse(e) => {
-                let content_bounds = layout.children().next().unwrap().bounds();
-                if content_bounds.contains(cursor_position) {
-                    eprintln!("in {} {:?}", self.id, &e);
+            Event::Mouse(event) => match event {
+                mouse::Event::ButtonPressed(_) => {
+                    if let Some(mousedown) = self.on_mousedown.as_ref() {
+                        if in_bounds {
+                            shell.publish(mousedown.clone());
+                            return iced::event::Status::Captured;
+                        }
+                    }
                 }
-            }
-            Event::Window(e) => {
-                // too noisy                eprintln!("Window {:?}", &e);
-            }
-            Event::Touch(e) => {
-                eprintln!("Touch {:?}", &e);
-            }
+                mouse::Event::ButtonReleased(_) => {
+                    if let Some(mouseup) = self.on_mouseup.as_ref() {
+                        if in_bounds {
+                            shell.publish(mouseup.clone());
+                            return iced::event::Status::Captured;
+                        }
+                    }
+                }
+                #[allow(unused_variables)]
+                mouse::Event::CursorMoved { position } => {
+                    if in_bounds {
+                        if let Some(mousein) = self.on_mousein.as_ref() {
+                            shell.publish(mousein.clone());
+                            return iced::event::Status::Captured;
+                        }
+                    } else {
+                        if let Some(mouseout) = self.on_mouseout.as_ref() {
+                            shell.publish(mouseout.clone());
+                            return iced::event::Status::Captured;
+                        }
+                    }
+                }
+                mouse::Event::WheelScrolled { delta } => {
+                    eprintln!("scrolled {:?}", delta);
+                    return iced::event::Status::Captured;
+                }
+                _ => {}
+            },
+            _ => {}
         }
         iced::event::Status::Ignored
     }
@@ -730,10 +768,18 @@ where
 #[derive(Clone, Debug)]
 pub enum AutomationMessage {
     Nothing,
+    MouseIn(usize),
+    MouseOut(usize),
+    MouseDown(usize),
+    MouseUp(usize),
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct AutomationView;
+pub(crate) struct AutomationView {
+    is_dragging: bool,
+    source_id: usize,
+    target_id: usize,
+}
 impl AutomationView {
     pub(crate) fn view(&self) -> Element<AutomationMessage> {
         let components = vec![
@@ -743,10 +789,37 @@ impl AutomationView {
 
         let columns = components.into_iter().fold(Vec::default(), |mut v, c| {
             let mut column = Column::new();
-            for point in c.controllables.iter() {
+            for (id, point) in c.controllables.iter().enumerate() {
+                let id = id + 1; // So 0 can represent no item
+                let badge_style = if self.is_dragging && id == self.source_id {
+                    BadgeStyles::Primary
+                } else if id == self.target_id {
+                    BadgeStyles::Secondary
+                } else {
+                    BadgeStyles::Default
+                };
                 let child = ControlTargetWidget::<AutomationMessage>::new(
-                    point.name.as_str(),
-                    Badge::new(Text::new(point.name.to_string())),
+                    Badge::new(Text::new(point.name.to_string())).style(badge_style),
+                    if self.is_dragging && id != self.source_id {
+                        Some(AutomationMessage::MouseIn(id))
+                    } else {
+                        None
+                    },
+                    if self.is_dragging && id == self.target_id {
+                        Some(AutomationMessage::MouseOut(id))
+                    } else {
+                        None
+                    },
+                    if !self.is_dragging {
+                        Some(AutomationMessage::MouseDown(id))
+                    } else {
+                        None
+                    },
+                    if self.is_dragging {
+                        Some(AutomationMessage::MouseUp(id))
+                    } else {
+                        None
+                    },
                 );
                 column = column.push(child);
             }
@@ -760,6 +833,44 @@ impl AutomationView {
             row
         });
         container(row).into()
+    }
+
+    pub(crate) fn update(&mut self, message: AutomationMessage) {
+        match message {
+            AutomationMessage::Nothing => todo!(),
+            AutomationMessage::MouseDown(id) => {
+                self.is_dragging = true;
+                self.source_id = id;
+                eprintln!("Start dragging on {}", id);
+            }
+            AutomationMessage::MouseIn(id) => {
+                // if dragging, highlight potential target
+                self.target_id = id;
+            }
+            AutomationMessage::MouseOut(id) => {
+                // if dragging, un-highlight potential target
+                self.target_id = 0;
+            }
+            AutomationMessage::MouseUp(id) => {
+                if self.is_dragging {
+                    if id == self.source_id {
+                        eprintln!("Drag ended on source. Canceled.");
+                        self.is_dragging = false;
+                    } else {
+                        eprintln!("Stop dragging on {}", id);
+                        self.target_id = id;
+                        self.connect_points();
+                    }
+                    self.is_dragging = false;
+                    self.source_id = 0;
+                    self.target_id = 0;
+                }
+            }
+        }
+    }
+
+    fn connect_points(&mut self) {
+        eprintln!("we just connected {} to {}", self.source_id, self.target_id);
     }
 }
 
