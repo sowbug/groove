@@ -29,13 +29,10 @@ use iced::{
     Alignment, Element, Length, Renderer, Theme,
 };
 use iced_audio::{FloatRange, HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
-use iced_aw::{badge::StyleSheet, native::Badge, Card};
-use iced_native::{
-    widget::{tree, Tree},
-    Clipboard, Event, Layout, Shell, Widget,
-};
+use iced_aw::{native::Badge, Card};
+use iced_native::{widget::Tree, Event, Widget};
 use rustc_hash::FxHashMap;
-use std::{any::type_name, marker::PhantomData, time::Instant};
+use std::any::type_name;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum EntityViewState {
@@ -626,17 +623,19 @@ impl ControlBarView {
 }
 
 struct ControlTargetWidget<'a, Message> {
+    id: String,
     inner: Element<'a, Message>,
 }
 impl<'a, Message> ControlTargetWidget<'a, Message>
 where
     Message: 'a + Clone,
 {
-    pub fn new<T>(content: T) -> Self
+    pub fn new<T>(id: &str, content: T) -> Self
     where
         T: Into<Element<'a, Message>>,
     {
         Self {
+            id: id.to_string(),
             inner: content.into(),
         }
     }
@@ -648,23 +647,30 @@ where
 {
     fn on_event(
         &mut self,
-        _state: &mut iced_native::widget::Tree,
-        _event: iced::Event,
-        _layout: iced_native::Layout<'_>,
-        _cursor_position: iced::Point,
+        _tree: &mut iced_native::widget::Tree,
+        event: iced::Event,
+        layout: iced_native::Layout<'_>,
+        cursor_position: iced::Point,
         _renderer: &Renderer,
         _clipboard: &mut dyn iced_native::Clipboard,
         _shell: &mut iced_native::Shell<'_, Message>,
     ) -> iced::event::Status {
-        match _event {
+        match event {
             Event::Keyboard(e) => {
                 eprintln!("Keyboard {:?}", &e);
             }
             Event::Mouse(e) => {
-                eprintln!("Mouse {:?} {:?}", &e, 3.14159);
+                let content_bounds = layout.children().next().unwrap().bounds();
+                if content_bounds.contains(cursor_position) {
+                    eprintln!("in {} {:?}", self.id, &e);
+                }
             }
-            Event::Window(_) => {}
-            Event::Touch(_) => todo!(),
+            Event::Window(e) => {
+                // too noisy                eprintln!("Window {:?}", &e);
+            }
+            Event::Touch(e) => {
+                eprintln!("Touch {:?}", &e);
+            }
         }
         iced::event::Status::Ignored
     }
@@ -738,9 +744,10 @@ impl AutomationView {
         let columns = components.into_iter().fold(Vec::default(), |mut v, c| {
             let mut column = Column::new();
             for point in c.controllables.iter() {
-                let child = ControlTargetWidget::<AutomationMessage>::new(Badge::new(Text::new(
-                    point.name.to_string(),
-                )));
+                let child = ControlTargetWidget::<AutomationMessage>::new(
+                    point.name.as_str(),
+                    Badge::new(Text::new(point.name.to_string())),
+                );
                 column = column.push(child);
             }
             let card = Card::new(Text::new(c.name.to_string()), column);

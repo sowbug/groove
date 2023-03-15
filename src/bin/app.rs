@@ -21,7 +21,7 @@ use groove_entities::EntityMessage;
 use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
-    views::{AutomationView, ControlBarView, EntityView, EntityViewState, AutomationMessage},
+    views::{AutomationMessage, AutomationView, ControlBarView, EntityView, EntityViewState},
     GuiStuff,
 };
 use iced::{
