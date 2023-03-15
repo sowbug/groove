@@ -49,9 +49,9 @@ jobs:
           git describe --tags          >> $GITHUB_ENV
           echo 'QQEOFQQ'               >> $GITHUB_ENV
       - name: Build release
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --workspace --release --target ${{ matrix.target }}
       - name: Test release
-        run: cargo test --workspace --release --target ${{ matrix.target }}
+        run: cargo test  --workspace --release --target ${{ matrix.target }}
       - name: Build installer
         run: cargo bundle --bin groove-gui --release --target ${{ matrix.target }}
 
