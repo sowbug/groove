@@ -76,8 +76,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            target/release/*.msi
-            target/release/bundle/deb/*.deb
+            target/release/**/*.msi
+            target/release/**/*.deb
           token: ${{ secrets.GITHUB_TOKEN }}
 
   release-cross:
@@ -130,6 +130,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            target/release/*.msi
-            target/release/bundle/deb/*.deb
+            target/release/**/*.msi
+            target/release/**/*.deb
           token: ${{ secrets.GITHUB_TOKEN }}
