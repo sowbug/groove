@@ -31,6 +31,8 @@ jobs:
           toolchain: nightly
           override: true
           target: ${{ matrix.target }}
+      - name: Install cargo components
+        run: cargo install cargo-bundle
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
@@ -50,6 +52,8 @@ jobs:
         run: cargo build --release --target ${{ matrix.target }}
       - name: Test release
         run: cargo test --workspace --release --target ${{ matrix.target }}
+      - name: Build installer
+        run: cargo bundle --bin groove-gui --release --target ${{ matrix.target }}
 
         # Upload build products
       - name: Upload artifacts
@@ -110,4 +114,11 @@ jobs:
           target: ${{ matrix.target }}
           leading_dir: true
           archive: groove-$tag-$target
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload installer
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            target/release/*.msi
+            target/release/*.deb
           token: ${{ secrets.GITHUB_TOKEN }}

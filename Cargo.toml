@@ -99,6 +99,10 @@ assets = [
     ["target/release/groove-gui", "usr/bin/", "755"],
 ]
 
+[package.metadata.bundle]
+name = "Groove"
+identifier = "com.sowbug.groove"
+
 [package.metadata.bundle.bin.groove-gui]
 name = "Groove"
 identifier = "com.sowbug.groove-gui"
