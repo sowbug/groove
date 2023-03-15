@@ -21,7 +21,7 @@ use groove_entities::EntityMessage;
 use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
-    views::{ControlBarView, EntityView, EntityViewState},
+    views::{AutomationView, ControlBarView, EntityView, EntityViewState, AutomationMessage},
     GuiStuff,
 };
 use iced::{
@@ -29,7 +29,7 @@ use iced::{
     theme::Theme,
     widget::{
         canvas::{self, Cache, Cursor},
-        column, container, pick_list, row, scrollable, Canvas, Container,
+        column, container, pick_list, row, scrollable, Canvas, Column, Container,
     },
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Renderer, Settings, Size, Subscription,
@@ -43,12 +43,13 @@ use std::{
 
 #[derive(Default, Debug)]
 enum MainViews {
-    #[default]
     Unstructured,
     New,
     Session,
     Arrangement,
     Preferences,
+    #[default]
+    Automation,
 }
 
 struct GrooveApp {
@@ -65,7 +66,9 @@ struct GrooveApp {
 
     // View
     current_view: MainViews,
+    entity_view: EntityView,
     control_bar_view: ControlBarView,
+    automation_view: AutomationView,
 
     // Model
     project_title: Option<String>,
@@ -90,8 +93,6 @@ struct GrooveApp {
     midi_output_port_active: Option<MidiPortDescriptor>,
 
     gui_state: GuiState,
-
-    entity_view_generator: EntityView,
 }
 impl Default for GrooveApp {
     fn default() -> Self {
@@ -106,6 +107,7 @@ impl Default for GrooveApp {
             state: Default::default(),
             should_exit: Default::default(),
             current_view: Default::default(),
+            entity_view: Default::default(),
             control_bar_view: ControlBarView::new_with(
                 Clock::new_with(
                     DEFAULT_SAMPLE_RATE,
@@ -114,6 +116,7 @@ impl Default for GrooveApp {
                 ),
                 TimeSignature::default(),
             ),
+            automation_view: Default::default(),
             project_title: None,
             orchestrator_sender: Default::default(),
             orchestrator: orchestrator.clone(),
@@ -125,7 +128,6 @@ impl Default for GrooveApp {
             midi_output_ports: Default::default(),
             midi_output_port_active: Default::default(),
             gui_state: GuiState::new(orchestrator),
-            entity_view_generator: Default::default(),
         }
     }
 }
@@ -150,6 +152,7 @@ pub enum AppMessage {
     Event(iced::Event),
     OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
     ExportComplete(Result<(), SaveError>),
+    AutomationEvent(AutomationMessage),
 }
 
 #[derive(Debug, Clone)]
@@ -329,7 +332,7 @@ impl Application for GrooveApp {
                 EngineEvent::ProjectLoaded(filename, title) => {
                     self.preferences.last_project_filename = Some(filename);
                     self.project_title = title;
-                    self.entity_view_generator.reset();
+                    self.entity_view.reset();
                 }
                 EngineEvent::AudioBufferFullness(percentage) => {
                     self.control_bar_view.set_audio_buffer_fullness(percentage);
@@ -406,15 +409,15 @@ impl Application for GrooveApp {
                 GrooveEvent::EntityMessage(uid, message) => match message {
                     EntityMessage::ExpandPressed => {
                         // Find whoever else is expanded and maybe collapse them
-                        self.entity_view_generator
+                        self.entity_view
                             .set_entity_view_state(uid, EntityViewState::Expanded);
                     }
                     EntityMessage::CollapsePressed => {
-                        self.entity_view_generator
+                        self.entity_view
                             .set_entity_view_state(uid, EntityViewState::Collapsed);
                     }
                     _ => {
-                        self.entity_update(uid, message);
+                        self.update_entity(uid, message);
                     }
                 },
                 _ => todo!(),
@@ -442,51 +445,30 @@ impl Application for GrooveApp {
             AppMessage::ExportComplete(_) => {
                 // great
             }
+            AppMessage::AutomationEvent(_) => todo!(),
         }
 
         Command::none()
     }
 
     fn view(&self) -> Element<AppMessage> {
-        match self.state {
-            State::Idle | State::Playing => {}
-        }
-
         let control_bar: Element<AppMessage> = self
             .control_bar_view
             .view(matches!(self.state, State::Playing))
             .map(AppMessage::ControlBarMessage);
-        let main_content = match self.current_view {
-            MainViews::Unstructured => {
-                let project_view: Element<AppMessage> =
-                    self.orchestrator_view().map(AppMessage::GrooveEvent);
-                let midi_view: Element<AppMessage> =
-                    self.midi_view().map(AppMessage::MidiHandlerInput);
-                let scrollable_content = column![midi_view, project_view];
-                let scrollable =
-                    container(scrollable(scrollable_content)).width(Length::FillPortion(1));
-                container(row![Self::under_construction("Unstructured"), scrollable])
-            }
-            MainViews::New => {
-                let project_view: Element<AppMessage> =
-                    self.orchestrator_new_view().map(AppMessage::GrooveEvent);
-                let scrollable = container(scrollable(project_view)).width(Length::FillPortion(1));
-                container(scrollable)
-            }
-            MainViews::Session => container(Self::under_construction("Session")),
-            MainViews::Arrangement => container(Self::under_construction("Arrangement")),
-            MainViews::Preferences => container(Self::under_construction("Preferences")),
-        };
-        let full_view = column![control_bar, main_content]
-            .align_items(Alignment::Center)
-            .spacing(20);
-
-        container(full_view)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_x()
-            .align_y(alignment::Vertical::Top)
-            .into()
+        let main_content = self.main_view();
+        container(
+            Column::new()
+                .push(control_bar)
+                .push(main_content)
+                .align_items(Alignment::Center)
+                .spacing(20),
+        )
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .center_x()
+        .align_y(alignment::Vertical::Top)
+        .into()
     }
 
     fn theme(&self) -> Self::Theme {
@@ -537,7 +519,7 @@ impl GrooveApp {
         }
     }
 
-    fn entity_update(&mut self, uid: usize, message: EntityMessage) {
+    fn update_entity(&mut self, uid: usize, message: EntityMessage) {
         if let Ok(mut o) = self.orchestrator.lock() {
             if let Some(entity) = o.get_mut(uid) {
                 match entity {
@@ -600,12 +582,12 @@ impl GrooveApp {
                         EntityMessage::HSliderInt4(_) => todo!(),
                         EntityMessage::Knob(depth) => e.set_depth(Normal::from(depth.as_f32())),
                         EntityMessage::Knob2(ratio) => e.set_ratio(
-                            self.entity_view_generator
+                            self.entity_view
                                 .fm_synthesizer_ratio_range
                                 .unmap_to_value(ratio) as f64,
                         ),
                         EntityMessage::Knob3(beta) => e.set_beta(
-                            self.entity_view_generator
+                            self.entity_view
                                 .fm_synthesizer_beta_range
                                 .unmap_to_value(beta) as f64,
                         ),
@@ -635,7 +617,7 @@ impl GrooveApp {
                 .entity_iter()
                 .fold(Vec::new(), |mut v, (&uid, e)| {
                     v.push(
-                        self.entity_view_generator
+                        self.entity_view
                             .view(e)
                             .map(move |message| GrooveEvent::EntityMessage(uid, message)),
                     );
@@ -696,43 +678,6 @@ impl GrooveApp {
         GuiStuff::titled_container("MIDI", container(row![activity_text, port_menus]).into())
     }
 
-    // fn control_bar_view(&self) -> Element<ControlBarMessage> {
-    //     self.control_bar
-
-    // row![
-    // ,
-    //                 container([,
-    // ,
-
-    //                 ])
-    //                 .align_x(alignment::Horizontal::Center)
-    //                 .width(Length::FillPortion(1)),
-    //                 ,
-    // ,
-    //                 container()
-    //                     .width(Length::FillPortion(1)),
-    //                 container()
-    //                     .width(Length::FillPortion(1)),
-    //                 container(
-    //             ).width(Length::FillPortion(1)),
-    //                 container(text(app_version())).align_x(alignment::Horizontal::Right)
-    //             ]
-    //             .padding(8)
-    //             .spacing(4)
-    //             .align_items(Alignment::Center),
-    //         )
-    //    }
-
-    fn switch_main_view(&mut self) {
-        self.current_view = match self.current_view {
-            MainViews::Unstructured => MainViews::New,
-            MainViews::New => MainViews::Session,
-            MainViews::Session => MainViews::Arrangement,
-            MainViews::Arrangement => MainViews::Preferences,
-            MainViews::Preferences => MainViews::Unstructured,
-        }
-    }
-
     fn handle_close_requested_event(&mut self) -> Command<AppMessage> {
         // See https://github.com/iced-rs/iced/pull/804 and
         // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
@@ -763,6 +708,41 @@ impl GrooveApp {
             if char == '\t' {
                 self.switch_main_view();
             }
+        }
+    }
+
+    fn switch_main_view(&mut self) {
+        self.current_view = match self.current_view {
+            MainViews::Unstructured => MainViews::New,
+            MainViews::New => MainViews::Session,
+            MainViews::Session => MainViews::Arrangement,
+            MainViews::Arrangement => MainViews::Preferences,
+            MainViews::Preferences => MainViews::Unstructured,
+            MainViews::Automation => MainViews::Unstructured,
+        }
+    }
+
+    fn main_view(&self) -> Element<AppMessage> {
+        match self.current_view {
+            MainViews::Unstructured => {
+                let project_view: Element<AppMessage> =
+                    self.orchestrator_view().map(AppMessage::GrooveEvent);
+                let midi_view: Element<AppMessage> =
+                    self.midi_view().map(AppMessage::MidiHandlerInput);
+                let scrollable_content = column![midi_view, project_view];
+                let scrollable =
+                    container(scrollable(scrollable_content)).width(Length::FillPortion(1));
+                row![Self::under_construction("Unstructured"), scrollable].into()
+            }
+            MainViews::New => {
+                let project_view: Element<AppMessage> =
+                    self.orchestrator_new_view().map(AppMessage::GrooveEvent);
+                scrollable(project_view).into()
+            }
+            MainViews::Session => Self::under_construction("Session").into(),
+            MainViews::Arrangement => Self::under_construction("Arrangement").into(),
+            MainViews::Preferences => Self::under_construction("Preferences").into(),
+            MainViews::Automation => self.automation_view.view().map(AppMessage::AutomationEvent),
         }
     }
 }

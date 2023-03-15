@@ -23,12 +23,19 @@ use groove_entities::{
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use iced::{
     alignment, theme,
-    widget::{button, column, container, pick_list, row, text, text_input, Column, Container, Row},
-    Alignment, Element, Length, Theme,
+    widget::{
+        button, column, container, pick_list, row, text, text_input, Column, Container, Row, Text,
+    },
+    Alignment, Element, Length, Renderer, Theme,
 };
 use iced_audio::{FloatRange, HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
+use iced_aw::{badge::StyleSheet, native::Badge, Card};
+use iced_native::{
+    widget::{tree, Tree},
+    Clipboard, Event, Layout, Shell, Widget,
+};
 use rustc_hash::FxHashMap;
-use std::any::type_name;
+use std::{any::type_name, marker::PhantomData, time::Instant};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum EntityViewState {
@@ -615,5 +622,165 @@ impl ControlBarView {
 
     pub fn set_audio_buffer_fullness(&mut self, audio_buffer_fullness: Normal) {
         self.audio_buffer_fullness = audio_buffer_fullness;
+    }
+}
+
+struct ControlTargetWidget<'a, Message> {
+    inner: Element<'a, Message>,
+}
+impl<'a, Message> ControlTargetWidget<'a, Message>
+where
+    Message: 'a + Clone,
+{
+    pub fn new<T>(content: T) -> Self
+    where
+        T: Into<Element<'a, Message>>,
+    {
+        Self {
+            inner: content.into(),
+        }
+    }
+}
+impl<'a, Message> Widget<Message, Renderer> for ControlTargetWidget<'a, Message>
+where
+    Message: 'a + Clone,
+    Renderer: 'a + iced_native::Renderer,
+{
+    fn on_event(
+        &mut self,
+        _state: &mut iced_native::widget::Tree,
+        _event: iced::Event,
+        _layout: iced_native::Layout<'_>,
+        _cursor_position: iced::Point,
+        _renderer: &Renderer,
+        _clipboard: &mut dyn iced_native::Clipboard,
+        _shell: &mut iced_native::Shell<'_, Message>,
+    ) -> iced::event::Status {
+        match _event {
+            Event::Keyboard(e) => {
+                eprintln!("Keyboard {:?}", &e);
+            }
+            Event::Mouse(e) => {
+                eprintln!("Mouse {:?} {:?}", &e, 3.14159);
+            }
+            Event::Window(_) => {}
+            Event::Touch(_) => todo!(),
+        }
+        iced::event::Status::Ignored
+    }
+
+    fn width(&self) -> Length {
+        self.inner.as_widget().width()
+    }
+
+    fn height(&self) -> Length {
+        self.inner.as_widget().height()
+    }
+
+    fn layout(
+        &self,
+        renderer: &Renderer,
+        limits: &iced_native::layout::Limits,
+    ) -> iced_native::layout::Node {
+        self.inner.as_widget().layout(renderer, limits)
+    }
+
+    fn children(&self) -> Vec<Tree> {
+        vec![Tree::new(&self.inner)]
+    }
+
+    fn draw(
+        &self,
+        state: &iced_native::widget::Tree,
+        renderer: &mut Renderer,
+        theme: &<Renderer as iced_native::Renderer>::Theme,
+        style: &iced_native::renderer::Style,
+        layout: iced_native::Layout<'_>,
+        cursor_position: iced::Point,
+        viewport: &iced::Rectangle,
+    ) {
+        self.inner.as_widget().draw(
+            &state.children[0],
+            renderer,
+            theme,
+            style,
+            layout,
+            cursor_position,
+            viewport,
+        )
+    }
+}
+
+impl<'a, Message> From<ControlTargetWidget<'a, Message>> for Element<'a, Message, Renderer>
+where
+    Message: 'a + Clone,
+    Renderer: 'a + iced_native::Renderer,
+{
+    fn from(widget: ControlTargetWidget<'a, Message>) -> Self {
+        Element::new(widget)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum AutomationMessage {
+    Nothing,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct AutomationView;
+impl AutomationView {
+    pub(crate) fn view(&self) -> Element<AutomationMessage> {
+        let components = vec![
+            FakeInstrument::new("Flux", vec!["foo", "bar", "baz"]),
+            FakeInstrument::new("Capacitor", vec!["foo", "bar", "baz"]),
+        ];
+
+        let columns = components.into_iter().fold(Vec::default(), |mut v, c| {
+            let mut column = Column::new();
+            for point in c.controllables.iter() {
+                let child = ControlTargetWidget::<AutomationMessage>::new(Badge::new(Text::new(
+                    point.name.to_string(),
+                )));
+                column = column.push(child);
+            }
+            let card = Card::new(Text::new(c.name.to_string()), column);
+            v.push(card);
+            v
+        });
+
+        let row = columns.into_iter().fold(Row::new(), |mut row, item| {
+            row = row.push(item);
+            row
+        });
+        container(row).into()
+    }
+}
+
+struct FakeControlPoint {
+    pub name: String,
+}
+impl FakeControlPoint {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+        }
+    }
+}
+
+struct FakeInstrument {
+    pub name: String,
+    pub controllables: Vec<FakeControlPoint>,
+}
+impl FakeInstrument {
+    pub fn new(name: &str, control_points: Vec<&str>) -> Self {
+        let mut r = Self {
+            name: name.to_string(),
+            controllables: Vec::default(),
+        };
+        r.controllables = control_points.iter().fold(Vec::default(), |mut v, name| {
+            v.push(FakeControlPoint::new(name));
+            v
+        });
+        r
     }
 }
