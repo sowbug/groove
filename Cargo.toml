@@ -96,23 +96,6 @@ assets = [
     ["assets/patches/**/*.yaml", "usr/share/groove/patches/", "644"],
     ["assets/samples/**/*.wav", "usr/share/groove/samples/", "644"],
     ["projects/**/*.yaml", "usr/share/groove/projects/", "644"],
-    ["target/release/groove-cli", "usr/bin/", "755"],
-    ["target/release/groove-gui", "usr/bin/", "755"],
+    ["target/**/groove-cli", "usr/bin/", "755"],
+    ["target/**/groove-gui", "usr/bin/", "755"],
 ]
-
-[package.metadata.bundle]
-name = "Groove"
-identifier = "com.sowbug.groove"
-
-[package.metadata.bundle.bin.groove-gui]
-name = "Groove"
-identifier = "com.sowbug.groove-gui"
-resources = ["LICENSE.txt", "README.md", "assets/**/*.yaml", "assets/**/*.wav", "projects/**/*.yaml"]
-icon = ["assets-nodist/icons/app-icon-*.png"]
-category = "Music"
-
-[package.metadata.bundle.bin.groove-cli]
-name = "Groove CLI"
-identifier = "com.sowbug.groove-cli"
-linux_use_terminal = true
-resources = ["LICENSE.txt", "README.md", "assets/**/*.yaml", "assets/**/*.wav", "projects/**/*.yaml"]

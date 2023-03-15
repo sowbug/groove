@@ -31,8 +31,9 @@ jobs:
           toolchain: nightly
           override: true
           target: ${{ matrix.target }}
-      - name: Install cargo components
-        run: cargo install cargo-bundle
+      - name: Install cargo components for .deb
+        run: cargo install cargo-deb
+        if: startsWith(matrix.os, 'ubuntu')
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
@@ -53,7 +54,8 @@ jobs:
       - name: Test release
         run: cargo test  --workspace --release --target ${{ matrix.target }}
       - name: Build installer
-        run: cargo bundle --bin groove-gui --release --target ${{ matrix.target }}
+        run: cargo deb --target ${{ matrix.target }} --no-build
+        if: startsWith(matrix.os, 'ubuntu')
 
         # Upload build products
       - name: Upload artifacts
@@ -76,8 +78,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            target/**/release/**/*.msi
-            target/**/release/**/*.deb
+            target/**/*.msi
+            target/**/*.deb
           token: ${{ secrets.GITHUB_TOKEN }}
 
   release-cross:
@@ -95,8 +97,8 @@ jobs:
           toolchain: nightly
           target: ${{ matrix.target }}
           override: true
-      - name: Install cargo components
-        run: cargo install cargo-bundle
+      - name: Install cargo components for .deb
+        run: cargo install cargo-deb
       - name: Set version environment variables
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#environment-files
         # https://stackoverflow.com/a/65972328/344467
@@ -110,7 +112,7 @@ jobs:
           command: build
           args: --release --target ${{ matrix.target }}
       - name: Build installer
-        run: cargo bundle --bin groove-gui --release --target ${{ matrix.target }}
+        run: cargo deb --target ${{ matrix.target }} --no-build
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -129,7 +131,5 @@ jobs:
       - name: Upload installer
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            target/**/release/**/*.msi
-            target/**/release/**/*.deb
+          files: target/**/*.deb
           token: ${{ secrets.GITHUB_TOKEN }}
