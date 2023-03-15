@@ -628,6 +628,7 @@ struct ControlTargetWidget<'a, Message> {
     on_mouseout: Option<Message>,
     on_mousedown: Option<Message>,
     on_mouseup: Option<Message>,
+    on_mouseup_outside: Option<Message>,
 }
 impl<'a, Message> ControlTargetWidget<'a, Message>
 where
@@ -639,6 +640,7 @@ where
         on_mouseout: Option<Message>,
         on_mousedown: Option<Message>,
         on_mouseup: Option<Message>,
+        on_mouseup_outside: Option<Message>,
     ) -> Self
     where
         T: Into<Element<'a, Message>>,
@@ -649,6 +651,7 @@ where
             on_mouseout,
             on_mousedown,
             on_mouseup,
+            on_mouseup_outside,
         }
     }
 }
@@ -673,17 +676,22 @@ where
         match event {
             Event::Mouse(event) => match event {
                 mouse::Event::ButtonPressed(_) => {
-                    if let Some(mousedown) = self.on_mousedown.as_ref() {
+                    if let Some(msg) = self.on_mousedown.as_ref() {
                         if in_bounds {
-                            shell.publish(mousedown.clone());
+                            shell.publish(msg.clone());
                             return iced::event::Status::Captured;
                         }
                     }
                 }
                 mouse::Event::ButtonReleased(_) => {
-                    if let Some(mouseup) = self.on_mouseup.as_ref() {
-                        if in_bounds {
-                            shell.publish(mouseup.clone());
+                    if in_bounds {
+                        if let Some(msg) = self.on_mouseup.as_ref() {
+                            shell.publish(msg.clone());
+                            return iced::event::Status::Captured;
+                        }
+                    } else {
+                        if let Some(msg) = self.on_mouseup_outside.as_ref() {
+                            shell.publish(msg.clone());
                             return iced::event::Status::Captured;
                         }
                     }
@@ -691,13 +699,13 @@ where
                 #[allow(unused_variables)]
                 mouse::Event::CursorMoved { position } => {
                     if in_bounds {
-                        if let Some(mousein) = self.on_mousein.as_ref() {
-                            shell.publish(mousein.clone());
+                        if let Some(msg) = self.on_mousein.as_ref() {
+                            shell.publish(msg.clone());
                             return iced::event::Status::Captured;
                         }
                     } else {
-                        if let Some(mouseout) = self.on_mouseout.as_ref() {
-                            shell.publish(mouseout.clone());
+                        if let Some(msg) = self.on_mouseout.as_ref() {
+                            shell.publish(msg.clone());
                             return iced::event::Status::Captured;
                         }
                     }
@@ -801,25 +809,39 @@ impl AutomationView {
                 let child = ControlTargetWidget::<AutomationMessage>::new(
                     Badge::new(Text::new(point.name.to_string())).style(badge_style),
                     if self.is_dragging && id != self.source_id {
+                        // entering the bounds of a potential target.
                         Some(AutomationMessage::MouseIn(id))
                     } else {
                         None
                     },
                     if self.is_dragging && id == self.target_id {
+                        // leaving the bounds of a potential target
                         Some(AutomationMessage::MouseOut(id))
                     } else {
                         None
                     },
                     if !self.is_dragging {
+                        // starting a drag operation
                         Some(AutomationMessage::MouseDown(id))
                     } else {
                         None
                     },
-                    if self.is_dragging {
+                    if self.is_dragging && id != self.source_id {
+                        // ending the drag on a target
                         Some(AutomationMessage::MouseUp(id))
                     } else {
                         None
                     },
+                    if self.is_dragging && id == self.source_id {
+                        // ending the drag somewhere that's not the source... but it could be a target!
+                        // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
+                        Some(AutomationMessage::MouseUp(0))
+                    } else {
+                        None
+                    },
+                    // Other cases to handle
+                    // - leaving the window entirely
+                    // - keyboard stuff
                 );
                 column = column.push(child);
             }
@@ -852,19 +874,27 @@ impl AutomationView {
                 self.target_id = 0;
             }
             AutomationMessage::MouseUp(id) => {
-                if self.is_dragging {
-                    if id == self.source_id {
-                        eprintln!("Drag ended on source. Canceled.");
-                        self.is_dragging = false;
-                    } else {
-                        eprintln!("Stop dragging on {}", id);
-                        self.target_id = id;
-                        self.connect_points();
-                    }
+                println!("up {} {} {}", id, self.source_id, self.target_id);
+
+                // This is probably going to have a bug later. Currently, the
+                // only way we get a MouseUp message is if we're in a drag
+                // operation, so we can afford to get both the MouseUp(id) and
+                // MouseUp(0) messages (MouseUp(0) is a drag ended, and
+                // MouseUp(id) if a drag succeeded).
+                //
+                // TODO: figure out a way for the drag target to tell the drag
+                // source "I got this" and suppress the MouseUp(0) message. Or
+                // just deal with how it is now.
+                if id == 0 {
+                    eprintln!("Drag ended.");
                     self.is_dragging = false;
-                    self.source_id = 0;
-                    self.target_id = 0;
+                } else {
+                    eprintln!("Drag completed from {} to {}", self.source_id, id);
+                    self.target_id = id;
+                    self.connect_points();
                 }
+                self.source_id = 0;
+                self.target_id = 0;
             }
         }
     }
