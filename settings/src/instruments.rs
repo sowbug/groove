@@ -7,7 +7,7 @@ use groove_entities::instruments::{Drumkit, FmSynthesizer, Sampler};
 use groove_orchestration::Entity;
 use groove_toys::ToyInstrument;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::Path;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -53,7 +53,7 @@ impl InstrumentSettings {
     pub(crate) fn instantiate(
         &self,
         sample_rate: usize,
-        base_path: &PathBuf,
+        base_path: &Path,
         load_only_test_entities: bool,
     ) -> (MidiChannel, Entity) {
         if load_only_test_entities {
@@ -95,13 +95,13 @@ impl InstrumentSettings {
             InstrumentSettings::Drumkit {
                 midi_input_channel,
                 preset_name: _preset,
-            } => (
-                *midi_input_channel,
-                Entity::Drumkit(Box::new(Drumkit::new_from_files(
-                    sample_rate,
-                    PathBuf::from("samples/707"),
-                ))),
-            ),
+            } => {
+                let base_dir = base_path.join("samples/707");
+                (
+                    *midi_input_channel,
+                    Entity::Drumkit(Box::new(Drumkit::new_from_files(sample_rate, base_dir))),
+                )
+            }
             InstrumentSettings::Sampler {
                 midi_input_channel,
                 filename,
