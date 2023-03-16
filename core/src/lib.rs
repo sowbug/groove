@@ -2,7 +2,6 @@
 
 //! Fundamental structs and traits.
 
-use crate::util::Paths;
 use convert_case::{Case, Casing};
 use std::{
     iter::Sum,
@@ -411,20 +410,10 @@ impl Dca {
     }
 }
 
-pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
-    let mut path = Paths::out_path();
-    let snake_filename = format!("{}.wav", filename.to_case(Case::Snake)).to_string();
-    path.push(snake_filename);
-    if let Some(path) = path.to_str() {
-        path.to_string()
-    } else {
-        panic!("trouble creating output path")
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::tests::TestOnlyPaths;
 
     pub(crate) const DEFAULT_SAMPLE_RATE: usize = 44100;
 

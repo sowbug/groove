@@ -1,12 +1,12 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use std::path::PathBuf;
 use super::LoadError;
 use crate::generators::EnvelopeSettings;
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     generators::{Oscillator, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
-    util::Paths,
     voices::{StealingVoiceStore, VoiceStore},
     DcaParams, Normal, ParameterType,
 };
@@ -60,15 +60,15 @@ impl WelshPatchSettings {
         })
     }
 
-    pub fn by_name(name: &str) -> Self {
-        let mut filename = Paths::asset_path();
-        filename.push("patches");
-        filename.push("welsh");
-        filename.push(format!(
+    pub fn by_name(base_asset_path: &PathBuf, name: &str) -> Self {
+        let mut base_path = base_asset_path.clone();
+        base_path.push("patches");
+        base_path.push("welsh");
+        base_path.push(format!(
             "{}.yaml",
             Self::patch_name_to_settings_name(name.to_string().as_str())
         ));
-        if let Ok(contents) = std::fs::read_to_string(&filename) {
+        if let Ok(contents) = std::fs::read_to_string(&base_path) {
             match Self::new_from_yaml(&contents) {
                 Ok(patch) => patch,
                 Err(err) => {
@@ -78,7 +78,7 @@ impl WelshPatchSettings {
                 }
             }
         } else {
-            panic!("couldn't read patch file named {:?}", &filename);
+            panic!("couldn't read patch file named {:?}", &base_path);
         }
     }
 
@@ -694,7 +694,8 @@ impl WelshPatchSettings {
         if delegated {
             eprintln!("Delegated {program} to {preset}");
         }
-        Ok(WelshPatchSettings::by_name(preset))
+        //        Ok(WelshPatchSettings::by_name(preset))
+        Ok(WelshPatchSettings::by_name(&PathBuf::from("todo"), "todo"))
     }
 }
 
@@ -750,15 +751,28 @@ mod tests {
         WaveformType, WelshPatchSettings,
     };
     use crate::patches::OscillatorSettings;
+    use convert_case::{Case, Casing};
     use float_cmp::approx_eq;
     use groove_core::{
-        canonicalize_output_filename_and_path,
         time::Clock,
         traits::{Generates, PlaysNotes, Ticks},
         SampleType, StereoSample,
     };
     use groove_entities::instruments::WelshVoice;
     use groove_orchestration::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
+    use std::path::PathBuf;
+
+    // TODO dedup
+    pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
+        let mut path = PathBuf::from("target");
+        let snake_filename = format!("{}.wav", filename.to_case(Case::Snake)).to_string();
+        path.push(snake_filename);
+        if let Some(path) = path.to_str() {
+            path.to_string()
+        } else {
+            panic!("trouble creating output path")
+        }
+    }
 
     #[test]
     fn oscillator_tuning_helpers() {

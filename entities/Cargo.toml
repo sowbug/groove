@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.12"
 btreemultimap = "0.1.0"
+convert_case = "0.6.0"
 float-cmp = "0.9.0"
 groove-core = { path = "../core" }
 groove-macros = { path = "../macros" }

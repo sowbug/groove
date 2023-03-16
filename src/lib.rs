@@ -70,6 +70,8 @@ pub mod audio;
 /// working with this crate.
 pub mod subscriptions;
 pub use groove_orchestration::{Entity, Orchestrator};
+/// Contains path-building utilities.
+pub mod util;
 
 use groove_core::ParameterType;
 
@@ -98,21 +100,20 @@ pub fn app_version() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use groove_core::{util::Paths, StereoSample};
+    use crate::util::Paths;
+    use groove_core::StereoSample;
     use groove_orchestration::helpers::IOHelper;
     use groove_settings::SongSettings;
-    use std::{fs::File, io::prelude::*, time::Instant};
+    use std::{fs::File, io::prelude::*, path::PathBuf, time::Instant};
 
     #[test]
     fn yaml_loads_and_parses() {
-        let mut path = Paths::test_data_path();
-        path.push("kitchen-sink.yaml");
-        let yaml = std::fs::read_to_string(path)
+        let yaml = std::fs::read_to_string(PathBuf::from("test-data/kitchen-sink.yaml"))
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
         let song_settings = SongSettings::new_from_yaml(yaml.as_str())
             .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
         let mut orchestrator = song_settings
-            .instantiate(false)
+            .instantiate(&Paths::asset_path(), false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = orchestrator.run(&mut sample_buffer) {
@@ -134,14 +135,12 @@ mod tests {
 
     #[test]
     fn spit_out_perf_data() {
-        let mut path = Paths::test_data_path();
-        path.push("perf-1.yaml");
-        let yaml = std::fs::read_to_string(path)
+        let yaml = std::fs::read_to_string(PathBuf::from("test-data/perf-1.yaml"))
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
         let song_settings = SongSettings::new_from_yaml(yaml.as_str())
             .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
         let mut orchestrator = song_settings
-            .instantiate(false)
+            .instantiate(&Paths::asset_path(), false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
 
         let start_instant = Instant::now();
@@ -174,13 +173,12 @@ usec/frame : {:.2?} (goal <{:.2?})",
 
     #[test]
     fn test_patching_to_device_with_no_input_fails_with_proper_error() {
-        let mut path = Paths::test_data_path();
-        path.push("instruments-have-no-inputs.yaml");
-        let yaml = std::fs::read_to_string(path)
-            .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
+        let yaml =
+            std::fs::read_to_string(PathBuf::from("test-data/instruments-have-no-inputs.yaml"))
+                .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
         let song_settings = SongSettings::new_from_yaml(yaml.as_str())
             .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
-        let r = song_settings.instantiate(false);
+        let r = song_settings.instantiate(&Paths::asset_path(), false);
         assert_eq!(
             r.unwrap_err().to_string(),
             "Input device doesn't transform audio and can't be patched from output device"

@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use groove::util::Paths;
 use groove_orchestration::{helpers::IOHelper, Performance};
 use native_dialog::FileDialog;
 use serde::{Deserialize, Serialize};
@@ -43,27 +44,10 @@ impl Default for Preferences {
 }
 
 impl Preferences {
-    fn path_prefs() -> std::path::PathBuf {
-        let mut path = if let Some(project_dirs) =
-            directories_next::ProjectDirs::from("me", "ensnare", "Ensnare")
-        {
-            // Linux: /home/alice/.config/ensnare
-            // Win: C:\Users\Alice\AppData\Roaming\ensnare\Ensnare\config
-            // Mac: /Users/Alice/Library/Application Support/me.ensnare.Ensnare
-            project_dirs.config_dir().into()
-        } else {
-            std::env::current_dir().unwrap_or_default()
-        };
-
-        path.push("preferences.json");
-
-        path
-    }
-
     pub async fn load_prefs() -> anyhow::Result<Preferences, LoadError> {
         use async_std::prelude::*;
         let mut contents = String::new();
-        let mut file = async_std::fs::File::open(Self::path_prefs())
+        let mut file = async_std::fs::File::open(Paths::prefs())
             .await
             .map_err(|_| LoadError::File)?;
         file.read_to_string(&mut contents)
@@ -76,7 +60,7 @@ impl Preferences {
         use async_std::prelude::*;
 
         let json = serde_json::to_string_pretty(&self).map_err(|_| SaveError::Format)?;
-        let path = Self::path_prefs();
+        let path = Paths::prefs();
         if let Some(dir) = path.parent() {
             async_std::fs::create_dir_all(dir)
                 .await

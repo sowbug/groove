@@ -7,6 +7,7 @@ use clap::Parser;
 use groove::{
     app_version,
     audio::send_performance_to_output_device,
+    util::Paths,
     {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::StereoSample;
@@ -79,7 +80,7 @@ fn main() -> anyhow::Result<()> {
         {
             let start_instant = Instant::now();
             let r = SongSettings::new_from_yaml_file(input_filename.as_str())?
-                .instantiate(args.debug)?;
+                .instantiate(&Paths::asset_path(), args.debug)?;
             if args.perf {
                 println!(
                     "Orchestrator instantiation time: {:.2?}",

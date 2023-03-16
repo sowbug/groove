@@ -314,12 +314,11 @@ impl Sampler {
 mod tests {
     use super::*;
     use crate::tests::DEFAULT_SAMPLE_RATE;
-    use groove_core::util::Paths;
+    use std::path::PathBuf;
 
     #[test]
     fn test_loading() {
-        let mut filename = Paths::test_data_path();
-        filename.push("stereo-pluck.wav");
+        let filename = PathBuf::from("test-data/stereo-pluck.wav");
         let sampler =
             Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap(), None);
         assert_eq!(sampler.root_frequency(), 440.0);
@@ -327,14 +326,12 @@ mod tests {
 
     #[test]
     fn test_reading_acidized_metadata() {
-        let mut filename = Paths::test_data_path();
-        filename.push("riff-acidized.wav");
+        let  filename = PathBuf::from("test-data/riff-acidized.wav");
         let root_note = Sampler::read_riff_metadata(filename.to_str().unwrap());
         assert!(root_note.is_ok());
         assert_eq!(root_note.unwrap(), 57);
 
-        let mut filename = Paths::test_data_path();
-        filename.push("riff-not-acidized.wav");
+        let  filename = PathBuf::from("test-data/riff-not-acidized.wav");
         let root_note = Sampler::read_riff_metadata(filename.to_str().unwrap());
         assert!(root_note.is_err());
     }
@@ -342,8 +339,7 @@ mod tests {
     //    #[test]
     #[allow(dead_code)]
     fn test_reading_smpl_metadata() {
-        let mut filename = Paths::test_data_path();
-        filename.push("riff-with-smpl.wav");
+        let  filename = PathBuf::from("test-data/riff-with-smpl.wav");
         let root_note = Sampler::read_riff_metadata(filename.to_str().unwrap());
         assert!(root_note.is_ok());
         assert_eq!(root_note.unwrap(), 255);
@@ -351,8 +347,7 @@ mod tests {
 
     #[test]
     fn test_loading_with_root_frequency() {
-        let mut filename = Paths::test_data_path();
-        filename.push("riff-acidized.wav");
+        let  filename = PathBuf::from("test-data/riff-acidized.wav");
 
         let sampler =
             Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap(), None);
@@ -373,8 +368,7 @@ mod tests {
             "specified parameter should override acidized WAV's embedded root note"
         );
 
-        let mut filename = Paths::test_data_path();
-        filename.push("riff-not-acidized.wav");
+        let  filename = PathBuf::from("test-data/riff-not-acidized.wav");
 
         let sampler = Sampler::new_with_filename(
             DEFAULT_SAMPLE_RATE,

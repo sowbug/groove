@@ -8,12 +8,11 @@ use groove_core::{
         note_to_frequency, u7, GeneralMidiPercussionProgram, HandlesMidi, MidiChannel, MidiMessage,
     },
     traits::{Generates, IsInstrument, Resets, Ticks},
-    util::Paths,
     voices::VoicePerNoteStore,
     StereoSample,
 };
 use groove_macros::{Control, Uid};
-use std::{str::FromStr, sync::Arc};
+use std::{path::PathBuf, str::FromStr, sync::Arc};
 use strum_macros::{Display, EnumString, FromRepr};
 
 #[derive(Control, Debug, Uid)]
@@ -52,7 +51,7 @@ impl HandlesMidi for Drumkit {
 }
 
 impl Drumkit {
-    pub fn new_from_files(sample_rate: usize) -> Self {
+    pub fn new_from_files(sample_rate: usize, base_dir: PathBuf) -> Self {
         let samples = vec![
             (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
             (GeneralMidiPercussionProgram::ElectricBassDrum, "BD B"),
@@ -76,9 +75,6 @@ impl Drumkit {
             (GeneralMidiPercussionProgram::HighAgogo, "Tom Hi"),
             (GeneralMidiPercussionProgram::LowAgogo, "Tom Lo"),
         ];
-        let mut base_dir = Paths::asset_path();
-        base_dir.push("samples");
-        base_dir.push("707");
 
         Self::new_with(
             sample_rate,
@@ -128,13 +124,16 @@ impl Drumkit {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::tests::DEFAULT_SAMPLE_RATE;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use crate::tests::DEFAULT_SAMPLE_RATE;
 
-    #[test]
-    fn test_loading() {
-        let _ = Drumkit::new_from_files(DEFAULT_SAMPLE_RATE);
-    }
-}
+// // TODO: this is a bad test. It uses production data. When we have a more
+// flexible way to load drumkits, switch over to that.
+//
+//     // #[test]
+//     // fn test_loading() {
+//     //     let _ = Drumkit::new_from_files(DEFAULT_SAMPLE_RATE,         PathBuf::from("test-data/;
+//     // }
+// }

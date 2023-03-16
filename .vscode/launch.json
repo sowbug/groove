@@ -81,7 +81,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}demos/instruments/fm-synthesizer.yaml"
+        "projects${pathSeparator}demos${pathSeparator}controllers${pathSeparator}stereo-automation.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
@@ -203,7 +203,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}kitchen-sink.yaml"
+        "test-data${pathSeparator}kitchen-sink.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },

@@ -4,12 +4,11 @@
 //! [Subscription](iced_native::subscription::Subscription) interface between
 //! the [Groove](groove_core::Groove) engine and the app subscribing to it.
 
-use crate::{audio::AudioOutput, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
+use crate::{audio::AudioOutput, util::Paths, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{Clock, TimeSignature},
     traits::Resets,
-    util::Paths,
     Normal, ParameterType, StereoSample,
 };
 use groove_orchestration::{
@@ -418,7 +417,7 @@ impl EngineSubscription {
         let mut path = Paths::project_path();
         path.push(filename.clone());
         if let Ok(settings) = SongSettings::new_from_yaml_file(path.to_str().unwrap()) {
-            if let Ok(instance) = settings.instantiate(false) {
+            if let Ok(instance) = settings.instantiate(&Paths::asset_path(), false) {
                 let title = instance.title();
                 if let Ok(mut o) = self.orchestrator.lock() {
                     // I'm amazed this works whenever I see it, but I think it's

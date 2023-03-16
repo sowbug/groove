@@ -333,7 +333,21 @@ impl WelshSynth {
 mod tests {
     use super::*;
     use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
-    use groove_core::{canonicalize_output_filename_and_path, time::Clock, SampleType};
+    use convert_case::{Case, Casing};
+    use groove_core::{time::Clock, SampleType};
+    use std::path::PathBuf;
+
+    // TODO dedup
+    pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
+        let mut path = PathBuf::from("target");
+        let snake_filename = format!("{}.wav", filename.to_case(Case::Snake)).to_string();
+        path.push(snake_filename);
+        if let Some(path) = path.to_str() {
+            path.to_string()
+        } else {
+            panic!("trouble creating output path")
+        }
+    }
 
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]

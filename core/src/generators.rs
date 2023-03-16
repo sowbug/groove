@@ -840,7 +840,7 @@ pub mod tests {
         midi::{note_type_to_frequency, MidiNote},
         time::Clock,
         traits::{tests::DebugTicks, Generates, GeneratesEnvelope, Resets, Ticks},
-        util::Paths,
+        util::tests::TestOnlyPaths,
         Normal, ParameterType, Sample, SampleType,
     };
     use float_cmp::approx_eq;
@@ -1077,7 +1077,7 @@ pub mod tests {
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = Paths::test_data_path();
+            let mut filename = TestOnlyPaths::test_data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("square-{}.wav", test_case.1));
@@ -1106,7 +1106,7 @@ pub mod tests {
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = Paths::test_data_path();
+            let mut filename = TestOnlyPaths::test_data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("sine-{}.wav", test_case.1));
@@ -1135,7 +1135,7 @@ pub mod tests {
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = Paths::test_data_path();
+            let mut filename = TestOnlyPaths::test_data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("sawtooth-{}.wav", test_case.1));
@@ -1164,7 +1164,7 @@ pub mod tests {
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = Paths::test_data_path();
+            let mut filename = TestOnlyPaths::test_data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("triangle-{}.wav", test_case.1));
