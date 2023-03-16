@@ -103,12 +103,3 @@ assets = [
     ["assets/samples/**/*.wav", "usr/share/groove/samples/", "644"],
     ["projects/**/*.yaml", "usr/share/groove/projects/", "644"],
 ]
-
-# https://github.com/kornelski/cargo-deb/issues/74 just guessing at aarch64
-[target.armv7-unknown-linux-gnueabihf]
-objcopy = { path ="arm-none-eabi-objcopy" }
-strip = { path ="arm-none-eabi-strip" }
-
-[target.aarch64-unknown-linux-gnu]
-objcopy = { path ="aarch64-linux-gnu-objcopy" }
-strip = { path ="aarch64-linux-gnu-strip" }
