@@ -6,7 +6,7 @@ use groove_core::{
     generators::{Oscillator, Waveform},
     midi::HandlesMidi,
     traits::{Generates, IsController, Resets, Ticks, TicksWithMessages},
-    BipolarNormal, ParameterType,
+    ParameterType,
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
@@ -28,7 +28,7 @@ impl TicksWithMessages<EntityMessage> for LfoController {
         // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
         (
             Some(vec![EntityMessage::ControlF32(
-                BipolarNormal::from(self.oscillator.value()).value() as f32,
+                self.oscillator.value().value() as f32,
             )]),
             0,
         )

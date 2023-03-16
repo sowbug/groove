@@ -2,7 +2,6 @@
 
 //! Fundamental structs and traits.
 
-use convert_case::{Case, Casing};
 use std::{
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
@@ -413,7 +412,6 @@ impl Dca {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::tests::TestOnlyPaths;
 
     pub(crate) const DEFAULT_SAMPLE_RATE: usize = 44100;
 

@@ -734,11 +734,7 @@ impl Orchestrator {
 
     pub fn title(&self) -> Option<String> {
         // TODO: why is this so awful?
-        if let Some(title) = &self.title {
-            Some(title.clone())
-        } else {
-            None
-        }
+        self.title.as_ref().map(|title| title.clone())
     }
 }
 

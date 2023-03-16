@@ -833,8 +833,6 @@ impl SteppedEnvelope {
 
 #[cfg(test)]
 pub mod tests {
-    use std::path::PathBuf;
-
     use super::*;
     use crate::{
         midi::{note_type_to_frequency, MidiNote},
@@ -845,6 +843,7 @@ pub mod tests {
     };
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
+    use std::path::PathBuf;
 
     const DEFAULT_SAMPLE_RATE: usize = 44100;
     const DEFAULT_BPM: ParameterType = 128.0;

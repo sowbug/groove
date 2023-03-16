@@ -20,7 +20,7 @@ for filename in project_files:
     (base, ext) = splitext(basename(filename))
     output_filename = "%s.wav" % base
     output_filenames.append(output_filename)
-    output_filename = "out/" + output_filename
+    output_filename = "target/" + output_filename
     subprocess.run(["./target/release/groove-cli", "-q", "-y",
                    DIR + "/" + "%s" % filename, "-w", output_filename])
 

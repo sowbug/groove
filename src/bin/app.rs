@@ -246,7 +246,7 @@ impl Application for GrooveApp {
                     )
                 }
                 ControlBarMessage::ExportWav => {
-                    let _ = MessageDialog::new()
+                    MessageDialog::new()
                         .set_type(MessageType::Info)
                         .set_title("Export WAV")
                         .set_text("Hold on a moment while we render the project!")

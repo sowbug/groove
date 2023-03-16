@@ -89,7 +89,7 @@ impl InstrumentSettings {
                 *midi_input_channel,
                 Entity::WelshSynth(Box::new(
                     WelshPatchSettings::by_name(base_path, preset_name)
-                        .into_welsh_synth(sample_rate),
+                        .derive_welsh_synth(sample_rate),
                 )),
             ),
             InstrumentSettings::Drumkit {
@@ -130,7 +130,7 @@ impl InstrumentSettings {
                 *midi_input_channel,
                 Entity::FmSynthesizer(Box::new(FmSynthesizer::new_with_params(
                     sample_rate,
-                    voice.into_params(),
+                    voice.derive_params(),
                 ))),
             ),
         }

@@ -30,7 +30,7 @@ impl EnvelopeSettings {
     #[allow(dead_code)]
     pub const MAX: f64 = 10000.0; // TODO: what exactly does Welsh mean by "max"?
 
-    pub fn into_params(&self) -> EnvelopeParams {
+    pub fn derive_envelope_params(&self) -> EnvelopeParams {
         EnvelopeParams::new_with(
             self.attack,
             self.decay,
@@ -39,7 +39,7 @@ impl EnvelopeSettings {
         )
     }
 
-    pub fn into_envelope(&self, sample_rate: usize) -> Envelope {
-        Envelope::new_with(sample_rate, self.into_params())
+    pub fn derive_envelope(&self, sample_rate: usize) -> Envelope {
+        Envelope::new_with(sample_rate, self.derive_envelope_params())
     }
 }

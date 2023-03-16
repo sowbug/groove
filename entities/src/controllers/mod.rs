@@ -170,6 +170,11 @@ impl TransformsAudio for SignalPassthroughController {
         todo!();
     }
 }
+impl Default for SignalPassthroughController {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl SignalPassthroughController {
     pub fn new() -> Self {
         Self {

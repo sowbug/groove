@@ -270,7 +270,7 @@ impl SongSettings {
         for path_settings in &self.paths {
             ids_to_paths.insert(
                 path_settings.id.clone(),
-                (*path_settings).into_control_path(),
+                (*path_settings).derive_control_path(),
             );
         }
         for control_trip_settings in &self.trips {

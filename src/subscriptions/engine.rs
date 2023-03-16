@@ -429,7 +429,7 @@ impl EngineSubscription {
                 return Response::single(GrooveEvent::ProjectLoaded(filename, title));
             }
         }
-        return Response::none();
+        Response::none()
     }
 
     fn generate_audio(&mut self, buffer_count: u8) {

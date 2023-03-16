@@ -59,11 +59,10 @@ pub struct PatternSettings {
 }
 impl PatternSettings {
     pub fn into_pattern(&self) -> Pattern<Note> {
-        let note_value = if let Some(note_value) = &self.note_value {
-            Some(note_value.into_beat_value())
-        } else {
-            None
-        };
+        let note_value = self
+            .note_value
+            .as_ref()
+            .map(|note_value| note_value.into_beat_value());
         let mut r = Pattern::<Note> {
             note_value,
             notes: Vec::default(),

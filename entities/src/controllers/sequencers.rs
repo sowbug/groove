@@ -374,17 +374,16 @@ impl MidiSmfReader {
 
 #[cfg(test)]
 mod tests {
-    use super::{BeatEventsMap, MidiTickEventsMap, MidiTickSequencer, Sequencer};
+    use super::{MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         messages::EntityMessage,
         tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     };
     use groove_core::{
-        midi::{new_note_off, new_note_on, MidiChannel, MidiNote},
+        midi::MidiChannel,
         time::{Clock, MidiTicks},
         traits::{IsController, Ticks},
     };
-    use groove_toys::ToyInstrument;
 
     impl MidiTickSequencer {
         #[allow(dead_code)]

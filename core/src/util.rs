@@ -1,10 +1,14 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-#[cfg(test)]
-pub(crate) mod tests {
+pub mod tests {
     use std::{env::current_dir, fs, path::PathBuf};
 
-    pub struct TestOnlyPaths {}
+    /// Since this struct is in a crate that many other crates use, we can't
+    /// protect it with a #[cfg(test)]. But we do put it in the tests module, so
+    /// that it'll look strange if anyone tries using it in a non-test
+    /// configuration.
+    pub struct TestOnlyPaths;
+
     impl TestOnlyPaths {
         pub fn cwd() -> PathBuf {
             PathBuf::from(
@@ -23,11 +27,13 @@ pub(crate) mod tests {
             path_buf
         }
 
-        pub fn out_path() -> PathBuf {
+        /// Returns a [PathBuf] representing the target/ build directory, creating
+        /// it if necessary.
+        pub fn writable_out_path() -> PathBuf {
             const OUT_DATA: &str = "target";
             let mut path_buf = Self::cwd();
             path_buf.push(OUT_DATA);
-            if let Ok(_) = fs::create_dir_all(&path_buf) {
+            if fs::create_dir_all(&path_buf).is_ok() {
                 path_buf
             } else {
                 panic!(

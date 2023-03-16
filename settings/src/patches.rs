@@ -1,6 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use std::path::PathBuf;
 use super::LoadError;
 use crate::generators::EnvelopeSettings;
 use convert_case::{Boundary, Case, Casing};
@@ -15,6 +14,7 @@ use groove_entities::{
     instruments::{FmVoice, FmVoiceParams, LfoRouting, WelshSynth, WelshVoice},
 };
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -60,8 +60,8 @@ impl WelshPatchSettings {
         })
     }
 
-    pub fn by_name(base_asset_path: &PathBuf, name: &str) -> Self {
-        let mut base_path = base_asset_path.clone();
+    pub fn by_name(base_asset_path: &Path, name: &str) -> Self {
+        let mut base_path = base_asset_path.to_path_buf();
         base_path.push("patches");
         base_path.push("welsh");
         base_path.push(format!(
@@ -82,14 +82,14 @@ impl WelshPatchSettings {
         }
     }
 
-    pub fn into_welsh_voice(&self, sample_rate: usize) -> WelshVoice {
+    pub fn derive_welsh_voice(&self, sample_rate: usize) -> WelshVoice {
         let mut oscillators = Vec::default();
         let mut oscillator_2_sync = false;
         if !matches!(self.oscillator_1.waveform, WaveformType::None) {
-            oscillators.push(self.oscillator_1.into_with(sample_rate));
+            oscillators.push(self.oscillator_1.derive_oscillator(sample_rate));
         }
         if !matches!(self.oscillator_2.waveform, WaveformType::None) {
-            let mut o = self.oscillator_2.into_with(sample_rate);
+            let mut o = self.oscillator_2.derive_oscillator(sample_rate);
             if !self.oscillator_2_track {
                 if let OscillatorTune::Note(note) = self.oscillator_2.tune {
                     o.set_fixed_frequency(note_to_frequency(note));
@@ -115,8 +115,8 @@ impl WelshPatchSettings {
             Normal::from(self.oscillator_1.mix / total)
         };
 
-        let amp_envelope = self.amp_envelope.into_envelope(sample_rate);
-        let lfo = self.lfo.into_with(sample_rate);
+        let amp_envelope = self.amp_envelope.derive_envelope(sample_rate);
+        let lfo = self.lfo.derive_oscillator(sample_rate);
         let lfo_routing = self.lfo.routing.into();
         let lfo_depth = self.lfo.depth.into();
         let filter = BiQuadFilter::new_with(
@@ -129,7 +129,7 @@ impl WelshPatchSettings {
         let filter_cutoff_start =
             BiQuadFilter::frequency_to_percent(self.filter_type_12db.cutoff_hz);
         let filter_cutoff_end = self.filter_envelope_weight;
-        let filter_envelope = self.filter_envelope.into_envelope(sample_rate);
+        let filter_envelope = self.filter_envelope.derive_envelope(sample_rate);
 
         WelshVoice::new_with(
             oscillators,
@@ -146,13 +146,13 @@ impl WelshPatchSettings {
         )
     }
 
-    pub fn into_welsh_synth(&self, sample_rate: usize) -> WelshSynth {
+    pub fn derive_welsh_synth(&self, sample_rate: usize) -> WelshSynth {
         WelshSynth::new_with(
             sample_rate,
             Box::new(StealingVoiceStore::<WelshVoice>::new_with_voice(
                 sample_rate,
                 8,
-                || self.into_welsh_voice(sample_rate),
+                || self.derive_welsh_voice(sample_rate),
             )),
         )
     }
@@ -264,7 +264,7 @@ impl OscillatorSettings {
         2.0f64.powf((semitones as f64 * 100.0 + cents) / 1200.0)
     }
 
-    pub fn into_with(&self, sample_rate: usize) -> Oscillator {
+    pub fn derive_oscillator(&self, sample_rate: usize) -> Oscillator {
         let mut r = Oscillator::new_with_waveform(sample_rate, self.waveform.into());
         r.set_frequency_tune(self.tune.into());
         r
@@ -327,7 +327,7 @@ pub struct LfoPreset {
     pub depth: LfoDepth,
 }
 impl LfoPreset {
-    pub fn into_with(&self, sample_rate: usize) -> Oscillator {
+    pub fn derive_oscillator(&self, sample_rate: usize) -> Oscillator {
         Oscillator::new_with_waveform_and_frequency(
             sample_rate,
             self.waveform.into(),
@@ -711,23 +711,23 @@ pub struct FmSynthesizerSettings {
 }
 
 impl FmSynthesizerSettings {
-    pub fn into_voice_store(&self, sample_rate: usize) -> VoiceStore<FmVoice> {
-        VoiceStore::<FmVoice>::new_with_voice(sample_rate, 8, || self.into_voice(sample_rate))
+    pub fn derive_voice_store(&self, sample_rate: usize) -> VoiceStore<FmVoice> {
+        VoiceStore::<FmVoice>::new_with_voice(sample_rate, 8, || self.derive_voice(sample_rate))
     }
 
-    pub fn into_params(&self) -> FmVoiceParams {
+    pub fn derive_params(&self) -> FmVoiceParams {
         FmVoiceParams {
             depth: Normal::from(self.depth),
             ratio: self.ratio,
             beta: self.beta,
-            carrier_envelope: self.carrier_envelope.into_params(),
-            modulator_envelope: self.modulator_envelope.into_params(),
+            carrier_envelope: self.carrier_envelope.derive_envelope_params(),
+            modulator_envelope: self.modulator_envelope.derive_envelope_params(),
             dca: DcaParams::default(),
         }
     }
 
-    pub fn into_voice(&self, sample_rate: usize) -> FmVoice {
-        FmVoice::new_with_params(sample_rate, &self.into_params())
+    pub fn derive_voice(&self, sample_rate: usize) -> FmVoice {
+        FmVoice::new_with_params(sample_rate, &self.derive_params())
     }
 
     #[allow(dead_code)]
@@ -756,17 +756,16 @@ mod tests {
     use groove_core::{
         time::Clock,
         traits::{Generates, PlaysNotes, Ticks},
+        util::tests::TestOnlyPaths,
         SampleType, StereoSample,
     };
     use groove_entities::instruments::WelshVoice;
     use groove_orchestration::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
-    use std::path::PathBuf;
 
     // TODO dedup
     pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
-        let mut path = PathBuf::from("target");
-        let snake_filename = format!("{}.wav", filename.to_case(Case::Snake)).to_string();
-        path.push(snake_filename);
+        let mut path = TestOnlyPaths::test_data_path();
+        path.push(format!("{}.wav", filename.to_case(Case::Snake)).to_string());
         if let Some(path) = path.to_str() {
             path.to_string()
         } else {
@@ -941,7 +940,7 @@ mod tests {
 
     #[test]
     fn welsh_makes_any_sound_at_all() {
-        let mut voice = test_patch().into_welsh_voice(DEFAULT_SAMPLE_RATE);
+        let mut voice = test_patch().derive_welsh_voice(DEFAULT_SAMPLE_RATE);
         voice.note_on(60, 127);
 
         // Skip a few frames in case attack is slow
@@ -959,7 +958,7 @@ mod tests {
             DEFAULT_BPM,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         );
-        let mut voice = test_patch().into_welsh_voice(clock.sample_rate());
+        let mut voice = test_patch().derive_welsh_voice(clock.sample_rate());
         voice.note_on(60, 127);
         voice.tick(1);
         write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
@@ -972,7 +971,7 @@ mod tests {
             DEFAULT_BPM,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         );
-        let mut voice = cello_patch().into_welsh_voice(clock.sample_rate());
+        let mut voice = cello_patch().derive_welsh_voice(clock.sample_rate());
         voice.note_on(60, 127);
         voice.tick(1);
         write_sound(&mut voice, &mut clock, 5.0, 3.0, "voice_cello_c4");

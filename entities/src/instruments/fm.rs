@@ -133,7 +133,7 @@ impl Ticks for FmVoice {
         self.sample = if self.is_playing() {
             self.dca.transform_audio_to_stereo(Sample::from(r))
         } else {
-            StereoSample::from(StereoSample::SILENCE)
+            StereoSample::SILENCE
         };
     }
 }

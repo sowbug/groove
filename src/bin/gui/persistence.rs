@@ -105,29 +105,25 @@ impl Preferences {
     }
 
     pub(crate) async fn export_to_wav(performance: Performance) -> Result<(), SaveError> {
-        if let Ok(path) = FileDialog::new()
+        if let Ok(Some(path)) = FileDialog::new()
             .set_filename("output.wav")
             .show_save_single_file()
         {
-            if let Some(path) = path {
-                if let Ok(_) = IOHelper::send_performance_to_file(&performance, &path) {
-                    return Ok(());
-                }
+            if IOHelper::send_performance_to_file(&performance, &path).is_ok() {
+                return Ok(());
             }
         }
         Err(SaveError::Write)
     }
 
     pub(crate) async fn export_to_mp3(performance: Performance) -> Result<(), SaveError> {
-        if let Ok(path) = FileDialog::new()
+        if let Ok(Some(path)) = FileDialog::new()
             .set_filename("output.mp3")
             .show_save_single_file()
         {
-            if let Some(path) = path {
-                // TODO: have to find a properly licensed MP3 encoding library
-                if let Ok(_) = IOHelper::send_performance_to_file(&performance, &path) {
-                    return Ok(());
-                }
+            // TODO: have to find a properly licensed MP3 encoding library
+            if IOHelper::send_performance_to_file(&performance, &path).is_ok() {
+                return Ok(());
             }
         }
         Err(SaveError::Write)

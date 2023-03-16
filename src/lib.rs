@@ -101,7 +101,7 @@ pub fn app_version() -> &'static str {
 #[cfg(test)]
 mod tests {
     use crate::util::Paths;
-    use groove_core::StereoSample;
+    use groove_core::{util::tests::TestOnlyPaths, StereoSample};
     use groove_orchestration::helpers::IOHelper;
     use groove_settings::SongSettings;
     use std::{fs::File, io::prelude::*, path::PathBuf, time::Instant};
@@ -166,7 +166,7 @@ usec/frame : {:.2?} (goal <{:.2?})",
         );
         let _ = file.write(output.as_bytes());
 
-        let mut path = Paths::out_path();
+        let mut path = TestOnlyPaths::test_data_path();
         path.push("perf-1.wav");
         assert!(IOHelper::send_performance_to_file(&performance, &path).is_ok());
     }

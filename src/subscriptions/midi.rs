@@ -143,11 +143,7 @@ impl MidiSubscription {
     fn do_loop(&mut self) {
         loop {
             if let Ok(input) = self.receiver.recv() {
-                let time_to_quit = if let MidiHandlerInput::QuitRequested = input {
-                    true
-                } else {
-                    false
-                };
+                let time_to_quit = matches!(input, MidiHandlerInput::QuitRequested);
                 self.midi_handler.update(input);
                 if time_to_quit {
                     break;
@@ -287,13 +283,9 @@ impl MidiInputHandler {
                 selected_port,
                 "Groove input",
                 move |_, event, _| {
-                    if let Ok(event) = LiveEvent::parse(event) {
-                        if let LiveEvent::Midi { channel, message } = event {
-                            let _ = sender_clone.try_send(MidiHandlerEvent::Midi(
-                                MidiChannel::from(channel),
-                                message,
-                            ));
-                        }
+                    if let Ok(LiveEvent::Midi { channel, message }) = LiveEvent::parse(event) {
+                        let _ = sender_clone
+                            .try_send(MidiHandlerEvent::Midi(MidiChannel::from(channel), message));
                     }
                 },
                 (),
@@ -524,7 +516,7 @@ impl MidiHandler {
 
     fn select_input(&mut self, which: MidiPortDescriptor) {
         if let Some(input) = self.midi_input.as_mut() {
-            if let Ok(_) = input.select_port(which.index) {
+            if input.select_port(which.index).is_ok() {
                 let _ = self.sender.try_send(MidiHandlerEvent::InputPortSelected(
                     input.active_port.clone(),
                 ));
@@ -534,7 +526,7 @@ impl MidiHandler {
 
     fn select_output(&mut self, which: MidiPortDescriptor) {
         if let Some(output) = self.midi_output.as_mut() {
-            if let Ok(_) = output.select_port(which.index) {
+            if output.select_port(which.index).is_ok() {
                 let _ = self.sender.try_send(MidiHandlerEvent::OutputPortSelected(
                     output.active_port.clone(),
                 ));

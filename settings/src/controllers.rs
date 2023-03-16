@@ -39,7 +39,7 @@ pub enum ControlStepSettings {
     },
 }
 impl ControlStepSettings {
-    pub fn into_control_step(&self) -> ControlStep {
+    pub fn derive_control_step(&self) -> ControlStep {
         match self {
             ControlStepSettings::Flat { value } => ControlStep::Flat { value: *value },
             ControlStepSettings::Slope { start, end } => ControlStep::Slope {
@@ -67,18 +67,17 @@ pub struct ControlPathSettings {
     pub steps: Vec<ControlStepSettings>,
 }
 impl ControlPathSettings {
-    pub fn into_control_path(&self) -> ControlPath {
-        let note_value = if let Some(note_value) = &self.note_value {
-            Some(note_value.into_beat_value())
-        } else {
-            None
-        };
+    pub fn derive_control_path(&self) -> ControlPath {
+        let note_value = self
+            .note_value
+            .as_ref()
+            .map(|note_value| note_value.into_beat_value());
         let mut r = ControlPath {
             note_value,
             steps: Default::default(),
         };
         for step in self.steps.iter() {
-            r.steps.push(step.into_control_step());
+            r.steps.push(step.derive_control_step());
         }
         r
     }

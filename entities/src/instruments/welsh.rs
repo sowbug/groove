@@ -130,7 +130,7 @@ impl Ticks for WelshVoice {
                 if matches!(self.lfo_routing, LfoRouting::Pitch) {
                     let lfo_for_pitch = lfo * self.lfo_depth;
                     for o in self.oscillators.iter_mut() {
-                        o.set_frequency_modulation(BipolarNormal::from(lfo_for_pitch));
+                        o.set_frequency_modulation(lfo_for_pitch);
                     }
                 }
 
@@ -334,12 +334,11 @@ mod tests {
     use super::*;
     use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
     use convert_case::{Case, Casing};
-    use groove_core::{time::Clock, SampleType};
-    use std::path::PathBuf;
+    use groove_core::{time::Clock, util::tests::TestOnlyPaths, SampleType};
 
     // TODO dedup
     pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
-        let mut path = PathBuf::from("target");
+        let mut path = TestOnlyPaths::test_data_path();
         let snake_filename = format!("{}.wav", filename.to_case(Case::Snake)).to_string();
         path.push(snake_filename);
         if let Some(path) = path.to_str() {

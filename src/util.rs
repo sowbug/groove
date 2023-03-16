@@ -1,7 +1,6 @@
 use app_dirs2::{AppDataType, AppInfo};
 use std::{
     env::{current_dir, current_exe},
-    fs,
     path::PathBuf,
 };
 
