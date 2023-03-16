@@ -274,10 +274,7 @@ impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
         }
     }
 
-    pub fn new_with_voices(
-        sample_rate: usize,
-        voice_iter: impl Iterator<Item = (u7, V)>,
-    ) -> Self {
+    pub fn new_with_voices(sample_rate: usize, voice_iter: impl Iterator<Item = (u7, V)>) -> Self {
         let mut voice_store = Self::new_with(sample_rate);
         for (key, voice) in voice_iter {
             voice_store.add_voice(key, Box::new(voice));
