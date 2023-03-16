@@ -29,7 +29,11 @@ use iced::{
     Alignment, Element, Length, Renderer, Theme,
 };
 use iced_audio::{FloatRange, HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
-use iced_aw::{native::Badge, style::BadgeStyles, Card};
+use iced_aw::{
+    native::Badge,
+    style::{BadgeStyles, CardStyles},
+    Card,
+};
 use iced_native::{mouse, widget::Tree, Event, Widget};
 use rustc_hash::FxHashMap;
 use std::any::type_name;
@@ -670,8 +674,11 @@ where
         _clipboard: &mut dyn iced_native::Clipboard,
         shell: &mut iced_native::Shell<'_, Message>,
     ) -> iced::event::Status {
-        let content_bounds = layout.children().next().unwrap().bounds();
-        let in_bounds = content_bounds.contains(cursor_position);
+        let in_bounds = if let Some(children) = layout.children().next() {
+            children.bounds().contains(cursor_position)
+        } else {
+            layout.bounds().contains(cursor_position)
+        };
 
         match event {
             Event::Mouse(event) => match event {
@@ -795,66 +802,127 @@ impl AutomationView {
             FakeInstrument::new("Capacitor", vec!["foo", "bar", "baz"]),
         ];
 
-        let columns = components.into_iter().fold(Vec::default(), |mut v, c| {
-            let mut column = Column::new();
-            for (id, point) in c.controllables.iter().enumerate() {
-                let id = id + 1; // So 0 can represent no item
-                let badge_style = if self.is_dragging && id == self.source_id {
-                    BadgeStyles::Primary
-                } else if id == self.target_id {
-                    BadgeStyles::Secondary
-                } else {
-                    BadgeStyles::Default
-                };
-                let child = ControlTargetWidget::<AutomationMessage>::new(
-                    Badge::new(Text::new(point.name.to_string())).style(badge_style),
-                    if self.is_dragging && id != self.source_id {
-                        // entering the bounds of a potential target.
-                        Some(AutomationMessage::MouseIn(id))
+        let columns =
+            components
+                .into_iter()
+                .enumerate()
+                .fold(Vec::default(), |mut v, (index, c)| {
+                    let component_id = (index + 1) * 1000;
+                    let mut column = Column::new();
+                    for (id, point) in c.controllables.iter().enumerate() {
+                        let id = component_id + id + 1; // +1 is so 0 can represent no item
+                        let badge_style = if self.is_dragging {
+                            if id == self.source_id {
+                                BadgeStyles::Primary
+                            } else if id == self.target_id {
+                                BadgeStyles::Secondary
+                            } else {
+                                BadgeStyles::Default
+                            }
+                        } else {
+                            BadgeStyles::Default
+                        };
+                        let child = ControlTargetWidget::<AutomationMessage>::new(
+                            Badge::new(Text::new(point.name.to_string())).style(badge_style),
+                            if self.is_dragging && id != self.source_id {
+                                // entering the bounds of a potential target.
+                                Some(AutomationMessage::MouseIn(id))
+                            } else {
+                                None
+                            },
+                            if self.is_dragging && id == self.target_id {
+                                // leaving the bounds of a potential target
+                                Some(AutomationMessage::MouseOut(id))
+                            } else {
+                                None
+                            },
+                            if !self.is_dragging {
+                                // starting a drag operation
+                                Some(AutomationMessage::MouseDown(id))
+                            } else {
+                                None
+                            },
+                            if self.is_dragging && id != self.source_id {
+                                // ending the drag on a target
+                                Some(AutomationMessage::MouseUp(id))
+                            } else {
+                                None
+                            },
+                            if self.is_dragging && id == self.source_id {
+                                // ending the drag somewhere that's not the source... but it could be a target!
+                                // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
+                                Some(AutomationMessage::MouseUp(0))
+                            } else {
+                                None
+                            },
+                            // Other cases to handle
+                            // - leaving the window entirely
+                            // - keyboard stuff
+                        );
+                        column = column.push(child);
+                    }
+                    let card_style = if self.is_dragging {
+                        if component_id == self.source_id {
+                            CardStyles::Primary
+                        } else if component_id == self.target_id {
+                            CardStyles::Secondary
+                        } else {
+                            CardStyles::Default
+                        }
                     } else {
-                        None
-                    },
-                    if self.is_dragging && id == self.target_id {
-                        // leaving the bounds of a potential target
-                        Some(AutomationMessage::MouseOut(id))
-                    } else {
-                        None
-                    },
-                    if !self.is_dragging {
-                        // starting a drag operation
-                        Some(AutomationMessage::MouseDown(id))
-                    } else {
-                        None
-                    },
-                    if self.is_dragging && id != self.source_id {
-                        // ending the drag on a target
-                        Some(AutomationMessage::MouseUp(id))
-                    } else {
-                        None
-                    },
-                    if self.is_dragging && id == self.source_id {
-                        // ending the drag somewhere that's not the source... but it could be a target!
-                        // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
-                        Some(AutomationMessage::MouseUp(0))
-                    } else {
-                        None
-                    },
-                    // Other cases to handle
-                    // - leaving the window entirely
-                    // - keyboard stuff
-                );
-                column = column.push(child);
-            }
-            let card = Card::new(Text::new(c.name.to_string()), column);
-            v.push(card);
-            v
-        });
+                        CardStyles::Default
+                    };
+                    let card = Card::new(
+                        ControlTargetWidget::<AutomationMessage>::new(
+                            Text::new(c.name.to_string()),
+                            if self.is_dragging && component_id != self.source_id {
+                                // entering the bounds of a potential target.
+                                Some(AutomationMessage::MouseIn(component_id))
+                            } else {
+                                None
+                            },
+                            if self.is_dragging && component_id == self.target_id {
+                                // leaving the bounds of a potential target
+                                Some(AutomationMessage::MouseOut(component_id))
+                            } else {
+                                None
+                            },
+                            if !self.is_dragging {
+                                // starting a drag operation
+                                Some(AutomationMessage::MouseDown(component_id))
+                            } else {
+                                None
+                            },
+                            if self.is_dragging && component_id != self.source_id {
+                                // ending the drag on a target
+                                Some(AutomationMessage::MouseUp(component_id))
+                            } else {
+                                None
+                            },
+                            if self.is_dragging && component_id == self.source_id {
+                                // ending the drag somewhere that's not the source... but it could be a target!
+                                // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
+                                Some(AutomationMessage::MouseUp(0))
+                            } else {
+                                None
+                            },
+                        ),
+                        column,
+                    )
+                    .style(card_style);
+                    v.push(card);
+                    v
+                });
 
         let row = columns.into_iter().fold(Row::new(), |mut row, item| {
             row = row.push(item);
             row
         });
-        container(row).into()
+        let debug_drag_status = format!(
+            "Dragging: {} from {} to {}",
+            self.is_dragging, self.source_id, self.target_id
+        );
+        container(column![text(&debug_drag_status), row]).into()
     }
 
     pub(crate) fn update(&mut self, message: AutomationMessage) {
@@ -863,6 +931,7 @@ impl AutomationView {
             AutomationMessage::MouseDown(id) => {
                 self.is_dragging = true;
                 self.source_id = id;
+                self.target_id = 0;
                 eprintln!("Start dragging on {}", id);
             }
             AutomationMessage::MouseIn(id) => {
@@ -889,12 +958,13 @@ impl AutomationView {
                     eprintln!("Drag ended.");
                     self.is_dragging = false;
                 } else {
-                    eprintln!("Drag completed from {} to {}", self.source_id, id);
                     self.target_id = id;
+                    eprintln!(
+                        "Drag completed from {} to {}",
+                        self.source_id, self.target_id
+                    );
                     self.connect_points();
                 }
-                self.source_id = 0;
-                self.target_id = 0;
             }
         }
     }
