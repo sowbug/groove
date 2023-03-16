@@ -63,8 +63,8 @@ jobs:
         with:
           name: groove-${{ matrix.target }}
           path: |
-            target/release/groove-cli*
-            target/release/groove-gui*
+            target/${{ matrix.target }}/release/groove-cli*
+            target/${{ matrix.target }}/release/groove-gui*
             perf-output.txt
       - name: Upload binaries
         uses: taiki-e/upload-rust-binary-action@v1
