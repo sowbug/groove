@@ -789,28 +789,40 @@ pub enum AutomationMessage {
     MouseUp(usize),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct AutomationView {
     is_dragging: bool,
     source_id: usize,
     target_id: usize,
+
+    components: Vec<FakeInstrument>,
+    connections: Vec<(usize, usize)>,
 }
 impl AutomationView {
+    pub(crate) fn new() -> Self {
+        let mut r = Self {
+            is_dragging: false,
+            source_id: 0,
+            target_id: 0,
+            components: vec![
+                FakeInstrument::new("Flux", vec!["foo", "bar", "baz"]),
+                FakeInstrument::new("Capacitor", vec!["foo", "bar", "baz"]),
+            ],
+            connections: Default::default(),
+        };
+        r.assign_uids();
+        r
+    }
     pub(crate) fn view(&self) -> Element<AutomationMessage> {
-        let components = vec![
-            FakeInstrument::new("Flux", vec!["foo", "bar", "baz"]),
-            FakeInstrument::new("Capacitor", vec!["foo", "bar", "baz"]),
-        ];
-
         let columns =
-            components
-                .into_iter()
+            self.components
+                .iter()
                 .enumerate()
                 .fold(Vec::default(), |mut v, (index, c)| {
-                    let component_id = (index + 1) * 1000;
                     let mut column = Column::new();
-                    for (id, point) in c.controllables.iter().enumerate() {
-                        let id = component_id + id + 1; // +1 is so 0 can represent no item
+                    let component_id = c.uid;
+                    for point in c.controllables.iter() {
+                        let id = point.uid;
                         let badge_style = if self.is_dragging {
                             if id == self.source_id {
                                 BadgeStyles::Primary
@@ -970,28 +982,52 @@ impl AutomationView {
     }
 
     fn connect_points(&mut self) {
+        self.connections.push((self.source_id, self.target_id));
         eprintln!("we just connected {} to {}", self.source_id, self.target_id);
+        eprintln!("now our connections are {:?}", self.connections);
+    }
+
+    fn assign_uids(&mut self) {
+        let mut uid = 1;
+        for instrument in self.components.iter_mut() {
+            instrument.set_uid(uid);
+            uid += 1;
+            for point in instrument.controllables.iter_mut() {
+                point.set_uid(uid);
+                uid += 1;
+            }
+        }
     }
 }
 
+#[derive(Debug)]
 struct FakeControlPoint {
+    pub uid: usize,
     pub name: String,
 }
 impl FakeControlPoint {
     pub fn new(name: &str) -> Self {
         Self {
+            uid: Default::default(),
             name: name.to_string(),
         }
     }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
 }
 
+#[derive(Debug)]
 struct FakeInstrument {
+    pub uid: usize,
     pub name: String,
     pub controllables: Vec<FakeControlPoint>,
 }
 impl FakeInstrument {
     pub fn new(name: &str, control_points: Vec<&str>) -> Self {
         let mut r = Self {
+            uid: Default::default(),
             name: name.to_string(),
             controllables: Vec::default(),
         };
@@ -1000,5 +1036,9 @@ impl FakeInstrument {
             v
         });
         r
+    }
+
+    fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
     }
 }

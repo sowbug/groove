@@ -116,7 +116,7 @@ impl Default for GrooveApp {
                 ),
                 TimeSignature::default(),
             ),
-            automation_view: Default::default(),
+            automation_view: AutomationView::new(),
             project_title: None,
             orchestrator_sender: Default::default(),
             orchestrator: orchestrator.clone(),
