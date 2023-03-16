@@ -90,12 +90,16 @@ xargo = false
 
 [package.metadata.deb]
 assets = [
+    # "You can use target/release/ in asset paths, even if Cargo is configured
+    # to cross-compile or use custom CARGO_TARGET_DIR. The target dir paths will
+    # be automatically corrected." https://github.com/kornelski/cargo-deb
+    ["target/release/groove-cli", "usr/bin/", "755"],
+    ["target/release/groove-gui", "usr/bin/", "755"],
+
     ["LICENSE.txt", "usr/share/doc/groove/LICENSE.txt", "644"],
     ["README.md", "usr/share/doc/groove/README.md", "644"],
     ["assets/os/Groove.desktop", "usr/share/applications/", "644"],
     ["assets/patches/**/*.yaml", "usr/share/groove/patches/", "644"],
     ["assets/samples/**/*.wav", "usr/share/groove/samples/", "644"],
     ["projects/**/*.yaml", "usr/share/groove/projects/", "644"],
-    ["target/**/groove-cli", "usr/bin/", "755"],
-    ["target/**/groove-gui", "usr/bin/", "755"],
 ]
