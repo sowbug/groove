@@ -98,8 +98,7 @@ impl InstrumentSettings {
             } => {
                 // TODO: we're hardcoding samples/. Figure out a way to use the
                 // system.
-                let mut base_dir = asset_path.join("samples");
-                base_dir.push("707");
+                let base_dir = asset_path.join("samples/elphnt.io/707");
                 (
                     *midi_input_channel,
                     Entity::Drumkit(Box::new(Drumkit::new_from_files(sample_rate, base_dir))),

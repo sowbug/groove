@@ -53,27 +53,27 @@ impl HandlesMidi for Drumkit {
 impl Drumkit {
     pub fn new_from_files(sample_rate: usize, base_dir: PathBuf) -> Self {
         let samples = vec![
-            (GeneralMidiPercussionProgram::AcousticBassDrum, "BD A"),
-            (GeneralMidiPercussionProgram::ElectricBassDrum, "BD B"),
-            (GeneralMidiPercussionProgram::ClosedHiHat, "CH"),
-            (GeneralMidiPercussionProgram::PedalHiHat, "CH"),
-            (GeneralMidiPercussionProgram::HandClap, "Clap"),
-            (GeneralMidiPercussionProgram::RideBell, "Cowbell"),
-            (GeneralMidiPercussionProgram::CrashCymbal1, "Crash"),
-            (GeneralMidiPercussionProgram::CrashCymbal2, "Crash"),
-            (GeneralMidiPercussionProgram::OpenHiHat, "OH"),
-            (GeneralMidiPercussionProgram::RideCymbal1, "Ride"),
-            (GeneralMidiPercussionProgram::RideCymbal2, "Ride"),
-            (GeneralMidiPercussionProgram::SideStick, "Rimshot"),
-            (GeneralMidiPercussionProgram::AcousticSnare, "SD A"),
-            (GeneralMidiPercussionProgram::ElectricSnare, "SD B"),
-            (GeneralMidiPercussionProgram::Tambourine, "Tambourine"),
-            (GeneralMidiPercussionProgram::LowTom, "Tom Lo"),
-            (GeneralMidiPercussionProgram::LowMidTom, "Tom Lo"),
-            (GeneralMidiPercussionProgram::HiMidTom, "Tom Mid"),
-            (GeneralMidiPercussionProgram::HighTom, "Tom Hi"),
-            (GeneralMidiPercussionProgram::HighAgogo, "Tom Hi"),
-            (GeneralMidiPercussionProgram::LowAgogo, "Tom Lo"),
+            (GeneralMidiPercussionProgram::AcousticBassDrum, "Kick 1 R1"),
+            (GeneralMidiPercussionProgram::ElectricBassDrum, "Kick 2 R1"),
+            (GeneralMidiPercussionProgram::ClosedHiHat, "Hat Closed R1"),
+            (GeneralMidiPercussionProgram::PedalHiHat, "Hat Closed R2"),
+            (GeneralMidiPercussionProgram::HandClap, "Clap R1"),
+            (GeneralMidiPercussionProgram::RideBell, "Cowbell R1"),
+            (GeneralMidiPercussionProgram::CrashCymbal1, "Crash R1"),
+            (GeneralMidiPercussionProgram::CrashCymbal2, "Crash R2"),
+            (GeneralMidiPercussionProgram::OpenHiHat, "Hat Open R1"),
+            (GeneralMidiPercussionProgram::RideCymbal1, "Ride R1"),
+            (GeneralMidiPercussionProgram::RideCymbal2, "Ride R2"),
+            (GeneralMidiPercussionProgram::SideStick, "Rim R1"),
+            (GeneralMidiPercussionProgram::AcousticSnare, "Snare 1 R1"),
+            (GeneralMidiPercussionProgram::ElectricSnare, "Snare 2 R1"),
+            (GeneralMidiPercussionProgram::Tambourine, "Tambourine R1"),
+            (GeneralMidiPercussionProgram::LowTom, "Tom 1 R1"),
+            (GeneralMidiPercussionProgram::LowMidTom, "Tom 1 R2"),
+            (GeneralMidiPercussionProgram::HiMidTom, "Tom 2 R1"),
+            (GeneralMidiPercussionProgram::HighTom, "Tom 3 R1"),
+            (GeneralMidiPercussionProgram::HighAgogo, "Cowbell R3"),
+            (GeneralMidiPercussionProgram::LowAgogo, "Cowbell R4"),
         ];
 
         Self::new_with(
@@ -82,7 +82,7 @@ impl Drumkit {
                 sample_rate,
                 samples.into_iter().flat_map(|(program, asset_name)| {
                     let mut path = base_dir.clone();
-                    path.push(format!("{asset_name} 707.wav").as_str());
+                    path.push(format!("{asset_name}.wav").as_str());
 
                     if let Some(filename) = path.to_str() {
                         if let Ok(samples) = Sampler::read_samples_from_file(filename) {
