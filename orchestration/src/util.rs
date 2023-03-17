@@ -110,7 +110,7 @@ pub mod tests {
         ))));
         let lfo = LfoController::new_with(clock.sample_rate(), Waveform::Sine, 2.0);
         let lfo_uid = o.add(Entity::LfoController(Box::new(lfo)));
-        let _ = o.link_control(
+        let _ = o.link_control_by_name(
             lfo_uid,
             synth_1_uid,
             &ToySynthControlParams::OscillatorModulation.to_string(),

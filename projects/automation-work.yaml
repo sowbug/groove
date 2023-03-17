@@ -1,0 +1,42 @@
+---
+title: "Automation work"
+clock:
+  bpm: 128.0
+  time-signature:
+    - 4
+    - 4
+devices:
+  - instrument:
+      - instrument-1
+      - welsh:
+          midi-in: 0
+          preset: piano
+  - controller:
+      - lfo-1
+      - lfo:
+          midi-in: 1
+          midi-out: 2
+          waveform: sine
+          frequency: 1.0
+  - effect:
+      - filter-1
+      - filter-low-pass-24db:
+          cutoff: 5000
+          passband-ripple: 0.1
+# controls:
+#   - id: lfo-pan-1
+#     source: lfo-1
+#     target:
+#       id: filter-1
+#       param: cutoff
+patch-cables:
+  - [instrument-1, filter-1, main-mixer]
+patterns:
+  - id: basic-1
+    note-value: eighth
+    notes:
+      - [60, 00, 64, 00, 67, 00, 71, 72]
+tracks:
+  - id: track-1
+    midi-channel: 0
+    patterns: [basic-1, basic-1]

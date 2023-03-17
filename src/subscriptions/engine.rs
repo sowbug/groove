@@ -61,6 +61,11 @@ pub enum EngineInput {
     /// Change time signature.
     SetTimeSignature(TimeSignature),
 
+    /// Connect an IsController to a Controllable's control point. First
+    /// argument is controller uid, second is controllable uid, third is
+    /// controllable's control index.
+    ConnectController(usize, usize, usize),
+
     /// End this thread.
     QuitRequested,
 }
@@ -340,6 +345,17 @@ impl EngineSubscription {
                             self.time_signature = time_signature;
                             self.publish_time_signature_update();
                         }
+                    }
+                    EngineInput::ConnectController(
+                        controllable_id,
+                        controller_id,
+                        control_index,
+                    ) => {
+                        messages.push(GrooveInput::ConnectController(
+                            controllable_id,
+                            controller_id,
+                            control_index,
+                        ));
                     }
                 }
 

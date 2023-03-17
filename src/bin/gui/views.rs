@@ -787,6 +787,7 @@ pub enum AutomationMessage {
     MouseOut(usize),
     MouseDown(usize),
     MouseUp(usize),
+    Connect(usize, usize, usize),
 }
 
 #[derive(Debug)]
@@ -874,12 +875,12 @@ impl AutomationView {
             |mut v, (_index, controllable)| {
                 let mut column = Column::new();
                 let controllable_id = controllable.uid;
-                for (id, point) in controllable.controllables.iter().enumerate() {
-                    let id = controllable_id * 10000 + id;
+                for (param_id, point) in controllable.controllables.iter().enumerate() {
+                    let param_app_id = controllable_id * 10000 + param_id;
                     let badge_style = if self.is_dragging {
-                        if id == self.source_id {
+                        if param_app_id == self.source_id {
                             BadgeStyles::Primary
-                        } else if id == self.target_id {
+                        } else if param_app_id == self.target_id {
                             BadgeStyles::Secondary
                         } else {
                             BadgeStyles::Default
@@ -889,31 +890,36 @@ impl AutomationView {
                     };
                     let child = ControlTargetWidget::<AutomationMessage>::new(
                         Badge::new(Text::new(point.name.to_string())).style(badge_style),
-                        if self.is_dragging && id != self.source_id {
+                        if self.is_dragging && param_app_id != self.source_id {
                             // entering the bounds of a potential target.
-                            Some(AutomationMessage::MouseIn(id))
+                            Some(AutomationMessage::MouseIn(param_app_id))
                         } else {
                             None
                         },
-                        if self.is_dragging && id == self.target_id {
+                        if self.is_dragging && param_app_id == self.target_id {
                             // leaving the bounds of a potential target
-                            Some(AutomationMessage::MouseOut(id))
+                            Some(AutomationMessage::MouseOut(param_app_id))
                         } else {
                             None
                         },
                         if !self.is_dragging {
                             // starting a drag operation
-                            Some(AutomationMessage::MouseDown(id))
+                            Some(AutomationMessage::MouseDown(param_app_id))
                         } else {
                             None
                         },
-                        if self.is_dragging && id != self.source_id {
+                        if self.is_dragging && param_app_id != self.source_id {
                             // ending the drag on a target
-                            Some(AutomationMessage::MouseUp(id))
+                            //                            Some(AutomationMessage::MouseUp(id))
+                            Some(AutomationMessage::Connect(
+                                self.source_id,
+                                controllable_id,
+                                param_id,
+                            ))
                         } else {
                             None
                         },
-                        if self.is_dragging && id == self.source_id {
+                        if self.is_dragging && param_app_id == self.source_id {
                             // ending the drag somewhere that's not the source... but it could be a target!
                             // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
                             Some(AutomationMessage::MouseUp(0))
@@ -1005,7 +1011,7 @@ impl AutomationView {
         .into()
     }
 
-    pub(crate) fn update(&mut self, message: AutomationMessage) {
+    pub(crate) fn update(&mut self, message: AutomationMessage) -> Option<AutomationMessage> {
         match message {
             AutomationMessage::Nothing => todo!(),
             AutomationMessage::MouseDown(id) => {
@@ -1046,7 +1052,17 @@ impl AutomationView {
                     self.connect_points();
                 }
             }
+            AutomationMessage::Connect(controller_id, controllable_id, control_index) => {
+                self.target_id = controllable_id;
+                eprintln!(
+                    "Drag completed from {} to {}",
+                    self.source_id, self.target_id
+                );
+                self.connect_points();
+                return Some(message);
+            }
         }
+        None
     }
 
     pub(crate) fn clear(&mut self) {

@@ -472,7 +472,24 @@ impl Application for GrooveApp {
             AppMessage::ExportComplete(_) => {
                 // great
             }
-            AppMessage::AutomationEvent(message) => self.automation_view.update(message),
+            AppMessage::AutomationEvent(message) => {
+                if let Some(message) = self.automation_view.update(message) {
+                    match message {
+                        AutomationMessage::Connect(
+                            controller_id,
+                            controllable_id,
+                            control_index,
+                        ) => {
+                            self.post_to_orchestrator(EngineInput::ConnectController(
+                                controller_id,
+                                controllable_id,
+                                control_index,
+                            ));
+                        }
+                        _ => {}
+                    }
+                }
+            }
         }
 
         Command::none()

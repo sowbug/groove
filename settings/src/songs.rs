@@ -197,7 +197,7 @@ impl SongSettings {
                 );
                 continue;
             }
-            let result = orchestrator.link_control(controller_uid, target_uid, target_param_name);
+            let result = orchestrator.link_control_by_name(controller_uid, target_uid, target_param_name);
             if let Err(error_text) = result {
                 eprintln!(
                     "Warning: skipping automation ID {} because of error '{}'",
@@ -294,7 +294,7 @@ impl SongSettings {
                 }
                 let controller_uid =
                     orchestrator.add_with_uvid(Entity::ControlTrip(control_trip), trip_uvid);
-                if let Err(err_result) = orchestrator.link_control(
+                if let Err(err_result) = orchestrator.link_control_by_name(
                     controller_uid,
                     target_uid,
                     &control_trip_settings.target.param,

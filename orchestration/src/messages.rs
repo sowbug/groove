@@ -17,6 +17,11 @@ pub enum GrooveInput {
     /// A MIDI message that has arrived from outside Groove, typically from
     /// MidiInputHandler.
     MidiFromExternal(MidiChannel, MidiMessage),
+
+    /// Connect an IsController to a Controllable's control point. First
+    /// argument is controller uid, second is controllable uid, third is
+    /// controllable's control index.
+    ConnectController(usize, usize, usize),
 }
 impl MessageBounds for GrooveInput {}
 
