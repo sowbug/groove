@@ -67,7 +67,7 @@ jobs:
       - name: Build and test release
         run: cargo test --workspace --release --target ${{ matrix.target }}
 
-        # Upload build products
+        # Upload build products. Unstripped binaries are > 0.5GB, so we skip.
       - name: Upload test suite artifacts
         uses: actions/upload-artifact@v3
         with:
