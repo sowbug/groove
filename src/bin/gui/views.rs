@@ -848,9 +848,14 @@ impl AutomationView {
                         } else {
                             None
                         },
-                        if self.is_dragging && controller_id != self.source_id {
-                            // ending the drag on a target
-                            Some(AutomationMessage::MouseUp(controller_id))
+                        if self.is_dragging {
+                            if controller_id == self.source_id {
+                                // user pressed and released on source card
+                                Some(AutomationMessage::MouseUp(0))
+                            } else {
+                                // ending the drag on a target
+                                Some(AutomationMessage::MouseUp(controller_id))
+                            }
                         } else {
                             None
                         },
@@ -879,14 +884,14 @@ impl AutomationView {
                     let param_app_id = controllable_id * 10000 + param_id;
                     let badge_style = if self.is_dragging {
                         if param_app_id == self.source_id {
-                            BadgeStyles::Primary
+                            BadgeStyles::Danger // This shouldn't happen (I think) because it's a source, not a target
                         } else if param_app_id == self.target_id {
-                            BadgeStyles::Secondary
+                            BadgeStyles::Success // Hovering over target, so highlight it specially
                         } else {
-                            BadgeStyles::Default
+                            BadgeStyles::Info // Indicate that it's a potential target
                         }
                     } else {
-                        BadgeStyles::Default
+                        BadgeStyles::Default // Regular state
                     };
                     let child = ControlTargetWidget::<AutomationMessage>::new(
                         Badge::new(Text::new(point.name.to_string())).style(badge_style),
@@ -936,7 +941,7 @@ impl AutomationView {
                     if controllable_id == self.source_id {
                         CardStyles::Primary
                     } else if controllable_id == self.target_id {
-                        CardStyles::Secondary
+                        CardStyles::Danger
                     } else {
                         CardStyles::Default
                     }
@@ -946,24 +951,12 @@ impl AutomationView {
                 let card = Card::new(
                     ControlTargetWidget::<AutomationMessage>::new(
                         Text::new(controllable.name.to_string()),
-                        if self.is_dragging && controllable_id != self.source_id {
-                            // entering the bounds of a potential target.
-                            Some(AutomationMessage::MouseIn(controllable_id))
-                        } else {
-                            None
-                        },
-                        if self.is_dragging && controllable_id == self.target_id {
-                            // leaving the bounds of a potential target
-                            Some(AutomationMessage::MouseOut(controllable_id))
-                        } else {
-                            None
-                        },
-                        if !self.is_dragging {
-                            // starting a drag operation
-                            Some(AutomationMessage::MouseDown(controllable_id))
-                        } else {
-                            None
-                        },
+                        // Sources aren't targets.
+                        None,
+                        // Don't care.
+                        None,
+                        // starting a drag operation
+                        Some(AutomationMessage::MouseDown(controllable_id)),
                         if self.is_dragging && controllable_id != self.source_id {
                             // ending the drag on a target
                             Some(AutomationMessage::MouseUp(controllable_id))
@@ -999,16 +992,7 @@ impl AutomationView {
                     row = row.push(item);
                     row
                 });
-        let debug_drag_status = format!(
-            "Dragging: {} from {} to {}",
-            self.is_dragging, self.source_id, self.target_id
-        );
-        container(column![
-            text(&debug_drag_status),
-            controller_row,
-            controllable_row
-        ])
-        .into()
+        container(column![controller_row, controllable_row]).into()
     }
 
     pub(crate) fn update(&mut self, message: AutomationMessage) -> Option<AutomationMessage> {
@@ -1029,8 +1013,6 @@ impl AutomationView {
                 self.target_id = 0;
             }
             AutomationMessage::MouseUp(id) => {
-                println!("up {} {} {}", id, self.source_id, self.target_id);
-
                 // This is probably going to have a bug later. Currently, the
                 // only way we get a MouseUp message is if we're in a drag
                 // operation, so we can afford to get both the MouseUp(id) and
@@ -1052,7 +1034,7 @@ impl AutomationView {
                     self.connect_points();
                 }
             }
-            AutomationMessage::Connect(controller_id, controllable_id, control_index) => {
+            AutomationMessage::Connect(_controller_id, controllable_id, _control_index) => {
                 self.target_id = controllable_id;
                 eprintln!(
                     "Drag completed from {} to {}",
