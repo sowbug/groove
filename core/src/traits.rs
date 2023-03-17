@@ -75,6 +75,7 @@ pub trait Controllable {
 pub trait HasUid {
     fn uid(&self) -> usize;
     fn set_uid(&mut self, uid: usize);
+    fn name(&self) -> &'static str;
 }
 
 /// Something that Resets also either Ticks or TicksWithMessages. Since the

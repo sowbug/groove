@@ -30,6 +30,10 @@ pub fn uid_derive(input: TokenStream) -> TokenStream {
             fn set_uid(&mut self, uid: usize) {
                 self.uid = uid;
             }
+
+            fn name(&self) -> &'static str {
+                stringify!(#name)
+            }
         }
     };
     TokenStream::from(expanded)

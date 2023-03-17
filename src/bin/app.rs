@@ -21,7 +21,10 @@ use groove_entities::EntityMessage;
 use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
-    views::{AutomationMessage, AutomationView, ControlBarView, EntityView, EntityViewState},
+    views::{
+        AutomationMessage, AutomationView, ControlBarView, EntityView, EntityViewState,
+        FakeControllable, FakeController,
+    },
     GuiStuff,
 };
 use iced::{
@@ -333,6 +336,30 @@ impl Application for GrooveApp {
                     self.preferences.last_project_filename = Some(filename);
                     self.project_title = title;
                     self.entity_view.reset();
+
+                    let mut entity_uids = Vec::default();
+                    self.automation_view.clear();
+                    if let Ok(orchestrator) = self.orchestrator.lock() {
+                        orchestrator.entity_iter().for_each(|(uid, entity)| {
+                            entity_uids.push(*uid);
+                            if (*entity).as_is_controller().is_some() {
+                                self.automation_view
+                                    .controllers
+                                    .push(FakeController::new(*uid, (*entity).as_has_uid().name()));
+                            }
+                            if (*entity).as_controllable().is_some() {
+                                self.automation_view
+                                    .controllables
+                                    .push(FakeControllable::new(
+                                        *uid,
+                                        (*entity).as_has_uid().name(),
+                                        vec!["foo", "bar", "baz"],
+                                    ));
+                            }
+                        });
+                    } else {
+                        panic!()
+                    };
                 }
                 EngineEvent::AudioBufferFullness(percentage) => {
                     self.control_bar_view.set_audio_buffer_fullness(percentage);
