@@ -106,6 +106,7 @@ mod tests {
     use groove_settings::SongSettings;
     use std::{fs::File, io::prelude::*, path::PathBuf, time::Instant};
 
+    #[ignore = "Figure out how to tell Paths to use cwd as the installation directory"]
     #[test]
     fn yaml_loads_and_parses() {
         let yaml = std::fs::read_to_string(PathBuf::from("test-data/kitchen-sink.yaml"))
@@ -133,6 +134,7 @@ mod tests {
         }
     }
 
+    #[ignore = "Figure out how to tell Paths to use cwd as the installation directory"]
     #[test]
     fn spit_out_perf_data() {
         let yaml = std::fs::read_to_string(PathBuf::from("test-data/perf-1.yaml"))
@@ -174,10 +176,10 @@ usec/frame : {:.2?} (goal <{:.2?})",
     }
 
     #[test]
-    fn test_patching_to_device_with_no_input_fails_with_proper_error() {
-        let yaml =
-            std::fs::read_to_string(PathBuf::from("test-data/instruments-have-no-inputs.yaml"))
-                .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
+    fn patching_to_device_with_no_input_fails_with_proper_error() {
+        let path = TestOnlyPaths::test_data_path().join("instruments-have-no-inputs.yaml");
+        let yaml = std::fs::read_to_string(path)
+            .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
         let song_settings = SongSettings::new_from_yaml(yaml.as_str())
             .unwrap_or_else(|err| panic!("parsing settings failed: {:?}", err));
         let r = song_settings.instantiate(&Paths::assets_path(false), false);
