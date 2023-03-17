@@ -56,6 +56,7 @@ impl Paths {
         path
     }
 
+    /// Returns the directory containing samples installed with the application.
     pub fn samples_path(user: bool) -> PathBuf {
         let mut path = Self::assets_path(user);
         path.push(Self::SAMPLES);
