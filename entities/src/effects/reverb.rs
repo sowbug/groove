@@ -98,7 +98,7 @@ struct ReverbChannel {
     allpass_delay_lines: Vec<AllPassDelayLine>,
 }
 impl TransformsAudio for ReverbChannel {
-    fn transform_channel(&mut self, channel: usize, input_sample: Sample) -> Sample {
+    fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         let input_attenuated = input_sample * self.attenuation;
         let recirc_output = self.recirc_delay_lines[0].pop_output(input_attenuated)
             + self.recirc_delay_lines[1].pop_output(input_attenuated)
