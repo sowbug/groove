@@ -62,6 +62,8 @@ impl WelshPatchSettings {
 
     pub fn by_name(base_asset_path: &Path, name: &str) -> Self {
         let mut base_path = base_asset_path.to_path_buf();
+        // TODO: we're hardcoding patches/. Figure out a way to use the
+        // system.
         base_path.push("patches");
         base_path.push("welsh");
         base_path.push(format!(

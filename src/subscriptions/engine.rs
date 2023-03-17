@@ -414,10 +414,10 @@ impl EngineSubscription {
     }
 
     fn load_project(&mut self, filename: String) -> Response<GrooveEvent> {
-        let mut path = Paths::project_path();
+        let mut path = Paths::projects_path(false);
         path.push(filename.clone());
         if let Ok(settings) = SongSettings::new_from_yaml_file(path.to_str().unwrap()) {
-            if let Ok(instance) = settings.instantiate(&Paths::asset_path(), false) {
+            if let Ok(instance) = settings.instantiate(&Paths::assets_path(false), false) {
                 let title = instance.title();
                 if let Ok(mut o) = self.orchestrator.lock() {
                     // I'm amazed this works whenever I see it, but I think it's

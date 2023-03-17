@@ -80,7 +80,7 @@ fn main() -> anyhow::Result<()> {
         {
             let start_instant = Instant::now();
             let r = SongSettings::new_from_yaml_file(input_filename.as_str())?
-                .instantiate(&Paths::asset_path(), args.debug)?;
+                .instantiate(&Paths::assets_path(false), args.debug)?;
             if args.perf {
                 println!(
                     "Orchestrator instantiation time: {:.2?}",

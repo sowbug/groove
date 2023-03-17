@@ -89,18 +89,25 @@ impl Preferences {
     }
 
     pub(crate) async fn open_dialog() -> Result<Option<PathBuf>, OpenError> {
-        if let Ok(path) = FileDialog::new()
+        match FileDialog::new()
             .add_filter("YAML", &["yml", "yaml"])
             .add_filter("Groove Projects", &["nsn"])
             .show_open_single_file()
         {
-            if let Some(path) = path {
-                Ok(Some(path))
-            } else {
-                Ok(None)
+            Ok(path) => {
+                if let Some(path) = path {
+                    // The user selected a file
+                    Ok(Some(path))
+                } else {
+                    // The user canceled
+                    Ok(None)
+                }
             }
-        } else {
-            Err(OpenError::Unknown)
+            Err(e) => {
+                // something went wrong
+                eprintln!("open dialog error: {:?}", e);
+                Err(OpenError::Unknown)
+            }
         }
     }
 

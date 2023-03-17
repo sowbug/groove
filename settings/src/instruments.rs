@@ -53,7 +53,7 @@ impl InstrumentSettings {
     pub(crate) fn instantiate(
         &self,
         sample_rate: usize,
-        base_path: &Path,
+        asset_path: &Path,
         load_only_test_entities: bool,
     ) -> (MidiChannel, Entity) {
         if load_only_test_entities {
@@ -88,7 +88,7 @@ impl InstrumentSettings {
             } => (
                 *midi_input_channel,
                 Entity::WelshSynth(Box::new(
-                    WelshPatchSettings::by_name(base_path, preset_name)
+                    WelshPatchSettings::by_name(asset_path, preset_name)
                         .derive_welsh_synth(sample_rate),
                 )),
             ),
@@ -96,7 +96,10 @@ impl InstrumentSettings {
                 midi_input_channel,
                 preset_name: _preset,
             } => {
-                let base_dir = base_path.join("samples/707");
+                // TODO: we're hardcoding samples/. Figure out a way to use the
+                // system.
+                let mut base_dir = asset_path.join("samples");
+                base_dir.push("707");
                 (
                     *midi_input_channel,
                     Entity::Drumkit(Box::new(Drumkit::new_from_files(sample_rate, base_dir))),

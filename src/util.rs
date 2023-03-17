@@ -12,6 +12,13 @@ const APP_INFO: AppInfo = AppInfo {
 /// Paths contains path-building utilities.
 pub struct Paths {}
 impl Paths {
+    /// The name of the subdirectory in the assets directory holding samples.
+    pub const SAMPLES: &str = "samples";
+    /// The name of the subdirectory in the assets directory holding projects.
+    pub const PROJECTS: &str = "projects";
+    /// The name of the subdirectory in the assets directory holding patches.
+    pub const PATCHES: &str = "patches";
+
     fn cwd() -> PathBuf {
         PathBuf::from(
             current_dir()
@@ -23,19 +30,36 @@ impl Paths {
     }
 
     /// Returns the directory containing assets installed with the application.
-    pub fn asset_path() -> PathBuf {
-        const ASSETS: &str = "assets";
-        let mut path_buf = Self::cwd();
-        path_buf.push(ASSETS);
-        path_buf
+    pub fn assets_path(user: bool) -> PathBuf {
+        if user {
+            app_dirs2::get_app_root(AppDataType::UserData, &APP_INFO).unwrap()
+        } else {
+            if cfg!(unix) {
+                PathBuf::from("/usr/share/groove")
+            } else {
+                app_dirs2::get_app_root(AppDataType::SharedData, &APP_INFO).unwrap()
+            }
+        }
     }
 
     /// Returns the directory containing projects installed with the application.
-    pub fn project_path() -> PathBuf {
-        const PROJECTS: &str = "projects";
-        let mut path_buf = Self::cwd();
-        path_buf.push(PROJECTS);
-        path_buf
+    pub fn projects_path(user: bool) -> PathBuf {
+        let mut path = Self::assets_path(user);
+        path.push(Self::PROJECTS);
+        path
+    }
+
+    /// Returns the directory containing patches installed with the application.
+    pub fn patches_path(user: bool) -> PathBuf {
+        let mut path = Self::assets_path(user);
+        path.push(Self::PATCHES);
+        path
+    }
+
+    pub fn samples_path(user: bool) -> PathBuf {
+        let mut path = Self::assets_path(user);
+        path.push(Self::SAMPLES);
+        path
     }
 
     /// Returns the directory containing the current executable.
@@ -51,7 +75,7 @@ impl Paths {
     }
 
     /// Returns the path of the user's preferences file.
-    pub fn prefs() -> std::path::PathBuf {
+    pub fn prefs() -> PathBuf {
         // See https://docs.rs/app_dirs2/latest/app_dirs2/ for platform-specific
         // example paths
         let mut path = app_dirs2::get_app_root(AppDataType::UserConfig, &APP_INFO)
