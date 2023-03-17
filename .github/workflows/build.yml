@@ -73,9 +73,8 @@ jobs:
         with:
           name: "perf-output-${{ matrix.target }}-${{github.sha}}"
           path: |
-            out/voice_cello_c_4.wav
-            out/perf-1.wav
-            perf-output.txt
+            target/perf-1.wav
+            target/perf-output.txt
 
   build-cross:
     name: Build (but don't test) ${{matrix.target}}

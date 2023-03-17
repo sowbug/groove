@@ -151,7 +151,9 @@ mod tests {
         let elapsed = start_instant.elapsed();
         let frame_count = performance.worker.len();
 
-        let mut file = File::create("perf-output.txt").unwrap();
+        let mut out_path = TestOnlyPaths::writable_out_path();
+        out_path.push("perf-output.txt");
+        let mut file = File::create(out_path).unwrap();
         let output = format!(
             "Elapsed    : {:0.3}s\n\
 Frames     : {}\n\
