@@ -6,7 +6,10 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
-use strum_macros::{Display, EnumString, FromRepr};
+use strum::EnumCount;
+use strum_macros::{
+    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
+};
 
 /// TODO: this is a pretty lame bitcrusher. It is hardly noticeable for values
 /// below 13, and it destroys the waveform at 15. It doesn't do any simulation

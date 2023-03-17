@@ -14,7 +14,10 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 use std::{fmt::Debug, marker::PhantomData, str::FromStr};
-use strum_macros::{Display, EnumString, FromRepr};
+use strum::EnumCount;
+use strum_macros::{
+    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
+};
 
 #[derive(Debug)]
 pub struct FmVoiceParams {

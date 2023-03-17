@@ -347,13 +347,17 @@ impl Application for GrooveApp {
                                     .controllers
                                     .push(FakeController::new(*uid, (*entity).as_has_uid().name()));
                             }
-                            if (*entity).as_controllable().is_some() {
+                            if let Some(controllable) = (*entity).as_controllable() {
+                                let mut params = Vec::default();
+                                for i in 0..controllable.control_index_count() {
+                                    params.push(controllable.control_name_for_index(i));
+                                }
                                 self.automation_view
                                     .controllables
                                     .push(FakeControllable::new(
                                         *uid,
                                         (*entity).as_has_uid().name(),
-                                        vec!["foo", "bar", "baz"],
+                                        params,
                                     ));
                             }
                         });

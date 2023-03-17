@@ -9,7 +9,10 @@ use groove_macros::{Control, Uid};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::str::FromStr;
-use strum_macros::{Display, EnumString, FromRepr};
+use strum::EnumCount;
+use strum_macros::{
+    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
+};
 
 /// An [IsEffect](groove_core::traits::IsEffect) that negates the input signal.
 #[derive(Control, Debug, Default, Uid)]

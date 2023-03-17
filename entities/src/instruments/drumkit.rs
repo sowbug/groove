@@ -13,7 +13,10 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 use std::{path::PathBuf, str::FromStr, sync::Arc};
-use strum_macros::{Display, EnumString, FromRepr};
+use strum::EnumCount;
+use strum_macros::{
+    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
+};
 
 #[derive(Control, Debug, Uid)]
 pub struct Drumkit {

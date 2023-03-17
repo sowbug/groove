@@ -6,7 +6,10 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 use std::{marker::PhantomData, str::FromStr};
-use strum_macros::{Display, EnumString, FromRepr};
+use strum::EnumCount;
+use strum_macros::{
+    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
+};
 
 pub(super) trait Delays {
     fn peek_output(&self, apply_decay: bool) -> Sample;

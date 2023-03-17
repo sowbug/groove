@@ -6,7 +6,10 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
-use strum_macros::{Display, EnumString, FromRepr};
+use strum::EnumCount;
+use strum_macros::{
+    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
+};
 
 #[derive(Clone, Control, Debug, Default, Uid)]
 pub struct Mixer {

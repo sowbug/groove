@@ -57,12 +57,17 @@ pub trait Generates<V>: Send + std::fmt::Debug + Ticks {
 ///
 /// The Controllable trait is more powerful than ordinary getters/setters
 /// because it allows runtime binding of an IsController to a Controllable.
+#[allow(unused_variables)]
 pub trait Controllable {
-    #[allow(unused_variables)]
-    fn control_index_for_name(&self, name: &str) -> usize {
+    fn control_index_count(&self) -> usize {
         unimplemented!()
     }
-    #[allow(unused_variables)]
+    fn control_index_for_name(&self, name: &str) -> usize {
+        unimplemented!("Controllable trait methods are implemented by a macro")
+    }
+    fn control_name_for_index(&self, index: usize) -> &'static str {
+        unimplemented!()
+    }
     fn set_by_control_index(&mut self, index: usize, value: F32ControlValue) {
         unimplemented!()
     }

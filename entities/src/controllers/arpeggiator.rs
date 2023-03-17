@@ -10,7 +10,10 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
-use strum_macros::{Display, EnumString, FromRepr};
+use strum::EnumCount;
+use strum_macros::{
+    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
+};
 
 /// [Arpeggiator] creates [arpeggios](https://en.wikipedia.org/wiki/Arpeggio),
 /// which "is a type of broken chord in which the notes that compose a chord are

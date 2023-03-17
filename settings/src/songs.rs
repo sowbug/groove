@@ -197,7 +197,8 @@ impl SongSettings {
                 );
                 continue;
             }
-            let result = orchestrator.link_control_by_name(controller_uid, target_uid, target_param_name);
+            let result =
+                orchestrator.link_control_by_name(controller_uid, target_uid, target_param_name);
             if let Err(error_text) = result {
                 eprintln!(
                     "Warning: skipping automation ID {} because of error '{}'",
