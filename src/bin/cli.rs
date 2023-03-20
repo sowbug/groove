@@ -7,7 +7,7 @@ use clap::Parser;
 use groove::{
     app_version,
     audio::send_performance_to_output_device,
-    util::Paths,
+    util::{PathType, Paths},
     {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::StereoSample;
@@ -78,9 +78,14 @@ fn main() -> anyhow::Result<()> {
             || input_filename.ends_with(".yml")
             || input_filename.ends_with(".nsn")
         {
+            let path_type = if args.debug {
+                PathType::Dev
+            } else {
+                PathType::Global
+            };
             let start_instant = Instant::now();
             let r = SongSettings::new_from_yaml_file(input_filename.as_str())?
-                .instantiate(&Paths::assets_path(false), args.debug)?;
+                .instantiate(&Paths::assets_path(path_type), false)?;
             if args.perf {
                 println!(
                     "Orchestrator instantiation time: {:.2?}",
@@ -92,7 +97,6 @@ fn main() -> anyhow::Result<()> {
             Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM)
         };
 
-        orchestrator.set_enable_dev_experiment(args.debug);
         orchestrator.set_should_output_perf(args.perf);
 
         if !args.quiet {

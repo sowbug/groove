@@ -9,6 +9,18 @@ const APP_INFO: AppInfo = AppInfo {
     author: "Mike Tsao <mike@sowbug.com>",
 };
 
+/// How to load resources
+pub enum PathType {
+    /// The current working directory is root.
+    Dev,
+
+    /// A subdirectory in the OS-specific per-user documents directory is root.
+    User,
+
+    /// A system-wide installation directory is root.
+    Global,
+}
+
 /// Paths contains path-building utilities.
 pub struct Paths {}
 impl Paths {
@@ -30,35 +42,37 @@ impl Paths {
     }
 
     /// Returns the directory containing assets installed with the application.
-    pub fn assets_path(user: bool) -> PathBuf {
-        if user {
-            app_dirs2::get_app_root(AppDataType::UserData, &APP_INFO).unwrap()
-        } else {
-            if cfg!(unix) {
-                PathBuf::from("/usr/share/groove")
-            } else {
-                app_dirs2::get_app_root(AppDataType::SharedData, &APP_INFO).unwrap()
+    pub fn assets_path(path_type: PathType) -> PathBuf {
+        match path_type {
+            PathType::Dev => Self::cwd().join("assets"),
+            PathType::User => app_dirs2::get_app_root(AppDataType::UserData, &APP_INFO).unwrap(),
+            PathType::Global => {
+                if cfg!(unix) {
+                    PathBuf::from("/usr/share/groove")
+                } else {
+                    app_dirs2::get_app_root(AppDataType::SharedData, &APP_INFO).unwrap()
+                }
             }
         }
     }
 
     /// Returns the directory containing projects installed with the application.
-    pub fn projects_path(user: bool) -> PathBuf {
-        let mut path = Self::assets_path(user);
+    pub fn projects_path(path_type: PathType) -> PathBuf {
+        let mut path = Self::assets_path(path_type);
         path.push(Self::PROJECTS);
         path
     }
 
     /// Returns the directory containing patches installed with the application.
-    pub fn patches_path(user: bool) -> PathBuf {
-        let mut path = Self::assets_path(user);
+    pub fn patches_path(path_type: PathType) -> PathBuf {
+        let mut path = Self::assets_path(path_type);
         path.push(Self::PATCHES);
         path
     }
 
     /// Returns the directory containing samples installed with the application.
-    pub fn samples_path(user: bool) -> PathBuf {
-        let mut path = Self::assets_path(user);
+    pub fn samples_path(path_type: PathType) -> PathBuf {
+        let mut path = Self::assets_path(path_type);
         path.push(Self::SAMPLES);
         path
     }

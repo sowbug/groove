@@ -20,11 +20,12 @@ A digital audio workstation (DAW) engine.
    and unzip it somewhere. If you're on an ARM Chromebook or a Raspberry Pi, try
    the `aarch64` build first, and if that doesn't work, try `armv7`.
 3. Using the command line, `cd` to the directory you just unzipped.
-4. Render `projects/demos/effects/drums-filtered-24db.yaml` with `groove-cli`.
-   For Windows, that's `groove-cli
+4. Render `projects/demos/effects/drums-filtered-24db.yaml` with `groove-cli`,
+   passing the `--debug` flag. For Windows, that's `groove-cli --debug
    projects\demos\effects\drums-filtered-24db.yaml`, and for Linux/OSX it's
-   `./groove-cli projects/demos/effects/drums-filtered-24db.yaml`. You should
-   hear a 707 beat through a rising low-pass filter. If you don't, file a bug.
+   `./groove-cli --debug projects/demos/effects/drums-filtered-24db.yaml`. You
+   should hear a 707 beat through a rising low-pass filter. If you don't, file a
+   bug.
 5. Open `projects/demos/effects/drum-filtered-24db.yaml` in your favorite text
    editor, and change `bpm: 128.0` to `bpm: 200.0`. Play the track again.
    Congratulations, you're now the world's newest

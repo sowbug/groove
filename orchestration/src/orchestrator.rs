@@ -68,7 +68,6 @@ pub struct Orchestrator {
     #[cfg(feature = "metrics")]
     metrics: DipstickWrapper,
 
-    enable_dev_experiment: bool,
     should_output_perf: bool,
 
     last_track_samples: Vec<StereoSample>,
@@ -457,10 +456,6 @@ impl Orchestrator {
             .disconnect_midi_receiver(receiver_uid, receiver_midi_channel);
     }
 
-    pub fn set_enable_dev_experiment(&mut self, enabled: bool) {
-        self.enable_dev_experiment = enabled;
-    }
-
     pub fn set_should_output_perf(&mut self, value: bool) {
         self.should_output_perf = value;
     }
@@ -495,7 +490,6 @@ impl Orchestrator {
             sequencer_uid: Default::default(),
             #[cfg(feature = "metrics")]
             metrics: Default::default(),
-            enable_dev_experiment: Default::default(),
             should_output_perf: Default::default(),
             last_track_samples: Default::default(),
             main_mixer_source_uids: Default::default(),
