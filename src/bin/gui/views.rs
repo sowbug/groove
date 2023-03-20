@@ -108,63 +108,63 @@ impl EntityView {
     }
 
     fn arpeggiator_view(&self, e: &Arpeggiator) -> Element<EntityMessage> {
-        let title = type_name::<Arpeggiator>();
-        let contents = format!("Coming soon: {}", e.uid());
-        GuiStuff::titled_container(
-            title,
-            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-        )
+        self.collapsing_box(e, || {
+            GuiStuff::<EntityMessage>::container_text("I'm an arpeggiator!").into()
+        })
     }
 
     fn audio_source_view(&self, e: &ToyAudioSource) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<ToyAudioSource>(),
+        self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into(),
-        )
+                .into()
+        })
     }
 
     fn biquad_filter_view(&self, e: &BiQuadFilter) -> Element<EntityMessage> {
-        let title = type_name::<BiQuadFilter>();
-        let slider = HSlider::new(
-            NormalParam {
-                value: IcedNormal::from_clipped(e.cutoff_pct()),
-                default: IcedNormal::from_clipped(1.0),
-            },
-            EntityMessage::HSliderInt,
-        );
-        let contents = row![
-            container(slider).width(iced::Length::FillPortion(1)),
-            container(GuiStuff::<EntityMessage>::container_text(
-                format!("cutoff: {}Hz", e.cutoff_hz()).as_str()
-            ))
-            .width(iced::Length::FillPortion(1))
-        ];
-        GuiStuff::titled_container(title, contents.into())
+        self.collapsing_box(e, || {
+            let slider = HSlider::new(
+                NormalParam {
+                    value: IcedNormal::from_clipped(e.cutoff_pct()),
+                    default: IcedNormal::from_clipped(1.0),
+                },
+                EntityMessage::HSliderInt,
+            );
+            row![
+                container(slider).width(iced::Length::FillPortion(1)),
+                container(GuiStuff::<EntityMessage>::container_text(
+                    format!("cutoff: {}Hz", e.cutoff_hz()).as_str()
+                ))
+                .width(iced::Length::FillPortion(1))
+            ]
+            .into()
+        })
     }
 
     fn bitcrusher_view(&self, e: &Bitcrusher) -> Element<EntityMessage> {
-        let title = format!("{}: {}", type_name::<Bitcrusher>(), e.bits_to_crush());
-        let contents = container(row![HSlider::new(
-            IntRange::new(0, 15).normal_param(e.bits_to_crush().into(), 8),
-            EntityMessage::HSliderInt
-        )])
-        .padding(Self::ITEM_OUTER_PADDING);
-        GuiStuff::titled_container(&title, contents.into())
+        self.collapsing_box(e, || {
+            container(row![HSlider::new(
+                IntRange::new(0, 15).normal_param(e.bits_to_crush().into(), 8),
+                EntityMessage::HSliderInt
+            )])
+            .padding(Self::ITEM_OUTER_PADDING)
+            .into()
+        })
     }
 
     fn chorus_view(&self, e: &Chorus) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<Chorus>(),
+        self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into(),
-        )
+                .into()
+        })
     }
 
-    fn collapsing_box<F>(&self, title: &str, uid: usize, contents_fn: F) -> Element<EntityMessage>
+    fn collapsing_box<F>(&self, entity: &impl HasUid, contents_fn: F) -> Element<EntityMessage>
     where
         F: FnOnce() -> Element<'static, EntityMessage>,
     {
+        let uid = entity.uid();
+        let title = entity.name();
+
         if self.entity_view_state(uid) == EntityViewState::Expanded {
             let contents = contents_fn();
             GuiStuff::expanded_container(title, EntityMessage::CollapsePressed, contents)
@@ -174,7 +174,7 @@ impl EntityView {
     }
 
     fn compressor_view(&self, e: &Compressor) -> Element<EntityMessage> {
-        self.collapsing_box("Compressor", e.uid(), || {
+        self.collapsing_box(e, || {
             let slider = HSlider::new(
                 NormalParam {
                     value: IcedNormal::from_clipped(e.threshold()),
@@ -189,29 +189,22 @@ impl EntityView {
     }
 
     fn control_trip_view(&self, e: &ControlTrip) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<ControlTrip>(),
+        self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into(),
-        )
+                .into()
+        })
     }
 
     fn delay_view(&self, e: &Delay) -> Element<EntityMessage> {
-        let title = type_name::<Delay>();
-        let contents = format!("delay in seconds: {}", e.seconds());
-        GuiStuff::titled_container(
-            title,
-            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-        )
+        self.collapsing_box(e, || {
+            GuiStuff::<EntityMessage>::container_text("I'm a delay effect!").into()
+        })
     }
 
     fn drumkit_view(&self, e: &Drumkit) -> Element<EntityMessage> {
-        let title = type_name::<Drumkit>();
-        let contents = format!("kit name: {}", e.kit_name());
-        GuiStuff::titled_container(
-            title,
-            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-        )
+        self.collapsing_box(e, || {
+            GuiStuff::<EntityMessage>::container_text("I'm a drumkit!").into()
+        })
     }
 
     fn entity_view_state(&self, uid: usize) -> EntityViewState {
@@ -223,7 +216,7 @@ impl EntityView {
     }
 
     fn fm_synthesizer_view(&self, e: &FmSynthesizer) -> Element<EntityMessage> {
-        self.collapsing_box("FM", e.uid(), || {
+        self.collapsing_box(e, || {
             let depth = e.depth().value_as_f32();
             let label_depth = text("Depth").size(Self::LABEL_FONT_SIZE);
             let text_depth =
@@ -276,7 +269,7 @@ impl EntityView {
     }
 
     fn gain_view(&self, e: &Gain) -> Element<EntityMessage> {
-        self.collapsing_box("Gain", e.uid(), || {
+        self.collapsing_box(e, || {
             let slider = HSlider::new(
                 NormalParam {
                     value: IcedNormal::from_clipped(e.ceiling().value() as f32),
@@ -291,7 +284,7 @@ impl EntityView {
     }
 
     fn lfo_view(&self, e: &LfoController) -> Element<EntityMessage> {
-        self.collapsing_box("LFO", e.uid(), || {
+        self.collapsing_box(e, || {
             let slider = HSlider::new(
                 NormalParam {
                     value: IcedNormal::from_clipped(0.42_f32),
@@ -306,24 +299,21 @@ impl EntityView {
     }
 
     fn limiter_view(&self, e: &Limiter) -> Element<EntityMessage> {
-        let title = type_name::<Limiter>();
-        let contents = format!("min: {} max: {}", e.min(), e.max());
-        GuiStuff::titled_container(
-            title,
-            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-        )
+        self.collapsing_box(e, || {
+            let contents = format!("min: {} max: {}", e.min(), e.max());
+            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into()
+        })
     }
 
     fn midi_tick_sequencer_view(&self, e: &MidiTickSequencer) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<MidiTickSequencer>(),
+        self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into(),
-        )
+                .into()
+        })
     }
 
     fn mixer_view(&self, e: &Mixer) -> Element<EntityMessage> {
-        self.collapsing_box("Mixer", e.uid(), || {
+        self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(
                 format!("Mixer {} coming soon", e.uid()).as_str(),
             )
@@ -368,81 +358,70 @@ impl EntityView {
     }
 
     fn reverb_view(&self, e: &Reverb) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<Reverb>(),
+        self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into(),
-        )
+                .into()
+        })
     }
 
     fn sampler_view(&self, e: &Sampler) -> Element<EntityMessage> {
-        let title = type_name::<Sampler>();
-        let contents = format!("Coming soon: {}", e.uid());
-        GuiStuff::titled_container(
-            title,
-            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into(),
-        )
+        self.collapsing_box(e, || {
+            GuiStuff::<EntityMessage>::container_text("I'm a sampler!").into()
+        })
     }
 
     fn sequencer_view(&self, e: &Sequencer) -> Element<EntityMessage> {
-        self.collapsing_box("Sequencer", e.uid(), || {
+        self.collapsing_box(e, || {
             let contents = format!("{}", e.next_instant());
             GuiStuff::<EntityMessage>::container_text(contents.as_str()).into()
         })
     }
 
-    fn signal_controller_view(&self, _: &SignalPassthroughController) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<SignalPassthroughController>(),
-            GuiStuff::<EntityMessage>::container_text("nothing").into(),
-        )
+    fn signal_controller_view(&self, e: &SignalPassthroughController) -> Element<EntityMessage> {
+        self.collapsing_box(e, || {
+            GuiStuff::<EntityMessage>::container_text("nothing").into()
+        })
     }
 
     fn test_instrument_view(&self, e: &ToyInstrument) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<ToyInstrument>(),
+        self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(
                 format!("Fake value: {}", e.fake_value()).as_str(),
             )
-            .into(),
-        )
+            .into()
+        })
     }
 
-    fn test_synth_view(&self, _: &ToySynth) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<ToySynth>(),
-            GuiStuff::<EntityMessage>::container_text("Nothing").into(),
-        )
+    fn test_synth_view(&self, e: &ToySynth) -> Element<EntityMessage> {
+        self.collapsing_box(e, || {
+            GuiStuff::<EntityMessage>::container_text("Nothing").into()
+        })
     }
 
     fn timer_view(&self, e: &Timer) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<Timer>(),
+        self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(
                 format!("Runtime: {}", e.time_to_run_seconds()).as_str(),
             )
-            .into(),
-        )
+            .into()
+        })
     }
 
     fn toy_controller_view(&self, e: &ToyController<EntityMessage>) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<ToyController<EntityMessage>>(),
-            GuiStuff::<EntityMessage>::container_text(format!("Tempo: {}", e.tempo).as_str())
-                .into(),
-        )
+        self.collapsing_box(e, || {
+            GuiStuff::<EntityMessage>::container_text(format!("Tempo: {}", e.tempo).as_str()).into()
+        })
     }
 
     fn toy_effect_view(&self, e: &ToyEffect) -> Element<EntityMessage> {
-        GuiStuff::titled_container(
-            type_name::<ToyEffect>(),
+        self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(format!("Value: {}", e.my_value()).as_str())
-                .into(),
-        )
+                .into()
+        })
     }
 
     fn welsh_synth_view(&self, e: &WelshSynth) -> Element<EntityMessage> {
-        self.collapsing_box("Welsh", e.uid(), || {
+        self.collapsing_box(e, || {
             let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
             let pan_knob: Element<EntityMessage> = Knob::new(
                 // TODO: toil. make it easier to go from bipolar normal to normal
