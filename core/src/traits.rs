@@ -6,7 +6,7 @@ use crate::{
     BipolarNormal, Normal, Sample, StereoSample,
 };
 
-pub trait MessageBounds: Clone + std::fmt::Debug + Send + 'static {}
+pub trait MessageBounds: Clone + std::fmt::Debug + Send {}
 
 /// An IsController controls things in the system that implement Controllable.
 /// Examples are sequencers, arpeggiators, and discrete LFOs (as contrasted with
