@@ -22,8 +22,8 @@ use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
     views::{
-        AutomationMessage, AutomationView, ControlBarView, EntityView, EntityViewState,
-        FakeControllable, FakeController,
+        AutomationMessage, AutomationView, ControlBarView, Controllable, Controller, EntityView,
+        EntityViewState,
     },
     GuiStuff,
 };
@@ -353,23 +353,20 @@ impl Application for GrooveApp {
                             orchestrator.entity_iter().for_each(|(uid, entity)| {
                                 entity_uids.push(*uid);
                                 if (*entity).as_is_controller().is_some() {
-                                    self.automation_view.controllers.push(FakeController::new(
-                                        *uid,
-                                        (*entity).as_has_uid().name(),
-                                    ));
+                                    self.automation_view
+                                        .controllers
+                                        .push(Controller::new(*uid, (*entity).as_has_uid().name()));
                                 }
                                 if let Some(controllable) = (*entity).as_controllable() {
                                     let mut params = Vec::default();
                                     for i in 0..controllable.control_index_count() {
                                         params.push(controllable.control_name_for_index(i));
                                     }
-                                    self.automation_view
-                                        .controllables
-                                        .push(FakeControllable::new(
-                                            *uid,
-                                            (*entity).as_has_uid().name(),
-                                            params,
-                                        ));
+                                    self.automation_view.controllables.push(Controllable::new(
+                                        *uid,
+                                        (*entity).as_has_uid().name(),
+                                        params,
+                                    ));
                                 }
                             });
                         } else {

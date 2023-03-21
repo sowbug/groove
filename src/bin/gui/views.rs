@@ -813,8 +813,8 @@ pub(crate) struct AutomationView {
     source_id: usize,
     target_id: usize,
 
-    pub(crate) controllers: Vec<FakeController>,
-    pub(crate) controllables: Vec<FakeControllable>,
+    pub(crate) controllers: Vec<Controller>,
+    pub(crate) controllables: Vec<Controllable>,
     connections: Vec<(usize, usize)>,
 }
 impl AutomationView {
@@ -1078,11 +1078,11 @@ impl AutomationView {
 }
 
 #[derive(Debug)]
-pub(crate) struct FakeController {
+pub(crate) struct Controller {
     pub uid: usize,
     pub name: String,
 }
-impl FakeController {
+impl Controller {
     pub fn new(uid: usize, name: &str) -> Self {
         Self {
             uid,
@@ -1097,12 +1097,12 @@ impl FakeController {
 }
 
 #[derive(Debug)]
-pub(crate) struct FakeControllable {
+pub(crate) struct Controllable {
     pub uid: usize,
     pub name: String,
     pub controllables: Vec<FakeControlPoint>,
 }
-impl FakeControllable {
+impl Controllable {
     pub fn new(uid: usize, name: &str, control_points: Vec<&str>) -> Self {
         let mut r = Self {
             uid: uid,
