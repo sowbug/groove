@@ -45,6 +45,7 @@ pub enum EntityMessage {
     // GUI things.
     ExpandPressed,
     CollapsePressed,
+    EnablePressed(bool),
 }
 impl MessageBounds for EntityMessage {}
 

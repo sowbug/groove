@@ -48,6 +48,7 @@ pub(crate) enum EntityViewState {
 #[derive(Debug)]
 pub(crate) struct EntityView {
     entity_view_states: FxHashMap<usize, EntityViewState>,
+    entity_enabled_states: FxHashMap<usize, bool>,
 
     pub(crate) fm_synthesizer_ratio_range: IntRange,
     pub(crate) fm_synthesizer_beta_range: FloatRange,
@@ -56,6 +57,7 @@ impl Default for EntityView {
     fn default() -> Self {
         Self {
             entity_view_states: Default::default(),
+            entity_enabled_states: Default::default(),
             fm_synthesizer_ratio_range: IntRange::new(1, 32),
             fm_synthesizer_beta_range: FloatRange::new(0.5, 32.0),
         }
@@ -70,6 +72,10 @@ impl EntityView {
 
     pub(crate) fn set_entity_view_state(&mut self, uid: usize, new_state: EntityViewState) {
         self.entity_view_states.insert(uid, new_state);
+    }
+
+    pub(crate) fn set_entity_enabled_state(&mut self, uid: usize, enabled: bool) {
+        self.entity_enabled_states.insert(uid, enabled);
     }
 
     pub(crate) fn reset(&mut self) {
@@ -164,12 +170,24 @@ impl EntityView {
     {
         let uid = entity.uid();
         let title = entity.name();
+        let enabled = self.entity_enabled_state(uid);
 
         if self.entity_view_state(uid) == EntityViewState::Expanded {
             let contents = contents_fn();
-            GuiStuff::expanded_container(title, EntityMessage::CollapsePressed, contents)
+            GuiStuff::expanded_container(
+                title,
+                EntityMessage::CollapsePressed,
+                EntityMessage::EnablePressed,
+                enabled,
+                contents,
+            )
         } else {
-            GuiStuff::<EntityMessage>::collapsed_container(title, EntityMessage::ExpandPressed)
+            GuiStuff::<EntityMessage>::collapsed_container(
+                title,
+                EntityMessage::ExpandPressed,
+                EntityMessage::EnablePressed,
+                enabled,
+            )
         }
     }
 
@@ -212,6 +230,14 @@ impl EntityView {
             state.clone()
         } else {
             EntityViewState::default()
+        }
+    }
+
+    fn entity_enabled_state(&self, uid: usize) -> bool {
+        if let Some(enabled) = self.entity_enabled_states.get(&uid) {
+            *enabled
+        } else {
+            true
         }
     }
 

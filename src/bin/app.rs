@@ -447,6 +447,9 @@ impl Application for GrooveApp {
                         self.entity_view
                             .set_entity_view_state(uid, EntityViewState::Collapsed);
                     }
+                    EntityMessage::EnablePressed(enabled) => {
+                        self.entity_view.set_entity_enabled_state(uid, enabled);
+                    }
                     _ => {
                         self.update_entity(uid, message);
                     }
@@ -643,6 +646,7 @@ impl GrooveApp {
                         EntityMessage::PickListSelected(_) => todo!(),
                         EntityMessage::ExpandPressed => todo!(),
                         EntityMessage::CollapsePressed => todo!(),
+                        EntityMessage::EnablePressed(_) => todo!(),
                     },
                     Entity::Sampler(_) => todo!(),
                     Entity::ToyAudioSource(_) => todo!(),

@@ -5,8 +5,8 @@ pub(crate) mod views;
 
 use iced::{
     alignment::{self, Vertical},
-    theme,
-    widget::{self, button, column, container, row, svg, text, Button, Text},
+    theme::{self, palette},
+    widget::{self, button, checkbox, column, container, row, svg, text, Button, Text},
     Color, Element, Font, Length, Renderer, Theme,
 };
 use iced_native::{svg::Handle, widget::Svg};
@@ -59,6 +59,37 @@ impl container::StyleSheet for NumberContainerStyle {
             text_color: Some(Color::from_rgb8(255, 255, 0)),
             background: Some(iced::Background::Color(Color::BLACK)),
             ..Default::default()
+        }
+    }
+}
+
+pub(crate) struct CollapsingBoxStyle {
+    _theme: iced::Theme,
+    enabled: bool,
+}
+
+impl container::StyleSheet for CollapsingBoxStyle {
+    type Style = Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> container::Appearance {
+        let palette = &palette::EXTENDED_DARK;
+
+        if self.enabled {
+            container::Appearance {
+                text_color: None,
+                background: palette.background.weak.color.into(),
+                border_radius: 2.0,
+                border_width: 0.0,
+                border_color: Color::TRANSPARENT,
+            }
+        } else {
+            container::Appearance {
+                text_color: palette.secondary.weak.color.into(),
+                background: palette.background.weak.color.into(),
+                border_radius: 2.0,
+                border_width: 0.0,
+                border_color: palette.secondary.weak.color.into(),
+            }
         }
     }
 }
@@ -121,7 +152,9 @@ impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
     fn container_title_bar(
         title: &str,
         is_expanded: bool,
-        disclosure_triangle_message: Message,
+        is_enabled: bool,
+        on_expand: Message,
+        on_enable: impl Fn(bool) -> Message + 'a,
     ) -> Element<'a, Message> {
         let disclosure = button(
             if is_expanded {
@@ -131,51 +164,72 @@ impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
             }
             .size(8),
         )
-        .on_press(disclosure_triangle_message);
+        .on_press(on_expand);
+        let enable_checkbox = checkbox("", is_enabled, on_enable);
 
-        container(row![
-            disclosure,
+        let title_text = container(
             text(title.to_string())
                 .font(SMALL_FONT)
                 .size(SMALL_FONT_SIZE)
                 .horizontal_alignment(iced::alignment::Horizontal::Left)
                 .vertical_alignment(Vertical::Center),
-        ])
-        .width(iced::Length::Fill)
-        .padding(1)
-        .style(theme::Container::Custom(
-            Self::titled_container_title_style(&Theme::Dark),
-        ))
-        .into()
+        )
+        .width(Length::Fill);
+
+        container(row![title_text, enable_checkbox, disclosure,])
+            .width(iced::Length::Fill)
+            .padding(1)
+            .style(theme::Container::Custom(
+                Self::titled_container_title_style(&Theme::Dark),
+            ))
+            .into()
+    }
+
+    pub fn collapsing_box_style(
+        theme: &iced::Theme,
+        enabled: bool,
+    ) -> Box<(dyn iced::widget::container::StyleSheet<Style = Theme>)> {
+        Box::new(CollapsingBoxStyle {
+            _theme: theme.clone(),
+            enabled,
+        })
     }
 
     pub fn collapsed_container(
         title: &str,
-        disclosure_triangle_message: Message,
+        on_expand: Message,
+        on_enable: impl Fn(bool) -> Message + 'a,
+        enabled: bool,
     ) -> Element<'a, Message> {
         container(Self::container_title_bar(
-            title,
-            false,
-            disclosure_triangle_message,
+            title, false, enabled, on_expand, on_enable,
         ))
         .width(iced::Length::Fill)
         .padding(0)
-        .style(theme::Container::Box)
+        .style(theme::Container::Custom(Self::collapsing_box_style(
+            &Theme::Dark,
+            enabled,
+        )))
         .into()
     }
 
     pub fn expanded_container(
         title: &str,
-        disclosure_triangle_message: Message,
+        on_expand: Message,
+        on_enable: impl Fn(bool) -> Message + 'a,
+        enabled: bool,
         contents: Element<'a, Message>,
     ) -> Element<'a, Message> {
         container(column![
-            Self::container_title_bar(title, true, disclosure_triangle_message),
+            Self::container_title_bar(title, true, enabled, on_expand, on_enable),
             contents,
         ])
         .width(iced::Length::Fill)
         .padding(0)
-        .style(theme::Container::Box)
+        .style(theme::Container::Custom(Self::collapsing_box_style(
+            &Theme::Dark,
+            enabled,
+        )))
         .into()
     }
 }
