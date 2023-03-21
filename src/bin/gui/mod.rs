@@ -3,6 +3,7 @@
 pub(crate) mod persistence;
 pub(crate) mod views;
 
+use groove_core::{Sample, StereoSample};
 use iced::{
     alignment::{self, Vertical},
     theme::{self, palette},
@@ -149,10 +150,20 @@ impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
         })
     }
 
+    fn audio_pixel(audio: StereoSample) -> Element<'a, Message> {
+        let mono: Sample = audio.into();
+        let int_val = (mono.0.abs() * 255.0) as u16;
+        text("•")
+            .size(int_val / 8)
+            .style(iced::theme::Text::Color(Color::from_rgb8(255, 255, 0)))
+            .into()
+    }
+
     fn container_title_bar(
         title: &str,
         is_expanded: bool,
         is_enabled: bool,
+        audio: StereoSample,
         on_expand: Message,
         on_enable: impl Fn(bool) -> Message + 'a,
     ) -> Element<'a, Message> {
@@ -166,6 +177,7 @@ impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
         )
         .on_press(on_expand);
         let enable_checkbox = checkbox("", is_enabled, on_enable);
+        let audio_pixel = Self::audio_pixel(audio);
 
         let title_text = container(
             text(title.to_string())
@@ -176,7 +188,7 @@ impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
         )
         .width(Length::Fill);
 
-        container(row![title_text, enable_checkbox, disclosure,])
+        container(row![title_text, audio_pixel, enable_checkbox, disclosure,])
             .width(iced::Length::Fill)
             .padding(1)
             .style(theme::Container::Custom(
@@ -200,9 +212,10 @@ impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
         on_expand: Message,
         on_enable: impl Fn(bool) -> Message + 'a,
         enabled: bool,
+        audio: StereoSample,
     ) -> Element<'a, Message> {
         container(Self::container_title_bar(
-            title, false, enabled, on_expand, on_enable,
+            title, false, enabled, audio, on_expand, on_enable,
         ))
         .width(iced::Length::Fill)
         .padding(0)
@@ -218,10 +231,11 @@ impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
         on_expand: Message,
         on_enable: impl Fn(bool) -> Message + 'a,
         enabled: bool,
+        audio: StereoSample,
         contents: Element<'a, Message>,
     ) -> Element<'a, Message> {
         container(column![
-            Self::container_title_bar(title, true, enabled, on_expand, on_enable),
+            Self::container_title_bar(title, true, enabled, audio, on_expand, on_enable),
             contents,
         ])
         .width(iced::Length::Fill)

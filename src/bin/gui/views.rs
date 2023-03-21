@@ -9,7 +9,7 @@ use groove::{app_version, Entity};
 use groove_core::{
     time::{Clock, TimeSignature},
     traits::HasUid,
-    Normal, ParameterType,
+    Normal, ParameterType, StereoSample,
 };
 use groove_entities::{
     controllers::{
@@ -49,6 +49,7 @@ pub(crate) enum EntityViewState {
 pub(crate) struct EntityView {
     entity_view_states: FxHashMap<usize, EntityViewState>,
     entity_enabled_states: FxHashMap<usize, bool>,
+    entity_audio_outputs: FxHashMap<usize, StereoSample>,
 
     pub(crate) fm_synthesizer_ratio_range: IntRange,
     pub(crate) fm_synthesizer_beta_range: FloatRange,
@@ -58,6 +59,7 @@ impl Default for EntityView {
         Self {
             entity_view_states: Default::default(),
             entity_enabled_states: Default::default(),
+            entity_audio_outputs: Default::default(),
             fm_synthesizer_ratio_range: IntRange::new(1, 32),
             fm_synthesizer_beta_range: FloatRange::new(0.5, 32.0),
         }
@@ -171,6 +173,10 @@ impl EntityView {
         let uid = entity.uid();
         let title = entity.name();
         let enabled = self.entity_enabled_state(uid);
+        let audio = *self
+            .entity_audio_outputs
+            .get(&uid)
+            .unwrap_or(&StereoSample::default());
 
         if self.entity_view_state(uid) == EntityViewState::Expanded {
             let contents = contents_fn();
@@ -179,6 +185,7 @@ impl EntityView {
                 EntityMessage::CollapsePressed,
                 EntityMessage::EnablePressed,
                 enabled,
+                audio,
                 contents,
             )
         } else {
@@ -187,6 +194,7 @@ impl EntityView {
                 EntityMessage::ExpandPressed,
                 EntityMessage::EnablePressed,
                 enabled,
+                audio,
             )
         }
     }
@@ -467,6 +475,10 @@ impl EntityView {
             ])
             .into()
         })
+    }
+
+    pub(crate) fn update_audio_outputs(&mut self, uid: &usize, sample: &StereoSample) {
+        self.entity_audio_outputs.insert(*uid, *sample);
     }
 }
 

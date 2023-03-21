@@ -83,33 +83,26 @@ pub enum EngineEvent {
     /// reference that's necessary for building GUI views.
     Ready(mpsc::Sender<EngineInput>, Arc<Mutex<Orchestrator>>),
 
+    /// An internal message that is passed directly through.
+    GrooveEvent(GrooveEvent),
+
     /// Sends the engine's current frame. Useful for the GUI to keep the control
     /// bar's clock in sync.
+    /// TODO: this MAYBE should be part of GrooveEvent
     SetClock(usize),
 
     /// Sends an updated BPM (beats per minute) whenever it changes.
+    /// TODO: this MAYBE should be part of GrooveEvent
     SetBpm(ParameterType),
 
     /// Sends an updated global time signature whenever it changes. Note that
     /// individual components might have independent time signatures that
     /// operate on their own time.
+    /// TODO: this MAYBE should be part of GrooveEvent
     SetTimeSignature(TimeSignature),
 
-    /// The engine has generated a MIDI message suitable for forwarding to
-    /// external MIDI hardware.
-    MidiToExternal(MidiChannel, MidiMessage),
-
-    /// A new project has loaded. For convenience, the filename and optional
-    /// project title are included.
-    ProjectLoaded(String, Option<String>),
-
-    /// The engine has produced a frame of audio.
-    AudioOutput(StereoSample),
-
-    /// The current performance is complete.
-    OutputComplete,
-
     /// How full our audio output buffer is, as a percentage.
+    /// TODO: this MAYBE should be part of GrooveEvent
     AudioBufferFullness(Normal),
 
     /// The engine has received an [EngineInput::QuitRequested] message, has
@@ -288,15 +281,14 @@ impl EngineSubscription {
         while let Some(event) = self.events.pop() {
             match event {
                 GrooveEvent::AudioOutput(output_sample) => sample = output_sample,
+                GrooveEvent::EntityAudioOutput(..)
+                | GrooveEvent::MidiToExternal(..)
+                | GrooveEvent::ProjectLoaded(..) => {
+                    self.post_event(EngineEvent::GrooveEvent(event));
+                }
                 GrooveEvent::OutputComplete => {
                     done = true;
-                    self.post_event(EngineEvent::OutputComplete);
-                }
-                GrooveEvent::MidiToExternal(channel, message) => {
-                    self.post_event(EngineEvent::MidiToExternal(channel, message))
-                }
-                GrooveEvent::ProjectLoaded(filename, title) => {
-                    self.post_event(EngineEvent::ProjectLoaded(filename, title))
+                    self.post_event(EngineEvent::GrooveEvent(event));
                 }
                 GrooveEvent::EntityMessage(_, _) => {
                     panic!("this should have been handled by now")
@@ -455,14 +447,22 @@ impl EngineSubscription {
 
     fn generate_audio(&mut self, buffer_count: u8) {
         let mut samples = [StereoSample::SILENCE; Self::ENGINE_BUFFER_SIZE];
-        for _ in 0..buffer_count {
+        for i in 0..buffer_count {
+            let want_audio_update = i == buffer_count - 1;
+            let mut other_response = Response::none();
             if self.is_playing {
                 let (response, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
-                    o.tick(&mut samples)
+                    let r = o.tick(&mut samples);
+                    if want_audio_update {
+                        let wad = o.last_audio_wad();
+                        other_response = Response::single(GrooveEvent::EntityAudioOutput(wad));
+                    }
+                    r
                 } else {
                     (Response::none(), 0)
                 };
                 self.push_response(response);
+                self.push_response(other_response);
                 if ticks_completed < samples.len() {
                     self.is_playing = false;
                 }

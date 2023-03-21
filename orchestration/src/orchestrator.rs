@@ -71,6 +71,7 @@ pub struct Orchestrator {
     should_output_perf: bool,
 
     last_track_samples: Vec<StereoSample>,
+    last_entity_samples: Vec<StereoSample>,
     main_mixer_source_uids: FxHashSet<usize>,
     last_samples: FxHashMap<usize, StereoSample>,
 }
@@ -314,6 +315,10 @@ impl Orchestrator {
         // TODO: we are wasting work by putting stuff in the last-sample hash
         // map for all but the last iteration of this loop.
         self.last_samples.clear();
+        self.last_entity_samples.clear();
+        self.last_entity_samples
+            .resize(256, StereoSample::default()); // HACK HACK HACK
+
         for sample in samples {
             enum StackEntry {
                 ToVisit(usize),
@@ -357,6 +362,7 @@ impl Orchestrator {
                                 entity.tick(1);
 
                                 self.last_samples.insert(uid, entity.value());
+                                self.last_entity_samples[uid] = entity.value();
                                 sum += entity.value();
                             } else if entity.as_is_effect().is_some() {
                                 // If it's a node, push its children on the stack,
@@ -405,6 +411,7 @@ impl Orchestrator {
 
                                 sum = accumulated_sum + entity_value;
                                 self.last_samples.insert(uid, entity_value);
+                                self.last_entity_samples[uid] = entity_value;
                             }
                         }
                     }
@@ -492,6 +499,7 @@ impl Orchestrator {
             metrics: Default::default(),
             should_output_perf: Default::default(),
             last_track_samples: Default::default(),
+            last_entity_samples: Default::default(),
             main_mixer_source_uids: Default::default(),
             last_samples: Default::default(),
         };
@@ -753,6 +761,16 @@ impl Orchestrator {
     pub fn title(&self) -> Option<String> {
         // TODO: why is this so awful?
         self.title.as_ref().map(|title| title.clone())
+    }
+
+    pub fn last_audio_wad(&self) -> Vec<(usize, StereoSample)> {
+        self.last_entity_samples.iter().enumerate().fold(
+            Vec::default(),
+            |mut v, (index, sample)| {
+                v.push((index, *sample));
+                v
+            },
+        )
     }
 }
 

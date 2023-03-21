@@ -33,6 +33,10 @@ pub enum GrooveEvent {
     /// response to a downstream Tick, and consumed by the application.
     AudioOutput(StereoSample),
 
+    /// Each device's most recent audio info. (uid, sample). If a device is
+    /// skipped, it means that its output hasn't changed.
+    EntityAudioOutput(Vec<(usize, StereoSample)>),
+
     /// If sent, then the Orchestrator performance is done. Intended to be sent
     /// in response to a downstream Tick, and consumed by the application.
     OutputComplete,

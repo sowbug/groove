@@ -320,54 +320,63 @@ impl Application for GrooveApp {
                 EngineEvent::SetTimeSignature(time_signature) => {
                     self.control_bar_view.set_time_signature(time_signature);
                 }
-                EngineEvent::MidiToExternal(channel, message) => {
-                    self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
-                }
-                EngineEvent::AudioOutput(_) => todo!(),
-                EngineEvent::OutputComplete => {
-                    self.reached_end_of_playback = true;
-                    self.state = State::Idle;
-                }
                 EngineEvent::Quit => {
                     // Our EngineInput::QuitRequested has been handled. We have
                     // nothing to do at this point.
                 }
-                EngineEvent::ProjectLoaded(filename, title) => {
-                    self.preferences.last_project_filename = Some(filename);
-                    self.project_title = title;
-                    self.entity_view.reset();
-
-                    let mut entity_uids = Vec::default();
-                    self.automation_view.clear();
-                    if let Ok(orchestrator) = self.orchestrator.lock() {
-                        orchestrator.entity_iter().for_each(|(uid, entity)| {
-                            entity_uids.push(*uid);
-                            if (*entity).as_is_controller().is_some() {
-                                self.automation_view
-                                    .controllers
-                                    .push(FakeController::new(*uid, (*entity).as_has_uid().name()));
-                            }
-                            if let Some(controllable) = (*entity).as_controllable() {
-                                let mut params = Vec::default();
-                                for i in 0..controllable.control_index_count() {
-                                    params.push(controllable.control_name_for_index(i));
-                                }
-                                self.automation_view
-                                    .controllables
-                                    .push(FakeControllable::new(
-                                        *uid,
-                                        (*entity).as_has_uid().name(),
-                                        params,
-                                    ));
-                            }
-                        });
-                    } else {
-                        panic!()
-                    };
-                }
                 EngineEvent::AudioBufferFullness(percentage) => {
                     self.control_bar_view.set_audio_buffer_fullness(percentage);
                 }
+                EngineEvent::GrooveEvent(event) => match event {
+                    GrooveEvent::EntityMessage(_, _) => panic!(),
+                    GrooveEvent::AudioOutput(_) => panic!(),
+                    GrooveEvent::EntityAudioOutput(outputs) => {
+                        outputs.iter().for_each(|(uid, sample)| {
+                            self.entity_view.update_audio_outputs(uid, sample);
+                        })
+                    }
+                    GrooveEvent::OutputComplete => {
+                        self.reached_end_of_playback = true;
+                        self.state = State::Idle;
+                    }
+                    GrooveEvent::MidiToExternal(channel, message) => {
+                        self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
+                    }
+                    GrooveEvent::ProjectLoaded(filename, title) => {
+                        self.preferences.last_project_filename = Some(filename);
+                        self.project_title = title;
+                        self.entity_view.reset();
+
+                        let mut entity_uids = Vec::default();
+                        self.automation_view.clear();
+                        if let Ok(orchestrator) = self.orchestrator.lock() {
+                            orchestrator.entity_iter().for_each(|(uid, entity)| {
+                                entity_uids.push(*uid);
+                                if (*entity).as_is_controller().is_some() {
+                                    self.automation_view.controllers.push(FakeController::new(
+                                        *uid,
+                                        (*entity).as_has_uid().name(),
+                                    ));
+                                }
+                                if let Some(controllable) = (*entity).as_controllable() {
+                                    let mut params = Vec::default();
+                                    for i in 0..controllable.control_index_count() {
+                                        params.push(controllable.control_name_for_index(i));
+                                    }
+                                    self.automation_view
+                                        .controllables
+                                        .push(FakeControllable::new(
+                                            *uid,
+                                            (*entity).as_has_uid().name(),
+                                            params,
+                                        ));
+                                }
+                            });
+                        } else {
+                            panic!()
+                        };
+                    }
+                },
             },
             AppMessage::MidiHandlerEvent(event) => match event {
                 MidiHandlerEvent::Ready(sender) => {
