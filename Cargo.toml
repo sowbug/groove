@@ -34,6 +34,8 @@ midir = "0.8.0"
 midly = "0.5.3"
 more-asserts = "0.3.1"
 native-dialog = "0.6.3"
+num-derive = "0.3.3"
+num-traits = "0.2.15"
 plotters = { version = "0.3.4", optional = true, default-features = false }
 regex = "1.7.0"
 rustc-hash = "1.1.0"
@@ -95,7 +97,6 @@ assets = [
     # be automatically corrected." https://github.com/kornelski/cargo-deb
     ["target/release/groove-cli", "usr/bin/", "755"],
     ["target/release/groove-gui", "usr/bin/", "755"],
-
     ["LICENSE.txt", "usr/share/doc/groove/LICENSE.txt", "644"],
     ["README.md", "usr/share/doc/groove/README.md", "644"],
     ["assets/os/Groove.desktop", "usr/share/applications/", "644"],

@@ -1103,6 +1103,8 @@ impl AutomationView {
     }
 }
 
+/// A [Controller] represents a view of an IsController for the Automation view
+/// pane.
 #[derive(Debug)]
 pub(crate) struct Controller {
     pub uid: usize,
@@ -1122,11 +1124,13 @@ impl Controller {
     }
 }
 
+/// A [Controllable] represents a view of something implementing the
+/// [groove_core::traits::Controllable] trait for the Automation view pane.
 #[derive(Debug)]
 pub(crate) struct Controllable {
     pub uid: usize,
     pub name: String,
-    pub controllables: Vec<FakeControlPoint>,
+    pub controllables: Vec<ControlPoint>,
 }
 impl Controllable {
     pub fn new(uid: usize, name: &str, control_points: Vec<&str>) -> Self {
@@ -1136,7 +1140,7 @@ impl Controllable {
             controllables: Vec::default(),
         };
         r.controllables = control_points.iter().fold(Vec::default(), |mut v, name| {
-            v.push(FakeControlPoint::new(name));
+            v.push(ControlPoint::new(name));
             v
         });
         r
@@ -1148,14 +1152,139 @@ impl Controllable {
     }
 }
 
+/// A [ControlPoint] is one of the things that a [Controllable] allows to be
+/// automated.
 #[derive(Debug)]
-pub(crate) struct FakeControlPoint {
+pub(crate) struct ControlPoint {
     pub name: String,
 }
-impl FakeControlPoint {
+impl ControlPoint {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum AudioLaneEvent {
+    #[allow(dead_code)]
+    NothingYet,
+}
+
+#[derive(Debug)]
+pub(crate) struct AudioLane {
+    pub name: String,
+    pub items: Vec<AudioLaneItem>,
+}
+
+#[derive(Debug)]
+pub(crate) struct AudioLaneItem {
+    pub name: String,
+    #[allow(dead_code)]
+    pub uid: usize, // uid of the Entity that backs it
+}
+
+#[derive(Debug)]
+pub(crate) struct AudioLaneView {
+    pub(crate) lanes: Vec<AudioLane>,
+}
+impl AudioLaneView {
+    pub(crate) fn new() -> Self {
+        let mut r = Self {
+            lanes: Default::default(),
+        };
+        r.lanes = vec![
+            AudioLane {
+                name: String::from("Rhythm"),
+                items: vec![
+                    AudioLaneItem {
+                        name: String::from("Drumkit"),
+                        uid: 1,
+                    },
+                    AudioLaneItem {
+                        name: String::from("Reverb"),
+                        uid: 2,
+                    },
+                    AudioLaneItem {
+                        name: String::from("EQ"),
+                        uid: 3,
+                    },
+                ],
+            },
+            AudioLane {
+                name: String::from("Bass"),
+                items: vec![
+                    AudioLaneItem {
+                        name: String::from("Screaming bass"),
+                        uid: 1,
+                    },
+                    AudioLaneItem {
+                        name: String::from("Compressor"),
+                        uid: 2,
+                    },
+                    AudioLaneItem {
+                        name: String::from("Distortion"),
+                        uid: 3,
+                    },
+                ],
+            },
+            AudioLane {
+                name: String::from("Lead"),
+                items: vec![
+                    AudioLaneItem {
+                        name: String::from("Synth"),
+                        uid: 1,
+                    },
+                    AudioLaneItem {
+                        name: String::from("Reverb"),
+                        uid: 2,
+                    },
+                    AudioLaneItem {
+                        name: String::from("Limiter"),
+                        uid: 3,
+                    },
+                ],
+            },
+        ];
+        r
+    }
+
+    pub(crate) fn view(&self) -> Element<AudioLaneEvent> {
+        let lane_views = self
+            .lanes
+            .iter()
+            .enumerate()
+            .fold(Vec::default(), |mut v, (i, lane)| {
+                let lane_row = Card::new(
+                    text(&format!("Lane #{}: {}", i, lane.name)),
+                    lane.items
+                        .iter()
+                        .enumerate()
+                        .fold(Row::new(), |r, (item_index, item)| {
+                            r.push(
+                                Card::new(
+                                    text(&format!("#{}: {}", item_index, &item.name)),
+                                    text("coming soon").height(Length::Fill),
+                                )
+                                .width(Length::FillPortion(1))
+                                .height(Length::FillPortion(1)),
+                            )
+                        }),
+                );
+                v.push(lane_row);
+                v
+            });
+        let view_column = lane_views
+            .into_iter()
+            .fold(Column::new(), |c, lane_view| {
+                c.push(lane_view.height(Length::FillPortion(1)))
+            })
+            .width(Length::Fill)
+            .height(Length::Fill);
+        let mixer = Card::new(text("Mixer"), text("coming soon").height(Length::Fill))
+            .width(Length::Fixed(96.0));
+        let overall_view = Row::new().height(Length::Fill);
+        container(overall_view.push(view_column).push(mixer)).into()
     }
 }

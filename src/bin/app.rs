@@ -22,8 +22,8 @@ use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
     views::{
-        AutomationMessage, AutomationView, ControlBarEvent, ControlBarInput, ControlBarView,
-        Controllable, Controller, EntityView, EntityViewState,
+        AudioLaneEvent, AudioLaneView, AutomationMessage, AutomationView, ControlBarEvent,
+        ControlBarInput, ControlBarView, Controllable, Controller, EntityView, EntityViewState,
     },
     GuiStuff,
 };
@@ -38,13 +38,15 @@ use iced::{
     Renderer, Settings, Size, Subscription,
 };
 use native_dialog::{MessageDialog, MessageType};
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 use std::{
     path::PathBuf,
     sync::{mpsc, Arc, Mutex},
     time::{Duration, Instant},
 };
 
-#[derive(Default, Debug)]
+#[derive(Clone, Copy, Default, Debug, FromPrimitive)]
 enum MainViews {
     Unstructured,
     New,
@@ -53,6 +55,7 @@ enum MainViews {
     Preferences,
     #[default]
     Automation,
+    AudioLanes,
 }
 
 struct GrooveApp {
@@ -72,6 +75,7 @@ struct GrooveApp {
     entity_view: EntityView,
     control_bar_view: ControlBarView,
     automation_view: AutomationView,
+    audio_lane_view: AudioLaneView,
 
     // Model
     project_title: Option<String>,
@@ -120,6 +124,7 @@ impl Default for GrooveApp {
                 TimeSignature::default(),
             ),
             automation_view: AutomationView::new(),
+            audio_lane_view: AudioLaneView::new(),
             project_title: None,
             orchestrator_sender: Default::default(),
             orchestrator: orchestrator.clone(),
@@ -144,6 +149,7 @@ enum State {
 
 #[derive(Clone, Debug)]
 enum AppMessage {
+    AudioLaneEvent(AudioLaneEvent),
     AutomationEvent(AutomationMessage),
     ControlBarEvent(ControlBarEvent),
     EngineEvent(EngineEvent),
@@ -488,6 +494,7 @@ impl Application for GrooveApp {
                     }
                 }
             }
+            AppMessage::AudioLaneEvent(_event) => todo!(),
         }
 
         Command::none()
@@ -754,15 +761,15 @@ impl GrooveApp {
         }
     }
 
-    fn switch_main_view(&mut self) {
-        self.current_view = match self.current_view {
-            MainViews::Unstructured => MainViews::New,
-            MainViews::New => MainViews::Session,
-            MainViews::Session => MainViews::Arrangement,
-            MainViews::Arrangement => MainViews::Preferences,
-            MainViews::Preferences => MainViews::Unstructured,
-            MainViews::Automation => MainViews::Unstructured,
+    fn next_view(view: MainViews) -> MainViews {
+        match FromPrimitive::from_u8(view as u8 + 1) {
+            Some(view) => view,
+            None => FromPrimitive::from_u8(0).unwrap(),
         }
+    }
+
+    fn switch_main_view(&mut self) {
+        self.current_view = Self::next_view(self.current_view)
     }
 
     fn main_view(&self) -> Element<AppMessage> {
@@ -786,6 +793,7 @@ impl GrooveApp {
             MainViews::Arrangement => Self::under_construction("Arrangement").into(),
             MainViews::Preferences => Self::under_construction("Preferences").into(),
             MainViews::Automation => self.automation_view.view().map(AppMessage::AutomationEvent),
+            MainViews::AudioLanes => self.audio_lane_view.view().map(AppMessage::AudioLaneEvent),
         }
     }
 }
