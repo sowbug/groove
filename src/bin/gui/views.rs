@@ -4,7 +4,6 @@ use super::{
     GuiStuff, IconType, Icons, LARGE_FONT, LARGE_FONT_SIZE, NUMBERS_FONT, NUMBERS_FONT_SIZE,
     SMALL_FONT, SMALL_FONT_SIZE,
 };
-use crate::ControlBarMessage;
 use groove::{app_version, Entity};
 use groove_core::{
     time::{Clock, TimeSignature},
@@ -482,8 +481,27 @@ impl EntityView {
     }
 }
 
+#[derive(Debug, Clone)]
+pub(crate) enum ControlBarInput {
+    SetClock(usize),
+    SetBpm(f64),
+    SetTimeSignature(TimeSignature),
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum ControlBarEvent {
+    Play,
+    Stop,
+    SkipToStart,
+    Bpm(String),
+    OpenProject,
+    ExportWav,
+    #[allow(dead_code)]
+    ExportMp3,
+}
+
 #[derive(Debug)]
-pub struct ControlBarView {
+pub(crate) struct ControlBarView {
     clock: Clock,
     time_signature: TimeSignature,
     audio_buffer_fullness: Normal,
@@ -497,19 +515,7 @@ impl ControlBarView {
         }
     }
 
-    pub fn set_clock(&mut self, frames: usize) {
-        self.clock.seek(frames);
-    }
-
-    pub fn set_bpm(&mut self, bpm: ParameterType) {
-        self.clock.set_bpm(bpm);
-    }
-
-    pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
-        self.time_signature = time_signature;
-    }
-
-    pub fn view(&self, is_playing: bool) -> Element<ControlBarMessage> {
+    pub fn view(&self, is_playing: bool) -> Element<ControlBarEvent> {
         let full_row = Row::new()
             .push(self.bpm_view())
             .push(self.media_buttons(is_playing))
@@ -524,16 +530,38 @@ impl ControlBarView {
             .into()
     }
 
-    fn media_buttons(&self, is_playing: bool) -> Container<ControlBarMessage> {
+    pub fn update(&mut self, message: ControlBarInput) {
+        match message {
+            ControlBarInput::SetClock(frames) => self.set_clock(frames),
+            ControlBarInput::SetBpm(bpm) => self.set_bpm(bpm),
+            ControlBarInput::SetTimeSignature(time_signature) => {
+                self.set_time_signature(time_signature)
+            }
+        }
+    }
+
+    fn set_clock(&mut self, frames: usize) {
+        self.clock.seek(frames);
+    }
+
+    fn set_bpm(&mut self, bpm: ParameterType) {
+        self.clock.set_bpm(bpm);
+    }
+
+    fn set_time_signature(&mut self, time_signature: TimeSignature) {
+        self.time_signature = time_signature;
+    }
+
+    fn media_buttons(&self, is_playing: bool) -> Container<ControlBarEvent> {
         let start_button =
-            Icons::button_icon(IconType::Start).on_press(ControlBarMessage::SkipToStart);
+            Icons::button_icon(IconType::Start).on_press(ControlBarEvent::SkipToStart);
         let play_button = (if is_playing {
             Icons::button_icon(IconType::Pause)
         } else {
             Icons::button_icon(IconType::Play)
         })
-        .on_press(ControlBarMessage::Play);
-        let stop_button = Icons::button_icon(IconType::Stop).on_press(ControlBarMessage::Stop);
+        .on_press(ControlBarEvent::Play);
+        let stop_button = Icons::button_icon(IconType::Stop).on_press(ControlBarEvent::Stop);
         container(
             Row::new()
                 .push(start_button)
@@ -542,7 +570,7 @@ impl ControlBarView {
         )
     }
 
-    fn clock_view(&self) -> Element<ControlBarMessage> {
+    fn clock_view(&self) -> Element<ControlBarEvent> {
         let time_counter = {
             let minutes: u8 = (self.clock.seconds() / 60.0).floor() as u8;
             let seconds = self.clock.seconds() as usize % 60;
@@ -553,7 +581,7 @@ impl ControlBarView {
                     .size(NUMBERS_FONT_SIZE),
             )
             .style(theme::Container::Custom(
-                GuiStuff::<ControlBarMessage>::number_box_style(&Theme::Dark),
+                GuiStuff::<ControlBarEvent>::number_box_style(&Theme::Dark),
             ))
             .align_x(alignment::Horizontal::Center)
         };
@@ -588,7 +616,7 @@ impl ControlBarView {
                     .size(NUMBERS_FONT_SIZE),
             )
             .style(theme::Container::Custom(
-                GuiStuff::<ControlBarMessage>::number_box_style(&Theme::Dark),
+                GuiStuff::<ControlBarEvent>::number_box_style(&Theme::Dark),
             ))
             .align_x(alignment::Horizontal::Center)
         };
@@ -601,12 +629,12 @@ impl ControlBarView {
             .into()
     }
 
-    fn bpm_view(&self) -> Container<ControlBarMessage> {
+    fn bpm_view(&self) -> Container<ControlBarEvent> {
         container(
             text_input(
                 "BPM",
                 self.clock.bpm().round().to_string().as_str(),
-                ControlBarMessage::Bpm,
+                ControlBarEvent::Bpm,
             )
             .font(SMALL_FONT)
             .size(SMALL_FONT_SIZE),
@@ -615,15 +643,15 @@ impl ControlBarView {
         .padding(8)
     }
 
-    fn util_buttons(&self) -> Container<ControlBarMessage> {
+    fn util_buttons(&self) -> Container<ControlBarEvent> {
         let audiobuf_container = container(Column::new().push(text("Audio")).push(text(
             format!("{:0.2}%", self.audio_buffer_fullness.value() * 100.0).as_str(),
         )))
         .width(Length::FillPortion(1));
         let open_button =
-            Icons::button_icon(IconType::OpenProject).on_press(ControlBarMessage::OpenProject);
+            Icons::button_icon(IconType::OpenProject).on_press(ControlBarEvent::OpenProject);
         let export_wav_button =
-            Icons::button_icon(IconType::ExportWav).on_press(ControlBarMessage::ExportWav);
+            Icons::button_icon(IconType::ExportWav).on_press(ControlBarEvent::ExportWav);
         let export_mp3_button = Icons::button_icon(IconType::ExportMp3); /* disabled for now .on_press(ControlBarMessage::ExportMp3) */
         let app_version = container(text(app_version())).align_x(alignment::Horizontal::Right);
 
@@ -799,7 +827,6 @@ where
 
 #[derive(Clone, Debug)]
 pub enum AutomationMessage {
-    Nothing,
     MouseIn(usize),
     MouseOut(usize),
     MouseDown(usize),
@@ -1014,7 +1041,6 @@ impl AutomationView {
 
     pub(crate) fn update(&mut self, message: AutomationMessage) -> Option<AutomationMessage> {
         match message {
-            AutomationMessage::Nothing => todo!(),
             AutomationMessage::MouseDown(id) => {
                 self.is_dragging = true;
                 self.source_id = id;

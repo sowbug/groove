@@ -22,8 +22,8 @@ use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
     views::{
-        AutomationMessage, AutomationView, ControlBarView, Controllable, Controller, EntityView,
-        EntityViewState,
+        AutomationMessage, AutomationView, ControlBarEvent, ControlBarInput, ControlBarView,
+        Controllable, Controller, EntityView, EntityViewState,
     },
     GuiStuff,
 };
@@ -143,30 +143,18 @@ enum State {
 }
 
 #[derive(Clone, Debug)]
-pub enum AppMessage {
+enum AppMessage {
+    AutomationEvent(AutomationMessage),
+    ControlBarEvent(ControlBarEvent),
+    EngineEvent(EngineEvent),
+    Event(iced::Event),
+    ExportComplete(Result<(), SaveError>),
+    GrooveEvent(GrooveEvent),
+    MidiHandlerEvent(MidiHandlerEvent),
+    MidiHandlerInput(MidiHandlerInput),
+    OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
     PrefsLoaded(Result<Preferences, LoadError>),
     PrefsSaved(Result<(), SaveError>),
-    ControlBarMessage(ControlBarMessage),
-    GrooveEvent(GrooveEvent),
-    EngineEvent(EngineEvent),
-    MidiHandlerInput(MidiHandlerInput),
-    MidiHandlerEvent(MidiHandlerEvent),
-    Tick(Instant),
-    Event(iced::Event),
-    OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
-    ExportComplete(Result<(), SaveError>),
-    AutomationEvent(AutomationMessage),
-}
-
-#[derive(Debug, Clone)]
-pub enum ControlBarMessage {
-    Play,
-    Stop,
-    SkipToStart,
-    Bpm(String),
-    OpenProject,
-    ExportWav,
-    ExportMp3,
 }
 
 impl Application for GrooveApp {
@@ -203,13 +191,13 @@ impl Application for GrooveApp {
                 self.is_pref_load_complete = true;
                 self.preferences = Preferences::default();
             }
-            AppMessage::Tick(_now) => {
-                // if let Ok(o) = self.orchestrator.lock() {
-                //     self.gui_state.update_state(o);
-                // }
-                self.gui_state.update_state();
-            }
-            AppMessage::ControlBarMessage(message) => match message {
+            // AppMessage::Tick(_now) => {
+            //     // if let Ok(o) = self.orchestrator.lock() {
+            //     //     self.gui_state.update_state(o);
+            //     // }
+            //     self.gui_state.update_state();
+            // }
+            AppMessage::ControlBarEvent(event) => match event {
                 // TODO: try to get in the habit of putting less logic in the
                 // user-action messages like Play/Stop, and putting more logic
                 // in the system-action (react?) messages like most
@@ -221,37 +209,25 @@ impl Application for GrooveApp {
                 // The Play logic is a good example: it's intricate, and there
                 // isn't any good reason why the model wouldn't know how to
                 // handle these actions properly.
-                ControlBarMessage::Play => {
-                    if self.reached_end_of_playback {
-                        self.post_to_orchestrator(EngineInput::SkipToStart);
-                        self.reached_end_of_playback = false;
-                    }
+                ControlBarEvent::Play => {
                     self.post_to_orchestrator(EngineInput::Play);
-                    self.state = State::Playing
                 }
-                ControlBarMessage::Stop => {
-                    self.post_to_orchestrator(EngineInput::Pause);
-                    self.reached_end_of_playback = false;
-                    match self.state {
-                        State::Idle => {
-                            self.post_to_orchestrator(EngineInput::SkipToStart);
-                        }
-                        State::Playing => self.state = State::Idle,
-                    }
+                ControlBarEvent::Stop => {
+                    self.post_to_orchestrator(EngineInput::Stop);
                 }
-                ControlBarMessage::SkipToStart => todo!(),
-                ControlBarMessage::Bpm(value) => {
+                ControlBarEvent::SkipToStart => self.post_to_orchestrator(EngineInput::SkipToStart),
+                ControlBarEvent::Bpm(value) => {
                     if let Ok(bpm) = value.parse() {
                         self.post_to_orchestrator(EngineInput::SetBpm(bpm));
                     }
                 }
-                ControlBarMessage::OpenProject => {
+                ControlBarEvent::OpenProject => {
                     return Command::perform(
                         Preferences::open_dialog(),
                         AppMessage::OpenDialogComplete,
                     )
                 }
-                ControlBarMessage::ExportWav => {
+                ControlBarEvent::ExportWav => {
                     MessageDialog::new()
                         .set_type(MessageType::Info)
                         .set_title("Export WAV")
@@ -268,7 +244,7 @@ impl Application for GrooveApp {
                         }
                     }
                 }
-                ControlBarMessage::ExportMp3 => {
+                ControlBarEvent::ExportMp3 => {
                     if let Ok(mut o) = self.orchestrator.lock() {
                         let mut sample_buffer = [StereoSample::SILENCE; 64];
                         if let Ok(performance) = o.run_performance(&mut sample_buffer, true) {
@@ -315,11 +291,15 @@ impl Application for GrooveApp {
                         }
                     }
                 }
-                EngineEvent::SetClock(samples) => self.control_bar_view.set_clock(samples),
-                EngineEvent::SetBpm(bpm) => self.control_bar_view.set_bpm(bpm),
-                EngineEvent::SetTimeSignature(time_signature) => {
-                    self.control_bar_view.set_time_signature(time_signature);
+                EngineEvent::SetClock(samples) => self
+                    .control_bar_view
+                    .update(ControlBarInput::SetClock(samples)),
+                EngineEvent::SetBpm(bpm) => {
+                    self.control_bar_view.update(ControlBarInput::SetBpm(bpm))
                 }
+                EngineEvent::SetTimeSignature(time_signature) => self
+                    .control_bar_view
+                    .update(ControlBarInput::SetTimeSignature(time_signature)),
                 EngineEvent::Quit => {
                     // Our EngineInput::QuitRequested has been handled. We have
                     // nothing to do at this point.
@@ -328,14 +308,19 @@ impl Application for GrooveApp {
                     self.control_bar_view.set_audio_buffer_fullness(percentage);
                 }
                 EngineEvent::GrooveEvent(event) => match event {
-                    GrooveEvent::EntityMessage(_, _) => panic!(),
-                    GrooveEvent::AudioOutput(_) => panic!(),
+                    GrooveEvent::EntityMessage(_, _) => {
+                        panic!("EntityMessage should have been handled internally")
+                    }
                     GrooveEvent::EntityAudioOutput(outputs) => {
                         outputs.iter().for_each(|(uid, sample)| {
                             self.entity_view.update_audio_outputs(uid, sample);
                         })
                     }
-                    GrooveEvent::OutputComplete => {
+                    GrooveEvent::PlaybackStarted => {
+                        self.reached_end_of_playback = false;
+                        self.state = State::Playing;
+                    }
+                    GrooveEvent::PlaybackStopped => {
                         self.reached_end_of_playback = true;
                         self.state = State::Idle;
                     }
@@ -512,7 +497,7 @@ impl Application for GrooveApp {
         let control_bar: Element<AppMessage> = self
             .control_bar_view
             .view(matches!(self.state, State::Playing))
-            .map(AppMessage::ControlBarMessage);
+            .map(AppMessage::ControlBarEvent);
         let main_content = self.main_view();
         container(
             Column::new()
@@ -827,6 +812,7 @@ impl GuiState {
     // https://github.com/iced-rs/iced/blob/master/examples/solar_system/src/main.rs
     // was able to call its method update() without getting an error about
     // stomping on the Program trait's update().
+    #[allow(dead_code)]
     fn update_state(&mut self) {
         // TODO: we can be smarter about when to redraw. We can also store more
         // stuff in GuiState that won't change that often if we think that'll be

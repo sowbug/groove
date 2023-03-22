@@ -51,7 +51,7 @@ pub enum EngineInput {
     Play,
 
     /// Stop playing.
-    Pause,
+    Stop,
 
     /// Reset the cursor to time zero.
     SkipToStart,
@@ -270,32 +270,11 @@ impl EngineSubscription {
         let _ = self.sender.try_send(event);
     }
 
-    /// Processes any queued-up messages that we can handle, and sends what's
-    /// left to the app.
-    ///
-    /// Returns an audio sample if found, and returns true if the orchestrator
-    /// has indicated that it's done with its work.
-    fn handle_pending_messages(&mut self) -> (StereoSample, bool) {
-        let mut sample = StereoSample::default();
-        let mut done = false;
+    /// Forwards queued-up events to the app.
+    fn forward_pending_events(&mut self) {
         while let Some(event) = self.events.pop() {
-            match event {
-                GrooveEvent::AudioOutput(output_sample) => sample = output_sample,
-                GrooveEvent::EntityAudioOutput(..)
-                | GrooveEvent::MidiToExternal(..)
-                | GrooveEvent::ProjectLoaded(..) => {
-                    self.post_event(EngineEvent::GrooveEvent(event));
-                }
-                GrooveEvent::OutputComplete => {
-                    done = true;
-                    self.post_event(EngineEvent::GrooveEvent(event));
-                }
-                GrooveEvent::EntityMessage(_, _) => {
-                    panic!("this should have been handled by now")
-                }
-            }
+            self.post_event(EngineEvent::GrooveEvent(event));
         }
-        (sample, done)
     }
 
     fn dispatch_samples(&mut self, samples: &[StereoSample], sample_count: usize) {
@@ -310,19 +289,18 @@ impl EngineSubscription {
 
                 match input {
                     EngineInput::GenerateAudio(buffer_count) => self.generate_audio(buffer_count),
-                    // TODO: many of these are in the wrong place. This loop
-                    // should be tight and dumb.
                     EngineInput::LoadProject(filename) => {
-                        self.clock.reset(self.clock.sample_rate());
-                        self.is_playing = false;
-                        let response = self.load_project(filename);
+                        self.stop_playback();
+                        let response = self.load_project(&filename);
                         self.push_response(response);
                     }
-                    EngineInput::Play => self.is_playing = true,
-                    EngineInput::Pause => self.is_playing = false,
-                    EngineInput::SkipToStart => {
-                        self.clock.reset(self.clock.sample_rate());
+                    EngineInput::Play => {
+                        self.start_playback();
                     }
+                    EngineInput::Stop => {
+                        self.stop_playback();
+                    }
+                    EngineInput::SkipToStart => self.skip_to_start(),
                     EngineInput::Midi(channel, message) => {
                         messages.push(GrooveInput::MidiFromExternal(channel, message))
                     }
@@ -366,7 +344,7 @@ impl EngineSubscription {
                     };
                     self.push_response(response);
                 }
-                let (_, _) = self.handle_pending_messages();
+                self.forward_pending_events();
             } else {
                 // In the normal case, we will break when we get the
                 // QuitRequested message. This break catches the case where the
@@ -375,6 +353,25 @@ impl EngineSubscription {
                 break;
             }
         }
+    }
+
+    fn start_playback(&mut self) {
+        self.post_event(EngineEvent::GrooveEvent(GrooveEvent::PlaybackStarted));
+        self.is_playing = true;
+    }
+
+    fn stop_playback(&mut self) {
+        self.post_event(EngineEvent::GrooveEvent(GrooveEvent::PlaybackStopped));
+        if self.is_playing {
+            self.is_playing = false;
+        } else {
+            self.skip_to_start();
+        }
+    }
+
+    fn skip_to_start(&mut self) {
+        self.clock.reset(self.clock.sample_rate());
+        self.post_event(EngineEvent::SetClock(0));
     }
 
     /// Periodically sends out events useful for GUI display.
@@ -425,9 +422,9 @@ impl EngineSubscription {
         self.audio_output.stop();
     }
 
-    fn load_project(&mut self, filename: String) -> Response<GrooveEvent> {
+    fn load_project(&mut self, filename: &str) -> Response<GrooveEvent> {
         let mut path = Paths::projects_path(PathType::Global);
-        path.push(filename.clone());
+        path.push(filename);
         if let Ok(settings) = SongSettings::new_from_yaml_file(path.to_str().unwrap()) {
             if let Ok(instance) = settings.instantiate(&Paths::assets_path(PathType::Global), false)
             {
@@ -439,7 +436,7 @@ impl EngineSubscription {
                     // work, but it does work.
                     *o = instance;
                 }
-                return Response::single(GrooveEvent::ProjectLoaded(filename, title));
+                return Response::single(GrooveEvent::ProjectLoaded(filename.to_string(), title));
             }
         }
         Response::none()
@@ -452,6 +449,14 @@ impl EngineSubscription {
             let mut other_response = Response::none();
             if self.is_playing {
                 let (response, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
+                    if self.clock.was_reset() {
+                        // This could be an expensive operation, since it might
+                        // cause a bunch of heap activity. So it's better to do
+                        // it as soon as it's needed, rather than waiting for
+                        // the time-sensitive generate_audio() method. TODO
+                        // move.
+                        o.reset();
+                    }
                     let r = o.tick(&mut samples);
                     if want_audio_update {
                         let wad = o.last_audio_wad();
