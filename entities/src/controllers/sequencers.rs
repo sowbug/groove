@@ -158,6 +158,10 @@ impl Resets for Sequencer {
     fn reset(&mut self, sample_rate: usize) {
         self.temp_hack_clock.set_sample_rate(sample_rate);
         self.temp_hack_clock.reset(sample_rate);
+
+        // TODO: how can we make sure this stays in sync with the clock when the
+        // clock is changed?
+        self.next_instant = PerfectTimeUnit(self.temp_hack_clock.beats());
     }
 }
 impl TicksWithMessages<EntityMessage> for Sequencer {
@@ -253,7 +257,16 @@ impl MidiTickSequencer {
         self.next_instant > self.last_event_time
     }
 }
-impl Resets for MidiTickSequencer {}
+impl Resets for MidiTickSequencer {
+    fn reset(&mut self, sample_rate: usize) {
+        self.temp_hack_clock.set_sample_rate(sample_rate);
+        self.temp_hack_clock.reset(sample_rate);
+
+        // TODO: how can we make sure this stays in sync with the clock when the
+        // clock is changed?
+        self.next_instant = MidiTicks(0);
+    }
+}
 impl TicksWithMessages<EntityMessage> for MidiTickSequencer {
     type Message = EntityMessage;
 
