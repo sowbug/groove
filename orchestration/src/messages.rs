@@ -47,6 +47,9 @@ pub enum GrooveEvent {
     /// The engine has loaded a new project with the supplied filename and
     /// optional title.
     ProjectLoaded(String, Option<String>),
+
+    /// The app should clear any cached representation of engine entities.
+    Clear,
 }
 impl MessageBounds for GrooveEvent {}
 

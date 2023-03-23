@@ -339,9 +339,6 @@ impl GrooveApp {
                 self.project_title = title;
                 self.entity_view.reset();
 
-                // TODO: this should be a clear message
-                self.views.clear();
-
                 // TODO: this should be new-item messages
                 if let Ok(orchestrator) = self.orchestrator.lock() {
                     orchestrator.entity_iter().for_each(|(uid, entity)| {
@@ -356,6 +353,9 @@ impl GrooveApp {
                 } else {
                     panic!()
                 };
+            }
+            GrooveEvent::Clear => {
+                self.views.clear();
             }
             GrooveEvent::EntityMessage(uid, message) => match message {
                 EntityMessage::ExpandPressed => {

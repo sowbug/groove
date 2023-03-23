@@ -436,7 +436,10 @@ impl EngineSubscription {
                     // work, but it does work.
                     *o = instance;
                 }
-                return Response::single(GrooveEvent::ProjectLoaded(filename.to_string(), title));
+                return Response::batch(vec![
+                    Response::single(GrooveEvent::ProjectLoaded(filename.to_string(), title)),
+                    Response::single(GrooveEvent::Clear),
+                ]);
             }
         }
         Response::none()
