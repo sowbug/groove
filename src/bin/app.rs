@@ -22,8 +22,8 @@ use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
     views::{
-        AudioLaneEvent, AudioLaneView, AutomationMessage, AutomationView, ControlBarEvent,
-        ControlBarInput, ControlBarView, Controllable, Controller, EntityView, EntityViewState,
+        AudioLaneMessage, AutomationMessage, ControlBarEvent, ControlBarInput, ControlBarView,
+        EntityView, EntityViewState, MainViewThingy,
     },
     GuiStuff,
 };
@@ -58,6 +58,29 @@ enum MainViews {
     AudioLanes,
 }
 
+#[derive(Default)]
+enum State {
+    #[default]
+    Idle,
+    Playing,
+}
+
+#[derive(Clone, Debug)]
+enum AppMessage {
+    AudioLaneMessage(AudioLaneMessage),
+    AutomationEvent(AutomationMessage),
+    ControlBarEvent(ControlBarEvent),
+    EngineEvent(EngineEvent),
+    Event(iced::Event),
+    ExportComplete(Result<(), SaveError>),
+    GrooveEvent(GrooveEvent),
+    MidiHandlerEvent(MidiHandlerEvent),
+    MidiHandlerInput(MidiHandlerInput),
+    OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
+    PrefsLoaded(Result<Preferences, LoadError>),
+    PrefsSaved(Result<(), SaveError>),
+}
+
 struct GrooveApp {
     // Overhead
     preferences: Preferences,
@@ -74,8 +97,7 @@ struct GrooveApp {
     current_view: MainViews,
     entity_view: EntityView,
     control_bar_view: ControlBarView,
-    automation_view: AutomationView,
-    audio_lane_view: AudioLaneView,
+    views: MainViewThingy,
 
     // Model
     project_title: Option<String>,
@@ -123,8 +145,7 @@ impl Default for GrooveApp {
                 ),
                 TimeSignature::default(),
             ),
-            automation_view: AutomationView::new(),
-            audio_lane_view: AudioLaneView::new(),
+            views: MainViewThingy::new(),
             project_title: None,
             orchestrator_sender: Default::default(),
             orchestrator: orchestrator.clone(),
@@ -138,29 +159,6 @@ impl Default for GrooveApp {
             gui_state: GuiState::new(orchestrator),
         }
     }
-}
-
-#[derive(Default)]
-enum State {
-    #[default]
-    Idle,
-    Playing,
-}
-
-#[derive(Clone, Debug)]
-enum AppMessage {
-    AudioLaneEvent(AudioLaneEvent),
-    AutomationEvent(AutomationMessage),
-    ControlBarEvent(ControlBarEvent),
-    EngineEvent(EngineEvent),
-    Event(iced::Event),
-    ExportComplete(Result<(), SaveError>),
-    GrooveEvent(GrooveEvent),
-    MidiHandlerEvent(MidiHandlerEvent),
-    MidiHandlerInput(MidiHandlerInput),
-    OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
-    PrefsLoaded(Result<Preferences, LoadError>),
-    PrefsSaved(Result<(), SaveError>),
 }
 
 impl Application for GrooveApp {
@@ -203,65 +201,11 @@ impl Application for GrooveApp {
             //     // }
             //     self.gui_state.update_state();
             // }
-            AppMessage::ControlBarEvent(event) => match event {
-                // TODO: try to get in the habit of putting less logic in the
-                // user-action messages like Play/Stop, and putting more logic
-                // in the system-action (react?) messages like most
-                // EngineEvents. The engine is the model, and it's in charge of
-                // consistency/consequences. If you spray logic in the view,
-                // then it gets lost when the GUI evolves, and it's too tempting
-                // to develop critical parts of the logic in the view.
-                //
-                // The Play logic is a good example: it's intricate, and there
-                // isn't any good reason why the model wouldn't know how to
-                // handle these actions properly.
-                ControlBarEvent::Play => {
-                    self.post_to_orchestrator(EngineInput::Play);
+            AppMessage::ControlBarEvent(event) => {
+                if let Some(command) = self.handle_control_bar_event(event) {
+                    return command;
                 }
-                ControlBarEvent::Stop => {
-                    self.post_to_orchestrator(EngineInput::Stop);
-                }
-                ControlBarEvent::SkipToStart => self.post_to_orchestrator(EngineInput::SkipToStart),
-                ControlBarEvent::Bpm(value) => {
-                    if let Ok(bpm) = value.parse() {
-                        self.post_to_orchestrator(EngineInput::SetBpm(bpm));
-                    }
-                }
-                ControlBarEvent::OpenProject => {
-                    return Command::perform(
-                        Preferences::open_dialog(),
-                        AppMessage::OpenDialogComplete,
-                    )
-                }
-                ControlBarEvent::ExportWav => {
-                    MessageDialog::new()
-                        .set_type(MessageType::Info)
-                        .set_title("Export WAV")
-                        .set_text("Hold on a moment while we render the project!")
-                        .show_alert()
-                        .unwrap();
-                    if let Ok(mut o) = self.orchestrator.lock() {
-                        let mut sample_buffer = [StereoSample::SILENCE; 64];
-                        if let Ok(performance) = o.run_performance(&mut sample_buffer, true) {
-                            return Command::perform(
-                                Preferences::export_to_wav(performance),
-                                AppMessage::ExportComplete,
-                            );
-                        }
-                    }
-                }
-                ControlBarEvent::ExportMp3 => {
-                    if let Ok(mut o) = self.orchestrator.lock() {
-                        let mut sample_buffer = [StereoSample::SILENCE; 64];
-                        if let Ok(performance) = o.run_performance(&mut sample_buffer, true) {
-                            return Command::perform(
-                                Preferences::export_to_mp3(performance),
-                                AppMessage::ExportComplete,
-                            );
-                        }
-                    }
-                }
-            },
+            }
             AppMessage::Event(event) => {
                 if let Event::Window(window::Event::CloseRequested) = event {
                     return self.handle_close_requested_event();
@@ -277,182 +221,11 @@ impl Application for GrooveApp {
                 MidiHandlerInput::SelectMidiOutput(which) => {
                     self.post_to_midi_handler(MidiHandlerInput::SelectMidiOutput(which));
                 }
-                _ => todo!("Remaining MidiHandlerInput messages should be handled internally"),
+                _ => panic!("Remaining MidiHandlerInput messages should be handled internally"),
             },
-            AppMessage::EngineEvent(event) => match event {
-                EngineEvent::Ready(sender, orchestrator) => {
-                    self.orchestrator_sender = Some(sender);
-                    self.orchestrator = orchestrator.clone();
-                    self.gui_state.set_orchestrator(orchestrator);
-
-                    // We don't start the GrooveSubscription until prefs are
-                    // done loading, so this boolean and the corresponding
-                    // filename should be set by the time we look at it.
-                    if self.preferences.should_reload_last_project {
-                        if let Some(last_project_filename) = &self.preferences.last_project_filename
-                        {
-                            self.post_to_orchestrator(EngineInput::LoadProject(
-                                last_project_filename.to_string(),
-                            ));
-                        }
-                    }
-                }
-                EngineEvent::SetClock(samples) => self
-                    .control_bar_view
-                    .update(ControlBarInput::SetClock(samples)),
-                EngineEvent::SetBpm(bpm) => {
-                    self.control_bar_view.update(ControlBarInput::SetBpm(bpm))
-                }
-                EngineEvent::SetTimeSignature(time_signature) => self
-                    .control_bar_view
-                    .update(ControlBarInput::SetTimeSignature(time_signature)),
-                EngineEvent::Quit => {
-                    // Our EngineInput::QuitRequested has been handled. We have
-                    // nothing to do at this point.
-                }
-                EngineEvent::AudioBufferFullness(percentage) => {
-                    self.control_bar_view.set_audio_buffer_fullness(percentage);
-                }
-                EngineEvent::GrooveEvent(event) => match event {
-                    GrooveEvent::EntityMessage(_, _) => {
-                        panic!("EntityMessage should have been handled internally")
-                    }
-                    GrooveEvent::EntityAudioOutput(outputs) => {
-                        outputs.iter().for_each(|(uid, sample)| {
-                            self.entity_view.update_audio_outputs(uid, sample);
-                        })
-                    }
-                    GrooveEvent::PlaybackStarted => {
-                        self.reached_end_of_playback = false;
-                        self.state = State::Playing;
-                    }
-                    GrooveEvent::PlaybackStopped => {
-                        self.reached_end_of_playback = true;
-                        self.state = State::Idle;
-                    }
-                    GrooveEvent::MidiToExternal(channel, message) => {
-                        self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
-                    }
-                    GrooveEvent::ProjectLoaded(filename, title) => {
-                        self.preferences.last_project_filename = Some(filename);
-                        self.project_title = title;
-                        self.entity_view.reset();
-
-                        let mut entity_uids = Vec::default();
-                        self.automation_view.clear();
-                        if let Ok(orchestrator) = self.orchestrator.lock() {
-                            orchestrator.entity_iter().for_each(|(uid, entity)| {
-                                entity_uids.push(*uid);
-                                if (*entity).as_is_controller().is_some() {
-                                    self.automation_view
-                                        .controllers
-                                        .push(Controller::new(*uid, (*entity).as_has_uid().name()));
-                                }
-                                if let Some(controllable) = (*entity).as_controllable() {
-                                    let mut params = Vec::default();
-                                    for i in 0..controllable.control_index_count() {
-                                        params.push(controllable.control_name_for_index(i));
-                                    }
-                                    self.automation_view.controllables.push(Controllable::new(
-                                        *uid,
-                                        (*entity).as_has_uid().name(),
-                                        params,
-                                    ));
-                                }
-                            });
-                        } else {
-                            panic!()
-                        };
-                    }
-                },
-            },
-            AppMessage::MidiHandlerEvent(event) => match event {
-                MidiHandlerEvent::Ready(sender) => {
-                    self.midi_handler_sender = Some(sender);
-                }
-                #[allow(unused_variables)]
-                MidiHandlerEvent::Midi(channel, message) => {
-                    self.last_midi_activity = Instant::now();
-                    // TODO
-                }
-                MidiHandlerEvent::Quit => {
-                    // TODO: If we were waiting for this to shut down, then
-                    // record that we're ready. For now, it's nice to know, but
-                    // we won't do anything about it.
-                }
-                MidiHandlerEvent::InputPorts(ports) => {
-                    self.midi_input_ports = ports;
-                    if self.midi_input_port_active.is_none() {
-                        if let Some(selected) = &self.preferences.selected_midi_input {
-                            if let Some(sender) = self.midi_handler_sender.as_mut() {
-                                for descriptor in &self.midi_input_ports {
-                                    if selected == descriptor.name() {
-                                        let _ = sender.send(MidiHandlerInput::SelectMidiInput(
-                                            descriptor.clone(),
-                                        ));
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        self.preferences.selected_midi_input = None; // to prevent loops
-                    }
-                }
-                MidiHandlerEvent::InputPortSelected(port) => {
-                    if let Some(port) = &port {
-                        self.preferences.selected_midi_input = Some(port.name().to_string());
-                    } else {
-                        self.preferences.selected_midi_input = None;
-                    }
-                    self.midi_input_port_active = port;
-                }
-                MidiHandlerEvent::OutputPorts(ports) => {
-                    self.midi_output_ports = ports;
-                    if self.midi_output_port_active.is_none() {
-                        if let Some(selected) = &self.preferences.selected_midi_output {
-                            if let Some(sender) = self.midi_handler_sender.as_mut() {
-                                for descriptor in &self.midi_output_ports {
-                                    if selected == descriptor.name() {
-                                        let _ = sender.send(MidiHandlerInput::SelectMidiOutput(
-                                            descriptor.clone(),
-                                        ));
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        self.preferences.selected_midi_output = None; // to prevent loops
-                    }
-                }
-                MidiHandlerEvent::OutputPortSelected(port) => {
-                    if let Some(port) = &port {
-                        self.preferences.selected_midi_output = Some(port.name().to_string());
-                    } else {
-                        self.preferences.selected_midi_output = None;
-                    }
-                    self.midi_output_port_active = port;
-                }
-            },
-            AppMessage::GrooveEvent(event) => match event {
-                GrooveEvent::EntityMessage(uid, message) => match message {
-                    EntityMessage::ExpandPressed => {
-                        // Find whoever else is expanded and maybe collapse them
-                        self.entity_view
-                            .set_entity_view_state(uid, EntityViewState::Expanded);
-                    }
-                    EntityMessage::CollapsePressed => {
-                        self.entity_view
-                            .set_entity_view_state(uid, EntityViewState::Collapsed);
-                    }
-                    EntityMessage::EnablePressed(enabled) => {
-                        self.entity_view.set_entity_enabled_state(uid, enabled);
-                    }
-                    _ => {
-                        self.update_entity(uid, message);
-                    }
-                },
-                _ => todo!(),
-            },
+            AppMessage::EngineEvent(event) => self.handle_engine_event(event),
+            AppMessage::MidiHandlerEvent(event) => self.handle_midi_handler_event(event),
+            AppMessage::GrooveEvent(event) => self.handle_groove_event(event),
             AppMessage::PrefsSaved(r) => {
                 if self.should_exit {
                     return window::close::<Self::Message>();
@@ -477,7 +250,7 @@ impl Application for GrooveApp {
                 // great
             }
             AppMessage::AutomationEvent(message) => {
-                if let Some(message) = self.automation_view.update(message) {
+                if let Some(message) = self.views.automation_update(message) {
                     match message {
                         AutomationMessage::Connect(
                             controller_id,
@@ -494,7 +267,9 @@ impl Application for GrooveApp {
                     }
                 }
             }
-            AppMessage::AudioLaneEvent(_event) => todo!(),
+            AppMessage::AudioLaneMessage(message) => {
+                let _ = self.views.audio_lane_update(message);
+            }
         }
 
         Command::none()
@@ -543,6 +318,164 @@ impl Application for GrooveApp {
 }
 
 impl GrooveApp {
+    fn handle_groove_event(&mut self, event: GrooveEvent) {
+        match event {
+            GrooveEvent::EntityAudioOutput(outputs) => outputs.iter().for_each(|(uid, sample)| {
+                self.entity_view.update_audio_outputs(uid, sample);
+            }),
+            GrooveEvent::PlaybackStarted => {
+                self.reached_end_of_playback = false;
+                self.state = State::Playing;
+            }
+            GrooveEvent::PlaybackStopped => {
+                self.reached_end_of_playback = true;
+                self.state = State::Idle;
+            }
+            GrooveEvent::MidiToExternal(channel, message) => {
+                self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
+            }
+            GrooveEvent::ProjectLoaded(filename, title) => {
+                self.preferences.last_project_filename = Some(filename);
+                self.project_title = title;
+                self.entity_view.reset();
+
+                // TODO: this should be a clear message
+                self.views.clear();
+
+                // TODO: this should be new-item messages
+                if let Ok(orchestrator) = self.orchestrator.lock() {
+                    orchestrator.entity_iter().for_each(|(uid, entity)| {
+                        self.views.add_entity(*uid, entity);
+                        if entity.as_is_controller().is_some() {
+                            self.views.add_temp_controller(uid, entity);
+                        }
+                        if entity.as_controllable().is_some() {
+                            self.views.add_temp_controllable(uid, entity);
+                        }
+                    });
+                } else {
+                    panic!()
+                };
+            }
+            GrooveEvent::EntityMessage(uid, message) => match message {
+                EntityMessage::ExpandPressed => {
+                    // Find whoever else is expanded and maybe collapse them
+                    self.entity_view
+                        .set_entity_view_state(uid, EntityViewState::Expanded);
+                }
+                EntityMessage::CollapsePressed => {
+                    self.entity_view
+                        .set_entity_view_state(uid, EntityViewState::Collapsed);
+                }
+                EntityMessage::EnablePressed(enabled) => {
+                    self.entity_view.set_entity_enabled_state(uid, enabled);
+                }
+                _ => {
+                    self.update_entity(uid, message);
+                }
+            },
+        }
+    }
+
+    fn handle_control_bar_event(&mut self, event: ControlBarEvent) -> Option<Command<AppMessage>> {
+        match event {
+            // TODO: try to get in the habit of putting less logic in the
+            // user-action messages like Play/Stop, and putting more logic
+            // in the system-action (react?) messages like most
+            // EngineEvents. The engine is the model, and it's in charge of
+            // consistency/consequences. If you spray logic in the view,
+            // then it gets lost when the GUI evolves, and it's too tempting
+            // to develop critical parts of the logic in the view.
+            //
+            // The Play logic is a good example: it's intricate, and there
+            // isn't any good reason why the model wouldn't know how to
+            // handle these actions properly.
+            ControlBarEvent::Play => {
+                self.post_to_orchestrator(EngineInput::Play);
+            }
+            ControlBarEvent::Stop => {
+                self.post_to_orchestrator(EngineInput::Stop);
+            }
+            ControlBarEvent::SkipToStart => self.post_to_orchestrator(EngineInput::SkipToStart),
+            ControlBarEvent::Bpm(value) => {
+                if let Ok(bpm) = value.parse() {
+                    self.post_to_orchestrator(EngineInput::SetBpm(bpm));
+                }
+            }
+            ControlBarEvent::OpenProject => {
+                return Some(Command::perform(
+                    Preferences::open_dialog(),
+                    AppMessage::OpenDialogComplete,
+                ))
+            }
+            ControlBarEvent::ExportWav => {
+                MessageDialog::new()
+                    .set_type(MessageType::Info)
+                    .set_title("Export WAV")
+                    .set_text("Hold on a moment while we render the project!")
+                    .show_alert()
+                    .unwrap();
+                if let Ok(mut o) = self.orchestrator.lock() {
+                    let mut sample_buffer = [StereoSample::SILENCE; 64];
+                    if let Ok(performance) = o.run_performance(&mut sample_buffer, true) {
+                        return Some(Command::perform(
+                            Preferences::export_to_wav(performance),
+                            AppMessage::ExportComplete,
+                        ));
+                    }
+                }
+            }
+            ControlBarEvent::ExportMp3 => {
+                if let Ok(mut o) = self.orchestrator.lock() {
+                    let mut sample_buffer = [StereoSample::SILENCE; 64];
+                    if let Ok(performance) = o.run_performance(&mut sample_buffer, true) {
+                        return Some(Command::perform(
+                            Preferences::export_to_mp3(performance),
+                            AppMessage::ExportComplete,
+                        ));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn handle_engine_event(&mut self, event: EngineEvent) {
+        match event {
+            EngineEvent::Ready(sender, orchestrator) => {
+                self.orchestrator_sender = Some(sender);
+                self.orchestrator = orchestrator.clone();
+                self.gui_state.set_orchestrator(orchestrator);
+
+                // We don't start the GrooveSubscription until prefs are
+                // done loading, so this boolean and the corresponding
+                // filename should be set by the time we look at it.
+                if self.preferences.should_reload_last_project {
+                    if let Some(last_project_filename) = &self.preferences.last_project_filename {
+                        self.post_to_orchestrator(EngineInput::LoadProject(
+                            last_project_filename.to_string(),
+                        ));
+                    }
+                }
+            }
+            EngineEvent::SetClock(samples) => self
+                .control_bar_view
+                .update(ControlBarInput::SetClock(samples)),
+            EngineEvent::SetBpm(bpm) => self.control_bar_view.update(ControlBarInput::SetBpm(bpm)),
+            EngineEvent::SetTimeSignature(time_signature) => self
+                .control_bar_view
+                .update(ControlBarInput::SetTimeSignature(time_signature)),
+            EngineEvent::Quit => {
+                // Our EngineInput::QuitRequested has been handled. We have
+                // nothing to do at this point.
+            }
+            EngineEvent::AudioBufferFullness(percentage) => {
+                self.control_bar_view.set_audio_buffer_fullness(percentage);
+            }
+            EngineEvent::GrooveEvent(event) => self.handle_groove_event(event),
+        }
+    }
+
     fn under_construction(section_name: &str) -> Container<AppMessage> {
         container(GuiStuff::<AppMessage>::container_text(
             format!("Coming soon: {}", section_name).as_str(),
@@ -775,10 +708,10 @@ impl GrooveApp {
     fn main_view(&self) -> Element<AppMessage> {
         match self.current_view {
             MainViews::Unstructured => {
-                let project_view: Element<AppMessage> =
-                    self.orchestrator_view().map(AppMessage::GrooveEvent);
                 let midi_view: Element<AppMessage> =
                     self.midi_view().map(AppMessage::MidiHandlerInput);
+                let project_view: Element<AppMessage> =
+                    self.orchestrator_view().map(AppMessage::GrooveEvent);
                 let scrollable_content = column![midi_view, project_view];
                 let scrollable =
                     container(scrollable(scrollable_content)).width(Length::FillPortion(1));
@@ -792,8 +725,84 @@ impl GrooveApp {
             MainViews::Session => Self::under_construction("Session").into(),
             MainViews::Arrangement => Self::under_construction("Arrangement").into(),
             MainViews::Preferences => Self::under_construction("Preferences").into(),
-            MainViews::Automation => self.automation_view.view().map(AppMessage::AutomationEvent),
-            MainViews::AudioLanes => self.audio_lane_view.view().map(AppMessage::AudioLaneEvent),
+            MainViews::Automation => self
+                .views
+                .automation_view()
+                .map(AppMessage::AutomationEvent),
+            MainViews::AudioLanes => self
+                .views
+                .audio_lane_view()
+                .map(AppMessage::AudioLaneMessage),
+        }
+    }
+
+    fn handle_midi_handler_event(&mut self, event: MidiHandlerEvent) {
+        match event {
+            MidiHandlerEvent::Ready(sender) => {
+                self.midi_handler_sender = Some(sender);
+            }
+            #[allow(unused_variables)]
+            MidiHandlerEvent::Midi(channel, message) => {
+                self.last_midi_activity = Instant::now();
+                // TODO
+            }
+            MidiHandlerEvent::Quit => {
+                // TODO: If we were waiting for this to shut down, then
+                // record that we're ready. For now, it's nice to know, but
+                // we won't do anything about it.
+            }
+            MidiHandlerEvent::InputPorts(ports) => {
+                self.midi_input_ports = ports;
+                if self.midi_input_port_active.is_none() {
+                    if let Some(selected) = &self.preferences.selected_midi_input {
+                        if let Some(sender) = self.midi_handler_sender.as_mut() {
+                            for descriptor in &self.midi_input_ports {
+                                if selected == descriptor.name() {
+                                    let _ = sender.send(MidiHandlerInput::SelectMidiInput(
+                                        descriptor.clone(),
+                                    ));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    self.preferences.selected_midi_input = None; // to prevent loops
+                }
+            }
+            MidiHandlerEvent::InputPortSelected(port) => {
+                if let Some(port) = &port {
+                    self.preferences.selected_midi_input = Some(port.name().to_string());
+                } else {
+                    self.preferences.selected_midi_input = None;
+                }
+                self.midi_input_port_active = port;
+            }
+            MidiHandlerEvent::OutputPorts(ports) => {
+                self.midi_output_ports = ports;
+                if self.midi_output_port_active.is_none() {
+                    if let Some(selected) = &self.preferences.selected_midi_output {
+                        if let Some(sender) = self.midi_handler_sender.as_mut() {
+                            for descriptor in &self.midi_output_ports {
+                                if selected == descriptor.name() {
+                                    let _ = sender.send(MidiHandlerInput::SelectMidiOutput(
+                                        descriptor.clone(),
+                                    ));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    self.preferences.selected_midi_output = None; // to prevent loops
+                }
+            }
+            MidiHandlerEvent::OutputPortSelected(port) => {
+                if let Some(port) = &port {
+                    self.preferences.selected_midi_output = Some(port.name().to_string());
+                } else {
+                    self.preferences.selected_midi_output = None;
+                }
+                self.midi_output_port_active = port;
+            }
         }
     }
 }

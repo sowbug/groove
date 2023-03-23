@@ -63,3 +63,10 @@ impl MessageMaker for ToyMessageMaker {
         EntityMessage::Midi(channel, message)
     }
 }
+
+// TODO: derive by macro
+
+#[derive(Clone, Debug)]
+pub enum WelshSynthMessage {
+    Pan(f32),
+}
