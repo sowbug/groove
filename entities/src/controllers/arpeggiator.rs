@@ -9,12 +9,14 @@ use groove_core::{
     ParameterType,
 };
 use groove_macros::{Control, Uid};
-use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
+
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(

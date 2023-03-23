@@ -10,6 +10,9 @@ use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
 use std::{f64::consts::PI, fmt::Debug, ops::Range};
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone, Copy, Debug)]
 pub enum Waveform {
     Sine,
@@ -353,6 +356,11 @@ enum State {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "envelops", rename_all = "kebab-case")
+)]
 pub struct EnvelopeParams {
     pub attack: ParameterType,
     pub decay: ParameterType,

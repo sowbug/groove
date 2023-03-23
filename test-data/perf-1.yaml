@@ -24,8 +24,9 @@ devices:
   - controller:
       - arp-1
       - arpeggiator:
-          midi-in: 2
-          midi-out: 3
+          - midi-in: 2
+            midi-out: 3
+          - bpm: 1024.0
   - effect:
       - gain-1
       - gain:
@@ -48,7 +49,7 @@ devices:
   - effect:
       - bitcrusher-1
       - bitcrusher:
-          bits-to-crush: 8
+          bits: 8
   - effect:
       - filter-low-pass-12db-1
       - filter-low-pass-12db:

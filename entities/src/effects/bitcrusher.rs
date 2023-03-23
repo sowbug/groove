@@ -11,12 +11,37 @@ use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Control, Copy, Debug)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "bitcrusher", rename_all = "kebab-case")
+)]
+pub struct BitcrusherParams {
+    pub bits: u8,
+}
+
+impl BitcrusherParams {
+    pub fn bits(&self) -> u8 {
+        self.bits
+    }
+
+    pub fn set_bits(&mut self, bits: u8) {
+        self.bits = bits;
+    }
+}
+
 /// TODO: this is a pretty lame bitcrusher. It is hardly noticeable for values
 /// below 13, and it destroys the waveform at 15. It doesn't do any simulation
 /// of sample-rate reduction, either.
 #[derive(Control, Debug, Uid)]
 pub struct Bitcrusher {
     uid: usize,
+
+    params: BitcrusherParams,
 
     #[controllable]
     bits_to_crush: u8,
@@ -32,16 +57,12 @@ impl TransformsAudio for Bitcrusher {
         (((input / self.c).floor() * self.c / I16_SCALE) * sign).into()
     }
 }
-impl Default for Bitcrusher {
-    fn default() -> Self {
-        Self::new_with(8)
-    }
-}
 impl Bitcrusher {
-    pub fn new_with(bits_to_crush: u8) -> Self {
+    pub fn new_with_params(params: BitcrusherParams) -> Self {
         let mut r = Self {
             uid: Default::default(),
-            bits_to_crush,
+            params,
+            bits_to_crush: params.bits(),
             c: Default::default(),
         };
         r.update_c();
@@ -49,16 +70,16 @@ impl Bitcrusher {
     }
 
     pub fn bits_to_crush(&self) -> u8 {
-        self.bits_to_crush
+        self.params.bits()
     }
 
     pub fn set_bits_to_crush(&mut self, n: u8) {
-        self.bits_to_crush = n;
+        self.params.set_bits(n);
         self.update_c();
     }
 
     fn update_c(&mut self) {
-        self.c = 2.0f64.powi(self.bits_to_crush as i32);
+        self.c = 2.0f64.powi(self.params.bits() as i32);
     }
 
     pub fn set_control_bits_to_crush(&mut self, value: groove_core::control::F32ControlValue) {
@@ -76,7 +97,7 @@ mod tests {
 
     #[test]
     fn bitcrusher_basic() {
-        let mut fx = Bitcrusher::new_with(8);
+        let mut fx = Bitcrusher::new_with_params(BitcrusherParams { bits: 8 });
         assert_eq!(
             fx.transform_channel(0, Sample(PI - 3.0)),
             Sample(CRUSHED_PI)
@@ -85,7 +106,7 @@ mod tests {
 
     #[test]
     fn bitcrusher_no_bias() {
-        let mut fx = Bitcrusher::new_with(8);
+        let mut fx = Bitcrusher::new_with_params(BitcrusherParams { bits: 8 });
         assert_eq!(
             fx.transform_channel(0, Sample(-(PI - 3.0))),
             Sample(-CRUSHED_PI)

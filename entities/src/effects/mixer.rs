@@ -11,6 +11,9 @@ use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone, Control, Debug, Default, Uid)]
 pub struct Mixer {
     uid: usize,

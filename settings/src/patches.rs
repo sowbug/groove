@@ -730,7 +730,7 @@ impl FmSynthesizerSettings {
     }
 
     pub fn derive_voice(&self, sample_rate: usize) -> FmVoice {
-        FmVoice::new_with_params(sample_rate, &self.derive_params())
+        FmVoice::new_with_params(sample_rate, self.derive_params())
     }
 
     #[allow(dead_code)]

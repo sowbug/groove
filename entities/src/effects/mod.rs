@@ -1,13 +1,12 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use bitcrusher::Bitcrusher;
+pub use bitcrusher::{Bitcrusher, BitcrusherParams};
 pub use chorus::Chorus;
 pub use compressor::Compressor;
 pub use delay::Delay;
-pub use filter::BiQuadFilter;
-pub use filter::FilterParams;
+pub use filter::{BiQuadFilter, FilterParams};
 pub use gain::Gain;
-pub use limiter::Limiter;
+pub use limiter::{Limiter, LimiterParams};
 pub use mixer::Mixer;
 pub use reverb::Reverb;
 

@@ -11,6 +11,9 @@ use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {
     #[default]

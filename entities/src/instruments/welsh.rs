@@ -18,6 +18,9 @@ use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug)]
 pub enum LfoRouting {
     None,
@@ -231,7 +234,7 @@ impl WelshVoice {
             oscillator_2_sync,
             oscillator_mix,
             amp_envelope,
-            dca: Dca::new_with_params(&DcaParams::default()),
+            dca: Dca::new_with_params(DcaParams::default()),
             lfo,
             lfo_routing,
             lfo_depth,

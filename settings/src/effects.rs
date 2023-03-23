@@ -1,8 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::{BipolarNormal, Normal, SampleType};
+use groove_core::{Normal, SampleType};
 use groove_entities::effects::{
-    BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, FilterParams, Gain, Limiter, Mixer, Reverb,
+    BiQuadFilter, Bitcrusher, BitcrusherParams, Chorus, Compressor, Delay, FilterParams, Gain,
+    Limiter, LimiterParams, Mixer, Reverb,
 };
 use groove_orchestration::Entity;
 use groove_toys::ToyEffect;
@@ -18,9 +19,9 @@ pub enum EffectSettings {
     #[serde(rename_all = "kebab-case")]
     Gain { ceiling: f32 },
     #[serde(rename_all = "kebab-case")]
-    Limiter { min: f32, max: f32 },
+    Limiter(LimiterParams),
     #[serde(rename_all = "kebab-case")]
-    Bitcrusher { bits_to_crush: u8 },
+    Bitcrusher(BitcrusherParams),
     #[serde(rename_all = "kebab-case")]
     Chorus {
         wet_dry_mix: f32,
@@ -73,15 +74,14 @@ impl EffectSettings {
         match *self {
             EffectSettings::Test {} => Entity::ToyEffect(Box::new(ToyEffect::default())),
             EffectSettings::Mixer {} => Entity::Mixer(Box::new(Mixer::default())),
-            EffectSettings::Limiter { min, max } => Entity::Limiter(Box::new(Limiter::new_with(
-                BipolarNormal::from(min),
-                BipolarNormal::from(max),
-            ))),
+            EffectSettings::Limiter(params) => {
+                Entity::Limiter(Box::new(Limiter::new_with_params(params)))
+            }
             EffectSettings::Gain { ceiling } => {
                 Entity::Gain(Box::new(Gain::new_with(Normal::new_from_f32(ceiling))))
             }
-            EffectSettings::Bitcrusher { bits_to_crush } => {
-                Entity::Bitcrusher(Box::new(Bitcrusher::new_with(bits_to_crush)))
+            EffectSettings::Bitcrusher(params) => {
+                Entity::Bitcrusher(Box::new(Bitcrusher::new_with_params(params)))
             }
             EffectSettings::Compressor {
                 threshold,

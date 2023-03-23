@@ -2,6 +2,8 @@
 
 //! Fundamental structs and traits.
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
 use std::{
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
@@ -236,6 +238,7 @@ impl From<f64> for StereoSample {
 /// (heh) down on out-of-bounds conditions later on, so if you want to do math,
 /// prefer f64 sourced from [RangedF64] rather than [RangedF64] itself.
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct RangedF64<const LOWER: i8, const UPPER: i8>(f64);
 impl<const LOWER: i8, const UPPER: i8> RangedF64<LOWER, UPPER> {
     pub const MAX: f64 = UPPER as f64;
@@ -365,10 +368,29 @@ impl From<Normal> for BipolarNormal {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct DcaParams {
     gain: Normal,
     pan: BipolarNormal,
+}
+
+impl DcaParams {
+    pub fn gain(&self) -> RangedF64<0, 1> {
+        self.gain
+    }
+
+    pub fn set_gain(&mut self, gain: Normal) {
+        self.gain = gain;
+    }
+
+    pub fn pan(&self) -> RangedF64<-1, 1> {
+        self.pan
+    }
+
+    pub fn set_pan(&mut self, pan: BipolarNormal) {
+        self.pan = pan;
+    }
 }
 impl Default for DcaParams {
     fn default() -> Self {
@@ -385,26 +407,22 @@ impl Default for DcaParams {
 /// See DSSPC++, Section 7.9 for requirements. TODO: implement
 #[derive(Debug)]
 pub struct Dca {
-    gain: Normal,
-    pan: BipolarNormal,
+    params: DcaParams,
 }
 impl Dca {
-    pub fn new_with_params(params: &DcaParams) -> Self {
-        Self {
-            gain: params.gain,
-            pan: params.pan,
-        }
+    pub fn new_with_params(params: DcaParams) -> Self {
+        Self { params }
     }
 
     pub fn set_pan(&mut self, value: BipolarNormal) {
-        self.pan = value
+        self.params.set_pan(value);
     }
 
     pub fn transform_audio_to_stereo(&mut self, input_sample: Sample) -> StereoSample {
         // See Pirkle, DSSPC++, p.73
-        let input_sample: f64 = input_sample.0 * self.gain.value();
-        let left_pan: f64 = 1.0 - 0.25 * (self.pan.value() + 1.0).powi(2);
-        let right_pan: f64 = 1.0 - (0.5 * self.pan.value() - 0.5).powi(2);
+        let input_sample: f64 = input_sample.0 * self.params.gain.value();
+        let left_pan: f64 = 1.0 - 0.25 * (self.params.pan.value() + 1.0).powi(2);
+        let right_pan: f64 = 1.0 - (0.5 * self.params.pan.value() - 0.5).powi(2);
         StereoSample::new_from_f64(left_pan * input_sample, right_pan * input_sample)
     }
 }
@@ -520,7 +538,7 @@ mod tests {
 
     #[test]
     fn dca_mainline() {
-        let mut dca = Dca::new_with_params(&DcaParams::default());
+        let mut dca = Dca::new_with_params(DcaParams::default());
         const VALUE_IN: Sample = Sample(0.5);
         const VALUE: f64 = 0.5;
         assert_eq!(

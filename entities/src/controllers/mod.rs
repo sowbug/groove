@@ -5,6 +5,8 @@ pub use control_trip::{ControlPath, ControlStep, ControlTrip};
 pub use lfo::{LfoController, LfoControllerParams, WaveformParams};
 pub use patterns::{Note, Pattern, PatternManager, PatternMessage, PatternProgrammer};
 pub use sequencers::{MidiSmfReader, MidiTickSequencer, Sequencer};
+
+#[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
 mod arpeggiator;

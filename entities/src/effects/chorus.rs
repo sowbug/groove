@@ -12,6 +12,9 @@ use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
 #[derive(Control, Debug, Default, Uid)]

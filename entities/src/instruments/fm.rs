@@ -19,7 +19,15 @@ use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
 
-#[derive(Debug)]
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "fm", rename_all = "kebab-case")
+)]
 pub struct FmVoiceParams {
     pub depth: Normal,
     pub ratio: ParameterType,
@@ -141,7 +149,7 @@ impl Ticks for FmVoice {
     }
 }
 impl FmVoice {
-    pub fn new_with_params(sample_rate: usize, params: &FmVoiceParams) -> Self {
+    pub fn new_with_params(sample_rate: usize, params: FmVoiceParams) -> Self {
         Self {
             sample: Default::default(),
             carrier: Oscillator::new_with(sample_rate),
@@ -151,7 +159,7 @@ impl FmVoice {
             modulator_beta: params.beta,
             carrier_envelope: Envelope::new_with(sample_rate, params.carrier_envelope),
             modulator_envelope: Envelope::new_with(sample_rate, params.modulator_envelope),
-            dca: Dca::new_with_params(&params.dca),
+            dca: Dca::new_with_params(params.dca),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
             steal_is_underway: Default::default(),
@@ -250,7 +258,7 @@ impl FmSynthesizer {
             inner_synth: Synthesizer::<FmVoice>::new_with(
                 sample_rate,
                 Box::new(StealingVoiceStore::new_with_voice(sample_rate, 4, || {
-                    FmVoice::new_with_params(sample_rate, &params)
+                    FmVoice::new_with_params(sample_rate, params)
                 })),
             ),
             params,

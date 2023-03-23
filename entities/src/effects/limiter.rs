@@ -11,6 +11,38 @@ use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "limiter", rename_all = "kebab-case")
+)]
+pub struct LimiterParams {
+    pub max: BipolarNormal,
+    pub min: BipolarNormal,
+}
+
+impl LimiterParams {
+    pub fn max(&self) -> BipolarNormal {
+        self.max
+    }
+
+    pub fn set_max(&mut self, max: BipolarNormal) {
+        self.max = max;
+    }
+
+    pub fn min(&self) -> BipolarNormal {
+        self.min
+    }
+
+    pub fn set_min(&mut self, min: BipolarNormal) {
+        self.min = min;
+    }
+}
+
 #[derive(Control, Debug, Uid)]
 pub struct Limiter {
     uid: usize,
@@ -43,15 +75,10 @@ impl TransformsAudio for Limiter {
     }
 }
 impl Limiter {
-    #[allow(dead_code)]
-    fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn new_with(min: BipolarNormal, max: BipolarNormal) -> Self {
+    pub fn new_with_params(params: LimiterParams) -> Self {
         Self {
-            min: min.value() as f32,
-            max: max.value() as f32,
+            min: params.min().value_as_f32(),
+            max: params.max().value_as_f32(),
             ..Default::default()
         }
     }
@@ -138,7 +165,10 @@ mod tests {
 
     #[test]
     fn limiter_bias() {
-        let mut limiter = Limiter::new_with(BipolarNormal::from(0.2), BipolarNormal::from(0.8));
+        let mut limiter = Limiter::new_with_params(LimiterParams {
+            min: BipolarNormal::from(0.2),
+            max: BipolarNormal::from(0.8),
+        });
         assert_eq!(
             limiter.transform_channel(0, Sample::from(0.1f32)),
             Sample::from(0.2f32),

@@ -137,7 +137,7 @@ impl ToyInstrument {
             sample: Default::default(),
             fake_value: Default::default(),
             oscillator: Oscillator::new_with(sample_rate),
-            dca: Dca::new_with_params(&DcaParams::default()),
+            dca: Dca::new_with_params(DcaParams::default()),
             is_playing: Default::default(),
             received_count: Default::default(),
             handled_count: Default::default(),

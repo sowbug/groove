@@ -11,6 +11,9 @@ use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
 pub(super) trait Delays {
     fn peek_output(&self, apply_decay: bool) -> Sample;
     fn peek_indexed_output(&self, index: isize) -> Sample;
