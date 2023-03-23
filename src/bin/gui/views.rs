@@ -1172,6 +1172,7 @@ pub(crate) mod views {
     use groove_core::{generators::Waveform, ParameterType};
     use groove_entities::{
         controllers::{ArpeggiatorParams, LfoController, LfoControllerParams, WaveformParams},
+        effects::BitcrusherParams,
         WelshSynthMessage,
     };
     use groove_settings::WaveformType;
@@ -1186,6 +1187,7 @@ pub(crate) mod views {
     #[derive(Clone, Debug)]
     pub enum AudioLaneMessage {
         ArpeggiatorMessage(usize, ArpeggiatorMessage),
+        BitcrusherMessage(usize, BitcrusherMessage),
         DrumkitMessage(usize, DrumkitMessage),
         LfoControllerMessage(usize, LfoControllerMessage),
         ReverbMessage(usize, ReverbMessage),
@@ -1217,15 +1219,16 @@ pub(crate) mod views {
         }
     }
 
-    #[derive(Debug)]
-    pub(crate) struct WelshSynthView {
-        pan: f32,
+    #[derive(Clone, Debug)]
+    pub enum BitcrusherMessage {
+        Bits(u8),
     }
-    impl Viewable<WelshSynthMessage> for WelshSynthView {
-        type Message = WelshSynthMessage;
+
+    impl Viewable<BitcrusherMessage> for BitcrusherParams {
+        type Message = BitcrusherMessage;
 
         fn view(&self) -> Element<Self::Message> {
-            container(text(&format!("pan: {}", self.pan))).into()
+            container(text(&format!("bits: {}", self.bits()))).into()
         }
     }
 
@@ -1265,11 +1268,23 @@ pub(crate) mod views {
         }
     }
 
+    #[derive(Debug)]
+    pub(crate) struct WelshSynthView {
+        pan: f32,
+    }
+    impl Viewable<WelshSynthMessage> for WelshSynthView {
+        type Message = WelshSynthMessage;
+
+        fn view(&self) -> Element<Self::Message> {
+            container(text(&format!("pan: {}", self.pan))).into()
+        }
+    }
+
     #[derive(Debug, IntoStaticStr)]
     pub(crate) enum ViewableItems {
         Arpeggiator(ArpeggiatorParams),
         BiQuadFilter,
-        Bitcrusher,
+        Bitcrusher(BitcrusherParams),
         Chorus,
         Compressor,
         ControlTrip,
@@ -1400,7 +1415,13 @@ pub(crate) mod views {
                                                 })
                                             }
                                             ViewableItems::BiQuadFilter => todo!(),
-                                            ViewableItems::Bitcrusher => todo!(),
+                                            ViewableItems::Bitcrusher(e) => {
+                                                e.view().map(move |message| {
+                                                    AudioLaneMessage::BitcrusherMessage(
+                                                        *uid, message,
+                                                    )
+                                                })
+                                            }
                                             ViewableItems::Chorus => todo!(),
                                             ViewableItems::Compressor => todo!(),
                                             ViewableItems::ControlTrip => todo!(),
@@ -1465,6 +1486,15 @@ pub(crate) mod views {
                         if let ViewableItems::Arpeggiator(entity) = entity.as_mut() {
                             match message {
                                 ArpeggiatorMessage::Bpm(bpm) => entity.set_bpm(bpm),
+                            }
+                        }
+                    }
+                }
+                AudioLaneMessage::BitcrusherMessage(uid, message) => {
+                    if let Some(entity) = self.viewable_items.get_mut(&uid) {
+                        if let ViewableItems::Bitcrusher(entity) = entity.as_mut() {
+                            match message {
+                                BitcrusherMessage::Bits(bits) => entity.set_bits(bits),
                             }
                         }
                     }
@@ -1568,7 +1598,10 @@ pub(crate) mod views {
                 Entity::BiQuadFilter(e) => {
                     self.add_viewable_item(uid, ViewableItems::BiQuadFilter {})
                 }
-                Entity::Bitcrusher(e) => self.add_viewable_item(uid, ViewableItems::Bitcrusher {}),
+                Entity::Bitcrusher(e) => self.add_viewable_item(
+                    uid,
+                    ViewableItems::Bitcrusher(BitcrusherParams { bits: 8 }),
+                ),
                 Entity::Chorus(e) => self.add_viewable_item(uid, ViewableItems::Chorus {}),
                 Entity::Compressor(e) => self.add_viewable_item(uid, ViewableItems::Compressor {}),
                 Entity::ControlTrip(e) => {
