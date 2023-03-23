@@ -19,6 +19,7 @@ use groove_entities::{
     instruments::{Drumkit, FmSynthesizer, Sampler, WelshSynth},
     EntityMessage, WelshSynthMessage,
 };
+use groove_settings::controllers::ControllerSettings;
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use iced::{
     alignment, theme,
@@ -1167,378 +1168,456 @@ impl ControlPoint {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum AudioLaneMessage {
-    WelshSynthMessage(usize, WelshSynthMessage),
-    DrumkitMessage(usize, DrumkitMessage),
-    ReverbMessage(usize, ReverbMessage),
-}
+pub(crate) mod views {
+    use groove::Entity;
+    use groove_core::ParameterType;
+    use groove_entities::WelshSynthMessage;
+    use groove_settings::WaveformType;
+    use iced::{
+        widget::{container, text, Column, Row},
+        Element, Length,
+    };
+    use iced_aw::Card;
+    use rustc_hash::FxHashMap;
+    use strum_macros::IntoStaticStr;
 
-#[derive(Debug)]
-pub(crate) struct AudioLane {
-    pub name: String,
-    pub items: Vec<usize>,
-}
+    use super::{AutomationMessage, AutomationView, Controllable, Controller};
 
-trait Viewable<Message> {
-    type Message;
-
-    fn view(&self) -> Element<Self::Message>;
-}
-
-#[derive(Debug)]
-pub(crate) struct WelshSynthView {
-    pan: f32,
-}
-impl Viewable<WelshSynthMessage> for WelshSynthView {
-    type Message = WelshSynthMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("pan: {}", self.pan))).into()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum DrumkitMessage {
-    Cowbell(f32),
-}
-
-#[derive(Debug)]
-pub(crate) struct DrumkitView {
-    cowbell: f32,
-}
-impl Viewable<DrumkitMessage> for DrumkitView {
-    type Message = DrumkitMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("cowbell: {}", self.cowbell))).into()
-    }
-}
-
-#[derive(Debug, IntoStaticStr)]
-pub(crate) enum ViewableItems {
-    Arpeggiator,
-    BiQuadFilter,
-    Bitcrusher,
-    Chorus,
-    Compressor,
-    ControlTrip,
-    Delay,
-    FmSynthesizer,
-    Gain,
-    LfoController,
-    Limiter,
-    MidiTickSequencer,
-    Mixer,
-    PatternManager,
-    Sampler,
-    Sequencer,
-    SignalPassthroughController,
-    Timer,
-    ToyAudioSource,
-    ToyController,
-    ToyEffect,
-    ToyInstrument,
-    ToySynth,
-    WelshSynth(WelshSynthView),
-    Drumkit(DrumkitView),
-    Reverb(ReverbView),
-}
-
-#[derive(Clone, Debug)]
-pub enum ReverbMessage {
-    Amount(f32),
-}
-
-#[derive(Debug)]
-pub(crate) struct ReverbView {
-    amount: f32,
-}
-impl Viewable<ReverbMessage> for ReverbView {
-    type Message = ReverbMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("amount: {}", self.amount))).into()
-    }
-}
-
-#[derive(Debug)]
-struct AudioLaneView {
-    viewable_items: FxHashMap<usize, Box<ViewableItems>>,
-    pub(crate) lanes: Vec<AudioLane>,
-}
-impl AudioLaneView {
-    fn new() -> Self {
-        let mut r = Self {
-            viewable_items: Default::default(),
-            lanes: Default::default(),
-        };
-        r.viewable_items.insert(
-            1,
-            Box::new(ViewableItems::Drumkit(DrumkitView { cowbell: 0.5 })),
-        );
-        r.viewable_items.insert(
-            2,
-            Box::new(ViewableItems::Reverb(ReverbView { amount: 0.1 })),
-        );
-        r.viewable_items.insert(
-            3,
-            Box::new(ViewableItems::Drumkit(DrumkitView { cowbell: -0.25 })),
-        );
-        r.viewable_items.insert(
-            4,
-            Box::new(ViewableItems::Reverb(ReverbView { amount: 0.0 })),
-        );
-        r.viewable_items.insert(
-            5,
-            Box::new(ViewableItems::WelshSynth(WelshSynthView { pan: 0.14159 })),
-        );
-
-        r.lanes = vec![
-            AudioLane {
-                name: String::from("Rhythm"),
-                items: vec![1, 2],
-            },
-            AudioLane {
-                name: String::from("Rhythm B"),
-                items: vec![3, 4],
-            },
-            AudioLane {
-                name: String::from("Lead"),
-                items: vec![5],
-            },
-        ];
-        r
+    #[derive(Clone, Debug)]
+    pub enum AudioLaneMessage {
+        WelshSynthMessage(usize, WelshSynthMessage),
+        DrumkitMessage(usize, DrumkitMessage),
+        ReverbMessage(usize, ReverbMessage),
+        LfoControllerMessage(usize, LfoControllerMessage),
     }
 
-    fn view(&self) -> Element<AudioLaneMessage> {
-        let lane_views = self
-            .lanes
-            .iter()
-            .enumerate()
-            .fold(Vec::default(), |mut v, (i, lane)| {
-                let lane_row = Card::new(
-                    text(&format!("Lane #{}: {}", i, lane.name)),
-                    lane.items
-                        .iter()
-                        .enumerate()
-                        .fold(Row::new(), |r, (item_index, uid)| {
-                            if let Some(item) = self.viewable_items.get(uid) {
-                                let name: &'static str = item.as_ref().into();
-                                let view = match item.as_ref() {
-                                    ViewableItems::WelshSynth(e) => e.view().map(move |message| {
-                                        AudioLaneMessage::WelshSynthMessage(*uid, message)
-                                    }),
-                                    ViewableItems::Drumkit(e) => e.view().map(move |message| {
-                                        AudioLaneMessage::DrumkitMessage(*uid, message)
-                                    }),
-                                    ViewableItems::Reverb(e) => e.view().map(move |message| {
-                                        AudioLaneMessage::ReverbMessage(*uid, message)
-                                    }),
-                                    ViewableItems::Arpeggiator => todo!(),
-                                    ViewableItems::BiQuadFilter => todo!(),
-                                    ViewableItems::Bitcrusher => todo!(),
-                                    ViewableItems::Chorus => todo!(),
-                                    ViewableItems::Compressor => todo!(),
-                                    ViewableItems::ControlTrip => todo!(),
-                                    ViewableItems::Delay => todo!(),
-                                    ViewableItems::FmSynthesizer => todo!(),
-                                    ViewableItems::Gain => todo!(),
-                                    ViewableItems::LfoController => todo!(),
-                                    ViewableItems::Limiter => todo!(),
-                                    ViewableItems::MidiTickSequencer => todo!(),
-                                    ViewableItems::Mixer => todo!(),
-                                    ViewableItems::PatternManager => todo!(),
-                                    ViewableItems::Sampler => todo!(),
-                                    ViewableItems::Sequencer => todo!(),
-                                    ViewableItems::SignalPassthroughController => todo!(),
-                                    ViewableItems::Timer => todo!(),
-                                    ViewableItems::ToyAudioSource => todo!(),
-                                    ViewableItems::ToyController => todo!(),
-                                    ViewableItems::ToyEffect => todo!(),
-                                    ViewableItems::ToyInstrument => todo!(),
-                                    ViewableItems::ToySynth => todo!(),
-                                };
-                                r.push(
-                                    Card::new(
-                                        text(&format!("#{}: {}", item_index, name)),
-                                        container(view).height(Length::Fill),
-                                    )
-                                    .width(Length::FillPortion(1))
-                                    .height(Length::FillPortion(1)),
-                                )
-                            } else {
-                                r
+    #[derive(Debug)]
+    pub(crate) struct AudioLane {
+        pub name: String,
+        pub items: Vec<usize>,
+    }
+
+    trait Viewable<Message> {
+        type Message;
+
+        fn view(&self) -> Element<Self::Message>;
+    }
+
+    #[derive(Debug)]
+    pub(crate) struct WelshSynthView {
+        pan: f32,
+    }
+    impl Viewable<WelshSynthMessage> for WelshSynthView {
+        type Message = WelshSynthMessage;
+
+        fn view(&self) -> Element<Self::Message> {
+            container(text(&format!("pan: {}", self.pan))).into()
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub enum DrumkitMessage {
+        Cowbell(f32),
+    }
+
+    #[derive(Debug)]
+    pub(crate) struct DrumkitView {
+        cowbell: f32,
+    }
+    impl Viewable<DrumkitMessage> for DrumkitView {
+        type Message = DrumkitMessage;
+
+        fn view(&self) -> Element<Self::Message> {
+            container(text(&format!("cowbell: {}", self.cowbell))).into()
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub enum LfoControllerMessage {
+        Waveform(WaveformType),
+        Frequency(ParameterType),
+    }
+
+    #[derive(Debug)]
+    pub(crate) struct LfoControllerView {
+        waveform: WaveformType,
+        frequency: ParameterType,
+    }
+    impl Viewable<LfoControllerMessage> for LfoControllerView {
+        type Message = LfoControllerMessage;
+
+        fn view(&self) -> Element<Self::Message> {
+            container(text(&format!(
+                "waveform: {} frequency: {}",
+                <WaveformType as Into<&str>>::into(self.waveform),
+                self.frequency
+            )))
+            .into()
+        }
+    }
+
+    #[derive(Debug, IntoStaticStr)]
+    pub(crate) enum ViewableItems {
+        Arpeggiator,
+        BiQuadFilter,
+        Bitcrusher,
+        Chorus,
+        Compressor,
+        ControlTrip,
+        Delay,
+        FmSynthesizer,
+        Gain,
+        LfoController(LfoControllerView),
+        Limiter,
+        MidiTickSequencer,
+        Mixer,
+        PatternManager,
+        Sampler,
+        Sequencer,
+        SignalPassthroughController,
+        Timer,
+        ToyAudioSource,
+        ToyController,
+        ToyEffect,
+        ToyInstrument,
+        ToySynth,
+        WelshSynth(WelshSynthView),
+        Drumkit(DrumkitView),
+        Reverb(ReverbView),
+    }
+
+    #[derive(Clone, Debug)]
+    pub enum ReverbMessage {
+        Amount(f32),
+    }
+
+    #[derive(Debug)]
+    pub(crate) struct ReverbView {
+        amount: f32,
+    }
+    impl Viewable<ReverbMessage> for ReverbView {
+        type Message = ReverbMessage;
+
+        fn view(&self) -> Element<Self::Message> {
+            container(text(&format!("amount: {}", self.amount))).into()
+        }
+    }
+
+    #[derive(Debug)]
+    struct AudioLaneView {
+        viewable_items: FxHashMap<usize, Box<ViewableItems>>,
+        pub(crate) lanes: Vec<AudioLane>,
+    }
+    impl AudioLaneView {
+        fn new() -> Self {
+            let mut r = Self {
+                viewable_items: Default::default(),
+                lanes: Default::default(),
+            };
+            r.viewable_items.insert(
+                1,
+                Box::new(ViewableItems::Drumkit(DrumkitView { cowbell: 0.5 })),
+            );
+            r.viewable_items.insert(
+                2,
+                Box::new(ViewableItems::Reverb(ReverbView { amount: 0.1 })),
+            );
+            r.viewable_items.insert(
+                3,
+                Box::new(ViewableItems::Drumkit(DrumkitView { cowbell: -0.25 })),
+            );
+            r.viewable_items.insert(
+                4,
+                Box::new(ViewableItems::Reverb(ReverbView { amount: 0.0 })),
+            );
+            r.viewable_items.insert(
+                5,
+                Box::new(ViewableItems::WelshSynth(WelshSynthView { pan: 0.14159 })),
+            );
+
+            r.lanes = vec![
+                AudioLane {
+                    name: String::from("Rhythm"),
+                    items: vec![1, 2],
+                },
+                AudioLane {
+                    name: String::from("Rhythm B"),
+                    items: vec![3, 4],
+                },
+                AudioLane {
+                    name: String::from("Lead"),
+                    items: vec![5],
+                },
+            ];
+            r
+        }
+
+        fn view(&self) -> Element<AudioLaneMessage> {
+            let lane_views =
+                self.lanes
+                    .iter()
+                    .enumerate()
+                    .fold(Vec::default(), |mut v, (i, lane)| {
+                        let lane_row = Card::new(
+                            text(&format!("Lane #{}: {}", i, lane.name)),
+                            lane.items.iter().enumerate().fold(
+                                Row::new(),
+                                |r, (item_index, uid)| {
+                                    if let Some(item) = self.viewable_items.get(uid) {
+                                        let name: &'static str = item.as_ref().into();
+                                        let view = match item.as_ref() {
+                                            ViewableItems::WelshSynth(e) => {
+                                                e.view().map(move |message| {
+                                                    AudioLaneMessage::WelshSynthMessage(
+                                                        *uid, message,
+                                                    )
+                                                })
+                                            }
+                                            ViewableItems::Drumkit(e) => {
+                                                e.view().map(move |message| {
+                                                    AudioLaneMessage::DrumkitMessage(*uid, message)
+                                                })
+                                            }
+                                            ViewableItems::Reverb(e) => {
+                                                e.view().map(move |message| {
+                                                    AudioLaneMessage::ReverbMessage(*uid, message)
+                                                })
+                                            }
+                                            ViewableItems::Arpeggiator => todo!(),
+                                            ViewableItems::BiQuadFilter => todo!(),
+                                            ViewableItems::Bitcrusher => todo!(),
+                                            ViewableItems::Chorus => todo!(),
+                                            ViewableItems::Compressor => todo!(),
+                                            ViewableItems::ControlTrip => todo!(),
+                                            ViewableItems::Delay => todo!(),
+                                            ViewableItems::FmSynthesizer => todo!(),
+                                            ViewableItems::Gain => todo!(),
+                                            ViewableItems::LfoController(e) => {
+                                                e.view().map(move |message| {
+                                                    AudioLaneMessage::LfoControllerMessage(
+                                                        *uid, message,
+                                                    )
+                                                })
+                                            }
+                                            ViewableItems::Limiter => todo!(),
+                                            ViewableItems::MidiTickSequencer => todo!(),
+                                            ViewableItems::Mixer => todo!(),
+                                            ViewableItems::PatternManager => todo!(),
+                                            ViewableItems::Sampler => todo!(),
+                                            ViewableItems::Sequencer => todo!(),
+                                            ViewableItems::SignalPassthroughController => todo!(),
+                                            ViewableItems::Timer => todo!(),
+                                            ViewableItems::ToyAudioSource => todo!(),
+                                            ViewableItems::ToyController => todo!(),
+                                            ViewableItems::ToyEffect => todo!(),
+                                            ViewableItems::ToyInstrument => todo!(),
+                                            ViewableItems::ToySynth => todo!(),
+                                        };
+                                        r.push(
+                                            Card::new(
+                                                text(&format!("#{}: {}", item_index, name)),
+                                                container(view).height(Length::Fill),
+                                            )
+                                            .width(Length::FillPortion(1))
+                                            .height(Length::FillPortion(1)),
+                                        )
+                                    } else {
+                                        r
+                                    }
+                                },
+                            ),
+                        );
+                        v.push(lane_row);
+                        v
+                    });
+            let view_column = lane_views
+                .into_iter()
+                .fold(Column::new(), |c, lane_view| {
+                    c.push(lane_view.height(Length::FillPortion(1)))
+                })
+                .width(Length::Fill)
+                .height(Length::Fill);
+            let mixer = Card::new(text("Mixer"), text("coming soon").height(Length::Fill))
+                .width(Length::Fixed(96.0));
+            let overall_view = Row::new().height(Length::Fill);
+            container(overall_view.push(view_column).push(mixer)).into()
+        }
+
+        fn update(&mut self, message: AudioLaneMessage) -> Option<AudioLaneMessage> {
+            match message {
+                AudioLaneMessage::WelshSynthMessage(uid, message) => {
+                    if let Some(entity) = self.viewable_items.get_mut(&uid) {
+                        if let ViewableItems::WelshSynth(entity) = entity.as_mut() {
+                            match message {
+                                WelshSynthMessage::Pan(pan) => {
+                                    entity.pan = pan;
+                                }
                             }
-                        }),
-                );
-                v.push(lane_row);
-                v
-            });
-        let view_column = lane_views
-            .into_iter()
-            .fold(Column::new(), |c, lane_view| {
-                c.push(lane_view.height(Length::FillPortion(1)))
-            })
-            .width(Length::Fill)
-            .height(Length::Fill);
-        let mixer = Card::new(text("Mixer"), text("coming soon").height(Length::Fill))
-            .width(Length::Fixed(96.0));
-        let overall_view = Row::new().height(Length::Fill);
-        container(overall_view.push(view_column).push(mixer)).into()
-    }
-
-    fn update(&mut self, message: AudioLaneMessage) -> Option<AudioLaneMessage> {
-        match message {
-            AudioLaneMessage::WelshSynthMessage(uid, message) => {
-                if let Some(entity) = self.viewable_items.get_mut(&uid) {
-                    if let ViewableItems::WelshSynth(entity) = entity.as_mut() {
-                        match message {
-                            WelshSynthMessage::Pan(pan) => {
-                                entity.pan = pan;
+                        }
+                    }
+                }
+                AudioLaneMessage::DrumkitMessage(uid, message) => {
+                    if let Some(entity) = self.viewable_items.get_mut(&uid) {
+                        if let ViewableItems::Drumkit(entity) = entity.as_mut() {
+                            match message {
+                                DrumkitMessage::Cowbell(cowbell) => {
+                                    entity.cowbell = cowbell;
+                                }
+                            }
+                        }
+                    }
+                }
+                AudioLaneMessage::ReverbMessage(uid, message) => {
+                    if let Some(entity) = self.viewable_items.get_mut(&uid) {
+                        if let ViewableItems::Reverb(entity) = entity.as_mut() {
+                            match message {
+                                ReverbMessage::Amount(amount) => entity.amount = amount,
+                            }
+                        }
+                    }
+                }
+                AudioLaneMessage::LfoControllerMessage(uid, message) => {
+                    if let Some(entity) = self.viewable_items.get_mut(&uid) {
+                        if let ViewableItems::LfoController(entity) = entity.as_mut() {
+                            match message {
+                                LfoControllerMessage::Waveform(waveform) => {
+                                    entity.waveform = waveform
+                                }
+                                LfoControllerMessage::Frequency(frequency) => {
+                                    entity.frequency = frequency
+                                }
                             }
                         }
                     }
                 }
             }
-            AudioLaneMessage::DrumkitMessage(uid, message) => {
-                if let Some(entity) = self.viewable_items.get_mut(&uid) {
-                    if let ViewableItems::Drumkit(entity) = entity.as_mut() {
-                        match message {
-                            DrumkitMessage::Cowbell(cowbell) => {
-                                entity.cowbell = cowbell;
-                            }
-                        }
-                    }
+            None
+        }
+    }
+
+    #[derive(Debug)]
+    pub(crate) struct MainViewThingy {
+        automation_view: AutomationView,
+        audio_lane_view: AudioLaneView,
+    }
+
+    impl MainViewThingy {
+        pub(crate) fn new() -> Self {
+            Self {
+                automation_view: AutomationView::new(),
+                audio_lane_view: AudioLaneView::new(),
+            }
+        }
+
+        pub(crate) fn clear(&mut self) {
+            self.automation_view.clear();
+        }
+
+        pub(crate) fn automation_view(&self) -> Element<AutomationMessage> {
+            self.automation_view.view()
+        }
+
+        pub(crate) fn automation_update(
+            &mut self,
+            message: AutomationMessage,
+        ) -> Option<AutomationMessage> {
+            self.automation_view.update(message)
+        }
+
+        pub(crate) fn audio_lane_view(&self) -> Element<AudioLaneMessage> {
+            self.audio_lane_view.view()
+        }
+
+        pub(crate) fn audio_lane_update(
+            &mut self,
+            message: AudioLaneMessage,
+        ) -> Option<AudioLaneMessage> {
+            self.audio_lane_view.update(message)
+        }
+
+        pub(crate) fn add_entity(&mut self, uid: usize, entity: &Entity) {
+            match entity {
+                Entity::Arpeggiator(e) => {
+                    self.add_viewable_item(uid, ViewableItems::Arpeggiator {})
                 }
-            }
-            AudioLaneMessage::ReverbMessage(uid, message) => {
-                if let Some(entity) = self.viewable_items.get_mut(&uid) {
-                    if let ViewableItems::Reverb(entity) = entity.as_mut() {
-                        match message {
-                            ReverbMessage::Amount(amount) => entity.amount = amount,
-                        }
-                    }
+                Entity::BiQuadFilter(e) => {
+                    self.add_viewable_item(uid, ViewableItems::BiQuadFilter {})
                 }
+                Entity::Bitcrusher(e) => self.add_viewable_item(uid, ViewableItems::Bitcrusher {}),
+                Entity::Chorus(e) => self.add_viewable_item(uid, ViewableItems::Chorus {}),
+                Entity::Compressor(e) => self.add_viewable_item(uid, ViewableItems::Compressor {}),
+                Entity::ControlTrip(e) => {
+                    self.add_viewable_item(uid, ViewableItems::ControlTrip {})
+                }
+                Entity::Delay(e) => self.add_viewable_item(uid, ViewableItems::Delay {}),
+                Entity::Drumkit(e) => self
+                    .add_viewable_item(uid, ViewableItems::Drumkit(DrumkitView { cowbell: 0.5 })),
+                Entity::FmSynthesizer(e) => {
+                    self.add_viewable_item(uid, ViewableItems::FmSynthesizer {})
+                }
+                Entity::Gain(e) => self.add_viewable_item(uid, ViewableItems::Gain {}),
+                Entity::LfoController(e) => self.add_viewable_item(
+                    uid,
+                    ViewableItems::LfoController(LfoControllerView {
+                        waveform: WaveformType::Sine,
+                        frequency: 2.5,
+                    }),
+                ),
+                Entity::Limiter(e) => self.add_viewable_item(uid, ViewableItems::Limiter {}),
+                Entity::MidiTickSequencer(e) => {
+                    self.add_viewable_item(uid, ViewableItems::MidiTickSequencer {})
+                }
+                Entity::Mixer(e) => self.add_viewable_item(uid, ViewableItems::Mixer {}),
+                Entity::PatternManager(e) => {
+                    self.add_viewable_item(uid, ViewableItems::PatternManager {})
+                }
+                Entity::Reverb(e) => {
+                    self.add_viewable_item(uid, ViewableItems::Reverb(ReverbView { amount: 0.2 }))
+                }
+                Entity::Sampler(e) => self.add_viewable_item(uid, ViewableItems::Sampler {}),
+                Entity::Sequencer(e) => self.add_viewable_item(uid, ViewableItems::Sequencer {}),
+                Entity::SignalPassthroughController(e) => {
+                    self.add_viewable_item(uid, ViewableItems::SignalPassthroughController {})
+                }
+                Entity::Timer(e) => self.add_viewable_item(uid, ViewableItems::Timer {}),
+                Entity::ToyAudioSource(e) => {
+                    self.add_viewable_item(uid, ViewableItems::ToyAudioSource {})
+                }
+                Entity::ToyController(e) => {
+                    self.add_viewable_item(uid, ViewableItems::ToyController {})
+                }
+                Entity::ToyEffect(e) => self.add_viewable_item(uid, ViewableItems::ToyEffect {}),
+                Entity::ToyInstrument(e) => {
+                    self.add_viewable_item(uid, ViewableItems::ToyInstrument {})
+                }
+                Entity::ToySynth(e) => self.add_viewable_item(uid, ViewableItems::ToySynth {}),
+                Entity::WelshSynth(e) => self.add_viewable_item(
+                    uid,
+                    ViewableItems::WelshSynth(WelshSynthView { pan: 0.334 }),
+                ),
             }
         }
-        None
-    }
-}
 
-#[derive(Debug)]
-pub(crate) struct MainViewThingy {
-    automation_view: AutomationView,
-    audio_lane_view: AudioLaneView,
-}
+        fn add_viewable_item(&mut self, uid: usize, item: ViewableItems) {}
 
-impl MainViewThingy {
-    pub(crate) fn new() -> Self {
-        Self {
-            automation_view: AutomationView::new(),
-            audio_lane_view: AudioLaneView::new(),
+        pub(crate) fn add_temp_controller(&mut self, uid: &usize, entity: &Entity) {
+            self.automation_view
+                .controllers
+                .push(Controller::new(*uid, (*entity).as_has_uid().name()));
         }
-    }
 
-    pub(crate) fn clear(&mut self) {
-        self.automation_view.clear();
-    }
-
-    pub(crate) fn automation_view(&self) -> Element<AutomationMessage> {
-        self.automation_view.view()
-    }
-
-    pub(crate) fn automation_update(
-        &mut self,
-        message: AutomationMessage,
-    ) -> Option<AutomationMessage> {
-        self.automation_view.update(message)
-    }
-
-    pub(crate) fn audio_lane_view(&self) -> Element<AudioLaneMessage> {
-        self.audio_lane_view.view()
-    }
-
-    pub(crate) fn audio_lane_update(
-        &mut self,
-        message: AudioLaneMessage,
-    ) -> Option<AudioLaneMessage> {
-        self.audio_lane_view.update(message)
-    }
-
-    pub(crate) fn add_entity(&mut self, uid: usize, entity: &Entity) {
-        match entity {
-            Entity::Arpeggiator(e) => self.add_viewable_item(uid, ViewableItems::Arpeggiator {}),
-            Entity::BiQuadFilter(e) => self.add_viewable_item(uid, ViewableItems::BiQuadFilter {}),
-            Entity::Bitcrusher(e) => self.add_viewable_item(uid, ViewableItems::Bitcrusher {}),
-            Entity::Chorus(e) => self.add_viewable_item(uid, ViewableItems::Chorus {}),
-            Entity::Compressor(e) => self.add_viewable_item(uid, ViewableItems::Compressor {}),
-            Entity::ControlTrip(e) => self.add_viewable_item(uid, ViewableItems::ControlTrip {}),
-            Entity::Delay(e) => self.add_viewable_item(uid, ViewableItems::Delay {}),
-            Entity::Drumkit(e) => {
-                self.add_viewable_item(uid, ViewableItems::Drumkit(DrumkitView { cowbell: 0.5 }))
+        pub(crate) fn add_temp_controllable(&mut self, uid: &usize, entity: &Entity) {
+            let mut params = Vec::default();
+            if let Some(controllable) = (*entity).as_controllable() {
+                for i in 0..controllable.control_index_count() {
+                    params.push(controllable.control_name_for_index(i));
+                }
+                self.automation_view.controllables.push(Controllable::new(
+                    *uid,
+                    (*entity).as_has_uid().name(),
+                    params,
+                ));
             }
-            Entity::FmSynthesizer(e) => {
-                self.add_viewable_item(uid, ViewableItems::FmSynthesizer {})
-            }
-            Entity::Gain(e) => self.add_viewable_item(uid, ViewableItems::Gain {}),
-            Entity::LfoController(e) => {
-                self.add_viewable_item(uid, ViewableItems::LfoController {})
-            }
-            Entity::Limiter(e) => self.add_viewable_item(uid, ViewableItems::Limiter {}),
-            Entity::MidiTickSequencer(e) => {
-                self.add_viewable_item(uid, ViewableItems::MidiTickSequencer {})
-            }
-            Entity::Mixer(e) => self.add_viewable_item(uid, ViewableItems::Mixer {}),
-            Entity::PatternManager(e) => {
-                self.add_viewable_item(uid, ViewableItems::PatternManager {})
-            }
-            Entity::Reverb(e) => {
-                self.add_viewable_item(uid, ViewableItems::Reverb(ReverbView { amount: 0.2 }))
-            }
-            Entity::Sampler(e) => self.add_viewable_item(uid, ViewableItems::Sampler {}),
-            Entity::Sequencer(e) => self.add_viewable_item(uid, ViewableItems::Sequencer {}),
-            Entity::SignalPassthroughController(e) => {
-                self.add_viewable_item(uid, ViewableItems::SignalPassthroughController {})
-            }
-            Entity::Timer(e) => self.add_viewable_item(uid, ViewableItems::Timer {}),
-            Entity::ToyAudioSource(e) => {
-                self.add_viewable_item(uid, ViewableItems::ToyAudioSource {})
-            }
-            Entity::ToyController(e) => {
-                self.add_viewable_item(uid, ViewableItems::ToyController {})
-            }
-            Entity::ToyEffect(e) => self.add_viewable_item(uid, ViewableItems::ToyEffect {}),
-            Entity::ToyInstrument(e) => {
-                self.add_viewable_item(uid, ViewableItems::ToyInstrument {})
-            }
-            Entity::ToySynth(e) => self.add_viewable_item(uid, ViewableItems::ToySynth {}),
-            Entity::WelshSynth(e) => self.add_viewable_item(
-                uid,
-                ViewableItems::WelshSynth(WelshSynthView { pan: 0.334 }),
-            ),
-        }
-    }
-
-    fn add_viewable_item(&mut self, uid: usize, item: ViewableItems) {}
-
-    pub(crate) fn add_temp_controller(&mut self, uid: &usize, entity: &Entity) {
-        self.automation_view
-            .controllers
-            .push(Controller::new(*uid, (*entity).as_has_uid().name()));
-    }
-
-    pub(crate) fn add_temp_controllable(&mut self, uid: &usize, entity: &Entity) {
-        let mut params = Vec::default();
-        if let Some(controllable) = (*entity).as_controllable() {
-            for i in 0..controllable.control_index_count() {
-                params.push(controllable.control_name_for_index(i));
-            }
-            self.automation_view.controllables.push(Controllable::new(
-                *uid,
-                (*entity).as_has_uid().name(),
-                params,
-            ));
         }
     }
 }

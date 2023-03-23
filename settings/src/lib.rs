@@ -9,8 +9,9 @@
 //! file-format churn.
 
 pub use songs::SongSettings;
+pub use patches::WaveformType;
 
-pub(crate) mod controllers;
+pub mod controllers;
 pub(crate) mod effects;
 pub(crate) mod generators;
 pub(crate) mod instruments;

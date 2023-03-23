@@ -15,6 +15,7 @@ use groove_entities::{
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use strum_macros::IntoStaticStr;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -160,7 +161,7 @@ impl WelshPatchSettings {
     }
 }
 
-#[derive(PartialEq, Copy, Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, IntoStaticStr, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum WaveformType {
     None,

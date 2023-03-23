@@ -22,8 +22,9 @@ use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
     views::{
-        AudioLaneMessage, AutomationMessage, ControlBarEvent, ControlBarInput, ControlBarView,
-        EntityView, EntityViewState, MainViewThingy,
+        views::{AudioLaneMessage, MainViewThingy},
+        AutomationMessage, ControlBarEvent, ControlBarInput, ControlBarView, EntityView,
+        EntityViewState,
     },
     GuiStuff,
 };
