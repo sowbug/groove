@@ -104,16 +104,6 @@ struct GrooveApp {
     orchestrator_sender: Option<mpsc::Sender<EngineInput>>,
     orchestrator: Arc<Mutex<Orchestrator>>,
 
-    // This is true when playback went all the way to the end of the song. The
-    // reason it's nice to track this is that after pressing play and listening
-    // to the song, the user can press play again without manually resetting the
-    // clock to the start. But we don't want to just reset the clock at the end
-    // of playback, because that means the clock would read zero at the end of
-    // playback, which is undesirable because it's natural to want to know how
-    // long the song was after listening, and it's nice to be able to glance at
-    // the stopped clock and get that answer.
-    reached_end_of_playback: bool,
-
     last_midi_activity: Instant,
     midi_handler_sender: Option<mpsc::Sender<MidiHandlerInput>>,
     midi_input_ports: Vec<MidiPortDescriptor>,
@@ -149,7 +139,6 @@ impl Default for GrooveApp {
             project_title: None,
             orchestrator_sender: Default::default(),
             orchestrator: orchestrator.clone(),
-            reached_end_of_playback: Default::default(),
             last_midi_activity: Instant::now(),
             midi_handler_sender: Default::default(),
             midi_input_ports: Default::default(),
@@ -324,11 +313,9 @@ impl GrooveApp {
                 self.entity_view.update_audio_outputs(uid, sample);
             }),
             GrooveEvent::PlaybackStarted => {
-                self.reached_end_of_playback = false;
                 self.state = State::Playing;
             }
             GrooveEvent::PlaybackStopped => {
-                self.reached_end_of_playback = true;
                 self.state = State::Idle;
             }
             GrooveEvent::MidiToExternal(channel, message) => {

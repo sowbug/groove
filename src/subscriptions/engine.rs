@@ -127,6 +127,16 @@ pub struct EngineSubscription {
     last_reported_frames: usize,
     is_playing: bool,
 
+    // This is true when playback went all the way to the end of the song. The
+    // reason it's nice to track this is that after pressing play and listening
+    // to the song, the user can press play again without manually resetting the
+    // clock to the start. But we don't want to just reset the clock at the end
+    // of playback, because that means the clock would read zero at the end of
+    // playback, which is undesirable because it's natural to want to know how
+    // long the song was after listening, and it's nice to be able to glance at
+    // the stopped clock and get that answer.
+    reached_end_of_playback: bool,
+
     events: Vec<GrooveEvent>,
     sender: iced_mpsc::Sender<EngineEvent>,
     receiver: mpsc::Receiver<EngineInput>,
@@ -244,6 +254,7 @@ impl EngineSubscription {
             last_clock_update: Instant::now(),
             last_reported_frames: usize::MAX,
             is_playing: Default::default(),
+            reached_end_of_playback: Default::default(),
             events: Default::default(),
             sender,
             receiver,
@@ -295,7 +306,7 @@ impl EngineSubscription {
                         self.push_response(response);
                     }
                     EngineInput::Play => {
-                        self.start_playback();
+                        self.start_or_pause_playback();
                     }
                     EngineInput::Stop => {
                         self.stop_playback();
@@ -355,13 +366,24 @@ impl EngineSubscription {
         }
     }
 
-    fn start_playback(&mut self) {
-        self.post_event(EngineEvent::GrooveEvent(GrooveEvent::PlaybackStarted));
-        self.is_playing = true;
+    fn start_or_pause_playback(&mut self) {
+        if self.is_playing {
+            self.stop_playback();
+        } else {
+            if self.reached_end_of_playback {
+                self.skip_to_start();
+                self.reached_end_of_playback = false;
+            }
+            self.post_event(EngineEvent::GrooveEvent(GrooveEvent::PlaybackStarted));
+            self.is_playing = true;
+        }
     }
 
     fn stop_playback(&mut self) {
         self.post_event(EngineEvent::GrooveEvent(GrooveEvent::PlaybackStopped));
+
+        // This logic allows the user to press stop twice as shorthand for going
+        // back to the start.
         if self.is_playing {
             self.is_playing = false;
         } else {
@@ -473,6 +495,7 @@ impl EngineSubscription {
                 self.push_response(other_response);
                 if ticks_completed < samples.len() {
                     self.is_playing = false;
+                    self.reached_end_of_playback = true;
                 }
 
                 // This clock is used to tell the app where we are in the song,
