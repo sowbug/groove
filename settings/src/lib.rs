@@ -8,8 +8,8 @@
 //! set of serialized structs separate from the inner engine helps reduce
 //! file-format churn.
 
-pub use songs::SongSettings;
 pub use patches::WaveformType;
+pub use songs::SongSettings;
 
 pub mod controllers;
 pub(crate) mod effects;

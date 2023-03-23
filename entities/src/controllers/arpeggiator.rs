@@ -9,11 +9,32 @@ use groove_core::{
     ParameterType,
 };
 use groove_macros::{Control, Uid};
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
+
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "arpeggiator", rename_all = "kebab-case")
+)]
+pub struct ArpeggiatorParams {
+    pub bpm: ParameterType,
+}
+
+impl ArpeggiatorParams {
+    pub fn bpm(&self) -> f64 {
+        self.bpm
+    }
+
+    pub fn set_bpm(&mut self, bpm: ParameterType) {
+        self.bpm = bpm;
+    }
+}
 
 /// [Arpeggiator] creates [arpeggios](https://en.wikipedia.org/wiki/Arpeggio),
 /// which "is a type of broken chord in which the notes that compose a chord are
@@ -87,11 +108,25 @@ impl HandlesMidi for Arpeggiator {
 }
 
 impl Arpeggiator {
-    pub fn new_with(sample_rate: usize, bpm: ParameterType, midi_channel_out: MidiChannel) -> Self {
+    #[deprecated]
+    pub fn new_with(sample_rate: usize, midi_channel_out: MidiChannel, bpm: ParameterType) -> Self {
         Self {
             uid: Default::default(),
             midi_channel_out,
             sequencer: Sequencer::new_with(sample_rate, bpm),
+            note_semaphore: Default::default(),
+        }
+    }
+
+    pub fn new_with_params(
+        sample_rate: usize,
+        midi_channel_out: MidiChannel,
+        params: ArpeggiatorParams,
+    ) -> Self {
+        Self {
+            uid: Default::default(),
+            midi_channel_out,
+            sequencer: Sequencer::new_with(sample_rate, params.bpm),
             note_semaphore: Default::default(),
         }
     }

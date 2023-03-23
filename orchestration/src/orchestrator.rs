@@ -969,7 +969,9 @@ pub mod tests {
         Normal, StereoSample,
     };
     use groove_entities::{
-        controllers::{Arpeggiator, Note, Pattern, PatternProgrammer, Sequencer, Timer},
+        controllers::{
+            Arpeggiator, ArpeggiatorParams, Note, Pattern, PatternProgrammer, Sequencer, Timer,
+        },
         effects::Gain,
     };
     use groove_toys::{ToyAudioSource, ToyInstrument};
@@ -1481,10 +1483,10 @@ pub mod tests {
         let mut sequencer = Box::new(Sequencer::new_with(clock.sample_rate(), clock.bpm()));
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
-        let arpeggiator = Box::new(Arpeggiator::new_with(
+        let arpeggiator = Box::new(Arpeggiator::new_with_params(
             clock.sample_rate(),
-            clock.bpm(),
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
+            ArpeggiatorParams { bpm: clock.bpm() },
         ));
         let instrument = Box::new(ToyInstrument::new_with(clock.sample_rate()));
         let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm());

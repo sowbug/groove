@@ -17,9 +17,8 @@ use groove_entities::{
     },
     effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
     instruments::{Drumkit, FmSynthesizer, Sampler, WelshSynth},
-    EntityMessage, WelshSynthMessage,
+    EntityMessage,
 };
-use groove_settings::controllers::ControllerSettings;
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use iced::{
     alignment, theme,
@@ -37,7 +36,6 @@ use iced_aw::{
 use iced_native::{mouse, widget::Tree, Event, Widget};
 use rustc_hash::FxHashMap;
 use std::any::type_name;
-use strum_macros::IntoStaticStr;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum EntityViewState {
@@ -1169,9 +1167,13 @@ impl ControlPoint {
 }
 
 pub(crate) mod views {
+    use super::{AutomationMessage, AutomationView, Controllable, Controller};
     use groove::Entity;
-    use groove_core::ParameterType;
-    use groove_entities::WelshSynthMessage;
+    use groove_core::{generators::Waveform, ParameterType};
+    use groove_entities::{
+        controllers::{ArpeggiatorParams, LfoController, LfoControllerParams, WaveformParams},
+        WelshSynthMessage,
+    };
     use groove_settings::WaveformType;
     use iced::{
         widget::{container, text, Column, Row},
@@ -1181,14 +1183,13 @@ pub(crate) mod views {
     use rustc_hash::FxHashMap;
     use strum_macros::IntoStaticStr;
 
-    use super::{AutomationMessage, AutomationView, Controllable, Controller};
-
     #[derive(Clone, Debug)]
     pub enum AudioLaneMessage {
-        WelshSynthMessage(usize, WelshSynthMessage),
+        ArpeggiatorMessage(usize, ArpeggiatorMessage),
         DrumkitMessage(usize, DrumkitMessage),
-        ReverbMessage(usize, ReverbMessage),
         LfoControllerMessage(usize, LfoControllerMessage),
+        ReverbMessage(usize, ReverbMessage),
+        WelshSynthMessage(usize, WelshSynthMessage),
     }
 
     #[derive(Debug)]
@@ -1201,6 +1202,19 @@ pub(crate) mod views {
         type Message;
 
         fn view(&self) -> Element<Self::Message>;
+    }
+
+    #[derive(Clone, Debug)]
+    pub enum ArpeggiatorMessage {
+        Bpm(ParameterType),
+    }
+
+    impl Viewable<ArpeggiatorMessage> for ArpeggiatorParams {
+        type Message = ArpeggiatorMessage;
+
+        fn view(&self) -> Element<Self::Message> {
+            container(text(&format!("bpm: {}", self.bpm()))).into()
+        }
     }
 
     #[derive(Debug)]
@@ -1234,23 +1248,18 @@ pub(crate) mod views {
 
     #[derive(Clone, Debug)]
     pub enum LfoControllerMessage {
-        Waveform(WaveformType),
+        Waveform(WaveformParams),
         Frequency(ParameterType),
     }
 
-    #[derive(Debug)]
-    pub(crate) struct LfoControllerView {
-        waveform: WaveformType,
-        frequency: ParameterType,
-    }
-    impl Viewable<LfoControllerMessage> for LfoControllerView {
+    impl Viewable<LfoControllerMessage> for LfoControllerParams {
         type Message = LfoControllerMessage;
 
         fn view(&self) -> Element<Self::Message> {
             container(text(&format!(
-                "waveform: {} frequency: {}",
-                <WaveformType as Into<&str>>::into(self.waveform),
-                self.frequency
+                "waveform: {:?} frequency: {}",
+                self.waveform(), // TODO: proper string conversion
+                self.frequency()
             )))
             .into()
         }
@@ -1258,7 +1267,7 @@ pub(crate) mod views {
 
     #[derive(Debug, IntoStaticStr)]
     pub(crate) enum ViewableItems {
-        Arpeggiator,
+        Arpeggiator(ArpeggiatorParams),
         BiQuadFilter,
         Bitcrusher,
         Chorus,
@@ -1267,7 +1276,7 @@ pub(crate) mod views {
         Delay,
         FmSynthesizer,
         Gain,
-        LfoController(LfoControllerView),
+        LfoController(LfoControllerParams),
         Limiter,
         MidiTickSequencer,
         Mixer,
@@ -1383,7 +1392,13 @@ pub(crate) mod views {
                                                     AudioLaneMessage::ReverbMessage(*uid, message)
                                                 })
                                             }
-                                            ViewableItems::Arpeggiator => todo!(),
+                                            ViewableItems::Arpeggiator(e) => {
+                                                e.view().map(move |message| {
+                                                    AudioLaneMessage::ArpeggiatorMessage(
+                                                        *uid, message,
+                                                    )
+                                                })
+                                            }
                                             ViewableItems::BiQuadFilter => todo!(),
                                             ViewableItems::Bitcrusher => todo!(),
                                             ViewableItems::Chorus => todo!(),
@@ -1445,13 +1460,11 @@ pub(crate) mod views {
 
         fn update(&mut self, message: AudioLaneMessage) -> Option<AudioLaneMessage> {
             match message {
-                AudioLaneMessage::WelshSynthMessage(uid, message) => {
+                AudioLaneMessage::ArpeggiatorMessage(uid, message) => {
                     if let Some(entity) = self.viewable_items.get_mut(&uid) {
-                        if let ViewableItems::WelshSynth(entity) = entity.as_mut() {
+                        if let ViewableItems::Arpeggiator(entity) = entity.as_mut() {
                             match message {
-                                WelshSynthMessage::Pan(pan) => {
-                                    entity.pan = pan;
-                                }
+                                ArpeggiatorMessage::Bpm(bpm) => entity.set_bpm(bpm),
                             }
                         }
                     }
@@ -1467,6 +1480,20 @@ pub(crate) mod views {
                         }
                     }
                 }
+                AudioLaneMessage::LfoControllerMessage(uid, message) => {
+                    if let Some(entity) = self.viewable_items.get_mut(&uid) {
+                        if let ViewableItems::LfoController(entity) = entity.as_mut() {
+                            match message {
+                                LfoControllerMessage::Waveform(waveform) => {
+                                    entity.set_waveform(waveform.into())
+                                }
+                                LfoControllerMessage::Frequency(frequency) => {
+                                    entity.set_frequency(frequency)
+                                }
+                            }
+                        }
+                    }
+                }
                 AudioLaneMessage::ReverbMessage(uid, message) => {
                     if let Some(entity) = self.viewable_items.get_mut(&uid) {
                         if let ViewableItems::Reverb(entity) = entity.as_mut() {
@@ -1476,15 +1503,12 @@ pub(crate) mod views {
                         }
                     }
                 }
-                AudioLaneMessage::LfoControllerMessage(uid, message) => {
+                AudioLaneMessage::WelshSynthMessage(uid, message) => {
                     if let Some(entity) = self.viewable_items.get_mut(&uid) {
-                        if let ViewableItems::LfoController(entity) = entity.as_mut() {
+                        if let ViewableItems::WelshSynth(entity) = entity.as_mut() {
                             match message {
-                                LfoControllerMessage::Waveform(waveform) => {
-                                    entity.waveform = waveform
-                                }
-                                LfoControllerMessage::Frequency(frequency) => {
-                                    entity.frequency = frequency
+                                WelshSynthMessage::Pan(pan) => {
+                                    entity.pan = pan;
                                 }
                             }
                         }
@@ -1537,9 +1561,10 @@ pub(crate) mod views {
 
         pub(crate) fn add_entity(&mut self, uid: usize, entity: &Entity) {
             match entity {
-                Entity::Arpeggiator(e) => {
-                    self.add_viewable_item(uid, ViewableItems::Arpeggiator {})
-                }
+                Entity::Arpeggiator(e) => self.add_viewable_item(
+                    uid,
+                    ViewableItems::Arpeggiator(ArpeggiatorParams { bpm: 99.0 }),
+                ),
                 Entity::BiQuadFilter(e) => {
                     self.add_viewable_item(uid, ViewableItems::BiQuadFilter {})
                 }
@@ -1558,8 +1583,8 @@ pub(crate) mod views {
                 Entity::Gain(e) => self.add_viewable_item(uid, ViewableItems::Gain {}),
                 Entity::LfoController(e) => self.add_viewable_item(
                     uid,
-                    ViewableItems::LfoController(LfoControllerView {
-                        waveform: WaveformType::Sine,
+                    ViewableItems::LfoController(LfoControllerParams {
+                        waveform: WaveformParams::Sine,
                         frequency: 2.5,
                     }),
                 ),

@@ -1,10 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use arpeggiator::Arpeggiator;
+pub use arpeggiator::{Arpeggiator, ArpeggiatorParams};
 pub use control_trip::{ControlPath, ControlStep, ControlTrip};
-pub use lfo::LfoController;
+pub use lfo::{LfoController, LfoControllerParams, WaveformParams};
 pub use patterns::{Note, Pattern, PatternManager, PatternMessage, PatternProgrammer};
 pub use sequencers::{MidiSmfReader, MidiTickSequencer, Sequencer};
+use serde::{Deserialize, Serialize};
 
 mod arpeggiator;
 mod control_trip;
@@ -14,7 +15,7 @@ mod sequencers;
 
 use crate::EntityMessage;
 use groove_core::{
-    midi::HandlesMidi,
+    midi::{HandlesMidi, MidiChannel},
     traits::{IsController, IsEffect, Resets, TicksWithMessages, TransformsAudio},
     BipolarNormal, Sample, StereoSample,
 };
@@ -24,6 +25,17 @@ use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
+
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "midi", rename_all = "kebab-case")
+)]
+pub struct MidiChannelParams {
+    pub midi_in: MidiChannel,
+    pub midi_out: MidiChannel,
+}
 
 /// [Timer] runs for a specified amount of time, then indicates that it's done.
 /// It is useful when you need something to happen after a certain amount of

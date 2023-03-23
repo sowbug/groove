@@ -9,16 +9,57 @@ use groove_core::{
     ParameterType,
 };
 use groove_macros::{Control, Uid};
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
 
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "waveform", rename_all = "kebab-case")
+)]
+pub enum WaveformParams {
+    Sine,
+}
+
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "lfo", rename_all = "kebab-case")
+)]
+pub struct LfoControllerParams {
+    pub waveform: WaveformParams,
+    pub frequency: ParameterType,
+}
+
+impl LfoControllerParams {
+    pub fn waveform(&self) -> WaveformParams {
+        self.waveform
+    }
+
+    pub fn set_waveform(&mut self, waveform: WaveformParams) {
+        self.waveform = waveform;
+    }
+
+    pub fn frequency(&self) -> f64 {
+        self.frequency
+    }
+
+    pub fn set_frequency(&mut self, frequency: ParameterType) {
+        self.frequency = frequency;
+    }
+}
+
 /// Uses an internal LFO as a control source.
 #[derive(Control, Debug, Uid)]
 pub struct LfoController {
     uid: usize,
+    params: LfoControllerParams,
     oscillator: Oscillator,
 }
 impl IsController<EntityMessage> for LfoController {}
@@ -42,11 +83,47 @@ impl LfoController {
     pub fn new_with(sample_rate: usize, waveform: Waveform, frequency_hz: ParameterType) -> Self {
         Self {
             uid: Default::default(),
+            params: LfoControllerParams {
+                waveform: WaveformParams::Sine, // TODO
+                frequency: frequency_hz,
+            },
             oscillator: Oscillator::new_with_waveform_and_frequency(
                 sample_rate,
                 waveform,
                 frequency_hz,
             ),
         }
+    }
+
+    pub fn new_with_params(sample_rate: usize, params: LfoControllerParams) -> Self {
+        Self {
+            uid: Default::default(),
+            params,
+            oscillator: Oscillator::new_with_waveform_and_frequency(
+                sample_rate,
+                Waveform::Sine, // TODO: undo the hack with just Sine
+                params.frequency,
+            ),
+        }
+    }
+
+    pub fn waveform(&self) -> Waveform {
+        Waveform::Sine
+        // TODO        self.params.waveform()
+    }
+
+    pub fn set_waveform(&mut self, waveform: Waveform) {
+        self.oscillator.set_waveform(waveform)
+        // TODO
+    }
+
+    pub fn frequency(&self) -> ParameterType {
+        self.params.frequency()
+    }
+
+    pub fn set_frequency(&mut self, frequency_hz: ParameterType) {
+        // TODO: can we just hand params to oscillator and keep one copy?
+        self.params.set_frequency(frequency_hz);
+        self.oscillator.set_frequency(frequency_hz);
     }
 }

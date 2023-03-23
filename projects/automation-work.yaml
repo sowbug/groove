@@ -14,9 +14,9 @@ devices:
   - controller:
       - lfo-1
       - lfo:
-          midi-in: 0
+        - midi-in: 0
           midi-out: 0
-          waveform: triangle
+        - waveform: sine
           frequency: 2.0
   - effect:
       - effect-1

@@ -88,7 +88,7 @@ pub enum EngineEvent {
 
     /// Sends the engine's current frame. Useful for the GUI to keep the control
     /// bar's clock in sync.
-    /// TODO: this MAYBE should be part of GrooveEvent
+    /// TODO: this MAYBE should be part of GrooveEvent -- TODO yes absolutely
     SetClock(usize),
 
     /// Sends an updated BPM (beats per minute) whenever it changes.

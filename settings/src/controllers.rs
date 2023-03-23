@@ -1,10 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use super::{patches::WaveformType, BeatValueSettings, DeviceId, MidiChannel};
+use super::{BeatValueSettings, DeviceId, MidiChannel};
 use groove_core::{ParameterType, SignalType};
 use groove_entities::{
     controllers::{
-        Arpeggiator, ControlPath, ControlStep, LfoController, SignalPassthroughController,
+        Arpeggiator, ArpeggiatorParams, ControlPath, ControlStep, LfoController,
+        LfoControllerParams, MidiChannelParams, SignalPassthroughController,
     },
     ToyMessageMaker,
 };
@@ -104,35 +105,13 @@ pub struct ControlTripSettings {
 #[serde(rename_all = "kebab-case")]
 pub enum ControllerSettings {
     #[serde(rename_all = "kebab-case")]
-    Test {
-        #[serde(rename = "midi-in")]
-        midi_input_channel: MidiChannel,
-        #[serde(rename = "midi-out")]
-        midi_output_channel: MidiChannel,
-    },
+    Test(MidiChannelParams),
     #[serde(rename_all = "kebab-case")]
-    Arpeggiator {
-        #[serde(rename = "midi-in")]
-        midi_input_channel: MidiChannel,
-        #[serde(rename = "midi-out")]
-        midi_output_channel: MidiChannel,
-    },
+    Arpeggiator(MidiChannelParams, ArpeggiatorParams),
     #[serde(rename_all = "kebab-case", rename = "lfo")]
-    LfoController {
-        #[serde(rename = "midi-in")]
-        midi_input_channel: MidiChannel,
-        #[serde(rename = "midi-out")]
-        midi_output_channel: MidiChannel,
-        waveform: WaveformType,
-        frequency: f32,
-    },
+    LfoController(MidiChannelParams, LfoControllerParams),
     #[serde(rename_all = "kebab-case", rename = "signal-passthrough-controller")]
-    SignalPassthroughController {
-        #[serde(rename = "midi-in")]
-        midi_input_channel: MidiChannel,
-        #[serde(rename = "midi-out")]
-        midi_output_channel: MidiChannel,
-    },
+    SignalPassthroughController(MidiChannelParams),
 }
 
 impl ControllerSettings {
@@ -144,24 +123,34 @@ impl ControllerSettings {
     ) -> (MidiChannel, MidiChannel, Entity) {
         if load_only_test_entities {
             let (midi_input_channel, midi_output_channel) = match self {
-                ControllerSettings::Test {
-                    midi_input_channel,
-                    midi_output_channel,
-                }
-                | ControllerSettings::Arpeggiator {
-                    midi_input_channel,
-                    midi_output_channel,
-                }
-                | ControllerSettings::LfoController {
-                    midi_input_channel,
-                    midi_output_channel,
-                    ..
-                }
-                | ControllerSettings::SignalPassthroughController {
-                    midi_input_channel,
-                    midi_output_channel,
-                    ..
-                } => (midi_input_channel, midi_output_channel),
+                ControllerSettings::Test(
+                    MidiChannelParams {
+                        midi_in: midi_input_channel,
+                        midi_out: midi_output_channel,
+                    },
+                    ..,
+                )
+                | ControllerSettings::Arpeggiator(
+                    MidiChannelParams {
+                        midi_in: midi_input_channel,
+                        midi_out: midi_output_channel,
+                    },
+                    ..,
+                )
+                | ControllerSettings::LfoController(
+                    MidiChannelParams {
+                        midi_in: midi_input_channel,
+                        midi_out: midi_output_channel,
+                    },
+                    ..,
+                )
+                | ControllerSettings::SignalPassthroughController(
+                    MidiChannelParams {
+                        midi_in: midi_input_channel,
+                        midi_out: midi_output_channel,
+                    },
+                    ..,
+                ) => (midi_input_channel, midi_output_channel),
             };
             return (
                 *midi_input_channel,
@@ -175,51 +164,36 @@ impl ControllerSettings {
             );
         }
         match *self {
-            ControllerSettings::Test {
-                midi_input_channel,
-                midi_output_channel,
-            } => (
-                midi_input_channel,
-                midi_output_channel,
+            ControllerSettings::Test(midi) => (
+                midi.midi_in,
+                midi.midi_out,
                 Entity::ToyController(Box::new(ToyController::new_with(
                     sample_rate,
                     bpm,
-                    midi_output_channel,
+                    midi.midi_out,
                     Box::new(ToyMessageMaker {}),
                 ))),
             ),
-            ControllerSettings::Arpeggiator {
-                midi_input_channel,
-                midi_output_channel,
-            } => (
-                midi_input_channel,
-                midi_output_channel,
-                Entity::Arpeggiator(Box::new(Arpeggiator::new_with(
+            ControllerSettings::Arpeggiator(midi, params) => (
+                midi.midi_in,
+                midi.midi_out,
+                Entity::Arpeggiator(Box::new(Arpeggiator::new_with_params(
                     sample_rate,
-                    bpm,
-                    midi_output_channel,
+                    midi.midi_out,
+                    params,
                 ))),
             ),
-            ControllerSettings::LfoController {
-                midi_input_channel,
-                midi_output_channel,
-                waveform,
-                frequency,
-            } => (
-                midi_input_channel,
-                midi_output_channel,
-                Entity::LfoController(Box::new(LfoController::new_with(
+            ControllerSettings::LfoController(midi, params) => (
+                midi.midi_in,
+                midi.midi_out,
+                Entity::LfoController(Box::new(LfoController::new_with_params(
                     sample_rate,
-                    waveform.into(),
-                    frequency as f64,
+                    params,
                 ))),
             ),
-            ControllerSettings::SignalPassthroughController {
-                midi_input_channel,
-                midi_output_channel,
-            } => (
-                midi_input_channel,
-                midi_output_channel,
+            ControllerSettings::SignalPassthroughController(midi) => (
+                midi.midi_in,
+                midi.midi_out,
                 Entity::SignalPassthroughController(Box::new(SignalPassthroughController::new())),
             ),
         }
