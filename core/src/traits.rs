@@ -59,6 +59,10 @@ pub trait Generates<V>: Send + std::fmt::Debug + Ticks {
 /// because it allows runtime binding of an IsController to a Controllable.
 #[allow(unused_variables)]
 pub trait Controllable {
+    // See https://stackoverflow.com/a/71988904/344467 to show that we could
+    // have made these functions rather than methods (no self). But then we'd
+    // lose the ability to query an object without knowing its struct, which is
+    // important for the loose binding that the automation system provides.
     fn control_index_count(&self) -> usize {
         unimplemented!()
     }
