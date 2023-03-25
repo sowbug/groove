@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use self::views::ViewableItems;
+
 use super::{
     GuiStuff, IconType, Icons, LARGE_FONT, LARGE_FONT_SIZE, NUMBERS_FONT, NUMBERS_FONT_SIZE,
     SMALL_FONT, SMALL_FONT_SIZE,
@@ -35,7 +37,7 @@ use iced_aw::{
 };
 use iced_native::{mouse, widget::Tree, Event, Widget};
 use rustc_hash::FxHashMap;
-use std::any::type_name;
+use std::{any::type_name, rc::Rc};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum EntityViewState {
@@ -825,6 +827,16 @@ where
     }
 }
 
+#[derive(Debug, Default)]
+struct EntityStore {
+    entities: FxHashMap<usize, Box<ViewableItems>>,
+}
+impl EntityStore {
+    fn get(&self, uid: &usize) -> Option<&Box<ViewableItems>> {
+        self.entities.get(uid)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum AutomationMessage {
     MouseIn(usize),
@@ -840,8 +852,10 @@ struct AutomationView {
     source_id: usize,
     target_id: usize,
 
-    controllers: Vec<Controller>,
-    controllables: Vec<Controllable>,
+    //controllers: Vec<Controller>,
+    controller_uids: Vec<usize>,
+    controllable_uids: Vec<usize>,
+    controllable_uids_to_control_names: FxHashMap<usize, Vec<String>>,
     connections: Vec<(usize, usize)>,
 }
 impl AutomationView {
@@ -850,18 +864,21 @@ impl AutomationView {
             is_dragging: false,
             source_id: 0,
             target_id: 0,
-            controllers: Vec::default(),
-            controllables: Vec::default(),
+
+            //controllers: Default::default(),
+            controller_uids: Default::default(),
+            controllable_uids: Default::default(),
+            controllable_uids_to_control_names: Default::default(),
             connections: Default::default(),
         }
     }
 
-    fn view(&self) -> Element<AutomationMessage> {
-        let controller_columns = self.controllers.iter().enumerate().fold(
+    fn view(&self, entity_store: &EntityStore) -> Element<AutomationMessage> {
+        let controller_columns = self.controller_uids.iter().enumerate().fold(
             Vec::default(),
-            |mut v, (_index, controller)| {
+            |mut v, (_index, controller_uid)| {
                 let column = Column::new();
-                let controller_id = controller.uid;
+                let controller_id = *controller_uid;
                 let card_style = if self.is_dragging {
                     if controller_id == self.source_id {
                         CardStyles::Primary
@@ -871,9 +888,10 @@ impl AutomationView {
                 } else {
                     CardStyles::Default
                 };
+                let controller = entity_store.get(controller_uid).unwrap(); // TODO no unwraps!
                 let card = Card::new(
                     ControlTargetWidget::<AutomationMessage>::new(
-                        Text::new(controller.name.to_string()),
+                        Text::new("TBD"),
                         if self.is_dragging && controller_id != self.source_id {
                             // entering the bounds of a potential target.
                             Some(AutomationMessage::MouseIn(controller_id))
@@ -919,11 +937,13 @@ impl AutomationView {
             },
         );
 
-        let controllable_columns = self.controllables.iter().enumerate().fold(
+        let controllable_columns = self.controllable_uids.iter().enumerate().fold(
             Vec::default(),
-            |mut v, (_index, controllable)| {
+            |mut v, (_index, controllable_uid)| {
                 let mut column = Column::new();
-                let controllable_id = controllable.uid;
+                let controllable_id = *controllable_uid;
+                let controllable = entity_store.get(controllable_uid).unwrap(); // TODO no unwraps!
+                                                                                //let controllable_as_controllable = controllable.as_ref().
                 for (param_id, point) in controllable.controllables.iter().enumerate() {
                     let param_app_id = controllable_id * 10000 + param_id;
                     let badge_style = if self.is_dragging {
@@ -1091,8 +1111,9 @@ impl AutomationView {
     }
 
     pub(crate) fn clear(&mut self) {
-        self.controllables.clear();
-        self.controllers.clear();
+        self.controllable_uids.clear();
+        self.controllable_uids_to_control_names.clear();
+        self.controller_uids.clear();
         self.connections.clear();
     }
 
@@ -1167,15 +1188,16 @@ impl ControlPoint {
 }
 
 pub(crate) mod views {
-    use super::{AutomationMessage, AutomationView, Controllable, Controller};
+    use super::{AutomationMessage, AutomationView, EntityStore};
     use groove::Entity;
-    use groove_core::{generators::Waveform, ParameterType};
     use groove_entities::{
-        controllers::{ArpeggiatorParams, LfoController, LfoControllerParams, WaveformParams},
-        effects::BitcrusherParams,
+        controllers::{
+            ArpeggiatorParams, ArpeggiatorParamsMessage, LfoControllerParams,
+            LfoControllerParamsMessage, WaveformParams,
+        },
+        effects::{BitcrusherParams, BitcrusherParamsMessage},
         WelshSynthMessage,
     };
-    use groove_settings::WaveformType;
     use iced::{
         widget::{container, text, Column, Row},
         Element, Length,
@@ -1186,10 +1208,10 @@ pub(crate) mod views {
 
     #[derive(Clone, Debug)]
     pub enum AudioLaneMessage {
-        ArpeggiatorMessage(usize, ArpeggiatorMessage),
-        BitcrusherMessage(usize, BitcrusherMessage),
+        ArpeggiatorMessage(usize, ArpeggiatorParamsMessage),
+        BitcrusherMessage(usize, BitcrusherParamsMessage),
         DrumkitMessage(usize, DrumkitMessage),
-        LfoControllerMessage(usize, LfoControllerMessage),
+        LfoControllerMessage(usize, LfoControllerParamsMessage),
         ReverbMessage(usize, ReverbMessage),
         WelshSynthMessage(usize, WelshSynthMessage),
     }
@@ -1206,26 +1228,16 @@ pub(crate) mod views {
         fn view(&self) -> Element<Self::Message>;
     }
 
-    #[derive(Clone, Debug)]
-    pub enum ArpeggiatorMessage {
-        Bpm(ParameterType),
-    }
-
-    impl Viewable<ArpeggiatorMessage> for ArpeggiatorParams {
-        type Message = ArpeggiatorMessage;
+    impl Viewable<ArpeggiatorParamsMessage> for ArpeggiatorParams {
+        type Message = ArpeggiatorParamsMessage;
 
         fn view(&self) -> Element<Self::Message> {
             container(text(&format!("bpm: {}", self.bpm()))).into()
         }
     }
 
-    #[derive(Clone, Debug)]
-    pub enum BitcrusherMessage {
-        Bits(u8),
-    }
-
-    impl Viewable<BitcrusherMessage> for BitcrusherParams {
-        type Message = BitcrusherMessage;
+    impl Viewable<BitcrusherParamsMessage> for BitcrusherParams {
+        type Message = BitcrusherParamsMessage;
 
         fn view(&self) -> Element<Self::Message> {
             container(text(&format!("bits: {}", self.bits()))).into()
@@ -1249,14 +1261,8 @@ pub(crate) mod views {
         }
     }
 
-    #[derive(Clone, Debug)]
-    pub enum LfoControllerMessage {
-        Waveform(WaveformParams),
-        Frequency(ParameterType),
-    }
-
-    impl Viewable<LfoControllerMessage> for LfoControllerParams {
-        type Message = LfoControllerMessage;
+    impl Viewable<LfoControllerParamsMessage> for LfoControllerParams {
+        type Message = LfoControllerParamsMessage;
 
         fn view(&self) -> Element<Self::Message> {
             container(text(&format!(
@@ -1484,18 +1490,14 @@ pub(crate) mod views {
                 AudioLaneMessage::ArpeggiatorMessage(uid, message) => {
                     if let Some(entity) = self.viewable_items.get_mut(&uid) {
                         if let ViewableItems::Arpeggiator(entity) = entity.as_mut() {
-                            match message {
-                                ArpeggiatorMessage::Bpm(bpm) => entity.set_bpm(bpm),
-                            }
+                            entity.update(message); // TODO: handle reply
                         }
                     }
                 }
                 AudioLaneMessage::BitcrusherMessage(uid, message) => {
                     if let Some(entity) = self.viewable_items.get_mut(&uid) {
                         if let ViewableItems::Bitcrusher(entity) = entity.as_mut() {
-                            match message {
-                                BitcrusherMessage::Bits(bits) => entity.set_bits(bits),
-                            }
+                            entity.update(message); // TODO: handle reply
                         }
                     }
                 }
@@ -1513,14 +1515,7 @@ pub(crate) mod views {
                 AudioLaneMessage::LfoControllerMessage(uid, message) => {
                     if let Some(entity) = self.viewable_items.get_mut(&uid) {
                         if let ViewableItems::LfoController(entity) = entity.as_mut() {
-                            match message {
-                                LfoControllerMessage::Waveform(waveform) => {
-                                    entity.set_waveform(waveform.into())
-                                }
-                                LfoControllerMessage::Frequency(frequency) => {
-                                    entity.set_frequency(frequency)
-                                }
-                            }
+                            entity.update(message); // TODO: handle reply
                         }
                     }
                 }
@@ -1551,6 +1546,7 @@ pub(crate) mod views {
 
     #[derive(Debug)]
     pub(crate) struct MainViewThingy {
+        entity_store: EntityStore,
         automation_view: AutomationView,
         audio_lane_view: AudioLaneView,
     }
@@ -1558,6 +1554,7 @@ pub(crate) mod views {
     impl MainViewThingy {
         pub(crate) fn new() -> Self {
             Self {
+                entity_store: Default::default(),
                 automation_view: AutomationView::new(),
                 audio_lane_view: AudioLaneView::new(),
             }
@@ -1568,7 +1565,7 @@ pub(crate) mod views {
         }
 
         pub(crate) fn automation_view(&self) -> Element<AutomationMessage> {
-            self.automation_view.view()
+            self.automation_view.view(&self.entity_store)
         }
 
         pub(crate) fn automation_update(
@@ -1617,8 +1614,8 @@ pub(crate) mod views {
                 Entity::LfoController(e) => self.add_viewable_item(
                     uid,
                     ViewableItems::LfoController(LfoControllerParams {
-                        waveform: WaveformParams::Sine,
-                        frequency: 2.5,
+                        waveform: WaveformParams::Sine, // TODO - map to actual (TODO - never do that, because this whole thing will go away with messages)
+                        frequency: e.frequency(),
                     }),
                 ),
                 Entity::Limiter(e) => self.add_viewable_item(uid, ViewableItems::Limiter {}),
@@ -1656,25 +1653,33 @@ pub(crate) mod views {
             }
         }
 
-        fn add_viewable_item(&mut self, uid: usize, item: ViewableItems) {}
+        fn add_viewable_item(&mut self, uid: usize, item: ViewableItems) {
+            // TODO: do we care about displaced items that had the same key?
+            self.entity_store.entities.insert(uid, Box::new(item));
+        }
 
         pub(crate) fn add_temp_controller(&mut self, uid: &usize, entity: &Entity) {
-            self.automation_view
-                .controllers
-                .push(Controller::new(*uid, (*entity).as_has_uid().name()));
+            if !self.entity_store.entities.contains_key(uid) {
+                self.add_entity(*uid, entity);
+            }
+            self.automation_view.controller_uids.push(*uid);
         }
 
         pub(crate) fn add_temp_controllable(&mut self, uid: &usize, entity: &Entity) {
             let mut params = Vec::default();
             if let Some(controllable) = (*entity).as_controllable() {
                 for i in 0..controllable.control_index_count() {
-                    params.push(controllable.control_name_for_index(i));
+                    if let Some(name) = controllable.control_name_for_index(i) {
+                        params.push(name.to_string());
+                    }
                 }
-                self.automation_view.controllables.push(Controllable::new(
-                    *uid,
-                    (*entity).as_has_uid().name(),
-                    params,
-                ));
+                if !self.entity_store.entities.contains_key(uid) {
+                    self.add_entity(*uid, entity);
+                }
+                self.automation_view.controllable_uids.push(*uid);
+                self.automation_view
+                    .controllable_uids_to_control_names
+                    .insert(*uid, params);
             }
         }
     }

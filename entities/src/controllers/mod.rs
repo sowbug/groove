@@ -1,8 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use arpeggiator::{Arpeggiator, ArpeggiatorParams};
+pub use arpeggiator::{Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage};
 pub use control_trip::{ControlPath, ControlStep, ControlTrip};
-pub use lfo::{LfoController, LfoControllerParams, WaveformParams};
+pub use lfo::{LfoController, LfoControllerParams, LfoControllerParamsMessage, WaveformParams};
 pub use patterns::{Note, Pattern, PatternManager, PatternMessage, PatternProgrammer};
 pub use sequencers::{MidiSmfReader, MidiTickSequencer, Sequencer};
 

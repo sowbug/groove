@@ -166,11 +166,11 @@ fn parse_control_data(
                     usize::MAX
                 }
             }
-            fn control_name_for_index(&self, index: usize) -> &'static str {
+            fn control_name_for_index(&self, index: usize) -> Option<&'static str> {
                 if let Some(param) = #enum_name::from_repr(index) {
-                    param.into()
+                    Some(param.into())
                 } else {
-                    "[invalid]"
+                    None
                 }
             }
             fn set_by_control_index(&mut self, index: usize, value: groove_core::control::F32ControlValue) {

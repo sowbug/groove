@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use bitcrusher::{Bitcrusher, BitcrusherParams};
+pub use bitcrusher::{Bitcrusher, BitcrusherParams, BitcrusherParamsMessage};
 pub use chorus::Chorus;
 pub use compressor::Compressor;
 pub use delay::Delay;
