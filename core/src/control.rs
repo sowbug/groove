@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use crate::{BipolarNormal, Normal};
+
 #[derive(Debug, PartialEq)]
 pub struct F32ControlValue(pub f32);
 
@@ -43,6 +45,27 @@ impl Into<F32ControlValue> for f64 {
         F32ControlValue(self as f32)
     }
 }
+impl From<F32ControlValue> for Normal {
+    fn from(value: F32ControlValue) -> Self {
+        Self::from(value.0)
+    }
+}
+impl Into<F32ControlValue> for Normal {
+    fn into(self) -> F32ControlValue {
+        F32ControlValue(self.value_as_f32())
+    }
+}
+impl From<F32ControlValue> for BipolarNormal {
+    fn from(value: F32ControlValue) -> Self {
+        Self::from(Normal::from(value))
+    }
+}
+impl Into<F32ControlValue> for BipolarNormal {
+    fn into(self) -> F32ControlValue {
+        let n: Normal = self.into();
+        n.into()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -81,5 +104,25 @@ mod tests {
         let a = -1000000.0f64;
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<f64>>::into(f32cv));
+
+        let a = Normal::maximum();
+        let f32cv: F32ControlValue = a.into();
+        assert_eq!(a, <F32ControlValue as Into<Normal>>::into(f32cv));
+
+        let a = Normal::minimum();
+        let f32cv: F32ControlValue = a.into();
+        assert_eq!(a, <F32ControlValue as Into<Normal>>::into(f32cv));
+
+        let a = BipolarNormal::maximum();
+        let f32cv: F32ControlValue = a.into();
+        assert_eq!(a, <F32ControlValue as Into<BipolarNormal>>::into(f32cv));
+
+        let a = BipolarNormal::minimum();
+        let f32cv: F32ControlValue = a.into();
+        assert_eq!(a, <F32ControlValue as Into<BipolarNormal>>::into(f32cv));
+
+        let a = BipolarNormal::zero();
+        let f32cv: F32ControlValue = a.into();
+        assert_eq!(a, <F32ControlValue as Into<BipolarNormal>>::into(f32cv));
     }
 }

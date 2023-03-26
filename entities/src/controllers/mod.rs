@@ -3,8 +3,13 @@
 pub use arpeggiator::{Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage};
 pub use control_trip::{ControlPath, ControlStep, ControlTrip};
 pub use lfo::{LfoController, LfoControllerParams, LfoControllerParamsMessage, WaveformParams};
-pub use patterns::{Note, Pattern, PatternManager, PatternMessage, PatternProgrammer};
-pub use sequencers::{MidiSmfReader, MidiTickSequencer, Sequencer};
+pub use patterns::{
+    Note, Pattern, PatternManager, PatternManagerParams, PatternManagerParamsMessage,
+    PatternMessage, PatternProgrammer,
+};
+pub use sequencers::{
+    MidiSmfReader, MidiTickSequencer, Sequencer, SequencerParams, SequencerParamsMessage,
+};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};

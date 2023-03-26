@@ -8,8 +8,10 @@ use groove_core::{
     traits::{IsController, Resets, TicksWithMessages},
 };
 use groove_macros::Uid;
-use std::cmp;
-use std::fmt::Debug;
+use std::{cmp, fmt::Debug, str::FromStr};
+use struct_sync_macros::Synchronization;
+use strum::EnumCount;
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 /// [PatternMessage] specifies interactions that can happen between
 /// [PatternManager] and other components such as an application GUI.
@@ -51,12 +53,26 @@ impl<T: Default> Pattern<T> {
     }
 }
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "pattern-manager", rename_all = "kebab-case")
+)]
+pub struct PatternManagerParams {}
+
+impl PatternManagerParams {}
+
 // There is so much paperwork for a vector because this will eventually become a
 // substantial part of the GUI experience.
 /// [PatternManager] stores all the [Patterns] that make up a song.
 #[derive(Clone, Debug, Default, Uid)]
 pub struct PatternManager {
     uid: usize,
+    params: PatternManagerParams,
     patterns: Vec<Pattern<Note>>,
 }
 impl IsController<EntityMessage> for PatternManager {}

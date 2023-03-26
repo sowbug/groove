@@ -22,9 +22,8 @@ use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
     views::{
-        views::{AudioLaneMessage, MainViewThingy},
-        AutomationMessage, ControlBarEvent, ControlBarInput, ControlBarView, EntityView,
-        EntityViewState,
+        views::{MainViewThingy, MainViewThingyMessage},
+        ControlBarEvent, ControlBarInput, ControlBarView, EntityView, EntityViewState,
     },
     GuiStuff,
 };
@@ -68,8 +67,7 @@ enum State {
 
 #[derive(Clone, Debug)]
 enum AppMessage {
-    AudioLaneMessage(AudioLaneMessage),
-    AutomationEvent(AutomationMessage),
+    MainViewThingyMessage(MainViewThingyMessage),
     ControlBarEvent(ControlBarEvent),
     EngineEvent(EngineEvent),
     Event(iced::Event),
@@ -197,22 +195,11 @@ impl Application for GrooveApp {
                 }
             }
             AppMessage::Event(event) => {
-                if let Event::Window(window::Event::CloseRequested) = event {
-                    return self.handle_close_requested_event();
-                }
-                if let Event::Keyboard(e) = event {
-                    self.handle_keyboard_event(e);
+                if let Some(value) = self.handle_system_event(event) {
+                    return value;
                 }
             }
-            AppMessage::MidiHandlerInput(message) => match message {
-                MidiHandlerInput::SelectMidiInput(which) => {
-                    self.post_to_midi_handler(MidiHandlerInput::SelectMidiInput(which));
-                }
-                MidiHandlerInput::SelectMidiOutput(which) => {
-                    self.post_to_midi_handler(MidiHandlerInput::SelectMidiOutput(which));
-                }
-                _ => panic!("Remaining MidiHandlerInput messages should be handled internally"),
-            },
+            AppMessage::MidiHandlerInput(message) => self.handle_midi_handler_input(message),
             AppMessage::EngineEvent(event) => self.handle_engine_event(event),
             AppMessage::MidiHandlerEvent(event) => self.handle_midi_handler_event(event),
             AppMessage::GrooveEvent(event) => self.handle_groove_event(event),
@@ -239,10 +226,10 @@ impl Application for GrooveApp {
             AppMessage::ExportComplete(_) => {
                 // great
             }
-            AppMessage::AutomationEvent(message) => {
-                if let Some(message) = self.views.automation_update(message) {
-                    match message {
-                        AutomationMessage::Connect(
+            AppMessage::MainViewThingyMessage(message) => {
+                if let Some(response) = self.views.update(message) {
+                    match response {
+                        MainViewThingyMessage::Connect(
                             controller_id,
                             controllable_id,
                             control_index,
@@ -253,12 +240,9 @@ impl Application for GrooveApp {
                                 control_index,
                             ));
                         }
-                        _ => {}
+                        _ => panic!(),
                     }
                 }
-            }
-            AppMessage::AudioLaneMessage(message) => {
-                let _ = self.views.audio_lane_update(message);
             }
         }
 
@@ -713,14 +697,10 @@ impl GrooveApp {
             MainViews::Session => Self::under_construction("Session").into(),
             MainViews::Arrangement => Self::under_construction("Arrangement").into(),
             MainViews::Preferences => Self::under_construction("Preferences").into(),
-            MainViews::Automation => self
+            MainViews::AudioLanes | MainViews::Automation => self
                 .views
-                .automation_view()
-                .map(AppMessage::AutomationEvent),
-            MainViews::AudioLanes => self
-                .views
-                .audio_lane_view()
-                .map(AppMessage::AudioLaneMessage),
+                .view()
+                .map(move |m| AppMessage::MainViewThingyMessage(m)),
         }
     }
 
@@ -792,6 +772,28 @@ impl GrooveApp {
                 self.midi_output_port_active = port;
             }
         }
+    }
+
+    fn handle_midi_handler_input(&mut self, message: MidiHandlerInput) {
+        match message {
+            MidiHandlerInput::SelectMidiInput(which) => {
+                self.post_to_midi_handler(MidiHandlerInput::SelectMidiInput(which));
+            }
+            MidiHandlerInput::SelectMidiOutput(which) => {
+                self.post_to_midi_handler(MidiHandlerInput::SelectMidiOutput(which));
+            }
+            _ => panic!("Remaining MidiHandlerInput messages should be handled internally"),
+        }
+    }
+
+    fn handle_system_event(&mut self, event: Event) -> Option<Command<AppMessage>> {
+        if let Event::Window(window::Event::CloseRequested) = event {
+            return Some(self.handle_close_requested_event());
+        }
+        if let Event::Keyboard(e) = event {
+            self.handle_keyboard_event(e);
+        }
+        None
     }
 }
 

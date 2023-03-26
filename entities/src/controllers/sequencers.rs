@@ -11,12 +11,39 @@ use groove_core::{
 use groove_macros::Uid;
 use midly::TrackEventKind;
 use rustc_hash::FxHashMap;
+use std::str::FromStr;
 use std::{
     fmt::Debug,
     ops::Bound::{Excluded, Included},
 };
+use struct_sync_macros::Synchronization;
+use strum::EnumCount;
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
 
 pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
+
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "sequencer", rename_all = "kebab-case")
+)]
+pub struct SequencerParams {
+    #[sync]
+    pub bpm: ParameterType,
+}
+impl SequencerParams {
+    pub fn bpm(&self) -> f64 {
+        self.bpm
+    }
+
+    pub fn set_bpm(&mut self, bpm: ParameterType) {
+        self.bpm = bpm;
+    }
+}
 
 /// [Sequencer] produces MIDI according to a programmed sequence. Its unit of
 /// time is the beat.

@@ -3,10 +3,11 @@
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use groove_core::{
     traits::{IsEffect, TransformsAudio},
-    Sample,
+    Normal, Sample,
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
+use struct_sync_macros::Synchronization;
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
@@ -15,11 +16,32 @@ use strum_macros::{
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "reverb", rename_all = "kebab-case")
+)]
+pub struct ReverbParams {
+    #[sync]
+    pub attenuation: Normal,
+}
+impl ReverbParams {
+    pub fn attenuation(&self) -> &Normal {
+        &self.attenuation
+    }
+
+    pub fn set_attenuation(&mut self, attenuation: Normal) {
+        self.attenuation = attenuation;
+    }
+}
+
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
 #[derive(Control, Debug, Uid)]
 pub struct Reverb {
     uid: usize,
+    params: ReverbParams,
 
     // How much the effect should attenuate the input.
     #[controllable]
@@ -58,6 +80,9 @@ impl Reverb {
         // constants.
         Self {
             uid: Default::default(),
+            params: ReverbParams {
+                attenuation: attenuation.into(),
+            },
             attenuation,
             wet_dry_mix,
             left: ReverbChannel::new_with(sample_rate, wet_dry_mix, attenuation, reverb_seconds),

@@ -5,10 +5,10 @@ pub use chorus::Chorus;
 pub use compressor::Compressor;
 pub use delay::Delay;
 pub use filter::{BiQuadFilter, FilterParams};
-pub use gain::Gain;
+pub use gain::{Gain, GainParams, GainParamsMessage};
 pub use limiter::{Limiter, LimiterParams};
-pub use mixer::Mixer;
-pub use reverb::Reverb;
+pub use mixer::{Mixer, MixerParams, MixerParamsMessage};
+pub use reverb::{Reverb, ReverbParams, ReverbParamsMessage};
 
 pub(crate) mod bitcrusher;
 pub(crate) mod chorus;

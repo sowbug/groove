@@ -6,6 +6,7 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
+use struct_sync_macros::Synchronization;
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
@@ -14,9 +15,32 @@ use strum_macros::{
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "gain", rename_all = "kebab-case")
+)]
+pub struct GainParams {
+    #[sync]
+    pub ceiling: Normal,
+}
+
+impl GainParams {
+    pub fn ceiling(&self) -> Normal {
+        self.ceiling
+    }
+
+    pub fn set_ceiling(&mut self, ceiling: Normal) {
+        self.ceiling = ceiling;
+    }
+}
+
 #[derive(Control, Debug, Default, Uid)]
 pub struct Gain {
     uid: usize,
+
+    params: GainParams,
 
     #[controllable]
     ceiling: Normal,

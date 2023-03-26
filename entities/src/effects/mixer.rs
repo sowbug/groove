@@ -6,6 +6,7 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
+use struct_sync_macros::Synchronization;
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
@@ -14,9 +15,19 @@ use strum_macros::{
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "mixer", rename_all = "kebab-case")
+)]
+pub struct MixerParams {}
+impl MixerParams {}
+
 #[derive(Clone, Control, Debug, Default, Uid)]
 pub struct Mixer {
     uid: usize,
+    params: MixerParams,
 }
 impl IsEffect for Mixer {}
 impl TransformsAudio for Mixer {

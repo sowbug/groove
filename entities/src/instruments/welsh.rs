@@ -1,6 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crate::effects::BiQuadFilter;
+use core::fmt::Debug;
 use groove_core::{
     generators::{Envelope, Oscillator},
     instruments::Synthesizer,
@@ -13,6 +14,7 @@ use groove_core::{
 };
 use groove_macros::{Control, Uid};
 use std::str::FromStr;
+use struct_sync_macros::Synchronization;
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
@@ -251,9 +253,30 @@ impl WelshVoice {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "welsh", rename_all = "kebab-case")
+)]
+pub struct WelshSynthParams {
+    #[sync]
+    pub pan: BipolarNormal,
+}
+impl WelshSynthParams {
+    pub fn pan(&self) -> BipolarNormal {
+        self.pan
+    }
+
+    pub fn set_pan(&mut self, pan: BipolarNormal) {
+        self.pan = pan;
+    }
+}
+
 #[derive(Control, Debug, Uid)]
 pub struct WelshSynth {
     uid: usize,
+    params: WelshSynthParams,
     inner_synth: Synthesizer<WelshVoice>,
 
     // TODO: will it be common for #[controllable] to represent a fake value
@@ -312,6 +335,7 @@ impl WelshSynth {
     ) -> Self {
         Self {
             uid: Default::default(),
+            params: Default::default(),
             inner_synth: Synthesizer::<WelshVoice>::new_with(sample_rate, voice_store),
             pan: Default::default(),
         }
