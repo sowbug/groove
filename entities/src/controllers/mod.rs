@@ -26,7 +26,7 @@ use groove_core::{
     traits::{IsController, IsEffect, Resets, TicksWithMessages, TransformsAudio},
     BipolarNormal, Sample, StereoSample,
 };
-use groove_macros::{Control, Synchronization, Uid};
+use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{
@@ -72,7 +72,7 @@ impl Timer {
         self.time_to_run_seconds
     }
 }
-impl IsController<EntityMessage> for Timer {}
+impl IsController for Timer {}
 impl HandlesMidi for Timer {}
 impl Resets for Timer {
     fn reset(&mut self, sample_rate: usize) {
@@ -80,7 +80,7 @@ impl Resets for Timer {
         self.ticks = 0;
     }
 }
-impl TicksWithMessages<EntityMessage> for Timer {
+impl TicksWithMessages for Timer {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
@@ -109,8 +109,8 @@ pub struct Trigger {
     timer: Timer,
     has_triggered: bool,
 }
-impl IsController<EntityMessage> for Trigger {}
-impl TicksWithMessages<EntityMessage> for Trigger {
+impl IsController for Trigger {}
+impl TicksWithMessages for Trigger {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
@@ -148,9 +148,9 @@ pub struct SignalPassthroughController {
     signal: BipolarNormal,
     has_signal_changed: bool,
 }
-impl IsController<EntityMessage> for SignalPassthroughController {}
+impl IsController for SignalPassthroughController {}
 impl Resets for SignalPassthroughController {}
-impl TicksWithMessages<EntityMessage> for SignalPassthroughController {
+impl TicksWithMessages for SignalPassthroughController {
     type Message = EntityMessage;
 
     fn tick(&mut self, _tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {

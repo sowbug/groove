@@ -75,10 +75,10 @@ pub struct PatternManager {
     params: PatternManagerParams,
     patterns: Vec<Pattern<Note>>,
 }
-impl IsController<EntityMessage> for PatternManager {}
+impl IsController for PatternManager {}
 impl HandlesMidi for PatternManager {}
 impl Resets for PatternManager {}
-impl TicksWithMessages<EntityMessage> for PatternManager {
+impl TicksWithMessages for PatternManager {
     type Message = EntityMessage;
 
     #[allow(unused_variables)]

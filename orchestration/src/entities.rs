@@ -114,13 +114,13 @@ controllable_crackers! {
 macro_rules! controller_crackers {
     ($($type:ident,)*) => {
         impl Entity {
-            pub fn as_is_controller(&self) -> Option<&dyn IsController<EntityMessage, Message=EntityMessage>> {
+            pub fn as_is_controller(&self) -> Option<&dyn IsController<Message=EntityMessage>> {
                 match self {
                     $( Entity::$type(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn IsController<EntityMessage, Message=EntityMessage>> {
+            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn IsController<Message=EntityMessage>> {
                 match self {
                     $( Entity::$type(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -289,12 +289,12 @@ macro_rules! all_entities {
     impl EntityParams {
         pub fn is_controller(&self) -> bool {
             match self {
-                $( EntityParams::$entity(e) => $is_controller, )*
+                $( EntityParams::$entity(_) => $is_controller, )*
             }
         }
         pub fn is_controllable(&self) -> bool {
             match self {
-                $( EntityParams::$entity(e) => $is_controllable, )*
+                $( EntityParams::$entity(_) => $is_controllable, )*
             }
         }
         pub fn as_controllable_ref(&self) -> Option<&(dyn Controllable + 'static)> {

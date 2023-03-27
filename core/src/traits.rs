@@ -19,10 +19,7 @@ pub trait MessageBounds: Clone + std::fmt::Debug + Send {}
 /// An IsController necessarily implements TicksWithMessages, rather than just
 /// Ticks, because messages are how controllers control other things in the
 /// system.
-pub trait IsController<V>:
-    TicksWithMessages<V> + HandlesMidi + HasUid + Send + std::fmt::Debug
-{
-}
+pub trait IsController: TicksWithMessages + HandlesMidi + HasUid + Send + std::fmt::Debug {}
 
 /// An IsEffect transforms audio. It takes audio inputs and produces audio
 /// output. It does not get called unless there is audio input to provide to it
@@ -127,7 +124,7 @@ pub trait Ticks: Resets + Send + std::fmt::Debug {
     fn tick(&mut self, tick_count: usize);
 }
 
-pub trait TicksWithMessages<V>: Resets + Send + std::fmt::Debug {
+pub trait TicksWithMessages: Resets + Send + std::fmt::Debug {
     type Message;
 
     /// Similar to Ticks::tick().
@@ -135,7 +132,7 @@ pub trait TicksWithMessages<V>: Resets + Send + std::fmt::Debug {
     /// Returns zero or more EntityMessages.
     ///
     /// Returns the number of requested ticks handled before terminating.
-    fn tick(&mut self, tick_count: usize) -> (Option<Vec<V>>, usize);
+    fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize);
 }
 
 /// A TransformsAudio takes input audio, which is typically produced by

@@ -52,7 +52,7 @@ pub struct ControlTrip {
     time_signature: TimeSignature,
     bpm: ParameterType,
 }
-impl IsController<EntityMessage> for ControlTrip {}
+impl IsController for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
@@ -124,7 +124,7 @@ impl ControlTrip {
     }
 }
 impl Resets for ControlTrip {}
-impl TicksWithMessages<EntityMessage> for ControlTrip {
+impl TicksWithMessages for ControlTrip {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {

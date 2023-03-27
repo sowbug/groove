@@ -7,7 +7,7 @@ use groove_core::{
     traits::{IsController, MessageBounds, Resets, Ticks, TicksWithMessages},
     ParameterType,
 };
-use groove_macros::{Control, Synchronization, Uid};
+use groove_macros::{Control, Uid};
 use std::str::FromStr;
 use std::{collections::VecDeque, marker::PhantomData};
 use strum::EnumCount;
@@ -52,8 +52,8 @@ pub struct ToyController<M: MessageBounds> {
 
     _phantom: PhantomData<M>,
 }
-impl<M: MessageBounds> IsController<M> for ToyController<M> {}
-impl<M: MessageBounds> TicksWithMessages<M> for ToyController<M> {
+impl<M: MessageBounds> IsController for ToyController<M> {}
+impl<M: MessageBounds> TicksWithMessages for ToyController<M> {
     type Message = M;
 
     fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {

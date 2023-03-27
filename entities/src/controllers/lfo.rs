@@ -79,9 +79,9 @@ pub struct LfoController {
     params: LfoControllerParams,
     oscillator: Oscillator,
 }
-impl IsController<EntityMessage> for LfoController {}
+impl IsController for LfoController {}
 impl Resets for LfoController {}
-impl TicksWithMessages<EntityMessage> for LfoController {
+impl TicksWithMessages for LfoController {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {

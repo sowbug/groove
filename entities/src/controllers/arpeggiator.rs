@@ -59,9 +59,9 @@ pub struct Arpeggiator {
     // arpeggiator would frequently get clipped.
     note_semaphore: i16,
 }
-impl IsController<EntityMessage> for Arpeggiator {}
+impl IsController for Arpeggiator {}
 impl Resets for Arpeggiator {}
-impl TicksWithMessages<EntityMessage> for Arpeggiator {
+impl TicksWithMessages for Arpeggiator {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {

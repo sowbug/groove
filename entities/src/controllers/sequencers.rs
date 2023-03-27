@@ -61,7 +61,7 @@ pub struct Sequencer {
 
     temp_hack_clock: Clock,
 }
-impl IsController<EntityMessage> for Sequencer {}
+impl IsController for Sequencer {}
 impl HandlesMidi for Sequencer {}
 impl Sequencer {
     pub fn new_with(sample_rate: usize, params: SequencerParams) -> Self {
@@ -197,7 +197,7 @@ impl Resets for Sequencer {
         self.next_instant = PerfectTimeUnit(self.temp_hack_clock.beats());
     }
 }
-impl TicksWithMessages<EntityMessage> for Sequencer {
+impl TicksWithMessages for Sequencer {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
@@ -248,7 +248,7 @@ pub struct MidiTickSequencer {
 
     temp_hack_clock: Clock,
 }
-impl IsController<EntityMessage> for MidiTickSequencer {}
+impl IsController for MidiTickSequencer {}
 impl HandlesMidi for MidiTickSequencer {}
 impl MidiTickSequencer {
     pub fn new_with(sample_rate: usize, midi_ticks_per_second: usize) -> Self {
@@ -300,7 +300,7 @@ impl Resets for MidiTickSequencer {
         self.next_instant = MidiTicks(0);
     }
 }
-impl TicksWithMessages<EntityMessage> for MidiTickSequencer {
+impl TicksWithMessages for MidiTickSequencer {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
@@ -449,7 +449,7 @@ mod tests {
 
     fn advance_to_next_beat(
         clock: &mut Clock,
-        sequencer: &mut dyn IsController<EntityMessage, Message = EntityMessage>,
+        sequencer: &mut dyn IsController<Message = EntityMessage>,
     ) {
         let next_beat = clock.beats().floor() + 1.0;
         while clock.beats() < next_beat {
@@ -465,7 +465,7 @@ mod tests {
     // See Clock::next_slice_in_midi_ticks().
     fn advance_one_midi_tick(
         clock: &mut Clock,
-        sequencer: &mut dyn IsController<EntityMessage, Message = EntityMessage>,
+        sequencer: &mut dyn IsController<Message = EntityMessage>,
     ) {
         let next_midi_tick = clock.midi_ticks() + 1;
         while clock.midi_ticks() < next_midi_tick {
