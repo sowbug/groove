@@ -7,9 +7,9 @@ use groove_core::{
     time::{BeatValue, PerfectTimeUnit, TimeSignature},
     traits::{IsController, Resets, TicksWithMessages},
 };
-use groove_macros::Uid;
+use groove_macros::{Synchronization, Uid};
 use std::{cmp, fmt::Debug, str::FromStr};
-use struct_sync_macros::Synchronization;
+
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 

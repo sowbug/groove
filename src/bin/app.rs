@@ -22,8 +22,8 @@ use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
     views::{
-        ControlBarEvent, ControlBarInput, ControlBarView, EntityView, EntityViewState,
-        View, ViewMessage,
+        ControlBarEvent, ControlBarInput, ControlBarView, EntityView, EntityViewState, View,
+        ViewMessage,
     },
     GuiStuff,
 };
@@ -215,11 +215,7 @@ impl Application for GrooveApp {
             AppMessage::MainViewThingyMessage(message) => {
                 if let Some(response) = self.views.update(message) {
                     match response {
-                        ViewMessage::Connect(
-                            controller_id,
-                            controllable_id,
-                            control_index,
-                        ) => {
+                        ViewMessage::Connect(controller_id, controllable_id, control_index) => {
                             self.post_to_orchestrator(EngineInput::Connect(
                                 controller_id,
                                 controllable_id,

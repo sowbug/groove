@@ -8,7 +8,7 @@ use groove_core::{
     traits::{IsController, Resets, TicksWithMessages},
     ParameterType,
 };
-use groove_macros::Uid;
+use groove_macros::{Synchronization, Uid};
 use midly::TrackEventKind;
 use rustc_hash::FxHashMap;
 use std::str::FromStr;
@@ -16,7 +16,7 @@ use std::{
     fmt::Debug,
     ops::Bound::{Excluded, Included},
 };
-use struct_sync_macros::Synchronization;
+
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 

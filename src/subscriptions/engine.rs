@@ -336,11 +336,7 @@ impl EngineSubscription {
                             self.publish_time_signature_update();
                         }
                     }
-                    EngineInput::Connect(
-                        controllable_id,
-                        controller_id,
-                        control_index,
-                    ) => {
+                    EngineInput::Connect(controllable_id, controller_id, control_index) => {
                         messages.push(GrooveInput::Connect(
                             controllable_id,
                             controller_id,

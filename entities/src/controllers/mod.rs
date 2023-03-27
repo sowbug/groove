@@ -26,7 +26,7 @@ use groove_core::{
     traits::{IsController, IsEffect, Resets, TicksWithMessages, TransformsAudio},
     BipolarNormal, Sample, StereoSample,
 };
-use groove_macros::{Control, Uid};
+use groove_macros::{Control, Synchronization, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{

@@ -4,7 +4,7 @@ use groove_core::{
     traits::{IsEffect, TransformsAudio},
     Sample, SignalType,
 };
-use groove_macros::{Control, Uid};
+use groove_macros::{Control, Synchronization, Uid};
 use std::{marker::PhantomData, str::FromStr};
 use strum::EnumCount;
 use strum_macros::{

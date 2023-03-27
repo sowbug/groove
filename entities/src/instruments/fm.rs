@@ -12,7 +12,7 @@ use groove_core::{
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, StereoSample,
 };
-use groove_macros::{Control, Uid};
+use groove_macros::{Control, Synchronization, Uid};
 use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 use strum::EnumCount;
 use strum_macros::{

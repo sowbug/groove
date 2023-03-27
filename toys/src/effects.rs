@@ -5,7 +5,7 @@ use groove_core::{
     traits::{IsEffect, TransformsAudio},
     Sample,
 };
-use groove_macros::{Control, Uid};
+use groove_macros::{Control, Synchronization, Uid};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::str::FromStr;

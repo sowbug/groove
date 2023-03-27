@@ -9,9 +9,8 @@ use groove_core::{
     traits::{Generates, IsController, Resets, Ticks, TicksWithMessages},
     ParameterType,
 };
-use groove_macros::{Control, Uid};
+use groove_macros::{Control, Synchronization, Uid};
 use std::str::FromStr;
-use struct_sync_macros::Synchronization;
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
