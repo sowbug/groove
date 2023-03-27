@@ -2,6 +2,7 @@
 
 //! The [messages](crate::messages) module defines the app's Iced messages.
 
+use crate::entities::OtherEntityMessage;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     traits::MessageBounds,
@@ -22,6 +23,9 @@ pub enum GrooveInput {
     /// argument is controller uid, second is controllable uid, third is
     /// controllable's control index.
     ConnectController(usize, usize, usize),
+
+    /// An entity has been updated on the app side, and the engine should record the changes.
+    Update(usize, OtherEntityMessage),
 }
 impl MessageBounds for GrooveInput {}
 
@@ -50,6 +54,9 @@ pub enum GrooveEvent {
 
     /// The app should clear any cached representation of engine entities.
     Clear,
+
+    /// An entity has been updated on the engine side, and the app should record the changes.
+    Update(usize, OtherEntityMessage),
 }
 impl MessageBounds for GrooveEvent {}
 

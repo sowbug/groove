@@ -3,6 +3,7 @@
 use crate::{
     entities::Entity,
     messages::{GrooveEvent, GrooveInput, Internal, Response},
+    OtherEntityMessage,
 };
 use anyhow::anyhow;
 use core::fmt::Debug;
@@ -13,8 +14,9 @@ use groove_core::{
     ParameterType, StereoSample,
 };
 use groove_entities::{
-    controllers::{PatternManager, Sequencer},
+    controllers::{ArpeggiatorParamsMessage, PatternManager, Sequencer},
     effects::Mixer,
+    instruments::WelshSynthParamsMessage,
     EntityMessage,
 };
 use groove_macros::Uid;
@@ -546,6 +548,7 @@ impl Orchestrator {
                         }
                         EntityMessage::ControlF32(value) => {
                             self.dispatch_control_f32(uid, value);
+                            unhandled_commands.push(self.broadcast_control_message(uid, value));
                         }
                         _ => todo!(),
                     },
@@ -555,6 +558,7 @@ impl Orchestrator {
                     GrooveInput::ConnectController(controller_uid, target_uid, param_id) => {
                         let _ = self.link_control_by_id(controller_uid, target_uid, param_id);
                     }
+                    GrooveInput::Update(uid, message) => self.update_controllable(uid, message),
                 }
             }
         }
@@ -629,18 +633,78 @@ impl Orchestrator {
         }
     }
 
+    #[deprecated = "This should be replaced with a message handler like the one on the app side"]
     fn dispatch_control_f32(&mut self, uid: usize, value: f32) {
-        let control_links = self.store.control_links(uid).clone();
-        for (target_uid, param_id) in control_links {
-            if let Some(entity) = self.store.get_mut(target_uid) {
-                if let Some(entity) = entity.as_controllable_mut() {
-                    entity.set_by_control_index(
-                        param_id,
-                        groove_core::control::F32ControlValue(value),
-                    );
+        if let Some(control_links) = self.store.control_links(uid) {
+            for (target_uid, param_id) in control_links.clone() {
+                if let Some(entity) = self.store.get_mut(target_uid) {
+                    if let Some(entity) = entity.as_controllable_mut() {
+                        entity.set_by_control_index(
+                            param_id,
+                            groove_core::control::F32ControlValue(value),
+                        );
+                    }
                 }
             }
         }
+    }
+
+    fn control_message_for_index(
+        entity: &Entity,
+        param_id: &usize,
+        value: f32,
+    ) -> OtherEntityMessage {
+        match entity {
+            Entity::Arpeggiator(_) => match *param_id {
+                0 => OtherEntityMessage::ArpeggiatorParams(ArpeggiatorParamsMessage::Bpm(
+                    value.into(),
+                )),
+                _ => todo!(),
+            },
+            Entity::Sequencer(_) => todo!(),
+            Entity::ControlTrip(_) => todo!(),
+            Entity::MidiTickSequencer(_) => todo!(),
+            Entity::LfoController(_) => todo!(),
+            Entity::PatternManager(_) => todo!(),
+            Entity::SignalPassthroughController(_) => todo!(),
+            Entity::ToyController(_) => todo!(),
+            Entity::Timer(_) => todo!(),
+            Entity::BiQuadFilter(_) => todo!(),
+            Entity::Bitcrusher(_) => todo!(),
+            Entity::Chorus(_) => todo!(),
+            Entity::Compressor(_) => todo!(),
+            Entity::Delay(_) => todo!(),
+            Entity::Gain(_) => todo!(),
+            Entity::Limiter(_) => todo!(),
+            Entity::Mixer(_) => todo!(),
+            Entity::Reverb(_) => todo!(),
+            Entity::ToyEffect(_) => todo!(),
+            Entity::Drumkit(_) => todo!(),
+            Entity::FmSynthesizer(_) => todo!(),
+            Entity::Sampler(_) => todo!(),
+            Entity::ToyAudioSource(_) => todo!(),
+            Entity::ToyInstrument(_) => todo!(),
+            Entity::ToySynth(_) => todo!(),
+            Entity::WelshSynth(_) => match *param_id {
+                0 => {
+                    OtherEntityMessage::WelshSynthParams(WelshSynthParamsMessage::Pan(value.into()))
+                }
+                _ => todo!(),
+            },
+        }
+    }
+
+    fn broadcast_control_message(&mut self, uid: usize, value: f32) -> Response<GrooveEvent> {
+        let mut v = Vec::default();
+        if let Some(control_links) = self.store.control_links(uid) {
+            for (target_uid, param_id) in control_links.iter() {
+                if let Some(entity) = self.store.get(*target_uid) {
+                    let msg = Self::control_message_for_index(&entity, param_id, value);
+                    v.push(Response::single(GrooveEvent::Update(*target_uid, msg)));
+                }
+            }
+        }
+        Response::batch(v)
     }
 
     // TODO: we're not very crisp about what "done" means. I think the current
@@ -772,6 +836,13 @@ impl Orchestrator {
             },
         )
     }
+
+    fn update_controllable(&mut self, uid: usize, message: OtherEntityMessage) {
+        if let Some(entity) = self.store.get_mut(uid) {
+            todo!()
+            //            entity.as_controllable_mut().update(message);
+        }
+    }
 }
 
 /// Keeps all [Entity] in one place, and manages their relationships, such as
@@ -882,8 +953,8 @@ impl Store {
             .retain(|(uid, _)| *uid != target_uid);
     }
 
-    pub(crate) fn control_links(&mut self, controller_uid: usize) -> &Vec<(usize, usize)> {
-        self.uid_to_control.entry(controller_uid).or_default()
+    pub(crate) fn control_links(&self, controller_uid: usize) -> Option<&Vec<(usize, usize)>> {
+        self.uid_to_control.get(&controller_uid)
     }
 
     pub(crate) fn patch(&mut self, output_uid: usize, input_uid: usize) {

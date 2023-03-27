@@ -4,11 +4,8 @@
 //! generation of audio from all the [Entities](entities::Entity) in the
 //! system.
 
-use groove_core::ParameterType;
-
-pub use entities::Entity;
-pub use orchestrator::Orchestrator;
-pub use orchestrator::Performance;
+pub use entities::{Entity, EntityParams, OtherEntityMessage};
+pub use orchestrator::{Orchestrator, Performance};
 
 pub mod helpers;
 pub mod messages;
@@ -19,6 +16,8 @@ mod util;
 
 #[cfg(feature = "metrics")]
 mod metrics;
+
+use groove_core::ParameterType;
 
 // TODO: these should be #[cfg(test)] because nobody should be assuming these
 // values

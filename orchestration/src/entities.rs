@@ -238,3 +238,93 @@ handles_midi_crackers! {
     Timer,
     WelshSynth,
 }
+
+//////////////////////////
+use groove_entities::{
+    controllers::{
+        ArpeggiatorParams, ArpeggiatorParamsMessage, LfoControllerParams,
+        LfoControllerParamsMessage, PatternManagerParams, PatternManagerParamsMessage,
+        SequencerParams, SequencerParamsMessage,
+    },
+    effects::{
+        BitcrusherParams, BitcrusherParamsMessage, GainParams, GainParamsMessage, MixerParams,
+        MixerParamsMessage, ReverbParams, ReverbParamsMessage,
+    },
+    instruments::{WelshSynthParams, WelshSynthParamsMessage},
+};
+
+macro_rules! register_impl {
+    ($trait_:ident for $ty:ty, true) => {
+        impl<'a> MaybeImplements<'a, dyn $trait_> for $ty {
+            fn as_trait_ref(&self) -> Option<&(dyn $trait_ + 'static)> {
+                Some(self)
+            }
+            fn as_trait_mut(&mut self) -> Option<&mut (dyn $trait_ + 'static)> {
+                Some(self)
+            }
+        }
+    };
+    ($trait_:ident for $ty:ty, false) => {
+        impl<'a> MaybeImplements<'a, dyn $trait_> for $ty {
+            fn as_trait_ref(&self) -> Option<&(dyn $trait_ + 'static)> {
+                None
+            }
+            fn as_trait_mut(&mut self) -> Option<&mut (dyn $trait_ + 'static)> {
+                None
+            }
+        }
+    };
+}
+
+macro_rules! all_entities {
+($($entity:ident; $params:tt; $message:ident; $is_controller:tt; $is_controllable:tt ,)*) => {
+    #[derive(Clone, Debug)]
+    pub enum OtherEntityMessage {
+        $( $params($message) ),*
+    }
+    #[derive(Debug)]
+    pub enum EntityParams {
+        $( $entity(Box<$params>) ),*
+    }
+    impl EntityParams {
+        pub fn is_controller(&self) -> bool {
+            match self {
+                $( EntityParams::$entity(e) => $is_controller, )*
+            }
+        }
+        pub fn is_controllable(&self) -> bool {
+            match self {
+                $( EntityParams::$entity(e) => $is_controllable, )*
+            }
+        }
+        pub fn as_controllable_ref(&self) -> Option<&(dyn Controllable + 'static)> {
+            match self {
+                $( EntityParams::$entity(e) => e.as_trait_ref(), )*
+            }
+        }
+        pub fn as_controllable_mut(&mut self) -> Option<&mut (dyn Controllable + 'static)> {
+            match self {
+                $( EntityParams::$entity(e) => e.as_trait_mut(), )*
+            }
+        }
+    }
+    trait MaybeImplements<'a, Trait: ?Sized> {
+        fn as_trait_ref(&'a self) -> Option<&'a Trait>;
+        fn as_trait_mut(&mut self) -> Option<&mut Trait>;
+    }
+    $( register_impl!(Controllable for $params, $is_controllable); )*
+};
+}
+
+all_entities! {
+    // struct; params; message; is_controller; is_controllable,
+    Arpeggiator; ArpeggiatorParams; ArpeggiatorParamsMessage; true; true,
+    Bitcrusher; BitcrusherParams; BitcrusherParamsMessage; false; true,
+    Gain; GainParams; GainParamsMessage; false; true,
+    LfoController; LfoControllerParams; LfoControllerParamsMessage; true; false,
+    Mixer; MixerParams; MixerParamsMessage; false; true,
+    PatternManager; PatternManagerParams; PatternManagerParamsMessage; true; false,
+    Reverb; ReverbParams; ReverbParamsMessage; false; true,
+    Sequencer; SequencerParams; SequencerParamsMessage; false; true,
+    WelshSynth; WelshSynthParams; WelshSynthParamsMessage; false; true,
+}

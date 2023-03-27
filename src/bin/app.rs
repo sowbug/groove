@@ -329,6 +329,10 @@ impl GrooveApp {
             GrooveEvent::Clear => {
                 self.views.clear();
             }
+            GrooveEvent::Update(uid, message) => {
+                self.views
+                    .update(MainViewThingyMessage::OtherEntityMessage(uid, message));
+            }
             GrooveEvent::EntityMessage(uid, message) => match message {
                 EntityMessage::ExpandPressed => {
                     // Find whoever else is expanded and maybe collapse them

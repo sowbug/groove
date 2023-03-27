@@ -1,6 +1,5 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use self::views::EntityParams;
 use super::{
     GuiStuff, IconType, Icons, LARGE_FONT, LARGE_FONT_SIZE, NUMBERS_FONT, NUMBERS_FONT_SIZE,
     SMALL_FONT, SMALL_FONT_SIZE,
@@ -20,6 +19,7 @@ use groove_entities::{
     instruments::{Drumkit, FmSynthesizer, Sampler, WelshSynth},
     EntityMessage,
 };
+use groove_orchestration::EntityParams;
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use iced::{
     alignment, theme,
@@ -907,7 +907,7 @@ impl Controller {
 pub(crate) mod views {
     use super::{ControlTargetWidget, EntityStore};
     use groove::Entity;
-    use groove_core::{traits::Controllable, BipolarNormal, Normal};
+    use groove_core::{BipolarNormal, Normal};
     use groove_entities::{
         controllers::{
             ArpeggiatorParams, ArpeggiatorParamsMessage, LfoControllerParams,
@@ -920,6 +920,7 @@ pub(crate) mod views {
         },
         instruments::{WelshSynthParams, WelshSynthParamsMessage},
     };
+    use groove_orchestration::{OtherEntityMessage, EntityParams};
     use iced::{
         widget::{column, container, text, Column, Row, Text},
         Element, Length,
@@ -1042,82 +1043,6 @@ pub(crate) mod views {
         fn view(&self) -> Element<Self::Message> {
             container(text(&format!("pan: {}", self.pan().value()))).into()
         }
-    }
-
-    macro_rules! register_impl {
-        ($trait_:ident for $ty:ty, true) => {
-            impl<'a> MaybeImplements<'a, dyn $trait_> for $ty {
-                fn as_trait_ref(&self) -> Option<&(dyn $trait_ + 'static)> {
-                    Some(self)
-                }
-                fn as_trait_mut(&mut self) -> Option<&mut (dyn $trait_ + 'static)> {
-                    Some(self)
-                }
-            }
-        };
-        ($trait_:ident for $ty:ty, false) => {
-            impl<'a> MaybeImplements<'a, dyn $trait_> for $ty {
-                fn as_trait_ref(&self) -> Option<&(dyn $trait_ + 'static)> {
-                    None
-                }
-                fn as_trait_mut(&mut self) -> Option<&mut (dyn $trait_ + 'static)> {
-                    None
-                }
-            }
-        };
-    }
-
-    macro_rules! all_entities {
-    ($($entity:ident; $params:tt; $message:ident; $is_controller:tt; $is_controllable:tt ,)*) => {
-        #[derive(Clone, Debug)]
-        pub(crate) enum OtherEntityMessage {
-            $( $params($message) ),*
-        }
-        #[derive(Debug)]
-        pub(crate) enum EntityParams {
-            $( $entity(Box<$params>) ),*
-        }
-        impl EntityParams {
-            pub(crate) fn is_controller(&self) -> bool {
-                match self {
-                    $( EntityParams::$entity(e) => $is_controller, )*
-                }
-            }
-            pub(crate) fn is_controllable(&self) -> bool {
-                match self {
-                    $( EntityParams::$entity(e) => $is_controllable, )*
-                }
-            }
-            pub(crate) fn as_controllable_ref(&self) -> Option<&(dyn Controllable + 'static)> {
-                match self {
-                    $( EntityParams::$entity(e) => e.as_trait_ref(), )*
-                }
-            }
-            pub(crate) fn as_controllable_mut(&mut self) -> Option<&mut (dyn Controllable + 'static)> {
-                match self {
-                    $( EntityParams::$entity(e) => e.as_trait_mut(), )*
-                }
-            }
-        }
-        trait MaybeImplements<'a, Trait: ?Sized> {
-            fn as_trait_ref(&'a self) -> Option<&'a Trait>;
-            fn as_trait_mut(&mut self) -> Option<&mut Trait>;
-        }
-        $( register_impl!(Controllable for $params, $is_controllable); )*
-    };
-}
-
-    all_entities! {
-        // struct; params; message; is_controller; is_controllable,
-        Arpeggiator; ArpeggiatorParams; ArpeggiatorParamsMessage; true; true,
-        Bitcrusher; BitcrusherParams; BitcrusherParamsMessage; false; true,
-        Gain; GainParams; GainParamsMessage; false; true,
-        LfoController; LfoControllerParams; LfoControllerParamsMessage; true; false,
-        Mixer; MixerParams; MixerParamsMessage; false; true,
-        PatternManager; PatternManagerParams; PatternManagerParamsMessage; true; false,
-        Reverb; ReverbParams; ReverbParamsMessage; false; true,
-        Sequencer; SequencerParams; SequencerParamsMessage; false; true,
-        WelshSynth; WelshSynthParams; WelshSynthParamsMessage; false; true,
     }
 
     #[derive(Debug)]
