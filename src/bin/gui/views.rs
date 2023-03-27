@@ -8,28 +8,44 @@ use groove::{app_version, Entity};
 use groove_core::{
     time::{Clock, TimeSignature},
     traits::HasUid,
-    Normal, ParameterType, StereoSample,
+    BipolarNormal, Normal, ParameterType, StereoSample,
 };
 use groove_entities::{
     controllers::{
-        Arpeggiator, ControlTrip, LfoController, MidiTickSequencer, Note, Pattern, PatternManager,
-        PatternMessage, Sequencer, SignalPassthroughController, Timer,
+        Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage, ControlTrip, LfoController,
+        LfoControllerParams, LfoControllerParamsMessage, MidiTickSequencer, Note, Pattern,
+        PatternManager, PatternManagerParams, PatternManagerParamsMessage, PatternMessage,
+        Sequencer, SequencerParams, SequencerParamsMessage, SignalPassthroughController, Timer,
     },
-    effects::{BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, Reverb},
-    instruments::{Drumkit, FmSynthesizer, Sampler, WelshSynth},
+    effects::{
+        BiQuadFilter, Bitcrusher, BitcrusherParams, BitcrusherParamsMessage, Chorus, Compressor,
+        Delay, Gain, GainParams, GainParamsMessage, Limiter, Mixer, MixerParams,
+        MixerParamsMessage, Reverb, ReverbParams, ReverbParamsMessage,
+    },
+    instruments::{
+        Drumkit, FmSynthesizer, Sampler, WelshSynth, WelshSynthParams, WelshSynthParamsMessage,
+    },
     EntityMessage,
 };
-use groove_orchestration::EntityParams;
+use groove_orchestration::{EntityParams, OtherEntityMessage};
 use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
 use iced::{
     alignment, theme,
-    widget::{button, column, container, pick_list, row, text, text_input, Column, Container, Row},
+    widget::{
+        button, column, container, pick_list, row, text, text_input, Column, Container, Row, Text,
+    },
     Alignment, Element, Length, Renderer, Theme,
 };
 use iced_audio::{FloatRange, HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
+use iced_aw::{
+    style::{BadgeStyles, CardStyles},
+    Badge, Card,
+};
 use iced_native::{mouse, widget::Tree, Event, Widget};
 use rustc_hash::FxHashMap;
 use std::any::type_name;
+use strum::EnumCount;
+use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum EntityViewState {
@@ -832,212 +848,181 @@ impl EntityStore {
     }
 }
 
-pub(crate) mod views {
-    use super::{ControlTargetWidget, EntityStore, GuiStuff};
-    use crate::gui::SMALL_FONT;
-    use groove::Entity;
-    use groove_core::{traits::HasUid, BipolarNormal, Normal};
-    use groove_entities::{
-        controllers::{
-            ArpeggiatorParams, ArpeggiatorParamsMessage, LfoControllerParams,
-            LfoControllerParamsMessage, PatternManagerParams, PatternManagerParamsMessage,
-            SequencerParams, SequencerParamsMessage, WaveformParams,
-        },
-        effects::{
-            BitcrusherParams, BitcrusherParamsMessage, GainParams, GainParamsMessage, MixerParams,
-            MixerParamsMessage, ReverbParams, ReverbParamsMessage,
-        },
-        instruments::{WelshSynthParams, WelshSynthParamsMessage},
-    };
-    use groove_orchestration::{EntityParams, OtherEntityMessage};
-    use iced::{
-        widget::{column, container, pick_list, text, Column, Row, Text},
-        Element, Length,
-    };
-    use iced_audio::{FloatRange, HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
-    use iced_aw::{
-        style::{BadgeStyles, CardStyles},
-        Badge, Card,
-    };
-    use rustc_hash::FxHashMap;
-    use strum::EnumCount;
-    use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
+#[derive(Debug)]
+pub(crate) struct AudioLane {
+    pub name: String,
+    pub items: Vec<usize>,
+}
 
-    #[derive(Debug)]
-    pub(crate) struct AudioLane {
-        pub name: String,
-        pub items: Vec<usize>,
+trait Viewable<Message> {
+    type Message;
+
+    fn view(&self) -> Element<Self::Message>;
+}
+
+///////////////////////////////
+#[derive(Clone, Debug)]
+pub enum DrumkitMessage {
+    Cowbell(f32),
+}
+
+#[derive(Debug)]
+pub(crate) struct DrumkitView {
+    cowbell: f32,
+}
+impl Viewable<DrumkitMessage> for DrumkitView {
+    type Message = DrumkitMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("cowbell: {}", self.cowbell))).into()
     }
+}
+///////////////////////////////
 
-    trait Viewable<Message> {
-        type Message;
+impl Viewable<ArpeggiatorParamsMessage> for ArpeggiatorParams {
+    type Message = ArpeggiatorParamsMessage;
 
-        fn view(&self) -> Element<Self::Message>;
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("bpm: {}", self.bpm()))).into()
     }
+}
 
-    ///////////////////////////////
-    #[derive(Clone, Debug)]
-    pub enum DrumkitMessage {
-        Cowbell(f32),
+impl Viewable<BitcrusherParamsMessage> for BitcrusherParams {
+    type Message = BitcrusherParamsMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("bits: {}", self.bits()))).into()
     }
+}
 
-    #[derive(Debug)]
-    pub(crate) struct DrumkitView {
-        cowbell: f32,
+impl Viewable<GainParamsMessage> for GainParams {
+    type Message = GainParamsMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("ceiling: {}", self.ceiling().value()))).into()
     }
-    impl Viewable<DrumkitMessage> for DrumkitView {
-        type Message = DrumkitMessage;
+}
 
-        fn view(&self) -> Element<Self::Message> {
-            container(text(&format!("cowbell: {}", self.cowbell))).into()
-        }
+impl Viewable<LfoControllerParamsMessage> for LfoControllerParams {
+    type Message = LfoControllerParamsMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!(
+            "waveform: {:?} frequency: {}",
+            self.waveform(), // TODO: proper string conversion
+            self.frequency()
+        )))
+        .into()
     }
-    ///////////////////////////////
+}
 
-    impl Viewable<ArpeggiatorParamsMessage> for ArpeggiatorParams {
-        type Message = ArpeggiatorParamsMessage;
+impl Viewable<MixerParamsMessage> for MixerParams {
+    type Message = MixerParamsMessage;
 
-        fn view(&self) -> Element<Self::Message> {
-            container(text(&format!("bpm: {}", self.bpm()))).into()
-        }
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("I'm a mixer! {}", 261))).into()
     }
+}
 
-    impl Viewable<BitcrusherParamsMessage> for BitcrusherParams {
-        type Message = BitcrusherParamsMessage;
+impl Viewable<PatternManagerParamsMessage> for PatternManagerParams {
+    type Message = PatternManagerParamsMessage;
 
-        fn view(&self) -> Element<Self::Message> {
-            container(text(&format!("bits: {}", self.bits()))).into()
-        }
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("nothing {}", 42))).into()
     }
+}
 
-    impl Viewable<GainParamsMessage> for GainParams {
-        type Message = GainParamsMessage;
+impl Viewable<ReverbParamsMessage> for ReverbParams {
+    type Message = ReverbParamsMessage;
 
-        fn view(&self) -> Element<Self::Message> {
-            container(text(&format!("ceiling: {}", self.ceiling().value()))).into()
-        }
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!(
+            "attenuation: {}",
+            self.attenuation().value()
+        )))
+        .into()
     }
+}
 
-    impl Viewable<LfoControllerParamsMessage> for LfoControllerParams {
-        type Message = LfoControllerParamsMessage;
+impl Viewable<SequencerParamsMessage> for SequencerParams {
+    type Message = SequencerParamsMessage;
 
-        fn view(&self) -> Element<Self::Message> {
-            container(text(&format!(
-                "waveform: {:?} frequency: {}",
-                self.waveform(), // TODO: proper string conversion
-                self.frequency()
-            )))
-            .into()
-        }
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("BPM: {}", self.bpm()))).into()
     }
+}
 
-    impl Viewable<MixerParamsMessage> for MixerParams {
-        type Message = MixerParamsMessage;
+impl Viewable<WelshSynthParamsMessage> for WelshSynthParams {
+    type Message = WelshSynthParamsMessage;
 
-        fn view(&self) -> Element<Self::Message> {
-            container(text(&format!("I'm a mixer! {}", 261))).into()
-        }
+    fn view(&self) -> Element<Self::Message> {
+        let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
+        let pan_knob: Element<WelshSynthParamsMessage> = Knob::new(
+            // TODO: toil. make it easier to go from bipolar normal to normal
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.pan()).value_as_f32()),
+                default: IcedNormal::from_clipped(0.5),
+            },
+            |n| WelshSynthParamsMessage::Pan(BipolarNormal::from(n.as_f32())),
+        )
+        .into();
+        let column = Column::new()
+            .push(GuiStuff::<WelshSynthParamsMessage>::container_text(
+                "Welsh coming soon",
+            ))
+            //                column.push(  pick_list(options, None, |s| {WelshSynthParamsMessage::Pan}).font(SMALL_FONT));
+            .push(pan_knob);
+        container(column).into()
     }
+}
 
-    impl Viewable<PatternManagerParamsMessage> for PatternManagerParams {
-        type Message = PatternManagerParamsMessage;
+#[derive(Clone, Debug)]
+pub(crate) enum ViewMessage {
+    NextView,
+    OtherEntityMessage(usize, OtherEntityMessage),
+    MouseIn(usize),
+    MouseOut(usize),
+    MouseDown(usize),
+    MouseUp(usize),
 
-        fn view(&self) -> Element<Self::Message> {
-            container(text(&format!("nothing {}", 42))).into()
-        }
-    }
+    /// Please ask the engine to connect controller_uid to controllable_uid's control #param_index.
+    /// TODO: do we get this for free with the synchronization infra?
+    Connect(usize, usize, usize),
+}
 
-    impl Viewable<ReverbParamsMessage> for ReverbParams {
-        type Message = ReverbParamsMessage;
+#[derive(Clone, Copy, Debug, Default, FromRepr, EnumCountMacro)]
+pub(crate) enum ViewView {
+    AudioLanes,
+    #[default]
+    Automation,
+    Everything,
+}
 
-        fn view(&self) -> Element<Self::Message> {
-            container(text(&format!(
-                "attenuation: {}",
-                self.attenuation().value()
-            )))
-            .into()
-        }
-    }
+#[derive(Debug)]
+pub(crate) struct View {
+    current_view: ViewView,
+    entity_store: EntityStore,
 
-    impl Viewable<SequencerParamsMessage> for SequencerParams {
-        type Message = SequencerParamsMessage;
+    is_dragging: bool,
+    source_id: usize,
+    target_id: usize,
 
-        fn view(&self) -> Element<Self::Message> {
-            container(text(&format!("BPM: {}", self.bpm()))).into()
-        }
-    }
+    controller_uids: Vec<usize>,
+    controllable_uids: Vec<usize>,
+    controllable_uids_to_control_names: FxHashMap<usize, Vec<String>>,
+    connections: Vec<(usize, usize)>,
 
-    impl Viewable<WelshSynthParamsMessage> for WelshSynthParams {
-        type Message = WelshSynthParamsMessage;
+    lanes: Vec<AudioLane>,
+}
 
-        fn view(&self) -> Element<Self::Message> {
-            let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
-            let pan_knob: Element<WelshSynthParamsMessage> = Knob::new(
-                // TODO: toil. make it easier to go from bipolar normal to normal
-                NormalParam {
-                    value: IcedNormal::from_clipped(Normal::from(self.pan()).value_as_f32()),
-                    default: IcedNormal::from_clipped(0.5),
-                },
-                |n| WelshSynthParamsMessage::Pan(BipolarNormal::from(n.as_f32())),
-            )
-            .into();
-            let column = Column::new()
-                .push(GuiStuff::<WelshSynthParamsMessage>::container_text(
-                    "Welsh coming soon",
-                ))
-                //                column.push(  pick_list(options, None, |s| {WelshSynthParamsMessage::Pan}).font(SMALL_FONT));
-                .push(pan_knob);
-            container(column).into()
-        }
-    }
-
-    #[derive(Clone, Debug)]
-    pub(crate) enum MainViewThingyMessage {
-        NextView,
-        OtherEntityMessage(usize, OtherEntityMessage),
-        MouseIn(usize),
-        MouseOut(usize),
-        MouseDown(usize),
-        MouseUp(usize),
-
-        /// Please ask the engine to connect controller_uid to controllable_uid's control #param_index.
-        /// TODO: do we get this for free with the synchronization infra?
-        Connect(usize, usize, usize),
-    }
-
-    #[derive(Clone, Copy, Debug, Default, FromRepr, EnumCountMacro)]
-    pub(crate) enum MainViewThingyViews {
-        AudioLanes,
-        #[default]
-        Automation,
-        Everything,
-    }
-
-    #[derive(Debug)]
-    pub(crate) struct MainViewThingy {
-        current_view: MainViewThingyViews,
-        entity_store: EntityStore,
-
-        is_dragging: bool,
-        source_id: usize,
-        target_id: usize,
-
-        controller_uids: Vec<usize>,
-        controllable_uids: Vec<usize>,
-        controllable_uids_to_control_names: FxHashMap<usize, Vec<String>>,
-        connections: Vec<(usize, usize)>,
-
-        lanes: Vec<AudioLane>,
-    }
-
-    macro_rules! build_entity_fns {
+macro_rules! build_entity_fns {
         ($($entity:ident; $params:tt; $params_message:tt ,)*) => {
-            fn entity_view<'a>(&self, uid: usize, entity: &'a EntityParams) -> Element<'a, MainViewThingyMessage> {
+            fn entity_view<'a>(&self, uid: usize, entity: &'a EntityParams) -> Element<'a, ViewMessage> {
                 match entity {
                 $(
                     EntityParams::$entity(e) => {
                         e.view().map(move |message| {
-                            MainViewThingyMessage::OtherEntityMessage(
+                            ViewMessage::OtherEntityMessage(
                                 uid,
                                 OtherEntityMessage::$params(
                                     message,
@@ -1052,7 +1037,7 @@ pub(crate) mod views {
                 &mut self,
                 uid: usize,
                 message: OtherEntityMessage,
-            ) -> Option<MainViewThingyMessage> {
+            ) -> Option<ViewMessage> {
                 if let Some(entity) = self.entity_store.get_mut(&uid) {
                     match message {
                     $(
@@ -1067,7 +1052,7 @@ pub(crate) mod views {
                     match message {
                         $(
                             OtherEntityMessage::$params($params_message::$params(params)) => {
-                                self.add_viewable_item(uid, EntityParams::$entity(Box::new(params)));
+                                self.add_entity(uid, EntityParams::$entity(Box::new(params)));
                             }
                          ),*
                          _ => {todo!();}
@@ -1079,505 +1064,391 @@ pub(crate) mod views {
         }
     }
 
-    impl MainViewThingy {
-        pub(crate) fn new() -> Self {
-            Self {
-                current_view: Default::default(),
-                entity_store: Default::default(),
+impl View {
+    pub(crate) fn new() -> Self {
+        Self {
+            current_view: Default::default(),
+            entity_store: Default::default(),
 
-                is_dragging: false,
-                source_id: 0,
-                target_id: 0,
+            is_dragging: false,
+            source_id: 0,
+            target_id: 0,
 
-                controller_uids: Default::default(),
-                controllable_uids: Default::default(),
-                controllable_uids_to_control_names: Default::default(),
-                connections: Default::default(),
+            controller_uids: Default::default(),
+            controllable_uids: Default::default(),
+            controllable_uids_to_control_names: Default::default(),
+            connections: Default::default(),
 
-                lanes: Default::default(),
-            }
+            lanes: Default::default(),
         }
+    }
 
-        pub(crate) fn clear(&mut self) {
-            eprintln!("Clearing...");
-            self.controller_uids.clear();
-            self.controllable_uids.clear();
-            self.controllable_uids_to_control_names.clear();
-            self.connections.clear(); // TODO: this shouldn't exist, or else should be like the Params things (synchronized)
+    pub(crate) fn clear(&mut self) {
+        eprintln!("Clearing...");
+        self.controller_uids.clear();
+        self.controllable_uids.clear();
+        self.controllable_uids_to_control_names.clear();
+        self.connections.clear(); // TODO: this shouldn't exist, or else should be like the Params things (synchronized)
+    }
+
+    pub(crate) fn view(&self) -> Element<ViewMessage> {
+        match self.current_view {
+            ViewView::AudioLanes => self.audio_lane_view(),
+            ViewView::Automation => self.automation_view(),
+            ViewView::Everything => self.everything_view(),
         }
+    }
 
-        pub(crate) fn view(&self) -> Element<MainViewThingyMessage> {
-            match self.current_view {
-                MainViewThingyViews::AudioLanes => self.audio_lane_view(),
-                MainViewThingyViews::Automation => self.automation_view(),
-                MainViewThingyViews::Everything => self.everything_view(),
-            }
-        }
-
-        fn automation_view(&self) -> Element<MainViewThingyMessage> {
-            let controller_columns = self.controller_uids.iter().enumerate().fold(
-                Vec::default(),
-                |mut v, (_index, controller_uid)| {
-                    let column = Column::new();
-                    let controller_id = *controller_uid;
-                    let card_style = if self.is_dragging {
-                        if controller_id == self.source_id {
-                            CardStyles::Primary
-                        } else {
-                            CardStyles::Default
-                        }
+    fn automation_view(&self) -> Element<ViewMessage> {
+        let controller_columns = self.controller_uids.iter().enumerate().fold(
+            Vec::default(),
+            |mut v, (_index, controller_uid)| {
+                let column = Column::new();
+                let controller_id = *controller_uid;
+                let card_style = if self.is_dragging {
+                    if controller_id == self.source_id {
+                        CardStyles::Primary
                     } else {
                         CardStyles::Default
-                    };
-                    let controller = self.entity_store.get(controller_uid).unwrap(); // TODO no unwraps!
-                    let card = Card::new(
-                        ControlTargetWidget::<MainViewThingyMessage>::new(
-                            Text::new("TBD"),
-                            if self.is_dragging && controller_id != self.source_id {
-                                // entering the bounds of a potential target.
-                                Some(MainViewThingyMessage::MouseIn(controller_id))
+                    }
+                } else {
+                    CardStyles::Default
+                };
+                let controller = self.entity_store.get(controller_uid).unwrap(); // TODO no unwraps!
+                let card = Card::new(
+                    ControlTargetWidget::<ViewMessage>::new(
+                        Text::new("TBD"),
+                        if self.is_dragging && controller_id != self.source_id {
+                            // entering the bounds of a potential target.
+                            Some(ViewMessage::MouseIn(controller_id))
+                        } else {
+                            None
+                        },
+                        if self.is_dragging && controller_id == self.target_id {
+                            // leaving the bounds of a potential target
+                            Some(ViewMessage::MouseOut(controller_id))
+                        } else {
+                            None
+                        },
+                        if !self.is_dragging {
+                            // starting a drag operation
+                            Some(ViewMessage::MouseDown(controller_id))
+                        } else {
+                            None
+                        },
+                        if self.is_dragging {
+                            if controller_id == self.source_id {
+                                // user pressed and released on source card
+                                Some(ViewMessage::MouseUp(0))
                             } else {
-                                None
-                            },
-                            if self.is_dragging && controller_id == self.target_id {
-                                // leaving the bounds of a potential target
-                                Some(MainViewThingyMessage::MouseOut(controller_id))
-                            } else {
-                                None
-                            },
-                            if !self.is_dragging {
-                                // starting a drag operation
-                                Some(MainViewThingyMessage::MouseDown(controller_id))
-                            } else {
-                                None
-                            },
-                            if self.is_dragging {
-                                if controller_id == self.source_id {
-                                    // user pressed and released on source card
-                                    Some(MainViewThingyMessage::MouseUp(0))
-                                } else {
-                                    // ending the drag on a target
-                                    Some(MainViewThingyMessage::MouseUp(controller_id))
-                                }
-                            } else {
-                                None
-                            },
-                            if self.is_dragging && controller_id == self.source_id {
-                                // ending the drag somewhere that's not the source... but it could be a target!
-                                // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
-                                Some(MainViewThingyMessage::MouseUp(0))
-                            } else {
-                                None
-                            },
-                        ),
-                        column,
-                    )
-                    .style(card_style);
-                    v.push(card);
-                    v
-                },
-            );
-
-            let controllable_columns = self.controllable_uids.iter().enumerate().fold(
-                Vec::default(),
-                |mut v, (_index, controllable_uid)| {
-                    let mut column = Column::new();
-                    let controllable_id = *controllable_uid;
-                    if let Some(controllable) = self.entity_store.get(controllable_uid) {
-                        if let Some(controllable) = controllable.as_controllable_ref() {
-                            for param_id in 0..controllable.control_index_count() {
-                                let param_app_id = controllable_id * 10000 + param_id;
-                                let badge_style = if self.is_dragging {
-                                    if param_app_id == self.source_id {
-                                        BadgeStyles::Danger // This shouldn't happen (I think) because it's a source, not a target
-                                    } else if param_app_id == self.target_id {
-                                        BadgeStyles::Success // Hovering over target, so highlight it specially
-                                    } else {
-                                        BadgeStyles::Info // Indicate that it's a potential target
-                                    }
-                                } else {
-                                    BadgeStyles::Default // Regular state
-                                };
-                                let child = ControlTargetWidget::<MainViewThingyMessage>::new(
-                                    Badge::new(Text::new(
-                                        controllable
-                                            .control_name_for_index(param_id)
-                                            .unwrap_or_default()
-                                            .to_string(),
-                                    ))
-                                    .style(badge_style),
-                                    if self.is_dragging && param_app_id != self.source_id {
-                                        // entering the bounds of a potential target.
-                                        Some(MainViewThingyMessage::MouseIn(param_app_id))
-                                    } else {
-                                        None
-                                    },
-                                    if self.is_dragging && param_app_id == self.target_id {
-                                        // leaving the bounds of a potential target
-                                        Some(MainViewThingyMessage::MouseOut(param_app_id))
-                                    } else {
-                                        None
-                                    },
-                                    if !self.is_dragging {
-                                        // starting a drag operation
-                                        Some(MainViewThingyMessage::MouseDown(param_app_id))
-                                    } else {
-                                        None
-                                    },
-                                    if self.is_dragging && param_app_id != self.source_id {
-                                        // ending the drag on a target
-                                        //                            Some(MainViewThingyMessage::MouseUp(id))
-                                        Some(MainViewThingyMessage::Connect(
-                                            self.source_id,
-                                            controllable_id,
-                                            param_id,
-                                        ))
-                                    } else {
-                                        None
-                                    },
-                                    if self.is_dragging && param_app_id == self.source_id {
-                                        // ending the drag somewhere that's not the source... but it could be a target!
-                                        // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
-                                        Some(MainViewThingyMessage::MouseUp(0))
-                                    } else {
-                                        None
-                                    },
-                                    // Other cases to handle
-                                    // - leaving the window entirely
-                                    // - keyboard stuff
-                                );
-                                column = column.push(child);
+                                // ending the drag on a target
+                                Some(ViewMessage::MouseUp(controller_id))
                             }
-                            let card_style = if self.is_dragging {
-                                if controllable_id == self.source_id {
-                                    CardStyles::Primary
-                                } else if controllable_id == self.target_id {
-                                    CardStyles::Danger
+                        } else {
+                            None
+                        },
+                        if self.is_dragging && controller_id == self.source_id {
+                            // ending the drag somewhere that's not the source... but it could be a target!
+                            // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
+                            Some(ViewMessage::MouseUp(0))
+                        } else {
+                            None
+                        },
+                    ),
+                    column,
+                )
+                .style(card_style);
+                v.push(card);
+                v
+            },
+        );
+
+        let controllable_columns = self.controllable_uids.iter().enumerate().fold(
+            Vec::default(),
+            |mut v, (_index, controllable_uid)| {
+                let mut column = Column::new();
+                let controllable_id = *controllable_uid;
+                if let Some(controllable) = self.entity_store.get(controllable_uid) {
+                    if let Some(controllable) = controllable.as_controllable_ref() {
+                        for param_id in 0..controllable.control_index_count() {
+                            let param_app_id = controllable_id * 10000 + param_id;
+                            let badge_style = if self.is_dragging {
+                                if param_app_id == self.source_id {
+                                    BadgeStyles::Danger // This shouldn't happen (I think) because it's a source, not a target
+                                } else if param_app_id == self.target_id {
+                                    BadgeStyles::Success // Hovering over target, so highlight it specially
                                 } else {
-                                    CardStyles::Default
+                                    BadgeStyles::Info // Indicate that it's a potential target
                                 }
+                            } else {
+                                BadgeStyles::Default // Regular state
+                            };
+                            let child = ControlTargetWidget::<ViewMessage>::new(
+                                Badge::new(Text::new(
+                                    controllable
+                                        .control_name_for_index(param_id)
+                                        .unwrap_or_default()
+                                        .to_string(),
+                                ))
+                                .style(badge_style),
+                                if self.is_dragging && param_app_id != self.source_id {
+                                    // entering the bounds of a potential target.
+                                    Some(ViewMessage::MouseIn(param_app_id))
+                                } else {
+                                    None
+                                },
+                                if self.is_dragging && param_app_id == self.target_id {
+                                    // leaving the bounds of a potential target
+                                    Some(ViewMessage::MouseOut(param_app_id))
+                                } else {
+                                    None
+                                },
+                                if !self.is_dragging {
+                                    // starting a drag operation
+                                    Some(ViewMessage::MouseDown(param_app_id))
+                                } else {
+                                    None
+                                },
+                                if self.is_dragging && param_app_id != self.source_id {
+                                    // ending the drag on a target
+                                    Some(ViewMessage::Connect(
+                                        self.source_id,
+                                        controllable_id,
+                                        param_id,
+                                    ))
+                                } else {
+                                    None
+                                },
+                                if self.is_dragging && param_app_id == self.source_id {
+                                    // ending the drag somewhere that's not the source... but it could be a target!
+                                    // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
+                                    Some(ViewMessage::MouseUp(0))
+                                } else {
+                                    None
+                                },
+                                // Other cases to handle
+                                // - leaving the window entirely
+                                // - keyboard stuff
+                            );
+                            column = column.push(child);
+                        }
+                        let card_style = if self.is_dragging {
+                            if controllable_id == self.source_id {
+                                CardStyles::Primary
+                            } else if controllable_id == self.target_id {
+                                CardStyles::Danger
                             } else {
                                 CardStyles::Default
-                            };
-                            let card = Card::new(
-                                ControlTargetWidget::<MainViewThingyMessage>::new(
-                                    Text::new(
-                                        format!("I don't know my name yet! {}", controllable_uid)
-                                            .to_string(),
-                                    ),
-                                    // Sources aren't targets.
-                                    None,
-                                    // Don't care.
-                                    None,
-                                    // starting a drag operation
-                                    Some(MainViewThingyMessage::MouseDown(controllable_id)),
-                                    if self.is_dragging && controllable_id != self.source_id {
-                                        // ending the drag on a target
-                                        Some(MainViewThingyMessage::MouseUp(controllable_id))
-                                    } else {
-                                        None
-                                    },
-                                    if self.is_dragging && controllable_id == self.source_id {
-                                        // ending the drag somewhere that's not the source... but it could be a target!
-                                        // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
-                                        Some(MainViewThingyMessage::MouseUp(0))
-                                    } else {
-                                        None
-                                    },
-                                ),
-                                column,
-                            )
-                            .style(card_style);
-                            v.push(card);
-                            v
+                            }
                         } else {
-                            panic!()
-                        }
+                            CardStyles::Default
+                        };
+                        let card = Card::new(
+                            ControlTargetWidget::<ViewMessage>::new(
+                                Text::new(
+                                    format!("I don't know my name yet! {}", controllable_uid)
+                                        .to_string(),
+                                ),
+                                // Sources aren't targets.
+                                None,
+                                // Don't care.
+                                None,
+                                // starting a drag operation
+                                Some(ViewMessage::MouseDown(controllable_id)),
+                                if self.is_dragging && controllable_id != self.source_id {
+                                    // ending the drag on a target
+                                    Some(ViewMessage::MouseUp(controllable_id))
+                                } else {
+                                    None
+                                },
+                                if self.is_dragging && controllable_id == self.source_id {
+                                    // ending the drag somewhere that's not the source... but it could be a target!
+                                    // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
+                                    Some(ViewMessage::MouseUp(0))
+                                } else {
+                                    None
+                                },
+                            ),
+                            column,
+                        )
+                        .style(card_style);
+                        v.push(card);
+                        v
                     } else {
                         panic!()
                     }
-                },
-            );
+                } else {
+                    panic!()
+                }
+            },
+        );
 
-            let controller_row =
-                controller_columns
-                    .into_iter()
-                    .fold(Row::new(), |mut row, item| {
-                        row = row.push(item);
-                        row
-                    });
-            let controllable_row =
-                controllable_columns
-                    .into_iter()
-                    .fold(Row::new(), |mut row, item| {
-                        row = row.push(item);
-                        row
-                    });
-            container(column![controller_row, controllable_row]).into()
-        }
-
-        build_entity_fns! {
-            Arpeggiator; ArpeggiatorParams; ArpeggiatorParamsMessage,
-            Bitcrusher; BitcrusherParams; BitcrusherParamsMessage,
-            Gain; GainParams; GainParamsMessage,
-            LfoController; LfoControllerParams; LfoControllerParamsMessage,
-            Mixer; MixerParams; MixerParamsMessage,
-            PatternManager; PatternManagerParams; PatternManagerParamsMessage,
-            Reverb; ReverbParams; ReverbParamsMessage,
-            Sequencer; SequencerParams; SequencerParamsMessage,
-            WelshSynth; WelshSynthParams; WelshSynthParamsMessage,
-        }
-
-        fn everything_view(&self) -> Element<MainViewThingyMessage> {
-            let boxes: Vec<Element<MainViewThingyMessage>> = self
-                .entity_store
-                .entities
-                .iter()
-                .map(|(uid, entity)| self.entity_view(*uid, entity))
-                .collect();
-            let column = boxes.into_iter().fold(Column::new(), |c, e| c.push(e));
-            container(column).into()
-        }
-
-        fn audio_lane_view<'a, 'b: 'a>(&'a self) -> Element<'a, MainViewThingyMessage> {
-            let lane_views =
-                self.lanes
-                    .iter()
-                    .enumerate()
-                    .fold(Vec::default(), |mut v, (i, lane)| {
-                        let lane_row = Card::new(
-                            text(&format!("Lane #{}: {}", i, lane.name)),
-                            lane.items.iter().enumerate().fold(
-                                Row::new(),
-                                |r, (item_index, uid)| {
-                                    if let Some(item) = self.entity_store.get(uid) {
-                                        let name: &'static str = "no idea 2345983495";
-                                        let view = self.entity_view(*uid, item.as_ref());
-                                        r.push(
-                                            Card::new(
-                                                text(&format!("#{}: {}", item_index, name)),
-                                                container(view).height(Length::Fill),
-                                            )
-                                            .width(Length::FillPortion(1))
-                                            .height(Length::FillPortion(1)),
-                                        )
-                                    } else {
-                                        r
-                                    }
-                                },
-                            ),
-                        );
-                        v.push(lane_row);
-                        v
-                    });
-            let view_column = lane_views
+        let controller_row = controller_columns
+            .into_iter()
+            .fold(Row::new(), |mut row, item| {
+                row = row.push(item);
+                row
+            });
+        let controllable_row =
+            controllable_columns
                 .into_iter()
-                .fold(Column::new(), |c, lane_view| {
-                    c.push(lane_view.height(Length::FillPortion(1)))
-                })
-                .width(Length::Fill)
-                .height(Length::Fill);
-            let mixer = Card::new(text("Mixer"), text("coming soon").height(Length::Fill))
-                .width(Length::Fixed(96.0));
-            let overall_view = Row::new().height(Length::Fill);
-            container(overall_view.push(view_column).push(mixer)).into()
-        }
+                .fold(Row::new(), |mut row, item| {
+                    row = row.push(item);
+                    row
+                });
+        container(column![controller_row, controllable_row]).into()
+    }
 
-        pub(crate) fn update(
-            &mut self,
-            message: MainViewThingyMessage,
-        ) -> Option<MainViewThingyMessage> {
-            match message {
-                MainViewThingyMessage::NextView => {
-                    self.current_view = MainViewThingyViews::from_repr(
-                        (self.current_view as usize + 1) % MainViewThingyViews::COUNT,
-                    )
-                    .unwrap_or_default();
-                    None
-                }
-                MainViewThingyMessage::OtherEntityMessage(uid, message) => {
-                    self.entity_update(uid, message)
-                } //
+    build_entity_fns! {
+        Arpeggiator; ArpeggiatorParams; ArpeggiatorParamsMessage,
+        Bitcrusher; BitcrusherParams; BitcrusherParamsMessage,
+        Gain; GainParams; GainParamsMessage,
+        LfoController; LfoControllerParams; LfoControllerParamsMessage,
+        Mixer; MixerParams; MixerParamsMessage,
+        PatternManager; PatternManagerParams; PatternManagerParamsMessage,
+        Reverb; ReverbParams; ReverbParamsMessage,
+        Sequencer; SequencerParams; SequencerParamsMessage,
+        WelshSynth; WelshSynthParams; WelshSynthParamsMessage,
+    }
+
+    fn everything_view(&self) -> Element<ViewMessage> {
+        let boxes: Vec<Element<ViewMessage>> = self
+            .entity_store
+            .entities
+            .iter()
+            .map(|(uid, entity)| self.entity_view(*uid, entity))
+            .collect();
+        let column = boxes.into_iter().fold(Column::new(), |c, e| c.push(e));
+        container(column).into()
+    }
+
+    fn audio_lane_view<'a, 'b: 'a>(&'a self) -> Element<'a, ViewMessage> {
+        let lane_views = self
+            .lanes
+            .iter()
+            .enumerate()
+            .fold(Vec::default(), |mut v, (i, lane)| {
+                let lane_row = Card::new(
+                    text(&format!("Lane #{}: {}", i, lane.name)),
+                    lane.items
+                        .iter()
+                        .enumerate()
+                        .fold(Row::new(), |r, (item_index, uid)| {
+                            if let Some(item) = self.entity_store.get(uid) {
+                                let name: &'static str = "no idea 2345983495";
+                                let view = self.entity_view(*uid, item.as_ref());
+                                r.push(
+                                    Card::new(
+                                        text(&format!("#{}: {}", item_index, name)),
+                                        container(view).height(Length::Fill),
+                                    )
+                                    .width(Length::FillPortion(1))
+                                    .height(Length::FillPortion(1)),
+                                )
+                            } else {
+                                r
+                            }
+                        }),
+                );
+                v.push(lane_row);
+                v
+            });
+        let view_column = lane_views
+            .into_iter()
+            .fold(Column::new(), |c, lane_view| {
+                c.push(lane_view.height(Length::FillPortion(1)))
+            })
+            .width(Length::Fill)
+            .height(Length::Fill);
+        let mixer = Card::new(text("Mixer"), text("coming soon").height(Length::Fill))
+            .width(Length::Fixed(96.0));
+        let overall_view = Row::new().height(Length::Fill);
+        container(overall_view.push(view_column).push(mixer)).into()
+    }
+
+    pub(crate) fn update(&mut self, message: ViewMessage) -> Option<ViewMessage> {
+        match message {
+            ViewMessage::NextView => {
+                self.current_view =
+                    ViewView::from_repr((self.current_view as usize + 1) % ViewView::COUNT)
+                        .unwrap_or_default();
+                None
+            }
+            ViewMessage::OtherEntityMessage(uid, message) => self.entity_update(uid, message),
+            ViewMessage::MouseDown(id) => {
+                self.is_dragging = true;
+                self.source_id = id;
+                self.target_id = 0;
+                eprintln!("Start dragging on {}", id);
+                None
+            }
+            ViewMessage::MouseIn(id) => {
+                // if dragging, highlight potential target
+                self.target_id = id;
+                None
+            }
+            ViewMessage::MouseOut(_id) => {
+                // if dragging, un-highlight potential target
+                self.target_id = 0;
+                None
+            }
+            ViewMessage::MouseUp(id) => {
+                // This is probably going to have a bug later. Currently, the
+                // only way we get a MouseUp message is if we're in a drag
+                // operation, so we can afford to get both the MouseUp(id) and
+                // MouseUp(0) messages (MouseUp(0) is a drag ended, and
+                // MouseUp(id) if a drag succeeded).
                 //
-                //
-                // AutomationMessage::Connect(controller_uid, controllable_uid, control_index) => {
-                //     Some(MainViewThingyEvent::Connect(
-                //         controller_uid,
-                //         controllable_uid,
-                //         control_index,
-                //     ))
-                // }
-                MainViewThingyMessage::MouseDown(id) => {
-                    self.is_dragging = true;
-                    self.source_id = id;
-                    self.target_id = 0;
-                    eprintln!("Start dragging on {}", id);
-                    None
-                }
-                MainViewThingyMessage::MouseIn(id) => {
-                    // if dragging, highlight potential target
+                // TODO: figure out a way for the drag target to tell the drag
+                // source "I got this" and suppress the MouseUp(0) message. Or
+                // just deal with how it is now.
+                if id == 0 {
+                    eprintln!("Drag ended.");
+                    self.is_dragging = false;
+                } else {
                     self.target_id = id;
-                    None
-                }
-                MainViewThingyMessage::MouseOut(_id) => {
-                    // if dragging, un-highlight potential target
-                    self.target_id = 0;
-                    None
-                }
-                MainViewThingyMessage::MouseUp(id) => {
-                    // This is probably going to have a bug later. Currently, the
-                    // only way we get a MouseUp message is if we're in a drag
-                    // operation, so we can afford to get both the MouseUp(id) and
-                    // MouseUp(0) messages (MouseUp(0) is a drag ended, and
-                    // MouseUp(id) if a drag succeeded).
-                    //
-                    // TODO: figure out a way for the drag target to tell the drag
-                    // source "I got this" and suppress the MouseUp(0) message. Or
-                    // just deal with how it is now.
-                    if id == 0 {
-                        eprintln!("Drag ended.");
-                        self.is_dragging = false;
-                    } else {
-                        self.target_id = id;
-                        eprintln!(
-                            "Drag completed from {} to {}",
-                            self.source_id, self.target_id
-                        );
-                        //   self.connect_points();
-                    }
-                    None
-                }
-                MainViewThingyMessage::Connect(_controller_id, controllable_id, _control_index) => {
-                    self.target_id = controllable_id;
                     eprintln!(
                         "Drag completed from {} to {}",
                         self.source_id, self.target_id
                     );
-                    //                    self.connect_points();
-                    return Some(message);
                 }
+                None
+            }
+            ViewMessage::Connect(_controller_id, controllable_id, _control_index) => {
+                self.target_id = controllable_id;
+                eprintln!(
+                    "Drag completed from {} to {}",
+                    self.source_id, self.target_id
+                );
+                return Some(message);
             }
         }
+    }
 
-        pub(crate) fn add_entity(&mut self, uid: usize, entity: &Entity) {
-            match entity {
-                Entity::Arpeggiator(e) => self.add_viewable_item(
-                    uid,
-                    EntityParams::Arpeggiator(Box::new(ArpeggiatorParams { bpm: 99.0 })),
-                ),
-                Entity::Bitcrusher(e) => self.add_viewable_item(
-                    uid,
-                    EntityParams::Bitcrusher(Box::new(BitcrusherParams { bits: 8 })),
-                ),
-                Entity::LfoController(e) => self.add_viewable_item(
-                    uid,
-                    EntityParams::LfoController(Box::new(LfoControllerParams {
-                        waveform: WaveformParams::Sine, // TODO - map to actual (TODO - never do that, because this whole thing will go away with messages)
-                        frequency: e.frequency(),
-                    })),
-                ),
-                Entity::Sequencer(e) => self.add_viewable_item(
-                    uid,
-                    EntityParams::Sequencer(Box::new(SequencerParams { bpm: 112.0 })),
-                ),
-                Entity::ControlTrip(_) => todo!(),
-                Entity::MidiTickSequencer(_) => todo!(),
-                Entity::PatternManager(e) => self.add_viewable_item(
-                    uid,
-                    EntityParams::PatternManager(Box::new(PatternManagerParams {})),
-                ),
-                Entity::SignalPassthroughController(_) => todo!(),
-                Entity::ToyController(_) => todo!(),
-                Entity::Timer(_) => todo!(),
-                Entity::BiQuadFilter(_) => todo!(),
-                Entity::Chorus(_) => todo!(),
-                Entity::Compressor(_) => todo!(),
-                Entity::Delay(_) => todo!(),
-                Entity::Gain(e) => self.add_viewable_item(
-                    uid,
-                    EntityParams::Gain(Box::new(GainParams {
-                        ceiling: e.ceiling(),
-                    })),
-                ),
-                Entity::Limiter(_) => todo!(),
-                Entity::Mixer(e) => {
-                    self.add_viewable_item(uid, EntityParams::Mixer(Box::new(MixerParams {})))
-                }
-                Entity::Reverb(e) => self.add_viewable_item(
-                    uid,
-                    EntityParams::Reverb(Box::new(ReverbParams {
-                        attenuation: Normal::new(0.5),
-                    })),
-                ),
-                Entity::ToyEffect(_) => todo!(),
-                Entity::Drumkit(_) => todo!(),
-                Entity::FmSynthesizer(_) => todo!(),
-                Entity::Sampler(_) => todo!(),
-                Entity::ToyAudioSource(_) => todo!(),
-                Entity::ToyInstrument(_) => todo!(),
-                Entity::ToySynth(_) => todo!(),
-                Entity::WelshSynth(e) => self.add_viewable_item(
-                    uid,
-                    EntityParams::WelshSynth(Box::new(WelshSynthParams {
-                        pan: BipolarNormal::from(e.pan()),
-                    })),
-                ),
-            }
+    fn add_entity(&mut self, uid: usize, item: EntityParams) {
+        eprintln!("Adding item... {:?}", item);
+        if item.is_controller() {
+            self.controller_uids.push(uid);
         }
+        if let Some(controllable) = item.as_controllable_ref() {
+            self.controllable_uids.push(uid);
 
-        fn add_viewable_item(&mut self, uid: usize, item: EntityParams) {
-            eprintln!("Adding item... {:?}", item);
-            if item.is_controller() {
-                self.controller_uids.push(uid);
-            }
-            if let Some(controllable) = item.as_controllable_ref() {
-                self.controllable_uids.push(uid);
-
-                let mut params = Vec::default();
-                for i in 0..controllable.control_index_count() {
-                    if let Some(name) = controllable.control_name_for_index(i) {
-                        params.push(name.to_string());
-                    }
-                }
-                self.controllable_uids_to_control_names.insert(uid, params);
-            }
-
-            // TODO: do we care about displaced items that had the same key?
-            self.entity_store.entities.insert(uid, Box::new(item));
-        }
-
-        pub(crate) fn add_temp_controller(&mut self, uid: &usize, entity: &Entity) {
-            if !self.entity_store.entities.contains_key(uid) {
-                self.add_entity(*uid, entity);
-            }
-            self.controller_uids.push(*uid);
-        }
-
-        pub(crate) fn add_temp_controllable(&mut self, uid: &usize, entity: &Entity) {
             let mut params = Vec::default();
-            if let Some(controllable) = (*entity).as_controllable() {
-                for i in 0..controllable.control_index_count() {
-                    if let Some(name) = controllable.control_name_for_index(i) {
-                        params.push(name.to_string());
-                    }
+            for i in 0..controllable.control_index_count() {
+                if let Some(name) = controllable.control_name_for_index(i) {
+                    params.push(name.to_string());
                 }
-                if !self.entity_store.entities.contains_key(uid) {
-                    self.add_entity(*uid, entity);
-                }
-                self.controllable_uids.push(*uid);
-                self.controllable_uids_to_control_names.insert(*uid, params);
             }
+            if params.is_empty() {
+                eprintln!(
+                    "Warning: entity {} claims to be controllable but reports no controls",
+                    uid
+                );
+            }
+            self.controllable_uids_to_control_names.insert(uid, params);
         }
 
-        fn collapsing_box<F>(
-            &self,
-            entity: &impl HasUid,
-            contents_fn: F,
-        ) -> Element<MainViewThingyMessage>
-        where
-            F: FnOnce() -> Element<'static, MainViewThingyMessage>,
-        {
-            container(contents_fn()).into()
-        }
+        // TODO: do we care about displaced items that had the same key?
+        self.entity_store.entities.insert(uid, Box::new(item));
     }
 }

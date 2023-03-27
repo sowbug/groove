@@ -22,7 +22,7 @@ pub enum GrooveInput {
     /// Connect an IsController to a Controllable's control point. First
     /// argument is controller uid, second is controllable uid, third is
     /// controllable's control index.
-    ConnectController(usize, usize, usize),
+    Connect(usize, usize, usize),
 
     /// An entity has been updated on the app side, and the engine should record the changes.
     Update(usize, OtherEntityMessage),

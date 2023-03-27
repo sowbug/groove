@@ -318,13 +318,19 @@ macro_rules! all_entities {
 
 all_entities! {
     // struct; params; message; is_controller; is_controllable,
+
+    // Controllers
     Arpeggiator; ArpeggiatorParams; ArpeggiatorParamsMessage; true; true,
+    LfoController; LfoControllerParams; LfoControllerParamsMessage; true; false,
+    PatternManager; PatternManagerParams; PatternManagerParamsMessage; true; false,
+    Sequencer; SequencerParams; SequencerParamsMessage; false; true,
+
+    // Effects
     Bitcrusher; BitcrusherParams; BitcrusherParamsMessage; false; true,
     Gain; GainParams; GainParamsMessage; false; true,
-    LfoController; LfoControllerParams; LfoControllerParamsMessage; true; false,
     Mixer; MixerParams; MixerParamsMessage; false; true,
-    PatternManager; PatternManagerParams; PatternManagerParamsMessage; true; false,
     Reverb; ReverbParams; ReverbParamsMessage; false; true,
-    Sequencer; SequencerParams; SequencerParamsMessage; false; true,
+
+    // Instruments
     WelshSynth; WelshSynthParams; WelshSynthParamsMessage; false; true,
 }

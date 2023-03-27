@@ -558,7 +558,7 @@ impl Orchestrator {
                     GrooveInput::MidiFromExternal(channel, message) => {
                         self.broadcast_midi_messages(&[(channel, message)]);
                     }
-                    GrooveInput::ConnectController(controller_uid, target_uid, param_id) => {
+                    GrooveInput::Connect(controller_uid, target_uid, param_id) => {
                         let _ = self.link_control_by_id(controller_uid, target_uid, param_id);
                     }
                     GrooveInput::Update(uid, message) => self.update_controllable(uid, message),

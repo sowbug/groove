@@ -73,7 +73,7 @@ pub enum EngineInput {
     /// Connect an IsController to a Controllable's control point. First
     /// argument is controller uid, second is controllable uid, third is
     /// controllable's control index.
-    ConnectController(usize, usize, usize),
+    Connect(usize, usize, usize),
 
     /// End this thread.
     QuitRequested,
@@ -336,12 +336,12 @@ impl EngineSubscription {
                             self.publish_time_signature_update();
                         }
                     }
-                    EngineInput::ConnectController(
+                    EngineInput::Connect(
                         controllable_id,
                         controller_id,
                         control_index,
                     ) => {
-                        messages.push(GrooveInput::ConnectController(
+                        messages.push(GrooveInput::Connect(
                             controllable_id,
                             controller_id,
                             control_index,

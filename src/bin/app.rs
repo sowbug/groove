@@ -22,8 +22,8 @@ use groove_orchestration::messages::GrooveEvent;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
     views::{
-        views::{MainViewThingy, MainViewThingyMessage},
         ControlBarEvent, ControlBarInput, ControlBarView, EntityView, EntityViewState,
+        View, ViewMessage,
     },
     GuiStuff,
 };
@@ -46,18 +46,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[derive(Clone, Copy, Default, Debug, FromPrimitive)]
-enum MainViews {
-    Unstructured,
-    New,
-    Session,
-    Arrangement,
-    Preferences,
-    #[default]
-    Automation,
-    AudioLanes,
-}
-
 #[derive(Default)]
 enum State {
     #[default]
@@ -67,7 +55,7 @@ enum State {
 
 #[derive(Clone, Debug)]
 enum AppMessage {
-    MainViewThingyMessage(MainViewThingyMessage),
+    MainViewThingyMessage(ViewMessage),
     ControlBarEvent(ControlBarEvent),
     EngineEvent(EngineEvent),
     Event(iced::Event),
@@ -93,10 +81,9 @@ struct GrooveApp {
     should_exit: bool,
 
     // View
-    current_view: MainViews,
     entity_view: EntityView,
     control_bar_view: ControlBarView,
-    views: MainViewThingy,
+    views: View,
 
     // Model
     project_title: Option<String>,
@@ -124,7 +111,6 @@ impl Default for GrooveApp {
             theme: Default::default(),
             state: Default::default(),
             should_exit: Default::default(),
-            current_view: Default::default(),
             entity_view: Default::default(),
             control_bar_view: ControlBarView::new_with(
                 Clock::new_with(
@@ -134,7 +120,7 @@ impl Default for GrooveApp {
                 ),
                 TimeSignature::default(),
             ),
-            views: MainViewThingy::new(),
+            views: View::new(),
             project_title: None,
             orchestrator_sender: Default::default(),
             orchestrator: orchestrator.clone(),
@@ -229,12 +215,12 @@ impl Application for GrooveApp {
             AppMessage::MainViewThingyMessage(message) => {
                 if let Some(response) = self.views.update(message) {
                     match response {
-                        MainViewThingyMessage::Connect(
+                        ViewMessage::Connect(
                             controller_id,
                             controllable_id,
                             control_index,
                         ) => {
-                            self.post_to_orchestrator(EngineInput::ConnectController(
+                            self.post_to_orchestrator(EngineInput::Connect(
                                 controller_id,
                                 controllable_id,
                                 control_index,
@@ -319,7 +305,7 @@ impl GrooveApp {
             }
             GrooveEvent::Update(uid, message) => {
                 self.views
-                    .update(MainViewThingyMessage::OtherEntityMessage(uid, message));
+                    .update(ViewMessage::OtherEntityMessage(uid, message));
             }
             GrooveEvent::EntityMessage(uid, message) => match message {
                 EntityMessage::ExpandPressed => {
@@ -675,7 +661,7 @@ impl GrooveApp {
             if char == '\t' {
                 // TODO: I don't know if this is smart. Are there better
                 // patterns than calling update()?
-                self.views.update(MainViewThingyMessage::NextView);
+                self.views.update(ViewMessage::NextView);
             }
         }
         None
