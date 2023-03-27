@@ -14,7 +14,7 @@ use groove_core::{
     ParameterType, StereoSample,
 };
 use groove_entities::{
-    controllers::{ArpeggiatorParamsMessage, PatternManager, Sequencer},
+    controllers::{ArpeggiatorParamsMessage, PatternManager, Sequencer, SequencerParams},
     effects::Mixer,
     instruments::WelshSynthParamsMessage,
     EntityMessage,
@@ -514,7 +514,10 @@ impl Orchestrator {
             Self::PATTERN_MANAGER_UVID,
         );
         r.sequencer_uid = r.add_with_uvid(
-            Entity::Sequencer(Box::new(Sequencer::new_with(sample_rate, bpm))),
+            Entity::Sequencer(Box::new(Sequencer::new_with(
+                sample_rate,
+                SequencerParams { bpm },
+            ))),
             Self::BEAT_SEQUENCER_UVID,
         );
 
@@ -1354,7 +1357,10 @@ pub mod tests {
     #[test]
     fn test_pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
-        let mut sequencer = Sequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
+        let mut sequencer = Sequencer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            groove_entities::controllers::SequencerParams { bpm: 128.0 },
+        );
         let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern {
             note_value: None,
@@ -1376,7 +1382,10 @@ pub mod tests {
     fn test_random_access() {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
-        let mut sequencer = Box::new(Sequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut sequencer = Box::new(Sequencer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            groove_entities::controllers::SequencerParams { bpm: DEFAULT_BPM },
+        ));
         let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
         let mut pattern = Pattern::<Note>::default();
 
@@ -1496,7 +1505,10 @@ pub mod tests {
     #[test]
     fn test_empty_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = Box::new(Sequencer::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM));
+        let mut sequencer = Box::new(Sequencer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            groove_entities::controllers::SequencerParams { bpm: DEFAULT_BPM },
+        ));
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         let note_pattern = vec![Note {
@@ -1551,7 +1563,10 @@ pub mod tests {
             DEFAULT_BPM,
             DEFAULT_MIDI_TICKS_PER_SECOND,
         );
-        let mut sequencer = Box::new(Sequencer::new_with(clock.sample_rate(), clock.bpm()));
+        let mut sequencer = Box::new(Sequencer::new_with(
+            clock.sample_rate(),
+            groove_entities::controllers::SequencerParams { bpm: clock.bpm() },
+        ));
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
         let arpeggiator = Box::new(Arpeggiator::new_with_params(

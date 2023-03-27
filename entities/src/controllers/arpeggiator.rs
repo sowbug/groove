@@ -49,6 +49,7 @@ impl ArpeggiatorParams {
 #[derive(Control, Debug, Uid)]
 pub struct Arpeggiator {
     uid: usize,
+    params: ArpeggiatorParams,
     midi_channel_out: MidiChannel,
     sequencer: Sequencer,
 
@@ -116,8 +117,9 @@ impl Arpeggiator {
     pub fn new_with(sample_rate: usize, midi_channel_out: MidiChannel, bpm: ParameterType) -> Self {
         Self {
             uid: Default::default(),
+            params: ArpeggiatorParams { bpm },
             midi_channel_out,
-            sequencer: Sequencer::new_with(sample_rate, bpm),
+            sequencer: Sequencer::new_with(sample_rate, super::SequencerParams { bpm }),
             note_semaphore: Default::default(),
         }
     }
@@ -129,8 +131,12 @@ impl Arpeggiator {
     ) -> Self {
         Self {
             uid: Default::default(),
+            params,
             midi_channel_out,
-            sequencer: Sequencer::new_with(sample_rate, params.bpm),
+            sequencer: Sequencer::new_with(
+                sample_rate,
+                super::SequencerParams { bpm: params.bpm() },
+            ),
             note_semaphore: Default::default(),
         }
     }
@@ -196,5 +202,9 @@ impl Arpeggiator {
             key + 11,
             vel,
         );
+    }
+
+    pub fn params(&self) -> ArpeggiatorParams {
+        self.params
     }
 }

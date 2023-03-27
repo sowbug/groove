@@ -310,21 +310,6 @@ impl GrooveApp {
                 self.preferences.last_project_filename = Some(filename);
                 self.project_title = title;
                 self.entity_view.reset();
-
-                // TODO: this should be new-item messages
-                if let Ok(orchestrator) = self.orchestrator.lock() {
-                    orchestrator.entity_iter().for_each(|(uid, entity)| {
-                        self.views.add_entity(*uid, entity);
-                        if entity.as_is_controller().is_some() {
-                            self.views.add_temp_controller(uid, entity);
-                        }
-                        if entity.as_controllable().is_some() {
-                            self.views.add_temp_controllable(uid, entity);
-                        }
-                    });
-                } else {
-                    panic!()
-                };
             }
             GrooveEvent::Clear => {
                 self.views.clear();

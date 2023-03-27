@@ -46,6 +46,10 @@ impl Mixer {
             ..Default::default()
         }
     }
+
+    pub fn params(&self) -> MixerParams {
+        self.params
+    }
 }
 
 #[cfg(test)]

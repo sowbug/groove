@@ -50,6 +50,7 @@ impl SequencerParams {
 #[derive(Debug, Uid)]
 pub struct Sequencer {
     uid: usize,
+    params: SequencerParams,
     next_instant: PerfectTimeUnit,
     events: BeatEventsMap,
     last_event_time: PerfectTimeUnit,
@@ -63,16 +64,17 @@ pub struct Sequencer {
 impl IsController<EntityMessage> for Sequencer {}
 impl HandlesMidi for Sequencer {}
 impl Sequencer {
-    pub fn new_with(sample_rate: usize, bpm: ParameterType) -> Self {
+    pub fn new_with(sample_rate: usize, params: SequencerParams) -> Self {
         Self {
             uid: Default::default(),
+            params,
             next_instant: Default::default(),
             events: Default::default(),
             last_event_time: Default::default(),
             is_disabled: Default::default(),
             should_stop_pending_notes: Default::default(),
             on_notes: Default::default(),
-            temp_hack_clock: Clock::new_with(sample_rate, bpm, 9999),
+            temp_hack_clock: Clock::new_with(sample_rate, params.bpm(), 9999),
         }
     }
 
@@ -179,6 +181,10 @@ impl Sequencer {
     #[allow(dead_code)]
     pub fn debug_dump_events(&self) {
         println!("{:?}", self.events);
+    }
+
+    pub fn params(&self) -> SequencerParams {
+        self.params
     }
 }
 impl Resets for Sequencer {

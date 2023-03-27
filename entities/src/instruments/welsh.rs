@@ -357,6 +357,10 @@ impl WelshSynth {
     pub fn set_control_pan(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_pan(BipolarNormal::from(Normal::new_from_f32(value.0)));
     }
+
+    pub fn params(&self) -> WelshSynthParams {
+        self.params
+    }
 }
 
 #[cfg(test)]

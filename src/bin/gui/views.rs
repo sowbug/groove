@@ -832,78 +832,6 @@ impl EntityStore {
     }
 }
 
-// #[derive(Clone, Debug)]
-// pub enum AutomationMessage {
-//     MouseIn(usize),
-//     MouseOut(usize),
-//     MouseDown(usize),
-//     MouseUp(usize),
-//     Connect(usize, usize, usize),
-// }
-
-/// A [Controller] represents a view of an IsController for the Automation view
-/// pane.
-#[derive(Debug)]
-pub(crate) struct Controller {
-    pub uid: usize,
-    pub name: String,
-}
-impl Controller {
-    pub fn new(uid: usize, name: &str) -> Self {
-        Self {
-            uid,
-            name: name.to_string(),
-        }
-    }
-
-    #[allow(dead_code)]
-    fn set_uid(&mut self, uid: usize) {
-        self.uid = uid;
-    }
-}
-
-// /// A [Controllable] represents a view of something implementing the
-// /// [groove_core::traits::Controllable] trait for the Automation view pane.
-// #[derive(Debug)]
-// pub(crate) struct Controllable {
-//     pub uid: usize,
-//     pub name: String,
-//     pub controllables: Vec<ControlPoint>,
-// }
-// impl Controllable {
-//     pub fn new(uid: usize, name: &str, control_points: Vec<&str>) -> Self {
-//         let mut r = Self {
-//             uid: uid,
-//             name: name.to_string(),
-//             controllables: Vec::default(),
-//         };
-//         r.controllables = control_points.iter().fold(Vec::default(), |mut v, name| {
-//             v.push(ControlPoint::new(name));
-//             v
-//         });
-//         r
-//     }
-
-//     #[allow(dead_code)]
-//     fn set_uid(&mut self, uid: usize) {
-//         self.uid = uid;
-//     }
-// }
-
-// /// A [ControlPoint] is one of the things that a [Controllable] allows to be
-// /// automated.
-// #[derive(Debug)]
-// pub(crate) struct ControlPoint {
-//     pub name: String,
-// }
-// impl ControlPoint {
-//     pub fn new(name: &str) -> Self {
-//         Self {
-//             name: name.to_string(),
-//         }
-//     }
-// }
-
 pub(crate) mod views {
     use super::{ControlTargetWidget, EntityStore};
     use groove::Entity;
@@ -920,7 +848,7 @@ pub(crate) mod views {
         },
         instruments::{WelshSynthParams, WelshSynthParamsMessage},
     };
-    use groove_orchestration::{OtherEntityMessage, EntityParams};
+    use groove_orchestration::{EntityParams, OtherEntityMessage};
     use iced::{
         widget::{column, container, text, Column, Row, Text},
         Element, Length,
@@ -1045,87 +973,6 @@ pub(crate) mod views {
         }
     }
 
-    #[derive(Debug)]
-    struct AudioLaneView {
-        viewable_items: FxHashMap<usize, Box<EntityParams>>,
-    }
-    impl AudioLaneView {
-        fn new() -> Self {
-            let mut r = Self {
-                viewable_items: Default::default(),
-                //                lanes: Default::default(),
-            };
-            // r.viewable_items.insert(
-            //     1,
-            //     Box::new(EntityParams::Drumkit(DrumkitView { cowbell: 0.5 })),
-            // );
-            // r.viewable_items.insert(
-            //     2,
-            //     Box::new(EntityParams::Reverb(ReverbView { amount: 0.1 })),
-            // );
-            // r.viewable_items.insert(
-            //     3,
-            //     Box::new(EntityParams::Drumkit(DrumkitView { cowbell: -0.25 })),
-            // );
-            // r.viewable_items.insert(
-            //     4,
-            //     Box::new(EntityParams::Reverb(ReverbView { amount: 0.0 })),
-            // );
-            // r.viewable_items.insert(
-            //     5,
-            //     Box::new(EntityParams::WelshSynth(WelshSynthView { pan: 0.14159 })),
-            // );
-
-            // r.lanes = vec![
-            //     AudioLane {
-            //         name: String::from("Rhythm"),
-            //         items: vec![1, 2],
-            //     },
-            //     AudioLane {
-            //         name: String::from("Rhythm B"),
-            //         items: vec![3, 4],
-            //     },
-            //     AudioLane {
-            //         name: String::from("Lead"),
-            //         items: vec![5],
-            //     },
-            // ];
-            r
-        }
-
-        // fn update(
-        //     &mut self,
-        //     uid: usize,
-        //     message: OtherEntityMessage,
-        // ) -> Option<OtherEntityMessage> {
-        //     if let Some(entity) = self.viewable_items.get_mut(&uid) {
-        //         match message {
-        //             OtherEntityMessage::ArpeggiatorParams(message) => {
-        //                 if let EntityParams::Arpeggiator(entity) = entity.as_mut() {
-        //                     entity.update(message); // TODO: handle reply
-        //                 }
-        //             }
-        //             OtherEntityMessage::BitcrusherParams(message) => {
-        //                 if let EntityParams::Bitcrusher(entity) = entity.as_mut() {
-        //                     entity.update(message); // TODO: handle reply
-        //                 }
-        //             }
-        //             OtherEntityMessage::GainParams(message) => {
-        //                 if let EntityParams::Gain(entity) = entity.as_mut() {
-        //                     entity.update(message); // TODO: handle reply
-        //                 }
-        //             }
-        //             OtherEntityMessage::LfoControllerParams(message) => {
-        //                 if let EntityParams::LfoController(entity) = entity.as_mut() {
-        //                     entity.update(message); // TODO: handle reply
-        //                 }
-        //             }
-        //         }
-        //     }
-        //     None
-        // }
-    }
-
     #[derive(Clone, Debug)]
     pub(crate) enum MainViewThingyMessage {
         NextView,
@@ -1165,7 +1012,7 @@ pub(crate) mod views {
     }
 
     macro_rules! build_entity_fns {
-        ($($entity:ident: $params:tt,)*) => {
+        ($($entity:ident; $params:tt; $params_message:tt ,)*) => {
             fn entity_view<'a>(&self, uid: usize, entity: &'a EntityParams) -> Element<'a, MainViewThingyMessage> {
                 match entity {
                 $(
@@ -1197,6 +1044,15 @@ pub(crate) mod views {
                         }
                     ),*
                     }
+                } else {
+                    match message {
+                        $(
+                            OtherEntityMessage::$params($params_message::$params(params)) => {
+                                self.add_viewable_item(uid, EntityParams::$entity(Box::new(params)));
+                            }
+                         ),*
+                         _ => {todo!();}
+                    }
                 }
                 None
             }
@@ -1224,6 +1080,7 @@ pub(crate) mod views {
         }
 
         pub(crate) fn clear(&mut self) {
+            eprintln!("Clearing...");
             self.controller_uids.clear();
             self.controllable_uids.clear();
             self.controllable_uids_to_control_names.clear();
@@ -1440,15 +1297,15 @@ pub(crate) mod views {
         }
 
         build_entity_fns! {
-            Arpeggiator: ArpeggiatorParams,
-            Bitcrusher: BitcrusherParams,
-            Gain: GainParams,
-            LfoController: LfoControllerParams,
-            Mixer: MixerParams,
-            PatternManager: PatternManagerParams,
-            Reverb: ReverbParams,
-            Sequencer: SequencerParams,
-            WelshSynth: WelshSynthParams,
+            Arpeggiator; ArpeggiatorParams; ArpeggiatorParamsMessage,
+            Bitcrusher; BitcrusherParams; BitcrusherParamsMessage,
+            Gain; GainParams; GainParamsMessage,
+            LfoController; LfoControllerParams; LfoControllerParamsMessage,
+            Mixer; MixerParams; MixerParamsMessage,
+            PatternManager; PatternManagerParams; PatternManagerParamsMessage,
+            Reverb; ReverbParams; ReverbParamsMessage,
+            Sequencer; SequencerParams; SequencerParamsMessage,
+            WelshSynth; WelshSynthParams; WelshSynthParamsMessage,
         }
 
         fn audio_lane_view<'a, 'b: 'a>(
@@ -1641,6 +1498,22 @@ pub(crate) mod views {
         }
 
         fn add_viewable_item(&mut self, uid: usize, item: EntityParams) {
+            eprintln!("Adding item... {:?}", item);
+            if item.is_controller() {
+                self.controller_uids.push(uid);
+            }
+            if let Some(controllable) = item.as_controllable_ref() {
+                self.controllable_uids.push(uid);
+
+                let mut params = Vec::default();
+                for i in 0..controllable.control_index_count() {
+                    if let Some(name) = controllable.control_name_for_index(i) {
+                        params.push(name.to_string());
+                    }
+                }
+                self.controllable_uids_to_control_names.insert(uid, params);
+            }
+
             // TODO: do we care about displaced items that had the same key?
             self.entity_store.entities.insert(uid, Box::new(item));
         }

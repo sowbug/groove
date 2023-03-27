@@ -144,4 +144,8 @@ impl LfoController {
         self.params.set_frequency(frequency_hz);
         self.oscillator.set_frequency(frequency_hz);
     }
+
+    pub fn params(&self) -> LfoControllerParams {
+        self.params
+    }
 }

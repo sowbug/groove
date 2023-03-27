@@ -98,6 +98,10 @@ impl PatternManager {
     pub fn patterns(&self) -> &[Pattern<Note>] {
         &self.patterns
     }
+
+    pub fn params(&self) -> PatternManagerParams {
+        self.params
+    }
 }
 
 /// [PatternProgrammer] knows how to insert a given [Pattern] into a given
@@ -203,7 +207,10 @@ mod tests {
     #[test]
     fn test_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = Sequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
+        let mut sequencer = Sequencer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            crate::controllers::SequencerParams { bpm: 128.0 },
+        );
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
@@ -261,7 +268,10 @@ mod tests {
     #[test]
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
-        let mut sequencer = Sequencer::new_with(DEFAULT_SAMPLE_RATE, 128.0);
+        let mut sequencer = Sequencer::new_with(
+            DEFAULT_SAMPLE_RATE,
+            crate::controllers::SequencerParams { bpm: 128.0 },
+        );
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time

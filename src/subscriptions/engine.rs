@@ -15,15 +15,20 @@ use groove_core::{
     traits::Resets,
     Normal, ParameterType, StereoSample,
 };
+use groove_entities::controllers::{
+    ArpeggiatorParamsMessage, LfoControllerParamsMessage, PatternManagerParamsMessage,
+    SequencerParamsMessage,
+};
 use groove_orchestration::{
     helpers::IOHelper,
     messages::{GrooveEvent, GrooveInput, Internal, Response},
-    Orchestrator,
+    Entity, Orchestrator, OtherEntityMessage,
 };
 use groove_settings::SongSettings;
 use iced::futures::channel::mpsc as iced_mpsc;
 use iced_native::subscription::{self, Subscription};
 use std::{
+    collections::VecDeque,
     sync::{mpsc, Arc, Mutex},
     thread::JoinHandle,
     time::Instant,
@@ -137,7 +142,7 @@ pub struct EngineSubscription {
     // the stopped clock and get that answer.
     reached_end_of_playback: bool,
 
-    events: Vec<GrooveEvent>,
+    events: VecDeque<GrooveEvent>,
     sender: iced_mpsc::Sender<EngineEvent>,
     receiver: mpsc::Receiver<EngineInput>,
     audio_output: AudioOutput,
@@ -269,7 +274,7 @@ impl EngineSubscription {
         match response.0 {
             Internal::None => {}
             Internal::Single(message) => {
-                self.events.push(message);
+                self.events.push_back(message);
             }
             Internal::Batch(messages) => {
                 self.events.extend(messages);
@@ -283,7 +288,7 @@ impl EngineSubscription {
 
     /// Forwards queued-up events to the app.
     fn forward_pending_events(&mut self) {
-        while let Some(event) = self.events.pop() {
+        while let Some(event) = self.events.pop_front() {
             self.post_event(EngineEvent::GrooveEvent(event));
         }
     }
@@ -444,6 +449,56 @@ impl EngineSubscription {
         self.audio_output.stop();
     }
 
+    fn update_event_message_for_entity(uid: usize, entity: &Entity) -> GrooveEvent {
+        GrooveEvent::Update(
+            uid,
+            match entity {
+                Entity::Arpeggiator(e) => OtherEntityMessage::ArpeggiatorParams(
+                    ArpeggiatorParamsMessage::ArpeggiatorParams(e.params()),
+                ),
+                Entity::Sequencer(e) => OtherEntityMessage::SequencerParams(
+                    SequencerParamsMessage::SequencerParams(e.params()),
+                ),
+                Entity::ControlTrip(_) => todo!(),
+                Entity::MidiTickSequencer(_) => todo!(),
+                Entity::LfoController(e) => OtherEntityMessage::LfoControllerParams(
+                    LfoControllerParamsMessage::LfoControllerParams(e.params()),
+                ),
+                Entity::PatternManager(e) => OtherEntityMessage::PatternManagerParams(
+                    PatternManagerParamsMessage::PatternManagerParams(e.params()),
+                ),
+                Entity::SignalPassthroughController(_) => todo!(),
+                Entity::ToyController(_) => todo!(),
+                Entity::Timer(_) => todo!(),
+                Entity::BiQuadFilter(_) => todo!(),
+                Entity::Bitcrusher(_) => todo!(),
+                Entity::Chorus(_) => todo!(),
+                Entity::Compressor(_) => todo!(),
+                Entity::Delay(_) => todo!(),
+                Entity::Gain(_) => todo!(),
+                Entity::Limiter(_) => todo!(),
+                Entity::Mixer(e) => OtherEntityMessage::MixerParams(
+                    groove_entities::effects::MixerParamsMessage::MixerParams(e.params()),
+                ),
+                Entity::Reverb(e) => OtherEntityMessage::ReverbParams(
+                    groove_entities::effects::ReverbParamsMessage::ReverbParams(e.params()),
+                ),
+                Entity::ToyEffect(_) => todo!(),
+                Entity::Drumkit(_) => todo!(),
+                Entity::FmSynthesizer(_) => todo!(),
+                Entity::Sampler(_) => todo!(),
+                Entity::ToyAudioSource(_) => todo!(),
+                Entity::ToyInstrument(_) => todo!(),
+                Entity::ToySynth(_) => todo!(),
+                Entity::WelshSynth(e) => OtherEntityMessage::WelshSynthParams(
+                    groove_entities::instruments::WelshSynthParamsMessage::WelshSynthParams(
+                        e.params(),
+                    ),
+                ),
+            },
+        )
+    }
+
     fn load_project(&mut self, filename: &str) -> Response<GrooveEvent> {
         let mut path = Paths::projects_path(PathType::Global);
         path.push(filename);
@@ -451,6 +506,22 @@ impl EngineSubscription {
             if let Ok(instance) = settings.instantiate(&Paths::assets_path(PathType::Global), false)
             {
                 let title = instance.title();
+
+                let mut v = Vec::default();
+                v.push(Response::single(GrooveEvent::ProjectLoaded(
+                    filename.to_string(),
+                    title,
+                )));
+                v.push(Response::single(GrooveEvent::Clear));
+                v.extend(
+                    instance
+                        .entity_iter()
+                        .map(|(uid, entity)| {
+                            Response::single(Self::update_event_message_for_entity(*uid, entity))
+                        })
+                        .collect::<Vec<Response<GrooveEvent>>>(),
+                );
+
                 if let Ok(mut o) = self.orchestrator.lock() {
                     // I'm amazed this works whenever I see it, but I think it's
                     // just saying that we're replacing what the reference
@@ -458,10 +529,7 @@ impl EngineSubscription {
                     // work, but it does work.
                     *o = instance;
                 }
-                return Response::batch(vec![
-                    Response::single(GrooveEvent::ProjectLoaded(filename.to_string(), title)),
-                    Response::single(GrooveEvent::Clear),
-                ]);
+                return Response::batch(v);
             }
         }
         Response::none()
