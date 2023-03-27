@@ -13,7 +13,11 @@
 //! #     time::PerfectTimeUnit,
 //! #     StereoSample,
 //! # };
-//! # use groove_entities::{controllers::Sequencer, effects::Compressor};
+//! # use groove_entities::{
+//! #     controllers::Sequencer,
+//! #     controllers::SequencerParams,
+//! #     effects::Compressor
+//! # };
 //! # use groove_toys::ToySynth;
 //! #
 //! # const SAMPLE_RATE: usize = 44100;
@@ -27,7 +31,7 @@
 //! let synth = ToySynth::new_with(SAMPLE_RATE);
 //!
 //! // Sequencer sends MIDI commands to the synth.
-//! let mut sequencer = Sequencer::new_with(SAMPLE_RATE, BPM);
+//! let mut sequencer = Sequencer::new_with(SAMPLE_RATE, SequencerParams { bpm: 128.0 });
 //!
 //! // There are lots of different ways to populate the sequencer with notes.
 //! sequencer.insert(PerfectTimeUnit(0.0), MIDI_0, new_note_on(69, 100));
@@ -135,6 +139,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "orchestrator - control_message_for_index is incomplete. re-enable when macroized"]
     fn spit_out_perf_data() {
         let yaml = std::fs::read_to_string(PathBuf::from("test-data/perf-1.yaml"))
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));

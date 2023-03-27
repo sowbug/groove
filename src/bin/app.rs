@@ -254,7 +254,10 @@ impl Application for GrooveApp {
             .control_bar_view
             .view(matches!(self.state, State::Playing))
             .map(AppMessage::ControlBarEvent);
-        let main_content = self.main_view();
+        let main_content = self
+            .views
+            .view()
+            .map(move |m| AppMessage::MainViewThingyMessage(m));
         container(
             Column::new()
                 .push(control_bar)
@@ -463,129 +466,146 @@ impl GrooveApp {
     }
 
     fn update_entity(&mut self, uid: usize, message: EntityMessage) {
-        if let Ok(mut o) = self.orchestrator.lock() {
-            if let Some(entity) = o.get_mut(uid) {
-                match entity {
-                    Entity::BiQuadFilter(e) => match message {
-                        EntityMessage::HSliderInt(value) => {
-                            e.set_cutoff_pct(value.as_f32());
-                        }
-                        _ => todo!(),
-                    },
-                    Entity::Bitcrusher(e) => match message {
-                        EntityMessage::HSliderInt(value) => {
-                            e.set_bits_to_crush(value.as_f32() as u8);
-                        }
-                        _ => todo!(),
-                    },
-                    Entity::Compressor(e) => match message {
-                        EntityMessage::HSliderInt(v) => e.set_threshold(v.as_f32()),
-                        _ => todo!(),
-                    },
-                    Entity::Gain(e) => match message {
-                        EntityMessage::HSliderInt(value) => {
-                            e.set_ceiling(Normal::new_from_f32(value.as_f32()));
-                        }
-                        _ => todo!(),
-                    },
-                    Entity::WelshSynth(e) => match message {
-                        EntityMessage::Knob(value) => {
-                            // TODO: it's annoying to have to plumb this through. I want
-                            // everything #controllable to automatically generate the
-                            // scaffolding for UI.
-                            e.set_control_pan(groove_core::control::F32ControlValue(
-                                value.as_f32(),
-                            ));
-                        }
-                        _ => todo!(),
-                    },
-                    Entity::Arpeggiator(_) => todo!(),
-                    Entity::Sequencer(_) => todo!(),
-                    Entity::ControlTrip(_) => todo!(),
-                    Entity::MidiTickSequencer(_) => todo!(),
-                    Entity::LfoController(_) => todo!(),
-                    Entity::PatternManager(_) => todo!(),
-                    Entity::SignalPassthroughController(_) => todo!(),
-                    Entity::ToyController(_) => todo!(),
-                    Entity::Timer(_) => todo!(),
-                    Entity::Chorus(_) => todo!(),
-                    Entity::Delay(_) => todo!(),
-                    Entity::Limiter(_) => todo!(),
-                    Entity::Mixer(_) => todo!(),
-                    Entity::Reverb(_) => todo!(),
-                    Entity::ToyEffect(_) => todo!(),
-                    Entity::Drumkit(_) => todo!(),
-                    Entity::FmSynthesizer(e) => match message {
-                        EntityMessage::Midi(_, _) => todo!(),
-                        EntityMessage::ControlF32(_) => todo!(),
-                        EntityMessage::PatternMessage(_, _) => todo!(),
-                        EntityMessage::HSliderInt(_) => todo!(),
-                        EntityMessage::HSliderInt2(_) => todo!(),
-                        EntityMessage::HSliderInt3(_) => todo!(),
-                        EntityMessage::HSliderInt4(_) => todo!(),
-                        EntityMessage::Knob(depth) => e.set_depth(Normal::from(depth.as_f32())),
-                        EntityMessage::Knob2(ratio) => e.set_ratio(
-                            self.entity_view
-                                .fm_synthesizer_ratio_range
-                                .unmap_to_value(ratio) as f64,
-                        ),
-                        EntityMessage::Knob3(beta) => e.set_beta(
-                            self.entity_view
-                                .fm_synthesizer_beta_range
-                                .unmap_to_value(beta) as f64,
-                        ),
-                        EntityMessage::Knob4(_) => todo!(),
-                        EntityMessage::PickListSelected(_) => todo!(),
-                        EntityMessage::ExpandPressed => todo!(),
-                        EntityMessage::CollapsePressed => todo!(),
-                        EntityMessage::EnablePressed(_) => todo!(),
-                    },
-                    Entity::Sampler(_) => todo!(),
-                    Entity::ToyAudioSource(_) => todo!(),
-                    Entity::ToyInstrument(_) => todo!(),
-                    Entity::ToySynth(_) => todo!(),
-                }
-            }
+        match message {
+            EntityMessage::Midi(_, _) => todo!(),
+            EntityMessage::ControlF32(_) => todo!(),
+            EntityMessage::PatternMessage(_, _) => todo!(),
+            EntityMessage::HSliderInt(_) => todo!(),
+            EntityMessage::HSliderInt2(_) => todo!(),
+            EntityMessage::HSliderInt3(_) => todo!(),
+            EntityMessage::HSliderInt4(_) => todo!(),
+            EntityMessage::Knob(_) => todo!(),
+            EntityMessage::Knob2(_) => todo!(),
+            EntityMessage::Knob3(_) => todo!(),
+            EntityMessage::Knob4(_) => todo!(),
+            EntityMessage::PickListSelected(_) => todo!(),
+            EntityMessage::ExpandPressed => todo!(),
+            EntityMessage::CollapsePressed => todo!(),
+            EntityMessage::EnablePressed(_) => todo!(),
         }
+        // if let Ok(mut o) = self.orchestrator.lock() {
+        //     if let Some(entity) = o.get_mut(uid) {
+        //         match entity {
+        //             Entity::BiQuadFilter(e) => match message {
+        //                 EntityMessage::HSliderInt(value) => {
+        //                     e.set_cutoff_pct(value.as_f32());
+        //                 }
+        //                 _ => todo!(),
+        //             },
+        //             Entity::Bitcrusher(e) => match message {
+        //                 EntityMessage::HSliderInt(value) => {
+        //                     e.set_bits_to_crush(value.as_f32() as u8);
+        //                 }
+        //                 _ => todo!(),
+        //             },
+        //             Entity::Compressor(e) => match message {
+        //                 EntityMessage::HSliderInt(v) => e.set_threshold(v.as_f32()),
+        //                 _ => todo!(),
+        //             },
+        //             Entity::Gain(e) => match message {
+        //                 EntityMessage::HSliderInt(value) => {
+        //                     e.set_ceiling(Normal::new_from_f32(value.as_f32()));
+        //                 }
+        //                 _ => todo!(),
+        //             },
+        //             Entity::WelshSynth(e) => match message {
+        //                 EntityMessage::Knob(value) => {
+        //                     // TODO: it's annoying to have to plumb this through. I want
+        //                     // everything #controllable to automatically generate the
+        //                     // scaffolding for UI.
+        //                     e.set_control_pan(groove_core::control::F32ControlValue(
+        //                         value.as_f32(),
+        //                     ));
+        //                 }
+        //                 _ => todo!(),
+        //             },
+        //             Entity::Arpeggiator(_) => todo!(),
+        //             Entity::Sequencer(_) => todo!(),
+        //             Entity::ControlTrip(_) => todo!(),
+        //             Entity::MidiTickSequencer(_) => todo!(),
+        //             Entity::LfoController(_) => todo!(),
+        //             Entity::PatternManager(_) => todo!(),
+        //             Entity::SignalPassthroughController(_) => todo!(),
+        //             Entity::ToyController(_) => todo!(),
+        //             Entity::Timer(_) => todo!(),
+        //             Entity::Chorus(_) => todo!(),
+        //             Entity::Delay(_) => todo!(),
+        //             Entity::Limiter(_) => todo!(),
+        //             Entity::Mixer(_) => todo!(),
+        //             Entity::Reverb(_) => todo!(),
+        //             Entity::ToyEffect(_) => todo!(),
+        //             Entity::Drumkit(_) => todo!(),
+        //             Entity::FmSynthesizer(e) => match message {
+        //                 EntityMessage::Midi(_, _) => todo!(),
+        //                 EntityMessage::ControlF32(_) => todo!(),
+        //                 EntityMessage::PatternMessage(_, _) => todo!(),
+        //                 EntityMessage::HSliderInt(_) => todo!(),
+        //                 EntityMessage::HSliderInt2(_) => todo!(),
+        //                 EntityMessage::HSliderInt3(_) => todo!(),
+        //                 EntityMessage::HSliderInt4(_) => todo!(),
+        //                 EntityMessage::Knob(depth) => e.set_depth(Normal::from(depth.as_f32())),
+        //                 EntityMessage::Knob2(ratio) => e.set_ratio(
+        //                     self.entity_view
+        //                         .fm_synthesizer_ratio_range
+        //                         .unmap_to_value(ratio) as f64,
+        //                 ),
+        //                 EntityMessage::Knob3(beta) => e.set_beta(
+        //                     self.entity_view
+        //                         .fm_synthesizer_beta_range
+        //                         .unmap_to_value(beta) as f64,
+        //                 ),
+        //                 EntityMessage::Knob4(_) => todo!(),
+        //                 EntityMessage::PickListSelected(_) => todo!(),
+        //                 EntityMessage::ExpandPressed => todo!(),
+        //                 EntityMessage::CollapsePressed => todo!(),
+        //                 EntityMessage::EnablePressed(_) => todo!(),
+        //             },
+        //             Entity::Sampler(_) => todo!(),
+        //             Entity::ToyAudioSource(_) => todo!(),
+        //             Entity::ToyInstrument(_) => todo!(),
+        //             Entity::ToySynth(_) => todo!(),
+        //         }
+        //     }
+        // }
     }
 
-    fn orchestrator_view(&self) -> Element<GrooveEvent> {
-        if let Ok(orchestrator) = self.orchestrator.lock() {
-            let canvas: Element<'_, GrooveEvent, Renderer<<GrooveApp as Application>::Theme>> =
-                Canvas::new(&self.gui_state)
-                    .width(Length::Fill)
-                    .height(Length::Fixed((32 * 4) as f32))
-                    .into();
+    // fn orchestrator_view(&self) -> Element<GrooveEvent> {
+    //     // if let Ok(orchestrator) = self.orchestrator.lock() {
+    //     // let canvas: Element<'_, GrooveEvent, Renderer<<GrooveApp as Application>::Theme>> =
+    //     //     Canvas::new(&self.gui_state)
+    //     //         .width(Length::Fill)
+    //     //         .height(Length::Fixed((32 * 4) as f32))
+    //     //         .into();
 
-            let mut views = orchestrator
-                .entity_iter()
-                .fold(Vec::new(), |mut v, (&uid, e)| {
-                    v.push(
-                        self.entity_view
-                            .view(e)
-                            .map(move |message| GrooveEvent::EntityMessage(uid, message)),
-                    );
-                    v
-                });
-            views.push(canvas);
-            column(views).into()
-        } else {
-            panic!()
-        }
-    }
+    //     let mut views = self.views.view()orchestrator
+    //         .entity_iter()
+    //         .fold(Vec::new(), |mut v, (&uid, e)| {
+    //             v.push(
+    //                 self.entity_view
+    //                     .view(e)
+    //                     .map(move |message| GrooveEvent::EntityMessage(uid, message)),
+    //             );
+    //             v
+    //         });
+    //     //            views.push(canvas);
+    //     column(views).into()
+    //     // } else {
+    //     //     panic!()
+    //     // }
+    // }
 
-    fn orchestrator_new_view(&self) -> Element<GrooveEvent> {
-        if let Ok(_orchestrator) = self.orchestrator.lock() {
-            let canvas: Element<'_, GrooveEvent, Renderer<<GrooveApp as Application>::Theme>> =
-                Canvas::new(&self.gui_state)
-                    .width(Length::Fill)
-                    .height(Length::Fixed((32 * 4) as f32))
-                    .into();
-            canvas.into()
-        } else {
-            panic!()
-        }
-    }
+    // fn orchestrator_new_view(&self) -> Element<GrooveEvent> {
+    //     if let Ok(_orchestrator) = self.orchestrator.lock() {
+    //         let canvas: Element<'_, GrooveEvent, Renderer<<GrooveApp as Application>::Theme>> =
+    //             Canvas::new(&self.gui_state)
+    //                 .width(Length::Fill)
+    //                 .height(Length::Fixed((32 * 4) as f32))
+    //                 .into();
+    //         canvas.into()
+    //     } else {
+    //         panic!()
+    //     }
+    // }
 
     fn midi_view(&self) -> Element<MidiHandlerInput> {
         let activity_text = container(GuiStuff::<EntityMessage>::container_text(
@@ -622,7 +642,7 @@ impl GrooveApp {
         GuiStuff::titled_container("MIDI", container(row![activity_text, port_menus]).into())
     }
 
-    fn handle_close_requested_event(&mut self) -> Command<AppMessage> {
+    fn handle_close_requested_event(&mut self) -> Option<Command<AppMessage>> {
         // See https://github.com/iced-rs/iced/pull/804 and
         // https://github.com/iced-rs/iced/blob/master/examples/events/src/main.rs#L55
         //
@@ -633,7 +653,7 @@ impl GrooveApp {
         // Let the PrefsSaved message handler know that it's time to go.
         self.should_exit = true;
 
-        Command::perform(
+        Some(Command::perform(
             Preferences::save_prefs(Preferences {
                 selected_midi_input: self.preferences.selected_midi_input.clone(),
                 selected_midi_output: self.preferences.selected_midi_output.clone(),
@@ -641,57 +661,63 @@ impl GrooveApp {
                 last_project_filename: self.preferences.last_project_filename.clone(),
             }),
             AppMessage::PrefsSaved,
-        )
+        ))
     }
 
-    fn handle_keyboard_event(&mut self, event: iced::keyboard::Event) {
+    fn handle_keyboard_event(
+        &mut self,
+        event: iced::keyboard::Event,
+    ) -> Option<Command<AppMessage>> {
         // This recently changed, and I don't get KeyPressed anymore. Maybe this
         // is a new event that processes KeyPressed/KeyReleased, so they're no
         // longer "ignored runtime events."
         if let iced::keyboard::Event::CharacterReceived(char) = event {
             if char == '\t' {
-                self.switch_main_view();
+                // TODO: I don't know if this is smart. Are there better
+                // patterns than calling update()?
+                self.views.update(MainViewThingyMessage::NextView);
             }
         }
+        None
     }
 
-    fn next_view(view: MainViews) -> MainViews {
-        match FromPrimitive::from_u8(view as u8 + 1) {
-            Some(view) => view,
-            None => FromPrimitive::from_u8(0).unwrap(),
-        }
-    }
+    // fn next_view(view: MainViews) -> MainViews {
+    //     match FromPrimitive::from_u8(view as u8 + 1) {
+    //         Some(view) => view,
+    //         None => FromPrimitive::from_u8(0).unwrap(),
+    //     }
+    // }
 
-    fn switch_main_view(&mut self) {
-        self.current_view = Self::next_view(self.current_view)
-    }
+    // fn switch_main_view(&mut self) {
+    //     self.current_view = Self::next_view(self.current_view)
+    // }
 
-    fn main_view(&self) -> Element<AppMessage> {
-        match self.current_view {
-            MainViews::Unstructured => {
-                let midi_view: Element<AppMessage> =
-                    self.midi_view().map(AppMessage::MidiHandlerInput);
-                let project_view: Element<AppMessage> =
-                    self.orchestrator_view().map(AppMessage::GrooveEvent);
-                let scrollable_content = column![midi_view, project_view];
-                let scrollable =
-                    container(scrollable(scrollable_content)).width(Length::FillPortion(1));
-                row![Self::under_construction("Unstructured"), scrollable].into()
-            }
-            MainViews::New => {
-                let project_view: Element<AppMessage> =
-                    self.orchestrator_new_view().map(AppMessage::GrooveEvent);
-                scrollable(project_view).into()
-            }
-            MainViews::Session => Self::under_construction("Session").into(),
-            MainViews::Arrangement => Self::under_construction("Arrangement").into(),
-            MainViews::Preferences => Self::under_construction("Preferences").into(),
-            MainViews::AudioLanes | MainViews::Automation => self
-                .views
-                .view()
-                .map(move |m| AppMessage::MainViewThingyMessage(m)),
-        }
-    }
+    // fn main_view(&self) -> Element<AppMessage> {
+    //     match self.current_view {
+    //         MainViews::Unstructured => {
+    //             let midi_view: Element<AppMessage> =
+    //                 self.midi_view().map(AppMessage::MidiHandlerInput);
+    //             let project_view: Element<AppMessage> =
+    //                 self.orchestrator_view().map(AppMessage::GrooveEvent);
+    //             let scrollable_content = column![midi_view, project_view];
+    //             let scrollable =
+    //                 container(scrollable(scrollable_content)).width(Length::FillPortion(1));
+    //             row![Self::under_construction("Unstructured"), scrollable].into()
+    //         }
+    //         MainViews::New => {
+    //             let project_view: Element<AppMessage> =
+    //                 self.orchestrator_new_view().map(AppMessage::GrooveEvent);
+    //             scrollable(project_view).into()
+    //         }
+    //         MainViews::Session => Self::under_construction("Session").into(),
+    //         MainViews::Arrangement => Self::under_construction("Arrangement").into(),
+    //         MainViews::Preferences => Self::under_construction("Preferences").into(),
+    //         MainViews::AudioLanes | MainViews::Automation => self
+    //             .views
+    //             .view()
+    //             .map(move |m| AppMessage::MainViewThingyMessage(m)),
+    //     }
+    // }
 
     fn handle_midi_handler_event(&mut self, event: MidiHandlerEvent) {
         match event {
@@ -777,10 +803,10 @@ impl GrooveApp {
 
     fn handle_system_event(&mut self, event: Event) -> Option<Command<AppMessage>> {
         if let Event::Window(window::Event::CloseRequested) = event {
-            return Some(self.handle_close_requested_event());
+            return self.handle_close_requested_event();
         }
         if let Event::Keyboard(e) = event {
-            self.handle_keyboard_event(e);
+            return self.handle_keyboard_event(e);
         }
         None
     }

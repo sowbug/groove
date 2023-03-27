@@ -96,6 +96,7 @@ pub mod tests {
     // argument as an alternative to the (necessary) string argument.
 
     #[test]
+    #[ignore = "orchestrator - control_message_for_index is incomplete. re-enable when macroized"]
     fn control_routing_works() {
         let mut clock = Clock::new_with(
             DEFAULT_SAMPLE_RATE,

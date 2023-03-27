@@ -833,9 +833,10 @@ impl EntityStore {
 }
 
 pub(crate) mod views {
-    use super::{ControlTargetWidget, EntityStore};
+    use super::{ControlTargetWidget, EntityStore, GuiStuff};
+    use crate::gui::SMALL_FONT;
     use groove::Entity;
-    use groove_core::{BipolarNormal, Normal};
+    use groove_core::{traits::HasUid, BipolarNormal, Normal};
     use groove_entities::{
         controllers::{
             ArpeggiatorParams, ArpeggiatorParamsMessage, LfoControllerParams,
@@ -850,9 +851,10 @@ pub(crate) mod views {
     };
     use groove_orchestration::{EntityParams, OtherEntityMessage};
     use iced::{
-        widget::{column, container, text, Column, Row, Text},
+        widget::{column, container, pick_list, text, Column, Row, Text},
         Element, Length,
     };
+    use iced_audio::{FloatRange, HSlider, IntRange, Knob, Normal as IcedNormal, NormalParam};
     use iced_aw::{
         style::{BadgeStyles, CardStyles},
         Badge, Card,
@@ -969,7 +971,23 @@ pub(crate) mod views {
         type Message = WelshSynthParamsMessage;
 
         fn view(&self) -> Element<Self::Message> {
-            container(text(&format!("pan: {}", self.pan().value()))).into()
+            let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
+            let pan_knob: Element<WelshSynthParamsMessage> = Knob::new(
+                // TODO: toil. make it easier to go from bipolar normal to normal
+                NormalParam {
+                    value: IcedNormal::from_clipped(Normal::from(self.pan()).value_as_f32()),
+                    default: IcedNormal::from_clipped(0.5),
+                },
+                |n| WelshSynthParamsMessage::Pan(BipolarNormal::from(n.as_f32())),
+            )
+            .into();
+            let column = Column::new()
+                .push(GuiStuff::<WelshSynthParamsMessage>::container_text(
+                    "Welsh coming soon",
+                ))
+                //                column.push(  pick_list(options, None, |s| {WelshSynthParamsMessage::Pan}).font(SMALL_FONT));
+                .push(pan_knob);
+            container(column).into()
         }
     }
 
@@ -992,6 +1010,7 @@ pub(crate) mod views {
         AudioLanes,
         #[default]
         Automation,
+        Everything,
     }
 
     #[derive(Debug)]
@@ -1089,12 +1108,13 @@ pub(crate) mod views {
 
         pub(crate) fn view(&self) -> Element<MainViewThingyMessage> {
             match self.current_view {
-                MainViewThingyViews::AudioLanes => self.audio_lane_view(&self.entity_store),
-                MainViewThingyViews::Automation => self.automation_view(&self.entity_store),
+                MainViewThingyViews::AudioLanes => self.audio_lane_view(),
+                MainViewThingyViews::Automation => self.automation_view(),
+                MainViewThingyViews::Everything => self.everything_view(),
             }
         }
 
-        fn automation_view(&self, entity_store: &EntityStore) -> Element<MainViewThingyMessage> {
+        fn automation_view(&self) -> Element<MainViewThingyMessage> {
             let controller_columns = self.controller_uids.iter().enumerate().fold(
                 Vec::default(),
                 |mut v, (_index, controller_uid)| {
@@ -1109,7 +1129,7 @@ pub(crate) mod views {
                     } else {
                         CardStyles::Default
                     };
-                    let controller = entity_store.get(controller_uid).unwrap(); // TODO no unwraps!
+                    let controller = self.entity_store.get(controller_uid).unwrap(); // TODO no unwraps!
                     let card = Card::new(
                         ControlTargetWidget::<MainViewThingyMessage>::new(
                             Text::new("TBD"),
@@ -1163,7 +1183,7 @@ pub(crate) mod views {
                 |mut v, (_index, controllable_uid)| {
                     let mut column = Column::new();
                     let controllable_id = *controllable_uid;
-                    if let Some(controllable) = entity_store.get(controllable_uid) {
+                    if let Some(controllable) = self.entity_store.get(controllable_uid) {
                         if let Some(controllable) = controllable.as_controllable_ref() {
                             for param_id in 0..controllable.control_index_count() {
                                 let param_app_id = controllable_id * 10000 + param_id;
@@ -1308,10 +1328,18 @@ pub(crate) mod views {
             WelshSynth; WelshSynthParams; WelshSynthParamsMessage,
         }
 
-        fn audio_lane_view<'a, 'b: 'a>(
-            &'a self,
-            entity_store: &'b EntityStore,
-        ) -> Element<'a, MainViewThingyMessage> {
+        fn everything_view(&self) -> Element<MainViewThingyMessage> {
+            let boxes: Vec<Element<MainViewThingyMessage>> = self
+                .entity_store
+                .entities
+                .iter()
+                .map(|(uid, entity)| self.entity_view(*uid, entity))
+                .collect();
+            let column = boxes.into_iter().fold(Column::new(), |c, e| c.push(e));
+            container(column).into()
+        }
+
+        fn audio_lane_view<'a, 'b: 'a>(&'a self) -> Element<'a, MainViewThingyMessage> {
             let lane_views =
                 self.lanes
                     .iter()
@@ -1322,7 +1350,7 @@ pub(crate) mod views {
                             lane.items.iter().enumerate().fold(
                                 Row::new(),
                                 |r, (item_index, uid)| {
-                                    if let Some(item) = entity_store.get(uid) {
+                                    if let Some(item) = self.entity_store.get(uid) {
                                         let name: &'static str = "no idea 2345983495";
                                         let view = self.entity_view(*uid, item.as_ref());
                                         r.push(
@@ -1539,6 +1567,17 @@ pub(crate) mod views {
                 self.controllable_uids.push(*uid);
                 self.controllable_uids_to_control_names.insert(*uid, params);
             }
+        }
+
+        fn collapsing_box<F>(
+            &self,
+            entity: &impl HasUid,
+            contents_fn: F,
+        ) -> Element<MainViewThingyMessage>
+        where
+            F: FnOnce() -> Element<'static, MainViewThingyMessage>,
+        {
+            container(contents_fn()).into()
         }
     }
 }
