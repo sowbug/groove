@@ -1219,7 +1219,7 @@ impl View {
                 let mut column = Column::new();
                 let controllable_id = *controllable_uid;
                 if let Some(controllable) = self.entity_store.get(controllable_uid) {
-                    if let Some(controllable) = controllable.as_controllable_ref() {
+                    if let Some(controllable) = controllable.as_controllable() {
                         for param_id in 0..controllable.control_index_count() {
                             let param_app_id = controllable_id * 10000 + param_id;
                             let badge_style = if self.is_dragging {
@@ -1513,7 +1513,7 @@ impl View {
         if item.is_controller() {
             self.controller_uids.push(uid);
         }
-        if let Some(controllable) = item.as_controllable_ref() {
+        if let Some(controllable) = item.as_controllable() {
             self.controllable_uids.push(uid);
 
             let mut params = Vec::default();

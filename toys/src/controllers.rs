@@ -8,8 +8,8 @@ use groove_core::{
     ParameterType,
 };
 use groove_proc_macros::{Control, Synchronization, Uid};
+use std::collections::VecDeque;
 use std::str::FromStr;
-use std::{collections::VecDeque, marker::PhantomData};
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,

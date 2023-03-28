@@ -1,9 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{
-    midi::{u7, HandlesMidi},
-    BipolarNormal, Normal, Sample, StereoSample,
-};
+pub use crate::midi::HandlesMidi;
+
+use crate::{midi::u7, BipolarNormal, Normal, Sample, StereoSample};
 
 pub trait MessageBounds: Clone + std::fmt::Debug + Send {}
 

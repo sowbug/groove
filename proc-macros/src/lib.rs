@@ -5,10 +5,10 @@
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::Meta;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Generics};
-use syn::{Attribute, Ident};
-use syn::{Lit, NestedMeta};
+use syn::{
+    parse_macro_input, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident,
+    Lit, Meta, NestedMeta,
+};
 
 /// The Uid macro derives the boilerplate necessary for the HasUid trait. If a
 /// device needs to interoperate with Orchestrator, then it needs to have a
@@ -333,5 +333,274 @@ fn parse_synchronization_data(
         #impl_block
         #[automatically_derived]
         #controllable_block
+    }
+}
+
+#[proc_macro_derive(Everything, attributes(everything))]
+pub fn derive_everything(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    TokenStream::from(parse_and_generate_everything(&input.data))
+}
+
+#[derive(Debug)]
+struct OneThing {
+    base_name: Ident,
+    ty: syn::Type,
+    is_controller: bool,
+    is_effect: bool,
+    is_instrument: bool,
+    is_controllable: bool,
+    handles_midi: bool,
+}
+
+fn build_lists<'a>(
+    things: impl Iterator<Item = &'a OneThing>,
+) -> (Vec<Ident>, Vec<Ident>, Vec<syn::Type>) {
+    let mut structs = Vec::default();
+    let mut params = Vec::default();
+    let mut types = Vec::default();
+    for thing in things {
+        params.push(format_ident!("{}Params", thing.base_name.to_string()));
+        structs.push(thing.base_name.clone());
+        types.push(thing.ty.clone());
+    }
+    (structs, params, types)
+}
+
+fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
+    let things = match data {
+        Data::Enum(DataEnum { variants, .. }) => {
+            let mut v = Vec::default();
+            for variant in variants.iter() {
+                let mut is_controller = false;
+                let mut is_effect = false;
+                let mut is_instrument = false;
+                let mut is_controllable = false;
+                let mut handles_midi = false;
+                for attr in &variant.attrs {
+                    if let Ok(meta) = attr.parse_meta() {
+                        if let Meta::List(list) = meta {
+                            if list.path.is_ident("everything") {
+                                for i in list.nested.iter() {
+                                    if let NestedMeta::Meta(m) = i {
+                                        if m.path().is_ident("controller") {
+                                            is_controller = true;
+                                        }
+                                        if m.path().is_ident("effect") {
+                                            is_effect = true;
+                                        }
+                                        if m.path().is_ident("instrument") {
+                                            is_instrument = true;
+                                            if m.path().is_ident("controller") {
+                                                is_controller = true;
+                                            }
+                                        }
+                                        if m.path().is_ident("controllable") {
+                                            is_controllable = true;
+                                        }
+                                        if m.path().is_ident("midi") {
+                                            handles_midi = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                for (field_index, field) in variant.fields.iter().enumerate() {
+                    v.push(OneThing {
+                        base_name: variant.ident.clone(),
+                        ty: field.ty.clone(),
+                        is_controller,
+                        is_effect,
+                        is_instrument,
+                        is_controllable,
+                        handles_midi,
+                    });
+                }
+            }
+            v
+        }
+        _ => panic!("this derive macro works only on enums"),
+    };
+
+    let (structs, params, types) = build_lists(things.iter());
+
+    let entity_enum = quote! {
+        #[derive(Debug)]
+        pub enum Entity {
+            #( #structs(Box<#types>) ),*
+        }
+
+        #[derive(Debug)]
+        pub enum EntityParams {
+            #( #structs(Box<#params>) ),*
+        }
+    };
+
+    let common_upcasters = quote! {
+        impl Entity {
+            pub fn as_has_uid(&self) -> &dyn HasUid {
+                match self {
+                #( Entity::#structs(e) => e.as_ref(), )*
+                }
+            }
+            pub fn as_has_uid_mut(&mut self) -> &mut dyn HasUid {
+                match self {
+                #( Entity::#structs(e) => e.as_mut(), )*
+                }
+            }
+        }
+    };
+
+    let (structs, params, types) = build_lists(things.iter().filter(|thing| thing.is_controller));
+    let controller_upcasters = quote! {
+        impl Entity {
+            pub fn is_controller(&self) -> bool {
+                match self {
+                    #( Entity::#structs(_) => true, )*
+                    _ => false,
+                }
+            }
+            pub fn as_is_controller(&self) -> Option<&dyn groove_core::traits::IsController<Message=Moosage>> {
+                match self {
+                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsController<Message=Moosage>> {
+                match self {
+                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
+        }
+        impl EntityParams {
+            pub fn is_controller(&self) -> bool {
+                match self {
+                    #( EntityParams::#structs(_) => true, )*
+                    _ => false,
+                }
+            }
+        }
+    };
+
+    let (structs, params, types) = build_lists(things.iter().filter(|thing| thing.is_controllable));
+    let controllable_upcasters = quote! {
+        impl Entity {
+            pub fn is_controllable(&self) -> bool {
+                match self {
+                    #( Entity::#structs(_) => true, )*
+                    _ => false,
+                }
+            }
+            pub fn as_controllable(&self) -> Option<&dyn groove_core::traits::Controllable> {
+                match self {
+                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_controllable_mut(&mut self) -> Option<&mut dyn groove_core::traits::Controllable> {
+                match self {
+                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
+        }
+        impl EntityParams {
+            pub fn is_controllable(&self) -> bool {
+                match self {
+                    #( EntityParams::#structs(_) => true, )*
+                    _ => false,
+                }
+            }
+            pub fn as_controllable(&self) -> Option<&dyn groove_core::traits::Controllable> {
+                match self {
+                    #( EntityParams::#structs(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_controllable_mut(&mut self) -> Option<&mut dyn groove_core::traits::Controllable> {
+                match self {
+                    #( EntityParams::#structs(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
+        }
+    };
+
+    let (structs, params, types) = build_lists(things.iter().filter(|thing| thing.is_effect));
+    let effect_upcasters = quote! {
+        impl Entity {
+            pub fn as_is_effect(&self) -> Option<&dyn groove_core::traits::IsEffect> {
+                match self {
+                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsEffect> {
+                match self {
+                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
+        }
+    };
+
+    let (structs, params, types) = build_lists(things.iter().filter(|thing| thing.is_instrument));
+    let instrument_upcasters = quote! {
+        impl Entity {
+            pub fn as_is_instrument(&self) -> Option<&dyn groove_core::traits::IsInstrument> {
+                match self {
+                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsInstrument> {
+                match self {
+                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
+        }
+    };
+
+    let (structs, params, types) = build_lists(things.iter().filter(|thing| thing.handles_midi));
+    let handles_midi_upcasters = quote! {
+        impl Entity {
+            pub fn as_handles_midi(&self) -> Option<&dyn groove_core::traits::HandlesMidi> {
+                match self {
+                    #( Entity::#structs(e) => Some(e.as_ref()), )*
+                    _ => None,
+                }
+            }
+            pub fn as_handles_midi_mut(&mut self) -> Option<&mut dyn groove_core::traits::HandlesMidi> {
+                match self {
+                    #( Entity::#structs(e) => Some(e.as_mut()), )*
+                    _ => None,
+                }
+            }
+        }
+    };
+
+    quote! {
+        #[automatically_derived]
+        #entity_enum
+        #[automatically_derived]
+        #common_upcasters
+        #[automatically_derived]
+        #controller_upcasters
+        #[automatically_derived]
+        #effect_upcasters
+        #[automatically_derived]
+        #instrument_upcasters
+        #[automatically_derived]
+        #controllable_upcasters
+        #[automatically_derived]
+        #handles_midi_upcasters
+
+        enum Foo {
+            #( #structs(#types) ),*
+        }
     }
 }

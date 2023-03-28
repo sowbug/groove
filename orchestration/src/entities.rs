@@ -1,9 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::{
-    midi::HandlesMidi,
-    traits::{Controllable, HasUid, IsController, IsEffect, IsInstrument},
-};
+use groove_core::traits::HasUid;
 use groove_entities::{
     controllers::{
         Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage, ControlTrip, ControlTripParams,
@@ -27,11 +24,8 @@ use groove_entities::{
     },
     EntityMessage,
 };
-use groove_macros::{
-    all_entities, boxed_entity_enum_and_common_crackers, controllable_crackers,
-    controller_crackers, effect_crackers, handles_midi_crackers, instrument_crackers,
-    register_impl,
-};
+use groove_macros::all_entities;
+use groove_proc_macros::Everything;
 use groove_toys::{
     ToyAudioSource, ToyAudioSourceParams, ToyAudioSourceParamsMessage, ToyController,
     ToyControllerParams, ToyControllerParamsMessage, ToyEffect, ToyEffectParams,
@@ -44,114 +38,6 @@ use groove_toys::{
 // TODO: where does this docstring go?
 // An [Entity] wraps a musical device, giving it the ability to be managed by
 // [Orchestrator] and automated by other devices in the system.
-
-boxed_entity_enum_and_common_crackers! {
-    // Controllers
-    Arpeggiator: Arpeggiator,
-    Sequencer: Sequencer,
-    ControlTrip: ControlTrip,
-    MidiTickSequencer: MidiTickSequencer,
-    LfoController: LfoController,
-    PatternManager: PatternManager,
-    SignalPassthroughController: SignalPassthroughController,
-    ToyController: ToyController<EntityMessage>,
-    Timer: Timer,
-
-    // Effects
-    BiQuadFilter: BiQuadFilter,
-    Bitcrusher: Bitcrusher,
-    Chorus: Chorus,
-    Compressor: Compressor,
-    Delay: Delay,
-    Gain: Gain,
-    Limiter: Limiter,
-    Mixer: Mixer,
-    Reverb: Reverb,
-    ToyEffect: ToyEffect,
-
-    // Instruments
-    Drumkit: Drumkit,
-    FmSynth: FmSynth,
-    Sampler: Sampler,
-    ToyAudioSource: ToyAudioSource,
-    ToyInstrument: ToyInstrument,
-    ToySynth: ToySynth,
-    WelshSynth: WelshSynth,
-}
-
-controllable_crackers! {
-    Arpeggiator,
-    BiQuadFilter,
-    Bitcrusher,
-    Chorus,
-    Compressor,
-    Delay,
-    FmSynth,
-    Gain,
-    Limiter,
-    Reverb,
-    ToyEffect,
-    ToyInstrument,
-    ToySynth,
-    WelshSynth,
-}
-
-controller_crackers! {
-    Arpeggiator,
-    Sequencer,
-    ControlTrip,
-    LfoController,
-    MidiTickSequencer,
-    PatternManager,
-    SignalPassthroughController,
-    ToyController,
-    Timer,
-}
-
-effect_crackers! {
-    BiQuadFilter,
-    Bitcrusher,
-    Chorus,
-    Compressor,
-    Delay,
-    Gain,
-    Limiter,
-    Mixer,
-    Reverb,
-    SignalPassthroughController,
-    ToyEffect,
-}
-
-instrument_crackers! {
-    ToyAudioSource,
-    Drumkit,
-    FmSynth,
-    Sampler,
-    ToyInstrument,
-    ToySynth,
-    WelshSynth,
-}
-
-handles_midi_crackers! {
-    Arpeggiator,
-    ToyAudioSource,
-    Sequencer,
-    ControlTrip,
-    Drumkit,
-    FmSynth,
-    LfoController,
-    MidiTickSequencer,
-    PatternManager,
-    Sampler,
-    SignalPassthroughController,
-    ToyController,
-    ToyInstrument,
-    ToySynth,
-    Timer,
-    WelshSynth,
-}
-
-//////////////////////////
 
 all_entities! {
     // struct; params; message; is_controller; is_controllable,
@@ -190,32 +76,86 @@ all_entities! {
     WelshSynth; WelshSynthParams; WelshSynthParamsMessage; false; true,
 }
 
+type Moosage = EntityMessage;
+
 #[allow(dead_code)]
+#[derive(Everything)]
 enum Everything {
-    Arpeggiator,
-    BiQuadFilter,
-    Bitcrusher,
-    Chorus,
-    Compressor,
-    ControlTrip,
-    Delay,
-    Drumkit,
-    FmSynthesizer,
-    Gain,
-    LfoController,
-    Limiter,
-    MidiTickSequencer,
-    Mixer,
-    PatternManager,
-    Reverb,
-    Sampler,
-    Sequencer,
-    SignalPassthroughController,
-    Timer,
-    ToyAudioSource,
-    ToyController,
-    ToyEffect,
-    ToyInstrument,
-    ToySynth,
-    WelshSynth,
+    #[everything(controller, midi, controllable)]
+    Arpeggiator(Arpeggiator),
+
+    #[everything(effect, controllable)]
+    BiQuadFilter(BiQuadFilter),
+
+    #[everything(effect, controllable)]
+    Bitcrusher(Bitcrusher),
+
+    #[everything(effect, controllable)]
+    Chorus(Chorus),
+
+    #[everything(effect, controllable)]
+    Compressor(Compressor),
+
+    #[everything(controller, midi)]
+    ControlTrip(ControlTrip),
+
+    #[everything(effect, controllable)]
+    Delay(Delay),
+
+    #[everything(instrument, midi)]
+    Drumkit(Drumkit),
+
+    #[everything(instrument, midi, controllable)]
+    FmSynth(FmSynth),
+
+    #[everything(effect, controllable)]
+    Gain(Gain),
+
+    #[everything(controller, midi)]
+    LfoController(LfoController),
+
+    #[everything(effect, controllable)]
+    Limiter(Limiter),
+
+    #[everything(controller, midi)]
+    MidiTickSequencer(MidiTickSequencer),
+
+    #[everything(effect)]
+    Mixer(Mixer),
+
+    #[everything(controller, midi)]
+    PatternManager(PatternManager),
+
+    #[everything(effect, controllable)]
+    Reverb(Reverb),
+
+    #[everything(instrument, midi)]
+    Sampler(Sampler),
+
+    #[everything(controller, midi)]
+    Sequencer(Sequencer),
+
+    #[everything(controller, effect, midi)]
+    SignalPassthroughController(SignalPassthroughController),
+
+    #[everything(controller, midi)]
+    Timer(Timer),
+
+    #[everything(instrument, midi)]
+    ToyAudioSource(ToyAudioSource),
+
+    #[everything(controller, midi)]
+    ToyController(ToyController<EntityMessage>),
+
+    #[everything(effect, controllable)]
+    ToyEffect(ToyEffect),
+
+    #[everything(instrument, midi, controllable)]
+    ToyInstrument(ToyInstrument),
+
+    #[everything(instrument, midi, controllable)]
+    ToySynth(ToySynth),
+
+    #[everything(instrument, midi, controllable)]
+    WelshSynth(WelshSynth),
 }
