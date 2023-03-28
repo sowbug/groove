@@ -173,13 +173,6 @@ fn parse_control_data(
                     None
                 }
             }
-            fn set_by_control_index(&mut self, index: usize, value: groove_core::control::F32ControlValue) {
-                if let Some(param) = #enum_name::from_repr(index) {
-                    match param {
-                        #( #enum_name::#enum_variant_names => {self.#setter_names(value); } ),*
-                    }
-                }
-            }
         }
     };
     quote! {

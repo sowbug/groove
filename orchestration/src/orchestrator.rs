@@ -549,8 +549,21 @@ impl Orchestrator {
                             self.broadcast_midi_messages(&[(channel, message)]);
                         }
                         EntityMessage::ControlF32(value) => {
-                            self.dispatch_control_f32(uid, value);
-                            unhandled_commands.push(self.broadcast_control_message(uid, value));
+                            // Both the engine and the app have their own copies
+                            // of each controllable EntityParam, so we need to
+                            // create two copies of each Update message: one
+                            // processed in this message loop, and the other
+                            // dispatched to the app.
+                            let updates = self.generate_control_update_messages(uid, value);
+                            for update in updates.iter() {
+                                if let GrooveInput::Update(uid, message) = update {
+                                    unhandled_commands.push(Response::single(GrooveEvent::Update(
+                                        *uid,
+                                        message.clone(),
+                                    )));
+                                }
+                            }
+                            messages.extend(updates);
                         }
                         _ => todo!(),
                     },
@@ -635,34 +648,20 @@ impl Orchestrator {
         }
     }
 
-    #[deprecated = "This should be replaced with a message handler like the one on the app side"]
-    fn dispatch_control_f32(&mut self, uid: usize, value: f32) {
+    fn generate_control_update_messages(&mut self, uid: usize, value: f32) -> Vec<GrooveInput> {
         if let Some(control_links) = self.store.control_links(uid) {
-            for (target_uid, param_id) in control_links.clone() {
-                if let Some(entity) = self.store.get_mut(target_uid) {
-                    if let Some(entity) = entity.as_controllable_mut() {
-                        entity.set_by_control_index(
-                            param_id,
-                            groove_core::control::F32ControlValue(value),
-                        );
+            return control_links
+                .iter()
+                .fold(Vec::default(), |mut v, (target_uid, param_id)| {
+                    if let Some(entity) = self.store.get(*target_uid) {
+                        if let Some(msg) = entity.message_for(*param_id, value.into()) {
+                            v.push(GrooveInput::Update(*target_uid, msg));
+                        }
                     }
-                }
-            }
+                    v
+                });
         }
-    }
-
-    fn broadcast_control_message(&mut self, uid: usize, value: f32) -> Response<GrooveEvent> {
-        let mut v = Vec::default();
-        if let Some(control_links) = self.store.control_links(uid) {
-            for (target_uid, param_id) in control_links.iter() {
-                if let Some(entity) = self.store.get(*target_uid) {
-                    if let Some(msg) = entity.message_for(*param_id, value.into()) {
-                        v.push(Response::single(GrooveEvent::Update(*target_uid, msg)));
-                    }
-                }
-            }
-        }
-        Response::batch(v)
+        Vec::default()
     }
 
     // TODO: we're not very crisp about what "done" means. I think the current

@@ -190,6 +190,7 @@ all_entities! {
     WelshSynth; WelshSynthParams; WelshSynthParamsMessage; false; true,
 }
 
+#[allow(dead_code)]
 enum Everything {
     Arpeggiator,
     BiQuadFilter,

@@ -1,7 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use crate::{
-    control::F32ControlValue,
     midi::{u7, HandlesMidi},
     BipolarNormal, Normal, Sample, StereoSample,
 };
@@ -67,9 +66,6 @@ pub trait Controllable {
         unimplemented!("Controllable trait methods are implemented by a macro")
     }
     fn control_name_for_index(&self, index: usize) -> Option<&'static str> {
-        unimplemented!()
-    }
-    fn set_by_control_index(&mut self, index: usize, value: F32ControlValue) {
         unimplemented!()
     }
 }

@@ -352,6 +352,7 @@ impl WelshSynth {
 
     pub fn set_pan(&mut self, pan: BipolarNormal) {
         self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
+        self.params.set_pan(pan);
     }
 
     pub fn set_control_pan(&mut self, value: groove_core::control::F32ControlValue) {
@@ -362,8 +363,13 @@ impl WelshSynth {
         self.params
     }
 
+    // TODO: this pattern sucks. I knew it was going to be icky. Think about how
+    // to make it less copy/paste.
     pub fn update(&mut self, message: WelshSynthParamsMessage) {
-        self.params.update(message)
+        match message {
+            WelshSynthParamsMessage::WelshSynthParams(e) => self.params = e,
+            WelshSynthParamsMessage::Pan(pan) => self.set_pan(pan),
+        }
     }
 }
 
