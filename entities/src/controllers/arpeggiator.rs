@@ -29,16 +29,6 @@ pub struct ArpeggiatorParams {
     pub bpm: ParameterType,
 }
 
-impl ArpeggiatorParams {
-    pub fn bpm(&self) -> f64 {
-        self.bpm
-    }
-
-    pub fn set_bpm(&mut self, bpm: ParameterType) {
-        self.bpm = bpm;
-    }
-}
-
 /// [Arpeggiator] creates [arpeggios](https://en.wikipedia.org/wiki/Arpeggio),
 /// which "is a type of broken chord in which the notes that compose a chord are
 /// individually and quickly sounded in a progressive rising or descending

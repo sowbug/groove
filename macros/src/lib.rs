@@ -1,3 +1,8 @@
+// Copyright (c) 2023 Mike Tsao. All rights reserved.
+
+// PRO TIP: use `cargo expand` to see what's being generated. It requires the
+// nightly toolchain.
+
 #[macro_export]
 macro_rules! boxed_entity_enum_and_common_crackers {
     ($($variant:ident: $type:ty,)*) => {

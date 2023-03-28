@@ -204,12 +204,6 @@ fn parse_synchronization_data(
     data: &Data,
 ) -> proc_macro2::TokenStream {
     let (_impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
-    let mut enum_set_method_names = Vec::default();
-    let mut enum_set_method_original_names = Vec::default();
-    let mut enum_snake_names = Vec::default();
-    let mut enum_variant_names = Vec::default();
-    let mut enum_variant_fields = Vec::default();
-
     // Code adapted from https://blog.turbo.fish/proc-macro-error-handling/
     // Thank you!
     let fields = match data {
@@ -238,18 +232,20 @@ fn parse_synchronization_data(
         v
     });
 
+    let mut enum_variant_names = Vec::default();
+    let mut enum_field_names = Vec::default();
+    let mut enum_field_types = Vec::default();
+    let mut enum_getter_names = Vec::default();
+    let mut enum_setter_names = Vec::default();
     for (field_name, field_type) in sync_fields {
-        enum_set_method_names.push(format_ident!(
-            "set_and_propagate_{}",
-            field_name.to_string(),
-        ));
-        enum_set_method_original_names.push(format_ident!("set_{}", field_name.to_string(),));
-        enum_snake_names.push(format_ident!("{}", field_name.to_string(),));
         enum_variant_names.push(format_ident!(
             "{}",
             field_name.to_string().to_case(Case::Pascal),
         ));
-        enum_variant_fields.push(format_ident!("{}", field_type));
+        enum_field_names.push(format_ident!("{}", field_name.to_string(),));
+        enum_field_types.push(format_ident!("{}", field_type));
+        enum_getter_names.push(format_ident!("{}", field_name.to_string(),));
+        enum_setter_names.push(format_ident!("set_{}", field_name.to_string(),));
     }
 
     let enum_block = quote! {
@@ -257,7 +253,15 @@ fn parse_synchronization_data(
         #[strum(serialize_all = "kebab-case")]
         pub enum #enum_name {
             #struct_name ( #struct_name ),
-            #( #enum_variant_names ( #enum_variant_fields ) ),*
+            #( #enum_variant_names ( #enum_field_types ) ),*
+        }
+    };
+    let getter_setter_block = quote! {
+        impl #generics #struct_name #ty_generics {
+            #(
+               pub fn #enum_getter_names(&self) -> #enum_field_types { self.#enum_field_names }
+               pub fn #enum_setter_names(&mut self, #enum_field_names: #enum_field_types) { self.#enum_field_names = #enum_field_names; }
+            )*
         }
     };
     let impl_block = quote! {
@@ -265,7 +269,7 @@ fn parse_synchronization_data(
             pub fn update(&mut self, message: #enum_name) {
                 match message {
                     #enum_name::#struct_name(v) => *self = v,
-                    #( #enum_name::#enum_variant_names(v) => self.#enum_set_method_original_names(v) ),*
+                    #( #enum_name::#enum_variant_names(v) => self.#enum_setter_names(v) ),*
                 }
             }
 
@@ -323,6 +327,8 @@ fn parse_synchronization_data(
     quote! {
         #[automatically_derived]
         #enum_block
+        #[automatically_derived]
+        #getter_setter_block
         #[automatically_derived]
         #impl_block
         #[automatically_derived]

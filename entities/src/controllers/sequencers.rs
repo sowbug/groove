@@ -35,15 +35,6 @@ pub struct SequencerParams {
     #[sync]
     pub bpm: ParameterType,
 }
-impl SequencerParams {
-    pub fn bpm(&self) -> f64 {
-        self.bpm
-    }
-
-    pub fn set_bpm(&mut self, bpm: ParameterType) {
-        self.bpm = bpm;
-    }
-}
 
 /// [Sequencer] produces MIDI according to a programmed sequence. Its unit of
 /// time is the beat.
@@ -248,15 +239,6 @@ pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiM
 pub struct MidiTickSequencerParams {
     #[sync]
     pub midi_ticks_per_second: usize,
-}
-impl MidiTickSequencerParams {
-    pub fn midi_ticks_per_second(&self) -> usize {
-        self.midi_ticks_per_second
-    }
-
-    pub fn set_midi_ticks_per_second(&mut self, midi_ticks_per_second: usize) {
-        self.midi_ticks_per_second = midi_ticks_per_second;
-    }
 }
 
 /// [MidiTickSequencer] is another kind of sequencer whose time unit is the MIDI

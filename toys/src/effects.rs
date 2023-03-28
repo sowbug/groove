@@ -27,15 +27,6 @@ pub struct ToyEffectParams {
     #[sync]
     pub my_value: Normal,
 }
-impl ToyEffectParams {
-    pub fn my_value(&self) -> Normal {
-        self.my_value
-    }
-
-    pub fn set_my_value(&mut self, my_value: Normal) {
-        self.my_value = my_value;
-    }
-}
 
 /// An [IsEffect](groove_core::traits::IsEffect) that negates the input signal.
 #[derive(Control, Debug, Default, Uid)]

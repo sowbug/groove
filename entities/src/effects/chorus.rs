@@ -29,24 +29,6 @@ pub struct ChorusParams {
     pub delay_factor: usize,
 }
 
-impl ChorusParams {
-    pub fn voices(&self) -> usize {
-        self.voices
-    }
-
-    pub fn set_voices(&mut self, voices: usize) {
-        self.voices = voices;
-    }
-
-    pub fn delay_factor(&self) -> usize {
-        self.delay_factor
-    }
-
-    pub fn set_delay_factor(&mut self, delay_factor: usize) {
-        self.delay_factor = delay_factor;
-    }
-}
-
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.
 #[derive(Control, Debug, Default, Uid)]

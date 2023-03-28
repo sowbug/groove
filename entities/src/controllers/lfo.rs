@@ -31,24 +31,6 @@ pub struct LfoControllerParams {
     pub frequency: ParameterType,
 }
 
-impl LfoControllerParams {
-    pub fn waveform(&self) -> WaveformParams {
-        self.waveform
-    }
-
-    pub fn set_waveform(&mut self, waveform: WaveformParams) {
-        self.waveform = waveform;
-    }
-
-    pub fn frequency(&self) -> f64 {
-        self.frequency
-    }
-
-    pub fn set_frequency(&mut self, frequency: ParameterType) {
-        self.frequency = frequency;
-    }
-}
-
 /// Uses an internal LFO as a control source.
 #[derive(Control, Debug, Uid)]
 pub struct LfoController {

@@ -26,23 +26,6 @@ pub struct LimiterParams {
     #[sync]
     pub min: BipolarNormal,
 }
-impl LimiterParams {
-    pub fn max(&self) -> BipolarNormal {
-        self.max
-    }
-
-    pub fn set_max(&mut self, max: BipolarNormal) {
-        self.max = max;
-    }
-
-    pub fn min(&self) -> BipolarNormal {
-        self.min
-    }
-
-    pub fn set_min(&mut self, min: BipolarNormal) {
-        self.min = min;
-    }
-}
 
 #[derive(Control, Debug, Uid)]
 pub struct Limiter {

@@ -57,15 +57,6 @@ pub struct TimerParams {
     #[sync]
     pub seconds_to_run: ParameterType,
 }
-impl TimerParams {
-    pub fn seconds_to_run(&self) -> f64 {
-        self.seconds_to_run
-    }
-
-    pub fn set_seconds_to_run(&mut self, seconds_to_run: ParameterType) {
-        self.seconds_to_run = seconds_to_run;
-    }
-}
 
 /// [Timer] runs for a specified amount of time, then indicates that it's done.
 /// It is useful when you need something to happen after a certain amount of
@@ -142,24 +133,6 @@ pub struct TriggerParams {
 
     #[sync]
     pub value: f32,
-}
-
-impl TriggerParams {
-    pub fn seconds_to_run(&self) -> f64 {
-        self.seconds_to_run
-    }
-
-    pub fn set_seconds_to_run(&mut self, seconds_to_run: ParameterType) {
-        self.seconds_to_run = seconds_to_run;
-    }
-
-    pub fn value(&self) -> f32 {
-        self.value
-    }
-
-    pub fn set_value(&mut self, value: f32) {
-        self.value = value;
-    }
 }
 
 // TODO: needs tests!

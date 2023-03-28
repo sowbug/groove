@@ -40,16 +40,6 @@ pub struct ToyControllerParams {
     pub bpm: ParameterType,
 }
 
-impl ToyControllerParams {
-    pub fn bpm(&self) -> f64 {
-        self.bpm
-    }
-
-    pub fn set_bpm(&mut self, bpm: ParameterType) {
-        self.bpm = bpm;
-    }
-}
-
 /// An [IsController](groove_core::traits::IsController) that emits a MIDI
 /// note-on event on each beat, and a note-off event on each half-beat.
 #[derive(Control, Debug, Uid)]
@@ -74,8 +64,6 @@ pub struct ToyController<M: MessageBounds> {
     pub time_unit: ClockTimeUnit,
 
     message_maker: Box<dyn MessageMaker<Message = M>>,
-
-    _phantom: PhantomData<M>,
 }
 impl<M: MessageBounds> IsController for ToyController<M> {}
 impl<M: MessageBounds> TicksWithMessages for ToyController<M> {
@@ -182,7 +170,6 @@ impl<M: MessageBounds> ToyController<M> {
             checkpoint_delta,
             time_unit,
             message_maker,
-            _phantom: Default::default(),
         }
     }
 

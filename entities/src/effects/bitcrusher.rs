@@ -26,16 +26,6 @@ pub struct BitcrusherParams {
     pub bits: u8,
 }
 
-impl BitcrusherParams {
-    pub fn bits(&self) -> u8 {
-        self.bits
-    }
-
-    pub fn set_bits(&mut self, bits: u8) {
-        self.bits = bits;
-    }
-}
-
 /// TODO: this is a pretty lame bitcrusher. It is hardly noticeable for values
 /// below 13, and it destroys the waveform at 15. It doesn't do any simulation
 /// of sample-rate reduction, either.

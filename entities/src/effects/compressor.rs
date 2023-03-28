@@ -46,40 +46,6 @@ pub struct CompressorParams {
     pub release: ParameterType,
 }
 
-impl CompressorParams {
-    pub fn threshold(&self) -> Normal {
-        self.threshold
-    }
-
-    pub fn set_threshold(&mut self, threshold: Normal) {
-        self.threshold = threshold;
-    }
-
-    pub fn ratio(&self) -> f64 {
-        self.ratio
-    }
-
-    pub fn set_ratio(&mut self, ratio: ParameterType) {
-        self.ratio = ratio;
-    }
-
-    pub fn attack(&self) -> f64 {
-        self.attack
-    }
-
-    pub fn set_attack(&mut self, attack: ParameterType) {
-        self.attack = attack;
-    }
-
-    pub fn release(&self) -> f64 {
-        self.release
-    }
-
-    pub fn set_release(&mut self, release: ParameterType) {
-        self.release = release;
-    }
-}
-
 #[derive(Control, Debug, Default, Uid)]
 pub struct Compressor {
     uid: usize,

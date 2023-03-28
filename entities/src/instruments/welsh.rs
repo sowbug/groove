@@ -263,15 +263,6 @@ pub struct WelshSynthParams {
     #[sync]
     pub pan: BipolarNormal,
 }
-impl WelshSynthParams {
-    pub fn pan(&self) -> BipolarNormal {
-        self.pan
-    }
-
-    pub fn set_pan(&mut self, pan: BipolarNormal) {
-        self.pan = pan;
-    }
-}
 
 #[derive(Control, Debug, Uid)]
 pub struct WelshSynth {

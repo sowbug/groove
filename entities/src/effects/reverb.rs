@@ -30,23 +30,6 @@ pub struct ReverbParams {
     #[sync]
     pub seconds: ParameterType,
 }
-impl ReverbParams {
-    pub fn attenuation(&self) -> &Normal {
-        &self.attenuation
-    }
-
-    pub fn set_attenuation(&mut self, attenuation: Normal) {
-        self.attenuation = attenuation;
-    }
-
-    pub fn seconds(&self) -> f64 {
-        self.seconds
-    }
-
-    pub fn set_seconds(&mut self, seconds: ParameterType) {
-        self.seconds = seconds;
-    }
-}
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
 /// a series of two all-pass delay lines.

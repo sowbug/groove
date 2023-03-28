@@ -26,16 +26,6 @@ pub struct GainParams {
     pub ceiling: Normal,
 }
 
-impl GainParams {
-    pub fn ceiling(&self) -> Normal {
-        self.ceiling
-    }
-
-    pub fn set_ceiling(&mut self, ceiling: Normal) {
-        self.ceiling = ceiling;
-    }
-}
-
 #[derive(Control, Debug, Default, Uid)]
 pub struct Gain {
     uid: usize,

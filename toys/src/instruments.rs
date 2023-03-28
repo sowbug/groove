@@ -27,15 +27,6 @@ pub struct ToyInstrumentParams {
     #[sync]
     pub fake_value: Normal,
 }
-impl ToyInstrumentParams {
-    pub fn fake_value(&self) -> Normal {
-        self.fake_value
-    }
-
-    pub fn set_fake_value(&mut self, fake_value: Normal) {
-        self.fake_value = fake_value;
-    }
-}
 
 /// An [IsInstrument](groove_core::traits::IsInstrument) that uses a default
 /// Oscillator to produce sound. Its "envelope" is just a boolean that responds
@@ -253,15 +244,6 @@ pub struct ToySynthParams {
     #[sync]
     pub fake_value: Normal,
 }
-impl ToySynthParams {
-    pub fn fake_value(&self) -> Normal {
-        self.fake_value
-    }
-
-    pub fn set_fake_value(&mut self, fake_value: Normal) {
-        self.fake_value = fake_value;
-    }
-}
 
 /// Another [IsInstrument](groove_core::traits::IsInstrument) that was designed
 /// for black-box debugging.
@@ -389,15 +371,6 @@ pub struct ToyAudioSourceParams {
     // conditions. Thus we need to let it go out of range.
     #[sync]
     pub level: ParameterType,
-}
-impl ToyAudioSourceParams {
-    pub fn level(&self) -> ParameterType {
-        self.level
-    }
-
-    pub fn set_level(&mut self, level: ParameterType) {
-        self.level = level;
-    }
 }
 
 /// Produces a constant audio signal. Used for ensuring that a known signal

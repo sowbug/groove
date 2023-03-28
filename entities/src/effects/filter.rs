@@ -24,15 +24,6 @@ pub struct BiQuadFilterParams {
     #[sync]
     pub cutoff: ParameterType,
 }
-impl BiQuadFilterParams {
-    pub fn cutoff(&self) -> ParameterType {
-        self.cutoff
-    }
-
-    pub fn set_cutoff(&mut self, cutoff: ParameterType) {
-        self.cutoff = cutoff;
-    }
-}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {

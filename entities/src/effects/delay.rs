@@ -205,16 +205,6 @@ pub struct DelayParams {
     pub seconds: ParameterType,
 }
 
-impl DelayParams {
-    pub fn seconds(&self) -> f64 {
-        self.seconds
-    }
-
-    pub fn set_seconds(&mut self, seconds: ParameterType) {
-        self.seconds = seconds;
-    }
-}
-
 #[derive(Control, Debug, Default, Uid)]
 pub struct Delay {
     uid: usize,
