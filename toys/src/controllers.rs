@@ -7,7 +7,7 @@ use groove_core::{
     traits::{IsController, MessageBounds, Resets, Ticks, TicksWithMessages},
     ParameterType,
 };
-use groove_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Control, Synchronization, Uid};
 use std::str::FromStr;
 use std::{collections::VecDeque, marker::PhantomData};
 use strum::EnumCount;

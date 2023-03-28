@@ -11,7 +11,7 @@ use groove_core::{
     voices::VoicePerNoteStore,
     StereoSample,
 };
-use groove_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Control, Synchronization, Uid};
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 use strum::EnumCount;
 use strum_macros::{

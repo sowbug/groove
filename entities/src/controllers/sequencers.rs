@@ -8,7 +8,7 @@ use groove_core::{
     traits::{IsController, Resets, TicksWithMessages},
     ParameterType,
 };
-use groove_macros::{Synchronization, Uid};
+use groove_proc_macros::{Synchronization, Uid};
 use midly::TrackEventKind;
 use rustc_hash::FxHashMap;
 use std::str::FromStr;

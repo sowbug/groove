@@ -12,7 +12,7 @@ use groove_core::{
     },
     BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, StereoSample,
 };
-use groove_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Control, Synchronization, Uid};
 use std::str::FromStr;
 
 use strum::EnumCount;

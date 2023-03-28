@@ -7,7 +7,7 @@ use groove_core::{
     time::{BeatValue, PerfectTimeUnit, TimeSignature},
     traits::{IsController, Resets, TicksWithMessages},
 };
-use groove_macros::{Synchronization, Uid};
+use groove_proc_macros::{Synchronization, Uid};
 use std::{cmp, fmt::Debug, str::FromStr};
 
 use strum::EnumCount;

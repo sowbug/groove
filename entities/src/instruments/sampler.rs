@@ -8,7 +8,7 @@ use groove_core::{
     voices::VoiceStore,
     BipolarNormal, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Control, Synchronization, Uid};
 use hound::WavReader;
 use std::{
     fs::File,

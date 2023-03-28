@@ -7,7 +7,7 @@ use groove_core::{
     traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
     BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Control, Synchronization, Uid};
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, str::FromStr};
 use strum::EnumCount;
 use strum_macros::{

@@ -8,7 +8,7 @@ use groove_core::{
     traits::{IsController, Resets, TicksWithMessages},
     ParameterType,
 };
-use groove_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Control, Synchronization, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{

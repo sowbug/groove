@@ -27,18 +27,17 @@ use groove_entities::{
     },
     EntityMessage,
 };
-use groove_proc_macros::{
+use groove_macros::{
     all_entities, boxed_entity_enum_and_common_crackers, controllable_crackers,
     controller_crackers, effect_crackers, handles_midi_crackers, instrument_crackers,
     register_impl,
 };
 use groove_toys::{
     ToyAudioSource, ToyAudioSourceParams, ToyAudioSourceParamsMessage, ToyController,
-    ToyControllerParams, ToyControllerParamsMessage, ToyEffect, ToyInstrument, ToySynth,
-    ToySynthParams, ToySynthParamsMessage,
+    ToyControllerParams, ToyControllerParamsMessage, ToyEffect, ToyEffectParams,
+    ToyEffectParamsMessage, ToyInstrument, ToyInstrumentParams, ToyInstrumentParamsMessage,
+    ToySynth, ToySynthParams, ToySynthParamsMessage,
 };
-use groove_toys::{ToyEffectParams, ToyInstrumentParams};
-use groove_toys::{ToyEffectParamsMessage, ToyInstrumentParamsMessage};
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
 

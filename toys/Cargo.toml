@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 groove-core = { path = "../core" }
-groove-macros = { path = "../macros" }
+groove-proc-macros = { path = "../proc-macros" }
 rand = "0.8.5"
 strum = "0.24.1"
 strum_macros = "0.24.2"

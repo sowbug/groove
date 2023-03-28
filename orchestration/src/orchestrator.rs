@@ -19,7 +19,7 @@ use groove_entities::{
     instruments::WelshSynthParamsMessage,
     EntityMessage,
 };
-use groove_macros::Uid;
+use groove_proc_macros::Uid;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::io::{self, Write};
 
@@ -652,6 +652,7 @@ impl Orchestrator {
         }
     }
 
+    #[deprecated]
     fn control_message_for_index(
         entity: &Entity,
         param_id: &usize,
@@ -840,6 +841,7 @@ impl Orchestrator {
         )
     }
 
+    #[deprecated]
     fn update_controllable(&mut self, uid: usize, message: OtherEntityMessage) {
         if let Some(entity) = self.store.get_mut(uid) {
             todo!()
