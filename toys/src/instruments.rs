@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Envelope, EnvelopeParams, Oscillator, Waveform},
+    generators::{Envelope, EnvelopeParams, Oscillator, WaveformParams},
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
     traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
@@ -50,7 +50,7 @@ pub struct ToyInstrument {
 
     /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
     #[controllable]
-    pub waveform: PhantomData<Waveform>, // interesting use of PhantomData
+    pub waveform: PhantomData<WaveformParams>, // interesting use of PhantomData
 
     #[controllable]
     pub fake_value: Normal,
@@ -202,19 +202,19 @@ impl ToyInstrument {
     #[allow(dead_code)]
     fn waveform(&self) -> f32 {
         match self.oscillator.waveform() {
-            Waveform::Sawtooth => -1.0,
-            Waveform::Square => 1.0,
+            WaveformParams::Sawtooth => -1.0,
+            WaveformParams::Square => 1.0,
             _ => 0.0,
         }
     }
 
     pub fn set_control_waveform(&mut self, value: groove_core::control::F32ControlValue) {
         self.oscillator.set_waveform(if value.0 == -1.0 {
-            Waveform::Sawtooth
+            WaveformParams::Sawtooth
         } else if value.0 == 1.0 {
-            Waveform::Square
+            WaveformParams::Square
         } else {
-            Waveform::Sine
+            WaveformParams::Sine
         });
     }
 

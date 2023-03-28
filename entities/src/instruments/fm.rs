@@ -2,7 +2,7 @@
 
 use groove_core::{
     control::F32ControlValue,
-    generators::{Envelope, EnvelopeParams, Oscillator, Waveform},
+    generators::{Envelope, EnvelopeParams, Oscillator, WaveformParams},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
@@ -153,7 +153,7 @@ impl FmVoice {
         Self {
             sample: Default::default(),
             carrier: Oscillator::new_with(sample_rate),
-            modulator: Oscillator::new_with_waveform(sample_rate, Waveform::Sine),
+            modulator: Oscillator::new_with_waveform(sample_rate, WaveformParams::Sine),
             modulator_depth: params.depth,
             modulator_ratio: params.ratio,
             modulator_beta: params.beta,

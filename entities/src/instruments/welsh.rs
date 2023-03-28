@@ -166,11 +166,11 @@ impl Ticks for WelshVoice {
                         + (1.0 - self.filter_cutoff_start)
                             * self.filter_cutoff_end
                             * filter_env_amplitude.value() as f32;
-                    self.filter.set_cutoff_pct(new_cutoff_percentage);
+                    self.filter.set_cutoff_pct(new_cutoff_percentage.into());
                 } else if matches!(self.lfo_routing, LfoRouting::FilterCutoff) {
                     let lfo_for_cutoff = lfo * self.lfo_depth;
                     self.filter.set_cutoff_pct(
-                        self.filter_cutoff_start * (1.0 + lfo_for_cutoff.value_as_f32()),
+                        (self.filter_cutoff_start * (1.0 + lfo_for_cutoff.value_as_f32())).into(),
                     );
                 }
                 let filtered_mix = self.filter.transform_channel(0, Sample::from(osc_sum)).0;

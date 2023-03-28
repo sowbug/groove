@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::Normal;
+use groove_core::{Normal, ParameterType};
 use groove_entities::effects::{
     BiQuadFilter, Bitcrusher, BitcrusherParams, Chorus, ChorusParams, Compressor, CompressorParams,
     Delay, DelayParams, FilterParams, Gain, Limiter, LimiterParams, Mixer, Reverb, ReverbParams,
@@ -44,26 +44,35 @@ pub enum EffectSettings {
         seconds: f64,
     },
     #[serde(rename = "filter-low-pass-12db")]
-    FilterLowPass12db { cutoff: f32, q: f32 },
+    FilterLowPass12db { cutoff: ParameterType, q: f32 },
     #[serde(rename = "filter-low-pass-24db", rename_all = "kebab-case")]
-    FilterLowPass24db { cutoff: f32, passband_ripple: f32 },
+    FilterLowPass24db {
+        cutoff: ParameterType,
+        passband_ripple: f32,
+    },
     #[serde(rename = "filter-high-pass-12db")]
-    FilterHighPass12db { cutoff: f32, q: f32 },
+    FilterHighPass12db { cutoff: ParameterType, q: f32 },
     #[serde(rename = "filter-band-pass-12db")]
-    FilterBandPass12db { cutoff: f32, bandwidth: f32 },
+    FilterBandPass12db {
+        cutoff: ParameterType,
+        bandwidth: f32,
+    },
     #[serde(rename = "filter-band-stop-12db")]
-    FilterBandStop12db { cutoff: f32, bandwidth: f32 },
+    FilterBandStop12db {
+        cutoff: ParameterType,
+        bandwidth: f32,
+    },
     #[serde(rename = "filter-all-pass-12db")]
-    FilterAllPass12db { cutoff: f32, q: f32 },
+    FilterAllPass12db { cutoff: ParameterType, q: f32 },
     #[serde(rename = "filter-peaking-eq-12db")]
     #[serde(rename_all = "kebab-case")]
-    FilterPeakingEq12db { cutoff: f32, db_gain: f32 },
+    FilterPeakingEq12db { cutoff: ParameterType, db_gain: f32 },
     #[serde(rename = "filter-low-shelf-12db")]
     #[serde(rename_all = "kebab-case")]
-    FilterLowShelf12db { cutoff: f32, db_gain: f32 },
+    FilterLowShelf12db { cutoff: ParameterType, db_gain: f32 },
     #[serde(rename = "filter-high-shelf-12db")]
     #[serde(rename_all = "kebab-case")]
-    FilterHighShelf12db { cutoff: f32, db_gain: f32 },
+    FilterHighShelf12db { cutoff: ParameterType, db_gain: f32 },
 }
 
 impl EffectSettings {

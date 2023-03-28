@@ -4,7 +4,7 @@ pub use arpeggiator::{Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage};
 pub use control_trip::{
     ControlPath, ControlStep, ControlTrip, ControlTripParams, ControlTripParamsMessage,
 };
-pub use lfo::{LfoController, LfoControllerParams, LfoControllerParamsMessage, WaveformParams};
+pub use lfo::{LfoController, LfoControllerParams, LfoControllerParamsMessage};
 pub use patterns::{
     Note, Pattern, PatternManager, PatternManagerParams, PatternManagerParamsMessage,
     PatternMessage, PatternProgrammer,

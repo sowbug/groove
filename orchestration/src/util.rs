@@ -28,7 +28,7 @@ pub mod tests {
         Orchestrator, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
     };
     use groove_core::{
-        generators::Waveform, midi::MidiChannel, time::Clock, traits::Resets, Normal,
+        generators::WaveformParams, midi::MidiChannel, time::Clock, traits::Resets, Normal,
         ParameterType, StereoSample,
     };
     use groove_entities::{
@@ -114,7 +114,7 @@ pub mod tests {
         let synth_1_uid = o.add(Entity::ToySynth(Box::new(ToySynth::new_with(
             clock.sample_rate(),
         ))));
-        let lfo = LfoController::new_with(clock.sample_rate(), Waveform::Sine, 2.0);
+        let lfo = LfoController::new_with(clock.sample_rate(), WaveformParams::Sine, 2.0);
         let lfo_uid = o.add(Entity::LfoController(Box::new(lfo)));
         let _ = o.link_control_by_name(
             lfo_uid,

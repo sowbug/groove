@@ -4,7 +4,7 @@ use super::LoadError;
 use crate::generators::EnvelopeSettings;
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
-    generators::{Oscillator, Waveform},
+    generators::{Oscillator, WaveformParams},
     midi::{note_to_frequency, GeneralMidiProgram},
     voices::{StealingVoiceStore, VoiceStore},
     DcaParams, Normal, ParameterType,
@@ -104,7 +104,10 @@ impl WelshPatchSettings {
             oscillators.push(o);
         }
         if self.noise > 0.0 {
-            oscillators.push(Oscillator::new_with_waveform(sample_rate, Waveform::Noise));
+            oscillators.push(Oscillator::new_with_waveform(
+                sample_rate,
+                WaveformParams::Noise,
+            ));
         }
 
         let oscillator_mix = if oscillators.is_empty() {
@@ -124,13 +127,13 @@ impl WelshPatchSettings {
         let lfo_depth = self.lfo.depth.into();
         let filter = BiQuadFilter::new_with(
             &FilterParams::LowPass12db {
-                cutoff: self.filter_type_12db.cutoff_hz,
+                cutoff: self.filter_type_12db.cutoff_hz.into(),
                 q: BiQuadFilter::denormalize_q(self.filter_resonance),
             },
             sample_rate,
         );
         let filter_cutoff_start =
-            BiQuadFilter::frequency_to_percent(self.filter_type_12db.cutoff_hz);
+            BiQuadFilter::frequency_to_percent(self.filter_type_12db.cutoff_hz.into());
         let filter_cutoff_end = self.filter_envelope_weight;
         let filter_envelope = self.filter_envelope.derive_envelope(sample_rate);
 
@@ -140,7 +143,7 @@ impl WelshPatchSettings {
             oscillator_mix,
             amp_envelope,
             filter,
-            filter_cutoff_start,
+            filter_cutoff_start.value_as_f32(),
             filter_cutoff_end,
             filter_envelope,
             lfo,
@@ -179,20 +182,20 @@ pub enum WaveformType {
     TriangleSine, // TODO
 }
 #[allow(clippy::from_over_into)]
-impl Into<Waveform> for WaveformType {
-    fn into(self) -> Waveform {
+impl Into<WaveformParams> for WaveformType {
+    fn into(self) -> WaveformParams {
         match self {
-            WaveformType::None => Waveform::Sine,
-            WaveformType::Sine => Waveform::Sine,
-            WaveformType::Square => Waveform::Square,
-            WaveformType::PulseWidth(pct) => Waveform::PulseWidth(pct),
-            WaveformType::Triangle => Waveform::Triangle,
-            WaveformType::Sawtooth => Waveform::Sawtooth,
-            WaveformType::Noise => Waveform::Noise,
-            WaveformType::DebugZero => Waveform::DebugZero,
-            WaveformType::DebugMax => Waveform::DebugMax,
-            WaveformType::DebugMin => Waveform::DebugMin,
-            WaveformType::TriangleSine => Waveform::TriangleSine,
+            WaveformType::None => WaveformParams::Sine,
+            WaveformType::Sine => WaveformParams::Sine,
+            WaveformType::Square => WaveformParams::Square,
+            WaveformType::PulseWidth(pct) => WaveformParams::PulseWidth(pct),
+            WaveformType::Triangle => WaveformParams::Triangle,
+            WaveformType::Sawtooth => WaveformParams::Sawtooth,
+            WaveformType::Noise => WaveformParams::Noise,
+            WaveformType::DebugZero => WaveformParams::DebugZero,
+            WaveformType::DebugMax => WaveformParams::DebugMax,
+            WaveformType::DebugMin => WaveformParams::DebugMin,
+            WaveformType::TriangleSine => WaveformParams::TriangleSine,
         }
     }
 }

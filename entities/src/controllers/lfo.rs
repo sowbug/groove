@@ -3,8 +3,7 @@
 use crate::messages::EntityMessage;
 use core::fmt::Debug;
 use groove_core::{
-    control::F32ControlValue,
-    generators::{Oscillator, Waveform},
+    generators::{Oscillator, WaveformParams},
     midi::HandlesMidi,
     traits::{Generates, IsController, Resets, Ticks, TicksWithMessages},
     ParameterType,
@@ -18,28 +17,6 @@ use strum_macros::{
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "waveform", rename_all = "kebab-case")
-)]
-pub enum WaveformParams {
-    #[default]
-    Sine,
-}
-impl From<F32ControlValue> for WaveformParams {
-    fn from(value: F32ControlValue) -> Self {
-        WaveformParams::from_repr((value.0 * WaveformParams::COUNT as f32) as usize)
-            .unwrap_or_default()
-    }
-}
-impl Into<F32ControlValue> for WaveformParams {
-    fn into(self) -> F32ControlValue {
-        F32ControlValue((self as usize as f32) / WaveformParams::COUNT as f32)
-    }
-}
 
 #[derive(Clone, Copy, Debug, Default, Synchronization)]
 #[cfg_attr(
@@ -97,7 +74,11 @@ impl TicksWithMessages for LfoController {
 }
 impl HandlesMidi for LfoController {}
 impl LfoController {
-    pub fn new_with(sample_rate: usize, waveform: Waveform, frequency_hz: ParameterType) -> Self {
+    pub fn new_with(
+        sample_rate: usize,
+        waveform: WaveformParams,
+        frequency_hz: ParameterType,
+    ) -> Self {
         Self {
             uid: Default::default(),
             params: LfoControllerParams {
@@ -118,20 +99,19 @@ impl LfoController {
             params,
             oscillator: Oscillator::new_with_waveform_and_frequency(
                 sample_rate,
-                Waveform::Sine, // TODO: undo the hack with just Sine
+                WaveformParams::Sine, // TODO: undo the hack with just Sine
                 params.frequency,
             ),
         }
     }
 
-    pub fn waveform(&self) -> Waveform {
-        Waveform::Sine
-        // TODO        self.params.waveform()
+    pub fn waveform(&self) -> WaveformParams {
+        self.params.waveform()
     }
 
-    pub fn set_waveform(&mut self, waveform: Waveform) {
-        self.oscillator.set_waveform(waveform)
-        // TODO
+    pub fn set_waveform(&mut self, waveform: WaveformParams) {
+        self.params.set_waveform(waveform);
+        self.oscillator.set_waveform(waveform);
     }
 
     pub fn frequency(&self) -> ParameterType {

@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use crate::control::F32ControlValue;
 use crate::{
     time::{Clock, ClockTimeUnit, TimeUnit},
     traits::{Generates, GeneratesEnvelope, Resets, Ticks},
@@ -9,12 +10,20 @@ use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
 use std::{f64::consts::PI, fmt::Debug, ops::Range};
+use strum::EnumCount;
+use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug)]
-pub enum Waveform {
+#[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "waveform", rename_all = "kebab-case")
+)]
+pub enum WaveformParams {
+    #[default]
     Sine,
     Square,
     PulseWidth(f32),
@@ -27,10 +36,38 @@ pub enum Waveform {
 
     TriangleSine, // TODO
 }
+impl From<F32ControlValue> for WaveformParams {
+    fn from(value: F32ControlValue) -> Self {
+        WaveformParams::from_repr((value.0 * WaveformParams::COUNT as f32) as usize)
+            .unwrap_or_default()
+    }
+}
+impl Into<F32ControlValue> for WaveformParams {
+    fn into(self) -> F32ControlValue {
+        F32ControlValue(
+            // TODO: is there a way to get the discriminant cheaply when the
+            // enum is not
+            // [unit-only](https://doc.rust-lang.org/reference/items/enumerations.html)?
+            (match self {
+                WaveformParams::Sine => 0,
+                WaveformParams::Square => 1,
+                WaveformParams::PulseWidth(_) => 2,
+                WaveformParams::Triangle => 3,
+                WaveformParams::Sawtooth => 4,
+                WaveformParams::Noise => 5,
+                WaveformParams::DebugZero => 6,
+                WaveformParams::DebugMax => 7,
+                WaveformParams::DebugMin => 8,
+                WaveformParams::TriangleSine => 9,
+            } as f32)
+                / WaveformParams::COUNT as f32,
+        )
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Oscillator {
-    waveform: Waveform,
+    waveform: WaveformParams,
 
     /// Hertz. Any positive number. 440 = A4
     frequency: ParameterType,
@@ -136,10 +173,10 @@ impl Oscillator {
         // One view is that a default oscillator should be quiet. Another
         // view is that a quiet oscillator isn't doing its main job of
         // helping make sound. Principle of Least Astonishment prevails.
-        Self::new_with_waveform(sample_rate, Waveform::Sine)
+        Self::new_with_waveform(sample_rate, WaveformParams::Sine)
     }
 
-    pub fn new_with_waveform(sample_rate: usize, waveform: Waveform) -> Self {
+    pub fn new_with_waveform(sample_rate: usize, waveform: WaveformParams) -> Self {
         // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5
         // is Square.
         Self {
@@ -165,7 +202,7 @@ impl Oscillator {
 
     pub fn new_with_waveform_and_frequency(
         sample_rate: usize,
-        waveform: Waveform,
+        waveform: WaveformParams,
         frequency: ParameterType,
     ) -> Self {
         let mut r = Self::new_with_waveform(sample_rate, waveform);
@@ -203,11 +240,11 @@ impl Oscillator {
         self.delta_needs_update = true;
     }
 
-    pub fn waveform(&self) -> Waveform {
+    pub fn waveform(&self) -> WaveformParams {
         self.waveform
     }
 
-    pub fn set_waveform(&mut self, waveform: Waveform) {
+    pub fn set_waveform(&mut self, waveform: WaveformParams) {
         self.waveform = waveform;
     }
 
@@ -309,16 +346,18 @@ impl Oscillator {
     // formulas. The reason for them is to ensure that every waveform starts at
     // amplitude zero, which makes it a lot easier to avoid transients when a
     // waveform starts up. See Pirkle DSSPC++ p.133 for visualization.
-    fn amplitude_for_position(&mut self, waveform: Waveform, cycle_position: f64) -> f64 {
+    fn amplitude_for_position(&mut self, waveform: WaveformParams, cycle_position: f64) -> f64 {
         match waveform {
-            Waveform::Sine => (cycle_position * 2.0 * PI).sin(),
-            Waveform::Square => -(cycle_position - 0.5).signum(),
-            Waveform::PulseWidth(duty_cycle) => -(cycle_position - duty_cycle as f64).signum(),
-            Waveform::Triangle => {
+            WaveformParams::Sine => (cycle_position * 2.0 * PI).sin(),
+            WaveformParams::Square => -(cycle_position - 0.5).signum(),
+            WaveformParams::PulseWidth(duty_cycle) => {
+                -(cycle_position - duty_cycle as f64).signum()
+            }
+            WaveformParams::Triangle => {
                 4.0 * (cycle_position - (0.5 + cycle_position).floor()).abs() - 1.0
             }
-            Waveform::Sawtooth => 2.0 * (cycle_position - (0.5 + cycle_position).floor()),
-            Waveform::Noise => {
+            WaveformParams::Sawtooth => 2.0 * (cycle_position - (0.5 + cycle_position).floor()),
+            WaveformParams::Noise => {
                 // TODO: this is stateful, so random access will sound different
                 // from sequential, as will different sample rates. It also
                 // makes this method require mut. Is there a noise algorithm
@@ -330,12 +369,12 @@ impl Oscillator {
                 tmp
             }
             // TODO: figure out whether this was an either-or
-            Waveform::TriangleSine => {
+            WaveformParams::TriangleSine => {
                 4.0 * (cycle_position - (0.75 + cycle_position).floor() + 0.25).abs() - 1.0
             }
-            Waveform::DebugZero => 0.0,
-            Waveform::DebugMax => 1.0,
-            Waveform::DebugMin => -1.0,
+            WaveformParams::DebugZero => 0.0,
+            WaveformParams::DebugMax => 1.0,
+            WaveformParams::DebugMin => -1.0,
         }
     }
 
@@ -877,7 +916,11 @@ pub mod tests {
         }
     }
 
-    fn create_oscillator(waveform: Waveform, tune: ParameterType, note: MidiNote) -> Oscillator {
+    fn create_oscillator(
+        waveform: WaveformParams,
+        tune: ParameterType,
+        note: MidiNote,
+    ) -> Oscillator {
         let mut oscillator = Oscillator::new_with_waveform_and_frequency(
             DEFAULT_SAMPLE_RATE,
             waveform,
@@ -906,8 +949,11 @@ pub mod tests {
     fn square_wave_is_correct_amplitude() {
         const SAMPLE_RATE: usize = 63949; // Prime number
         const FREQUENCY: ParameterType = 499.0;
-        let mut oscillator =
-            Oscillator::new_with_waveform_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
+        let mut oscillator = Oscillator::new_with_waveform_and_frequency(
+            SAMPLE_RATE,
+            WaveformParams::Square,
+            FREQUENCY,
+        );
 
         // Below Nyquist limit
         assert_lt!(FREQUENCY, (SAMPLE_RATE / 2) as ParameterType);
@@ -925,8 +971,11 @@ pub mod tests {
         // numbers so that we don't have to deal with edge cases.
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: ParameterType = 128.0;
-        let mut oscillator =
-            Oscillator::new_with_waveform_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
+        let mut oscillator = Oscillator::new_with_waveform_and_frequency(
+            SAMPLE_RATE,
+            WaveformParams::Square,
+            FREQUENCY,
+        );
 
         let mut n_pos = 0;
         let mut n_neg = 0;
@@ -959,8 +1008,11 @@ pub mod tests {
     fn square_wave_shape_is_accurate() {
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: ParameterType = 2.0;
-        let mut oscillator =
-            Oscillator::new_with_waveform_and_frequency(SAMPLE_RATE, Waveform::Square, FREQUENCY);
+        let mut oscillator = Oscillator::new_with_waveform_and_frequency(
+            SAMPLE_RATE,
+            WaveformParams::Square,
+            FREQUENCY,
+        );
 
         oscillator.tick(1);
         assert_eq!(
@@ -1007,7 +1059,7 @@ pub mod tests {
         const FREQUENCY: ParameterType = 1.0;
         let mut oscillator = Oscillator::new_with_waveform_and_frequency(
             DEFAULT_SAMPLE_RATE,
-            Waveform::Sine,
+            WaveformParams::Sine,
             FREQUENCY,
         );
 
@@ -1090,7 +1142,7 @@ pub mod tests {
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
-                Waveform::Square,
+                WaveformParams::Square,
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
@@ -1119,7 +1171,7 @@ pub mod tests {
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
-                Waveform::Sine,
+                WaveformParams::Sine,
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
@@ -1148,7 +1200,7 @@ pub mod tests {
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
-                Waveform::Sawtooth,
+                WaveformParams::Sawtooth,
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
@@ -1177,7 +1229,7 @@ pub mod tests {
         for test_case in test_cases {
             let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
-                Waveform::Triangle,
+                WaveformParams::Triangle,
                 test_case.0,
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
@@ -1196,7 +1248,7 @@ pub mod tests {
 
     #[test]
     fn oscillator_modulated() {
-        let mut oscillator = create_oscillator(Waveform::Sine, 1.0, MidiNote::C4);
+        let mut oscillator = create_oscillator(WaveformParams::Sine, 1.0, MidiNote::C4);
         // Default
         assert_eq!(
             oscillator.adjusted_frequency(),

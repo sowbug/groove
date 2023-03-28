@@ -58,9 +58,9 @@ enum AppMessage {
     EngineEvent(EngineEvent),
     Event(iced::Event),
     ExportComplete(Result<(), SaveError>),
-    GrooveEvent(GrooveEvent),
+    // GrooveEvent(GrooveEvent),
     MidiHandlerEvent(MidiHandlerEvent),
-    MidiHandlerInput(MidiHandlerInput),
+    // MidiHandlerInput(MidiHandlerInput),
     OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
     PrefsLoaded(Result<Preferences, LoadError>),
     PrefsSaved(Result<(), SaveError>),
@@ -184,10 +184,10 @@ impl Application for GrooveApp {
                     return value;
                 }
             }
-            AppMessage::MidiHandlerInput(message) => self.handle_midi_handler_input(message),
+            // AppMessage::MidiHandlerInput(message) => self.handle_midi_handler_input(message),
             AppMessage::EngineEvent(event) => self.handle_engine_event(event),
             AppMessage::MidiHandlerEvent(event) => self.handle_midi_handler_event(event),
-            AppMessage::GrooveEvent(event) => self.handle_groove_event(event),
+            // AppMessage::GrooveEvent(event) => self.handle_groove_event(event),
             AppMessage::PrefsSaved(r) => {
                 if self.should_exit {
                     return window::close::<Self::Message>();

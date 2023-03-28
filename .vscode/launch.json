@@ -81,7 +81,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}demos${pathSeparator}controllers${pathSeparator}stereo-automation.yaml"
+        "projects${pathSeparator}demos${pathSeparator}effects${pathSeparator}drums-filtered-24db.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },

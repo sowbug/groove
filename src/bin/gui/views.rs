@@ -153,7 +153,7 @@ impl EntityView {
         self.collapsing_box(e, || {
             let slider = HSlider::new(
                 NormalParam {
-                    value: IcedNormal::from_clipped(e.cutoff_pct()),
+                    value: IcedNormal::from_clipped(e.cutoff_pct().value_as_f32()),
                     default: IcedNormal::from_clipped(1.0),
                 },
                 EntityMessage::HSliderInt,
