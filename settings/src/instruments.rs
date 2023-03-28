@@ -2,10 +2,10 @@
 
 use super::{patches::WelshPatchSettings, MidiChannel};
 use crate::patches::FmSynthesizerSettings;
-use groove_core::midi::note_description_to_frequency;
-use groove_entities::instruments::{Drumkit, FmSynthesizer, Sampler};
+use groove_core::{midi::note_description_to_frequency, Normal};
+use groove_entities::instruments::{Drumkit, FmSynth, Sampler};
 use groove_orchestration::Entity;
-use groove_toys::ToyInstrument;
+use groove_toys::{ToyInstrument, ToyInstrumentParams};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -74,13 +74,23 @@ impl InstrumentSettings {
             };
             return (
                 midi_input_channel,
-                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(sample_rate))),
+                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
+                    sample_rate,
+                    ToyInstrumentParams {
+                        fake_value: Normal::from(0.23498239),
+                    },
+                ))),
             );
         }
         match self {
             InstrumentSettings::Test { midi_input_channel } => (
                 *midi_input_channel,
-                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(sample_rate))),
+                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
+                    sample_rate,
+                    ToyInstrumentParams {
+                        fake_value: Normal::from(0.23498239),
+                    },
+                ))),
             ),
             InstrumentSettings::Welsh {
                 midi_input_channel,
@@ -130,7 +140,7 @@ impl InstrumentSettings {
                 voice,
             } => (
                 *midi_input_channel,
-                Entity::FmSynthesizer(Box::new(FmSynthesizer::new_with_params(
+                Entity::FmSynth(Box::new(FmSynth::new_with_params(
                     sample_rate,
                     voice.derive_params(),
                 ))),

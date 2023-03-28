@@ -481,7 +481,7 @@ impl EngineSubscription {
                 ),
                 Entity::ToyEffect(_) => todo!(),
                 Entity::Drumkit(_) => todo!(),
-                Entity::FmSynthesizer(_) => todo!(),
+                Entity::FmSynth(_) => todo!(),
                 Entity::Sampler(_) => todo!(),
                 Entity::ToyAudioSource(_) => todo!(),
                 Entity::ToyInstrument(_) => todo!(),

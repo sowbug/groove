@@ -206,4 +206,8 @@ impl Arpeggiator {
     pub fn params(&self) -> ArpeggiatorParams {
         self.params
     }
+
+    pub fn update(&mut self, message: ArpeggiatorParamsMessage) {
+        self.params.update(message)
+    }
 }

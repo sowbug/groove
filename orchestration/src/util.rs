@@ -28,14 +28,17 @@ pub mod tests {
         Orchestrator, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
     };
     use groove_core::{
-        generators::Waveform, midi::MidiChannel, time::Clock, traits::Resets, ParameterType,
-        StereoSample,
+        generators::Waveform, midi::MidiChannel, time::Clock, traits::Resets, Normal,
+        ParameterType, StereoSample,
     };
     use groove_entities::{
-        controllers::{LfoController, Timer},
+        controllers::{LfoController, Timer, TimerParams},
         ToyMessageMaker,
     };
-    use groove_toys::{ToyController, ToyEffect, ToyInstrument, ToySynth, ToySynthControlParams};
+    use groove_toys::{
+        ToyController, ToyControllerParams, ToyEffect, ToyInstrument, ToyInstrumentParams,
+        ToySynth, ToySynthControlParams,
+    };
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
 
     #[test]
@@ -65,7 +68,9 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             clock.sample_rate(),
-            SECONDS as f32,
+            TimerParams {
+                seconds_to_run: SECONDS as f64,
+            },
         ))));
 
         // Gather the audio output.
@@ -123,7 +128,9 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             clock.sample_rate(),
-            SECONDS as f32,
+            TimerParams {
+                seconds_to_run: SECONDS as f64,
+            },
         ))));
 
         // Gather the audio output.
@@ -161,10 +168,13 @@ pub mod tests {
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
             DEFAULT_SAMPLE_RATE,
+            ToyInstrumentParams {
+                fake_value: Normal::from(0.34598),
+            },
         ))));
         let arpeggiator_uid = o.add(Entity::ToyController(Box::new(ToyController::new_with(
             DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
+            ToyControllerParams { bpm: DEFAULT_BPM },
             TEST_MIDI_CHANNEL,
             Box::new(ToyMessageMaker {}),
         ))));
@@ -180,7 +190,9 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            SECONDS as f32,
+            TimerParams {
+                seconds_to_run: SECONDS as f64,
+            },
         ))));
 
         // Everything is hooked up. Let's run it and hear what we got.
@@ -275,7 +287,9 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            SECONDS as f32,
+            TimerParams {
+                seconds_to_run: SECONDS as f64,
+            },
         ))));
 
         // Gather the audio output.

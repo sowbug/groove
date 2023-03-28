@@ -6,7 +6,9 @@ use super::{
 };
 use anyhow::Result;
 use groove_core::{time::TimeSignature, ParameterType};
-use groove_entities::controllers::{ControlPath, ControlTrip, Note, Pattern, PatternProgrammer};
+use groove_entities::controllers::{
+    ControlPath, ControlTrip, ControlTripParams, Note, Pattern, PatternProgrammer,
+};
 use groove_orchestration::{Entity, Orchestrator};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
@@ -280,8 +282,10 @@ impl SongSettings {
             {
                 let mut control_trip = Box::new(ControlTrip::new_with(
                     orchestrator.sample_rate(),
-                    orchestrator.time_signature(),
-                    orchestrator.bpm(),
+                    ControlTripParams {
+                        time_signature: orchestrator.time_signature(),
+                        bpm: orchestrator.bpm(),
+                    },
                 ));
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {

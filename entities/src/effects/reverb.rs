@@ -3,7 +3,7 @@
 use super::delay::{AllPassDelayLine, Delays, RecirculatingDelayLine};
 use groove_core::{
     traits::{IsEffect, TransformsAudio},
-    Normal, Sample,
+    Normal, ParameterType, Sample,
 };
 use groove_macros::{Control, Synchronization, Uid};
 use std::str::FromStr;
@@ -23,8 +23,12 @@ use serde::{Deserialize, Serialize};
     serde(rename = "reverb", rename_all = "kebab-case")
 )]
 pub struct ReverbParams {
+    // How much the effect should attenuate the input.
     #[sync]
     pub attenuation: Normal,
+
+    #[sync]
+    pub seconds: ParameterType,
 }
 impl ReverbParams {
     pub fn attenuation(&self) -> &Normal {
@@ -34,6 +38,14 @@ impl ReverbParams {
     pub fn set_attenuation(&mut self, attenuation: Normal) {
         self.attenuation = attenuation;
     }
+
+    pub fn seconds(&self) -> f64 {
+        self.seconds
+    }
+
+    pub fn set_seconds(&mut self, seconds: ParameterType) {
+        self.seconds = seconds;
+    }
 }
 
 /// Schroeder reverb. Uses four parallel recirculating delay lines feeding into
@@ -42,10 +54,6 @@ impl ReverbParams {
 pub struct Reverb {
     uid: usize,
     params: ReverbParams,
-
-    // How much the effect should attenuate the input.
-    #[controllable]
-    attenuation: f32,
 
     // what percentage should be unprocessed. 0.0 = all effect. 0.0 = all
     // unchanged.
@@ -70,34 +78,16 @@ impl TransformsAudio for Reverb {
     }
 }
 impl Reverb {
-    pub fn new_with(
-        sample_rate: usize,
-        wet_dry_mix: f32,
-        attenuation: f32,
-        reverb_seconds: f32,
-    ) -> Self {
+    pub fn new_with(sample_rate: usize, params: ReverbParams, wet_dry_mix: f32) -> Self {
         // Thanks to https://basicsynth.com/ (page 133 of paperback) for
         // constants.
         Self {
             uid: Default::default(),
-            params: ReverbParams {
-                attenuation: attenuation.into(),
-            },
-            attenuation,
+            params,
             wet_dry_mix,
-            left: ReverbChannel::new_with(sample_rate, wet_dry_mix, attenuation, reverb_seconds),
-            right: ReverbChannel::new_with(sample_rate, wet_dry_mix, attenuation, reverb_seconds),
+            left: ReverbChannel::new_with(sample_rate, params, wet_dry_mix),
+            right: ReverbChannel::new_with(sample_rate, params, wet_dry_mix),
         }
-    }
-
-    pub fn set_attenuation(&mut self, attenuation: f32) {
-        self.attenuation = attenuation;
-        self.left.set_attenuation(attenuation);
-        self.right.set_attenuation(attenuation);
-    }
-
-    pub fn set_control_attenuation(&mut self, attenuation: groove_core::control::F32ControlValue) {
-        self.set_attenuation(attenuation.0);
     }
 
     pub fn set_wet_dry_mix(&mut self, mix: f32) {
@@ -113,11 +103,15 @@ impl Reverb {
     pub fn params(&self) -> ReverbParams {
         self.params
     }
+
+    pub fn update(&mut self, message: ReverbParamsMessage) {
+        self.params.update(message)
+    }
 }
 
 #[derive(Debug)]
 struct ReverbChannel {
-    attenuation: f32,
+    params: ReverbParams,
 
     // what percentage should be unprocessed. 0.0 = all effect. 0.0 = all
     // unchanged.
@@ -131,7 +125,7 @@ struct ReverbChannel {
 }
 impl TransformsAudio for ReverbChannel {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
-        let input_attenuated = input_sample * self.attenuation;
+        let input_attenuated = input_sample * self.params.attenuation.value();
         let recirc_output = self.recirc_delay_lines[0].pop_output(input_attenuated)
             + self.recirc_delay_lines[1].pop_output(input_attenuated)
             + self.recirc_delay_lines[2].pop_output(input_attenuated)
@@ -142,32 +136,61 @@ impl TransformsAudio for ReverbChannel {
     }
 }
 impl ReverbChannel {
-    pub fn new_with(
-        sample_rate: usize,
-        wet_dry_mix: f32,
-        attenuation: f32,
-        reverb_seconds: f32,
-    ) -> Self {
+    pub fn new_with(sample_rate: usize, params: ReverbParams, wet_dry_mix: f32) -> Self {
         // Thanks to https://basicsynth.com/ (page 133 of paperback) for
         // constants.
         Self {
+            params,
             wet_dry_mix,
-            attenuation,
             recirc_delay_lines: vec![
-                RecirculatingDelayLine::new_with(sample_rate, 0.0297, reverb_seconds, 0.001, 1.0),
-                RecirculatingDelayLine::new_with(sample_rate, 0.0371, reverb_seconds, 0.001, 1.0),
-                RecirculatingDelayLine::new_with(sample_rate, 0.0411, reverb_seconds, 0.001, 1.0),
-                RecirculatingDelayLine::new_with(sample_rate, 0.0437, reverb_seconds, 0.001, 1.0),
+                RecirculatingDelayLine::new_with(
+                    sample_rate,
+                    0.0297,
+                    params.seconds(),
+                    Normal::from(0.001),
+                    Normal::from(1.0),
+                ),
+                RecirculatingDelayLine::new_with(
+                    sample_rate,
+                    0.0371,
+                    params.seconds(),
+                    Normal::from(0.001),
+                    Normal::from(1.0),
+                ),
+                RecirculatingDelayLine::new_with(
+                    sample_rate,
+                    0.0411,
+                    params.seconds(),
+                    Normal::from(0.001),
+                    Normal::from(1.0),
+                ),
+                RecirculatingDelayLine::new_with(
+                    sample_rate,
+                    0.0437,
+                    params.seconds(),
+                    Normal::from(0.001),
+                    Normal::from(1.0),
+                ),
             ],
             allpass_delay_lines: vec![
-                AllPassDelayLine::new_with(sample_rate, 0.09683, 0.0050, 0.001, 1.0),
-                AllPassDelayLine::new_with(sample_rate, 0.03292, 0.0017, 0.001, 1.0),
+                AllPassDelayLine::new_with(
+                    sample_rate,
+                    0.09683,
+                    0.0050,
+                    Normal::from(0.001),
+                    Normal::from(1.0),
+                ),
+                AllPassDelayLine::new_with(
+                    sample_rate,
+                    0.03292,
+                    0.0017,
+                    Normal::from(0.001),
+                    Normal::from(1.0),
+                ),
             ],
         }
     }
-    pub fn set_attenuation(&mut self, attenuation: f32) {
-        self.attenuation = attenuation;
-    }
+
     pub fn set_wet_dry_mix(&mut self, mix: f32) {
         self.wet_dry_mix = mix;
     }
@@ -176,12 +199,19 @@ impl ReverbChannel {
 #[cfg(test)]
 mod tests {
     use super::Reverb;
-    use crate::tests::DEFAULT_SAMPLE_RATE;
-    use groove_core::{traits::TransformsAudio, Sample};
+    use crate::{effects::ReverbParams, tests::DEFAULT_SAMPLE_RATE};
+    use groove_core::{traits::TransformsAudio, Normal, Sample};
 
     #[test]
     fn reverb_dry_works() {
-        let mut fx = Reverb::new_with(DEFAULT_SAMPLE_RATE, 0.0, 0.5, 1.5);
+        let mut fx = Reverb::new_with(
+            DEFAULT_SAMPLE_RATE,
+            crate::effects::ReverbParams {
+                attenuation: Normal::from(0.5),
+                seconds: 1.5,
+            },
+            0.0,
+        );
         assert_eq!(
             fx.transform_channel(0, Sample::from(0.8f32)),
             Sample::from(0.8f32)
@@ -199,7 +229,14 @@ mod tests {
         // to 0.5 seconds, we start getting back nonzero samples (first
         // 0.47767496) at samples: 29079, seconds: 0.65938777. This doesn't look
         // wrong, but I couldn't have predicted that exact number.
-        let mut fx = Reverb::new_with(DEFAULT_SAMPLE_RATE, 1.0, 0.9, 0.5);
+        let mut fx = Reverb::new_with(
+            DEFAULT_SAMPLE_RATE,
+            ReverbParams {
+                attenuation: Normal::from(0.9),
+                seconds: 0.5,
+            },
+            1.0,
+        );
         assert_eq!(fx.transform_channel(0, Sample::from(0.8)), Sample::SILENCE);
         let mut s = Sample::default();
         for _ in 0..44100 {

@@ -2,10 +2,10 @@
 
 use groove_core::{
     traits::{IsEffect, TransformsAudio},
-    Sample, SignalType,
+    Normal, ParameterType, Sample, SignalType,
 };
 use groove_macros::{Control, Synchronization, Uid};
-use std::{marker::PhantomData, str::FromStr};
+use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
@@ -34,12 +34,12 @@ impl DelayLine {
     /// decay_factor: 1.0 = no decay
     pub(super) fn new_with(
         sample_rate: usize,
-        delay_seconds: f32,
+        delay_seconds: ParameterType,
         decay_factor: SignalType,
     ) -> Self {
         let mut r = Self {
             sample_rate,
-            delay_seconds,
+            delay_seconds: delay_seconds as f32,
             decay_factor,
 
             buffer_size: Default::default(),
@@ -117,17 +117,17 @@ pub struct RecirculatingDelayLine {
 impl RecirculatingDelayLine {
     pub(super) fn new_with(
         sample_rate: usize,
-        delay_seconds: f32,
-        decay_seconds: f32,
-        final_amplitude: f32,
-        peak_amplitude: f32,
+        delay_seconds: ParameterType,
+        decay_seconds: ParameterType,
+        final_amplitude: Normal,
+        peak_amplitude: Normal,
     ) -> Self {
         Self {
             delay: DelayLine::new_with(
                 sample_rate,
                 delay_seconds,
-                (peak_amplitude * final_amplitude).powf(delay_seconds / decay_seconds)
-                    as SignalType,
+                (peak_amplitude.value() * final_amplitude.value())
+                    .powf(delay_seconds / decay_seconds) as SignalType,
             ),
         }
     }
@@ -159,10 +159,10 @@ pub(super) struct AllPassDelayLine {
 impl AllPassDelayLine {
     pub(super) fn new_with(
         sample_rate: usize,
-        delay_seconds: f32,
-        decay_seconds: f32,
-        final_amplitude: f32,
-        peak_amplitude: f32,
+        delay_seconds: ParameterType,
+        decay_seconds: ParameterType,
+        final_amplitude: Normal,
+        peak_amplitude: Normal,
     ) -> Self {
         Self {
             delay: RecirculatingDelayLine::new_with(
@@ -194,12 +194,32 @@ impl Delays for AllPassDelayLine {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "delay", rename_all = "kebab-case")
+)]
+pub struct DelayParams {
+    #[sync]
+    pub seconds: ParameterType,
+}
+
+impl DelayParams {
+    pub fn seconds(&self) -> f64 {
+        self.seconds
+    }
+
+    pub fn set_seconds(&mut self, seconds: ParameterType) {
+        self.seconds = seconds;
+    }
+}
+
 #[derive(Control, Debug, Default, Uid)]
 pub struct Delay {
     uid: usize,
 
-    #[controllable]
-    seconds: PhantomData<f32>,
+    params: DelayParams,
 
     delay: DelayLine,
 }
@@ -215,9 +235,10 @@ impl Delay {
         Self::default()
     }
 
-    pub fn new_with(sample_rate: usize, delay_seconds: f32) -> Self {
+    pub fn new_with(sample_rate: usize, params: DelayParams) -> Self {
         Self {
-            delay: DelayLine::new_with(sample_rate, delay_seconds, 1.0),
+            params,
+            delay: DelayLine::new_with(sample_rate, params.seconds(), 1.0),
             ..Default::default()
         }
     }
@@ -233,6 +254,14 @@ impl Delay {
     pub fn set_control_seconds(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_seconds(value.0);
     }
+
+    pub fn params(&self) -> DelayParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: DelayParamsMessage) {
+        self.params.update(message)
+    }
 }
 
 #[cfg(test)]
@@ -246,7 +275,7 @@ mod tests {
 
     #[test]
     fn test_delay_basic() {
-        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, 1.0);
+        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, DelayParams { seconds: 1.0 });
 
         // Add a unique first sample.
         assert_eq!(fx.transform_channel(0, Sample::from(0.5)), Sample::SILENCE);
@@ -270,7 +299,7 @@ mod tests {
 
     #[test]
     fn test_delay_zero() {
-        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, 0.0);
+        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, DelayParams { seconds: 0.0 });
 
         // We should keep getting back what we put in.
         for i in 0..DEFAULT_SAMPLE_RATE {
@@ -302,7 +331,8 @@ mod tests {
         // back of the buffer, rather than replacing that value. So if we put in
         // a single value, we should expect to get it back, usually quieter,
         // each time it cycles through the buffer.
-        let mut delay = RecirculatingDelayLine::new_with(3, 1.0, 1.5, 0.001, 1.0);
+        let mut delay =
+            RecirculatingDelayLine::new_with(3, 1.0, 1.5, Normal::from(0.001), Normal::from(1.0));
         assert_eq!(delay.pop_output(Sample::from(0.5)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
@@ -327,7 +357,8 @@ mod tests {
     #[test]
     fn test_allpass_delay_line() {
         // TODO: I'm not sure what this delay line is supposed to do.
-        let mut delay = AllPassDelayLine::new_with(3, 1.0, 1.5, 0.001, 1.0);
+        let mut delay =
+            AllPassDelayLine::new_with(3, 1.0, 1.5, Normal::from(0.001), Normal::from(1.0));
         assert_lt!(delay.pop_output(Sample::from(0.5)), Sample::from(0.5));
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);

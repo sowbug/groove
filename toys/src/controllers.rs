@@ -7,7 +7,7 @@ use groove_core::{
     traits::{IsController, MessageBounds, Resets, Ticks, TicksWithMessages},
     ParameterType,
 };
-use groove_macros::{Control, Uid};
+use groove_macros::{Control, Synchronization, Uid};
 use std::str::FromStr;
 use std::{collections::VecDeque, marker::PhantomData};
 use strum::EnumCount;
@@ -26,16 +26,41 @@ pub trait MessageMaker: Send + Debug {
     fn midi(&self, channel: MidiChannel, message: MidiMessage) -> Self::Message;
 }
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "toy-controller", rename_all = "kebab-case")
+)]
+pub struct ToyControllerParams {
+    #[sync]
+    pub bpm: ParameterType,
+}
+
+impl ToyControllerParams {
+    pub fn bpm(&self) -> f64 {
+        self.bpm
+    }
+
+    pub fn set_bpm(&mut self, bpm: ParameterType) {
+        self.bpm = bpm;
+    }
+}
+
 /// An [IsController](groove_core::traits::IsController) that emits a MIDI
 /// note-on event on each beat, and a note-off event on each half-beat.
 #[derive(Control, Debug, Uid)]
 pub struct ToyController<M: MessageBounds> {
     uid: usize,
+    params: ToyControllerParams,
+
     midi_channel_out: MidiChannel,
 
     sample_rate: usize,
     midi_ticks_per_second: usize,
-    bpm: ParameterType,
     clock: Clock,
 
     #[controllable]
@@ -96,7 +121,7 @@ impl<M: MessageBounds> TicksWithMessages for ToyController<M> {
 impl<M: MessageBounds> Resets for ToyController<M> {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
-        self.clock = Clock::new_with(sample_rate, self.bpm, self.midi_ticks_per_second);
+        self.clock = Clock::new_with(sample_rate, self.params().bpm(), self.midi_ticks_per_second);
     }
 }
 impl<M: MessageBounds> HandlesMidi for ToyController<M> {
@@ -116,13 +141,13 @@ impl<M: MessageBounds> HandlesMidi for ToyController<M> {
 impl<M: MessageBounds> ToyController<M> {
     pub fn new_with(
         sample_rate: usize,
-        bpm: ParameterType,
+        params: ToyControllerParams,
         midi_channel_out: MidiChannel,
         message_maker: Box<dyn MessageMaker<Message = M>>,
     ) -> Self {
         Self::new_with_test_values(
             sample_rate,
-            bpm,
+            params,
             midi_channel_out,
             message_maker,
             Default::default(),
@@ -134,7 +159,7 @@ impl<M: MessageBounds> ToyController<M> {
 
     pub fn new_with_test_values(
         sample_rate: usize,
-        bpm: ParameterType,
+        params: ToyControllerParams,
         midi_channel_out: MidiChannel,
         message_maker: Box<dyn MessageMaker<Message = M>>,
         values: &[f32],
@@ -144,11 +169,11 @@ impl<M: MessageBounds> ToyController<M> {
     ) -> Self {
         Self {
             uid: Default::default(),
+            params,
             midi_channel_out,
             sample_rate,
             midi_ticks_per_second: 9999,
-            bpm,
-            clock: Clock::new_with(sample_rate, bpm, 9999),
+            clock: Clock::new_with(sample_rate, params.bpm(), 9999),
             tempo: Default::default(),
             is_enabled: Default::default(),
             is_playing: Default::default(),
@@ -177,6 +202,14 @@ impl<M: MessageBounds> ToyController<M> {
 
     pub fn set_control_tempo(&mut self, tempo: groove_core::control::F32ControlValue) {
         self.tempo = tempo.0;
+    }
+
+    pub fn params(&self) -> ToyControllerParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: ToyControllerParamsMessage) {
+        self.params.update(message)
     }
 }
 // impl TestsValues for TestController {

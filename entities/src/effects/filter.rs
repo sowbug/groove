@@ -2,7 +2,7 @@
 
 use groove_core::{
     traits::{IsEffect, TransformsAudio},
-    Sample,
+    ParameterType, Sample,
 };
 use groove_macros::{Control, Synchronization, Uid};
 use std::{f64::consts::PI, str::FromStr};
@@ -13,6 +13,26 @@ use strum_macros::{
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "biquad-filter", rename_all = "kebab-case")
+)]
+pub struct BiQuadFilterParams {
+    #[sync]
+    pub cutoff: ParameterType,
+}
+impl BiQuadFilterParams {
+    pub fn cutoff(&self) -> f64 {
+        self.cutoff
+    }
+
+    pub fn set_cutoff(&mut self, cutoff: ParameterType) {
+        self.cutoff = cutoff;
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {
@@ -116,6 +136,7 @@ struct CoefficientSet2 {
 #[derive(Control, Clone, Debug, Uid)]
 pub struct BiQuadFilter {
     uid: usize,
+    params: BiQuadFilterParams,
 
     sample_rate: usize,
     filter_type: FilterType,
@@ -236,6 +257,7 @@ impl BiQuadFilter {
     fn default_fields() -> Self {
         Self {
             uid: usize::default(),
+            params: Default::default(),
             filter_type: Default::default(),
             sample_rate: Default::default(),
             cutoff: Default::default(),
@@ -620,6 +642,14 @@ impl BiQuadFilter {
             b1: -2.0 * a * ((a - 1.0) + (a + 1.0) * w0cos),
             b2: a * ((a + 1.0) + (a - 1.0) * w0cos - 2.0 * a.sqrt() * alpha),
         }
+    }
+
+    pub fn params(&self) -> BiQuadFilterParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: BiQuadFilterParamsMessage) {
+        self.params.update(message)
     }
 }
 

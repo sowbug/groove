@@ -147,4 +147,8 @@ impl LfoController {
     pub fn params(&self) -> LfoControllerParams {
         self.params
     }
+
+    pub fn update(&mut self, message: LfoControllerParamsMessage) {
+        self.params.update(message)
+    }
 }

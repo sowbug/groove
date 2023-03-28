@@ -102,6 +102,10 @@ impl PatternManager {
     pub fn params(&self) -> PatternManagerParams {
         self.params
     }
+
+    pub fn update(&mut self, message: PatternManagerParamsMessage) {
+        self.params.update(message)
+    }
 }
 
 /// [PatternProgrammer] knows how to insert a given [Pattern] into a given

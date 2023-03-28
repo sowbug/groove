@@ -44,7 +44,7 @@ devices:
       - reverb:
           wet-dry-mix: 0.6
           attenuation: 0.8
-          reverb-seconds: 0.4
+          seconds: 0.4
   - effect:
       - bitcrusher-1
       - bitcrusher:

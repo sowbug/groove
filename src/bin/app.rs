@@ -11,11 +11,11 @@ use groove::{
         EngineEvent, EngineInput, EngineSubscription, MidiHandlerEvent, MidiHandlerInput,
         MidiPortDescriptor, MidiSubscription,
     },
-    Entity, Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+    Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
 };
 use groove_core::{
     time::{Clock, TimeSignature},
-    Normal, Sample, StereoSample,
+    Sample, StereoSample,
 };
 use groove_entities::EntityMessage;
 use groove_orchestration::messages::GrooveEvent;
@@ -32,14 +32,12 @@ use iced::{
     theme::Theme,
     widget::{
         canvas::{self, Cache, Cursor},
-        column, container, pick_list, row, scrollable, Canvas, Column, Container,
+        column, container, pick_list, row, Column, Container,
     },
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
-    Renderer, Settings, Size, Subscription,
+    Settings, Size, Subscription,
 };
 use native_dialog::{MessageDialog, MessageType};
-use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
 use std::{
     path::PathBuf,
     sync::{mpsc, Arc, Mutex},
@@ -164,6 +162,7 @@ impl Application for GrooveApp {
             AppMessage::PrefsLoaded(Ok(preferences)) => {
                 self.preferences = preferences;
                 self.is_pref_load_complete = true;
+                eprintln!("prefs have loaded successfully.")
             }
             AppMessage::PrefsLoaded(Err(_)) => {
                 self.is_pref_load_complete = true;

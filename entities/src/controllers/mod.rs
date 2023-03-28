@@ -1,18 +1,18 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 pub use arpeggiator::{Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage};
-pub use control_trip::{ControlPath, ControlStep, ControlTrip};
+pub use control_trip::{
+    ControlPath, ControlStep, ControlTrip, ControlTripParams, ControlTripParamsMessage,
+};
 pub use lfo::{LfoController, LfoControllerParams, LfoControllerParamsMessage, WaveformParams};
 pub use patterns::{
     Note, Pattern, PatternManager, PatternManagerParams, PatternManagerParamsMessage,
     PatternMessage, PatternProgrammer,
 };
 pub use sequencers::{
-    MidiSmfReader, MidiTickSequencer, Sequencer, SequencerParams, SequencerParamsMessage,
+    MidiSmfReader, MidiTickSequencer, MidiTickSequencerParams, MidiTickSequencerParamsMessage,
+    Sequencer, SequencerParams, SequencerParamsMessage,
 };
-
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
 
 mod arpeggiator;
 mod control_trip;
@@ -24,14 +24,17 @@ use crate::EntityMessage;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel},
     traits::{IsController, IsEffect, Resets, TicksWithMessages, TransformsAudio},
-    BipolarNormal, Sample, StereoSample,
+    BipolarNormal, ParameterType, Sample, StereoSample,
 };
-use groove_macros::{Control, Uid};
+use groove_macros::{Control, Synchronization, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
+
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(
@@ -44,32 +47,60 @@ pub struct MidiChannelParams {
     pub midi_out: MidiChannel,
 }
 
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "timer", rename_all = "kebab-case")
+)]
+pub struct TimerParams {
+    #[sync]
+    pub seconds_to_run: ParameterType,
+}
+impl TimerParams {
+    pub fn seconds_to_run(&self) -> f64 {
+        self.seconds_to_run
+    }
+
+    pub fn set_seconds_to_run(&mut self, seconds_to_run: ParameterType) {
+        self.seconds_to_run = seconds_to_run;
+    }
+}
+
 /// [Timer] runs for a specified amount of time, then indicates that it's done.
 /// It is useful when you need something to happen after a certain amount of
 /// wall-clock time, rather than musical time.
 #[derive(Debug, Uid)]
 pub struct Timer {
     uid: usize,
+    params: TimerParams,
     sample_rate: usize,
-    time_to_run_seconds: f32,
 
     has_more_work: bool,
     ticks: usize,
 }
 impl Timer {
-    pub fn new_with(sample_rate: usize, time_to_run_seconds: f32) -> Self {
+    pub fn new_with(sample_rate: usize, params: TimerParams) -> Self {
         Self {
             uid: Default::default(),
+            params,
             sample_rate,
-            time_to_run_seconds,
 
             has_more_work: Default::default(),
             ticks: Default::default(),
         }
     }
 
-    pub fn time_to_run_seconds(&self) -> f32 {
-        self.time_to_run_seconds
+    pub fn seconds_to_run(&self) -> ParameterType {
+        self.params().seconds_to_run()
+    }
+
+    pub fn params(&self) -> TimerParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: TimerParamsMessage) {
+        self.params.update(message)
     }
 }
 impl IsController for Timer {}
@@ -87,7 +118,7 @@ impl TicksWithMessages for Timer {
         let mut ticks_completed = tick_count;
         for i in 0..tick_count {
             self.has_more_work =
-                (self.ticks as f32 / self.sample_rate as f32) < self.time_to_run_seconds;
+                (self.ticks as f64 / self.sample_rate as f64) < self.params().seconds_to_run();
             if self.has_more_work {
                 self.ticks += 1;
             } else {
@@ -99,12 +130,44 @@ impl TicksWithMessages for Timer {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "trigger", rename_all = "kebab-case")
+)]
+pub struct TriggerParams {
+    #[sync]
+    pub seconds_to_run: ParameterType,
+
+    #[sync]
+    pub value: f32,
+}
+
+impl TriggerParams {
+    pub fn seconds_to_run(&self) -> f64 {
+        self.seconds_to_run
+    }
+
+    pub fn set_seconds_to_run(&mut self, seconds_to_run: ParameterType) {
+        self.seconds_to_run = seconds_to_run;
+    }
+
+    pub fn value(&self) -> f32 {
+        self.value
+    }
+
+    pub fn set_value(&mut self, value: f32) {
+        self.value = value;
+    }
+}
+
 // TODO: needs tests!
 /// [Trigger] issues a control signal after a specified amount of time.
 #[derive(Debug, Uid)]
 pub struct Trigger {
     uid: usize,
-    value: f32,
+    params: TriggerParams,
 
     timer: Timer,
     has_triggered: bool,
@@ -120,7 +183,7 @@ impl TicksWithMessages for Trigger {
         if ticks_completed < tick_count && !self.has_triggered {
             self.has_triggered = true;
             (
-                Some(vec![EntityMessage::ControlF32(self.value)]),
+                Some(vec![EntityMessage::ControlF32(self.params.value())]),
                 ticks_completed,
             )
         } else {
@@ -131,20 +194,35 @@ impl TicksWithMessages for Trigger {
 impl Resets for Trigger {}
 impl HandlesMidi for Trigger {}
 impl Trigger {
-    pub fn new_with(sample_rate: usize, time_to_trigger_seconds: f32, value: f32) -> Self {
+    pub fn new_with(sample_rate: usize, params: TriggerParams) -> Self {
         Self {
             uid: Default::default(),
-            value,
-            timer: Timer::new_with(sample_rate, time_to_trigger_seconds),
+            params,
+            timer: Timer::new_with(
+                sample_rate,
+                TimerParams {
+                    seconds_to_run: params.seconds_to_run(),
+                },
+            ),
             has_triggered: false,
         }
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "signal-passthrough-controller", rename_all = "kebab-case")
+)]
+pub struct SignalPassthroughControllerParams {}
+impl SignalPassthroughControllerParams {}
+
 /// Uses an input signal as a control source.
 #[derive(Control, Debug, Uid)]
 pub struct SignalPassthroughController {
     uid: usize,
+    params: SignalPassthroughControllerParams,
     signal: BipolarNormal,
     has_signal_changed: bool,
 }
@@ -201,20 +279,35 @@ impl SignalPassthroughController {
     pub fn new() -> Self {
         Self {
             uid: Default::default(),
+            params: Default::default(),
             signal: Default::default(),
             has_signal_changed: true,
         }
+    }
+
+    pub fn params(&self) -> SignalPassthroughControllerParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: SignalPassthroughControllerParamsMessage) {
+        self.params.update(message)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::controllers::Trigger;
+    use crate::controllers::{Trigger, TriggerParams};
     use groove_core::traits::TicksWithMessages;
 
     #[test]
     fn instantiate_trigger() {
-        let mut trigger = Trigger::new_with(44100, 1.0, 0.5);
+        let mut trigger = Trigger::new_with(
+            44100,
+            TriggerParams {
+                seconds_to_run: 1.0,
+                value: 0.5,
+            },
+        );
 
         // asserting that 5 returned 5 confirms that the trigger isn't done yet.
         let (m, count) = trigger.tick(5);

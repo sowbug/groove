@@ -2,7 +2,7 @@
 
 use crate::{BipolarNormal, Normal};
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct F32ControlValue(pub f32);
 
 impl From<F32ControlValue> for u8 {

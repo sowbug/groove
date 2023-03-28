@@ -5,14 +5,37 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
     traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
-    BipolarNormal, Dca, DcaParams, Normal, Sample, SampleType, StereoSample,
+    BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_macros::{Control, Uid};
+use groove_macros::{Control, Synchronization, Uid};
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, str::FromStr};
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
 };
+
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "toy-instrument", rename_all = "kebab-case")
+)]
+pub struct ToyInstrumentParams {
+    #[sync]
+    pub fake_value: Normal,
+}
+impl ToyInstrumentParams {
+    pub fn fake_value(&self) -> Normal {
+        self.fake_value
+    }
+
+    pub fn set_fake_value(&mut self, fake_value: Normal) {
+        self.fake_value = fake_value;
+    }
+}
 
 /// An [IsInstrument](groove_core::traits::IsInstrument) that uses a default
 /// Oscillator to produce sound. Its "envelope" is just a boolean that responds
@@ -21,6 +44,7 @@ use strum_macros::{
 #[derive(Control, Debug, Uid)]
 pub struct ToyInstrument {
     uid: usize,
+    params: ToyInstrumentParams,
     sample_rate: usize,
     sample: StereoSample,
 
@@ -29,7 +53,7 @@ pub struct ToyInstrument {
     pub waveform: PhantomData<Waveform>, // interesting use of PhantomData
 
     #[controllable]
-    pub fake_value: f32,
+    pub fake_value: Normal,
 
     oscillator: Oscillator,
     dca: Dca,
@@ -129,13 +153,14 @@ impl HandlesMidi for ToyInstrument {
 //     }
 // }
 impl ToyInstrument {
-    pub fn new_with(sample_rate: usize) -> Self {
+    pub fn new_with(sample_rate: usize, params: ToyInstrumentParams) -> Self {
         let mut r = Self {
             uid: Default::default(),
+            params,
             waveform: Default::default(),
             sample_rate,
             sample: Default::default(),
-            fake_value: Default::default(),
+            fake_value: params.fake_value(),
             oscillator: Oscillator::new_with(sample_rate),
             dca: Dca::new_with_params(DcaParams::default()),
             is_playing: Default::default(),
@@ -159,7 +184,12 @@ impl ToyInstrument {
         checkpoint_delta: f32,
         time_unit: ClockTimeUnit,
     ) -> Self {
-        let mut r = Self::new_with(sample_rate);
+        let mut r = Self::new_with(
+            sample_rate,
+            ToyInstrumentParams {
+                fake_value: Normal::maximum(),
+            },
+        );
         r.checkpoint_values = VecDeque::from(Vec::from(values));
         r.checkpoint = checkpoint;
         r.checkpoint_delta = checkpoint_delta;
@@ -188,20 +218,48 @@ impl ToyInstrument {
         });
     }
 
-    pub fn set_fake_value(&mut self, fake_value: f32) {
+    pub fn set_fake_value(&mut self, fake_value: Normal) {
         self.fake_value = fake_value;
     }
 
-    pub fn fake_value(&self) -> f32 {
+    pub fn fake_value(&self) -> Normal {
         self.fake_value
     }
 
     pub fn set_control_fake_value(&mut self, fake_value: groove_core::control::F32ControlValue) {
-        self.set_fake_value(fake_value.0);
+        self.set_fake_value(fake_value.into());
     }
 
     pub fn dump_messages(&self) {
         dbg!(&self.debug_messages);
+    }
+
+    pub fn params(&self) -> ToyInstrumentParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: ToyInstrumentParamsMessage) {
+        self.params.update(message)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "toy-synth", rename_all = "kebab-case")
+)]
+pub struct ToySynthParams {
+    #[sync]
+    pub fake_value: Normal,
+}
+impl ToySynthParams {
+    pub fn fake_value(&self) -> Normal {
+        self.fake_value
+    }
+
+    pub fn set_fake_value(&mut self, fake_value: Normal) {
+        self.fake_value = fake_value;
     }
 }
 
@@ -210,6 +268,8 @@ impl ToyInstrument {
 #[derive(Control, Debug, Uid)]
 pub struct ToySynth {
     uid: usize,
+    params: ToySynthParams,
+
     sample_rate: usize,
     sample: StereoSample,
 
@@ -272,6 +332,7 @@ impl ToySynth {
     ) -> Self {
         Self {
             uid: Default::default(),
+            params: Default::default(),
             sample_rate,
             sample: Default::default(),
             oscillator_modulation: Default::default(),
@@ -307,6 +368,36 @@ impl ToySynth {
             )),
         )
     }
+
+    pub fn params(&self) -> ToySynthParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: ToySynthParamsMessage) {
+        self.params.update(message)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "toy-audio-source", rename_all = "kebab-case")
+)]
+pub struct ToyAudioSourceParams {
+    // This should be a Normal, but we use this audio source for testing edge
+    // conditions. Thus we need to let it go out of range.
+    #[sync]
+    pub level: ParameterType,
+}
+impl ToyAudioSourceParams {
+    pub fn level(&self) -> ParameterType {
+        self.level
+    }
+
+    pub fn set_level(&mut self, level: ParameterType) {
+        self.level = level;
+    }
 }
 
 /// Produces a constant audio signal. Used for ensuring that a known signal
@@ -314,14 +405,12 @@ impl ToySynth {
 #[derive(Control, Debug, Default, Uid)]
 pub struct ToyAudioSource {
     uid: usize,
-
-    #[controllable]
-    level: SampleType,
+    params: ToyAudioSourceParams,
 }
 impl IsInstrument for ToyAudioSource {}
 impl Generates<StereoSample> for ToyAudioSource {
     fn value(&self) -> StereoSample {
-        StereoSample::from(self.level)
+        StereoSample::from(self.params.level)
     }
 
     #[allow(unused_variables)]
@@ -346,28 +435,28 @@ impl ToyAudioSource {
 
     pub fn new_with(level: SampleType) -> Self {
         Self {
-            level,
+            params: ToyAudioSourceParams { level },
             ..Default::default()
         }
     }
 
-    pub fn level(&self) -> SampleType {
-        self.level
+    pub fn params(&self) -> ToyAudioSourceParams {
+        self.params
     }
 
-    pub fn set_level(&mut self, level: SampleType) {
-        self.level = level;
-    }
-
-    fn set_control_level(&mut self, level: groove_core::control::F32ControlValue) {
-        self.set_level(level.0 as f64);
+    pub fn update(&mut self, message: ToyAudioSourceParamsMessage) {
+        self.params.update(message)
     }
 }
 
 #[cfg(test)]
 pub mod tests {
+    use super::ToyInstrumentParams;
     use crate::ToyInstrument;
-    use groove_core::traits::{Generates, Ticks};
+    use groove_core::{
+        traits::{Generates, Ticks},
+        Normal,
+    };
     use rand::random;
 
     const DEFAULT_SAMPLE_RATE: usize = 44100;
@@ -378,7 +467,12 @@ pub mod tests {
     // for non-consecutive time slices.
     #[test]
     fn test_sources_audio_random_access() {
-        let mut instrument = ToyInstrument::new_with(DEFAULT_SAMPLE_RATE);
+        let mut instrument = ToyInstrument::new_with(
+            DEFAULT_SAMPLE_RATE,
+            ToyInstrumentParams {
+                fake_value: Normal::from(0.42),
+            },
+        );
         for _ in 0..100 {
             instrument.tick(random::<usize>() % 10);
             let _ = instrument.value();

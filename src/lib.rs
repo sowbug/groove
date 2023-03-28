@@ -11,12 +11,14 @@
 //! # use groove_core::{
 //! #     midi::{MidiChannel, new_note_off, new_note_on},
 //! #     time::PerfectTimeUnit,
+//! #     Normal,
 //! #     StereoSample,
 //! # };
 //! # use groove_entities::{
 //! #     controllers::Sequencer,
 //! #     controllers::SequencerParams,
-//! #     effects::Compressor
+//! #     effects::Compressor,
+//! #     effects::CompressorParams,
 //! # };
 //! # use groove_toys::ToySynth;
 //! #
@@ -38,7 +40,12 @@
 //! sequencer.insert(PerfectTimeUnit(1.0), MIDI_0, new_note_off(69, 100));
 //!
 //! // An effect takes the edge off the synth.
-//! let compressor = Compressor::new_with(0.8, 0.5, 0.05, 0.1);
+//! let compressor = Compressor::new_with(CompressorParams {
+//!     threshold: Normal::from(0.8),
+//!     ratio: 0.5,
+//!     attack: 0.05,
+//!     release: 0.1,
+//! });
 //!
 //! // Orchestrator understands the relationships among the
 //! // instruments, controllers, and effects, and uses them to

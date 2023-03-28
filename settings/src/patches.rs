@@ -11,7 +11,7 @@ use groove_core::{
 };
 use groove_entities::{
     effects::{BiQuadFilter, FilterParams},
-    instruments::{FmVoice, FmVoiceParams, LfoRouting, WelshSynth, WelshVoice},
+    instruments::{FmSynthParams, FmVoice, LfoRouting, WelshSynth, WelshVoice},
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -718,8 +718,8 @@ impl FmSynthesizerSettings {
         VoiceStore::<FmVoice>::new_with_voice(sample_rate, 8, || self.derive_voice(sample_rate))
     }
 
-    pub fn derive_params(&self) -> FmVoiceParams {
-        FmVoiceParams {
+    pub fn derive_params(&self) -> FmSynthParams {
+        FmSynthParams {
             depth: Normal::from(self.depth),
             ratio: self.ratio,
             beta: self.beta,

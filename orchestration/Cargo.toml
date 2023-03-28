@@ -11,6 +11,7 @@ dipstick = { version = "0.9.0", optional = true }
 groove-core = { path = "../core" }
 groove-entities = { path = "../entities" }
 groove-macros = { path = "../macros" }
+groove-proc-macros = { path = "../proc-macros" }
 groove-toys = { path = "../toys" }
 hound = "3.5"
 more-asserts = "0.3.1"

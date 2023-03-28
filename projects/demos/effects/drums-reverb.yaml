@@ -16,7 +16,7 @@ devices:
       - reverb:
           wet-dry-mix: 1.0     # what percentage of input is sent to the effect
           attenuation: 0.95    # how much the effect quiets the input
-          reverb-seconds: 1.25 # how big the room is!
+          seconds: 1.25 # how big the room is!
 patch-cables:
   - [drum-1, effect-1, main-mixer]
 patterns:

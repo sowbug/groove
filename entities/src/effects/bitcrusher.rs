@@ -87,6 +87,14 @@ impl Bitcrusher {
     pub fn set_control_bits_to_crush(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_bits_to_crush((value.0 * 16.0).floor() as u8);
     }
+
+    pub fn params(&self) -> BitcrusherParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: BitcrusherParamsMessage) {
+        self.params.update(message)
+    }
 }
 
 #[cfg(test)]

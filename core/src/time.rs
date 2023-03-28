@@ -12,6 +12,9 @@ use std::{
 };
 use strum_macros::FromRepr;
 
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
 // A way to specify a time unit that Clock tracks.
 #[derive(Clone, Debug, Default)]
 pub enum ClockTimeUnit {
@@ -355,6 +358,11 @@ impl BeatValue {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "control-trip", rename_all = "kebab-case")
+)]
 pub struct TimeSignature {
     // The top number of a time signature tells how many beats are in a measure.
     // The bottom number tells the value of a beat. For example, if the bottom

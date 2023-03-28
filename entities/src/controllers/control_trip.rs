@@ -9,8 +9,27 @@ use groove_core::{
     traits::{IsController, Resets, Ticks, TicksWithMessages},
     ParameterType, SignalType,
 };
-use groove_macros::Uid;
+use groove_macros::{Synchronization, Uid};
 use std::ops::Range;
+use std::str::FromStr;
+use strum::EnumCount;
+use strum_macros::{
+    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
+};
+
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "control-trip", rename_all = "kebab-case")
+)]
+pub struct ControlTripParams {
+    pub time_signature: TimeSignature,
+    pub bpm: ParameterType,
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum ControlStep {
@@ -43,31 +62,29 @@ pub enum ControlStep {
 #[derive(Debug, Uid)]
 pub struct ControlTrip {
     uid: usize,
+    params: ControlTripParams,
     clock: Clock,
     cursor_beats: f64,
     current_value: SignalType,
     envelope: SteppedEnvelope,
     is_finished: bool,
     sample_rate: usize,
-    time_signature: TimeSignature,
-    bpm: ParameterType,
 }
 impl IsController for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
 
-    pub fn new_with(sample_rate: usize, time_signature: TimeSignature, bpm: ParameterType) -> Self {
+    pub fn new_with(sample_rate: usize, params: ControlTripParams) -> Self {
         Self {
             uid: usize::default(),
-            clock: Clock::new_with(sample_rate, bpm, 9999),
+            params,
+            clock: Clock::new_with(sample_rate, params.bpm, 9999),
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
             is_finished: true,
             sample_rate,
-            time_signature,
-            bpm,
         }
     }
 
@@ -121,6 +138,14 @@ impl ControlTrip {
             self.cursor_beats += path_multiplier;
         }
         self.is_finished = false;
+    }
+
+    pub fn update(&mut self, message: ControlTripParamsMessage) {
+        self.params.update(message)
+    }
+
+    pub fn params(&self) -> ControlTripParams {
+        self.params
     }
 }
 impl Resets for ControlTrip {}

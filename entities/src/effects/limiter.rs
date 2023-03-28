@@ -14,17 +14,18 @@ use strum_macros::{
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
 #[cfg_attr(
     feature = "serialization",
     derive(Serialize, Deserialize),
     serde(rename = "limiter", rename_all = "kebab-case")
 )]
 pub struct LimiterParams {
+    #[sync]
     pub max: BipolarNormal,
+    #[sync]
     pub min: BipolarNormal,
 }
-
 impl LimiterParams {
     pub fn max(&self) -> BipolarNormal {
         self.max
@@ -47,6 +48,8 @@ impl LimiterParams {
 pub struct Limiter {
     uid: usize,
 
+    params: LimiterParams,
+
     #[controllable]
     min: f32,
     #[controllable]
@@ -56,6 +59,7 @@ impl Default for Limiter {
     fn default() -> Self {
         Self {
             uid: Default::default(),
+            params: Default::default(),
             min: BipolarNormal::MIN as f32, // TODO: this should be a regular Normal, since we don't have negatives
             max: BipolarNormal::MAX as f32,
         }
@@ -77,6 +81,7 @@ impl TransformsAudio for Limiter {
 impl Limiter {
     pub fn new_with_params(params: LimiterParams) -> Self {
         Self {
+            params,
             min: params.min().value_as_f32(),
             max: params.max().value_as_f32(),
             ..Default::default()
@@ -105,6 +110,14 @@ impl Limiter {
 
     pub fn set_control_max(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_max(value.0);
+    }
+
+    pub fn params(&self) -> LimiterParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: LimiterParamsMessage) {
+        self.params.update(message)
     }
 }
 

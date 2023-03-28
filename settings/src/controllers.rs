@@ -10,7 +10,7 @@ use groove_entities::{
     ToyMessageMaker,
 };
 use groove_orchestration::Entity;
-use groove_toys::ToyController;
+use groove_toys::{ToyController, ToyControllerParams};
 use serde::{Deserialize, Serialize};
 
 /// A ControlTrip contains successive ControlSteps. A ControlStep describes how
@@ -157,7 +157,7 @@ impl ControllerSettings {
                 *midi_output_channel,
                 Entity::ToyController(Box::new(ToyController::new_with(
                     sample_rate,
-                    bpm,
+                    groove_toys::ToyControllerParams { bpm },
                     *midi_output_channel,
                     Box::new(ToyMessageMaker {}),
                 ))),
@@ -169,7 +169,7 @@ impl ControllerSettings {
                 midi.midi_out,
                 Entity::ToyController(Box::new(ToyController::new_with(
                     sample_rate,
-                    bpm,
+                    ToyControllerParams { bpm },
                     midi.midi_out,
                     Box::new(ToyMessageMaker {}),
                 ))),

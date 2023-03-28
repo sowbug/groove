@@ -1,9 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::{Normal, SampleType};
+use groove_core::Normal;
 use groove_entities::effects::{
-    BiQuadFilter, Bitcrusher, BitcrusherParams, Chorus, Compressor, Delay, FilterParams, Gain,
-    Limiter, LimiterParams, Mixer, Reverb,
+    BiQuadFilter, Bitcrusher, BitcrusherParams, Chorus, ChorusParams, Compressor, CompressorParams,
+    Delay, DelayParams, FilterParams, Gain, Limiter, LimiterParams, Mixer, Reverb, ReverbParams,
 };
 use groove_orchestration::Entity;
 use groove_toys::ToyEffect;
@@ -36,12 +36,12 @@ pub enum EffectSettings {
         release: f32,
     },
     #[serde(rename_all = "kebab-case")]
-    Delay { delay: f32 },
+    Delay { seconds: f64 },
     #[serde(rename_all = "kebab-case")]
     Reverb {
         wet_dry_mix: f32,
-        attenuation: f32,
-        reverb_seconds: f32,
+        attenuation: f64,
+        seconds: f64,
     },
     #[serde(rename = "filter-low-pass-12db")]
     FilterLowPass12db { cutoff: f32, q: f32 },
@@ -88,12 +88,12 @@ impl EffectSettings {
                 ratio,
                 attack,
                 release,
-            } => Entity::Compressor(Box::new(Compressor::new_with(
-                threshold as SampleType,
-                ratio,
-                attack,
-                release,
-            ))),
+            } => Entity::Compressor(Box::new(Compressor::new_with(CompressorParams {
+                threshold: threshold.into(),
+                ratio: ratio.into(),
+                attack: attack.into(),
+                release: release.into(),
+            }))),
             EffectSettings::FilterLowPass12db { cutoff, q } => Entity::BiQuadFilter(Box::new(
                 BiQuadFilter::new_with(&FilterParams::LowPass12db { cutoff, q }, sample_rate),
             )),
@@ -144,18 +144,23 @@ impl EffectSettings {
                     sample_rate,
                 )))
             }
-            EffectSettings::Delay { delay } => {
-                Entity::Delay(Box::new(Delay::new_with(sample_rate, delay)))
-            }
+            EffectSettings::Delay { seconds } => Entity::Delay(Box::new(Delay::new_with(
+                sample_rate,
+                DelayParams {
+                    seconds: seconds.into(),
+                },
+            ))),
             EffectSettings::Reverb {
                 wet_dry_mix,
                 attenuation,
-                reverb_seconds,
+                seconds: reverb_seconds,
             } => Entity::Reverb(Box::new(Reverb::new_with(
                 sample_rate,
+                ReverbParams {
+                    attenuation: attenuation.into(),
+                    seconds: reverb_seconds.into(),
+                },
                 wet_dry_mix,
-                attenuation,
-                reverb_seconds,
             ))),
             EffectSettings::Chorus {
                 wet_dry_mix,
@@ -163,9 +168,11 @@ impl EffectSettings {
                 delay_factor,
             } => Entity::Chorus(Box::new(Chorus::new_with(
                 sample_rate,
+                ChorusParams {
+                    voices,
+                    delay_factor,
+                },
                 wet_dry_mix,
-                voices,
-                delay_factor,
             ))),
         }
     }

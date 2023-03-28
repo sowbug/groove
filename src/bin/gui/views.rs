@@ -12,23 +12,35 @@ use groove_core::{
 };
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage, ControlTrip, LfoController,
-        LfoControllerParams, LfoControllerParamsMessage, MidiTickSequencer, Note, Pattern,
+        Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage, ControlTrip, ControlTripParams,
+        ControlTripParamsMessage, LfoController, LfoControllerParams, LfoControllerParamsMessage,
+        MidiTickSequencer, MidiTickSequencerParams, MidiTickSequencerParamsMessage, Note, Pattern,
         PatternManager, PatternManagerParams, PatternManagerParamsMessage, PatternMessage,
-        Sequencer, SequencerParams, SequencerParamsMessage, SignalPassthroughController, Timer,
+        Sequencer, SequencerParams, SequencerParamsMessage, SignalPassthroughController,
+        SignalPassthroughControllerParams, SignalPassthroughControllerParamsMessage, Timer,
+        TimerParams, TimerParamsMessage,
     },
     effects::{
-        BiQuadFilter, Bitcrusher, BitcrusherParams, BitcrusherParamsMessage, Chorus, Compressor,
-        Delay, Gain, GainParams, GainParamsMessage, Limiter, Mixer, MixerParams,
-        MixerParamsMessage, Reverb, ReverbParams, ReverbParamsMessage,
+        BiQuadFilter, BiQuadFilterParams, BiQuadFilterParamsMessage, Bitcrusher, BitcrusherParams,
+        BitcrusherParamsMessage, Chorus, ChorusParams, ChorusParamsMessage, Compressor,
+        CompressorParams, CompressorParamsMessage, Delay, DelayParams, DelayParamsMessage, Gain,
+        GainParams, GainParamsMessage, Limiter, LimiterParams, LimiterParamsMessage, Mixer,
+        MixerParams, MixerParamsMessage, Reverb, ReverbParams, ReverbParamsMessage,
     },
     instruments::{
-        Drumkit, FmSynthesizer, Sampler, WelshSynth, WelshSynthParams, WelshSynthParamsMessage,
+        Drumkit, DrumkitParams, DrumkitParamsMessage, FmSynth, FmSynthParams, FmSynthParamsMessage,
+        Sampler, SamplerParams, SamplerParamsMessage, WelshSynth, WelshSynthParams,
+        WelshSynthParamsMessage,
     },
     EntityMessage,
 };
 use groove_orchestration::{EntityParams, OtherEntityMessage};
-use groove_toys::{ToyAudioSource, ToyController, ToyEffect, ToyInstrument, ToySynth};
+use groove_toys::{
+    ToyAudioSource, ToyAudioSourceParams, ToyAudioSourceParamsMessage, ToyController,
+    ToyControllerParams, ToyControllerParamsMessage, ToyEffect, ToyEffectParams,
+    ToyEffectParamsMessage, ToyInstrument, ToyInstrumentParams, ToyInstrumentParamsMessage,
+    ToySynth, ToySynthParams, ToySynthParamsMessage,
+};
 use iced::{
     alignment, theme,
     widget::{
@@ -103,7 +115,7 @@ impl EntityView {
             Entity::ControlTrip(e) => self.control_trip_view(e),
             Entity::Delay(e) => self.delay_view(e),
             Entity::Drumkit(e) => self.drumkit_view(e),
-            Entity::FmSynthesizer(e) => self.fm_synthesizer_view(e),
+            Entity::FmSynth(e) => self.fm_synth_view(e),
             Entity::Gain(e) => self.gain_view(e),
             Entity::LfoController(e) => self.lfo_view(e),
             Entity::Limiter(e) => self.limiter_view(e),
@@ -212,7 +224,7 @@ impl EntityView {
         self.collapsing_box(e, || {
             let slider = HSlider::new(
                 NormalParam {
-                    value: IcedNormal::from_clipped(e.threshold()),
+                    value: IcedNormal::from_clipped(e.params().threshold().value_as_f32()),
                     default: IcedNormal::from_clipped(1.0),
                 },
                 EntityMessage::HSliderInt,
@@ -258,7 +270,7 @@ impl EntityView {
         }
     }
 
-    fn fm_synthesizer_view(&self, e: &FmSynthesizer) -> Element<EntityMessage> {
+    fn fm_synth_view(&self, e: &FmSynth) -> Element<EntityMessage> {
         self.collapsing_box(e, || {
             let depth = e.depth().value_as_f32();
             let label_depth = text("Depth").size(Self::LABEL_FONT_SIZE);
@@ -429,7 +441,7 @@ impl EntityView {
     fn test_instrument_view(&self, e: &ToyInstrument) -> Element<EntityMessage> {
         self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(
-                format!("Fake value: {}", e.fake_value()).as_str(),
+                format!("Fake value: {}", e.fake_value().value()).as_str(),
             )
             .into()
         })
@@ -444,7 +456,7 @@ impl EntityView {
     fn timer_view(&self, e: &Timer) -> Element<EntityMessage> {
         self.collapsing_box(e, || {
             GuiStuff::<EntityMessage>::container_text(
-                format!("Runtime: {}", e.time_to_run_seconds()).as_str(),
+                format!("Runtime: {}", e.seconds_to_run()).as_str(),
             )
             .into()
         })
@@ -854,32 +866,15 @@ pub(crate) struct AudioLane {
     pub items: Vec<usize>,
 }
 
-trait Viewable<Message> {
+trait Viewable {
     type Message;
 
-    fn view(&self) -> Element<Self::Message>;
-}
-
-///////////////////////////////
-#[derive(Clone, Debug)]
-pub enum DrumkitMessage {
-    Cowbell(f32),
-}
-
-#[derive(Debug)]
-pub(crate) struct DrumkitView {
-    cowbell: f32,
-}
-impl Viewable<DrumkitMessage> for DrumkitView {
-    type Message = DrumkitMessage;
-
     fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("cowbell: {}", self.cowbell))).into()
+        container(text("coming soon")).into()
     }
 }
-///////////////////////////////
 
-impl Viewable<ArpeggiatorParamsMessage> for ArpeggiatorParams {
+impl Viewable for ArpeggiatorParams {
     type Message = ArpeggiatorParamsMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -887,7 +882,7 @@ impl Viewable<ArpeggiatorParamsMessage> for ArpeggiatorParams {
     }
 }
 
-impl Viewable<BitcrusherParamsMessage> for BitcrusherParams {
+impl Viewable for BitcrusherParams {
     type Message = BitcrusherParamsMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -895,7 +890,7 @@ impl Viewable<BitcrusherParamsMessage> for BitcrusherParams {
     }
 }
 
-impl Viewable<GainParamsMessage> for GainParams {
+impl Viewable for GainParams {
     type Message = GainParamsMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -903,7 +898,7 @@ impl Viewable<GainParamsMessage> for GainParams {
     }
 }
 
-impl Viewable<LfoControllerParamsMessage> for LfoControllerParams {
+impl Viewable for LfoControllerParams {
     type Message = LfoControllerParamsMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -916,7 +911,7 @@ impl Viewable<LfoControllerParamsMessage> for LfoControllerParams {
     }
 }
 
-impl Viewable<MixerParamsMessage> for MixerParams {
+impl Viewable for MixerParams {
     type Message = MixerParamsMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -924,7 +919,7 @@ impl Viewable<MixerParamsMessage> for MixerParams {
     }
 }
 
-impl Viewable<PatternManagerParamsMessage> for PatternManagerParams {
+impl Viewable for PatternManagerParams {
     type Message = PatternManagerParamsMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -932,7 +927,7 @@ impl Viewable<PatternManagerParamsMessage> for PatternManagerParams {
     }
 }
 
-impl Viewable<ReverbParamsMessage> for ReverbParams {
+impl Viewable for ReverbParams {
     type Message = ReverbParamsMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -944,7 +939,7 @@ impl Viewable<ReverbParamsMessage> for ReverbParams {
     }
 }
 
-impl Viewable<SequencerParamsMessage> for SequencerParams {
+impl Viewable for SequencerParams {
     type Message = SequencerParamsMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -952,7 +947,7 @@ impl Viewable<SequencerParamsMessage> for SequencerParams {
     }
 }
 
-impl Viewable<WelshSynthParamsMessage> for WelshSynthParams {
+impl Viewable for WelshSynthParams {
     type Message = WelshSynthParamsMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -974,6 +969,75 @@ impl Viewable<WelshSynthParamsMessage> for WelshSynthParams {
             .push(pan_knob);
         container(column).into()
     }
+}
+
+impl Viewable for ChorusParams {
+    type Message = ChorusParamsMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("delay factor: {}", self.delay_factor()))).into()
+    }
+}
+
+impl Viewable for ControlTripParams {
+    type Message = ControlTripParamsMessage;
+}
+
+impl Viewable for MidiTickSequencerParams {
+    type Message = MidiTickSequencerParamsMessage;
+}
+
+impl Viewable for SignalPassthroughControllerParams {
+    type Message = SignalPassthroughControllerParamsMessage;
+}
+
+impl Viewable for TimerParams {
+    type Message = TimerParamsMessage;
+}
+
+impl Viewable for ToyInstrumentParams {
+    type Message = ToyInstrumentParamsMessage;
+}
+
+impl Viewable for ToyEffectParams {
+    type Message = ToyEffectParamsMessage;
+}
+
+impl Viewable for ToySynthParams {
+    type Message = ToySynthParamsMessage;
+}
+
+impl Viewable for ToyAudioSourceParams {
+    type Message = ToyAudioSourceParamsMessage;
+}
+
+impl Viewable for BiQuadFilterParams {
+    type Message = BiQuadFilterParamsMessage;
+}
+
+impl Viewable for ToyControllerParams {
+    type Message = ToyControllerParamsMessage;
+}
+
+impl Viewable for CompressorParams {
+    type Message = CompressorParamsMessage;
+}
+
+impl Viewable for DelayParams {
+    type Message = DelayParamsMessage;
+}
+
+impl Viewable for LimiterParams {
+    type Message = LimiterParamsMessage;
+}
+impl Viewable for SamplerParams {
+    type Message = SamplerParamsMessage;
+}
+impl Viewable for FmSynthParams {
+    type Message = FmSynthParamsMessage;
+}
+impl Viewable for DrumkitParams {
+    type Message = DrumkitParamsMessage;
 }
 
 #[derive(Clone, Debug)]
@@ -1015,7 +1079,7 @@ pub(crate) struct View {
     lanes: Vec<AudioLane>,
 }
 
-macro_rules! build_entity_fns {
+macro_rules! build_view_dispatcher {
         ($($entity:ident; $params:tt; $params_message:tt ,)*) => {
             fn entity_view<'a>(&self, uid: usize, entity: &'a EntityParams) -> Element<'a, ViewMessage> {
                 match entity {
@@ -1033,34 +1097,20 @@ macro_rules! build_entity_fns {
                 }
             }
 
-            fn entity_update(
+            fn entity_create(
                 &mut self,
                 uid: usize,
                 message: OtherEntityMessage,
-            ) -> Option<ViewMessage> {
-                if let Some(entity) = self.entity_store.get_mut(&uid) {
-                    match message {
+            )  {
+                match message {
                     $(
-                        OtherEntityMessage::$params(message) => {
-                            if let EntityParams::$entity(entity) = entity.as_mut() {
-                                entity.update(message); // TODO: handle reply
-                            }
+                        OtherEntityMessage::$params($params_message::$params(params)) => {
+                            self.add_entity(uid, EntityParams::$entity(Box::new(params)));
                         }
-                    ),*
-                    }
-                } else {
-                    match message {
-                        $(
-                            OtherEntityMessage::$params($params_message::$params(params)) => {
-                                self.add_entity(uid, EntityParams::$entity(Box::new(params)));
-                            }
-                         ),*
-                         _ => {todo!();}
-                    }
+                        ),*
+                        _ => {todo!();}
                 }
-                None
             }
-
         }
     }
 
@@ -1299,15 +1349,40 @@ impl View {
         container(column![controller_row, controllable_row]).into()
     }
 
-    build_entity_fns! {
+    build_view_dispatcher! {
+        // struct; params; message; is_controller; is_controllable,
+
+        // Controllers
         Arpeggiator; ArpeggiatorParams; ArpeggiatorParamsMessage,
-        Bitcrusher; BitcrusherParams; BitcrusherParamsMessage,
-        Gain; GainParams; GainParamsMessage,
+        ControlTrip; ControlTripParams; ControlTripParamsMessage,
         LfoController; LfoControllerParams; LfoControllerParamsMessage,
-        Mixer; MixerParams; MixerParamsMessage,
+        MidiTickSequencer; MidiTickSequencerParams; MidiTickSequencerParamsMessage,
         PatternManager; PatternManagerParams; PatternManagerParamsMessage,
-        Reverb; ReverbParams; ReverbParamsMessage,
         Sequencer; SequencerParams; SequencerParamsMessage,
+        SignalPassthroughController; SignalPassthroughControllerParams; SignalPassthroughControllerParamsMessage,
+        Timer; TimerParams; TimerParamsMessage,
+        ToyController; ToyControllerParams; ToyControllerParamsMessage,
+
+        // Effects
+        BiQuadFilter; BiQuadFilterParams; BiQuadFilterParamsMessage,
+        Bitcrusher; BitcrusherParams; BitcrusherParamsMessage,
+        Chorus; ChorusParams; ChorusParamsMessage,
+        Compressor; CompressorParams; CompressorParamsMessage,
+        Delay; DelayParams; DelayParamsMessage,
+        Gain; GainParams; GainParamsMessage,
+        Limiter; LimiterParams; LimiterParamsMessage,
+        Mixer; MixerParams; MixerParamsMessage,
+        Reverb; ReverbParams; ReverbParamsMessage,
+    // both controller and effect...    SignalPassthroughController; SignalPassthroughControllerParams; SignalPassthroughControllerParamsMessage,
+        ToyEffect; ToyEffectParams; ToyEffectParamsMessage,
+
+        // Instruments
+        Drumkit; DrumkitParams; DrumkitParamsMessage,
+        FmSynth; FmSynthParams; FmSynthParamsMessage,
+        Sampler; SamplerParams; SamplerParamsMessage,
+        ToyAudioSource; ToyAudioSourceParams; ToyAudioSourceParamsMessage,
+        ToyInstrument; ToyInstrumentParams; ToyInstrumentParamsMessage,
+        ToySynth; ToySynthParams; ToySynthParamsMessage,
         WelshSynth; WelshSynthParams; WelshSynthParamsMessage,
     }
 
@@ -1374,7 +1449,15 @@ impl View {
                         .unwrap_or_default();
                 None
             }
-            ViewMessage::OtherEntityMessage(uid, message) => self.entity_update(uid, message),
+            ViewMessage::OtherEntityMessage(uid, message) => {
+                //                    self.entity_update(uid, message)},
+                if let Some(entity) = self.entity_store.get_mut(&uid) {
+                    entity.update(message);
+                } else {
+                    self.entity_create(uid, message);
+                }
+                None
+            }
             ViewMessage::MouseDown(id) => {
                 self.is_dragging = true;
                 self.source_id = id;

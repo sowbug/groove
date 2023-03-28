@@ -23,7 +23,7 @@ devices:
       - reverb:
           wet-dry-mix: 0.5
           attenuation: 1.0
-          reverb-seconds: 2.0
+          seconds: 2.0
 patch-cables:
   - [instrument-1, effect-1, main-mixer]
 # controls:

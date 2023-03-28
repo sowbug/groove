@@ -79,6 +79,14 @@ impl Gain {
     pub fn set_control_ceiling(&mut self, value: groove_core::control::F32ControlValue) {
         self.set_ceiling(Normal::new_from_f32(value.0));
     }
+
+    pub fn params(&self) -> GainParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: GainParamsMessage) {
+        self.params.update(message)
+    }
 }
 
 #[cfg(test)]

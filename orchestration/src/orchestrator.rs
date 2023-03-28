@@ -683,7 +683,7 @@ impl Orchestrator {
             Entity::Reverb(_) => todo!(),
             Entity::ToyEffect(_) => todo!(),
             Entity::Drumkit(_) => todo!(),
-            Entity::FmSynthesizer(_) => todo!(),
+            Entity::FmSynth(_) => todo!(),
             Entity::Sampler(_) => todo!(),
             Entity::ToyAudioSource(_) => todo!(),
             Entity::ToyInstrument(_) => todo!(),
@@ -1045,10 +1045,11 @@ pub mod tests {
     use groove_entities::{
         controllers::{
             Arpeggiator, ArpeggiatorParams, Note, Pattern, PatternProgrammer, Sequencer, Timer,
+            TimerParams,
         },
         effects::Gain,
     };
-    use groove_toys::{ToyAudioSource, ToyInstrument};
+    use groove_toys::{ToyAudioSource, ToyInstrument, ToyInstrumentParams};
 
     impl Orchestrator {
         /// Warning! This method exists only as a debug shortcut to
@@ -1289,7 +1290,9 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            1.0,
+            TimerParams {
+                seconds_to_run: 1.0,
+            },
         ))));
 
         // Prime number
@@ -1304,7 +1307,9 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            0.0,
+            TimerParams {
+                seconds_to_run: 0.0,
+            },
         ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -1319,7 +1324,9 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            1.0 / DEFAULT_SAMPLE_RATE as f32,
+            groove_entities::controllers::TimerParams {
+                seconds_to_run: 1.0 / DEFAULT_SAMPLE_RATE as f64,
+            },
         ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -1334,7 +1341,9 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            1.0,
+            TimerParams {
+                seconds_to_run: 1.0,
+            },
         ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -1419,7 +1428,12 @@ pub mod tests {
         ]);
         programmer.insert_pattern_at_cursor(&mut sequencer, &INSTRUMENT_MIDI_CHANNEL, &pattern);
 
-        let midi_recorder = Box::new(ToyInstrument::new_with(DEFAULT_SAMPLE_RATE));
+        let midi_recorder = Box::new(ToyInstrument::new_with(
+            DEFAULT_SAMPLE_RATE,
+            ToyInstrumentParams {
+                fake_value: Normal::from(0.22222),
+            },
+        ));
         let midi_recorder_uid = o.add(Entity::ToyInstrument(midi_recorder));
         o.connect_midi_downstream(midi_recorder_uid, INSTRUMENT_MIDI_CHANNEL);
 
@@ -1489,7 +1503,9 @@ pub mod tests {
         // first note off (not on!) and the second note on/off.
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            2.0,
+            TimerParams {
+                seconds_to_run: 2.0,
+            },
         ))));
         assert!(o.run(&mut sample_buffer).is_ok());
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 3);
@@ -1574,7 +1590,12 @@ pub mod tests {
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
             ArpeggiatorParams { bpm: clock.bpm() },
         ));
-        let instrument = Box::new(ToyInstrument::new_with(clock.sample_rate()));
+        let instrument = Box::new(ToyInstrument::new_with(
+            clock.sample_rate(),
+            ToyInstrumentParams {
+                fake_value: Normal::from(0.332948),
+            },
+        ));
         let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm());
 
         sequencer.insert(

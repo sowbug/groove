@@ -359,7 +359,7 @@ enum State {
 #[cfg_attr(
     feature = "serialization",
     derive(Serialize, Deserialize),
-    serde(rename = "envelops", rename_all = "kebab-case")
+    serde(rename = "envelope", rename_all = "kebab-case")
 )]
 pub struct EnvelopeParams {
     pub attack: ParameterType,
@@ -379,6 +379,16 @@ impl EnvelopeParams {
             decay,
             sustain,
             release,
+        }
+    }
+}
+impl Default for EnvelopeParams {
+    fn default() -> Self {
+        Self {
+            attack: 0.0,
+            decay: 0.0,
+            sustain: Normal::maximum(),
+            release: 0.0,
         }
     }
 }

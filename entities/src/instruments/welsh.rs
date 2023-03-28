@@ -361,6 +361,10 @@ impl WelshSynth {
     pub fn params(&self) -> WelshSynthParams {
         self.params
     }
+
+    pub fn update(&mut self, message: WelshSynthParamsMessage) {
+        self.params.update(message)
+    }
 }
 
 #[cfg(test)]

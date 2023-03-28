@@ -186,6 +186,10 @@ impl Sequencer {
     pub fn params(&self) -> SequencerParams {
         self.params
     }
+
+    pub fn update(&mut self, message: SequencerParamsMessage) {
+        self.params.update(message)
+    }
 }
 impl Resets for Sequencer {
     fn reset(&mut self, sample_rate: usize) {
@@ -235,12 +239,33 @@ impl TicksWithMessages for Sequencer {
 
 pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
 
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "midi-tick-sequencer", rename_all = "kebab-case")
+)]
+pub struct MidiTickSequencerParams {
+    #[sync]
+    pub midi_ticks_per_second: usize,
+}
+impl MidiTickSequencerParams {
+    pub fn midi_ticks_per_second(&self) -> usize {
+        self.midi_ticks_per_second
+    }
+
+    pub fn set_midi_ticks_per_second(&mut self, midi_ticks_per_second: usize) {
+        self.midi_ticks_per_second = midi_ticks_per_second;
+    }
+}
+
 /// [MidiTickSequencer] is another kind of sequencer whose time unit is the MIDI
 /// tick. It exists to make it easy for [MidiSmfReader] to turn MIDI files into
 /// sequences.
 #[derive(Debug, Uid)]
 pub struct MidiTickSequencer {
     uid: usize,
+    params: MidiTickSequencerParams,
     next_instant: MidiTicks,
     events: MidiTickEventsMap,
     last_event_time: MidiTicks,
@@ -251,14 +276,15 @@ pub struct MidiTickSequencer {
 impl IsController for MidiTickSequencer {}
 impl HandlesMidi for MidiTickSequencer {}
 impl MidiTickSequencer {
-    pub fn new_with(sample_rate: usize, midi_ticks_per_second: usize) -> Self {
+    pub fn new_with(sample_rate: usize, params: MidiTickSequencerParams) -> Self {
         Self {
             uid: Default::default(),
+            params,
             next_instant: Default::default(),
             events: Default::default(),
             last_event_time: Default::default(),
             is_disabled: Default::default(),
-            temp_hack_clock: Clock::new_with(sample_rate, 9999.0, midi_ticks_per_second),
+            temp_hack_clock: Clock::new_with(sample_rate, 9999.0, params.midi_ticks_per_second()),
         }
     }
 
@@ -288,6 +314,14 @@ impl MidiTickSequencer {
 
     fn is_finished(&self) -> bool {
         self.next_instant > self.last_event_time
+    }
+
+    pub fn params(&self) -> MidiTickSequencerParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: MidiTickSequencerParamsMessage) {
+        self.params.update(message)
     }
 }
 impl Resets for MidiTickSequencer {

@@ -22,13 +22,13 @@ use strum_macros::{
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
 #[cfg_attr(
     feature = "serialization",
     derive(Serialize, Deserialize),
-    serde(rename = "fm", rename_all = "kebab-case")
+    serde(rename = "fm-synthesizer", rename_all = "kebab-case")
 )]
-pub struct FmVoiceParams {
+pub struct FmSynthParams {
     pub depth: Normal,
     pub ratio: ParameterType,
     pub beta: ParameterType,
@@ -149,7 +149,7 @@ impl Ticks for FmVoice {
     }
 }
 impl FmVoice {
-    pub fn new_with_params(sample_rate: usize, params: FmVoiceParams) -> Self {
+    pub fn new_with_params(sample_rate: usize, params: FmSynthParams) -> Self {
         Self {
             sample: Default::default(),
             carrier: Oscillator::new_with(sample_rate),
@@ -208,11 +208,11 @@ impl FmVoice {
 }
 
 #[derive(Control, Debug, Uid)]
-pub struct FmSynthesizer {
+pub struct FmSynth {
     uid: usize,
-    inner_synth: Synthesizer<FmVoice>,
+    params: FmSynthParams,
 
-    params: FmVoiceParams,
+    inner_synth: Synthesizer<FmVoice>,
 
     #[controllable]
     depth: PhantomData<Normal>,
@@ -223,8 +223,8 @@ pub struct FmSynthesizer {
     #[controllable]
     beta: PhantomData<ParameterType>,
 }
-impl IsInstrument for FmSynthesizer {}
-impl Generates<StereoSample> for FmSynthesizer {
+impl IsInstrument for FmSynth {}
+impl Generates<StereoSample> for FmSynth {
     fn value(&self) -> StereoSample {
         self.inner_synth.value()
     }
@@ -233,17 +233,17 @@ impl Generates<StereoSample> for FmSynthesizer {
         self.inner_synth.batch_values(values);
     }
 }
-impl Resets for FmSynthesizer {
+impl Resets for FmSynth {
     fn reset(&mut self, sample_rate: usize) {
         self.inner_synth.reset(sample_rate)
     }
 }
-impl Ticks for FmSynthesizer {
+impl Ticks for FmSynth {
     fn tick(&mut self, tick_count: usize) {
         self.inner_synth.tick(tick_count);
     }
 }
-impl HandlesMidi for FmSynthesizer {
+impl HandlesMidi for FmSynth {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
@@ -251,17 +251,17 @@ impl HandlesMidi for FmSynthesizer {
         self.inner_synth.handle_midi_message(message)
     }
 }
-impl FmSynthesizer {
-    pub fn new_with_params(sample_rate: usize, params: FmVoiceParams) -> Self {
+impl FmSynth {
+    pub fn new_with_params(sample_rate: usize, params: FmSynthParams) -> Self {
         Self {
             uid: Default::default(),
+            params,
             inner_synth: Synthesizer::<FmVoice>::new_with(
                 sample_rate,
                 Box::new(StealingVoiceStore::new_with_voice(sample_rate, 4, || {
                     FmVoice::new_with_params(sample_rate, params)
                 })),
             ),
-            params,
             depth: Default::default(),
             ratio: Default::default(),
             beta: Default::default(),
@@ -269,13 +269,13 @@ impl FmSynthesizer {
     }
     pub fn new_with_params_and_voice_store(
         sample_rate: usize,
-        params: FmVoiceParams,
+        params: FmSynthParams,
         voice_store: Box<dyn StoresVoices<Voice = FmVoice>>,
     ) -> Self {
         Self {
             uid: Default::default(),
-            inner_synth: Synthesizer::<FmVoice>::new_with(sample_rate, voice_store),
             params,
+            inner_synth: Synthesizer::<FmVoice>::new_with(sample_rate, voice_store),
             depth: Default::default(),
             ratio: Default::default(),
             beta: Default::default(),
@@ -330,5 +330,13 @@ impl FmSynthesizer {
 
     pub fn beta(&self) -> f64 {
         self.params.beta
+    }
+
+    pub fn params(&self) -> FmSynthParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: FmSynthParamsMessage) {
+        self.params.update(message)
     }
 }

@@ -124,9 +124,18 @@ impl SamplerVoice {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "sampler", rename_all = "kebab-case")
+)]
+pub struct SamplerParams {}
+
 #[derive(Control, Debug, Uid)]
 pub struct Sampler {
     uid: usize,
+    params: SamplerParams,
     inner_synth: Synthesizer<SamplerVoice>,
 
     root_frequency: ParameterType,
@@ -179,6 +188,7 @@ impl Sampler {
 
             Self {
                 uid: Default::default(),
+                params: Default::default(),
                 inner_synth: Synthesizer::<SamplerVoice>::new_with(
                     sample_rate,
                     Box::new(VoiceStore::<SamplerVoice>::new_with_voice(
@@ -313,6 +323,14 @@ impl Sampler {
 
     pub fn root_frequency(&self) -> f64 {
         self.root_frequency
+    }
+
+    pub fn params(&self) -> SamplerParams {
+        self.params
+    }
+
+    pub fn update(&mut self, message: SamplerParamsMessage) {
+        self.params.update(message)
     }
 }
 

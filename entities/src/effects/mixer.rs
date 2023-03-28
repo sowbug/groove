@@ -50,6 +50,10 @@ impl Mixer {
     pub fn params(&self) -> MixerParams {
         self.params
     }
+
+    pub fn update(&mut self, message: MixerParamsMessage) {
+        self.params.update(message)
+    }
 }
 
 #[cfg(test)]

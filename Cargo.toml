@@ -23,6 +23,7 @@ groove-core = { path = "core" }
 groove-entities = { path = "entities" }
 groove-macros = { path = "macros" }
 groove-orchestration = { path = "orchestration" }
+groove-proc-macros = { path = "proc-macros" }
 groove-settings = { path = "settings" }
 groove-toys = { path = "toys" }
 hound = "3.5"
@@ -47,7 +48,15 @@ strum = "0.24.1"
 strum_macros = "0.24.2"
 
 [workspace]
-members = ["core", "entities", "macros", "orchestration", "settings", "toys"]
+members = [
+    "core",
+    "entities",
+    "macros",
+    "orchestration",
+    "proc-macros",
+    "settings",
+    "toys"
+]
 
 [[bin]]
 name = "groove-cli"
