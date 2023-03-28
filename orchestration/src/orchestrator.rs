@@ -14,9 +14,8 @@ use groove_core::{
     ParameterType, StereoSample,
 };
 use groove_entities::{
-    controllers::{ArpeggiatorParamsMessage, PatternManager, Sequencer, SequencerParams},
+    controllers::{PatternManager, Sequencer, SequencerParams},
     effects::Mixer,
-    instruments::WelshSynthParamsMessage,
     EntityMessage,
 };
 use groove_proc_macros::Uid;
@@ -652,59 +651,14 @@ impl Orchestrator {
         }
     }
 
-    #[deprecated]
-    fn control_message_for_index(
-        entity: &Entity,
-        param_id: &usize,
-        value: f32,
-    ) -> OtherEntityMessage {
-        match entity {
-            Entity::Arpeggiator(_) => match *param_id {
-                0 => OtherEntityMessage::ArpeggiatorParams(ArpeggiatorParamsMessage::Bpm(
-                    value.into(),
-                )),
-                _ => todo!(),
-            },
-            Entity::Sequencer(_) => todo!(),
-            Entity::ControlTrip(_) => todo!(),
-            Entity::MidiTickSequencer(_) => todo!(),
-            Entity::LfoController(_) => todo!(),
-            Entity::PatternManager(_) => todo!(),
-            Entity::SignalPassthroughController(_) => todo!(),
-            Entity::ToyController(_) => todo!(),
-            Entity::Timer(_) => todo!(),
-            Entity::BiQuadFilter(_) => todo!(),
-            Entity::Bitcrusher(_) => todo!(),
-            Entity::Chorus(_) => todo!(),
-            Entity::Compressor(_) => todo!(),
-            Entity::Delay(_) => todo!(),
-            Entity::Gain(_) => todo!(),
-            Entity::Limiter(_) => todo!(),
-            Entity::Mixer(_) => todo!(),
-            Entity::Reverb(_) => todo!(),
-            Entity::ToyEffect(_) => todo!(),
-            Entity::Drumkit(_) => todo!(),
-            Entity::FmSynth(_) => todo!(),
-            Entity::Sampler(_) => todo!(),
-            Entity::ToyAudioSource(_) => todo!(),
-            Entity::ToyInstrument(_) => todo!(),
-            Entity::ToySynth(_) => todo!(),
-            Entity::WelshSynth(_) => match *param_id {
-                0 => {
-                    OtherEntityMessage::WelshSynthParams(WelshSynthParamsMessage::Pan(value.into()))
-                }
-                _ => todo!(),
-            },
-        }
-    }
-
     fn broadcast_control_message(&mut self, uid: usize, value: f32) -> Response<GrooveEvent> {
         let mut v = Vec::default();
         if let Some(control_links) = self.store.control_links(uid) {
             for (target_uid, param_id) in control_links.iter() {
                 if let Some(entity) = self.store.get(*target_uid) {
-                    let msg = Self::control_message_for_index(&entity, param_id, value);
-                    v.push(Response::single(GrooveEvent::Update(*target_uid, msg)));
+                    if let Some(msg) = entity.message_for(*param_id, value.into()) {
+                        v.push(Response::single(GrooveEvent::Update(*target_uid, msg)));
+                    }
                 }
             }
         }
@@ -841,11 +795,9 @@ impl Orchestrator {
         )
     }
 
-    #[deprecated]
     fn update_controllable(&mut self, uid: usize, message: OtherEntityMessage) {
         if let Some(entity) = self.store.get_mut(uid) {
-            todo!()
-            //            entity.as_controllable_mut().update(message);
+            entity.update(message)
         }
     }
 }
