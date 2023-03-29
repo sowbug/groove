@@ -1,12 +1,8 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
-use syn::{
-    parse_macro_input, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident,
-    Lit, Meta, NestedMeta,
-};
+use quote::quote;
+use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn impl_uid_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -14,7 +10,7 @@ pub(crate) fn impl_uid_derive(input: TokenStream) -> TokenStream {
     let generics = input.generics;
     let (_impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
 
-    let expanded = quote! {
+    TokenStream::from(quote! {
         #[automatically_derived]
         impl #generics groove_core::traits::HasUid for #name #ty_generics {
             fn uid(&self) -> usize {
@@ -29,6 +25,5 @@ pub(crate) fn impl_uid_derive(input: TokenStream) -> TokenStream {
                 stringify!(#name)
             }
         }
-    };
-    TokenStream::from(expanded)
+    })
 }

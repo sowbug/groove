@@ -35,6 +35,7 @@ use groove_entities::{
     EntityMessage,
 };
 use groove_orchestration::{EntityParams, OtherEntityMessage};
+use groove_proc_macros::Views;
 use groove_toys::{
     ToyAudioSource, ToyAudioSourceParams, ToyAudioSourceParamsMessage, ToyController,
     ToyControllerParams, ToyControllerParamsMessage, ToyEffect, ToyEffectParams,
@@ -1530,3 +1531,87 @@ impl View {
         self.entity_store.entities.insert(uid, Box::new(item));
     }
 }
+
+// /// The #[derive(Views)] macro uses [ViewableEntities] to generate scaffolding.
+// /// The enum itself is otherwise unused.
+// #[allow(dead_code)]
+// #[derive(Views)]
+// enum ViewableEntities {
+//     #[views(controller, midi, controllable)]
+//     Arpeggiator(Arpeggiator),
+
+//     #[views(effect, controllable)]
+//     BiQuadFilter(BiQuadFilter),
+
+//     #[views(effect, controllable)]
+//     Bitcrusher(Bitcrusher),
+
+//     #[views(effect, controllable)]
+//     Chorus(Chorus),
+
+//     #[views(effect, controllable)]
+//     Compressor(Compressor),
+
+//     #[views(controller, midi)]
+//     ControlTrip(ControlTrip),
+
+//     #[views(effect, controllable)]
+//     Delay(Delay),
+
+//     #[views(instrument, midi)]
+//     Drumkit(Drumkit),
+
+//     #[views(instrument, midi, controllable)]
+//     FmSynth(FmSynth),
+
+//     #[views(effect, controllable)]
+//     Gain(Gain),
+
+//     #[views(controller, midi)]
+//     LfoController(LfoController),
+
+//     #[views(effect, controllable)]
+//     Limiter(Limiter),
+
+//     #[views(controller, midi)]
+//     MidiTickSequencer(MidiTickSequencer),
+
+//     #[views(effect)]
+//     Mixer(Mixer),
+
+//     #[views(controller, midi)]
+//     PatternManager(PatternManager),
+
+//     #[views(effect, controllable)]
+//     Reverb(Reverb),
+
+//     #[views(instrument, midi)]
+//     Sampler(Sampler),
+
+//     #[views(controller, midi)]
+//     Sequencer(Sequencer),
+
+//     #[views(controller, effect, midi)]
+//     SignalPassthroughController(SignalPassthroughController),
+
+//     #[views(controller, midi)]
+//     Timer(Timer),
+
+//     #[views(instrument, midi)]
+//     ToyAudioSource(ToyAudioSource),
+
+//     #[views(controller, midi)]
+//     ToyController(ToyController<EntityMessage>),
+
+//     #[views(effect, controllable)]
+//     ToyEffect(ToyEffect),
+
+//     #[views(instrument, midi, controllable)]
+//     ToyInstrument(ToyInstrument),
+
+//     #[views(instrument, midi, controllable)]
+//     ToySynth(ToySynth),
+
+//     #[views(instrument, midi, controllable)]
+//     WelshSynth(WelshSynth),
+// }

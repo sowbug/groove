@@ -3,19 +3,20 @@
 //! This crate provides macros that make Entity development easier.
 
 use control::impl_control_derive;
-use convert_case::{Case, Casing};
+use everything::parse_and_generate_everything;
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
-use syn::{
-    parse_macro_input, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident,
-    Lit, Meta, NestedMeta,
-};
+use syn::{parse_macro_input, DeriveInput};
+use synchronization::impl_synchronization_derive;
 use uid::impl_uid_derive;
+use views::parse_and_generate_views;
 
 mod control;
+mod everything;
+mod synchronization;
 mod uid;
+mod views;
 
-/// The Uid macro derives the boilerplate necessary for the HasUid trait. If a
+/// The [Uid] macro derives the boilerplate necessary for the HasUid trait. If a
 /// device needs to interoperate with Orchestrator, then it needs to have a
 /// unique ID. Deriving with this macro makes that happen.
 #[proc_macro_derive(Uid)]
@@ -23,502 +24,40 @@ pub fn uid_derive(input: TokenStream) -> TokenStream {
     impl_uid_derive(input)
 }
 
-/// The Control macro derives the infrastructure that makes an entity
+/// The [Control] macro derives the infrastructure that makes an entity
 /// controllable (automatable). By annotating each controllable field with
 /// `#[controllable]`, the entity exposes a public API that Orchestrator uses to
-/// manipulate those fields. Note that adding the `#[controllable]` annotation
-/// isn't enough; for each field, you should also add a method called
-/// `set_control_FIELDNAME()` that takes a control type, such as
-/// [F32ControlValue](groove_core::control::F32ControlValue).
+/// manipulate those fields.
 #[proc_macro_derive(Control, attributes(controllable))]
 pub fn control_derive(input: TokenStream) -> TokenStream {
     impl_control_derive(input)
 }
 
+/// The [Synchronization] macro derives the infrastructure that helps sync
+/// system data. If you have a struct Foo, then this macro will (eventually)
+/// help generate a NanoFoo struct, along with methods and messages that make it
+/// easy to propagate changes between the two.
+///
+/// [Control] and [Synchronization] turned out to have similar solutions, though
+/// the problems are different, so I'm in the process of merging them.
 #[proc_macro_derive(Synchronization, attributes(sync))]
 pub fn synchronization_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let struct_name = input.ident;
-    let enum_name = format_ident!("{}Message", struct_name);
-    TokenStream::from(parse_synchronization_data(
-        &struct_name,
-        &input.generics,
-        &enum_name,
-        &input.data,
+    impl_synchronization_derive(input)
+}
+
+/// The [Everything] macro derives the code that ties all Entities together.
+#[proc_macro_derive(Everything, attributes(everything))]
+pub fn derive_everything(input: TokenStream) -> TokenStream {
+    TokenStream::from(parse_and_generate_everything(
+        &(parse_macro_input!(input as DeriveInput)).data,
     ))
 }
 
-fn parse_synchronization_data(
-    struct_name: &Ident,
-    generics: &Generics,
-    enum_name: &Ident,
-    data: &Data,
-) -> proc_macro2::TokenStream {
-    let (_impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
-    // Code adapted from https://blog.turbo.fish/proc-macro-error-handling/
-    // Thank you!
-    let fields = match data {
-        Data::Struct(DataStruct {
-            fields: Fields::Named(fields),
-            ..
-        }) => &fields.named,
-        _ => panic!("this derive macro only works on structs with named fields"),
-    };
-    let sync_fields = fields.into_iter().fold(Vec::default(), |mut v, f| {
-        let attrs: Vec<_> = f
-            .attrs
-            .iter()
-            .filter(|attr| attr.path.is_ident("sync"))
-            .collect();
-        if !attrs.is_empty() {
-            match &f.ty {
-                syn::Type::Path(t) => {
-                    if let Some(ident) = t.path.get_ident() {
-                        v.push((f.ident.as_ref().unwrap().clone(), ident.clone()));
-                    }
-                }
-                _ => todo!(),
-            }
-        }
-        v
-    });
-
-    let mut enum_variant_names = Vec::default();
-    let mut enum_field_names = Vec::default();
-    let mut enum_field_types = Vec::default();
-    let mut enum_getter_names = Vec::default();
-    let mut enum_setter_names = Vec::default();
-    for (field_name, field_type) in sync_fields {
-        enum_variant_names.push(format_ident!(
-            "{}",
-            field_name.to_string().to_case(Case::Pascal),
-        ));
-        enum_field_names.push(format_ident!("{}", field_name.to_string(),));
-        enum_field_types.push(format_ident!("{}", field_type));
-        enum_getter_names.push(format_ident!("{}", field_name.to_string(),));
-        enum_setter_names.push(format_ident!("set_{}", field_name.to_string(),));
-    }
-
-    let enum_block = quote! {
-        #[derive(Clone, Display, Debug, EnumCountMacro, EnumString, FromRepr, IntoStaticStr)]
-        #[strum(serialize_all = "kebab-case")]
-        pub enum #enum_name {
-            #struct_name ( #struct_name ),
-            #( #enum_variant_names ( #enum_field_types ) ),*
-        }
-    };
-    let getter_setter_block = quote! {
-        impl #generics #struct_name #ty_generics {
-            #(
-               pub fn #enum_getter_names(&self) -> #enum_field_types { self.#enum_field_names }
-               pub fn #enum_setter_names(&mut self, #enum_field_names: #enum_field_types) { self.#enum_field_names = #enum_field_names; }
-            )*
-        }
-    };
-    let impl_block = quote! {
-        impl #generics #struct_name #ty_generics {
-            pub fn update(&mut self, message: #enum_name) {
-                match message {
-                    #enum_name::#struct_name(v) => *self = v,
-                    #( #enum_name::#enum_variant_names(v) => self.#enum_setter_names(v) ),*
-                }
-            }
-
-            pub fn message_for_name(
-                &self,
-                param_name: &str,
-                value: groove_core::control::F32ControlValue,
-            ) -> Option<#enum_name> {
-                if let Ok(message) = #enum_name::from_str(param_name) {
-                    self.parameterized_message_from_message(message, value)
-                } else {
-                    None
-                }
-            }
-
-            pub fn message_for_index(
-                &self,
-                param_index: usize,
-                value: groove_core::control::F32ControlValue,
-            ) -> Option<#enum_name> {
-                if let Some(message) = #enum_name::from_repr(param_index + 1) {
-                    self.parameterized_message_from_message(message, value)
-                } else {
-                    None
-                }
-            }
-
-            pub fn full_message(
-                &self,
-            ) -> #enum_name {
-                #enum_name::#struct_name(*self)
-            }
-
-            pub fn parameterized_message_from_message(
-                &self,
-                message: #enum_name,
-                value: groove_core::control::F32ControlValue,
-            ) -> Option<#enum_name> {
-                match message {
-                    #enum_name::#struct_name(_) => {return None;}
-                    #( #enum_name::#enum_variant_names(_) => {return Some(#enum_name::#enum_variant_names(value.into()));} )*
-                }
-            }
-
-        }
-    };
-    let controllable_block = quote! {
-        impl groove_core::traits::Controllable for #generics #struct_name #ty_generics {
-            fn control_name_for_index(&self, index: usize) -> Option<&'static str> {
-                if let Some(message) = #enum_name::from_repr(index + 1) {
-                    Some(message.into())
-                } else {
-                    None
-                }
-            }
-            fn control_index_count(&self) -> usize {
-                #enum_name::COUNT - 1
-            }
-        }
-    };
-    quote! {
-        #[automatically_derived]
-        #enum_block
-        #[automatically_derived]
-        #getter_setter_block
-        #[automatically_derived]
-        #impl_block
-        #[automatically_derived]
-        #controllable_block
-    }
-}
-
-#[proc_macro_derive(Everything, attributes(everything))]
-pub fn derive_everything(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    TokenStream::from(parse_and_generate_everything(&input.data))
-}
-
-#[derive(Debug)]
-struct OneThing {
-    base_name: Ident,
-    ty: syn::Type,
-    is_controller: bool,
-    is_effect: bool,
-    is_instrument: bool,
-    is_controllable: bool,
-    handles_midi: bool,
-}
-
-fn build_lists<'a>(
-    things: impl Iterator<Item = &'a OneThing>,
-) -> (Vec<Ident>, Vec<syn::Type>, Vec<Ident>, Vec<Ident>) {
-    let mut structs = Vec::default();
-    let mut types = Vec::default();
-    let mut params = Vec::default();
-    let mut messages = Vec::default();
-    for thing in things {
-        params.push(format_ident!("{}Params", thing.base_name.to_string()));
-        messages.push(format_ident!(
-            "{}ParamsMessage",
-            thing.base_name.to_string()
-        ));
-        types.push(thing.ty.clone());
-        structs.push(thing.base_name.clone());
-    }
-    (structs, types, params, messages)
-}
-
-fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
-    let things = match data {
-        Data::Enum(DataEnum { variants, .. }) => {
-            let mut v = Vec::default();
-            for variant in variants.iter() {
-                let mut is_controller = false;
-                let mut is_effect = false;
-                let mut is_instrument = false;
-                let mut is_controllable = false;
-                let mut handles_midi = false;
-                for attr in &variant.attrs {
-                    if let Ok(meta) = attr.parse_meta() {
-                        if let Meta::List(list) = meta {
-                            if list.path.is_ident("everything") {
-                                for i in list.nested.iter() {
-                                    if let NestedMeta::Meta(m) = i {
-                                        if m.path().is_ident("controller") {
-                                            is_controller = true;
-                                        }
-                                        if m.path().is_ident("effect") {
-                                            is_effect = true;
-                                        }
-                                        if m.path().is_ident("instrument") {
-                                            is_instrument = true;
-                                            if m.path().is_ident("controller") {
-                                                is_controller = true;
-                                            }
-                                        }
-                                        if m.path().is_ident("controllable") {
-                                            is_controllable = true;
-                                        }
-                                        if m.path().is_ident("midi") {
-                                            handles_midi = true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                for field in variant.fields.iter() {
-                    v.push(OneThing {
-                        base_name: variant.ident.clone(),
-                        ty: field.ty.clone(),
-                        is_controller,
-                        is_effect,
-                        is_instrument,
-                        is_controllable,
-                        handles_midi,
-                    });
-                }
-            }
-            v
-        }
-        _ => panic!("this derive macro works only on enums"),
-    };
-
-    let (structs, types, params, messages) = build_lists(things.iter());
-    let entity_enum = quote! {
-        #[derive(Debug)]
-        pub enum Entity {
-            #( #structs(Box<#types>) ),*
-        }
-
-        #[derive(Debug)]
-        pub enum EntityParams {
-            #( #structs(Box<#params>) ),*
-        }
-
-        #[derive(Clone, Debug)]
-        pub enum OtherEntityMessage {
-            #( #structs(#messages) ),*
-        }
-
-    };
-
-    let common_dispatchers = quote! {
-        impl Entity {
-            pub fn as_has_uid(&self) -> &dyn HasUid {
-                match self {
-                #( Entity::#structs(e) => e.as_ref(), )*
-                }
-            }
-            pub fn as_has_uid_mut(&mut self) -> &mut dyn HasUid {
-                match self {
-                #( Entity::#structs(e) => e.as_mut(), )*
-                }
-            }
-            pub fn update(&mut self, message: OtherEntityMessage) {
-                match self {
-                #(
-                    Entity::#structs(e) => {
-                        if let OtherEntityMessage::#structs(message) = message {
-                            e.update(message);
-                        }
-                    }
-                )*
-                }
-            }
-            pub fn message_for(
-                &self,
-                param_index: usize,
-                value: groove_core::control::F32ControlValue,
-            ) -> Option<OtherEntityMessage> {
-                match self {
-                #(
-                    Entity::#structs(e) => {
-                        if let Some(message) = e.params().message_for_index(param_index, value) {
-                            return Some(OtherEntityMessage::#structs(message));
-                        }
-                    }
-                )*
-                }
-                None
-            }
-            pub fn full_message(&self) -> OtherEntityMessage {
-                match self {
-                #(
-                    Entity::#structs(e) => {
-                        let params = e.params();
-                        return OtherEntityMessage::#structs(e.params().full_message());
-                    }
-                )*
-                }
-            }
-        }
-        impl EntityParams {
-            pub fn update(&mut self, message: OtherEntityMessage) {
-                match self {
-                #(
-                    EntityParams::#structs(e) => {
-                        if let OtherEntityMessage::#structs(message) = message {
-                            e.update(message);
-                        }
-                    }
-                )*
-                }
-            }
-
-        }
-    };
-
-    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_controller));
-    let controller_dispatchers = quote! {
-        impl Entity {
-            pub fn is_controller(&self) -> bool {
-                match self {
-                    #( Entity::#structs(_) => true, )*
-                    _ => false,
-                }
-            }
-            pub fn as_is_controller(&self) -> Option<&dyn groove_core::traits::IsController<Message=MsgType>> {
-                match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
-                    _ => None,
-                }
-            }
-            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsController<Message=MsgType>> {
-                match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
-                    _ => None,
-                }
-            }
-        }
-        impl EntityParams {
-            pub fn is_controller(&self) -> bool {
-                match self {
-                    #( EntityParams::#structs(_) => true, )*
-                    _ => false,
-                }
-            }
-        }
-    };
-
-    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_controllable));
-    let controllable_dispatchers = quote! {
-        impl Entity {
-            pub fn is_controllable(&self) -> bool {
-                match self {
-                    #( Entity::#structs(_) => true, )*
-                    _ => false,
-                }
-            }
-            pub fn as_controllable(&self) -> Option<&dyn groove_core::traits::Controllable> {
-                match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
-                    _ => None,
-                }
-            }
-            pub fn as_controllable_mut(&mut self) -> Option<&mut dyn groove_core::traits::Controllable> {
-                match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
-                    _ => None,
-                }
-            }
-        }
-        impl EntityParams {
-            pub fn is_controllable(&self) -> bool {
-                match self {
-                    #( EntityParams::#structs(_) => true, )*
-                    _ => false,
-                }
-            }
-            pub fn as_controllable(&self) -> Option<&dyn groove_core::traits::Controllable> {
-                match self {
-                    #( EntityParams::#structs(e) => Some(e.as_ref()), )*
-                    _ => None,
-                }
-            }
-            pub fn as_controllable_mut(&mut self) -> Option<&mut dyn groove_core::traits::Controllable> {
-                match self {
-                    #( EntityParams::#structs(e) => Some(e.as_mut()), )*
-                    _ => None,
-                }
-            }
-        }
-    };
-
-    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_effect));
-    let effect_dispatchers = quote! {
-        impl Entity {
-            pub fn as_is_effect(&self) -> Option<&dyn groove_core::traits::IsEffect> {
-                match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
-                    _ => None,
-                }
-            }
-            pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsEffect> {
-                match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
-                    _ => None,
-                }
-            }
-        }
-    };
-
-    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_instrument));
-    let instrument_dispatchers = quote! {
-        impl Entity {
-            pub fn as_is_instrument(&self) -> Option<&dyn groove_core::traits::IsInstrument> {
-                match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
-                    _ => None,
-                }
-            }
-            pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsInstrument> {
-                match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
-                    _ => None,
-                }
-            }
-        }
-    };
-
-    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.handles_midi));
-    let handles_midi_dispatchers = quote! {
-        impl Entity {
-            pub fn as_handles_midi(&self) -> Option<&dyn groove_core::traits::HandlesMidi> {
-                match self {
-                    #( Entity::#structs(e) => Some(e.as_ref()), )*
-                    _ => None,
-                }
-            }
-            pub fn as_handles_midi_mut(&mut self) -> Option<&mut dyn groove_core::traits::HandlesMidi> {
-                match self {
-                    #( Entity::#structs(e) => Some(e.as_mut()), )*
-                    _ => None,
-                }
-            }
-        }
-    };
-
-    quote! {
-        #[automatically_derived]
-        #entity_enum
-        #[automatically_derived]
-        #common_dispatchers
-        #[automatically_derived]
-        #controller_dispatchers
-        #[automatically_derived]
-        #effect_dispatchers
-        #[automatically_derived]
-        #instrument_dispatchers
-        #[automatically_derived]
-        #controllable_dispatchers
-        #[automatically_derived]
-        #handles_midi_dispatchers
-
-        enum Foo {
-            #( #structs(#types) ),*
-        }
-    }
+/// The [Views] macro derives code that presents viewable entities as a single
+/// system.
+#[proc_macro_derive(Views, attributes(views))]
+pub fn derive_views(input: TokenStream) -> TokenStream {
+    TokenStream::from(parse_and_generate_views(
+        &(parse_macro_input!(input as DeriveInput)).data,
+    ))
 }
