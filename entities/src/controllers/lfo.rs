@@ -95,6 +95,12 @@ impl LfoController {
     }
 
     pub fn update(&mut self, message: LfoControllerMessage) {
-        todo!()
+        match message {
+            LfoControllerMessage::LfoController(s) => {
+                *self = Self::new_with_params(self.oscillator.sample_rate(), s)
+            }
+            LfoControllerMessage::Waveform(waveform) => self.set_waveform(waveform),
+            LfoControllerMessage::Frequency(frequency) => self.set_frequency(frequency),
+        }
     }
 }

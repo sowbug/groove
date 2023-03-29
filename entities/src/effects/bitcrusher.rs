@@ -64,7 +64,10 @@ impl Bitcrusher {
     // TODO - write a custom type for range 0..16
 
     pub fn update(&mut self, message: BitcrusherMessage) {
-        todo!()
+        match message {
+            BitcrusherMessage::Bitcrusher(s) => *self = Self::new_with_params(s),
+            BitcrusherMessage::Bits(s) => self.set_bits(s),
+        }
     }
 }
 

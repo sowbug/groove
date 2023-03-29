@@ -381,6 +381,10 @@ impl Oscillator {
     pub fn set_frequency_tune(&mut self, frequency_tune: ParameterType) {
         self.frequency_tune = frequency_tune;
     }
+
+    pub fn sample_rate(&self) -> usize {
+        self.sample_rate
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]

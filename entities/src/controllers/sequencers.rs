@@ -165,7 +165,10 @@ impl Sequencer {
     }
 
     pub fn update(&mut self, message: SequencerMessage) {
-        todo!()
+        match message {
+            SequencerMessage::Sequencer(s) => *self = Self::new_with(self.sample_rate(), s),
+            SequencerMessage::Bpm(bpm) => self.set_bpm(bpm),
+        }
     }
 
     pub(crate) fn sample_rate(&self) -> usize {
@@ -289,7 +292,22 @@ impl MidiTickSequencer {
     }
 
     pub fn update(&mut self, message: MidiTickSequencerMessage) {
-        todo!()
+        match message {
+            MidiTickSequencerMessage::MidiTickSequencer(s) => {
+                *self = Self::new_with(self.temp_hack_clock.sample_rate(), s)
+            }
+            MidiTickSequencerMessage::MidiTicksPerSecond(midi_ticks_per_second) => {
+                self.set_midi_ticks_per_second(midi_ticks_per_second)
+            }
+        }
+    }
+
+    pub fn midi_ticks_per_second(&self) -> usize {
+        self.midi_ticks_per_second
+    }
+
+    pub fn set_midi_ticks_per_second(&mut self, midi_ticks_per_second: usize) {
+        self.midi_ticks_per_second = midi_ticks_per_second;
     }
 }
 impl Resets for MidiTickSequencer {
