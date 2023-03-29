@@ -24,7 +24,6 @@ use groove_entities::{
     },
     EntityMessage,
 };
-use groove_macros::all_entities;
 use groove_proc_macros::Everything;
 use groove_toys::{
     ToyAudioSource, ToyAudioSourceParams, ToyAudioSourceParamsMessage, ToyController,
@@ -39,45 +38,10 @@ use groove_toys::{
 // An [Entity] wraps a musical device, giving it the ability to be managed by
 // [Orchestrator] and automated by other devices in the system.
 
-all_entities! {
-    // struct; params; message; is_controller; is_controllable,
-
-    // Controllers
-    Arpeggiator; ArpeggiatorParams; ArpeggiatorParamsMessage; true; true,
-    ControlTrip; ControlTripParams; ControlTripParamsMessage; true; false,
-    LfoController; LfoControllerParams; LfoControllerParamsMessage; true; false,
-    MidiTickSequencer; MidiTickSequencerParams; MidiTickSequencerParamsMessage; true; false,
-    PatternManager; PatternManagerParams; PatternManagerParamsMessage; true; false,
-    Sequencer; SequencerParams; SequencerParamsMessage; true; false,
-    SignalPassthroughController; SignalPassthroughControllerParams; SignalPassthroughControllerParamsMessage; true; false,
-    Timer; TimerParams; TimerParamsMessage; true; false,
-    ToyController; ToyControllerParams; ToyControllerParamsMessage; true; false,
-
-    // Effects
-    BiQuadFilter; BiQuadFilterParams; BiQuadFilterParamsMessage; false; false,
-    Bitcrusher; BitcrusherParams; BitcrusherParamsMessage; false; true,
-    Chorus; ChorusParams; ChorusParamsMessage; false; false,
-    Compressor; CompressorParams; CompressorParamsMessage; false; false,
-    Delay; DelayParams; DelayParamsMessage; false; false,
-    Gain; GainParams; GainParamsMessage; false; true,
-    Limiter; LimiterParams; LimiterParamsMessage; false; false,
-    Mixer; MixerParams; MixerParamsMessage; false; true,
-    Reverb; ReverbParams; ReverbParamsMessage; false; true,
-// both controller and effect...    SignalPassthroughController; SignalPassthroughControllerParams; SignalPassthroughControllerParamsMessage; true; false,
-    ToyEffect; ToyEffectParams; ToyEffectParamsMessage; false; false,
-
-    // Instruments
-    Drumkit; DrumkitParams; DrumkitParamsMessage; false; false,
-    FmSynth; FmSynthParams; FmSynthParamsMessage; false; false,
-    Sampler; SamplerParams; SamplerParamsMessage; false; false,
-    ToyAudioSource; ToyAudioSourceParams; ToyAudioSourceParamsMessage; false; false,
-    ToyInstrument; ToyInstrumentParams; ToyInstrumentParamsMessage; false; false,
-    ToySynth; ToySynthParams; ToySynthParamsMessage; false; false,
-    WelshSynth; WelshSynthParams; WelshSynthParamsMessage; false; true,
-}
-
 type MsgType = EntityMessage;
 
+/// The #[derive] macro uses [Everything] to generate a lot of boilerplate code.
+/// The enum itself is otherwise unused.
 #[allow(dead_code)]
 #[derive(Everything)]
 enum Everything {
