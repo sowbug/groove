@@ -45,7 +45,7 @@ pub struct Sequencer {
 impl IsController for Sequencer {}
 impl HandlesMidi for Sequencer {}
 impl Sequencer {
-    pub fn new_with(sample_rate: usize, params: NanoSequencer) -> Self {
+    pub fn new_with(sample_rate: usize, params: SequencerNano) -> Self {
         Self {
             uid: Default::default(),
             bpm: params.bpm(),
@@ -251,7 +251,7 @@ pub struct MidiTickSequencer {
 impl IsController for MidiTickSequencer {}
 impl HandlesMidi for MidiTickSequencer {}
 impl MidiTickSequencer {
-    pub fn new_with(sample_rate: usize, params: NanoMidiTickSequencer) -> Self {
+    pub fn new_with(sample_rate: usize, params: MidiTickSequencerNano) -> Self {
         Self {
             uid: Default::default(),
             midi_ticks_per_second: params.midi_ticks_per_second(),

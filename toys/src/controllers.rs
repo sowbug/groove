@@ -118,7 +118,7 @@ impl<M: MessageBounds> HandlesMidi for ToyController<M> {
 impl<M: MessageBounds> ToyController<M> {
     pub fn new_with(
         sample_rate: usize,
-        params: NanoToyController,
+        params: ToyControllerNano,
         midi_channel_out: MidiChannel,
         message_maker: Box<dyn MessageMaker<Message = M>>,
     ) -> Self {
@@ -136,7 +136,7 @@ impl<M: MessageBounds> ToyController<M> {
 
     pub fn new_with_test_values(
         sample_rate: usize,
-        params: NanoToyController,
+        params: ToyControllerNano,
         midi_channel_out: MidiChannel,
         message_maker: Box<dyn MessageMaker<Message = M>>,
         values: &[f32],
@@ -181,7 +181,11 @@ impl<M: MessageBounds> ToyController<M> {
     }
 
     pub fn update(&mut self, message: ToyControllerMessage) {
-        todo!()
+        match message {
+            ToyControllerMessage::ToyController(s) => panic!(),
+            ToyControllerMessage::Bpm(bpm) => self.set_bpm(bpm),
+            ToyControllerMessage::Tempo(tempo) => self.set_tempo(tempo),
+        }
     }
 
     pub fn bpm(&self) -> f64 {
@@ -190,6 +194,14 @@ impl<M: MessageBounds> ToyController<M> {
 
     pub fn tempo(&self) -> f32 {
         self.tempo
+    }
+
+    pub fn set_bpm(&mut self, bpm: ParameterType) {
+        self.bpm = bpm;
+    }
+
+    pub fn set_tempo(&mut self, tempo: f32) {
+        self.tempo = tempo;
     }
 }
 // impl TestsValues for TestController {

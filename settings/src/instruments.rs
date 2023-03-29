@@ -5,7 +5,7 @@ use crate::patches::FmSynthesizerSettings;
 use groove_core::{midi::note_description_to_frequency, Normal};
 use groove_entities::instruments::{Drumkit, Sampler};
 use groove_orchestration::Entity;
-use groove_toys::{NanoToyInstrument, ToyInstrument};
+use groove_toys::{ToyInstrument, ToyInstrumentNano};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -76,7 +76,7 @@ impl InstrumentSettings {
                 midi_input_channel,
                 Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
                     sample_rate,
-                    NanoToyInstrument {
+                    ToyInstrumentNano {
                         fake_value: Normal::from(0.23498239),
                     },
                 ))),
@@ -87,7 +87,7 @@ impl InstrumentSettings {
                 *midi_input_channel,
                 Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
                     sample_rate,
-                    NanoToyInstrument {
+                    ToyInstrumentNano {
                         fake_value: Normal::from(0.23498239),
                     },
                 ))),

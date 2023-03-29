@@ -5,14 +5,12 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
     traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
-    BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
+    Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_proc_macros::{Control, Nano, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::{collections::VecDeque, fmt::Debug, str::FromStr};
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -132,7 +130,7 @@ impl HandlesMidi for ToyInstrument {
 //     }
 // }
 impl ToyInstrument {
-    pub fn new_with(sample_rate: usize, params: NanoToyInstrument) -> Self {
+    pub fn new_with(sample_rate: usize, params: ToyInstrumentNano) -> Self {
         let mut r = Self {
             uid: Default::default(),
             sample_rate,
@@ -163,7 +161,7 @@ impl ToyInstrument {
     ) -> Self {
         let mut r = Self::new_with(
             sample_rate,
-            NanoToyInstrument {
+            ToyInstrumentNano {
                 fake_value: Normal::maximum(),
             },
         );
@@ -184,16 +182,6 @@ impl ToyInstrument {
             _ => 0.0,
         }
     }
-
-    // pub fn set_control_waveform(&mut self, value: groove_core::control::F32ControlValue) {
-    //     self.oscillator.set_waveform(if value.0 == -1.0 {
-    //         WaveformParams::Sawtooth
-    //     } else if value.0 == 1.0 {
-    //         WaveformParams::Square
-    //     } else {
-    //         WaveformParams::Sine
-    //     });
-    // }
 
     pub fn set_fake_value(&mut self, fake_value: Normal) {
         self.fake_value = fake_value;
@@ -368,7 +356,7 @@ impl ToyAudioSource {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::{instruments::NanoToyInstrument, ToyInstrument};
+    use crate::{instruments::ToyInstrumentNano, ToyInstrument};
     use groove_core::{
         traits::{Generates, Ticks},
         Normal,
@@ -385,7 +373,7 @@ pub mod tests {
     fn test_sources_audio_random_access() {
         let mut instrument = ToyInstrument::new_with(
             DEFAULT_SAMPLE_RATE,
-            NanoToyInstrument {
+            ToyInstrumentNano {
                 fake_value: Normal::from(0.42),
             },
         );

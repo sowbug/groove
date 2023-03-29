@@ -97,7 +97,7 @@ impl Arpeggiator {
             uid: Default::default(),
             midi_channel_out,
             bpm,
-            sequencer: Sequencer::new_with(sample_rate, super::NanoSequencer { bpm }),
+            sequencer: Sequencer::new_with(sample_rate, super::SequencerNano { bpm }),
             note_semaphore: Default::default(),
         }
     }
@@ -105,13 +105,13 @@ impl Arpeggiator {
     pub fn new_with_params(
         sample_rate: usize,
         midi_channel_out: MidiChannel,
-        params: NanoArpeggiator,
+        params: ArpeggiatorNano,
     ) -> Self {
         Self {
             uid: Default::default(),
             midi_channel_out,
             bpm: params.bpm,
-            sequencer: Sequencer::new_with(sample_rate, super::NanoSequencer { bpm: params.bpm() }),
+            sequencer: Sequencer::new_with(sample_rate, super::SequencerNano { bpm: params.bpm() }),
             note_semaphore: Default::default(),
         }
     }

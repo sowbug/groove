@@ -6,12 +6,12 @@ use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     generators::{Oscillator, WaveformParams},
     midi::{note_to_frequency, GeneralMidiProgram},
-    voices::{StealingVoiceStore, VoiceStore},
-    DcaParams, Normal, ParameterType,
+    voices::StealingVoiceStore,
+    Normal, ParameterType,
 };
 use groove_entities::{
-    effects::{BiQuadFilter, NanoBiQuadFilter},
-    instruments::{FmVoice, LfoRouting, NanoFmSynth, WelshSynth, WelshVoice},
+    effects::{BiQuadFilter, BiQuadFilterNano},
+    instruments::{LfoRouting, WelshSynth, WelshVoice},
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -127,7 +127,7 @@ impl WelshPatchSettings {
         let lfo_depth = self.lfo.depth.into();
         let filter = BiQuadFilter::new_with(
             sample_rate,
-            &NanoBiQuadFilter {
+            BiQuadFilterNano {
                 cutoff: self.filter_type_12db.cutoff_hz.into(),
                 q: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
             },
@@ -721,8 +721,8 @@ impl FmSynthesizerSettings {
     //     VoiceStore::<FmVoice>::new_with_voice(sample_rate, 8, || self.derive_voice(sample_rate))
     // }
 
-    // pub fn derive_params(&self) -> NanoFmSynth {
-    //     NanoFmSynth {
+    // pub fn derive_params(&self) -> FmSynthNano {
+    //     FmSynthNano {
     //         depth: Normal::from(self.depth),
     //         ratio: self.ratio,
     //         beta: self.beta,

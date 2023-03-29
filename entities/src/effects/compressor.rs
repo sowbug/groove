@@ -64,7 +64,7 @@ impl TransformsAudio for Compressor {
 }
 
 impl Compressor {
-    pub fn new_with(params: NanoCompressor) -> Self {
+    pub fn new_with(params: CompressorNano) -> Self {
         Self {
             threshold: params.threshold(),
             ratio: params.ratio(),
@@ -85,13 +85,13 @@ impl Compressor {
 
 #[cfg(test)]
 mod tests {
-    use crate::effects::compressor::{Compressor, NanoCompressor};
+    use crate::effects::compressor::{Compressor, CompressorNano};
     use groove_core::{traits::TransformsAudio, Normal, Sample, SampleType};
 
     #[test]
     fn basic_compressor() {
         const THRESHOLD: SampleType = 0.25;
-        let mut fx = Compressor::new_with(NanoCompressor {
+        let mut fx = Compressor::new_with(CompressorNano {
             threshold: Normal::from(THRESHOLD),
             ratio: 0.5,
             attack: 0.0,
@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn nothing_compressor() {
-        let mut fx = Compressor::new_with(NanoCompressor {
+        let mut fx = Compressor::new_with(CompressorNano {
             threshold: Normal::from(0.25),
             ratio: 1.0,
             attack: 0.0,
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn infinite_compressor() {
-        let mut fx = Compressor::new_with(NanoCompressor {
+        let mut fx = Compressor::new_with(CompressorNano {
             threshold: Normal::from(0.25),
             ratio: 0.0,
             attack: 0.0,

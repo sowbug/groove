@@ -7,7 +7,7 @@ use super::{
 use anyhow::Result;
 use groove_core::{time::TimeSignature, ParameterType};
 use groove_entities::controllers::{
-    ControlPath, ControlTrip, NanoControlTrip, Note, Pattern, PatternProgrammer,
+    ControlPath, ControlTrip, ControlTripNano, Note, Pattern, PatternProgrammer,
 };
 use groove_orchestration::{Entity, Orchestrator};
 use rustc_hash::FxHashMap;
@@ -282,7 +282,7 @@ impl SongSettings {
             {
                 let mut control_trip = Box::new(ControlTrip::new_with(
                     orchestrator.sample_rate(),
-                    NanoControlTrip {
+                    ControlTripNano {
                         time_signature_top: orchestrator.time_signature().top,
                         time_signature_bottom: orchestrator.time_signature().bottom,
                         bpm: orchestrator.bpm(),

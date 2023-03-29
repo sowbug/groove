@@ -70,7 +70,7 @@ impl HandlesMidi for ControlTrip {}
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
 
-    pub fn new_with(sample_rate: usize, params: NanoControlTrip) -> Self {
+    pub fn new_with(sample_rate: usize, params: ControlTripNano) -> Self {
         Self {
             uid: usize::default(),
             time_signature_top: params.time_signature_top,
@@ -254,7 +254,7 @@ mod tests {
         // let _ = o.link_control(
         //     controller_uid,
         //     effect_uid,
-        //     &NanoToyEffectControl::MyValue.to_string(),
+        //     &ToyEffectControlNano::MyValue.to_string(),
         // );
 
         // let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -313,7 +313,7 @@ mod tests {
         // let _ = o.link_control(
         //     controller_uid,
         //     instrument_uid,
-        //     &NanoToyInstrumentControl::FakeValue.to_string(),
+        //     &ToyInstrumentControlNano::FakeValue.to_string(),
         // );
 
         // let mut sample_buffer = [StereoSample::SILENCE; 64];

@@ -2,8 +2,8 @@
 
 use groove_core::{Normal, ParameterType};
 use groove_entities::effects::{
-    BiQuadFilter, Bitcrusher, Chorus, Compressor, Delay, Gain, Limiter, Mixer, NanoBiQuadFilter,
-    NanoBitcrusher, NanoChorus, NanoCompressor, NanoDelay, NanoLimiter, NanoReverb, Reverb,
+    BiQuadFilter, BiQuadFilterNano, Bitcrusher, BitcrusherNano, Chorus, ChorusNano, Compressor,
+    CompressorNano, Delay, DelayNano, Gain, Limiter, LimiterNano, Mixer, Reverb, ReverbNano,
 };
 use groove_orchestration::Entity;
 use groove_toys::ToyEffect;
@@ -19,9 +19,9 @@ pub enum EffectSettings {
     #[serde(rename_all = "kebab-case")]
     Gain { ceiling: f32 },
     #[serde(rename_all = "kebab-case")]
-    Limiter(NanoLimiter),
+    Limiter(LimiterNano),
     #[serde(rename_all = "kebab-case")]
-    Bitcrusher(NanoBitcrusher),
+    Bitcrusher(BitcrusherNano),
     #[serde(rename_all = "kebab-case")]
     Chorus {
         wet_dry_mix: f32,
@@ -97,7 +97,7 @@ impl EffectSettings {
                 ratio,
                 attack,
                 release,
-            } => Entity::Compressor(Box::new(Compressor::new_with(NanoCompressor {
+            } => Entity::Compressor(Box::new(Compressor::new_with(CompressorNano {
                 threshold: threshold.into(),
                 ratio: ratio.into(),
                 attack: attack.into(),
@@ -106,7 +106,7 @@ impl EffectSettings {
             EffectSettings::FilterLowPass12db { cutoff, q } => {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
-                    &NanoBiQuadFilter {
+                    BiQuadFilterNano {
                         cutoff,
                         q: q.into(),
                     },
@@ -117,7 +117,7 @@ impl EffectSettings {
                 passband_ripple,
             } => Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                 sample_rate,
-                &NanoBiQuadFilter {
+                BiQuadFilterNano {
                     cutoff,
                     q: passband_ripple.into(),
                 },
@@ -126,7 +126,7 @@ impl EffectSettings {
             EffectSettings::FilterHighPass12db { cutoff, q } => {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
-                    &NanoBiQuadFilter {
+                    BiQuadFilterNano {
                         cutoff,
                         q: q.into(),
                     },
@@ -135,7 +135,7 @@ impl EffectSettings {
             EffectSettings::FilterBandPass12db { cutoff, bandwidth } => {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
-                    &NanoBiQuadFilter {
+                    BiQuadFilterNano {
                         cutoff,
                         q: bandwidth.into(),
                     },
@@ -144,7 +144,7 @@ impl EffectSettings {
             EffectSettings::FilterBandStop12db { cutoff, bandwidth } => {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
-                    &NanoBiQuadFilter {
+                    BiQuadFilterNano {
                         cutoff,
                         q: bandwidth.into(),
                     },
@@ -153,7 +153,7 @@ impl EffectSettings {
             EffectSettings::FilterAllPass12db { cutoff, q } => {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
-                    &NanoBiQuadFilter {
+                    BiQuadFilterNano {
                         cutoff,
                         q: q.into(),
                     },
@@ -162,7 +162,7 @@ impl EffectSettings {
             EffectSettings::FilterPeakingEq12db { cutoff, db_gain } => {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
-                    &NanoBiQuadFilter {
+                    BiQuadFilterNano {
                         cutoff,
                         q: db_gain.into(),
                     },
@@ -171,7 +171,7 @@ impl EffectSettings {
             EffectSettings::FilterLowShelf12db { cutoff, db_gain } => {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
-                    &NanoBiQuadFilter {
+                    BiQuadFilterNano {
                         cutoff,
                         q: db_gain.into(),
                     },
@@ -180,7 +180,7 @@ impl EffectSettings {
             EffectSettings::FilterHighShelf12db { cutoff, db_gain } => {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
-                    &NanoBiQuadFilter {
+                    BiQuadFilterNano {
                         cutoff,
                         q: db_gain.into(),
                     },
@@ -188,7 +188,7 @@ impl EffectSettings {
             }
             EffectSettings::Delay { seconds } => Entity::Delay(Box::new(Delay::new_with(
                 sample_rate,
-                NanoDelay { seconds },
+                DelayNano { seconds },
             ))),
             EffectSettings::Reverb {
                 wet_dry_mix,
@@ -196,7 +196,7 @@ impl EffectSettings {
                 seconds: reverb_seconds,
             } => Entity::Reverb(Box::new(Reverb::new_with(
                 sample_rate,
-                NanoReverb {
+                ReverbNano {
                     attenuation: attenuation.into(),
                     seconds: reverb_seconds.into(),
                     wet_dry_mix: wet_dry_mix.into(),
@@ -208,7 +208,7 @@ impl EffectSettings {
                 delay_factor,
             } => Entity::Chorus(Box::new(Chorus::new_with(
                 sample_rate,
-                NanoChorus {
+                ChorusNano {
                     voices,
                     delay_factor,
                     wet_dry_mix,

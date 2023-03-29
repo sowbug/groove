@@ -3,31 +3,32 @@
 use groove_core::traits::HasUid;
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorMessage, ControlTrip, ControlTripMessage, LfoController,
-        LfoControllerMessage, MidiTickSequencer, MidiTickSequencerMessage, NanoArpeggiator,
-        NanoControlTrip, NanoLfoController, NanoMidiTickSequencer, NanoPatternManager,
-        NanoSequencer, NanoSignalPassthroughController, NanoTimer, NanoTrigger, PatternManager,
-        PatternManagerMessage, Sequencer, SequencerMessage, SignalPassthroughController,
-        SignalPassthroughControllerMessage, Timer, TimerMessage, Trigger, TriggerMessage,
+        Arpeggiator, ArpeggiatorMessage, ArpeggiatorNano, ControlTrip, ControlTripMessage,
+        ControlTripNano, LfoController, LfoControllerMessage, LfoControllerNano, MidiTickSequencer,
+        MidiTickSequencerMessage, MidiTickSequencerNano, PatternManager, PatternManagerMessage,
+        PatternManagerNano, Sequencer, SequencerMessage, SequencerNano,
+        SignalPassthroughController, SignalPassthroughControllerMessage,
+        SignalPassthroughControllerNano, Timer, TimerMessage, TimerNano, Trigger, TriggerMessage,
+        TriggerNano,
     },
     effects::{
-        BiQuadFilter, BiQuadFilterMessage, Bitcrusher, BitcrusherMessage, Chorus, ChorusMessage,
-        Compressor, CompressorMessage, Delay, DelayMessage, Gain, GainMessage, Limiter,
-        LimiterMessage, Mixer, MixerMessage, NanoBiQuadFilter, NanoBitcrusher, NanoChorus,
-        NanoCompressor, NanoDelay, NanoGain, NanoLimiter, NanoMixer, NanoReverb, Reverb,
-        ReverbMessage,
+        BiQuadFilter, BiQuadFilterMessage, BiQuadFilterNano, Bitcrusher, BitcrusherMessage,
+        BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor, CompressorMessage,
+        CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage, GainNano, Limiter,
+        LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb, ReverbMessage,
+        ReverbNano,
     },
     instruments::{
-        Drumkit, DrumkitMessage, FmSynth, FmSynthMessage, NanoDrumkit, NanoFmSynth, NanoSampler,
-        NanoWelshSynth, Sampler, SamplerMessage, WelshSynth, WelshSynthMessage,
+        Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Sampler,
+        SamplerMessage, SamplerNano, WelshSynth, WelshSynthMessage, WelshSynthNano,
     },
     EntityMessage,
 };
 use groove_proc_macros::Everything;
 use groove_toys::{
-    NanoToyAudioSource, NanoToyController, NanoToyEffect, NanoToyInstrument, NanoToySynth,
-    ToyAudioSource, ToyAudioSourceMessage, ToyController, ToyControllerMessage, ToyEffect,
-    ToyEffectMessage, ToyInstrument, ToyInstrumentMessage, ToySynth, ToySynthMessage,
+    ToyAudioSource, ToyAudioSourceMessage, ToyAudioSourceNano, ToyController, ToyControllerMessage,
+    ToyControllerNano, ToyEffect, ToyEffectMessage, ToyEffectNano, ToyInstrument,
+    ToyInstrumentMessage, ToyInstrumentNano, ToySynth, ToySynthMessage, ToySynthNano,
 };
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated

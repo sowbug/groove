@@ -13,7 +13,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
 
         let struct_name = &input.ident;
         let struct_snake_case_name = stringify!("{}", struct_name.to_string().to_case(Case::Snake));
-        let nano_name = format_ident!("Nano{}", struct_name);
+        let nano_name = format_ident!("{}Nano", struct_name);
         let message_type_name = format_ident!("{}Message", struct_name);
 
         let (_impl_generics, ty_generics, _where_clause) = generics.split_for_impl();

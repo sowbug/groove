@@ -63,7 +63,7 @@ impl LfoController {
         }
     }
 
-    pub fn new_with_params(sample_rate: usize, params: NanoLfoController) -> Self {
+    pub fn new_with_params(sample_rate: usize, params: LfoControllerNano) -> Self {
         Self {
             uid: Default::default(),
             oscillator: Oscillator::new_with_waveform_and_frequency(

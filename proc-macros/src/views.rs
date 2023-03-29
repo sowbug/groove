@@ -18,7 +18,7 @@ fn build_lists<'a>(
     let mut params = Vec::default();
     let mut messages = Vec::default();
     for thing in things {
-        params.push(format_ident!("Nano{}", thing.base_name.to_string()));
+        params.push(format_ident!("{}Nano", thing.base_name.to_string()));
         messages.push(format_ident!("{}Message", thing.base_name.to_string()));
         types.push(thing.ty.clone());
         structs.push(thing.base_name.clone());
@@ -71,10 +71,10 @@ pub(crate) fn parse_and_generate_views(data: &Data) -> proc_macro2::TokenStream 
     let (structs, _, _, messages) = build_lists(things.iter().filter(|thing| thing.is_viewable));
     let viewable_dispatchers = quote! {
         impl View {
-            fn entity_view<'a>(&self, uid: usize, entity: &'a EntityParams) -> Element<'a, ViewMessage> {
+            fn entity_view<'a>(&self, uid: usize, entity: &'a EntityNano) -> Element<'a, ViewMessage> {
                 match entity {
                 #(
-                    EntityParams::#structs(e) => {
+                    EntityNano::#structs(e) => {
                         e.view().map(move |message| {
                             ViewMessage::OtherEntityMessage(uid, OtherEntityMessage::#structs(message))
                         })
@@ -91,7 +91,7 @@ pub(crate) fn parse_and_generate_views(data: &Data) -> proc_macro2::TokenStream 
                 match message {
                 #(
                     OtherEntityMessage::#structs(#messages::#structs(params)) => {
-                        self.add_entity(uid, EntityParams::#structs(Box::new(params)));
+                        self.add_entity(uid, EntityNano::#structs(Box::new(params)));
                     }
                 ),*
                     _=> {

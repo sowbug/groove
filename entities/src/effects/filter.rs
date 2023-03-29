@@ -253,7 +253,7 @@ impl BiQuadFilter {
         }
     }
 
-    pub fn new_with(sample_rate: usize, params: &NanoBiQuadFilter) -> Self {
+    pub fn new_with(sample_rate: usize, params: BiQuadFilterNano) -> Self {
         let mut r = Self::default_fields();
 
         //        r.filter_type = FilterParams::type_for(*params);
@@ -617,7 +617,7 @@ impl BiQuadFilter {
 
     pub fn update(&mut self, message: BiQuadFilterMessage) {
         match message {
-            BiQuadFilterMessage::BiQuadFilter(e) => *self = Self::new_with(self.sample_rate, &e),
+            BiQuadFilterMessage::BiQuadFilter(e) => *self = Self::new_with(self.sample_rate, e),
             BiQuadFilterMessage::Cutoff(cutoff) => self.set_cutoff_pct(cutoff.into()),
             BiQuadFilterMessage::Q(q) => self.set_q(q.into()),
         }

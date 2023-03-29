@@ -4,7 +4,7 @@
 //! generation of audio from all the [Entities](entities::Entity) in the
 //! system.
 
-pub use entities::{Entity, EntityParams, OtherEntityMessage};
+pub use entities::{Entity, EntityNano, OtherEntityMessage};
 pub use orchestrator::{Orchestrator, Performance};
 
 pub mod helpers;

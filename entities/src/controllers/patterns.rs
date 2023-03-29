@@ -198,7 +198,7 @@ mod tests {
         let time_signature = TimeSignature::default();
         let mut sequencer = Sequencer::new_with(
             DEFAULT_SAMPLE_RATE,
-            crate::controllers::NanoSequencer { bpm: 128.0 },
+            crate::controllers::SequencerNano { bpm: 128.0 },
         );
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
@@ -259,7 +259,7 @@ mod tests {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
         let mut sequencer = Sequencer::new_with(
             DEFAULT_SAMPLE_RATE,
-            crate::controllers::NanoSequencer { bpm: 128.0 },
+            crate::controllers::SequencerNano { bpm: 128.0 },
         );
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 

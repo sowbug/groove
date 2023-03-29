@@ -35,7 +35,7 @@ impl TransformsAudio for Bitcrusher {
     }
 }
 impl Bitcrusher {
-    pub fn new_with_params(params: NanoBitcrusher) -> Self {
+    pub fn new_with_params(params: BitcrusherNano) -> Self {
         let mut r = Self {
             uid: Default::default(),
             bits: params.bits(),
@@ -58,9 +58,6 @@ impl Bitcrusher {
         self.c = 2.0f64.powi(self.bits() as i32);
     }
 
-    // pub fn set_control_bits_to_crush(&mut self, value: groove_core::control::F32ControlValue) {
-    //     self.set_bits_to_crush((value.0 * 16.0).floor() as u8);
-    // }
     // TODO - write a custom type for range 0..16
 
     pub fn update(&mut self, message: BitcrusherMessage) {
@@ -81,7 +78,7 @@ mod tests {
 
     #[test]
     fn bitcrusher_basic() {
-        let mut fx = Bitcrusher::new_with_params(NanoBitcrusher { bits: 8 });
+        let mut fx = Bitcrusher::new_with_params(BitcrusherNano { bits: 8 });
         assert_eq!(
             fx.transform_channel(0, Sample(PI - 3.0)),
             Sample(CRUSHED_PI)
@@ -90,7 +87,7 @@ mod tests {
 
     #[test]
     fn bitcrusher_no_bias() {
-        let mut fx = Bitcrusher::new_with_params(NanoBitcrusher { bits: 8 });
+        let mut fx = Bitcrusher::new_with_params(BitcrusherNano { bits: 8 });
         assert_eq!(
             fx.transform_channel(0, Sample(-(PI - 3.0))),
             Sample(-CRUSHED_PI)

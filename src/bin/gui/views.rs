@@ -12,33 +12,33 @@ use groove_core::{
 };
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorMessage, ControlTrip, ControlTripMessage, LfoController,
-        LfoControllerMessage, MidiTickSequencer, MidiTickSequencerMessage, NanoArpeggiator,
-        NanoControlTrip, NanoLfoController, NanoMidiTickSequencer, NanoPatternManager,
-        NanoSequencer, NanoSignalPassthroughController, NanoTimer, NanoTrigger, Note, Pattern,
-        PatternManager, PatternManagerMessage, PatternMessage, Sequencer, SequencerMessage,
-        SignalPassthroughController, SignalPassthroughControllerMessage, Timer, TimerMessage,
-        Trigger, TriggerMessage,
+        Arpeggiator, ArpeggiatorMessage, ArpeggiatorNano, ControlTrip, ControlTripMessage,
+        ControlTripNano, LfoController, LfoControllerMessage, LfoControllerNano, MidiTickSequencer,
+        MidiTickSequencerMessage, MidiTickSequencerNano, Note, Pattern, PatternManager,
+        PatternManagerMessage, PatternManagerNano, PatternMessage, Sequencer, SequencerMessage,
+        SequencerNano, SignalPassthroughController, SignalPassthroughControllerMessage,
+        SignalPassthroughControllerNano, Timer, TimerMessage, TimerNano, Trigger, TriggerMessage,
+        TriggerNano,
     },
     effects::{
-        BiQuadFilter, BiQuadFilterMessage, Bitcrusher, BitcrusherMessage, Chorus, ChorusMessage,
-        Compressor, CompressorMessage, Delay, DelayMessage, Gain, GainMessage, Limiter,
-        LimiterMessage, Mixer, MixerMessage, NanoBiQuadFilter, NanoBitcrusher, NanoChorus,
-        NanoCompressor, NanoDelay, NanoGain, NanoLimiter, NanoMixer, NanoReverb, Reverb,
-        ReverbMessage,
+        BiQuadFilter, BiQuadFilterMessage, BiQuadFilterNano, Bitcrusher, BitcrusherMessage,
+        BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor, CompressorMessage,
+        CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage, GainNano, Limiter,
+        LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb, ReverbMessage,
+        ReverbNano,
     },
     instruments::{
-        Drumkit, DrumkitMessage, FmSynth, FmSynthMessage, NanoDrumkit, NanoFmSynth, NanoSampler,
-        NanoWelshSynth, Sampler, SamplerMessage, WelshSynth, WelshSynthMessage,
+        Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Sampler,
+        SamplerMessage, SamplerNano, WelshSynth, WelshSynthMessage, WelshSynthNano,
     },
     EntityMessage,
 };
-use groove_orchestration::{EntityParams, OtherEntityMessage};
+use groove_orchestration::{EntityNano, OtherEntityMessage};
 use groove_proc_macros::Views;
 use groove_toys::{
-    NanoToyAudioSource, NanoToyController, NanoToyEffect, NanoToyInstrument, NanoToySynth,
-    ToyAudioSource, ToyAudioSourceMessage, ToyController, ToyControllerMessage, ToyEffect,
-    ToyEffectMessage, ToyInstrument, ToyInstrumentMessage, ToySynth, ToySynthMessage,
+    ToyAudioSource, ToyAudioSourceMessage, ToyAudioSourceNano, ToyController, ToyControllerMessage,
+    ToyControllerNano, ToyEffect, ToyEffectMessage, ToyEffectNano, ToyInstrument,
+    ToyInstrumentMessage, ToyInstrumentNano, ToySynth, ToySynthMessage, ToySynthNano,
 };
 use iced::{
     alignment, theme,
@@ -852,13 +852,13 @@ where
 
 #[derive(Debug, Default)]
 struct EntityStore {
-    entities: FxHashMap<usize, Box<EntityParams>>,
+    entities: FxHashMap<usize, Box<EntityNano>>,
 }
 impl EntityStore {
-    fn get(&self, uid: &usize) -> Option<&Box<EntityParams>> {
+    fn get(&self, uid: &usize) -> Option<&Box<EntityNano>> {
         self.entities.get(uid)
     }
-    fn get_mut(&mut self, uid: &usize) -> Option<&mut Box<EntityParams>> {
+    fn get_mut(&mut self, uid: &usize) -> Option<&mut Box<EntityNano>> {
         self.entities.get_mut(uid)
     }
 }
@@ -877,7 +877,7 @@ trait Viewable {
     }
 }
 
-impl Viewable for NanoArpeggiator {
+impl Viewable for ArpeggiatorNano {
     type Message = ArpeggiatorMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -885,7 +885,7 @@ impl Viewable for NanoArpeggiator {
     }
 }
 
-impl Viewable for NanoBitcrusher {
+impl Viewable for BitcrusherNano {
     type Message = BitcrusherMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -893,7 +893,7 @@ impl Viewable for NanoBitcrusher {
     }
 }
 
-impl Viewable for NanoGain {
+impl Viewable for GainNano {
     type Message = GainMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -901,7 +901,7 @@ impl Viewable for NanoGain {
     }
 }
 
-impl Viewable for NanoLfoController {
+impl Viewable for LfoControllerNano {
     type Message = LfoControllerMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -914,7 +914,7 @@ impl Viewable for NanoLfoController {
     }
 }
 
-impl Viewable for NanoMixer {
+impl Viewable for MixerNano {
     type Message = MixerMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -922,7 +922,7 @@ impl Viewable for NanoMixer {
     }
 }
 
-impl Viewable for NanoPatternManager {
+impl Viewable for PatternManagerNano {
     type Message = PatternManagerMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -930,7 +930,7 @@ impl Viewable for NanoPatternManager {
     }
 }
 
-impl Viewable for NanoReverb {
+impl Viewable for ReverbNano {
     type Message = ReverbMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -942,7 +942,7 @@ impl Viewable for NanoReverb {
     }
 }
 
-impl Viewable for NanoSequencer {
+impl Viewable for SequencerNano {
     type Message = SequencerMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -950,7 +950,7 @@ impl Viewable for NanoSequencer {
     }
 }
 
-impl Viewable for NanoTrigger {
+impl Viewable for TriggerNano {
     type Message = TriggerMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -958,7 +958,7 @@ impl Viewable for NanoTrigger {
     }
 }
 
-impl Viewable for NanoWelshSynth {
+impl Viewable for WelshSynthNano {
     type Message = WelshSynthMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -982,7 +982,7 @@ impl Viewable for NanoWelshSynth {
     }
 }
 
-impl Viewable for NanoChorus {
+impl Viewable for ChorusNano {
     type Message = ChorusMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -990,64 +990,64 @@ impl Viewable for NanoChorus {
     }
 }
 
-impl Viewable for NanoControlTrip {
+impl Viewable for ControlTripNano {
     type Message = ControlTripMessage;
 }
 
-impl Viewable for NanoMidiTickSequencer {
+impl Viewable for MidiTickSequencerNano {
     type Message = MidiTickSequencerMessage;
 }
 
-impl Viewable for NanoSignalPassthroughController {
+impl Viewable for SignalPassthroughControllerNano {
     type Message = SignalPassthroughControllerMessage;
 }
 
-impl Viewable for NanoTimer {
+impl Viewable for TimerNano {
     type Message = TimerMessage;
 }
 
-impl Viewable for NanoToyInstrument {
+impl Viewable for ToyInstrumentNano {
     type Message = ToyInstrumentMessage;
 }
 
-impl Viewable for NanoToyEffect {
+impl Viewable for ToyEffectNano {
     type Message = ToyEffectMessage;
 }
 
-impl Viewable for NanoToySynth {
+impl Viewable for ToySynthNano {
     type Message = ToySynthMessage;
 }
 
-impl Viewable for NanoToyAudioSource {
+impl Viewable for ToyAudioSourceNano {
     type Message = ToyAudioSourceMessage;
 }
 
-impl Viewable for NanoBiQuadFilter {
+impl Viewable for BiQuadFilterNano {
     type Message = BiQuadFilterMessage;
 }
 
-impl Viewable for NanoToyController {
+impl Viewable for ToyControllerNano {
     type Message = ToyControllerMessage;
 }
 
-impl Viewable for NanoCompressor {
+impl Viewable for CompressorNano {
     type Message = CompressorMessage;
 }
 
-impl Viewable for NanoDelay {
+impl Viewable for DelayNano {
     type Message = DelayMessage;
 }
 
-impl Viewable for NanoLimiter {
+impl Viewable for LimiterNano {
     type Message = LimiterMessage;
 }
-impl Viewable for NanoSampler {
+impl Viewable for SamplerNano {
     type Message = SamplerMessage;
 }
-impl Viewable for NanoFmSynth {
+impl Viewable for FmSynthNano {
     type Message = FmSynthMessage;
 }
-impl Viewable for NanoDrumkit {
+impl Viewable for DrumkitNano {
     type Message = DrumkitMessage;
 }
 
@@ -1447,7 +1447,7 @@ impl View {
         }
     }
 
-    fn add_entity(&mut self, uid: usize, item: EntityParams) {
+    fn add_entity(&mut self, uid: usize, item: EntityNano) {
         eprintln!("Adding item... {:?}", item);
         if item.is_controller() {
             self.controller_uids.push(uid);

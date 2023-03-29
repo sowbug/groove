@@ -1,17 +1,17 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use arpeggiator::{Arpeggiator, ArpeggiatorMessage, NanoArpeggiator};
+pub use arpeggiator::{Arpeggiator, ArpeggiatorMessage, ArpeggiatorNano};
 pub use control_trip::{
-    ControlPath, ControlStep, ControlTrip, ControlTripMessage, NanoControlTrip,
+    ControlPath, ControlStep, ControlTrip, ControlTripMessage, ControlTripNano,
 };
-pub use lfo::{LfoController, LfoControllerMessage, NanoLfoController};
+pub use lfo::{LfoController, LfoControllerMessage, LfoControllerNano};
 pub use patterns::{
-    NanoPatternManager, Note, Pattern, PatternManager, PatternManagerMessage, PatternMessage,
+    Note, Pattern, PatternManager, PatternManagerMessage, PatternManagerNano, PatternMessage,
     PatternProgrammer,
 };
 pub use sequencers::{
-    MidiSmfReader, MidiTickSequencer, MidiTickSequencerMessage, NanoMidiTickSequencer,
-    NanoSequencer, Sequencer, SequencerMessage,
+    MidiSmfReader, MidiTickSequencer, MidiTickSequencerMessage, MidiTickSequencerNano, Sequencer,
+    SequencerMessage, SequencerNano,
 };
 
 mod arpeggiator;
@@ -40,7 +40,7 @@ use serde::{Deserialize, Serialize};
     derive(Serialize, Deserialize),
     serde(rename = "midi", rename_all = "kebab-case")
 )]
-pub struct NanoMidiChannel {
+pub struct MidiChannelNano {
     pub midi_in: MidiChannel,
     pub midi_out: MidiChannel,
 }
@@ -61,7 +61,7 @@ pub struct Timer {
     ticks: usize,
 }
 impl Timer {
-    pub fn new_with(sample_rate: usize, params: NanoTimer) -> Self {
+    pub fn new_with(sample_rate: usize, params: TimerNano) -> Self {
         Self {
             uid: Default::default(),
             sample_rate,
@@ -147,12 +147,12 @@ impl TicksWithMessages for Trigger {
 impl Resets for Trigger {}
 impl HandlesMidi for Trigger {}
 impl Trigger {
-    pub fn new_with(sample_rate: usize, params: NanoTrigger) -> Self {
+    pub fn new_with(sample_rate: usize, params: TriggerNano) -> Self {
         Self {
             uid: Default::default(),
             timer: Timer::new_with(
                 sample_rate,
-                NanoTimer {
+                TimerNano {
                     seconds: params.seconds(),
                 },
             ),
@@ -255,14 +255,14 @@ impl SignalPassthroughController {
 
 #[cfg(test)]
 mod tests {
-    use crate::controllers::{NanoTrigger, Trigger};
+    use crate::controllers::{Trigger, TriggerNano};
     use groove_core::traits::TicksWithMessages;
 
     #[test]
     fn instantiate_trigger() {
         let mut trigger = Trigger::new_with(
             44100,
-            NanoTrigger {
+            TriggerNano {
                 seconds: 1.0,
                 value: 0.5,
             },

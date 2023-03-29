@@ -213,7 +213,7 @@ impl Delay {
         Self::default()
     }
 
-    pub fn new_with(sample_rate: usize, params: NanoDelay) -> Self {
+    pub fn new_with(sample_rate: usize, params: DelayNano) -> Self {
         Self {
             seconds: params.seconds(),
             delay: DelayLine::new_with(sample_rate, params.seconds(), 1.0),
@@ -227,10 +227,6 @@ impl Delay {
 
     pub fn set_seconds(&mut self, delay_seconds: f32) {
         self.delay.set_delay_seconds(delay_seconds);
-    }
-
-    pub fn set_control_seconds(&mut self, value: groove_core::control::F32ControlValue) {
-        self.set_seconds(value.0);
     }
 
     pub fn update(&mut self, message: DelayMessage) {
@@ -249,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_delay_basic() {
-        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, NanoDelay { seconds: 1.0 });
+        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, DelayNano { seconds: 1.0 });
 
         // Add a unique first sample.
         assert_eq!(fx.transform_channel(0, Sample::from(0.5)), Sample::SILENCE);
@@ -273,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_delay_zero() {
-        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, NanoDelay { seconds: 0.0 });
+        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, DelayNano { seconds: 0.0 });
 
         // We should keep getting back what we put in.
         for i in 0..DEFAULT_SAMPLE_RATE {

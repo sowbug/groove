@@ -2,19 +2,15 @@
 
 //! This crate provides macros that make Entity development easier.
 
-use control::impl_control_derive;
 use everything::parse_and_generate_everything;
 use nano::impl_nano_derive;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
-use synchronization::impl_synchronization_derive;
 use uid::impl_uid_derive;
 use views::parse_and_generate_views;
 
-mod control;
 mod everything;
 mod nano;
-mod synchronization;
 mod uid;
 mod views;
 
@@ -26,29 +22,8 @@ pub fn uid_derive(input: TokenStream) -> TokenStream {
     impl_uid_derive(input)
 }
 
-/// The [Control] macro derives the infrastructure that makes an entity
-/// controllable (automatable). By annotating each controllable field with
-/// `#[controllable]`, the entity exposes a public API that Orchestrator uses to
-/// manipulate those fields.
-#[proc_macro_derive(Control, attributes(controllable))]
-pub fn control_derive(input: TokenStream) -> TokenStream {
-    impl_control_derive(input)
-}
-
-/// The [Synchronization] macro derives the infrastructure that helps sync
-/// system data. If you have a struct Foo, then this macro will (eventually)
-/// help generate a NanoFoo struct, along with methods and messages that make it
-/// easy to propagate changes between the two.
-///
-/// [Control] and [Synchronization] turned out to have similar solutions, though
-/// the problems are different, so I'm in the process of merging them.
-#[proc_macro_derive(Synchronization, attributes(sync))]
-pub fn synchronization_derive(input: TokenStream) -> TokenStream {
-    impl_synchronization_derive(input)
-}
-
 /// The [Nano] macro helps sync system data. If you have a struct Foo, then this
-/// macro generates a NanoFoo struct, along with methods and messages that make
+/// macro generates a FooNano struct, along with methods and messages that make
 /// it easy to propagate changes between the two.
 #[proc_macro_derive(Nano, attributes(nano))]
 pub fn nano_derive(input: TokenStream) -> TokenStream {

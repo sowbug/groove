@@ -44,7 +44,7 @@ impl TransformsAudio for Limiter {
     }
 }
 impl Limiter {
-    pub fn new_with_params(params: NanoLimiter) -> Self {
+    pub fn new_with_params(params: LimiterNano) -> Self {
         Self {
             min: params.min(),
             max: params.max(),
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn limiter_bias() {
-        let mut limiter = Limiter::new_with_params(NanoLimiter {
+        let mut limiter = Limiter::new_with_params(LimiterNano {
             min: BipolarNormal::from(0.2),
             max: BipolarNormal::from(0.8),
         });

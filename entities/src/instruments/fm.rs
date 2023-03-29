@@ -301,27 +301,14 @@ impl FmSynth {
             .for_each(|v| v.set_modulator_beta(beta));
     }
 
-    pub fn set_control_depth(&mut self, depth: F32ControlValue) {
-        self.set_depth(Normal::from(depth.0));
+    pub fn depth(&self) -> Normal {
+        self.params.depth
     }
 
     // TODO: this is another case where having a better-defined incoming type
     // would help us do the right thing. We're mapping 0.0...1.0 to 0.0..very
     // high, but probably not higher than 32 or 64, and integer ratios make more
     // sense than fractional ones. What's that?
-    pub fn set_control_ratio(&mut self, ratio: F32ControlValue) {
-        self.set_ratio(ratio.0 as ParameterType);
-    }
-
-    // TODO same
-    pub fn set_control_beta(&mut self, beta: F32ControlValue) {
-        self.set_beta(beta.0 as ParameterType);
-    }
-
-    pub fn depth(&self) -> Normal {
-        self.params.depth
-    }
-
     pub fn ratio(&self) -> f64 {
         self.params.ratio
     }

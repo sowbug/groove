@@ -53,7 +53,7 @@ impl Chorus {
         Self::default()
     }
 
-    pub fn new_with(sample_rate: usize, params: NanoChorus) -> Self {
+    pub fn new_with(sample_rate: usize, params: ChorusNano) -> Self {
         // TODO: the delay_seconds param feels like a hack
         Self {
             uid: Default::default(),

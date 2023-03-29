@@ -22,7 +22,7 @@ fn build_lists<'a>(
     let mut params = Vec::default();
     let mut messages = Vec::default();
     for thing in things {
-        params.push(format_ident!("Nano{}", thing.base_name.to_string()));
+        params.push(format_ident!("{}Nano", thing.base_name.to_string()));
         messages.push(format_ident!("{}Message", thing.base_name.to_string()));
         types.push(thing.ty.clone());
         structs.push(thing.base_name.clone());
@@ -95,7 +95,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
         }
 
         #[derive(Debug)]
-        pub enum EntityParams {
+        pub enum EntityNano {
             #( #structs(Box<#params>) ),*
         }
 
@@ -155,11 +155,11 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 }
             }
         }
-        impl EntityParams {
+        impl EntityNano {
             pub fn update(&mut self, message: OtherEntityMessage) {
                 match self {
                 #(
-                    EntityParams::#structs(e) => {
+                    EntityNano::#structs(e) => {
                         if let OtherEntityMessage::#structs(message) = message {
                             e.update(message);
                         }
@@ -193,10 +193,10 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 }
             }
         }
-        impl EntityParams {
+        impl EntityNano {
             pub fn is_controller(&self) -> bool {
                 match self {
-                    #( EntityParams::#structs(_) => true, )*
+                    #( EntityNano::#structs(_) => true, )*
                     _ => false,
                 }
             }
@@ -225,22 +225,22 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 }
             }
         }
-        impl EntityParams {
+        impl EntityNano {
             pub fn is_controllable(&self) -> bool {
                 match self {
-                    #( EntityParams::#structs(_) => true, )*
+                    #( EntityNano::#structs(_) => true, )*
                     _ => false,
                 }
             }
             pub fn as_controllable(&self) -> Option<&dyn groove_core::traits::Controllable> {
                 match self {
-                    #( EntityParams::#structs(e) => Some(e.as_ref()), )*
+                    #( EntityNano::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
             pub fn as_controllable_mut(&mut self) -> Option<&mut dyn groove_core::traits::Controllable> {
                 match self {
-                    #( EntityParams::#structs(e) => Some(e.as_mut()), )*
+                    #( EntityNano::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
                 }
             }

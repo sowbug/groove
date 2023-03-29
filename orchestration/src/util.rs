@@ -32,11 +32,11 @@ pub mod tests {
         ParameterType, StereoSample,
     };
     use groove_entities::{
-        controllers::{LfoController, NanoTimer, Timer},
+        controllers::{LfoController, Timer, TimerNano},
         ToyMessageMaker,
     };
     use groove_toys::{
-        NanoToyController, NanoToyInstrument, ToyController, ToyEffect, ToyInstrument, ToySynth,
+        ToyController, ToyControllerNano, ToyEffect, ToyInstrument, ToyInstrumentNano, ToySynth,
     };
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
 
@@ -67,7 +67,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             clock.sample_rate(),
-            NanoTimer {
+            TimerNano {
                 seconds: SECONDS as f64,
             },
         ))));
@@ -123,7 +123,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             clock.sample_rate(),
-            NanoTimer {
+            TimerNano {
                 seconds: SECONDS as f64,
             },
         ))));
@@ -163,13 +163,13 @@ pub mod tests {
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
             DEFAULT_SAMPLE_RATE,
-            NanoToyInstrument {
+            ToyInstrumentNano {
                 fake_value: Normal::from(0.34598),
             },
         ))));
         let arpeggiator_uid = o.add(Entity::ToyController(Box::new(ToyController::new_with(
             DEFAULT_SAMPLE_RATE,
-            NanoToyController {
+            ToyControllerNano {
                 bpm: DEFAULT_BPM,
                 tempo: 99999999999.0,
             },
@@ -188,7 +188,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            NanoTimer {
+            TimerNano {
                 seconds: SECONDS as f64,
             },
         ))));
@@ -285,7 +285,7 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            NanoTimer {
+            TimerNano {
                 seconds: SECONDS as f64,
             },
         ))));

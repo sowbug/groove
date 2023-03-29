@@ -50,7 +50,7 @@ impl TransformsAudio for Reverb {
     }
 }
 impl Reverb {
-    pub fn new_with(sample_rate: usize, params: NanoReverb) -> Self {
+    pub fn new_with(sample_rate: usize, params: ReverbNano) -> Self {
         // Thanks to https://basicsynth.com/ (page 133 of paperback) for
         // constants.
         Self {
@@ -102,7 +102,7 @@ impl TransformsAudio for ReverbChannel {
     }
 }
 impl ReverbChannel {
-    pub fn new_with(sample_rate: usize, params: NanoReverb) -> Self {
+    pub fn new_with(sample_rate: usize, params: ReverbNano) -> Self {
         // Thanks to https://basicsynth.com/ (page 133 of paperback) for
         // constants.
         Self {
@@ -166,14 +166,14 @@ impl ReverbChannel {
 #[cfg(test)]
 mod tests {
     use super::Reverb;
-    use crate::{effects::NanoReverb, tests::DEFAULT_SAMPLE_RATE};
+    use crate::{effects::ReverbNano, tests::DEFAULT_SAMPLE_RATE};
     use groove_core::{traits::TransformsAudio, Normal, Sample};
 
     #[test]
     fn reverb_dry_works() {
         let mut fx = Reverb::new_with(
             DEFAULT_SAMPLE_RATE,
-            crate::effects::NanoReverb {
+            crate::effects::ReverbNano {
                 attenuation: Normal::from(0.5),
                 seconds: 1.5,
                 wet_dry_mix: 0.0,
@@ -198,7 +198,7 @@ mod tests {
         // wrong, but I couldn't have predicted that exact number.
         let mut fx = Reverb::new_with(
             DEFAULT_SAMPLE_RATE,
-            NanoReverb {
+            ReverbNano {
                 attenuation: Normal::from(0.9),
                 seconds: 0.5,
                 wet_dry_mix: 1.0,
