@@ -76,7 +76,7 @@ all_entities! {
     WelshSynth; WelshSynthParams; WelshSynthParamsMessage; false; true,
 }
 
-type Moosage = EntityMessage;
+type MsgType = EntityMessage;
 
 #[allow(dead_code)]
 #[derive(Everything)]

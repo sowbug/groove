@@ -6,16 +6,12 @@
 #[macro_export]
 macro_rules! all_entities {
 ($($entity:ident; $params:tt; $message:ident; $is_controller:tt; $is_controllable:tt ,)*) => {
-    #[derive(Clone, Debug)]
-    pub enum OtherEntityMessage {
-        $( $params($message) ),*
-    }
     impl EntityParams {
         pub fn update(&mut self, message: OtherEntityMessage) {
             match self {
             $(
                 EntityParams::$entity(e) => {
-                    if let OtherEntityMessage::$params(message) = message {
+                    if let OtherEntityMessage::$entity(message) = message {
                         e.update(message);
                     }
                 }
@@ -29,7 +25,7 @@ macro_rules! all_entities {
             match self {
             $(
                 Entity::$entity(e) => {
-                    if let OtherEntityMessage::$params(message) = message {
+                    if let OtherEntityMessage::$entity(message) = message {
                         e.update(message);
                     }
                 }
@@ -46,12 +42,23 @@ macro_rules! all_entities {
             $(
                 Entity::$entity(e) => {
                     if let Some(message) = e.params().message_for_index(param_index, value) {
-                        return Some(OtherEntityMessage::$params(message));
+                        return Some(OtherEntityMessage::$entity(message));
                     }
                 }
             )*
             }
             None
+        }
+
+        pub fn full_message(&self) -> OtherEntityMessage {
+            match self {
+            $(
+                Entity::$entity(e) => {
+                    let params = e.params();
+                    return OtherEntityMessage::$entity(e.params().full_message());
+                }
+            )*
+            }
         }
 
     }

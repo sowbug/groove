@@ -297,6 +297,12 @@ fn parse_synchronization_data(
                 }
             }
 
+            pub fn full_message(
+                &self,
+            ) -> #enum_name {
+                #enum_name::#struct_name(*self)
+            }
+
             pub fn parameterized_message_from_message(
                 &self,
                 message: #enum_name,
@@ -355,16 +361,21 @@ struct OneThing {
 
 fn build_lists<'a>(
     things: impl Iterator<Item = &'a OneThing>,
-) -> (Vec<Ident>, Vec<Ident>, Vec<syn::Type>) {
+) -> (Vec<Ident>, Vec<syn::Type>, Vec<Ident>, Vec<Ident>) {
     let mut structs = Vec::default();
-    let mut params = Vec::default();
     let mut types = Vec::default();
+    let mut params = Vec::default();
+    let mut messages = Vec::default();
     for thing in things {
         params.push(format_ident!("{}Params", thing.base_name.to_string()));
-        structs.push(thing.base_name.clone());
+        messages.push(format_ident!(
+            "{}ParamsMessage",
+            thing.base_name.to_string()
+        ));
         types.push(thing.ty.clone());
+        structs.push(thing.base_name.clone());
     }
-    (structs, params, types)
+    (structs, types, params, messages)
 }
 
 fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
@@ -407,7 +418,7 @@ fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
                         }
                     }
                 }
-                for (field_index, field) in variant.fields.iter().enumerate() {
+                for field in variant.fields.iter() {
                     v.push(OneThing {
                         base_name: variant.ident.clone(),
                         ty: field.ty.clone(),
@@ -424,8 +435,7 @@ fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
         _ => panic!("this derive macro works only on enums"),
     };
 
-    let (structs, params, types) = build_lists(things.iter());
-
+    let (structs, types, params, messages) = build_lists(things.iter());
     let entity_enum = quote! {
         #[derive(Debug)]
         pub enum Entity {
@@ -436,6 +446,12 @@ fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
         pub enum EntityParams {
             #( #structs(Box<#params>) ),*
         }
+
+        #[derive(Clone, Debug)]
+        pub enum OtherEntityMessage {
+            #( #structs(#messages) ),*
+        }
+
     };
 
     let common_upcasters = quote! {
@@ -453,7 +469,7 @@ fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
         }
     };
 
-    let (structs, params, types) = build_lists(things.iter().filter(|thing| thing.is_controller));
+    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_controller));
     let controller_upcasters = quote! {
         impl Entity {
             pub fn is_controller(&self) -> bool {
@@ -462,13 +478,13 @@ fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
                     _ => false,
                 }
             }
-            pub fn as_is_controller(&self) -> Option<&dyn groove_core::traits::IsController<Message=Moosage>> {
+            pub fn as_is_controller(&self) -> Option<&dyn groove_core::traits::IsController<Message=MsgType>> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsController<Message=Moosage>> {
+            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsController<Message=MsgType>> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -485,7 +501,7 @@ fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
         }
     };
 
-    let (structs, params, types) = build_lists(things.iter().filter(|thing| thing.is_controllable));
+    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_controllable));
     let controllable_upcasters = quote! {
         impl Entity {
             pub fn is_controllable(&self) -> bool {
@@ -529,7 +545,7 @@ fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
         }
     };
 
-    let (structs, params, types) = build_lists(things.iter().filter(|thing| thing.is_effect));
+    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_effect));
     let effect_upcasters = quote! {
         impl Entity {
             pub fn as_is_effect(&self) -> Option<&dyn groove_core::traits::IsEffect> {
@@ -547,7 +563,7 @@ fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
         }
     };
 
-    let (structs, params, types) = build_lists(things.iter().filter(|thing| thing.is_instrument));
+    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_instrument));
     let instrument_upcasters = quote! {
         impl Entity {
             pub fn as_is_instrument(&self) -> Option<&dyn groove_core::traits::IsInstrument> {
@@ -565,7 +581,7 @@ fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenStream {
         }
     };
 
-    let (structs, params, types) = build_lists(things.iter().filter(|thing| thing.handles_midi));
+    let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.handles_midi));
     let handles_midi_upcasters = quote! {
         impl Entity {
             pub fn as_handles_midi(&self) -> Option<&dyn groove_core::traits::HandlesMidi> {

@@ -445,56 +445,6 @@ impl EngineSubscription {
         self.audio_output.stop();
     }
 
-    fn update_event_message_for_entity(uid: usize, entity: &Entity) -> GrooveEvent {
-        GrooveEvent::Update(
-            uid,
-            match entity {
-                Entity::Arpeggiator(e) => OtherEntityMessage::ArpeggiatorParams(
-                    ArpeggiatorParamsMessage::ArpeggiatorParams(e.params()),
-                ),
-                Entity::Sequencer(e) => OtherEntityMessage::SequencerParams(
-                    SequencerParamsMessage::SequencerParams(e.params()),
-                ),
-                Entity::ControlTrip(_) => todo!(),
-                Entity::MidiTickSequencer(_) => todo!(),
-                Entity::LfoController(e) => OtherEntityMessage::LfoControllerParams(
-                    LfoControllerParamsMessage::LfoControllerParams(e.params()),
-                ),
-                Entity::PatternManager(e) => OtherEntityMessage::PatternManagerParams(
-                    PatternManagerParamsMessage::PatternManagerParams(e.params()),
-                ),
-                Entity::SignalPassthroughController(_) => todo!(),
-                Entity::ToyController(_) => todo!(),
-                Entity::Timer(_) => todo!(),
-                Entity::BiQuadFilter(_) => todo!(),
-                Entity::Bitcrusher(_) => todo!(),
-                Entity::Chorus(_) => todo!(),
-                Entity::Compressor(_) => todo!(),
-                Entity::Delay(_) => todo!(),
-                Entity::Gain(_) => todo!(),
-                Entity::Limiter(_) => todo!(),
-                Entity::Mixer(e) => OtherEntityMessage::MixerParams(
-                    groove_entities::effects::MixerParamsMessage::MixerParams(e.params()),
-                ),
-                Entity::Reverb(e) => OtherEntityMessage::ReverbParams(
-                    groove_entities::effects::ReverbParamsMessage::ReverbParams(e.params()),
-                ),
-                Entity::ToyEffect(_) => todo!(),
-                Entity::Drumkit(_) => todo!(),
-                Entity::FmSynth(_) => todo!(),
-                Entity::Sampler(_) => todo!(),
-                Entity::ToyAudioSource(_) => todo!(),
-                Entity::ToyInstrument(_) => todo!(),
-                Entity::ToySynth(_) => todo!(),
-                Entity::WelshSynth(e) => OtherEntityMessage::WelshSynthParams(
-                    groove_entities::instruments::WelshSynthParamsMessage::WelshSynthParams(
-                        e.params(),
-                    ),
-                ),
-            },
-        )
-    }
-
     fn load_project(&mut self, filename: &str) -> Response<GrooveEvent> {
         let mut path = Paths::projects_path(PathType::Global);
         path.push(filename);
@@ -513,7 +463,7 @@ impl EngineSubscription {
                     instance
                         .entity_iter()
                         .map(|(uid, entity)| {
-                            Response::single(Self::update_event_message_for_entity(*uid, entity))
+                            Response::single(GrooveEvent::Update(*uid, entity.full_message()))
                         })
                         .collect::<Vec<Response<GrooveEvent>>>(),
                 );
@@ -558,7 +508,7 @@ impl EngineSubscription {
                 self.push_response(response);
                 self.push_response(other_response);
                 if ticks_completed < samples.len() {
-                    self.is_playing = false;
+                    self.stop_playback();
                     self.reached_end_of_playback = true;
                 }
 

@@ -1086,12 +1086,7 @@ macro_rules! build_view_dispatcher {
                 $(
                     EntityParams::$entity(e) => {
                         e.view().map(move |message| {
-                            ViewMessage::OtherEntityMessage(
-                                uid,
-                                OtherEntityMessage::$params(
-                                    message,
-                                ),
-                            )
+                            ViewMessage::OtherEntityMessage(uid, OtherEntityMessage::$entity(message))
                         })
                     } ),*
                 }
@@ -1104,7 +1099,7 @@ macro_rules! build_view_dispatcher {
             )  {
                 match message {
                     $(
-                        OtherEntityMessage::$params($params_message::$params(params)) => {
+                        OtherEntityMessage::$entity($params_message::$params(params)) => {
                             self.add_entity(uid, EntityParams::$entity(Box::new(params)));
                         }
                         ),*
