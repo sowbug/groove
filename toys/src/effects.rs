@@ -21,7 +21,7 @@ pub struct ToyEffect {
     uid: usize,
 
     #[nano]
-    pub my_value: Normal,
+    my_value: Normal,
 
     pub checkpoint_values: VecDeque<f32>,
     pub checkpoint: f32,

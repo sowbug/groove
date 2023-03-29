@@ -219,7 +219,7 @@ pub struct ToySynth {
     uid: usize,
 
     #[nano]
-    pub fake_value: Normal,
+    fake_value: Normal,
 
     sample_rate: usize,
     sample: StereoSample,
@@ -326,7 +326,7 @@ pub struct ToyAudioSource {
     // This should be a Normal, but we use this audio source for testing edge
     // conditions. Thus we need to let it go out of range.
     #[nano]
-    pub level: ParameterType,
+    level: ParameterType,
 }
 impl IsInstrument for ToyAudioSource {}
 impl Generates<StereoSample> for ToyAudioSource {

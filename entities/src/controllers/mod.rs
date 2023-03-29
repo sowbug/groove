@@ -53,7 +53,7 @@ pub struct Timer {
     uid: usize,
 
     #[nano]
-    pub seconds: ParameterType,
+    seconds: ParameterType,
 
     sample_rate: usize,
 
