@@ -7,8 +7,8 @@ use groove_core::{
     traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
     BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
-use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, str::FromStr};
+use groove_proc_macros::{Control, Nano, Synchronization, Uid};
+use std::{collections::VecDeque, fmt::Debug, str::FromStr};
 use strum::EnumCount;
 use strum_macros::{
     Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
@@ -17,35 +17,23 @@ use strum_macros::{
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "toy-instrument", rename_all = "kebab-case")
-)]
-pub struct ToyInstrumentParams {
-    #[sync]
-    pub fake_value: Normal,
-}
-
 /// An [IsInstrument](groove_core::traits::IsInstrument) that uses a default
 /// Oscillator to produce sound. Its "envelope" is just a boolean that responds
 /// to MIDI NoteOn/NoteOff. [Controllable](groove_core::traits::Controllable) by
 /// two parameters: Oscillator waveform and frequency.
-#[derive(Control, Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct ToyInstrument {
     uid: usize,
-    params: ToyInstrumentParams,
+
+    #[nano]
+    fake_value: Normal,
+
     sample_rate: usize,
     sample: StereoSample,
 
     /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
-    #[controllable]
-    pub waveform: PhantomData<WaveformParams>, // interesting use of PhantomData
-
-    #[controllable]
-    pub fake_value: Normal,
-
+    // #[controllable]
+    // pub waveform: PhantomData<WaveformParams>, // interesting use of PhantomData
     oscillator: Oscillator,
     dca: Dca,
     pub is_playing: bool,
@@ -144,11 +132,9 @@ impl HandlesMidi for ToyInstrument {
 //     }
 // }
 impl ToyInstrument {
-    pub fn new_with(sample_rate: usize, params: ToyInstrumentParams) -> Self {
+    pub fn new_with(sample_rate: usize, params: NanoToyInstrument) -> Self {
         let mut r = Self {
             uid: Default::default(),
-            params,
-            waveform: Default::default(),
             sample_rate,
             sample: Default::default(),
             fake_value: params.fake_value(),
@@ -177,7 +163,7 @@ impl ToyInstrument {
     ) -> Self {
         let mut r = Self::new_with(
             sample_rate,
-            ToyInstrumentParams {
+            NanoToyInstrument {
                 fake_value: Normal::maximum(),
             },
         );
@@ -199,15 +185,15 @@ impl ToyInstrument {
         }
     }
 
-    pub fn set_control_waveform(&mut self, value: groove_core::control::F32ControlValue) {
-        self.oscillator.set_waveform(if value.0 == -1.0 {
-            WaveformParams::Sawtooth
-        } else if value.0 == 1.0 {
-            WaveformParams::Square
-        } else {
-            WaveformParams::Sine
-        });
-    }
+    // pub fn set_control_waveform(&mut self, value: groove_core::control::F32ControlValue) {
+    //     self.oscillator.set_waveform(if value.0 == -1.0 {
+    //         WaveformParams::Sawtooth
+    //     } else if value.0 == 1.0 {
+    //         WaveformParams::Square
+    //     } else {
+    //         WaveformParams::Sine
+    //     });
+    // }
 
     pub fn set_fake_value(&mut self, fake_value: Normal) {
         self.fake_value = fake_value;
@@ -217,47 +203,29 @@ impl ToyInstrument {
         self.fake_value
     }
 
-    pub fn set_control_fake_value(&mut self, fake_value: groove_core::control::F32ControlValue) {
-        self.set_fake_value(fake_value.into());
-    }
-
     pub fn dump_messages(&self) {
         dbg!(&self.debug_messages);
     }
 
-    pub fn params(&self) -> ToyInstrumentParams {
-        self.params
+    pub fn update(&mut self, message: ToyInstrumentMessage) {
+        todo!()
     }
-
-    pub fn update(&mut self, message: ToyInstrumentParamsMessage) {
-        self.params.update(message)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "toy-synth", rename_all = "kebab-case")
-)]
-pub struct ToySynthParams {
-    #[sync]
-    pub fake_value: Normal,
 }
 
 /// Another [IsInstrument](groove_core::traits::IsInstrument) that was designed
 /// for black-box debugging.
-#[derive(Control, Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct ToySynth {
     uid: usize,
-    params: ToySynthParams,
+
+    #[nano]
+    pub fake_value: Normal,
 
     sample_rate: usize,
     sample: StereoSample,
 
-    #[controllable]
-    oscillator_modulation: BipolarNormal,
-
+    // #[controllable]
+    // oscillator_modulation: BipolarNormal,
     oscillator: Box<Oscillator>,
     envelope: Box<dyn GeneratesEnvelope>,
 }
@@ -314,31 +282,24 @@ impl ToySynth {
     ) -> Self {
         Self {
             uid: Default::default(),
-            params: Default::default(),
             sample_rate,
+            fake_value: Normal::from(0.32342),
             sample: Default::default(),
-            oscillator_modulation: Default::default(),
+            // oscillator_modulation: Default::default(),
             oscillator,
             envelope,
         }
     }
 
-    pub fn oscillator_modulation(&self) -> BipolarNormal {
-        self.oscillator.frequency_modulation()
-    }
+    // pub fn oscillator_modulation(&self) -> BipolarNormal {
+    //     self.oscillator.frequency_modulation()
+    // }
 
-    pub fn set_oscillator_modulation(&mut self, oscillator_modulation: BipolarNormal) {
-        self.oscillator_modulation = oscillator_modulation;
-        self.oscillator
-            .set_frequency_modulation(oscillator_modulation);
-    }
-
-    pub fn set_control_oscillator_modulation(
-        &mut self,
-        oscillator_modulation: groove_core::control::F32ControlValue,
-    ) {
-        self.set_oscillator_modulation(BipolarNormal::from(oscillator_modulation.0));
-    }
+    // pub fn set_oscillator_modulation(&mut self, oscillator_modulation: BipolarNormal) {
+    //     self.oscillator_modulation = oscillator_modulation;
+    //     self.oscillator
+    //         .set_frequency_modulation(oscillator_modulation);
+    // }
 
     pub fn new_with(sample_rate: usize) -> Self {
         Self::new_with_components(
@@ -351,39 +312,26 @@ impl ToySynth {
         )
     }
 
-    pub fn params(&self) -> ToySynthParams {
-        self.params
+    pub fn update(&mut self, message: ToySynthMessage) {
+        todo!()
     }
-
-    pub fn update(&mut self, message: ToySynthParamsMessage) {
-        self.params.update(message)
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "toy-audio-source", rename_all = "kebab-case")
-)]
-pub struct ToyAudioSourceParams {
-    // This should be a Normal, but we use this audio source for testing edge
-    // conditions. Thus we need to let it go out of range.
-    #[sync]
-    pub level: ParameterType,
 }
 
 /// Produces a constant audio signal. Used for ensuring that a known signal
 /// value gets all the way through the pipeline.
-#[derive(Control, Debug, Default, Uid)]
+#[derive(Debug, Default, Nano, Uid)]
 pub struct ToyAudioSource {
     uid: usize,
-    params: ToyAudioSourceParams,
+
+    // This should be a Normal, but we use this audio source for testing edge
+    // conditions. Thus we need to let it go out of range.
+    #[nano]
+    pub level: ParameterType,
 }
 impl IsInstrument for ToyAudioSource {}
 impl Generates<StereoSample> for ToyAudioSource {
     fn value(&self) -> StereoSample {
-        StereoSample::from(self.params.level)
+        StereoSample::from(self.level)
     }
 
     #[allow(unused_variables)]
@@ -408,24 +356,19 @@ impl ToyAudioSource {
 
     pub fn new_with(level: SampleType) -> Self {
         Self {
-            params: ToyAudioSourceParams { level },
+            level,
             ..Default::default()
         }
     }
 
-    pub fn params(&self) -> ToyAudioSourceParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: ToyAudioSourceParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: ToyAudioSourceMessage) {
+        todo!()
     }
 }
 
 #[cfg(test)]
 pub mod tests {
-    use super::ToyInstrumentParams;
-    use crate::ToyInstrument;
+    use crate::{instruments::NanoToyInstrument, ToyInstrument};
     use groove_core::{
         traits::{Generates, Ticks},
         Normal,
@@ -442,7 +385,7 @@ pub mod tests {
     fn test_sources_audio_random_access() {
         let mut instrument = ToyInstrument::new_with(
             DEFAULT_SAMPLE_RATE,
-            ToyInstrumentParams {
+            NanoToyInstrument {
                 fake_value: Normal::from(0.42),
             },
         );

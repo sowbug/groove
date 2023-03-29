@@ -4,30 +4,18 @@ use groove_core::{
     traits::{IsEffect, TransformsAudio},
     Sample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
 
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "mixer", rename_all = "kebab-case")
-)]
-pub struct MixerParams {}
-impl MixerParams {}
-
-#[derive(Clone, Control, Debug, Default, Uid)]
+#[derive(Debug, Default, Nano, Uid)]
 pub struct Mixer {
     uid: usize,
-    params: MixerParams,
 }
 impl IsEffect for Mixer {}
 impl TransformsAudio for Mixer {
@@ -47,12 +35,8 @@ impl Mixer {
         }
     }
 
-    pub fn params(&self) -> MixerParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: MixerParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: MixerMessage) {
+        todo!()
     }
 }
 

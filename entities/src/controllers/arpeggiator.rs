@@ -8,26 +8,13 @@ use groove_core::{
     traits::{IsController, Resets, TicksWithMessages},
     ParameterType,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "arpeggiator", rename_all = "kebab-case")
-)]
-pub struct ArpeggiatorParams {
-    #[sync]
-    pub bpm: ParameterType,
-}
 
 /// [Arpeggiator] creates [arpeggios](https://en.wikipedia.org/wiki/Arpeggio),
 /// which "is a type of broken chord in which the notes that compose a chord are
@@ -35,12 +22,14 @@ pub struct ArpeggiatorParams {
 /// order." You can also think of it as a hybrid MIDI instrument and MIDI
 /// controller; you play it with MIDI, but instead of producing audio, it
 /// produces more MIDI.
-#[derive(Control, Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct Arpeggiator {
     uid: usize,
-    params: ArpeggiatorParams,
     midi_channel_out: MidiChannel,
     sequencer: Sequencer,
+
+    #[nano]
+    bpm: ParameterType,
 
     // A poor-man's semaphore that allows note-off events to overlap with the
     // current note without causing it to shut off. Example is a legato
@@ -106,9 +95,9 @@ impl Arpeggiator {
     pub fn new_with(sample_rate: usize, midi_channel_out: MidiChannel, bpm: ParameterType) -> Self {
         Self {
             uid: Default::default(),
-            params: ArpeggiatorParams { bpm },
             midi_channel_out,
-            sequencer: Sequencer::new_with(sample_rate, super::SequencerParams { bpm }),
+            bpm,
+            sequencer: Sequencer::new_with(sample_rate, super::NanoSequencer { bpm }),
             note_semaphore: Default::default(),
         }
     }
@@ -116,16 +105,13 @@ impl Arpeggiator {
     pub fn new_with_params(
         sample_rate: usize,
         midi_channel_out: MidiChannel,
-        params: ArpeggiatorParams,
+        params: NanoArpeggiator,
     ) -> Self {
         Self {
             uid: Default::default(),
-            params,
             midi_channel_out,
-            sequencer: Sequencer::new_with(
-                sample_rate,
-                super::SequencerParams { bpm: params.bpm() },
-            ),
+            bpm: params.bpm,
+            sequencer: Sequencer::new_with(sample_rate, super::NanoSequencer { bpm: params.bpm() }),
             note_semaphore: Default::default(),
         }
     }
@@ -193,11 +179,21 @@ impl Arpeggiator {
         );
     }
 
-    pub fn params(&self) -> ArpeggiatorParams {
-        self.params
+    pub fn update(&mut self, message: ArpeggiatorMessage) {
+        match message {
+            ArpeggiatorMessage::Arpeggiator(s) => {
+                *self =
+                    Self::new_with_params(self.sequencer.sample_rate(), self.midi_channel_out, s)
+            }
+            ArpeggiatorMessage::Bpm(bpm) => self.set_bpm(bpm),
+        }
     }
 
-    pub fn update(&mut self, message: ArpeggiatorParamsMessage) {
-        self.params.update(message)
+    pub fn bpm(&self) -> f64 {
+        self.bpm
+    }
+
+    pub fn set_bpm(&mut self, bpm: ParameterType) {
+        self.bpm = bpm;
     }
 }

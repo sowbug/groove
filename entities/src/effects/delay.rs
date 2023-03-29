@@ -4,12 +4,10 @@ use groove_core::{
     traits::{IsEffect, TransformsAudio},
     Normal, ParameterType, Sample, SignalType,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -194,22 +192,12 @@ impl Delays for AllPassDelayLine {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "delay", rename_all = "kebab-case")
-)]
-pub struct DelayParams {
-    #[sync]
-    pub seconds: ParameterType,
-}
-
-#[derive(Control, Debug, Default, Uid)]
+#[derive(Debug, Default, Nano, Uid)]
 pub struct Delay {
     uid: usize,
 
-    params: DelayParams,
+    #[nano]
+    seconds: ParameterType,
 
     delay: DelayLine,
 }
@@ -225,9 +213,9 @@ impl Delay {
         Self::default()
     }
 
-    pub fn new_with(sample_rate: usize, params: DelayParams) -> Self {
+    pub fn new_with(sample_rate: usize, params: NanoDelay) -> Self {
         Self {
-            params,
+            seconds: params.seconds(),
             delay: DelayLine::new_with(sample_rate, params.seconds(), 1.0),
             ..Default::default()
         }
@@ -245,12 +233,8 @@ impl Delay {
         self.set_seconds(value.0);
     }
 
-    pub fn params(&self) -> DelayParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: DelayParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: DelayMessage) {
+        todo!()
     }
 }
 
@@ -265,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_delay_basic() {
-        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, DelayParams { seconds: 1.0 });
+        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, NanoDelay { seconds: 1.0 });
 
         // Add a unique first sample.
         assert_eq!(fx.transform_channel(0, Sample::from(0.5)), Sample::SILENCE);
@@ -289,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_delay_zero() {
-        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, DelayParams { seconds: 0.0 });
+        let mut fx = Delay::new_with(DEFAULT_SAMPLE_RATE, NanoDelay { seconds: 0.0 });
 
         // We should keep getting back what we put in.
         for i in 0..DEFAULT_SAMPLE_RATE {

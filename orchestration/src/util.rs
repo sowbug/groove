@@ -32,12 +32,11 @@ pub mod tests {
         ParameterType, StereoSample,
     };
     use groove_entities::{
-        controllers::{LfoController, Timer, TimerParams},
+        controllers::{LfoController, NanoTimer, Timer},
         ToyMessageMaker,
     };
     use groove_toys::{
-        ToyController, ToyControllerParams, ToyEffect, ToyInstrument, ToyInstrumentParams,
-        ToySynth, ToySynthControlParams,
+        NanoToyController, NanoToyInstrument, ToyController, ToyEffect, ToyInstrument, ToySynth,
     };
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
 
@@ -68,8 +67,8 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             clock.sample_rate(),
-            TimerParams {
-                seconds_to_run: SECONDS as f64,
+            NanoTimer {
+                seconds: SECONDS as f64,
             },
         ))));
 
@@ -116,11 +115,7 @@ pub mod tests {
         ))));
         let lfo = LfoController::new_with(clock.sample_rate(), WaveformParams::Sine, 2.0);
         let lfo_uid = o.add(Entity::LfoController(Box::new(lfo)));
-        let _ = o.link_control_by_name(
-            lfo_uid,
-            synth_1_uid,
-            &ToySynthControlParams::OscillatorModulation.to_string(),
-        );
+        let _ = o.link_control_by_name(lfo_uid, synth_1_uid, "oscillator");
 
         // We'll hear the synth's audio output.
         let _ = o.connect_to_main_mixer(synth_1_uid);
@@ -128,8 +123,8 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             clock.sample_rate(),
-            TimerParams {
-                seconds_to_run: SECONDS as f64,
+            NanoTimer {
+                seconds: SECONDS as f64,
             },
         ))));
 
@@ -168,13 +163,16 @@ pub mod tests {
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
         let instrument_uid = o.add(Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
             DEFAULT_SAMPLE_RATE,
-            ToyInstrumentParams {
+            NanoToyInstrument {
                 fake_value: Normal::from(0.34598),
             },
         ))));
         let arpeggiator_uid = o.add(Entity::ToyController(Box::new(ToyController::new_with(
             DEFAULT_SAMPLE_RATE,
-            ToyControllerParams { bpm: DEFAULT_BPM },
+            NanoToyController {
+                bpm: DEFAULT_BPM,
+                tempo: 99999999999.0,
+            },
             TEST_MIDI_CHANNEL,
             Box::new(ToyMessageMaker {}),
         ))));
@@ -190,8 +188,8 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            TimerParams {
-                seconds_to_run: SECONDS as f64,
+            NanoTimer {
+                seconds: SECONDS as f64,
             },
         ))));
 
@@ -287,8 +285,8 @@ pub mod tests {
         const SECONDS: usize = 1;
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            TimerParams {
-                seconds_to_run: SECONDS as f64,
+            NanoTimer {
+                seconds: SECONDS as f64,
             },
         ))));
 

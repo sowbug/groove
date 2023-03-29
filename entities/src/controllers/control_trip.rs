@@ -9,27 +9,14 @@ use groove_core::{
     traits::{IsController, Resets, Ticks, TicksWithMessages},
     ParameterType, SignalType,
 };
-use groove_proc_macros::{Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::ops::Range;
 use std::str::FromStr;
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "control-trip", rename_all = "kebab-case")
-)]
-pub struct ControlTripParams {
-    pub time_signature: TimeSignature,
-    pub bpm: ParameterType,
-}
 
 #[derive(Clone, Copy, Debug)]
 pub enum ControlStep {
@@ -59,10 +46,18 @@ pub enum ControlStep {
 ///
 /// A ControlTrip is one automation track, which can run as long as the whole
 /// song. For now, it controls one parameter of one target.
-#[derive(Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct ControlTrip {
     uid: usize,
-    params: ControlTripParams,
+    #[nano]
+    time_signature_top: usize,
+    #[nano]
+    time_signature_bottom: usize,
+    #[nano]
+    bpm: ParameterType,
+
+    time_signature: TimeSignature,
+
     clock: Clock,
     cursor_beats: f64,
     current_value: SignalType,
@@ -75,11 +70,17 @@ impl HandlesMidi for ControlTrip {}
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
 
-    pub fn new_with(sample_rate: usize, params: ControlTripParams) -> Self {
+    pub fn new_with(sample_rate: usize, params: NanoControlTrip) -> Self {
         Self {
             uid: usize::default(),
-            params,
-            clock: Clock::new_with(sample_rate, params.bpm, 9999),
+            time_signature_top: params.time_signature_top,
+            time_signature_bottom: params.time_signature_bottom,
+            time_signature: TimeSignature {
+                top: params.time_signature_top,
+                bottom: params.time_signature_bottom,
+            },
+            bpm: params.bpm(),
+            clock: Clock::new_with(sample_rate, params.bpm(), 9999),
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
@@ -140,12 +141,24 @@ impl ControlTrip {
         self.is_finished = false;
     }
 
-    pub fn update(&mut self, message: ControlTripParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: ControlTripMessage) {
+        todo!()
     }
 
-    pub fn params(&self) -> ControlTripParams {
-        self.params
+    pub fn time_signature(&self) -> TimeSignature {
+        self.time_signature
+    }
+
+    pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
+        self.time_signature = time_signature;
+    }
+
+    pub fn bpm(&self) -> f64 {
+        self.bpm
+    }
+
+    pub fn set_bpm(&mut self, bpm: ParameterType) {
+        self.bpm = bpm;
     }
 }
 impl Resets for ControlTrip {}
@@ -241,7 +254,7 @@ mod tests {
         // let _ = o.link_control(
         //     controller_uid,
         //     effect_uid,
-        //     &ToyEffectControlParams::MyValue.to_string(),
+        //     &NanoToyEffectControl::MyValue.to_string(),
         // );
 
         // let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -300,7 +313,7 @@ mod tests {
         // let _ = o.link_control(
         //     controller_uid,
         //     instrument_uid,
-        //     &ToyInstrumentControlParams::FakeValue.to_string(),
+        //     &NanoToyInstrumentControl::FakeValue.to_string(),
         // );
 
         // let mut sample_buffer = [StereoSample::SILENCE; 64];

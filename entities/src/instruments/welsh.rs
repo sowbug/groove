@@ -12,13 +12,11 @@ use groove_core::{
     },
     BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, StereoSample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
 
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -253,29 +251,13 @@ impl WelshVoice {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "welsh", rename_all = "kebab-case")
-)]
-pub struct WelshSynthParams {
-    #[sync]
-    pub pan: BipolarNormal,
-}
-
-#[derive(Control, Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct WelshSynth {
     uid: usize,
-    params: WelshSynthParams,
     inner_synth: Synthesizer<WelshVoice>,
 
-    // TODO: will it be common for #[controllable] to represent a fake value
-    // that's actually propagated to things underneath? If so, do we need a
-    // better way to handle this?
-    #[controllable]
-    #[allow(dead_code)]
-    pan: f32,
+    #[nano]
+    pan: BipolarNormal,
 }
 impl IsInstrument for WelshSynth {}
 impl Generates<StereoSample> for WelshSynth {
@@ -326,7 +308,6 @@ impl WelshSynth {
     ) -> Self {
         Self {
             uid: Default::default(),
-            params: Default::default(),
             inner_synth: Synthesizer::<WelshVoice>::new_with(sample_rate, voice_store),
             pan: Default::default(),
         }
@@ -342,24 +323,18 @@ impl WelshSynth {
     }
 
     pub fn set_pan(&mut self, pan: BipolarNormal) {
+        self.pan = pan;
         self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
-        self.params.set_pan(pan);
-    }
-
-    pub fn set_control_pan(&mut self, value: groove_core::control::F32ControlValue) {
-        self.set_pan(BipolarNormal::from(Normal::new_from_f32(value.0)));
-    }
-
-    pub fn params(&self) -> WelshSynthParams {
-        self.params
     }
 
     // TODO: this pattern sucks. I knew it was going to be icky. Think about how
     // to make it less copy/paste.
-    pub fn update(&mut self, message: WelshSynthParamsMessage) {
+    pub fn update(&mut self, message: WelshSynthMessage) {
         match message {
-            WelshSynthParamsMessage::WelshSynthParams(e) => self.params = e,
-            WelshSynthParamsMessage::Pan(pan) => self.set_pan(pan),
+            WelshSynthMessage::WelshSynth(_e) => {
+                // TODO: this will be a lot of work.
+            }
+            WelshSynthMessage::Pan(pan) => self.set_pan(pan),
         }
     }
 }

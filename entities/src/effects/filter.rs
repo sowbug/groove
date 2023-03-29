@@ -4,26 +4,13 @@ use groove_core::{
     traits::{IsEffect, TransformsAudio},
     Normal, ParameterType, Sample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
-use std::{f64::consts::PI, marker::PhantomData, str::FromStr};
+use groove_proc_macros::{Nano, Uid};
+use std::{f64::consts::PI, str::FromStr};
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "biquad-filter", rename_all = "kebab-case")
-)]
-pub struct BiQuadFilterParams {
-    #[sync]
-    pub cutoff: ParameterType,
-}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum FilterType {
@@ -124,24 +111,25 @@ struct CoefficientSet2 {
 }
 
 /// <https://en.wikipedia.org/wiki/Digital_biquad_filter>
-#[derive(Control, Clone, Debug, Uid)]
+#[derive(Clone, Debug, Nano, Uid)]
 pub struct BiQuadFilter {
     uid: usize,
-    params: BiQuadFilterParams,
+
+    #[nano]
+    cutoff: ParameterType,
 
     sample_rate: usize,
     filter_type: FilterType,
 
-    #[controllable]
-    cutoff: PhantomData<f32>, // TODO: fix so we don't have to repeat what's in __Params
-
-    #[controllable(
-        name = "q",
-        name = "bandwidth",
-        name = "db-gain",
-        name = "passband-ripple"
-    )]
-    param2: f32,
+    // #[controllable(
+    //     name = "q",
+    //     name = "bandwidth",
+    //     name = "db-gain",
+    //     name = "passband-ripple"
+    // )]
+    // param2: f32,
+    #[nano]
+    q: ParameterType,
 
     coefficients: CoefficientSet,
     coefficients_2: CoefficientSet2,
@@ -234,8 +222,8 @@ impl BiQuadFilter {
 
     // A placeholder for an intelligent mapping of 0.0..=1.0 to a reasonable Q
     // range
-    pub fn denormalize_q(value: f32) -> f32 {
-        value * value * 10.0 + 0.707
+    pub fn denormalize_q(value: Normal) -> ParameterType {
+        value.value() * value.value() * 10.0 + 0.707
     }
 
     // A placeholder for an intelligent mapping of 0.0..=1.0 to a reasonable
@@ -248,11 +236,10 @@ impl BiQuadFilter {
     fn default_fields() -> Self {
         Self {
             uid: usize::default(),
-            params: Default::default(),
             filter_type: Default::default(),
             cutoff: Default::default(),
+            q: Default::default(),
             sample_rate: Default::default(),
-            param2: Default::default(),
             coefficients: CoefficientSet::default(),
             coefficients_2: CoefficientSet2::default(),
             sample_m1: Default::default(),
@@ -266,52 +253,57 @@ impl BiQuadFilter {
         }
     }
 
-    pub fn new_with(params: &FilterParams, sample_rate: usize) -> Self {
+    pub fn new_with(sample_rate: usize, params: &NanoBiQuadFilter) -> Self {
         let mut r = Self::default_fields();
-        r.filter_type = FilterParams::type_for(*params);
+
+        //        r.filter_type = FilterParams::type_for(*params);
+        // TODO TODO TODO
+        r.filter_type = FilterType::LowPass24db;
         r.sample_rate = sample_rate;
-        match *params {
-            FilterParams::None => {}
-            FilterParams::LowPass12db { cutoff, q } => {
-                r.params.cutoff = cutoff;
-                r.param2 = q;
-            }
-            FilterParams::LowPass24db {
-                cutoff,
-                passband_ripple,
-            } => {
-                r.params.cutoff = cutoff;
-                r.param2 = passband_ripple;
-            }
-            FilterParams::HighPass { cutoff, q } => {
-                r.params.cutoff = cutoff;
-                r.param2 = q;
-            }
-            FilterParams::BandPass { cutoff, bandwidth } => {
-                r.params.cutoff = cutoff;
-                r.param2 = bandwidth;
-            }
-            FilterParams::BandStop { cutoff, bandwidth } => {
-                r.params.cutoff = cutoff;
-                r.param2 = bandwidth;
-            }
-            FilterParams::AllPass { cutoff, q } => {
-                r.params.cutoff = cutoff;
-                r.param2 = q;
-            }
-            FilterParams::PeakingEq { cutoff, db_gain } => {
-                r.params.cutoff = cutoff;
-                r.param2 = db_gain;
-            }
-            FilterParams::LowShelf { cutoff, db_gain } => {
-                r.params.cutoff = cutoff;
-                r.param2 = db_gain;
-            }
-            FilterParams::HighShelf { cutoff, db_gain } => {
-                r.params.cutoff = cutoff;
-                r.param2 = db_gain;
-            }
-        }
+        r.cutoff = params.cutoff();
+        r.q = params.q();
+        // match *params {
+        //     FilterParams::None => {}
+        //     FilterParams::LowPass12db { cutoff, q } => {
+        //         r.params.cutoff = cutoff;
+        //         r.param2 = q;
+        //     }
+        //     FilterParams::LowPass24db {
+        //         cutoff,
+        //         passband_ripple,
+        //     } => {
+        //         r.params.cutoff = cutoff;
+        //         r.param2 = passband_ripple;
+        //     }
+        //     FilterParams::HighPass { cutoff, q } => {
+        //         r.params.cutoff = cutoff;
+        //         r.param2 = q;
+        //     }
+        //     FilterParams::BandPass { cutoff, bandwidth } => {
+        //         r.params.cutoff = cutoff;
+        //         r.param2 = bandwidth;
+        //     }
+        //     FilterParams::BandStop { cutoff, bandwidth } => {
+        //         r.params.cutoff = cutoff;
+        //         r.param2 = bandwidth;
+        //     }
+        //     FilterParams::AllPass { cutoff, q } => {
+        //         r.params.cutoff = cutoff;
+        //         r.param2 = q;
+        //     }
+        //     FilterParams::PeakingEq { cutoff, db_gain } => {
+        //         r.params.cutoff = cutoff;
+        //         r.param2 = db_gain;
+        //     }
+        //     FilterParams::LowShelf { cutoff, db_gain } => {
+        //         r.params.cutoff = cutoff;
+        //         r.param2 = db_gain;
+        //     }
+        //     FilterParams::HighShelf { cutoff, db_gain } => {
+        //         r.params.cutoff = cutoff;
+        //         r.param2 = db_gain;
+        //     }
+        //}
         r.update_coefficients();
         r
     }
@@ -330,8 +322,8 @@ impl BiQuadFilter {
             _ => self.rbj_none_coefficients(),
         };
         if matches!(self.filter_type, FilterType::LowPass24db) {
-            let k = (PI * self.params.cutoff as f64 / self.sample_rate as f64).tan();
-            let p2 = self.param2 as f64;
+            let k = (PI * self.cutoff as f64 / self.sample_rate as f64).tan();
+            let p2 = self.q;
             let sg = p2.sinh();
             let cg = p2.cosh() * p2.cosh();
 
@@ -367,71 +359,71 @@ impl BiQuadFilter {
     }
 
     pub fn cutoff_hz(&self) -> ParameterType {
-        self.params.cutoff
+        self.cutoff
     }
 
     pub(crate) fn set_cutoff_hz(&mut self, hz: ParameterType) {
-        if self.params.cutoff != hz {
-            self.params.set_cutoff(hz as ParameterType);
+        if self.cutoff != hz {
+            self.set_cutoff(hz as ParameterType);
             self.update_coefficients();
         }
     }
 
     pub fn cutoff_pct(&self) -> Normal {
-        Self::frequency_to_percent(self.params.cutoff)
+        Self::frequency_to_percent(self.cutoff)
     }
 
     pub fn set_cutoff_pct(&mut self, percent: Normal) {
         self.set_cutoff_hz(Self::percent_to_frequency(percent));
     }
 
-    pub fn set_param2(&mut self, value: f32) {
-        if self.param2 != value {
-            self.param2 = value;
+    // pub fn set_param2(&mut self, value: f32) {
+    //     if self.param2 != value {
+    //         self.param2 = value;
+    //         self.update_coefficients();
+    //     }
+    // }
+
+    pub fn q(&self) -> ParameterType {
+        self.q
+    }
+    pub fn set_q(&mut self, q: ParameterType) {
+        if self.q != q {
+            self.q = q;
             self.update_coefficients();
         }
     }
 
-    pub fn q(&self) -> f32 {
-        self.param2
-    }
-    pub fn set_q(&mut self, q: f32) {
-        if self.param2 != q {
-            self.param2 = q;
-            self.update_coefficients();
-        }
-    }
+    // pub fn db_gain(&self) -> f32 {
+    //     self.param2
+    // }
+    // pub fn set_db_gain(&mut self, db_gain: f32) {
+    //     if self.param2 != db_gain {
+    //         self.param2 = db_gain;
+    //         self.update_coefficients();
+    //     }
+    // }
 
-    pub fn db_gain(&self) -> f32 {
-        self.param2
-    }
-    pub fn set_db_gain(&mut self, db_gain: f32) {
-        if self.param2 != db_gain {
-            self.param2 = db_gain;
-            self.update_coefficients();
-        }
-    }
+    // pub fn bandwidth(&self) -> f32 {
+    //     self.param2
+    // }
+    // pub fn set_bandwidth(&mut self, bandwidth: f32) {
+    //     if self.param2 != bandwidth {
+    //         self.param2 = bandwidth;
+    //         self.update_coefficients();
+    //     }
+    // }
 
-    pub fn bandwidth(&self) -> f32 {
-        self.param2
-    }
-    pub fn set_bandwidth(&mut self, bandwidth: f32) {
-        if self.param2 != bandwidth {
-            self.param2 = bandwidth;
-            self.update_coefficients();
-        }
-    }
-
-    /// Range is -1..1
-    pub fn passband_ripple(&self) -> f32 {
-        self.param2
-    }
-    pub fn set_passband_ripple(&mut self, passband_ripple: f32) {
-        if self.param2 != passband_ripple {
-            self.param2 = passband_ripple;
-            self.update_coefficients();
-        }
-    }
+    // /// Range is -1..1
+    // pub fn passband_ripple(&self) -> f32 {
+    //     self.param2
+    // }
+    // pub fn set_passband_ripple(&mut self, passband_ripple: f32) {
+    //     if self.param2 != passband_ripple {
+    //         self.param2 = passband_ripple;
+    //         self.update_coefficients();
+    //     }
+    // }
 
     fn rbj_none_coefficients(&self) -> CoefficientSet {
         CoefficientSet {
@@ -473,18 +465,18 @@ impl BiQuadFilter {
     fn rbj_intermediates_q(
         sample_rate: usize,
         cutoff: ParameterType,
-        q: f32,
+        q: ParameterType,
     ) -> (f64, f64, f64, f64) {
-        let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
+        let w0 = 2.0f64 * PI * cutoff / sample_rate as f64;
         let w0cos = w0.cos();
         let w0sin = w0.sin();
-        let alpha = w0sin / (2.0f64 * q as f64);
+        let alpha = w0sin / (2.0f64 * q);
         (w0, w0cos, w0sin, alpha)
     }
 
     fn rbj_low_pass_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Self::rbj_intermediates_q(self.sample_rate, self.params.cutoff, self.param2);
+            Self::rbj_intermediates_q(self.sample_rate, self.cutoff, self.q);
 
         CoefficientSet {
             a0: 1.0 + alpha,
@@ -498,7 +490,7 @@ impl BiQuadFilter {
 
     fn rbj_high_pass_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Self::rbj_intermediates_q(self.sample_rate, self.params.cutoff, self.param2);
+            Self::rbj_intermediates_q(self.sample_rate, self.cutoff, self.q);
 
         CoefficientSet {
             a0: 1.0 + alpha,
@@ -513,9 +505,9 @@ impl BiQuadFilter {
     fn rbj_intermediates_bandwidth(
         sample_rate: usize,
         cutoff: ParameterType,
-        bw: f32,
+        bw: ParameterType,
     ) -> (f64, f64, f64, f64) {
-        let w0 = 2.0f64 * PI * cutoff as f64 / sample_rate as f64;
+        let w0 = 2.0f64 * PI * cutoff / sample_rate as f64;
         let w0cos = w0.cos();
         let w0sin = w0.sin();
         let alpha = w0sin * (2.0f64.ln() / 2.0 * bw as f64 * w0 / w0.sin()).sinh();
@@ -524,7 +516,7 @@ impl BiQuadFilter {
 
     fn rbj_band_pass_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Self::rbj_intermediates_bandwidth(self.sample_rate, self.params.cutoff, self.param2);
+            Self::rbj_intermediates_bandwidth(self.sample_rate, self.cutoff, self.q);
         CoefficientSet {
             a0: 1.0 + alpha,
             a1: -2.0f64 * w0cos,
@@ -537,7 +529,7 @@ impl BiQuadFilter {
 
     fn rbj_band_stop_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Self::rbj_intermediates_bandwidth(self.sample_rate, self.params.cutoff, self.param2);
+            Self::rbj_intermediates_bandwidth(self.sample_rate, self.cutoff, self.q);
 
         CoefficientSet {
             a0: 1.0 + alpha,
@@ -551,7 +543,7 @@ impl BiQuadFilter {
 
     fn rbj_all_pass_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Self::rbj_intermediates_q(self.sample_rate, self.params.cutoff, self.param2);
+            Self::rbj_intermediates_q(self.sample_rate, self.cutoff, self.q);
         CoefficientSet {
             a0: 1.0 + alpha,
             a1: -2.0f64 * w0cos,
@@ -565,10 +557,10 @@ impl BiQuadFilter {
     fn rbj_peaking_eq_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) = Self::rbj_intermediates_q(
             self.sample_rate,
-            self.params.cutoff,
-            std::f32::consts::FRAC_1_SQRT_2,
+            self.cutoff,
+            std::f64::consts::FRAC_1_SQRT_2,
         );
-        let a = 10f64.powf(self.param2 as f64 / 10.0f64).sqrt();
+        let a = 10f64.powf(self.q / 10.0f64).sqrt();
 
         CoefficientSet {
             a0: 1.0 + alpha / a,
@@ -594,9 +586,9 @@ impl BiQuadFilter {
     }
 
     fn rbj_low_shelf_coefficients(&self) -> CoefficientSet {
-        let a = 10f64.powf(self.param2 as f64 / 10.0f64).sqrt();
+        let a = 10f64.powf(self.q / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.params.cutoff, a, 1.0);
+            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
 
         CoefficientSet {
             a0: (a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
@@ -609,9 +601,9 @@ impl BiQuadFilter {
     }
 
     fn rbj_high_shelf_coefficients(&self) -> CoefficientSet {
-        let a = 10f64.powf(self.param2 as f64 / 10.0f64).sqrt();
+        let a = 10f64.powf(self.q / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.params.cutoff, a, 1.0);
+            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
 
         CoefficientSet {
             a0: (a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
@@ -623,15 +615,20 @@ impl BiQuadFilter {
         }
     }
 
-    pub fn params(&self) -> BiQuadFilterParams {
-        self.params
+    pub fn update(&mut self, message: BiQuadFilterMessage) {
+        match message {
+            BiQuadFilterMessage::BiQuadFilter(e) => *self = Self::new_with(self.sample_rate, &e),
+            BiQuadFilterMessage::Cutoff(cutoff) => self.set_cutoff_pct(cutoff.into()),
+            BiQuadFilterMessage::Q(q) => self.set_q(q.into()),
+        }
     }
 
-    pub fn update(&mut self, message: BiQuadFilterParamsMessage) {
-        match message {
-            BiQuadFilterParamsMessage::BiQuadFilterParams(e) => self.params = e,
-            BiQuadFilterParamsMessage::Cutoff(cutoff) => self.set_cutoff_pct(cutoff.into()),
-        }
+    pub fn cutoff(&self) -> f64 {
+        self.cutoff
+    }
+
+    pub fn set_cutoff(&mut self, cutoff: ParameterType) {
+        self.cutoff = cutoff;
     }
 }
 

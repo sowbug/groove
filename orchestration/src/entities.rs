@@ -3,33 +3,31 @@
 use groove_core::traits::HasUid;
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage, ControlTrip, ControlTripParams,
-        ControlTripParamsMessage, LfoController, LfoControllerParams, LfoControllerParamsMessage,
-        MidiTickSequencer, MidiTickSequencerParams, MidiTickSequencerParamsMessage, PatternManager,
-        PatternManagerParams, PatternManagerParamsMessage, Sequencer, SequencerParams,
-        SequencerParamsMessage, SignalPassthroughController, SignalPassthroughControllerParams,
-        SignalPassthroughControllerParamsMessage, Timer, TimerParams, TimerParamsMessage,
+        Arpeggiator, ArpeggiatorMessage, ControlTrip, ControlTripMessage, LfoController,
+        LfoControllerMessage, MidiTickSequencer, MidiTickSequencerMessage, NanoArpeggiator,
+        NanoControlTrip, NanoLfoController, NanoMidiTickSequencer, NanoPatternManager,
+        NanoSequencer, NanoSignalPassthroughController, NanoTimer, NanoTrigger, PatternManager,
+        PatternManagerMessage, Sequencer, SequencerMessage, SignalPassthroughController,
+        SignalPassthroughControllerMessage, Timer, TimerMessage, Trigger, TriggerMessage,
     },
     effects::{
-        BiQuadFilter, BiQuadFilterParams, BiQuadFilterParamsMessage, Bitcrusher, BitcrusherParams,
-        BitcrusherParamsMessage, Chorus, ChorusParams, ChorusParamsMessage, Compressor,
-        CompressorParams, CompressorParamsMessage, Delay, DelayParams, DelayParamsMessage, Gain,
-        GainParams, GainParamsMessage, Limiter, LimiterParams, LimiterParamsMessage, Mixer,
-        MixerParams, MixerParamsMessage, Reverb, ReverbParams, ReverbParamsMessage,
+        BiQuadFilter, BiQuadFilterMessage, Bitcrusher, BitcrusherMessage, Chorus, ChorusMessage,
+        Compressor, CompressorMessage, Delay, DelayMessage, Gain, GainMessage, Limiter,
+        LimiterMessage, Mixer, MixerMessage, NanoBiQuadFilter, NanoBitcrusher, NanoChorus,
+        NanoCompressor, NanoDelay, NanoGain, NanoLimiter, NanoMixer, NanoReverb, Reverb,
+        ReverbMessage,
     },
     instruments::{
-        Drumkit, DrumkitParams, DrumkitParamsMessage, FmSynth, FmSynthParams, FmSynthParamsMessage,
-        Sampler, SamplerParams, SamplerParamsMessage, WelshSynth, WelshSynthParams,
-        WelshSynthParamsMessage,
+        Drumkit, DrumkitMessage, FmSynth, FmSynthMessage, NanoDrumkit, NanoFmSynth, NanoSampler,
+        NanoWelshSynth, Sampler, SamplerMessage, WelshSynth, WelshSynthMessage,
     },
     EntityMessage,
 };
 use groove_proc_macros::Everything;
 use groove_toys::{
-    ToyAudioSource, ToyAudioSourceParams, ToyAudioSourceParamsMessage, ToyController,
-    ToyControllerParams, ToyControllerParamsMessage, ToyEffect, ToyEffectParams,
-    ToyEffectParamsMessage, ToyInstrument, ToyInstrumentParams, ToyInstrumentParamsMessage,
-    ToySynth, ToySynthParams, ToySynthParamsMessage,
+    NanoToyAudioSource, NanoToyController, NanoToyEffect, NanoToyInstrument, NanoToySynth,
+    ToyAudioSource, ToyAudioSourceMessage, ToyController, ToyControllerMessage, ToyEffect,
+    ToyEffectMessage, ToyInstrument, ToyInstrumentMessage, ToySynth, ToySynthMessage,
 };
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
@@ -119,6 +117,9 @@ enum Everything {
 
     #[everything(instrument, midi, controllable)]
     ToySynth(ToySynth),
+
+    #[everything(controller)]
+    Trigger(Trigger),
 
     #[everything(instrument, midi, controllable)]
     WelshSynth(WelshSynth),

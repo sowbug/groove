@@ -7,7 +7,7 @@ use groove_core::{
     time::{BeatValue, PerfectTimeUnit, TimeSignature},
     traits::{IsController, Resets, TicksWithMessages},
 };
-use groove_proc_macros::{Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::{cmp, fmt::Debug, str::FromStr};
 
 use strum::EnumCount;
@@ -56,23 +56,12 @@ impl<T: Default> Pattern<T> {
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "pattern-manager", rename_all = "kebab-case")
-)]
-pub struct PatternManagerParams {}
-
-impl PatternManagerParams {}
-
 // There is so much paperwork for a vector because this will eventually become a
 // substantial part of the GUI experience.
 /// [PatternManager] stores all the [Patterns] that make up a song.
-#[derive(Clone, Debug, Default, Uid)]
+#[derive(Clone, Debug, Default, Nano, Uid)]
 pub struct PatternManager {
     uid: usize,
-    params: PatternManagerParams,
     patterns: Vec<Pattern<Note>>,
 }
 impl IsController for PatternManager {}
@@ -99,12 +88,8 @@ impl PatternManager {
         &self.patterns
     }
 
-    pub fn params(&self) -> PatternManagerParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: PatternManagerParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: PatternManagerMessage) {
+        todo!()
     }
 }
 
@@ -213,7 +198,7 @@ mod tests {
         let time_signature = TimeSignature::default();
         let mut sequencer = Sequencer::new_with(
             DEFAULT_SAMPLE_RATE,
-            crate::controllers::SequencerParams { bpm: 128.0 },
+            crate::controllers::NanoSequencer { bpm: 128.0 },
         );
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
@@ -274,7 +259,7 @@ mod tests {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
         let mut sequencer = Sequencer::new_with(
             DEFAULT_SAMPLE_RATE,
-            crate::controllers::SequencerParams { bpm: 128.0 },
+            crate::controllers::NanoSequencer { bpm: 128.0 },
         );
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 

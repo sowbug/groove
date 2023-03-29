@@ -80,6 +80,10 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
     pub fn pan(&self) -> f32 {
         self.pan
     }
+
+    pub fn sample_rate(&self) -> usize {
+        self.sample_rate
+    }
 }
 impl<V: IsStereoSampleVoice> HandlesMidi for Synthesizer<V> {
     fn handle_midi_message(

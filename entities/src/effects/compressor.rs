@@ -4,27 +4,22 @@ use groove_core::{
     traits::{IsEffect, TransformsAudio},
     Normal, ParameterType, Sample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "compressor", rename_all = "kebab-case")
-)]
-pub struct CompressorParams {
+#[derive(Debug, Default, Nano, Uid)]
+pub struct Compressor {
+    uid: usize,
+
     /// The level above which compression takes effect. Range is 0.0..=1.0, 0.0
     /// corresponds to quietest, and 1.0 corresponds to 0dB.
-    #[sync]
-    pub threshold: Normal,
+    #[nano]
+    threshold: Normal,
 
     /// How much to compress the audio above the threshold. For example, 2:1
     /// means that a 2dB input increase leads to a 1dB output increase. Note
@@ -32,24 +27,18 @@ pub struct CompressorParams {
     /// divided by 2), and 1:4 is 0.25 (1 divided by 4). Thus, 1.0 means no
     /// compression, and 0.0 is infinite compression (the output remains a
     /// constant amplitude no matter what).
-    #[sync]
-    pub ratio: ParameterType,
+    #[nano]
+    ratio: ParameterType,
 
     /// How soon the compressor activates after the level exceeds the threshold.
     /// Time in seconds.
-    #[sync]
-    pub attack: ParameterType,
+    #[nano]
+    attack: ParameterType,
 
     /// How soon the compressor deactivates after the level drops below the
     /// threshold. Time in seconds.
-    #[sync]
-    pub release: ParameterType,
-}
-
-#[derive(Control, Debug, Default, Uid)]
-pub struct Compressor {
-    uid: usize,
-    params: CompressorParams,
+    #[nano]
+    release: ParameterType,
 
     // TODO
     #[allow(dead_code)]
@@ -59,13 +48,13 @@ impl IsEffect for Compressor {}
 impl TransformsAudio for Compressor {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         let input_sample_positive = input_sample.0.abs();
-        let threshold = self.params.threshold.value();
+        let threshold = self.threshold.value();
         if input_sample_positive > threshold {
             // TODO: this expression is (a + b - a) * c * d, which is just b * c
             // * d, which is clearly wrong. Fix it. (Too tired right now to look
             //   into how compression should work)
             Sample::from(
-                (threshold + (input_sample_positive - threshold) * self.params.ratio)
+                (threshold + (input_sample_positive - threshold) * self.ratio)
                     * input_sample.0.signum(),
             )
         } else {
@@ -75,31 +64,34 @@ impl TransformsAudio for Compressor {
 }
 
 impl Compressor {
-    pub fn new_with(params: CompressorParams) -> Self {
+    pub fn new_with(params: NanoCompressor) -> Self {
         Self {
-            params,
+            threshold: params.threshold(),
+            ratio: params.ratio(),
+            attack: params.attack(),
+            release: params.release(),
             ..Default::default()
         }
     }
 
-    pub fn params(&self) -> CompressorParams {
-        self.params
+    pub fn update(&mut self, message: CompressorMessage) {
+        todo!()
     }
 
-    pub fn update(&mut self, message: CompressorParamsMessage) {
-        self.params.update(message)
+    pub fn threshold(&self) -> Normal {
+        self.threshold
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::effects::compressor::{Compressor, CompressorParams};
+    use crate::effects::compressor::{Compressor, NanoCompressor};
     use groove_core::{traits::TransformsAudio, Normal, Sample, SampleType};
 
     #[test]
     fn basic_compressor() {
         const THRESHOLD: SampleType = 0.25;
-        let mut fx = Compressor::new_with(CompressorParams {
+        let mut fx = Compressor::new_with(NanoCompressor {
             threshold: Normal::from(THRESHOLD),
             ratio: 0.5,
             attack: 0.0,
@@ -113,7 +105,7 @@ mod tests {
 
     #[test]
     fn nothing_compressor() {
-        let mut fx = Compressor::new_with(CompressorParams {
+        let mut fx = Compressor::new_with(NanoCompressor {
             threshold: Normal::from(0.25),
             ratio: 1.0,
             attack: 0.0,
@@ -127,7 +119,7 @@ mod tests {
 
     #[test]
     fn infinite_compressor() {
-        let mut fx = Compressor::new_with(CompressorParams {
+        let mut fx = Compressor::new_with(NanoCompressor {
             threshold: Normal::from(0.25),
             ratio: 0.0,
             attack: 0.0,

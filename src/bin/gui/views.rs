@@ -12,35 +12,33 @@ use groove_core::{
 };
 use groove_entities::{
     controllers::{
-        Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage, ControlTrip, ControlTripParams,
-        ControlTripParamsMessage, LfoController, LfoControllerParams, LfoControllerParamsMessage,
-        MidiTickSequencer, MidiTickSequencerParams, MidiTickSequencerParamsMessage, Note, Pattern,
-        PatternManager, PatternManagerParams, PatternManagerParamsMessage, PatternMessage,
-        Sequencer, SequencerParams, SequencerParamsMessage, SignalPassthroughController,
-        SignalPassthroughControllerParams, SignalPassthroughControllerParamsMessage, Timer,
-        TimerParams, TimerParamsMessage,
+        Arpeggiator, ArpeggiatorMessage, ControlTrip, ControlTripMessage, LfoController,
+        LfoControllerMessage, MidiTickSequencer, MidiTickSequencerMessage, NanoArpeggiator,
+        NanoControlTrip, NanoLfoController, NanoMidiTickSequencer, NanoPatternManager,
+        NanoSequencer, NanoSignalPassthroughController, NanoTimer, NanoTrigger, Note, Pattern,
+        PatternManager, PatternManagerMessage, PatternMessage, Sequencer, SequencerMessage,
+        SignalPassthroughController, SignalPassthroughControllerMessage, Timer, TimerMessage,
+        Trigger, TriggerMessage,
     },
     effects::{
-        BiQuadFilter, BiQuadFilterParams, BiQuadFilterParamsMessage, Bitcrusher, BitcrusherParams,
-        BitcrusherParamsMessage, Chorus, ChorusParams, ChorusParamsMessage, Compressor,
-        CompressorParams, CompressorParamsMessage, Delay, DelayParams, DelayParamsMessage, Gain,
-        GainParams, GainParamsMessage, Limiter, LimiterParams, LimiterParamsMessage, Mixer,
-        MixerParams, MixerParamsMessage, Reverb, ReverbParams, ReverbParamsMessage,
+        BiQuadFilter, BiQuadFilterMessage, Bitcrusher, BitcrusherMessage, Chorus, ChorusMessage,
+        Compressor, CompressorMessage, Delay, DelayMessage, Gain, GainMessage, Limiter,
+        LimiterMessage, Mixer, MixerMessage, NanoBiQuadFilter, NanoBitcrusher, NanoChorus,
+        NanoCompressor, NanoDelay, NanoGain, NanoLimiter, NanoMixer, NanoReverb, Reverb,
+        ReverbMessage,
     },
     instruments::{
-        Drumkit, DrumkitParams, DrumkitParamsMessage, FmSynth, FmSynthParams, FmSynthParamsMessage,
-        Sampler, SamplerParams, SamplerParamsMessage, WelshSynth, WelshSynthParams,
-        WelshSynthParamsMessage,
+        Drumkit, DrumkitMessage, FmSynth, FmSynthMessage, NanoDrumkit, NanoFmSynth, NanoSampler,
+        NanoWelshSynth, Sampler, SamplerMessage, WelshSynth, WelshSynthMessage,
     },
     EntityMessage,
 };
 use groove_orchestration::{EntityParams, OtherEntityMessage};
 use groove_proc_macros::Views;
 use groove_toys::{
-    ToyAudioSource, ToyAudioSourceParams, ToyAudioSourceParamsMessage, ToyController,
-    ToyControllerParams, ToyControllerParamsMessage, ToyEffect, ToyEffectParams,
-    ToyEffectParamsMessage, ToyInstrument, ToyInstrumentParams, ToyInstrumentParamsMessage,
-    ToySynth, ToySynthParams, ToySynthParamsMessage,
+    NanoToyAudioSource, NanoToyController, NanoToyEffect, NanoToyInstrument, NanoToySynth,
+    ToyAudioSource, ToyAudioSourceMessage, ToyController, ToyControllerMessage, ToyEffect,
+    ToyEffectMessage, ToyInstrument, ToyInstrumentMessage, ToySynth, ToySynthMessage,
 };
 use iced::{
     alignment, theme,
@@ -68,6 +66,7 @@ pub(crate) enum EntityViewState {
 }
 
 #[derive(Debug)]
+#[deprecated]
 pub(crate) struct EntityView {
     entity_view_states: FxHashMap<usize, EntityViewState>,
     entity_enabled_states: FxHashMap<usize, bool>,
@@ -106,6 +105,7 @@ impl EntityView {
         self.entity_view_states.clear();
     }
 
+    #[deprecated]
     pub(crate) fn view(&self, entity: &Entity) -> Element<EntityMessage> {
         match entity {
             Entity::Arpeggiator(e) => self.arpeggiator_view(e),
@@ -134,6 +134,7 @@ impl EntityView {
             Entity::ToyInstrument(e) => self.test_instrument_view(e),
             Entity::ToySynth(e) => self.test_synth_view(e),
             Entity::WelshSynth(e) => self.welsh_synth_view(e),
+            Entity::Trigger(e) => panic!(),
         }
     }
 
@@ -173,7 +174,7 @@ impl EntityView {
     fn bitcrusher_view(&self, e: &Bitcrusher) -> Element<EntityMessage> {
         self.collapsing_box(e, || {
             container(row![HSlider::new(
-                IntRange::new(0, 15).normal_param(e.bits_to_crush().into(), 8),
+                IntRange::new(0, 15).normal_param(e.bits().into(), 8),
                 EntityMessage::HSliderInt
             )])
             .padding(Self::ITEM_OUTER_PADDING)
@@ -225,7 +226,7 @@ impl EntityView {
         self.collapsing_box(e, || {
             let slider = HSlider::new(
                 NormalParam {
-                    value: IcedNormal::from_clipped(e.params().threshold().value_as_f32()),
+                    value: IcedNormal::from_clipped(e.threshold().value_as_f32()),
                     default: IcedNormal::from_clipped(1.0),
                 },
                 EntityMessage::HSliderInt,
@@ -356,8 +357,8 @@ impl EntityView {
 
     fn limiter_view(&self, e: &Limiter) -> Element<EntityMessage> {
         self.collapsing_box(e, || {
-            let contents = format!("min: {} max: {}", e.min(), e.max());
-            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into()
+            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
+                .into()
         })
     }
 
@@ -456,23 +457,24 @@ impl EntityView {
 
     fn timer_view(&self, e: &Timer) -> Element<EntityMessage> {
         self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(
-                format!("Runtime: {}", e.seconds_to_run()).as_str(),
-            )
-            .into()
+            GuiStuff::<EntityMessage>::container_text(format!("Runtime: {}", e.seconds()).as_str())
+                .into()
         })
     }
 
     fn toy_controller_view(&self, e: &ToyController<EntityMessage>) -> Element<EntityMessage> {
         self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(format!("Tempo: {}", e.tempo).as_str()).into()
+            GuiStuff::<EntityMessage>::container_text(format!("Tempo: {}", e.tempo()).as_str())
+                .into()
         })
     }
 
     fn toy_effect_view(&self, e: &ToyEffect) -> Element<EntityMessage> {
         self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(format!("Value: {}", e.my_value()).as_str())
-                .into()
+            GuiStuff::<EntityMessage>::container_text(
+                format!("Value: {}", e.my_value().value()).as_str(),
+            )
+            .into()
         })
     }
 
@@ -875,32 +877,32 @@ trait Viewable {
     }
 }
 
-impl Viewable for ArpeggiatorParams {
-    type Message = ArpeggiatorParamsMessage;
+impl Viewable for NanoArpeggiator {
+    type Message = ArpeggiatorMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("bpm: {}", self.bpm()))).into()
     }
 }
 
-impl Viewable for BitcrusherParams {
-    type Message = BitcrusherParamsMessage;
+impl Viewable for NanoBitcrusher {
+    type Message = BitcrusherMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("bits: {}", self.bits()))).into()
     }
 }
 
-impl Viewable for GainParams {
-    type Message = GainParamsMessage;
+impl Viewable for NanoGain {
+    type Message = GainMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("ceiling: {}", self.ceiling().value()))).into()
     }
 }
 
-impl Viewable for LfoControllerParams {
-    type Message = LfoControllerParamsMessage;
+impl Viewable for NanoLfoController {
+    type Message = LfoControllerMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!(
@@ -912,24 +914,24 @@ impl Viewable for LfoControllerParams {
     }
 }
 
-impl Viewable for MixerParams {
-    type Message = MixerParamsMessage;
+impl Viewable for NanoMixer {
+    type Message = MixerMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("I'm a mixer! {}", 261))).into()
     }
 }
 
-impl Viewable for PatternManagerParams {
-    type Message = PatternManagerParamsMessage;
+impl Viewable for NanoPatternManager {
+    type Message = PatternManagerMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("nothing {}", 42))).into()
     }
 }
 
-impl Viewable for ReverbParams {
-    type Message = ReverbParamsMessage;
+impl Viewable for NanoReverb {
+    type Message = ReverbMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!(
@@ -940,105 +942,113 @@ impl Viewable for ReverbParams {
     }
 }
 
-impl Viewable for SequencerParams {
-    type Message = SequencerParamsMessage;
+impl Viewable for NanoSequencer {
+    type Message = SequencerMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("BPM: {}", self.bpm()))).into()
     }
 }
 
-impl Viewable for WelshSynthParams {
-    type Message = WelshSynthParamsMessage;
+impl Viewable for NanoTrigger {
+    type Message = TriggerMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("Value: {}", self.value()))).into()
+    }
+}
+
+impl Viewable for NanoWelshSynth {
+    type Message = WelshSynthMessage;
 
     fn view(&self) -> Element<Self::Message> {
         let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
-        let pan_knob: Element<WelshSynthParamsMessage> = Knob::new(
+        let pan_knob: Element<WelshSynthMessage> = Knob::new(
             // TODO: toil. make it easier to go from bipolar normal to normal
             NormalParam {
                 value: IcedNormal::from_clipped(Normal::from(self.pan()).value_as_f32()),
                 default: IcedNormal::from_clipped(0.5),
             },
-            |n| WelshSynthParamsMessage::Pan(BipolarNormal::from(n.as_f32())),
+            |n| WelshSynthMessage::Pan(BipolarNormal::from(n.as_f32())),
         )
         .into();
         let column = Column::new()
-            .push(GuiStuff::<WelshSynthParamsMessage>::container_text(
+            .push(GuiStuff::<WelshSynthMessage>::container_text(
                 "Welsh coming soon",
             ))
-            //                column.push(  pick_list(options, None, |s| {WelshSynthParamsMessage::Pan}).font(SMALL_FONT));
+            //                column.push(  pick_list(options, None, |s| {WelshSynthMessage::Pan}).font(SMALL_FONT));
             .push(pan_knob);
         container(column).into()
     }
 }
 
-impl Viewable for ChorusParams {
-    type Message = ChorusParamsMessage;
+impl Viewable for NanoChorus {
+    type Message = ChorusMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("delay factor: {}", self.delay_factor()))).into()
     }
 }
 
-impl Viewable for ControlTripParams {
-    type Message = ControlTripParamsMessage;
+impl Viewable for NanoControlTrip {
+    type Message = ControlTripMessage;
 }
 
-impl Viewable for MidiTickSequencerParams {
-    type Message = MidiTickSequencerParamsMessage;
+impl Viewable for NanoMidiTickSequencer {
+    type Message = MidiTickSequencerMessage;
 }
 
-impl Viewable for SignalPassthroughControllerParams {
-    type Message = SignalPassthroughControllerParamsMessage;
+impl Viewable for NanoSignalPassthroughController {
+    type Message = SignalPassthroughControllerMessage;
 }
 
-impl Viewable for TimerParams {
-    type Message = TimerParamsMessage;
+impl Viewable for NanoTimer {
+    type Message = TimerMessage;
 }
 
-impl Viewable for ToyInstrumentParams {
-    type Message = ToyInstrumentParamsMessage;
+impl Viewable for NanoToyInstrument {
+    type Message = ToyInstrumentMessage;
 }
 
-impl Viewable for ToyEffectParams {
-    type Message = ToyEffectParamsMessage;
+impl Viewable for NanoToyEffect {
+    type Message = ToyEffectMessage;
 }
 
-impl Viewable for ToySynthParams {
-    type Message = ToySynthParamsMessage;
+impl Viewable for NanoToySynth {
+    type Message = ToySynthMessage;
 }
 
-impl Viewable for ToyAudioSourceParams {
-    type Message = ToyAudioSourceParamsMessage;
+impl Viewable for NanoToyAudioSource {
+    type Message = ToyAudioSourceMessage;
 }
 
-impl Viewable for BiQuadFilterParams {
-    type Message = BiQuadFilterParamsMessage;
+impl Viewable for NanoBiQuadFilter {
+    type Message = BiQuadFilterMessage;
 }
 
-impl Viewable for ToyControllerParams {
-    type Message = ToyControllerParamsMessage;
+impl Viewable for NanoToyController {
+    type Message = ToyControllerMessage;
 }
 
-impl Viewable for CompressorParams {
-    type Message = CompressorParamsMessage;
+impl Viewable for NanoCompressor {
+    type Message = CompressorMessage;
 }
 
-impl Viewable for DelayParams {
-    type Message = DelayParamsMessage;
+impl Viewable for NanoDelay {
+    type Message = DelayMessage;
 }
 
-impl Viewable for LimiterParams {
-    type Message = LimiterParamsMessage;
+impl Viewable for NanoLimiter {
+    type Message = LimiterMessage;
 }
-impl Viewable for SamplerParams {
-    type Message = SamplerParamsMessage;
+impl Viewable for NanoSampler {
+    type Message = SamplerMessage;
 }
-impl Viewable for FmSynthParams {
-    type Message = FmSynthParamsMessage;
+impl Viewable for NanoFmSynth {
+    type Message = FmSynthMessage;
 }
-impl Viewable for DrumkitParams {
-    type Message = DrumkitParamsMessage;
+impl Viewable for NanoDrumkit {
+    type Message = DrumkitMessage;
 }
 
 #[derive(Clone, Debug)]
@@ -1544,6 +1554,9 @@ enum ViewableEntities {
 
     #[views(instrument, midi, controllable)]
     ToySynth(ToySynth),
+
+    #[views(controllable)]
+    Trigger(Trigger),
 
     #[views(instrument, midi, controllable)]
     WelshSynth(WelshSynth),

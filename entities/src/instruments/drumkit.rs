@@ -11,28 +11,17 @@ use groove_core::{
     voices::VoicePerNoteStore,
     StereoSample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "drumkit", rename_all = "kebab-case")
-)]
-pub struct DrumkitParams {}
-
-#[derive(Control, Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct Drumkit {
     uid: usize,
-    params: DrumkitParams,
     inner_synth: Synthesizer<SamplerVoice>,
     kit_name: String,
 }
@@ -133,18 +122,13 @@ impl Drumkit {
     ) -> Self {
         Self {
             uid: Default::default(),
-            params: Default::default(),
             inner_synth: Synthesizer::<SamplerVoice>::new_with(sample_rate, voice_store),
             kit_name: kit_name.to_string(),
         }
     }
 
-    pub fn params(&self) -> DrumkitParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: DrumkitParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: DrumkitMessage) {
+        todo!()
     }
 }
 

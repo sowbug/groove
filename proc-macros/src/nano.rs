@@ -12,6 +12,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
         let data = &input.data;
 
         let struct_name = &input.ident;
+        let struct_snake_case_name = stringify!("{}", struct_name.to_string().to_case(Case::Snake));
         let nano_name = format_ident!("Nano{}", struct_name);
         let message_type_name = format_ident!("{}Message", struct_name);
 
@@ -62,13 +63,18 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
 
         let nano_struct_block = quote! {
             #[derive(Clone, Copy, Debug, Default, PartialEq)]
+            #[cfg_attr(
+                feature = "serialization",
+                derive(Serialize, Deserialize),
+                serde(rename = #struct_snake_case_name, rename_all = "kebab-case")
+            )]
             pub struct #nano_name {
-                #( #field_names: #field_types ),*
+                #( pub #field_names: #field_types ),*
             }
 
         };
         let message_block = quote! {
-            #[derive(Clone, Display, Debug, EnumCountMacro, EnumString, FromRepr, IntoStaticStr)]
+            #[derive(Clone, Display, Debug, EnumCountMacro, EnumString, FromRepr, IntoStaticStr, PartialEq)]
             #[strum(serialize_all = "kebab-case")]
             pub enum #message_type_name {
                 #struct_name ( #nano_name ),
@@ -177,7 +183,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                 #impl_block
             }
             #[automatically_derived]
-            impl groove_core::traits::Controllable for #generics #struct_name #ty_generics {
+            impl #generics groove_core::traits::Controllable for #struct_name #ty_generics {
                 #controllable_block
             }
             impl groove_core::traits::Controllable for #nano_name {

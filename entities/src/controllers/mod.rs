@@ -1,17 +1,17 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use arpeggiator::{Arpeggiator, ArpeggiatorParams, ArpeggiatorParamsMessage};
+pub use arpeggiator::{Arpeggiator, ArpeggiatorMessage, NanoArpeggiator};
 pub use control_trip::{
-    ControlPath, ControlStep, ControlTrip, ControlTripParams, ControlTripParamsMessage,
+    ControlPath, ControlStep, ControlTrip, ControlTripMessage, NanoControlTrip,
 };
-pub use lfo::{LfoController, LfoControllerParams, LfoControllerParamsMessage};
+pub use lfo::{LfoController, LfoControllerMessage, NanoLfoController};
 pub use patterns::{
-    Note, Pattern, PatternManager, PatternManagerParams, PatternManagerParamsMessage,
-    PatternMessage, PatternProgrammer,
+    NanoPatternManager, Note, Pattern, PatternManager, PatternManagerMessage, PatternMessage,
+    PatternProgrammer,
 };
 pub use sequencers::{
-    MidiSmfReader, MidiTickSequencer, MidiTickSequencerParams, MidiTickSequencerParamsMessage,
-    Sequencer, SequencerParams, SequencerParamsMessage,
+    MidiSmfReader, MidiTickSequencer, MidiTickSequencerMessage, NanoMidiTickSequencer,
+    NanoSequencer, Sequencer, SequencerMessage,
 };
 
 mod arpeggiator;
@@ -26,12 +26,10 @@ use groove_core::{
     traits::{IsController, IsEffect, Resets, TicksWithMessages, TransformsAudio},
     BipolarNormal, ParameterType, Sample, StereoSample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -42,56 +40,48 @@ use serde::{Deserialize, Serialize};
     derive(Serialize, Deserialize),
     serde(rename = "midi", rename_all = "kebab-case")
 )]
-pub struct MidiChannelParams {
+pub struct NanoMidiChannel {
     pub midi_in: MidiChannel,
     pub midi_out: MidiChannel,
-}
-
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "timer", rename_all = "kebab-case")
-)]
-pub struct TimerParams {
-    #[sync]
-    pub seconds_to_run: ParameterType,
 }
 
 /// [Timer] runs for a specified amount of time, then indicates that it's done.
 /// It is useful when you need something to happen after a certain amount of
 /// wall-clock time, rather than musical time.
-#[derive(Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct Timer {
     uid: usize,
-    params: TimerParams,
+
+    #[nano]
+    pub seconds: ParameterType,
+
     sample_rate: usize,
 
     has_more_work: bool,
     ticks: usize,
 }
 impl Timer {
-    pub fn new_with(sample_rate: usize, params: TimerParams) -> Self {
+    pub fn new_with(sample_rate: usize, params: NanoTimer) -> Self {
         Self {
             uid: Default::default(),
-            params,
             sample_rate,
+            seconds: params.seconds(),
 
             has_more_work: Default::default(),
             ticks: Default::default(),
         }
     }
 
-    pub fn seconds_to_run(&self) -> ParameterType {
-        self.params().seconds_to_run()
+    pub fn seconds(&self) -> ParameterType {
+        self.seconds
     }
 
-    pub fn params(&self) -> TimerParams {
-        self.params
+    pub fn set_seconds(&mut self, seconds: ParameterType) {
+        self.seconds = seconds;
     }
 
-    pub fn update(&mut self, message: TimerParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: TimerMessage) {
+        todo!()
     }
 }
 impl IsController for Timer {}
@@ -108,8 +98,7 @@ impl TicksWithMessages for Timer {
     fn tick(&mut self, tick_count: usize) -> (Option<Vec<Self::Message>>, usize) {
         let mut ticks_completed = tick_count;
         for i in 0..tick_count {
-            self.has_more_work =
-                (self.ticks as f64 / self.sample_rate as f64) < self.params().seconds_to_run();
+            self.has_more_work = (self.ticks as f64 / self.sample_rate as f64) < self.seconds;
             if self.has_more_work {
                 self.ticks += 1;
             } else {
@@ -121,26 +110,17 @@ impl TicksWithMessages for Timer {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "trigger", rename_all = "kebab-case")
-)]
-pub struct TriggerParams {
-    #[sync]
-    pub seconds_to_run: ParameterType,
-
-    #[sync]
-    pub value: f32,
-}
-
 // TODO: needs tests!
 /// [Trigger] issues a control signal after a specified amount of time.
-#[derive(Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct Trigger {
     uid: usize,
-    params: TriggerParams,
+
+    #[nano]
+    seconds: ParameterType,
+
+    #[nano]
+    value: f32,
 
     timer: Timer,
     has_triggered: bool,
@@ -156,7 +136,7 @@ impl TicksWithMessages for Trigger {
         if ticks_completed < tick_count && !self.has_triggered {
             self.has_triggered = true;
             (
-                Some(vec![EntityMessage::ControlF32(self.params.value())]),
+                Some(vec![EntityMessage::ControlF32(self.value())]),
                 ticks_completed,
             )
         } else {
@@ -167,35 +147,46 @@ impl TicksWithMessages for Trigger {
 impl Resets for Trigger {}
 impl HandlesMidi for Trigger {}
 impl Trigger {
-    pub fn new_with(sample_rate: usize, params: TriggerParams) -> Self {
+    pub fn new_with(sample_rate: usize, params: NanoTrigger) -> Self {
         Self {
             uid: Default::default(),
-            params,
             timer: Timer::new_with(
                 sample_rate,
-                TimerParams {
-                    seconds_to_run: params.seconds_to_run(),
+                NanoTimer {
+                    seconds: params.seconds(),
                 },
             ),
             has_triggered: false,
+            seconds: params.seconds(),
+            value: params.value(),
         }
+    }
+
+    pub fn seconds(&self) -> f64 {
+        self.seconds
+    }
+
+    pub fn set_seconds(&mut self, seconds: ParameterType) {
+        self.seconds = seconds;
+    }
+
+    pub fn value(&self) -> f32 {
+        self.value
+    }
+
+    pub fn set_value(&mut self, value: f32) {
+        self.value = value;
+    }
+
+    pub fn update(&mut self, message: TriggerMessage) {
+        todo!()
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "signal-passthrough-controller", rename_all = "kebab-case")
-)]
-pub struct SignalPassthroughControllerParams {}
-impl SignalPassthroughControllerParams {}
-
 /// Uses an input signal as a control source.
-#[derive(Control, Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct SignalPassthroughController {
     uid: usize,
-    params: SignalPassthroughControllerParams,
     signal: BipolarNormal,
     has_signal_changed: bool,
 }
@@ -252,32 +243,27 @@ impl SignalPassthroughController {
     pub fn new() -> Self {
         Self {
             uid: Default::default(),
-            params: Default::default(),
             signal: Default::default(),
             has_signal_changed: true,
         }
     }
 
-    pub fn params(&self) -> SignalPassthroughControllerParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: SignalPassthroughControllerParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: SignalPassthroughControllerMessage) {
+        todo!()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::controllers::{Trigger, TriggerParams};
+    use crate::controllers::{NanoTrigger, Trigger};
     use groove_core::traits::TicksWithMessages;
 
     #[test]
     fn instantiate_trigger() {
         let mut trigger = Trigger::new_with(
             44100,
-            TriggerParams {
-                seconds_to_run: 1.0,
+            NanoTrigger {
+                seconds: 1.0,
                 value: 0.5,
             },
         );

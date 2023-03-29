@@ -1,14 +1,14 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-pub use bitcrusher::{Bitcrusher, BitcrusherParams, BitcrusherParamsMessage};
-pub use chorus::{Chorus, ChorusParams, ChorusParamsMessage};
-pub use compressor::{Compressor, CompressorParams, CompressorParamsMessage};
-pub use delay::{Delay, DelayParams, DelayParamsMessage};
-pub use filter::{BiQuadFilter, BiQuadFilterParams, BiQuadFilterParamsMessage, FilterParams};
-pub use gain::{Gain, GainParams, GainParamsMessage};
-pub use limiter::{Limiter, LimiterParams, LimiterParamsMessage};
-pub use mixer::{Mixer, MixerParams, MixerParamsMessage};
-pub use reverb::{Reverb, ReverbParams, ReverbParamsMessage};
+pub use bitcrusher::{Bitcrusher, BitcrusherMessage, NanoBitcrusher};
+pub use chorus::{Chorus, ChorusMessage, NanoChorus};
+pub use compressor::{Compressor, CompressorMessage, NanoCompressor};
+pub use delay::{Delay, DelayMessage, NanoDelay};
+pub use filter::{BiQuadFilter, BiQuadFilterMessage, NanoBiQuadFilter};
+pub use gain::{Gain, GainMessage, NanoGain};
+pub use limiter::{Limiter, LimiterMessage, NanoLimiter};
+pub use mixer::{Mixer, MixerMessage, NanoMixer};
+pub use reverb::{NanoReverb, Reverb, ReverbMessage};
 
 pub(crate) mod bitcrusher;
 pub(crate) mod chorus;

@@ -14,7 +14,7 @@ use groove_core::{
     ParameterType, StereoSample,
 };
 use groove_entities::{
-    controllers::{PatternManager, Sequencer, SequencerParams},
+    controllers::{NanoSequencer, PatternManager, Sequencer},
     effects::Mixer,
     EntityMessage,
 };
@@ -515,7 +515,7 @@ impl Orchestrator {
         r.sequencer_uid = r.add_with_uvid(
             Entity::Sequencer(Box::new(Sequencer::new_with(
                 sample_rate,
-                SequencerParams { bpm },
+                NanoSequencer { bpm },
             ))),
             Self::BEAT_SEQUENCER_UVID,
         );
@@ -997,12 +997,12 @@ pub mod tests {
     };
     use groove_entities::{
         controllers::{
-            Arpeggiator, ArpeggiatorParams, Note, Pattern, PatternProgrammer, Sequencer, Timer,
-            TimerParams,
+            Arpeggiator, NanoArpeggiator, NanoTimer, Note, Pattern, PatternProgrammer, Sequencer,
+            Timer,
         },
         effects::Gain,
     };
-    use groove_toys::{ToyAudioSource, ToyInstrument, ToyInstrumentParams};
+    use groove_toys::{NanoToyInstrument, ToyAudioSource, ToyInstrument};
 
     impl Orchestrator {
         /// Warning! This method exists only as a debug shortcut to
@@ -1243,9 +1243,7 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            TimerParams {
-                seconds_to_run: 1.0,
-            },
+            NanoTimer { seconds: 1.0 },
         ))));
 
         // Prime number
@@ -1260,9 +1258,7 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            TimerParams {
-                seconds_to_run: 0.0,
-            },
+            NanoTimer { seconds: 0.0 },
         ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -1277,8 +1273,8 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            groove_entities::controllers::TimerParams {
-                seconds_to_run: 1.0 / DEFAULT_SAMPLE_RATE as f64,
+            groove_entities::controllers::NanoTimer {
+                seconds: 1.0 / DEFAULT_SAMPLE_RATE as f64,
             },
         ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
@@ -1294,9 +1290,7 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            TimerParams {
-                seconds_to_run: 1.0,
-            },
+            NanoTimer { seconds: 1.0 },
         ))));
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples) = o.run(&mut sample_buffer) {
@@ -1321,7 +1315,7 @@ pub mod tests {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
         let mut sequencer = Sequencer::new_with(
             DEFAULT_SAMPLE_RATE,
-            groove_entities::controllers::SequencerParams { bpm: 128.0 },
+            groove_entities::controllers::NanoSequencer { bpm: 128.0 },
         );
         let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern {
@@ -1346,7 +1340,7 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let mut sequencer = Box::new(Sequencer::new_with(
             DEFAULT_SAMPLE_RATE,
-            groove_entities::controllers::SequencerParams { bpm: DEFAULT_BPM },
+            groove_entities::controllers::NanoSequencer { bpm: DEFAULT_BPM },
         ));
         let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
         let mut pattern = Pattern::<Note>::default();
@@ -1383,7 +1377,7 @@ pub mod tests {
 
         let midi_recorder = Box::new(ToyInstrument::new_with(
             DEFAULT_SAMPLE_RATE,
-            ToyInstrumentParams {
+            NanoToyInstrument {
                 fake_value: Normal::from(0.22222),
             },
         ));
@@ -1456,9 +1450,7 @@ pub mod tests {
         // first note off (not on!) and the second note on/off.
         let _ = o.add(Entity::Timer(Box::new(Timer::new_with(
             DEFAULT_SAMPLE_RATE,
-            TimerParams {
-                seconds_to_run: 2.0,
-            },
+            NanoTimer { seconds: 2.0 },
         ))));
         assert!(o.run(&mut sample_buffer).is_ok());
         // TODO assert_eq!(midi_recorder.debug_messages.len(), 3);
@@ -1476,7 +1468,7 @@ pub mod tests {
         let time_signature = TimeSignature::default();
         let mut sequencer = Box::new(Sequencer::new_with(
             DEFAULT_SAMPLE_RATE,
-            groove_entities::controllers::SequencerParams { bpm: DEFAULT_BPM },
+            groove_entities::controllers::NanoSequencer { bpm: DEFAULT_BPM },
         ));
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
@@ -1534,18 +1526,18 @@ pub mod tests {
         );
         let mut sequencer = Box::new(Sequencer::new_with(
             clock.sample_rate(),
-            groove_entities::controllers::SequencerParams { bpm: clock.bpm() },
+            groove_entities::controllers::NanoSequencer { bpm: clock.bpm() },
         ));
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
         let arpeggiator = Box::new(Arpeggiator::new_with_params(
             clock.sample_rate(),
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
-            ArpeggiatorParams { bpm: clock.bpm() },
+            NanoArpeggiator { bpm: clock.bpm() },
         ));
         let instrument = Box::new(ToyInstrument::new_with(
             clock.sample_rate(),
-            ToyInstrumentParams {
+            NanoToyInstrument {
                 fake_value: Normal::from(0.332948),
             },
         ));

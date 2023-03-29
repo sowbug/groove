@@ -23,10 +23,7 @@ fn build_lists<'a>(
     let mut messages = Vec::default();
     for thing in things {
         params.push(format_ident!("Nano{}", thing.base_name.to_string()));
-        messages.push(format_ident!(
-            "{}Message",
-            thing.base_name.to_string()
-        ));
+        messages.push(format_ident!("{}Message", thing.base_name.to_string()));
         types.push(thing.ty.clone());
         structs.push(thing.base_name.clone());
     }
@@ -102,7 +99,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
             #( #structs(Box<#params>) ),*
         }
 
-        #[derive(Clone, Debug)]
+        #[derive(Clone, Debug, PartialEq)]
         pub enum OtherEntityMessage {
             #( #structs(#messages) ),*
         }

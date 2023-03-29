@@ -12,23 +12,21 @@ use groove_core::{
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, StereoSample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
-use std::{fmt::Debug, marker::PhantomData, str::FromStr};
+use groove_proc_macros::{Nano, Uid};
+use std::{fmt::Debug, str::FromStr};
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
+#[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(
     feature = "serialization",
     derive(Serialize, Deserialize),
     serde(rename = "fm-synthesizer", rename_all = "kebab-case")
 )]
-pub struct FmSynthParams {
+pub struct FmSynthParamsLegacy {
     pub depth: Normal,
     pub ratio: ParameterType,
     pub beta: ParameterType,
@@ -149,7 +147,7 @@ impl Ticks for FmVoice {
     }
 }
 impl FmVoice {
-    pub fn new_with_params(sample_rate: usize, params: FmSynthParams) -> Self {
+    pub fn new_with_params(sample_rate: usize, params: FmSynthParamsLegacy) -> Self {
         Self {
             sample: Default::default(),
             carrier: Oscillator::new_with(sample_rate),
@@ -207,21 +205,21 @@ impl FmVoice {
     }
 }
 
-#[derive(Control, Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct FmSynth {
     uid: usize,
-    params: FmSynthParams,
+    params: FmSynthParamsLegacy,
 
     inner_synth: Synthesizer<FmVoice>,
 
-    #[controllable]
-    depth: PhantomData<Normal>,
+    #[nano]
+    depth: Normal,
 
-    #[controllable]
-    ratio: PhantomData<ParameterType>,
+    #[nano]
+    ratio: ParameterType,
 
-    #[controllable]
-    beta: PhantomData<ParameterType>,
+    #[nano]
+    beta: ParameterType,
 }
 impl IsInstrument for FmSynth {}
 impl Generates<StereoSample> for FmSynth {
@@ -252,7 +250,7 @@ impl HandlesMidi for FmSynth {
     }
 }
 impl FmSynth {
-    pub fn new_with_params(sample_rate: usize, params: FmSynthParams) -> Self {
+    pub fn new_with_params(sample_rate: usize, params: FmSynthParamsLegacy) -> Self {
         Self {
             uid: Default::default(),
             params,
@@ -269,7 +267,7 @@ impl FmSynth {
     }
     pub fn new_with_params_and_voice_store(
         sample_rate: usize,
-        params: FmSynthParams,
+        params: FmSynthParamsLegacy,
         voice_store: Box<dyn StoresVoices<Voice = FmVoice>>,
     ) -> Self {
         Self {
@@ -332,11 +330,7 @@ impl FmSynth {
         self.params.beta
     }
 
-    pub fn params(&self) -> FmSynthParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: FmSynthParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: FmSynthMessage) {
+        todo!()
     }
 }

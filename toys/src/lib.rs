@@ -5,15 +5,11 @@
 //! be useful in real music prduction.
 
 // TODO: how to make the ControlParams export automatic? Should it be?
-pub use controllers::{
-    MessageMaker, ToyController, ToyControllerControlParams, ToyControllerParams,
-    ToyControllerParamsMessage,
-};
-pub use effects::{ToyEffect, ToyEffectControlParams, ToyEffectParams, ToyEffectParamsMessage};
+pub use controllers::{MessageMaker, NanoToyController, ToyController, ToyControllerMessage};
+pub use effects::{NanoToyEffect, ToyEffect, ToyEffectMessage};
 pub use instruments::{
-    ToyAudioSource, ToyAudioSourceControlParams, ToyAudioSourceParams, ToyAudioSourceParamsMessage,
-    ToyInstrument, ToyInstrumentControlParams, ToyInstrumentParams, ToyInstrumentParamsMessage,
-    ToySynth, ToySynthControlParams, ToySynthParams, ToySynthParamsMessage,
+    NanoToyAudioSource, NanoToyInstrument, NanoToySynth, ToyAudioSource, ToyAudioSourceMessage,
+    ToyInstrument, ToyInstrumentMessage, ToySynth, ToySynthMessage,
 };
 
 mod controllers;

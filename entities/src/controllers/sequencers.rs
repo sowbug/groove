@@ -8,7 +8,7 @@ use groove_core::{
     traits::{IsController, Resets, TicksWithMessages},
     ParameterType,
 };
-use groove_proc_macros::{Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use midly::TrackEventKind;
 use rustc_hash::FxHashMap;
 use std::str::FromStr;
@@ -25,23 +25,13 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) type BeatEventsMap = BTreeMultiMap<PerfectTimeUnit, (MidiChannel, MidiMessage)>;
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "sequencer", rename_all = "kebab-case")
-)]
-pub struct SequencerParams {
-    #[sync]
-    pub bpm: ParameterType,
-}
-
 /// [Sequencer] produces MIDI according to a programmed sequence. Its unit of
 /// time is the beat.
-#[derive(Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct Sequencer {
     uid: usize,
-    params: SequencerParams,
+    #[nano]
+    bpm: ParameterType,
     next_instant: PerfectTimeUnit,
     events: BeatEventsMap,
     last_event_time: PerfectTimeUnit,
@@ -55,10 +45,10 @@ pub struct Sequencer {
 impl IsController for Sequencer {}
 impl HandlesMidi for Sequencer {}
 impl Sequencer {
-    pub fn new_with(sample_rate: usize, params: SequencerParams) -> Self {
+    pub fn new_with(sample_rate: usize, params: NanoSequencer) -> Self {
         Self {
             uid: Default::default(),
-            params,
+            bpm: params.bpm(),
             next_instant: Default::default(),
             events: Default::default(),
             last_event_time: Default::default(),
@@ -174,12 +164,20 @@ impl Sequencer {
         println!("{:?}", self.events);
     }
 
-    pub fn params(&self) -> SequencerParams {
-        self.params
+    pub fn update(&mut self, message: SequencerMessage) {
+        todo!()
     }
 
-    pub fn update(&mut self, message: SequencerParamsMessage) {
-        self.params.update(message)
+    pub(crate) fn sample_rate(&self) -> usize {
+        self.temp_hack_clock.sample_rate()
+    }
+
+    pub fn bpm(&self) -> f64 {
+        self.bpm
+    }
+
+    pub fn set_bpm(&mut self, bpm: ParameterType) {
+        self.bpm = bpm;
     }
 }
 impl Resets for Sequencer {
@@ -230,24 +228,16 @@ impl TicksWithMessages for Sequencer {
 
 pub(crate) type MidiTickEventsMap = BTreeMultiMap<MidiTicks, (MidiChannel, MidiMessage)>;
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "midi-tick-sequencer", rename_all = "kebab-case")
-)]
-pub struct MidiTickSequencerParams {
-    #[sync]
-    pub midi_ticks_per_second: usize,
-}
-
 /// [MidiTickSequencer] is another kind of sequencer whose time unit is the MIDI
 /// tick. It exists to make it easy for [MidiSmfReader] to turn MIDI files into
 /// sequences.
-#[derive(Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct MidiTickSequencer {
     uid: usize,
-    params: MidiTickSequencerParams,
+
+    #[nano]
+    midi_ticks_per_second: usize,
+
     next_instant: MidiTicks,
     events: MidiTickEventsMap,
     last_event_time: MidiTicks,
@@ -258,10 +248,10 @@ pub struct MidiTickSequencer {
 impl IsController for MidiTickSequencer {}
 impl HandlesMidi for MidiTickSequencer {}
 impl MidiTickSequencer {
-    pub fn new_with(sample_rate: usize, params: MidiTickSequencerParams) -> Self {
+    pub fn new_with(sample_rate: usize, params: NanoMidiTickSequencer) -> Self {
         Self {
             uid: Default::default(),
-            params,
+            midi_ticks_per_second: params.midi_ticks_per_second(),
             next_instant: Default::default(),
             events: Default::default(),
             last_event_time: Default::default(),
@@ -298,12 +288,8 @@ impl MidiTickSequencer {
         self.next_instant > self.last_event_time
     }
 
-    pub fn params(&self) -> MidiTickSequencerParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: MidiTickSequencerParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: MidiTickSequencerMessage) {
+        todo!()
     }
 }
 impl Resets for MidiTickSequencer {

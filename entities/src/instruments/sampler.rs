@@ -8,7 +8,7 @@ use groove_core::{
     voices::VoiceStore,
     BipolarNormal, ParameterType, Sample, SampleType, StereoSample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use hound::WavReader;
 use std::{
     fs::File,
@@ -17,9 +17,7 @@ use std::{
     sync::Arc,
 };
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -124,20 +122,12 @@ impl SamplerVoice {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "sampler", rename_all = "kebab-case")
-)]
-pub struct SamplerParams {}
-
-#[derive(Control, Debug, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct Sampler {
     uid: usize,
-    params: SamplerParams,
     inner_synth: Synthesizer<SamplerVoice>,
 
+    #[nano]
     root_frequency: ParameterType,
 }
 impl IsInstrument for Sampler {}
@@ -188,7 +178,6 @@ impl Sampler {
 
             Self {
                 uid: Default::default(),
-                params: Default::default(),
                 inner_synth: Synthesizer::<SamplerVoice>::new_with(
                     sample_rate,
                     Box::new(VoiceStore::<SamplerVoice>::new_with_voice(
@@ -325,12 +314,8 @@ impl Sampler {
         self.root_frequency
     }
 
-    pub fn params(&self) -> SamplerParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: SamplerParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: SamplerMessage) {
+        todo!()
     }
 }
 

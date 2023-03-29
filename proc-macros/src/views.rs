@@ -18,11 +18,8 @@ fn build_lists<'a>(
     let mut params = Vec::default();
     let mut messages = Vec::default();
     for thing in things {
-        params.push(format_ident!("{}Params", thing.base_name.to_string()));
-        messages.push(format_ident!(
-            "{}ParamsMessage",
-            thing.base_name.to_string()
-        ));
+        params.push(format_ident!("Nano{}", thing.base_name.to_string()));
+        messages.push(format_ident!("{}Message", thing.base_name.to_string()));
         types.push(thing.ty.clone());
         structs.push(thing.base_name.clone());
     }
@@ -93,7 +90,7 @@ pub(crate) fn parse_and_generate_views(data: &Data) -> proc_macro2::TokenStream 
             )  {
                 match message {
                 #(
-                    OtherEntityMessage::#structs(#messages::#params(params)) => {
+                    OtherEntityMessage::#structs(#messages::#structs(params)) => {
                         self.add_entity(uid, EntityParams::#structs(Box::new(params)));
                     }
                 ),*

@@ -16,9 +16,9 @@
 //! # };
 //! # use groove_entities::{
 //! #     controllers::Sequencer,
-//! #     controllers::SequencerParams,
+//! #     controllers::NanoSequencer,
 //! #     effects::Compressor,
-//! #     effects::CompressorParams,
+//! #     effects::NanoCompressor,
 //! # };
 //! # use groove_toys::ToySynth;
 //! #
@@ -33,14 +33,14 @@
 //! let synth = ToySynth::new_with(SAMPLE_RATE);
 //!
 //! // Sequencer sends MIDI commands to the synth.
-//! let mut sequencer = Sequencer::new_with(SAMPLE_RATE, SequencerParams { bpm: 128.0 });
+//! let mut sequencer = Sequencer::new_with(SAMPLE_RATE, NanoSequencer { bpm: 128.0 });
 //!
 //! // There are lots of different ways to populate the sequencer with notes.
 //! sequencer.insert(PerfectTimeUnit(0.0), MIDI_0, new_note_on(69, 100));
 //! sequencer.insert(PerfectTimeUnit(1.0), MIDI_0, new_note_off(69, 100));
 //!
 //! // An effect takes the edge off the synth.
-//! let compressor = Compressor::new_with(CompressorParams {
+//! let compressor = Compressor::new_with(NanoCompressor {
 //!     threshold: Normal::from(0.8),
 //!     ratio: 0.5,
 //!     attack: 0.05,

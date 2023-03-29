@@ -10,8 +10,8 @@ use groove_core::{
     DcaParams, Normal, ParameterType,
 };
 use groove_entities::{
-    effects::{BiQuadFilter, FilterParams},
-    instruments::{FmSynthParams, FmVoice, LfoRouting, WelshSynth, WelshVoice},
+    effects::{BiQuadFilter, NanoBiQuadFilter},
+    instruments::{FmVoice, LfoRouting, NanoFmSynth, WelshSynth, WelshVoice},
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -126,11 +126,11 @@ impl WelshPatchSettings {
         let lfo_routing = self.lfo.routing.into();
         let lfo_depth = self.lfo.depth.into();
         let filter = BiQuadFilter::new_with(
-            &FilterParams::LowPass12db {
-                cutoff: self.filter_type_12db.cutoff_hz.into(),
-                q: BiQuadFilter::denormalize_q(self.filter_resonance),
-            },
             sample_rate,
+            &NanoBiQuadFilter {
+                cutoff: self.filter_type_12db.cutoff_hz.into(),
+                q: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
+            },
         );
         let filter_cutoff_start =
             BiQuadFilter::frequency_to_percent(self.filter_type_12db.cutoff_hz.into());
@@ -717,24 +717,24 @@ pub struct FmSynthesizerSettings {
 }
 
 impl FmSynthesizerSettings {
-    pub fn derive_voice_store(&self, sample_rate: usize) -> VoiceStore<FmVoice> {
-        VoiceStore::<FmVoice>::new_with_voice(sample_rate, 8, || self.derive_voice(sample_rate))
-    }
+    // pub fn derive_voice_store(&self, sample_rate: usize) -> VoiceStore<FmVoice> {
+    //     VoiceStore::<FmVoice>::new_with_voice(sample_rate, 8, || self.derive_voice(sample_rate))
+    // }
 
-    pub fn derive_params(&self) -> FmSynthParams {
-        FmSynthParams {
-            depth: Normal::from(self.depth),
-            ratio: self.ratio,
-            beta: self.beta,
-            carrier_envelope: self.carrier_envelope.derive_envelope_params(),
-            modulator_envelope: self.modulator_envelope.derive_envelope_params(),
-            dca: DcaParams::default(),
-        }
-    }
+    // pub fn derive_params(&self) -> NanoFmSynth {
+    //     NanoFmSynth {
+    //         depth: Normal::from(self.depth),
+    //         ratio: self.ratio,
+    //         beta: self.beta,
+    //         carrier_envelope: self.carrier_envelope.derive_envelope_params(),
+    //         modulator_envelope: self.modulator_envelope.derive_envelope_params(),
+    //         dca: DcaParams::default(),
+    //     }
+    // }
 
-    pub fn derive_voice(&self, sample_rate: usize) -> FmVoice {
-        FmVoice::new_with_params(sample_rate, self.derive_params())
-    }
+    // pub fn derive_voice(&self, sample_rate: usize) -> FmVoice {
+    //     FmVoice::new_with_params(sample_rate, self.derive_params())
+    // }
 
     #[allow(dead_code)]
     pub fn from_name(_name: &str) -> FmSynthesizerSettings {

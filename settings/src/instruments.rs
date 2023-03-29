@@ -3,9 +3,9 @@
 use super::{patches::WelshPatchSettings, MidiChannel};
 use crate::patches::FmSynthesizerSettings;
 use groove_core::{midi::note_description_to_frequency, Normal};
-use groove_entities::instruments::{Drumkit, FmSynth, Sampler};
+use groove_entities::instruments::{Drumkit, Sampler};
 use groove_orchestration::Entity;
-use groove_toys::{ToyInstrument, ToyInstrumentParams};
+use groove_toys::{NanoToyInstrument, ToyInstrument};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -76,7 +76,7 @@ impl InstrumentSettings {
                 midi_input_channel,
                 Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
                     sample_rate,
-                    ToyInstrumentParams {
+                    NanoToyInstrument {
                         fake_value: Normal::from(0.23498239),
                     },
                 ))),
@@ -87,7 +87,7 @@ impl InstrumentSettings {
                 *midi_input_channel,
                 Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
                     sample_rate,
-                    ToyInstrumentParams {
+                    NanoToyInstrument {
                         fake_value: Normal::from(0.23498239),
                     },
                 ))),
@@ -138,13 +138,17 @@ impl InstrumentSettings {
             InstrumentSettings::FmSynthesizer {
                 midi_input_channel,
                 voice,
-            } => (
-                *midi_input_channel,
-                Entity::FmSynth(Box::new(FmSynth::new_with_params(
-                    sample_rate,
-                    voice.derive_params(),
-                ))),
-            ),
+            } =>
+            // (
+            //     *midi_input_channel,
+            //     Entity::FmSynth(Box::new(FmSynth::new_with_params(
+            //         sample_rate,
+            //         voice.derive_params(),
+            //     ))),
+            // ),
+            {
+                panic!()
+            }
         }
     }
 }

@@ -4,35 +4,20 @@ use groove_core::{
     traits::{IsEffect, TransformsAudio},
     Normal, Sample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
 
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "gain", rename_all = "kebab-case")
-)]
-pub struct GainParams {
-    #[sync]
-    pub ceiling: Normal,
-}
-
-#[derive(Control, Debug, Default, Uid)]
+#[derive(Debug, Default, Nano, Uid)]
 pub struct Gain {
     uid: usize,
 
-    params: GainParams,
-
-    #[controllable]
+    #[nano]
     ceiling: Normal,
 }
 impl IsEffect for Gain {}
@@ -57,7 +42,6 @@ impl Gain {
         }
     }
 
-    #[allow(dead_code)]
     pub fn ceiling(&self) -> Normal {
         self.ceiling
     }
@@ -66,16 +50,8 @@ impl Gain {
         self.ceiling = ceiling;
     }
 
-    pub fn set_control_ceiling(&mut self, value: groove_core::control::F32ControlValue) {
-        self.set_ceiling(Normal::new_from_f32(value.0));
-    }
-
-    pub fn params(&self) -> GainParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: GainParamsMessage) {
-        self.params.update(message)
+    pub fn update(&mut self, message: GainMessage) {
+        todo!()
     }
 }
 

@@ -5,37 +5,23 @@ use groove_core::{
     traits::{IsEffect, TransformsAudio},
     Normal, Sample,
 };
-use groove_proc_macros::{Control, Synchronization, Uid};
+use groove_proc_macros::{Nano, Uid};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::str::FromStr;
 use strum::EnumCount;
-use strum_macros::{
-    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
-};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, Synchronization)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "toy-effect", rename_all = "kebab-case")
-)]
-pub struct ToyEffectParams {
-    #[sync]
-    pub my_value: Normal,
-}
-
 /// An [IsEffect](groove_core::traits::IsEffect) that negates the input signal.
-#[derive(Control, Debug, Default, Uid)]
+#[derive(Debug, Default, Nano, Uid)]
 pub struct ToyEffect {
     uid: usize,
-    params: ToyEffectParams,
 
-    #[controllable]
-    my_value: f32,
+    #[nano]
+    pub my_value: Normal,
 
     pub checkpoint_values: VecDeque<f32>,
     pub checkpoint: f32,
@@ -90,23 +76,11 @@ impl ToyEffect {
         }
     }
 
-    pub fn set_my_value(&mut self, my_value: f32) {
-        self.my_value = my_value;
+    pub fn update(&mut self, message: ToyEffectMessage) {
+        todo!()
     }
 
-    pub fn my_value(&self) -> f32 {
+    pub fn my_value(&self) -> Normal {
         self.my_value
-    }
-
-    pub fn set_control_my_value(&mut self, my_value: groove_core::control::F32ControlValue) {
-        self.set_my_value(my_value.0);
-    }
-
-    pub fn params(&self) -> ToyEffectParams {
-        self.params
-    }
-
-    pub fn update(&mut self, message: ToyEffectParamsMessage) {
-        self.params.update(message)
     }
 }

@@ -16,8 +16,7 @@ use groove_core::{
     Normal, ParameterType, StereoSample,
 };
 use groove_entities::controllers::{
-    ArpeggiatorParamsMessage, LfoControllerParamsMessage, PatternManagerParamsMessage,
-    SequencerParamsMessage,
+    ArpeggiatorMessage, LfoControllerMessage, PatternManagerMessage, SequencerMessage,
 };
 use groove_orchestration::{
     helpers::IOHelper,
