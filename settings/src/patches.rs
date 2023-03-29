@@ -770,7 +770,7 @@ mod tests {
 
     // TODO dedup
     pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
-        let mut path = TestOnlyPaths::test_data_path();
+        let mut path = TestOnlyPaths::writable_out_path();
         path.push(format!("{}.wav", filename.to_case(Case::Snake)).to_string());
         if let Some(path) = path.to_str() {
             path.to_string()
