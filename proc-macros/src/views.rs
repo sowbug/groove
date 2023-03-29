@@ -63,7 +63,7 @@ pub(crate) fn parse_and_generate_views(data: &Data) -> proc_macro2::TokenStream 
         _ => panic!("this derive macro works only on enums"),
     };
 
-    let (structs, types, params, _) = build_lists(things.iter());
+    let (structs, _, params, _) = build_lists(things.iter());
     let views_enum = quote! {
         #[derive(Debug)]
         pub enum Views {
@@ -93,14 +93,14 @@ pub(crate) fn parse_and_generate_views(data: &Data) -> proc_macro2::TokenStream 
             )  {
                 match message {
                 #(
-                        OtherEntityMessage::#structs(#messages::#params(params)) => {
-                            self.add_entity(uid, EntityParams::#structs(Box::new(params)));
-                        }
-                        _=> {
-                            panic!("Someone called entity_create with a param-specific message, rather than the full struct message.");
-                        }
+                    OtherEntityMessage::#structs(#messages::#params(params)) => {
+                        self.add_entity(uid, EntityParams::#structs(Box::new(params)));
+                    }
                 ),*
-                }
+                    _=> {
+                        panic!("Someone called entity_create with a param-specific message, rather than the full struct message.");
+                     }
+        }
             }
         }
     };

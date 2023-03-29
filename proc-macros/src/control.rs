@@ -2,8 +2,8 @@ use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident,
-    Lit, Meta, NestedMeta,
+    parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Fields, Generics, Ident, Lit,
+    Meta, NestedMeta,
 };
 
 pub(crate) fn impl_control_derive(input: TokenStream) -> TokenStream {

@@ -1080,36 +1080,6 @@ pub(crate) struct View {
     lanes: Vec<AudioLane>,
 }
 
-macro_rules! build_view_dispatcher {
-        ($($entity:ident; $params:tt; $params_message:tt ,)*) => {
-            fn entity_view<'a>(&self, uid: usize, entity: &'a EntityParams) -> Element<'a, ViewMessage> {
-                match entity {
-                $(
-                    EntityParams::$entity(e) => {
-                        e.view().map(move |message| {
-                            ViewMessage::OtherEntityMessage(uid, OtherEntityMessage::$entity(message))
-                        })
-                    } ),*
-                }
-            }
-
-            fn entity_create(
-                &mut self,
-                uid: usize,
-                message: OtherEntityMessage,
-            )  {
-                match message {
-                    $(
-                        OtherEntityMessage::$entity($params_message::$params(params)) => {
-                            self.add_entity(uid, EntityParams::$entity(Box::new(params)));
-                        }
-                        ),*
-                        _ => {todo!();}
-                }
-            }
-        }
-    }
-
 impl View {
     pub(crate) fn new() -> Self {
         Self {
@@ -1345,43 +1315,6 @@ impl View {
         container(column![controller_row, controllable_row]).into()
     }
 
-    build_view_dispatcher! {
-        // struct; params; message; is_controller; is_controllable,
-
-        // Controllers
-        Arpeggiator; ArpeggiatorParams; ArpeggiatorParamsMessage,
-        ControlTrip; ControlTripParams; ControlTripParamsMessage,
-        LfoController; LfoControllerParams; LfoControllerParamsMessage,
-        MidiTickSequencer; MidiTickSequencerParams; MidiTickSequencerParamsMessage,
-        PatternManager; PatternManagerParams; PatternManagerParamsMessage,
-        Sequencer; SequencerParams; SequencerParamsMessage,
-        SignalPassthroughController; SignalPassthroughControllerParams; SignalPassthroughControllerParamsMessage,
-        Timer; TimerParams; TimerParamsMessage,
-        ToyController; ToyControllerParams; ToyControllerParamsMessage,
-
-        // Effects
-        BiQuadFilter; BiQuadFilterParams; BiQuadFilterParamsMessage,
-        Bitcrusher; BitcrusherParams; BitcrusherParamsMessage,
-        Chorus; ChorusParams; ChorusParamsMessage,
-        Compressor; CompressorParams; CompressorParamsMessage,
-        Delay; DelayParams; DelayParamsMessage,
-        Gain; GainParams; GainParamsMessage,
-        Limiter; LimiterParams; LimiterParamsMessage,
-        Mixer; MixerParams; MixerParamsMessage,
-        Reverb; ReverbParams; ReverbParamsMessage,
-    // both controller and effect...    SignalPassthroughController; SignalPassthroughControllerParams; SignalPassthroughControllerParamsMessage,
-        ToyEffect; ToyEffectParams; ToyEffectParamsMessage,
-
-        // Instruments
-        Drumkit; DrumkitParams; DrumkitParamsMessage,
-        FmSynth; FmSynthParams; FmSynthParamsMessage,
-        Sampler; SamplerParams; SamplerParamsMessage,
-        ToyAudioSource; ToyAudioSourceParams; ToyAudioSourceParamsMessage,
-        ToyInstrument; ToyInstrumentParams; ToyInstrumentParamsMessage,
-        ToySynth; ToySynthParams; ToySynthParamsMessage,
-        WelshSynth; WelshSynthParams; WelshSynthParamsMessage,
-    }
-
     fn everything_view(&self) -> Element<ViewMessage> {
         let boxes: Vec<Element<ViewMessage>> = self
             .entity_store
@@ -1532,86 +1465,86 @@ impl View {
     }
 }
 
-// /// The #[derive(Views)] macro uses [ViewableEntities] to generate scaffolding.
-// /// The enum itself is otherwise unused.
-// #[allow(dead_code)]
-// #[derive(Views)]
-// enum ViewableEntities {
-//     #[views(controller, midi, controllable)]
-//     Arpeggiator(Arpeggiator),
+/// The #[derive(Views)] macro uses [ViewableEntities] to generate scaffolding.
+/// The enum itself is otherwise unused.
+#[allow(dead_code)]
+#[derive(Views)]
+enum ViewableEntities {
+    #[views(controller, midi, controllable)]
+    Arpeggiator(Arpeggiator),
 
-//     #[views(effect, controllable)]
-//     BiQuadFilter(BiQuadFilter),
+    #[views(effect, controllable)]
+    BiQuadFilter(BiQuadFilter),
 
-//     #[views(effect, controllable)]
-//     Bitcrusher(Bitcrusher),
+    #[views(effect, controllable)]
+    Bitcrusher(Bitcrusher),
 
-//     #[views(effect, controllable)]
-//     Chorus(Chorus),
+    #[views(effect, controllable)]
+    Chorus(Chorus),
 
-//     #[views(effect, controllable)]
-//     Compressor(Compressor),
+    #[views(effect, controllable)]
+    Compressor(Compressor),
 
-//     #[views(controller, midi)]
-//     ControlTrip(ControlTrip),
+    #[views(controller, midi)]
+    ControlTrip(ControlTrip),
 
-//     #[views(effect, controllable)]
-//     Delay(Delay),
+    #[views(effect, controllable)]
+    Delay(Delay),
 
-//     #[views(instrument, midi)]
-//     Drumkit(Drumkit),
+    #[views(instrument, midi)]
+    Drumkit(Drumkit),
 
-//     #[views(instrument, midi, controllable)]
-//     FmSynth(FmSynth),
+    #[views(instrument, midi, controllable)]
+    FmSynth(FmSynth),
 
-//     #[views(effect, controllable)]
-//     Gain(Gain),
+    #[views(effect, controllable)]
+    Gain(Gain),
 
-//     #[views(controller, midi)]
-//     LfoController(LfoController),
+    #[views(controller, midi)]
+    LfoController(LfoController),
 
-//     #[views(effect, controllable)]
-//     Limiter(Limiter),
+    #[views(effect, controllable)]
+    Limiter(Limiter),
 
-//     #[views(controller, midi)]
-//     MidiTickSequencer(MidiTickSequencer),
+    #[views(controller, midi)]
+    MidiTickSequencer(MidiTickSequencer),
 
-//     #[views(effect)]
-//     Mixer(Mixer),
+    #[views(effect)]
+    Mixer(Mixer),
 
-//     #[views(controller, midi)]
-//     PatternManager(PatternManager),
+    #[views(controller, midi)]
+    PatternManager(PatternManager),
 
-//     #[views(effect, controllable)]
-//     Reverb(Reverb),
+    #[views(effect, controllable)]
+    Reverb(Reverb),
 
-//     #[views(instrument, midi)]
-//     Sampler(Sampler),
+    #[views(instrument, midi)]
+    Sampler(Sampler),
 
-//     #[views(controller, midi)]
-//     Sequencer(Sequencer),
+    #[views(controller, midi)]
+    Sequencer(Sequencer),
 
-//     #[views(controller, effect, midi)]
-//     SignalPassthroughController(SignalPassthroughController),
+    #[views(controller, effect, midi)]
+    SignalPassthroughController(SignalPassthroughController),
 
-//     #[views(controller, midi)]
-//     Timer(Timer),
+    #[views(controller, midi)]
+    Timer(Timer),
 
-//     #[views(instrument, midi)]
-//     ToyAudioSource(ToyAudioSource),
+    #[views(instrument, midi)]
+    ToyAudioSource(ToyAudioSource),
 
-//     #[views(controller, midi)]
-//     ToyController(ToyController<EntityMessage>),
+    #[views(controller, midi)]
+    ToyController(ToyController<EntityMessage>),
 
-//     #[views(effect, controllable)]
-//     ToyEffect(ToyEffect),
+    #[views(effect, controllable)]
+    ToyEffect(ToyEffect),
 
-//     #[views(instrument, midi, controllable)]
-//     ToyInstrument(ToyInstrument),
+    #[views(instrument, midi, controllable)]
+    ToyInstrument(ToyInstrument),
 
-//     #[views(instrument, midi, controllable)]
-//     ToySynth(ToySynth),
+    #[views(instrument, midi, controllable)]
+    ToySynth(ToySynth),
 
-//     #[views(instrument, midi, controllable)]
-//     WelshSynth(WelshSynth),
-// }
+    #[views(instrument, midi, controllable)]
+    WelshSynth(WelshSynth),
+}
