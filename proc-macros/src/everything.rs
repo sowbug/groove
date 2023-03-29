@@ -22,9 +22,9 @@ fn build_lists<'a>(
     let mut params = Vec::default();
     let mut messages = Vec::default();
     for thing in things {
-        params.push(format_ident!("{}Params", thing.base_name.to_string()));
+        params.push(format_ident!("Nano{}", thing.base_name.to_string()));
         messages.push(format_ident!(
-            "{}ParamsMessage",
+            "{}Message",
             thing.base_name.to_string()
         ));
         types.push(thing.ty.clone());
@@ -140,7 +140,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 match self {
                 #(
                     Entity::#structs(e) => {
-                        if let Some(message) = e.params().message_for_index(param_index, value) {
+                        if let Some(message) = e.message_for_index(param_index, value) {
                             return Some(OtherEntityMessage::#structs(message));
                         }
                     }
@@ -152,8 +152,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 match self {
                 #(
                     Entity::#structs(e) => {
-                        let params = e.params();
-                        return OtherEntityMessage::#structs(e.params().full_message());
+                        return OtherEntityMessage::#structs(e.full_message());
                     }
                 )*
                 }

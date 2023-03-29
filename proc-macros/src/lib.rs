@@ -4,6 +4,7 @@
 
 use control::impl_control_derive;
 use everything::parse_and_generate_everything;
+use nano::impl_nano_derive;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 use synchronization::impl_synchronization_derive;
@@ -12,6 +13,7 @@ use views::parse_and_generate_views;
 
 mod control;
 mod everything;
+mod nano;
 mod synchronization;
 mod uid;
 mod views;
@@ -43,6 +45,14 @@ pub fn control_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Synchronization, attributes(sync))]
 pub fn synchronization_derive(input: TokenStream) -> TokenStream {
     impl_synchronization_derive(input)
+}
+
+/// The [Nano] macro helps sync system data. If you have a struct Foo, then this
+/// macro generates a NanoFoo struct, along with methods and messages that make
+/// it easy to propagate changes between the two.
+#[proc_macro_derive(Nano, attributes(nano))]
+pub fn nano_derive(input: TokenStream) -> TokenStream {
+    impl_nano_derive(input)
 }
 
 /// The [Everything] macro derives the code that ties all Entities together.
