@@ -4,7 +4,7 @@ use super::{
     GuiStuff, IconType, Icons, LARGE_FONT, LARGE_FONT_SIZE, NUMBERS_FONT, NUMBERS_FONT_SIZE,
     SMALL_FONT, SMALL_FONT_SIZE,
 };
-use groove::{app_version, Entity};
+use groove::app_version;
 use groove_core::{
     time::{Clock, TimeSignature},
     traits::HasUid,
@@ -54,9 +54,8 @@ use iced_aw::{
 };
 use iced_native::{mouse, widget::Tree, Event, Widget};
 use rustc_hash::FxHashMap;
-use std::any::type_name;
 use strum::EnumCount;
-use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
+use strum_macros::{EnumCount as EnumCountMacro, FromRepr, IntoStaticStr};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum EntityViewState {
@@ -71,9 +70,6 @@ pub(crate) struct EntityView {
     entity_view_states: FxHashMap<usize, EntityViewState>,
     entity_enabled_states: FxHashMap<usize, bool>,
     entity_audio_outputs: FxHashMap<usize, StereoSample>,
-
-    pub(crate) fm_synthesizer_ratio_range: IntRange,
-    pub(crate) fm_synthesizer_beta_range: FloatRange,
 }
 impl Default for EntityView {
     fn default() -> Self {
@@ -81,18 +77,10 @@ impl Default for EntityView {
             entity_view_states: Default::default(),
             entity_enabled_states: Default::default(),
             entity_audio_outputs: Default::default(),
-            fm_synthesizer_ratio_range: IntRange::new(1, 32),
-            fm_synthesizer_beta_range: FloatRange::new(0.5, 32.0),
         }
     }
 }
 impl EntityView {
-    const LABEL_FONT_SIZE: u16 = 14;
-
-    const ITEM_OUTER_PADDING: u16 = 16;
-    const ITEM_PADDING: u16 = 8;
-    const ITEM_WIDTH: Length = Length::Fixed(48.0);
-
     pub(crate) fn set_entity_view_state(&mut self, uid: usize, new_state: EntityViewState) {
         self.entity_view_states.insert(uid, new_state);
     }
@@ -103,24 +91,6 @@ impl EntityView {
 
     pub(crate) fn reset(&mut self) {
         self.entity_view_states.clear();
-    }
-
-    fn bitcrusher_view(&self, e: &Bitcrusher) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            container(row![HSlider::new(
-                IntRange::new(0, 15).normal_param(e.bits().into(), 8),
-                EntityMessage::HSliderInt
-            )])
-            .padding(Self::ITEM_OUTER_PADDING)
-            .into()
-        })
-    }
-
-    fn chorus_view(&self, e: &Chorus) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into()
-        })
     }
 
     fn collapsing_box<F>(&self, entity: &impl HasUid, contents_fn: F) -> Element<EntityMessage>
@@ -156,40 +126,6 @@ impl EntityView {
         }
     }
 
-    fn compressor_view(&self, e: &Compressor) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            let slider = HSlider::new(
-                NormalParam {
-                    value: IcedNormal::from_clipped(e.threshold().value_as_f32()),
-                    default: IcedNormal::from_clipped(1.0),
-                },
-                EntityMessage::HSliderInt,
-            );
-            container(row![slider])
-                .padding(Self::ITEM_OUTER_PADDING)
-                .into()
-        })
-    }
-
-    fn control_trip_view(&self, e: &ControlTrip) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into()
-        })
-    }
-
-    fn delay_view(&self, e: &Delay) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text("I'm a delay effect!").into()
-        })
-    }
-
-    fn drumkit_view(&self, e: &Drumkit) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text("I'm a drumkit!").into()
-        })
-    }
-
     fn entity_view_state(&self, uid: usize) -> EntityViewState {
         if let Some(state) = self.entity_view_states.get(&uid) {
             state.clone()
@@ -204,124 +140,6 @@ impl EntityView {
         } else {
             true
         }
-    }
-
-    fn fm_synth_view(&self, e: &FmSynth) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            let depth = e.depth().value_as_f32();
-            let label_depth = text("Depth").size(Self::LABEL_FONT_SIZE);
-            let text_depth =
-                text(format!("{:0.1}%", depth * 100.0).as_str()).size(Self::LABEL_FONT_SIZE);
-            let ratio = e.ratio();
-            let label_ratio = text("Ratio").size(Self::LABEL_FONT_SIZE);
-            let text_ratio = text(format!("{:0.2}", ratio).as_str()).size(Self::LABEL_FONT_SIZE);
-            let beta = e.beta();
-            let label_beta = text("Beta").size(Self::LABEL_FONT_SIZE);
-            let text_beta = text(format!("{:0.2}", beta).as_str()).size(Self::LABEL_FONT_SIZE);
-            let depth_slider = Column::new()
-                .push(label_depth)
-                .push(Knob::new(
-                    NormalParam {
-                        value: IcedNormal::from_clipped(depth),
-                        default: IcedNormal::from_clipped(0.5),
-                    },
-                    EntityMessage::Knob,
-                ))
-                .push(text_depth)
-                .align_items(Alignment::Center)
-                .padding(Self::ITEM_PADDING)
-                .width(Self::ITEM_WIDTH);
-            let ratio_slider = Column::new()
-                .push(label_ratio)
-                .push(Knob::new(
-                    self.fm_synthesizer_ratio_range
-                        .normal_param(ratio as i32, 2),
-                    EntityMessage::Knob2,
-                ))
-                .push(text_ratio)
-                .align_items(Alignment::Center)
-                .padding(Self::ITEM_PADDING)
-                .width(Self::ITEM_WIDTH);
-            let beta_slider = Column::new()
-                .push(label_beta)
-                .push(Knob::new(
-                    self.fm_synthesizer_beta_range
-                        .normal_param(beta as f32, 2.0),
-                    EntityMessage::Knob3,
-                ))
-                .push(text_beta)
-                .align_items(Alignment::Center)
-                .padding(Self::ITEM_PADDING)
-                .width(Self::ITEM_WIDTH);
-            container(row![depth_slider, ratio_slider, beta_slider])
-                .padding(Self::ITEM_OUTER_PADDING)
-                .into()
-        })
-    }
-
-    fn gain_view(&self, e: &Gain) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            let slider = HSlider::new(
-                NormalParam {
-                    value: IcedNormal::from_clipped(e.ceiling().value() as f32),
-                    default: IcedNormal::from_clipped(1.0),
-                },
-                EntityMessage::HSliderInt,
-            );
-            container(row![slider])
-                .padding(Self::ITEM_OUTER_PADDING)
-                .into()
-        })
-    }
-
-    fn lfo_view(&self, e: &LfoController) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            let slider = HSlider::new(
-                NormalParam {
-                    value: IcedNormal::from_clipped(0.42_f32),
-                    default: IcedNormal::from_clipped(1.0),
-                },
-                EntityMessage::HSliderInt,
-            );
-            container(row![slider])
-                .padding(Self::ITEM_OUTER_PADDING)
-                .into()
-        })
-    }
-
-    fn limiter_view(&self, e: &Limiter) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into()
-        })
-    }
-
-    fn midi_tick_sequencer_view(&self, e: &MidiTickSequencer) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into()
-        })
-    }
-
-    fn mixer_view(&self, e: &Mixer) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(
-                format!("Mixer {} coming soon", e.uid()).as_str(),
-            )
-            .into()
-        })
-    }
-
-    fn pattern_manager_view(&self, e: &PatternManager) -> Element<EntityMessage> {
-        let title = type_name::<PatternManager>();
-        let contents = {
-            let pattern_views = e.patterns().iter().enumerate().map(|(i, item)| {
-                self.pattern_view(item)
-                    .map(move |message| EntityMessage::PatternMessage(i, message))
-            });
-            column(pattern_views.collect())
-        };
-        GuiStuff::titled_container(title, contents.into())
     }
 
     fn pattern_view(&self, e: &Pattern<Note>) -> Element<PatternMessage> {
@@ -347,94 +165,6 @@ impl EntityView {
         ])
         .into()
     }
-
-    fn reverb_view(&self, e: &Reverb) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into()
-        })
-    }
-
-    fn sampler_view(&self, e: &Sampler) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text("I'm a sampler!").into()
-        })
-    }
-
-    fn sequencer_view(&self, e: &Sequencer) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            let contents = format!("{}", e.next_instant());
-            GuiStuff::<EntityMessage>::container_text(contents.as_str()).into()
-        })
-    }
-
-    fn signal_controller_view(&self, e: &SignalPassthroughController) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text("nothing").into()
-        })
-    }
-
-    fn test_instrument_view(&self, e: &ToyInstrument) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(
-                format!("Fake value: {}", e.fake_value().value()).as_str(),
-            )
-            .into()
-        })
-    }
-
-    fn test_synth_view(&self, e: &ToySynth) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text("Nothing").into()
-        })
-    }
-
-    fn timer_view(&self, e: &Timer) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(format!("Runtime: {}", e.seconds()).as_str())
-                .into()
-        })
-    }
-
-    fn toy_controller_view(&self, e: &ToyController<EntityMessage>) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(format!("Tempo: {}", e.tempo()).as_str())
-                .into()
-        })
-    }
-
-    fn toy_effect_view(&self, e: &ToyEffect) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(
-                format!("Value: {}", e.my_value().value()).as_str(),
-            )
-            .into()
-        })
-    }
-
-    fn welsh_synth_view(&self, e: &WelshSynth) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
-            let pan_knob: Element<EntityMessage> = Knob::new(
-                // TODO: toil. make it easier to go from bipolar normal to normal
-                NormalParam {
-                    value: IcedNormal::from_clipped((e.pan() + 1.0) / 2.0),
-                    default: IcedNormal::from_clipped(0.5),
-                },
-                EntityMessage::Knob,
-            )
-            .into();
-            container(column![
-                GuiStuff::<EntityMessage>::container_text(
-                    format!("Welsh {} {} coming soon", e.uid(), e.preset_name()).as_str()
-                ),
-                pick_list(options, None, EntityMessage::PickListSelected,).font(SMALL_FONT),
-                pan_knob,
-            ])
-            .into()
-        })
-    }
-
     pub(crate) fn update_audio_outputs(&mut self, uid: &usize, sample: &StereoSample) {
         self.entity_audio_outputs.insert(*uid, *sample);
     }
@@ -823,139 +553,14 @@ impl Viewable for BitcrusherNano {
     type Message = BitcrusherMessage;
 
     fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("bits: {}", self.bits()))).into()
-    }
-}
-
-impl Viewable for GainNano {
-    type Message = GainMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("ceiling: {}", self.ceiling().value()))).into()
-    }
-}
-
-impl Viewable for LfoControllerNano {
-    type Message = LfoControllerMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!(
-            "waveform: {:?} frequency: {}",
-            self.waveform(), // TODO: proper string conversion
-            self.frequency()
-        )))
+        container(row![HSlider::new(
+            IntRange::new(0, 15).normal_param(self.bits().into(), 8),
+            |n| { BitcrusherMessage::Bits((n.as_f32() * 16.0) as u8) }
+        )])
+        .padding(View::ITEM_OUTER_PADDING)
         .into()
     }
 }
-
-impl Viewable for MixerNano {
-    type Message = MixerMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("I'm a mixer! {}", 261))).into()
-    }
-}
-
-impl Viewable for PatternManagerNano {
-    type Message = PatternManagerMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("nothing {}", 42))).into()
-    }
-}
-
-impl Viewable for ReverbNano {
-    type Message = ReverbMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!(
-            "attenuation: {}",
-            self.attenuation().value()
-        )))
-        .into()
-    }
-}
-
-impl Viewable for SequencerNano {
-    type Message = SequencerMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("BPM: {}", self.bpm()))).into()
-    }
-}
-
-impl Viewable for TriggerNano {
-    type Message = TriggerMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("Value: {}", self.value()))).into()
-    }
-}
-
-impl Viewable for WelshSynthNano {
-    type Message = WelshSynthMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        let options = vec!["Acid Bass".to_string(), "Piano".to_string()];
-        let pan_knob: Element<WelshSynthMessage> = Knob::new(
-            // TODO: toil. make it easier to go from bipolar normal to normal
-            NormalParam {
-                value: IcedNormal::from_clipped(Normal::from(self.pan()).value_as_f32()),
-                default: IcedNormal::from_clipped(0.5),
-            },
-            |n| WelshSynthMessage::Pan(BipolarNormal::from(n.as_f32())),
-        )
-        .into();
-        let column = Column::new()
-            .push(GuiStuff::<WelshSynthMessage>::container_text(
-                "Welsh coming soon",
-            ))
-            //                column.push(  pick_list(options, None, |s| {WelshSynthMessage::Pan}).font(SMALL_FONT));
-            .push(pan_knob);
-        container(column).into()
-    }
-}
-
-impl Viewable for ChorusNano {
-    type Message = ChorusMessage;
-
-    fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("delay factor: {}", self.delay_factor()))).into()
-    }
-}
-
-impl Viewable for ControlTripNano {
-    type Message = ControlTripMessage;
-}
-
-impl Viewable for MidiTickSequencerNano {
-    type Message = MidiTickSequencerMessage;
-}
-
-impl Viewable for SignalPassthroughControllerNano {
-    type Message = SignalPassthroughControllerMessage;
-}
-
-impl Viewable for TimerNano {
-    type Message = TimerMessage;
-}
-
-impl Viewable for ToyInstrumentNano {
-    type Message = ToyInstrumentMessage;
-}
-
-impl Viewable for ToyEffectNano {
-    type Message = ToyEffectMessage;
-}
-
-impl Viewable for ToySynthNano {
-    type Message = ToySynthMessage;
-}
-
-impl Viewable for ToyAudioSourceNano {
-    type Message = ToyAudioSourceMessage;
-}
-
 impl Viewable for BiQuadFilterNano {
     type Message = BiQuadFilterMessage;
 
@@ -978,30 +583,213 @@ impl Viewable for BiQuadFilterNano {
         .into()
     }
 }
+impl Viewable for ChorusNano {
+    type Message = ChorusMessage;
 
-impl Viewable for ToyControllerNano {
-    type Message = ToyControllerMessage;
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("delay factor: {}", self.delay_factor()))).into()
+    }
 }
-
 impl Viewable for CompressorNano {
     type Message = CompressorMessage;
-}
 
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(self.threshold().value_as_f32()),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| CompressorMessage::Threshold(n.as_f32().into()),
+        );
+        container(row![slider])
+            .padding(View::ITEM_OUTER_PADDING)
+            .into()
+    }
+}
+impl Viewable for ControlTripNano {
+    type Message = ControlTripMessage;
+}
 impl Viewable for DelayNano {
     type Message = DelayMessage;
 }
+impl Viewable for DrumkitNano {
+    type Message = DrumkitMessage;
+}
+impl Viewable for FmSynthNano {
+    type Message = FmSynthMessage;
 
+    fn view(&self) -> Element<Self::Message> {
+        let fm_synthesizer_ratio_range = IntRange::new(1, 32);
+        let fm_synthesizer_beta_range = FloatRange::new(0.5, 32.0);
+
+        let depth = self.depth().value();
+        let label_depth = text("Depth").size(View::LABEL_FONT_SIZE);
+        let text_depth =
+            text(format!("{:0.1}%", depth * 100.0).as_str()).size(View::LABEL_FONT_SIZE);
+        let ratio = self.ratio();
+        let label_ratio = text("Ratio").size(View::LABEL_FONT_SIZE);
+        let text_ratio = text(format!("{:0.2}", ratio).as_str()).size(View::LABEL_FONT_SIZE);
+        let beta = self.beta();
+        let label_beta = text("Beta").size(View::LABEL_FONT_SIZE);
+        let text_beta = text(format!("{:0.2}", beta).as_str()).size(View::LABEL_FONT_SIZE);
+        let depth_slider = Column::new()
+            .push(label_depth)
+            .push(Knob::new(
+                NormalParam {
+                    value: IcedNormal::from_clipped(depth as f32),
+                    default: IcedNormal::from_clipped(0.5),
+                },
+                |n| FmSynthMessage::Depth(n.as_f32().into()),
+            ))
+            .push(text_depth)
+            .align_items(Alignment::Center)
+            .padding(View::ITEM_PADDING)
+            .width(View::ITEM_WIDTH);
+        let ratio_slider = Column::new()
+            .push(label_ratio)
+            .push(Knob::new(
+                fm_synthesizer_ratio_range.normal_param(ratio as i32, 2),
+                |n| FmSynthMessage::Ratio(n.as_f32().into()),
+            ))
+            .push(text_ratio)
+            .align_items(Alignment::Center)
+            .padding(View::ITEM_PADDING)
+            .width(View::ITEM_WIDTH);
+        let beta_slider = Column::new()
+            .push(label_beta)
+            .push(Knob::new(
+                fm_synthesizer_beta_range.normal_param(beta as f32, 2.0),
+                |n| FmSynthMessage::Beta(n.as_f32().into()),
+            ))
+            .push(text_beta)
+            .align_items(Alignment::Center)
+            .padding(View::ITEM_PADDING)
+            .width(View::ITEM_WIDTH);
+        container(row![depth_slider, ratio_slider, beta_slider])
+            .padding(View::ITEM_OUTER_PADDING)
+            .into()
+    }
+}
+impl Viewable for GainNano {
+    type Message = GainMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(self.ceiling().value() as f32),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| GainMessage::Ceiling(n.as_f32().into()),
+        );
+        container(row![slider])
+            .padding(View::ITEM_OUTER_PADDING)
+            .into()
+    }
+}
+impl Viewable for LfoControllerNano {
+    type Message = LfoControllerMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!(
+            "waveform: {:?} frequency: {}",
+            self.waveform(), // TODO: proper string conversion
+            self.frequency()
+        )))
+        .into()
+    }
+}
 impl Viewable for LimiterNano {
     type Message = LimiterMessage;
+}
+impl Viewable for MidiTickSequencerNano {
+    type Message = MidiTickSequencerMessage;
+}
+impl Viewable for MixerNano {
+    type Message = MixerMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("I'm a mixer! {}", 261))).into()
+    }
+}
+impl Viewable for PatternManagerNano {
+    type Message = PatternManagerMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("nothing {}", 42))).into()
+    }
+}
+
+impl Viewable for ReverbNano {
+    type Message = ReverbMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!(
+            "attenuation: {}",
+            self.attenuation().value()
+        )))
+        .into()
+    }
 }
 impl Viewable for SamplerNano {
     type Message = SamplerMessage;
 }
-impl Viewable for FmSynthNano {
-    type Message = FmSynthMessage;
+impl Viewable for SequencerNano {
+    type Message = SequencerMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("BPM: {}", self.bpm()))).into()
+    }
 }
-impl Viewable for DrumkitNano {
-    type Message = DrumkitMessage;
+impl Viewable for SignalPassthroughControllerNano {
+    type Message = SignalPassthroughControllerMessage;
+}
+impl Viewable for TimerNano {
+    type Message = TimerMessage;
+}
+impl Viewable for ToyAudioSourceNano {
+    type Message = ToyAudioSourceMessage;
+}
+impl Viewable for ToyControllerNano {
+    type Message = ToyControllerMessage;
+}
+impl Viewable for ToyEffectNano {
+    type Message = ToyEffectMessage;
+}
+impl Viewable for ToyInstrumentNano {
+    type Message = ToyInstrumentMessage;
+}
+impl Viewable for ToySynthNano {
+    type Message = ToySynthMessage;
+}
+impl Viewable for TriggerNano {
+    type Message = TriggerMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        container(text(&format!("Value: {}", self.value()))).into()
+    }
+}
+impl Viewable for WelshSynthNano {
+    type Message = WelshSynthMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let _options = vec!["Acid Bass".to_string(), "Piano".to_string()];
+        let pan_knob: Element<WelshSynthMessage> = Knob::new(
+            // TODO: toil. make it easier to go from bipolar normal to normal
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.pan()).value_as_f32()),
+                default: IcedNormal::from_clipped(0.5),
+            },
+            |n| WelshSynthMessage::Pan(BipolarNormal::from(n.as_f32())),
+        )
+        .into();
+        let column = Column::new()
+            .push(GuiStuff::<WelshSynthMessage>::container_text(
+                "Welsh coming soon",
+            ))
+            //                column.push(  pick_list(options, None, |s| {WelshSynthMessage::Pan}).font(SMALL_FONT));
+            .push(pan_knob);
+        container(column).into()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1018,7 +806,7 @@ pub(crate) enum ViewMessage {
     Connect(usize, usize, usize),
 }
 
-#[derive(Clone, Copy, Debug, Default, FromRepr, EnumCountMacro)]
+#[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, IntoStaticStr)]
 pub(crate) enum ViewView {
     AudioLanes,
     #[default]
@@ -1044,6 +832,12 @@ pub(crate) struct View {
 }
 
 impl View {
+    pub(crate) const LABEL_FONT_SIZE: u16 = 14;
+
+    pub(crate) const ITEM_OUTER_PADDING: u16 = 16;
+    pub(crate) const ITEM_PADDING: u16 = 8;
+    pub(crate) const ITEM_WIDTH: Length = Length::Fixed(48.0);
+
     pub(crate) fn new() -> Self {
         Self {
             current_view: Default::default(),
@@ -1071,11 +865,15 @@ impl View {
     }
 
     pub(crate) fn view(&self) -> Element<ViewMessage> {
-        match self.current_view {
-            ViewView::AudioLanes => self.audio_lane_view(),
-            ViewView::Automation => self.automation_view(),
-            ViewView::Everything => self.everything_view(),
-        }
+        Card::new(
+            Text::new(<&str>::from(self.current_view)),
+            match self.current_view {
+                ViewView::AudioLanes => self.audio_lane_view(),
+                ViewView::Automation => self.automation_view(),
+                ViewView::Everything => self.everything_view(),
+            },
+        )
+        .into()
     }
 
     fn automation_view(&self) -> Element<ViewMessage> {
@@ -1297,7 +1095,9 @@ impl View {
             .entity_store
             .entities
             .iter()
-            .map(|(uid, entity)| self.entity_view(*uid, entity))
+            .map(|(uid, entity)| {
+                Card::new(Text::new(entity.name()), self.entity_view(*uid, entity)).into()
+            })
             .collect();
         let column = boxes.into_iter().fold(Column::new(), |c, e| c.push(e));
         container(column).into()
