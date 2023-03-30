@@ -1126,203 +1126,217 @@ impl View {
     }
 
     fn automation_view(&self) -> Element<ViewMessage> {
-        let controller_columns = self.controller_uids.iter().enumerate().fold(
+        let controller_views = self.controller_uids.iter().enumerate().fold(
             Vec::default(),
             |mut v, (_index, controller_uid)| {
-                let column = Column::new();
-                let controller_id = *controller_uid;
+                if let Some(view) = self.automation_controller_view(*controller_uid) {
+                    v.push(view);
+                }
+                v
+            },
+        );
+
+        let controllable_views = self.controllable_uids.iter().enumerate().fold(
+            Vec::default(),
+            |mut v, (_index, controllable_uid)| {
+                if let Some(view) = self.automation_controllable_view(*controllable_uid) {
+                    v.push(view);
+                }
+                v
+            },
+        );
+
+        let controller_row = controller_views
+            .into_iter()
+            .fold(Row::new(), |mut row, item| {
+                row = row.push(item);
+                row
+            });
+        let controllable_row = controllable_views
+            .into_iter()
+            .fold(Row::new(), |mut row, item| {
+                row = row.push(item);
+                row
+            });
+        container(column![controller_row, controllable_row]).into()
+    }
+
+    fn automation_controller_view(&self, controller_id: usize) -> Option<Element<ViewMessage>> {
+        if let Some(controller) = self.entity_store.get(&controller_id) {
+            let style = if self.is_dragging {
+                if controller_id == self.source_id {
+                    BadgeStyles::Primary
+                } else {
+                    BadgeStyles::Default
+                }
+            } else {
+                BadgeStyles::Default
+            };
+            Some(
+                Badge::new(ControlTargetWidget::<ViewMessage>::new(
+                    Text::new(controller.name()),
+                    if self.is_dragging && controller_id != self.source_id {
+                        // entering the bounds of a potential target.
+                        Some(ViewMessage::MouseIn(controller_id))
+                    } else {
+                        None
+                    },
+                    if self.is_dragging && controller_id == self.target_id {
+                        // leaving the bounds of a potential target
+                        Some(ViewMessage::MouseOut(controller_id))
+                    } else {
+                        None
+                    },
+                    if !self.is_dragging {
+                        // starting a drag operation
+                        Some(ViewMessage::MouseDown(controller_id))
+                    } else {
+                        None
+                    },
+                    if self.is_dragging {
+                        if controller_id == self.source_id {
+                            // user pressed and released on source card
+                            Some(ViewMessage::MouseUp(0))
+                        } else {
+                            // ending the drag on a target
+                            Some(ViewMessage::MouseUp(controller_id))
+                        }
+                    } else {
+                        None
+                    },
+                    if self.is_dragging && controller_id == self.source_id {
+                        // ending the drag somewhere that's not the source... but it could be a target!
+                        // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
+                        Some(ViewMessage::MouseUp(0))
+                    } else {
+                        None
+                    },
+                ))
+                .style(style)
+                .into(),
+            )
+        } else {
+            None
+        }
+    }
+
+    fn automation_controllable_view(&self, controllable_id: usize) -> Option<Element<ViewMessage>> {
+        if let Some(entity) = self.entity_store.get(&controllable_id) {
+            if let Some(controllable) = entity.as_controllable() {
+                let mut column = Column::new();
+                for index in 0..controllable.control_index_count() {
+                    if let Some(name) = controllable.control_name_for_index(index) {
+                        column = column.push(self.automation_control_point_view(
+                            controllable_id,
+                            index,
+                            name.to_string(),
+                        ));
+                    }
+                }
                 let card_style = if self.is_dragging {
-                    if controller_id == self.source_id {
+                    if controllable_id == self.source_id {
                         CardStyles::Primary
+                    } else if controllable_id == self.target_id {
+                        CardStyles::Danger
                     } else {
                         CardStyles::Default
                     }
                 } else {
                     CardStyles::Default
                 };
-                let controller = self.entity_store.get(controller_uid).unwrap(); // TODO no unwraps!
-                let card = Card::new(
-                    ControlTargetWidget::<ViewMessage>::new(
-                        Text::new("TBD"),
-                        if self.is_dragging && controller_id != self.source_id {
-                            // entering the bounds of a potential target.
-                            Some(ViewMessage::MouseIn(controller_id))
-                        } else {
-                            None
-                        },
-                        if self.is_dragging && controller_id == self.target_id {
-                            // leaving the bounds of a potential target
-                            Some(ViewMessage::MouseOut(controller_id))
-                        } else {
-                            None
-                        },
-                        if !self.is_dragging {
+                return Some(
+                    Card::new(
+                        ControlTargetWidget::<ViewMessage>::new(
+                            Text::new(entity.name()),
+                            // Sources aren't targets.
+                            None,
+                            // Don't care.
+                            None,
                             // starting a drag operation
-                            Some(ViewMessage::MouseDown(controller_id))
-                        } else {
-                            None
-                        },
-                        if self.is_dragging {
-                            if controller_id == self.source_id {
-                                // user pressed and released on source card
+                            Some(ViewMessage::MouseDown(controllable_id)),
+                            if self.is_dragging && controllable_id != self.source_id {
+                                // ending the drag on a target
+                                Some(ViewMessage::MouseUp(controllable_id))
+                            } else {
+                                None
+                            },
+                            if self.is_dragging && controllable_id == self.source_id {
+                                // ending the drag somewhere that's not the source... but it could be a target!
+                                // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
                                 Some(ViewMessage::MouseUp(0))
                             } else {
-                                // ending the drag on a target
-                                Some(ViewMessage::MouseUp(controller_id))
-                            }
-                        } else {
-                            None
-                        },
-                        if self.is_dragging && controller_id == self.source_id {
-                            // ending the drag somewhere that's not the source... but it could be a target!
-                            // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
-                            Some(ViewMessage::MouseUp(0))
-                        } else {
-                            None
-                        },
-                    ),
-                    column,
-                )
-                .style(card_style);
-                v.push(card);
-                v
-            },
-        );
+                                None
+                            },
+                        ),
+                        column,
+                    )
+                    .style(card_style)
+                    .into(),
+                );
+            }
+        }
+        None
+    }
 
-        let controllable_columns = self.controllable_uids.iter().enumerate().fold(
-            Vec::default(),
-            |mut v, (_index, controllable_uid)| {
-                let mut column = Column::new();
-                let controllable_id = *controllable_uid;
-                if let Some(controllable) = self.entity_store.get(controllable_uid) {
-                    if let Some(controllable) = controllable.as_controllable() {
-                        for param_id in 0..controllable.control_index_count() {
-                            let param_app_id = controllable_id * 10000 + param_id;
-                            let badge_style = if self.is_dragging {
-                                if param_app_id == self.source_id {
-                                    BadgeStyles::Danger // This shouldn't happen (I think) because it's a source, not a target
-                                } else if param_app_id == self.target_id {
-                                    BadgeStyles::Success // Hovering over target, so highlight it specially
-                                } else {
-                                    BadgeStyles::Info // Indicate that it's a potential target
-                                }
-                            } else {
-                                BadgeStyles::Default // Regular state
-                            };
-                            let child = ControlTargetWidget::<ViewMessage>::new(
-                                Badge::new(Text::new(
-                                    controllable
-                                        .control_name_for_index(param_id)
-                                        .unwrap_or_default()
-                                        .to_string(),
-                                ))
-                                .style(badge_style),
-                                if self.is_dragging && param_app_id != self.source_id {
-                                    // entering the bounds of a potential target.
-                                    Some(ViewMessage::MouseIn(param_app_id))
-                                } else {
-                                    None
-                                },
-                                if self.is_dragging && param_app_id == self.target_id {
-                                    // leaving the bounds of a potential target
-                                    Some(ViewMessage::MouseOut(param_app_id))
-                                } else {
-                                    None
-                                },
-                                if !self.is_dragging {
-                                    // starting a drag operation
-                                    Some(ViewMessage::MouseDown(param_app_id))
-                                } else {
-                                    None
-                                },
-                                if self.is_dragging && param_app_id != self.source_id {
-                                    // ending the drag on a target
-                                    Some(ViewMessage::Connect(
-                                        self.source_id,
-                                        controllable_id,
-                                        param_id,
-                                    ))
-                                } else {
-                                    None
-                                },
-                                if self.is_dragging && param_app_id == self.source_id {
-                                    // ending the drag somewhere that's not the source... but it could be a target!
-                                    // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
-                                    Some(ViewMessage::MouseUp(0))
-                                } else {
-                                    None
-                                },
-                                // Other cases to handle
-                                // - leaving the window entirely
-                                // - keyboard stuff
-                            );
-                            column = column.push(child);
-                        }
-                        let card_style = if self.is_dragging {
-                            if controllable_id == self.source_id {
-                                CardStyles::Primary
-                            } else if controllable_id == self.target_id {
-                                CardStyles::Danger
-                            } else {
-                                CardStyles::Default
-                            }
-                        } else {
-                            CardStyles::Default
-                        };
-                        let card = Card::new(
-                            ControlTargetWidget::<ViewMessage>::new(
-                                Text::new(
-                                    format!("I don't know my name yet! {}", controllable_uid)
-                                        .to_string(),
-                                ),
-                                // Sources aren't targets.
-                                None,
-                                // Don't care.
-                                None,
-                                // starting a drag operation
-                                Some(ViewMessage::MouseDown(controllable_id)),
-                                if self.is_dragging && controllable_id != self.source_id {
-                                    // ending the drag on a target
-                                    Some(ViewMessage::MouseUp(controllable_id))
-                                } else {
-                                    None
-                                },
-                                if self.is_dragging && controllable_id == self.source_id {
-                                    // ending the drag somewhere that's not the source... but it could be a target!
-                                    // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
-                                    Some(ViewMessage::MouseUp(0))
-                                } else {
-                                    None
-                                },
-                            ),
-                            column,
-                        )
-                        .style(card_style);
-                        v.push(card);
-                        v
-                    } else {
-                        panic!()
-                    }
-                } else {
-                    panic!()
-                }
+    fn automation_control_point_view(
+        &self,
+        controllable_id: usize,
+        param_id: usize,
+        name: String,
+    ) -> ControlTargetWidget<ViewMessage> {
+        let param_app_id = controllable_id * 10000 + param_id;
+        let badge_style = if self.is_dragging {
+            if param_app_id == self.source_id {
+                BadgeStyles::Danger // This shouldn't happen (I think) because it's a source, not a target
+            } else if param_app_id == self.target_id {
+                BadgeStyles::Success // Hovering over target, so highlight it specially
+            } else {
+                BadgeStyles::Info // Indicate that it's a potential target
+            }
+        } else {
+            BadgeStyles::Default // Regular state
+        };
+        ControlTargetWidget::<ViewMessage>::new(
+            Badge::new(Text::new(name)).style(badge_style),
+            if self.is_dragging && param_app_id != self.source_id {
+                // entering the bounds of a potential target.
+                Some(ViewMessage::MouseIn(param_app_id))
+            } else {
+                None
             },
-        );
-
-        let controller_row = controller_columns
-            .into_iter()
-            .fold(Row::new(), |mut row, item| {
-                row = row.push(item);
-                row
-            });
-        let controllable_row =
-            controllable_columns
-                .into_iter()
-                .fold(Row::new(), |mut row, item| {
-                    row = row.push(item);
-                    row
-                });
-        container(column![controller_row, controllable_row]).into()
+            if self.is_dragging && param_app_id == self.target_id {
+                // leaving the bounds of a potential target
+                Some(ViewMessage::MouseOut(param_app_id))
+            } else {
+                None
+            },
+            if !self.is_dragging {
+                // starting a drag operation
+                Some(ViewMessage::MouseDown(param_app_id))
+            } else {
+                None
+            },
+            if self.is_dragging && param_app_id != self.source_id {
+                // ending the drag on a target
+                Some(ViewMessage::Connect(
+                    self.source_id,
+                    controllable_id,
+                    param_id,
+                ))
+            } else {
+                None
+            },
+            if self.is_dragging && param_app_id == self.source_id {
+                // ending the drag somewhere that's not the source... but it could be a target!
+                // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
+                Some(ViewMessage::MouseUp(0))
+            } else {
+                None
+            },
+            // Other cases to handle
+            // - leaving the window entirely
+            // - keyboard stuff
+        )
     }
 
     fn everything_view(&self) -> Element<ViewMessage> {

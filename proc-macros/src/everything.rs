@@ -156,6 +156,11 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
             }
         }
         impl EntityNano {
+            pub fn name(&self) -> &'static str {
+                match self {
+                    #(EntityNano::#structs(e) => {stringify!(#structs)} ),*
+                }
+            }
             pub fn update(&mut self, message: OtherEntityMessage) {
                 match self {
                 #(
