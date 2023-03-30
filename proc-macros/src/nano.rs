@@ -15,6 +15,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
         let struct_snake_case_name = stringify!("{}", struct_name.to_string().to_case(Case::Snake));
         let nano_name = format_ident!("{}Nano", struct_name);
         let message_type_name = format_ident!("{}Message", struct_name);
+        let unit_only_enum_name = format_ident!("{}UnitOnly", struct_name);
 
         let (_impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
         // Code adapted from https://blog.turbo.fish/proc-macro-error-handling/
@@ -73,12 +74,26 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             }
 
         };
+
         let message_block = quote! {
-            #[derive(Clone, Display, Debug, EnumCountMacro, EnumString, FromRepr, IntoStaticStr, PartialEq)]
-            #[strum(serialize_all = "kebab-case")]
+            #[derive(Clone, Display, Debug, PartialEq)]
             pub enum #message_type_name {
                 #struct_name ( #nano_name ),
                 #( #variant_names ( #field_types ) ),*
+            }
+        };
+
+        // https://doc.rust-lang.org/reference/items/enumerations.html
+        //
+        // I need a way to convert enum names into indexes, and I lost the easy
+        // way when my enums started carrying more complex structs, thus no
+        // longer being "unit-only enums." Rather than fight this, I am making a
+        // separate unit-only enum that does what I want!
+        let unit_enum_block = quote! {
+            #[derive(Debug, EnumCountMacro, EnumString, FromRepr, IntoStaticStr)]
+            #[strum(serialize_all = "kebab-case")]
+            pub enum #unit_only_enum_name {
+                #( #variant_names ),*
             }
         };
 
@@ -106,8 +121,8 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                 param_name: &str,
                 value: groove_core::control::F32ControlValue,
             ) -> Option<#message_type_name> {
-                if let Ok(message) = #message_type_name::from_str(param_name) {
-                    self.parameterized_message_from_message(message, value)
+                if let Ok(unit_enum) = #unit_only_enum_name::from_str(param_name) {
+                    self.parameterized_message_from_unit_enum(unit_enum, value)
                 } else {
                     None
                 }
@@ -118,21 +133,20 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                 param_index: usize,
                 value: groove_core::control::F32ControlValue,
             ) -> Option<#message_type_name> {
-                if let Some(message) = #message_type_name::from_repr(param_index + 1) {
-                    self.parameterized_message_from_message(message, value)
+                if let Some(unit_enum) = #unit_only_enum_name::from_repr(param_index) {
+                    self.parameterized_message_from_unit_enum(unit_enum, value)
                 } else {
                     None
                 }
             }
 
-            pub fn parameterized_message_from_message(
+            pub fn parameterized_message_from_unit_enum(
                 &self,
-                message: #message_type_name,
+                unit_enum: #unit_only_enum_name,
                 value: groove_core::control::F32ControlValue,
             ) -> Option<#message_type_name> {
-                match message {
-                    #message_type_name::#struct_name(_) => {return None;}
-                    #( #message_type_name::#variant_names(_) => {return Some(#message_type_name::#variant_names(value.into()));} )*
+                match unit_enum {
+                    #( #unit_only_enum_name::#variant_names => {return Some(#message_type_name::#variant_names(value.into()));} )*
                 }
             }
         };
@@ -154,14 +168,22 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
         };
         let controllable_block = quote! {
             fn control_name_for_index(&self, index: usize) -> Option<&'static str> {
-                if let Some(message) = #message_type_name::from_repr(index + 1) {
+                if let Some(message) = #unit_only_enum_name::from_repr(index) {
                     Some(message.into())
                 } else {
                     None
                 }
             }
+            fn control_index_for_name(&self, name: &str) -> usize {
+                if let Ok(param) = #unit_only_enum_name::from_str(name) {
+                    param as usize
+                } else {
+                    eprintln!("Unrecognized control param name: {}", name);
+                    usize::MAX
+                }
+            }
             fn control_index_count(&self) -> usize {
-                #message_type_name::COUNT - 1
+                #unit_only_enum_name::COUNT
             }
         };
         quote! {
@@ -169,6 +191,8 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             #nano_struct_block
             #[automatically_derived]
             #message_block
+            #[automatically_derived]
+            #unit_enum_block
             #[automatically_derived]
             #getter_setter_block
             #[automatically_derived]
