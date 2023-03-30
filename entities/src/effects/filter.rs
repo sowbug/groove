@@ -2,7 +2,7 @@
 
 use groove_core::{
     traits::{IsEffect, TransformsAudio},
-    Normal, ParameterType, Sample,
+    FrequencyHz, Normal, ParameterType, Sample,
 };
 use groove_proc_macros::{Nano, Uid};
 use std::{f64::consts::PI, str::FromStr};
@@ -116,7 +116,7 @@ pub struct BiQuadFilter {
     uid: usize,
 
     #[nano]
-    cutoff: ParameterType,
+    cutoff: FrequencyHz,
 
     sample_rate: usize,
     filter_type: FilterType,
@@ -196,30 +196,6 @@ impl Default for BiQuadFilter {
 #[allow(dead_code)]
 #[allow(unused_variables)]
 impl BiQuadFilter {
-    pub const FREQUENCY_TO_LINEAR_BASE: ParameterType = 800.0;
-    pub const FREQUENCY_TO_LINEAR_COEFFICIENT: ParameterType = 25.0;
-
-    // https://docs.google.com/spreadsheets/d/1uQylh2h77-fuJ6OM0vjF7yjRXflLFP0yQEnv5wbaP2c/edit#gid=0
-    // =LOGEST(Sheet1!B2:B23, Sheet1!A2:A23,true, false)
-    //
-    // Column A is 24db filter percentages from all the patches. Column B is
-    // envelope-filter percentages from all the patches.
-    pub fn percent_to_frequency(percentage: Normal) -> ParameterType {
-        Self::FREQUENCY_TO_LINEAR_COEFFICIENT
-            * Self::FREQUENCY_TO_LINEAR_BASE.powf(percentage.value())
-    }
-
-    pub fn frequency_to_percent(frequency: ParameterType) -> Normal {
-        debug_assert!(frequency >= 0.0);
-
-        // I was stressed out about slightly negative values, but then I decided
-        // that adjusting the log numbers to handle more edge cases wasn't going
-        // to make a practical difference. So I'm clamping to [0, 1].
-        Normal::from(
-            (frequency / Self::FREQUENCY_TO_LINEAR_COEFFICIENT).log(Self::FREQUENCY_TO_LINEAR_BASE),
-        )
-    }
-
     // A placeholder for an intelligent mapping of 0.0..=1.0 to a reasonable Q
     // range
     pub fn denormalize_q(value: Normal) -> ParameterType {
@@ -322,7 +298,7 @@ impl BiQuadFilter {
             _ => self.rbj_none_coefficients(),
         };
         if matches!(self.filter_type, FilterType::LowPass24db) {
-            let k = (PI * self.cutoff as f64 / self.sample_rate as f64).tan();
+            let k = (PI * self.cutoff.value() / self.sample_rate as f64).tan();
             let p2 = self.q;
             let sg = p2.sinh();
             let cg = p2.cosh() * p2.cosh();
@@ -358,23 +334,23 @@ impl BiQuadFilter {
         }
     }
 
-    pub fn cutoff_hz(&self) -> ParameterType {
+    pub fn cutoff(&self) -> FrequencyHz {
         self.cutoff
     }
 
-    pub(crate) fn set_cutoff_hz(&mut self, hz: ParameterType) {
+    pub(crate) fn set_cutoff(&mut self, hz: FrequencyHz) {
         if self.cutoff != hz {
-            self.set_cutoff(hz as ParameterType);
+            self.cutoff = hz;
             self.update_coefficients();
         }
     }
 
     pub fn cutoff_pct(&self) -> Normal {
-        Self::frequency_to_percent(self.cutoff)
+        self.cutoff.into()
     }
 
     pub fn set_cutoff_pct(&mut self, percent: Normal) {
-        self.set_cutoff_hz(Self::percent_to_frequency(percent));
+        self.set_cutoff(percent.into());
     }
 
     // pub fn set_param2(&mut self, value: f32) {
@@ -476,7 +452,7 @@ impl BiQuadFilter {
 
     fn rbj_low_pass_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Self::rbj_intermediates_q(self.sample_rate, self.cutoff, self.q);
+            Self::rbj_intermediates_q(self.sample_rate, self.cutoff.value(), self.q);
 
         CoefficientSet {
             a0: 1.0 + alpha,
@@ -490,7 +466,7 @@ impl BiQuadFilter {
 
     fn rbj_high_pass_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Self::rbj_intermediates_q(self.sample_rate, self.cutoff, self.q);
+            Self::rbj_intermediates_q(self.sample_rate, self.cutoff.value(), self.q);
 
         CoefficientSet {
             a0: 1.0 + alpha,
@@ -516,7 +492,7 @@ impl BiQuadFilter {
 
     fn rbj_band_pass_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Self::rbj_intermediates_bandwidth(self.sample_rate, self.cutoff, self.q);
+            Self::rbj_intermediates_bandwidth(self.sample_rate, self.cutoff.value(), self.q);
         CoefficientSet {
             a0: 1.0 + alpha,
             a1: -2.0f64 * w0cos,
@@ -529,7 +505,7 @@ impl BiQuadFilter {
 
     fn rbj_band_stop_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Self::rbj_intermediates_bandwidth(self.sample_rate, self.cutoff, self.q);
+            Self::rbj_intermediates_bandwidth(self.sample_rate, self.cutoff.value(), self.q);
 
         CoefficientSet {
             a0: 1.0 + alpha,
@@ -543,7 +519,7 @@ impl BiQuadFilter {
 
     fn rbj_all_pass_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) =
-            Self::rbj_intermediates_q(self.sample_rate, self.cutoff, self.q);
+            Self::rbj_intermediates_q(self.sample_rate, self.cutoff.value(), self.q);
         CoefficientSet {
             a0: 1.0 + alpha,
             a1: -2.0f64 * w0cos,
@@ -557,7 +533,7 @@ impl BiQuadFilter {
     fn rbj_peaking_eq_coefficients(&self) -> CoefficientSet {
         let (w0, w0cos, w0sin, alpha) = Self::rbj_intermediates_q(
             self.sample_rate,
-            self.cutoff,
+            self.cutoff.value(),
             std::f64::consts::FRAC_1_SQRT_2,
         );
         let a = 10f64.powf(self.q / 10.0f64).sqrt();
@@ -588,7 +564,7 @@ impl BiQuadFilter {
     fn rbj_low_shelf_coefficients(&self) -> CoefficientSet {
         let a = 10f64.powf(self.q / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
+            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff.value(), a, 1.0);
 
         CoefficientSet {
             a0: (a + 1.0) + (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
@@ -603,7 +579,7 @@ impl BiQuadFilter {
     fn rbj_high_shelf_coefficients(&self) -> CoefficientSet {
         let a = 10f64.powf(self.q / 10.0f64).sqrt();
         let (_w0, w0cos, _w0sin, alpha) =
-            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff, a, 1.0);
+            BiQuadFilter::rbj_intermediates_shelving(self.sample_rate, self.cutoff.value(), a, 1.0);
 
         CoefficientSet {
             a0: (a + 1.0) - (a - 1.0) * w0cos + 2.0 * a.sqrt() * alpha,
@@ -618,17 +594,9 @@ impl BiQuadFilter {
     pub fn update(&mut self, message: BiQuadFilterMessage) {
         match message {
             BiQuadFilterMessage::BiQuadFilter(e) => *self = Self::new_with(self.sample_rate, e),
-            BiQuadFilterMessage::Cutoff(cutoff) => self.set_cutoff_pct(cutoff.into()),
+            BiQuadFilterMessage::Cutoff(cutoff) => self.set_cutoff(cutoff),
             BiQuadFilterMessage::Q(q) => self.set_q(q.into()),
         }
-    }
-
-    pub fn cutoff(&self) -> f64 {
-        self.cutoff
-    }
-
-    pub fn set_cutoff(&mut self, cutoff: ParameterType) {
-        self.cutoff = cutoff;
     }
 }
 

@@ -7,7 +7,7 @@ use groove_core::{
     generators::{Oscillator, WaveformParams},
     midi::{note_to_frequency, GeneralMidiProgram},
     voices::StealingVoiceStore,
-    Normal, ParameterType,
+    FrequencyHz, Normal, ParameterType,
 };
 use groove_entities::{
     effects::{BiQuadFilter, BiQuadFilterNano},
@@ -133,7 +133,7 @@ impl WelshPatchSettings {
             },
         );
         let filter_cutoff_start =
-            BiQuadFilter::frequency_to_percent(self.filter_type_12db.cutoff_hz.into());
+            FrequencyHz::frequency_to_percent(self.filter_type_12db.cutoff_hz.into());
         let filter_cutoff_end = self.filter_envelope_weight;
         let filter_envelope = self.filter_envelope.derive_envelope(sample_rate);
 

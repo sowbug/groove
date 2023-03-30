@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::{BipolarNormal, Normal};
+use crate::{BipolarNormal, FrequencyHz, Normal};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct F32ControlValue(pub f32);
@@ -64,6 +64,16 @@ impl Into<F32ControlValue> for BipolarNormal {
     fn into(self) -> F32ControlValue {
         let n: Normal = self.into();
         n.into()
+    }
+}
+impl From<F32ControlValue> for FrequencyHz {
+    fn from(value: F32ControlValue) -> Self {
+        Self::percent_to_frequency(Normal::from(value)).into()
+    }
+}
+impl Into<F32ControlValue> for FrequencyHz {
+    fn into(self) -> F32ControlValue {
+        Self::frequency_to_percent(self.0).into()
     }
 }
 

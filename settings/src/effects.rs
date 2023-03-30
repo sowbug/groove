@@ -107,7 +107,7 @@ impl EffectSettings {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
                     BiQuadFilterNano {
-                        cutoff,
+                        cutoff: cutoff.into(),
                         q: q.into(),
                     },
                 )))
@@ -118,7 +118,7 @@ impl EffectSettings {
             } => Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                 sample_rate,
                 BiQuadFilterNano {
-                    cutoff,
+                    cutoff: cutoff.into(),
                     q: passband_ripple.into(),
                 },
             ))),
@@ -127,7 +127,7 @@ impl EffectSettings {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
                     BiQuadFilterNano {
-                        cutoff,
+                        cutoff: cutoff.into(),
                         q: q.into(),
                     },
                 )))
@@ -136,7 +136,7 @@ impl EffectSettings {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
                     BiQuadFilterNano {
-                        cutoff,
+                        cutoff: cutoff.into(),
                         q: bandwidth.into(),
                     },
                 )))
@@ -145,7 +145,7 @@ impl EffectSettings {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
                     BiQuadFilterNano {
-                        cutoff,
+                        cutoff: cutoff.into(),
                         q: bandwidth.into(),
                     },
                 )))
@@ -154,7 +154,7 @@ impl EffectSettings {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
                     BiQuadFilterNano {
-                        cutoff,
+                        cutoff: cutoff.into(),
                         q: q.into(),
                     },
                 )))
@@ -163,7 +163,7 @@ impl EffectSettings {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
                     BiQuadFilterNano {
-                        cutoff,
+                        cutoff: cutoff.into(),
                         q: db_gain.into(),
                     },
                 )))
@@ -172,7 +172,7 @@ impl EffectSettings {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
                     BiQuadFilterNano {
-                        cutoff,
+                        cutoff: cutoff.into(),
                         q: db_gain.into(),
                     },
                 )))
@@ -181,7 +181,7 @@ impl EffectSettings {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
                     BiQuadFilterNano {
-                        cutoff,
+                        cutoff: cutoff.into(),
                         q: db_gain.into(),
                     },
                 )))

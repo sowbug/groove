@@ -367,6 +367,16 @@ impl From<Normal> for BipolarNormal {
         Self(value.value() * 2.0 - 1.0)
     }
 }
+impl From<FrequencyHz> for Normal {
+    fn from(value: FrequencyHz) -> Self {
+        FrequencyHz::frequency_to_percent(value.value())
+    }
+}
+impl Into<FrequencyHz> for Normal {
+    fn into(self) -> FrequencyHz {
+        FrequencyHz::percent_to_frequency(self).into()
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -424,6 +434,49 @@ impl Dca {
         let left_pan: f64 = 1.0 - 0.25 * (self.params.pan.value() + 1.0).powi(2);
         let right_pan: f64 = 1.0 - (0.5 * self.params.pan.value() - 0.5).powi(2);
         StereoSample::new_from_f64(left_pan * input_sample, right_pan * input_sample)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct FrequencyHz(ParameterType);
+impl FrequencyHz {
+    pub const FREQUENCY_TO_LINEAR_BASE: ParameterType = 800.0;
+    pub const FREQUENCY_TO_LINEAR_COEFFICIENT: ParameterType = 25.0;
+
+    // https://docs.google.com/spreadsheets/d/1uQylh2h77-fuJ6OM0vjF7yjRXflLFP0yQEnv5wbaP2c/edit#gid=0
+    // =LOGEST(Sheet1!B2:B23, Sheet1!A2:A23,true, false)
+    //
+    // Column A is 24db filter percentages from all the patches. Column B is
+    // envelope-filter percentages from all the patches.
+    pub fn percent_to_frequency(percentage: Normal) -> ParameterType {
+        Self::FREQUENCY_TO_LINEAR_COEFFICIENT
+            * Self::FREQUENCY_TO_LINEAR_BASE.powf(percentage.value())
+    }
+
+    pub fn frequency_to_percent(frequency: ParameterType) -> Normal {
+        debug_assert!(frequency >= 0.0);
+
+        // I was stressed out about slightly negative values, but then I decided
+        // that adjusting the log numbers to handle more edge cases wasn't going
+        // to make a practical difference. So I'm clamping to [0, 1].
+        Normal::from(
+            (frequency / Self::FREQUENCY_TO_LINEAR_COEFFICIENT).log(Self::FREQUENCY_TO_LINEAR_BASE),
+        )
+    }
+
+    pub fn value(&self) -> f64 {
+        self.0
+    }
+}
+impl From<f64> for FrequencyHz {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+impl Into<FrequencyHz> for f32 {
+    fn into(self) -> FrequencyHz {
+        FrequencyHz(self as f64)
     }
 }
 

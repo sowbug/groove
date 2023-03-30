@@ -105,72 +105,6 @@ impl EntityView {
         self.entity_view_states.clear();
     }
 
-    #[deprecated]
-    pub(crate) fn view(&self, entity: &Entity) -> Element<EntityMessage> {
-        match entity {
-            Entity::Arpeggiator(e) => self.arpeggiator_view(e),
-            Entity::BiQuadFilter(e) => self.biquad_filter_view(e),
-            Entity::Bitcrusher(e) => self.bitcrusher_view(e),
-            Entity::Chorus(e) => self.chorus_view(e),
-            Entity::Compressor(e) => self.compressor_view(e),
-            Entity::ControlTrip(e) => self.control_trip_view(e),
-            Entity::Delay(e) => self.delay_view(e),
-            Entity::Drumkit(e) => self.drumkit_view(e),
-            Entity::FmSynth(e) => self.fm_synth_view(e),
-            Entity::Gain(e) => self.gain_view(e),
-            Entity::LfoController(e) => self.lfo_view(e),
-            Entity::Limiter(e) => self.limiter_view(e),
-            Entity::MidiTickSequencer(e) => self.midi_tick_sequencer_view(e),
-            Entity::Mixer(e) => self.mixer_view(e),
-            Entity::PatternManager(e) => self.pattern_manager_view(e),
-            Entity::Reverb(e) => self.reverb_view(e),
-            Entity::Sampler(e) => self.sampler_view(e),
-            Entity::Sequencer(e) => self.sequencer_view(e),
-            Entity::SignalPassthroughController(e) => self.signal_controller_view(e),
-            Entity::Timer(e) => self.timer_view(e),
-            Entity::ToyAudioSource(e) => self.audio_source_view(e),
-            Entity::ToyController(e) => self.toy_controller_view(e),
-            Entity::ToyEffect(e) => self.toy_effect_view(e),
-            Entity::ToyInstrument(e) => self.test_instrument_view(e),
-            Entity::ToySynth(e) => self.test_synth_view(e),
-            Entity::WelshSynth(e) => self.welsh_synth_view(e),
-            Entity::Trigger(e) => panic!(),
-        }
-    }
-
-    fn arpeggiator_view(&self, e: &Arpeggiator) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text("I'm an arpeggiator!").into()
-        })
-    }
-
-    fn audio_source_view(&self, e: &ToyAudioSource) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            GuiStuff::<EntityMessage>::container_text(format!("Coming soon: {}", e.uid()).as_str())
-                .into()
-        })
-    }
-
-    fn biquad_filter_view(&self, e: &BiQuadFilter) -> Element<EntityMessage> {
-        self.collapsing_box(e, || {
-            let slider = HSlider::new(
-                NormalParam {
-                    value: IcedNormal::from_clipped(e.cutoff_pct().value_as_f32()),
-                    default: IcedNormal::from_clipped(1.0),
-                },
-                EntityMessage::HSliderInt,
-            );
-            row![
-                container(slider).width(iced::Length::FillPortion(1)),
-                container(GuiStuff::<EntityMessage>::container_text(
-                    format!("cutoff: {}Hz", e.cutoff_hz()).as_str()
-                ))
-                .width(iced::Length::FillPortion(1))
-            ]
-            .into()
-        })
-    }
-
     fn bitcrusher_view(&self, e: &Bitcrusher) -> Element<EntityMessage> {
         self.collapsing_box(e, || {
             container(row![HSlider::new(
@@ -1024,6 +958,25 @@ impl Viewable for ToyAudioSourceNano {
 
 impl Viewable for BiQuadFilterNano {
     type Message = BiQuadFilterMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| BiQuadFilterMessage::Cutoff(Normal::from(n.as_f32()).into()),
+        );
+        row![
+            container(slider).width(iced::Length::FillPortion(1)),
+            container(GuiStuff::<EntityMessage>::container_text(&format!(
+                "cutoff: {:.1}Hz",
+                self.cutoff().value()
+            )))
+            .width(iced::Length::FillPortion(1))
+        ]
+        .into()
+    }
 }
 
 impl Viewable for ToyControllerNano {
