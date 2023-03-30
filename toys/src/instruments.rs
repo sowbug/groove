@@ -196,7 +196,10 @@ impl ToyInstrument {
     }
 
     pub fn update(&mut self, message: ToyInstrumentMessage) {
-        todo!()
+        match message {
+            ToyInstrumentMessage::ToyInstrument(s) => *self = Self::new_with(self.sample_rate, s),
+            ToyInstrumentMessage::FakeValue(fake_value) => self.set_fake_value(fake_value),
+        }
     }
 }
 
@@ -301,7 +304,18 @@ impl ToySynth {
     }
 
     pub fn update(&mut self, message: ToySynthMessage) {
-        todo!()
+        match message {
+            ToySynthMessage::ToySynth(_) => *self = Self::new_with(self.sample_rate),
+            ToySynthMessage::FakeValue(fake_value) => self.set_fake_value(fake_value),
+        }
+    }
+
+    pub fn fake_value(&self) -> Normal {
+        self.fake_value
+    }
+
+    pub fn set_fake_value(&mut self, fake_value: Normal) {
+        self.fake_value = fake_value;
     }
 }
 
@@ -342,15 +356,26 @@ impl ToyAudioSource {
     pub const QUIET: SampleType = -1.0;
     pub const TOO_QUIET: SampleType = -1.1;
 
-    pub fn new_with(level: SampleType) -> Self {
+    pub fn new_with(params: ToyAudioSourceNano) -> Self {
         Self {
-            level,
+            level: params.level(),
             ..Default::default()
         }
     }
 
     pub fn update(&mut self, message: ToyAudioSourceMessage) {
-        todo!()
+        match message {
+            ToyAudioSourceMessage::ToyAudioSource(s) => *self = Self::new_with(s),
+            ToyAudioSourceMessage::Level(level) => self.set_level(level),
+        }
+    }
+
+    pub fn level(&self) -> f64 {
+        self.level
+    }
+
+    pub fn set_level(&mut self, level: ParameterType) {
+        self.level = level;
     }
 }
 

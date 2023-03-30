@@ -1002,7 +1002,7 @@ pub mod tests {
         },
         effects::Gain,
     };
-    use groove_toys::{ToyAudioSource, ToyInstrument, ToyInstrumentNano};
+    use groove_toys::{ToyAudioSource, ToyAudioSourceNano, ToyInstrument, ToyInstrumentNano};
 
     impl Orchestrator {
         /// Warning! This method exists only as a debug shortcut to
@@ -1035,10 +1035,10 @@ pub mod tests {
     fn gather_audio_basic() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let level_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.1,
+            ToyAudioSourceNano { level: 0.1 },
         ))));
         let level_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.2,
+            ToyAudioSourceNano { level: 0.2 },
         ))));
 
         // Nothing connected: should output silence.
@@ -1066,17 +1066,17 @@ pub mod tests {
     fn gather_audio() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let level_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.1,
+            ToyAudioSourceNano { level: 0.1 },
         ))));
         let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))));
         let level_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.2,
+            ToyAudioSourceNano { level: 0.2 },
         ))));
         let level_3_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.3,
+            ToyAudioSourceNano { level: 0.3 },
         ))));
         let level_4_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.4,
+            ToyAudioSourceNano { level: 0.4 },
         ))));
 
         // Nothing connected: should output silence.
@@ -1135,23 +1135,23 @@ pub mod tests {
     fn gather_audio_2() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let piano_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.1,
+            ToyAudioSourceNano { level: 0.1 },
         ))));
         let low_pass_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.2)))));
         let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.4)))));
 
         let bassline_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.3,
+            ToyAudioSourceNano { level: 0.3 },
         ))));
         let gain_2_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.6)))));
 
         let synth_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.5,
+            ToyAudioSourceNano { level: 0.5 },
         ))));
         let gain_3_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.8)))));
 
         let drum_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.7,
+            ToyAudioSourceNano { level: 0.7 },
         ))));
 
         // First chain.
@@ -1217,13 +1217,13 @@ pub mod tests {
     fn gather_audio_with_branches() {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
         let instrument_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.1,
+            ToyAudioSourceNano { level: 0.1 },
         ))));
         let instrument_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.3,
+            ToyAudioSourceNano { level: 0.3 },
         ))));
         let instrument_3_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
-            0.5,
+            ToyAudioSourceNano { level: 0.5 },
         ))));
         let effect_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(Normal::new(0.5)))));
 

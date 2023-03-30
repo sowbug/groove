@@ -76,11 +76,29 @@ impl ToyEffect {
         }
     }
 
+    pub fn new_with(params: ToyEffectNano) -> Self {
+        Self {
+            uid: Default::default(),
+            my_value: params.my_value(),
+            checkpoint_values: Default::default(),
+            checkpoint: Default::default(),
+            checkpoint_delta: Default::default(),
+            time_unit: Default::default(),
+        }
+    }
+
     pub fn update(&mut self, message: ToyEffectMessage) {
-        todo!()
+        match message {
+            ToyEffectMessage::ToyEffect(s) => *self = Self::new_with(s),
+            ToyEffectMessage::MyValue(my_value) => self.set_my_value(my_value),
+        }
     }
 
     pub fn my_value(&self) -> Normal {
         self.my_value
+    }
+
+    pub fn set_my_value(&mut self, my_value: Normal) {
+        self.my_value = my_value;
     }
 }

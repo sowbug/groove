@@ -51,7 +51,17 @@ impl Gain {
     }
 
     pub fn update(&mut self, message: GainMessage) {
-        todo!()
+        match message {
+            GainMessage::Gain(s) => *self = Self::new_with_params(s),
+            GainMessage::Ceiling(ceiling) => self.set_ceiling(ceiling),
+        }
+    }
+
+    fn new_with_params(params: GainNano) -> Self {
+        Self {
+            uid: Default::default(),
+            ceiling: params.ceiling,
+        }
     }
 }
 
@@ -59,13 +69,18 @@ impl Gain {
 mod tests {
     use super::*;
     use groove_core::{traits::Generates, StereoSample};
-    use groove_toys::ToyAudioSource;
+    use groove_toys::{ToyAudioSource, ToyAudioSourceNano};
 
     #[test]
     fn test_gain_mainline() {
         let mut gain = Gain::new_with(Normal::new(0.5));
         assert_eq!(
-            gain.transform_audio(ToyAudioSource::new_with(ToyAudioSource::LOUD).value()),
+            gain.transform_audio(
+                ToyAudioSource::new_with(ToyAudioSourceNano {
+                    level: ToyAudioSource::LOUD
+                })
+                .value()
+            ),
             StereoSample::from(0.5)
         );
     }

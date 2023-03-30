@@ -182,7 +182,7 @@ impl<M: MessageBounds> ToyController<M> {
 
     pub fn update(&mut self, message: ToyControllerMessage) {
         match message {
-            ToyControllerMessage::ToyController(s) => panic!(),
+            ToyControllerMessage::ToyController(_) => panic!(),
             ToyControllerMessage::Bpm(bpm) => self.set_bpm(bpm),
             ToyControllerMessage::Tempo(tempo) => self.set_tempo(tempo),
         }
