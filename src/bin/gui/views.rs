@@ -724,8 +724,9 @@ impl Viewable for ReverbNano {
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!(
-            "attenuation: {}",
-            self.attenuation().value()
+            "attenuation: {} seconds: {}",
+            self.attenuation().value(),
+            self.seconds()
         )))
         .into()
     }

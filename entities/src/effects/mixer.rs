@@ -36,7 +36,9 @@ impl Mixer {
     }
 
     pub fn update(&mut self, message: MixerMessage) {
-        todo!()
+        match message {
+            MixerMessage::Mixer(_s) => *self = Self::new(),
+        }
     }
 }
 

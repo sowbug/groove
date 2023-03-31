@@ -73,11 +73,32 @@ impl Chorus {
     }
 
     pub fn update(&mut self, message: ChorusMessage) {
-        todo!()
+        match message {
+            ChorusMessage::Chorus(s) => *self = Self::new_with(self.delay.sample_rate(), s),
+            ChorusMessage::Voices(voices) => self.set_voices(voices),
+            ChorusMessage::DelayFactor(delay_factor) => self.set_delay_factor(delay_factor),
+            ChorusMessage::WetDryMix(wet_pct) => self.set_wet_dry_mix(wet_pct),
+        }
     }
 
     pub fn wet_dry_mix(&self) -> f32 {
         self.wet_dry_mix
+    }
+
+    pub fn voices(&self) -> usize {
+        self.voices
+    }
+
+    pub fn set_voices(&mut self, voices: usize) {
+        self.voices = voices;
+    }
+
+    pub fn delay_factor(&self) -> usize {
+        self.delay_factor
+    }
+
+    pub fn set_delay_factor(&mut self, delay_factor: usize) {
+        self.delay_factor = delay_factor;
     }
 }
 

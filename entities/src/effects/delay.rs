@@ -21,7 +21,7 @@ pub(super) trait Delays {
 #[derive(Debug, Default)]
 pub(crate) struct DelayLine {
     sample_rate: usize,
-    delay_seconds: f32,
+    delay_seconds: ParameterType,
     decay_factor: SignalType,
 
     buffer_size: usize,
@@ -37,7 +37,7 @@ impl DelayLine {
     ) -> Self {
         let mut r = Self {
             sample_rate,
-            delay_seconds: delay_seconds as f32,
+            delay_seconds,
             decay_factor,
 
             buffer_size: Default::default(),
@@ -48,11 +48,11 @@ impl DelayLine {
         r
     }
 
-    pub(super) fn delay_seconds(&self) -> f32 {
+    pub(super) fn delay_seconds(&self) -> ParameterType {
         self.delay_seconds
     }
 
-    pub(super) fn set_delay_seconds(&mut self, delay_seconds: f32) {
+    pub(super) fn set_delay_seconds(&mut self, delay_seconds: ParameterType) {
         if delay_seconds != self.delay_seconds {
             self.delay_seconds = delay_seconds;
             self.resize_buffer();
@@ -60,7 +60,7 @@ impl DelayLine {
     }
 
     fn resize_buffer(&mut self) {
-        self.buffer_size = (self.sample_rate as f32 * self.delay_seconds) as usize;
+        self.buffer_size = (self.sample_rate as ParameterType * self.delay_seconds) as usize;
         self.buffer = Vec::with_capacity(self.buffer_size);
         self.buffer.resize(self.buffer_size, Sample::SILENCE);
         self.buffer_pointer = 0;
@@ -68,6 +68,10 @@ impl DelayLine {
 
     pub(super) fn decay_factor(&self) -> SignalType {
         self.decay_factor
+    }
+
+    pub(crate) fn sample_rate(&self) -> usize {
+        self.sample_rate
     }
 }
 impl Delays for DelayLine {
@@ -221,16 +225,19 @@ impl Delay {
         }
     }
 
-    pub fn seconds(&self) -> f32 {
+    pub fn seconds(&self) -> ParameterType {
         self.delay.delay_seconds()
     }
 
-    pub fn set_seconds(&mut self, delay_seconds: f32) {
-        self.delay.set_delay_seconds(delay_seconds);
+    pub fn set_seconds(&mut self, seconds: ParameterType) {
+        self.delay.set_delay_seconds(seconds);
     }
 
     pub fn update(&mut self, message: DelayMessage) {
-        todo!()
+        match message {
+            DelayMessage::Delay(s) => *self = Self::new_with(self.delay.sample_rate(), s),
+            DelayMessage::Seconds(seconds) => self.set_seconds(seconds),
+        }
     }
 }
 

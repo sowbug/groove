@@ -75,11 +75,45 @@ impl Compressor {
     }
 
     pub fn update(&mut self, message: CompressorMessage) {
-        todo!()
+        match message {
+            CompressorMessage::Compressor(s) => *self = Self::new_with(s),
+            CompressorMessage::Threshold(threshold) => self.set_threshold(threshold),
+            CompressorMessage::Ratio(ratio) => self.set_ratio(ratio),
+            CompressorMessage::Attack(attack) => self.set_attack(attack),
+            CompressorMessage::Release(release) => self.set_release(release),
+        }
     }
 
     pub fn threshold(&self) -> Normal {
         self.threshold
+    }
+
+    pub fn ratio(&self) -> f64 {
+        self.ratio
+    }
+
+    pub fn attack(&self) -> f64 {
+        self.attack
+    }
+
+    pub fn release(&self) -> f64 {
+        self.release
+    }
+
+    pub fn set_threshold(&mut self, threshold: Normal) {
+        self.threshold = threshold;
+    }
+
+    pub fn set_ratio(&mut self, ratio: ParameterType) {
+        self.ratio = ratio;
+    }
+
+    pub fn set_attack(&mut self, attack: ParameterType) {
+        self.attack = attack;
+    }
+
+    pub fn set_release(&mut self, release: ParameterType) {
+        self.release = release;
     }
 }
 

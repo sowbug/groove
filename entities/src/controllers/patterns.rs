@@ -89,7 +89,9 @@ impl PatternManager {
     }
 
     pub fn update(&mut self, message: PatternManagerMessage) {
-        todo!()
+        match message {
+            PatternManagerMessage::PatternManager(_s) => todo!(),
+        }
     }
 }
 

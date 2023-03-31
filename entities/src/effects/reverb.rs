@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Nano, Uid)]
 pub struct Reverb {
     uid: usize,
+    sample_rate: usize,
 
     /// How much the effect should attenuate the input.
     #[nano]
@@ -55,6 +56,7 @@ impl Reverb {
         // constants.
         Self {
             uid: Default::default(),
+            sample_rate,
             attenuation: params.attenuation(),
             seconds: params.seconds(),
             wet_dry_mix: params.wet_dry_mix(),
@@ -70,7 +72,16 @@ impl Reverb {
     }
 
     pub fn update(&mut self, message: ReverbMessage) {
-        todo!()
+        match message {
+            ReverbMessage::Reverb(s) => *self = Self::new_with(self.sample_rate(), s),
+            ReverbMessage::Attenuation(_) => todo!(),
+            ReverbMessage::Seconds(_) => todo!(),
+            ReverbMessage::WetDryMix(_) => todo!(),
+        }
+    }
+
+    pub fn sample_rate(&self) -> usize {
+        self.sample_rate
     }
 }
 
@@ -160,6 +171,10 @@ impl ReverbChannel {
 
     pub fn set_wet_dry_mix(&mut self, mix: f32) {
         self.wet_dry_mix = mix;
+    }
+
+    fn seconds(&self) -> f64 {
+        self.seconds
     }
 }
 
