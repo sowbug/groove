@@ -22,6 +22,9 @@ pub enum GrooveInput {
     /// Ask the engine to add a control link.
     AddControlLink(ControlLink),
 
+    /// Ask the engine to remove a control link.
+    RemoveControlLink(ControlLink),
+
     /// An entity has been updated on the app side, and the engine should record the changes.
     Update(usize, OtherEntityMessage),
 }
@@ -58,6 +61,9 @@ pub enum GrooveEvent {
 
     /// Notify the app that we've linked a controller and a controllable's control point.
     AddControlLink(ControlLink),
+
+    /// Notify the app that we've unlinked a controller and a controllable's control point.
+    RemoveControlLink(ControlLink),
 }
 impl MessageBounds for GrooveEvent {}
 

@@ -217,7 +217,15 @@ impl Application for GrooveApp {
                         ViewMessage::AddControlLink(link) => {
                             self.post_to_orchestrator(EngineInput::AddControlLink(link));
                         }
-                        _ => panic!(),
+                        ViewMessage::RemoveControlLink(link) => {
+                            self.post_to_orchestrator(EngineInput::RemoveControlLink(link));
+                        }
+                        ViewMessage::NextView
+                        | ViewMessage::OtherEntityMessage(_, _)
+                        | ViewMessage::MouseIn(_)
+                        | ViewMessage::MouseOut(_)
+                        | ViewMessage::MouseDown(_)
+                        | ViewMessage::MouseUp(_) => panic!(),
                     }
                 }
             }
@@ -325,6 +333,9 @@ impl GrooveApp {
                 // TODO: figure out semantics that make loops harder to
                 // introduce by accident.
                 self.views.add_control_link(link);
+            }
+            GrooveEvent::RemoveControlLink(link) => {
+                self.views.remove_control_link(link);
             }
         }
     }
@@ -449,14 +460,6 @@ impl GrooveApp {
             EntityMessage::Midi(_, _) => todo!(),
             EntityMessage::ControlF32(_) => todo!(),
             EntityMessage::PatternMessage(_, _) => todo!(),
-            EntityMessage::HSliderInt(_) => todo!(),
-            EntityMessage::HSliderInt2(_) => todo!(),
-            EntityMessage::HSliderInt3(_) => todo!(),
-            EntityMessage::HSliderInt4(_) => todo!(),
-            EntityMessage::Knob(_) => todo!(),
-            EntityMessage::Knob2(_) => todo!(),
-            EntityMessage::Knob3(_) => todo!(),
-            EntityMessage::Knob4(_) => todo!(),
             EntityMessage::PickListSelected(_) => todo!(),
             EntityMessage::ExpandPressed => todo!(),
             EntityMessage::CollapsePressed => todo!(),

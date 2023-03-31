@@ -69,6 +69,9 @@ pub enum EngineInput {
     /// Connect an IsController to a Controllable's control point.
     AddControlLink(ControlLink),
 
+    /// Disconnect an IsController from a Controllable's control point.
+    RemoveControlLink(ControlLink),
+
     /// End this thread.
     QuitRequested,
 }
@@ -332,6 +335,9 @@ impl EngineSubscription {
                     }
                     EngineInput::AddControlLink(link) => {
                         messages.push(GrooveInput::AddControlLink(link));
+                    }
+                    EngineInput::RemoveControlLink(link) => {
+                        messages.push(GrooveInput::RemoveControlLink(link));
                     }
                 }
 

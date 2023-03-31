@@ -4,7 +4,6 @@
 
 pub use messages::EntityMessage;
 pub use messages::ToyMessageMaker;
-pub use messages::WelshSynthMessage;
 
 /// Controllers implement the [IsController](groove_core::traits::IsController)
 /// trait, which means that they control other devices. An example of a

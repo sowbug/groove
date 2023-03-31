@@ -30,16 +30,6 @@ pub enum EntityMessage {
     /// Wrapper for PatternMessages.
     PatternMessage(usize, PatternMessage),
 
-    /// iced_audio convention.
-    HSliderInt(iced_audio::Normal),
-    HSliderInt2(iced_audio::Normal),
-    HSliderInt3(iced_audio::Normal),
-    HSliderInt4(iced_audio::Normal),
-    Knob(iced_audio::Normal),
-    Knob2(iced_audio::Normal),
-    Knob3(iced_audio::Normal),
-    Knob4(iced_audio::Normal),
-
     PickListSelected(String),
 
     // GUI things.
@@ -62,11 +52,4 @@ impl MessageMaker for ToyMessageMaker {
     fn midi(&self, channel: MidiChannel, message: MidiMessage) -> Self::Message {
         EntityMessage::Midi(channel, message)
     }
-}
-
-// TODO: derive by macro
-
-#[derive(Clone, Debug)]
-pub enum WelshSynthMessage {
-    Pan(f32),
 }

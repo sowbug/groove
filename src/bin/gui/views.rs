@@ -43,7 +43,8 @@ use groove_toys::{
 use iced::{
     alignment, theme,
     widget::{
-        button, column, container, pick_list, row, text, text_input, Column, Container, Row, Text,
+        button, column, container, pick_list, row, text, text_input, Button, Column, Container,
+        Row, Text,
     },
     Alignment, Element, Length, Renderer, Theme,
 };
@@ -802,8 +803,11 @@ pub(crate) enum ViewMessage {
     MouseDown(usize),
     MouseUp(usize),
 
-    /// A widget has fired, requesting that the receiver add a control link.
+    /// The receiver should add a control link.
     AddControlLink(ControlLink),
+
+    /// The receiver should remove a control link.
+    RemoveControlLink(ControlLink),
 }
 
 #[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, IntoStaticStr)]
@@ -1002,7 +1006,6 @@ impl View {
                 let mut column = Column::new();
                 for index in 0..controllable.control_index_count() {
                     if let Some(name) = controllable.control_name_for_index(index) {
-                        eprintln!("pushing {}", name);
                         column = column.push(self.automation_control_point_view(
                             controllable_uid,
                             index,
@@ -1121,14 +1124,18 @@ impl View {
             if let Some(controllable_entity) = self.entity_store.get(&link.target_uid) {
                 if let Some(controllable) = controllable_entity.as_controllable() {
                     if let Some(name) = controllable.control_name_for_index(link.control_index) {
+                        let remove_button = Button::new(Text::new("X"))
+                            .on_press(ViewMessage::RemoveControlLink(link.clone()));
                         return Some(
-                            Badge::new(Text::new(format!(
-                                "{} controls {}'s {}",
-                                controller.name(),
-                                controllable_entity.name(),
-                                name
-                            )))
-                            .into(),
+                            Row::new()
+                                .push(Badge::new(Text::new(format!(
+                                    "{} controls {}'s {}",
+                                    controller.name(),
+                                    controllable_entity.name(),
+                                    name
+                                ))))
+                                .push(remove_button)
+                                .into(),
                         );
                     }
                 }
@@ -1258,11 +1265,14 @@ impl View {
                 );
                 return Some(ViewMessage::AddControlLink(link));
             }
+            ViewMessage::RemoveControlLink(link) => {
+                eprintln!("Widget asked to remove link {:?}", link);
+                return Some(ViewMessage::RemoveControlLink(link));
+            }
         }
     }
 
     fn add_entity(&mut self, uid: usize, item: EntityNano) {
-        eprintln!("Adding item... {:?}", item);
         if item.is_controller() {
             self.controller_uids.push(uid);
         }
@@ -1290,6 +1300,10 @@ impl View {
 
     pub(crate) fn add_control_link(&mut self, link: ControlLink) {
         self.connections.insert(link);
+    }
+
+    pub(crate) fn remove_control_link(&mut self, link: ControlLink) {
+        self.connections.remove(&link);
     }
 }
 

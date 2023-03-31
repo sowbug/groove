@@ -140,7 +140,7 @@ pub mod tests {
             assert!(!samples_1.iter().any(|&s| s != StereoSample::SILENCE));
 
             // Run again after disconnecting the LFO.
-            o.unlink_control(lfo_uid, synth_1_uid);
+            o.unlink_control_by_name(lfo_uid, synth_1_uid, "oscillator");
             clock.reset(clock.sample_rate());
             if let Ok(samples_2) = o.run(&mut sample_buffer) {
                 // The two runs should be different. That's not a great test of what

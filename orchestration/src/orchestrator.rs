@@ -181,9 +181,9 @@ impl Orchestrator {
     ) -> anyhow::Result<()> {
         if let Some(target) = self.store.get(target_uid) {
             if let Some(target) = target.as_controllable() {
-                let param_id = target.control_index_for_name(param_name);
-                if param_id != usize::MAX {
-                    return self.link_control_by_id(controller_uid, target_uid, param_id);
+                let control_index = target.control_index_for_name(param_name);
+                if control_index != usize::MAX {
+                    return self.link_control_by_id(controller_uid, target_uid, control_index);
                 } else {
                     // TODO: return valid names so user doesn't hate us
                     return Err(anyhow!(
@@ -203,9 +203,32 @@ impl Orchestrator {
         }
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn unlink_control(&mut self, controller_uid: usize, target_uid: usize) {
-        self.store.unlink_control(controller_uid, target_uid);
+    pub(crate) fn unlink_control_by_id(
+        &mut self,
+        controller_uid: usize,
+        target_uid: usize,
+        control_index: usize,
+    ) {
+        self.store
+            .unlink_control(controller_uid, target_uid, control_index);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn unlink_control_by_name(
+        &mut self,
+        controller_uid: usize,
+        target_uid: usize,
+        param_name: &str,
+    ) {
+        if let Some(target) = self.store.get(target_uid) {
+            if let Some(target) = target.as_controllable() {
+                let control_index = target.control_index_for_name(param_name);
+                if control_index != usize::MAX {
+                    self.store
+                        .unlink_control(controller_uid, target_uid, control_index);
+                }
+            }
+        }
     }
 
     pub fn patch(&mut self, output_uid: usize, input_uid: usize) -> anyhow::Result<()> {
@@ -572,14 +595,29 @@ impl Orchestrator {
                     }
                     GrooveInput::AddControlLink(link) => {
                         // The UI has asked us to link a control.
-                        let _ = self.link_control_by_id(
+                        if self
+                            .link_control_by_id(
+                                link.source_uid,
+                                link.target_uid,
+                                link.control_index,
+                            )
+                            .is_ok()
+                        {
+                            // Let the UI know that we did that.
+                            unhandled_commands
+                                .push(Response::single(GrooveEvent::AddControlLink(link)));
+                        }
+                    }
+                    GrooveInput::RemoveControlLink(link) => {
+                        // The UI has asked us to link a control.
+                        self.unlink_control_by_id(
                             link.source_uid,
                             link.target_uid,
                             link.control_index,
                         );
-                        // Now let the UI know that we did that.
+                        // Let the UI know that we did that.
                         unhandled_commands
-                            .push(Response::single(GrooveEvent::AddControlLink(link)));
+                            .push(Response::single(GrooveEvent::RemoveControlLink(link)));
                     }
                     GrooveInput::Update(uid, message) => self.update_controllable(uid, message),
                 }
@@ -921,11 +959,16 @@ impl Store {
             .push((target_uid, control_index));
     }
 
-    pub(crate) fn unlink_control(&mut self, source_uid: usize, target_uid: usize) {
+    pub(crate) fn unlink_control(
+        &mut self,
+        source_uid: usize,
+        target_uid: usize,
+        control_index: usize,
+    ) {
         self.uid_to_control
             .entry(source_uid)
             .or_default()
-            .retain(|(uid, _)| *uid != target_uid);
+            .retain(|(uid, index)| *uid != target_uid && *index != control_index);
     }
 
     pub(crate) fn control_links(&self, source_uid: usize) -> Option<&Vec<(usize, usize)>> {
