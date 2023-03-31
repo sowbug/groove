@@ -570,8 +570,16 @@ impl Orchestrator {
                     GrooveInput::MidiFromExternal(channel, message) => {
                         self.broadcast_midi_messages(&[(channel, message)]);
                     }
-                    GrooveInput::Connect(controller_uid, target_uid, param_id) => {
-                        let _ = self.link_control_by_id(controller_uid, target_uid, param_id);
+                    GrooveInput::AddControlLink(link) => {
+                        // The UI has asked us to link a control.
+                        let _ = self.link_control_by_id(
+                            link.source_uid,
+                            link.target_uid,
+                            link.point_index,
+                        );
+                        // Now let the UI know that we did that.
+                        unhandled_commands
+                            .push(Response::single(GrooveEvent::AddControlLink(link)));
                     }
                     GrooveInput::Update(uid, message) => self.update_controllable(uid, message),
                 }

@@ -32,7 +32,7 @@ use iced::{
     theme::Theme,
     widget::{
         canvas::{self, Cache, Cursor},
-        column, container, pick_list, row, Column, Container,
+        column, container, pick_list, row, Column,
     },
     window, Alignment, Application, Color, Command, Element, Event, Length, Point, Rectangle,
     Settings, Size, Subscription,
@@ -53,7 +53,7 @@ enum State {
 
 #[derive(Clone, Debug)]
 enum AppMessage {
-    MainViewThingyMessage(ViewMessage),
+    ViewMessage(ViewMessage),
     ControlBarEvent(ControlBarEvent),
     EngineEvent(EngineEvent),
     Event(iced::Event),
@@ -211,15 +211,11 @@ impl Application for GrooveApp {
             AppMessage::ExportComplete(_) => {
                 // great
             }
-            AppMessage::MainViewThingyMessage(message) => {
+            AppMessage::ViewMessage(message) => {
                 if let Some(response) = self.views.update(message) {
                     match response {
-                        ViewMessage::Connect(controller_id, controllable_id, control_index) => {
-                            self.post_to_orchestrator(EngineInput::Connect(
-                                controller_id,
-                                controllable_id,
-                                control_index,
-                            ));
+                        ViewMessage::AddControlLink(link) => {
+                            self.post_to_orchestrator(EngineInput::AddControlLink(link));
                         }
                         _ => panic!(),
                     }
@@ -235,10 +231,7 @@ impl Application for GrooveApp {
             .control_bar_view
             .view(matches!(self.state, State::Playing))
             .map(AppMessage::ControlBarEvent);
-        let main_content = self
-            .views
-            .view()
-            .map(move |m| AppMessage::MainViewThingyMessage(m));
+        let main_content = self.views.view().map(move |m| AppMessage::ViewMessage(m));
         container(
             Column::new()
                 .push(control_bar)
@@ -319,6 +312,20 @@ impl GrooveApp {
                     self.update_entity(uid, message);
                 }
             },
+            GrooveEvent::AddControlLink(link) => {
+                // The engine has added a control link. We should do the same.
+                // Note that this is different from ViewMessage::AddControlLink,
+                // which tells the app that a widget has fired, and that the
+                // *app* should ask the *engine* to add the control link. If we
+                // get this wrong, then we end up in an infinite loop where each
+                // side asks the other to do something, and then the receiving
+                // side asks the other side to do the same thing, which repeats.
+                //
+                // So that's why this is a method call rather than a message.
+                // TODO: figure out semantics that make loops harder to
+                // introduce by accident.
+                self.views.add_control_link(link);
+            }
         }
     }
 
@@ -421,15 +428,6 @@ impl GrooveApp {
         }
     }
 
-    fn under_construction(section_name: &str) -> Container<AppMessage> {
-        container(GuiStuff::<AppMessage>::container_text(
-            format!("Coming soon: {}", section_name).as_str(),
-        ))
-        .width(Length::FillPortion(1))
-        .align_x(alignment::Horizontal::Center)
-        .align_y(alignment::Vertical::Center)
-    }
-
     fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
         if let Some(sender) = self.midi_handler_sender.as_mut() {
             let i2 = input.clone(); // TODO: don't check this in
@@ -446,7 +444,7 @@ impl GrooveApp {
         }
     }
 
-    fn update_entity(&mut self, uid: usize, message: EntityMessage) {
+    fn update_entity(&mut self, _uid: usize, message: EntityMessage) {
         match message {
             EntityMessage::Midi(_, _) => todo!(),
             EntityMessage::ControlF32(_) => todo!(),
@@ -504,6 +502,7 @@ impl GrooveApp {
     //     }
     // }
 
+    // TODO: this should be another entity
     fn midi_view(&self) -> Element<MidiHandlerInput> {
         let activity_text = container(GuiStuff::<EntityMessage>::container_text(
             if Instant::now().duration_since(self.last_midi_activity) > Duration::from_millis(250) {

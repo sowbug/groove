@@ -33,7 +33,7 @@ use groove_entities::{
     },
     EntityMessage,
 };
-use groove_orchestration::{EntityNano, OtherEntityMessage};
+use groove_orchestration::{messages::ControlLink, EntityNano, OtherEntityMessage};
 use groove_proc_macros::Views;
 use groove_toys::{
     ToyAudioSource, ToyAudioSourceMessage, ToyAudioSourceNano, ToyController, ToyControllerMessage,
@@ -53,7 +53,7 @@ use iced_aw::{
     Badge, Card,
 };
 use iced_native::{mouse, widget::Tree, Event, Widget};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use strum::EnumCount;
 use strum_macros::{EnumCount as EnumCountMacro, FromRepr, IntoStaticStr};
 
@@ -322,7 +322,7 @@ impl ControlBarView {
         container(
             text_input(
                 "BPM",
-                self.clock.bpm().round().to_string().as_str(),
+                &format!("{:0.2}", self.clock.bpm()),
                 ControlBarEvent::Bpm,
             )
             .font(SMALL_FONT)
@@ -801,9 +801,8 @@ pub(crate) enum ViewMessage {
     MouseDown(usize),
     MouseUp(usize),
 
-    /// Please ask the engine to connect controller_uid to controllable_uid's control #param_index.
-    /// TODO: do we get this for free with the synchronization infra?
-    Connect(usize, usize, usize),
+    /// A widget has fired, requesting that the receiver add a control link.
+    AddControlLink(ControlLink),
 }
 
 #[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, IntoStaticStr)]
@@ -820,13 +819,13 @@ pub(crate) struct View {
     entity_store: EntityStore,
 
     is_dragging: bool,
-    source_id: usize,
-    target_id: usize,
+    source_uid: usize,
+    target_uid: usize,
 
     controller_uids: Vec<usize>,
     controllable_uids: Vec<usize>,
     controllable_uids_to_control_names: FxHashMap<usize, Vec<String>>,
-    connections: Vec<(usize, usize)>,
+    connections: FxHashSet<ControlLink>,
 
     lanes: Vec<AudioLane>,
 }
@@ -844,8 +843,8 @@ impl View {
             entity_store: Default::default(),
 
             is_dragging: false,
-            source_id: 0,
-            target_id: 0,
+            source_uid: 0,
+            target_uid: 0,
 
             controller_uids: Default::default(),
             controllable_uids: Default::default(),
@@ -861,7 +860,7 @@ impl View {
         self.controller_uids.clear();
         self.controllable_uids.clear();
         self.controllable_uids_to_control_names.clear();
-        self.connections.clear(); // TODO: this shouldn't exist, or else should be like the Params things (synchronized)
+        self.connections.clear();
     }
 
     pub(crate) fn view(&self) -> Element<ViewMessage> {
@@ -877,45 +876,67 @@ impl View {
     }
 
     fn automation_view(&self) -> Element<ViewMessage> {
-        let controller_views = self.controller_uids.iter().enumerate().fold(
-            Vec::default(),
-            |mut v, (_index, controller_uid)| {
-                if let Some(view) = self.automation_controller_view(*controller_uid) {
-                    v.push(view);
-                }
-                v
-            },
-        );
+        let controller_views =
+            self.controller_uids
+                .iter()
+                .fold(Vec::default(), |mut v, controller_uid| {
+                    if let Some(view) = self.automation_controller_view(*controller_uid) {
+                        v.push(view);
+                    }
+                    v
+                });
 
-        let controllable_views = self.controllable_uids.iter().enumerate().fold(
-            Vec::default(),
-            |mut v, (_index, controllable_uid)| {
-                if let Some(view) = self.automation_controllable_view(*controllable_uid) {
-                    v.push(view);
-                }
-                v
-            },
-        );
+        let controllable_views =
+            self.controllable_uids
+                .iter()
+                .fold(Vec::default(), |mut v, controllable_uid| {
+                    if let Some(view) = self.automation_controllable_view(*controllable_uid) {
+                        v.push(view);
+                    }
+                    v
+                });
 
-        let controller_row = controller_views
-            .into_iter()
-            .fold(Row::new(), |mut row, item| {
-                row = row.push(item);
-                row
-            });
-        let controllable_row = controllable_views
-            .into_iter()
-            .fold(Row::new(), |mut row, item| {
-                row = row.push(item);
-                row
-            });
-        container(column![controller_row, controllable_row]).into()
+        let connection_views = self.connections.iter().fold(Vec::default(), |mut v, link| {
+            if let Some(view) = self.automation_connection_view(link) {
+                v.push(view);
+            }
+            v
+        });
+
+        Container::new(
+            Column::new()
+                .push(
+                    controller_views
+                        .into_iter()
+                        .fold(Row::new(), |mut row, item| {
+                            row = row.push(item);
+                            row
+                        }),
+                )
+                .push(
+                    controllable_views
+                        .into_iter()
+                        .fold(Row::new(), |mut row, item| {
+                            row = row.push(item);
+                            row
+                        }),
+                )
+                .push(
+                    connection_views
+                        .into_iter()
+                        .fold(Row::new(), |mut row, item| {
+                            row = row.push(item);
+                            row
+                        }),
+                ),
+        )
+        .into()
     }
 
-    fn automation_controller_view(&self, controller_id: usize) -> Option<Element<ViewMessage>> {
-        if let Some(controller) = self.entity_store.get(&controller_id) {
+    fn automation_controller_view(&self, controller_uid: usize) -> Option<Element<ViewMessage>> {
+        if let Some(controller) = self.entity_store.get(&controller_uid) {
             let style = if self.is_dragging {
-                if controller_id == self.source_id {
+                if controller_uid == self.source_uid {
                     BadgeStyles::Primary
                 } else {
                     BadgeStyles::Default
@@ -926,36 +947,36 @@ impl View {
             Some(
                 Badge::new(ControlTargetWidget::<ViewMessage>::new(
                     Text::new(controller.name()),
-                    if self.is_dragging && controller_id != self.source_id {
+                    if self.is_dragging && controller_uid != self.source_uid {
                         // entering the bounds of a potential target.
-                        Some(ViewMessage::MouseIn(controller_id))
+                        Some(ViewMessage::MouseIn(controller_uid))
                     } else {
                         None
                     },
-                    if self.is_dragging && controller_id == self.target_id {
+                    if self.is_dragging && controller_uid == self.target_uid {
                         // leaving the bounds of a potential target
-                        Some(ViewMessage::MouseOut(controller_id))
+                        Some(ViewMessage::MouseOut(controller_uid))
                     } else {
                         None
                     },
                     if !self.is_dragging {
                         // starting a drag operation
-                        Some(ViewMessage::MouseDown(controller_id))
+                        Some(ViewMessage::MouseDown(controller_uid))
                     } else {
                         None
                     },
                     if self.is_dragging {
-                        if controller_id == self.source_id {
+                        if controller_uid == self.source_uid {
                             // user pressed and released on source card
                             Some(ViewMessage::MouseUp(0))
                         } else {
                             // ending the drag on a target
-                            Some(ViewMessage::MouseUp(controller_id))
+                            Some(ViewMessage::MouseUp(controller_uid))
                         }
                     } else {
                         None
                     },
-                    if self.is_dragging && controller_id == self.source_id {
+                    if self.is_dragging && controller_uid == self.source_uid {
                         // ending the drag somewhere that's not the source... but it could be a target!
                         // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
                         Some(ViewMessage::MouseUp(0))
@@ -971,23 +992,27 @@ impl View {
         }
     }
 
-    fn automation_controllable_view(&self, controllable_id: usize) -> Option<Element<ViewMessage>> {
-        if let Some(entity) = self.entity_store.get(&controllable_id) {
+    fn automation_controllable_view(
+        &self,
+        controllable_uid: usize,
+    ) -> Option<Element<ViewMessage>> {
+        if let Some(entity) = self.entity_store.get(&controllable_uid) {
             if let Some(controllable) = entity.as_controllable() {
                 let mut column = Column::new();
                 for index in 0..controllable.control_index_count() {
                     if let Some(name) = controllable.control_name_for_index(index) {
+                        eprintln!("pushing {}", name);
                         column = column.push(self.automation_control_point_view(
-                            controllable_id,
+                            controllable_uid,
                             index,
                             name.to_string(),
                         ));
                     }
                 }
                 let card_style = if self.is_dragging {
-                    if controllable_id == self.source_id {
+                    if controllable_uid == self.source_uid {
                         CardStyles::Primary
-                    } else if controllable_id == self.target_id {
+                    } else if controllable_uid == self.target_uid {
                         CardStyles::Danger
                     } else {
                         CardStyles::Default
@@ -1004,14 +1029,14 @@ impl View {
                             // Don't care.
                             None,
                             // starting a drag operation
-                            Some(ViewMessage::MouseDown(controllable_id)),
-                            if self.is_dragging && controllable_id != self.source_id {
+                            Some(ViewMessage::MouseDown(controllable_uid)),
+                            if self.is_dragging && controllable_uid != self.source_uid {
                                 // ending the drag on a target
-                                Some(ViewMessage::MouseUp(controllable_id))
+                                Some(ViewMessage::MouseUp(controllable_uid))
                             } else {
                                 None
                             },
-                            if self.is_dragging && controllable_id == self.source_id {
+                            if self.is_dragging && controllable_uid == self.source_uid {
                                 // ending the drag somewhere that's not the source... but it could be a target!
                                 // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
                                 Some(ViewMessage::MouseUp(0))
@@ -1031,15 +1056,15 @@ impl View {
 
     fn automation_control_point_view(
         &self,
-        controllable_id: usize,
-        param_id: usize,
+        controllable_uid: usize,
+        control_index: usize,
         name: String,
     ) -> ControlTargetWidget<ViewMessage> {
-        let param_app_id = controllable_id * 10000 + param_id;
+        let control_app_uid = controllable_uid * 10000 + control_index;
         let badge_style = if self.is_dragging {
-            if param_app_id == self.source_id {
+            if control_app_uid == self.source_uid {
                 BadgeStyles::Danger // This shouldn't happen (I think) because it's a source, not a target
-            } else if param_app_id == self.target_id {
+            } else if control_app_uid == self.target_uid {
                 BadgeStyles::Success // Hovering over target, so highlight it specially
             } else {
                 BadgeStyles::Info // Indicate that it's a potential target
@@ -1049,35 +1074,35 @@ impl View {
         };
         ControlTargetWidget::<ViewMessage>::new(
             Badge::new(Text::new(name)).style(badge_style),
-            if self.is_dragging && param_app_id != self.source_id {
+            if self.is_dragging && control_app_uid != self.source_uid {
                 // entering the bounds of a potential target.
-                Some(ViewMessage::MouseIn(param_app_id))
+                Some(ViewMessage::MouseIn(control_app_uid))
             } else {
                 None
             },
-            if self.is_dragging && param_app_id == self.target_id {
+            if self.is_dragging && control_app_uid == self.target_uid {
                 // leaving the bounds of a potential target
-                Some(ViewMessage::MouseOut(param_app_id))
+                Some(ViewMessage::MouseOut(control_app_uid))
             } else {
                 None
             },
             if !self.is_dragging {
                 // starting a drag operation
-                Some(ViewMessage::MouseDown(param_app_id))
+                Some(ViewMessage::MouseDown(control_app_uid))
             } else {
                 None
             },
-            if self.is_dragging && param_app_id != self.source_id {
+            if self.is_dragging && control_app_uid != self.source_uid {
                 // ending the drag on a target
-                Some(ViewMessage::Connect(
-                    self.source_id,
-                    controllable_id,
-                    param_id,
-                ))
+                Some(ViewMessage::AddControlLink(ControlLink {
+                    source_uid: self.source_uid,
+                    target_uid: controllable_uid,
+                    point_index: control_index,
+                }))
             } else {
                 None
             },
-            if self.is_dragging && param_app_id == self.source_id {
+            if self.is_dragging && control_app_uid == self.source_uid {
                 // ending the drag somewhere that's not the source... but it could be a target!
                 // we have to catch this case because nobody otherwise reports a mouseup outside their bounds.
                 Some(ViewMessage::MouseUp(0))
@@ -1088,6 +1113,27 @@ impl View {
             // - leaving the window entirely
             // - keyboard stuff
         )
+    }
+
+    fn automation_connection_view(&self, link: &ControlLink) -> Option<Element<ViewMessage>> {
+        if let Some(controller) = self.entity_store.get(&link.source_uid) {
+            if let Some(controllable_entity) = self.entity_store.get(&link.target_uid) {
+                if let Some(controllable) = controllable_entity.as_controllable() {
+                    if let Some(name) = controllable.control_name_for_index(link.point_index) {
+                        return Some(
+                            Badge::new(Text::new(format!(
+                                "{} controls {}'s {}",
+                                controller.name(),
+                                controllable_entity.name(),
+                                name
+                            )))
+                            .into(),
+                        );
+                    }
+                }
+            }
+        }
+        None
     }
 
     fn everything_view(&self) -> Element<ViewMessage> {
@@ -1166,19 +1212,19 @@ impl View {
             }
             ViewMessage::MouseDown(id) => {
                 self.is_dragging = true;
-                self.source_id = id;
-                self.target_id = 0;
+                self.source_uid = id;
+                self.target_uid = 0;
                 eprintln!("Start dragging on {}", id);
                 None
             }
             ViewMessage::MouseIn(id) => {
                 // if dragging, highlight potential target
-                self.target_id = id;
+                self.target_uid = id;
                 None
             }
-            ViewMessage::MouseOut(_id) => {
+            ViewMessage::MouseOut(_uid) => {
                 // if dragging, un-highlight potential target
-                self.target_id = 0;
+                self.target_uid = 0;
                 None
             }
             ViewMessage::MouseUp(id) => {
@@ -1195,21 +1241,21 @@ impl View {
                     eprintln!("Drag ended.");
                     self.is_dragging = false;
                 } else {
-                    self.target_id = id;
+                    self.target_uid = id;
                     eprintln!(
                         "Drag completed from {} to {}",
-                        self.source_id, self.target_id
+                        self.source_uid, self.target_uid
                     );
                 }
                 None
             }
-            ViewMessage::Connect(_controller_id, controllable_id, _control_index) => {
-                self.target_id = controllable_id;
+            ViewMessage::AddControlLink(link) => {
+                self.target_uid = link.target_uid;
                 eprintln!(
                     "Drag completed from {} to {}",
-                    self.source_id, self.target_id
+                    &self.source_uid, &self.target_uid
                 );
-                return Some(message);
+                return Some(ViewMessage::AddControlLink(link));
             }
         }
     }
@@ -1239,6 +1285,10 @@ impl View {
 
         // TODO: do we care about displaced items that had the same key?
         self.entity_store.entities.insert(uid, Box::new(item));
+    }
+
+    pub(crate) fn add_control_link(&mut self, link: ControlLink) {
+        self.connections.insert(link);
     }
 }
 

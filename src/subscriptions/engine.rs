@@ -15,13 +15,10 @@ use groove_core::{
     traits::Resets,
     Normal, ParameterType, StereoSample,
 };
-use groove_entities::controllers::{
-    ArpeggiatorMessage, LfoControllerMessage, PatternManagerMessage, SequencerMessage,
-};
 use groove_orchestration::{
     helpers::IOHelper,
-    messages::{GrooveEvent, GrooveInput, Internal, Response},
-    Entity, Orchestrator, OtherEntityMessage,
+    messages::{ControlLink, GrooveEvent, GrooveInput, Internal, Response},
+    Orchestrator,
 };
 use groove_settings::SongSettings;
 use iced::futures::channel::mpsc as iced_mpsc;
@@ -41,7 +38,7 @@ enum State {
 }
 
 /// The subscriber sends [EngineInput] messages to communicate with the engine.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum EngineInput {
     /// The consumer of the audio engine's output is ready to handle more audio,
     /// and it requests the given number of buffers. (The size of a buffer is
@@ -69,10 +66,8 @@ pub enum EngineInput {
     /// Change time signature.
     SetTimeSignature(TimeSignature),
 
-    /// Connect an IsController to a Controllable's control point. First
-    /// argument is controller uid, second is controllable uid, third is
-    /// controllable's control index.
-    Connect(usize, usize, usize),
+    /// Connect an IsController to a Controllable's control point.
+    AddControlLink(ControlLink),
 
     /// End this thread.
     QuitRequested,
@@ -335,12 +330,8 @@ impl EngineSubscription {
                             self.publish_time_signature_update();
                         }
                     }
-                    EngineInput::Connect(controllable_id, controller_id, control_index) => {
-                        messages.push(GrooveInput::Connect(
-                            controllable_id,
-                            controller_id,
-                            control_index,
-                        ));
+                    EngineInput::AddControlLink(link) => {
+                        messages.push(GrooveInput::AddControlLink(link));
                     }
                 }
 

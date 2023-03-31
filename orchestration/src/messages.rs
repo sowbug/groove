@@ -11,7 +11,7 @@ use groove_core::{
 use groove_entities::EntityMessage;
 use std::fmt::Debug;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum GrooveInput {
     EntityMessage(usize, EntityMessage),
 
@@ -19,10 +19,8 @@ pub enum GrooveInput {
     /// MidiInputHandler.
     MidiFromExternal(MidiChannel, MidiMessage),
 
-    /// Connect an IsController to a Controllable's control point. First
-    /// argument is controller uid, second is controllable uid, third is
-    /// controllable's control index.
-    Connect(usize, usize, usize),
+    /// Ask the engine to add a control link.
+    AddControlLink(ControlLink),
 
     /// An entity has been updated on the app side, and the engine should record the changes.
     Update(usize, OtherEntityMessage),
@@ -57,8 +55,22 @@ pub enum GrooveEvent {
 
     /// An entity has been updated on the engine side, and the app should record the changes.
     Update(usize, OtherEntityMessage),
+
+    /// Notify the app that we've linked a controller and a controllable's control point.
+    AddControlLink(ControlLink),
 }
 impl MessageBounds for GrooveEvent {}
+
+/// A [ControlLink] represents an automation. The source_uid entity must
+/// implement IsController. The target_uid entity must implement Controllable.
+/// The point_index determines which of the target entity's controllable fields
+/// that this link controls.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct ControlLink {
+    pub source_uid: usize,
+    pub target_uid: usize,
+    pub point_index: usize,
+}
 
 #[derive(Debug)]
 pub struct Response<T>(pub Internal<T>);
