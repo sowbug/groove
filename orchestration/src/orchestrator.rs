@@ -2,7 +2,7 @@
 
 use crate::{
     entities::Entity,
-    messages::{GrooveEvent, GrooveInput, Internal, Response},
+    messages::{ControlLink, GrooveEvent, GrooveInput, Internal, Response},
     OtherEntityMessage,
 };
 use anyhow::anyhow;
@@ -142,24 +142,24 @@ impl Orchestrator {
 
     pub fn link_control_by_id(
         &mut self,
-        controller_uid: usize,
+        source_uid: usize,
         target_uid: usize,
-        param_id: usize,
+        control_index: usize,
     ) -> anyhow::Result<()> {
         if let Some(target) = self.store.get(target_uid) {
             if target.as_controllable().is_some() {
-                if let Some(entity) = self.store.get(controller_uid) {
+                if let Some(entity) = self.store.get(source_uid) {
                     if entity.as_is_controller().is_some() {
                         self.store
-                            .link_control(controller_uid, target_uid, param_id);
+                            .link_control(source_uid, target_uid, control_index);
                     } else {
                         return Err(anyhow!(
                             "controller ID {} is not of a controller type",
-                            controller_uid
+                            source_uid
                         ));
                     }
                 } else {
-                    return Err(anyhow!("couldn't find controller ID {}", controller_uid));
+                    return Err(anyhow!("couldn't find controller ID {}", source_uid));
                 }
             } else {
                 return Err(anyhow!(
@@ -575,7 +575,7 @@ impl Orchestrator {
                         let _ = self.link_control_by_id(
                             link.source_uid,
                             link.target_uid,
-                            link.point_index,
+                            link.control_index,
                         );
                         // Now let the UI know that we did that.
                         unhandled_commands
@@ -807,6 +807,17 @@ impl Orchestrator {
             entity.update(message)
         }
     }
+
+    /// Generates a complete representation of the project in Update messages.
+    pub fn generate_full_update_messages(&self) -> Vec<GrooveEvent> {
+        let mut updates = self
+            .entity_iter()
+            .map(|(uid, entity)| GrooveEvent::Update(*uid, entity.full_message()))
+            .collect::<Vec<GrooveEvent>>();
+        updates.extend(self.store.generate_full_update_messages());
+
+        updates
+    }
 }
 
 /// Keeps all [Entity] in one place, and manages their relationships, such as
@@ -900,25 +911,25 @@ impl Store {
 
     pub(crate) fn link_control(
         &mut self,
-        controller_uid: usize,
+        source_uid: usize,
         target_uid: usize,
-        param_id: usize,
+        control_index: usize,
     ) {
         self.uid_to_control
-            .entry(controller_uid)
+            .entry(source_uid)
             .or_default()
-            .push((target_uid, param_id));
+            .push((target_uid, control_index));
     }
 
-    pub(crate) fn unlink_control(&mut self, controller_uid: usize, target_uid: usize) {
+    pub(crate) fn unlink_control(&mut self, source_uid: usize, target_uid: usize) {
         self.uid_to_control
-            .entry(controller_uid)
+            .entry(source_uid)
             .or_default()
             .retain(|(uid, _)| *uid != target_uid);
     }
 
-    pub(crate) fn control_links(&self, controller_uid: usize) -> Option<&Vec<(usize, usize)>> {
-        self.uid_to_control.get(&controller_uid)
+    pub(crate) fn control_links(&self, source_uid: usize) -> Option<&Vec<(usize, usize)>> {
+        self.uid_to_control.get(&source_uid)
     }
 
     pub(crate) fn patch(&mut self, output_uid: usize, input_uid: usize) {
@@ -988,6 +999,28 @@ impl Store {
                 e.reset(sample_rate);
             }
         })
+    }
+
+    fn generate_full_update_messages(&self) -> Vec<GrooveEvent> {
+        let messages =
+            self.uid_to_control
+                .iter()
+                .fold(Vec::default(), |mut v, (source_uid, links)| {
+                    v.extend(links.iter().fold(
+                        Vec::default(),
+                        |mut v, (target_uid, control_index)| {
+                            let link = ControlLink {
+                                source_uid: *source_uid,
+                                target_uid: *target_uid,
+                                control_index: *control_index,
+                            };
+                            v.push(GrooveEvent::AddControlLink(link));
+                            v
+                        },
+                    ));
+                    v
+                });
+        messages
     }
 }
 

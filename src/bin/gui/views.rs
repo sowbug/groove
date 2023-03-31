@@ -1097,7 +1097,7 @@ impl View {
                 Some(ViewMessage::AddControlLink(ControlLink {
                     source_uid: self.source_uid,
                     target_uid: controllable_uid,
-                    point_index: control_index,
+                    control_index,
                 }))
             } else {
                 None
@@ -1119,7 +1119,7 @@ impl View {
         if let Some(controller) = self.entity_store.get(&link.source_uid) {
             if let Some(controllable_entity) = self.entity_store.get(&link.target_uid) {
                 if let Some(controllable) = controllable_entity.as_controllable() {
-                    if let Some(name) = controllable.control_name_for_index(link.point_index) {
+                    if let Some(name) = controllable.control_name_for_index(link.control_index) {
                         return Some(
                             Badge::new(Text::new(format!(
                                 "{} controls {}'s {}",

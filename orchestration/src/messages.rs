@@ -69,7 +69,7 @@ impl MessageBounds for GrooveEvent {}
 pub struct ControlLink {
     pub source_uid: usize,
     pub target_uid: usize,
-    pub point_index: usize,
+    pub control_index: usize,
 }
 
 #[derive(Debug)]

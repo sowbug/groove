@@ -444,20 +444,24 @@ impl EngineSubscription {
                 let title = instance.title();
 
                 let mut v = Vec::default();
+
+                // Tell the app we've loaded the project
                 v.push(Response::single(GrooveEvent::ProjectLoaded(
                     filename.to_string(),
                     title,
                 )));
+
+                // And that it should clear its local representation of the project
                 v.push(Response::single(GrooveEvent::Clear));
+
+                // And that it should add the following new entities/relationships
                 v.extend(
                     instance
-                        .entity_iter()
-                        .map(|(uid, entity)| {
-                            Response::single(GrooveEvent::Update(*uid, entity.full_message()))
-                        })
+                        .generate_full_update_messages()
+                        .into_iter()
+                        .map(|m| Response::single(m))
                         .collect::<Vec<Response<GrooveEvent>>>(),
                 );
-
                 if let Ok(mut o) = self.orchestrator.lock() {
                     // I'm amazed this works whenever I see it, but I think it's
                     // just saying that we're replacing what the reference
