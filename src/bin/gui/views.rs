@@ -36,10 +36,12 @@ use groove_entities::{
 use groove_orchestration::{messages::ControlLink, EntityNano, OtherEntityMessage};
 use groove_proc_macros::Views;
 use groove_toys::{
-    ToyAudioSource, ToyAudioSourceMessage, ToyAudioSourceNano, ToyController, ToyControllerMessage,
-    ToyControllerNano, ToyEffect, ToyEffectMessage, ToyEffectNano, ToyInstrument,
-    ToyInstrumentMessage, ToyInstrumentNano, ToySynth, ToySynthMessage, ToySynthNano,
+    DebugSynth, DebugSynthMessage, DebugSynthNano, ToyAudioSource, ToyAudioSourceMessage,
+    ToyAudioSourceNano, ToyController, ToyControllerMessage, ToyControllerNano, ToyEffect,
+    ToyEffectMessage, ToyEffectNano, ToyInstrument, ToyInstrumentMessage, ToyInstrumentNano,
+    ToySynth,
 };
+use groove_toys::{ToySynthMessage, ToySynthNano};
 use iced::{
     alignment, theme,
     widget::{
@@ -609,6 +611,9 @@ impl Viewable for CompressorNano {
 }
 impl Viewable for ControlTripNano {
     type Message = ControlTripMessage;
+}
+impl Viewable for DebugSynthNano {
+    type Message = DebugSynthMessage;
 }
 impl Viewable for DelayNano {
     type Message = DelayMessage;
@@ -1329,6 +1334,9 @@ enum ViewableEntities {
 
     #[views(controller, midi)]
     ControlTrip(ControlTrip),
+
+    #[views(instrument, midi, controllable)]
+    DebugSynth(DebugSynth),
 
     #[views(effect, controllable)]
     Delay(Delay),

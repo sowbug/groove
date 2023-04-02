@@ -2,9 +2,14 @@
 
 use groove_core::{
     generators::{Envelope, EnvelopeParams, Oscillator, WaveformParams},
+    instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
-    traits::{Generates, GeneratesEnvelope, IsInstrument, Resets, Ticks},
+    traits::{
+        Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
+        Resets, Ticks,
+    },
+    voices::VoiceStore,
     Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -206,7 +211,7 @@ impl ToyInstrument {
 /// Another [IsInstrument](groove_core::traits::IsInstrument) that was designed
 /// for black-box debugging.
 #[derive(Debug, Nano, Uid)]
-pub struct ToySynth {
+pub struct DebugSynth {
     uid: usize,
 
     #[nano]
@@ -220,8 +225,8 @@ pub struct ToySynth {
     oscillator: Box<Oscillator>,
     envelope: Box<dyn GeneratesEnvelope>,
 }
-impl IsInstrument for ToySynth {}
-impl Generates<StereoSample> for ToySynth {
+impl IsInstrument for DebugSynth {}
+impl Generates<StereoSample> for DebugSynth {
     fn value(&self) -> StereoSample {
         self.sample
     }
@@ -231,13 +236,13 @@ impl Generates<StereoSample> for ToySynth {
         todo!()
     }
 }
-impl Resets for ToySynth {
+impl Resets for DebugSynth {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
         self.oscillator.reset(sample_rate);
     }
 }
-impl Ticks for ToySynth {
+impl Ticks for DebugSynth {
     fn tick(&mut self, tick_count: usize) {
         self.oscillator.tick(tick_count);
         self.envelope.tick(tick_count);
@@ -245,7 +250,7 @@ impl Ticks for ToySynth {
             StereoSample::from(self.oscillator.value().value() * self.envelope.value().value());
     }
 }
-impl HandlesMidi for ToySynth {
+impl HandlesMidi for DebugSynth {
     fn handle_midi_message(
         &mut self,
         message: &MidiMessage,
@@ -265,7 +270,7 @@ impl HandlesMidi for ToySynth {
         None
     }
 }
-impl ToySynth {
+impl DebugSynth {
     pub fn new_with_components(
         sample_rate: usize,
         oscillator: Box<Oscillator>,
@@ -303,10 +308,10 @@ impl ToySynth {
         )
     }
 
-    pub fn update(&mut self, message: ToySynthMessage) {
+    pub fn update(&mut self, message: DebugSynthMessage) {
         match message {
-            ToySynthMessage::ToySynth(_) => *self = Self::new_with(self.sample_rate),
-            ToySynthMessage::FakeValue(fake_value) => self.set_fake_value(fake_value),
+            DebugSynthMessage::DebugSynth(_) => *self = Self::new_with(self.sample_rate),
+            DebugSynthMessage::FakeValue(fake_value) => self.set_fake_value(fake_value),
         }
     }
 
@@ -316,6 +321,141 @@ impl ToySynth {
 
     pub fn set_fake_value(&mut self, fake_value: Normal) {
         self.fake_value = fake_value;
+    }
+}
+
+#[derive(Debug, Nano, Uid)]
+pub struct ToySynth {
+    uid: usize,
+
+    #[nano]
+    voice_count: usize,
+
+    #[nano]
+    waveform: WaveformParams,
+
+    #[nano(control = false)]
+    envelope: EnvelopeParams,
+
+    inner: Synthesizer<ToyVoice>,
+}
+impl IsInstrument for ToySynth {}
+impl Generates<StereoSample> for ToySynth {
+    fn value(&self) -> StereoSample {
+        self.inner.value()
+    }
+
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        self.inner.batch_values(values)
+    }
+}
+impl HandlesMidi for ToySynth {
+    fn handle_midi_message(
+        &mut self,
+        message: &MidiMessage,
+    ) -> Option<Vec<(MidiChannel, MidiMessage)>> {
+        self.inner.handle_midi_message(message)
+    }
+}
+impl Ticks for ToySynth {
+    fn tick(&mut self, tick_count: usize) {
+        self.inner.tick(tick_count)
+    }
+}
+impl Resets for ToySynth {
+    fn reset(&mut self, sample_rate: usize) {
+        self.inner.reset(sample_rate)
+    }
+}
+impl ToySynth {
+    pub fn new_with(sample_rate: usize) -> Self {
+        Self::new_with_params(
+            sample_rate,
+            ToySynthNano {
+                voice_count: 4,
+                waveform: Default::default(),
+                envelope: Default::default(),
+            },
+        )
+    }
+    pub fn new_with_params(sample_rate: usize, params: ToySynthNano) -> Self {
+        let voice_store =
+            VoiceStore::<ToyVoice>::new_with_voice(sample_rate, params.voice_count(), || {
+                ToyVoice::new_with(sample_rate, params.waveform(), params.envelope())
+            });
+        Self {
+            uid: Default::default(),
+            voice_count: params.voice_count(),
+            waveform: params.waveform(),
+            envelope: params.envelope(),
+            inner: Synthesizer::<ToyVoice>::new_with(sample_rate, Box::new(voice_store)),
+        }
+    }
+    pub fn update(&mut self, message: ToySynthMessage) {
+        todo!()
+    }
+}
+
+#[derive(Debug)]
+struct ToyVoice {
+    oscillator: Oscillator,
+    envelope: Envelope,
+    value: StereoSample,
+}
+impl IsStereoSampleVoice for ToyVoice {}
+impl IsVoice<StereoSample> for ToyVoice {}
+impl PlaysNotes for ToyVoice {
+    fn is_playing(&self) -> bool {
+        !self.envelope.is_idle()
+    }
+
+    fn note_on(&mut self, key: u8, velocity: u8) {
+        self.envelope.trigger_attack();
+        self.oscillator.set_frequency(note_to_frequency(key));
+    }
+
+    fn aftertouch(&mut self, velocity: u8) {
+        todo!()
+    }
+
+    fn note_off(&mut self, velocity: u8) {
+        self.envelope.trigger_release()
+    }
+
+    fn set_pan(&mut self, value: groove_core::BipolarNormal) {
+        //
+    }
+}
+impl Generates<StereoSample> for ToyVoice {
+    fn value(&self) -> StereoSample {
+        self.value
+    }
+
+    fn batch_values(&mut self, values: &mut [StereoSample]) {
+        todo!()
+    }
+}
+impl Ticks for ToyVoice {
+    fn tick(&mut self, tick_count: usize) {
+        self.oscillator.tick(tick_count);
+        self.envelope.tick(tick_count);
+        self.value =
+            StereoSample::from(self.oscillator.value().value() * self.envelope.value().value());
+    }
+}
+impl Resets for ToyVoice {
+    fn reset(&mut self, sample_rate: usize) {
+        self.oscillator.reset(sample_rate);
+        self.envelope.reset(sample_rate);
+    }
+}
+impl ToyVoice {
+    fn new_with(sample_rate: usize, waveform: WaveformParams, envelope: EnvelopeParams) -> Self {
+        Self {
+            oscillator: Oscillator::new_with_waveform(sample_rate, waveform),
+            envelope: Envelope::new_with(sample_rate, envelope),
+            value: Default::default(),
+        }
     }
 }
 

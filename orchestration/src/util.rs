@@ -36,7 +36,7 @@ pub mod tests {
         ToyMessageMaker,
     };
     use groove_toys::{
-        ToyController, ToyControllerNano, ToyEffect, ToyInstrument, ToyInstrumentNano, ToySynth,
+        DebugSynth, ToyController, ToyControllerNano, ToyEffect, ToyInstrument, ToyInstrumentNano,
     };
     use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt};
 
@@ -50,7 +50,7 @@ pub mod tests {
         let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm() as ParameterType);
 
         // A simple audio source.
-        let synth_uid = o.add(Entity::ToySynth(Box::new(ToySynth::new_with(
+        let synth_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new_with(
             clock.sample_rate(),
         ))));
 
@@ -109,7 +109,7 @@ pub mod tests {
         let mut o = Orchestrator::new_with(clock.sample_rate(), clock.bpm() as ParameterType);
 
         // The synth's frequency is modulated by the LFO.
-        let synth_1_uid = o.add(Entity::ToySynth(Box::new(ToySynth::new_with(
+        let synth_1_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new_with(
             clock.sample_rate(),
         ))));
         let lfo = LfoController::new_with(clock.sample_rate(), WaveformParams::Sine, 2.0);
@@ -268,7 +268,7 @@ pub mod tests {
         let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
 
         // A simple audio source.
-        let entity_groove = Entity::ToySynth(Box::new(ToySynth::new_with(DEFAULT_SAMPLE_RATE)));
+        let entity_groove = Entity::DebugSynth(Box::new(DebugSynth::new_with(DEFAULT_SAMPLE_RATE)));
         let synth_uid = o.add(entity_groove);
 
         // A simple effect.

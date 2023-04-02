@@ -8,8 +8,9 @@
 pub use controllers::{MessageMaker, ToyController, ToyControllerMessage, ToyControllerNano};
 pub use effects::{ToyEffect, ToyEffectMessage, ToyEffectNano};
 pub use instruments::{
-    ToyAudioSource, ToyAudioSourceMessage, ToyAudioSourceNano, ToyInstrument, ToyInstrumentMessage,
-    ToyInstrumentNano, ToySynth, ToySynthMessage, ToySynthNano,
+    DebugSynth, DebugSynthMessage, DebugSynthNano, ToyAudioSource, ToyAudioSourceMessage,
+    ToyAudioSourceNano, ToyInstrument, ToyInstrumentMessage, ToyInstrumentNano, ToySynth,
+    ToySynthMessage, ToySynthNano,
 };
 
 mod controllers;

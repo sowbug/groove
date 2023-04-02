@@ -26,9 +26,10 @@ use groove_entities::{
 };
 use groove_proc_macros::Everything;
 use groove_toys::{
-    ToyAudioSource, ToyAudioSourceMessage, ToyAudioSourceNano, ToyController, ToyControllerMessage,
-    ToyControllerNano, ToyEffect, ToyEffectMessage, ToyEffectNano, ToyInstrument,
-    ToyInstrumentMessage, ToyInstrumentNano, ToySynth, ToySynthMessage, ToySynthNano,
+    DebugSynth, DebugSynthMessage, DebugSynthNano, ToyAudioSource, ToyAudioSourceMessage,
+    ToyAudioSourceNano, ToyController, ToyControllerMessage, ToyControllerNano, ToyEffect,
+    ToyEffectMessage, ToyEffectNano, ToyInstrument, ToyInstrumentMessage, ToyInstrumentNano,
+    ToySynth, ToySynthMessage, ToySynthNano,
 };
 
 // PRO TIP: use `cargo expand --lib entities` to see what's being generated
@@ -61,6 +62,9 @@ enum Everything {
 
     #[everything(controller, midi)]
     ControlTrip(ControlTrip),
+
+    #[everything(instrument, midi, controllable)]
+    DebugSynth(DebugSynth),
 
     #[everything(effect, controllable)]
     Delay(Delay),

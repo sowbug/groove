@@ -398,7 +398,7 @@ enum State {
     Shutdown,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialization",
     derive(Serialize, Deserialize),

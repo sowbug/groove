@@ -3,7 +3,9 @@
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
+use syn::{
+    parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Fields, Lit, Meta, NestedMeta,
+};
 
 pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
     TokenStream::from({
@@ -27,17 +29,22 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             }) => &fields.named,
             _ => panic!("this derive macro only works on structs with named fields"),
         };
-        let sync_fields = fields.into_iter().fold(Vec::default(), |mut v, f| {
+        let attr_fields = fields.into_iter().fold(Vec::default(), |mut v, f| {
             let attrs: Vec<_> = f
                 .attrs
                 .iter()
                 .filter(|attr| attr.path.is_ident("nano"))
                 .collect();
             if !attrs.is_empty() {
+                let should_control = parse_nano_meta(attrs[0]);
                 match &f.ty {
                     syn::Type::Path(t) => {
                         if let Some(ident) = t.path.get_ident() {
-                            v.push((f.ident.as_ref().unwrap().clone(), ident.clone()));
+                            v.push((
+                                f.ident.as_ref().unwrap().clone(),
+                                ident.clone(),
+                                should_control,
+                            ));
                         }
                     }
                     _ => todo!(),
@@ -46,18 +53,31 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             v
         });
 
-        let mut variant_names = Vec::default();
+        // co = "control-only" meaning fields that don't have the control=false attribute
+        let mut co_field_names = Vec::default();
+        let mut co_field_types = Vec::default();
+        let mut co_variant_names = Vec::default();
         let mut field_names = Vec::default();
         let mut field_types = Vec::default();
+        let mut variant_names = Vec::default();
         let mut getters = Vec::default();
         let mut setters = Vec::default();
-        for (field_name, field_type) in sync_fields {
+        for (field_name, field_type, should_control) in attr_fields {
             variant_names.push(format_ident!(
                 "{}",
                 field_name.to_string().to_case(Case::Pascal),
             ));
+            if should_control {
+                co_variant_names.push(format_ident!(
+                    "{}",
+                    field_name.to_string().to_case(Case::Pascal),
+                ));
+                co_field_names.push(format_ident!("{}", field_name.to_string(),));
+                co_field_types.push(format_ident!("{}", field_type));
+            }
             field_names.push(format_ident!("{}", field_name.to_string(),));
             field_types.push(format_ident!("{}", field_type));
+
             getters.push(format_ident!("{}", field_name.to_string(),));
             setters.push(format_ident!("set_{}", field_name.to_string(),));
         }
@@ -93,7 +113,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             #[derive(Debug, EnumCountMacro, EnumString, FromRepr, IntoStaticStr)]
             #[strum(serialize_all = "kebab-case")]
             pub enum #unit_only_enum_name {
-                #( #variant_names ),*
+                #( #co_variant_names ),*
             }
         };
 
@@ -146,7 +166,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                 value: groove_core::control::F32ControlValue,
             ) -> Option<#message_type_name> {
                 match unit_enum {
-                    #( #unit_only_enum_name::#variant_names => {return Some(#message_type_name::#variant_names(value.into()));} )*
+                    #( #unit_only_enum_name::#co_variant_names => {return Some(#message_type_name::#co_variant_names(value.into()));} )*
                 }
             }
         };
@@ -215,4 +235,43 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             }
         }
     })
+}
+
+// Returns true if the #[nano(...)] attr indicates that it's OK to emit control
+// infrastructure.
+fn parse_nano_meta(attr: &Attribute) -> bool {
+    let mut should_control = true;
+    if let Ok(meta) = attr.parse_meta() {
+        let meta_list = match meta {
+            Meta::List(list) => list,
+            _ => {
+                return should_control;
+            }
+        };
+
+        let punctuated = match meta_list.nested.len() {
+            0 => return should_control,
+            _ => &meta_list.nested,
+        };
+
+        punctuated.iter().for_each(|nested| {
+            if let NestedMeta::Meta(Meta::NameValue(name_value)) = nested {
+                if name_value.path.is_ident("control") {
+                    match &name_value.lit {
+                        Lit::Bool(control_val) => {
+                            if !control_val.value() {
+                                should_control = false;
+                            }
+                        }
+                        _ => {}
+                    }
+                } else {
+                    // Unsupported attribute; ignore
+                }
+            } else {
+                // Unexpected stuff; ignore
+            }
+        });
+    }
+    should_control
 }
