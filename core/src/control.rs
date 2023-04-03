@@ -76,13 +76,25 @@ impl Into<F32ControlValue> for FrequencyHz {
         Self::frequency_to_percent(self.0).into()
     }
 }
+impl From<F32ControlValue> for bool {
+    fn from(value: F32ControlValue) -> Self {
+        value.0 != 0.0
+    }
+}
+impl Into<F32ControlValue> for bool {
+    fn into(self) -> F32ControlValue {
+        F32ControlValue(if self { 1.0 } else { 0.0 })
+    }
+}
 
 #[cfg(test)]
 mod tests {
+    use crate::Ratio;
+
     use super::*;
 
     #[test]
-    fn types_ok() {
+    fn usize_ok() {
         let a = usize::MAX;
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<usize>>::into(f32cv));
@@ -90,7 +102,10 @@ mod tests {
         let a = usize::MIN;
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<usize>>::into(f32cv));
+    }
 
+    #[test]
+    fn u8_ok() {
         let a = u8::MAX;
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<u8>>::into(f32cv));
@@ -98,7 +113,10 @@ mod tests {
         let a = u8::MIN;
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<u8>>::into(f32cv));
+    }
 
+    #[test]
+    fn f32_ok() {
         let a = f32::MAX;
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<f32>>::into(f32cv));
@@ -106,7 +124,10 @@ mod tests {
         let a = f32::MIN;
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<f32>>::into(f32cv));
+    }
 
+    #[test]
+    fn f64_ok() {
         let a = 1000000.0f64;
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<f64>>::into(f32cv));
@@ -114,7 +135,10 @@ mod tests {
         let a = -1000000.0f64;
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<f64>>::into(f32cv));
+    }
 
+    #[test]
+    fn normal_ok() {
         let a = Normal::maximum();
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<Normal>>::into(f32cv));
@@ -122,7 +146,10 @@ mod tests {
         let a = Normal::minimum();
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<Normal>>::into(f32cv));
+    }
 
+    #[test]
+    fn bipolar_normal_ok() {
         let a = BipolarNormal::maximum();
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<BipolarNormal>>::into(f32cv));
@@ -134,5 +161,27 @@ mod tests {
         let a = BipolarNormal::zero();
         let f32cv: F32ControlValue = a.into();
         assert_eq!(a, <F32ControlValue as Into<BipolarNormal>>::into(f32cv));
+    }
+
+    #[test]
+    fn bool_ok() {
+        let a = true;
+        let f32cv: F32ControlValue = a.into();
+        assert_eq!(a, <F32ControlValue as Into<bool>>::into(f32cv));
+
+        let a = false;
+        let f32cv: F32ControlValue = a.into();
+        assert_eq!(a, <F32ControlValue as Into<bool>>::into(f32cv));
+    }
+
+    #[test]
+    fn ratio_ok() {
+        assert_eq!(Ratio::from(F32ControlValue(0.0)).value(), 0.125);
+        assert_eq!(Ratio::from(F32ControlValue(0.5)).value(), 1.0);
+        assert_eq!(Ratio::from(F32ControlValue(1.0)).value(), 8.0);
+
+        assert_eq!(F32ControlValue::from(Ratio::from(0.125)).0, 0.0);
+        assert_eq!(F32ControlValue::from(Ratio::from(1.0)).0, 0.5);
+        assert_eq!(F32ControlValue::from(Ratio::from(8.0)).0, 1.0);
     }
 }

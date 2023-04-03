@@ -2,13 +2,15 @@
 
 //! Fundamental structs and traits.
 
-#[cfg(feature = "serialization")]
-use serde::{Deserialize, Serialize};
+use control::F32ControlValue;
 use std::{
     fmt::Display,
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
+
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
 
 /// This struct doesn't do anything. It exists only to let the doc system know
 /// what the name of the project is.
@@ -378,9 +380,34 @@ impl Into<FrequencyHz> for Normal {
         FrequencyHz::percent_to_frequency(self).into()
     }
 }
+impl Sub<Normal> for f64 {
+    type Output = Self;
 
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+    fn sub(self, rhs: Normal) -> Self::Output {
+        self - rhs.0
+    }
+}
+impl Mul<Normal> for f64 {
+    type Output = Self;
+
+    fn mul(self, rhs: Normal) -> Self::Output {
+        self * rhs.0
+    }
+}
+impl Mul<f64> for Normal {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self(self.0 * rhs)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "dca", rename_all = "kebab-case")
+)]
 pub struct DcaParams {
     gain: Normal,
     pan: BipolarNormal,
@@ -552,6 +579,74 @@ impl Display for FrequencyHz {
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Ratio(ParameterType);
+impl Ratio {
+    pub fn value(&self) -> ParameterType {
+        self.0
+    }
+}
+impl From<f64> for Ratio {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+impl From<BipolarNormal> for Ratio {
+    fn from(value: BipolarNormal) -> Self {
+        Self(2.0f64.powf(value.value() * 3.0))
+    }
+}
+impl From<Ratio> for BipolarNormal {
+    fn from(value: Ratio) -> Self {
+        BipolarNormal::from(value.value().log2() / 3.0)
+    }
+}
+impl From<Normal> for Ratio {
+    fn from(value: Normal) -> Self {
+        Self::from(BipolarNormal::from(value))
+    }
+}
+impl From<Ratio> for Normal {
+    fn from(value: Ratio) -> Self {
+        Self::from(BipolarNormal::from(value))
+    }
+}
+impl From<F32ControlValue> for Ratio {
+    fn from(value: F32ControlValue) -> Self {
+        Self::from(Normal::from(value))
+    }
+}
+impl From<Ratio> for F32ControlValue {
+    fn from(value: Ratio) -> Self {
+        F32ControlValue(Normal::from(value).value_as_f32())
+    }
+}
+impl Mul<ParameterType> for Ratio {
+    type Output = Self;
+
+    fn mul(self, rhs: ParameterType) -> Self::Output {
+        Ratio(self.0 * rhs)
+    }
+}
+impl Div<ParameterType> for Ratio {
+    type Output = Self;
+
+    fn div(self, rhs: ParameterType) -> Self::Output {
+        Ratio(self.0 / rhs)
+    }
+}
+impl Mul<Ratio> for ParameterType {
+    type Output = Self;
+
+    fn mul(self, rhs: Ratio) -> Self::Output {
+        self * rhs.0
+    }
+}
+impl Div<Ratio> for ParameterType {
+    type Output = Self;
+
+    fn div(self, rhs: Ratio) -> Self::Output {
+        self / rhs.0
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -686,5 +781,16 @@ mod tests {
             StereoSample::new_from_f64(0.0, VALUE),
             "Pan right should give 100% to right channel"
         );
+    }
+
+    #[test]
+    fn ratio_ok() {
+        assert_eq!(Ratio::from(BipolarNormal::from(-1.0)).value(), 0.125);
+        assert_eq!(Ratio::from(BipolarNormal::from(0.0)).value(), 1.0);
+        assert_eq!(Ratio::from(BipolarNormal::from(1.0)).value(), 8.0);
+
+        assert_eq!(BipolarNormal::from(Ratio::from(0.125)).value(), -1.0);
+        assert_eq!(BipolarNormal::from(Ratio::from(1.0)).value(), 0.0);
+        assert_eq!(BipolarNormal::from(Ratio::from(8.0)).value(), 1.0);
     }
 }
