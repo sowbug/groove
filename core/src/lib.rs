@@ -5,6 +5,7 @@
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 use std::{
+    fmt::Display,
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
@@ -437,6 +438,16 @@ impl Dca {
     }
 }
 
+/// [FrequencyHz] is a frequency measured in
+/// [Hertz](https://en.wikipedia.org/wiki/Hertz), or cycles per second. Because
+/// we're usually discussing human hearing or LFOs, we can expect [FrequencyHz]
+/// to range from about 0.0 to about 22,000.0. But because of
+/// [aliasing](https://en.wikipedia.org/wiki/Nyquist_frequency), it's not
+/// surprising to see 2x the upper range, which is where the 44.1KHz CD-quality
+/// sampling rate comes from, and when we pick rendering rates, we might go up
+/// to 192KHz (2x for sampling a 96KHz signal).
+///
+/// Eventually we might impose a non-negative restriction on this type.
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct FrequencyHz(ParameterType);
@@ -474,11 +485,73 @@ impl From<f64> for FrequencyHz {
         Self(value)
     }
 }
-impl Into<FrequencyHz> for f32 {
-    fn into(self) -> FrequencyHz {
-        FrequencyHz(self as f64)
+impl From<FrequencyHz> for f64 {
+    fn from(value: FrequencyHz) -> Self {
+        value.0
     }
 }
+impl From<f32> for FrequencyHz {
+    fn from(value: f32) -> Self {
+        Self(value as ParameterType)
+    }
+}
+impl From<FrequencyHz> for f32 {
+    fn from(value: FrequencyHz) -> Self {
+        value.0 as f32
+    }
+}
+impl Mul for FrequencyHz {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self(self.0 * rhs.0)
+    }
+}
+impl Mul<f64> for FrequencyHz {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self(self.0 * rhs)
+    }
+}
+impl Mul<Ratio> for FrequencyHz {
+    type Output = Self;
+
+    fn mul(self, rhs: Ratio) -> Self::Output {
+        Self(self.0 * rhs.0)
+    }
+}
+impl Div for FrequencyHz {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Self(self.0 / rhs.0)
+    }
+}
+impl From<usize> for FrequencyHz {
+    fn from(value: usize) -> Self {
+        Self(value as f64)
+    }
+}
+impl From<FrequencyHz> for usize {
+    fn from(value: FrequencyHz) -> Self {
+        value.0 as usize
+    }
+}
+impl Display for FrequencyHz {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.0))
+    }
+}
+
+/// The [Ratio] type is a multiplier. A value of 2.0 would multiply another
+/// value by two (a x 2.0:1.0), and a value of 0.5 would divide it by two (a x
+/// 1.0:2.0 = a x 0.5).
+///
+/// Negative ratios are meaningless for current use cases.
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct Ratio(ParameterType);
 
 #[cfg(test)]
 mod tests {

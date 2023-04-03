@@ -9,7 +9,7 @@ use groove_core::{
         Resets, StoresVoices, Ticks,
     },
     voices::StealingVoiceStore,
-    BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, StereoSample,
+    BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
 use std::{fmt::Debug, str::FromStr};
@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 )]
 pub struct FmSynthParamsLegacy {
     pub depth: Normal,
-    pub ratio: ParameterType,
+    pub ratio: Ratio,
     pub beta: ParameterType,
 
     pub carrier_envelope: EnvelopeParams,
@@ -46,7 +46,7 @@ pub struct FmVoice {
     modulator_depth: Normal,
 
     /// modulator_frequency is based on carrier frequency and modulator_ratio
-    modulator_ratio: ParameterType,
+    modulator_ratio: Ratio,
 
     /// Ranges from 0.0 to very high.
     ///
@@ -164,16 +164,16 @@ impl FmVoice {
     }
 
     #[allow(dead_code)]
-    pub fn modulator_frequency(&self) -> ParameterType {
+    pub fn modulator_frequency(&self) -> FrequencyHz {
         self.modulator.frequency()
     }
 
     #[allow(dead_code)]
-    pub fn set_modulator_frequency(&mut self, value: ParameterType) {
+    pub fn set_modulator_frequency(&mut self, value: FrequencyHz) {
         self.modulator.set_frequency(value);
     }
 
-    fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {
+    fn set_frequency_hz(&mut self, frequency_hz: FrequencyHz) {
         self.carrier.set_frequency(frequency_hz);
         self.modulator
             .set_frequency(frequency_hz * self.modulator_ratio);
@@ -183,7 +183,7 @@ impl FmVoice {
         self.modulator_depth = modulator_depth;
     }
 
-    pub fn set_modulator_ratio(&mut self, modulator_ratio: ParameterType) {
+    pub fn set_modulator_ratio(&mut self, modulator_ratio: Ratio) {
         self.modulator_ratio = modulator_ratio;
     }
 
@@ -195,7 +195,7 @@ impl FmVoice {
         self.modulator_depth
     }
 
-    pub fn modulator_ratio(&self) -> f64 {
+    pub fn modulator_ratio(&self) -> Ratio {
         self.modulator_ratio
     }
 
@@ -286,7 +286,7 @@ impl FmSynth {
             .for_each(|v| v.set_modulator_depth(depth));
     }
 
-    pub fn set_ratio(&mut self, ratio: ParameterType) {
+    pub fn set_ratio(&mut self, ratio: Ratio) {
         self.params.ratio = ratio;
         self.inner_synth
             .voices_mut()
@@ -304,11 +304,7 @@ impl FmSynth {
         self.params.depth
     }
 
-    // TODO: this is another case where having a better-defined incoming type
-    // would help us do the right thing. We're mapping 0.0...1.0 to 0.0..very
-    // high, but probably not higher than 32 or 64, and integer ratios make more
-    // sense than fractional ones. What's that?
-    pub fn ratio(&self) -> f64 {
+    pub fn ratio(&self) -> Ratio {
         self.params.ratio
     }
 

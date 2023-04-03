@@ -337,7 +337,7 @@ impl LfoPreset {
         Oscillator::new_with_waveform_and_frequency(
             sample_rate,
             self.waveform.into(),
-            self.frequency as ParameterType,
+            FrequencyHz::from(self.frequency),
         )
     }
 }

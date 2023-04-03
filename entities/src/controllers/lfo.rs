@@ -6,7 +6,7 @@ use groove_core::{
     generators::{Oscillator, WaveformParams},
     midi::HandlesMidi,
     traits::{Generates, IsController, Resets, Ticks, TicksWithMessages},
-    ParameterType,
+    FrequencyHz,
 };
 use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
@@ -24,7 +24,7 @@ pub struct LfoController {
     #[nano]
     waveform: WaveformParams,
     #[nano]
-    frequency: ParameterType,
+    frequency: FrequencyHz,
 
     oscillator: Oscillator,
 }
@@ -49,7 +49,7 @@ impl LfoController {
     pub fn new_with(
         sample_rate: usize,
         waveform: WaveformParams,
-        frequency_hz: ParameterType,
+        frequency_hz: FrequencyHz,
     ) -> Self {
         Self {
             uid: Default::default(),
@@ -85,11 +85,11 @@ impl LfoController {
         self.oscillator.set_waveform(waveform);
     }
 
-    pub fn frequency(&self) -> ParameterType {
+    pub fn frequency(&self) -> FrequencyHz {
         self.frequency
     }
 
-    pub fn set_frequency(&mut self, frequency: ParameterType) {
+    pub fn set_frequency(&mut self, frequency: FrequencyHz) {
         self.frequency = frequency;
         self.oscillator.set_frequency(frequency);
     }

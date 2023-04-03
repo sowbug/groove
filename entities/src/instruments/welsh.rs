@@ -10,11 +10,10 @@ use groove_core::{
         Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
         Resets, StoresVoices, Ticks, TransformsAudio,
     },
-    BipolarNormal, Dca, DcaParams, Normal, ParameterType, Sample, StereoSample,
+    BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, Sample, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
-
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
@@ -208,7 +207,7 @@ impl WelshVoice {
         (Normal::zero(), Normal::zero())
     }
 
-    fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {
+    fn set_frequency_hz(&mut self, frequency_hz: FrequencyHz) {
         // It's safe to set the frequency on a fixed-frequency oscillator; the
         // fixed frequency is stored separately and takes precedence.
         self.oscillators.iter_mut().for_each(|o| {

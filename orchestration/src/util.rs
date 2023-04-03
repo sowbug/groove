@@ -28,8 +28,8 @@ pub mod tests {
         Orchestrator, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
     };
     use groove_core::{
-        generators::WaveformParams, midi::MidiChannel, time::Clock, traits::Resets, Normal,
-        ParameterType, StereoSample,
+        generators::WaveformParams, midi::MidiChannel, time::Clock, traits::Resets, FrequencyHz,
+        Normal, ParameterType, StereoSample,
     };
     use groove_entities::{
         controllers::{LfoController, Timer, TimerNano},
@@ -112,7 +112,11 @@ pub mod tests {
         let synth_1_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new_with(
             clock.sample_rate(),
         ))));
-        let lfo = LfoController::new_with(clock.sample_rate(), WaveformParams::Sine, 2.0);
+        let lfo = LfoController::new_with(
+            clock.sample_rate(),
+            WaveformParams::Sine,
+            FrequencyHz::from(2.0),
+        );
         let lfo_uid = o.add(Entity::LfoController(Box::new(lfo)));
         let _ = o.link_control_by_name(lfo_uid, synth_1_uid, "oscillator");
 

@@ -120,12 +120,7 @@ impl InstrumentSettings {
                 root,
             } => {
                 // TODO: where should this logic live?
-                let root_frequency = note_description_to_frequency(root.to_string(), 0.0);
-                let root_frequency = if root_frequency > 0.0 {
-                    Some(root_frequency)
-                } else {
-                    None
-                };
+                let root_frequency = note_description_to_frequency(root);
                 (
                     *midi_input_channel,
                     Entity::Sampler(Box::new(Sampler::new_with_filename(

@@ -1,10 +1,10 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::control::F32ControlValue;
 use crate::{
+    control::F32ControlValue,
     time::{Clock, ClockTimeUnit, TimeUnit},
     traits::{Generates, GeneratesEnvelope, Resets, Ticks},
-    BipolarNormal, Normal, ParameterType, SignalType,
+    BipolarNormal, FrequencyHz, Normal, ParameterType, SignalType,
 };
 use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};
@@ -70,11 +70,11 @@ pub struct Oscillator {
     waveform: WaveformParams,
 
     /// Hertz. Any positive number. 440 = A4
-    frequency: ParameterType,
+    frequency: FrequencyHz,
 
     /// if not zero, then ignores the `frequency` field and uses this one
     /// instead.
-    fixed_frequency: ParameterType,
+    fixed_frequency: FrequencyHz,
 
     // TODO: this might be a new type that has an exponential effect.
     //
@@ -181,7 +181,7 @@ impl Oscillator {
         // is Square.
         Self {
             waveform,
-            frequency: 440.0,
+            frequency: 440.0.into(),
             fixed_frequency: Default::default(),
             frequency_tune: 1.0,
             frequency_modulation: Default::default(),
@@ -203,29 +203,31 @@ impl Oscillator {
     pub fn new_with_waveform_and_frequency(
         sample_rate: usize,
         waveform: WaveformParams,
-        frequency: ParameterType,
+        frequency: FrequencyHz,
     ) -> Self {
         let mut r = Self::new_with_waveform(sample_rate, waveform);
         r.frequency = frequency;
         r
     }
 
-    fn adjusted_frequency(&self) -> f64 {
-        let unmodulated_frequency = if self.fixed_frequency == 0.0 {
-            self.frequency * self.frequency_tune
+    fn adjusted_frequency(&self) -> FrequencyHz {
+        let unmodulated_frequency = if self.fixed_frequency == 0.0.into() {
+            self.frequency * FrequencyHz(self.frequency_tune)
         } else {
             self.fixed_frequency
         };
         unmodulated_frequency
-            * (2.0f64.powf(self.frequency_modulation.value()) + self.linear_frequency_modulation)
+            * FrequencyHz(
+                2.0f64.powf(self.frequency_modulation.value()) + self.linear_frequency_modulation,
+            )
     }
 
-    pub fn set_frequency(&mut self, frequency: ParameterType) {
+    pub fn set_frequency(&mut self, frequency: FrequencyHz) {
         self.frequency = frequency;
         self.delta_needs_update = true;
     }
 
-    pub fn set_fixed_frequency(&mut self, frequency: ParameterType) {
+    pub fn set_fixed_frequency(&mut self, frequency: FrequencyHz) {
         self.fixed_frequency = frequency;
         self.delta_needs_update = true;
     }
@@ -256,7 +258,7 @@ impl Oscillator {
         self.linear_frequency_modulation
     }
 
-    pub fn frequency(&self) -> ParameterType {
+    pub fn frequency(&self) -> FrequencyHz {
         self.frequency
     }
 
@@ -270,7 +272,7 @@ impl Oscillator {
 
     fn update_delta(&mut self) {
         if self.delta_needs_update {
-            self.delta = self.adjusted_frequency() / self.sample_rate as f64;
+            self.delta = (self.adjusted_frequency() / FrequencyHz::from(self.sample_rate)).0;
 
             // This resets the accumulated error.
             self.cycle_position = KahanSum::new_with_value(self.cycle_position.sum());
@@ -952,7 +954,7 @@ pub mod tests {
     #[test]
     fn square_wave_is_correct_amplitude() {
         const SAMPLE_RATE: usize = 63949; // Prime number
-        const FREQUENCY: ParameterType = 499.0;
+        const FREQUENCY: FrequencyHz = FrequencyHz(499.0);
         let mut oscillator = Oscillator::new_with_waveform_and_frequency(
             SAMPLE_RATE,
             WaveformParams::Square,
@@ -960,7 +962,7 @@ pub mod tests {
         );
 
         // Below Nyquist limit
-        assert_lt!(FREQUENCY, (SAMPLE_RATE / 2) as ParameterType);
+        assert_lt!(FREQUENCY, FrequencyHz((SAMPLE_RATE / 2) as f64));
 
         for _ in 0..SAMPLE_RATE {
             oscillator.tick(1);
@@ -974,7 +976,7 @@ pub mod tests {
         // For this test, we want the sample rate and frequency to be nice even
         // numbers so that we don't have to deal with edge cases.
         const SAMPLE_RATE: usize = 65536;
-        const FREQUENCY: ParameterType = 128.0;
+        const FREQUENCY: FrequencyHz = FrequencyHz(128.0);
         let mut oscillator = Oscillator::new_with_waveform_and_frequency(
             SAMPLE_RATE,
             WaveformParams::Square,
@@ -1005,13 +1007,13 @@ pub mod tests {
 
         // The -1 is because we stop at the end of the cycle, and the transition
         // back to 1.0 should be at the start of the next cycle.
-        assert_eq!(transitions, FREQUENCY as i32 * 2 - 1);
+        assert_eq!(transitions, FREQUENCY.value() as i32 * 2 - 1);
     }
 
     #[test]
     fn square_wave_shape_is_accurate() {
         const SAMPLE_RATE: usize = 65536;
-        const FREQUENCY: ParameterType = 2.0;
+        const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
         let mut oscillator = Oscillator::new_with_waveform_and_frequency(
             SAMPLE_RATE,
             WaveformParams::Square,
@@ -1060,7 +1062,7 @@ pub mod tests {
 
     #[test]
     fn sine_wave_is_balanced() {
-        const FREQUENCY: ParameterType = 1.0;
+        const FREQUENCY: FrequencyHz = FrequencyHz(1.0);
         let mut oscillator = Oscillator::new_with_waveform_and_frequency(
             DEFAULT_SAMPLE_RATE,
             WaveformParams::Sine,
@@ -1147,7 +1149,7 @@ pub mod tests {
             let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
                 WaveformParams::Square,
-                test_case.0,
+                FrequencyHz(test_case.0),
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = TestOnlyPaths::test_data_path();
@@ -1163,16 +1165,19 @@ pub mod tests {
         }
     }
 
+    fn test_cases() -> Vec<(FrequencyHz, &'static str)> {
+        vec![
+            (FrequencyHz(1.0), "1Hz"),
+            (FrequencyHz(100.0), "100Hz"),
+            (FrequencyHz(1000.0), "1000Hz"),
+            (FrequencyHz(10000.0), "10000Hz"),
+            (FrequencyHz(20000.0), "20000Hz"),
+        ]
+    }
+
     #[test]
     fn sine_matches_known_good() {
-        let test_cases = vec![
-            (1.0, "1Hz"),
-            (100.0, "100Hz"),
-            (1000.0, "1000Hz"),
-            (10000.0, "10000Hz"),
-            (20000.0, "20000Hz"),
-        ];
-        for test_case in test_cases {
+        for test_case in test_cases() {
             let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
                 WaveformParams::Sine,
@@ -1194,14 +1199,7 @@ pub mod tests {
 
     #[test]
     fn sawtooth_matches_known_good() {
-        let test_cases = vec![
-            (1.0, "1Hz"),
-            (100.0, "100Hz"),
-            (1000.0, "1000Hz"),
-            (10000.0, "10000Hz"),
-            (20000.0, "20000Hz"),
-        ];
-        for test_case in test_cases {
+        for test_case in test_cases() {
             let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
                 WaveformParams::Sawtooth,
@@ -1223,14 +1221,7 @@ pub mod tests {
 
     #[test]
     fn triangle_matches_known_good() {
-        let test_cases = vec![
-            (1.0, "1Hz"),
-            (100.0, "100Hz"),
-            (1000.0, "1000Hz"),
-            (10000.0, "10000Hz"),
-            (20000.0, "20000Hz"),
-        ];
-        for test_case in test_cases {
+        for test_case in test_cases() {
             let mut osc = Oscillator::new_with_waveform_and_frequency(
                 DEFAULT_SAMPLE_RATE,
                 WaveformParams::Triangle,
@@ -1256,45 +1247,45 @@ pub mod tests {
         // Default
         assert_eq!(
             oscillator.adjusted_frequency(),
-            note_type_to_frequency(MidiNote::C4) as f64
+            note_type_to_frequency(MidiNote::C4)
         );
 
         // Explicitly zero (none)
         oscillator.set_frequency_modulation(BipolarNormal::from(0.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            note_type_to_frequency(MidiNote::C4) as f64
+            note_type_to_frequency(MidiNote::C4)
         );
 
         // Max
         oscillator.set_frequency_modulation(BipolarNormal::from(1.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            note_type_to_frequency(MidiNote::C5) as f64
+            note_type_to_frequency(MidiNote::C5)
         );
 
         // Min
         oscillator.set_frequency_modulation(BipolarNormal::from(-1.0));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            note_type_to_frequency(MidiNote::C3) as f64
+            note_type_to_frequency(MidiNote::C3)
         );
 
         // Halfway between zero and max
         oscillator.set_frequency_modulation(BipolarNormal::from(0.5));
         assert_eq!(
             oscillator.adjusted_frequency(),
-            note_type_to_frequency(MidiNote::C4) as f64 * 2.0f64.sqrt()
+            note_type_to_frequency(MidiNote::C4) * 2.0f64.sqrt()
         );
     }
 
     #[test]
     fn oscillator_cycle_restarts_on_time() {
         let mut oscillator = Oscillator::new_with(DEFAULT_SAMPLE_RATE);
-        const FREQUENCY: ParameterType = 2.0;
+        const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
         oscillator.set_frequency(FREQUENCY);
 
-        const TICKS_IN_CYCLE: usize = DEFAULT_SAMPLE_RATE / FREQUENCY as usize;
+        const TICKS_IN_CYCLE: usize = DEFAULT_SAMPLE_RATE / 2; // That 2 is FREQUENCY
         assert_eq!(TICKS_IN_CYCLE, 44100 / 2);
 
         // We assume that synced oscillators can take care of their own init.
@@ -1358,7 +1349,7 @@ pub mod tests {
                 cycles += 1;
             }
         }
-        assert_eq!(cycles, FREQUENCY as usize);
+        assert_eq!(cycles, usize::from(FREQUENCY));
     }
 
     impl Envelope {

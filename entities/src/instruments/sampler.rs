@@ -6,7 +6,7 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{Generates, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes, Resets, Ticks},
     voices::VoiceStore,
-    BipolarNormal, ParameterType, Sample, SampleType, StereoSample,
+    BipolarNormal, FrequencyHz, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
 use hound::WavReader;
@@ -27,13 +27,13 @@ pub(crate) struct SamplerVoice {
     sample_rate: usize,
     samples: Arc<Vec<StereoSample>>,
 
-    root_frequency: ParameterType,
-    frequency: ParameterType,
+    root_frequency: FrequencyHz,
+    frequency: FrequencyHz,
 
     was_reset: bool,
     is_playing: bool,
-    sample_pointer: f64,
-    sample_pointer_delta: f64,
+    sample_pointer: ParameterType,
+    sample_pointer_delta: ParameterType,
 }
 impl IsVoice<StereoSample> for SamplerVoice {}
 impl IsStereoSampleVoice for SamplerVoice {}
@@ -47,7 +47,7 @@ impl PlaysNotes for SamplerVoice {
         self.is_playing = true;
         self.sample_pointer = 0.0;
         self.frequency = note_to_frequency(key);
-        self.sample_pointer_delta = self.frequency / self.root_frequency;
+        self.sample_pointer_delta = (self.frequency / self.root_frequency).into();
     }
 
     #[allow(unused_variables)]
@@ -104,9 +104,9 @@ impl SamplerVoice {
     pub fn new_with_samples(
         sample_rate: usize,
         samples: Arc<Vec<StereoSample>>,
-        root_frequency: ParameterType,
+        root_frequency: FrequencyHz,
     ) -> Self {
-        if !root_frequency.is_normal() {
+        if !root_frequency.value().is_normal() {
             panic!("strange number given for root frequency: {root_frequency}");
         }
         Self {
@@ -128,7 +128,7 @@ pub struct Sampler {
     inner_synth: Synthesizer<SamplerVoice>,
 
     #[nano]
-    root_frequency: ParameterType,
+    root_frequency: FrequencyHz,
 }
 impl IsInstrument for Sampler {}
 impl HandlesMidi for Sampler {
@@ -163,7 +163,7 @@ impl Sampler {
     pub fn new_with_filename(
         sample_rate: usize,
         filename: &str,
-        root_frequency: Option<ParameterType>,
+        root_frequency: Option<FrequencyHz>,
     ) -> Self {
         if let Ok(samples) = Self::read_samples_from_file(filename) {
             let samples = Arc::new(samples);
@@ -173,7 +173,7 @@ impl Sampler {
             } else if let Ok(root_frequency) = Self::read_riff_metadata(filename) {
                 note_to_frequency(root_frequency)
             } else {
-                440.0
+                FrequencyHz::from(440.0)
             };
 
             Self {
@@ -310,12 +310,20 @@ impl Sampler {
         }
     }
 
-    pub fn root_frequency(&self) -> f64 {
+    pub fn root_frequency(&self) -> FrequencyHz {
         self.root_frequency
     }
 
     pub fn update(&mut self, message: SamplerMessage) {
-        todo!()
+        match message {
+            SamplerMessage::Sampler(_) => todo!(),
+            SamplerMessage::RootFrequency(s) => self.set_root_frequency(s),
+        }
+    }
+
+    pub fn set_root_frequency(&mut self, root_frequency: FrequencyHz) {
+        self.root_frequency = root_frequency;
+        todo!("propagate to voices")
     }
 }
 
@@ -330,7 +338,7 @@ mod tests {
         let filename = PathBuf::from("test-data/stereo-pluck.wav");
         let sampler =
             Sampler::new_with_filename(DEFAULT_SAMPLE_RATE, filename.to_str().unwrap(), None);
-        assert_eq!(sampler.root_frequency(), 440.0);
+        assert_eq!(sampler.root_frequency(), FrequencyHz::from(440.0));
     }
 
     #[test]
@@ -369,11 +377,11 @@ mod tests {
         let sampler = Sampler::new_with_filename(
             DEFAULT_SAMPLE_RATE,
             filename.to_str().unwrap(),
-            Some(123.0),
+            Some(FrequencyHz::from(123.0)),
         );
         assert_eq!(
             sampler.root_frequency(),
-            123.0,
+            FrequencyHz::from(123.0),
             "specified parameter should override acidized WAV's embedded root note"
         );
 
@@ -382,11 +390,11 @@ mod tests {
         let sampler = Sampler::new_with_filename(
             DEFAULT_SAMPLE_RATE,
             filename.to_str().unwrap(),
-            Some(123.0),
+            Some(FrequencyHz::from(123.0)),
         );
         assert_eq!(
             sampler.root_frequency(),
-            123.0,
+            FrequencyHz::from(123.0),
             "specified parameter should be used for non-acidized WAV"
         );
 
@@ -405,8 +413,11 @@ mod tests {
             Sampler::read_samples_from_file("test-data/square-440Hz-1-second-mono-24-bit-PCM.wav");
         assert!(samples.is_ok());
         let samples = samples.unwrap();
-        let mut voice =
-            SamplerVoice::new_with_samples(DEFAULT_SAMPLE_RATE, Arc::new(samples), 440.0);
+        let mut voice = SamplerVoice::new_with_samples(
+            DEFAULT_SAMPLE_RATE,
+            Arc::new(samples),
+            FrequencyHz::from(440.0),
+        );
         voice.note_on(1, 127);
 
         // Skip a few frames in case attack is slow

@@ -1,15 +1,14 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use crate::{FrequencyHz, ParameterType};
 use enum_primitive_derive::Primitive;
 pub use midly::live::LiveEvent;
-use std::fmt::Debug;
-use strum_macros::Display;
-
-use crate::ParameterType;
 pub use midly::{
     num::{u4, u7},
     MidiMessage,
 };
+use std::fmt::Debug;
+use strum_macros::Display;
 
 pub type MidiChannel = u8;
 
@@ -63,26 +62,28 @@ pub enum MidiNote {
     G9 = 127,
 }
 
-pub fn note_to_frequency(note: u8) -> ParameterType {
-    2.0_f64.powf((note as ParameterType - 69.0) / 12.0) * 440.0
+pub fn note_to_frequency(note: u8) -> FrequencyHz {
+    (2.0_f64.powf((note as ParameterType - 69.0) / 12.0) * 440.0).into()
 }
 
-pub fn note_type_to_frequency(midi_note: MidiNote) -> ParameterType {
-    2.0_f64.powf((midi_note as u8 as ParameterType - 69.0) / 12.0) * 440.0
+pub fn note_type_to_frequency(midi_note: MidiNote) -> FrequencyHz {
+    FrequencyHz::from(2.0_f64.powf((midi_note as u8 as ParameterType - 69.0) / 12.0) * 440.0)
 }
 
-pub fn note_description_to_frequency(text: String, default: ParameterType) -> ParameterType {
-    if !text.is_empty() {
-        if text.contains('.') {
-            let frequency = text.parse::<ParameterType>().unwrap_or(default);
-            if frequency > 0.0 {
-                return frequency;
-            }
-        } else if let Ok(note) = text.parse::<u8>() {
-            return note_to_frequency(note);
-        }
+pub fn note_description_to_frequency(text: &str) -> Option<FrequencyHz> {
+    if text.is_empty() {
+        return None;
     }
-    default
+    if text.contains('.') {
+        if let Ok(parsed_float) = text.parse::<ParameterType>() {
+            if parsed_float > 0.0 {
+                return Some(FrequencyHz::from(parsed_float));
+            }
+        }
+    } else if let Ok(note) = text.parse::<u8>() {
+        return Some(note_to_frequency(note));
+    }
+    None
 }
 
 pub fn new_note_on(note: u8, vel: u8) -> MidiMessage {
@@ -290,62 +291,74 @@ mod tests {
     #[test]
     fn note_to_frequency() {
         // https://www.colincrawley.com/midi-note-to-audio-frequency-calculator/
-        assert_eq!(note_type_to_frequency(MidiNote::C0), 16.351_597_831_287_414);
-        assert_eq!(note_type_to_frequency(MidiNote::C4), 261.625_565_300_598_6);
-        assert_eq!(note_type_to_frequency(MidiNote::D5), 587.329_535_834_815_1);
+        assert_eq!(
+            note_type_to_frequency(MidiNote::C0),
+            16.351_597_831_287_414.into()
+        );
+        assert_eq!(
+            note_type_to_frequency(MidiNote::C4),
+            261.625_565_300_598_6.into()
+        );
+        assert_eq!(
+            note_type_to_frequency(MidiNote::D5),
+            587.329_535_834_815_1.into()
+        );
         assert_eq!(
             note_type_to_frequency(MidiNote::D6),
-            1_174.659_071_669_630_3
+            1_174.659_071_669_630_3.into()
         );
-        assert_eq!(note_type_to_frequency(MidiNote::G9), 12_543.853_951_415_975);
+        assert_eq!(
+            note_type_to_frequency(MidiNote::G9),
+            12_543.853_951_415_975.into()
+        );
     }
 
     #[test]
     fn text_to_frequency() {
         assert_eq!(
-            note_description_to_frequency("440.0".to_string(), 999.9),
+            note_description_to_frequency("440.0").unwrap().value(),
             440.0,
             "A floating-point number should parse as a frequency"
         );
         assert_eq!(
-            note_description_to_frequency("69".to_string(), 999.9),
+            note_description_to_frequency("69").unwrap().value(),
             440.0,
             "An integer should parse as a MIDI note with 69 = 440.0Hz"
         );
         assert_eq!(
-            note_description_to_frequency("0".to_string(), 999.9),
+            note_description_to_frequency("0").unwrap().value(),
             8.175_798_915_643_707,
             "MIDI note zero is valid!"
         );
         assert_eq!(
-            note_description_to_frequency("-4".to_string(), 999.9),
-            999.9,
+            note_description_to_frequency("-4"),
+            None,
             "Negative note numbers are invalid"
         );
         assert_eq!(
-            note_description_to_frequency("0.0".to_string(), 999.9),
-            999.9,
+            note_description_to_frequency("0.0"),
+            None,
             "Frequency zero is not valid (design decision)"
         );
         assert_eq!(
-            note_description_to_frequency("-440.0".to_string(), 999.9),
-            999.9,
+            note_description_to_frequency("-440.0"),
+            None,
             "Negative frequencies are invalid"
         );
         assert_eq!(
-            note_description_to_frequency("1.2.3.4".to_string(), 999.9),
-            999.9,
-            "Gobbledygook should parse as default"
+            note_description_to_frequency("1.2.3.4"),
+            None,
+            "Gobbledygook should fail to parse"
         );
         assert_eq!(
-            note_description_to_frequency("chartreuse".to_string(), 999.9),
-            999.9,
-            "Gobbledygook should parse as default"
+            note_description_to_frequency("chartreuse"),
+            None,
+            "Gobbledygook should fail to parse"
         );
         assert_eq!(
-            note_description_to_frequency("".to_string(), 999.9),
-            999.9,
-            "Empty string should parse as default"
+            note_description_to_frequency(""),
+            None,
+            "Empty string should fail to parse"
         );
     }
 }

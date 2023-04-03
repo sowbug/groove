@@ -295,7 +295,7 @@ pub(crate) mod tests {
         tests::DEFAULT_SAMPLE_RATE,
         traits::{GeneratesEnvelope, IsVoice, PlaysNotes, StoresVoices, Ticks},
         voices::{Generates, IsStereoSampleVoice, Resets, StealingVoiceStore, VoiceStore},
-        BipolarNormal, Normal, ParameterType, StereoSample,
+        BipolarNormal, FrequencyHz, Normal, ParameterType, StereoSample,
     };
     use float_cmp::approx_eq;
     use more_asserts::assert_gt;
@@ -396,7 +396,7 @@ pub(crate) mod tests {
                 steal_is_underway: Default::default(),
             }
         }
-        fn set_frequency_hz(&mut self, frequency_hz: ParameterType) {
+        fn set_frequency_hz(&mut self, frequency_hz: FrequencyHz) {
             self.oscillator.set_frequency(frequency_hz);
         }
 
@@ -406,7 +406,7 @@ pub(crate) mod tests {
             //     self.envelope.debug_is_shutting_down()
         }
 
-        fn debug_oscillator_frequency(&self) -> ParameterType {
+        fn debug_oscillator_frequency(&self) -> FrequencyHz {
             self.oscillator.frequency()
         }
     }
@@ -520,8 +520,8 @@ pub(crate) mod tests {
             assert!(
                 approx_eq!(
                     ParameterType,
-                    voice.debug_oscillator_frequency(),
-                    note_to_frequency(60)
+                    voice.debug_oscillator_frequency().value(),
+                    note_to_frequency(60).value()
                 ),
                 "we should have gotten back the same voice for the requested note"
             );
@@ -531,8 +531,8 @@ pub(crate) mod tests {
             assert!(
                 approx_eq!(
                     ParameterType,
-                    voice.debug_oscillator_frequency(),
-                    note_to_frequency(61)
+                    voice.debug_oscillator_frequency().value(),
+                    note_to_frequency(61).value()
                 ),
                 "we should have gotten back the same voice for the requested note"
             );
@@ -554,8 +554,8 @@ pub(crate) mod tests {
             assert!(
                 approx_eq!(
                     ParameterType,
-                    voice.debug_oscillator_frequency(),
-                    note_to_frequency(60)
+                    voice.debug_oscillator_frequency().value(),
+                    note_to_frequency(60).value()
                 ),
                 "we should have gotten back the same voice for the requested note"
             );
@@ -572,8 +572,8 @@ pub(crate) mod tests {
             assert!(
                 approx_eq!(
                     ParameterType,
-                    voice.debug_oscillator_frequency(),
-                    note_to_frequency(60) // 60, not 62!!
+                    voice.debug_oscillator_frequency().value(),
+                    note_to_frequency(60).value() // 60, not 62!!
                 ),
                 "we should have gotten the defunct voice for a new note"
             );
