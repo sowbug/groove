@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use crate::core_crate_name;
 use quote::{format_ident, quote};
 use syn::{Data, DataEnum, Ident, Meta, NestedMeta};
 
@@ -87,6 +88,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
         _ => panic!("this derive macro works only on enums"),
     };
 
+    let core_crate = format_ident!("{}", core_crate_name());
     let (structs, types, params, messages) = build_lists(things.iter());
     let entity_enum = quote! {
         #[derive(Debug)]
@@ -132,7 +134,7 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
             pub fn message_for(
                 &self,
                 param_index: usize,
-                value: groove_core::control::F32ControlValue,
+                value: #core_crate::control::F32ControlValue,
             ) -> Option<OtherEntityMessage> {
                 match self {
                 #(
@@ -185,13 +187,13 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                     _ => false,
                 }
             }
-            pub fn as_is_controller(&self) -> Option<&dyn groove_core::traits::IsController<Message=MsgType>> {
+            pub fn as_is_controller(&self) -> Option<&dyn #core_crate::traits::IsController<Message=MsgType>> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsController<Message=MsgType>> {
+            pub fn as_is_controller_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsController<Message=MsgType>> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -217,13 +219,13 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                     _ => false,
                 }
             }
-            pub fn as_controllable(&self) -> Option<&dyn groove_core::traits::Controllable> {
+            pub fn as_controllable(&self) -> Option<&dyn #core_crate::traits::Controllable> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_controllable_mut(&mut self) -> Option<&mut dyn groove_core::traits::Controllable> {
+            pub fn as_controllable_mut(&mut self) -> Option<&mut dyn #core_crate::traits::Controllable> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -237,13 +239,13 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                     _ => false,
                 }
             }
-            pub fn as_controllable(&self) -> Option<&dyn groove_core::traits::Controllable> {
+            pub fn as_controllable(&self) -> Option<&dyn #core_crate::traits::Controllable> {
                 match self {
                     #( EntityNano::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_controllable_mut(&mut self) -> Option<&mut dyn groove_core::traits::Controllable> {
+            pub fn as_controllable_mut(&mut self) -> Option<&mut dyn #core_crate::traits::Controllable> {
                 match self {
                     #( EntityNano::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -255,13 +257,13 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
     let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_effect));
     let effect_dispatchers = quote! {
         impl Entity {
-            pub fn as_is_effect(&self) -> Option<&dyn groove_core::traits::IsEffect> {
+            pub fn as_is_effect(&self) -> Option<&dyn #core_crate::traits::IsEffect> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsEffect> {
+            pub fn as_is_effect_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsEffect> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -273,13 +275,13 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
     let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.is_instrument));
     let instrument_dispatchers = quote! {
         impl Entity {
-            pub fn as_is_instrument(&self) -> Option<&dyn groove_core::traits::IsInstrument> {
+            pub fn as_is_instrument(&self) -> Option<&dyn #core_crate::traits::IsInstrument> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn groove_core::traits::IsInstrument> {
+            pub fn as_is_instrument_mut(&mut self) -> Option<&mut dyn #core_crate::traits::IsInstrument> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,
@@ -291,13 +293,13 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
     let (structs, _, _, _) = build_lists(things.iter().filter(|thing| thing.handles_midi));
     let handles_midi_dispatchers = quote! {
         impl Entity {
-            pub fn as_handles_midi(&self) -> Option<&dyn groove_core::traits::HandlesMidi> {
+            pub fn as_handles_midi(&self) -> Option<&dyn #core_crate::traits::HandlesMidi> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_ref()), )*
                     _ => None,
                 }
             }
-            pub fn as_handles_midi_mut(&mut self) -> Option<&mut dyn groove_core::traits::HandlesMidi> {
+            pub fn as_handles_midi_mut(&mut self) -> Option<&mut dyn #core_crate::traits::HandlesMidi> {
                 match self {
                     #( Entity::#structs(e) => Some(e.as_mut()), )*
                     _ => None,

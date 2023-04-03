@@ -1,5 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use crate::core_crate_name;
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
@@ -62,6 +63,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
         let mut variant_names = Vec::default();
         let mut getters = Vec::default();
         let mut setters = Vec::default();
+        let core_crate = format_ident!("{}", core_crate_name());
         for (field_name, field_type, should_control) in attr_fields {
             variant_names.push(format_ident!(
                 "{}",
@@ -139,7 +141,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             pub fn message_for_name(
                 &self,
                 param_name: &str,
-                value: groove_core::control::F32ControlValue,
+                value: #core_crate::control::F32ControlValue,
             ) -> Option<#message_type_name> {
                 if let Ok(unit_enum) = #unit_only_enum_name::from_str(param_name) {
                     self.parameterized_message_from_unit_enum(unit_enum, value)
@@ -151,7 +153,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             pub fn message_for_index(
                 &self,
                 param_index: usize,
-                value: groove_core::control::F32ControlValue,
+                value: #core_crate::control::F32ControlValue,
             ) -> Option<#message_type_name> {
                 if let Some(unit_enum) = #unit_only_enum_name::from_repr(param_index) {
                     self.parameterized_message_from_unit_enum(unit_enum, value)
@@ -163,7 +165,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             pub fn parameterized_message_from_unit_enum(
                 &self,
                 unit_enum: #unit_only_enum_name,
-                value: groove_core::control::F32ControlValue,
+                value: #core_crate::control::F32ControlValue,
             ) -> Option<#message_type_name> {
                 match unit_enum {
                     #( #unit_only_enum_name::#co_variant_names => {return Some(#message_type_name::#co_variant_names(value.into()));} )*
@@ -227,10 +229,10 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                 #impl_block
             }
             #[automatically_derived]
-            impl #generics groove_core::traits::Controllable for #struct_name #ty_generics {
+            impl #generics #core_crate::traits::Controllable for #struct_name #ty_generics {
                 #controllable_block
             }
-            impl groove_core::traits::Controllable for #nano_name {
+            impl #core_crate::traits::Controllable for #nano_name {
                 #controllable_block
             }
         }
