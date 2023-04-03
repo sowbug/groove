@@ -7,7 +7,9 @@ use groove_core::{Sample, StereoSample};
 use iced::{
     alignment::{self, Vertical},
     theme::{self, palette},
-    widget::{self, button, checkbox, column, container, row, svg, text, Button, Text},
+    widget::{
+        self, button, checkbox, column, container, row, svg, text, Button, Column, Row, Text,
+    },
     Color, Element, Font, Length, Renderer, Theme,
 };
 use iced_native::{svg::Handle, widget::Svg};
@@ -245,6 +247,32 @@ impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
             enabled,
         )))
         .into()
+    }
+
+    fn envelope_view(envelope: groove_core::generators::EnvelopeParams) -> Element<'a, Message> {
+        Column::new()
+            .push(
+                Row::new()
+                    .push(
+                        text(&format!("Attack: {}", envelope.attack)).width(Length::FillPortion(1)),
+                    )
+                    .push(
+                        text(&format!("Decay: {}", envelope.decay)).width(Length::FillPortion(1)),
+                    ),
+            )
+            .push(
+                Row::new()
+                    .push(
+                        text(&format!("Sustain: {:0.2}", envelope.sustain.value()))
+                            .width(Length::FillPortion(1)),
+                    )
+                    .push(
+                        text(&format!("Release: {}", envelope.release))
+                            .width(Length::FillPortion(1)),
+                    ),
+            )
+            .width(Length::Fill)
+            .into()
     }
 }
 

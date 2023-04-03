@@ -503,6 +503,10 @@ impl FrequencyHz {
         )
     }
 
+    pub fn zero() -> Self {
+        FrequencyHz(0.0)
+    }
+
     pub fn value(&self) -> f64 {
         self.0
     }

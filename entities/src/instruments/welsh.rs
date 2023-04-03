@@ -1,15 +1,16 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::effects::BiQuadFilter;
+use crate::effects::{BiQuadFilter, BiQuadFilterNano};
 use core::fmt::Debug;
 use groove_core::{
-    generators::{Envelope, Oscillator},
+    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
         Resets, StoresVoices, Ticks, TransformsAudio,
     },
+    voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, Sample, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -20,8 +21,14 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "lfo-routing", rename_all = "kebab-case")
+)]
 pub enum LfoRouting {
+    #[default]
     None,
     Amplitude,
     Pitch,
@@ -42,8 +49,8 @@ pub struct WelshVoice {
     lfo_depth: Normal,
 
     filter: BiQuadFilter,
-    filter_cutoff_start: f32,
-    filter_cutoff_end: f32,
+    filter_cutoff_start: Normal,
+    filter_cutoff_end: Normal,
     filter_envelope: Envelope,
 
     note_on_key: u8,
@@ -158,17 +165,16 @@ impl Ticks for WelshVoice {
                 // Filters
                 //
                 // https://aempass.blogspot.com/2014/09/analog-and-welshs-synthesizer-cookbook.html
-                if self.filter_cutoff_end != 0.0 {
+                if self.filter_cutoff_end != Normal::zero() {
                     let new_cutoff_percentage = self.filter_cutoff_start
                         + (1.0 - self.filter_cutoff_start)
                             * self.filter_cutoff_end
-                            * filter_env_amplitude.value() as f32;
+                            * filter_env_amplitude;
                     self.filter.set_cutoff_pct(new_cutoff_percentage.into());
                 } else if matches!(self.lfo_routing, LfoRouting::FilterCutoff) {
                     let lfo_for_cutoff = lfo * self.lfo_depth;
-                    self.filter.set_cutoff_pct(
-                        (self.filter_cutoff_start * (1.0 + lfo_for_cutoff.value_as_f32())).into(),
-                    );
+                    self.filter
+                        .set_cutoff_pct(self.filter_cutoff_start * (lfo_for_cutoff.value() + 1.0));
                 }
                 let filtered_mix = self.filter.transform_channel(0, Sample::from(osc_sum)).0;
 
@@ -221,8 +227,8 @@ impl WelshVoice {
         oscillator_mix: Normal,
         amp_envelope: Envelope,
         filter: BiQuadFilter,
-        filter_cutoff_start: f32,
-        filter_cutoff_end: f32,
+        filter_cutoff_start: Normal,
+        filter_cutoff_end: Normal,
         filter_envelope: Envelope,
         lfo: Oscillator,
         lfo_routing: LfoRouting,
@@ -248,12 +254,71 @@ impl WelshVoice {
             steal_is_underway: Default::default(),
         }
     }
+
+    pub fn new_with_params(sample_rate: usize, params: WelshSynthNano) -> Self {
+        Self {
+            oscillators: vec![
+                Oscillator::new_with_params(sample_rate, params.oscillator_1),
+                Oscillator::new_with_params(sample_rate, params.oscillator_2),
+            ],
+            oscillator_2_sync: params.oscillator_sync,
+            oscillator_mix: params.oscillator_mix,
+            amp_envelope: Envelope::new_with(sample_rate, params.envelope()),
+            dca: Dca::new_with_params(params.dca),
+            lfo: Oscillator::new_with_params(sample_rate, params.lfo),
+            lfo_routing: params.lfo_routing,
+            lfo_depth: params.lfo_depth,
+            filter: BiQuadFilter::new_with(sample_rate, params.filter), // TODO: commit to 24db LPF
+            filter_cutoff_start: params.filter_cutoff_start,
+            filter_cutoff_end: params.filter_cutoff_end,
+            filter_envelope: Envelope::new_with(sample_rate, params.filter_envelope),
+            note_on_key: Default::default(),
+            note_on_velocity: Default::default(),
+            steal_is_underway: Default::default(),
+            sample: Default::default(),
+            ticks: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Nano, Uid)]
 pub struct WelshSynth {
     uid: usize,
     inner_synth: Synthesizer<WelshVoice>,
+
+    #[nano(control = false)]
+    oscillator_1: OscillatorNano,
+    #[nano(control = false)]
+    oscillator_2: OscillatorNano,
+    #[nano]
+    oscillator_sync: bool,
+    #[nano]
+    oscillator_mix: Normal,
+
+    #[nano(control = false)]
+    envelope: EnvelopeParams,
+
+    #[nano(control = false)]
+    dca: DcaParams,
+
+    #[nano(control = false)]
+    lfo: OscillatorNano,
+    #[nano(control = false)]
+    lfo_routing: LfoRouting,
+    #[nano]
+    lfo_depth: Normal,
+
+    #[nano(control = false)]
+    filter: BiQuadFilterNano,
+
+    #[nano]
+    filter_cutoff_start: Normal,
+
+    #[nano]
+    filter_cutoff_end: Normal,
+
+    #[nano(control = false)]
+    filter_envelope: EnvelopeParams,
 
     #[nano]
     pan: BipolarNormal,
@@ -301,6 +366,7 @@ impl HandlesMidi for WelshSynth {
     }
 }
 impl WelshSynth {
+    #[deprecated]
     pub fn new_with(
         sample_rate: usize,
         voice_store: Box<dyn StoresVoices<Voice = WelshVoice>>,
@@ -308,7 +374,47 @@ impl WelshSynth {
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<WelshVoice>::new_with(sample_rate, voice_store),
+
+            oscillator_1: todo!(),
+            oscillator_2: todo!(),
             pan: Default::default(),
+            envelope: Default::default(),
+            filter_envelope: Default::default(),
+            oscillator_sync: todo!(),
+            oscillator_mix: todo!(),
+            dca: todo!(),
+            lfo: todo!(),
+            lfo_routing: todo!(),
+            lfo_depth: todo!(),
+            filter: todo!(),
+            filter_cutoff_start: todo!(),
+            filter_cutoff_end: todo!(),
+        }
+    }
+
+    pub fn new_with_params(sample_rate: usize, params: WelshSynthNano) -> Self {
+        const VOICE_CAPACITY: usize = 8;
+        let voice_store =
+            StealingVoiceStore::<WelshVoice>::new_with_voice(sample_rate, VOICE_CAPACITY, || {
+                WelshVoice::new_with_params(sample_rate, params)
+            });
+        Self {
+            uid: Default::default(),
+            inner_synth: Synthesizer::<WelshVoice>::new_with(sample_rate, Box::new(voice_store)),
+            pan: params.dca().pan(),
+            envelope: params.envelope(),
+            filter_envelope: params.filter_envelope(),
+            oscillator_1: params.oscillator_1(),
+            oscillator_2: params.oscillator_2(),
+            oscillator_sync: params.oscillator_sync(),
+            oscillator_mix: params.oscillator_mix(),
+            dca: params.dca(),
+            lfo: params.lfo(),
+            lfo_routing: params.lfo_routing(),
+            lfo_depth: params.lfo_depth(),
+            filter: params.filter(),
+            filter_cutoff_start: params.filter_cutoff_start(),
+            filter_cutoff_end: params.filter_cutoff_end(),
         }
     }
 
@@ -333,8 +439,39 @@ impl WelshSynth {
             WelshSynthMessage::WelshSynth(_e) => {
                 // TODO: this will be a lot of work.
             }
+            WelshSynthMessage::Dca(_) => todo!(),
+            WelshSynthMessage::Envelope(envelope) => self.set_envelope(envelope),
+            WelshSynthMessage::Filter(_) => todo!(),
+            WelshSynthMessage::FilterCutoffEnd(_) => todo!(),
+            WelshSynthMessage::FilterCutoffStart(_) => todo!(),
+            WelshSynthMessage::FilterEnvelope(filter_envelope) => {
+                self.set_filter_envelope(filter_envelope)
+            }
+            WelshSynthMessage::Lfo(_) => todo!(),
+            WelshSynthMessage::LfoDepth(_) => todo!(),
+            WelshSynthMessage::LfoRouting(_) => todo!(),
+            WelshSynthMessage::Oscillator1(_) => todo!(),
+            WelshSynthMessage::Oscillator2(_) => todo!(),
+            WelshSynthMessage::OscillatorMix(_) => todo!(),
+            WelshSynthMessage::OscillatorSync(_) => todo!(),
             WelshSynthMessage::Pan(pan) => self.set_pan(pan),
         }
+    }
+
+    pub fn envelope(&self) -> EnvelopeParams {
+        self.envelope
+    }
+
+    pub fn filter_envelope(&self) -> EnvelopeParams {
+        self.filter_envelope
+    }
+
+    pub fn set_envelope(&mut self, envelope: EnvelopeParams) {
+        self.envelope = envelope;
+    }
+
+    pub fn set_filter_envelope(&mut self, filter_envelope: EnvelopeParams) {
+        self.filter_envelope = filter_envelope;
     }
 }
 

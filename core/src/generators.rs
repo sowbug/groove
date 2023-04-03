@@ -4,14 +4,16 @@ use crate::{
     control::F32ControlValue,
     time::{Clock, ClockTimeUnit, TimeUnit},
     traits::{Generates, GeneratesEnvelope, Resets, Ticks},
-    BipolarNormal, FrequencyHz, Normal, ParameterType, SignalType,
+    BipolarNormal, FrequencyHz, Normal, ParameterType, Ratio, SignalType,
 };
+use groove_proc_macros::Nano;
 use kahan::KahanSum;
 use more_asserts::{debug_assert_ge, debug_assert_le};
 use nalgebra::{Matrix3, Matrix3x1};
+use std::str::FromStr;
 use std::{f64::consts::PI, fmt::Debug, ops::Range};
 use strum::EnumCount;
-use strum_macros::{EnumCount as EnumCountMacro, FromRepr};
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -65,28 +67,31 @@ impl Into<F32ControlValue> for WaveformParams {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Nano)]
 pub struct Oscillator {
+    #[nano]
     waveform: WaveformParams,
 
     /// Hertz. Any positive number. 440 = A4
+    #[nano]
     frequency: FrequencyHz,
 
     /// if not zero, then ignores the `frequency` field and uses this one
     /// instead.
+    #[nano]
     fixed_frequency: FrequencyHz,
 
-    // TODO: this might be a new type that has an exponential effect.
-    //
-    /// 1.0 is no change. 2.0 doubles the frequency. 0.5 halves it. Designed for
-    /// pitch correction at construction time.
-    frequency_tune: ParameterType,
+    /// Designed for pitch correction at construction time.
+    #[nano]
+    frequency_tune: Ratio,
 
     /// [-1, 1] is typical range, with -1 halving the frequency, and 1 doubling
     /// it. Designed for LFOs.
+    #[nano]
     frequency_modulation: BipolarNormal,
 
     /// A factor applied to the root frequency. It is used for FM synthesis.
+    #[nano]
     linear_frequency_modulation: ParameterType,
 
     /// working variables to generate semi-deterministic noise.
@@ -164,6 +169,29 @@ impl Ticks for Oscillator {
 }
 
 impl Oscillator {
+    pub fn new_with_params(sample_rate: usize, params: OscillatorNano) -> Self {
+        Self {
+            waveform: params.waveform(),
+            frequency: params.frequency(),
+            fixed_frequency: params.fixed_frequency(),
+            frequency_tune: params.frequency_tune(),
+            frequency_modulation: params.frequency_modulation(),
+            linear_frequency_modulation: Default::default(),
+            noise_x1: 0x70f4f854,
+            noise_x2: 0xe1e9f0a7,
+            sample_rate,
+            ticks: Default::default(),
+            signal: Default::default(),
+            cycle_position: Default::default(),
+            delta: Default::default(),
+            delta_needs_update: true,
+            should_sync: Default::default(),
+            is_sync_pending: Default::default(),
+            is_reset_pending: true,
+        }
+    }
+
+    #[deprecated]
     pub fn new_with(sample_rate: usize) -> Self {
         // See the _pola test. I kept running into non-bugs where I had a
         // default oscillator in a chain, and wasted time debugging why the
@@ -176,6 +204,7 @@ impl Oscillator {
         Self::new_with_waveform(sample_rate, WaveformParams::Sine)
     }
 
+    #[deprecated]
     pub fn new_with_waveform(sample_rate: usize, waveform: WaveformParams) -> Self {
         // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5
         // is Square.
@@ -183,7 +212,7 @@ impl Oscillator {
             waveform,
             frequency: 440.0.into(),
             fixed_frequency: Default::default(),
-            frequency_tune: 1.0,
+            frequency_tune: Ratio(1.0),
             frequency_modulation: Default::default(),
             linear_frequency_modulation: Default::default(),
             noise_x1: 0x70f4f854,
@@ -200,6 +229,7 @@ impl Oscillator {
         }
     }
 
+    #[deprecated]
     pub fn new_with_waveform_and_frequency(
         sample_rate: usize,
         waveform: WaveformParams,
@@ -212,7 +242,7 @@ impl Oscillator {
 
     fn adjusted_frequency(&self) -> FrequencyHz {
         let unmodulated_frequency = if self.fixed_frequency == 0.0.into() {
-            self.frequency * FrequencyHz(self.frequency_tune)
+            self.frequency * self.frequency_tune
         } else {
             self.fixed_frequency
         };
@@ -380,7 +410,7 @@ impl Oscillator {
         }
     }
 
-    pub fn set_frequency_tune(&mut self, frequency_tune: ParameterType) {
+    pub fn set_frequency_tune(&mut self, frequency_tune: Ratio) {
         self.frequency_tune = frequency_tune;
     }
 
@@ -413,6 +443,8 @@ pub struct EnvelopeParams {
     pub release: ParameterType,
 }
 impl EnvelopeParams {
+    pub const MAX: ParameterType = 10000.0; // TODO: what exactly does Welsh mean by "max"?
+
     pub fn new_with(
         attack: ParameterType,
         decay: ParameterType,
@@ -922,11 +954,7 @@ pub mod tests {
         }
     }
 
-    fn create_oscillator(
-        waveform: WaveformParams,
-        tune: ParameterType,
-        note: MidiNote,
-    ) -> Oscillator {
+    fn create_oscillator(waveform: WaveformParams, tune: Ratio, note: MidiNote) -> Oscillator {
         let mut oscillator = Oscillator::new_with_waveform_and_frequency(
             DEFAULT_SAMPLE_RATE,
             waveform,
@@ -1243,7 +1271,7 @@ pub mod tests {
 
     #[test]
     fn oscillator_modulated() {
-        let mut oscillator = create_oscillator(WaveformParams::Sine, 1.0, MidiNote::C4);
+        let mut oscillator = create_oscillator(WaveformParams::Sine, Ratio(1.0), MidiNote::C4);
         // Default
         assert_eq!(
             oscillator.adjusted_frequency(),

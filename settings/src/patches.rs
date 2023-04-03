@@ -1,17 +1,16 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use super::LoadError;
-use crate::generators::EnvelopeSettings;
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
-    generators::{Oscillator, WaveformParams},
+    generators::{EnvelopeParams, Oscillator, OscillatorNano, WaveformParams},
     midi::{note_to_frequency, GeneralMidiProgram},
     voices::StealingVoiceStore,
-    FrequencyHz, Normal, ParameterType,
+    BipolarNormal, DcaParams, FrequencyHz, Normal, ParameterType, Ratio,
 };
 use groove_entities::{
     effects::{BiQuadFilter, BiQuadFilterNano},
-    instruments::{LfoRouting, WelshSynth, WelshVoice},
+    instruments::{LfoRouting, WelshSynth, WelshSynthNano, WelshVoice},
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -41,9 +40,9 @@ pub struct WelshPatchSettings {
     pub filter_type_12db: FilterPreset,
     pub filter_resonance: f32, // This should be an appropriate interpretation of a linear 0..1
     pub filter_envelope_weight: f32,
-    pub filter_envelope: EnvelopeSettings,
+    pub filter_envelope: EnvelopeParams,
 
-    pub amp_envelope: EnvelopeSettings,
+    pub amp_envelope: EnvelopeParams,
 }
 
 // TODO: cache these as they're loaded
@@ -121,10 +120,10 @@ impl WelshPatchSettings {
             Normal::from(self.oscillator_1.mix / total)
         };
 
-        let amp_envelope = self.amp_envelope.derive_envelope(sample_rate);
+        //        let amp_envelope = self.amp_envelope.derive_envelope(sample_rate);
         let lfo = self.lfo.derive_oscillator(sample_rate);
-        let lfo_routing = self.lfo.routing.into();
-        let lfo_depth = self.lfo.depth.into();
+        //   let lfo_routing = self.lfo.routing.into();
+        // let lfo_depth = self.lfo.depth.into();
         let filter = BiQuadFilter::new_with(
             sample_rate,
             BiQuadFilterNano {
@@ -135,20 +134,66 @@ impl WelshPatchSettings {
         let filter_cutoff_start =
             FrequencyHz::frequency_to_percent(self.filter_type_12db.cutoff_hz.into());
         let filter_cutoff_end = self.filter_envelope_weight;
-        let filter_envelope = self.filter_envelope.derive_envelope(sample_rate);
+        //   let filter_envelope = self.filter_envelope.derive_envelope(sample_rate);
 
-        WelshVoice::new_with(
-            oscillators,
-            oscillator_2_sync,
-            oscillator_mix,
-            amp_envelope,
-            filter,
-            filter_cutoff_start.value_as_f32(),
-            filter_cutoff_end,
-            filter_envelope,
-            lfo,
-            lfo_routing,
-            lfo_depth,
+        // WelshVoice::new_with(
+        //     oscillators,
+        //     oscillator_2_sync,
+        //     oscillator_mix,
+        //     amp_envelope,
+        //     filter,
+        //     filter_cutoff_start.value_as_f32(),
+        //     filter_cutoff_end,
+        //     filter_envelope,
+        //     lfo,
+        //     lfo_routing,
+        //     lfo_depth,
+        // )
+
+        WelshVoice::new_with_params(
+            sample_rate,
+            WelshSynthNano {
+                oscillator_1: OscillatorNano {
+                    waveform: self.oscillator_1.waveform.into(),
+                    frequency: Default::default(),
+                    fixed_frequency: Default::default(), // TODO: need Option<>!
+                    frequency_tune: self.oscillator_1.tune.into(),
+                    frequency_modulation: Default::default(),
+                    linear_frequency_modulation: Default::default(),
+                },
+                oscillator_2: OscillatorNano {
+                    waveform: self.oscillator_2.waveform.into(),
+                    frequency: Default::default(),
+                    fixed_frequency: Default::default(), // TODO: need Option<>!
+                    frequency_tune: self.oscillator_2.tune.into(),
+                    frequency_modulation: Default::default(),
+                    linear_frequency_modulation: Default::default(),
+                },
+                oscillator_sync: self.oscillator_2_sync,
+                oscillator_mix,
+                envelope: self.amp_envelope.into(),
+                dca: DcaParams::default(), // TODO
+                lfo: OscillatorNano {
+                    waveform: self.lfo.waveform.into(),
+                    frequency: self.lfo.frequency.into(),
+                    fixed_frequency: Default::default(),
+                    frequency_tune: Default::default(),
+                    frequency_modulation: Default::default(),
+                    linear_frequency_modulation: Default::default(),
+                },
+                lfo_routing: self.lfo.routing.into(),
+                lfo_depth: self.lfo.depth.into(),
+                filter: BiQuadFilterNano {
+                    cutoff: self.filter_type_24db.cutoff_hz.into(),
+                    q: 1.414,
+                }, // TODO HACK HACK HAC
+                filter_cutoff_start: FrequencyHz::frequency_to_percent(
+                    self.filter_type_24db.cutoff_hz.into(),
+                ),
+                filter_cutoff_end: self.filter_envelope_weight.into(),
+                filter_envelope: self.filter_envelope,
+                pan: BipolarNormal::zero(),
+            },
         )
     }
 
@@ -215,27 +260,26 @@ pub enum PolyphonySettings {
 #[serde(rename_all = "kebab-case")]
 pub enum OscillatorTune {
     Note(u8),
-    Float(f32),
+    Float(ParameterType),
     Osc { octave: i8, semi: i8, cent: i8 },
 }
-
-impl From<OscillatorTune> for f64 {
+impl From<OscillatorTune> for Ratio {
     fn from(val: OscillatorTune) -> Self {
         match val {
-            OscillatorTune::Note(_) => 1.0,
-            OscillatorTune::Float(value) => value as f64,
+            OscillatorTune::Note(_) => Ratio::from(1.0),
+            OscillatorTune::Float(value) => Ratio::from(value),
             OscillatorTune::Osc { octave, semi, cent } => {
                 OscillatorSettings::semis_and_cents(octave as i16 * 12 + semi as i16, cent as f64)
             }
         }
     }
 }
-impl From<OscillatorTune> for f32 {
-    fn from(val: OscillatorTune) -> Self {
-        let r: f64 = val.into();
-        r as f32
-    }
-}
+// impl From<OscillatorTune> for f32 {
+//     fn from(val: OscillatorTune) -> Self {
+//         let r: Ratio = val.into();
+//         r.value() as f32
+//     }
+// }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -261,13 +305,13 @@ impl Default for OscillatorSettings {
 }
 impl OscillatorSettings {
     #[allow(dead_code)]
-    pub fn octaves(num: i16) -> f64 {
+    pub fn octaves(num: i16) -> Ratio {
         Self::semis_and_cents(num * 12, 0.0)
     }
 
-    pub fn semis_and_cents(semitones: i16, cents: f64) -> f64 {
+    pub fn semis_and_cents(semitones: i16, cents: f64) -> Ratio {
         // https://en.wikipedia.org/wiki/Cent_(music)
-        2.0f64.powf((semitones as f64 * 100.0 + cents) / 1200.0)
+        Ratio::from(2.0f64.powf((semitones as f64 * 100.0 + cents) / 1200.0))
     }
 
     pub fn derive_oscillator(&self, sample_rate: usize) -> Oscillator {
@@ -318,7 +362,7 @@ impl From<LfoDepth> for Normal {
             LfoDepth::None => Normal::minimum(),
             LfoDepth::Pct(pct) => Normal::new(pct as f64),
             LfoDepth::Cents(cents) => {
-                Normal::new(1.0 - OscillatorSettings::semis_and_cents(0, cents as f64))
+                Normal::new(1.0 - OscillatorSettings::semis_and_cents(0, cents as f64).value())
             }
         }
     }
@@ -712,8 +756,8 @@ pub struct FmSynthesizerSettings {
     pub depth: ParameterType,
     pub beta: ParameterType,
 
-    pub carrier_envelope: EnvelopeSettings,
-    pub modulator_envelope: EnvelopeSettings,
+    pub carrier_envelope: EnvelopeParams,
+    pub modulator_envelope: EnvelopeParams,
 }
 
 impl FmSynthesizerSettings {
@@ -738,8 +782,8 @@ impl FmSynthesizerSettings {
 
     #[allow(dead_code)]
     pub fn from_name(_name: &str) -> FmSynthesizerSettings {
-        let carrier_envelope = EnvelopeSettings::default();
-        let modulator_envelope = EnvelopeSettings::default();
+        let carrier_envelope = EnvelopeParams::default();
+        let modulator_envelope = EnvelopeParams::default();
         FmSynthesizerSettings {
             ratio: 2.0, // Modulator frequency is 2x carrier
             depth: 1.0, // full strength
@@ -753,17 +797,18 @@ impl FmSynthesizerSettings {
 #[cfg(test)]
 mod tests {
     use super::{
-        EnvelopeSettings, FilterPreset, LfoDepth, LfoPreset, LfoRoutingType, PolyphonySettings,
-        WaveformType, WelshPatchSettings,
+        FilterPreset, LfoDepth, LfoPreset, LfoRoutingType, PolyphonySettings, WaveformType,
+        WelshPatchSettings,
     };
     use crate::patches::OscillatorSettings;
     use convert_case::{Case, Casing};
     use float_cmp::approx_eq;
     use groove_core::{
+        generators::EnvelopeParams,
         time::Clock,
         traits::{Generates, PlaysNotes, Ticks},
         util::tests::TestOnlyPaths,
-        SampleType, StereoSample,
+        Normal, Ratio, SampleType, StereoSample,
     };
     use groove_entities::instruments::WelshVoice;
     use groove_orchestration::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
@@ -782,24 +827,30 @@ mod tests {
     #[test]
     fn oscillator_tuning_helpers() {
         // tune
-        assert_eq!(OscillatorSettings::octaves(0), 1.0);
-        assert_eq!(OscillatorSettings::octaves(1), 2.0);
-        assert_eq!(OscillatorSettings::octaves(-1), 0.5);
-        assert_eq!(OscillatorSettings::octaves(2), 4.0);
-        assert_eq!(OscillatorSettings::octaves(-2), 0.25);
+        assert_eq!(OscillatorSettings::octaves(0), Ratio::from(1.0));
+        assert_eq!(OscillatorSettings::octaves(1), Ratio::from(2.0));
+        assert_eq!(OscillatorSettings::octaves(-1), Ratio::from(0.5));
+        assert_eq!(OscillatorSettings::octaves(2), Ratio::from(4.0));
+        assert_eq!(OscillatorSettings::octaves(-2), Ratio::from(0.25));
 
-        assert_eq!(OscillatorSettings::semis_and_cents(0, 0.0), 1.0);
-        assert_eq!(OscillatorSettings::semis_and_cents(12, 0.0), 2.0);
+        assert_eq!(
+            OscillatorSettings::semis_and_cents(0, 0.0),
+            Ratio::from(1.0)
+        );
+        assert_eq!(
+            OscillatorSettings::semis_and_cents(12, 0.0),
+            Ratio::from(2.0)
+        );
         assert!(
             approx_eq!(
                 f64,
-                OscillatorSettings::semis_and_cents(5, 0.0),
+                OscillatorSettings::semis_and_cents(5, 0.0).value(),
                 1.334_839_854_170_034_4
             ),
             "semis_and_cents() should give sane results"
         ); // 349.2282÷261.6256, F4÷C4
         assert_eq!(
-            OscillatorSettings::semis_and_cents(0, -100.0),
+            OscillatorSettings::semis_and_cents(0, -100.0).value(),
             2.0f64.powf(-100.0 / 1200.0)
         );
 
@@ -883,16 +934,16 @@ mod tests {
             },
             filter_resonance: 0.0,
             filter_envelope_weight: 0.9,
-            filter_envelope: EnvelopeSettings {
+            filter_envelope: EnvelopeParams {
                 attack: 0.0,
                 decay: 3.29,
-                sustain: 0.78,
-                release: EnvelopeSettings::MAX,
+                sustain: Normal::from(0.78),
+                release: EnvelopeParams::MAX,
             },
-            amp_envelope: EnvelopeSettings {
+            amp_envelope: EnvelopeParams {
                 attack: 0.06,
-                decay: EnvelopeSettings::MAX,
-                sustain: 1.0,
+                decay: EnvelopeParams::MAX,
+                sustain: Normal::maximum(),
                 release: 0.3,
             },
         }
@@ -929,17 +980,17 @@ mod tests {
             },
             filter_resonance: 0.0,
             filter_envelope_weight: 1.0,
-            filter_envelope: EnvelopeSettings {
+            filter_envelope: EnvelopeParams {
                 attack: 5.0,
-                decay: EnvelopeSettings::MAX,
-                sustain: 1.0,
-                release: EnvelopeSettings::MAX,
+                decay: EnvelopeParams::MAX,
+                sustain: Normal::maximum(),
+                release: EnvelopeParams::MAX,
             },
-            amp_envelope: EnvelopeSettings {
+            amp_envelope: EnvelopeParams {
                 attack: 0.5,
-                decay: EnvelopeSettings::MAX,
-                sustain: 1.0,
-                release: EnvelopeSettings::MAX,
+                decay: EnvelopeParams::MAX,
+                sustain: Normal::maximum(),
+                release: EnvelopeParams::MAX,
             },
         }
     }
