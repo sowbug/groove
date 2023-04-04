@@ -90,7 +90,7 @@ jobs:
         target:
           - aarch64-unknown-linux-gnu # ARM Chromebooks & 64-bit RPi
           - armv7-unknown-linux-gnueabihf # Raspberry Pi 3/4 32-bit
-          - riscv64gc-unknown-linux-gnu # The future!
+          # - riscv64gc-unknown-linux-gnu # The future!
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
