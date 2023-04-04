@@ -63,9 +63,7 @@ impl EffectSettings {
         match *self {
             EffectSettings::Toy(params) => Entity::ToyEffect(Box::new(ToyEffect::new_with(params))),
             EffectSettings::Mixer(params) => Entity::Mixer(Box::new(Mixer::new_with(params))),
-            EffectSettings::Limiter(params) => {
-                Entity::Limiter(Box::new(Limiter::new_with_params(params)))
-            }
+            EffectSettings::Limiter(params) => Entity::Limiter(Box::new(Limiter::new_with(params))),
             EffectSettings::Gain(params) => Entity::Gain(Box::new(Gain::new_with(params))),
             EffectSettings::Bitcrusher(params) => {
                 Entity::Bitcrusher(Box::new(Bitcrusher::new_with(params)))

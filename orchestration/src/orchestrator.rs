@@ -1628,7 +1628,7 @@ pub mod tests {
         ));
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
-        let arpeggiator = Box::new(Arpeggiator::new_with_params(
+        let arpeggiator = Box::new(Arpeggiator::new_with(
             clock.sample_rate(),
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
             ArpeggiatorNano { bpm: clock.bpm() },

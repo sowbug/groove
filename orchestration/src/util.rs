@@ -114,8 +114,10 @@ pub mod tests {
         ))));
         let lfo = LfoController::new_with(
             clock.sample_rate(),
-            WaveformParams::Sine,
-            FrequencyHz::from(2.0),
+            groove_entities::controllers::LfoControllerNano {
+                waveform: WaveformParams::Sine,
+                frequency: FrequencyHz::from(2.0),
+            },
         );
         let lfo_uid = o.add(Entity::LfoController(Box::new(lfo)));
         let _ = o.link_control_by_name(lfo_uid, synth_1_uid, "oscillator");

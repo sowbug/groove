@@ -91,18 +91,7 @@ impl HandlesMidi for Arpeggiator {
 }
 
 impl Arpeggiator {
-    #[deprecated]
-    pub fn new_with(sample_rate: usize, midi_channel_out: MidiChannel, bpm: ParameterType) -> Self {
-        Self {
-            uid: Default::default(),
-            midi_channel_out,
-            bpm,
-            sequencer: Sequencer::new_with(sample_rate, super::SequencerNano { bpm }),
-            note_semaphore: Default::default(),
-        }
-    }
-
-    pub fn new_with_params(
+    pub fn new_with(
         sample_rate: usize,
         midi_channel_out: MidiChannel,
         params: ArpeggiatorNano,
@@ -182,8 +171,7 @@ impl Arpeggiator {
     pub fn update(&mut self, message: ArpeggiatorMessage) {
         match message {
             ArpeggiatorMessage::Arpeggiator(s) => {
-                *self =
-                    Self::new_with_params(self.sequencer.sample_rate(), self.midi_channel_out, s)
+                *self = Self::new_with(self.sequencer.sample_rate(), self.midi_channel_out, s)
             }
             _ => self.derived_update(message),
         }

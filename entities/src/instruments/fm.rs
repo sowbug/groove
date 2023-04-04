@@ -1,12 +1,12 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Envelope, EnvelopeParams, Oscillator, WaveformParams},
+    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano, WaveformParams},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
-        Resets, StoresVoices, Ticks,
+        Resets, Ticks,
     },
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
@@ -64,6 +64,8 @@ pub struct FmVoice {
     note_on_key: u8,
     note_on_velocity: u8,
     steal_is_underway: bool,
+
+    sample_rate: usize,
 }
 impl IsStereoSampleVoice for FmVoice {}
 impl IsVoice<StereoSample> for FmVoice {}
@@ -111,6 +113,7 @@ impl Generates<StereoSample> for FmVoice {
 }
 impl Resets for FmVoice {
     fn reset(&mut self, sample_rate: usize) {
+        self.sample_rate = sample_rate;
         self.carrier_envelope.reset(sample_rate);
         self.modulator_envelope.reset(sample_rate);
         self.carrier.reset(sample_rate);
@@ -146,17 +149,24 @@ impl Ticks for FmVoice {
     }
 }
 impl FmVoice {
-    pub fn new_with_params(sample_rate: usize, params: FmSynthParamsLegacy) -> Self {
+    pub fn new_with(sample_rate: usize, params: FmSynthNano) -> Self {
         Self {
+            sample_rate,
             sample: Default::default(),
-            carrier: Oscillator::new_with_do_not_use_me(sample_rate),
-            modulator: Oscillator::new_with_waveform(sample_rate, WaveformParams::Sine),
+            carrier: Oscillator::new_with(
+                sample_rate,
+                OscillatorNano::default_with_waveform(WaveformParams::Sine),
+            ),
+            modulator: Oscillator::new_with(
+                sample_rate,
+                OscillatorNano::default_with_waveform(WaveformParams::Sine),
+            ),
             modulator_depth: params.depth,
             modulator_ratio: params.ratio,
             modulator_beta: params.beta,
             carrier_envelope: Envelope::new_with(sample_rate, params.carrier_envelope),
             modulator_envelope: Envelope::new_with(sample_rate, params.modulator_envelope),
-            dca: Dca::new_with_params(params.dca),
+            dca: Dca::new_with(params.dca()),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
             steal_is_underway: Default::default(),
@@ -202,15 +212,20 @@ impl FmVoice {
     pub fn modulator_beta(&self) -> f64 {
         self.modulator_beta
     }
+
+    // TODO: we'll have to be smarter about subbing in a new envelope, possibly
+    // while the voice is playing.
+    pub fn set_carrier_envelope(&mut self, params: EnvelopeParams) {
+        self.carrier_envelope = Envelope::new_with(self.sample_rate, params)
+    }
+
+    pub fn set_modulator_envelope(&mut self, params: EnvelopeParams) {
+        self.modulator_envelope = Envelope::new_with(self.sample_rate, params)
+    }
 }
 
 #[derive(Debug, Nano, Uid)]
 pub struct FmSynth {
-    uid: usize,
-    params: FmSynthParamsLegacy,
-
-    inner_synth: Synthesizer<FmVoice>,
-
     #[nano]
     depth: Normal,
 
@@ -219,6 +234,18 @@ pub struct FmSynth {
 
     #[nano]
     beta: ParameterType,
+
+    #[nano(control = false)]
+    carrier_envelope: EnvelopeParams,
+
+    #[nano(control = false)]
+    modulator_envelope: EnvelopeParams,
+
+    #[nano(control = false)]
+    dca: DcaParams,
+
+    uid: usize,
+    inner_synth: Synthesizer<FmVoice>,
 }
 impl IsInstrument for FmSynth {}
 impl Generates<StereoSample> for FmSynth {
@@ -249,67 +276,56 @@ impl HandlesMidi for FmSynth {
     }
 }
 impl FmSynth {
-    pub fn new_with_params(sample_rate: usize, params: FmSynthParamsLegacy) -> Self {
+    pub fn new_with(sample_rate: usize, params: FmSynthNano) -> Self {
+        const VOICE_CAPACITY: usize = 8;
+        let voice_store =
+            StealingVoiceStore::<FmVoice>::new_with_voice(sample_rate, VOICE_CAPACITY, || {
+                FmVoice::new_with(sample_rate, params)
+            });
+
         Self {
             uid: Default::default(),
-            params,
-            inner_synth: Synthesizer::<FmVoice>::new_with(
-                sample_rate,
-                Box::new(StealingVoiceStore::new_with_voice(sample_rate, 4, || {
-                    FmVoice::new_with_params(sample_rate, params)
-                })),
-            ),
-            depth: Default::default(),
-            ratio: Default::default(),
-            beta: Default::default(),
-        }
-    }
-    pub fn new_with_params_and_voice_store(
-        sample_rate: usize,
-        params: FmSynthParamsLegacy,
-        voice_store: Box<dyn StoresVoices<Voice = FmVoice>>,
-    ) -> Self {
-        Self {
-            uid: Default::default(),
-            params,
-            inner_synth: Synthesizer::<FmVoice>::new_with(sample_rate, voice_store),
-            depth: Default::default(),
-            ratio: Default::default(),
-            beta: Default::default(),
+            inner_synth: Synthesizer::<FmVoice>::new_with(sample_rate, Box::new(voice_store)),
+            depth: params.depth(),
+            ratio: params.ratio(),
+            beta: params.beta(),
+            carrier_envelope: params.carrier_envelope(),
+            modulator_envelope: params.modulator_envelope(),
+            dca: params.dca(),
         }
     }
 
     pub fn set_depth(&mut self, depth: Normal) {
-        self.params.depth = depth;
+        self.depth = depth;
         self.inner_synth
             .voices_mut()
             .for_each(|v| v.set_modulator_depth(depth));
     }
 
     pub fn set_ratio(&mut self, ratio: Ratio) {
-        self.params.ratio = ratio;
+        self.ratio = ratio;
         self.inner_synth
             .voices_mut()
             .for_each(|v| v.set_modulator_ratio(ratio));
     }
 
     pub fn set_beta(&mut self, beta: ParameterType) {
-        self.params.beta = beta;
+        self.beta = beta;
         self.inner_synth
             .voices_mut()
             .for_each(|v| v.set_modulator_beta(beta));
     }
 
     pub fn depth(&self) -> Normal {
-        self.params.depth
+        self.depth
     }
 
     pub fn ratio(&self) -> Ratio {
-        self.params.ratio
+        self.ratio
     }
 
     pub fn beta(&self) -> f64 {
-        self.params.beta
+        self.beta
     }
 
     pub fn update(&mut self, message: FmSynthMessage) {
@@ -319,5 +335,35 @@ impl FmSynth {
             }
             _ => self.derived_update(message),
         }
+    }
+
+    pub fn carrier_envelope(&self) -> EnvelopeParams {
+        self.carrier_envelope
+    }
+
+    pub fn set_carrier_envelope(&mut self, carrier_envelope: EnvelopeParams) {
+        self.carrier_envelope = carrier_envelope;
+        self.inner_synth
+            .voices_mut()
+            .for_each(|v| v.set_carrier_envelope(carrier_envelope));
+    }
+
+    pub fn modulator_envelope(&self) -> EnvelopeParams {
+        self.modulator_envelope
+    }
+
+    pub fn set_modulator_envelope(&mut self, modulator_envelope: EnvelopeParams) {
+        self.modulator_envelope = modulator_envelope;
+        self.inner_synth
+            .voices_mut()
+            .for_each(|v| v.set_modulator_envelope(modulator_envelope));
+    }
+
+    pub fn dca(&self) -> DcaParams {
+        self.dca
+    }
+
+    pub fn set_dca(&mut self, dca: DcaParams) {
+        self.dca = dca;
     }
 }

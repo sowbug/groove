@@ -222,41 +222,7 @@ impl WelshVoice {
         });
     }
 
-    pub fn new_with(
-        oscillators: Vec<Oscillator>,
-        oscillator_2_sync: bool,
-        oscillator_mix: Normal,
-        amp_envelope: Envelope,
-        filter: BiQuadFilterLowPass24db,
-        filter_cutoff_start: Normal,
-        filter_cutoff_end: Normal,
-        filter_envelope: Envelope,
-        lfo: Oscillator,
-        lfo_routing: LfoRouting,
-        lfo_depth: Normal,
-    ) -> WelshVoice {
-        Self {
-            oscillators,
-            oscillator_2_sync,
-            oscillator_mix,
-            amp_envelope,
-            dca: Dca::new_with_params(DcaParams::default()),
-            lfo,
-            lfo_routing,
-            lfo_depth,
-            filter,
-            filter_cutoff_start,
-            filter_cutoff_end,
-            filter_envelope,
-            sample: Default::default(),
-            ticks: Default::default(),
-            note_on_key: Default::default(),
-            note_on_velocity: Default::default(),
-            steal_is_underway: Default::default(),
-        }
-    }
-
-    pub fn new_with_params(sample_rate: usize, params: WelshSynthNano) -> Self {
+    pub fn new_with(sample_rate: usize, params: WelshSynthNano) -> Self {
         Self {
             oscillators: vec![
                 Oscillator::new_with(sample_rate, params.oscillator_1),
@@ -265,7 +231,7 @@ impl WelshVoice {
             oscillator_2_sync: params.oscillator_sync,
             oscillator_mix: params.oscillator_mix,
             amp_envelope: Envelope::new_with(sample_rate, params.envelope()),
-            dca: Dca::new_with_params(params.dca),
+            dca: Dca::new_with(params.dca),
             lfo: Oscillator::new_with(sample_rate, params.lfo),
             lfo_routing: params.lfo_routing,
             lfo_depth: params.lfo_depth,
@@ -367,11 +333,11 @@ impl HandlesMidi for WelshSynth {
     }
 }
 impl WelshSynth {
-    pub fn new_with_params(sample_rate: usize, params: WelshSynthNano) -> Self {
+    pub fn new_with(sample_rate: usize, params: WelshSynthNano) -> Self {
         const VOICE_CAPACITY: usize = 8;
         let voice_store =
             StealingVoiceStore::<WelshVoice>::new_with_voice(sample_rate, VOICE_CAPACITY, || {
-                WelshVoice::new_with_params(sample_rate, params)
+                WelshVoice::new_with(sample_rate, params)
             });
         Self {
             uid: Default::default(),

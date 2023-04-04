@@ -67,6 +67,16 @@ impl Into<F32ControlValue> for WaveformParams {
     }
 }
 
+impl OscillatorNano {
+    pub fn default_with_waveform(waveform: WaveformParams) -> Self {
+        Self {
+            waveform,
+            frequency: FrequencyHz::from(440.0),
+            ..Default::default()
+        }
+    }
+}
+
 #[derive(Clone, Debug, Nano)]
 pub struct Oscillator {
     #[nano]
@@ -189,55 +199,6 @@ impl Oscillator {
             is_sync_pending: Default::default(),
             is_reset_pending: true,
         }
-    }
-
-    #[deprecated]
-    pub fn new_with_do_not_use_me(sample_rate: usize) -> Self {
-        // See the _pola test. I kept running into non-bugs where I had a
-        // default oscillator in a chain, and wasted time debugging why the
-        // output was silent. The answer was that a default oscillator with
-        // waveform None and frequency 0.0 is indeed silent.
-        //
-        // One view is that a default oscillator should be quiet. Another
-        // view is that a quiet oscillator isn't doing its main job of
-        // helping make sound. Principle of Least Astonishment prevails.
-        Self::new_with_waveform(sample_rate, WaveformParams::Sine)
-    }
-
-    #[deprecated]
-    pub fn new_with_waveform(sample_rate: usize, waveform: WaveformParams) -> Self {
-        // TODO: assert that if PWM, range is (0.0, 0.5). 0.0 is None, and 0.5
-        // is Square.
-        Self {
-            waveform,
-            frequency: 440.0.into(),
-            fixed_frequency: Default::default(),
-            frequency_tune: Ratio(1.0),
-            frequency_modulation: Default::default(),
-            linear_frequency_modulation: Default::default(),
-            noise_x1: 0x70f4f854,
-            noise_x2: 0xe1e9f0a7,
-            sample_rate,
-            ticks: Default::default(),
-            signal: Default::default(),
-            cycle_position: Default::default(),
-            delta: Default::default(),
-            delta_needs_update: true,
-            should_sync: Default::default(),
-            is_sync_pending: Default::default(),
-            is_reset_pending: true,
-        }
-    }
-
-    #[deprecated]
-    pub fn new_with_waveform_and_frequency(
-        sample_rate: usize,
-        waveform: WaveformParams,
-        frequency: FrequencyHz,
-    ) -> Self {
-        let mut r = Self::new_with_waveform(sample_rate, waveform);
-        r.frequency = frequency;
-        r
     }
 
     fn adjusted_frequency(&self) -> FrequencyHz {
@@ -955,10 +916,13 @@ pub mod tests {
     }
 
     fn create_oscillator(waveform: WaveformParams, tune: Ratio, note: MidiNote) -> Oscillator {
-        let mut oscillator = Oscillator::new_with_waveform_and_frequency(
+        let mut oscillator = Oscillator::new_with(
             DEFAULT_SAMPLE_RATE,
-            waveform,
-            note_type_to_frequency(note),
+            OscillatorNano {
+                waveform,
+                frequency: note_type_to_frequency(note),
+                ..Default::default()
+            },
         );
         oscillator.set_frequency_tune(tune);
         oscillator
@@ -966,7 +930,10 @@ pub mod tests {
 
     #[test]
     fn oscillator_pola() {
-        let mut oscillator = Oscillator::new_with_do_not_use_me(DEFAULT_SAMPLE_RATE);
+        let mut oscillator = Oscillator::new_with(
+            DEFAULT_SAMPLE_RATE,
+            OscillatorNano::default_with_waveform(WaveformParams::Sine),
+        );
 
         // we'll run two ticks in case the oscillator happens to start at zero
         oscillator.tick(2);
@@ -983,10 +950,13 @@ pub mod tests {
     fn square_wave_is_correct_amplitude() {
         const SAMPLE_RATE: usize = 63949; // Prime number
         const FREQUENCY: FrequencyHz = FrequencyHz(499.0);
-        let mut oscillator = Oscillator::new_with_waveform_and_frequency(
+        let mut oscillator = Oscillator::new_with(
             SAMPLE_RATE,
-            WaveformParams::Square,
-            FREQUENCY,
+            OscillatorNano {
+                waveform: WaveformParams::Square,
+                frequency: FREQUENCY,
+                ..Default::default()
+            },
         );
 
         // Below Nyquist limit
@@ -1005,10 +975,13 @@ pub mod tests {
         // numbers so that we don't have to deal with edge cases.
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: FrequencyHz = FrequencyHz(128.0);
-        let mut oscillator = Oscillator::new_with_waveform_and_frequency(
+        let mut oscillator = Oscillator::new_with(
             SAMPLE_RATE,
-            WaveformParams::Square,
-            FREQUENCY,
+            OscillatorNano {
+                waveform: WaveformParams::Square,
+                frequency: FREQUENCY,
+                ..Default::default()
+            },
         );
 
         let mut n_pos = 0;
@@ -1042,10 +1015,13 @@ pub mod tests {
     fn square_wave_shape_is_accurate() {
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
-        let mut oscillator = Oscillator::new_with_waveform_and_frequency(
+        let mut oscillator = Oscillator::new_with(
             SAMPLE_RATE,
-            WaveformParams::Square,
-            FREQUENCY,
+            OscillatorNano {
+                waveform: WaveformParams::Square,
+                frequency: FREQUENCY,
+                ..Default::default()
+            },
         );
 
         oscillator.tick(1);
@@ -1091,10 +1067,13 @@ pub mod tests {
     #[test]
     fn sine_wave_is_balanced() {
         const FREQUENCY: FrequencyHz = FrequencyHz(1.0);
-        let mut oscillator = Oscillator::new_with_waveform_and_frequency(
+        let mut oscillator = Oscillator::new_with(
             DEFAULT_SAMPLE_RATE,
-            WaveformParams::Sine,
-            FREQUENCY,
+            OscillatorNano {
+                waveform: WaveformParams::Sine,
+                frequency: FREQUENCY,
+                ..Default::default()
+            },
         );
 
         let mut n_pos = 0;
@@ -1174,10 +1153,13 @@ pub mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc = Oscillator::new_with_waveform_and_frequency(
+            let mut osc = Oscillator::new_with(
                 DEFAULT_SAMPLE_RATE,
-                WaveformParams::Square,
-                FrequencyHz(test_case.0),
+                OscillatorNano {
+                    waveform: WaveformParams::Square,
+                    frequency: test_case.0.into(),
+                    ..Default::default()
+                },
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = TestOnlyPaths::test_data_path();
@@ -1206,10 +1188,13 @@ pub mod tests {
     #[test]
     fn sine_matches_known_good() {
         for test_case in test_cases() {
-            let mut osc = Oscillator::new_with_waveform_and_frequency(
+            let mut osc = Oscillator::new_with(
                 DEFAULT_SAMPLE_RATE,
-                WaveformParams::Sine,
-                test_case.0,
+                OscillatorNano {
+                    waveform: WaveformParams::Sine,
+                    frequency: test_case.0.into(),
+                    ..Default::default()
+                },
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = TestOnlyPaths::test_data_path();
@@ -1228,10 +1213,13 @@ pub mod tests {
     #[test]
     fn sawtooth_matches_known_good() {
         for test_case in test_cases() {
-            let mut osc = Oscillator::new_with_waveform_and_frequency(
+            let mut osc = Oscillator::new_with(
                 DEFAULT_SAMPLE_RATE,
-                WaveformParams::Sawtooth,
-                test_case.0,
+                OscillatorNano {
+                    waveform: WaveformParams::Sawtooth,
+                    frequency: test_case.0.into(),
+                    ..Default::default()
+                },
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = TestOnlyPaths::test_data_path();
@@ -1250,10 +1238,13 @@ pub mod tests {
     #[test]
     fn triangle_matches_known_good() {
         for test_case in test_cases() {
-            let mut osc = Oscillator::new_with_waveform_and_frequency(
+            let mut osc = Oscillator::new_with(
                 DEFAULT_SAMPLE_RATE,
-                WaveformParams::Triangle,
-                test_case.0,
+                OscillatorNano {
+                    waveform: WaveformParams::Triangle,
+                    frequency: test_case.0.into(),
+                    ..Default::default()
+                },
             );
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = TestOnlyPaths::test_data_path();
@@ -1309,7 +1300,10 @@ pub mod tests {
 
     #[test]
     fn oscillator_cycle_restarts_on_time() {
-        let mut oscillator = Oscillator::new_with_do_not_use_me(DEFAULT_SAMPLE_RATE);
+        let mut oscillator = Oscillator::new_with(
+            DEFAULT_SAMPLE_RATE,
+            OscillatorNano::default_with_waveform(WaveformParams::Sine),
+        );
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
         oscillator.set_frequency(FREQUENCY);
 

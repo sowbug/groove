@@ -9,6 +9,7 @@
 //! ```
 //! # use groove::{Entity, Orchestrator};
 //! # use groove_core::{
+//! #     generators::WaveformParams,
 //! #     midi::{MidiChannel, new_note_off, new_note_on},
 //! #     time::PerfectTimeUnit,
 //! #     Normal,
@@ -20,7 +21,7 @@
 //! #     effects::Compressor,
 //! #     effects::CompressorNano,
 //! # };
-//! # use groove_toys::ToySynth;
+//! # use groove_toys::{ToySynth, ToySynthNano};
 //! #
 //! # const SAMPLE_RATE: usize = 44100;
 //! # const BPM: f64 = 128.0;
@@ -30,7 +31,11 @@
 //! let mut buffer = [StereoSample::SILENCE; 64];
 //!
 //! // ToySynth is a MIDI instrument that makes simple sounds.
-//! let synth = ToySynth::new_with(SAMPLE_RATE);
+//! let synth = ToySynth::new_with(SAMPLE_RATE, ToySynthNano {
+//!     voice_count: 4,
+//!     waveform: WaveformParams::Sine,
+//!     envelope: Default::default(),
+//! });
 //!
 //! // Sequencer sends MIDI commands to the synth.
 //! let mut sequencer = Sequencer::new_with(SAMPLE_RATE, SequencerNano { bpm: 128.0 });

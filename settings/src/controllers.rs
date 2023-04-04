@@ -183,7 +183,7 @@ impl ControllerSettings {
             ControllerSettings::Arpeggiator(midi, params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::Arpeggiator(Box::new(Arpeggiator::new_with_params(
+                Entity::Arpeggiator(Box::new(Arpeggiator::new_with(
                     sample_rate,
                     midi.midi_out,
                     params,
@@ -192,10 +192,7 @@ impl ControllerSettings {
             ControllerSettings::LfoController(midi, params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::LfoController(Box::new(LfoController::new_with_params(
-                    sample_rate,
-                    params,
-                ))),
+                Entity::LfoController(Box::new(LfoController::new_with(sample_rate, params))),
             ),
             ControllerSettings::SignalPassthroughController(midi) => (
                 midi.midi_in,

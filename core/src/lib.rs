@@ -448,7 +448,7 @@ pub struct Dca {
     params: DcaParams,
 }
 impl Dca {
-    pub fn new_with_params(params: DcaParams) -> Self {
+    pub fn new_with(params: DcaParams) -> Self {
         Self { params }
     }
 
@@ -580,12 +580,17 @@ impl Display for FrequencyHz {
 /// 1.0:2.0 = a x 0.5).
 ///
 /// Negative ratios are meaningless for current use cases.
-#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Ratio(ParameterType);
 impl Ratio {
     pub fn value(&self) -> ParameterType {
         self.0
+    }
+}
+impl Default for Ratio {
+    fn default() -> Self {
+        Self(1.0)
     }
 }
 impl From<f64> for Ratio {
@@ -768,7 +773,7 @@ mod tests {
 
     #[test]
     fn dca_mainline() {
-        let mut dca = Dca::new_with_params(DcaParams::default());
+        let mut dca = Dca::new_with(DcaParams::default());
         const VALUE_IN: Sample = Sample(0.5);
         const VALUE: f64 = 0.5;
         assert_eq!(

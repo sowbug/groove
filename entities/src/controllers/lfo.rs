@@ -46,27 +46,7 @@ impl TicksWithMessages for LfoController {
 }
 impl HandlesMidi for LfoController {}
 impl LfoController {
-    #[deprecated]
-    pub fn new_with(sample_rate: usize, waveform: WaveformParams, frequency: FrequencyHz) -> Self {
-        Self {
-            uid: Default::default(),
-            oscillator: Oscillator::new_with(
-                sample_rate,
-                OscillatorNano {
-                    waveform,
-                    frequency,
-                    fixed_frequency: Default::default(),
-                    frequency_tune: Default::default(),
-                    frequency_modulation: Default::default(),
-                    linear_frequency_modulation: Default::default(),
-                },
-            ),
-            waveform,
-            frequency,
-        }
-    }
-
-    pub fn new_with_params(sample_rate: usize, params: LfoControllerNano) -> Self {
+    pub fn new_with(sample_rate: usize, params: LfoControllerNano) -> Self {
         Self {
             uid: Default::default(),
             oscillator: Oscillator::new_with(
@@ -74,10 +54,7 @@ impl LfoController {
                 OscillatorNano {
                     waveform: params.waveform,
                     frequency: params.frequency,
-                    fixed_frequency: Default::default(),
-                    frequency_tune: Default::default(),
-                    frequency_modulation: Default::default(),
-                    linear_frequency_modulation: Default::default(),
+                    ..Default::default()
                 },
             ),
             waveform: params.waveform(),
@@ -106,7 +83,7 @@ impl LfoController {
     pub fn update(&mut self, message: LfoControllerMessage) {
         match message {
             LfoControllerMessage::LfoController(s) => {
-                *self = Self::new_with_params(self.oscillator.sample_rate(), s)
+                *self = Self::new_with(self.oscillator.sample_rate(), s)
             }
             _ => self.derived_update(message),
         }

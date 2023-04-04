@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Envelope, EnvelopeParams, Oscillator, WaveformParams},
+    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano, WaveformParams},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
@@ -141,8 +141,11 @@ impl ToyInstrument {
             sample_rate,
             sample: Default::default(),
             fake_value: params.fake_value(),
-            oscillator: Oscillator::new_with_do_not_use_me(sample_rate),
-            dca: Dca::new_with_params(DcaParams::default()),
+            oscillator: Oscillator::new_with(
+                sample_rate,
+                OscillatorNano::default_with_waveform(WaveformParams::Sine),
+            ),
+            dca: Dca::new_with(DcaParams::default()),
             is_playing: Default::default(),
             received_count: Default::default(),
             handled_count: Default::default(),
@@ -300,7 +303,10 @@ impl DebugSynth {
     pub fn new_with(sample_rate: usize) -> Self {
         Self::new_with_components(
             sample_rate,
-            Box::new(Oscillator::new_with_do_not_use_me(sample_rate)),
+            Box::new(Oscillator::new_with(
+                sample_rate,
+                OscillatorNano::default_with_waveform(WaveformParams::Sine),
+            )),
             Box::new(Envelope::new_with(
                 sample_rate,
                 EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
@@ -368,17 +374,7 @@ impl Resets for ToySynth {
     }
 }
 impl ToySynth {
-    pub fn new_with(sample_rate: usize) -> Self {
-        Self::new_with_params(
-            sample_rate,
-            ToySynthNano {
-                voice_count: 4,
-                waveform: Default::default(),
-                envelope: Default::default(),
-            },
-        )
-    }
-    pub fn new_with_params(sample_rate: usize, params: ToySynthNano) -> Self {
+    pub fn new_with(sample_rate: usize, params: ToySynthNano) -> Self {
         let voice_store =
             VoiceStore::<ToyVoice>::new_with_voice(sample_rate, params.voice_count(), || {
                 ToyVoice::new_with(sample_rate, params.waveform(), params.envelope())
@@ -479,7 +475,10 @@ impl Resets for ToyVoice {
 impl ToyVoice {
     fn new_with(sample_rate: usize, waveform: WaveformParams, envelope: EnvelopeParams) -> Self {
         Self {
-            oscillator: Oscillator::new_with_waveform(sample_rate, waveform),
+            oscillator: Oscillator::new_with(
+                sample_rate,
+                OscillatorNano::default_with_waveform(waveform),
+            ),
             envelope: Envelope::new_with(sample_rate, envelope),
             value: Default::default(),
         }

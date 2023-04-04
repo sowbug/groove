@@ -9,7 +9,7 @@ use groove_core::{
 };
 use groove_entities::{
     effects::{BiQuadFilter, BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano},
-    instruments::{LfoRouting, WelshSynth, WelshSynthNano, WelshVoice},
+    instruments::{LfoRouting, WelshSynth, WelshSynthNano},
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -100,9 +100,12 @@ impl WelshPatchSettings {
             oscillators.push(o);
         }
         if self.noise > 0.0 {
-            oscillators.push(Oscillator::new_with_waveform(
+            oscillators.push(Oscillator::new_with(
                 sample_rate,
-                WaveformParams::Noise,
+                OscillatorNano {
+                    waveform: WaveformParams::Noise,
+                    ..Default::default()
+                },
             ));
         }
 
@@ -135,19 +138,13 @@ impl WelshPatchSettings {
         WelshSynthNano {
             oscillator_1: OscillatorNano {
                 waveform: self.oscillator_1.waveform.into(),
-                frequency: Default::default(),
-                fixed_frequency: Default::default(), // TODO: need Option<>!
                 frequency_tune: self.oscillator_1.tune.into(),
-                frequency_modulation: Default::default(),
-                linear_frequency_modulation: Default::default(),
+                ..Default::default()
             },
             oscillator_2: OscillatorNano {
                 waveform: self.oscillator_2.waveform.into(),
-                frequency: Default::default(),
-                fixed_frequency: Default::default(), // TODO: need Option<>!
                 frequency_tune: self.oscillator_2.tune.into(),
-                frequency_modulation: Default::default(),
-                linear_frequency_modulation: Default::default(),
+                ..Default::default()
             },
             oscillator_sync: self.oscillator_2_sync,
             oscillator_mix,
@@ -156,10 +153,7 @@ impl WelshPatchSettings {
             lfo: OscillatorNano {
                 waveform: self.lfo.waveform.into(),
                 frequency: self.lfo.frequency.into(),
-                fixed_frequency: Default::default(),
-                frequency_tune: Default::default(),
-                frequency_modulation: Default::default(),
-                linear_frequency_modulation: Default::default(),
+                ..Default::default()
             },
             lfo_routing: self.lfo.routing.into(),
             lfo_depth: self.lfo.depth.into(),
@@ -174,12 +168,8 @@ impl WelshPatchSettings {
         }
     }
 
-    pub fn derive_welsh_voice(&self, sample_rate: usize) -> WelshVoice {
-        WelshVoice::new_with_params(sample_rate, self.derive_welsh_synth_nano(sample_rate))
-    }
-
     pub fn derive_welsh_synth(&self, sample_rate: usize) -> WelshSynth {
-        WelshSynth::new_with_params(sample_rate, self.derive_welsh_synth_nano(sample_rate))
+        WelshSynth::new_with(sample_rate, self.derive_welsh_synth_nano(sample_rate))
     }
 }
 
@@ -289,7 +279,10 @@ impl OscillatorSettings {
     }
 
     pub fn derive_oscillator(&self, sample_rate: usize) -> Oscillator {
-        let mut r = Oscillator::new_with_waveform(sample_rate, self.waveform.into());
+        let mut r = Oscillator::new_with(
+            sample_rate,
+            OscillatorNano::default_with_waveform(self.waveform.into()),
+        );
         r.set_frequency_tune(self.tune.into());
         r
     }
@@ -352,10 +345,13 @@ pub struct LfoPreset {
 }
 impl LfoPreset {
     pub fn derive_oscillator(&self, sample_rate: usize) -> Oscillator {
-        Oscillator::new_with_waveform_and_frequency(
+        Oscillator::new_with(
             sample_rate,
-            self.waveform.into(),
-            FrequencyHz::from(self.frequency),
+            OscillatorNano {
+                waveform: self.waveform.into(),
+                frequency: self.frequency.into(),
+                ..Default::default()
+            },
         )
     }
 }
@@ -786,6 +782,12 @@ mod tests {
     };
     use groove_entities::instruments::WelshVoice;
     use groove_orchestration::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
+
+    impl WelshPatchSettings {
+        pub fn derive_welsh_voice(&self, sample_rate: usize) -> WelshVoice {
+            WelshVoice::new_with(sample_rate, self.derive_welsh_synth_nano(sample_rate))
+        }
+    }
 
     // TODO dedup
     pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
