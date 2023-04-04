@@ -12,7 +12,7 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Nano, Uid)]
+#[derive(Debug, Nano, Uid)]
 pub struct BiQuadFilterLowPass24db {
     #[nano]
     cutoff: FrequencyHz,
@@ -21,12 +21,87 @@ pub struct BiQuadFilterLowPass24db {
 
     uid: usize,
     sample_rate: usize,
-    inner: BiQuadFilter,
-    coefficients2: CoefficientSet2,
+    left: BiQuadFilterLowPass24dbChannel,
+    right: BiQuadFilterLowPass24dbChannel,
 }
 impl IsEffect for BiQuadFilterLowPass24db {}
 impl TransformsAudio for BiQuadFilterLowPass24db {
     fn transform_channel(&mut self, channel: usize, input_sample: Sample) -> Sample {
+        match channel {
+            0 => self.left.transform_channel(channel, input_sample),
+            1 => self.right.transform_channel(channel, input_sample),
+            _ => panic!(),
+        }
+    }
+}
+impl BiQuadFilterLowPass24db {
+    pub fn new_with(sample_rate: usize, params: BiQuadFilterLowPass24dbNano) -> Self {
+        let mut r = Self {
+            cutoff: params.cutoff(),
+            passband_ripple: params.passband_ripple(),
+            uid: Default::default(),
+            sample_rate,
+            left: BiQuadFilterLowPass24dbChannel::new_with(
+                sample_rate,
+                params.cutoff(),
+                params.passband_ripple(),
+            ),
+            right: BiQuadFilterLowPass24dbChannel::new_with(
+                sample_rate,
+                params.cutoff(),
+                params.passband_ripple(),
+            ),
+        };
+        r.update_coefficients();
+        r
+    }
+
+    fn update_coefficients(&mut self) {
+        self.left
+            .update_coefficients(self.sample_rate, self.cutoff, self.passband_ripple);
+        self.right
+            .update_coefficients(self.sample_rate, self.cutoff, self.passband_ripple);
+    }
+
+    pub fn cutoff(&self) -> FrequencyHz {
+        self.cutoff
+    }
+    pub fn set_cutoff(&mut self, hz: FrequencyHz) {
+        if self.cutoff != hz {
+            self.cutoff = hz;
+            self.update_coefficients();
+        }
+    }
+    pub fn passband_ripple(&self) -> ParameterType {
+        self.passband_ripple
+    }
+    pub fn set_passband_ripple(&mut self, passband_ripple: ParameterType) {
+        if self.passband_ripple != passband_ripple {
+            self.passband_ripple = passband_ripple;
+            self.update_coefficients();
+        }
+    }
+
+    pub fn update(&mut self, message: BiQuadFilterLowPass24dbMessage) {
+        match message {
+            BiQuadFilterLowPass24dbMessage::BiQuadFilterLowPass24db(e) => {
+                *self = Self::new_with(self.sample_rate, e)
+            }
+            BiQuadFilterLowPass24dbMessage::Cutoff(cutoff) => self.set_cutoff(cutoff),
+            BiQuadFilterLowPass24dbMessage::PassbandRipple(passband_ripple) => {
+                self.set_passband_ripple(passband_ripple)
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct BiQuadFilterLowPass24dbChannel {
+    inner: BiQuadFilter,
+    coefficients2: CoefficientSet2,
+}
+impl TransformsAudio for BiQuadFilterLowPass24dbChannel {
+    fn transform_channel(&mut self, _: usize, input_sample: Sample) -> Sample {
         // Thanks
         // https://www.musicdsp.org/en/latest/Filters/229-lpf-24db-oct.html
         let input = input_sample.0;
@@ -43,25 +118,29 @@ impl TransformsAudio for BiQuadFilterLowPass24db {
         Sample::from(output)
     }
 }
-impl BiQuadFilterLowPass24db {
-    pub fn new_with(sample_rate: usize, params: BiQuadFilterLowPass24dbNano) -> Self {
+impl BiQuadFilterLowPass24dbChannel {
+    pub fn new_with(
+        sample_rate: usize,
+        cutoff: FrequencyHz,
+        passband_ripple: ParameterType,
+    ) -> Self {
         let mut r = Self {
-            cutoff: params.cutoff(),
-            passband_ripple: params.passband_ripple(),
-            uid: Default::default(),
-            sample_rate,
-            inner: BiQuadFilter::new_with(sample_rate, params.cutoff(), params.passband_ripple()),
+            inner: BiQuadFilter::new_with(sample_rate, cutoff, passband_ripple),
             coefficients2: Default::default(),
         };
-        r.update_coefficients();
+        r.update_coefficients(sample_rate, cutoff, passband_ripple);
         r
     }
 
-    fn update_coefficients(&mut self) {
-        let k = (PI * self.cutoff.value() / self.sample_rate as f64).tan();
-        let p2 = self.passband_ripple;
-        let sg = p2.sinh();
-        let cg = p2.cosh() * p2.cosh();
+    fn update_coefficients(
+        &mut self,
+        sample_rate: usize,
+        cutoff: FrequencyHz,
+        passband_ripple: ParameterType,
+    ) {
+        let k = (PI * cutoff.value() / sample_rate as f64).tan();
+        let sg = passband_ripple.sinh();
+        let cg = passband_ripple.cosh() * passband_ripple.cosh();
 
         let c0 = 1.0 / (cg - 0.853_553_390_593_273_7);
         let c1 = k * c0 * sg * 1.847_759_065_022_573_5;
@@ -90,42 +169,7 @@ impl BiQuadFilterLowPass24db {
         let b3 = a3 * k;
         let b4 = 2.0 * b3;
         let b5 = b3;
-        self.set_coefficients2(CoefficientSet2 { a4, a5, b3, b4, b5 });
-    }
-
-    pub fn cutoff(&self) -> FrequencyHz {
-        self.cutoff
-    }
-    pub fn set_cutoff(&mut self, hz: FrequencyHz) {
-        if self.cutoff != hz {
-            self.cutoff = hz;
-            self.update_coefficients();
-        }
-    }
-    pub fn passband_ripple(&self) -> ParameterType {
-        self.passband_ripple
-    }
-    pub fn set_passband_ripple(&mut self, passband_ripple: ParameterType) {
-        if self.passband_ripple != passband_ripple {
-            self.passband_ripple = passband_ripple;
-            self.update_coefficients();
-        }
-    }
-
-    fn set_coefficients2(&mut self, coefficient_set: CoefficientSet2) {
-        self.coefficients2 = coefficient_set;
-    }
-
-    pub fn update(&mut self, message: BiQuadFilterLowPass24dbMessage) {
-        match message {
-            BiQuadFilterLowPass24dbMessage::BiQuadFilterLowPass24db(e) => {
-                *self = Self::new_with(self.sample_rate, e)
-            }
-            BiQuadFilterLowPass24dbMessage::Cutoff(cutoff) => self.set_cutoff(cutoff),
-            BiQuadFilterLowPass24dbMessage::PassbandRipple(passband_ripple) => {
-                self.set_passband_ripple(passband_ripple)
-            }
-        }
+        self.coefficients2 = CoefficientSet2 { a4, a5, b3, b4, b5 };
     }
 }
 
