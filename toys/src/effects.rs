@@ -90,7 +90,7 @@ impl ToyEffect {
     pub fn update(&mut self, message: ToyEffectMessage) {
         match message {
             ToyEffectMessage::ToyEffect(s) => *self = Self::new_with(s),
-            ToyEffectMessage::MyValue(my_value) => self.set_my_value(my_value),
+            _ => self.derived_update(message),
         }
     }
 

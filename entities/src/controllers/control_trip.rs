@@ -142,7 +142,10 @@ impl ControlTrip {
     }
 
     pub fn update(&mut self, message: ControlTripMessage) {
-        todo!()
+        match message {
+            ControlTripMessage::ControlTrip(s) => todo!(),
+            _ => self.derived_update(message),
+        }
     }
 
     pub fn time_signature(&self) -> TimeSignature {

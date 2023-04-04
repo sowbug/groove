@@ -8,7 +8,7 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
         Generates, GeneratesEnvelope, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes,
-        Resets, StoresVoices, Ticks, TransformsAudio,
+        Resets, Ticks, TransformsAudio,
     },
     voices::StealingVoiceStore,
     BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, Sample, StereoSample,
@@ -367,32 +367,6 @@ impl HandlesMidi for WelshSynth {
     }
 }
 impl WelshSynth {
-    #[deprecated]
-    pub fn new_with(
-        sample_rate: usize,
-        voice_store: Box<dyn StoresVoices<Voice = WelshVoice>>,
-    ) -> Self {
-        Self {
-            uid: Default::default(),
-            inner_synth: Synthesizer::<WelshVoice>::new_with(sample_rate, voice_store),
-
-            oscillator_1: todo!(),
-            oscillator_2: todo!(),
-            pan: Default::default(),
-            envelope: Default::default(),
-            filter_envelope: Default::default(),
-            oscillator_sync: todo!(),
-            oscillator_mix: todo!(),
-            dca: todo!(),
-            lfo: todo!(),
-            lfo_routing: todo!(),
-            lfo_depth: todo!(),
-            filter: todo!(),
-            filter_cutoff_start: todo!(),
-            filter_cutoff_end: todo!(),
-        }
-    }
-
     pub fn new_with_params(sample_rate: usize, params: WelshSynthNano) -> Self {
         const VOICE_CAPACITY: usize = 8;
         let voice_store =
@@ -440,22 +414,7 @@ impl WelshSynth {
             WelshSynthMessage::WelshSynth(_e) => {
                 // TODO: this will be a lot of work.
             }
-            WelshSynthMessage::Dca(_) => todo!(),
-            WelshSynthMessage::Envelope(envelope) => self.set_envelope(envelope),
-            WelshSynthMessage::Filter(_) => todo!(),
-            WelshSynthMessage::FilterCutoffEnd(_) => todo!(),
-            WelshSynthMessage::FilterCutoffStart(_) => todo!(),
-            WelshSynthMessage::FilterEnvelope(filter_envelope) => {
-                self.set_filter_envelope(filter_envelope)
-            }
-            WelshSynthMessage::Lfo(_) => todo!(),
-            WelshSynthMessage::LfoDepth(_) => todo!(),
-            WelshSynthMessage::LfoRouting(_) => todo!(),
-            WelshSynthMessage::Oscillator1(_) => todo!(),
-            WelshSynthMessage::Oscillator2(_) => todo!(),
-            WelshSynthMessage::OscillatorMix(_) => todo!(),
-            WelshSynthMessage::OscillatorSync(_) => todo!(),
-            WelshSynthMessage::Pan(pan) => self.set_pan(pan),
+            _ => self.derived_update(message),
         }
     }
 

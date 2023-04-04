@@ -167,7 +167,7 @@ impl Sequencer {
     pub fn update(&mut self, message: SequencerMessage) {
         match message {
             SequencerMessage::Sequencer(s) => *self = Self::new_with(self.sample_rate(), s),
-            SequencerMessage::Bpm(bpm) => self.set_bpm(bpm),
+            _ => self.derived_update(message),
         }
     }
 
@@ -296,9 +296,7 @@ impl MidiTickSequencer {
             MidiTickSequencerMessage::MidiTickSequencer(s) => {
                 *self = Self::new_with(self.temp_hack_clock.sample_rate(), s)
             }
-            MidiTickSequencerMessage::MidiTicksPerSecond(midi_ticks_per_second) => {
-                self.set_midi_ticks_per_second(midi_ticks_per_second)
-            }
+            _ => self.derived_update(message),
         }
     }
 

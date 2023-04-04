@@ -128,7 +128,12 @@ impl Drumkit {
     }
 
     pub fn update(&mut self, message: DrumkitMessage) {
-        todo!()
+        match message {
+            DrumkitMessage::Drumkit(s) => {
+                todo!()
+            }
+            _ => self.derived_update(message),
+        }
     }
 }
 

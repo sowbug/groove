@@ -34,14 +34,6 @@ impl Gain {
         }
     }
 
-    #[deprecated]
-    pub fn new_with_ceiling(ceiling: Normal) -> Self {
-        Self {
-            ceiling,
-            ..Default::default()
-        }
-    }
-
     pub fn ceiling(&self) -> Normal {
         self.ceiling
     }
@@ -53,7 +45,7 @@ impl Gain {
     pub fn update(&mut self, message: GainMessage) {
         match message {
             GainMessage::Gain(s) => *self = Self::new_with(s),
-            GainMessage::Ceiling(ceiling) => self.set_ceiling(ceiling),
+            _ => self.derived_update(message),
         }
     }
 }
@@ -66,7 +58,9 @@ mod tests {
 
     #[test]
     fn test_gain_mainline() {
-        let mut gain = Gain::new_with_ceiling(Normal::new(0.5));
+        let mut gain = Gain::new_with(GainNano {
+            ceiling: Normal::new(0.5),
+        });
         assert_eq!(
             gain.transform_audio(
                 ToyAudioSource::new_with(ToyAudioSourceNano {

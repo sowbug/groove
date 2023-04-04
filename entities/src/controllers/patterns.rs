@@ -90,7 +90,8 @@ impl PatternManager {
 
     pub fn update(&mut self, message: PatternManagerMessage) {
         match message {
-            PatternManagerMessage::PatternManager(_s) => todo!(),
+            PatternManagerMessage::PatternManager(_s) => *self = Self::new(),
+            _ => self.derived_update(message),
         }
     }
 }

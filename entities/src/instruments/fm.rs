@@ -313,6 +313,11 @@ impl FmSynth {
     }
 
     pub fn update(&mut self, message: FmSynthMessage) {
-        todo!()
+        match message {
+            FmSynthMessage::FmSynth(_s) => {
+                todo!()
+            }
+            _ => self.derived_update(message),
+        }
     }
 }

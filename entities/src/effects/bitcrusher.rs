@@ -63,7 +63,7 @@ impl Bitcrusher {
     pub fn update(&mut self, message: BitcrusherMessage) {
         match message {
             BitcrusherMessage::Bitcrusher(s) => *self = Self::new_with(s),
-            BitcrusherMessage::Bits(s) => self.set_bits(s),
+            _ => self.derived_update(message),
         }
     }
 }

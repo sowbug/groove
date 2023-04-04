@@ -74,9 +74,7 @@ impl Reverb {
     pub fn update(&mut self, message: ReverbMessage) {
         match message {
             ReverbMessage::Reverb(s) => *self = Self::new_with(self.sample_rate(), s),
-            ReverbMessage::Attenuation(_) => todo!(),
-            ReverbMessage::Seconds(_) => todo!(),
-            ReverbMessage::WetDryMix(_) => todo!(),
+            _ => self.derived_update(message),
         }
     }
 

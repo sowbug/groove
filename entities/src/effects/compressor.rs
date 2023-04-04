@@ -77,10 +77,7 @@ impl Compressor {
     pub fn update(&mut self, message: CompressorMessage) {
         match message {
             CompressorMessage::Compressor(s) => *self = Self::new_with(s),
-            CompressorMessage::Threshold(threshold) => self.set_threshold(threshold),
-            CompressorMessage::Ratio(ratio) => self.set_ratio(ratio),
-            CompressorMessage::Attack(attack) => self.set_attack(attack),
-            CompressorMessage::Release(release) => self.set_release(release),
+            _ => self.derived_update(message),
         }
     }
 

@@ -3,7 +3,7 @@
 use crate::messages::EntityMessage;
 use core::fmt::Debug;
 use groove_core::{
-    generators::{Oscillator, WaveformParams},
+    generators::{Oscillator, OscillatorNano, WaveformParams},
     midi::HandlesMidi,
     traits::{Generates, IsController, Resets, Ticks, TicksWithMessages},
     FrequencyHz,
@@ -46,30 +46,39 @@ impl TicksWithMessages for LfoController {
 }
 impl HandlesMidi for LfoController {}
 impl LfoController {
-    pub fn new_with(
-        sample_rate: usize,
-        waveform: WaveformParams,
-        frequency_hz: FrequencyHz,
-    ) -> Self {
+    #[deprecated]
+    pub fn new_with(sample_rate: usize, waveform: WaveformParams, frequency: FrequencyHz) -> Self {
         Self {
             uid: Default::default(),
-            oscillator: Oscillator::new_with_waveform_and_frequency(
+            oscillator: Oscillator::new_with(
                 sample_rate,
-                waveform,
-                frequency_hz,
+                OscillatorNano {
+                    waveform,
+                    frequency,
+                    fixed_frequency: Default::default(),
+                    frequency_tune: Default::default(),
+                    frequency_modulation: Default::default(),
+                    linear_frequency_modulation: Default::default(),
+                },
             ),
             waveform,
-            frequency: frequency_hz,
+            frequency,
         }
     }
 
     pub fn new_with_params(sample_rate: usize, params: LfoControllerNano) -> Self {
         Self {
             uid: Default::default(),
-            oscillator: Oscillator::new_with_waveform_and_frequency(
+            oscillator: Oscillator::new_with(
                 sample_rate,
-                WaveformParams::Sine, // TODO: undo the hack with just Sine
-                params.frequency,
+                OscillatorNano {
+                    waveform: params.waveform,
+                    frequency: params.frequency,
+                    fixed_frequency: Default::default(),
+                    frequency_tune: Default::default(),
+                    frequency_modulation: Default::default(),
+                    linear_frequency_modulation: Default::default(),
+                },
             ),
             waveform: params.waveform(),
             frequency: params.frequency(),
@@ -99,8 +108,7 @@ impl LfoController {
             LfoControllerMessage::LfoController(s) => {
                 *self = Self::new_with_params(self.oscillator.sample_rate(), s)
             }
-            LfoControllerMessage::Waveform(waveform) => self.set_waveform(waveform),
-            LfoControllerMessage::Frequency(frequency) => self.set_frequency(frequency),
+            _ => self.derived_update(message),
         }
     }
 }

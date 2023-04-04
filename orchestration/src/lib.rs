@@ -225,8 +225,7 @@ mod tests {
         pub fn update(&mut self, message: MiscMessage) {
             match message {
                 MiscMessage::Misc(s) => *self = Self::new_with(s),
-                MiscMessage::CatCount(s) => self.set_cat_count(s),
-                MiscMessage::DogCount(s) => self.set_dog_count(s),
+                _ => self.derived_update(message),
             }
         }
 

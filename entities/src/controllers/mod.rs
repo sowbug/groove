@@ -81,7 +81,10 @@ impl Timer {
     }
 
     pub fn update(&mut self, message: TimerMessage) {
-        todo!()
+        match message {
+            TimerMessage::Timer(s) => *self = Self::new_with(self.sample_rate, s),
+            _ => self.derived_update(message),
+        }
     }
 }
 impl IsController for Timer {}
@@ -179,7 +182,10 @@ impl Trigger {
     }
 
     pub fn update(&mut self, message: TriggerMessage) {
-        todo!()
+        match message {
+            TriggerMessage::Trigger(s) => *self = Self::new_with(self.timer.sample_rate, s),
+            _ => self.derived_update(message),
+        }
     }
 }
 
@@ -248,8 +254,14 @@ impl SignalPassthroughController {
         }
     }
 
+    #[allow(unreachable_patterns)]
     pub fn update(&mut self, message: SignalPassthroughControllerMessage) {
-        todo!()
+        match message {
+            SignalPassthroughControllerMessage::SignalPassthroughController(_s) => {
+                *self = Self::new()
+            }
+            _ => self.derived_update(message),
+        }
     }
 }
 

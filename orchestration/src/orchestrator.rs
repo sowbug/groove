@@ -1084,7 +1084,7 @@ pub mod tests {
             Arpeggiator, ArpeggiatorNano, Note, Pattern, PatternProgrammer, Sequencer, Timer,
             TimerNano,
         },
-        effects::Gain,
+        effects::{Gain, GainNano},
     };
     use groove_toys::{ToyAudioSource, ToyAudioSourceNano, ToyInstrument, ToyInstrumentNano};
 
@@ -1152,9 +1152,11 @@ pub mod tests {
         let level_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
             ToyAudioSourceNano { level: 0.1 },
         ))));
-        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with_ceiling(Normal::new(
-            0.5,
-        )))));
+        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(
+            groove_entities::effects::GainNano {
+                ceiling: Normal::new(0.5),
+            },
+        ))));
         let level_2_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
             ToyAudioSourceNano { level: 0.2 },
         ))));
@@ -1223,26 +1225,26 @@ pub mod tests {
         let piano_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
             ToyAudioSourceNano { level: 0.1 },
         ))));
-        let low_pass_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with_ceiling(Normal::new(
-            0.2,
-        )))));
-        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with_ceiling(Normal::new(
-            0.4,
-        )))));
+        let low_pass_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(GainNano {
+            ceiling: Normal::new(0.2),
+        }))));
+        let gain_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(GainNano {
+            ceiling: Normal::new(0.4),
+        }))));
 
         let bassline_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
             ToyAudioSourceNano { level: 0.3 },
         ))));
-        let gain_2_uid = o.add(Entity::Gain(Box::new(Gain::new_with_ceiling(Normal::new(
-            0.6,
-        )))));
+        let gain_2_uid = o.add(Entity::Gain(Box::new(Gain::new_with(GainNano {
+            ceiling: Normal::new(0.6),
+        }))));
 
         let synth_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
             ToyAudioSourceNano { level: 0.5 },
         ))));
-        let gain_3_uid = o.add(Entity::Gain(Box::new(Gain::new_with_ceiling(Normal::new(
-            0.8,
-        )))));
+        let gain_3_uid = o.add(Entity::Gain(Box::new(Gain::new_with(GainNano {
+            ceiling: Normal::new(0.8),
+        }))));
 
         let drum_1_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
             ToyAudioSourceNano { level: 0.7 },
@@ -1319,9 +1321,9 @@ pub mod tests {
         let instrument_3_uid = o.add(Entity::ToyAudioSource(Box::new(ToyAudioSource::new_with(
             ToyAudioSourceNano { level: 0.5 },
         ))));
-        let effect_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with_ceiling(Normal::new(
-            0.5,
-        )))));
+        let effect_1_uid = o.add(Entity::Gain(Box::new(Gain::new_with(GainNano {
+            ceiling: Normal::new(0.5),
+        }))));
 
         assert!(o.patch_chain_to_main_mixer(&[instrument_1_uid]).is_ok());
         assert!(o.patch_chain_to_main_mixer(&[effect_1_uid]).is_ok());

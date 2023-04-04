@@ -317,7 +317,7 @@ impl Sampler {
     pub fn update(&mut self, message: SamplerMessage) {
         match message {
             SamplerMessage::Sampler(_) => todo!(),
-            SamplerMessage::RootFrequency(s) => self.set_root_frequency(s),
+            _ => self.derived_update(message),
         }
     }
 

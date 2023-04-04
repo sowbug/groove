@@ -185,7 +185,7 @@ impl Arpeggiator {
                 *self =
                     Self::new_with_params(self.sequencer.sample_rate(), self.midi_channel_out, s)
             }
-            ArpeggiatorMessage::Bpm(bpm) => self.set_bpm(bpm),
+            _ => self.derived_update(message),
         }
     }
 

@@ -55,8 +55,7 @@ impl Limiter {
     pub fn update(&mut self, message: LimiterMessage) {
         match message {
             LimiterMessage::Limiter(s) => *self = Self::new_with_params(s),
-            LimiterMessage::Max(max) => self.set_max(max),
-            LimiterMessage::Min(min) => self.set_min(min),
+            _ => self.derived_update(message),
         }
     }
 

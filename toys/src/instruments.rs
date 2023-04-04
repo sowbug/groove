@@ -203,7 +203,7 @@ impl ToyInstrument {
     pub fn update(&mut self, message: ToyInstrumentMessage) {
         match message {
             ToyInstrumentMessage::ToyInstrument(s) => *self = Self::new_with(self.sample_rate, s),
-            ToyInstrumentMessage::FakeValue(fake_value) => self.set_fake_value(fake_value),
+            _ => self.derived_update(message),
         }
     }
 }
@@ -311,7 +311,7 @@ impl DebugSynth {
     pub fn update(&mut self, message: DebugSynthMessage) {
         match message {
             DebugSynthMessage::DebugSynth(_) => *self = Self::new_with(self.sample_rate),
-            DebugSynthMessage::FakeValue(fake_value) => self.set_fake_value(fake_value),
+            _ => self.derived_update(message),
         }
     }
 
@@ -392,7 +392,10 @@ impl ToySynth {
         }
     }
     pub fn update(&mut self, message: ToySynthMessage) {
-        self.derived_update(message)
+        match message {
+            ToySynthMessage::ToySynth(s) => todo!(),
+            _ => self.derived_update(message),
+        }
     }
 
     pub fn voice_count(&self) -> usize {
@@ -530,7 +533,7 @@ impl ToyAudioSource {
     pub fn update(&mut self, message: ToyAudioSourceMessage) {
         match message {
             ToyAudioSourceMessage::ToyAudioSource(s) => *self = Self::new_with(s),
-            ToyAudioSourceMessage::Level(level) => self.set_level(level),
+            _ => self.derived_update(message),
         }
     }
 

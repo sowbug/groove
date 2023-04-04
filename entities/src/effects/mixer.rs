@@ -34,9 +34,11 @@ impl Mixer {
         }
     }
 
+    #[allow(unreachable_patterns)]
     pub fn update(&mut self, message: MixerMessage) {
         match message {
             MixerMessage::Mixer(s) => *self = Self::new_with(s),
+            _ => self.derived_update(message),
         }
     }
 }

@@ -236,7 +236,7 @@ impl Delay {
     pub fn update(&mut self, message: DelayMessage) {
         match message {
             DelayMessage::Delay(s) => *self = Self::new_with(self.delay.sample_rate(), s),
-            DelayMessage::Seconds(seconds) => self.set_seconds(seconds),
+            _ => self.derived_update(message),
         }
     }
 }
