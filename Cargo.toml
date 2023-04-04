@@ -20,12 +20,12 @@ crossbeam = "0.8"
 dipstick = "0.9.0"
 enum-primitive-derive = "0.2.2"
 groove-core = { path = "core" }
-groove-entities = { path = "entities" }
+groove-entities = { path = "entities", features = ["serialization"] }
 groove-macros = { path = "macros" }
 groove-orchestration = { path = "orchestration" }
 groove-proc-macros = { path = "proc-macros" }
 groove-settings = { path = "settings" }
-groove-toys = { path = "toys" }
+groove-toys = { path = "toys", features = ["serialization"] }
 hound = "3.5"
 iced = { version = "0.8.0", features = ["smol", "canvas", "svg"] }
 iced_aw = { version = "0.4.1", features = ["card", "badge"] }

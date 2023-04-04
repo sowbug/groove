@@ -28,8 +28,7 @@ impl TransformsAudio for Mixer {
     }
 }
 impl Mixer {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
+    pub fn new_with(_params: MixerNano) -> Self {
         Self {
             ..Default::default()
         }
@@ -37,7 +36,7 @@ impl Mixer {
 
     pub fn update(&mut self, message: MixerMessage) {
         match message {
-            MixerMessage::Mixer(_s) => *self = Self::new(),
+            MixerMessage::Mixer(s) => *self = Self::new_with(s),
         }
     }
 }

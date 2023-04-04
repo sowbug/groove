@@ -1,48 +1,36 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::{Normal, ParameterType};
+use groove_core::ParameterType;
 use groove_entities::effects::{
     BiQuadFilter, BiQuadFilterNano, Bitcrusher, BitcrusherNano, Chorus, ChorusNano, Compressor,
-    CompressorNano, Delay, DelayNano, Gain, Limiter, LimiterNano, Mixer, Reverb, ReverbNano,
+    CompressorNano, Delay, DelayNano, Gain, GainNano, Limiter, LimiterNano, Mixer, MixerNano,
+    Reverb, ReverbNano,
 };
 use groove_orchestration::Entity;
-use groove_toys::ToyEffect;
+use groove_toys::{ToyEffect, ToyEffectNano};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectSettings {
     #[serde(rename_all = "kebab-case")]
-    Test {},
+    Toy(ToyEffectNano),
     #[serde(rename_all = "kebab-case")]
-    Mixer {},
+    Mixer(MixerNano),
     #[serde(rename_all = "kebab-case")]
-    Gain { ceiling: f32 },
+    Gain(GainNano),
     #[serde(rename_all = "kebab-case")]
     Limiter(LimiterNano),
     #[serde(rename_all = "kebab-case")]
     Bitcrusher(BitcrusherNano),
     #[serde(rename_all = "kebab-case")]
-    Chorus {
-        wet_dry_mix: f32,
-        voices: usize,
-        delay_factor: usize,
-    },
+    Chorus(ChorusNano),
     #[serde(rename_all = "kebab-case")]
-    Compressor {
-        threshold: f32,
-        ratio: f32,
-        attack: f32,
-        release: f32,
-    },
+    Compressor(CompressorNano),
     #[serde(rename_all = "kebab-case")]
-    Delay { seconds: f64 },
+    Delay(DelayNano),
     #[serde(rename_all = "kebab-case")]
-    Reverb {
-        wet_dry_mix: f32,
-        attenuation: f64,
-        seconds: f64,
-    },
+    Reverb(ReverbNano),
     #[serde(rename = "filter-low-pass-12db")]
     FilterLowPass12db { cutoff: ParameterType, q: f32 },
     #[serde(rename = "filter-low-pass-24db", rename_all = "kebab-case")]
@@ -81,28 +69,18 @@ impl EffectSettings {
             return Entity::ToyEffect(Box::new(ToyEffect::default()));
         }
         match *self {
-            EffectSettings::Test {} => Entity::ToyEffect(Box::new(ToyEffect::default())),
-            EffectSettings::Mixer {} => Entity::Mixer(Box::new(Mixer::default())),
+            EffectSettings::Toy(params) => Entity::ToyEffect(Box::new(ToyEffect::new_with(params))),
+            EffectSettings::Mixer(params) => Entity::Mixer(Box::new(Mixer::new_with(params))),
             EffectSettings::Limiter(params) => {
                 Entity::Limiter(Box::new(Limiter::new_with_params(params)))
             }
-            EffectSettings::Gain { ceiling } => {
-                Entity::Gain(Box::new(Gain::new_with(Normal::new_from_f32(ceiling))))
-            }
+            EffectSettings::Gain(params) => Entity::Gain(Box::new(Gain::new_with(params))),
             EffectSettings::Bitcrusher(params) => {
-                Entity::Bitcrusher(Box::new(Bitcrusher::new_with_params(params)))
+                Entity::Bitcrusher(Box::new(Bitcrusher::new_with(params)))
             }
-            EffectSettings::Compressor {
-                threshold,
-                ratio,
-                attack,
-                release,
-            } => Entity::Compressor(Box::new(Compressor::new_with(CompressorNano {
-                threshold: threshold.into(),
-                ratio: ratio.into(),
-                attack: attack.into(),
-                release: release.into(),
-            }))),
+            EffectSettings::Compressor(params) => {
+                Entity::Compressor(Box::new(Compressor::new_with(params)))
+            }
             EffectSettings::FilterLowPass12db { cutoff, q } => {
                 Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
                     sample_rate,
@@ -186,34 +164,15 @@ impl EffectSettings {
                     },
                 )))
             }
-            EffectSettings::Delay { seconds } => Entity::Delay(Box::new(Delay::new_with(
-                sample_rate,
-                DelayNano { seconds },
-            ))),
-            EffectSettings::Reverb {
-                wet_dry_mix,
-                attenuation,
-                seconds: reverb_seconds,
-            } => Entity::Reverb(Box::new(Reverb::new_with(
-                sample_rate,
-                ReverbNano {
-                    attenuation: attenuation.into(),
-                    seconds: reverb_seconds.into(),
-                    wet_dry_mix: wet_dry_mix.into(),
-                },
-            ))),
-            EffectSettings::Chorus {
-                wet_dry_mix,
-                voices,
-                delay_factor,
-            } => Entity::Chorus(Box::new(Chorus::new_with(
-                sample_rate,
-                ChorusNano {
-                    voices,
-                    delay_factor,
-                    wet_dry_mix,
-                },
-            ))),
+            EffectSettings::Delay(params) => {
+                Entity::Delay(Box::new(Delay::new_with(sample_rate, params)))
+            }
+            EffectSettings::Reverb(nano) => {
+                Entity::Reverb(Box::new(Reverb::new_with(sample_rate, nano)))
+            }
+            EffectSettings::Chorus(nano) => {
+                Entity::Chorus(Box::new(Chorus::new_with(sample_rate, nano)))
+            }
         }
     }
 }

@@ -27,15 +27,15 @@ impl TransformsAudio for Gain {
     }
 }
 impl Gain {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
+    pub fn new_with(params: GainNano) -> Self {
         Self {
-            ceiling: Normal::new(1.0),
-            ..Default::default()
+            uid: Default::default(),
+            ceiling: params.ceiling,
         }
     }
 
-    pub fn new_with(ceiling: Normal) -> Self {
+    #[deprecated]
+    pub fn new_with_ceiling(ceiling: Normal) -> Self {
         Self {
             ceiling,
             ..Default::default()
@@ -52,15 +52,8 @@ impl Gain {
 
     pub fn update(&mut self, message: GainMessage) {
         match message {
-            GainMessage::Gain(s) => *self = Self::new_with_params(s),
+            GainMessage::Gain(s) => *self = Self::new_with(s),
             GainMessage::Ceiling(ceiling) => self.set_ceiling(ceiling),
-        }
-    }
-
-    fn new_with_params(params: GainNano) -> Self {
-        Self {
-            uid: Default::default(),
-            ceiling: params.ceiling,
         }
     }
 }
@@ -73,7 +66,7 @@ mod tests {
 
     #[test]
     fn test_gain_mainline() {
-        let mut gain = Gain::new_with(Normal::new(0.5));
+        let mut gain = Gain::new_with_ceiling(Normal::new(0.5));
         assert_eq!(
             gain.transform_audio(
                 ToyAudioSource::new_with(ToyAudioSourceNano {
