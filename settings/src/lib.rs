@@ -13,7 +13,6 @@ pub use songs::SongSettings;
 
 pub mod controllers;
 pub(crate) mod effects;
-pub(crate) mod generators;
 pub(crate) mod instruments;
 pub(crate) mod patches;
 pub(crate) mod songs;
