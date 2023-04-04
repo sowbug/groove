@@ -4,7 +4,10 @@ pub use bitcrusher::{Bitcrusher, BitcrusherMessage, BitcrusherNano};
 pub use chorus::{Chorus, ChorusMessage, ChorusNano};
 pub use compressor::{Compressor, CompressorMessage, CompressorNano};
 pub use delay::{Delay, DelayMessage, DelayNano};
-pub use filter::{BiQuadFilter, BiQuadFilterMessage, BiQuadFilterNano};
+pub use filter::{
+    BiQuadFilter, BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage,
+    BiQuadFilterLowPass24dbNano,
+};
 pub use gain::{Gain, GainMessage, GainNano};
 pub use limiter::{Limiter, LimiterMessage, LimiterNano};
 pub use mixer::{Mixer, MixerMessage, MixerNano};

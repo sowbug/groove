@@ -12,11 +12,11 @@ use groove_entities::{
         TriggerNano,
     },
     effects::{
-        BiQuadFilter, BiQuadFilterMessage, BiQuadFilterNano, Bitcrusher, BitcrusherMessage,
-        BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor, CompressorMessage,
-        CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage, GainNano, Limiter,
-        LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb, ReverbMessage,
-        ReverbNano,
+        BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowPass24dbNano,
+        Bitcrusher, BitcrusherMessage, BitcrusherNano, Chorus, ChorusMessage, ChorusNano,
+        Compressor, CompressorMessage, CompressorNano, Delay, DelayMessage, DelayNano, Gain,
+        GainMessage, GainNano, Limiter, LimiterMessage, LimiterNano, Mixer, MixerMessage,
+        MixerNano, Reverb, ReverbMessage, ReverbNano,
     },
     instruments::{
         Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Sampler,
@@ -49,7 +49,7 @@ enum Everything {
     Arpeggiator(Arpeggiator),
 
     #[everything(effect, controllable)]
-    BiQuadFilter(BiQuadFilter),
+    BiQuadFilterLowPass24db(BiQuadFilterLowPass24db),
 
     #[everything(effect, controllable)]
     Bitcrusher(Bitcrusher),

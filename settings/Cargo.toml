@@ -7,15 +7,24 @@ edition = "2021"
 anyhow = "1.0.12"
 convert_case = "0.6.0"
 float-cmp = "0.9.0"
-groove-core = { path = "../core" }
+groove-core = { path = "../core", features = ["serialization"] }
 groove-entities = { path = "../entities", features = ["serialization"] }
 groove-macros = { path = "../macros" }
 groove-orchestration = { path = "../orchestration" }
 groove-toys = { path = "../toys" }
 hound = "3.5"
 rustc-hash = "1.1.0"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = "1.0.86"
 serde_yaml = "0.8"
 strum = "0.24.1"
 strum_macros = "0.24.2"
+
+[features]
+default = ["serialization"]
+# https://stackoverflow.com/a/62972981/344467
+"serialization" = [
+    "serde",
+    "groove-core/serialization",
+    "groove-entities/serialization"
+]

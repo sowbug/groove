@@ -8,7 +8,7 @@ use groove_core::{
     BipolarNormal, DcaParams, FrequencyHz, Normal, ParameterType, Ratio,
 };
 use groove_entities::{
-    effects::{BiQuadFilter, BiQuadFilterNano},
+    effects::{BiQuadFilter, BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano},
     instruments::{LfoRouting, WelshSynth, WelshSynthNano, WelshVoice},
 };
 use serde::{Deserialize, Serialize};
@@ -121,11 +121,11 @@ impl WelshPatchSettings {
         let lfo = self.lfo.derive_oscillator(sample_rate);
         //   let lfo_routing = self.lfo.routing.into();
         // let lfo_depth = self.lfo.depth.into();
-        let filter = BiQuadFilter::new_with(
+        let filter = BiQuadFilterLowPass24db::new_with(
             sample_rate,
-            BiQuadFilterNano {
-                cutoff: self.filter_type_12db.cutoff_hz.into(),
-                q: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
+            BiQuadFilterLowPass24dbNano {
+                cutoff: self.filter_type_24db.cutoff_hz.into(),
+                passband_ripple: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
             },
         );
         let filter_cutoff_start =
@@ -163,9 +163,9 @@ impl WelshPatchSettings {
             },
             lfo_routing: self.lfo.routing.into(),
             lfo_depth: self.lfo.depth.into(),
-            filter: BiQuadFilterNano {
+            filter: BiQuadFilterLowPass24dbNano {
                 cutoff: self.filter_type_24db.cutoff_hz.into(),
-                q: 1.414,
+                passband_ripple: 1.414,
             }, // TODO HACK HACK HAC
             filter_cutoff_start,
             filter_cutoff_end,

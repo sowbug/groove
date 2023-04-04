@@ -1,10 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::ParameterType;
 use groove_entities::effects::{
-    BiQuadFilter, BiQuadFilterNano, Bitcrusher, BitcrusherNano, Chorus, ChorusNano, Compressor,
-    CompressorNano, Delay, DelayNano, Gain, GainNano, Limiter, LimiterNano, Mixer, MixerNano,
-    Reverb, ReverbNano,
+    BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano, Bitcrusher, BitcrusherNano, Chorus,
+    ChorusNano, Compressor, CompressorNano, Delay, DelayNano, Gain, GainNano, Limiter, LimiterNano,
+    Mixer, MixerNano, Reverb, ReverbNano,
 };
 use groove_orchestration::Entity;
 use groove_toys::{ToyEffect, ToyEffectNano};
@@ -31,36 +30,33 @@ pub enum EffectSettings {
     Delay(DelayNano),
     #[serde(rename_all = "kebab-case")]
     Reverb(ReverbNano),
-    #[serde(rename = "filter-low-pass-12db")]
-    FilterLowPass12db { cutoff: ParameterType, q: f32 },
+    // #[serde(rename = "filter-low-pass-12db")]
+    // FilterLowPass12db { cutoff: ParameterType, q: f32 },
     #[serde(rename = "filter-low-pass-24db", rename_all = "kebab-case")]
-    FilterLowPass24db {
-        cutoff: ParameterType,
-        passband_ripple: f32,
-    },
-    #[serde(rename = "filter-high-pass-12db")]
-    FilterHighPass12db { cutoff: ParameterType, q: f32 },
-    #[serde(rename = "filter-band-pass-12db")]
-    FilterBandPass12db {
-        cutoff: ParameterType,
-        bandwidth: f32,
-    },
-    #[serde(rename = "filter-band-stop-12db")]
-    FilterBandStop12db {
-        cutoff: ParameterType,
-        bandwidth: f32,
-    },
-    #[serde(rename = "filter-all-pass-12db")]
-    FilterAllPass12db { cutoff: ParameterType, q: f32 },
-    #[serde(rename = "filter-peaking-eq-12db")]
-    #[serde(rename_all = "kebab-case")]
-    FilterPeakingEq12db { cutoff: ParameterType, db_gain: f32 },
-    #[serde(rename = "filter-low-shelf-12db")]
-    #[serde(rename_all = "kebab-case")]
-    FilterLowShelf12db { cutoff: ParameterType, db_gain: f32 },
-    #[serde(rename = "filter-high-shelf-12db")]
-    #[serde(rename_all = "kebab-case")]
-    FilterHighShelf12db { cutoff: ParameterType, db_gain: f32 },
+    FilterLowPass24db(BiQuadFilterLowPass24dbNano),
+    // #[serde(rename = "filter-high-pass-12db")]
+    // FilterHighPass12db { cutoff: ParameterType, q: f32 },
+    // #[serde(rename = "filter-band-pass-12db")]
+    // FilterBandPass12db {
+    //     cutoff: ParameterType,
+    //     bandwidth: f32,
+    // },
+    // #[serde(rename = "filter-band-stop-12db")]
+    // FilterBandStop12db {
+    //     cutoff: ParameterType,
+    //     bandwidth: f32,
+    // },
+    // #[serde(rename = "filter-all-pass-12db")]
+    // FilterAllPass12db { cutoff: ParameterType, q: f32 },
+    // #[serde(rename = "filter-peaking-eq-12db")]
+    // #[serde(rename_all = "kebab-case")]
+    // FilterPeakingEq12db { cutoff: ParameterType, db_gain: f32 },
+    // #[serde(rename = "filter-low-shelf-12db")]
+    // #[serde(rename_all = "kebab-case")]
+    // FilterLowShelf12db { cutoff: ParameterType, db_gain: f32 },
+    // #[serde(rename = "filter-high-shelf-12db")]
+    // #[serde(rename_all = "kebab-case")]
+    // FilterHighShelf12db { cutoff: ParameterType, db_gain: f32 },
 }
 
 impl EffectSettings {
@@ -81,89 +77,82 @@ impl EffectSettings {
             EffectSettings::Compressor(params) => {
                 Entity::Compressor(Box::new(Compressor::new_with(params)))
             }
-            EffectSettings::FilterLowPass12db { cutoff, q } => {
-                Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
-                    sample_rate,
-                    BiQuadFilterNano {
-                        cutoff: cutoff.into(),
-                        q: q.into(),
-                    },
-                )))
-            }
-            EffectSettings::FilterLowPass24db {
-                cutoff,
-                passband_ripple,
-            } => Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
-                sample_rate,
-                BiQuadFilterNano {
-                    cutoff: cutoff.into(),
-                    q: passband_ripple.into(),
-                },
-            ))),
+            // EffectSettings::FilterLowPass12db { cutoff, q } => {
+            //     Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+            //         sample_rate,
+            //         BiQuadFilterNano {
+            //             cutoff: cutoff.into(),
+            //             q: q.into(),
+            //         },
+            //     )))
+            // }
+            EffectSettings::FilterLowPass24db(params) => Entity::BiQuadFilterLowPass24db(Box::new(
+                BiQuadFilterLowPass24db::new_with(sample_rate, params),
+            )),
 
-            EffectSettings::FilterHighPass12db { cutoff, q } => {
-                Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
-                    sample_rate,
-                    BiQuadFilterNano {
-                        cutoff: cutoff.into(),
-                        q: q.into(),
-                    },
-                )))
-            }
-            EffectSettings::FilterBandPass12db { cutoff, bandwidth } => {
-                Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
-                    sample_rate,
-                    BiQuadFilterNano {
-                        cutoff: cutoff.into(),
-                        q: bandwidth.into(),
-                    },
-                )))
-            }
-            EffectSettings::FilterBandStop12db { cutoff, bandwidth } => {
-                Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
-                    sample_rate,
-                    BiQuadFilterNano {
-                        cutoff: cutoff.into(),
-                        q: bandwidth.into(),
-                    },
-                )))
-            }
-            EffectSettings::FilterAllPass12db { cutoff, q } => {
-                Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
-                    sample_rate,
-                    BiQuadFilterNano {
-                        cutoff: cutoff.into(),
-                        q: q.into(),
-                    },
-                )))
-            }
-            EffectSettings::FilterPeakingEq12db { cutoff, db_gain } => {
-                Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
-                    sample_rate,
-                    BiQuadFilterNano {
-                        cutoff: cutoff.into(),
-                        q: db_gain.into(),
-                    },
-                )))
-            }
-            EffectSettings::FilterLowShelf12db { cutoff, db_gain } => {
-                Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
-                    sample_rate,
-                    BiQuadFilterNano {
-                        cutoff: cutoff.into(),
-                        q: db_gain.into(),
-                    },
-                )))
-            }
-            EffectSettings::FilterHighShelf12db { cutoff, db_gain } => {
-                Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
-                    sample_rate,
-                    BiQuadFilterNano {
-                        cutoff: cutoff.into(),
-                        q: db_gain.into(),
-                    },
-                )))
-            }
+            // EffectSettings::FilterHighPass12db { cutoff, q } => {
+            //     Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+            //         sample_rate,
+            //         BiQuadFilterNano {
+            //             cutoff: cutoff.into(),
+            //             q: q.into(),
+            //         },
+            //     )))
+            // }
+            // EffectSettings::FilterBandPass12db { cutoff, bandwidth } => {
+            //     Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+            //         sample_rate,
+            //         BiQuadFilterNano {
+            //             cutoff: cutoff.into(),
+            //             q: bandwidth.into(),
+            //         },
+            //     )))
+            // }
+            // EffectSettings::FilterBandStop12db { cutoff, bandwidth } => {
+            //     Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+            //         sample_rate,
+            //         BiQuadFilterNano {
+            //             cutoff: cutoff.into(),
+            //             q: bandwidth.into(),
+            //         },
+            //     )))
+            // }
+            // EffectSettings::FilterAllPass12db { cutoff, q } => {
+            //     Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+            //         sample_rate,
+            //         BiQuadFilterNano {
+            //             cutoff: cutoff.into(),
+            //             q: q.into(),
+            //         },
+            //     )))
+            // }
+            // EffectSettings::FilterPeakingEq12db { cutoff, db_gain } => {
+            //     Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+            //         sample_rate,
+            //         BiQuadFilterNano {
+            //             cutoff: cutoff.into(),
+            //             q: db_gain.into(),
+            //         },
+            //     )))
+            // }
+            // EffectSettings::FilterLowShelf12db { cutoff, db_gain } => {
+            //     Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+            //         sample_rate,
+            //         BiQuadFilterNano {
+            //             cutoff: cutoff.into(),
+            //             q: db_gain.into(),
+            //         },
+            //     )))
+            // }
+            // EffectSettings::FilterHighShelf12db { cutoff, db_gain } => {
+            //     Entity::BiQuadFilter(Box::new(BiQuadFilter::new_with(
+            //         sample_rate,
+            //         BiQuadFilterNano {
+            //             cutoff: cutoff.into(),
+            //             q: db_gain.into(),
+            //         },
+            //     )))
+            // }
             EffectSettings::Delay(params) => {
                 Entity::Delay(Box::new(Delay::new_with(sample_rate, params)))
             }

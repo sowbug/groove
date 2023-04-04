@@ -21,11 +21,11 @@ use groove_entities::{
         TriggerNano,
     },
     effects::{
-        BiQuadFilter, BiQuadFilterMessage, BiQuadFilterNano, Bitcrusher, BitcrusherMessage,
-        BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor, CompressorMessage,
-        CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage, GainNano, Limiter,
-        LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb, ReverbMessage,
-        ReverbNano,
+        BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowPass24dbNano,
+        Bitcrusher, BitcrusherMessage, BitcrusherNano, Chorus, ChorusMessage, ChorusNano,
+        Compressor, CompressorMessage, CompressorNano, Delay, DelayMessage, DelayNano, Gain,
+        GainMessage, GainNano, Limiter, LimiterMessage, LimiterNano, Mixer, MixerMessage,
+        MixerNano, Reverb, ReverbMessage, ReverbNano,
     },
     instruments::{
         Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Sampler,
@@ -564,8 +564,8 @@ impl Viewable for BitcrusherNano {
         .into()
     }
 }
-impl Viewable for BiQuadFilterNano {
-    type Message = BiQuadFilterMessage;
+impl Viewable for BiQuadFilterLowPass24dbNano {
+    type Message = BiQuadFilterLowPass24dbMessage;
 
     fn view(&self) -> Element<Self::Message> {
         let slider = HSlider::new(
@@ -573,7 +573,7 @@ impl Viewable for BiQuadFilterNano {
                 value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
                 default: IcedNormal::from_clipped(1.0),
             },
-            |n| BiQuadFilterMessage::Cutoff(Normal::from(n.as_f32()).into()),
+            |n| BiQuadFilterLowPass24dbMessage::Cutoff(Normal::from(n.as_f32()).into()),
         );
         row![
             container(slider).width(iced::Length::FillPortion(1)),
@@ -1325,7 +1325,7 @@ enum ViewableEntities {
     Arpeggiator(Arpeggiator),
 
     #[views(effect, controllable)]
-    BiQuadFilter(BiQuadFilter),
+    BiQuadFilterLowPass24db(BiQuadFilterLowPass24db),
 
     #[views(effect, controllable)]
     Bitcrusher(Bitcrusher),

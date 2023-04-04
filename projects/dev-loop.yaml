@@ -50,9 +50,9 @@ devices:
           bits: 14
   - effect:
       - low-pass-1
-      - filter-low-pass-12db:
+      - filter-low-pass-24db:
           cutoff: 1200.0
-          q: 1.0
+          passband-ripple: 1.0
   - controller:
       - panning-lfo
       - lfo:
