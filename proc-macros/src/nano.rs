@@ -128,11 +128,20 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             }
         };
 
-        let update_block = quote! {
+        let nano_update_block = quote! {
             pub fn update(&mut self, message: #message_type_name) {
                 match message {
                     #message_type_name::#struct_name(v) => *self = v,
-                    #( #message_type_name::#variant_names(v) => self.#setters(v) ),*
+                    #( #message_type_name::#variant_names(#field_names) => self.#setters(#field_names) ),*
+                }
+            }
+        };
+
+        let update_block = quote! {
+            pub fn derived_update(&mut self, message: #message_type_name) {
+                match message {
+                    #message_type_name::#struct_name(e) => panic!("You must handle the full struct message yourself, because we haven't decided how to handle the sample_rate case."),
+                    #( #message_type_name::#variant_names(#field_names) => self.#setters(#field_names) ),*
                 }
             }
         };
@@ -221,10 +230,11 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             impl #generics #struct_name #ty_generics {
                 #full_message_from_struct_block
                 #impl_block
+                #update_block
             }
             #[automatically_derived]
             impl #nano_name {
-                #update_block
+                #nano_update_block
                 #full_message_from_nano_block
                 #impl_block
             }

@@ -75,9 +75,7 @@ impl Chorus {
     pub fn update(&mut self, message: ChorusMessage) {
         match message {
             ChorusMessage::Chorus(s) => *self = Self::new_with(self.delay.sample_rate(), s),
-            ChorusMessage::Voices(voices) => self.set_voices(voices),
-            ChorusMessage::DelayFactor(delay_factor) => self.set_delay_factor(delay_factor),
-            ChorusMessage::WetDryMix(wet_pct) => self.set_wet_dry_mix(wet_pct),
+            _ => self.derived_update(message),
         }
     }
 

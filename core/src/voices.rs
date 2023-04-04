@@ -385,7 +385,7 @@ pub(crate) mod tests {
         pub(crate) fn new_with(sample_rate: usize) -> Self {
             Self {
                 sample_rate,
-                oscillator: Oscillator::new_with(sample_rate),
+                oscillator: Oscillator::new_with_do_not_use_me(sample_rate),
                 envelope: Envelope::new_with(
                     sample_rate,
                     EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),

@@ -12,11 +12,19 @@ use groove_entities::{
         TriggerNano,
     },
     effects::{
+        BiQuadFilterAllPass, BiQuadFilterAllPassMessage, BiQuadFilterAllPassNano,
+        BiQuadFilterBandPass, BiQuadFilterBandPassMessage, BiQuadFilterBandPassNano,
+        BiQuadFilterBandStop, BiQuadFilterBandStopMessage, BiQuadFilterBandStopNano,
+        BiQuadFilterHighPass, BiQuadFilterHighPassMessage, BiQuadFilterHighPassNano,
+        BiQuadFilterHighShelf, BiQuadFilterHighShelfMessage, BiQuadFilterHighShelfNano,
+        BiQuadFilterLowPass12db, BiQuadFilterLowPass12dbMessage, BiQuadFilterLowPass12dbNano,
         BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowPass24dbNano,
-        Bitcrusher, BitcrusherMessage, BitcrusherNano, Chorus, ChorusMessage, ChorusNano,
-        Compressor, CompressorMessage, CompressorNano, Delay, DelayMessage, DelayNano, Gain,
-        GainMessage, GainNano, Limiter, LimiterMessage, LimiterNano, Mixer, MixerMessage,
-        MixerNano, Reverb, ReverbMessage, ReverbNano,
+        BiQuadFilterLowShelf, BiQuadFilterLowShelfMessage, BiQuadFilterLowShelfNano,
+        BiQuadFilterPeakingEq, BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqNano, Bitcrusher,
+        BitcrusherMessage, BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor,
+        CompressorMessage, CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage,
+        GainNano, Limiter, LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb,
+        ReverbMessage, ReverbNano,
     },
     instruments::{
         Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Sampler,
@@ -49,7 +57,31 @@ enum Everything {
     Arpeggiator(Arpeggiator),
 
     #[everything(effect, controllable)]
+    BiQuadFilterAllPass(BiQuadFilterAllPass),
+
+    #[everything(effect, controllable)]
+    BiQuadFilterBandPass(BiQuadFilterBandPass),
+
+    #[everything(effect, controllable)]
+    BiQuadFilterBandStop(BiQuadFilterBandStop),
+
+    #[everything(effect, controllable)]
+    BiQuadFilterHighPass(BiQuadFilterHighPass),
+
+    #[everything(effect, controllable)]
+    BiQuadFilterHighShelf(BiQuadFilterHighShelf),
+
+    #[everything(effect, controllable)]
+    BiQuadFilterLowPass12db(BiQuadFilterLowPass12db),
+
+    #[everything(effect, controllable)]
     BiQuadFilterLowPass24db(BiQuadFilterLowPass24db),
+
+    #[everything(effect, controllable)]
+    BiQuadFilterLowShelf(BiQuadFilterLowShelf),
+
+    #[everything(effect, controllable)]
+    BiQuadFilterPeakingEq(BiQuadFilterPeakingEq),
 
     #[everything(effect, controllable)]
     Bitcrusher(Bitcrusher),

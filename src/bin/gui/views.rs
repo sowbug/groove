@@ -21,11 +21,19 @@ use groove_entities::{
         TriggerNano,
     },
     effects::{
+        BiQuadFilterAllPass, BiQuadFilterAllPassMessage, BiQuadFilterAllPassNano,
+        BiQuadFilterBandPass, BiQuadFilterBandPassMessage, BiQuadFilterBandPassNano,
+        BiQuadFilterBandStop, BiQuadFilterBandStopMessage, BiQuadFilterBandStopNano,
+        BiQuadFilterHighPass, BiQuadFilterHighPassMessage, BiQuadFilterHighPassNano,
+        BiQuadFilterHighShelf, BiQuadFilterHighShelfMessage, BiQuadFilterHighShelfNano,
+        BiQuadFilterLowPass12db, BiQuadFilterLowPass12dbMessage, BiQuadFilterLowPass12dbNano,
         BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowPass24dbNano,
-        Bitcrusher, BitcrusherMessage, BitcrusherNano, Chorus, ChorusMessage, ChorusNano,
-        Compressor, CompressorMessage, CompressorNano, Delay, DelayMessage, DelayNano, Gain,
-        GainMessage, GainNano, Limiter, LimiterMessage, LimiterNano, Mixer, MixerMessage,
-        MixerNano, Reverb, ReverbMessage, ReverbNano,
+        BiQuadFilterLowShelf, BiQuadFilterLowShelfMessage, BiQuadFilterLowShelfNano,
+        BiQuadFilterPeakingEq, BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqNano, Bitcrusher,
+        BitcrusherMessage, BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor,
+        CompressorMessage, CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage,
+        GainNano, Limiter, LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb,
+        ReverbMessage, ReverbNano,
     },
     instruments::{
         Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Sampler,
@@ -564,6 +572,29 @@ impl Viewable for BitcrusherNano {
         .into()
     }
 }
+impl Viewable for BiQuadFilterLowPass12dbNano {
+    type Message = BiQuadFilterLowPass12dbMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| BiQuadFilterLowPass12dbMessage::Cutoff(Normal::from(n.as_f32()).into()),
+        );
+        row![
+            container(slider).width(iced::Length::FillPortion(1)),
+            container(GuiStuff::<EntityMessage>::container_text(&format!(
+                "cutoff: {:.1}Hz q: {:0.3}",
+                self.cutoff().value(),
+                self.q()
+            )))
+            .width(iced::Length::FillPortion(1))
+        ]
+        .into()
+    }
+}
 impl Viewable for BiQuadFilterLowPass24dbNano {
     type Message = BiQuadFilterLowPass24dbMessage;
 
@@ -578,8 +609,170 @@ impl Viewable for BiQuadFilterLowPass24dbNano {
         row![
             container(slider).width(iced::Length::FillPortion(1)),
             container(GuiStuff::<EntityMessage>::container_text(&format!(
-                "cutoff: {:.1}Hz",
-                self.cutoff().value()
+                "cutoff: {:.1}Hz passband_ripple: {:0.3}",
+                self.cutoff().value(),
+                self.passband_ripple()
+            )))
+            .width(iced::Length::FillPortion(1))
+        ]
+        .into()
+    }
+}
+impl Viewable for BiQuadFilterAllPassNano {
+    type Message = BiQuadFilterAllPassMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| BiQuadFilterAllPassMessage::Cutoff(Normal::from(n.as_f32()).into()),
+        );
+        row![
+            container(slider).width(iced::Length::FillPortion(1)),
+            container(GuiStuff::<EntityMessage>::container_text(&format!(
+                "cutoff: {:.1}Hz q: {:0.3}",
+                self.cutoff().value(),
+                self.q()
+            )))
+            .width(iced::Length::FillPortion(1))
+        ]
+        .into()
+    }
+}
+impl Viewable for BiQuadFilterHighPassNano {
+    type Message = BiQuadFilterHighPassMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| BiQuadFilterHighPassMessage::Cutoff(Normal::from(n.as_f32()).into()),
+        );
+        row![
+            container(slider).width(iced::Length::FillPortion(1)),
+            container(GuiStuff::<EntityMessage>::container_text(&format!(
+                "cutoff: {:.1}Hz q: {:0.3}",
+                self.cutoff().value(),
+                self.q()
+            )))
+            .width(iced::Length::FillPortion(1))
+        ]
+        .into()
+    }
+}
+impl Viewable for BiQuadFilterBandPassNano {
+    type Message = BiQuadFilterBandPassMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| BiQuadFilterBandPassMessage::Cutoff(Normal::from(n.as_f32()).into()),
+        );
+        row![
+            container(slider).width(iced::Length::FillPortion(1)),
+            container(GuiStuff::<EntityMessage>::container_text(&format!(
+                "cutoff: {:.1}Hz bandwidth: {:0.3}",
+                self.cutoff().value(),
+                self.bandwidth()
+            )))
+            .width(iced::Length::FillPortion(1))
+        ]
+        .into()
+    }
+}
+impl Viewable for BiQuadFilterBandStopNano {
+    type Message = BiQuadFilterBandStopMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| BiQuadFilterBandStopMessage::Cutoff(Normal::from(n.as_f32()).into()),
+        );
+        row![
+            container(slider).width(iced::Length::FillPortion(1)),
+            container(GuiStuff::<EntityMessage>::container_text(&format!(
+                "cutoff: {:.1}Hz bandwidth: {:0.3}",
+                self.cutoff().value(),
+                self.bandwidth()
+            )))
+            .width(iced::Length::FillPortion(1))
+        ]
+        .into()
+    }
+}
+impl Viewable for BiQuadFilterHighShelfNano {
+    type Message = BiQuadFilterHighShelfMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| BiQuadFilterHighShelfMessage::Cutoff(Normal::from(n.as_f32()).into()),
+        );
+        row![
+            container(slider).width(iced::Length::FillPortion(1)),
+            container(GuiStuff::<EntityMessage>::container_text(&format!(
+                "cutoff: {:.1}Hz dB gain: {:0.3}",
+                self.cutoff().value(),
+                self.db_gain()
+            )))
+            .width(iced::Length::FillPortion(1))
+        ]
+        .into()
+    }
+}
+impl Viewable for BiQuadFilterLowShelfNano {
+    type Message = BiQuadFilterLowShelfMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| BiQuadFilterLowShelfMessage::Cutoff(Normal::from(n.as_f32()).into()),
+        );
+        row![
+            container(slider).width(iced::Length::FillPortion(1)),
+            container(GuiStuff::<EntityMessage>::container_text(&format!(
+                "cutoff: {:.1}Hz dB gain: {:0.3}",
+                self.cutoff().value(),
+                self.db_gain()
+            )))
+            .width(iced::Length::FillPortion(1))
+        ]
+        .into()
+    }
+}
+impl Viewable for BiQuadFilterPeakingEqNano {
+    type Message = BiQuadFilterPeakingEqMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        let slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| BiQuadFilterPeakingEqMessage::Cutoff(Normal::from(n.as_f32()).into()),
+        );
+        row![
+            container(slider).width(iced::Length::FillPortion(1)),
+            container(GuiStuff::<EntityMessage>::container_text(&format!(
+                "cutoff: {:.1}Hz alpha: {:0.3}",
+                self.cutoff().value(),
+                self.alpha()
             )))
             .width(iced::Length::FillPortion(1))
         ]
@@ -634,7 +827,8 @@ impl Viewable for FmSynthNano {
             text(format!("{:0.1}%", depth * 100.0).as_str()).size(View::LABEL_FONT_SIZE);
         let ratio = self.ratio();
         let label_ratio = text("Ratio").size(View::LABEL_FONT_SIZE);
-        let text_ratio = text(format!("{:0.2}", ratio).as_str()).size(View::LABEL_FONT_SIZE);
+        let text_ratio =
+            text(format!("{:0.2}", ratio.value()).as_str()).size(View::LABEL_FONT_SIZE);
         let beta = self.beta();
         let label_beta = text("Beta").size(View::LABEL_FONT_SIZE);
         let text_beta = text(format!("{:0.2}", beta).as_str()).size(View::LABEL_FONT_SIZE);
@@ -654,7 +848,7 @@ impl Viewable for FmSynthNano {
         let ratio_slider = Column::new()
             .push(label_ratio)
             .push(Knob::new(
-                fm_synthesizer_ratio_range.normal_param(ratio as i32, 2),
+                fm_synthesizer_ratio_range.normal_param(ratio.value() as i32, 2),
                 |n| FmSynthMessage::Ratio(n.as_f32().into()),
             ))
             .push(text_ratio)
@@ -1325,7 +1519,31 @@ enum ViewableEntities {
     Arpeggiator(Arpeggiator),
 
     #[views(effect, controllable)]
+    BiQuadFilterAllPass(BiQuadFilterAllPass),
+
+    #[views(effect, controllable)]
+    BiQuadFilterBandPass(BiQuadFilterBandPass),
+
+    #[views(effect, controllable)]
+    BiQuadFilterBandStop(BiQuadFilterBandStop),
+
+    #[views(effect, controllable)]
+    BiQuadFilterHighPass(BiQuadFilterHighPass),
+
+    #[views(effect, controllable)]
+    BiQuadFilterHighShelf(BiQuadFilterHighShelf),
+
+    #[views(effect, controllable)]
+    BiQuadFilterLowPass12db(BiQuadFilterLowPass12db),
+
+    #[views(effect, controllable)]
     BiQuadFilterLowPass24db(BiQuadFilterLowPass24db),
+
+    #[views(effect, controllable)]
+    BiQuadFilterLowShelf(BiQuadFilterLowShelf),
+
+    #[views(effect, controllable)]
+    BiQuadFilterPeakingEq(BiQuadFilterPeakingEq),
 
     #[views(effect, controllable)]
     Bitcrusher(Bitcrusher),

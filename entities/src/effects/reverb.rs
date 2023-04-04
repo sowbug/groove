@@ -83,6 +83,22 @@ impl Reverb {
     pub fn sample_rate(&self) -> usize {
         self.sample_rate
     }
+
+    pub fn attenuation(&self) -> Normal {
+        self.attenuation
+    }
+
+    pub fn set_attenuation(&mut self, attenuation: Normal) {
+        self.attenuation = attenuation;
+    }
+
+    pub fn seconds(&self) -> f64 {
+        self.seconds
+    }
+
+    pub fn set_seconds(&mut self, seconds: ParameterType) {
+        self.seconds = seconds;
+    }
 }
 
 #[derive(Debug)]

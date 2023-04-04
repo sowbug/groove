@@ -259,14 +259,14 @@ impl WelshVoice {
     pub fn new_with_params(sample_rate: usize, params: WelshSynthNano) -> Self {
         Self {
             oscillators: vec![
-                Oscillator::new_with_params(sample_rate, params.oscillator_1),
-                Oscillator::new_with_params(sample_rate, params.oscillator_2),
+                Oscillator::new_with(sample_rate, params.oscillator_1),
+                Oscillator::new_with(sample_rate, params.oscillator_2),
             ],
             oscillator_2_sync: params.oscillator_sync,
             oscillator_mix: params.oscillator_mix,
             amp_envelope: Envelope::new_with(sample_rate, params.envelope()),
             dca: Dca::new_with_params(params.dca),
-            lfo: Oscillator::new_with_params(sample_rate, params.lfo),
+            lfo: Oscillator::new_with(sample_rate, params.lfo),
             lfo_routing: params.lfo_routing,
             lfo_depth: params.lfo_depth,
             filter: BiQuadFilterLowPass24db::new_with(sample_rate, params.filter),
@@ -473,6 +473,50 @@ impl WelshSynth {
 
     pub fn set_filter_envelope(&mut self, filter_envelope: EnvelopeParams) {
         self.filter_envelope = filter_envelope;
+    }
+
+    pub fn set_oscillator_1(&mut self, oscillator_1: OscillatorNano) {
+        self.oscillator_1 = oscillator_1;
+    }
+
+    pub fn set_oscillator_2(&mut self, oscillator_2: OscillatorNano) {
+        self.oscillator_2 = oscillator_2;
+    }
+
+    pub fn set_oscillator_sync(&mut self, oscillator_sync: bool) {
+        self.oscillator_sync = oscillator_sync;
+    }
+
+    pub fn set_oscillator_mix(&mut self, oscillator_mix: Normal) {
+        self.oscillator_mix = oscillator_mix;
+    }
+
+    pub fn set_lfo(&mut self, lfo: OscillatorNano) {
+        self.lfo = lfo;
+    }
+
+    pub fn set_lfo_routing(&mut self, lfo_routing: LfoRouting) {
+        self.lfo_routing = lfo_routing;
+    }
+
+    pub fn set_lfo_depth(&mut self, lfo_depth: Normal) {
+        self.lfo_depth = lfo_depth;
+    }
+
+    pub fn set_filter(&mut self, filter: BiQuadFilterLowPass24dbNano) {
+        self.filter = filter;
+    }
+
+    pub fn set_filter_cutoff_start(&mut self, filter_cutoff_start: Normal) {
+        self.filter_cutoff_start = filter_cutoff_start;
+    }
+
+    pub fn set_filter_cutoff_end(&mut self, filter_cutoff_end: Normal) {
+        self.filter_cutoff_end = filter_cutoff_end;
+    }
+
+    pub fn set_dca(&mut self, dca: DcaParams) {
+        self.dca = dca;
     }
 }
 

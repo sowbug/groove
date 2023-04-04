@@ -169,7 +169,7 @@ impl Ticks for Oscillator {
 }
 
 impl Oscillator {
-    pub fn new_with_params(sample_rate: usize, params: OscillatorNano) -> Self {
+    pub fn new_with(sample_rate: usize, params: OscillatorNano) -> Self {
         Self {
             waveform: params.waveform(),
             frequency: params.frequency(),
@@ -192,7 +192,7 @@ impl Oscillator {
     }
 
     #[deprecated]
-    pub fn new_with(sample_rate: usize) -> Self {
+    pub fn new_with_do_not_use_me(sample_rate: usize) -> Self {
         // See the _pola test. I kept running into non-bugs where I had a
         // default oscillator in a chain, and wasted time debugging why the
         // output was silent. The answer was that a default oscillator with
@@ -966,7 +966,7 @@ pub mod tests {
 
     #[test]
     fn oscillator_pola() {
-        let mut oscillator = Oscillator::new_with(DEFAULT_SAMPLE_RATE);
+        let mut oscillator = Oscillator::new_with_do_not_use_me(DEFAULT_SAMPLE_RATE);
 
         // we'll run two ticks in case the oscillator happens to start at zero
         oscillator.tick(2);
@@ -1309,7 +1309,7 @@ pub mod tests {
 
     #[test]
     fn oscillator_cycle_restarts_on_time() {
-        let mut oscillator = Oscillator::new_with(DEFAULT_SAMPLE_RATE);
+        let mut oscillator = Oscillator::new_with_do_not_use_me(DEFAULT_SAMPLE_RATE);
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
         oscillator.set_frequency(FREQUENCY);
 

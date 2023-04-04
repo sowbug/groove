@@ -160,6 +160,22 @@ impl ControlTrip {
     pub fn set_bpm(&mut self, bpm: ParameterType) {
         self.bpm = bpm;
     }
+
+    pub fn time_signature_top(&self) -> usize {
+        self.time_signature_top
+    }
+
+    pub fn set_time_signature_top(&mut self, time_signature_top: usize) {
+        self.time_signature_top = time_signature_top;
+    }
+
+    pub fn time_signature_bottom(&self) -> usize {
+        self.time_signature_bottom
+    }
+
+    pub fn set_time_signature_bottom(&mut self, time_signature_bottom: usize) {
+        self.time_signature_bottom = time_signature_bottom;
+    }
 }
 impl Resets for ControlTrip {}
 impl TicksWithMessages for ControlTrip {

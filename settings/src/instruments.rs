@@ -13,7 +13,7 @@ use std::path::Path;
 #[serde(rename_all = "kebab-case")]
 pub enum InstrumentSettings {
     #[serde(rename_all = "kebab-case")]
-    Test {
+    ToyInstrument {
         #[serde(rename = "midi-in")]
         midi_input_channel: MidiChannel,
     },
@@ -58,7 +58,7 @@ impl InstrumentSettings {
     ) -> (MidiChannel, Entity) {
         if load_only_test_entities {
             let midi_input_channel = match self {
-                InstrumentSettings::Test { midi_input_channel } => *midi_input_channel,
+                InstrumentSettings::ToyInstrument { midi_input_channel } => *midi_input_channel,
                 InstrumentSettings::Welsh {
                     midi_input_channel, ..
                 } => *midi_input_channel,
@@ -83,7 +83,7 @@ impl InstrumentSettings {
             );
         }
         match self {
-            InstrumentSettings::Test { midi_input_channel } => (
+            InstrumentSettings::ToyInstrument { midi_input_channel } => (
                 *midi_input_channel,
                 Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
                     sample_rate,

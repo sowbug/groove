@@ -149,7 +149,7 @@ impl FmVoice {
     pub fn new_with_params(sample_rate: usize, params: FmSynthParamsLegacy) -> Self {
         Self {
             sample: Default::default(),
-            carrier: Oscillator::new_with(sample_rate),
+            carrier: Oscillator::new_with_do_not_use_me(sample_rate),
             modulator: Oscillator::new_with_waveform(sample_rate, WaveformParams::Sine),
             modulator_depth: params.depth,
             modulator_ratio: params.ratio,
@@ -215,7 +215,7 @@ pub struct FmSynth {
     depth: Normal,
 
     #[nano]
-    ratio: ParameterType,
+    ratio: Ratio,
 
     #[nano]
     beta: ParameterType,

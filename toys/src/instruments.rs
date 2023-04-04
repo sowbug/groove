@@ -141,7 +141,7 @@ impl ToyInstrument {
             sample_rate,
             sample: Default::default(),
             fake_value: params.fake_value(),
-            oscillator: Oscillator::new_with(sample_rate),
+            oscillator: Oscillator::new_with_do_not_use_me(sample_rate),
             dca: Dca::new_with_params(DcaParams::default()),
             is_playing: Default::default(),
             received_count: Default::default(),
@@ -300,7 +300,7 @@ impl DebugSynth {
     pub fn new_with(sample_rate: usize) -> Self {
         Self::new_with_components(
             sample_rate,
-            Box::new(Oscillator::new_with(sample_rate)),
+            Box::new(Oscillator::new_with_do_not_use_me(sample_rate)),
             Box::new(Envelope::new_with(
                 sample_rate,
                 EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
@@ -392,7 +392,31 @@ impl ToySynth {
         }
     }
     pub fn update(&mut self, message: ToySynthMessage) {
-        todo!()
+        self.derived_update(message)
+    }
+
+    pub fn voice_count(&self) -> usize {
+        self.voice_count
+    }
+
+    pub fn set_voice_count(&mut self, voice_count: usize) {
+        self.voice_count = voice_count;
+    }
+
+    pub fn waveform(&self) -> WaveformParams {
+        self.waveform
+    }
+
+    pub fn set_waveform(&mut self, waveform: WaveformParams) {
+        self.waveform = waveform;
+    }
+
+    pub fn envelope(&self) -> EnvelopeParams {
+        self.envelope
+    }
+
+    pub fn set_envelope(&mut self, envelope: EnvelopeParams) {
+        self.envelope = envelope;
     }
 }
 

@@ -613,6 +613,11 @@ impl From<Ratio> for Normal {
         Self::from(BipolarNormal::from(value))
     }
 }
+impl From<f32> for Ratio {
+    fn from(value: f32) -> Self {
+        Self(value as ParameterType)
+    }
+}
 impl From<F32ControlValue> for Ratio {
     fn from(value: F32ControlValue) -> Self {
         Self::from(Normal::from(value))

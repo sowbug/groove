@@ -8,11 +8,11 @@ clock:
 devices:
   - instrument:
     - instrument-1
-    - test:
+    - toy-instrument:
         midi-in: 0
   - instrument:
     - instrument-2
-    - test:
+    - toy-instrument:
         midi-in: 1
 patch-cables:
   # This should fail because an instrument has only outputs, not inputs. If you
