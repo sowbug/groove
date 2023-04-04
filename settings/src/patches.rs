@@ -5,7 +5,6 @@ use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     generators::{EnvelopeParams, Oscillator, OscillatorNano, WaveformParams},
     midi::{note_to_frequency, GeneralMidiProgram},
-    voices::StealingVoiceStore,
     BipolarNormal, DcaParams, FrequencyHz, Normal, ParameterType, Ratio,
 };
 use groove_entities::{
@@ -84,9 +83,8 @@ impl WelshPatchSettings {
         }
     }
 
-    pub fn derive_welsh_voice(&self, sample_rate: usize) -> WelshVoice {
+    fn derive_welsh_synth_nano(&self, sample_rate: usize) -> WelshSynthNano {
         let mut oscillators = Vec::default();
-        let mut oscillator_2_sync = false;
         if !matches!(self.oscillator_1.waveform, WaveformType::None) {
             oscillators.push(self.oscillator_1.derive_oscillator(sample_rate));
         }
@@ -99,7 +97,6 @@ impl WelshPatchSettings {
                     panic!("Patch configured without oscillator 2 tracking, but tune is not a note specification");
                 }
             }
-            oscillator_2_sync = self.oscillator_2_sync;
             oscillators.push(o);
         }
         if self.noise > 0.0 {
@@ -133,79 +130,56 @@ impl WelshPatchSettings {
         );
         let filter_cutoff_start =
             FrequencyHz::frequency_to_percent(self.filter_type_12db.cutoff_hz.into());
-        let filter_cutoff_end = self.filter_envelope_weight;
-        //   let filter_envelope = self.filter_envelope.derive_envelope(sample_rate);
+        let filter_cutoff_end = self.filter_envelope_weight.into();
 
-        // WelshVoice::new_with(
-        //     oscillators,
-        //     oscillator_2_sync,
-        //     oscillator_mix,
-        //     amp_envelope,
-        //     filter,
-        //     filter_cutoff_start.value_as_f32(),
-        //     filter_cutoff_end,
-        //     filter_envelope,
-        //     lfo,
-        //     lfo_routing,
-        //     lfo_depth,
-        // )
-
-        WelshVoice::new_with_params(
-            sample_rate,
-            WelshSynthNano {
-                oscillator_1: OscillatorNano {
-                    waveform: self.oscillator_1.waveform.into(),
-                    frequency: Default::default(),
-                    fixed_frequency: Default::default(), // TODO: need Option<>!
-                    frequency_tune: self.oscillator_1.tune.into(),
-                    frequency_modulation: Default::default(),
-                    linear_frequency_modulation: Default::default(),
-                },
-                oscillator_2: OscillatorNano {
-                    waveform: self.oscillator_2.waveform.into(),
-                    frequency: Default::default(),
-                    fixed_frequency: Default::default(), // TODO: need Option<>!
-                    frequency_tune: self.oscillator_2.tune.into(),
-                    frequency_modulation: Default::default(),
-                    linear_frequency_modulation: Default::default(),
-                },
-                oscillator_sync: self.oscillator_2_sync,
-                oscillator_mix,
-                envelope: self.amp_envelope.into(),
-                dca: DcaParams::default(), // TODO
-                lfo: OscillatorNano {
-                    waveform: self.lfo.waveform.into(),
-                    frequency: self.lfo.frequency.into(),
-                    fixed_frequency: Default::default(),
-                    frequency_tune: Default::default(),
-                    frequency_modulation: Default::default(),
-                    linear_frequency_modulation: Default::default(),
-                },
-                lfo_routing: self.lfo.routing.into(),
-                lfo_depth: self.lfo.depth.into(),
-                filter: BiQuadFilterNano {
-                    cutoff: self.filter_type_24db.cutoff_hz.into(),
-                    q: 1.414,
-                }, // TODO HACK HACK HAC
-                filter_cutoff_start: FrequencyHz::frequency_to_percent(
-                    self.filter_type_24db.cutoff_hz.into(),
-                ),
-                filter_cutoff_end: self.filter_envelope_weight.into(),
-                filter_envelope: self.filter_envelope,
-                pan: BipolarNormal::zero(),
+        WelshSynthNano {
+            oscillator_1: OscillatorNano {
+                waveform: self.oscillator_1.waveform.into(),
+                frequency: Default::default(),
+                fixed_frequency: Default::default(), // TODO: need Option<>!
+                frequency_tune: self.oscillator_1.tune.into(),
+                frequency_modulation: Default::default(),
+                linear_frequency_modulation: Default::default(),
             },
-        )
+            oscillator_2: OscillatorNano {
+                waveform: self.oscillator_2.waveform.into(),
+                frequency: Default::default(),
+                fixed_frequency: Default::default(), // TODO: need Option<>!
+                frequency_tune: self.oscillator_2.tune.into(),
+                frequency_modulation: Default::default(),
+                linear_frequency_modulation: Default::default(),
+            },
+            oscillator_sync: self.oscillator_2_sync,
+            oscillator_mix,
+            envelope: self.amp_envelope.into(),
+            dca: DcaParams::default(), // TODO
+            lfo: OscillatorNano {
+                waveform: self.lfo.waveform.into(),
+                frequency: self.lfo.frequency.into(),
+                fixed_frequency: Default::default(),
+                frequency_tune: Default::default(),
+                frequency_modulation: Default::default(),
+                linear_frequency_modulation: Default::default(),
+            },
+            lfo_routing: self.lfo.routing.into(),
+            lfo_depth: self.lfo.depth.into(),
+            filter: BiQuadFilterNano {
+                cutoff: self.filter_type_24db.cutoff_hz.into(),
+                q: 1.414,
+            }, // TODO HACK HACK HAC
+            filter_cutoff_start,
+            filter_cutoff_end,
+            filter_envelope: self.filter_envelope,
+            pan: BipolarNormal::zero(),
+        }
+    }
+
+    pub fn derive_welsh_voice(&self, sample_rate: usize) -> WelshVoice {
+        WelshVoice::new_with_params(sample_rate, self.derive_welsh_synth_nano(sample_rate))
     }
 
     pub fn derive_welsh_synth(&self, sample_rate: usize) -> WelshSynth {
-        WelshSynth::new_with(
-            sample_rate,
-            Box::new(StealingVoiceStore::<WelshVoice>::new_with_voice(
-                sample_rate,
-                8,
-                || self.derive_welsh_voice(sample_rate),
-            )),
-        )
+        WelshSynth::new_with_params(sample_rate, self.derive_welsh_synth_nano(sample_rate))
     }
 }
 
