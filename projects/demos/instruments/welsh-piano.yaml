@@ -9,8 +9,8 @@ devices:
   - instrument:
     - piano-1
     - welsh:
-        midi-in: 0
-        preset: piano
+      - midi-in: 0
+      - name: piano
   - effect:
     - gain-1
     - gain:

@@ -9,7 +9,7 @@ devices:
   - instrument:
       - oscillator-1
       - oscillator:
-          midi-in: 0
+        - midi-in: 0
           waveform: sine
           frequency: 440.0
 patch-cables:

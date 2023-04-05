@@ -83,7 +83,7 @@ impl WelshPatchSettings {
         }
     }
 
-    fn derive_welsh_synth_nano(&self, sample_rate: usize) -> WelshSynthNano {
+    pub fn derive_welsh_synth_nano(&self, sample_rate: usize) -> WelshSynthNano {
         let mut oscillators = Vec::default();
         if !matches!(self.oscillator_1.waveform, WaveformType::None) {
             oscillators.push(self.oscillator_1.derive_oscillator(sample_rate));
@@ -166,10 +166,6 @@ impl WelshPatchSettings {
             filter_envelope: self.filter_envelope,
             pan: BipolarNormal::zero(),
         }
-    }
-
-    pub fn derive_welsh_synth(&self, sample_rate: usize) -> WelshSynth {
-        WelshSynth::new_with(sample_rate, self.derive_welsh_synth_nano(sample_rate))
     }
 }
 

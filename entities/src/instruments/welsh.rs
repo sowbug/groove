@@ -256,9 +256,9 @@ pub struct WelshSynth {
     uid: usize,
     inner_synth: Synthesizer<WelshVoice>,
 
-    #[nano(control = false, non_copy = true)]
+    #[nano(control = false, no_copy = true)]
     oscillator_1: OscillatorNano,
-    #[nano(control = false, non_copy = true)]
+    #[nano(control = false, no_copy = true)]
     oscillator_2: OscillatorNano,
     #[nano]
     oscillator_sync: bool,
@@ -271,14 +271,14 @@ pub struct WelshSynth {
     #[nano(control = false)]
     dca: DcaParams,
 
-    #[nano(control = false, non_copy = true)]
+    #[nano(control = false, no_copy = true)]
     lfo: OscillatorNano,
     #[nano(control = false)]
     lfo_routing: LfoRouting,
     #[nano]
     lfo_depth: Normal,
 
-    #[nano(control = false, non_copy = true)]
+    #[nano(control = false, no_copy = true)]
     low_pass_filter: BiQuadFilterLowPass24dbNano,
 
     #[nano]

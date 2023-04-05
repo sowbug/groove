@@ -10,22 +10,22 @@ devices:
       - piano-1
       - welsh:
           - midi-in: 0 # TODO: do we want MIDI so central to routing? Why not use patch cables?
-          - preset: piano
+          - name: piano
   - instrument:
       - bassline
       - welsh:
-          midi-in: 1
-          preset: digital-bass
+          - midi-in: 1
+          - name: digital-bass
   - instrument:
       - synth-1
       - welsh:
-          midi-in: 3
-          preset: strings-pwm
+          - midi-in: 3
+          - name: strings-pwm
   - instrument:
       - drum-1
       - drumkit:
-          midi-in: 10
-          preset: "707"
+          - midi-in: 10
+          - name: "707"
   - controller:
       - arp-1
       - arpeggiator:
@@ -56,7 +56,7 @@ devices:
   - controller:
       - panning-lfo
       - lfo:
-          - midi-in: 0   # TODO: not every controller cares about MIDI. Make these optional.
+          - midi-in: 0 # TODO: not every controller cares about MIDI. Make these optional.
             midi-out: 0
           - waveform: triangle
             frequency: 2.0

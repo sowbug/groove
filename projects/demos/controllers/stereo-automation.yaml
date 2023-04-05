@@ -9,12 +9,12 @@ devices:
   - instrument:
       - lead
       - welsh:
-          midi-in: 0
-          preset: growling-bass
+        - midi-in: 0
+        - name: growling-bass
   - controller:
       - panning-lfo
       - lfo:
-          midi-in: 0
+        - midi-in: 0
           midi-out: 0
           waveform: triangle
           frequency: 2.0

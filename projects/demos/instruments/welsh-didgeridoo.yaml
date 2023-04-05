@@ -9,8 +9,8 @@ devices:
   - instrument:
     - instrument-1
     - welsh:
-        midi-in: 0
-        preset: didgeridoo
+      - midi-in: 0
+      - name: didgeridoo
   - effect:
     - gain-1
     - gain:

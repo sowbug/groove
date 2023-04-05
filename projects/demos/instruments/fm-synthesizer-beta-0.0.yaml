@@ -13,7 +13,7 @@ devices:
   - instrument:
       - instrument-1
       - fm-synthesizer:
-          midi-in: 0
+        - midi-in: 0
           voice:
             ratio: 2.0
             depth: 1.0

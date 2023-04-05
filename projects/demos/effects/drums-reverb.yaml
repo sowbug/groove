@@ -9,8 +9,8 @@ devices:
   - instrument:
       - drum-1
       - drumkit:
-          midi-in: 10
-          preset: "707"
+        - midi-in: 10
+        - name: "707"
   - effect:
       - effect-1
       - reverb:

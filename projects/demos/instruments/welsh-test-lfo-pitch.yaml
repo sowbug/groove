@@ -9,8 +9,8 @@ devices:
   - instrument:
     - instrument-1
     - welsh:
-        midi-in: 0
-        preset: test-lfo-pitch
+      - midi-in: 0
+      - name: test-lfo-pitch
   - effect:
     - gain-1
     - gain:

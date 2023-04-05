@@ -9,18 +9,18 @@ devices:
   - instrument:
       - instrument-1
       - welsh:
-          midi-in: 1
-          preset: acid-bass
+        - midi-in: 1
+        - name: acid-bass
   - instrument:
       - instrument-2
       - welsh:
-          midi-in: 2
-          preset: acid-bass
+        - midi-in: 2
+        - name: acid-bass
   - instrument:
       - drum-1
       - drumkit:
-          midi-in: 10
-          preset: "707"
+        - midi-in: 10
+        - name: "707"
   - effect:
       - compressor-1
       - compressor:
@@ -38,7 +38,7 @@ devices:
   - controller:
       - sidechain-2
       - signal-passthrough-controller: # All these parameters are ignored.
-          midi-in: 0
+        - midi-in: 0
           midi-out: 0
 patch-cables:
   - [instrument-1, compressor-1, main-mixer]

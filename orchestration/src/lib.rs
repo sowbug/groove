@@ -212,7 +212,7 @@ mod tests {
         #[nano]
         dog_count: usize,
 
-        #[nano(control = false, non_copy = true)]
+        #[nano(control = false, no_copy = true)]
         stuff: StuffNano,
     }
     impl Misc {

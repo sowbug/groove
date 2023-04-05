@@ -9,8 +9,8 @@ devices:
   - instrument:
       - instrument-1
       - welsh:
-          midi-in: 0
-          preset: xylophone
+        - midi-in: 0
+        - name: xylophone
   - effect:
       - gain-1
       - gain:

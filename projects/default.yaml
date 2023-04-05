@@ -9,13 +9,13 @@ devices:
   - instrument:
       - instrument-1
       - welsh:
-          midi-in: 0
-          preset: acid-bass
+        - midi-in: 0
+        - name: acid-bass
   - instrument:
       - drums-1
       - drumkit:
-          midi-in: 10
-          preset: "707"
+        - midi-in: 10
+        - name: "707"
   - effect:
       - gain-1
       - gain:

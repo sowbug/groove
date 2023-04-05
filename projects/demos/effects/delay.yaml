@@ -9,18 +9,18 @@ devices:
   - instrument:
       - bass-1
       - welsh:
-          midi-in: 0
-          preset: digital-bass
+        - midi-in: 0
+        - name: digital-bass
   - instrument:
       - pluck-1
       - welsh:
-          midi-in: 1
-          preset: banjo
+        - midi-in: 1
+        - name: banjo
   - instrument:
       - pluck-2
       - welsh:
-          midi-in: 2
-          preset: banjo
+        - midi-in: 2
+        - name: banjo
   - effect:
       - delay-1
       - delay:

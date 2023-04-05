@@ -37,7 +37,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                 .filter(|attr| attr.path.is_ident("nano"))
                 .collect();
             if !attrs.is_empty() {
-                let (should_control, is_non_copy) = parse_nano_meta(attrs[0]);
+                let (should_control, is_no_copy) = parse_nano_meta(attrs[0]);
                 match &f.ty {
                     syn::Type::Path(t) => {
                         if let Some(ident) = t.path.get_ident() {
@@ -45,7 +45,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                                 f.ident.as_ref().unwrap().clone(),
                                 ident.clone(),
                                 should_control,
-                                is_non_copy,
+                                is_no_copy,
                             ));
                         }
                     }
@@ -67,7 +67,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
         let mut nc_getter_methods = Vec::default();
         let mut setters = Vec::default();
         let core_crate = format_ident!("{}", core_crate_name());
-        for (field_name, field_type, should_control, is_non_copy) in attr_fields {
+        for (field_name, field_type, should_control, is_no_copy) in attr_fields {
             let field_name_pascal_case =
                 format_ident!("{}", field_name.to_string().to_case(Case::Pascal),);
             variant_names.push(field_name_pascal_case.clone());
@@ -81,7 +81,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
 
             // If the field is annotated copy=false, then we generate an
             // immutable borrow getter rather than a simple getter.
-            if is_non_copy {
+            if is_no_copy {
                 nc_getter_methods.push(quote! {
                     pub fn #field_name(&self) -> &#field_type { &self.#field_name }
                 });
@@ -265,20 +265,20 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
 
 // Returns booleans indicating (1) whether the #[nano(...)] attr indicates that
 // it's OK to emit control infrastructure, (2) whether the structure is
-// designated "non_copy," which means we have to handle it a little differently.
+// designated "no_copy," which means we have to handle it a little differently.
 fn parse_nano_meta(attr: &Attribute) -> (bool, bool) {
     let mut should_control = true;
-    let mut is_non_copy = false;
+    let mut is_no_copy = false;
     if let Ok(meta) = attr.parse_meta() {
         let meta_list = match meta {
             Meta::List(list) => list,
             _ => {
-                return (should_control, is_non_copy);
+                return (should_control, is_no_copy);
             }
         };
 
         let punctuated = match meta_list.nested.len() {
-            0 => return (should_control, is_non_copy),
+            0 => return (should_control, is_no_copy),
             _ => &meta_list.nested,
         };
 
@@ -286,8 +286,8 @@ fn parse_nano_meta(attr: &Attribute) -> (bool, bool) {
             if let NestedMeta::Meta(Meta::NameValue(name_value)) = nested {
                 if name_value.path.is_ident("control") {
                     should_control = get_bool_from_lit(name_value);
-                } else if name_value.path.is_ident("non_copy") {
-                    is_non_copy = get_bool_from_lit(name_value);
+                } else if name_value.path.is_ident("no_copy") {
+                    is_no_copy = get_bool_from_lit(name_value);
                 } else {
                     // Unsupported attribute; ignore
                 }
@@ -296,7 +296,7 @@ fn parse_nano_meta(attr: &Attribute) -> (bool, bool) {
             }
         });
     }
-    (should_control, is_non_copy)
+    (should_control, is_no_copy)
 }
 
 fn get_bool_from_lit(name_value: &syn::MetaNameValue) -> bool {

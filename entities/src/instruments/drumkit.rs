@@ -21,8 +21,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Nano, Uid)]
 pub struct Drumkit {
-    #[nano]
-    name: f32, // String, // TODO: this will indicate what to load
+    #[nano(control = false, no_copy = true)]
+    name: String,
 
     uid: usize,
     sample_rate: usize,
@@ -59,8 +59,9 @@ impl HandlesMidi for Drumkit {
 }
 
 impl Drumkit {
-    fn new_from_files(sample_rate: usize, asset_path: PathBuf, _kit_name: f32) -> Self {
-        let base_dir = asset_path.join("samples/elphnt.io/707");
+    fn new_from_files(sample_rate: usize, asset_path: PathBuf, kit_name: &str) -> Self {
+        let mut base_dir = asset_path.join("samples/elphnt.io");
+        base_dir.push(kit_name);
 
         let samples = vec![
             (GeneralMidiPercussionProgram::AcousticBassDrum, "Kick 1 R1"),
@@ -113,18 +114,14 @@ impl Drumkit {
             sample_rate,
             inner_synth: Synthesizer::<SamplerVoice>::new_with(sample_rate, Box::new(voice_store)),
             asset_path,
-            name: 99.0, //kit_name.to_string(),
+            name: kit_name.to_string(),
         }
-    }
-
-    pub fn name(&self) -> f32 {
-        self.name
     }
 
     pub fn new_with(sample_rate: usize, asset_path: PathBuf, params: DrumkitNano) -> Self {
         // TODO: we're hardcoding samples/. Figure out a way to use the
         // system.
-        Self::new_from_files(sample_rate, asset_path, params.name())
+        Self::new_from_files(sample_rate, asset_path, &params.name())
     }
 
     pub fn update(&mut self, message: DrumkitMessage) {
@@ -136,12 +133,16 @@ impl Drumkit {
         }
     }
 
-    pub fn set_name(&mut self, name: f32) {
-        self.name = name;
-    }
-
     pub fn sample_rate(&self) -> usize {
         self.sample_rate
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
     }
 }
 

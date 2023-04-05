@@ -10,8 +10,8 @@ devices:
   - instrument:
     - instrument-1
     - welsh:
-        midi-in: 0
-        preset: cowbell
+      - midi-in: 0
+      - name: cowbell
   - effect:
     - effect-1
     - chorus:

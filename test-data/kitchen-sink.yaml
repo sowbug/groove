@@ -9,22 +9,22 @@ devices:
   - instrument:
       - piano-1
       - welsh:
-          midi-in: 0
-          preset: piano
+        - midi-in: 0
+        - name: piano
   - instrument:
       - bassline
       - welsh:
-          midi-in: 1
-          preset: digital-bass
+        - midi-in: 1
+        - name: digital-bass
   - instrument:
       - drum-1
       - drumkit:
-          midi-in: 10
-          preset: "707"
+        - midi-in: 10
+        - name: "707"
   - controller:
       - arp-1 # Not currently connected to anything
       - arpeggiator:
-          midi-in: 2
+        - midi-in: 2
           midi-out: 3
   - effect:
       - gain-1

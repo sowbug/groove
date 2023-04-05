@@ -9,8 +9,8 @@ devices:
   - instrument:
     - instrument-1
     - welsh:
-        midi-in: 0
-        preset: angels
+      - midi-in: 0
+      - name: angels
   - effect:
     - gain-1
     - gain:

@@ -9,7 +9,7 @@ devices:
   - instrument:
     - instrument-1
     - oscillator:
-        midi-in: 0
+      - midi-in: 0
         waveform: noise
         frequency: 0.0
   - effect:

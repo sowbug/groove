@@ -9,12 +9,12 @@ devices:
   - instrument:
     - instrument-1
     - welsh:
-        midi-in: 0
-        preset: organ
+      - midi-in: 0
+      - name: organ
   - controller:
     - arp-1
     - arpeggiator: # TODO: there are no options yet
-        midi-in: 1
+      - midi-in: 1
         midi-out: 0
 patch-cables:
   - [instrument-1, main-mixer]

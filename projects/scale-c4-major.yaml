@@ -9,8 +9,8 @@ devices:
   - instrument:
     - instrument-1
     - welsh:
-        midi-in: 0
-        preset: piano
+      - midi-in: 0
+      - name: piano
 patch-cables:
   - [instrument-1, main-mixer]
 patterns:

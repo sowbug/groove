@@ -80,7 +80,7 @@ devices:
   - instrument:
     - instrument-1
     - oscillator:
-        midi-in: 0
+      - midi-in: 0
         waveform: {waveform}
         frequency: {frequency}
   - effect:

@@ -1,5 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
+use crate::patches::WelshPatchSettings;
+
 use super::MidiChannel;
 use groove_core::Normal;
 use groove_entities::{
@@ -15,12 +17,19 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct WelshPatchWrapper {
+    name: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum InstrumentSettings {
     #[serde(rename_all = "kebab-case")]
     ToyInstrument(MidiChannelInputNano, ToyInstrumentNano),
     #[serde(rename_all = "kebab-case")]
-    Welsh(MidiChannelInputNano, WelshSynthNano),
+    Welsh(MidiChannelInputNano, WelshPatchWrapper),
+    #[serde(rename_all = "kebab-case")]
+    WelshRaw(MidiChannelInputNano, WelshSynthNano),
     #[serde(rename_all = "kebab-case")]
     Drumkit(MidiChannelInputNano, DrumkitNano),
     #[serde(rename_all = "kebab-case")]
@@ -40,6 +49,7 @@ impl InstrumentSettings {
             let midi_input_channel = match self {
                 InstrumentSettings::ToyInstrument(midi, ..)
                 | InstrumentSettings::Welsh(midi, ..)
+                | InstrumentSettings::WelshRaw(midi, ..)
                 | InstrumentSettings::Drumkit(midi, ..)
                 | InstrumentSettings::Sampler(midi, ..)
                 | InstrumentSettings::FmSynthesizer(midi, ..) => midi.midi_in,
@@ -62,7 +72,15 @@ impl InstrumentSettings {
                     params.clone(),
                 ))),
             ),
-            InstrumentSettings::Welsh(midi, params) => (
+            InstrumentSettings::Welsh(midi, patch) => (
+                midi.midi_in,
+                Entity::WelshSynth(Box::new(WelshSynth::new_with(
+                    sample_rate,
+                    WelshPatchSettings::by_name(asset_path, &patch.name)
+                        .derive_welsh_synth_nano(sample_rate),
+                ))),
+            ),
+            InstrumentSettings::WelshRaw(midi, params) => (
                 midi.midi_in,
                 Entity::WelshSynth(Box::new(WelshSynth::new_with(sample_rate, params.clone()))),
             ),

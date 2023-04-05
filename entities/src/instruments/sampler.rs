@@ -128,7 +128,7 @@ pub struct Sampler {
     uid: usize,
     inner_synth: Synthesizer<SamplerVoice>,
 
-    #[nano(control = false, non_copy = true)]
+    #[nano(control = false, no_copy = true)]
     filename: String,
 
     #[nano]

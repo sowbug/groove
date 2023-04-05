@@ -9,8 +9,8 @@ devices:
   - instrument:
     - lead-1
     - welsh:
-        midi-in: 0
-        preset: cello
+      - midi-in: 0
+      - name: cello
 patch-cables:
   - [lead-1, main-mixer]
 patterns:

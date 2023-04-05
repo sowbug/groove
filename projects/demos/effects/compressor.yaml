@@ -9,8 +9,8 @@ devices:
   - instrument:
       - instrument-1
       - welsh:
-          midi-in: 0
-          preset: digital-bass
+        - midi-in: 0
+        - name: digital-bass
   - effect:
       - effect-1
       - compressor:
