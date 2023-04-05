@@ -53,7 +53,11 @@ I use VSCode on Ubuntu 20.04 for development.
 ### Useful developer tools (not specific to this project)
 
 - `cargo-deb` produces Debian `.deb` packages from your crate.
-- `cargo-expand` helps with macro debugging.
+- `cargo-expand` helps with macro debugging; try `cargo-expand --lib entities`
+  in the `entities` subcrate. Also per [this
+  advice](https://stackoverflow.com/a/63149819/344467) try `RUSTFLAGS="-Z
+  macro-backtrace" cargo build --workspace` to get just a bit more info on macro
+  issues.
 - `cargo-license` lists crate licenses.
 - `cargo-machete` helps find unused crates listed as `Cargo.toml` dependencies.
 - `cargo-tree` lists crate dependencies.
