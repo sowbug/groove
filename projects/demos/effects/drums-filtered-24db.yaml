@@ -9,8 +9,8 @@ devices:
   - instrument:
       - drum-1
       - drumkit:
-          midi-in: 10
-          preset: "707"
+          - midi-in: 10
+          - name: 707.0 # "707"
   - effect:
       - low-pass-1
       - filter-low-pass-24db:

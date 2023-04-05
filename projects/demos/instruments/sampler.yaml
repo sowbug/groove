@@ -10,17 +10,17 @@ devices:
       # We know this sample is D5 (MIDI note 74)
       - instrument-1
       - sampler:
-          midi-in: 0
-          filename: "assets/samples/stereo-pluck.wav"
-          root: 587.3295358348151
+          - midi-in: 0
+          - filename: 32.0 # "assets/samples/stereo-pluck.wav"
+            root: 587.3295358348151
   - instrument:
       # Same sample, but at load time, we root at D6 (frequency
       # 1174.6590716696303)
       - instrument-2
       - sampler:
-          midi-in: 1
-          filename: "assets/samples/stereo-pluck.wav"
-          root: 86
+          - midi-in: 1
+          - filename: 99.0 # "assets/samples/stereo-pluck.wav"
+            root: 86
 patch-cables:
   - [instrument-1, main-mixer]
   - [instrument-2, main-mixer]

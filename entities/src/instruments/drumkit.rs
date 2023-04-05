@@ -12,7 +12,11 @@ use groove_core::{
     StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
-use std::{path::PathBuf, str::FromStr, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
+};
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
@@ -21,9 +25,11 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Nano, Uid)]
 pub struct Drumkit {
+    #[nano]
+    name: f32, // String, // TODO: this will indicate what to load
+
     uid: usize,
     inner_synth: Synthesizer<SamplerVoice>,
-    kit_name: String,
 }
 impl IsInstrument for Drumkit {}
 impl Generates<StereoSample> for Drumkit {
@@ -55,7 +61,7 @@ impl HandlesMidi for Drumkit {
 }
 
 impl Drumkit {
-    pub fn new_from_files(sample_rate: usize, base_dir: PathBuf) -> Self {
+    fn new_from_files(sample_rate: usize, base_dir: PathBuf, kit_name: f32) -> Self {
         let samples = vec![
             (GeneralMidiPercussionProgram::AcousticBassDrum, "Kick 1 R1"),
             (GeneralMidiPercussionProgram::ElectricBassDrum, "Kick 2 R1"),
@@ -80,51 +86,44 @@ impl Drumkit {
             (GeneralMidiPercussionProgram::LowAgogo, "Cowbell R4"),
         ];
 
-        Self::new_with(
+        let voice_store = VoicePerNoteStore::<SamplerVoice>::new_with_voices(
             sample_rate,
-            Box::new(VoicePerNoteStore::<SamplerVoice>::new_with_voices(
-                sample_rate,
-                samples.into_iter().flat_map(|(program, asset_name)| {
-                    let mut path = base_dir.clone();
-                    path.push(format!("{asset_name}.wav").as_str());
+            samples.into_iter().flat_map(|(program, asset_name)| {
+                let mut path = base_dir.clone();
+                path.push(format!("{asset_name}.wav").as_str());
 
-                    if let Some(filename) = path.to_str() {
-                        if let Ok(samples) = Sampler::read_samples_from_file(filename) {
-                            let program = program as u8;
-                            Ok((
-                                u7::from(program),
-                                SamplerVoice::new_with_samples(
-                                    sample_rate,
-                                    Arc::new(samples),
-                                    note_to_frequency(program),
-                                ),
-                            ))
-                        } else {
-                            Err(anyhow!("Unable to load sample from file {filename}."))
-                        }
-                    } else {
-                        Err(anyhow!("Unable to load sample {asset_name}."))
-                    }
-                }),
-            )),
-            "707",
-        )
-    }
+                if let Ok(samples) = Sampler::read_samples_from_file(&path) {
+                    let program = program as u8;
+                    Ok((
+                        u7::from(program),
+                        SamplerVoice::new_with_samples(
+                            sample_rate,
+                            Arc::new(samples),
+                            note_to_frequency(program),
+                        ),
+                    ))
+                } else {
+                    Err(anyhow!("Unable to load sample from file {:?}.", path))
+                }
+            }),
+        );
 
-    pub fn kit_name(&self) -> &str {
-        self.kit_name.as_ref()
-    }
-
-    fn new_with(
-        sample_rate: usize,
-        voice_store: Box<VoicePerNoteStore<SamplerVoice>>,
-        kit_name: &str,
-    ) -> Self {
         Self {
             uid: Default::default(),
-            inner_synth: Synthesizer::<SamplerVoice>::new_with(sample_rate, voice_store),
-            kit_name: kit_name.to_string(),
+            inner_synth: Synthesizer::<SamplerVoice>::new_with(sample_rate, Box::new(voice_store)),
+            name: 99.0, //kit_name.to_string(),
         }
+    }
+
+    pub fn name(&self) -> f32 {
+        self.name
+    }
+
+    pub fn new_with(sample_rate: usize, asset_path: PathBuf, params: DrumkitNano) -> Self {
+        // TODO: we're hardcoding samples/. Figure out a way to use the
+        // system.
+        let base_dir = asset_path.join("samples/elphnt.io/707");
+        Self::new_from_files(sample_rate, base_dir, params.name())
     }
 
     pub fn update(&mut self, message: DrumkitMessage) {
@@ -134,6 +133,10 @@ impl Drumkit {
             }
             _ => self.derived_update(message),
         }
+    }
+
+    pub fn set_name(&mut self, name: f32) {
+        self.name = name;
     }
 }
 

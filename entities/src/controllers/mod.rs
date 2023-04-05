@@ -44,6 +44,24 @@ pub struct MidiChannelNano {
     pub midi_in: MidiChannel,
     pub midi_out: MidiChannel,
 }
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "midi-in", rename_all = "kebab-case")
+)]
+pub struct MidiChannelInputNano {
+    pub midi_in: MidiChannel,
+}
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(Serialize, Deserialize),
+    serde(rename = "midi-out", rename_all = "kebab-case")
+)]
+pub struct MidiChannelOutputNano {
+    pub midi_out: MidiChannel,
+}
 
 /// [Timer] runs for a specified amount of time, then indicates that it's done.
 /// It is useful when you need something to happen after a certain amount of

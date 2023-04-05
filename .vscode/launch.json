@@ -81,7 +81,7 @@
         }
       },
       "args": [
-        "projects${pathSeparator}demos${pathSeparator}effects${pathSeparator}drums-filtered-24db.yaml"
+        "projects${pathSeparator}demos${pathSeparator}instruments${pathSeparator}sampler.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
