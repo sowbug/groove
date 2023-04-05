@@ -9,8 +9,9 @@ devices:
   - instrument:
       - sampler
       - sampler:
-          midi-in: 0
-          filename: "test-data/spoken_mono-from-elevenlabs.io.wav"
+          - midi-in: 0
+          - filename: "spoken_mono-from-elevenlabs.io.wav"
+            root: 0.0
 patch-cables:
   - [sampler, main-mixer]
 patterns:

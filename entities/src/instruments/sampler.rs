@@ -128,8 +128,8 @@ pub struct Sampler {
     uid: usize,
     inner_synth: Synthesizer<SamplerVoice>,
 
-    #[nano]
-    filename: f32, // TEMP
+    #[nano(control = false, non_copy = true)]
+    filename: String,
 
     #[nano]
     root: FrequencyHz,
@@ -168,7 +168,7 @@ impl Resets for Sampler {
 impl Sampler {
     pub fn new_with(sample_rate: usize, asset_path: PathBuf, params: SamplerNano) -> Self {
         let mut path = asset_path;
-        path.push("stereo-pluck.wav");
+        path.push(params.filename());
         if let Ok(samples) = Self::read_samples_from_file(&path) {
             let samples = Arc::new(samples);
 
@@ -185,8 +185,8 @@ impl Sampler {
 
             let calculated_root_frequency = if params.root().value() > 0.0 {
                 params.root()
-            } else if let Ok(embedded_root_frequency) = Self::read_riff_metadata(&path) {
-                note_to_frequency(embedded_root_frequency)
+            } else if let Ok(embedded_root_note) = Self::read_riff_metadata(&path) {
+                note_to_frequency(embedded_root_note)
             } else {
                 FrequencyHz::from(440.0)
             };
@@ -207,7 +207,7 @@ impl Sampler {
                         },
                     )),
                 ),
-                filename: params.filename(),
+                filename: params.filename().to_string(),
                 root: params.root(),
                 calculated_root: calculated_root_frequency,
             }
@@ -347,21 +347,20 @@ impl Sampler {
         todo!("propagate to voices")
     }
 
-    pub fn filename(&self) -> f32 {
-        43.0
-        //        self.filename.as_ref()
-    }
-
-    pub fn set_filename(&mut self, filename: f32) {
-        self.filename = filename;
-    }
-
     pub fn calculated_root(&self) -> FrequencyHz {
         self.calculated_root
     }
 
     pub fn set_calculated_root(&mut self, calculated_root: FrequencyHz) {
         self.calculated_root = calculated_root;
+    }
+
+    pub fn filename(&self) -> &str {
+        self.filename.as_ref()
+    }
+
+    pub fn set_filename(&mut self, filename: String) {
+        self.filename = filename;
     }
 }
 
@@ -375,12 +374,11 @@ mod tests {
     #[test]
     fn test_loading() {
         let filename = PathBuf::from("stereo-pluck.wav");
-        // filename.to_str().unwrap()
         let sampler = Sampler::new_with(
             DEFAULT_SAMPLE_RATE,
             TestOnlyPaths::test_data_path(),
             SamplerNano {
-                filename: 42.0,
+                filename: filename.to_str().unwrap().to_string(),
                 root: 0.0.into(),
             },
         );
@@ -410,7 +408,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Re-enable when SamplerNano knows how to handle String"]
     fn test_loading_with_root_frequency() {
         let filename = PathBuf::from("riff-acidized.wav");
 
@@ -418,12 +415,12 @@ mod tests {
             DEFAULT_SAMPLE_RATE,
             TestOnlyPaths::test_data_path(),
             SamplerNano {
-                filename: 42.0,
+                filename: filename.to_str().unwrap().to_string(),
                 root: 0.0.into(),
             },
         );
         assert_eq!(
-            sampler.root(),
+            sampler.calculated_root(),
             note_to_frequency(57),
             "acidized WAV should produce sample with embedded root note"
         );
@@ -432,40 +429,44 @@ mod tests {
             DEFAULT_SAMPLE_RATE,
             TestOnlyPaths::test_data_path(),
             SamplerNano {
-                filename: 42.0,
+                filename: filename.to_str().unwrap().to_string(),
                 root: 123.0.into(),
             },
         );
         assert_eq!(
-            sampler.root(),
+            sampler.calculated_root(),
             FrequencyHz::from(123.0),
             "specified parameter should override acidized WAV's embedded root note"
         );
-
-        let filename = PathBuf::from("test-data/riff-not-acidized.wav");
 
         let sampler = Sampler::new_with(
             DEFAULT_SAMPLE_RATE,
             TestOnlyPaths::test_data_path(),
             SamplerNano {
-                filename: 42.0,
+                filename: PathBuf::from("riff-not-acidized.wav")
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
                 root: 123.0.into(),
             },
         );
         assert_eq!(
-            sampler.root(),
+            sampler.calculated_root(),
             FrequencyHz::from(123.0),
             "specified parameter should be used for non-acidized WAV"
         );
 
         let sampler = Sampler::new_with(DEFAULT_SAMPLE_RATE, TestOnlyPaths::test_data_path(), {
             SamplerNano {
-                filename: 42.0,
-                root: 123.0.into(),
+                filename: PathBuf::from("riff-not-acidized.wav")
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+                root: 0.0.into(),
             }
         });
         assert_eq!(
-            sampler.root(),
+            sampler.calculated_root(),
             note_to_frequency(69),
             "If there is neither an acidized WAV nor a provided frequency, sample should have root note A4 (440Hz)"
         );
