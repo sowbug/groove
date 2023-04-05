@@ -57,18 +57,21 @@ impl InstrumentSettings {
         match self {
             InstrumentSettings::ToyInstrument(midi, params) => (
                 midi.midi_in,
-                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(sample_rate, *params))),
+                Entity::ToyInstrument(Box::new(ToyInstrument::new_with(
+                    sample_rate,
+                    params.clone(),
+                ))),
             ),
             InstrumentSettings::Welsh(midi, params) => (
                 midi.midi_in,
-                Entity::WelshSynth(Box::new(WelshSynth::new_with(sample_rate, *params))),
+                Entity::WelshSynth(Box::new(WelshSynth::new_with(sample_rate, params.clone()))),
             ),
             InstrumentSettings::Drumkit(midi, params) => (
                 midi.midi_in,
                 Entity::Drumkit(Box::new(Drumkit::new_with(
                     sample_rate,
                     asset_path.to_path_buf(),
-                    *params,
+                    params.clone(),
                 ))),
             ),
             InstrumentSettings::Sampler(midi, params) => {
@@ -76,12 +79,16 @@ impl InstrumentSettings {
                 path.push("samples");
                 (
                     midi.midi_in,
-                    Entity::Sampler(Box::new(Sampler::new_with(sample_rate, path, *params))),
+                    Entity::Sampler(Box::new(Sampler::new_with(
+                        sample_rate,
+                        path,
+                        params.clone(),
+                    ))),
                 )
             }
             InstrumentSettings::FmSynthesizer(midi, params) => (
                 midi.midi_in,
-                Entity::FmSynth(Box::new(FmSynth::new_with(sample_rate, *params))),
+                Entity::FmSynth(Box::new(FmSynth::new_with(sample_rate, params.clone()))),
             ),
         }
     }

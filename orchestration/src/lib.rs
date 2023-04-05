@@ -142,10 +142,7 @@ mod tests {
         pub fn update(&mut self, message: StuffMessage) {
             match message {
                 StuffMessage::Stuff(s) => *self = Self::new(s),
-                StuffMessage::AppleCount(s) => self.set_apple_count(s),
-                StuffMessage::BananaQuality(s) => self.set_banana_quality(s),
-                StuffMessage::Cherry(s) => self.set_cherry(s),
-                StuffMessage::Abnormal(s) => self.set_abnormal(s),
+                _ => self.derived_update(message),
             }
         }
 
@@ -201,6 +198,7 @@ mod tests {
             Self {
                 cat_count: rng.gen_range(5..1000),
                 dog_count: rng.gen_range(5..1000),
+                stuff: StuffNano::make_fake(),
             }
         }
     }
@@ -213,6 +211,9 @@ mod tests {
         cat_count: usize,
         #[nano]
         dog_count: usize,
+
+        #[nano(control = false, non_copy = true)]
+        stuff: StuffNano,
     }
     impl Misc {
         pub fn new_with(params: MiscNano) -> Self {
@@ -220,6 +221,7 @@ mod tests {
                 uid: Default::default(),
                 cat_count: params.cat_count(),
                 dog_count: params.dog_count(),
+                stuff: params.stuff().clone(),
             }
         }
         pub fn update(&mut self, message: MiscMessage) {
@@ -245,6 +247,15 @@ mod tests {
 
         pub fn set_dog_count(&mut self, dog_count: usize) {
             self.dog_count = dog_count;
+        }
+
+        #[allow(dead_code)]
+        pub fn stuff(&self) -> &StuffNano {
+            &self.stuff
+        }
+
+        pub fn set_stuff(&mut self, stuff: StuffNano) {
+            self.stuff = stuff;
         }
     }
 

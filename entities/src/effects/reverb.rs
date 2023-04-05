@@ -60,7 +60,7 @@ impl Reverb {
             attenuation: params.attenuation(),
             seconds: params.seconds(),
             wet_dry_mix: params.wet_dry_mix(),
-            left: ReverbChannel::new_with(sample_rate, params),
+            left: ReverbChannel::new_with(sample_rate, params.clone()),
             right: ReverbChannel::new_with(sample_rate, params),
         }
     }
@@ -102,7 +102,6 @@ impl Reverb {
 #[derive(Debug)]
 struct ReverbChannel {
     attenuation: Normal,
-    seconds: ParameterType,
 
     // what percentage should be unprocessed. 0.0 = all effect. 0.0 = all
     // unchanged.
@@ -132,7 +131,6 @@ impl ReverbChannel {
         // constants.
         Self {
             attenuation: params.attenuation(),
-            seconds: params.seconds(),
             wet_dry_mix: params.wet_dry_mix(),
             recirc_delay_lines: vec![
                 RecirculatingDelayLine::new_with(
@@ -185,10 +183,6 @@ impl ReverbChannel {
 
     pub fn set_wet_dry_mix(&mut self, mix: f32) {
         self.wet_dry_mix = mix;
-    }
-
-    fn seconds(&self) -> f64 {
-        self.seconds
     }
 }
 

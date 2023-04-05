@@ -280,7 +280,7 @@ impl FmSynth {
         const VOICE_CAPACITY: usize = 8;
         let voice_store =
             StealingVoiceStore::<FmVoice>::new_with_voice(sample_rate, VOICE_CAPACITY, || {
-                FmVoice::new_with(sample_rate, params)
+                FmVoice::new_with(sample_rate, params.clone())
             });
 
         Self {

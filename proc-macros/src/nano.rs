@@ -37,7 +37,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                 .filter(|attr| attr.path.is_ident("nano"))
                 .collect();
             if !attrs.is_empty() {
-                let should_control = parse_nano_meta(attrs[0]);
+                let (should_control, is_non_copy) = parse_nano_meta(attrs[0]);
                 match &f.ty {
                     syn::Type::Path(t) => {
                         if let Some(ident) = t.path.get_ident() {
@@ -45,6 +45,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                                 f.ident.as_ref().unwrap().clone(),
                                 ident.clone(),
                                 should_control,
+                                is_non_copy,
                             ));
                         }
                     }
@@ -55,37 +56,45 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
         });
 
         // co = "control-only" meaning fields that don't have the control=false attribute
+        // nc = "non-copy" meaning the field represents a struct that is not #[derive(Copy)]
         let mut co_field_names = Vec::default();
         let mut co_field_types = Vec::default();
         let mut co_variant_names = Vec::default();
         let mut field_names = Vec::default();
         let mut field_types = Vec::default();
         let mut variant_names = Vec::default();
-        let mut getters = Vec::default();
+        let mut getter_methods = Vec::default();
+        let mut nc_getter_methods = Vec::default();
         let mut setters = Vec::default();
         let core_crate = format_ident!("{}", core_crate_name());
-        for (field_name, field_type, should_control) in attr_fields {
-            variant_names.push(format_ident!(
-                "{}",
-                field_name.to_string().to_case(Case::Pascal),
-            ));
+        for (field_name, field_type, should_control, is_non_copy) in attr_fields {
+            let field_name_pascal_case =
+                format_ident!("{}", field_name.to_string().to_case(Case::Pascal),);
+            variant_names.push(field_name_pascal_case.clone());
             if should_control {
-                co_variant_names.push(format_ident!(
-                    "{}",
-                    field_name.to_string().to_case(Case::Pascal),
-                ));
-                co_field_names.push(format_ident!("{}", field_name.to_string(),));
-                co_field_types.push(format_ident!("{}", field_type));
+                co_variant_names.push(field_name_pascal_case);
+                co_field_names.push(field_name.clone());
+                co_field_types.push(field_type.clone());
             }
-            field_names.push(format_ident!("{}", field_name.to_string(),));
-            field_types.push(format_ident!("{}", field_type));
+            field_names.push(field_name.clone());
+            field_types.push(field_type.clone());
 
-            getters.push(format_ident!("{}", field_name.to_string(),));
+            // If the field is annotated copy=false, then we generate an
+            // immutable borrow getter rather than a simple getter.
+            if is_non_copy {
+                nc_getter_methods.push(quote! {
+                    pub fn #field_name(&self) -> &#field_type { &self.#field_name }
+                });
+            } else {
+                getter_methods.push(quote! {
+                    pub fn #field_name(&self) -> #field_type { self.#field_name }
+                });
+            }
             setters.push(format_ident!("set_{}", field_name.to_string(),));
         }
 
         let nano_struct_block = quote! {
-            #[derive(Clone, Copy, Debug, Default, PartialEq)]
+            #[derive(Clone, Debug, Default, PartialEq)]
             #[cfg_attr(
                 feature = "serialization",
                 derive(Serialize, Deserialize),
@@ -122,8 +131,13 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
         let getter_setter_block = quote! {
             impl #nano_name {
                 #(
-                   pub fn #getters(&self) -> #field_types { self.#field_names }
-                   pub fn #setters(&mut self, #field_names: #field_types) { self.#field_names = #field_names; }
+                   #getter_methods
+                )*
+                #(
+                   #nc_getter_methods
+                )*
+                #(
+                   pub fn #setters(&mut self, #field_names: #field_types) { self.#field_names = #field_names.clone(); }
                 )*
             }
         };
@@ -185,7 +199,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
             pub fn full_message(
                 &self,
             ) -> #message_type_name {
-                #message_type_name::#struct_name(*self)
+                #message_type_name::#struct_name(self.clone())
             }
         };
         let full_message_from_struct_block = quote! {
@@ -193,7 +207,7 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
                 &self,
             ) -> #message_type_name {
                 #message_type_name::#struct_name(#nano_name {
-                    #( #field_names: self.#field_names, )*
+                    #( #field_names: self.#field_names.clone(), )*
                 })
             }
         };
@@ -249,34 +263,31 @@ pub(crate) fn impl_nano_derive(input: TokenStream) -> TokenStream {
     })
 }
 
-// Returns true if the #[nano(...)] attr indicates that it's OK to emit control
-// infrastructure.
-fn parse_nano_meta(attr: &Attribute) -> bool {
+// Returns booleans indicating (1) whether the #[nano(...)] attr indicates that
+// it's OK to emit control infrastructure, (2) whether the structure is
+// designated "non_copy," which means we have to handle it a little differently.
+fn parse_nano_meta(attr: &Attribute) -> (bool, bool) {
     let mut should_control = true;
+    let mut is_non_copy = false;
     if let Ok(meta) = attr.parse_meta() {
         let meta_list = match meta {
             Meta::List(list) => list,
             _ => {
-                return should_control;
+                return (should_control, is_non_copy);
             }
         };
 
         let punctuated = match meta_list.nested.len() {
-            0 => return should_control,
+            0 => return (should_control, is_non_copy),
             _ => &meta_list.nested,
         };
 
         punctuated.iter().for_each(|nested| {
             if let NestedMeta::Meta(Meta::NameValue(name_value)) = nested {
                 if name_value.path.is_ident("control") {
-                    match &name_value.lit {
-                        Lit::Bool(control_val) => {
-                            if !control_val.value() {
-                                should_control = false;
-                            }
-                        }
-                        _ => {}
-                    }
+                    should_control = get_bool_from_lit(name_value);
+                } else if name_value.path.is_ident("non_copy") {
+                    is_non_copy = get_bool_from_lit(name_value);
                 } else {
                     // Unsupported attribute; ignore
                 }
@@ -285,5 +296,15 @@ fn parse_nano_meta(attr: &Attribute) -> bool {
             }
         });
     }
-    should_control
+    (should_control, is_non_copy)
+}
+
+fn get_bool_from_lit(name_value: &syn::MetaNameValue) -> bool {
+    match &name_value.lit {
+        Lit::Bool(bool_val) => {
+            return bool_val.value();
+        }
+        _ => {}
+    }
+    false
 }

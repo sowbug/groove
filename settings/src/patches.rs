@@ -157,7 +157,7 @@ impl WelshPatchSettings {
             },
             lfo_routing: self.lfo.routing.into(),
             lfo_depth: self.lfo.depth.into(),
-            filter: BiQuadFilterLowPass24dbNano {
+            low_pass_filter: BiQuadFilterLowPass24dbNano {
                 cutoff: self.filter_type_24db.cutoff_hz.into(),
                 passband_ripple: 1.414,
             }, // TODO HACK HACK HAC

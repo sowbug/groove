@@ -166,7 +166,7 @@ impl ControllerSettings {
                 ))),
             );
         }
-        match *self {
+        match self {
             ControllerSettings::Test(midi) => (
                 midi.midi_in,
                 midi.midi_out,
@@ -186,13 +186,16 @@ impl ControllerSettings {
                 Entity::Arpeggiator(Box::new(Arpeggiator::new_with(
                     sample_rate,
                     midi.midi_out,
-                    params,
+                    params.clone(),
                 ))),
             ),
             ControllerSettings::LfoController(midi, params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::LfoController(Box::new(LfoController::new_with(sample_rate, params))),
+                Entity::LfoController(Box::new(LfoController::new_with(
+                    sample_rate,
+                    params.clone(),
+                ))),
             ),
             ControllerSettings::SignalPassthroughController(midi) => (
                 midi.midi_in,

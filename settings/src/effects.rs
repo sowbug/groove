@@ -60,52 +60,58 @@ impl EffectSettings {
         if load_only_test_entities {
             return Entity::ToyEffect(Box::new(ToyEffect::default()));
         }
-        match *self {
-            EffectSettings::Toy(params) => Entity::ToyEffect(Box::new(ToyEffect::new_with(params))),
-            EffectSettings::Mixer(params) => Entity::Mixer(Box::new(Mixer::new_with(params))),
-            EffectSettings::Limiter(params) => Entity::Limiter(Box::new(Limiter::new_with(params))),
-            EffectSettings::Gain(params) => Entity::Gain(Box::new(Gain::new_with(params))),
+        match self {
+            EffectSettings::Toy(params) => {
+                Entity::ToyEffect(Box::new(ToyEffect::new_with(params.clone())))
+            }
+            EffectSettings::Mixer(params) => {
+                Entity::Mixer(Box::new(Mixer::new_with(params.clone())))
+            }
+            EffectSettings::Limiter(params) => {
+                Entity::Limiter(Box::new(Limiter::new_with(params.clone())))
+            }
+            EffectSettings::Gain(params) => Entity::Gain(Box::new(Gain::new_with(params.clone()))),
             EffectSettings::Bitcrusher(params) => {
-                Entity::Bitcrusher(Box::new(Bitcrusher::new_with(params)))
+                Entity::Bitcrusher(Box::new(Bitcrusher::new_with(params.clone())))
             }
             EffectSettings::Compressor(params) => {
-                Entity::Compressor(Box::new(Compressor::new_with(params)))
+                Entity::Compressor(Box::new(Compressor::new_with(params.clone())))
             }
             EffectSettings::FilterLowPass12db(params) => Entity::BiQuadFilterLowPass12db(Box::new(
-                BiQuadFilterLowPass12db::new_with(sample_rate, params),
+                BiQuadFilterLowPass12db::new_with(sample_rate, params.clone()),
             )),
             EffectSettings::FilterLowPass24db(params) => Entity::BiQuadFilterLowPass24db(Box::new(
-                BiQuadFilterLowPass24db::new_with(sample_rate, params),
+                BiQuadFilterLowPass24db::new_with(sample_rate, params.clone()),
             )),
             EffectSettings::FilterHighPass12db(params) => Entity::BiQuadFilterHighPass(Box::new(
-                BiQuadFilterHighPass::new_with(sample_rate, params),
+                BiQuadFilterHighPass::new_with(sample_rate, params.clone()),
             )),
             EffectSettings::FilterBandPass12db(params) => Entity::BiQuadFilterBandPass(Box::new(
-                BiQuadFilterBandPass::new_with(sample_rate, params),
+                BiQuadFilterBandPass::new_with(sample_rate, params.clone()),
             )),
             EffectSettings::FilterBandStop12db(params) => Entity::BiQuadFilterBandStop(Box::new(
-                BiQuadFilterBandStop::new_with(sample_rate, params),
+                BiQuadFilterBandStop::new_with(sample_rate, params.clone()),
             )),
             EffectSettings::FilterAllPass12db(params) => Entity::BiQuadFilterAllPass(Box::new(
-                BiQuadFilterAllPass::new_with(sample_rate, params),
+                BiQuadFilterAllPass::new_with(sample_rate, params.clone()),
             )),
             EffectSettings::FilterPeakingEq12db(params) => Entity::BiQuadFilterPeakingEq(Box::new(
-                BiQuadFilterPeakingEq::new_with(sample_rate, params),
+                BiQuadFilterPeakingEq::new_with(sample_rate, params.clone()),
             )),
             EffectSettings::FilterLowShelf12db(params) => Entity::BiQuadFilterLowShelf(Box::new(
-                BiQuadFilterLowShelf::new_with(sample_rate, params),
+                BiQuadFilterLowShelf::new_with(sample_rate, params.clone()),
             )),
             EffectSettings::FilterHighShelf12db(params) => Entity::BiQuadFilterHighShelf(Box::new(
-                BiQuadFilterHighShelf::new_with(sample_rate, params),
+                BiQuadFilterHighShelf::new_with(sample_rate, params.clone()),
             )),
             EffectSettings::Delay(params) => {
-                Entity::Delay(Box::new(Delay::new_with(sample_rate, params)))
+                Entity::Delay(Box::new(Delay::new_with(sample_rate, params.clone())))
             }
-            EffectSettings::Reverb(nano) => {
-                Entity::Reverb(Box::new(Reverb::new_with(sample_rate, nano)))
+            EffectSettings::Reverb(params) => {
+                Entity::Reverb(Box::new(Reverb::new_with(sample_rate, params.clone())))
             }
-            EffectSettings::Chorus(nano) => {
-                Entity::Chorus(Box::new(Chorus::new_with(sample_rate, nano)))
+            EffectSettings::Chorus(params) => {
+                Entity::Chorus(Box::new(Chorus::new_with(sample_rate, params.clone())))
             }
         }
     }
