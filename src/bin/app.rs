@@ -631,10 +631,9 @@ impl GrooveApp {
             MidiHandlerEvent::Ready(sender) => {
                 self.midi_handler_sender = Some(sender);
             }
-            #[allow(unused_variables)]
             MidiHandlerEvent::Midi(channel, message) => {
                 self.last_midi_activity = Instant::now();
-                // TODO
+                self.post_to_orchestrator(EngineInput::Midi(channel, message));
             }
             MidiHandlerEvent::Quit => {
                 // TODO: If we were waiting for this to shut down, then
