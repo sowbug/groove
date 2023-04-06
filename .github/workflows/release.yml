@@ -60,7 +60,7 @@ jobs:
         run: cargo deb --target ${{ matrix.target }} --no-build
         if: startsWith(matrix.os, 'ubuntu')
       - name: Build .msi
-        run: cargo wix -v --nocapture -o .
+        run: cargo wix -p groove -v --nocapture
         if: startsWith(matrix.os, 'windows')
 
         # Upload build products
@@ -84,7 +84,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            target/**/*.msi
+            target/wix/**/*.msi
             target/**/*.deb
           token: ${{ secrets.GITHUB_TOKEN }}
 
