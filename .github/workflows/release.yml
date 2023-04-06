@@ -34,6 +34,9 @@ jobs:
       - name: Install cargo components for .deb
         run: cargo install cargo-deb
         if: startsWith(matrix.os, 'ubuntu')
+      - name: Install cargo components for .msi
+        run: cargo install cargo-wix
+        if: startsWith(matrix.os, 'windows')
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
@@ -53,9 +56,12 @@ jobs:
         run: cargo build --workspace --release --target ${{ matrix.target }}
       - name: Test release
         run: cargo test  --workspace --release --target ${{ matrix.target }}
-      - name: Build installer
+      - name: Build .deb
         run: cargo deb --target ${{ matrix.target }} --no-build
         if: startsWith(matrix.os, 'ubuntu')
+      - name: Build .msi
+        run: cargo wix -v --nocapture -o .
+        if: startsWith(matrix.os, 'windows')
 
         # Upload build products
       - name: Upload artifacts
