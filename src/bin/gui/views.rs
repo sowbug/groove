@@ -198,6 +198,7 @@ pub(crate) enum ControlBarEvent {
     ExportWav,
     #[allow(dead_code)]
     ExportMp3,
+    ToggleSettings,
 }
 
 #[derive(Debug)]
@@ -353,6 +354,8 @@ impl ControlBarView {
         let export_wav_button =
             Icons::button_icon(IconType::ExportWav).on_press(ControlBarEvent::ExportWav);
         let export_mp3_button = Icons::button_icon(IconType::ExportMp3); /* disabled for now .on_press(ControlBarMessage::ExportMp3) */
+        let settings_button =
+            Icons::button_icon(IconType::Settings).on_press(ControlBarEvent::ToggleSettings);
         let app_version = container(text(app_version())).align_x(alignment::Horizontal::Right);
 
         container(
@@ -361,6 +364,7 @@ impl ControlBarView {
                 .push(open_button)
                 .push(export_wav_button)
                 .push(export_mp3_button)
+                .push(settings_button)
                 .push(app_version)
                 .align_items(Alignment::Center),
         )

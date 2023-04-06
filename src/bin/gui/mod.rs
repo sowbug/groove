@@ -297,6 +297,7 @@ pub(crate) enum IconType {
     OpenProject,
     ExportWav,
     ExportMp3,
+    Settings,
 }
 
 pub(crate) struct Icons;
@@ -325,6 +326,9 @@ impl Icons {
             }
             IconType::ExportMp3 => {
                 include_bytes!("../../../res/bootstrap-icons-1.10.3/filetype-mp3.svg")
+            }
+            IconType::Settings => {
+                include_bytes!("../../../res/bootstrap-icons-1.10.3/gear-fill.svg")
             }
         };
         Self::styled_svg_from_memory(resource_name)

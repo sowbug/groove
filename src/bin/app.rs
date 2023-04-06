@@ -59,8 +59,8 @@ enum AppMessage {
     Event(iced::Event),
     ExportComplete(Result<(), SaveError>),
     // GrooveEvent(GrooveEvent),
+    MidiHandlerInput(MidiHandlerInput),
     MidiHandlerEvent(MidiHandlerEvent),
-    // MidiHandlerInput(MidiHandlerInput),
     OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
     PrefsLoaded(Result<Preferences, LoadError>),
     PrefsSaved(Result<(), SaveError>),
@@ -82,6 +82,7 @@ struct GrooveApp {
     entity_view: EntityView,
     control_bar_view: ControlBarView,
     views: View,
+    show_settings: bool,
 
     // Model
     project_title: Option<String>,
@@ -119,6 +120,7 @@ impl Default for GrooveApp {
                 TimeSignature::default(),
             ),
             views: View::new(),
+            show_settings: Default::default(),
             project_title: None,
             orchestrator_sender: Default::default(),
             orchestrator: orchestrator.clone(),
@@ -184,7 +186,7 @@ impl Application for GrooveApp {
                     return value;
                 }
             }
-            // AppMessage::MidiHandlerInput(message) => self.handle_midi_handler_input(message),
+            AppMessage::MidiHandlerInput(message) => self.handle_midi_handler_input(message),
             AppMessage::EngineEvent(event) => self.handle_engine_event(event),
             AppMessage::MidiHandlerEvent(event) => self.handle_midi_handler_event(event),
             // AppMessage::GrooveEvent(event) => self.handle_groove_event(event),
@@ -239,7 +241,12 @@ impl Application for GrooveApp {
             .control_bar_view
             .view(matches!(self.state, State::Playing))
             .map(AppMessage::ControlBarEvent);
-        let main_content = self.views.view().map(move |m| AppMessage::ViewMessage(m));
+        let main_content = match self.show_settings {
+            true => self
+                .midi_view()
+                .map(move |m| AppMessage::MidiHandlerInput(m)),
+            false => self.views.view().map(move |m| AppMessage::ViewMessage(m)),
+        };
         container(
             Column::new()
                 .push(control_bar)
@@ -399,6 +406,7 @@ impl GrooveApp {
                     }
                 }
             }
+            ControlBarEvent::ToggleSettings => self.show_settings = !self.show_settings,
         }
         None
     }
