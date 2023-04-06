@@ -389,7 +389,7 @@ impl ToySynth {
     }
     pub fn update(&mut self, message: ToySynthMessage) {
         match message {
-            ToySynthMessage::ToySynth(s) => todo!(),
+            ToySynthMessage::ToySynth(_s) => todo!(),
             _ => self.derived_update(message),
         }
     }
@@ -432,20 +432,20 @@ impl PlaysNotes for ToyVoice {
         !self.envelope.is_idle()
     }
 
-    fn note_on(&mut self, key: u8, velocity: u8) {
+    fn note_on(&mut self, key: u8, _velocity: u8) {
         self.envelope.trigger_attack();
         self.oscillator.set_frequency(note_to_frequency(key));
     }
 
-    fn aftertouch(&mut self, velocity: u8) {
+    fn aftertouch(&mut self, _velocity: u8) {
         todo!()
     }
 
-    fn note_off(&mut self, velocity: u8) {
+    fn note_off(&mut self, _velocity: u8) {
         self.envelope.trigger_release()
     }
 
-    fn set_pan(&mut self, value: groove_core::BipolarNormal) {
+    fn set_pan(&mut self, _value: groove_core::BipolarNormal) {
         //
     }
 }
@@ -454,6 +454,7 @@ impl Generates<StereoSample> for ToyVoice {
         self.value
     }
 
+    #[allow(unused_variables)]
     fn batch_values(&mut self, values: &mut [StereoSample]) {
         todo!()
     }

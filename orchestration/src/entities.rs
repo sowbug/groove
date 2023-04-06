@@ -20,11 +20,12 @@ use groove_entities::{
         BiQuadFilterLowPass12db, BiQuadFilterLowPass12dbMessage, BiQuadFilterLowPass12dbNano,
         BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowPass24dbNano,
         BiQuadFilterLowShelf, BiQuadFilterLowShelfMessage, BiQuadFilterLowShelfNano,
-        BiQuadFilterPeakingEq, BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqNano, Bitcrusher,
-        BitcrusherMessage, BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor,
-        CompressorMessage, CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage,
-        GainNano, Limiter, LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb,
-        ReverbMessage, ReverbNano,
+        BiQuadFilterNone, BiQuadFilterNoneMessage, BiQuadFilterNoneNano, BiQuadFilterPeakingEq,
+        BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqNano, Bitcrusher, BitcrusherMessage,
+        BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor, CompressorMessage,
+        CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage, GainNano, Limiter,
+        LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb, ReverbMessage,
+        ReverbNano,
     },
     instruments::{
         Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Sampler,
@@ -79,6 +80,9 @@ enum Everything {
 
     #[everything(effect, controllable)]
     BiQuadFilterLowShelf(BiQuadFilterLowShelf),
+
+    #[everything(effect, controllable)]
+    BiQuadFilterNone(BiQuadFilterNone),
 
     #[everything(effect, controllable)]
     BiQuadFilterPeakingEq(BiQuadFilterPeakingEq),

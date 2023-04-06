@@ -12,8 +12,9 @@ pub use filter::{
     BiQuadFilterHighShelf, BiQuadFilterHighShelfMessage, BiQuadFilterHighShelfNano,
     BiQuadFilterLowPass12db, BiQuadFilterLowPass12dbMessage, BiQuadFilterLowPass12dbNano,
     BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowPass24dbNano,
-    BiQuadFilterLowShelf, BiQuadFilterLowShelfMessage, BiQuadFilterLowShelfNano,
-    BiQuadFilterPeakingEq, BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqNano,
+    BiQuadFilterLowShelf, BiQuadFilterLowShelfMessage, BiQuadFilterLowShelfNano, BiQuadFilterNone,
+    BiQuadFilterNoneMessage, BiQuadFilterNoneNano, BiQuadFilterPeakingEq,
+    BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqNano,
 };
 pub use gain::{Gain, GainMessage, GainNano};
 pub use limiter::{Limiter, LimiterMessage, LimiterNano};

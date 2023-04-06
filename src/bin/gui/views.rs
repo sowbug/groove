@@ -29,11 +29,12 @@ use groove_entities::{
         BiQuadFilterLowPass12db, BiQuadFilterLowPass12dbMessage, BiQuadFilterLowPass12dbNano,
         BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbMessage, BiQuadFilterLowPass24dbNano,
         BiQuadFilterLowShelf, BiQuadFilterLowShelfMessage, BiQuadFilterLowShelfNano,
-        BiQuadFilterPeakingEq, BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqNano, Bitcrusher,
-        BitcrusherMessage, BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor,
-        CompressorMessage, CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage,
-        GainNano, Limiter, LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb,
-        ReverbMessage, ReverbNano,
+        BiQuadFilterNone, BiQuadFilterNoneMessage, BiQuadFilterNoneNano, BiQuadFilterPeakingEq,
+        BiQuadFilterPeakingEqMessage, BiQuadFilterPeakingEqNano, Bitcrusher, BitcrusherMessage,
+        BitcrusherNano, Chorus, ChorusMessage, ChorusNano, Compressor, CompressorMessage,
+        CompressorNano, Delay, DelayMessage, DelayNano, Gain, GainMessage, GainNano, Limiter,
+        LimiterMessage, LimiterNano, Mixer, MixerMessage, MixerNano, Reverb, ReverbMessage,
+        ReverbNano,
     },
     instruments::{
         Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Sampler,
@@ -760,6 +761,17 @@ impl Viewable for BiQuadFilterLowShelfNano {
         .into()
     }
 }
+impl Viewable for BiQuadFilterNoneNano {
+    type Message = BiQuadFilterNoneMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        row![
+            container(GuiStuff::<EntityMessage>::container_text("(no parameters)"))
+                .width(iced::Length::FillPortion(1))
+        ]
+        .into()
+    }
+}
 impl Viewable for BiQuadFilterPeakingEqNano {
     type Message = BiQuadFilterPeakingEqMessage;
 
@@ -774,9 +786,9 @@ impl Viewable for BiQuadFilterPeakingEqNano {
         row![
             container(slider).width(iced::Length::FillPortion(1)),
             container(GuiStuff::<EntityMessage>::container_text(&format!(
-                "cutoff: {:.1}Hz alpha: {:0.3}",
+                "cutoff: {:.1}Hz Q (A/Q): {:0.3}",
                 self.cutoff().value(),
-                self.alpha()
+                self.q()
             )))
             .width(iced::Length::FillPortion(1))
         ]
@@ -1545,6 +1557,9 @@ enum ViewableEntities {
 
     #[views(effect, controllable)]
     BiQuadFilterLowShelf(BiQuadFilterLowShelf),
+
+    #[views(effect, controllable)]
+    BiQuadFilterNone(BiQuadFilterNone),
 
     #[views(effect, controllable)]
     BiQuadFilterPeakingEq(BiQuadFilterPeakingEq),

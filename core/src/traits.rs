@@ -194,7 +194,8 @@ pub trait PlaysNotes {
     /// depending on how long the envelope's release is.
     fn note_off(&mut self, velocity: u8);
 
-    /// Sets this entity's left-right balance.
+    /// Sets this entity's left-right balance. TODO: why is this here?
+    #[deprecated]
     fn set_pan(&mut self, value: BipolarNormal);
 }
 

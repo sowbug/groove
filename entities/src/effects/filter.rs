@@ -120,7 +120,7 @@ impl BiQuadFilterLowPass24dbChannel {
         passband_ripple: ParameterType,
     ) -> Self {
         let mut r = Self {
-            inner: BiQuadFilter::new_with(sample_rate, cutoff, passband_ripple),
+            inner: BiQuadFilter::default(),
             coefficients2: Default::default(),
         };
         r.update_coefficients(sample_rate, cutoff, passband_ripple);
@@ -249,14 +249,14 @@ impl TransformsAudio for BiQuadFilterLowPass12dbChannel {
 impl BiQuadFilterLowPass12dbChannel {
     pub fn new_with(sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) -> Self {
         let mut r = Self {
-            inner: BiQuadFilter::new_with(sample_rate, cutoff, q),
+            inner: BiQuadFilter::default(),
         };
         r.update_coefficients(sample_rate, cutoff, q);
         r
     }
 
     fn update_coefficients(&mut self, sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) {
-        let (w0, w0cos, w0sin, alpha) =
+        let (_w0, w0cos, _w0sin, alpha) =
             BiQuadFilter::rbj_intermediates_q(sample_rate, cutoff.value(), q);
 
         self.inner.coefficients = CoefficientSet {
@@ -351,14 +351,14 @@ impl TransformsAudio for BiQuadFilterHighPassChannel {
 impl BiQuadFilterHighPassChannel {
     pub fn new_with(sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) -> Self {
         let mut r = Self {
-            inner: BiQuadFilter::new_with(sample_rate, cutoff, q),
+            inner: BiQuadFilter::default(),
         };
         r.update_coefficients(sample_rate, cutoff, q);
         r
     }
 
     fn update_coefficients(&mut self, sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) {
-        let (w0, w0cos, w0sin, alpha) =
+        let (_w0, w0cos, _w0sin, alpha) =
             BiQuadFilter::rbj_intermediates_q(sample_rate, cutoff.value(), q);
 
         self.inner.coefficients = CoefficientSet {
@@ -453,14 +453,14 @@ impl TransformsAudio for BiQuadFilterAllPassChannel {
 impl BiQuadFilterAllPassChannel {
     pub fn new_with(sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) -> Self {
         let mut r = Self {
-            inner: BiQuadFilter::new_with(sample_rate, cutoff, q),
+            inner: BiQuadFilter::default(),
         };
         r.update_coefficients(sample_rate, cutoff, q);
         r
     }
 
     fn update_coefficients(&mut self, sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) {
-        let (w0, w0cos, w0sin, alpha) =
+        let (_w0, w0cos, _w0sin, alpha) =
             BiQuadFilter::rbj_intermediates_q(sample_rate, cutoff.value(), q);
         self.inner.coefficients = CoefficientSet {
             a0: 1.0 + alpha,
@@ -562,7 +562,7 @@ impl TransformsAudio for BiQuadFilterBandPassChannel {
 impl BiQuadFilterBandPassChannel {
     pub fn new_with(sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) -> Self {
         let mut r = Self {
-            inner: BiQuadFilter::new_with(sample_rate, cutoff, q),
+            inner: BiQuadFilter::default(),
         };
         r.update_coefficients(sample_rate, cutoff, q);
         r
@@ -574,7 +574,7 @@ impl BiQuadFilterBandPassChannel {
         cutoff: FrequencyHz,
         bandwidth: ParameterType,
     ) {
-        let (w0, w0cos, w0sin, alpha) =
+        let (_w0, w0cos, _w0sin, alpha) =
             BiQuadFilter::rbj_intermediates_bandwidth(sample_rate, cutoff.value(), bandwidth);
         self.inner.coefficients = CoefficientSet {
             a0: 1.0 + alpha,
@@ -676,7 +676,7 @@ impl TransformsAudio for BiQuadFilterBandStopChannel {
 impl BiQuadFilterBandStopChannel {
     pub fn new_with(sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) -> Self {
         let mut r = Self {
-            inner: BiQuadFilter::new_with(sample_rate, cutoff, q),
+            inner: BiQuadFilter::default(),
         };
         r.update_coefficients(sample_rate, cutoff, q);
         r
@@ -688,7 +688,7 @@ impl BiQuadFilterBandStopChannel {
         cutoff: FrequencyHz,
         bandwidth: ParameterType,
     ) {
-        let (w0, w0cos, w0sin, alpha) =
+        let (_w0, w0cos, _w0sin, alpha) =
             BiQuadFilter::rbj_intermediates_bandwidth(sample_rate, cutoff.value(), bandwidth);
 
         self.inner.coefficients = CoefficientSet {
@@ -708,12 +708,9 @@ pub struct BiQuadFilterPeakingEq {
     cutoff: FrequencyHz,
 
     // I didn't know what to call this. RBJ says "...except for peakingEQ in
-    // which A*Q is the classic EE Q." Rather than try to shoehorn it into
-    // something not-quite-accurate, I'm calling it a mysterious and hopefully
-    // not already overloaded "alpha" that hopefully alludes to its relationship
-    // with A.
+    // which A*Q is the classic EE Q." I think Q is close enough to get the gist.
     #[nano]
-    alpha: ParameterType,
+    q: ParameterType,
 
     uid: usize,
     sample_rate: usize,
@@ -732,20 +729,12 @@ impl BiQuadFilterPeakingEq {
     pub fn new_with(sample_rate: usize, params: BiQuadFilterPeakingEqNano) -> Self {
         let mut r = Self {
             cutoff: params.cutoff(),
-            alpha: params.alpha(),
+            q: params.q(),
             uid: Default::default(),
             sample_rate,
             channels: [
-                BiQuadFilterPeakingEqChannel::new_with(
-                    sample_rate,
-                    params.cutoff(),
-                    params.alpha(),
-                ),
-                BiQuadFilterPeakingEqChannel::new_with(
-                    sample_rate,
-                    params.cutoff(),
-                    params.alpha(),
-                ),
+                BiQuadFilterPeakingEqChannel::new_with(sample_rate, params.cutoff(), params.q()),
+                BiQuadFilterPeakingEqChannel::new_with(sample_rate, params.cutoff(), params.q()),
             ],
         };
         r.update_coefficients();
@@ -753,8 +742,8 @@ impl BiQuadFilterPeakingEq {
     }
 
     fn update_coefficients(&mut self) {
-        self.channels[0].update_coefficients(self.sample_rate, self.cutoff, self.alpha);
-        self.channels[1].update_coefficients(self.sample_rate, self.cutoff, self.alpha);
+        self.channels[0].update_coefficients(self.sample_rate, self.cutoff, self.q);
+        self.channels[1].update_coefficients(self.sample_rate, self.cutoff, self.q);
     }
 
     pub fn cutoff(&self) -> FrequencyHz {
@@ -766,12 +755,12 @@ impl BiQuadFilterPeakingEq {
             self.update_coefficients();
         }
     }
-    pub fn alpha(&self) -> ParameterType {
-        self.alpha
+    pub fn q(&self) -> ParameterType {
+        self.q
     }
-    pub fn set_alpha(&mut self, bandwidth: ParameterType) {
-        if self.alpha != bandwidth {
-            self.alpha = bandwidth;
+    pub fn set_q(&mut self, q: ParameterType) {
+        if self.q != q {
+            self.q = q;
             self.update_coefficients();
         }
     }
@@ -797,24 +786,19 @@ impl TransformsAudio for BiQuadFilterPeakingEqChannel {
 impl BiQuadFilterPeakingEqChannel {
     pub fn new_with(sample_rate: usize, cutoff: FrequencyHz, alpha: ParameterType) -> Self {
         let mut r = Self {
-            inner: BiQuadFilter::new_with(sample_rate, cutoff, alpha),
+            inner: BiQuadFilter::default(),
         };
         r.update_coefficients(sample_rate, cutoff, alpha);
         r
     }
 
-    fn update_coefficients(
-        &mut self,
-        sample_rate: usize,
-        cutoff: FrequencyHz,
-        alpha: ParameterType,
-    ) {
-        let (w0, w0cos, w0sin, alpha) = BiQuadFilter::rbj_intermediates_q(
+    fn update_coefficients(&mut self, sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) {
+        let (_w0, w0cos, _w0sin, alpha) = BiQuadFilter::rbj_intermediates_q(
             sample_rate,
             cutoff.value(),
             std::f64::consts::FRAC_1_SQRT_2,
         );
-        let a = 10f64.powf(alpha / 10.0f64).sqrt();
+        let a = 10f64.powf(q / 10.0f64).sqrt();
 
         self.inner.coefficients = CoefficientSet {
             a0: 1.0 + alpha / a,
@@ -916,7 +900,7 @@ impl TransformsAudio for BiQuadFilterLowShelfChannel {
 impl BiQuadFilterLowShelfChannel {
     pub fn new_with(sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) -> Self {
         let mut r = Self {
-            inner: BiQuadFilter::new_with(sample_rate, cutoff, q),
+            inner: BiQuadFilter::default(),
         };
         r.update_coefficients(sample_rate, cutoff, q);
         r
@@ -1032,7 +1016,7 @@ impl TransformsAudio for BiQuadFilterHighShelfChannel {
 impl BiQuadFilterHighShelfChannel {
     pub fn new_with(sample_rate: usize, cutoff: FrequencyHz, q: ParameterType) -> Self {
         let mut r = Self {
-            inner: BiQuadFilter::new_with(sample_rate, cutoff, q),
+            inner: BiQuadFilter::default(),
         };
         r.update_coefficients(sample_rate, cutoff, q);
         r
@@ -1059,6 +1043,83 @@ impl BiQuadFilterHighShelfChannel {
     }
 }
 
+/// This filter does nothing, expensively. It exists for debugging. I might
+/// delete it later.
+#[derive(Debug, Nano, Uid)]
+pub struct BiQuadFilterNone {
+    uid: usize,
+    sample_rate: usize,
+    channels: [BiQuadFilterNoneChannel; 2],
+}
+impl IsEffect for BiQuadFilterNone {}
+impl TransformsAudio for BiQuadFilterNone {
+    fn transform_channel(&mut self, channel: usize, input_sample: Sample) -> Sample {
+        match channel {
+            0 | 1 => self.channels[channel].transform_channel(channel, input_sample),
+            _ => panic!(),
+        }
+    }
+}
+impl BiQuadFilterNone {
+    pub fn new_with(sample_rate: usize, _: BiQuadFilterNoneNano) -> Self {
+        let mut r = Self {
+            uid: Default::default(),
+            sample_rate,
+            channels: [
+                BiQuadFilterNoneChannel::new_with(sample_rate),
+                BiQuadFilterNoneChannel::new_with(sample_rate),
+            ],
+        };
+        r.update_coefficients();
+        r
+    }
+
+    fn update_coefficients(&mut self) {
+        self.channels[0].update_coefficients(self.sample_rate);
+        self.channels[1].update_coefficients(self.sample_rate);
+    }
+
+    #[allow(unreachable_patterns)]
+    pub fn update(&mut self, message: BiQuadFilterNoneMessage) {
+        match message {
+            BiQuadFilterNoneMessage::BiQuadFilterNone(e) => {
+                *self = Self::new_with(self.sample_rate, e)
+            }
+            _ => self.derived_update(message),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct BiQuadFilterNoneChannel {
+    inner: BiQuadFilter,
+}
+impl TransformsAudio for BiQuadFilterNoneChannel {
+    fn transform_channel(&mut self, channel: usize, input_sample: Sample) -> Sample {
+        self.inner.transform_channel(channel, input_sample)
+    }
+}
+impl BiQuadFilterNoneChannel {
+    pub fn new_with(sample_rate: usize) -> Self {
+        let mut r = Self {
+            inner: BiQuadFilter::default(),
+        };
+        r.update_coefficients(sample_rate);
+        r
+    }
+
+    fn update_coefficients(&mut self, _sample_rate: usize) {
+        self.inner.coefficients = CoefficientSet {
+            a0: 1.0,
+            a1: 0.0,
+            a2: 0.0,
+            b0: 0.0,
+            b1: 0.0,
+            b2: 0.0,
+        };
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 struct CoefficientSet {
     a0: f64,
@@ -1080,12 +1141,8 @@ struct CoefficientSet2 {
 }
 
 /// <https://en.wikipedia.org/wiki/Digital_biquad_filter>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct BiQuadFilter {
-    sample_rate: usize,
-    cutoff: FrequencyHz,
-    param2: ParameterType,
-
     coefficients: CoefficientSet,
 
     // Working variables
@@ -1129,34 +1186,6 @@ impl BiQuadFilter {
     // 24db passband parameter range
     pub fn convert_passband(value: f32) -> f32 {
         value * 100.0 + 0.1
-    }
-
-    pub fn new_with(sample_rate: usize, cutoff: FrequencyHz, param2: ParameterType) -> Self {
-        Self {
-            sample_rate,
-            cutoff,
-            param2,
-            coefficients: CoefficientSet::default(),
-            sample_m1: Default::default(),
-            sample_m2: Default::default(),
-            output_m1: Default::default(),
-            output_m2: Default::default(),
-            state_0: Default::default(),
-            state_1: Default::default(),
-            state_2: Default::default(),
-            state_3: Default::default(),
-        }
-    }
-
-    fn rbj_none_coefficients(&self) -> CoefficientSet {
-        CoefficientSet {
-            a0: 1.0,
-            a1: 0.0,
-            a2: 0.0,
-            b0: 0.0,
-            b1: 0.0,
-            b2: 0.0,
-        }
     }
 
     // Excerpted from Robert Bristow-Johnson's audio cookbook to explain various
