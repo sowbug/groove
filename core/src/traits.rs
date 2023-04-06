@@ -17,7 +17,10 @@ pub trait MessageBounds: std::fmt::Debug + Send {}
 /// An IsController necessarily implements TicksWithMessages, rather than just
 /// Ticks, because messages are how controllers control other things in the
 /// system.
-pub trait IsController: TicksWithMessages + HandlesMidi + HasUid + Send + std::fmt::Debug {}
+pub trait IsController:
+    TicksWithMessages + HandlesMidi + Performs + HasUid + Send + std::fmt::Debug
+{
+}
 
 /// An IsEffect transforms audio. It takes audio inputs and produces audio
 /// output. It does not get called unless there is audio input to provide to it
@@ -220,6 +223,21 @@ pub trait StoresVoices: Generates<StereoSample> + Send + std::fmt::Debug {
 
     /// All the voices as a mutable iterator.
     fn voices_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut Box<Self::Voice>> + 'a>;
+}
+
+/// A device that Performs has a concept of a performance that has a beginning
+/// and an end, and it knows how to respond to requests to start, stop, restart,
+/// and seek within the performance.
+pub trait Performs {
+    /// Tells the device to play its performance from the current location.
+    fn play(&mut self);
+
+    /// Tells the device to stop playing its performance. It shouldn't change its cursor location, so that a play() after a
+    /// stop() acts like a resume.
+    fn stop(&mut self);
+
+    // Resets cursors to the beginning. This is set_cursor Lite (TODO).
+    fn skip_to_start(&mut self);
 }
 
 /// A synthesizer is composed of Voices. Ideally, a synth will know how to

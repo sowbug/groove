@@ -4,7 +4,7 @@ use core::fmt::Debug;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
     time::{Clock, ClockTimeUnit},
-    traits::{IsController, MessageBounds, Resets, Ticks, TicksWithMessages},
+    traits::{IsController, MessageBounds, Performs, Resets, Ticks, TicksWithMessages},
     ParameterType,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -44,8 +44,10 @@ pub struct ToyController<M: MessageBounds> {
 
     #[nano]
     tempo: f32,
+
     is_enabled: bool,
     is_playing: bool,
+    is_performing: bool,
 
     pub checkpoint_values: VecDeque<f32>,
     pub checkpoint: f32,
@@ -70,7 +72,7 @@ impl<M: MessageBounds> TicksWithMessages for ToyController<M> {
                     // This is elegant, I hope. If the arpeggiator is
                     // disabled during play, and we were playing a note,
                     // then we still send the off note,
-                    if self.is_enabled {
+                    if self.is_enabled && self.is_performing {
                         self.is_playing = true;
                         v.push(
                             self.message_maker
@@ -115,6 +117,17 @@ impl<M: MessageBounds> HandlesMidi for ToyController<M> {
         None
     }
 }
+impl<M: MessageBounds> Performs for ToyController<M> {
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {}
+}
 impl<M: MessageBounds> ToyController<M> {
     pub fn new_with(
         sample_rate: usize,
@@ -154,6 +167,7 @@ impl<M: MessageBounds> ToyController<M> {
             clock: Clock::new_with(sample_rate, params.bpm(), 9999),
             is_enabled: Default::default(),
             is_playing: Default::default(),
+            is_performing: false,
             checkpoint_values: VecDeque::from(Vec::from(values)),
             checkpoint,
             checkpoint_delta,

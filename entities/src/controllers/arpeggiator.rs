@@ -5,7 +5,7 @@ use crate::EntityMessage;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
     time::PerfectTimeUnit,
-    traits::{IsController, Resets, TicksWithMessages},
+    traits::{IsController, Performs, Resets, TicksWithMessages},
     ParameterType,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -87,6 +87,19 @@ impl HandlesMidi for Arpeggiator {
             MidiMessage::PitchBend { bend: _ } => todo!(),
         }
         None
+    }
+}
+impl Performs for Arpeggiator {
+    fn play(&mut self) {
+        self.sequencer.play();
+    }
+
+    fn stop(&mut self) {
+        self.sequencer.stop();
+    }
+
+    fn skip_to_start(&mut self) {
+        self.sequencer.skip_to_start();
     }
 }
 

@@ -401,6 +401,11 @@ impl Mul<f64> for Normal {
         Self(self.0 * rhs)
     }
 }
+impl Into<f32> for BipolarNormal {
+    fn into(self) -> f32 {
+        self.value_as_f32()
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(

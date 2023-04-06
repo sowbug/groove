@@ -11,6 +11,7 @@ use crossbeam::deque::Worker;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::TimeSignature,
+    traits::Performs,
     ParameterType, StereoSample,
 };
 use groove_entities::{
@@ -620,6 +621,9 @@ impl Orchestrator {
                             .push(Response::single(GrooveEvent::RemoveControlLink(link)));
                     }
                     GrooveInput::Update(uid, message) => self.update_controllable(uid, message),
+                    GrooveInput::Play => self.play(),
+                    GrooveInput::Stop => self.stop(),
+                    GrooveInput::SkipToStart => self.skip_to_start(),
                 }
             }
         }
@@ -855,6 +859,53 @@ impl Orchestrator {
         updates.extend(self.store.generate_full_update_messages());
 
         updates
+    }
+
+    pub fn skip_to_start(&mut self) {
+        todo!()
+    }
+}
+impl Performs for Orchestrator {
+    // The difference between play() and tick() is that play() tells devices
+    // that it's time to do work, and tick() actually gives them gives them a
+    // slice of time to do that work. To illustrate: suppose we start calling
+    // tick() without first having called play(). We'll generally get silence.
+    // If a MIDI note-on event comes in from an external device, though, sound
+    // will be produced, because the MIDI event itself represented work for
+    // connected devices to do. Now, suppose we call play() but don't call
+    // tick(). Devices will respond by getting into whatever state they need to
+    // start doing work, but they won't actually get the time-slice to do the
+    // work.
+    fn play(&mut self) {
+        for entity in self.store.values_mut() {
+            if let Some(controller) = entity.as_is_controller_mut() {
+                controller.play();
+            }
+        }
+    }
+
+    // Calling stop() will not stop all audio. Devices will respond in different
+    // ways to stop(). Effects and instruments generally ignore it. Controllers,
+    // however, should send note-off events for any notes that they have asked
+    // instruments to play, and they should stop sending new note-on events.
+    //
+    // TODO: if effects ignore stop, then how do we deal with a feedback loop?
+    // Maybe there should be a relationship with stop() and mute. Or perhaps
+    // effects that are susceptible to feedback should treat stop() differently.
+    fn stop(&mut self) {
+        for entity in self.store.values_mut() {
+            if let Some(controller) = entity.as_is_controller_mut() {
+                controller.stop();
+            }
+        }
+    }
+
+    fn skip_to_start(&mut self) {
+        for entity in self.store.values_mut() {
+            if let Some(controller) = entity.as_is_controller_mut() {
+                controller.skip_to_start();
+            }
+        }
     }
 }
 

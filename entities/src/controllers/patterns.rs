@@ -5,7 +5,7 @@ use crate::messages::EntityMessage;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
     time::{BeatValue, PerfectTimeUnit, TimeSignature},
-    traits::{IsController, Resets, TicksWithMessages},
+    traits::{IsController, Performs, Resets, TicksWithMessages},
 };
 use groove_proc_macros::{Nano, Uid};
 use std::{cmp, fmt::Debug, str::FromStr};
@@ -75,6 +75,11 @@ impl TicksWithMessages for PatternManager {
         (None, 0)
     }
 }
+impl Performs for PatternManager {
+    fn play(&mut self) {}
+    fn stop(&mut self) {}
+    fn skip_to_start(&mut self) {}
+}
 impl PatternManager {
     pub fn new() -> Self {
         Self::default()
@@ -88,6 +93,7 @@ impl PatternManager {
         &self.patterns
     }
 
+    #[allow(unreachable_patterns)]
     pub fn update(&mut self, message: PatternManagerMessage) {
         match message {
             PatternManagerMessage::PatternManager(_s) => *self = Self::new(),
@@ -104,7 +110,6 @@ pub struct PatternProgrammer {
     time_signature: TimeSignature,
     cursor_beats: PerfectTimeUnit,
 }
-
 impl PatternProgrammer {
     const CURSOR_BEGIN: PerfectTimeUnit = PerfectTimeUnit(0.0);
 

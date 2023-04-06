@@ -295,8 +295,8 @@ impl EngineSubscription {
     }
 
     fn do_loop(&mut self) {
+        let mut messages = Vec::new();
         loop {
-            let mut messages = Vec::new();
             if let Ok(input) = self.receiver.recv() {
                 self.publish_dashboard_updates();
 
@@ -309,11 +309,16 @@ impl EngineSubscription {
                     }
                     EngineInput::Play => {
                         self.start_or_pause_playback();
+                        messages.push(GrooveInput::Play);
                     }
                     EngineInput::Stop => {
                         self.stop_playback();
+                        messages.push(GrooveInput::Stop);
                     }
-                    EngineInput::SkipToStart => self.skip_to_start(),
+                    EngineInput::SkipToStart => {
+                        self.skip_to_start();
+                        messages.push(GrooveInput::SkipToStart);
+                    }
                     EngineInput::Midi(channel, message) => {
                         messages.push(GrooveInput::MidiFromExternal(channel, message))
                     }
@@ -486,43 +491,40 @@ impl EngineSubscription {
         for i in 0..buffer_count {
             let want_audio_update = i == buffer_count - 1;
             let mut other_response = Response::none();
-            if self.is_playing {
-                let (response, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
-                    if self.clock.was_reset() {
-                        // This could be an expensive operation, since it might
-                        // cause a bunch of heap activity. So it's better to do
-                        // it as soon as it's needed, rather than waiting for
-                        // the time-sensitive generate_audio() method. TODO
-                        // move.
-                        o.reset();
-                    }
-                    let r = o.tick(&mut samples);
-                    if want_audio_update {
-                        let wad = o.last_audio_wad();
-                        other_response = Response::single(GrooveEvent::EntityAudioOutput(wad));
-                    }
-                    r
-                } else {
-                    (Response::none(), 0)
-                };
-                self.push_response(response);
-                self.push_response(other_response);
-                if ticks_completed < samples.len() {
-                    self.stop_playback();
-                    self.reached_end_of_playback = true;
+            let (response, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
+                if self.clock.was_reset() {
+                    // This could be an expensive operation, since it might
+                    // cause a bunch of heap activity. So it's better to do
+                    // it as soon as it's needed, rather than waiting for
+                    // the time-sensitive generate_audio() method. TODO
+                    // move.
+                    o.reset();
                 }
-
-                // This clock is used to tell the app where we are in the song,
-                // so even though it looks like it's not helping here in the
-                // loop, it's necessary. We have it before the second is_playing
-                // test because the tick() that returns false still produced
-                // some samples, so we want the clock to reflect that.
-                self.clock.tick_batch(ticks_completed);
-
-                self.dispatch_samples(&samples, ticks_completed);
+                let r = o.tick(&mut samples);
+                if want_audio_update {
+                    let wad = o.last_audio_wad();
+                    other_response = Response::single(GrooveEvent::EntityAudioOutput(wad));
+                }
+                r
             } else {
-                self.dispatch_samples(&samples, samples.len());
+                (Response::none(), 0)
+            };
+            self.push_response(response);
+            self.push_response(other_response);
+            if ticks_completed < samples.len() {
+                self.stop_playback();
+                self.reached_end_of_playback = true;
             }
+            let ticks_completed = samples.len(); // HACK!
+
+            // This clock is used to tell the app where we are in the song,
+            // so even though it looks like it's not helping here in the
+            // loop, it's necessary. We have it before the second is_playing
+            // test because the tick() that returns false still produced
+            // some samples, so we want the clock to reflect that.
+            self.clock.tick_batch(ticks_completed);
+
+            self.dispatch_samples(&samples, ticks_completed);
         }
     }
 }

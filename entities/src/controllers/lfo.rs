@@ -5,7 +5,7 @@ use core::fmt::Debug;
 use groove_core::{
     generators::{Oscillator, OscillatorNano, WaveformParams},
     midi::HandlesMidi,
-    traits::{Generates, IsController, Resets, Ticks, TicksWithMessages},
+    traits::{Generates, IsController, Performs, Resets, Ticks, TicksWithMessages},
     FrequencyHz,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -27,6 +27,8 @@ pub struct LfoController {
     frequency: FrequencyHz,
 
     oscillator: Oscillator,
+
+    is_performing: bool,
 }
 impl IsController for LfoController {}
 impl Resets for LfoController {}
@@ -35,16 +37,28 @@ impl TicksWithMessages for LfoController {
 
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         self.oscillator.tick(tick_count);
-        // TODO: opportunity to use from() to convert properly from 0..1 to -1..0
         (
             Some(vec![EntityMessage::ControlF32(
-                self.oscillator.value().value() as f32,
+                self.oscillator.value().into(),
             )]),
             0,
         )
     }
 }
 impl HandlesMidi for LfoController {}
+impl Performs for LfoController {
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {
+        // TODO: think how important it is for LFO oscillator to start at zero
+    }
+}
 impl LfoController {
     pub fn new_with(sample_rate: usize, params: LfoControllerNano) -> Self {
         Self {
@@ -59,6 +73,7 @@ impl LfoController {
             ),
             waveform: params.waveform(),
             frequency: params.frequency(),
+            is_performing: false,
         }
     }
 

@@ -23,7 +23,7 @@ mod sequencers;
 use crate::EntityMessage;
 use groove_core::{
     midi::{HandlesMidi, MidiChannel},
-    traits::{IsController, IsEffect, Resets, TicksWithMessages, TransformsAudio},
+    traits::{IsController, IsEffect, Performs, Resets, TicksWithMessages, TransformsAudio},
     BipolarNormal, ParameterType, Sample, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -77,6 +77,7 @@ pub struct Timer {
 
     has_more_work: bool,
     ticks: usize,
+    is_performing: bool,
 }
 impl Timer {
     pub fn new_with(sample_rate: usize, params: TimerNano) -> Self {
@@ -87,6 +88,7 @@ impl Timer {
 
             has_more_work: Default::default(),
             ticks: Default::default(),
+            is_performing: false,
         }
     }
 
@@ -110,7 +112,7 @@ impl HandlesMidi for Timer {}
 impl Resets for Timer {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
-        self.ticks = 0;
+        self.skip_to_start();
     }
 }
 impl TicksWithMessages for Timer {
@@ -130,6 +132,19 @@ impl TicksWithMessages for Timer {
         (None, ticks_completed)
     }
 }
+impl Performs for Timer {
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {
+        self.ticks = 0;
+    }
+}
 
 // TODO: needs tests!
 /// [Trigger] issues a control signal after a specified amount of time.
@@ -145,6 +160,7 @@ pub struct Trigger {
 
     timer: Timer,
     has_triggered: bool,
+    is_performing: bool,
 }
 impl IsController for Trigger {}
 impl TicksWithMessages for Trigger {
@@ -167,6 +183,22 @@ impl TicksWithMessages for Trigger {
 }
 impl Resets for Trigger {}
 impl HandlesMidi for Trigger {}
+impl Performs for Trigger {
+    fn play(&mut self) {
+        self.is_performing = true;
+        self.timer.play();
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+        self.timer.stop();
+    }
+
+    fn skip_to_start(&mut self) {
+        self.has_triggered = false;
+        self.timer.skip_to_start();
+    }
+}
 impl Trigger {
     pub fn new_with(sample_rate: usize, params: TriggerNano) -> Self {
         Self {
@@ -180,6 +212,7 @@ impl Trigger {
             has_triggered: false,
             seconds: params.seconds(),
             value: params.value(),
+            is_performing: false,
         }
     }
 
@@ -213,6 +246,7 @@ pub struct SignalPassthroughController {
     uid: usize,
     signal: BipolarNormal,
     has_signal_changed: bool,
+    is_performing: bool,
 }
 impl IsController for SignalPassthroughController {}
 impl Resets for SignalPassthroughController {}
@@ -220,6 +254,10 @@ impl TicksWithMessages for SignalPassthroughController {
     type Message = EntityMessage;
 
     fn tick(&mut self, _tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
+        if !self.is_performing {
+            return (None, 0);
+        }
+
         // We ignore tick_count because we know we won't send more than one
         // control signal during any batch of tick()s unless we also get
         // multiple transform_audio() calls. This is fine; it's exactly how
@@ -240,6 +278,17 @@ impl TicksWithMessages for SignalPassthroughController {
     }
 }
 impl HandlesMidi for SignalPassthroughController {}
+impl Performs for SignalPassthroughController {
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {}
+}
 impl IsEffect for SignalPassthroughController {}
 impl TransformsAudio for SignalPassthroughController {
     fn transform_audio(&mut self, input_sample: StereoSample) -> StereoSample {
@@ -269,6 +318,7 @@ impl SignalPassthroughController {
             uid: Default::default(),
             signal: Default::default(),
             has_signal_changed: true,
+            is_performing: false,
         }
     }
 

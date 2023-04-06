@@ -6,7 +6,7 @@ use groove_core::{
     generators::{SteppedEnvelope, SteppedEnvelopeFunction, SteppedEnvelopeStep},
     midi::HandlesMidi,
     time::{BeatValue, Clock, ClockTimeUnit, TimeSignature},
-    traits::{IsController, Resets, Ticks, TicksWithMessages},
+    traits::{IsController, Performs, Resets, Ticks, TicksWithMessages},
     ParameterType, SignalType,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -63,10 +63,23 @@ pub struct ControlTrip {
     current_value: SignalType,
     envelope: SteppedEnvelope,
     is_finished: bool,
-    sample_rate: usize,
+    is_performing: bool,
 }
 impl IsController for ControlTrip {}
 impl HandlesMidi for ControlTrip {}
+impl Performs for ControlTrip {
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {
+        self.clock.seek(0);
+    }
+}
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
 
@@ -85,7 +98,7 @@ impl ControlTrip {
             current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
             is_finished: true,
-            sample_rate,
+            is_performing: false,
         }
     }
 
@@ -143,7 +156,7 @@ impl ControlTrip {
 
     pub fn update(&mut self, message: ControlTripMessage) {
         match message {
-            ControlTripMessage::ControlTrip(s) => todo!(),
+            ControlTripMessage::ControlTrip(_s) => todo!(),
             _ => self.derived_update(message),
         }
     }
@@ -187,34 +200,36 @@ impl TicksWithMessages for ControlTrip {
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
         let mut v = Vec::default();
         let mut ticks_completed = tick_count;
-        for i in 0..tick_count {
-            self.clock.tick(1);
-            let has_value_changed = {
-                let time = self.envelope.time_for_unit(&self.clock);
-                let step = self.envelope.step_for_time(time);
-                if step.interval.contains(&time) {
-                    let value = self.envelope.value_for_step_at_time(step, time);
+        if self.is_performing {
+            for i in 0..tick_count {
+                self.clock.tick(1);
+                let has_value_changed = {
+                    let time = self.envelope.time_for_unit(&self.clock);
+                    let step = self.envelope.step_for_time(time);
+                    if step.interval.contains(&time) {
+                        let value = self.envelope.value_for_step_at_time(step, time);
 
-                    let last_value = self.current_value;
-                    self.current_value = value;
-                    self.is_finished = time >= step.interval.end;
-                    self.current_value != last_value
-                } else {
-                    // This is a drastic response to a tick that's out of range. It
-                    // might be better to limit it to times that are later than the
-                    // covered range. We're likely to hit ControlTrips that start beyond
-                    // time zero.
-                    self.is_finished = true;
-                    false
+                        let last_value = self.current_value;
+                        self.current_value = value;
+                        self.is_finished = time >= step.interval.end;
+                        self.current_value != last_value
+                    } else {
+                        // This is a drastic response to a tick that's out of range. It
+                        // might be better to limit it to times that are later than the
+                        // covered range. We're likely to hit ControlTrips that start beyond
+                        // time zero.
+                        self.is_finished = true;
+                        false
+                    }
+                };
+                if self.is_finished {
+                    ticks_completed = i;
+                    break;
                 }
-            };
-            if self.is_finished {
-                ticks_completed = i;
-                break;
-            }
-            if has_value_changed {
-                // our value has changed, so let's tell the world about that.
-                v.push(EntityMessage::ControlF32(self.current_value as f32));
+                if has_value_changed {
+                    // our value has changed, so let's tell the world about that.
+                    v.push(EntityMessage::ControlF32(self.current_value as f32));
+                }
             }
         }
         if v.is_empty() {

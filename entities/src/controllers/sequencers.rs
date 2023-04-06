@@ -5,7 +5,7 @@ use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{new_note_off, u7, HandlesMidi, MidiChannel, MidiMessage},
     time::{Clock, MidiTicks, PerfectTimeUnit},
-    traits::{IsController, Resets, TicksWithMessages},
+    traits::{IsController, Performs, Resets, TicksWithMessages},
     ParameterType,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -36,6 +36,7 @@ pub struct Sequencer {
     events: BeatEventsMap,
     last_event_time: PerfectTimeUnit,
     is_disabled: bool,
+    is_performing: bool,
 
     should_stop_pending_notes: bool,
     on_notes: FxHashMap<u7, MidiChannel>,
@@ -44,6 +45,21 @@ pub struct Sequencer {
 }
 impl IsController for Sequencer {}
 impl HandlesMidi for Sequencer {}
+impl Performs for Sequencer {
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {
+        self.temp_hack_clock.seek(0);
+        self.next_instant = PerfectTimeUnit::default();
+        self.last_event_time = PerfectTimeUnit::default();
+    }
+}
 impl Sequencer {
     pub fn new_with(sample_rate: usize, params: SequencerNano) -> Self {
         Self {
@@ -53,6 +69,7 @@ impl Sequencer {
             events: Default::default(),
             last_event_time: Default::default(),
             is_disabled: Default::default(),
+            is_performing: Default::default(),
             should_stop_pending_notes: Default::default(),
             on_notes: Default::default(),
             temp_hack_clock: Clock::new_with(sample_rate, params.bpm(), 9999),
@@ -61,8 +78,7 @@ impl Sequencer {
 
     pub(crate) fn clear(&mut self) {
         self.events.clear();
-        self.next_instant = PerfectTimeUnit::default();
-        self.last_event_time = PerfectTimeUnit::default();
+        self.skip_to_start();
     }
 
     pub(crate) fn cursor_in_beats(&self) -> f64 {
@@ -197,6 +213,9 @@ impl TicksWithMessages for Sequencer {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
+        if !self.is_performing {
+            return (None, tick_count);
+        }
         if self.is_finished() {
             // TODO: since this code ensures we'll end only on even frame
             // boundaries, it's likely to be masking edge cases. Consider
@@ -245,11 +264,28 @@ pub struct MidiTickSequencer {
     events: MidiTickEventsMap,
     last_event_time: MidiTicks,
     is_disabled: bool,
+    is_performing: bool,
 
     temp_hack_clock: Clock,
 }
 impl IsController for MidiTickSequencer {}
 impl HandlesMidi for MidiTickSequencer {}
+impl Performs for MidiTickSequencer {
+    fn play(&mut self) {
+        self.is_performing = true;
+    }
+
+    fn stop(&mut self) {
+        self.is_performing = false;
+    }
+
+    fn skip_to_start(&mut self) {
+        self.temp_hack_clock.seek(0);
+        self.next_instant = MidiTicks::default();
+        self.last_event_time = MidiTicks::default();
+    }
+}
+
 impl MidiTickSequencer {
     pub fn new_with(sample_rate: usize, params: MidiTickSequencerNano) -> Self {
         Self {
@@ -259,6 +295,7 @@ impl MidiTickSequencer {
             events: Default::default(),
             last_event_time: Default::default(),
             is_disabled: Default::default(),
+            is_performing: Default::default(),
             temp_hack_clock: Clock::new_with(sample_rate, 9999.0, params.midi_ticks_per_second()),
         }
     }
@@ -322,7 +359,7 @@ impl TicksWithMessages for MidiTickSequencer {
     type Message = EntityMessage;
 
     fn tick(&mut self, tick_count: usize) -> (std::option::Option<Vec<Self::Message>>, usize) {
-        if self.is_finished() {
+        if self.is_finished() || !self.is_performing {
             return (None, 0);
         }
         let mut v = Vec::default();

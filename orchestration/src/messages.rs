@@ -27,6 +27,10 @@ pub enum GrooveInput {
 
     /// An entity has been updated on the app side, and the engine should record the changes.
     Update(usize, OtherEntityMessage),
+
+    Play,
+    Stop,
+    SkipToStart,
 }
 impl MessageBounds for GrooveInput {}
 
