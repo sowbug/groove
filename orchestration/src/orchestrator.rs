@@ -726,6 +726,8 @@ impl Orchestrator {
     //
     // TODO: unit-test it!
     pub fn run(&mut self, buffer: &mut [StereoSample]) -> anyhow::Result<Vec<StereoSample>> {
+        self.skip_to_start();
+        self.play();
         let mut performance_samples = Vec::<StereoSample>::new();
         loop {
             // If we want external MIDI to work here, then we need to figure out what to do with commands.
@@ -748,6 +750,8 @@ impl Orchestrator {
         let progress_indicator_quantum: usize = self.sample_rate / 2;
         let mut next_progress_indicator: usize = progress_indicator_quantum;
 
+        self.skip_to_start();
+        self.play();
         loop {
             // If we want external MIDI to work here, then we need to figure out what to do with commands.
             let (_commands, ticks_completed) = self.tick(buffer);
@@ -859,10 +863,6 @@ impl Orchestrator {
         updates.extend(self.store.generate_full_update_messages());
 
         updates
-    }
-
-    pub fn skip_to_start(&mut self) {
-        todo!()
     }
 }
 impl Performs for Orchestrator {
@@ -1128,6 +1128,7 @@ pub mod tests {
     use groove_core::{
         midi::{MidiChannel, MidiMessage},
         time::{BeatValue, Clock, PerfectTimeUnit, TimeSignature},
+        traits::Performs,
         Normal, StereoSample,
     };
     use groove_entities::{
@@ -1572,7 +1573,8 @@ pub mod tests {
         // TODO midi_recorder.debug_messages.clear();
 
         // Rewind clock to start.
-        //clock.reset(clock.sample_rate());
+        o.skip_to_start();
+        o.play();
         let mut samples = [StereoSample::SILENCE; 1];
         // This shouldn't explode.
         let _ = o.tick(&mut samples);

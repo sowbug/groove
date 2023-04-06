@@ -57,7 +57,6 @@ impl Performs for Sequencer {
     fn skip_to_start(&mut self) {
         self.temp_hack_clock.seek(0);
         self.next_instant = PerfectTimeUnit::default();
-        self.last_event_time = PerfectTimeUnit::default();
     }
 }
 impl Sequencer {
@@ -78,6 +77,7 @@ impl Sequencer {
 
     pub(crate) fn clear(&mut self) {
         self.events.clear();
+        self.last_event_time = PerfectTimeUnit::default();
         self.skip_to_start();
     }
 
@@ -281,8 +281,7 @@ impl Performs for MidiTickSequencer {
 
     fn skip_to_start(&mut self) {
         self.temp_hack_clock.seek(0);
-        self.next_instant = MidiTicks::default();
-        self.last_event_time = MidiTicks::default();
+        self.next_instant = MidiTicks::MIN;
     }
 }
 
@@ -304,8 +303,8 @@ impl MidiTickSequencer {
     pub(crate) fn clear(&mut self) {
         // TODO: should this also disconnect sinks? I don't think so
         self.events.clear();
-        self.next_instant = MidiTicks::MIN;
         self.last_event_time = MidiTicks::MIN;
+        self.skip_to_start();
     }
 
     pub fn insert(&mut self, when: MidiTicks, channel: MidiChannel, message: MidiMessage) {
