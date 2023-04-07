@@ -11,7 +11,7 @@ use groove::{
         EngineEvent, EngineInput, EngineSubscription, MidiHandlerEvent, MidiHandlerInput,
         MidiPortDescriptor, MidiSubscription,
     },
-    Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+    Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
 };
 use groove_core::{
     time::{Clock, TimeSignature},

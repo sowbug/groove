@@ -19,24 +19,6 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[deprecated]
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "fm-synthesizer", rename_all = "kebab-case")
-)]
-pub struct FmSynthParamsLegacy {
-    pub depth: Normal,
-    pub ratio: Ratio,
-    pub beta: ParameterType,
-
-    pub carrier_envelope: EnvelopeNano,
-    pub modulator_envelope: EnvelopeNano,
-
-    pub dca: DcaNano,
-}
-
 #[derive(Debug)]
 pub struct FmVoice {
     sample: StereoSample,
