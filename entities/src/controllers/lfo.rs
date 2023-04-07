@@ -6,7 +6,7 @@ use groove_core::{
     generators::{Oscillator, OscillatorNano, WaveformParams},
     midi::HandlesMidi,
     traits::{Generates, IsController, Performs, Resets, Ticks, TicksWithMessages},
-    FrequencyHz,
+    FrequencyHz, Normal,
 };
 use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
@@ -43,7 +43,7 @@ impl TicksWithMessages for LfoController {
         self.oscillator.tick(tick_count);
         (
             Some(vec![EntityMessage::ControlF32(
-                self.oscillator.value().into(),
+                Normal::from(self.oscillator.value()).into(),
             )]),
             0,
         )
