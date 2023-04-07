@@ -3,11 +3,15 @@
 //! Fundamental structs and traits.
 
 use control::F32ControlValue;
+use groove_proc_macros::Nano;
+use std::str::FromStr;
 use std::{
     fmt::Display,
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
+use strum::EnumCount;
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -406,19 +410,39 @@ impl Into<f32> for BipolarNormal {
         self.value_as_f32()
     }
 }
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "dca", rename_all = "kebab-case")
-)]
-pub struct DcaParams {
-    gain: Normal,
-    pan: BipolarNormal,
+impl Into<f32> for Normal {
+    fn into(self) -> f32 {
+        self.value_as_f32()
+    }
 }
 
-impl DcaParams {
+/// The Digitally Controller Amplifier (DCA) handles gain and pan for many kinds
+/// of synths.
+///
+/// See DSSPC++, Section 7.9 for requirements. TODO: implement
+#[derive(Debug, Nano)]
+pub struct Dca {
+    #[nano]
+    gain: Normal,
+    #[nano]
+    pan: BipolarNormal,
+}
+impl Dca {
+    pub fn new_with(params: DcaNano) -> Self {
+        Self {
+            gain: params.gain(),
+            pan: params.pan(),
+        }
+    }
+
+    pub fn transform_audio_to_stereo(&mut self, input_sample: Sample) -> StereoSample {
+        // See Pirkle, DSSPC++, p.73
+        let input_sample: f64 = input_sample.0 * self.gain.value();
+        let left_pan: f64 = 1.0 - 0.25 * (self.pan.value() + 1.0).powi(2);
+        let right_pan: f64 = 1.0 - (0.5 * self.pan.value() - 0.5).powi(2);
+        StereoSample::new_from_f64(left_pan * input_sample, right_pan * input_sample)
+    }
+
     pub fn gain(&self) -> RangedF64<0, 1> {
         self.gain
     }
@@ -427,46 +451,12 @@ impl DcaParams {
         self.gain = gain;
     }
 
-    pub fn pan(&self) -> RangedF64<-1, 1> {
+    pub fn pan(&self) -> BipolarNormal {
         self.pan
     }
 
     pub fn set_pan(&mut self, pan: BipolarNormal) {
         self.pan = pan;
-    }
-}
-impl Default for DcaParams {
-    fn default() -> Self {
-        Self {
-            gain: Normal::maximum(),
-            pan: Default::default(),
-        }
-    }
-}
-
-/// The Digitally Controller Amplifier (DCA) handles gain and pan for many kinds
-/// of synths.
-///
-/// See DSSPC++, Section 7.9 for requirements. TODO: implement
-#[derive(Debug)]
-pub struct Dca {
-    params: DcaParams,
-}
-impl Dca {
-    pub fn new_with(params: DcaParams) -> Self {
-        Self { params }
-    }
-
-    pub fn set_pan(&mut self, value: BipolarNormal) {
-        self.params.set_pan(value);
-    }
-
-    pub fn transform_audio_to_stereo(&mut self, input_sample: Sample) -> StereoSample {
-        // See Pirkle, DSSPC++, p.73
-        let input_sample: f64 = input_sample.0 * self.params.gain.value();
-        let left_pan: f64 = 1.0 - 0.25 * (self.params.pan.value() + 1.0).powi(2);
-        let right_pan: f64 = 1.0 - (0.5 * self.params.pan.value() - 0.5).powi(2);
-        StereoSample::new_from_f64(left_pan * input_sample, right_pan * input_sample)
     }
 }
 
@@ -671,8 +661,6 @@ impl Div<Ratio> for ParameterType {
 mod tests {
     use super::*;
 
-    pub(crate) const DEFAULT_SAMPLE_RATE: usize = 44100;
-
     #[test]
     fn mono_to_stereo() {
         assert_eq!(StereoSample::from(Sample::MIN), StereoSample::MIN);
@@ -778,7 +766,10 @@ mod tests {
 
     #[test]
     fn dca_mainline() {
-        let mut dca = Dca::new_with(DcaParams::default());
+        let mut dca = Dca::new_with(DcaNano {
+            gain: 1.0.into(),
+            pan: BipolarNormal::zero(),
+        });
         const VALUE_IN: Sample = Sample(0.5);
         const VALUE: f64 = 0.5;
         assert_eq!(

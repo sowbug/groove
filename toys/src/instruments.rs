@@ -10,7 +10,7 @@ use groove_core::{
         Resets, Ticks,
     },
     voices::VoiceStore,
-    Dca, DcaParams, Normal, ParameterType, Sample, SampleType, StereoSample,
+    BipolarNormal, Dca, DcaNano, Normal, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
 use std::{collections::VecDeque, fmt::Debug, str::FromStr};
@@ -142,7 +142,10 @@ impl ToyInstrument {
             oscillator: Oscillator::new_with(OscillatorNano::default_with_waveform(
                 WaveformParams::Sine,
             )),
-            dca: Dca::new_with(DcaParams::default()),
+            dca: Dca::new_with(DcaNano {
+                gain: 1.0.into(),
+                pan: BipolarNormal::zero(),
+            }),
             is_playing: Default::default(),
             received_count: Default::default(),
             handled_count: Default::default(),

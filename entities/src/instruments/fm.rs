@@ -9,7 +9,7 @@ use groove_core::{
         Resets, Ticks,
     },
     voices::StealingVoiceStore,
-    BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
+    BipolarNormal, Dca, DcaNano, FrequencyHz, Normal, ParameterType, Ratio, Sample, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
 use std::{fmt::Debug, str::FromStr};
@@ -34,7 +34,7 @@ pub struct FmSynthParamsLegacy {
     pub carrier_envelope: EnvelopeNano,
     pub modulator_envelope: EnvelopeNano,
 
-    pub dca: DcaParams,
+    pub dca: DcaNano,
 }
 
 #[derive(Debug)]
@@ -241,7 +241,7 @@ pub struct FmSynth {
     modulator_envelope: EnvelopeNano,
 
     #[nano(control = false, no_copy = true)]
-    dca: DcaParams,
+    dca: DcaNano,
 
     uid: usize,
     inner_synth: Synthesizer<FmVoice>,
@@ -349,7 +349,7 @@ impl FmSynth {
             .for_each(|v| v.set_modulator_envelope(self.modulator_envelope.clone()));
     }
 
-    pub fn set_dca(&mut self, dca: DcaParams) {
+    pub fn set_dca(&mut self, dca: DcaNano) {
         self.dca = dca;
     }
 }

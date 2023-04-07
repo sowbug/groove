@@ -11,7 +11,7 @@ use groove_core::{
         Resets, Ticks, TransformsAudio,
     },
     voices::StealingVoiceStore,
-    BipolarNormal, Dca, DcaParams, FrequencyHz, Normal, Sample, StereoSample,
+    BipolarNormal, Dca, DcaNano, FrequencyHz, Normal, Sample, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
 use std::str::FromStr;
@@ -232,7 +232,7 @@ impl WelshVoice {
             oscillator_2_sync: params.oscillator_sync(),
             oscillator_mix: params.oscillator_mix(),
             amp_envelope: Envelope::new_with(params.envelope().clone()),
-            dca: Dca::new_with(params.dca()),
+            dca: Dca::new_with(params.dca().clone()),
             lfo: Oscillator::new_with(params.lfo().clone()),
             lfo_routing: params.lfo_routing(),
             lfo_depth: params.lfo_depth(),
@@ -266,8 +266,8 @@ pub struct WelshSynth {
     #[nano(control = false, no_copy = true)]
     envelope: EnvelopeNano,
 
-    #[nano(control = false)]
-    dca: DcaParams,
+    #[nano(control = false, no_copy = true)]
+    dca: DcaNano,
 
     #[nano(control = false, no_copy = true)]
     lfo: OscillatorNano,
@@ -349,7 +349,7 @@ impl WelshSynth {
             oscillator_2: params.oscillator_2().clone(),
             oscillator_sync: params.oscillator_sync(),
             oscillator_mix: params.oscillator_mix(),
-            dca: params.dca(),
+            dca: params.dca().clone(),
             lfo: params.lfo().clone(),
             lfo_routing: params.lfo_routing(),
             lfo_depth: params.lfo_depth(),
@@ -440,12 +440,16 @@ impl WelshSynth {
         self.filter_cutoff_end = filter_cutoff_end;
     }
 
-    pub fn set_dca(&mut self, dca: DcaParams) {
-        self.dca = dca;
-    }
-
     pub fn lfo(&self) -> &OscillatorNano {
         &self.lfo
+    }
+
+    pub fn dca(&self) -> &DcaNano {
+        &self.dca
+    }
+
+    pub fn set_dca(&mut self, dca: DcaNano) {
+        self.dca = dca;
     }
 }
 

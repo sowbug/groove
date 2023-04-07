@@ -5,7 +5,7 @@ use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     generators::{EnvelopeNano, Oscillator, OscillatorNano, WaveformParams},
     midi::{note_to_frequency, GeneralMidiProgram},
-    BipolarNormal, DcaParams, FrequencyHz, Normal, ParameterType, Ratio,
+    BipolarNormal, DcaNano, FrequencyHz, Normal, ParameterType, Ratio,
 };
 use groove_entities::{
     effects::{BiQuadFilter, BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano},
@@ -143,7 +143,10 @@ impl WelshPatchSettings {
             oscillator_sync: self.oscillator_2_sync,
             oscillator_mix,
             envelope: self.amp_envelope.clone(),
-            dca: DcaParams::default(), // TODO
+            dca: DcaNano {
+                gain: 1.0.into(),
+                pan: BipolarNormal::zero(),
+            },
             lfo: OscillatorNano {
                 waveform: self.lfo.waveform.into(),
                 frequency: self.lfo.frequency.into(),
