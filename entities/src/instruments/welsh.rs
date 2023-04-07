@@ -518,46 +518,4 @@ mod tests {
             clock.tick(1);
         }
     }
-
-    // use std::panic;
-    // use strum::IntoEnumIterator;
-    // #[test]
-    // #[should_panic]
-    // fn presets() {
-    //     let clock = Clock::new(&ClockSettings::new_defaults());
-    //     for preset in PresetName::iter() {
-    //         let result = panic::catch_unwind(|| {
-    //             Voice::new(
-    //                 MIDI_CHANNEL_RECEIVE_ALL,
-    //                 clock.sample_rate(),
-    //                 &super::SynthPreset::by_name(&preset),
-    //             )
-    //         });
-    //         if result.is_ok() {
-    //             let mut voice = result.unwrap();
-    //             let preset_name = preset.to_string();
-    //             write_voice(&mut voice, 2.0, &format!("voice_{}", preset_name));
-    //         }
-    //     }
-    // }
-
-    // This code was used to convert Rust representation of 26 Welsh patches to serde YAML.
-    // #[derive(Serialize)]
-    // struct Foo {
-    //     x: Vec<SynthPreset>,
-    // }
-
-    // #[test]
-    // #[should_panic]
-    // fn presets() {
-    //     for preset in PresetName::iter() {
-    //         if let Ok(result) = panic::catch_unwind(|| super::SynthPreset::by_name(&preset)) {
-    //             if let Ok(s) = serde_yaml::to_string(&result) {
-    //                 if let Ok(_) = std::fs::write(format!("{}.yaml", result.name), s) {
-    //                     // great
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
 }

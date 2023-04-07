@@ -33,9 +33,6 @@ pub struct ToyInstrument {
 
     sample: StereoSample,
 
-    /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
-    // #[controllable]
-    // pub waveform: PhantomData<WaveformParams>, // interesting use of PhantomData
     oscillator: Oscillator,
     dca: Dca,
     pub is_playing: bool,

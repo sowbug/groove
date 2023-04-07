@@ -677,25 +677,6 @@ pub struct FmSynthesizerSettings {
 }
 
 impl FmSynthesizerSettings {
-    // pub fn derive_voice_store(&self, sample_rate: usize) -> VoiceStore<FmVoice> {
-    //     VoiceStore::<FmVoice>::new_with_voice(sample_rate, 8, || self.derive_voice(sample_rate))
-    // }
-
-    // pub fn derive_params(&self) -> FmSynthNano {
-    //     FmSynthNano {
-    //         depth: Normal::from(self.depth),
-    //         ratio: self.ratio,
-    //         beta: self.beta,
-    //         carrier_envelope: self.carrier_envelope.derive_envelope_params(),
-    //         modulator_envelope: self.modulator_envelope.derive_envelope_params(),
-    //         dca: DcaParams::default(),
-    //     }
-    // }
-
-    // pub fn derive_voice(&self, sample_rate: usize) -> FmVoice {
-    //     FmVoice::new_with_params(sample_rate, self.derive_params())
-    // }
-
     #[allow(dead_code)]
     pub fn from_name(_name: &str) -> FmSynthesizerSettings {
         let carrier_envelope = EnvelopeNano::safe_default();
