@@ -31,7 +31,11 @@ pub struct LfoController {
     is_performing: bool,
 }
 impl IsController for LfoController {}
-impl Resets for LfoController {}
+impl Resets for LfoController {
+    fn reset(&mut self, sample_rate: usize) {
+        self.oscillator.reset(sample_rate);
+    }
+}
 impl TicksWithMessages for LfoController {
     type Message = EntityMessage;
 
