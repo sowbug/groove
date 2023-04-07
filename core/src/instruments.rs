@@ -124,7 +124,6 @@ mod tests {
     use crate::{
         instruments::Synthesizer,
         midi::{new_note_on, HandlesMidi, MidiChannel, MidiMessage},
-        tests::DEFAULT_SAMPLE_RATE,
         traits::{Generates, Resets, Ticks},
         voices::{tests::TestVoice, VoiceStore},
         StereoSample,
@@ -161,8 +160,8 @@ mod tests {
             self.inner_synth.tick(tick_count);
         }
     }
-    impl TestSynthesizer {
-        pub fn new(sample_rate: usize) -> Self {
+    impl Default for TestSynthesizer {
+        fn default() -> Self {
             Self {
                 inner_synth: Synthesizer::<TestVoice>::new_with(Box::new(
                     VoiceStore::<TestVoice>::new_with_voice(4, || TestVoice::new()),
@@ -173,7 +172,7 @@ mod tests {
 
     #[test]
     fn mainline_test_synthesizer() {
-        let mut s = TestSynthesizer::new(DEFAULT_SAMPLE_RATE);
+        let mut s = TestSynthesizer::default();
         s.handle_midi_message(&new_note_on(100, 99));
 
         // Tick a few because the oscillator correctly starts at zero.

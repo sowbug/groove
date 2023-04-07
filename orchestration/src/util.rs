@@ -24,8 +24,9 @@ pub(crate) fn transform_linear_to_mma_convex(linear_value: f64) -> f64 {
 pub mod tests {
     use crate::{
         entities::Entity,
+        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
         util::{transform_linear_to_mma_concave, transform_linear_to_mma_convex},
-        Orchestrator, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE,
+        Orchestrator,
     };
     use groove_core::{
         generators::WaveformParams, midi::MidiChannel, time::Clock, traits::Resets, FrequencyHz,

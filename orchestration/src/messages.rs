@@ -28,9 +28,17 @@ pub enum GrooveInput {
     /// An entity has been updated on the app side, and the engine should record the changes.
     Update(usize, OtherEntityMessage),
 
+    /// Orchestrator should ask everyone to start playing.
     Play,
+
+    /// Orchestrator should ask everyone to stop playing.
     Stop,
+
+    /// Orchestrator should ask everyone to reset to start of performance.
     SkipToStart,
+
+    /// Someone has requested this sample rate.
+    SetSampleRate(usize),
 }
 impl MessageBounds for GrooveInput {}
 

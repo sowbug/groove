@@ -10,7 +10,7 @@ use groove::{
     util::{PathType, Paths},
     {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
 };
-use groove_core::StereoSample;
+use groove_core::{traits::Resets, StereoSample};
 use groove_orchestration::{helpers::IOHelper, Orchestrator};
 use groove_settings::SongSettings;
 use regex::Regex;
@@ -102,7 +102,7 @@ fn main() -> anyhow::Result<()> {
         if !args.quiet {
             print!("Performing to queue ");
         }
-        orchestrator.set_sample_rate(if args.wav {
+        orchestrator.reset(if args.wav {
             DEFAULT_SAMPLE_RATE
         } else {
             IOHelper::get_output_device_sample_rate()

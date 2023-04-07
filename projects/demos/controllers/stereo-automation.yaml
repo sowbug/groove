@@ -16,7 +16,7 @@ devices:
       - lfo:
         - midi-in: 0
           midi-out: 0
-          waveform: triangle
+        - waveform: triangle
           frequency: 2.0
 patch-cables:
   - [lead, main-mixer]

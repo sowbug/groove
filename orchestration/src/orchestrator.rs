@@ -38,7 +38,7 @@ pub struct Performance {
 impl Performance {
     pub fn new_with(sample_rate: usize) -> Self {
         Self {
-            sample_rate: Default::default(),
+            sample_rate,
             worker: Worker::<StereoSample>::new_fifo(),
         }
     }
@@ -59,7 +59,7 @@ pub struct Orchestrator {
     title: Option<String>,
     store: Store,
 
-    sample_rate: usize,
+    sample_rate: Option<usize>,
     time_signature: TimeSignature,
     bpm: ParameterType,
 
@@ -91,29 +91,32 @@ impl Orchestrator {
             .insert(uid, self.metrics.bucket.timer(name.as_str()));
     }
 
-    pub fn add(&mut self, mut entity: Entity) -> usize {
+    fn add_with_optional_uvid(&mut self, mut entity: Entity, uvid: Option<&str>) -> usize {
         #[cfg(feature = "metrics")]
         self.metrics.entity_count.mark();
 
-        entity.as_resets_mut().reset(self.sample_rate());
-        let uid = self.store.add(None, entity);
-
-        #[cfg(feature = "metrics")]
-        self.install_entity_metric(None, uid);
-
-        uid
-    }
-
-    pub fn add_with_uvid(&mut self, entity: Entity, uvid: &str) -> usize {
-        #[cfg(feature = "metrics")]
-        self.metrics.entity_count.mark();
-
-        let uid = self.store.add(Some(uvid), entity);
+        if let Some(sample_rate) = self.sample_rate() {
+            entity.as_resets_mut().reset(sample_rate);
+        } else {
+            eprintln!(
+                "FYI: Adding entity {:?} to Orchestrator before setting a sample rate",
+                uvid
+            );
+        };
+        let uid = self.store.add(uvid, entity);
 
         #[cfg(feature = "metrics")]
         self.install_entity_metric(Some(uvid), uid);
 
         uid
+    }
+
+    pub fn add(&mut self, entity: Entity) -> usize {
+        self.add_with_optional_uvid(entity, None)
+    }
+
+    pub fn add_with_uvid(&mut self, entity: Entity, uvid: &str) -> usize {
+        self.add_with_optional_uvid(entity, Some(uvid))
     }
 
     pub fn entity_iter(&self) -> std::collections::hash_map::Iter<usize, Entity> {
@@ -622,6 +625,7 @@ impl Orchestrator {
                     GrooveInput::Play => self.play(),
                     GrooveInput::Stop => self.stop(),
                     GrooveInput::SkipToStart => self.skip_to_start(),
+                    GrooveInput::SetSampleRate(sample_rate) => self.reset(sample_rate),
                 }
             }
         }
@@ -743,43 +747,47 @@ impl Orchestrator {
         buffer: &mut [StereoSample],
         quiet: bool,
     ) -> anyhow::Result<Performance> {
-        let mut tick_count = 0;
-        let performance = Performance::new_with(self.sample_rate);
-        let progress_indicator_quantum: usize = self.sample_rate / 2;
-        let mut next_progress_indicator: usize = progress_indicator_quantum;
+        if let Some(sample_rate) = self.sample_rate {
+            let mut tick_count = 0;
+            let performance = Performance::new_with(sample_rate);
+            let progress_indicator_quantum: usize = sample_rate / 2;
+            let mut next_progress_indicator: usize = progress_indicator_quantum;
 
-        self.skip_to_start();
-        self.play();
-        loop {
-            // If we want external MIDI to work here, then we need to figure out what to do with commands.
-            let (_commands, ticks_completed) = self.tick(buffer);
-            if next_progress_indicator <= tick_count {
-                if !quiet {
-                    print!(".");
-                    io::stdout().flush().unwrap();
+            self.skip_to_start();
+            self.play();
+            loop {
+                // If we want external MIDI to work here, then we need to figure out what to do with commands.
+                let (_commands, ticks_completed) = self.tick(buffer);
+                if next_progress_indicator <= tick_count {
+                    if !quiet {
+                        print!(".");
+                        io::stdout().flush().unwrap();
+                    }
+                    next_progress_indicator += progress_indicator_quantum;
                 }
-                next_progress_indicator += progress_indicator_quantum;
-            }
-            tick_count += ticks_completed;
-            if ticks_completed < buffer.len() {
-                break;
-            }
-            for (i, sample) in buffer.iter().enumerate() {
-                if i < ticks_completed {
-                    performance.worker.push(*sample);
-                } else {
+                tick_count += ticks_completed;
+                if ticks_completed < buffer.len() {
                     break;
                 }
+                for (i, sample) in buffer.iter().enumerate() {
+                    if i < ticks_completed {
+                        performance.worker.push(*sample);
+                    } else {
+                        break;
+                    }
+                }
             }
+            if !quiet {
+                println!();
+            }
+            #[cfg(feature = "metrics")]
+            if self.should_output_perf {
+                self.metrics.report();
+            }
+            Ok(performance)
+        } else {
+            Err(anyhow!("Can't perform without valid sample rate"))
         }
-        if !quiet {
-            println!();
-        }
-        #[cfg(feature = "metrics")]
-        if self.should_output_perf {
-            self.metrics.report();
-        }
-        Ok(performance)
     }
 
     /// Runs the whole world for the given number of frames, returning each
@@ -811,12 +819,13 @@ impl Orchestrator {
         &self.last_track_samples
     }
 
-    pub fn sample_rate(&self) -> usize {
+    pub fn sample_rate(&self) -> Option<usize> {
         self.sample_rate
     }
 
-    pub fn set_sample_rate(&mut self, sample_rate: usize) {
-        self.sample_rate = sample_rate;
+    #[deprecated = "Call reset() instead"]
+    pub fn set_sample_rate(&mut self, _: usize) {
+        panic!("Call reset() instead");
     }
 
     pub fn time_signature(&self) -> TimeSignature {
@@ -904,8 +913,8 @@ impl Performs for Orchestrator {
 }
 impl Resets for Orchestrator {
     fn reset(&mut self, sample_rate: usize) {
-        self.sample_rate = sample_rate;
-        self.store.reset(self.sample_rate);
+        self.sample_rate = Some(sample_rate);
+        self.store.reset(sample_rate);
     }
 }
 
@@ -1110,13 +1119,7 @@ impl Store {
 impl Resets for Store {
     fn reset(&mut self, sample_rate: usize) {
         self.values_mut().for_each(|e| {
-            if let Some(e) = e.as_is_controller_mut() {
-                e.reset(sample_rate);
-            } else if let Some(e) = e.as_is_instrument_mut() {
-                e.reset(sample_rate);
-            } else if let Some(e) = e.as_is_effect_mut() {
-                e.reset(sample_rate);
-            }
+            e.as_resets_mut().reset(sample_rate);
         })
     }
 }
@@ -1126,7 +1129,7 @@ pub mod tests {
     use super::Orchestrator;
     use crate::{
         entities::Entity,
-        DEFAULT_MIDI_TICKS_PER_SECOND, {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
+        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
     };
     use groove_core::{
         midi::{MidiChannel, MidiMessage},

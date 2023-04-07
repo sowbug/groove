@@ -39,7 +39,11 @@ pub struct Arpeggiator {
     note_semaphore: i16,
 }
 impl IsController for Arpeggiator {}
-impl Resets for Arpeggiator {}
+impl Resets for Arpeggiator {
+    fn reset(&mut self, sample_rate: usize) {
+        self.sequencer.reset(sample_rate);
+    }
+}
 impl TicksWithMessages for Arpeggiator {
     type Message = EntityMessage;
 

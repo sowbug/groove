@@ -903,8 +903,6 @@ pub mod tests {
 
     const DEFAULT_SAMPLE_RATE: usize = 44100;
     const DEFAULT_BPM: ParameterType = 128.0;
-    #[allow(dead_code)]
-    const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);
     const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
     impl DebugTicks for Oscillator {

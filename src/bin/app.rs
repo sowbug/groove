@@ -440,6 +440,9 @@ impl GrooveApp {
                 self.control_bar_view.set_audio_buffer_fullness(percentage);
             }
             EngineEvent::GrooveEvent(event) => self.handle_groove_event(event),
+            EngineEvent::SampleRateChanged(sample_rate) => {
+                self.control_bar_view.set_sample_rate(sample_rate)
+            }
         }
     }
 

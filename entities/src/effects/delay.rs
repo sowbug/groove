@@ -288,6 +288,7 @@ mod tests {
     #[test]
     fn delay_zero() {
         let mut fx = Delay::new_with(DelayNano { seconds: 0.0 });
+        fx.reset(DEFAULT_SAMPLE_RATE);
 
         // We should keep getting back what we put in.
         for i in 0..DEFAULT_SAMPLE_RATE {
@@ -308,6 +309,7 @@ mod tests {
         // the specified delay.
         let mut delay = DelayLine::new_with(1.0, 0.3);
         delay.reset(CURIOUSLY_SMALL_SAMPLE_RATE);
+
         assert_eq!(delay.pop_output(Sample::from(0.5)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.4)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.3)), Sample::SILENCE);
@@ -323,6 +325,7 @@ mod tests {
         let mut delay =
             RecirculatingDelayLine::new_with(1.0, 1.5, Normal::from(0.001), Normal::from(1.0));
         delay.reset(CURIOUSLY_SMALL_SAMPLE_RATE);
+
         assert_eq!(delay.pop_output(Sample::from(0.5)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
@@ -350,6 +353,7 @@ mod tests {
         let mut delay =
             AllPassDelayLine::new_with(1.0, 1.5, Normal::from(0.001), Normal::from(1.0));
         delay.reset(CURIOUSLY_SMALL_SAMPLE_RATE);
+
         assert_lt!(delay.pop_output(Sample::from(0.5)), Sample::from(0.5));
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);
         assert_eq!(delay.pop_output(Sample::from(0.0)), Sample::SILENCE);

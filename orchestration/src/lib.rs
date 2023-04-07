@@ -17,25 +17,21 @@ mod util;
 #[cfg(feature = "metrics")]
 mod metrics;
 
-use groove_core::ParameterType;
-
-// TODO: these should be #[cfg(test)] because nobody should be assuming these
-// values
-pub const DEFAULT_SAMPLE_RATE: usize = 44100;
-pub const DEFAULT_BPM: ParameterType = 128.0;
-pub const DEFAULT_TIME_SIGNATURE: (usize, usize) = (4, 4);
-pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
-
 #[cfg(test)]
 mod tests {
     use groove_core::{
         control::F32ControlValue,
         traits::{Controllable, HasUid, Resets},
+        ParameterType,
     };
     use groove_proc_macros::{Everything, Nano, Uid};
     use std::{marker::PhantomData, str::FromStr};
     use strum::EnumCount;
     use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+
+    pub const DEFAULT_SAMPLE_RATE: usize = 44100;
+    pub const DEFAULT_BPM: ParameterType = 128.0;
+    pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
     enum AppMessages {
         Wrapper(usize, OtherEntityMessage),

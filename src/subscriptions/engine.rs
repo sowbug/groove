@@ -60,6 +60,9 @@ pub enum EngineInput {
     /// Handle this incoming MIDI message from external.
     Midi(MidiChannel, MidiMessage),
 
+    /// Change sample rate.
+    SetSampleRate(usize),
+
     /// Change BPM.
     SetBpm(ParameterType),
 
@@ -87,6 +90,9 @@ pub enum EngineEvent {
 
     /// An internal message that is passed directly through.
     GrooveEvent(GrooveEvent),
+
+    /// The sample rate has changed.
+    SampleRateChanged(usize),
 
     /// Sends the engine's current frame. Useful for the GUI to keep the control
     /// bar's clock in sync.
@@ -128,6 +134,12 @@ pub struct EngineSubscription {
     last_clock_update: Instant,
     last_reported_frames: usize,
     is_playing: bool,
+
+    // TODO: I'm surprised that this seems to belong here. This struct does a
+    // fair amount of instantiation of key things like Orchestrator, and it owns
+    // the audio subsystem, so we need it. But it might turn out that the
+    // subscriber is a better owner, and this ends up being a local copy.
+    sample_rate: usize,
 
     // This is true when playback went all the way to the end of the song. The
     // reason it's nice to track this is that after pressing play and listening
@@ -186,19 +198,25 @@ impl EngineSubscription {
 
                         // TODO: deal with output-device and sample-rate
                         // changes. This is a mess.
+                        let mut t = Orchestrator::new_with(DEFAULT_BPM);
                         let sample_rate = IOHelper::get_output_device_sample_rate();
-                        let t = Orchestrator::new_with(DEFAULT_BPM);
+                        t.reset(sample_rate);
                         let orchestrator = Arc::new(Mutex::new(t));
                         let orchestrator_for_app = Arc::clone(&orchestrator);
                         let handler = std::thread::spawn(move || {
                             let audio_output = AudioOutput::new_with(input_sender.clone());
+                            let mut clock =
+                                Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+                            clock.reset(sample_rate);
                             let mut subscription = Self::new_with(
+                                sample_rate,
                                 orchestrator,
-                                Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND),
+                                clock,
                                 thread_sender,
                                 app_receiver,
                                 audio_output,
                             );
+                            subscription.update_and_broadcast_sample_rate(sample_rate);
                             subscription.start_audio();
                             subscription.do_loop();
                             subscription.stop_audio();
@@ -239,6 +257,7 @@ impl EngineSubscription {
     }
 
     fn new_with(
+        sample_rate: usize,
         orchestrator: Arc<Mutex<Orchestrator>>,
         clock: Clock,
         sender: iced_mpsc::Sender<EngineEvent>,
@@ -246,6 +265,7 @@ impl EngineSubscription {
         audio_output: AudioOutput,
     ) -> Self {
         Self {
+            sample_rate,
             orchestrator,
             clock,
             time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO: what's a good "don't know yet" value?
@@ -307,6 +327,10 @@ impl EngineSubscription {
                         self.start_or_pause_playback();
                         messages.push(GrooveInput::Play);
                     }
+                    EngineInput::SetSampleRate(sample_rate) => {
+                        self.update_and_broadcast_sample_rate(sample_rate);
+                        messages.push(GrooveInput::SetSampleRate(sample_rate));
+                    }
                     EngineInput::Stop => {
                         self.stop_playback();
                         messages.push(GrooveInput::Stop);
@@ -362,6 +386,18 @@ impl EngineSubscription {
                 break;
             }
         }
+    }
+
+    fn update_and_broadcast_sample_rate(&mut self, sample_rate: usize) {
+        // TODO: ask audio subsystem to change. Raises question who owns sample
+        // rate -- user? Audio? -- and whether it's OK to have two different
+        // rates, such as one for audio output, and one for rendering to WAV
+
+        // Decide whether this is a UI request, or something else.
+
+        self.sample_rate = sample_rate;
+        self.clock.set_sample_rate(sample_rate);
+        self.post_event(EngineEvent::SampleRateChanged(sample_rate));
     }
 
     fn start_or_pause_playback(&mut self) {
@@ -475,6 +511,7 @@ impl EngineSubscription {
                     // points to with new content. I don't see how that can
                     // work, but it does work.
                     *o = instance;
+                    o.reset(self.sample_rate);
                 }
                 return Response::batch(v);
             }
@@ -494,8 +531,11 @@ impl EngineSubscription {
                     // it as soon as it's needed, rather than waiting for
                     // the time-sensitive generate_audio() method. TODO
                     // move.
-                    let sample_rate = o.sample_rate();
-                    o.reset(sample_rate);
+                    if let Some(sample_rate) = o.sample_rate() {
+                        o.reset(sample_rate);
+                    } else {
+                        panic!("We're in the middle of generate_audio() but don't have a sample rate. This is bad!");
+                    }
                 }
                 let r = o.tick(&mut samples);
                 if want_audio_update {

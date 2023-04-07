@@ -763,10 +763,12 @@ mod tests {
         time::Clock,
         traits::{Generates, PlaysNotes, Ticks},
         util::tests::TestOnlyPaths,
-        Normal, Ratio, SampleType, StereoSample,
+        Normal, ParameterType, Ratio, SampleType, StereoSample,
     };
     use groove_entities::instruments::WelshVoice;
-    use groove_orchestration::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
+
+    pub const DEFAULT_BPM: ParameterType = 128.0;
+    pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
     impl WelshPatchSettings {
         pub fn derive_welsh_voice(&self) -> WelshVoice {

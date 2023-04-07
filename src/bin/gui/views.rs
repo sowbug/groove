@@ -374,6 +374,10 @@ impl ControlBarView {
     pub fn set_audio_buffer_fullness(&mut self, audio_buffer_fullness: Normal) {
         self.audio_buffer_fullness = audio_buffer_fullness;
     }
+
+    pub(crate) fn set_sample_rate(&mut self, sample_rate: usize) {
+        self.clock.set_sample_rate(sample_rate);
+    }
 }
 
 struct ControlTargetWidget<'a, Message> {

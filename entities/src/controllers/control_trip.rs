@@ -193,7 +193,11 @@ impl ControlTrip {
         self.time_signature_bottom = time_signature_bottom;
     }
 }
-impl Resets for ControlTrip {}
+impl Resets for ControlTrip {
+    fn reset(&mut self, sample_rate: usize) {
+        self.clock.reset(sample_rate);
+    }
+}
 impl TicksWithMessages for ControlTrip {
     type Message = EntityMessage;
 
