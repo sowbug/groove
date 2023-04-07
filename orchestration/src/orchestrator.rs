@@ -1139,8 +1139,8 @@ pub mod tests {
     };
     use groove_entities::{
         controllers::{
-            Arpeggiator, ArpeggiatorNano, Note, Pattern, PatternProgrammer, Sequencer, Timer,
-            TimerNano,
+            Arpeggiator, ArpeggiatorNano, Note, Pattern, PatternProgrammer, Sequencer,
+            SequencerNano, Timer, TimerNano,
         },
         effects::{Gain, GainNano},
     };
@@ -1470,8 +1470,7 @@ pub mod tests {
     #[test]
     fn pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
-        let mut sequencer =
-            Sequencer::new_with(groove_entities::controllers::SequencerNano { bpm: 128.0 });
+        let mut sequencer = Sequencer::new_with(SequencerNano { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
         let pattern = Pattern {
             note_value: None,
@@ -1494,9 +1493,7 @@ pub mod tests {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
         let mut o = Orchestrator::new_with(DEFAULT_BPM);
         o.reset(DEFAULT_SAMPLE_RATE);
-        let mut sequencer = Box::new(Sequencer::new_with(
-            groove_entities::controllers::SequencerNano { bpm: DEFAULT_BPM },
-        ));
+        let mut sequencer = Box::new(Sequencer::new_with(SequencerNano { bpm: DEFAULT_BPM }));
         let mut programmer = PatternProgrammer::new_with(&TimeSignature::default());
         let mut pattern = Pattern::<Note>::default();
 
@@ -1619,9 +1616,7 @@ pub mod tests {
     #[test]
     fn empty_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = Box::new(Sequencer::new_with(
-            groove_entities::controllers::SequencerNano { bpm: DEFAULT_BPM },
-        ));
+        let mut sequencer = Box::new(Sequencer::new_with(SequencerNano { bpm: DEFAULT_BPM }));
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         let note_pattern = vec![Note {
@@ -1673,12 +1668,10 @@ pub mod tests {
     #[test]
     fn sequencer_to_arp_to_instrument_works() {
         let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
-        let mut sequencer = Box::new(Sequencer::new_with(
-            groove_entities::controllers::SequencerNano { bpm: clock.bpm() },
-        ));
+        let mut sequencer = Box::new(Sequencer::new_with(SequencerNano { bpm: clock.bpm() }));
         const MIDI_CHANNEL_SEQUENCER_TO_ARP: MidiChannel = 7;
         const MIDI_CHANNEL_ARP_TO_INSTRUMENT: MidiChannel = 8;
-        let arpeggiator = Box::new(Arpeggiator::new_with(
+        let mut arpeggiator = Box::new(Arpeggiator::new_with(
             MIDI_CHANNEL_ARP_TO_INSTRUMENT,
             ArpeggiatorNano { bpm: clock.bpm() },
         ));
@@ -1686,6 +1679,7 @@ pub mod tests {
             fake_value: Normal::from(0.332948),
         }));
         let mut o = Orchestrator::new_with(clock.bpm());
+        arpeggiator.reset(DEFAULT_SAMPLE_RATE);
         o.reset(DEFAULT_SAMPLE_RATE);
         clock.reset(DEFAULT_SAMPLE_RATE);
 

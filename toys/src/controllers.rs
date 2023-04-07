@@ -38,8 +38,6 @@ pub struct ToyController<M: MessageBounds> {
 
     midi_channel_out: MidiChannel,
 
-    sample_rate: usize,
-    midi_ticks_per_second: usize,
     clock: Clock,
 
     #[nano]
@@ -99,8 +97,7 @@ impl<M: MessageBounds> TicksWithMessages for ToyController<M> {
 }
 impl<M: MessageBounds> Resets for ToyController<M> {
     fn reset(&mut self, sample_rate: usize) {
-        self.sample_rate = sample_rate;
-        self.clock = Clock::new_with(self.bpm(), self.midi_ticks_per_second);
+        self.clock.reset(sample_rate);
     }
 }
 impl<M: MessageBounds> HandlesMidi for ToyController<M> {
@@ -159,8 +156,6 @@ impl<M: MessageBounds> ToyController<M> {
             bpm: params.bpm(),
             tempo: params.tempo(),
             midi_channel_out,
-            sample_rate: Default::default(),
-            midi_ticks_per_second: 9999,
             clock: Clock::new_with(params.bpm(), 9999),
             is_enabled: Default::default(),
             is_playing: Default::default(),

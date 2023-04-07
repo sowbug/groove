@@ -52,11 +52,13 @@ impl Performs for Sequencer {
 
     fn stop(&mut self) {
         self.is_performing = false;
+        self.should_stop_pending_notes = true;
     }
 
     fn skip_to_start(&mut self) {
         self.temp_hack_clock.seek(0);
         self.next_instant = PerfectTimeUnit::default();
+        self.should_stop_pending_notes = true;
     }
 }
 impl Sequencer {
@@ -187,10 +189,6 @@ impl Sequencer {
         }
     }
 
-    pub(crate) fn sample_rate(&self) -> usize {
-        self.temp_hack_clock.sample_rate()
-    }
-
     pub fn bpm(&self) -> f64 {
         self.bpm
     }
@@ -201,7 +199,6 @@ impl Sequencer {
 }
 impl Resets for Sequencer {
     fn reset(&mut self, sample_rate: usize) {
-        self.temp_hack_clock.set_sample_rate(sample_rate);
         self.temp_hack_clock.reset(sample_rate);
 
         // TODO: how can we make sure this stays in sync with the clock when the
@@ -230,7 +227,7 @@ impl TicksWithMessages for Sequencer {
 
         if self.should_stop_pending_notes {
             self.should_stop_pending_notes = false;
-            return (Some(self.stop_pending_notes()), tick_count);
+            v.extend(self.stop_pending_notes());
         }
 
         if self.is_enabled() {

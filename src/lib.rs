@@ -12,6 +12,7 @@
 //! #     generators::WaveformParams,
 //! #     midi::{MidiChannel, new_note_off, new_note_on},
 //! #     time::PerfectTimeUnit,
+//! #     traits::Resets,
 //! #     Normal,
 //! #     StereoSample,
 //! # };
@@ -31,14 +32,14 @@
 //! let mut buffer = [StereoSample::SILENCE; 64];
 //!
 //! // ToySynth is a MIDI instrument that makes simple sounds.
-//! let synth = ToySynth::new_with(SAMPLE_RATE, ToySynthNano {
+//! let synth = ToySynth::new_with(ToySynthNano {
 //!     voice_count: 4,
 //!     waveform: WaveformParams::Sine,
 //!     envelope: Default::default(),
 //! });
 //!
 //! // Sequencer sends MIDI commands to the synth.
-//! let mut sequencer = Sequencer::new_with(SAMPLE_RATE, SequencerNano { bpm: 128.0 });
+//! let mut sequencer = Sequencer::new_with(SequencerNano { bpm: 128.0 });
 //!
 //! // There are lots of different ways to populate the sequencer with notes.
 //! sequencer.insert(PerfectTimeUnit(0.0), MIDI_0, new_note_on(69, 100));
@@ -55,7 +56,11 @@
 //! // Orchestrator understands the relationships among the
 //! // instruments, controllers, and effects, and uses them to
 //! // produce a song.
-//! let mut orchestrator = Orchestrator::new_with(SAMPLE_RATE, BPM);
+//! let mut orchestrator = Orchestrator::new_with(BPM);
+//!
+//! // Orchestrator owns the sample rate and propagates it to the devices
+//! // that it controls.
+//! orchestrator.reset(SAMPLE_RATE);
 //!
 //! // Each "entity" has an ID that is used to connect them.
 //! let synth_id = orchestrator.add(Entity::ToySynth(Box::new(synth)));
