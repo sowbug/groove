@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{IsEffect, TransformsAudio},
+    traits::{IsEffect, Resets, TransformsAudio},
     Sample,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -18,6 +18,9 @@ pub struct Mixer {
     uid: usize,
 }
 impl IsEffect for Mixer {}
+impl Resets for Mixer {
+    fn reset(&mut self, _sample_rate: usize) {}
+}
 impl TransformsAudio for Mixer {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         // This is a simple pass-through because it's the job of the

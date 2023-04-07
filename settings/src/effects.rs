@@ -56,7 +56,7 @@ pub enum EffectSettings {
 }
 
 impl EffectSettings {
-    pub(crate) fn instantiate(&self, sample_rate: usize, load_only_test_entities: bool) -> Entity {
+    pub(crate) fn instantiate(&self, load_only_test_entities: bool) -> Entity {
         if load_only_test_entities {
             return Entity::ToyEffect(Box::new(ToyEffect::default()));
         }
@@ -78,40 +78,40 @@ impl EffectSettings {
                 Entity::Compressor(Box::new(Compressor::new_with(params.clone())))
             }
             EffectSettings::FilterLowPass12db(params) => Entity::BiQuadFilterLowPass12db(Box::new(
-                BiQuadFilterLowPass12db::new_with(sample_rate, params.clone()),
+                BiQuadFilterLowPass12db::new_with(params.clone()),
             )),
             EffectSettings::FilterLowPass24db(params) => Entity::BiQuadFilterLowPass24db(Box::new(
-                BiQuadFilterLowPass24db::new_with(sample_rate, params.clone()),
+                BiQuadFilterLowPass24db::new_with(params.clone()),
             )),
             EffectSettings::FilterHighPass12db(params) => Entity::BiQuadFilterHighPass(Box::new(
-                BiQuadFilterHighPass::new_with(sample_rate, params.clone()),
+                BiQuadFilterHighPass::new_with(params.clone()),
             )),
             EffectSettings::FilterBandPass12db(params) => Entity::BiQuadFilterBandPass(Box::new(
-                BiQuadFilterBandPass::new_with(sample_rate, params.clone()),
+                BiQuadFilterBandPass::new_with(params.clone()),
             )),
             EffectSettings::FilterBandStop12db(params) => Entity::BiQuadFilterBandStop(Box::new(
-                BiQuadFilterBandStop::new_with(sample_rate, params.clone()),
+                BiQuadFilterBandStop::new_with(params.clone()),
             )),
-            EffectSettings::FilterAllPass12db(params) => Entity::BiQuadFilterAllPass(Box::new(
-                BiQuadFilterAllPass::new_with(sample_rate, params.clone()),
-            )),
+            EffectSettings::FilterAllPass12db(params) => {
+                Entity::BiQuadFilterAllPass(Box::new(BiQuadFilterAllPass::new_with(params.clone())))
+            }
             EffectSettings::FilterPeakingEq12db(params) => Entity::BiQuadFilterPeakingEq(Box::new(
-                BiQuadFilterPeakingEq::new_with(sample_rate, params.clone()),
+                BiQuadFilterPeakingEq::new_with(params.clone()),
             )),
             EffectSettings::FilterLowShelf12db(params) => Entity::BiQuadFilterLowShelf(Box::new(
-                BiQuadFilterLowShelf::new_with(sample_rate, params.clone()),
+                BiQuadFilterLowShelf::new_with(params.clone()),
             )),
             EffectSettings::FilterHighShelf12db(params) => Entity::BiQuadFilterHighShelf(Box::new(
-                BiQuadFilterHighShelf::new_with(sample_rate, params.clone()),
+                BiQuadFilterHighShelf::new_with(params.clone()),
             )),
             EffectSettings::Delay(params) => {
-                Entity::Delay(Box::new(Delay::new_with(sample_rate, params.clone())))
+                Entity::Delay(Box::new(Delay::new_with(params.clone())))
             }
             EffectSettings::Reverb(params) => {
-                Entity::Reverb(Box::new(Reverb::new_with(sample_rate, params.clone())))
+                Entity::Reverb(Box::new(Reverb::new_with(params.clone())))
             }
             EffectSettings::Chorus(params) => {
-                Entity::Chorus(Box::new(Chorus::new_with(sample_rate, params.clone())))
+                Entity::Chorus(Box::new(Chorus::new_with(params.clone())))
             }
         }
     }

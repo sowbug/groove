@@ -102,7 +102,7 @@ impl Default for GrooveApp {
     fn default() -> Self {
         // TODO: these are (probably) temporary until the project is
         // loaded. Make sure they really need to be instantiated.
-        let orchestrator = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
+        let orchestrator = Orchestrator::new_with(DEFAULT_BPM);
         let orchestrator = Arc::new(Mutex::new(orchestrator));
         Self {
             preferences: Default::default(),
@@ -112,11 +112,7 @@ impl Default for GrooveApp {
             should_exit: Default::default(),
             entity_view: Default::default(),
             control_bar_view: ControlBarView::new_with(
-                Clock::new_with(
-                    DEFAULT_SAMPLE_RATE,
-                    DEFAULT_BPM,
-                    DEFAULT_MIDI_TICKS_PER_SECOND,
-                ),
+                Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND),
                 TimeSignature::default(),
             ),
             views: View::new(),

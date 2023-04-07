@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{IsEffect, TransformsAudio},
+    traits::{IsEffect, Resets, TransformsAudio},
     Normal, ParameterType, Sample,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -62,7 +62,7 @@ impl TransformsAudio for Compressor {
         }
     }
 }
-
+impl Resets for Compressor {}
 impl Compressor {
     pub fn new_with(params: CompressorNano) -> Self {
         Self {

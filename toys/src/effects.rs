@@ -2,7 +2,7 @@
 
 use groove_core::{
     time::ClockTimeUnit,
-    traits::{IsEffect, TransformsAudio},
+    traits::{IsEffect, Resets, TransformsAudio},
     Normal, Sample,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -35,6 +35,7 @@ impl TransformsAudio for ToyEffect {
         -input_sample
     }
 }
+impl Resets for ToyEffect {}
 // impl TestsValues for ToyEffect {
 //     fn has_checkpoint_values(&self) -> bool {
 //         !self.checkpoint_values.is_empty()

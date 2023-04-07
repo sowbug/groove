@@ -113,13 +113,11 @@ impl SongSettings {
         base_path: &PathBuf,
         load_only_test_entities: bool,
     ) {
-        let sample_rate = self.clock_settings.sample_rate;
-
         for device in &self.devices {
             match device {
                 DeviceSettings::Instrument(uvid, settings) => {
                     let (channel, entity) =
-                        settings.instantiate(sample_rate, base_path, load_only_test_entities);
+                        settings.instantiate(base_path, load_only_test_entities);
                     let uid = orchestrator.add_with_uvid(entity, uvid);
                     orchestrator.connect_midi_downstream(uid, channel);
                 }
@@ -134,7 +132,7 @@ impl SongSettings {
                     orchestrator.connect_midi_downstream(uid, channel_in);
                 }
                 DeviceSettings::Effect(uvid, settings) => {
-                    let entity = settings.instantiate(sample_rate, load_only_test_entities);
+                    let entity = settings.instantiate(load_only_test_entities);
                     let _uid = orchestrator.add_with_uvid(entity, uvid);
                 }
             }
@@ -280,14 +278,11 @@ impl SongSettings {
             let trip_uvid = control_trip_settings.id.as_str();
             if let Some(target_uid) = orchestrator.get_uid_by_uvid(&control_trip_settings.target.id)
             {
-                let mut control_trip = Box::new(ControlTrip::new_with(
-                    orchestrator.sample_rate(),
-                    ControlTripNano {
-                        time_signature_top: orchestrator.time_signature().top,
-                        time_signature_bottom: orchestrator.time_signature().bottom,
-                        bpm: orchestrator.bpm(),
-                    },
-                ));
+                let mut control_trip = Box::new(ControlTrip::new_with(ControlTripNano {
+                    time_signature_top: orchestrator.time_signature().top,
+                    time_signature_bottom: orchestrator.time_signature().bottom,
+                    bpm: orchestrator.bpm(),
+                }));
                 for path_id in &control_trip_settings.path_ids {
                     if let Some(control_path) = ids_to_paths.get(path_id) {
                         control_trip.add_path(time_signature, control_path);

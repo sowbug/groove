@@ -56,13 +56,9 @@ pub struct Clock {
 }
 
 impl Clock {
-    pub fn new_with(
-        sample_rate: usize,
-        beats_per_minute: ParameterType,
-        midi_ticks_per_second: usize,
-    ) -> Self {
+    pub fn new_with(beats_per_minute: ParameterType, midi_ticks_per_second: usize) -> Self {
         Self {
-            sample_rate,
+            sample_rate: Default::default(),
             bpm: beats_per_minute,
             midi_ticks_per_second,
             frames: Default::default(),
@@ -431,15 +427,11 @@ mod tests {
 
     impl Clock {
         pub fn new_test() -> Self {
-            Clock::new_with(
-                DEFAULT_SAMPLE_RATE,
-                DEFAULT_BPM,
-                DEFAULT_MIDI_TICKS_PER_SECOND,
-            )
+            Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND)
         }
 
-        pub fn new_with_sample_rate(sample_rate: usize) -> Self {
-            Self::new_with(sample_rate, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND)
+        pub fn new() -> Self {
+            Self::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND)
         }
 
         // pub fn debug_new_with_time(time: f32) -> Self {
@@ -472,7 +464,7 @@ mod tests {
         // Initial state. The Ticks trait specifies that state is valid for the
         // frame *after* calling tick(), so here we verify that after calling
         // tick() the first time, the tick counter remains unchanged.
-        let mut clock = Clock::new_with(SAMPLE_RATE, BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_with(BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
         clock.tick(1);
         assert_eq!(
             clock.frames(),
@@ -519,11 +511,7 @@ mod tests {
 
     #[test]
     fn clock_tells_us_when_it_jumps() {
-        let mut clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
+        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
 
         let mut next_sample = clock.frames();
         let mut first_time = true;

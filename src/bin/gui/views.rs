@@ -799,7 +799,7 @@ impl Viewable for ChorusNano {
     type Message = ChorusMessage;
 
     fn view(&self) -> Element<Self::Message> {
-        container(text(&format!("delay factor: {}", self.delay_factor()))).into()
+        container(text(&format!("delay seconds: {}", self.delay_seconds()))).into()
     }
 }
 impl Viewable for CompressorNano {

@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::traits::HasUid;
+use groove_core::traits::{HasUid, Resets};
 use groove_entities::{
     controllers::{
         Arpeggiator, ArpeggiatorMessage, ArpeggiatorNano, ControlTrip, ControlTripMessage,

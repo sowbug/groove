@@ -28,7 +28,10 @@ pub trait IsController:
 ///
 /// IsEffects don't implement Terminates. They process audio indefinitely, and
 /// don't have a sense of the length of the performance.
-pub trait IsEffect: TransformsAudio + Controllable + HasUid + Send + std::fmt::Debug {}
+pub trait IsEffect:
+    TransformsAudio + Controllable + Resets + HasUid + Send + std::fmt::Debug
+{
+}
 
 /// An IsInstrument produces audio, usually upon request from MIDI or
 /// IsController input. Like IsEffect, IsInstrument doesn't implement Terminates

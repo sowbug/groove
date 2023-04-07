@@ -83,13 +83,13 @@ impl WelshPatchSettings {
         }
     }
 
-    pub fn derive_welsh_synth_nano(&self, sample_rate: usize) -> WelshSynthNano {
+    pub fn derive_welsh_synth_nano(&self) -> WelshSynthNano {
         let mut oscillators = Vec::default();
         if !matches!(self.oscillator_1.waveform, WaveformType::None) {
-            oscillators.push(self.oscillator_1.derive_oscillator(sample_rate));
+            oscillators.push(self.oscillator_1.derive_oscillator());
         }
         if !matches!(self.oscillator_2.waveform, WaveformType::None) {
-            let mut o = self.oscillator_2.derive_oscillator(sample_rate);
+            let mut o = self.oscillator_2.derive_oscillator();
             if !self.oscillator_2_track {
                 if let OscillatorTune::Note(note) = self.oscillator_2.tune {
                     o.set_fixed_frequency(note_to_frequency(note));
@@ -100,13 +100,10 @@ impl WelshPatchSettings {
             oscillators.push(o);
         }
         if self.noise > 0.0 {
-            oscillators.push(Oscillator::new_with(
-                sample_rate,
-                OscillatorNano {
-                    waveform: WaveformParams::Noise,
-                    ..Default::default()
-                },
-            ));
+            oscillators.push(Oscillator::new_with(OscillatorNano {
+                waveform: WaveformParams::Noise,
+                ..Default::default()
+            }));
         }
 
         let oscillator_mix = if oscillators.is_empty() {
@@ -121,16 +118,13 @@ impl WelshPatchSettings {
         };
 
         //        let amp_envelope = self.amp_envelope.derive_envelope(sample_rate);
-        let lfo = self.lfo.derive_oscillator(sample_rate);
+        let lfo = self.lfo.derive_oscillator();
         //   let lfo_routing = self.lfo.routing.into();
         // let lfo_depth = self.lfo.depth.into();
-        let filter = BiQuadFilterLowPass24db::new_with(
-            sample_rate,
-            BiQuadFilterLowPass24dbNano {
-                cutoff: self.filter_type_24db.cutoff_hz.into(),
-                passband_ripple: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
-            },
-        );
+        let filter = BiQuadFilterLowPass24db::new_with(BiQuadFilterLowPass24dbNano {
+            cutoff: self.filter_type_24db.cutoff_hz.into(),
+            passband_ripple: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
+        });
         let filter_cutoff_start =
             FrequencyHz::frequency_to_percent(self.filter_type_12db.cutoff_hz.into());
         let filter_cutoff_end = self.filter_envelope_weight.into();
@@ -274,11 +268,9 @@ impl OscillatorSettings {
         Ratio::from(2.0f64.powf((semitones as f64 * 100.0 + cents) / 1200.0))
     }
 
-    pub fn derive_oscillator(&self, sample_rate: usize) -> Oscillator {
-        let mut r = Oscillator::new_with(
-            sample_rate,
-            OscillatorNano::default_with_waveform(self.waveform.into()),
-        );
+    pub fn derive_oscillator(&self) -> Oscillator {
+        let mut r =
+            Oscillator::new_with(OscillatorNano::default_with_waveform(self.waveform.into()));
         r.set_frequency_tune(self.tune.into());
         r
     }
@@ -340,15 +332,12 @@ pub struct LfoPreset {
     pub depth: LfoDepth,
 }
 impl LfoPreset {
-    pub fn derive_oscillator(&self, sample_rate: usize) -> Oscillator {
-        Oscillator::new_with(
-            sample_rate,
-            OscillatorNano {
-                waveform: self.waveform.into(),
-                frequency: self.frequency.into(),
-                ..Default::default()
-            },
-        )
+    pub fn derive_oscillator(&self) -> Oscillator {
+        Oscillator::new_with(OscillatorNano {
+            waveform: self.waveform.into(),
+            frequency: self.frequency.into(),
+            ..Default::default()
+        })
     }
 }
 
@@ -780,8 +769,8 @@ mod tests {
     use groove_orchestration::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
 
     impl WelshPatchSettings {
-        pub fn derive_welsh_voice(&self, sample_rate: usize) -> WelshVoice {
-            WelshVoice::new_with(sample_rate, self.derive_welsh_synth_nano(sample_rate))
+        pub fn derive_welsh_voice(&self) -> WelshVoice {
+            WelshVoice::new_with(self.derive_welsh_synth_nano())
         }
     }
 
@@ -969,7 +958,7 @@ mod tests {
 
     #[test]
     fn welsh_makes_any_sound_at_all() {
-        let mut voice = test_patch().derive_welsh_voice(DEFAULT_SAMPLE_RATE);
+        let mut voice = test_patch().derive_welsh_voice();
         voice.note_on(60, 127);
 
         // Skip a few frames in case attack is slow
@@ -982,12 +971,8 @@ mod tests {
 
     #[test]
     fn basic_synth_patch() {
-        let mut clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
-        let mut voice = test_patch().derive_welsh_voice(clock.sample_rate());
+        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut voice = test_patch().derive_welsh_voice();
         voice.note_on(60, 127);
         voice.tick(1);
         write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");
@@ -995,12 +980,8 @@ mod tests {
 
     #[test]
     fn basic_cello_patch() {
-        let mut clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
-        let mut voice = cello_patch().derive_welsh_voice(clock.sample_rate());
+        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut voice = cello_patch().derive_welsh_voice();
         voice.note_on(60, 127);
         voice.tick(1);
         write_sound(&mut voice, &mut clock, 5.0, 3.0, "voice_cello_c4");

@@ -83,7 +83,7 @@ impl Performs for ControlTrip {
 impl ControlTrip {
     const CURSOR_BEGIN: f64 = 0.0;
 
-    pub fn new_with(sample_rate: usize, params: ControlTripNano) -> Self {
+    pub fn new_with(params: ControlTripNano) -> Self {
         Self {
             uid: usize::default(),
             time_signature_top: params.time_signature_top,
@@ -93,7 +93,7 @@ impl ControlTrip {
                 bottom: params.time_signature_bottom,
             },
             bpm: params.bpm(),
-            clock: Clock::new_with(sample_rate, params.bpm(), 9999),
+            clock: Clock::new_with(params.bpm(), 9999),
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
@@ -267,7 +267,7 @@ mod tests {
             steps: step_vec,
         };
 
-        // let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
+        // let mut o = Orchestrator::new_with(DEFAULT_BPM);
         // let effect_uid = o.add(
         //     None,
         //     Entity::ToyEffect(Box::new(ToyEffect::new_with_test_values(
@@ -278,7 +278,7 @@ mod tests {
         //     ))),
         // );
         // let mut trip =
-        //     ControlTrip::new_with(DEFAULT_SAMPLE_RATE, TimeSignature::default(), DEFAULT_BPM);
+        //     ControlTrip::new_with(TimeSignature::default(), DEFAULT_BPM);
         // trip.add_path(&TimeSignature::default(), &path);
         // let controller_uid = o.add(None, Entity::ControlTrip(Box::new(trip)));
 
@@ -327,7 +327,7 @@ mod tests {
             steps: step_vec,
         };
 
-        // let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
+        // let mut o = Orchestrator::new_with(DEFAULT_BPM);
         // let instrument = Box::new(ToyInstrument::new_with_test_values(
         //     DEFAULT_SAMPLE_RATE,
         //     INTERPOLATED_VALUES,

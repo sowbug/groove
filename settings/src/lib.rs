@@ -121,7 +121,6 @@ impl Default for ClockSettings {
 impl Into<Clock> for ClockSettings {
     fn into(self) -> Clock {
         Clock::new_with(
-            self.sample_rate,
             self.beats_per_minute as ParameterType,
             self.midi_ticks_per_second,
         )
@@ -130,7 +129,7 @@ impl Into<Clock> for ClockSettings {
 #[allow(clippy::from_over_into)]
 impl Into<Orchestrator> for ClockSettings {
     fn into(self) -> Orchestrator {
-        Orchestrator::new_with(self.sample_rate, self.beats_per_minute as ParameterType)
+        Orchestrator::new_with(self.beats_per_minute as ParameterType)
     }
 }
 
@@ -217,7 +216,7 @@ mod tests {
             time_signature: (usize, usize),
         ) -> Self {
             Self {
-                sample_rate,
+                sample_rate: Default::default(),
                 beats_per_minute,
                 time_signature: TimeSignatureSettings {
                     top: time_signature.0,

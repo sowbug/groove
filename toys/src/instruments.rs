@@ -135,16 +135,15 @@ impl HandlesMidi for ToyInstrument {
 //     }
 // }
 impl ToyInstrument {
-    pub fn new_with(sample_rate: usize, params: ToyInstrumentNano) -> Self {
-        let mut r = Self {
+    pub fn new_with(params: ToyInstrumentNano) -> Self {
+        Self {
             uid: Default::default(),
-            sample_rate,
+            sample_rate: Default::default(),
             sample: Default::default(),
             fake_value: params.fake_value(),
-            oscillator: Oscillator::new_with(
-                sample_rate,
-                OscillatorNano::default_with_waveform(WaveformParams::Sine),
-            ),
+            oscillator: Oscillator::new_with(OscillatorNano::default_with_waveform(
+                WaveformParams::Sine,
+            )),
             dca: Dca::new_with(DcaParams::default()),
             is_playing: Default::default(),
             received_count: Default::default(),
@@ -154,25 +153,18 @@ impl ToyInstrument {
             checkpoint_delta: Default::default(),
             time_unit: Default::default(),
             debug_messages: Default::default(),
-        };
-        r.sample_rate = sample_rate;
-
-        r
+        }
     }
 
     pub fn new_with_test_values(
-        sample_rate: usize,
         values: &[f32],
         checkpoint: f32,
         checkpoint_delta: f32,
         time_unit: ClockTimeUnit,
     ) -> Self {
-        let mut r = Self::new_with(
-            sample_rate,
-            ToyInstrumentNano {
-                fake_value: Normal::maximum(),
-            },
-        );
+        let mut r = Self::new_with(ToyInstrumentNano {
+            fake_value: Normal::maximum(),
+        });
         r.checkpoint_values = VecDeque::from(Vec::from(values));
         r.checkpoint = checkpoint;
         r.checkpoint_delta = checkpoint_delta;
@@ -205,7 +197,7 @@ impl ToyInstrument {
 
     pub fn update(&mut self, message: ToyInstrumentMessage) {
         match message {
-            ToyInstrumentMessage::ToyInstrument(s) => *self = Self::new_with(self.sample_rate, s),
+            ToyInstrumentMessage::ToyInstrument(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
     }
@@ -275,13 +267,12 @@ impl HandlesMidi for DebugSynth {
 }
 impl DebugSynth {
     pub fn new_with_components(
-        sample_rate: usize,
         oscillator: Box<Oscillator>,
         envelope: Box<dyn GeneratesEnvelope>,
     ) -> Self {
         Self {
             uid: Default::default(),
-            sample_rate,
+            sample_rate: Default::default(),
             fake_value: Normal::from(0.32342),
             sample: Default::default(),
             // oscillator_modulation: Default::default(),
@@ -300,23 +291,23 @@ impl DebugSynth {
     //         .set_frequency_modulation(oscillator_modulation);
     // }
 
-    pub fn new_with(sample_rate: usize) -> Self {
+    pub fn new() -> Self {
         Self::new_with_components(
-            sample_rate,
-            Box::new(Oscillator::new_with(
-                sample_rate,
-                OscillatorNano::default_with_waveform(WaveformParams::Sine),
-            )),
-            Box::new(Envelope::new_with(
-                sample_rate,
-                EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
-            )),
+            Box::new(Oscillator::new_with(OscillatorNano::default_with_waveform(
+                WaveformParams::Sine,
+            ))),
+            Box::new(Envelope::new_with(EnvelopeParams::new_with(
+                0.0,
+                0.0,
+                Normal::maximum(),
+                0.0,
+            ))),
         )
     }
 
     pub fn update(&mut self, message: DebugSynthMessage) {
         match message {
-            DebugSynthMessage::DebugSynth(_) => *self = Self::new_with(self.sample_rate),
+            DebugSynthMessage::DebugSynth(_) => *self = Self::new(),
             _ => self.derived_update(message),
         }
     }
@@ -374,17 +365,16 @@ impl Resets for ToySynth {
     }
 }
 impl ToySynth {
-    pub fn new_with(sample_rate: usize, params: ToySynthNano) -> Self {
-        let voice_store =
-            VoiceStore::<ToyVoice>::new_with_voice(sample_rate, params.voice_count(), || {
-                ToyVoice::new_with(sample_rate, params.waveform(), params.envelope())
-            });
+    pub fn new_with(params: ToySynthNano) -> Self {
+        let voice_store = VoiceStore::<ToyVoice>::new_with_voice(params.voice_count(), || {
+            ToyVoice::new_with(params.waveform(), params.envelope())
+        });
         Self {
             uid: Default::default(),
             voice_count: params.voice_count(),
             waveform: params.waveform(),
             envelope: params.envelope(),
-            inner: Synthesizer::<ToyVoice>::new_with(sample_rate, Box::new(voice_store)),
+            inner: Synthesizer::<ToyVoice>::new_with(Box::new(voice_store)),
         }
     }
     pub fn update(&mut self, message: ToySynthMessage) {
@@ -474,13 +464,10 @@ impl Resets for ToyVoice {
     }
 }
 impl ToyVoice {
-    fn new_with(sample_rate: usize, waveform: WaveformParams, envelope: EnvelopeParams) -> Self {
+    fn new_with(waveform: WaveformParams, envelope: EnvelopeParams) -> Self {
         Self {
-            oscillator: Oscillator::new_with(
-                sample_rate,
-                OscillatorNano::default_with_waveform(waveform),
-            ),
-            envelope: Envelope::new_with(sample_rate, envelope),
+            oscillator: Oscillator::new_with(OscillatorNano::default_with_waveform(waveform)),
+            envelope: Envelope::new_with(envelope),
             value: Default::default(),
         }
     }
@@ -563,12 +550,9 @@ pub mod tests {
     // for non-consecutive time slices.
     #[test]
     fn test_sources_audio_random_access() {
-        let mut instrument = ToyInstrument::new_with(
-            DEFAULT_SAMPLE_RATE,
-            ToyInstrumentNano {
-                fake_value: Normal::from(0.42),
-            },
-        );
+        let mut instrument = ToyInstrument::new_with(ToyInstrumentNano {
+            fake_value: Normal::from(0.42),
+        });
         for _ in 0..100 {
             instrument.tick(random::<usize>() % 10);
             let _ = instrument.value();

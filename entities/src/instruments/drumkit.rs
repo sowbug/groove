@@ -59,7 +59,7 @@ impl HandlesMidi for Drumkit {
 }
 
 impl Drumkit {
-    fn new_from_files(sample_rate: usize, asset_path: PathBuf, kit_name: &str) -> Self {
+    fn new_from_files(asset_path: PathBuf, kit_name: &str) -> Self {
         let mut base_dir = asset_path.join("samples/elphnt.io");
         base_dir.push(kit_name);
 
@@ -88,7 +88,6 @@ impl Drumkit {
         ];
 
         let voice_store = VoicePerNoteStore::<SamplerVoice>::new_with_voices(
-            sample_rate,
             samples.into_iter().flat_map(|(program, asset_name)| {
                 let mut path = base_dir.clone();
                 path.push(format!("{asset_name}.wav").as_str());
@@ -98,7 +97,6 @@ impl Drumkit {
                     Ok((
                         u7::from(program),
                         SamplerVoice::new_with_samples(
-                            sample_rate,
                             Arc::new(samples),
                             note_to_frequency(program),
                         ),
@@ -111,24 +109,22 @@ impl Drumkit {
 
         Self {
             uid: Default::default(),
-            sample_rate,
-            inner_synth: Synthesizer::<SamplerVoice>::new_with(sample_rate, Box::new(voice_store)),
+            sample_rate: Default::default(),
+            inner_synth: Synthesizer::<SamplerVoice>::new_with(Box::new(voice_store)),
             asset_path,
             name: kit_name.to_string(),
         }
     }
 
-    pub fn new_with(sample_rate: usize, asset_path: PathBuf, params: DrumkitNano) -> Self {
+    pub fn new_with(asset_path: PathBuf, params: DrumkitNano) -> Self {
         // TODO: we're hardcoding samples/. Figure out a way to use the
         // system.
-        Self::new_from_files(sample_rate, asset_path, &params.name())
+        Self::new_from_files(asset_path, &params.name())
     }
 
     pub fn update(&mut self, message: DrumkitMessage) {
         match message {
-            DrumkitMessage::Drumkit(s) => {
-                *self = Self::new_with(self.sample_rate(), self.asset_path.clone(), s)
-            }
+            DrumkitMessage::Drumkit(s) => *self = Self::new_with(self.asset_path.clone(), s),
             _ => self.derived_update(message),
         }
     }

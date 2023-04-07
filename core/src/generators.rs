@@ -150,8 +150,8 @@ impl Generates<BipolarNormal> for Oscillator {
 }
 impl Resets for Oscillator {
     fn reset(&mut self, sample_rate: usize) {
-        self.is_reset_pending = true;
         self.sample_rate = sample_rate;
+        self.is_reset_pending = true;
     }
 }
 impl Ticks for Oscillator {
@@ -179,7 +179,7 @@ impl Ticks for Oscillator {
 }
 
 impl Oscillator {
-    pub fn new_with(sample_rate: usize, params: OscillatorNano) -> Self {
+    pub fn new_with(params: OscillatorNano) -> Self {
         Self {
             waveform: params.waveform(),
             frequency: params.frequency(),
@@ -189,7 +189,6 @@ impl Oscillator {
             linear_frequency_modulation: Default::default(),
             noise_x1: 0x70f4f854,
             noise_x2: 0xe1e9f0a7,
-            sample_rate,
             ticks: Default::default(),
             signal: Default::default(),
             cycle_position: Default::default(),
@@ -198,6 +197,7 @@ impl Oscillator {
             should_sync: Default::default(),
             is_sync_pending: Default::default(),
             is_reset_pending: true,
+            sample_rate: Default::default(),
         }
     }
 
@@ -498,7 +498,6 @@ impl Resets for Envelope {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate as f64;
         self.was_reset = true;
-        // TODO: reset stuff
     }
 }
 impl Ticks for Envelope {
@@ -532,9 +531,10 @@ impl Ticks for Envelope {
     }
 }
 impl Envelope {
-    pub fn new_with(sample_rate: usize, adsr: EnvelopeParams) -> Self {
+    #[deprecated = "replace with EnvelopeNano"]
+    pub fn new_with(adsr: EnvelopeParams) -> Self {
         Self {
-            sample_rate: sample_rate as f64,
+            sample_rate: Default::default(),
             adsr,
             state: State::Idle,
             was_reset: true,
@@ -916,24 +916,19 @@ pub mod tests {
     }
 
     fn create_oscillator(waveform: WaveformParams, tune: Ratio, note: MidiNote) -> Oscillator {
-        let mut oscillator = Oscillator::new_with(
-            DEFAULT_SAMPLE_RATE,
-            OscillatorNano {
-                waveform,
-                frequency: note_type_to_frequency(note),
-                ..Default::default()
-            },
-        );
+        let mut oscillator = Oscillator::new_with(OscillatorNano {
+            waveform,
+            frequency: note_type_to_frequency(note),
+            ..Default::default()
+        });
         oscillator.set_frequency_tune(tune);
         oscillator
     }
 
     #[test]
     fn oscillator_pola() {
-        let mut oscillator = Oscillator::new_with(
-            DEFAULT_SAMPLE_RATE,
-            OscillatorNano::default_with_waveform(WaveformParams::Sine),
-        );
+        let mut oscillator =
+            Oscillator::new_with(OscillatorNano::default_with_waveform(WaveformParams::Sine));
 
         // we'll run two ticks in case the oscillator happens to start at zero
         oscillator.tick(2);
@@ -950,14 +945,12 @@ pub mod tests {
     fn square_wave_is_correct_amplitude() {
         const SAMPLE_RATE: usize = 63949; // Prime number
         const FREQUENCY: FrequencyHz = FrequencyHz(499.0);
-        let mut oscillator = Oscillator::new_with(
-            SAMPLE_RATE,
-            OscillatorNano {
-                waveform: WaveformParams::Square,
-                frequency: FREQUENCY,
-                ..Default::default()
-            },
-        );
+        let mut oscillator = Oscillator::new_with(OscillatorNano {
+            waveform: WaveformParams::Square,
+            frequency: FREQUENCY,
+            ..Default::default()
+        });
+        oscillator.reset(SAMPLE_RATE);
 
         // Below Nyquist limit
         assert_lt!(FREQUENCY, FrequencyHz((SAMPLE_RATE / 2) as f64));
@@ -975,14 +968,12 @@ pub mod tests {
         // numbers so that we don't have to deal with edge cases.
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: FrequencyHz = FrequencyHz(128.0);
-        let mut oscillator = Oscillator::new_with(
-            SAMPLE_RATE,
-            OscillatorNano {
-                waveform: WaveformParams::Square,
-                frequency: FREQUENCY,
-                ..Default::default()
-            },
-        );
+        let mut oscillator = Oscillator::new_with(OscillatorNano {
+            waveform: WaveformParams::Square,
+            frequency: FREQUENCY,
+            ..Default::default()
+        });
+        oscillator.reset(SAMPLE_RATE);
 
         let mut n_pos = 0;
         let mut n_neg = 0;
@@ -1015,14 +1006,12 @@ pub mod tests {
     fn square_wave_shape_is_accurate() {
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
-        let mut oscillator = Oscillator::new_with(
-            SAMPLE_RATE,
-            OscillatorNano {
-                waveform: WaveformParams::Square,
-                frequency: FREQUENCY,
-                ..Default::default()
-            },
-        );
+        let mut oscillator = Oscillator::new_with(OscillatorNano {
+            waveform: WaveformParams::Square,
+            frequency: FREQUENCY,
+            ..Default::default()
+        });
+        oscillator.reset(SAMPLE_RATE);
 
         oscillator.tick(1);
         assert_eq!(
@@ -1067,14 +1056,12 @@ pub mod tests {
     #[test]
     fn sine_wave_is_balanced() {
         const FREQUENCY: FrequencyHz = FrequencyHz(1.0);
-        let mut oscillator = Oscillator::new_with(
-            DEFAULT_SAMPLE_RATE,
-            OscillatorNano {
-                waveform: WaveformParams::Sine,
-                frequency: FREQUENCY,
-                ..Default::default()
-            },
-        );
+        let mut oscillator = Oscillator::new_with(OscillatorNano {
+            waveform: WaveformParams::Sine,
+            frequency: FREQUENCY,
+            ..Default::default()
+        });
+        oscillator.reset(DEFAULT_SAMPLE_RATE);
 
         let mut n_pos = 0;
         let mut n_neg = 0;
@@ -1153,14 +1140,11 @@ pub mod tests {
             (20000.0, "20000Hz"),
         ];
         for test_case in test_cases {
-            let mut osc = Oscillator::new_with(
-                DEFAULT_SAMPLE_RATE,
-                OscillatorNano {
-                    waveform: WaveformParams::Square,
-                    frequency: test_case.0.into(),
-                    ..Default::default()
-                },
-            );
+            let mut osc = Oscillator::new_with(OscillatorNano {
+                waveform: WaveformParams::Square,
+                frequency: test_case.0.into(),
+                ..Default::default()
+            });
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = TestOnlyPaths::test_data_path();
             filename.push("audacity");
@@ -1188,14 +1172,11 @@ pub mod tests {
     #[test]
     fn sine_matches_known_good() {
         for test_case in test_cases() {
-            let mut osc = Oscillator::new_with(
-                DEFAULT_SAMPLE_RATE,
-                OscillatorNano {
-                    waveform: WaveformParams::Sine,
-                    frequency: test_case.0.into(),
-                    ..Default::default()
-                },
-            );
+            let mut osc = Oscillator::new_with(OscillatorNano {
+                waveform: WaveformParams::Sine,
+                frequency: test_case.0.into(),
+                ..Default::default()
+            });
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = TestOnlyPaths::test_data_path();
             filename.push("audacity");
@@ -1213,14 +1194,11 @@ pub mod tests {
     #[test]
     fn sawtooth_matches_known_good() {
         for test_case in test_cases() {
-            let mut osc = Oscillator::new_with(
-                DEFAULT_SAMPLE_RATE,
-                OscillatorNano {
-                    waveform: WaveformParams::Sawtooth,
-                    frequency: test_case.0.into(),
-                    ..Default::default()
-                },
-            );
+            let mut osc = Oscillator::new_with(OscillatorNano {
+                waveform: WaveformParams::Sawtooth,
+                frequency: test_case.0.into(),
+                ..Default::default()
+            });
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = TestOnlyPaths::test_data_path();
             filename.push("audacity");
@@ -1238,14 +1216,11 @@ pub mod tests {
     #[test]
     fn triangle_matches_known_good() {
         for test_case in test_cases() {
-            let mut osc = Oscillator::new_with(
-                DEFAULT_SAMPLE_RATE,
-                OscillatorNano {
-                    waveform: WaveformParams::Triangle,
-                    frequency: test_case.0.into(),
-                    ..Default::default()
-                },
-            );
+            let mut osc = Oscillator::new_with(OscillatorNano {
+                waveform: WaveformParams::Triangle,
+                frequency: test_case.0.into(),
+                ..Default::default()
+            });
             let samples = render_signal_as_audio_source(&mut osc, 1);
             let mut filename = TestOnlyPaths::test_data_path();
             filename.push("audacity");
@@ -1300,12 +1275,11 @@ pub mod tests {
 
     #[test]
     fn oscillator_cycle_restarts_on_time() {
-        let mut oscillator = Oscillator::new_with(
-            DEFAULT_SAMPLE_RATE,
-            OscillatorNano::default_with_waveform(WaveformParams::Sine),
-        );
+        let mut oscillator =
+            Oscillator::new_with(OscillatorNano::default_with_waveform(WaveformParams::Sine));
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
         oscillator.set_frequency(FREQUENCY);
+        oscillator.reset(DEFAULT_SAMPLE_RATE);
 
         const TICKS_IN_CYCLE: usize = DEFAULT_SAMPLE_RATE / 2; // That 2 is FREQUENCY
         assert_eq!(TICKS_IN_CYCLE, 44100 / 2);
@@ -1400,13 +1374,9 @@ pub mod tests {
     // Where possible, we'll erase the envelope type and work only with the
     // Envelope trait, so that we can confirm that the trait alone is useful.
     fn get_ge_trait_stuff() -> (Clock, impl GeneratesEnvelope) {
-        let clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
+        let clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
         let adsr = EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.8), 0.3);
-        let envelope = Envelope::new_with(clock.sample_rate(), adsr);
+        let envelope = Envelope::new_with(adsr);
         (clock, envelope)
     }
 
@@ -1453,6 +1423,9 @@ pub mod tests {
     fn generates_envelope_trait_instant_trigger_response() {
         let (mut clock, mut e) = get_ge_trait_stuff();
 
+        clock.reset(DEFAULT_SAMPLE_RATE);
+        e.reset(DEFAULT_SAMPLE_RATE);
+
         e.trigger_attack();
         e.tick(1);
         clock.tick(1);
@@ -1480,15 +1453,16 @@ pub mod tests {
     #[test]
     fn generates_envelope_trait_attack_decay_duration() {
         // An even sample rate means we can easily calculate how much time was spent in each state.
-        let mut clock = Clock::new_with(100, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
         const ATTACK: f64 = 0.1;
         const DECAY: f64 = 0.2;
         let sustain = Normal::new(0.8);
         const RELEASE: f64 = 0.3;
-        let mut envelope = Envelope::new_with(
-            clock.sample_rate(),
-            EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE),
-        );
+        let mut envelope =
+            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+
+        clock.reset(100);
+        envelope.reset(100);
 
         let mut time_marker = clock.seconds() + ATTACK;
         envelope.trigger_attack();
@@ -1550,19 +1524,13 @@ pub mod tests {
 
     #[test]
     fn generates_envelope_trait_sustain_duration_then_release() {
-        let mut clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
+        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
         const ATTACK: ParameterType = 0.1;
         const DECAY: ParameterType = 0.2;
         let sustain = Normal::new(0.8);
         const RELEASE: ParameterType = 0.3;
-        let mut envelope = Envelope::new_with(
-            clock.sample_rate(),
-            EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE),
-        );
+        let mut envelope =
+            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
 
         envelope.trigger_attack();
         envelope.tick(1);
@@ -1624,11 +1592,7 @@ pub mod tests {
 
     #[test]
     fn simple_envelope_interrupted_decay_with_second_attack() {
-        let mut clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
+        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
 
         // These settings are copied from Welsh Piano's filter envelope, which
         // is where I noticed some unwanted behavior.
@@ -1636,10 +1600,11 @@ pub mod tests {
         const DECAY: ParameterType = 5.22;
         let sustain = Normal::new(0.25);
         const RELEASE: ParameterType = 0.5;
-        let mut envelope = Envelope::new_with(
-            clock.sample_rate(),
-            EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE),
-        );
+        let mut envelope =
+            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+
+        clock.reset(DEFAULT_SAMPLE_RATE);
+        envelope.reset(DEFAULT_SAMPLE_RATE);
 
         envelope.tick(1);
         clock.tick(1);
@@ -1749,20 +1714,17 @@ pub mod tests {
     // envelope can be shorter than its parameters might suggest.
     #[test]
     fn generates_envelope_trait_decay_and_release_based_on_full_amplitude_range() {
-        let mut clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
+        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
 
         const ATTACK: ParameterType = 0.0;
         const DECAY: ParameterType = 0.8;
         let sustain = Normal::new(0.5);
         const RELEASE: ParameterType = 0.4;
-        let mut envelope = Envelope::new_with(
-            clock.sample_rate(),
-            EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE),
-        );
+        let mut envelope =
+            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+
+        clock.reset(DEFAULT_SAMPLE_RATE);
+        envelope.reset(DEFAULT_SAMPLE_RATE);
 
         // Decay after note-on should be shorter than the decay value.
         envelope.trigger_attack();
@@ -1824,10 +1786,7 @@ pub mod tests {
 
     #[test]
     fn envelope_amplitude_batching() {
-        let mut e = Envelope::new_with(
-            DEFAULT_SAMPLE_RATE,
-            EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.5), 0.3),
-        );
+        let mut e = Envelope::new_with(EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.5), 0.3));
 
         // Initialize the buffer with a nonsense value so we know it got
         // overwritten by the method we're about to call.
@@ -1857,10 +1816,8 @@ pub mod tests {
 
     #[test]
     fn envelope_shutdown_state() {
-        let mut e = Envelope::new_with(
-            2000,
-            EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.5),
-        );
+        let mut e = Envelope::new_with(EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.5));
+        e.reset(2000);
 
         // With sample rate 1000, each sample is 0.5 millisecond.
         let mut amplitudes: [Normal; 10] = [Normal::default(); 10];

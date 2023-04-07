@@ -222,26 +222,23 @@ impl WelshVoice {
         });
     }
 
-    pub fn new_with(sample_rate: usize, params: WelshSynthNano) -> Self {
+    pub fn new_with(params: WelshSynthNano) -> Self {
         Self {
             oscillators: vec![
-                Oscillator::new_with(sample_rate, params.oscillator_1().clone()),
-                Oscillator::new_with(sample_rate, params.oscillator_2().clone()),
+                Oscillator::new_with(params.oscillator_1().clone()),
+                Oscillator::new_with(params.oscillator_2().clone()),
             ],
             oscillator_2_sync: params.oscillator_sync(),
             oscillator_mix: params.oscillator_mix(),
-            amp_envelope: Envelope::new_with(sample_rate, params.envelope()),
+            amp_envelope: Envelope::new_with(params.envelope()),
             dca: Dca::new_with(params.dca()),
-            lfo: Oscillator::new_with(sample_rate, params.lfo().clone()),
+            lfo: Oscillator::new_with(params.lfo().clone()),
             lfo_routing: params.lfo_routing(),
             lfo_depth: params.lfo_depth(),
-            filter: BiQuadFilterLowPass24db::new_with(
-                sample_rate,
-                params.low_pass_filter().clone(),
-            ),
+            filter: BiQuadFilterLowPass24db::new_with(params.low_pass_filter().clone()),
             filter_cutoff_start: params.filter_cutoff_start(),
             filter_cutoff_end: params.filter_cutoff_end(),
-            filter_envelope: Envelope::new_with(sample_rate, params.filter_envelope()),
+            filter_envelope: Envelope::new_with(params.filter_envelope()),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
             steal_is_underway: Default::default(),
@@ -336,15 +333,14 @@ impl HandlesMidi for WelshSynth {
     }
 }
 impl WelshSynth {
-    pub fn new_with(sample_rate: usize, params: WelshSynthNano) -> Self {
+    pub fn new_with(params: WelshSynthNano) -> Self {
         const VOICE_CAPACITY: usize = 8;
-        let voice_store =
-            StealingVoiceStore::<WelshVoice>::new_with_voice(sample_rate, VOICE_CAPACITY, || {
-                WelshVoice::new_with(sample_rate, params.clone())
-            });
+        let voice_store = StealingVoiceStore::<WelshVoice>::new_with_voice(VOICE_CAPACITY, || {
+            WelshVoice::new_with(params.clone())
+        });
         Self {
             uid: Default::default(),
-            inner_synth: Synthesizer::<WelshVoice>::new_with(sample_rate, Box::new(voice_store)),
+            inner_synth: Synthesizer::<WelshVoice>::new_with(Box::new(voice_store)),
             pan: params.dca().pan(),
             envelope: params.envelope(),
             filter_envelope: params.filter_envelope(),
@@ -470,11 +466,7 @@ mod tests {
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]
     fn write_voice(voice: &mut WelshVoice, duration: f64, basename: &str) {
-        let mut clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
+        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
 
         let spec = hound::WavSpec {
             channels: 2,

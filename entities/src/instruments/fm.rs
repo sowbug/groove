@@ -149,23 +149,21 @@ impl Ticks for FmVoice {
     }
 }
 impl FmVoice {
-    pub fn new_with(sample_rate: usize, params: FmSynthNano) -> Self {
+    pub fn new_with(params: FmSynthNano) -> Self {
         Self {
-            sample_rate,
+            sample_rate: Default::default(),
             sample: Default::default(),
-            carrier: Oscillator::new_with(
-                sample_rate,
-                OscillatorNano::default_with_waveform(WaveformParams::Sine),
-            ),
-            modulator: Oscillator::new_with(
-                sample_rate,
-                OscillatorNano::default_with_waveform(WaveformParams::Sine),
-            ),
+            carrier: Oscillator::new_with(OscillatorNano::default_with_waveform(
+                WaveformParams::Sine,
+            )),
+            modulator: Oscillator::new_with(OscillatorNano::default_with_waveform(
+                WaveformParams::Sine,
+            )),
             modulator_depth: params.depth,
             modulator_ratio: params.ratio,
             modulator_beta: params.beta,
-            carrier_envelope: Envelope::new_with(sample_rate, params.carrier_envelope),
-            modulator_envelope: Envelope::new_with(sample_rate, params.modulator_envelope),
+            carrier_envelope: Envelope::new_with(params.carrier_envelope),
+            modulator_envelope: Envelope::new_with(params.modulator_envelope),
             dca: Dca::new_with(params.dca()),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
@@ -216,11 +214,11 @@ impl FmVoice {
     // TODO: we'll have to be smarter about subbing in a new envelope, possibly
     // while the voice is playing.
     pub fn set_carrier_envelope(&mut self, params: EnvelopeParams) {
-        self.carrier_envelope = Envelope::new_with(self.sample_rate, params)
+        self.carrier_envelope = Envelope::new_with(params)
     }
 
     pub fn set_modulator_envelope(&mut self, params: EnvelopeParams) {
-        self.modulator_envelope = Envelope::new_with(self.sample_rate, params)
+        self.modulator_envelope = Envelope::new_with(params)
     }
 }
 
@@ -276,16 +274,15 @@ impl HandlesMidi for FmSynth {
     }
 }
 impl FmSynth {
-    pub fn new_with(sample_rate: usize, params: FmSynthNano) -> Self {
+    pub fn new_with(params: FmSynthNano) -> Self {
         const VOICE_CAPACITY: usize = 8;
-        let voice_store =
-            StealingVoiceStore::<FmVoice>::new_with_voice(sample_rate, VOICE_CAPACITY, || {
-                FmVoice::new_with(sample_rate, params.clone())
-            });
+        let voice_store = StealingVoiceStore::<FmVoice>::new_with_voice(VOICE_CAPACITY, || {
+            FmVoice::new_with(params.clone())
+        });
 
         Self {
             uid: Default::default(),
-            inner_synth: Synthesizer::<FmVoice>::new_with(sample_rate, Box::new(voice_store)),
+            inner_synth: Synthesizer::<FmVoice>::new_with(Box::new(voice_store)),
             depth: params.depth(),
             ratio: params.ratio(),
             beta: params.beta(),

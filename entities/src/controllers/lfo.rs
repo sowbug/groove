@@ -60,17 +60,14 @@ impl Performs for LfoController {
     }
 }
 impl LfoController {
-    pub fn new_with(sample_rate: usize, params: LfoControllerNano) -> Self {
+    pub fn new_with(params: LfoControllerNano) -> Self {
         Self {
             uid: Default::default(),
-            oscillator: Oscillator::new_with(
-                sample_rate,
-                OscillatorNano {
-                    waveform: params.waveform,
-                    frequency: params.frequency,
-                    ..Default::default()
-                },
-            ),
+            oscillator: Oscillator::new_with(OscillatorNano {
+                waveform: params.waveform,
+                frequency: params.frequency,
+                ..Default::default()
+            }),
             waveform: params.waveform(),
             frequency: params.frequency(),
             is_performing: false,
@@ -97,9 +94,7 @@ impl LfoController {
 
     pub fn update(&mut self, message: LfoControllerMessage) {
         match message {
-            LfoControllerMessage::LfoController(s) => {
-                *self = Self::new_with(self.oscillator.sample_rate(), s)
-            }
+            LfoControllerMessage::LfoController(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
     }

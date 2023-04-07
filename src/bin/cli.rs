@@ -73,7 +73,7 @@ fn main() -> anyhow::Result<()> {
 
             // TODO: this is temporary, to return the right type
             #[cfg(not(feature = "scripting"))]
-            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM)
+            Orchestrator::new_with(DEFAULT_BPM)
         } else if input_filename.ends_with(".yaml")
             || input_filename.ends_with(".yml")
             || input_filename.ends_with(".nsn")
@@ -94,7 +94,7 @@ fn main() -> anyhow::Result<()> {
             }
             r
         } else {
-            Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM)
+            Orchestrator::new_with(DEFAULT_BPM)
         };
 
         orchestrator.set_should_output_perf(args.perf);

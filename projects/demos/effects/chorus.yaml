@@ -17,7 +17,7 @@ devices:
     - chorus:
         wet-dry-mix: 1.0      # what percentage of input is sent to the effect
         voices: 4             # how many versions of the input contribute to the output
-        delay-factor: 40      # Should be at least as big as 2x the number of voices
+        delay-seconds: 0.25   # TODO: calibrate
 patch-cables:
   - [instrument-1, effect-1, main-mixer]
 patterns:

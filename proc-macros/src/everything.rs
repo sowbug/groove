@@ -120,6 +120,11 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
                 #( Entity::#structs(e) => e.as_mut(), )*
                 }
             }
+            pub fn as_resets_mut(&mut self) -> &mut dyn Resets {
+                match self {
+                #( Entity::#structs(e) => e.as_mut(), )*
+                }
+            }
             pub fn update(&mut self, message: OtherEntityMessage) {
                 match self {
                 #(

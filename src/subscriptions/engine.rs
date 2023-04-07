@@ -187,18 +187,14 @@ impl EngineSubscription {
                         // TODO: deal with output-device and sample-rate
                         // changes. This is a mess.
                         let sample_rate = IOHelper::get_output_device_sample_rate();
-                        let t = Orchestrator::new_with(sample_rate, DEFAULT_BPM);
+                        let t = Orchestrator::new_with(DEFAULT_BPM);
                         let orchestrator = Arc::new(Mutex::new(t));
                         let orchestrator_for_app = Arc::clone(&orchestrator);
                         let handler = std::thread::spawn(move || {
                             let audio_output = AudioOutput::new_with(input_sender.clone());
                             let mut subscription = Self::new_with(
                                 orchestrator,
-                                Clock::new_with(
-                                    sample_rate,
-                                    DEFAULT_BPM,
-                                    DEFAULT_MIDI_TICKS_PER_SECOND,
-                                ),
+                                Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND),
                                 thread_sender,
                                 app_receiver,
                                 audio_output,
@@ -498,7 +494,8 @@ impl EngineSubscription {
                     // it as soon as it's needed, rather than waiting for
                     // the time-sensitive generate_audio() method. TODO
                     // move.
-                    o.reset();
+                    let sample_rate = o.sample_rate();
+                    o.reset(sample_rate);
                 }
                 let r = o.tick(&mut samples);
                 if want_audio_update {

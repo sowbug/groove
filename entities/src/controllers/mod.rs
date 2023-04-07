@@ -80,10 +80,10 @@ pub struct Timer {
     is_performing: bool,
 }
 impl Timer {
-    pub fn new_with(sample_rate: usize, params: TimerNano) -> Self {
+    pub fn new_with(params: TimerNano) -> Self {
         Self {
             uid: Default::default(),
-            sample_rate,
+            sample_rate: Default::default(),
             seconds: params.seconds(),
 
             has_more_work: Default::default(),
@@ -102,7 +102,7 @@ impl Timer {
 
     pub fn update(&mut self, message: TimerMessage) {
         match message {
-            TimerMessage::Timer(s) => *self = Self::new_with(self.sample_rate, s),
+            TimerMessage::Timer(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
     }
@@ -181,7 +181,11 @@ impl TicksWithMessages for Trigger {
         }
     }
 }
-impl Resets for Trigger {}
+impl Resets for Trigger {
+    fn reset(&mut self, sample_rate: usize) {
+        self.timer.reset(sample_rate)
+    }
+}
 impl HandlesMidi for Trigger {}
 impl Performs for Trigger {
     fn play(&mut self) {
@@ -200,15 +204,12 @@ impl Performs for Trigger {
     }
 }
 impl Trigger {
-    pub fn new_with(sample_rate: usize, params: TriggerNano) -> Self {
+    pub fn new_with(params: TriggerNano) -> Self {
         Self {
             uid: Default::default(),
-            timer: Timer::new_with(
-                sample_rate,
-                TimerNano {
-                    seconds: params.seconds(),
-                },
-            ),
+            timer: Timer::new_with(TimerNano {
+                seconds: params.seconds(),
+            }),
             has_triggered: false,
             seconds: params.seconds(),
             value: params.value(),
@@ -234,7 +235,7 @@ impl Trigger {
 
     pub fn update(&mut self, message: TriggerMessage) {
         match message {
-            TriggerMessage::Trigger(s) => *self = Self::new_with(self.timer.sample_rate, s),
+            TriggerMessage::Trigger(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
     }
@@ -335,18 +336,19 @@ impl SignalPassthroughController {
 
 #[cfg(test)]
 mod tests {
-    use crate::controllers::{Trigger, TriggerNano};
-    use groove_core::traits::TicksWithMessages;
+    use crate::{
+        controllers::{Trigger, TriggerNano},
+        tests::DEFAULT_SAMPLE_RATE,
+    };
+    use groove_core::traits::{Resets, TicksWithMessages};
 
     #[test]
     fn instantiate_trigger() {
-        let mut trigger = Trigger::new_with(
-            44100,
-            TriggerNano {
-                seconds: 1.0,
-                value: 0.5,
-            },
-        );
+        let mut trigger = Trigger::new_with(TriggerNano {
+            seconds: 1.0,
+            value: 0.5,
+        });
+        trigger.reset(DEFAULT_SAMPLE_RATE);
 
         // asserting that 5 returned 5 confirms that the trigger isn't done yet.
         let (m, count) = trigger.tick(5);

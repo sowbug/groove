@@ -60,7 +60,7 @@ impl Performs for Sequencer {
     }
 }
 impl Sequencer {
-    pub fn new_with(sample_rate: usize, params: SequencerNano) -> Self {
+    pub fn new_with(params: SequencerNano) -> Self {
         Self {
             uid: Default::default(),
             bpm: params.bpm(),
@@ -71,7 +71,7 @@ impl Sequencer {
             is_performing: Default::default(),
             should_stop_pending_notes: Default::default(),
             on_notes: Default::default(),
-            temp_hack_clock: Clock::new_with(sample_rate, params.bpm(), 9999),
+            temp_hack_clock: Clock::new_with(params.bpm(), 9999),
         }
     }
 
@@ -182,7 +182,7 @@ impl Sequencer {
 
     pub fn update(&mut self, message: SequencerMessage) {
         match message {
-            SequencerMessage::Sequencer(s) => *self = Self::new_with(self.sample_rate(), s),
+            SequencerMessage::Sequencer(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
     }
@@ -286,7 +286,7 @@ impl Performs for MidiTickSequencer {
 }
 
 impl MidiTickSequencer {
-    pub fn new_with(sample_rate: usize, params: MidiTickSequencerNano) -> Self {
+    pub fn new_with(params: MidiTickSequencerNano) -> Self {
         Self {
             uid: Default::default(),
             midi_ticks_per_second: params.midi_ticks_per_second(),
@@ -295,7 +295,7 @@ impl MidiTickSequencer {
             last_event_time: Default::default(),
             is_disabled: Default::default(),
             is_performing: Default::default(),
-            temp_hack_clock: Clock::new_with(sample_rate, 9999.0, params.midi_ticks_per_second()),
+            temp_hack_clock: Clock::new_with(9999.0, params.midi_ticks_per_second()),
         }
     }
 
@@ -329,9 +329,7 @@ impl MidiTickSequencer {
 
     pub fn update(&mut self, message: MidiTickSequencerMessage) {
         match message {
-            MidiTickSequencerMessage::MidiTickSequencer(s) => {
-                *self = Self::new_with(self.temp_hack_clock.sample_rate(), s)
-            }
+            MidiTickSequencerMessage::MidiTickSequencer(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
     }
@@ -531,12 +529,8 @@ mod tests {
     #[test]
     fn test_sequencer() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = 7;
-        let mut clock = Clock::new_with(
-            DEFAULT_SAMPLE_RATE,
-            DEFAULT_BPM,
-            DEFAULT_MIDI_TICKS_PER_SECOND,
-        );
-        // let mut o = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
+        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        // let mut o = Orchestrator::new_with(DEFAULT_BPM);
         // let mut sequencer = Box::new(MidiTickSequencer::new_with(
         //     DEFAULT_SAMPLE_RATE,
         //     DEFAULT_MIDI_TICKS_PER_SECOND,

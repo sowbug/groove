@@ -51,10 +51,10 @@ impl<V: IsStereoSampleVoice> Ticks for Synthesizer<V> {
     }
 }
 impl<V: IsStereoSampleVoice> Synthesizer<V> {
-    pub fn new_with(sample_rate: usize, voice_store: Box<dyn StoresVoices<Voice = V>>) -> Self {
+    pub fn new_with(voice_store: Box<dyn StoresVoices<Voice = V>>) -> Self {
         Self {
-            sample_rate,
             voice_store,
+            sample_rate: Default::default(),
             pitch_bend: Default::default(),
             channel_aftertouch: Default::default(),
             pan: Default::default(),
@@ -164,14 +164,9 @@ mod tests {
     impl TestSynthesizer {
         pub fn new(sample_rate: usize) -> Self {
             Self {
-                inner_synth: Synthesizer::<TestVoice>::new_with(
-                    sample_rate,
-                    Box::new(VoiceStore::<TestVoice>::new_with_voice(
-                        sample_rate,
-                        4,
-                        || TestVoice::new_with(sample_rate),
-                    )),
-                ),
+                inner_synth: Synthesizer::<TestVoice>::new_with(Box::new(
+                    VoiceStore::<TestVoice>::new_with_voice(4, || TestVoice::new()),
+                )),
             }
         }
     }

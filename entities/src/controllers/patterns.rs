@@ -204,10 +204,7 @@ mod tests {
     #[test]
     fn test_pattern() {
         let time_signature = TimeSignature::default();
-        let mut sequencer = Sequencer::new_with(
-            DEFAULT_SAMPLE_RATE,
-            crate::controllers::SequencerNano { bpm: 128.0 },
-        );
+        let mut sequencer = Sequencer::new_with(crate::controllers::SequencerNano { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // note that this is five notes, but the time signature is 4/4. This
@@ -265,10 +262,7 @@ mod tests {
     #[test]
     fn test_multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
-        let mut sequencer = Sequencer::new_with(
-            DEFAULT_SAMPLE_RATE,
-            crate::controllers::SequencerNano { bpm: 128.0 },
-        );
+        let mut sequencer = Sequencer::new_with(crate::controllers::SequencerNano { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
 
         // since these patterns are denominated in a quarter notes, but the time

@@ -28,8 +28,10 @@ pub const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
 #[cfg(test)]
 mod tests {
-    use groove_core::traits::Controllable;
-    use groove_core::{control::F32ControlValue, traits::HasUid};
+    use groove_core::{
+        control::F32ControlValue,
+        traits::{Controllable, HasUid, Resets},
+    };
     use groove_proc_macros::{Everything, Nano, Uid};
     use std::{marker::PhantomData, str::FromStr};
     use strum::EnumCount;
@@ -125,6 +127,7 @@ mod tests {
 
         _phantom: PhantomData<T>,
     }
+    impl<T> Resets for Stuff<T> {}
 
     impl<T> Stuff<T> {
         pub fn new(nano: StuffNano) -> Self {
@@ -215,6 +218,7 @@ mod tests {
         #[nano(control = false, no_copy = true)]
         stuff: StuffNano,
     }
+    impl Resets for Misc {}
     impl Misc {
         pub fn new_with(params: MiscNano) -> Self {
             Self {

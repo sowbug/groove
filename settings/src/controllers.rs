@@ -156,7 +156,6 @@ impl ControllerSettings {
                 *midi_input_channel,
                 *midi_output_channel,
                 Entity::ToyController(Box::new(ToyController::new_with(
-                    sample_rate,
                     groove_toys::ToyControllerNano {
                         bpm,
                         tempo: 999999.0,
@@ -171,7 +170,6 @@ impl ControllerSettings {
                 midi.midi_in,
                 midi.midi_out,
                 Entity::ToyController(Box::new(ToyController::new_with(
-                    sample_rate,
                     ToyControllerNano {
                         bpm,
                         tempo: 999999.0,
@@ -184,7 +182,6 @@ impl ControllerSettings {
                 midi.midi_in,
                 midi.midi_out,
                 Entity::Arpeggiator(Box::new(Arpeggiator::new_with(
-                    sample_rate,
                     midi.midi_out,
                     params.clone(),
                 ))),
@@ -192,10 +189,7 @@ impl ControllerSettings {
             ControllerSettings::LfoController(midi, params) => (
                 midi.midi_in,
                 midi.midi_out,
-                Entity::LfoController(Box::new(LfoController::new_with(
-                    sample_rate,
-                    params.clone(),
-                ))),
+                Entity::LfoController(Box::new(LfoController::new_with(params.clone()))),
             ),
             ControllerSettings::SignalPassthroughController(midi) => (
                 midi.midi_in,

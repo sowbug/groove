@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    traits::{IsEffect, TransformsAudio},
+    traits::{IsEffect, Resets, TransformsAudio},
     BipolarNormal, Sample,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -31,6 +31,9 @@ impl Default for Limiter {
     }
 }
 impl IsEffect for Limiter {}
+impl Resets for Limiter {
+    fn reset(&mut self, _sample_rate: usize) {}
+}
 impl TransformsAudio for Limiter {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
         let sign = input_sample.0.signum();

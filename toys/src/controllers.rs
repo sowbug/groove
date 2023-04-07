@@ -100,7 +100,7 @@ impl<M: MessageBounds> TicksWithMessages for ToyController<M> {
 impl<M: MessageBounds> Resets for ToyController<M> {
     fn reset(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
-        self.clock = Clock::new_with(sample_rate, self.bpm(), self.midi_ticks_per_second);
+        self.clock = Clock::new_with(self.bpm(), self.midi_ticks_per_second);
     }
 }
 impl<M: MessageBounds> HandlesMidi for ToyController<M> {
@@ -130,13 +130,11 @@ impl<M: MessageBounds> Performs for ToyController<M> {
 }
 impl<M: MessageBounds> ToyController<M> {
     pub fn new_with(
-        sample_rate: usize,
         params: ToyControllerNano,
         midi_channel_out: MidiChannel,
         message_maker: Box<dyn MessageMaker<Message = M>>,
     ) -> Self {
         Self::new_with_test_values(
-            sample_rate,
             params,
             midi_channel_out,
             message_maker,
@@ -148,7 +146,6 @@ impl<M: MessageBounds> ToyController<M> {
     }
 
     pub fn new_with_test_values(
-        sample_rate: usize,
         params: ToyControllerNano,
         midi_channel_out: MidiChannel,
         message_maker: Box<dyn MessageMaker<Message = M>>,
@@ -162,9 +159,9 @@ impl<M: MessageBounds> ToyController<M> {
             bpm: params.bpm(),
             tempo: params.tempo(),
             midi_channel_out,
-            sample_rate,
+            sample_rate: Default::default(),
             midi_ticks_per_second: 9999,
-            clock: Clock::new_with(sample_rate, params.bpm(), 9999),
+            clock: Clock::new_with(params.bpm(), 9999),
             is_enabled: Default::default(),
             is_playing: Default::default(),
             is_performing: false,

@@ -102,16 +102,12 @@ impl Resets for SamplerVoice {
     }
 }
 impl SamplerVoice {
-    pub fn new_with_samples(
-        sample_rate: usize,
-        samples: Arc<Vec<StereoSample>>,
-        root_frequency: FrequencyHz,
-    ) -> Self {
+    pub fn new_with_samples(samples: Arc<Vec<StereoSample>>, root_frequency: FrequencyHz) -> Self {
         if !root_frequency.value().is_normal() {
             panic!("strange number given for root frequency: {root_frequency}");
         }
         Self {
-            sample_rate,
+            sample_rate: Default::default(),
             samples,
             root_frequency,
             frequency: Default::default(),
@@ -166,7 +162,7 @@ impl Resets for Sampler {
     }
 }
 impl Sampler {
-    pub fn new_with(sample_rate: usize, asset_path: PathBuf, params: SamplerNano) -> Self {
+    pub fn new_with(asset_path: PathBuf, params: SamplerNano) -> Self {
         let mut path = asset_path;
         path.push(params.filename());
         if let Ok(samples) = Self::read_samples_from_file(&path) {
@@ -193,20 +189,17 @@ impl Sampler {
 
             Self {
                 uid: Default::default(),
-                inner_synth: Synthesizer::<SamplerVoice>::new_with(
-                    sample_rate,
-                    Box::new(VoiceStore::<SamplerVoice>::new_with_voice(
-                        sample_rate,
-                        8,
-                        || {
-                            SamplerVoice::new_with_samples(
-                                sample_rate,
-                                Arc::clone(&samples),
-                                calculated_root_frequency,
-                            )
-                        },
-                    )),
-                ),
+                inner_synth: Synthesizer::<SamplerVoice>::new_with(Box::new(VoiceStore::<
+                    SamplerVoice,
+                >::new_with_voice(
+                    8,
+                    || {
+                        SamplerVoice::new_with_samples(
+                            Arc::clone(&samples),
+                            calculated_root_frequency,
+                        )
+                    },
+                ))),
                 filename: params.filename().to_string(),
                 root: params.root(),
                 calculated_root: calculated_root_frequency,
@@ -375,7 +368,6 @@ mod tests {
     fn test_loading() {
         let filename = PathBuf::from("stereo-pluck.wav");
         let sampler = Sampler::new_with(
-            DEFAULT_SAMPLE_RATE,
             TestOnlyPaths::test_data_path(),
             SamplerNano {
                 filename: filename.to_str().unwrap().to_string(),
@@ -412,7 +404,6 @@ mod tests {
         let filename = PathBuf::from("riff-acidized.wav");
 
         let sampler = Sampler::new_with(
-            DEFAULT_SAMPLE_RATE,
             TestOnlyPaths::test_data_path(),
             SamplerNano {
                 filename: filename.to_str().unwrap().to_string(),
@@ -426,7 +417,6 @@ mod tests {
         );
 
         let sampler = Sampler::new_with(
-            DEFAULT_SAMPLE_RATE,
             TestOnlyPaths::test_data_path(),
             SamplerNano {
                 filename: filename.to_str().unwrap().to_string(),
@@ -440,7 +430,6 @@ mod tests {
         );
 
         let sampler = Sampler::new_with(
-            DEFAULT_SAMPLE_RATE,
             TestOnlyPaths::test_data_path(),
             SamplerNano {
                 filename: PathBuf::from("riff-not-acidized.wav")
@@ -456,7 +445,7 @@ mod tests {
             "specified parameter should be used for non-acidized WAV"
         );
 
-        let sampler = Sampler::new_with(DEFAULT_SAMPLE_RATE, TestOnlyPaths::test_data_path(), {
+        let sampler = Sampler::new_with(TestOnlyPaths::test_data_path(), {
             SamplerNano {
                 filename: PathBuf::from("riff-not-acidized.wav")
                     .to_str()
@@ -479,11 +468,7 @@ mod tests {
         let samples = Sampler::read_samples_from_file(&filename);
         assert!(samples.is_ok());
         let samples = samples.unwrap();
-        let mut voice = SamplerVoice::new_with_samples(
-            DEFAULT_SAMPLE_RATE,
-            Arc::new(samples),
-            FrequencyHz::from(440.0),
-        );
+        let mut voice = SamplerVoice::new_with_samples(Arc::new(samples), FrequencyHz::from(440.0));
         voice.note_on(1, 127);
 
         // Skip a few frames in case attack is slow

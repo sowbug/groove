@@ -39,7 +39,7 @@ impl IOHelper {
     #[allow(unused_variables)]
     pub fn orchestrator_from_midi_file(filename: &str) -> Orchestrator {
         // // TODO: where do BPM, time signature, etc. come from?
-        // let mut orchestrator = Orchestrator::new_with(DEFAULT_SAMPLE_RATE, DEFAULT_BPM);
+        // let mut orchestrator = Orchestrator::new_with(DEFAULT_BPM);
 
         // let data = std::fs::read(filename).unwrap();
         // let mut sequencer = Box::new(MidiTickSequencer::new_with(

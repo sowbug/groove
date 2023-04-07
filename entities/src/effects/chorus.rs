@@ -2,7 +2,7 @@
 
 use super::delay::{DelayLine, Delays};
 use groove_core::{
-    traits::{IsEffect, TransformsAudio},
+    traits::{IsEffect, Resets, TransformsAudio},
     ParameterType, Sample, SampleType,
 };
 use groove_proc_macros::{Nano, Uid};
@@ -23,7 +23,7 @@ pub struct Chorus {
     voices: usize,
 
     #[nano]
-    delay_factor: usize,
+    delay_seconds: ParameterType,
 
     // what percentage of the output should be processed. 0.0 = all dry (no
     // effect). 1.0 = all wet (100% effect).
@@ -38,7 +38,7 @@ pub struct Chorus {
 impl IsEffect for Chorus {}
 impl TransformsAudio for Chorus {
     fn transform_channel(&mut self, _channel: usize, input_sample: Sample) -> Sample {
-        let index_offset = self.delay_factor / self.voices;
+        let index_offset = self.delay_seconds / self.voices as ParameterType;
         let mut sum = self.delay.pop_output(input_sample);
         for i in 1..self.voices as isize {
             sum += self.delay.peek_indexed_output(i * index_offset as isize);
@@ -47,24 +47,25 @@ impl TransformsAudio for Chorus {
             + input_sample * (1.0 - self.wet_dry_mix)
     }
 }
+impl Resets for Chorus {
+    fn reset(&mut self, sample_rate: usize) {
+        self.delay.reset(sample_rate);
+    }
+}
 impl Chorus {
     #[allow(dead_code)]
     fn new() -> Self {
         Self::default()
     }
 
-    pub fn new_with(sample_rate: usize, params: ChorusNano) -> Self {
+    pub fn new_with(params: ChorusNano) -> Self {
         // TODO: the delay_seconds param feels like a hack
         Self {
             uid: Default::default(),
             voices: params.voices(),
-            delay_factor: params.delay_factor(),
+            delay_seconds: params.delay_seconds(),
             wet_dry_mix: params.wet_dry_mix(),
-            delay: DelayLine::new_with(
-                sample_rate,
-                params.delay_factor as ParameterType / sample_rate as ParameterType,
-                1.0,
-            ),
+            delay: DelayLine::new_with(params.delay_seconds(), 1.0),
         }
     }
 
@@ -74,7 +75,7 @@ impl Chorus {
 
     pub fn update(&mut self, message: ChorusMessage) {
         match message {
-            ChorusMessage::Chorus(s) => *self = Self::new_with(self.delay.sample_rate(), s),
+            ChorusMessage::Chorus(s) => *self = Self::new_with(s),
             _ => self.derived_update(message),
         }
     }
@@ -91,12 +92,12 @@ impl Chorus {
         self.voices = voices;
     }
 
-    pub fn delay_factor(&self) -> usize {
-        self.delay_factor
+    pub fn delay_seconds(&self) -> f64 {
+        self.delay_seconds
     }
 
-    pub fn set_delay_factor(&mut self, delay_factor: usize) {
-        self.delay_factor = delay_factor;
+    pub fn set_delay_seconds(&mut self, delay_seconds: ParameterType) {
+        self.delay_seconds = delay_seconds;
     }
 }
 

@@ -81,7 +81,7 @@ impl<V: IsStereoSampleVoice> Ticks for VoiceStore<V> {
     }
 }
 impl<V: IsStereoSampleVoice> VoiceStore<V> {
-    fn new_with(_sample_rate: usize) -> Self {
+    fn new() -> Self {
         Self {
             sample: Default::default(),
             voices: Default::default(),
@@ -93,11 +93,11 @@ impl<V: IsStereoSampleVoice> VoiceStore<V> {
         self.notes_playing.push(u7::from(0));
     }
 
-    pub fn new_with_voice<F>(sample_rate: usize, voice_capacity: usize, new_voice_fn: F) -> Self
+    pub fn new_with_voice<F>(voice_capacity: usize, new_voice_fn: F) -> Self
     where
         F: Fn() -> V,
     {
-        let mut voice_store = Self::new_with(sample_rate);
+        let mut voice_store = Self::new();
         for _ in 0..voice_capacity {
             voice_store.add_voice(Box::new(new_voice_fn()));
         }
@@ -184,7 +184,7 @@ impl<V: IsStereoSampleVoice> Ticks for StealingVoiceStore<V> {
     }
 }
 impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
-    fn new_with(_sample_rate: usize) -> Self {
+    fn new() -> Self {
         Self {
             sample: Default::default(),
             voices: Default::default(),
@@ -192,11 +192,11 @@ impl<V: IsStereoSampleVoice> StealingVoiceStore<V> {
         }
     }
 
-    pub fn new_with_voice<F>(sample_rate: usize, voice_capacity: usize, new_voice_fn: F) -> Self
+    pub fn new_with_voice<F>(voice_capacity: usize, new_voice_fn: F) -> Self
     where
         F: Fn() -> V,
     {
-        let mut voice_store = Self::new_with(sample_rate);
+        let mut voice_store = Self::new();
         for _ in 0..voice_capacity {
             voice_store.add_voice(Box::new(new_voice_fn()));
         }
@@ -267,15 +267,15 @@ impl<V: IsStereoSampleVoice> Ticks for VoicePerNoteStore<V> {
     }
 }
 impl<V: IsStereoSampleVoice> VoicePerNoteStore<V> {
-    pub fn new_with(_sample_rate: usize) -> Self {
+    pub fn new() -> Self {
         Self {
             sample: Default::default(),
             voices: Default::default(),
         }
     }
 
-    pub fn new_with_voices(sample_rate: usize, voice_iter: impl Iterator<Item = (u7, V)>) -> Self {
-        let mut voice_store = Self::new_with(sample_rate);
+    pub fn new_with_voices(voice_iter: impl Iterator<Item = (u7, V)>) -> Self {
+        let mut voice_store = Self::new();
         for (key, voice) in voice_iter {
             voice_store.add_voice(key, Box::new(voice));
         }
@@ -382,19 +382,20 @@ pub(crate) mod tests {
     }
 
     impl TestVoice {
-        pub(crate) fn new_with(sample_rate: usize) -> Self {
+        pub(crate) fn new() -> Self {
             Self {
-                sample_rate,
+                sample_rate: Default::default(),
                 oscillator: Oscillator::new_with(
-                    sample_rate,
                     crate::generators::OscillatorNano::default_with_waveform(
                         crate::generators::WaveformParams::Sine,
                     ),
                 ),
-                envelope: Envelope::new_with(
-                    sample_rate,
-                    EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.0),
-                ),
+                envelope: Envelope::new_with(EnvelopeParams::new_with(
+                    0.0,
+                    0.0,
+                    Normal::maximum(),
+                    0.0,
+                )),
                 sample: Default::default(),
                 note_on_key: Default::default(),
                 note_on_velocity: Default::default(),
@@ -418,10 +419,7 @@ pub(crate) mod tests {
 
     #[test]
     fn simple_voice_store_mainline() {
-        let mut voice_store =
-            VoiceStore::<TestVoice>::new_with_voice(DEFAULT_SAMPLE_RATE, 2, || {
-                TestVoice::new_with(DEFAULT_SAMPLE_RATE)
-            });
+        let mut voice_store = VoiceStore::<TestVoice>::new_with_voice(2, || TestVoice::new());
         assert_gt!(!voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
 
@@ -456,9 +454,7 @@ pub(crate) mod tests {
     #[test]
     fn stealing_voice_store_mainline() {
         let mut voice_store =
-            StealingVoiceStore::<TestVoice>::new_with_voice(DEFAULT_SAMPLE_RATE, 2, || {
-                TestVoice::new_with(DEFAULT_SAMPLE_RATE)
-            });
+            StealingVoiceStore::<TestVoice>::new_with_voice(2, || TestVoice::new());
         assert_gt!(voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
 
@@ -492,10 +488,7 @@ pub(crate) mod tests {
 
     #[test]
     fn voice_store_simultaneous_events() {
-        let mut voice_store =
-            VoiceStore::<TestVoice>::new_with_voice(DEFAULT_SAMPLE_RATE, 2, || {
-                TestVoice::new_with(DEFAULT_SAMPLE_RATE)
-            });
+        let mut voice_store = VoiceStore::<TestVoice>::new_with_voice(2, || TestVoice::new());
         assert_gt!(voice_store.voice_count(), 0);
         assert_eq!(voice_store.active_voice_count(), 0);
 
