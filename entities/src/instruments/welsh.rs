@@ -103,6 +103,7 @@ impl Resets for WelshVoice {
         self.lfo.reset(sample_rate);
         self.amp_envelope.reset(sample_rate);
         self.filter_envelope.reset(sample_rate);
+        self.filter.reset(sample_rate);
         self.oscillators
             .iter_mut()
             .for_each(|o| o.reset(sample_rate));
