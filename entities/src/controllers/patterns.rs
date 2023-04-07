@@ -202,7 +202,7 @@ mod tests {
     use groove_core::time::{BeatValue, TimeSignature};
 
     #[test]
-    fn test_pattern() {
+    fn pattern_mainline() {
         let time_signature = TimeSignature::default();
         let mut sequencer = Sequencer::new_with(crate::controllers::SequencerNano { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);
@@ -260,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multi_pattern_track() {
+    fn multi_pattern_track() {
         let time_signature = TimeSignature::new_with(7, 8).expect("failed");
         let mut sequencer = Sequencer::new_with(crate::controllers::SequencerNano { bpm: 128.0 });
         let mut programmer = PatternProgrammer::new_with(&time_signature);

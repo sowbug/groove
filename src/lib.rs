@@ -186,14 +186,14 @@ usec/frame : {:.2?} (goal <{:.2?})",
         );
         let _ = file.write(output.as_bytes());
 
-        let mut path = TestOnlyPaths::test_data_path();
+        let mut path = TestOnlyPaths::data_path();
         path.push("perf-1.wav");
         assert!(IOHelper::send_performance_to_file(&performance, &path).is_ok());
     }
 
     #[test]
     fn patching_to_device_with_no_input_fails_with_proper_error() {
-        let path = TestOnlyPaths::test_data_path().join("instruments-have-no-inputs.yaml");
+        let path = TestOnlyPaths::data_path().join("instruments-have-no-inputs.yaml");
         let yaml = std::fs::read_to_string(path)
             .unwrap_or_else(|err| panic!("loading YAML failed: {:?}", err));
         let song_settings = SongSettings::new_from_yaml(yaml.as_str())

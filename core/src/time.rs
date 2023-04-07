@@ -555,12 +555,12 @@ mod tests {
     }
 
     #[test]
-    fn test_time_signature_invalid_bottom_below_range() {
+    fn time_signature_invalid_bottom_below_range() {
         assert!(TimeSignature::new_with(4, 0).is_err());
     }
 
     #[test]
-    fn test_time_signature_invalid_bottom_above_range() {
+    fn time_signature_invalid_bottom_above_range() {
         // 2^10 = 1024, 1024 * 1024 = 1048576, which is higher than
         // BeatValue::FiveHundredTwelfth value of 524288
         let bv = BeatValue::from_divisor(2.0f32.powi(10));

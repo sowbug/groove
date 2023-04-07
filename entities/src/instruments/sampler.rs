@@ -365,10 +365,10 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn test_loading() {
+    fn loading() {
         let filename = PathBuf::from("stereo-pluck.wav");
         let sampler = Sampler::new_with(
-            TestOnlyPaths::test_data_path(),
+            TestOnlyPaths::data_path(),
             SamplerNano {
                 filename: filename.to_str().unwrap().to_string(),
                 root: 0.0.into(),
@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     #[ignore = "Re-enable when SamplerNano knows how to handle String"]
-    fn test_reading_acidized_metadata() {
+    fn reading_acidized_metadata() {
         let filename = PathBuf::from("riff-acidized.wav");
         let root_note = Sampler::read_riff_metadata(&filename);
         assert!(root_note.is_ok());
@@ -392,7 +392,7 @@ mod tests {
 
     //    #[test]
     #[allow(dead_code)]
-    fn test_reading_smpl_metadata() {
+    fn reading_smpl_metadata() {
         let filename = PathBuf::from("riff-with-smpl.wav");
         let root_note = Sampler::read_riff_metadata(&filename);
         assert!(root_note.is_ok());
@@ -400,11 +400,11 @@ mod tests {
     }
 
     #[test]
-    fn test_loading_with_root_frequency() {
+    fn loading_with_root_frequency() {
         let filename = PathBuf::from("riff-acidized.wav");
 
         let sampler = Sampler::new_with(
-            TestOnlyPaths::test_data_path(),
+            TestOnlyPaths::data_path(),
             SamplerNano {
                 filename: filename.to_str().unwrap().to_string(),
                 root: 0.0.into(),
@@ -417,7 +417,7 @@ mod tests {
         );
 
         let sampler = Sampler::new_with(
-            TestOnlyPaths::test_data_path(),
+            TestOnlyPaths::data_path(),
             SamplerNano {
                 filename: filename.to_str().unwrap().to_string(),
                 root: 123.0.into(),
@@ -430,7 +430,7 @@ mod tests {
         );
 
         let sampler = Sampler::new_with(
-            TestOnlyPaths::test_data_path(),
+            TestOnlyPaths::data_path(),
             SamplerNano {
                 filename: PathBuf::from("riff-not-acidized.wav")
                     .to_str()
@@ -445,7 +445,7 @@ mod tests {
             "specified parameter should be used for non-acidized WAV"
         );
 
-        let sampler = Sampler::new_with(TestOnlyPaths::test_data_path(), {
+        let sampler = Sampler::new_with(TestOnlyPaths::data_path(), {
             SamplerNano {
                 filename: PathBuf::from("riff-not-acidized.wav")
                     .to_str()
@@ -463,7 +463,7 @@ mod tests {
 
     #[test]
     fn sampler_makes_any_sound_at_all() {
-        let mut filename = TestOnlyPaths::test_data_path();
+        let mut filename = TestOnlyPaths::data_path();
         filename.push("square-440Hz-1-second-mono-24-bit-PCM.wav");
         let samples = Sampler::read_samples_from_file(&filename);
         assert!(samples.is_ok());

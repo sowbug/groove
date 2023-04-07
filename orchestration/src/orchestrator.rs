@@ -1455,7 +1455,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_patch_fails_with_bad_id() {
+    fn patch_fails_with_bad_id() {
         let mut o = Orchestrator::new_with(DEFAULT_BPM);
         assert!(o.patch(3, 2).is_err());
     }
@@ -1465,7 +1465,7 @@ pub mod tests {
     // Reimplement as smaller tests.
 
     #[test]
-    fn test_pattern_default_note_value() {
+    fn pattern_default_note_value() {
         let time_signature = TimeSignature::new_with(7, 4).expect("failed");
         let mut sequencer =
             Sequencer::new_with(groove_entities::controllers::SequencerNano { bpm: 128.0 });
@@ -1487,7 +1487,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_random_access() {
+    fn random_access() {
         const INSTRUMENT_MIDI_CHANNEL: MidiChannel = 7;
         let mut o = Orchestrator::new_with(DEFAULT_BPM);
         o.reset(DEFAULT_SAMPLE_RATE);

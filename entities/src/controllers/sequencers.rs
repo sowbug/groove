@@ -527,7 +527,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sequencer() {
+    fn sequencer_mainline() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = 7;
         let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
         // let mut o = Orchestrator::new_with(DEFAULT_BPM);
@@ -581,7 +581,7 @@ mod tests {
 
     // TODO: re-enable later.......................................................................
     // #[test]
-    // fn test_sequencer_multichannel() {
+    // fn sequencer_multichannel() {
     //     let mut clock = Clock::default();
     //     let mut sequencer = MidiTickSequencer::<TestMessage>::default();
 

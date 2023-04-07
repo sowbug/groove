@@ -910,7 +910,7 @@ mod tests {
         }
     }
 
-    fn test_patch() -> WelshPatchSettings {
+    fn boring_test_patch() -> WelshPatchSettings {
         WelshPatchSettings {
             name: WelshPatchSettings::patch_name_to_settings_name("Test"),
             oscillator_1: OscillatorSettings {
@@ -958,7 +958,7 @@ mod tests {
 
     #[test]
     fn welsh_makes_any_sound_at_all() {
-        let mut voice = test_patch().derive_welsh_voice();
+        let mut voice = boring_test_patch().derive_welsh_voice();
         voice.note_on(60, 127);
 
         // Skip a few frames in case attack is slow
@@ -972,7 +972,7 @@ mod tests {
     #[test]
     fn basic_synth_patch() {
         let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
-        let mut voice = test_patch().derive_welsh_voice();
+        let mut voice = boring_test_patch().derive_welsh_voice();
         voice.note_on(60, 127);
         voice.tick(1);
         write_sound(&mut voice, &mut clock, 5.0, 5.0, "voice_basic_test_c4");

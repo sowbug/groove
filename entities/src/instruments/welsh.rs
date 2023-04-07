@@ -453,7 +453,7 @@ mod tests {
 
     // TODO dedup
     pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
-        let mut path = TestOnlyPaths::test_data_path();
+        let mut path = TestOnlyPaths::data_path();
         let snake_filename = format!("{}.wav", filename.to_case(Case::Snake)).to_string();
         path.push(snake_filename);
         if let Some(path) = path.to_str() {
@@ -505,7 +505,7 @@ mod tests {
     // use strum::IntoEnumIterator;
     // #[test]
     // #[should_panic]
-    // fn test_presets() {
+    // fn presets() {
     //     let clock = Clock::new(&ClockSettings::new_defaults());
     //     for preset in PresetName::iter() {
     //         let result = panic::catch_unwind(|| {
@@ -531,7 +531,7 @@ mod tests {
 
     // #[test]
     // #[should_panic]
-    // fn test_presets() {
+    // fn presets() {
     //     for preset in PresetName::iter() {
     //         if let Ok(result) = panic::catch_unwind(|| super::SynthPreset::by_name(&preset)) {
     //             if let Ok(s) = serde_yaml::to_string(&result) {

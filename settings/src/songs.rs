@@ -320,13 +320,13 @@ mod tests {
     use super::SongSettings;
 
     #[test]
-    fn test_empty_file_fails_with_proper_error() {
+    fn empty_file_fails_with_proper_error() {
         let r = SongSettings::new_from_yaml("");
         assert_eq!(r.unwrap_err().to_string(), "EOF while parsing a value");
     }
 
     #[test]
-    fn test_garbage_file_fails_with_proper_error() {
+    fn garbage_file_fails_with_proper_error() {
         let r = SongSettings::new_from_yaml("da39a3ee5e6b4b0d3255bfef95601890afd80709");
         assert!(r
             .unwrap_err()
@@ -335,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    fn test_valid_yaml_bad_song_file_fails_with_proper_error() {
+    fn valid_yaml_bad_song_file_fails_with_proper_error() {
         let r = SongSettings::new_from_yaml(
             "---\ndo: \"a deer, a female deer\"\nre: \"a drop of golden sun\"",
         );

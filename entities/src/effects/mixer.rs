@@ -49,7 +49,7 @@ impl Mixer {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_mixer_mainline() {
+    fn mixer_mainline() {
         // This could be replaced with a test, elsewhere, showing that
         // Orchestrator's gather_audio() method can gather audio.
     }

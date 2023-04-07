@@ -60,7 +60,7 @@ mod tests {
     use groove_toys::{ToyAudioSource, ToyAudioSourceNano};
 
     #[test]
-    fn test_gain_mainline() {
+    fn gain_mainline() {
         let mut gain = Gain::new_with(GainNano {
             ceiling: Normal::new(0.5),
         });

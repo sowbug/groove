@@ -1146,7 +1146,7 @@ pub mod tests {
                 ..Default::default()
             });
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = TestOnlyPaths::test_data_path();
+            let mut filename = TestOnlyPaths::data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("square-{}.wav", test_case.1));
@@ -1159,7 +1159,7 @@ pub mod tests {
         }
     }
 
-    fn test_cases() -> Vec<(FrequencyHz, &'static str)> {
+    fn get_test_cases() -> Vec<(FrequencyHz, &'static str)> {
         vec![
             (FrequencyHz(1.0), "1Hz"),
             (FrequencyHz(100.0), "100Hz"),
@@ -1171,14 +1171,14 @@ pub mod tests {
 
     #[test]
     fn sine_matches_known_good() {
-        for test_case in test_cases() {
+        for test_case in get_test_cases() {
             let mut osc = Oscillator::new_with(OscillatorNano {
                 waveform: WaveformParams::Sine,
                 frequency: test_case.0.into(),
                 ..Default::default()
             });
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = TestOnlyPaths::test_data_path();
+            let mut filename = TestOnlyPaths::data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("sine-{}.wav", test_case.1));
@@ -1193,14 +1193,14 @@ pub mod tests {
 
     #[test]
     fn sawtooth_matches_known_good() {
-        for test_case in test_cases() {
+        for test_case in get_test_cases() {
             let mut osc = Oscillator::new_with(OscillatorNano {
                 waveform: WaveformParams::Sawtooth,
                 frequency: test_case.0.into(),
                 ..Default::default()
             });
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = TestOnlyPaths::test_data_path();
+            let mut filename = TestOnlyPaths::data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("sawtooth-{}.wav", test_case.1));
@@ -1215,14 +1215,14 @@ pub mod tests {
 
     #[test]
     fn triangle_matches_known_good() {
-        for test_case in test_cases() {
+        for test_case in get_test_cases() {
             let mut osc = Oscillator::new_with(OscillatorNano {
                 waveform: WaveformParams::Triangle,
                 frequency: test_case.0.into(),
                 ..Default::default()
             });
             let samples = render_signal_as_audio_source(&mut osc, 1);
-            let mut filename = TestOnlyPaths::test_data_path();
+            let mut filename = TestOnlyPaths::data_path();
             filename.push("audacity");
             filename.push("44100Hz-mono");
             filename.push(format!("triangle-{}.wav", test_case.1));
@@ -1868,7 +1868,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_envelope_step_functions() {
+    fn envelope_step_functions() {
         const START_TIME: f64 = 3.14159;
         const DURATION: f64 = 2.71828;
         const START_VALUE: SignalType = 1.0;

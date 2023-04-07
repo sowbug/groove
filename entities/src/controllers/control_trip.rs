@@ -254,7 +254,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_flat_step() {
+    fn flat_step() {
         let step_vec = vec![
             ControlStep::Flat { value: 0.9 },
             ControlStep::Flat { value: 0.1 },
@@ -301,7 +301,7 @@ mod tests {
     }
 
     #[test]
-    fn test_slope_step() {
+    fn slope_step() {
         let step_vec = vec![
             ControlStep::Slope {
                 start: 0.0,

@@ -549,7 +549,7 @@ pub mod tests {
     // this one just tests that a generic instrument doesn't panic when accessed
     // for non-consecutive time slices.
     #[test]
-    fn test_sources_audio_random_access() {
+    fn sources_audio_random_access() {
         let mut instrument = ToyInstrument::new_with(ToyInstrumentNano {
             fake_value: Normal::from(0.42),
         });

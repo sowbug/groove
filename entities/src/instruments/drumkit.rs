@@ -151,7 +151,7 @@ impl Drumkit {
 // flexible way to load drumkits, switch over to that.
 //
 //     // #[test]
-//     // fn test_loading() {
+//     // fn loading() {
 //     //     let _ = Drumkit::new_from_files(DEFAULT_SAMPLE_RATE,         PathBuf::from("test-data/;
 //     // }
 // }

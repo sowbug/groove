@@ -20,7 +20,7 @@ pub mod tests {
             )
         }
 
-        pub fn test_data_path() -> PathBuf {
+        pub fn data_path() -> PathBuf {
             const TEST_DATA: &str = "test-data";
             let mut path_buf = Self::cwd();
             path_buf.push(TEST_DATA);
