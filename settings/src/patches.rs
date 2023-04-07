@@ -5,11 +5,11 @@ use convert_case::{Boundary, Case, Casing};
 use groove_core::{
     generators::{EnvelopeNano, Oscillator, OscillatorNano, WaveformParams},
     midi::{note_to_frequency, GeneralMidiProgram},
-    BipolarNormal, DcaNano, FrequencyHz, Normal, ParameterType, Ratio,
+    BipolarNormal, FrequencyHz, Normal, ParameterType, Ratio,
 };
 use groove_entities::{
-    effects::{BiQuadFilter, BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano},
-    instruments::{LfoRouting, WelshSynth, WelshSynthNano},
+    effects::{BiQuadFilter, BiQuadFilterLowPass24dbNano},
+    instruments::{LfoRouting, WelshSynthNano},
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -106,29 +106,6 @@ impl WelshPatchSettings {
             }));
         }
 
-        let oscillator_mix = if oscillators.is_empty() {
-            Normal::zero()
-        } else if oscillators.len() == 1
-            || (self.oscillator_1.mix == 0.0 && self.oscillator_2.mix == 0.0)
-        {
-            Normal::maximum()
-        } else {
-            let total = self.oscillator_1.mix + self.oscillator_2.mix;
-            Normal::from(self.oscillator_1.mix / total)
-        };
-
-        //        let amp_envelope = self.amp_envelope.derive_envelope(sample_rate);
-        let lfo = self.lfo.derive_oscillator();
-        //   let lfo_routing = self.lfo.routing.into();
-        // let lfo_depth = self.lfo.depth.into();
-        let filter = BiQuadFilterLowPass24db::new_with(BiQuadFilterLowPass24dbNano {
-            cutoff: self.filter_type_24db.cutoff_hz.into(),
-            passband_ripple: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
-        });
-        let filter_cutoff_start =
-            FrequencyHz::frequency_to_percent(self.filter_type_12db.cutoff_hz.into());
-        let filter_cutoff_end = self.filter_envelope_weight.into();
-
         WelshSynthNano {
             oscillator_1: OscillatorNano {
                 waveform: self.oscillator_1.waveform.into(),
@@ -141,12 +118,19 @@ impl WelshPatchSettings {
                 ..Default::default()
             },
             oscillator_sync: self.oscillator_2_sync,
-            oscillator_mix,
-            envelope: self.amp_envelope.clone(),
-            dca: DcaNano {
-                gain: 1.0.into(),
-                pan: BipolarNormal::zero(),
+            oscillator_mix: if oscillators.is_empty() {
+                Normal::zero()
+            } else if oscillators.len() == 1
+                || (self.oscillator_1.mix == 0.0 && self.oscillator_2.mix == 0.0)
+            {
+                Normal::maximum()
+            } else {
+                let total = self.oscillator_1.mix + self.oscillator_2.mix;
+                Normal::from(self.oscillator_1.mix / total)
             },
+            envelope: self.amp_envelope.clone(),
+            gain: 1.0.into(),
+            pan: BipolarNormal::zero(),
             lfo: OscillatorNano {
                 waveform: self.lfo.waveform.into(),
                 frequency: self.lfo.frequency.into(),
@@ -156,12 +140,13 @@ impl WelshPatchSettings {
             lfo_depth: self.lfo.depth.into(),
             low_pass_filter: BiQuadFilterLowPass24dbNano {
                 cutoff: self.filter_type_24db.cutoff_hz.into(),
-                passband_ripple: 1.414,
-            }, // TODO HACK HACK HAC
-            filter_cutoff_start,
-            filter_cutoff_end,
+                passband_ripple: BiQuadFilter::denormalize_q(self.filter_resonance.into()),
+            },
+            filter_cutoff_start: FrequencyHz::frequency_to_percent(
+                self.filter_type_12db.cutoff_hz.into(),
+            ),
+            filter_cutoff_end: self.filter_envelope_weight.into(),
             filter_envelope: self.filter_envelope.clone(),
-            pan: BipolarNormal::zero(),
         }
     }
 }
@@ -333,15 +318,6 @@ pub struct LfoPreset {
     pub waveform: WaveformType,
     pub frequency: f32,
     pub depth: LfoDepth,
-}
-impl LfoPreset {
-    pub fn derive_oscillator(&self) -> Oscillator {
-        Oscillator::new_with(OscillatorNano {
-            waveform: self.waveform.into(),
-            frequency: self.frequency.into(),
-            ..Default::default()
-        })
-    }
 }
 
 // TODO: for Welsh presets, it's understood that they're all low-pass filters.

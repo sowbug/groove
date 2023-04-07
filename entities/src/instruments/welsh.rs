@@ -85,9 +85,6 @@ impl PlaysNotes for WelshVoice {
         self.amp_envelope.trigger_release();
         self.filter_envelope.trigger_release();
     }
-    fn set_pan(&mut self, value: BipolarNormal) {
-        self.dca.set_pan(value)
-    }
 }
 impl Generates<StereoSample> for WelshVoice {
     fn value(&self) -> StereoSample {
@@ -232,7 +229,10 @@ impl WelshVoice {
             oscillator_2_sync: params.oscillator_sync(),
             oscillator_mix: params.oscillator_mix(),
             amp_envelope: Envelope::new_with(params.envelope().clone()),
-            dca: Dca::new_with(params.dca().clone()),
+            dca: Dca::new_with(DcaNano {
+                gain: params.gain(),
+                pan: params.pan(),
+            }),
             lfo: Oscillator::new_with(params.lfo().clone()),
             lfo_routing: params.lfo_routing(),
             lfo_depth: params.lfo_depth(),
@@ -246,6 +246,14 @@ impl WelshVoice {
             sample: Default::default(),
             ticks: Default::default(),
         }
+    }
+
+    fn set_gain(&mut self, gain: Normal) {
+        self.dca.set_gain(gain)
+    }
+
+    fn set_pan(&mut self, pan: BipolarNormal) {
+        self.dca.set_pan(pan)
     }
 }
 
@@ -267,9 +275,6 @@ pub struct WelshSynth {
     envelope: EnvelopeNano,
 
     #[nano(control = false, no_copy = true)]
-    dca: DcaNano,
-
-    #[nano(control = false, no_copy = true)]
     lfo: OscillatorNano,
     #[nano(control = false)]
     lfo_routing: LfoRouting,
@@ -287,6 +292,9 @@ pub struct WelshSynth {
 
     #[nano(control = false, no_copy = true)]
     filter_envelope: EnvelopeNano,
+
+    #[nano]
+    gain: Normal,
 
     #[nano]
     pan: BipolarNormal,
@@ -342,14 +350,14 @@ impl WelshSynth {
         Self {
             uid: Default::default(),
             inner_synth: Synthesizer::<WelshVoice>::new_with(Box::new(voice_store)),
-            pan: params.dca().pan(),
+            gain: params.gain(),
+            pan: params.pan(),
             envelope: params.envelope().clone(),
             filter_envelope: params.filter_envelope().clone(),
             oscillator_1: params.oscillator_1().clone(),
             oscillator_2: params.oscillator_2().clone(),
             oscillator_sync: params.oscillator_sync(),
             oscillator_mix: params.oscillator_mix(),
-            dca: params.dca().clone(),
             lfo: params.lfo().clone(),
             lfo_routing: params.lfo_routing(),
             lfo_depth: params.lfo_depth(),
@@ -364,7 +372,16 @@ impl WelshSynth {
         //        self.preset.name.as_str()
     }
 
-    pub fn pan(&self) -> f32 {
+    pub fn gain(&self) -> Normal {
+        self.inner_synth.gain()
+    }
+
+    pub fn set_gain(&mut self, gain: Normal) {
+        self.gain = gain;
+        self.inner_synth.voices_mut().for_each(|v| v.set_gain(gain));
+    }
+
+    pub fn pan(&self) -> BipolarNormal {
         self.inner_synth.pan()
     }
 
@@ -442,14 +459,6 @@ impl WelshSynth {
 
     pub fn lfo(&self) -> &OscillatorNano {
         &self.lfo
-    }
-
-    pub fn dca(&self) -> &DcaNano {
-        &self.dca
-    }
-
-    pub fn set_dca(&mut self, dca: DcaNano) {
-        self.dca = dca;
     }
 }
 

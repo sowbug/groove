@@ -2,7 +2,7 @@
 
 pub use crate::midi::HandlesMidi;
 
-use crate::{midi::u7, BipolarNormal, Normal, Sample, StereoSample};
+use crate::{midi::u7, Normal, Sample, StereoSample};
 
 pub trait MessageBounds: std::fmt::Debug + Send {}
 
@@ -196,10 +196,6 @@ pub trait PlaysNotes {
     /// Initiates a note-off event, which can take a long time to complete,
     /// depending on how long the envelope's release is.
     fn note_off(&mut self, velocity: u8);
-
-    /// Sets this entity's left-right balance. TODO: why is this here?
-    #[deprecated]
-    fn set_pan(&mut self, value: BipolarNormal);
 }
 
 // TODO: I didn't want StoresVoices to know anything about audio (i.e.,

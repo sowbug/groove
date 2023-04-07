@@ -6,7 +6,7 @@ use groove_core::{
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{Generates, IsInstrument, IsStereoSampleVoice, IsVoice, PlaysNotes, Resets, Ticks},
     voices::VoiceStore,
-    BipolarNormal, FrequencyHz, ParameterType, Sample, SampleType, StereoSample,
+    FrequencyHz, ParameterType, Sample, SampleType, StereoSample,
 };
 use groove_proc_macros::{Nano, Uid};
 use hound::WavReader;
@@ -60,11 +60,6 @@ impl PlaysNotes for SamplerVoice {
     fn note_off(&mut self, velocity: u8) {
         self.is_playing = false;
         self.sample_pointer = 0.0;
-    }
-
-    #[allow(unused_variables)]
-    fn set_pan(&mut self, value: BipolarNormal) {
-        todo!()
     }
 }
 impl Generates<StereoSample> for SamplerVoice {
@@ -360,7 +355,6 @@ impl Sampler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::DEFAULT_SAMPLE_RATE;
     use groove_core::util::tests::TestOnlyPaths;
     use std::path::PathBuf;
 

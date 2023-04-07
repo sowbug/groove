@@ -423,7 +423,6 @@ mod tests {
 
     const DEFAULT_BPM: ParameterType = 128.0;
     const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
-    const DEFAULT_SAMPLE_RATE: usize = 44100;
 
     impl Clock {
         pub fn new_test() -> Self {

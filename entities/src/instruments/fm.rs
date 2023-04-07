@@ -79,10 +79,6 @@ impl PlaysNotes for FmVoice {
         self.carrier_envelope.trigger_release();
         self.modulator_envelope.trigger_release();
     }
-
-    fn set_pan(&mut self, value: BipolarNormal) {
-        self.dca.set_pan(value);
-    }
 }
 impl Generates<StereoSample> for FmVoice {
     fn value(&self) -> StereoSample {
@@ -147,7 +143,10 @@ impl FmVoice {
             modulator_beta: params.beta,
             carrier_envelope: Envelope::new_with(params.carrier_envelope().clone()),
             modulator_envelope: Envelope::new_with(params.modulator_envelope().clone()),
-            dca: Dca::new_with(params.dca().clone()),
+            dca: Dca::new_with(DcaNano {
+                gain: params.gain(),
+                pan: params.pan(),
+            }),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
             steal_is_underway: Default::default(),
@@ -203,6 +202,14 @@ impl FmVoice {
     pub fn set_modulator_envelope(&mut self, params: EnvelopeNano) {
         self.modulator_envelope = Envelope::new_with(params)
     }
+
+    fn set_gain(&mut self, gain: Normal) {
+        self.dca.set_gain(gain);
+    }
+
+    fn set_pan(&mut self, pan: BipolarNormal) {
+        self.dca.set_pan(pan);
+    }
 }
 
 #[derive(Debug, Nano, Uid)]
@@ -222,8 +229,11 @@ pub struct FmSynth {
     #[nano(control = false, no_copy = true)]
     modulator_envelope: EnvelopeNano,
 
-    #[nano(control = false, no_copy = true)]
-    dca: DcaNano,
+    #[nano]
+    gain: Normal,
+
+    #[nano]
+    pan: BipolarNormal,
 
     uid: usize,
     inner_synth: Synthesizer<FmVoice>,
@@ -271,7 +281,8 @@ impl FmSynth {
             beta: params.beta(),
             carrier_envelope: params.carrier_envelope().clone(),
             modulator_envelope: params.modulator_envelope().clone(),
-            dca: params.dca().clone(),
+            gain: params.gain(),
+            pan: params.pan(),
         }
     }
 
@@ -331,7 +342,11 @@ impl FmSynth {
             .for_each(|v| v.set_modulator_envelope(self.modulator_envelope.clone()));
     }
 
-    pub fn set_dca(&mut self, dca: DcaNano) {
-        self.dca = dca;
+    pub fn set_gain(&mut self, gain: Normal) {
+        self.inner_synth.voices_mut().for_each(|v| v.set_gain(gain));
+    }
+
+    pub fn set_pan(&mut self, pan: BipolarNormal) {
+        self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
     }
 }

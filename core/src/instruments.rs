@@ -3,7 +3,7 @@
 use crate::{
     midi::{HandlesMidi, MidiChannel, MidiMessage},
     traits::{Generates, IsStereoSampleVoice, Resets, StoresVoices, Ticks},
-    StereoSample,
+    BipolarNormal, Normal, StereoSample,
 };
 
 /// [Synthesizer] provides the smallest possible functional core of a
@@ -27,8 +27,9 @@ pub struct Synthesizer<V: IsStereoSampleVoice> {
     /// Ranges from 0..127. Applies to all notes.
     channel_aftertouch: u8,
 
-    /// TODO: bipolar modal, -1.0 = all left, 1.0 = all right, 0.0 = center
-    pan: f32,
+    gain: Normal,
+
+    pan: BipolarNormal,
 }
 impl<V: IsStereoSampleVoice> Generates<StereoSample> for Synthesizer<V> {
     fn value(&self) -> StereoSample {
@@ -57,6 +58,7 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
             sample_rate: Default::default(),
             pitch_bend: Default::default(),
             channel_aftertouch: Default::default(),
+            gain: Default::default(),
             pan: Default::default(),
         }
     }
@@ -77,7 +79,11 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
         self.channel_aftertouch = channel_aftertouch;
     }
 
-    pub fn pan(&self) -> f32 {
+    pub fn gain(&self) -> Normal {
+        self.gain
+    }
+
+    pub fn pan(&self) -> BipolarNormal {
         self.pan
     }
 

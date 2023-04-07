@@ -123,7 +123,6 @@ impl SongSettings {
                 }
                 DeviceSettings::Controller(uvid, settings) => {
                     let (channel_in, _channel_out, entity) = settings.instantiate(
-                        clock_settings.sample_rate,
                         clock_settings.beats_per_minute as ParameterType,
                         load_only_test_entities,
                     );

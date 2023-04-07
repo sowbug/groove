@@ -216,7 +216,7 @@ mod tests {
             time_signature: (usize, usize),
         ) -> Self {
             Self {
-                sample_rate: Default::default(),
+                sample_rate,
                 beats_per_minute,
                 time_signature: TimeSignatureSettings {
                     top: time_signature.0,

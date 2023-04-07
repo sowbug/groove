@@ -430,10 +430,6 @@ impl PlaysNotes for ToyVoice {
     fn note_off(&mut self, _velocity: u8) {
         self.envelope.trigger_release()
     }
-
-    fn set_pan(&mut self, _value: groove_core::BipolarNormal) {
-        //
-    }
 }
 impl Generates<StereoSample> for ToyVoice {
     fn value(&self) -> StereoSample {

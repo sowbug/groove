@@ -294,7 +294,7 @@ pub(crate) mod tests {
         midi::{note_to_frequency, u7},
         traits::{GeneratesEnvelope, IsVoice, PlaysNotes, StoresVoices, Ticks},
         voices::{Generates, IsStereoSampleVoice, Resets, StealingVoiceStore, VoiceStore},
-        BipolarNormal, FrequencyHz, Normal, ParameterType, StereoSample,
+        FrequencyHz, ParameterType, StereoSample,
     };
     use float_cmp::approx_eq;
     use more_asserts::assert_gt;
@@ -335,10 +335,6 @@ pub(crate) mod tests {
 
         fn note_off(&mut self, _velocity: u8) {
             self.envelope.trigger_release();
-        }
-
-        fn set_pan(&mut self, _value: BipolarNormal) {
-            // We don't handle this.
         }
     }
     impl Generates<StereoSample> for TestVoice {
