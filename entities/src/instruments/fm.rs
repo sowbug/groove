@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Envelope, EnvelopeNano, Oscillator, OscillatorNano, WaveformParams},
+    generators::{Envelope, EnvelopeNano, Oscillator, OscillatorNano, Waveform},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
@@ -132,12 +132,8 @@ impl FmVoice {
         Self {
             sample_rate: Default::default(),
             sample: Default::default(),
-            carrier: Oscillator::new_with(OscillatorNano::default_with_waveform(
-                WaveformParams::Sine,
-            )),
-            modulator: Oscillator::new_with(OscillatorNano::default_with_waveform(
-                WaveformParams::Sine,
-            )),
+            carrier: Oscillator::new_with(OscillatorNano::default_with_waveform(Waveform::Sine)),
+            modulator: Oscillator::new_with(OscillatorNano::default_with_waveform(Waveform::Sine)),
             modulator_depth: params.depth,
             modulator_ratio: params.ratio,
             modulator_beta: params.beta,

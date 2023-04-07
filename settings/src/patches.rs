@@ -3,7 +3,7 @@
 use super::LoadError;
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
-    generators::{EnvelopeNano, Oscillator, OscillatorNano, WaveformParams},
+    generators::{EnvelopeNano, Oscillator, OscillatorNano, Waveform},
     midi::{note_to_frequency, GeneralMidiProgram},
     BipolarNormal, FrequencyHz, Normal, ParameterType, Ratio,
 };
@@ -85,10 +85,10 @@ impl WelshPatchSettings {
 
     pub fn derive_welsh_synth_nano(&self) -> WelshSynthNano {
         let mut oscillators = Vec::default();
-        if !matches!(self.oscillator_1.waveform, WaveformType::None) {
+        if !matches!(self.oscillator_1.waveform, Waveform::None) {
             oscillators.push(self.oscillator_1.derive_oscillator());
         }
-        if !matches!(self.oscillator_2.waveform, WaveformType::None) {
+        if !matches!(self.oscillator_2.waveform, Waveform::None) {
             let mut o = self.oscillator_2.derive_oscillator();
             if !self.oscillator_2_track {
                 if let OscillatorTune::Note(note) = self.oscillator_2.tune {
@@ -101,7 +101,7 @@ impl WelshPatchSettings {
         }
         if self.noise > 0.0 {
             oscillators.push(Oscillator::new_with(OscillatorNano {
-                waveform: WaveformParams::Noise,
+                waveform: Waveform::Noise,
                 ..Default::default()
             }));
         }
@@ -132,7 +132,7 @@ impl WelshPatchSettings {
             gain: 1.0.into(),
             pan: BipolarNormal::zero(),
             lfo: OscillatorNano {
-                waveform: self.lfo.waveform.into(),
+                waveform: self.lfo.waveform,
                 frequency: self.lfo.frequency.into(),
                 ..Default::default()
             },
@@ -167,24 +167,6 @@ pub enum WaveformType {
     DebugMin,
 
     TriangleSine, // TODO
-}
-#[allow(clippy::from_over_into)]
-impl Into<WaveformParams> for WaveformType {
-    fn into(self) -> WaveformParams {
-        match self {
-            WaveformType::None => WaveformParams::Sine,
-            WaveformType::Sine => WaveformParams::Sine,
-            WaveformType::Square => WaveformParams::Square,
-            WaveformType::PulseWidth(pct) => WaveformParams::PulseWidth(pct),
-            WaveformType::Triangle => WaveformParams::Triangle,
-            WaveformType::Sawtooth => WaveformParams::Sawtooth,
-            WaveformType::Noise => WaveformParams::Noise,
-            WaveformType::DebugZero => WaveformParams::DebugZero,
-            WaveformType::DebugMax => WaveformParams::DebugMax,
-            WaveformType::DebugMin => WaveformParams::DebugMin,
-            WaveformType::TriangleSine => WaveformParams::TriangleSine,
-        }
-    }
 }
 
 pub type GlideSettings = f32;
@@ -226,7 +208,7 @@ impl From<OscillatorTune> for Ratio {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct OscillatorSettings {
-    pub waveform: WaveformType,
+    pub waveform: Waveform,
     pub tune: OscillatorTune,
 
     #[serde(rename = "mix-pct")]
@@ -235,7 +217,7 @@ pub struct OscillatorSettings {
 impl Default for OscillatorSettings {
     fn default() -> Self {
         Self {
-            waveform: WaveformType::default(),
+            waveform: Waveform::default(),
             tune: OscillatorTune::Osc {
                 octave: 0,
                 semi: 0,
@@ -315,7 +297,7 @@ impl From<LfoDepth> for Normal {
 #[serde(rename_all = "kebab-case")]
 pub struct LfoPreset {
     pub routing: LfoRoutingType,
-    pub waveform: WaveformType,
+    pub waveform: Waveform,
     pub frequency: f32,
     pub depth: LfoDepth,
 }
@@ -731,14 +713,13 @@ impl FmSynthesizerSettings {
 #[cfg(test)]
 mod tests {
     use super::{
-        FilterPreset, LfoDepth, LfoPreset, LfoRoutingType, PolyphonySettings, WaveformType,
-        WelshPatchSettings,
+        FilterPreset, LfoDepth, LfoPreset, LfoRoutingType, PolyphonySettings, WelshPatchSettings,
     };
     use crate::patches::OscillatorSettings;
     use convert_case::{Case, Casing};
     use float_cmp::approx_eq;
     use groove_core::{
-        generators::EnvelopeNano,
+        generators::{EnvelopeNano, Waveform},
         time::Clock,
         traits::{Generates, PlaysNotes, Resets, Ticks},
         util::tests::TestOnlyPaths,
@@ -848,11 +829,11 @@ mod tests {
         WelshPatchSettings {
             name: WelshPatchSettings::patch_name_to_settings_name("Cello"),
             oscillator_1: OscillatorSettings {
-                waveform: WaveformType::PulseWidth(0.1),
+                waveform: Waveform::PulseWidth(0.1.into()),
                 ..Default::default()
             },
             oscillator_2: OscillatorSettings {
-                waveform: WaveformType::Square,
+                waveform: Waveform::Square,
                 ..Default::default()
             },
             oscillator_2_track: true,
@@ -860,7 +841,7 @@ mod tests {
             noise: 0.0,
             lfo: LfoPreset {
                 routing: LfoRoutingType::Amplitude,
-                waveform: WaveformType::Sine,
+                waveform: Waveform::Sine,
                 frequency: 7.5,
                 depth: LfoDepth::Pct(0.05),
             },
@@ -896,11 +877,11 @@ mod tests {
         WelshPatchSettings {
             name: WelshPatchSettings::patch_name_to_settings_name("Test"),
             oscillator_1: OscillatorSettings {
-                waveform: WaveformType::Sawtooth,
+                waveform: Waveform::Sawtooth,
                 ..Default::default()
             },
             oscillator_2: OscillatorSettings {
-                waveform: WaveformType::None,
+                waveform: Waveform::None,
                 ..Default::default()
             },
             oscillator_2_track: true,

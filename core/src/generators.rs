@@ -24,11 +24,12 @@ use serde::{Deserialize, Serialize};
     derive(Serialize, Deserialize),
     serde(rename = "waveform", rename_all = "kebab-case")
 )]
-pub enum WaveformParams {
+pub enum Waveform {
+    None,
     #[default]
     Sine,
     Square,
-    PulseWidth(f32),
+    PulseWidth(Normal),
     Triangle,
     Sawtooth,
     Noise,
@@ -38,37 +39,39 @@ pub enum WaveformParams {
 
     TriangleSine, // TODO
 }
-impl From<F32ControlValue> for WaveformParams {
+
+// TODO: the existence of this conversion is bad. PWM is just different. Come up
+// with some other way to automate waveform changes.
+impl From<F32ControlValue> for Waveform {
     fn from(value: F32ControlValue) -> Self {
-        WaveformParams::from_repr((value.0 * WaveformParams::COUNT as f32) as usize)
-            .unwrap_or_default()
+        Waveform::from_repr((value.0 * Waveform::COUNT as f32) as usize).unwrap_or_default()
     }
 }
-impl Into<F32ControlValue> for WaveformParams {
-    fn into(self) -> F32ControlValue {
-        F32ControlValue(
-            // TODO: is there a way to get the discriminant cheaply when the
-            // enum is not
-            // [unit-only](https://doc.rust-lang.org/reference/items/enumerations.html)?
-            (match self {
-                WaveformParams::Sine => 0,
-                WaveformParams::Square => 1,
-                WaveformParams::PulseWidth(_) => 2,
-                WaveformParams::Triangle => 3,
-                WaveformParams::Sawtooth => 4,
-                WaveformParams::Noise => 5,
-                WaveformParams::DebugZero => 6,
-                WaveformParams::DebugMax => 7,
-                WaveformParams::DebugMin => 8,
-                WaveformParams::TriangleSine => 9,
-            } as f32)
-                / WaveformParams::COUNT as f32,
-        )
+impl From<Waveform> for F32ControlValue {
+    fn from(value: Waveform) -> Self {
+        // TODO: is there a way to get the discriminant cheaply when the
+        // enum is not
+        // [unit-only](https://doc.rust-lang.org/reference/items/enumerations.html)?
+        ((match value {
+            Waveform::None => 0,
+            Waveform::Sine => 1,
+            Waveform::Square => 2,
+            Waveform::PulseWidth(_) => 3,
+            Waveform::Triangle => 4,
+            Waveform::Sawtooth => 5,
+            Waveform::Noise => 6,
+            Waveform::DebugZero => 7,
+            Waveform::DebugMax => 8,
+            Waveform::DebugMin => 9,
+            Waveform::TriangleSine => 10,
+        } as f32)
+            / Waveform::COUNT as f32)
+            .into()
     }
 }
 
 impl OscillatorNano {
-    pub fn default_with_waveform(waveform: WaveformParams) -> Self {
+    pub fn default_with_waveform(waveform: Waveform) -> Self {
         Self {
             waveform,
             frequency: FrequencyHz::from(440.0),
@@ -80,7 +83,7 @@ impl OscillatorNano {
 #[derive(Clone, Debug, Nano)]
 pub struct Oscillator {
     #[nano]
-    waveform: WaveformParams,
+    waveform: Waveform,
 
     /// Hertz. Any positive number. 440 = A4
     #[nano]
@@ -233,11 +236,11 @@ impl Oscillator {
         self.delta_needs_update = true;
     }
 
-    pub fn waveform(&self) -> WaveformParams {
+    pub fn waveform(&self) -> Waveform {
         self.waveform
     }
 
-    pub fn set_waveform(&mut self, waveform: WaveformParams) {
+    pub fn set_waveform(&mut self, waveform: Waveform) {
         self.waveform = waveform;
     }
 
@@ -339,18 +342,17 @@ impl Oscillator {
     // formulas. The reason for them is to ensure that every waveform starts at
     // amplitude zero, which makes it a lot easier to avoid transients when a
     // waveform starts up. See Pirkle DSSPC++ p.133 for visualization.
-    fn amplitude_for_position(&mut self, waveform: WaveformParams, cycle_position: f64) -> f64 {
+    fn amplitude_for_position(&mut self, waveform: Waveform, cycle_position: f64) -> f64 {
         match waveform {
-            WaveformParams::Sine => (cycle_position * 2.0 * PI).sin(),
-            WaveformParams::Square => -(cycle_position - 0.5).signum(),
-            WaveformParams::PulseWidth(duty_cycle) => {
-                -(cycle_position - duty_cycle as f64).signum()
-            }
-            WaveformParams::Triangle => {
+            Waveform::None => 0.0,
+            Waveform::Sine => (cycle_position * 2.0 * PI).sin(),
+            Waveform::Square => -(cycle_position - 0.5).signum(),
+            Waveform::PulseWidth(duty_cycle) => -(cycle_position - duty_cycle.value()).signum(),
+            Waveform::Triangle => {
                 4.0 * (cycle_position - (0.5 + cycle_position).floor()).abs() - 1.0
             }
-            WaveformParams::Sawtooth => 2.0 * (cycle_position - (0.5 + cycle_position).floor()),
-            WaveformParams::Noise => {
+            Waveform::Sawtooth => 2.0 * (cycle_position - (0.5 + cycle_position).floor()),
+            Waveform::Noise => {
                 // TODO: this is stateful, so random access will sound different
                 // from sequential, as will different sample rates. It also
                 // makes this method require mut. Is there a noise algorithm
@@ -362,12 +364,12 @@ impl Oscillator {
                 tmp
             }
             // TODO: figure out whether this was an either-or
-            WaveformParams::TriangleSine => {
+            Waveform::TriangleSine => {
                 4.0 * (cycle_position - (0.75 + cycle_position).floor() + 0.25).abs() - 1.0
             }
-            WaveformParams::DebugZero => 0.0,
-            WaveformParams::DebugMax => 1.0,
-            WaveformParams::DebugMin => -1.0,
+            Waveform::DebugZero => 0.0,
+            Waveform::DebugMax => 1.0,
+            Waveform::DebugMin => -1.0,
         }
     }
 
@@ -939,7 +941,7 @@ pub mod tests {
         }
     }
 
-    fn create_oscillator(waveform: WaveformParams, tune: Ratio, note: MidiNote) -> Oscillator {
+    fn create_oscillator(waveform: Waveform, tune: Ratio, note: MidiNote) -> Oscillator {
         let mut oscillator = Oscillator::new_with(OscillatorNano {
             waveform,
             frequency: note_type_to_frequency(note),
@@ -952,7 +954,7 @@ pub mod tests {
     #[test]
     fn oscillator_pola() {
         let mut oscillator =
-            Oscillator::new_with(OscillatorNano::default_with_waveform(WaveformParams::Sine));
+            Oscillator::new_with(OscillatorNano::default_with_waveform(Waveform::Sine));
 
         // we'll run two ticks in case the oscillator happens to start at zero
         oscillator.tick(2);
@@ -970,7 +972,7 @@ pub mod tests {
         const SAMPLE_RATE: usize = 63949; // Prime number
         const FREQUENCY: FrequencyHz = FrequencyHz(499.0);
         let mut oscillator = Oscillator::new_with(OscillatorNano {
-            waveform: WaveformParams::Square,
+            waveform: Waveform::Square,
             frequency: FREQUENCY,
             ..Default::default()
         });
@@ -993,7 +995,7 @@ pub mod tests {
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: FrequencyHz = FrequencyHz(128.0);
         let mut oscillator = Oscillator::new_with(OscillatorNano {
-            waveform: WaveformParams::Square,
+            waveform: Waveform::Square,
             frequency: FREQUENCY,
             ..Default::default()
         });
@@ -1031,7 +1033,7 @@ pub mod tests {
         const SAMPLE_RATE: usize = 65536;
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
         let mut oscillator = Oscillator::new_with(OscillatorNano {
-            waveform: WaveformParams::Square,
+            waveform: Waveform::Square,
             frequency: FREQUENCY,
             ..Default::default()
         });
@@ -1081,7 +1083,7 @@ pub mod tests {
     fn sine_wave_is_balanced() {
         const FREQUENCY: FrequencyHz = FrequencyHz(1.0);
         let mut oscillator = Oscillator::new_with(OscillatorNano {
-            waveform: WaveformParams::Sine,
+            waveform: Waveform::Sine,
             frequency: FREQUENCY,
             ..Default::default()
         });
@@ -1165,7 +1167,7 @@ pub mod tests {
         ];
         for test_case in test_cases {
             let mut osc = Oscillator::new_with(OscillatorNano {
-                waveform: WaveformParams::Square,
+                waveform: Waveform::Square,
                 frequency: test_case.0.into(),
                 ..Default::default()
             });
@@ -1197,7 +1199,7 @@ pub mod tests {
     fn sine_matches_known_good() {
         for test_case in get_test_cases() {
             let mut osc = Oscillator::new_with(OscillatorNano {
-                waveform: WaveformParams::Sine,
+                waveform: Waveform::Sine,
                 frequency: test_case.0.into(),
                 ..Default::default()
             });
@@ -1219,7 +1221,7 @@ pub mod tests {
     fn sawtooth_matches_known_good() {
         for test_case in get_test_cases() {
             let mut osc = Oscillator::new_with(OscillatorNano {
-                waveform: WaveformParams::Sawtooth,
+                waveform: Waveform::Sawtooth,
                 frequency: test_case.0.into(),
                 ..Default::default()
             });
@@ -1241,7 +1243,7 @@ pub mod tests {
     fn triangle_matches_known_good() {
         for test_case in get_test_cases() {
             let mut osc = Oscillator::new_with(OscillatorNano {
-                waveform: WaveformParams::Triangle,
+                waveform: Waveform::Triangle,
                 frequency: test_case.0.into(),
                 ..Default::default()
             });
@@ -1261,7 +1263,7 @@ pub mod tests {
 
     #[test]
     fn oscillator_modulated() {
-        let mut oscillator = create_oscillator(WaveformParams::Sine, Ratio(1.0), MidiNote::C4);
+        let mut oscillator = create_oscillator(Waveform::Sine, Ratio(1.0), MidiNote::C4);
         // Default
         assert_eq!(
             oscillator.adjusted_frequency(),
@@ -1300,7 +1302,7 @@ pub mod tests {
     #[test]
     fn oscillator_cycle_restarts_on_time() {
         let mut oscillator =
-            Oscillator::new_with(OscillatorNano::default_with_waveform(WaveformParams::Sine));
+            Oscillator::new_with(OscillatorNano::default_with_waveform(Waveform::Sine));
         const FREQUENCY: FrequencyHz = FrequencyHz(2.0);
         oscillator.set_frequency(FREQUENCY);
         oscillator.reset(DEFAULT_SAMPLE_RATE);

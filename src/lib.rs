@@ -9,7 +9,7 @@
 //! ```
 //! # use groove::{Entity, Orchestrator};
 //! # use groove_core::{
-//! #     generators::{EnvelopeNano, WaveformParams},
+//! #     generators::{EnvelopeNano, Waveform},
 //! #     midi::{MidiChannel, new_note_off, new_note_on},
 //! #     time::PerfectTimeUnit,
 //! #     traits::Resets,
@@ -34,7 +34,7 @@
 //! // ToySynth is a MIDI instrument that makes simple sounds.
 //! let synth = ToySynth::new_with(ToySynthNano {
 //!     voice_count: 4,
-//!     waveform: WaveformParams::Sine,
+//!     waveform: Waveform::Sine,
 //!     envelope: EnvelopeNano::new_with(0.0, 0.0, Normal::maximum(), 0.0),
 //! });
 //!

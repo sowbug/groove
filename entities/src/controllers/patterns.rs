@@ -198,7 +198,6 @@ impl PatternProgrammer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::DEFAULT_SAMPLE_RATE;
     use groove_core::time::{BeatValue, TimeSignature};
 
     #[test]

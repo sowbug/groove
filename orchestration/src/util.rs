@@ -29,8 +29,8 @@ pub mod tests {
         Orchestrator,
     };
     use groove_core::{
-        generators::WaveformParams, midi::MidiChannel, time::Clock, traits::Resets, FrequencyHz,
-        Normal, ParameterType, StereoSample,
+        generators::Waveform, midi::MidiChannel, time::Clock, traits::Resets, FrequencyHz, Normal,
+        ParameterType, StereoSample,
     };
     use groove_entities::{
         controllers::{LfoController, Timer, TimerNano},
@@ -99,7 +99,7 @@ pub mod tests {
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new())));
         let lfo = LfoController::new_with(groove_entities::controllers::LfoControllerNano {
-            waveform: WaveformParams::Sine,
+            waveform: Waveform::Sine,
             frequency: FrequencyHz::from(2.0),
         });
         let lfo_uid = o.add(Entity::LfoController(Box::new(lfo)));
