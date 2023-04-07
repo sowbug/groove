@@ -391,20 +391,8 @@ enum State {
     Shutdown,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(Serialize, Deserialize),
-    serde(rename = "envelope", rename_all = "kebab-case")
-)]
-pub struct EnvelopeParams {
-    pub attack: ParameterType,
-    pub decay: ParameterType,
-    pub sustain: Normal,
-    pub release: ParameterType,
-}
-impl EnvelopeParams {
-    pub const MAX: ParameterType = 10000.0; // TODO: what exactly does Welsh mean by "max"?
+impl EnvelopeNano {
+    pub const MAX: ParameterType = 10000.0;
 
     pub fn new_with(
         attack: ParameterType,
@@ -419,25 +407,29 @@ impl EnvelopeParams {
             release,
         }
     }
-}
-impl Default for EnvelopeParams {
-    fn default() -> Self {
-        Self {
-            attack: 0.0,
-            decay: 0.0,
-            sustain: Normal::maximum(),
-            release: 0.0,
-        }
+
+    // The #[nano] macro system doesn't currently let us override derived
+    // Default, and I wasn't sure whether it was right to default Normal to 1.0,
+    // so I'm creating a custom default method. I think that only test/toy code
+    // would rely on defaults for an envelope.
+    pub fn safe_default() -> Self {
+        Self::new_with(0.0, 0.0, 1.0.into(), 0.0)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Nano)]
 pub struct Envelope {
+    #[nano]
+    attack: ParameterType,
+    #[nano]
+    decay: ParameterType,
+    #[nano]
+    sustain: Normal,
+    #[nano]
+    release: ParameterType,
+
     sample_rate: f64,
-    adsr: EnvelopeParams,
-
     state: State,
-
     was_reset: bool,
 
     ticks: usize,
@@ -531,11 +523,13 @@ impl Ticks for Envelope {
     }
 }
 impl Envelope {
-    #[deprecated = "replace with EnvelopeNano"]
-    pub fn new_with(adsr: EnvelopeParams) -> Self {
+    pub fn new_with(params: EnvelopeNano) -> Self {
         Self {
+            attack: params.attack(),
+            decay: params.decay(),
+            sustain: params.sustain(),
+            release: params.release(),
             sample_rate: Default::default(),
-            adsr,
             state: State::Idle,
             was_reset: true,
             ticks: Default::default(),
@@ -613,13 +607,13 @@ impl Envelope {
                 self.delta = 0.0;
             }
             State::Attack => {
-                if self.adsr.attack == TimeUnit::zero().0 {
+                if self.attack == TimeUnit::zero().0 {
                     self.set_explicit_amplitude(Normal::maximum());
                     self.set_state(State::Decay);
                 } else {
                     self.state = State::Attack;
                     let target_amplitude = Normal::maximum().value();
-                    self.set_target(Normal::maximum(), TimeUnit(self.adsr.attack), false, false);
+                    self.set_target(Normal::maximum(), TimeUnit(self.attack), false, false);
                     let current_amplitude = self.uncorrected_amplitude.sum();
 
                     (self.convex_a, self.convex_b, self.convex_c) = Self::calculate_coefficients(
@@ -633,13 +627,13 @@ impl Envelope {
                 }
             }
             State::Decay => {
-                if self.adsr.decay == TimeUnit::zero().0 {
-                    self.set_explicit_amplitude(self.adsr.sustain);
+                if self.decay == TimeUnit::zero().0 {
+                    self.set_explicit_amplitude(self.sustain);
                     self.set_state(State::Sustain);
                 } else {
                     self.state = State::Decay;
-                    let target_amplitude = self.adsr.sustain.value();
-                    self.set_target(self.adsr.sustain, TimeUnit(self.adsr.decay), true, false);
+                    let target_amplitude = self.sustain.value();
+                    self.set_target(self.sustain, TimeUnit(self.decay), true, false);
                     let current_amplitude = self.uncorrected_amplitude.sum();
                     (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
                         current_amplitude,
@@ -653,16 +647,16 @@ impl Envelope {
             }
             State::Sustain => {
                 self.state = State::Sustain;
-                self.set_target(self.adsr.sustain, TimeUnit::infinite(), false, false);
+                self.set_target(self.sustain, TimeUnit::infinite(), false, false);
             }
             State::Release => {
-                if self.adsr.release == TimeUnit::zero().0 {
+                if self.release == TimeUnit::zero().0 {
                     self.set_explicit_amplitude(Normal::maximum());
                     self.set_state(State::Idle);
                 } else {
                     self.state = State::Release;
                     let target_amplitude = 0.0;
-                    self.set_target(Normal::minimum(), TimeUnit(self.adsr.release), true, false);
+                    self.set_target(Normal::minimum(), TimeUnit(self.release), true, false);
                     let current_amplitude = self.uncorrected_amplitude.sum();
                     (self.concave_a, self.concave_b, self.concave_c) = Self::calculate_coefficients(
                         current_amplitude,
@@ -750,6 +744,38 @@ impl Envelope {
     }
     fn transform_linear_to_concave(&self, linear_value: f64) -> f64 {
         self.concave_c * linear_value.powi(2) + self.concave_b * linear_value + self.concave_a
+    }
+
+    pub fn attack(&self) -> f64 {
+        self.attack
+    }
+
+    pub fn decay(&self) -> f64 {
+        self.decay
+    }
+
+    pub fn sustain(&self) -> Normal {
+        self.sustain
+    }
+
+    pub fn release(&self) -> f64 {
+        self.release
+    }
+
+    pub fn set_attack(&mut self, attack: ParameterType) {
+        self.attack = attack;
+    }
+
+    pub fn set_decay(&mut self, decay: ParameterType) {
+        self.decay = decay;
+    }
+
+    pub fn set_sustain(&mut self, sustain: Normal) {
+        self.sustain = sustain;
+    }
+
+    pub fn set_release(&mut self, release: ParameterType) {
+        self.release = release;
     }
 }
 
@@ -1373,8 +1399,8 @@ pub mod tests {
     // Envelope trait, so that we can confirm that the trait alone is useful.
     fn get_ge_trait_stuff() -> (Clock, impl GeneratesEnvelope) {
         let clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
-        let adsr = EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.8), 0.3);
-        let envelope = Envelope::new_with(adsr);
+        let params = EnvelopeNano::new_with(0.1, 0.2, Normal::new(0.8), 0.3);
+        let envelope = Envelope::new_with(params);
         (clock, envelope)
     }
 
@@ -1457,7 +1483,7 @@ pub mod tests {
         let sustain = Normal::new(0.8);
         const RELEASE: f64 = 0.3;
         let mut envelope =
-            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(EnvelopeNano::new_with(ATTACK, DECAY, sustain, RELEASE));
 
         clock.reset(100);
         envelope.reset(100);
@@ -1528,7 +1554,7 @@ pub mod tests {
         let sustain = Normal::new(0.8);
         const RELEASE: ParameterType = 0.3;
         let mut envelope =
-            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(EnvelopeNano::new_with(ATTACK, DECAY, sustain, RELEASE));
 
         envelope.trigger_attack();
         envelope.tick(1);
@@ -1599,7 +1625,7 @@ pub mod tests {
         let sustain = Normal::new(0.25);
         const RELEASE: ParameterType = 0.5;
         let mut envelope =
-            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(EnvelopeNano::new_with(ATTACK, DECAY, sustain, RELEASE));
 
         clock.reset(DEFAULT_SAMPLE_RATE);
         envelope.reset(DEFAULT_SAMPLE_RATE);
@@ -1719,7 +1745,7 @@ pub mod tests {
         let sustain = Normal::new(0.5);
         const RELEASE: ParameterType = 0.4;
         let mut envelope =
-            Envelope::new_with(EnvelopeParams::new_with(ATTACK, DECAY, sustain, RELEASE));
+            Envelope::new_with(EnvelopeNano::new_with(ATTACK, DECAY, sustain, RELEASE));
 
         clock.reset(DEFAULT_SAMPLE_RATE);
         envelope.reset(DEFAULT_SAMPLE_RATE);
@@ -1784,7 +1810,7 @@ pub mod tests {
 
     #[test]
     fn envelope_amplitude_batching() {
-        let mut e = Envelope::new_with(EnvelopeParams::new_with(0.1, 0.2, Normal::new(0.5), 0.3));
+        let mut e = Envelope::new_with(EnvelopeNano::new_with(0.1, 0.2, Normal::new(0.5), 0.3));
 
         // Initialize the buffer with a nonsense value so we know it got
         // overwritten by the method we're about to call.
@@ -1814,7 +1840,7 @@ pub mod tests {
 
     #[test]
     fn envelope_shutdown_state() {
-        let mut e = Envelope::new_with(EnvelopeParams::new_with(0.0, 0.0, Normal::maximum(), 0.5));
+        let mut e = Envelope::new_with(EnvelopeNano::new_with(0.0, 0.0, Normal::maximum(), 0.5));
         e.reset(2000);
 
         // With sample rate 1000, each sample is 0.5 millisecond.

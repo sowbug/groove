@@ -3,7 +3,7 @@
 use super::LoadError;
 use convert_case::{Boundary, Case, Casing};
 use groove_core::{
-    generators::{EnvelopeParams, Oscillator, OscillatorNano, WaveformParams},
+    generators::{EnvelopeNano, Oscillator, OscillatorNano, WaveformParams},
     midi::{note_to_frequency, GeneralMidiProgram},
     BipolarNormal, DcaParams, FrequencyHz, Normal, ParameterType, Ratio,
 };
@@ -39,9 +39,9 @@ pub struct WelshPatchSettings {
     pub filter_type_12db: FilterPreset,
     pub filter_resonance: f32, // This should be an appropriate interpretation of a linear 0..1
     pub filter_envelope_weight: f32,
-    pub filter_envelope: EnvelopeParams,
+    pub filter_envelope: EnvelopeNano,
 
-    pub amp_envelope: EnvelopeParams,
+    pub amp_envelope: EnvelopeNano,
 }
 
 // TODO: cache these as they're loaded
@@ -142,7 +142,7 @@ impl WelshPatchSettings {
             },
             oscillator_sync: self.oscillator_2_sync,
             oscillator_mix,
-            envelope: self.amp_envelope.into(),
+            envelope: self.amp_envelope.clone(),
             dca: DcaParams::default(), // TODO
             lfo: OscillatorNano {
                 waveform: self.lfo.waveform.into(),
@@ -157,7 +157,7 @@ impl WelshPatchSettings {
             }, // TODO HACK HACK HAC
             filter_cutoff_start,
             filter_cutoff_end,
-            filter_envelope: self.filter_envelope,
+            filter_envelope: self.filter_envelope.clone(),
             pan: BipolarNormal::zero(),
         }
     }
@@ -704,15 +704,15 @@ impl WelshPatchSettings {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct FmSynthesizerSettings {
     pub ratio: ParameterType, // TODO: needs a ratio type, which I suppose would range from 0..infinity.
     pub depth: ParameterType,
     pub beta: ParameterType,
 
-    pub carrier_envelope: EnvelopeParams,
-    pub modulator_envelope: EnvelopeParams,
+    pub carrier_envelope: EnvelopeNano,
+    pub modulator_envelope: EnvelopeNano,
 }
 
 impl FmSynthesizerSettings {
@@ -737,8 +737,8 @@ impl FmSynthesizerSettings {
 
     #[allow(dead_code)]
     pub fn from_name(_name: &str) -> FmSynthesizerSettings {
-        let carrier_envelope = EnvelopeParams::default();
-        let modulator_envelope = EnvelopeParams::default();
+        let carrier_envelope = EnvelopeNano::safe_default();
+        let modulator_envelope = EnvelopeNano::safe_default();
         FmSynthesizerSettings {
             ratio: 2.0, // Modulator frequency is 2x carrier
             depth: 1.0, // full strength
@@ -759,7 +759,7 @@ mod tests {
     use convert_case::{Case, Casing};
     use float_cmp::approx_eq;
     use groove_core::{
-        generators::EnvelopeParams,
+        generators::EnvelopeNano,
         time::Clock,
         traits::{Generates, PlaysNotes, Resets, Ticks},
         util::tests::TestOnlyPaths,
@@ -898,15 +898,15 @@ mod tests {
             },
             filter_resonance: 0.0,
             filter_envelope_weight: 0.9,
-            filter_envelope: EnvelopeParams {
+            filter_envelope: EnvelopeNano {
                 attack: 0.0,
                 decay: 3.29,
                 sustain: Normal::from(0.78),
-                release: EnvelopeParams::MAX,
+                release: EnvelopeNano::MAX,
             },
-            amp_envelope: EnvelopeParams {
+            amp_envelope: EnvelopeNano {
                 attack: 0.06,
-                decay: EnvelopeParams::MAX,
+                decay: EnvelopeNano::MAX,
                 sustain: Normal::maximum(),
                 release: 0.3,
             },
@@ -944,17 +944,17 @@ mod tests {
             },
             filter_resonance: 0.0,
             filter_envelope_weight: 1.0,
-            filter_envelope: EnvelopeParams {
+            filter_envelope: EnvelopeNano {
                 attack: 5.0,
-                decay: EnvelopeParams::MAX,
+                decay: EnvelopeNano::MAX,
                 sustain: Normal::maximum(),
-                release: EnvelopeParams::MAX,
+                release: EnvelopeNano::MAX,
             },
-            amp_envelope: EnvelopeParams {
+            amp_envelope: EnvelopeNano {
                 attack: 0.5,
-                decay: EnvelopeParams::MAX,
+                decay: EnvelopeNano::MAX,
                 sustain: Normal::maximum(),
-                release: EnvelopeParams::MAX,
+                release: EnvelopeNano::MAX,
             },
         }
     }

@@ -3,7 +3,7 @@
 use crate::effects::{BiQuadFilterLowPass24db, BiQuadFilterLowPass24dbNano};
 use core::fmt::Debug;
 use groove_core::{
-    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano},
+    generators::{Envelope, EnvelopeNano, Oscillator, OscillatorNano},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
@@ -231,7 +231,7 @@ impl WelshVoice {
             ],
             oscillator_2_sync: params.oscillator_sync(),
             oscillator_mix: params.oscillator_mix(),
-            amp_envelope: Envelope::new_with(params.envelope()),
+            amp_envelope: Envelope::new_with(params.envelope().clone()),
             dca: Dca::new_with(params.dca()),
             lfo: Oscillator::new_with(params.lfo().clone()),
             lfo_routing: params.lfo_routing(),
@@ -239,7 +239,7 @@ impl WelshVoice {
             filter: BiQuadFilterLowPass24db::new_with(params.low_pass_filter().clone()),
             filter_cutoff_start: params.filter_cutoff_start(),
             filter_cutoff_end: params.filter_cutoff_end(),
-            filter_envelope: Envelope::new_with(params.filter_envelope()),
+            filter_envelope: Envelope::new_with(params.filter_envelope().clone()),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
             steal_is_underway: Default::default(),
@@ -263,8 +263,8 @@ pub struct WelshSynth {
     #[nano]
     oscillator_mix: Normal,
 
-    #[nano(control = false)]
-    envelope: EnvelopeParams,
+    #[nano(control = false, no_copy = true)]
+    envelope: EnvelopeNano,
 
     #[nano(control = false)]
     dca: DcaParams,
@@ -285,8 +285,8 @@ pub struct WelshSynth {
     #[nano]
     filter_cutoff_end: Normal,
 
-    #[nano(control = false)]
-    filter_envelope: EnvelopeParams,
+    #[nano(control = false, no_copy = true)]
+    filter_envelope: EnvelopeNano,
 
     #[nano]
     pan: BipolarNormal,
@@ -343,8 +343,8 @@ impl WelshSynth {
             uid: Default::default(),
             inner_synth: Synthesizer::<WelshVoice>::new_with(Box::new(voice_store)),
             pan: params.dca().pan(),
-            envelope: params.envelope(),
-            filter_envelope: params.filter_envelope(),
+            envelope: params.envelope().clone(),
+            filter_envelope: params.filter_envelope().clone(),
             oscillator_1: params.oscillator_1().clone(),
             oscillator_2: params.oscillator_2().clone(),
             oscillator_sync: params.oscillator_sync(),
@@ -384,19 +384,19 @@ impl WelshSynth {
         }
     }
 
-    pub fn envelope(&self) -> EnvelopeParams {
-        self.envelope
+    pub fn envelope(&self) -> &EnvelopeNano {
+        &self.envelope
     }
 
-    pub fn filter_envelope(&self) -> EnvelopeParams {
-        self.filter_envelope
+    pub fn filter_envelope(&self) -> &EnvelopeNano {
+        &self.filter_envelope
     }
 
-    pub fn set_envelope(&mut self, envelope: EnvelopeParams) {
+    pub fn set_envelope(&mut self, envelope: EnvelopeNano) {
         self.envelope = envelope;
     }
 
-    pub fn set_filter_envelope(&mut self, filter_envelope: EnvelopeParams) {
+    pub fn set_filter_envelope(&mut self, filter_envelope: EnvelopeNano) {
         self.filter_envelope = filter_envelope;
     }
 
@@ -443,12 +443,16 @@ impl WelshSynth {
     pub fn set_dca(&mut self, dca: DcaParams) {
         self.dca = dca;
     }
+
+    pub fn lfo(&self) -> &OscillatorNano {
+        &self.lfo
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE};
+    use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
     use convert_case::{Case, Casing};
     use groove_core::{time::Clock, util::tests::TestOnlyPaths, SampleType};
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano, WaveformParams},
+    generators::{Envelope, EnvelopeNano, Oscillator, OscillatorNano, WaveformParams},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     traits::{
@@ -19,7 +19,8 @@ use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, I
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default)]
+#[deprecated]
+#[derive(Clone, Debug, Default)]
 #[cfg_attr(
     feature = "serialization",
     derive(Serialize, Deserialize),
@@ -30,8 +31,8 @@ pub struct FmSynthParamsLegacy {
     pub ratio: Ratio,
     pub beta: ParameterType,
 
-    pub carrier_envelope: EnvelopeParams,
-    pub modulator_envelope: EnvelopeParams,
+    pub carrier_envelope: EnvelopeNano,
+    pub modulator_envelope: EnvelopeNano,
 
     pub dca: DcaParams,
 }
@@ -162,9 +163,9 @@ impl FmVoice {
             modulator_depth: params.depth,
             modulator_ratio: params.ratio,
             modulator_beta: params.beta,
-            carrier_envelope: Envelope::new_with(params.carrier_envelope),
-            modulator_envelope: Envelope::new_with(params.modulator_envelope),
-            dca: Dca::new_with(params.dca()),
+            carrier_envelope: Envelope::new_with(params.carrier_envelope().clone()),
+            modulator_envelope: Envelope::new_with(params.modulator_envelope().clone()),
+            dca: Dca::new_with(params.dca().clone()),
             note_on_key: Default::default(),
             note_on_velocity: Default::default(),
             steal_is_underway: Default::default(),
@@ -213,11 +214,11 @@ impl FmVoice {
 
     // TODO: we'll have to be smarter about subbing in a new envelope, possibly
     // while the voice is playing.
-    pub fn set_carrier_envelope(&mut self, params: EnvelopeParams) {
+    pub fn set_carrier_envelope(&mut self, params: EnvelopeNano) {
         self.carrier_envelope = Envelope::new_with(params)
     }
 
-    pub fn set_modulator_envelope(&mut self, params: EnvelopeParams) {
+    pub fn set_modulator_envelope(&mut self, params: EnvelopeNano) {
         self.modulator_envelope = Envelope::new_with(params)
     }
 }
@@ -233,13 +234,13 @@ pub struct FmSynth {
     #[nano]
     beta: ParameterType,
 
-    #[nano(control = false)]
-    carrier_envelope: EnvelopeParams,
+    #[nano(control = false, no_copy = true)]
+    carrier_envelope: EnvelopeNano,
 
-    #[nano(control = false)]
-    modulator_envelope: EnvelopeParams,
+    #[nano(control = false, no_copy = true)]
+    modulator_envelope: EnvelopeNano,
 
-    #[nano(control = false)]
+    #[nano(control = false, no_copy = true)]
     dca: DcaParams,
 
     uid: usize,
@@ -286,9 +287,9 @@ impl FmSynth {
             depth: params.depth(),
             ratio: params.ratio(),
             beta: params.beta(),
-            carrier_envelope: params.carrier_envelope(),
-            modulator_envelope: params.modulator_envelope(),
-            dca: params.dca(),
+            carrier_envelope: params.carrier_envelope().clone(),
+            modulator_envelope: params.modulator_envelope().clone(),
+            dca: params.dca().clone(),
         }
     }
 
@@ -334,30 +335,18 @@ impl FmSynth {
         }
     }
 
-    pub fn carrier_envelope(&self) -> EnvelopeParams {
-        self.carrier_envelope
-    }
-
-    pub fn set_carrier_envelope(&mut self, carrier_envelope: EnvelopeParams) {
+    pub fn set_carrier_envelope(&mut self, carrier_envelope: EnvelopeNano) {
         self.carrier_envelope = carrier_envelope;
         self.inner_synth
             .voices_mut()
-            .for_each(|v| v.set_carrier_envelope(carrier_envelope));
+            .for_each(|v| v.set_carrier_envelope(self.carrier_envelope.clone()));
     }
 
-    pub fn modulator_envelope(&self) -> EnvelopeParams {
-        self.modulator_envelope
-    }
-
-    pub fn set_modulator_envelope(&mut self, modulator_envelope: EnvelopeParams) {
+    pub fn set_modulator_envelope(&mut self, modulator_envelope: EnvelopeNano) {
         self.modulator_envelope = modulator_envelope;
         self.inner_synth
             .voices_mut()
-            .for_each(|v| v.set_modulator_envelope(modulator_envelope));
-    }
-
-    pub fn dca(&self) -> DcaParams {
-        self.dca
+            .for_each(|v| v.set_modulator_envelope(self.modulator_envelope.clone()));
     }
 
     pub fn set_dca(&mut self, dca: DcaParams) {

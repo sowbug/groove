@@ -1003,8 +1003,8 @@ impl Viewable for WelshSynthNano {
             |n| WelshSynthMessage::Pan(BipolarNormal::from(n.as_f32())),
         )
         .into();
-        let envelope = GuiStuff::envelope_view(self.envelope());
-        let filter_envelope = GuiStuff::envelope_view(self.filter_envelope());
+        let envelope = GuiStuff::envelope_view(self.envelope().clone());
+        let filter_envelope = GuiStuff::envelope_view(self.filter_envelope().clone());
         let column = Column::new()
             .push(GuiStuff::<WelshSynthMessage>::container_text(
                 "Welsh coming soon",

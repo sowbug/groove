@@ -3,7 +3,7 @@
 pub(crate) mod persistence;
 pub(crate) mod views;
 
-use groove_core::{Sample, StereoSample};
+use groove_core::{generators::EnvelopeNano, Sample, StereoSample};
 use iced::{
     alignment::{self, Vertical},
     theme::{self, palette},
@@ -249,7 +249,7 @@ impl<'a, Message: 'a + Clone> GuiStuff<'a, Message> {
         .into()
     }
 
-    fn envelope_view(envelope: groove_core::generators::EnvelopeParams) -> Element<'a, Message> {
+    fn envelope_view(envelope: EnvelopeNano) -> Element<'a, Message> {
         Column::new()
             .push(
                 Row::new()

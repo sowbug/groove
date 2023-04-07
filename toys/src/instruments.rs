@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
 use groove_core::{
-    generators::{Envelope, EnvelopeParams, Oscillator, OscillatorNano, WaveformParams},
+    generators::{Envelope, EnvelopeNano, Oscillator, OscillatorNano, WaveformParams},
     instruments::Synthesizer,
     midi::{note_to_frequency, HandlesMidi, MidiChannel, MidiMessage},
     time::ClockTimeUnit,
@@ -31,7 +31,6 @@ pub struct ToyInstrument {
     #[nano]
     fake_value: Normal,
 
-    sample_rate: usize,
     sample: StereoSample,
 
     /// -1.0 is Sawtooth, 1.0 is Square, anything else is Sine.
@@ -138,7 +137,6 @@ impl ToyInstrument {
     pub fn new_with(params: ToyInstrumentNano) -> Self {
         Self {
             uid: Default::default(),
-            sample_rate: Default::default(),
             sample: Default::default(),
             fake_value: params.fake_value(),
             oscillator: Oscillator::new_with(OscillatorNano::default_with_waveform(
@@ -296,12 +294,7 @@ impl DebugSynth {
             Box::new(Oscillator::new_with(OscillatorNano::default_with_waveform(
                 WaveformParams::Sine,
             ))),
-            Box::new(Envelope::new_with(EnvelopeParams::new_with(
-                0.0,
-                0.0,
-                Normal::maximum(),
-                0.0,
-            ))),
+            Box::new(Envelope::new_with(EnvelopeNano::safe_default())),
         )
     }
 
@@ -331,8 +324,8 @@ pub struct ToySynth {
     #[nano]
     waveform: WaveformParams,
 
-    #[nano(control = false)]
-    envelope: EnvelopeParams,
+    #[nano(control = false, no_copy = true)]
+    envelope: EnvelopeNano,
 
     inner: Synthesizer<ToyVoice>,
 }
@@ -367,13 +360,13 @@ impl Resets for ToySynth {
 impl ToySynth {
     pub fn new_with(params: ToySynthNano) -> Self {
         let voice_store = VoiceStore::<ToyVoice>::new_with_voice(params.voice_count(), || {
-            ToyVoice::new_with(params.waveform(), params.envelope())
+            ToyVoice::new_with(params.waveform(), params.envelope().clone())
         });
         Self {
             uid: Default::default(),
             voice_count: params.voice_count(),
             waveform: params.waveform(),
-            envelope: params.envelope(),
+            envelope: params.envelope().clone(),
             inner: Synthesizer::<ToyVoice>::new_with(Box::new(voice_store)),
         }
     }
@@ -400,11 +393,11 @@ impl ToySynth {
         self.waveform = waveform;
     }
 
-    pub fn envelope(&self) -> EnvelopeParams {
-        self.envelope
+    pub fn envelope(&self) -> &EnvelopeNano {
+        &self.envelope
     }
 
-    pub fn set_envelope(&mut self, envelope: EnvelopeParams) {
+    pub fn set_envelope(&mut self, envelope: EnvelopeNano) {
         self.envelope = envelope;
     }
 }
@@ -464,7 +457,7 @@ impl Resets for ToyVoice {
     }
 }
 impl ToyVoice {
-    fn new_with(waveform: WaveformParams, envelope: EnvelopeParams) -> Self {
+    fn new_with(waveform: WaveformParams, envelope: EnvelopeNano) -> Self {
         Self {
             oscillator: Oscillator::new_with(OscillatorNano::default_with_waveform(waveform)),
             envelope: Envelope::new_with(envelope),
@@ -541,8 +534,6 @@ pub mod tests {
         Normal,
     };
     use rand::random;
-
-    const DEFAULT_SAMPLE_RATE: usize = 44100;
 
     // TODO: restore tests that test basic trait behavior, then figure out how
     // to run everyone implementing those traits through that behavior. For now,
