@@ -467,7 +467,11 @@ mod tests {
     use super::*;
     use crate::tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
     use convert_case::{Case, Casing};
-    use groove_core::{time::Clock, util::tests::TestOnlyPaths, SampleType};
+    use groove_core::{
+        time::{Clock, ClockNano, TimeSignature},
+        util::tests::TestOnlyPaths,
+        SampleType,
+    };
 
     // TODO dedup
     pub fn canonicalize_output_filename_and_path(filename: &str) -> String {
@@ -484,7 +488,11 @@ mod tests {
     // TODO: refactor out to common test utilities
     #[allow(dead_code)]
     fn write_voice(voice: &mut WelshVoice, duration: f64, basename: &str) {
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_with(ClockNano {
+            bpm: DEFAULT_BPM,
+            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+            time_signature: TimeSignature { top: 4, bottom: 4 },
+        });
 
         let spec = hound::WavSpec {
             channels: 2,

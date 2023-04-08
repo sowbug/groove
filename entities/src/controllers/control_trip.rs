@@ -5,7 +5,7 @@ use core::fmt::Debug;
 use groove_core::{
     generators::{SteppedEnvelope, SteppedEnvelopeFunction, SteppedEnvelopeStep},
     midi::HandlesMidi,
-    time::{BeatValue, Clock, ClockTimeUnit, TimeSignature},
+    time::{BeatValue, Clock, ClockNano, ClockTimeUnit, TimeSignature},
     traits::{IsController, Performs, Resets, Ticks, TicksWithMessages},
     ParameterType, SignalType,
 };
@@ -93,7 +93,14 @@ impl ControlTrip {
                 bottom: params.time_signature_bottom,
             },
             bpm: params.bpm(),
-            clock: Clock::new_with(params.bpm(), 9999),
+            clock: Clock::new_with(ClockNano {
+                bpm: params.bpm(),
+                midi_ticks_per_second: 0,
+                time_signature: TimeSignature {
+                    top: params.time_signature_top(),
+                    bottom: params.time_signature_bottom(),
+                },
+            }),
             cursor_beats: Self::CURSOR_BEGIN,
             current_value: f64::MAX, // TODO we want to make sure we set the target's value at start
             envelope: SteppedEnvelope::new_with_time_unit(ClockTimeUnit::Beats),
@@ -161,8 +168,8 @@ impl ControlTrip {
         }
     }
 
-    pub fn time_signature(&self) -> TimeSignature {
-        self.time_signature
+    pub fn time_signature(&self) -> &TimeSignature {
+        &self.time_signature
     }
 
     pub fn set_time_signature(&mut self, time_signature: TimeSignature) {

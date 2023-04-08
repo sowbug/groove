@@ -2,6 +2,7 @@
 title: "Performance test data #1. Listen at your own risk."
 clock:
   bpm: 1024.0
+  midi-ticks-per-second: 960
   time-signature:
     - 4
     - 4

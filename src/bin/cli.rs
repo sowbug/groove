@@ -10,7 +10,11 @@ use groove::{
     util::{PathType, Paths},
     {DEFAULT_BPM, DEFAULT_SAMPLE_RATE},
 };
-use groove_core::{traits::Resets, StereoSample};
+use groove_core::{
+    time::{ClockNano, TimeSignature},
+    traits::Resets,
+    StereoSample,
+};
 use groove_orchestration::{helpers::IOHelper, Orchestrator};
 use groove_settings::SongSettings;
 use regex::Regex;
@@ -67,13 +71,18 @@ fn main() -> anyhow::Result<()> {
             // `cargo run --bin groove-cli - x.yaml`
             continue;
         }
+        const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
         let mut orchestrator = if input_filename.ends_with(".nscr") {
             #[cfg(feature = "scripting")]
             let _r = ScriptEngine::new().execute_file(&args.script_in.unwrap());
 
             // TODO: this is temporary, to return the right type
             #[cfg(not(feature = "scripting"))]
-            Orchestrator::new_with(DEFAULT_BPM)
+            Orchestrator::new_with(ClockNano {
+                bpm: DEFAULT_BPM,
+                midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+                time_signature: TimeSignature { top: 4, bottom: 4 },
+            })
         } else if input_filename.ends_with(".yaml")
             || input_filename.ends_with(".yml")
             || input_filename.ends_with(".nsn")
@@ -94,7 +103,11 @@ fn main() -> anyhow::Result<()> {
             }
             r
         } else {
-            Orchestrator::new_with(DEFAULT_BPM)
+            Orchestrator::new_with(ClockNano {
+                bpm: DEFAULT_BPM,
+                midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+                time_signature: TimeSignature { top: 4, bottom: 4 },
+            })
         };
 
         orchestrator.set_should_output_perf(args.perf);

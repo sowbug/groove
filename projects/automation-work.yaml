@@ -2,6 +2,7 @@
 title: "Automation work"
 clock:
   bpm: 128.0
+  midi-ticks-per-second: 960
   time-signature:
     - 4
     - 4

@@ -701,7 +701,7 @@ mod tests {
     use float_cmp::approx_eq;
     use groove_core::{
         generators::{EnvelopeNano, Waveform},
-        time::Clock,
+        time::{Clock, ClockNano, TimeSignature},
         traits::{Generates, PlaysNotes, Resets, Ticks},
         util::tests::TestOnlyPaths,
         Normal, ParameterType, Ratio, SampleType, StereoSample,
@@ -915,7 +915,11 @@ mod tests {
 
     #[test]
     fn basic_synth_patch() {
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_with(ClockNano {
+            bpm: DEFAULT_BPM,
+            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+            time_signature: TimeSignature { top: 4, bottom: 4 },
+        });
         let mut voice = boring_test_patch().derive_welsh_voice();
         clock.reset(DEFAULT_SAMPLE_RATE);
         voice.reset(DEFAULT_SAMPLE_RATE);
@@ -926,7 +930,11 @@ mod tests {
 
     #[test]
     fn basic_cello_patch() {
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_with(ClockNano {
+            bpm: DEFAULT_BPM,
+            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+            time_signature: TimeSignature { top: 4, bottom: 4 },
+        });
         let mut voice = cello_patch().derive_welsh_voice();
         clock.reset(DEFAULT_SAMPLE_RATE);
         voice.reset(DEFAULT_SAMPLE_RATE);

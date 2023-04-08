@@ -6,7 +6,7 @@ use super::{
 };
 use groove::app_version;
 use groove_core::{
-    time::{Clock, TimeSignature},
+    time::{Clock, ClockMessage, ClockNano, TimeSignature},
     traits::HasUid,
     BipolarNormal, Normal, ParameterType, StereoSample,
 };
@@ -205,14 +205,12 @@ pub(crate) enum ControlBarEvent {
 #[derive(Debug)]
 pub(crate) struct ControlBarView {
     clock: Clock,
-    time_signature: TimeSignature,
     audio_buffer_fullness: Normal,
 }
 impl ControlBarView {
-    pub fn new_with(clock: Clock, time_signature: TimeSignature) -> Self {
+    pub fn new_with(clock: Clock) -> Self {
         Self {
             clock,
-            time_signature,
             audio_buffer_fullness: Default::default(),
         }
     }
@@ -251,7 +249,7 @@ impl ControlBarView {
     }
 
     fn set_time_signature(&mut self, time_signature: TimeSignature) {
-        self.time_signature = time_signature;
+        self.clock.set_time_signature(time_signature);
     }
 
     fn media_buttons(&self, is_playing: bool) -> Container<ControlBarEvent> {
@@ -292,12 +290,12 @@ impl ControlBarView {
             container(
                 Column::new()
                     .push(
-                        text(format!("{}", self.time_signature.top))
+                        text(format!("{}", self.clock.time_signature().top))
                             .font(SMALL_FONT)
                             .size(SMALL_FONT_SIZE),
                     )
                     .push(
-                        text(format!("{}", self.time_signature.bottom))
+                        text(format!("{}", self.clock.time_signature().bottom))
                             .font(SMALL_FONT)
                             .size(SMALL_FONT_SIZE),
                     )
@@ -307,7 +305,7 @@ impl ControlBarView {
         };
 
         let beat_counter = {
-            let denom = self.time_signature.top as f64;
+            let denom = self.clock.time_signature().top as f64;
 
             let measures = (self.clock.beats() / denom) as usize;
             let beats = (self.clock.beats() % denom) as usize;
@@ -804,6 +802,14 @@ impl Viewable for ChorusNano {
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("delay seconds: {}", self.delay_seconds()))).into()
+    }
+}
+impl Viewable for ClockNano {
+    type Message = ClockMessage;
+
+    fn view(&self) -> Element<Self::Message> {
+        // TODO: oops, how do we get frames()?
+        container(text(&format!("BPM: {}", self.bpm()))).into()
     }
 }
 impl Viewable for CompressorNano {
@@ -1573,6 +1579,9 @@ enum ViewableEntities {
 
     #[views(effect, controllable)]
     Chorus(Chorus),
+
+    #[views(effect, controllable)]
+    Clock(Clock),
 
     #[views(effect, controllable)]
     Compressor(Compressor),

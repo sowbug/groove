@@ -2,6 +2,7 @@
 title: "Instruments have no inputs"
 clock:
   bpm: 1.0
+  midi-ticks-per-second: 960
   time-signature:
     - 4
     - 4

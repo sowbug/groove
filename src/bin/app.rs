@@ -14,7 +14,7 @@ use groove::{
     Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
 };
 use groove_core::{
-    time::{Clock, TimeSignature},
+    time::{Clock, ClockNano, TimeSignature},
     Sample, StereoSample,
 };
 use groove_entities::EntityMessage;
@@ -102,7 +102,12 @@ impl Default for GrooveApp {
     fn default() -> Self {
         // TODO: these are (probably) temporary until the project is
         // loaded. Make sure they really need to be instantiated.
-        let orchestrator = Orchestrator::new_with(DEFAULT_BPM);
+        let clock_params = ClockNano {
+            bpm: DEFAULT_BPM,
+            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+            time_signature: TimeSignature { top: 4, bottom: 4 },
+        };
+        let orchestrator = Orchestrator::new_with(clock_params.clone());
         let orchestrator = Arc::new(Mutex::new(orchestrator));
         Self {
             preferences: Default::default(),
@@ -111,10 +116,7 @@ impl Default for GrooveApp {
             state: Default::default(),
             should_exit: Default::default(),
             entity_view: Default::default(),
-            control_bar_view: ControlBarView::new_with(
-                Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND),
-                TimeSignature::default(),
-            ),
+            control_bar_view: ControlBarView::new_with(Clock::new_with(clock_params)),
             views: View::new(),
             show_settings: Default::default(),
             project_title: None,

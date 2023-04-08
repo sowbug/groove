@@ -115,7 +115,7 @@ impl PatternProgrammer {
 
     pub fn new_with(time_signature: &TimeSignature) -> Self {
         Self {
-            time_signature: *time_signature,
+            time_signature: time_signature.clone(),
             cursor_beats: Self::CURSOR_BEGIN,
         }
     }

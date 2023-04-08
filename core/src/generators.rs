@@ -930,8 +930,6 @@ pub mod tests {
     use std::path::PathBuf;
 
     const DEFAULT_SAMPLE_RATE: usize = 44100;
-    const DEFAULT_BPM: ParameterType = 128.0;
-    const DEFAULT_MIDI_TICKS_PER_SECOND: usize = 960;
 
     impl DebugTicks for Oscillator {
         fn debug_tick_until(&mut self, tick_number: usize) {
@@ -1400,9 +1398,8 @@ pub mod tests {
     // Where possible, we'll erase the envelope type and work only with the
     // Envelope trait, so that we can confirm that the trait alone is useful.
     fn get_ge_trait_stuff() -> (Clock, impl GeneratesEnvelope) {
-        let clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
-        let params = EnvelopeNano::new_with(0.1, 0.2, Normal::new(0.8), 0.3);
-        let envelope = Envelope::new_with(params);
+        let clock = Clock::new_test();
+        let envelope = Envelope::new_with(EnvelopeNano::new_with(0.1, 0.2, Normal::new(0.8), 0.3));
         (clock, envelope)
     }
 
@@ -1479,7 +1476,7 @@ pub mod tests {
     #[test]
     fn generates_envelope_trait_attack_decay_duration() {
         // An even sample rate means we can easily calculate how much time was spent in each state.
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_test();
         const ATTACK: f64 = 0.1;
         const DECAY: f64 = 0.2;
         let sustain = Normal::new(0.8);
@@ -1550,7 +1547,7 @@ pub mod tests {
 
     #[test]
     fn generates_envelope_trait_sustain_duration_then_release() {
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_test();
         const ATTACK: ParameterType = 0.1;
         const DECAY: ParameterType = 0.2;
         let sustain = Normal::new(0.8);
@@ -1618,7 +1615,7 @@ pub mod tests {
 
     #[test]
     fn simple_envelope_interrupted_decay_with_second_attack() {
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_test();
 
         // These settings are copied from Welsh Piano's filter envelope, which
         // is where I noticed some unwanted behavior.
@@ -1740,8 +1737,7 @@ pub mod tests {
     // envelope can be shorter than its parameters might suggest.
     #[test]
     fn generates_envelope_trait_decay_and_release_based_on_full_amplitude_range() {
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
-
+        let mut clock = Clock::new_test();
         const ATTACK: ParameterType = 0.0;
         const DECAY: ParameterType = 0.8;
         let sustain = Normal::new(0.5);

@@ -22,7 +22,7 @@ use self::{
     instruments::InstrumentSettings,
 };
 use groove_core::{
-    time::{BeatValue, Clock, PerfectTimeUnit, TimeSignature},
+    time::{BeatValue, Clock, ClockNano, PerfectTimeUnit, TimeSignature},
     ParameterType,
 };
 use groove_entities::controllers::{Note, Pattern};
@@ -91,47 +91,6 @@ pub struct TrackSettings {
     pub pattern_ids: Vec<DeviceId>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub struct ClockSettings {
-    #[serde(skip)]
-    sample_rate: usize, // Samples per second; granularity of a tick().
-
-    #[serde(rename = "bpm")]
-    beats_per_minute: f32,
-
-    #[serde(rename = "time-signature")]
-    time_signature: TimeSignatureSettings,
-
-    #[serde(skip)]
-    midi_ticks_per_second: usize,
-}
-impl Default for ClockSettings {
-    fn default() -> Self {
-        Self {
-            sample_rate: 44100,
-            beats_per_minute: 128.0,
-            time_signature: TimeSignatureSettings { top: 4, bottom: 4 },
-            midi_ticks_per_second: 960,
-        }
-    }
-}
-#[allow(clippy::from_over_into)]
-impl Into<Clock> for ClockSettings {
-    fn into(self) -> Clock {
-        Clock::new_with(
-            self.beats_per_minute as ParameterType,
-            self.midi_ticks_per_second,
-        )
-    }
-}
-#[allow(clippy::from_over_into)]
-impl Into<Orchestrator> for ClockSettings {
-    fn into(self) -> Orchestrator {
-        Orchestrator::new_with(self.beats_per_minute as ParameterType)
-    }
-}
-
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ControlSettings {
@@ -197,40 +156,6 @@ impl BeatValueSettings {
             BeatValueSettings::OneHundredTwentyEighth => BeatValue::OneHundredTwentyEighth,
             BeatValueSettings::TwoHundredFiftySixth => BeatValue::TwoHundredFiftySixth,
             BeatValueSettings::FiveHundredTwelfth => BeatValue::FiveHundredTwelfth,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{ClockSettings, TimeSignatureSettings};
-
-    impl ClockSettings {
-        const TEST_SAMPLE_RATE: usize = 44100;
-        const TEST_BPM: f32 = 99.0;
-
-        pub(crate) fn new_with(
-            sample_rate: usize,
-            beats_per_minute: f32,
-            time_signature: (usize, usize),
-        ) -> Self {
-            Self {
-                sample_rate,
-                beats_per_minute,
-                time_signature: TimeSignatureSettings {
-                    top: time_signature.0,
-                    bottom: time_signature.1,
-                },
-                midi_ticks_per_second: 960, // TODO
-            }
-        }
-
-        pub fn new_test() -> Self {
-            Self::new_with(
-                ClockSettings::TEST_SAMPLE_RATE,
-                ClockSettings::TEST_BPM,
-                (4, 4),
-            )
         }
     }
 }

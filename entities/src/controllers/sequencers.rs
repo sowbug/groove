@@ -4,7 +4,7 @@ use crate::EntityMessage;
 use btreemultimap::BTreeMultiMap;
 use groove_core::{
     midi::{new_note_off, u7, HandlesMidi, MidiChannel, MidiMessage},
-    time::{Clock, MidiTicks, PerfectTimeUnit},
+    time::{Clock, ClockNano, MidiTicks, PerfectTimeUnit, TimeSignature},
     traits::{IsController, Performs, Resets, TicksWithMessages},
     ParameterType,
 };
@@ -73,7 +73,11 @@ impl Sequencer {
             is_performing: Default::default(),
             should_stop_pending_notes: Default::default(),
             on_notes: Default::default(),
-            temp_hack_clock: Clock::new_with(params.bpm(), 9999),
+            temp_hack_clock: Clock::new_with(ClockNano {
+                bpm: params.bpm(),
+                midi_ticks_per_second: 0,
+                time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO
+            }),
         }
     }
 
@@ -292,7 +296,11 @@ impl MidiTickSequencer {
             last_event_time: Default::default(),
             is_disabled: Default::default(),
             is_performing: Default::default(),
-            temp_hack_clock: Clock::new_with(9999.0, params.midi_ticks_per_second()),
+            temp_hack_clock: Clock::new_with(ClockNano {
+                bpm: 0.0,
+                midi_ticks_per_second: params.midi_ticks_per_second(),
+                time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO
+            }),
         }
     }
 
@@ -472,11 +480,11 @@ mod tests {
     use super::{MidiTickEventsMap, MidiTickSequencer};
     use crate::{
         messages::EntityMessage,
-        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND, DEFAULT_SAMPLE_RATE},
+        tests::{DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
     };
     use groove_core::{
         midi::MidiChannel,
-        time::{Clock, MidiTicks},
+        time::{Clock, ClockNano, MidiTicks, TimeSignature},
         traits::{IsController, Ticks},
     };
 
@@ -526,7 +534,11 @@ mod tests {
     #[test]
     fn sequencer_mainline() {
         const DEVICE_MIDI_CHANNEL: MidiChannel = 7;
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_with(ClockNano {
+            bpm: DEFAULT_BPM,
+            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+            time_signature: TimeSignature { top: 4, bottom: 4 },
+        });
         // let mut o = Orchestrator::new_with(DEFAULT_BPM);
         // let mut sequencer = Box::new(MidiTickSequencer::new_with(
         //     DEFAULT_SAMPLE_RATE,

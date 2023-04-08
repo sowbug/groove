@@ -11,7 +11,7 @@ use crate::{
 };
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
-    time::{Clock, TimeSignature},
+    time::{Clock, ClockNano, TimeSignature},
     traits::Resets,
     Normal, ParameterType, StereoSample,
 };
@@ -198,15 +198,19 @@ impl EngineSubscription {
 
                         // TODO: deal with output-device and sample-rate
                         // changes. This is a mess.
-                        let mut t = Orchestrator::new_with(DEFAULT_BPM);
+                        let clock_params = ClockNano {
+                            bpm: DEFAULT_BPM,
+                            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+                            time_signature: TimeSignature { top: 4, bottom: 4 },
+                        };
+                        let mut t = Orchestrator::new_with(clock_params.clone());
                         let sample_rate = IOHelper::get_output_device_sample_rate();
                         t.reset(sample_rate);
                         let orchestrator = Arc::new(Mutex::new(t));
                         let orchestrator_for_app = Arc::clone(&orchestrator);
                         let handler = std::thread::spawn(move || {
                             let audio_output = AudioOutput::new_with(input_sender.clone());
-                            let mut clock =
-                                Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+                            let mut clock = Clock::new_with(clock_params);
                             clock.reset(sample_rate);
                             let mut subscription = Self::new_with(
                                 sample_rate,
@@ -467,7 +471,9 @@ impl EngineSubscription {
     }
 
     fn publish_time_signature_update(&mut self) {
-        self.post_event(EngineEvent::SetTimeSignature(self.time_signature));
+        self.post_event(EngineEvent::SetTimeSignature(
+            self.clock.time_signature().clone(),
+        ));
     }
 
     fn start_audio(&mut self) {

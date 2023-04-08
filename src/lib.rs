@@ -11,7 +11,7 @@
 //! # use groove_core::{
 //! #     generators::{EnvelopeNano, Waveform},
 //! #     midi::{MidiChannel, new_note_off, new_note_on},
-//! #     time::PerfectTimeUnit,
+//! #     time::{Clock, ClockNano, PerfectTimeUnit, TimeSignature},
 //! #     traits::Resets,
 //! #     Normal,
 //! #     StereoSample,
@@ -56,7 +56,11 @@
 //! // Orchestrator understands the relationships among the
 //! // instruments, controllers, and effects, and uses them to
 //! // produce a song.
-//! let mut orchestrator = Orchestrator::new_with(BPM);
+//! let mut orchestrator = Orchestrator::new_with(ClockNano {
+//!     bpm: 128.0,
+//!     midi_ticks_per_second: 960,
+//!     time_signature: TimeSignature { top: 4, bottom: 4 },
+//! });
 //!
 //! // Orchestrator owns the sample rate and propagates it to the devices
 //! // that it controls.

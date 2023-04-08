@@ -3,7 +3,7 @@
 use core::fmt::Debug;
 use groove_core::{
     midi::{new_note_off, new_note_on, HandlesMidi, MidiChannel, MidiMessage},
-    time::{Clock, ClockTimeUnit},
+    time::{Clock, ClockNano, ClockTimeUnit, TimeSignature},
     traits::{IsController, MessageBounds, Performs, Resets, Ticks, TicksWithMessages},
     ParameterType,
 };
@@ -156,7 +156,11 @@ impl<M: MessageBounds> ToyController<M> {
             bpm: params.bpm(),
             tempo: params.tempo(),
             midi_channel_out,
-            clock: Clock::new_with(params.bpm(), 9999),
+            clock: Clock::new_with(ClockNano {
+                bpm: params.bpm(),
+                midi_ticks_per_second: 9999,
+                time_signature: TimeSignature { top: 4, bottom: 4 },
+            }),
             is_enabled: Default::default(),
             is_playing: Default::default(),
             is_performing: false,

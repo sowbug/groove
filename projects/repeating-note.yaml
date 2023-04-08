@@ -2,6 +2,7 @@
 title: "A single repeating note"
 clock:
   bpm: 60.0
+  midi-ticks-per-second: 960
   time-signature:
     - 4
     - 4

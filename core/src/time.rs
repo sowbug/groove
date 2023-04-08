@@ -5,12 +5,15 @@ use crate::{
     ParameterType,
 };
 use anyhow::{anyhow, Error};
+use groove_proc_macros::{Nano, Uid};
+use std::str::FromStr;
 use std::{
     cmp::Ordering,
     fmt::Display,
     ops::{Add, Mul},
 };
-use strum_macros::FromRepr;
+use strum::EnumCount;
+use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -29,12 +32,19 @@ pub enum ClockTimeUnit {
 }
 
 /// A timekeeper that operates in terms of sample rate.
-#[derive(Clone, Debug)]
+#[derive(Debug, Nano, Uid)]
 pub struct Clock {
+    #[nano]
+    bpm: ParameterType,
+
+    #[nano]
+    midi_ticks_per_second: usize,
+
+    #[nano(control = false, no_copy = true)]
+    time_signature: TimeSignature,
+
     /// The number of frames per second. Usually 44.1KHz for CD-quality audio.
     sample_rate: usize,
-    bpm: ParameterType,
-    midi_ticks_per_second: usize,
 
     /// Samples since clock creation. It's called "frames" because tick() was
     /// already being used as a verb by the Ticks trait, and "samples" is a very
@@ -42,30 +52,37 @@ pub struct Clock {
     /// used when the emphasis is on division of work into small parts.
     frames: usize,
 
-    seconds: f64, // Seconds elapsed since clock creation.
-    // Beats elapsed since clock creation. Not
-    // https://en.wikipedia.org/wiki/Swatch_Internet_Time
-    beats: f64,
+    /// Seconds elapsed since clock creation. Derived from sample rate and
+    /// elapsed frames.
+    seconds: ParameterType,
 
-    // Typically 960 ticks per second
+    /// Beats elapsed since clock creation. Derived from seconds and BPM.
+    beats: ParameterType,
+
+    /// MIDI ticks since clock creation. Derived from seconds and
+    /// midi_ticks_per_second. Typically 960 ticks per second
     midi_ticks: usize,
 
     // True if anything unusual happened since the last tick, or there was no
     // last tick because this is the first.
     was_reset: bool,
+
+    uid: usize,
 }
 
 impl Clock {
-    pub fn new_with(beats_per_minute: ParameterType, midi_ticks_per_second: usize) -> Self {
+    pub fn new_with(params: ClockNano) -> Self {
         Self {
             sample_rate: Default::default(),
-            bpm: beats_per_minute,
-            midi_ticks_per_second,
+            bpm: params.bpm(),
+            midi_ticks_per_second: params.midi_ticks_per_second(),
+            time_signature: params.time_signature().clone(),
             frames: Default::default(),
             seconds: Default::default(),
             beats: Default::default(),
             midi_ticks: Default::default(),
             was_reset: true,
+            uid: Default::default(),
         }
     }
 
@@ -94,18 +111,18 @@ impl Clock {
     pub fn set_bpm(&mut self, bpm: ParameterType) {
         self.bpm = bpm;
         self.was_reset = true;
-        self.update();
+        self.update_internals();
     }
 
     pub fn seek(&mut self, ticks: usize) {
         self.frames = ticks;
         self.was_reset = true;
-        self.update();
+        self.update_internals();
     }
     pub fn set_sample_rate(&mut self, sample_rate: usize) {
         self.sample_rate = sample_rate;
         self.was_reset = true;
-        self.update();
+        self.update_internals();
     }
 
     /// The next_slice_in_ methods return the start of the next time slice, in
@@ -125,7 +142,7 @@ impl Clock {
     pub fn tick_batch(&mut self, count: usize) {
         self.was_reset = false;
         self.frames += count;
-        self.update();
+        self.update_internals();
     }
 
     /// Given a frame number, returns the number of seconds that have elapsed.
@@ -142,7 +159,7 @@ impl Clock {
         (self.midi_ticks_per_second as f64 * self.seconds_for_frame(frame)) as usize
     }
 
-    fn update(&mut self) {
+    fn update_internals(&mut self) {
         self.seconds = self.seconds_for_frame(self.frames);
         self.beats = self.beats_for_frame(self.frames);
         self.midi_ticks = self.midi_ticks_for_frame(self.frames);
@@ -156,6 +173,37 @@ impl Clock {
             ClockTimeUnit::MidiTicks => todo!(),
         }
     }
+
+    pub fn update(&mut self, message: ClockMessage) {
+        match message {
+            ClockMessage::Clock(s) => *self = Self::new_with(s),
+            _ => self.derived_update(message),
+        }
+    }
+
+    pub fn uid(&self) -> usize {
+        self.uid
+    }
+
+    pub fn set_uid(&mut self, uid: usize) {
+        self.uid = uid;
+    }
+
+    pub fn midi_ticks_per_second(&self) -> usize {
+        self.midi_ticks_per_second
+    }
+
+    pub fn set_midi_ticks_per_second(&mut self, midi_ticks_per_second: usize) {
+        self.midi_ticks_per_second = midi_ticks_per_second;
+    }
+
+    pub fn time_signature(&self) -> &TimeSignature {
+        &self.time_signature
+    }
+
+    pub fn set_time_signature(&mut self, time_signature: TimeSignature) {
+        self.time_signature = time_signature;
+    }
 }
 impl Ticks for Clock {
     fn tick(&mut self, tick_count: usize) {
@@ -166,7 +214,7 @@ impl Ticks for Clock {
             self.was_reset = false;
         } else if tick_count != 0 {
             self.frames += tick_count;
-            self.update();
+            self.update_internals();
         }
     }
 }
@@ -353,7 +401,7 @@ impl BeatValue {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(
     feature = "serialization",
     derive(Serialize, Deserialize),
@@ -426,29 +474,23 @@ mod tests {
 
     impl Clock {
         pub fn new_test() -> Self {
-            Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND)
+            Clock::new_with(ClockNano {
+                bpm: DEFAULT_BPM,
+                midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+                time_signature: TimeSignature { top: 4, bottom: 4 },
+            })
         }
-
-        pub fn new() -> Self {
-            Self::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND)
-        }
-
-        // pub fn debug_new_with_time(time: f32) -> Self {
-        //     let mut r = Self::new();
-        //     r.debug_set_seconds(time);
-        //     r
-        // }
 
         pub fn debug_set_seconds(&mut self, value: f32) {
             self.was_reset = true;
             self.frames = (self.sample_rate() as f32 * value) as usize;
-            self.update();
+            self.update_internals();
         }
 
         pub fn debug_set_beats(&mut self, value: f64) {
             self.was_reset = true;
             self.frames = (self.sample_rate() as f64 * (60.0 * value / self.bpm)) as usize;
-            self.update();
+            self.update_internals();
         }
     }
 
@@ -463,7 +505,7 @@ mod tests {
         // Initial state. The Ticks trait specifies that state is valid for the
         // frame *after* calling tick(), so here we verify that after calling
         // tick() the first time, the tick counter remains unchanged.
-        let mut clock = Clock::new_with(BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_test();
         clock.tick(1);
         assert_eq!(
             clock.frames(),
@@ -510,7 +552,7 @@ mod tests {
 
     #[test]
     fn clock_tells_us_when_it_jumps() {
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
+        let mut clock = Clock::new_test();
 
         let mut next_sample = clock.frames();
         let mut first_time = true;

@@ -29,8 +29,11 @@ pub mod tests {
         Orchestrator,
     };
     use groove_core::{
-        generators::Waveform, midi::MidiChannel, time::Clock, traits::Resets, FrequencyHz, Normal,
-        ParameterType, StereoSample,
+        generators::Waveform,
+        midi::MidiChannel,
+        time::{ClockNano, TimeSignature},
+        traits::Resets,
+        FrequencyHz, Normal, StereoSample,
     };
     use groove_entities::{
         controllers::{LfoController, Timer, TimerNano},
@@ -43,8 +46,12 @@ pub mod tests {
 
     #[test]
     fn audio_routing_works() {
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
-        let mut o = Orchestrator::new_with(clock.bpm() as ParameterType);
+        let mut o = Orchestrator::new_with(ClockNano {
+            bpm: DEFAULT_BPM,
+            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+            time_signature: TimeSignature { top: 4, bottom: 4 },
+        });
+        o.reset(DEFAULT_SAMPLE_RATE);
 
         // A simple audio source.
         let synth_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new())));
@@ -68,14 +75,13 @@ pub mod tests {
         let mut sample_buffer = [StereoSample::SILENCE; 64];
         if let Ok(samples_1) = o.run(&mut sample_buffer) {
             // We should get exactly the right amount of audio.
-            assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
+            assert_eq!(samples_1.len(), SECONDS * DEFAULT_SAMPLE_RATE);
 
             // It should not all be silence.
             assert!(!samples_1.iter().any(|&s| s != StereoSample::SILENCE));
 
             // Run again but without the negating effect in the mix.
             assert!(o.unpatch(synth_uid, effect_uid).is_ok());
-            clock.reset(clock.sample_rate());
             if let Ok(samples_2) = o.run(&mut sample_buffer) {
                 // The sample pairs should cancel each other out.
                 assert!(!samples_2.iter().any(|&s| s != StereoSample::SILENCE));
@@ -93,8 +99,12 @@ pub mod tests {
 
     #[test]
     fn control_routing_works() {
-        let mut clock = Clock::new_with(DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND);
-        let mut o = Orchestrator::new_with(clock.bpm() as ParameterType);
+        let mut o = Orchestrator::new_with(ClockNano {
+            bpm: DEFAULT_BPM,
+            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+            time_signature: TimeSignature { top: 4, bottom: 4 },
+        });
+        o.reset(DEFAULT_SAMPLE_RATE);
 
         // The synth's frequency is modulated by the LFO.
         let synth_1_uid = o.add(Entity::DebugSynth(Box::new(DebugSynth::new())));
@@ -120,14 +130,13 @@ pub mod tests {
             //
             // TODO: to get this to continue to pass, I changed sample_buffer to
             // be an even divisor of 44100.
-            assert_eq!(samples_1.len(), SECONDS * clock.sample_rate());
+            assert_eq!(samples_1.len(), SECONDS * DEFAULT_SAMPLE_RATE);
 
             // It should not all be silence.
             assert!(!samples_1.iter().any(|&s| s != StereoSample::SILENCE));
 
             // Run again after disconnecting the LFO.
             o.unlink_control_by_name(lfo_uid, synth_1_uid, "oscillator");
-            clock.reset(clock.sample_rate());
             if let Ok(samples_2) = o.run(&mut sample_buffer) {
                 // The two runs should be different. That's not a great test of what
                 // we're doing here, but it will detect when things are broken.
@@ -143,7 +152,11 @@ pub mod tests {
     fn midi_routing_works() {
         const TEST_MIDI_CHANNEL: MidiChannel = 7;
         const ARP_MIDI_CHANNEL: MidiChannel = 5;
-        let mut o = Orchestrator::new_with(DEFAULT_BPM);
+        let mut o = Orchestrator::new_with(ClockNano {
+            bpm: DEFAULT_BPM,
+            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+            time_signature: TimeSignature { top: 4, bottom: 4 },
+        });
         o.reset(DEFAULT_SAMPLE_RATE);
 
         // We have a regular MIDI instrument, and an arpeggiator that emits MIDI note messages.
@@ -247,7 +260,11 @@ pub mod tests {
 
     #[test]
     fn groove_can_be_instantiated_in_new_generic_world() {
-        let mut o = Orchestrator::new_with(DEFAULT_BPM);
+        let mut o = Orchestrator::new_with(ClockNano {
+            bpm: DEFAULT_BPM,
+            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
+            time_signature: TimeSignature { top: 4, bottom: 4 },
+        });
         o.reset(DEFAULT_SAMPLE_RATE);
 
         // A simple audio source.

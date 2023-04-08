@@ -2,10 +2,10 @@
 
 use super::{
     controllers::{ControlPathSettings, ControlTripSettings},
-    ClockSettings, ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
+    ControlSettings, DeviceId, DeviceSettings, PatternSettings, TrackSettings,
 };
 use anyhow::Result;
-use groove_core::{time::TimeSignature, ParameterType};
+use groove_core::time::{ClockNano, TimeSignature};
 use groove_entities::controllers::{
     ControlPath, ControlTrip, ControlTripNano, Note, Pattern, PatternProgrammer,
 };
@@ -23,8 +23,7 @@ pub struct SongSettings {
     pub title: Option<String>,
 
     /// Information about timing. BPM, time signature, etc.
-    #[serde(rename = "clock")]
-    pub clock_settings: ClockSettings,
+    pub clock: ClockNano,
 
     /// Controllers, Effects, and Instruments
     pub devices: Vec<DeviceSettings>,
@@ -71,19 +70,7 @@ impl SongSettings {
     }
 
     pub fn new_from_yaml(yaml: &str) -> anyhow::Result<Self> {
-        let mut settings: SongSettings = serde_yaml::from_str(yaml)?;
-
-        // TODO: this is a hack that seems to be necessary because if you set a
-        // #[serde(skip)] on a field, then it doesn't seem to pick up the value
-        // from the Default impl. So we were getting 0 as the default sample
-        // rate once we dropped that field from serialization.
-        //
-        // TODO: think (again) about whether Serde structs should be closer or
-        // farther to the heart of the model.
-        if settings.clock_settings.sample_rate == 0 {
-            settings.clock_settings.sample_rate = 44100;
-        }
-        Ok(settings)
+        Ok(serde_yaml::from_str(yaml)?)
     }
 
     pub fn instantiate(
@@ -91,25 +78,20 @@ impl SongSettings {
         base_path: &PathBuf,
         load_only_test_entities: bool,
     ) -> Result<Orchestrator> {
-        let mut o: Orchestrator = self.clock_settings.into();
+        let mut o: Orchestrator = Orchestrator::new_with(self.clock.clone());
         o.set_title(self.title.clone());
-        self.instantiate_devices(
-            &mut o,
-            &self.clock_settings,
-            base_path,
-            load_only_test_entities,
-        );
+        self.instantiate_devices(&mut o, &self.clock, base_path, load_only_test_entities);
         self.instantiate_patch_cables(&mut o)?;
         self.instantiate_controls(&mut o)?;
         self.instantiate_tracks(&mut o);
-        self.instantiate_control_trips(&mut o, &self.clock_settings.time_signature.into());
+        self.instantiate_control_trips(&mut o, &self.clock.time_signature);
         Ok(o)
     }
 
     fn instantiate_devices(
         &self,
         orchestrator: &mut Orchestrator,
-        clock_settings: &ClockSettings,
+        clock: &ClockNano,
         base_path: &PathBuf,
         load_only_test_entities: bool,
     ) {
@@ -122,10 +104,8 @@ impl SongSettings {
                     orchestrator.connect_midi_downstream(uid, channel);
                 }
                 DeviceSettings::Controller(uvid, settings) => {
-                    let (channel_in, _channel_out, entity) = settings.instantiate(
-                        clock_settings.beats_per_minute as ParameterType,
-                        load_only_test_entities,
-                    );
+                    let (channel_in, _channel_out, entity) =
+                        settings.instantiate(clock.bpm(), load_only_test_entities);
                     let uid = orchestrator.add_with_uvid(entity, uvid);
                     // TODO: do we care about channel_out?
                     orchestrator.connect_midi_downstream(uid, channel_in);
@@ -241,8 +221,7 @@ impl SongSettings {
 
         let sequencer_uid = orchestrator.sequencer_uid();
         if let Some(Entity::Sequencer(sequencer)) = orchestrator.get_mut(sequencer_uid) {
-            let mut programmer =
-                PatternProgrammer::new_with(&self.clock_settings.time_signature.into());
+            let mut programmer = PatternProgrammer::new_with(&self.clock.time_signature);
 
             for track in &self.tracks {
                 let channel = track.midi_channel;

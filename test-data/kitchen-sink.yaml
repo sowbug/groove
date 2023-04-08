@@ -2,6 +2,7 @@
 title: "A dumping ground to make sure components load properly. Listen at your own risk."
 clock:
   bpm: 1024.0
+  midi-ticks-per-second: 960
   time-signature:
     - 4
     - 4

@@ -1,6 +1,9 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove_core::traits::{HasUid, Resets};
+use groove_core::{
+    time::{Clock, ClockMessage, ClockNano},
+    traits::{HasUid, Resets},
+};
 use groove_entities::{
     controllers::{
         Arpeggiator, ArpeggiatorMessage, ArpeggiatorNano, ControlTrip, ControlTripMessage,
@@ -92,6 +95,9 @@ enum Everything {
 
     #[everything(effect, controllable)]
     Chorus(Chorus),
+
+    #[everything()]
+    Clock(Clock),
 
     #[everything(effect, controllable)]
     Compressor(Compressor),
