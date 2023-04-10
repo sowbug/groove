@@ -13,7 +13,7 @@ use groove::{
 use groove_core::{
     time::{ClockNano, TimeSignature},
     traits::Resets,
-    StereoSample,
+    StereoSample, SAMPLE_BUFFER_SIZE,
 };
 use groove_orchestration::{helpers::IOHelper, Orchestrator};
 use groove_settings::SongSettings;
@@ -121,7 +121,7 @@ fn main() -> anyhow::Result<()> {
             IOHelper::get_output_device_sample_rate()
         });
         let start_instant = Instant::now();
-        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
         let performance = orchestrator.run_performance(&mut sample_buffer, args.quiet)?;
         if args.perf {
             println!(

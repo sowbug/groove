@@ -33,7 +33,7 @@ pub mod tests {
         midi::MidiChannel,
         time::{ClockNano, TimeSignature},
         traits::Resets,
-        FrequencyHz, Normal, StereoSample,
+        FrequencyHz, Normal, StereoSample, SAMPLE_BUFFER_SIZE,
     };
     use groove_entities::{
         controllers::{LfoController, Timer, TimerNano},
@@ -72,7 +72,7 @@ pub mod tests {
         }))));
 
         // Gather the audio output.
-        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
         if let Ok(samples_1) = o.run(&mut sample_buffer) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * DEFAULT_SAMPLE_RATE);
@@ -188,7 +188,7 @@ pub mod tests {
         }))));
 
         // Everything is hooked up. Let's run it and hear what we got.
-        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
         if let Ok(samples) = o.run(&mut sample_buffer) {
             // We haven't asked the arpeggiator to start sending anything yet.
             assert_eq!(samples.len(), (SECONDS * DEFAULT_SAMPLE_RATE) as usize);
@@ -287,7 +287,7 @@ pub mod tests {
         }))));
 
         // Gather the audio output.
-        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
         if let Ok(samples_1) = o.run(&mut sample_buffer) {
             // We should get exactly the right amount of audio.
             assert_eq!(samples_1.len(), SECONDS * DEFAULT_SAMPLE_RATE);

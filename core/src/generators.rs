@@ -923,7 +923,7 @@ pub mod tests {
         time::Clock,
         traits::{tests::DebugTicks, Generates, GeneratesEnvelope, Resets, Ticks},
         util::tests::TestOnlyPaths,
-        Normal, ParameterType, Sample, SampleType,
+        Normal, ParameterType, Sample, SampleType, SAMPLE_BUFFER_SIZE,
     };
     use float_cmp::approx_eq;
     use more_asserts::{assert_gt, assert_lt};
@@ -1814,7 +1814,7 @@ pub mod tests {
         // overwritten by the method we're about to call.
         //
         // TODO: that buffer size should be pulled from somewhere centralized.
-        let mut amplitudes: [Normal; 64] = [Normal::from(0.888); 64];
+        let mut amplitudes = [Normal::from(0.888); SAMPLE_BUFFER_SIZE];
 
         // The envelope starts out in the idle state, and we haven't triggered
         // it.

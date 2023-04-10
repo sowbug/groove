@@ -40,6 +40,8 @@ pub mod util;
 /// Contains things that make up instrument voices.
 pub mod voices;
 
+pub const SAMPLE_BUFFER_SIZE: usize = 64;
+
 /// [SampleType] is the underlying primitive that makes up [MonoSample] and
 /// [StereoSample]. It exists as a transition aid while we migrate from
 /// hardcoded f32 to [MonoSample]/[StereoSample].

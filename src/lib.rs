@@ -14,6 +14,7 @@
 //! #     time::{Clock, ClockNano, PerfectTimeUnit, TimeSignature},
 //! #     traits::Resets,
 //! #     Normal,
+//! #     SAMPLE_BUFFER_SIZE,
 //! #     StereoSample,
 //! # };
 //! # use groove_entities::{
@@ -29,7 +30,7 @@
 //! # const MIDI_0: MidiChannel = 0;
 //! #
 //! // The system needs a working buffer for audio.
-//! let mut buffer = [StereoSample::SILENCE; 64];
+//! let mut buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
 //!
 //! // ToySynth is a MIDI instrument that makes simple sounds.
 //! let synth = ToySynth::new_with(ToySynthNano {
@@ -126,7 +127,7 @@ pub fn app_version() -> &'static str {
 #[cfg(test)]
 mod tests {
     use crate::util::{PathType, Paths};
-    use groove_core::{util::tests::TestOnlyPaths, StereoSample};
+    use groove_core::{util::tests::TestOnlyPaths, StereoSample, SAMPLE_BUFFER_SIZE};
     use groove_orchestration::helpers::IOHelper;
     use groove_settings::SongSettings;
     use std::{fs::File, io::prelude::*, path::PathBuf, time::Instant};
@@ -141,7 +142,7 @@ mod tests {
         let mut orchestrator = song_settings
             .instantiate(&Paths::assets_path(PathType::Dev), false)
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
-        let mut sample_buffer = [StereoSample::SILENCE; 64];
+        let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
         if let Ok(samples) = orchestrator.run(&mut sample_buffer) {
             assert!(
                 !samples.is_empty(),
@@ -171,7 +172,7 @@ mod tests {
             .unwrap_or_else(|err| panic!("instantiation failed: {:?}", err));
 
         let start_instant = Instant::now();
-        let mut samples = [StereoSample::SILENCE; 64];
+        let mut samples = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
         let performance = orchestrator
             .run_performance(&mut samples, false)
             .unwrap_or_else(|err| panic!("performance failed: {:?}", err));
