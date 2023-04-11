@@ -6,20 +6,19 @@
 
 use crate::audio::AudioOutput;
 use crossbeam::queue::ArrayQueue;
-use groove_core::{time::TimeSignature, Normal, ParameterType, StereoSample};
-use groove_orchestration::{
-    helpers::IOHelper,
-    messages::{GrooveEvent, GrooveInput},
-};
-
+use groove_core::{Normal, StereoSample};
+use groove_orchestration::{helpers::IOHelper, messages::GrooveInput};
 use iced::futures::channel::mpsc as iced_mpsc;
 use iced_native::subscription::{self, Subscription};
 use std::{
-    collections::VecDeque,
     sync::{mpsc, Arc},
     thread::JoinHandle,
     time::Instant,
 };
+
+// TODO: this is waaaaaaaay more complicated than it needs to be. I'm evolving
+// it from a separate thread that was running the entire engine to a simple
+// interface around AudioOutput. Simplify!
 
 enum State {
     Start,
@@ -31,12 +30,7 @@ enum State {
 /// The subscriber sends [EngineInput] messages to communicate with the engine.
 #[derive(Debug)]
 pub enum EngineInput {
-    /// The consumer of the audio engine's output is ready to handle more audio,
-    /// and it requests the given number of buffers. (The size of a buffer is
-    /// currently known by everyone, TODO to make that more explicit.)
-    GenerateAudio(u8),
-
-    /// Change sample rate.
+    /// The consumer of the aud    /// Change sample rate.
     SetSampleRate(usize),
 
     /// End this thread.
@@ -54,9 +48,6 @@ pub enum EngineEvent {
 
     /// The audio interface needs one or more buffers of audio.
     GenerateAudio(u8),
-
-    /// An internal message that is passed directly through.
-    GrooveEvent(GrooveEvent),
 
     /// The sample rate has changed.
     SampleRateChanged(usize),
@@ -82,7 +73,6 @@ pub struct EngineSubscription {
     sample_rate: usize,
     has_broadcast_sample_rate: bool,
 
-    events: VecDeque<GrooveEvent>,
     sender: iced_mpsc::Sender<EngineEvent>,
     receiver: mpsc::Receiver<EngineInput>,
     audio_output: AudioOutput,
@@ -122,7 +112,7 @@ impl EngineSubscription {
                         let (thread_sender, thread_receiver) =
                             iced_mpsc::channel::<EngineEvent>(1024);
 
-                        let input_sender = app_sender.clone();
+                        let event_sender = thread_sender.clone();
 
                         // TODO: deal with output-device and sample-rate
                         // changes. This is a mess.
@@ -131,7 +121,7 @@ impl EngineSubscription {
                         let sample_rate = IOHelper::get_output_device_sample_rate();
                         let handler = std::thread::spawn(move || {
                             let audio_output =
-                                AudioOutput::new_with(ring_buffer, input_sender.clone());
+                                AudioOutput::new_with(ring_buffer, event_sender.clone());
                             let mut subscription = Self::new_with(
                                 sample_rate,
                                 thread_sender,
@@ -152,11 +142,11 @@ impl EngineSubscription {
                     State::Ready(handler, mut receiver) => {
                         use iced_native::futures::StreamExt;
 
-                        let groove_event = receiver.select_next_some().await;
-                        if let EngineEvent::Quit = groove_event {
+                        let engine_event = receiver.select_next_some().await;
+                        if let EngineEvent::Quit = engine_event {
                             (Some(EngineEvent::Quit), State::Ending(handler))
                         } else {
-                            (Some(groove_event), State::Ready(handler, receiver))
+                            (Some(engine_event), State::Ready(handler, receiver))
                         }
                     }
                     State::Ending(handler) => {
@@ -188,7 +178,6 @@ impl EngineSubscription {
             sample_rate,
             has_broadcast_sample_rate: false,
             last_clock_update: Instant::now(),
-            events: Default::default(),
             sender,
             receiver,
             audio_output,
@@ -197,13 +186,6 @@ impl EngineSubscription {
 
     fn post_event(&mut self, event: EngineEvent) {
         let _ = self.sender.try_send(event);
-    }
-
-    /// Forwards queued-up events to the app.
-    fn forward_pending_events(&mut self) {
-        while let Some(event) = self.events.pop_front() {
-            self.post_event(EngineEvent::GrooveEvent(event));
-        }
     }
 
     fn do_loop(&mut self) {
@@ -217,9 +199,6 @@ impl EngineSubscription {
                 }
 
                 match input {
-                    EngineInput::GenerateAudio(buffer_count) => {
-                        self.post_event(EngineEvent::GenerateAudio(buffer_count))
-                    }
                     EngineInput::SetSampleRate(sample_rate) => {
                         self.update_and_broadcast_sample_rate(sample_rate);
                         messages.push(GrooveInput::SetSampleRate(sample_rate));
@@ -229,19 +208,6 @@ impl EngineSubscription {
                         break;
                     }
                 }
-
-                // Forward any messages that were meant for Orchestrator. Any
-                // responses we get at this point are to messages that aren't Tick,
-                // so we can ignore the return values from send_pending_messages().
-                // while let Some(message) = messages.pop() {
-                //     let response = if let Ok(mut o) = self.orchestrator.lock() {
-                //         o.update(message)
-                //     } else {
-                //         Response::none()
-                //     };
-                //     self.push_response(response);
-                // }
-                self.forward_pending_events();
             } else {
                 // In the normal case, we will break when we get the
                 // QuitRequested message. This break catches the case where the

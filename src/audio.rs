@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use crate::subscriptions::{EngineInput, EngineSubscription};
+use crate::subscriptions::{EngineEvent, EngineSubscription};
 use cpal::{
     traits::{DeviceTrait, StreamTrait},
     FromSample, Sample as CpalSample, Stream, StreamConfig,
@@ -8,10 +8,8 @@ use cpal::{
 use crossbeam::{deque::Steal, queue::ArrayQueue};
 use groove_core::StereoSample;
 use groove_orchestration::{helpers::IOHelper, Performance};
-use std::sync::{
-    mpsc::{self, Sender},
-    Arc, Condvar, Mutex,
-};
+use iced::futures::channel::mpsc as iced_mpsc;
+use std::sync::{Arc, Condvar, Mutex};
 
 /// Wraps the [cpal] crate to send audio to the PC's audio output.
 pub struct AudioOutput {
@@ -19,7 +17,7 @@ pub struct AudioOutput {
     ring_buffer: Arc<ArrayQueue<StereoSample>>,
     stream: Option<Stream>,
     sync_pair: Arc<(Mutex<bool>, Condvar)>,
-    input_sender: Sender<EngineInput>,
+    event_sender: iced_mpsc::Sender<EngineEvent>,
 }
 
 // TODO: make this smart and not start playing audio until it has enough samples
@@ -31,14 +29,14 @@ impl AudioOutput {
 
     pub(crate) fn new_with(
         ring_buffer: Arc<ArrayQueue<StereoSample>>,
-        input_sender: Sender<EngineInput>,
+        event_sender: iced_mpsc::Sender<EngineEvent>,
     ) -> Self {
         Self {
             sample_rate: 0,
             ring_buffer,
             stream: None,
             sync_pair: Arc::new((Mutex::new(false), Condvar::new())),
-            input_sender,
+            event_sender,
         }
     }
 
@@ -50,15 +48,6 @@ impl AudioOutput {
 
     pub(crate) fn push(&mut self, sample: StereoSample) -> Result<(), StereoSample> {
         self.ring_buffer.push(sample)
-    }
-
-    pub(crate) fn push_buffer(&mut self, samples: &[StereoSample]) -> Result<(), StereoSample> {
-        for sample in samples {
-            if let Err(e) = self.ring_buffer.push(*sample) {
-                return Result::Err(e);
-            }
-        }
-        Ok(())
     }
 
     pub(crate) fn start(&mut self) {
@@ -75,7 +64,7 @@ impl AudioOutput {
         // It's weird that I had to make a clone to be cloned. The problem was
         // referring to self inside the closures below, even though it was just
         // to make a clone.
-        let input_sender_clone = self.input_sender.clone();
+        let event_sender_clone = self.event_sender.clone();
 
         let err_fn = |err| eprintln!("an error occurred on the output audio stream: {err}");
         if let Ok(result) = match sample_format {
@@ -86,7 +75,7 @@ impl AudioOutput {
                         channels,
                         &ring_buffer_clone,
                         &sync_pair_clone,
-                        input_sender_clone.clone(),
+                        event_sender_clone.clone(),
                         data,
                         output_callback_info,
                     )
@@ -101,7 +90,7 @@ impl AudioOutput {
                         channels,
                         &ring_buffer_clone,
                         &sync_pair_clone,
-                        input_sender_clone.clone(),
+                        event_sender_clone.clone(),
                         data,
                         output_callback_info,
                     )
@@ -116,7 +105,7 @@ impl AudioOutput {
                         channels,
                         &ring_buffer_clone,
                         &sync_pair_clone,
-                        input_sender_clone.clone(),
+                        event_sender_clone.clone(),
                         data,
                         output_callback_info,
                     )
@@ -183,7 +172,7 @@ impl AudioOutput {
         channels: usize,
         queue: &Arc<ArrayQueue<StereoSample>>,
         sync_pair: &Arc<(Mutex<bool>, Condvar)>,
-        input_sender: Sender<EngineInput>,
+        mut event_sender: iced_mpsc::Sender<EngineEvent>,
         data: &mut [T],
         _info: &cpal::OutputCallbackInfo,
     ) where
@@ -229,7 +218,7 @@ impl AudioOutput {
             let shortfall = Self::RING_BUFFER_CAPACITY - len;
             let shortfall_in_buffers = (shortfall / EngineSubscription::ENGINE_BUFFER_SIZE) as u8;
             if shortfall_in_buffers > 0 {
-                let _ = input_sender.send(EngineInput::GenerateAudio(shortfall_in_buffers));
+                let _ = event_sender.try_send(EngineEvent::GenerateAudio(shortfall_in_buffers));
             }
         }
     }
@@ -238,13 +227,12 @@ impl AudioOutput {
     pub(crate) fn sample_rate(&self) -> usize {
         self.sample_rate
     }
-
 }
 
 /// This utility function assumes the caller is cool with blocking.
 pub fn send_performance_to_output_device(performance: &Performance) -> anyhow::Result<()> {
-    let (input_sender, _) = mpsc::channel::<EngineInput>();
-    let mut audio_output = AudioOutput::new_with(AudioOutput::create_ring_buffer(), input_sender);
+    let (event_sender, _) = iced_mpsc::channel::<EngineEvent>(256);
+    let mut audio_output = AudioOutput::new_with(AudioOutput::create_ring_buffer(), event_sender);
     let stealer = performance.worker.stealer();
     audio_output.start();
     while let Steal::Success(sample) = stealer.steal() {
