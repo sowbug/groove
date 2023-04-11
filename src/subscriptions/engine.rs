@@ -30,8 +30,20 @@ enum State {
 /// The subscriber sends [EngineInput] messages to communicate with the engine.
 #[derive(Debug)]
 pub enum EngineInput {
-    /// The consumer of the aud    /// Change sample rate.
+    /// Change sample rate.
     SetSampleRate(usize),
+
+    /// Start the audio interface. After this point, it's important to respond
+    /// quickly to GenerateAudio events, because the audio interface will be
+    /// consuming audio samples from the ring buffer.
+    ///
+    /// Note that this service starts in the StartAudio state, so there's no
+    /// need to send it unless you've paused audio and want to resume.
+    StartAudio,
+
+    /// Pause the audio interface. Send this when you know you won't have any
+    /// audio to send for a while. Resume with StartAudio.
+    PauseAudio,
 
     /// End this thread.
     QuitRequested,
@@ -207,6 +219,8 @@ impl EngineSubscription {
                         self.post_event(EngineEvent::Quit);
                         break;
                     }
+                    EngineInput::StartAudio => self.start_audio(),
+                    EngineInput::PauseAudio => self.pause_audio(),
                 }
             } else {
                 // In the normal case, we will break when we get the
@@ -246,6 +260,10 @@ impl EngineSubscription {
 
     fn start_audio(&mut self) {
         self.audio_output.start();
+    }
+
+    fn pause_audio(&mut self) {
+        self.audio_output.pause();
     }
 
     fn stop_audio(&mut self) {

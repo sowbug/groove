@@ -142,7 +142,6 @@ impl AudioOutput {
     }
 
     /// Ask the audio output to stop handling the stream.
-    #[allow(dead_code)]
     pub(crate) fn pause(&mut self) {
         if let Some(stream) = &self.stream {
             let _ = stream.pause();

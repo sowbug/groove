@@ -383,10 +383,11 @@ impl GrooveApp {
                 }
             }
             ControlBarEvent::OpenProject => {
+                self.post_to_engine(EngineInput::PauseAudio);
                 return Some(Command::perform(
                     gui::persistence::open_dialog(),
                     AppMessage::OpenDialogComplete,
-                ))
+                ));
             }
             ControlBarEvent::ExportWav => {
                 MessageDialog::new()
@@ -463,9 +464,12 @@ impl GrooveApp {
 
                 // Tell the app we've loaded the project
                 self.handle_groove_event(GrooveEvent::ProjectLoaded(filename.to_string(), title));
+                let sample_rate = self.orchestrator.sample_rate();
                 self.orchestrator = instance;
+                self.orchestrator.reset(sample_rate);
             }
         }
+        self.post_to_engine(EngineInput::StartAudio);
     }
 
     fn generate_audio(&mut self, buffer_count: u8) {
