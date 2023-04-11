@@ -108,7 +108,6 @@ struct GrooveApp {
     // long the song was after listening, and it's nice to be able to glance at
     // the stopped clock and get that answer.
     reached_end_of_playback: bool,
-    // audio_output: AudioOutput,
 }
 impl Default for GrooveApp {
     fn default() -> Self {
@@ -232,10 +231,18 @@ impl Application for GrooveApp {
                 if let Some(response) = self.views.update(&mut self.orchestrator, message) {
                     match response {
                         ViewMessage::AddControlLink(link) => {
-                            self.post_to_engine(EngineInput::AddControlLink(link));
+                            let _ = self.orchestrator.link_control_by_id(
+                                link.source_uid,
+                                link.target_uid,
+                                link.control_index,
+                            );
                         }
                         ViewMessage::RemoveControlLink(link) => {
-                            self.post_to_engine(EngineInput::RemoveControlLink(link));
+                            self.orchestrator.unlink_control_by_id(
+                                link.source_uid,
+                                link.target_uid,
+                                link.control_index,
+                            );
                         }
                         ViewMessage::NextView
                         | ViewMessage::OtherEntityMessage(_, _)
@@ -321,15 +328,6 @@ impl GrooveApp {
                 self.project_title = title;
                 // self.entity_view.reset();
             }
-            GrooveEvent::Clear => {
-                self.views.clear();
-            }
-            GrooveEvent::Update(uid, message) => {
-                self.views.update(
-                    &mut self.orchestrator,
-                    ViewMessage::OtherEntityMessage(uid, message),
-                );
-            }
             GrooveEvent::EntityMessage(uid, message) => match message {
                 EntityMessage::ExpandPressed => {
                     // Find whoever else is expanded and maybe collapse them
@@ -347,23 +345,6 @@ impl GrooveApp {
                     self.update_entity(uid, message);
                 }
             },
-            GrooveEvent::AddControlLink(link) => {
-                // The engine has added a control link. We should do the same.
-                // Note that this is different from ViewMessage::AddControlLink,
-                // which tells the app that a widget has fired, and that the
-                // *app* should ask the *engine* to add the control link. If we
-                // get this wrong, then we end up in an infinite loop where each
-                // side asks the other to do something, and then the receiving
-                // side asks the other side to do the same thing, which repeats.
-                //
-                // So that's why this is a method call rather than a message.
-                // TODO: figure out semantics that make loops harder to
-                // introduce by accident.
-                //                self.views.add_control_link(link);
-            }
-            GrooveEvent::RemoveControlLink(link) => {
-                //     self.views.remove_control_link(link);
-            }
         }
     }
 
@@ -389,7 +370,7 @@ impl GrooveApp {
             ControlBarEvent::SkipToStart => self.skip_to_start(),
             ControlBarEvent::Bpm(value) => {
                 if let Ok(bpm) = value.parse() {
-                    self.post_to_engine(EngineInput::SetBpm(bpm));
+                    self.orchestrator.set_bpm(bpm);
                 }
             }
             ControlBarEvent::OpenProject => {
@@ -444,13 +425,6 @@ impl GrooveApp {
                     }
                 }
             }
-            EngineEvent::SetClock(samples) => self
-                .control_bar_view
-                .update(ControlBarInput::SetClock(samples)),
-            EngineEvent::SetBpm(bpm) => self.control_bar_view.update(ControlBarInput::SetBpm(bpm)),
-            EngineEvent::SetTimeSignature(time_signature) => self
-                .control_bar_view
-                .update(ControlBarInput::SetTimeSignature(time_signature)),
             EngineEvent::Quit => {
                 // Our EngineInput::QuitRequested has been handled. We have
                 // nothing to do at this point.
@@ -480,15 +454,6 @@ impl GrooveApp {
 
                 // Tell the app we've loaded the project
                 self.handle_groove_event(GrooveEvent::ProjectLoaded(filename.to_string(), title));
-
-                // And that it should clear its local representation of the project
-                self.handle_groove_event(GrooveEvent::Clear);
-
-                // And that it should add the following new entities/relationships
-                instance
-                    .generate_full_update_messages()
-                    .into_iter()
-                    .for_each(|m| self.handle_groove_event(m));
                 self.orchestrator = instance;
             }
         }

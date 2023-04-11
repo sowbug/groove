@@ -64,18 +64,6 @@ pub enum GrooveEvent {
     /// The engine has loaded a new project with the supplied filename and
     /// optional title.
     ProjectLoaded(String, Option<String>),
-
-    /// The app should clear any cached representation of engine entities.
-    Clear,
-
-    /// An entity has been updated on the engine side, and the app should record the changes.
-    Update(usize, OtherEntityMessage),
-
-    /// Notify the app that we've linked a controller and a controllable's control point.
-    AddControlLink(ControlLink),
-
-    /// Notify the app that we've unlinked a controller and a controllable's control point.
-    RemoveControlLink(ControlLink),
 }
 impl MessageBounds for GrooveEvent {}
 

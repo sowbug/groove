@@ -391,6 +391,7 @@ impl WelshSynth {
         self.gain = gain;
         self.inner_synth.set_gain(gain);
         self.inner_synth.voices_mut().for_each(|v| v.set_gain(gain));
+        self.inner_synth.set_gain(gain);
     }
 
     pub fn pan(&self) -> BipolarNormal {
@@ -401,6 +402,7 @@ impl WelshSynth {
         self.pan = pan;
         self.inner_synth.set_pan(pan);
         self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
+        self.inner_synth.set_pan(pan);
     }
 
     // TODO: this pattern sucks. I knew it was going to be icky. Think about how

@@ -4,17 +4,12 @@
 //! [Subscription](iced_native::subscription::Subscription) interface between
 //! the [Groove](groove_core::Groove) engine and the app subscribing to it.
 
-use crate::{audio::AudioOutput, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
+use crate::audio::AudioOutput;
 use crossbeam::queue::ArrayQueue;
-use groove_core::{
-    midi::{MidiChannel, MidiMessage},
-    time::{Clock, ClockNano, TimeSignature},
-    traits::Resets,
-    Normal, ParameterType, StereoSample,
-};
+use groove_core::{time::TimeSignature, Normal, ParameterType, StereoSample};
 use groove_orchestration::{
     helpers::IOHelper,
-    messages::{ControlLink, GrooveEvent, GrooveInput, Internal, Response},
+    messages::{GrooveEvent, GrooveInput},
 };
 
 use iced::futures::channel::mpsc as iced_mpsc;
@@ -41,23 +36,8 @@ pub enum EngineInput {
     /// currently known by everyone, TODO to make that more explicit.)
     GenerateAudio(u8),
 
-    /// Handle this incoming MIDI message from external.
-    Midi(MidiChannel, MidiMessage),
-
     /// Change sample rate.
     SetSampleRate(usize),
-
-    /// Change BPM.
-    SetBpm(ParameterType),
-
-    /// Change time signature.
-    SetTimeSignature(TimeSignature),
-
-    /// Connect an IsController to a Controllable's control point.
-    AddControlLink(ControlLink),
-
-    /// Disconnect an IsController from a Controllable's control point.
-    RemoveControlLink(ControlLink),
 
     /// End this thread.
     QuitRequested,
@@ -81,21 +61,6 @@ pub enum EngineEvent {
     /// The sample rate has changed.
     SampleRateChanged(usize),
 
-    /// Sends the engine's current frame. Useful for the GUI to keep the control
-    /// bar's clock in sync.
-    /// TODO: this MAYBE should be part of GrooveEvent -- TODO yes absolutely
-    SetClock(usize),
-
-    /// Sends an updated BPM (beats per minute) whenever it changes.
-    /// TODO: this MAYBE should be part of GrooveEvent
-    SetBpm(ParameterType),
-
-    /// Sends an updated global time signature whenever it changes. Note that
-    /// individual components might have independent time signatures that
-    /// operate on their own time.
-    /// TODO: this MAYBE should be part of GrooveEvent
-    SetTimeSignature(TimeSignature),
-
     /// How full our audio output buffer is, as a percentage.
     /// TODO: this MAYBE should be part of GrooveEvent
     AudioBufferFullness(Normal),
@@ -113,16 +78,7 @@ pub enum EngineEvent {
 /// for [EngineSubscription] audio output to be routed to the audio system. But
 /// for now, it's not causing any trouble, so we're keeping it where it is.
 pub struct EngineSubscription {
-    clock: Clock,
-    time_signature: TimeSignature,
     last_clock_update: Instant,
-    last_reported_frames: usize,
-    is_playing: bool,
-
-    // TODO: I'm surprised that this seems to belong here. This struct does a
-    // fair amount of instantiation of key things like Orchestrator, and it owns
-    // the audio subsystem, so we need it. But it might turn out that the
-    // subscriber is a better owner, and this ends up being a local copy.
     sample_rate: usize,
     has_broadcast_sample_rate: bool,
 
@@ -130,9 +86,6 @@ pub struct EngineSubscription {
     sender: iced_mpsc::Sender<EngineEvent>,
     receiver: mpsc::Receiver<EngineInput>,
     audio_output: AudioOutput,
-
-    yes: f64,
-    check: f64,
 }
 impl EngineSubscription {
     /// The size of a single unit of engine work. At 44.1KHz, this corresponds
@@ -173,22 +126,14 @@ impl EngineSubscription {
 
                         // TODO: deal with output-device and sample-rate
                         // changes. This is a mess.
-                        let clock_params = ClockNano {
-                            bpm: DEFAULT_BPM,
-                            midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
-                            time_signature: TimeSignature { top: 4, bottom: 4 },
-                        };
                         let ring_buffer = AudioOutput::create_ring_buffer();
                         let rb2 = Arc::clone(&ring_buffer);
                         let sample_rate = IOHelper::get_output_device_sample_rate();
                         let handler = std::thread::spawn(move || {
                             let audio_output =
                                 AudioOutput::new_with(ring_buffer, input_sender.clone());
-                            let mut clock = Clock::new_with(clock_params);
-                            clock.reset(sample_rate);
                             let mut subscription = Self::new_with(
                                 sample_rate,
-                                clock,
                                 thread_sender,
                                 app_receiver,
                                 audio_output,
@@ -235,7 +180,6 @@ impl EngineSubscription {
 
     fn new_with(
         sample_rate: usize,
-        clock: Clock,
         sender: iced_mpsc::Sender<EngineEvent>,
         receiver: mpsc::Receiver<EngineInput>,
         audio_output: AudioOutput,
@@ -243,30 +187,11 @@ impl EngineSubscription {
         Self {
             sample_rate,
             has_broadcast_sample_rate: false,
-            clock,
-            time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO: what's a good "don't know yet" value?
             last_clock_update: Instant::now(),
-            last_reported_frames: usize::MAX,
-            is_playing: Default::default(),
             events: Default::default(),
             sender,
             receiver,
             audio_output,
-
-            yes: 0.0,
-            check: 0.0,
-        }
-    }
-
-    fn push_response(&mut self, response: Response<GrooveEvent>) {
-        match response.0 {
-            Internal::None => {}
-            Internal::Single(message) => {
-                self.events.push_back(message);
-            }
-            Internal::Batch(messages) => {
-                self.events.extend(messages);
-            }
         }
     }
 
@@ -279,10 +204,6 @@ impl EngineSubscription {
         while let Some(event) = self.events.pop_front() {
             self.post_event(EngineEvent::GrooveEvent(event));
         }
-    }
-
-    fn dispatch_samples(&mut self, samples: &[StereoSample], sample_count: usize) {
-        let _ = self.audio_output.push_buffer(&samples[0..sample_count]);
     }
 
     fn do_loop(&mut self) {
@@ -303,33 +224,10 @@ impl EngineSubscription {
                         self.update_and_broadcast_sample_rate(sample_rate);
                         messages.push(GrooveInput::SetSampleRate(sample_rate));
                     }
-                    EngineInput::Midi(channel, message) => {
-                        messages.push(GrooveInput::MidiFromExternal(channel, message))
-                    }
                     EngineInput::QuitRequested => {
                         self.post_event(EngineEvent::Quit);
                         break;
                     }
-                    EngineInput::SetBpm(bpm) => {
-                        if bpm != self.clock.bpm() {
-                            self.clock.set_bpm(bpm);
-                            self.publish_bpm_update();
-                        }
-                    }
-                    EngineInput::SetTimeSignature(time_signature) => {
-                        if time_signature != self.time_signature {
-                            self.time_signature = time_signature;
-                            self.publish_time_signature_update();
-                        }
-                    }
-                    EngineInput::AddControlLink(link) => {
-                        messages.push(GrooveInput::AddControlLink(link));
-                    }
-                    EngineInput::RemoveControlLink(link) => {
-                        messages.push(GrooveInput::RemoveControlLink(link));
-                    } // EngineInput::ProvideAudio(samples) => {
-                      //     self.dispatch_samples(&samples, samples.len())
-                      // }
                 }
 
                 // Forward any messages that were meant for Orchestrator. Any
@@ -362,7 +260,6 @@ impl EngineSubscription {
         // Decide whether this is a UI request, or something else.
 
         self.sample_rate = sample_rate;
-        self.clock.set_sample_rate(sample_rate);
         self.post_event(EngineEvent::SampleRateChanged(sample_rate));
     }
 
@@ -370,42 +267,15 @@ impl EngineSubscription {
     fn publish_dashboard_updates(&mut self) {
         let now = Instant::now();
         if now.duration_since(self.last_clock_update).as_millis() > (1000 / 30) {
-            let frames = self.clock.frames();
-            if frames != self.last_reported_frames {
-                self.last_reported_frames = frames;
-                self.post_event(EngineEvent::SetClock(frames));
-                self.last_clock_update = now;
-                self.yes += 1.0;
-            }
-
             // TODO: this is active only while the project is playing. I wanted
             // it whenever the app is open, but it caused 30% CPU usage,
             // probably because of app redraws.
-            if self.is_playing {
-                self.post_event(EngineEvent::AudioBufferFullness(Normal::from(
-                    self.audio_output.buffer_utilization(),
-                )));
-            }
 
-            #[cfg(disabled)]
-            eprintln!(
-                "Duty cycle is {:0.2}/{:0.2} {:0.2}%",
-                self.yes,
-                self.check,
-                self.yes / self.check
-            );
+            // TODO: this is actually always active.... fix
+            self.post_event(EngineEvent::AudioBufferFullness(Normal::from(
+                self.audio_output.buffer_utilization(),
+            )));
         }
-        self.check += 1.0;
-    }
-
-    fn publish_bpm_update(&mut self) {
-        self.post_event(EngineEvent::SetBpm(self.clock.bpm()));
-    }
-
-    fn publish_time_signature_update(&mut self) {
-        self.post_event(EngineEvent::SetTimeSignature(
-            self.clock.time_signature().clone(),
-        ));
     }
 
     fn start_audio(&mut self) {
@@ -415,50 +285,4 @@ impl EngineSubscription {
     fn stop_audio(&mut self) {
         self.audio_output.stop();
     }
-
-    // fn generate_audio(&mut self, buffer_count: u8) {
-    //     let mut samples = [StereoSample::SILENCE; Self::ENGINE_BUFFER_SIZE];
-    //     for i in 0..buffer_count {
-    //         let want_audio_update = i == buffer_count - 1;
-    //         let mut other_response = Response::none();
-    //         let (response, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
-    //             if self.clock.was_reset() {
-    //                 // This could be an expensive operation, since it might
-    //                 // cause a bunch of heap activity. So it's better to do
-    //                 // it as soon as it's needed, rather than waiting for
-    //                 // the time-sensitive generate_audio() method. TODO
-    //                 // move.
-    //                 if let Some(sample_rate) = o.sample_rate() {
-    //                     o.reset(sample_rate);
-    //                 } else {
-    //                     panic!("We're in the middle of generate_audio() but don't have a sample rate. This is bad!");
-    //                 }
-    //             }
-    //             let r = o.tick(&mut samples);
-    //             if want_audio_update {
-    //                 let wad = o.last_audio_wad();
-    //                 other_response = Response::single(GrooveEvent::EntityAudioOutput(wad));
-    //             }
-    //             r
-    //         } else {
-    //             (Response::none(), 0)
-    //         };
-    //         self.push_response(response);
-    //         self.push_response(other_response);
-    //         if ticks_completed < samples.len() {
-    //             self.stop_playback();
-    //             self.reached_end_of_playback = true;
-    //         }
-    //         let ticks_completed = samples.len(); // HACK!
-
-    //         // This clock is used to tell the app where we are in the song,
-    //         // so even though it looks like it's not helping here in the
-    //         // loop, it's necessary. We have it before the second is_playing
-    //         // test because the tick() that returns false still produced
-    //         // some samples, so we want the clock to reflect that.
-    //         self.clock.tick_batch(ticks_completed);
-
-    //         self.dispatch_samples(&samples, ticks_completed);
-    //     }
-    // }
 }

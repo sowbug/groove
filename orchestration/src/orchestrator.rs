@@ -207,7 +207,7 @@ impl Orchestrator {
         }
     }
 
-    pub(crate) fn unlink_control_by_id(
+    pub fn unlink_control_by_id(
         &mut self,
         controller_uid: usize,
         target_uid: usize,
@@ -574,21 +574,7 @@ impl Orchestrator {
                             self.broadcast_midi_messages(&[(channel, message)]);
                         }
                         EntityMessage::ControlF32(value) => {
-                            // Both the engine and the app have their own copies
-                            // of each controllable EntityParam, so we need to
-                            // create two copies of each Update message: one
-                            // processed in this message loop, and the other
-                            // dispatched to the app.
-                            let updates = self.generate_control_update_messages(uid, value);
-                            for update in updates.iter() {
-                                if let GrooveInput::Update(uid, message) = update {
-                                    unhandled_commands.push(Response::single(GrooveEvent::Update(
-                                        *uid,
-                                        message.clone(),
-                                    )));
-                                }
-                            }
-                            messages.extend(updates);
+                            messages.extend(self.generate_control_update_messages(uid, value));
                         }
                         _ => todo!(),
                     },
@@ -597,18 +583,11 @@ impl Orchestrator {
                     }
                     GrooveInput::AddControlLink(link) => {
                         // The UI has asked us to link a control.
-                        if self
-                            .link_control_by_id(
-                                link.source_uid,
-                                link.target_uid,
-                                link.control_index,
-                            )
-                            .is_ok()
-                        {
-                            // Let the UI know that we did that.
-                            unhandled_commands
-                                .push(Response::single(GrooveEvent::AddControlLink(link)));
-                        }
+                        let _ = self.link_control_by_id(
+                            link.source_uid,
+                            link.target_uid,
+                            link.control_index,
+                        );
                     }
                     GrooveInput::RemoveControlLink(link) => {
                         // The UI has asked us to link a control.
@@ -617,9 +596,6 @@ impl Orchestrator {
                             link.target_uid,
                             link.control_index,
                         );
-                        // Let the UI know that we did that.
-                        unhandled_commands
-                            .push(Response::single(GrooveEvent::RemoveControlLink(link)));
                     }
                     GrooveInput::Update(uid, message) => self.update_controllable(uid, message),
                     GrooveInput::Play => self.play(),
@@ -857,15 +833,8 @@ impl Orchestrator {
         }
     }
 
-    /// Generates a complete representation of the project in Update messages.
-    pub fn generate_full_update_messages(&self) -> Vec<GrooveEvent> {
-        let mut updates = self
-            .entity_iter()
-            .map(|(uid, entity)| GrooveEvent::Update(*uid, entity.full_message()))
-            .collect::<Vec<GrooveEvent>>();
-        updates.extend(self.store.generate_full_update_messages());
-
-        updates
+    pub fn set_bpm(&mut self, bpm: ParameterType) {
+        self.bpm = bpm;
     }
 }
 impl Performs for Orchestrator {
@@ -1115,28 +1084,6 @@ impl Store {
             self.midi_channel_to_receiver_uid.len()
         );
         println!("uvid_to_uid: {}", self.uvid_to_uid.len());
-    }
-
-    fn generate_full_update_messages(&self) -> Vec<GrooveEvent> {
-        let messages =
-            self.uid_to_control
-                .iter()
-                .fold(Vec::default(), |mut v, (source_uid, links)| {
-                    v.extend(links.iter().fold(
-                        Vec::default(),
-                        |mut v, (target_uid, control_index)| {
-                            let link = ControlLink {
-                                source_uid: *source_uid,
-                                target_uid: *target_uid,
-                                control_index: *control_index,
-                            };
-                            v.push(GrooveEvent::AddControlLink(link));
-                            v
-                        },
-                    ));
-                    v
-                });
-        messages
     }
 
     fn flattened_control_links(&self) -> &[ControlLink] {
