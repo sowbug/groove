@@ -71,10 +71,10 @@ pub(crate) fn parse_and_generate_views(data: &Data) -> proc_macro2::TokenStream 
     let (structs, _, _, messages) = build_lists(things.iter().filter(|thing| thing.is_viewable));
     let viewable_dispatchers = quote! {
         impl View {
-            fn entity_view<'a>(&self, uid: usize, entity: &'a EntityNano) -> Element<'a, ViewMessage> {
+            fn entity_view<'a>(&self, uid: usize, entity: &'a Entity) -> Element<'a, ViewMessage> {
                 match entity {
                 #(
-                    EntityNano::#structs(e) => {
+                    Entity::#structs(e) => {
                         e.view().map(move |message| {
                             ViewMessage::OtherEntityMessage(uid, OtherEntityMessage::#structs(message))
                         })
@@ -91,7 +91,7 @@ pub(crate) fn parse_and_generate_views(data: &Data) -> proc_macro2::TokenStream 
                 match message {
                 #(
                     OtherEntityMessage::#structs(#messages::#structs(params)) => {
-                        self.add_entity(uid, EntityNano::#structs(Box::new(params)));
+                      //  self.add_entity(uid, Entity::#structs(Box::new(params)));
                     }
                 ),*
                     _=> {

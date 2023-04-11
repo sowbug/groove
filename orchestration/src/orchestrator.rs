@@ -118,6 +118,10 @@ impl Orchestrator {
         self.store.iter()
     }
 
+    pub fn connections(&self) -> &[ControlLink] {
+        self.store.flattened_control_links()
+    }
+
     pub fn get(&self, uid: usize) -> Option<&Entity> {
         self.store.get(uid)
     }
@@ -921,15 +925,19 @@ pub(crate) struct Store {
     last_uid: usize,
     uid_to_item: FxHashMap<usize, Entity>,
 
-    // Linked controls (one entity controls another entity's parameter)
+    /// Linked controls (one entity controls another entity's parameter)
     uid_to_control: FxHashMap<usize, Vec<(usize, usize)>>,
 
-    // Patch cables
+    /// Same as uid_to_control but flattened
+    flattened_control_links: Vec<ControlLink>,
+
+    /// Patch cables
     audio_sink_uid_to_source_uids: FxHashMap<usize, Vec<usize>>,
 
-    // MIDI connections
+    /// MIDI connections
     midi_channel_to_receiver_uid: FxHashMap<MidiChannel, Vec<usize>>,
 
+    /// Human-readable UIDs to internal UIDs
     uvid_to_uid: FxHashMap<String, usize>,
 }
 
@@ -1013,6 +1021,11 @@ impl Store {
             .entry(source_uid)
             .or_default()
             .push((target_uid, control_index));
+        self.flattened_control_links.push(ControlLink {
+            source_uid,
+            target_uid,
+            control_index,
+        });
     }
 
     pub(crate) fn unlink_control(
@@ -1025,6 +1038,20 @@ impl Store {
             .entry(source_uid)
             .or_default()
             .retain(|(uid, index)| *uid != target_uid && *index != control_index);
+
+        // This is slow, but it's OK because it's not time-sensitive
+        let link = ControlLink {
+            source_uid,
+            target_uid,
+            control_index,
+        };
+        if let Some(index) = self
+            .flattened_control_links
+            .iter()
+            .position(|item| *item == link)
+        {
+            self.flattened_control_links.swap_remove(index);
+        }
     }
 
     pub(crate) fn control_links(&self, source_uid: usize) -> Option<&Vec<(usize, usize)>> {
@@ -1110,6 +1137,10 @@ impl Store {
                     v
                 });
         messages
+    }
+
+    fn flattened_control_links(&self) -> &[ControlLink] {
+        &self.flattened_control_links
     }
 }
 impl Resets for Store {

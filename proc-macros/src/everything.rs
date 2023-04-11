@@ -110,6 +110,11 @@ pub(crate) fn parse_and_generate_everything(data: &Data) -> proc_macro2::TokenSt
 
     let common_dispatchers = quote! {
         impl Entity {
+            pub fn name(&self) -> &str {
+                match self {
+                    #( Entity::#structs(e) => e.name(), )*
+                }
+            }
             pub fn as_has_uid(&self) -> &dyn HasUid {
                 match self {
                 #( Entity::#structs(e) => e.as_ref(), )*

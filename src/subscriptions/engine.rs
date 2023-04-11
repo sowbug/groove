@@ -4,11 +4,8 @@
 //! [Subscription](iced_native::subscription::Subscription) interface between
 //! the [Groove](groove_core::Groove) engine and the app subscribing to it.
 
-use crate::{
-    audio::AudioOutput,
-    util::{PathType, Paths},
-    DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND,
-};
+use crate::{audio::AudioOutput, DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND};
+use crossbeam::queue::ArrayQueue;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     time::{Clock, ClockNano, TimeSignature},
@@ -18,14 +15,13 @@ use groove_core::{
 use groove_orchestration::{
     helpers::IOHelper,
     messages::{ControlLink, GrooveEvent, GrooveInput, Internal, Response},
-    Orchestrator,
 };
-use groove_settings::SongSettings;
+
 use iced::futures::channel::mpsc as iced_mpsc;
 use iced_native::subscription::{self, Subscription};
 use std::{
     collections::VecDeque,
-    sync::{mpsc, Arc, Mutex},
+    sync::{mpsc, Arc},
     thread::JoinHandle,
     time::Instant,
 };
@@ -44,18 +40,6 @@ pub enum EngineInput {
     /// and it requests the given number of buffers. (The size of a buffer is
     /// currently known by everyone, TODO to make that more explicit.)
     GenerateAudio(u8),
-
-    /// Load the project at the given file path.
-    LoadProject(String),
-
-    /// Start playing at current cursor.
-    Play,
-
-    /// Stop playing.
-    Stop,
-
-    /// Reset the cursor to time zero.
-    SkipToStart,
 
     /// Handle this incoming MIDI message from external.
     Midi(MidiChannel, MidiMessage),
@@ -84,9 +68,12 @@ pub enum EngineInput {
 #[derive(Clone, Debug)]
 pub enum EngineEvent {
     /// This is the first event that the engine sends to subscribers. It gives a
-    /// channel to send [EngineInput] back to the engine, and an [Orchestrator]
-    /// reference that's necessary for building GUI views.
-    Ready(mpsc::Sender<EngineInput>, Arc<Mutex<Orchestrator>>),
+    /// channel to send [EngineInput] back to the engine, and an ArrayQueue that
+    /// the subscriber can use to push audio to the audio engine.
+    Ready(mpsc::Sender<EngineInput>, Arc<ArrayQueue<StereoSample>>),
+
+    /// The audio interface needs one or more buffers of audio.
+    GenerateAudio(u8),
 
     /// An internal message that is passed directly through.
     GrooveEvent(GrooveEvent),
@@ -126,9 +113,6 @@ pub enum EngineEvent {
 /// for [EngineSubscription] audio output to be routed to the audio system. But
 /// for now, it's not causing any trouble, so we're keeping it where it is.
 pub struct EngineSubscription {
-    // Orchestrator is wrapped in a mutex because we've chosen to give the app
-    // direct access to it while building the GUI view.
-    orchestrator: Arc<Mutex<Orchestrator>>,
     clock: Clock,
     time_signature: TimeSignature,
     last_clock_update: Instant,
@@ -140,16 +124,7 @@ pub struct EngineSubscription {
     // the audio subsystem, so we need it. But it might turn out that the
     // subscriber is a better owner, and this ends up being a local copy.
     sample_rate: usize,
-
-    // This is true when playback went all the way to the end of the song. The
-    // reason it's nice to track this is that after pressing play and listening
-    // to the song, the user can press play again without manually resetting the
-    // clock to the start. But we don't want to just reset the clock at the end
-    // of playback, because that means the clock would read zero at the end of
-    // playback, which is undesirable because it's natural to want to know how
-    // long the song was after listening, and it's nice to be able to glance at
-    // the stopped clock and get that answer.
-    reached_end_of_playback: bool,
+    has_broadcast_sample_rate: bool,
 
     events: VecDeque<GrooveEvent>,
     sender: iced_mpsc::Sender<EngineEvent>,
@@ -203,18 +178,16 @@ impl EngineSubscription {
                             midi_ticks_per_second: DEFAULT_MIDI_TICKS_PER_SECOND,
                             time_signature: TimeSignature { top: 4, bottom: 4 },
                         };
-                        let mut t = Orchestrator::new_with(clock_params.clone());
+                        let ring_buffer = AudioOutput::create_ring_buffer();
+                        let rb2 = Arc::clone(&ring_buffer);
                         let sample_rate = IOHelper::get_output_device_sample_rate();
-                        t.reset(sample_rate);
-                        let orchestrator = Arc::new(Mutex::new(t));
-                        let orchestrator_for_app = Arc::clone(&orchestrator);
                         let handler = std::thread::spawn(move || {
-                            let audio_output = AudioOutput::new_with(input_sender.clone());
+                            let audio_output =
+                                AudioOutput::new_with(ring_buffer, input_sender.clone());
                             let mut clock = Clock::new_with(clock_params);
                             clock.reset(sample_rate);
                             let mut subscription = Self::new_with(
                                 sample_rate,
-                                orchestrator,
                                 clock,
                                 thread_sender,
                                 app_receiver,
@@ -227,7 +200,7 @@ impl EngineSubscription {
                         });
 
                         (
-                            Some(EngineEvent::Ready(app_sender, orchestrator_for_app)),
+                            Some(EngineEvent::Ready(app_sender, rb2)),
                             State::Ready(handler, thread_receiver),
                         )
                     }
@@ -262,7 +235,6 @@ impl EngineSubscription {
 
     fn new_with(
         sample_rate: usize,
-        orchestrator: Arc<Mutex<Orchestrator>>,
         clock: Clock,
         sender: iced_mpsc::Sender<EngineEvent>,
         receiver: mpsc::Receiver<EngineInput>,
@@ -270,13 +242,12 @@ impl EngineSubscription {
     ) -> Self {
         Self {
             sample_rate,
-            orchestrator,
+            has_broadcast_sample_rate: false,
             clock,
             time_signature: TimeSignature { top: 4, bottom: 4 }, // TODO: what's a good "don't know yet" value?
             last_clock_update: Instant::now(),
             last_reported_frames: usize::MAX,
             is_playing: Default::default(),
-            reached_end_of_playback: Default::default(),
             events: Default::default(),
             sender,
             receiver,
@@ -319,29 +290,18 @@ impl EngineSubscription {
         loop {
             if let Ok(input) = self.receiver.recv() {
                 self.publish_dashboard_updates();
+                if !self.has_broadcast_sample_rate {
+                    self.has_broadcast_sample_rate = true;
+                    self.post_event(EngineEvent::SampleRateChanged(self.sample_rate));
+                }
 
                 match input {
-                    EngineInput::GenerateAudio(buffer_count) => self.generate_audio(buffer_count),
-                    EngineInput::LoadProject(filename) => {
-                        self.stop_playback();
-                        let response = self.load_project(&filename);
-                        self.push_response(response);
-                    }
-                    EngineInput::Play => {
-                        self.start_or_pause_playback();
-                        messages.push(GrooveInput::Play);
+                    EngineInput::GenerateAudio(buffer_count) => {
+                        self.post_event(EngineEvent::GenerateAudio(buffer_count))
                     }
                     EngineInput::SetSampleRate(sample_rate) => {
                         self.update_and_broadcast_sample_rate(sample_rate);
                         messages.push(GrooveInput::SetSampleRate(sample_rate));
-                    }
-                    EngineInput::Stop => {
-                        self.stop_playback();
-                        messages.push(GrooveInput::Stop);
-                    }
-                    EngineInput::SkipToStart => {
-                        self.skip_to_start();
-                        messages.push(GrooveInput::SkipToStart);
                     }
                     EngineInput::Midi(channel, message) => {
                         messages.push(GrooveInput::MidiFromExternal(channel, message))
@@ -367,20 +327,22 @@ impl EngineSubscription {
                     }
                     EngineInput::RemoveControlLink(link) => {
                         messages.push(GrooveInput::RemoveControlLink(link));
-                    }
+                    } // EngineInput::ProvideAudio(samples) => {
+                      //     self.dispatch_samples(&samples, samples.len())
+                      // }
                 }
 
                 // Forward any messages that were meant for Orchestrator. Any
                 // responses we get at this point are to messages that aren't Tick,
                 // so we can ignore the return values from send_pending_messages().
-                while let Some(message) = messages.pop() {
-                    let response = if let Ok(mut o) = self.orchestrator.lock() {
-                        o.update(message)
-                    } else {
-                        Response::none()
-                    };
-                    self.push_response(response);
-                }
+                // while let Some(message) = messages.pop() {
+                //     let response = if let Ok(mut o) = self.orchestrator.lock() {
+                //         o.update(message)
+                //     } else {
+                //         Response::none()
+                //     };
+                //     self.push_response(response);
+                // }
                 self.forward_pending_events();
             } else {
                 // In the normal case, we will break when we get the
@@ -402,36 +364,6 @@ impl EngineSubscription {
         self.sample_rate = sample_rate;
         self.clock.set_sample_rate(sample_rate);
         self.post_event(EngineEvent::SampleRateChanged(sample_rate));
-    }
-
-    fn start_or_pause_playback(&mut self) {
-        if self.is_playing {
-            self.stop_playback();
-        } else {
-            if self.reached_end_of_playback {
-                self.skip_to_start();
-                self.reached_end_of_playback = false;
-            }
-            self.post_event(EngineEvent::GrooveEvent(GrooveEvent::PlaybackStarted));
-            self.is_playing = true;
-        }
-    }
-
-    fn stop_playback(&mut self) {
-        self.post_event(EngineEvent::GrooveEvent(GrooveEvent::PlaybackStopped));
-
-        // This logic allows the user to press stop twice as shorthand for going
-        // back to the start.
-        if self.is_playing {
-            self.is_playing = false;
-        } else {
-            self.skip_to_start();
-        }
-    }
-
-    fn skip_to_start(&mut self) {
-        self.clock.reset(self.clock.sample_rate());
-        self.post_event(EngineEvent::SetClock(0));
     }
 
     /// Periodically sends out events useful for GUI display.
@@ -484,90 +416,49 @@ impl EngineSubscription {
         self.audio_output.stop();
     }
 
-    fn load_project(&mut self, filename: &str) -> Response<GrooveEvent> {
-        let mut path = Paths::projects_path(PathType::Global);
-        path.push(filename);
-        if let Ok(settings) = SongSettings::new_from_yaml_file(path.to_str().unwrap()) {
-            if let Ok(instance) = settings.instantiate(&Paths::assets_path(PathType::Global), false)
-            {
-                let title = instance.title();
+    // fn generate_audio(&mut self, buffer_count: u8) {
+    //     let mut samples = [StereoSample::SILENCE; Self::ENGINE_BUFFER_SIZE];
+    //     for i in 0..buffer_count {
+    //         let want_audio_update = i == buffer_count - 1;
+    //         let mut other_response = Response::none();
+    //         let (response, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
+    //             if self.clock.was_reset() {
+    //                 // This could be an expensive operation, since it might
+    //                 // cause a bunch of heap activity. So it's better to do
+    //                 // it as soon as it's needed, rather than waiting for
+    //                 // the time-sensitive generate_audio() method. TODO
+    //                 // move.
+    //                 if let Some(sample_rate) = o.sample_rate() {
+    //                     o.reset(sample_rate);
+    //                 } else {
+    //                     panic!("We're in the middle of generate_audio() but don't have a sample rate. This is bad!");
+    //                 }
+    //             }
+    //             let r = o.tick(&mut samples);
+    //             if want_audio_update {
+    //                 let wad = o.last_audio_wad();
+    //                 other_response = Response::single(GrooveEvent::EntityAudioOutput(wad));
+    //             }
+    //             r
+    //         } else {
+    //             (Response::none(), 0)
+    //         };
+    //         self.push_response(response);
+    //         self.push_response(other_response);
+    //         if ticks_completed < samples.len() {
+    //             self.stop_playback();
+    //             self.reached_end_of_playback = true;
+    //         }
+    //         let ticks_completed = samples.len(); // HACK!
 
-                let mut v = Vec::default();
+    //         // This clock is used to tell the app where we are in the song,
+    //         // so even though it looks like it's not helping here in the
+    //         // loop, it's necessary. We have it before the second is_playing
+    //         // test because the tick() that returns false still produced
+    //         // some samples, so we want the clock to reflect that.
+    //         self.clock.tick_batch(ticks_completed);
 
-                // Tell the app we've loaded the project
-                v.push(Response::single(GrooveEvent::ProjectLoaded(
-                    filename.to_string(),
-                    title,
-                )));
-
-                // And that it should clear its local representation of the project
-                v.push(Response::single(GrooveEvent::Clear));
-
-                // And that it should add the following new entities/relationships
-                v.extend(
-                    instance
-                        .generate_full_update_messages()
-                        .into_iter()
-                        .map(|m| Response::single(m))
-                        .collect::<Vec<Response<GrooveEvent>>>(),
-                );
-                if let Ok(mut o) = self.orchestrator.lock() {
-                    // I'm amazed this works whenever I see it, but I think it's
-                    // just saying that we're replacing what the reference
-                    // points to with new content. I don't see how that can
-                    // work, but it does work.
-                    *o = instance;
-                    o.reset(self.sample_rate);
-                }
-                return Response::batch(v);
-            }
-        }
-        Response::none()
-    }
-
-    fn generate_audio(&mut self, buffer_count: u8) {
-        let mut samples = [StereoSample::SILENCE; Self::ENGINE_BUFFER_SIZE];
-        for i in 0..buffer_count {
-            let want_audio_update = i == buffer_count - 1;
-            let mut other_response = Response::none();
-            let (response, ticks_completed) = if let Ok(mut o) = self.orchestrator.lock() {
-                if self.clock.was_reset() {
-                    // This could be an expensive operation, since it might
-                    // cause a bunch of heap activity. So it's better to do
-                    // it as soon as it's needed, rather than waiting for
-                    // the time-sensitive generate_audio() method. TODO
-                    // move.
-                    if let Some(sample_rate) = o.sample_rate() {
-                        o.reset(sample_rate);
-                    } else {
-                        panic!("We're in the middle of generate_audio() but don't have a sample rate. This is bad!");
-                    }
-                }
-                let r = o.tick(&mut samples);
-                if want_audio_update {
-                    let wad = o.last_audio_wad();
-                    other_response = Response::single(GrooveEvent::EntityAudioOutput(wad));
-                }
-                r
-            } else {
-                (Response::none(), 0)
-            };
-            self.push_response(response);
-            self.push_response(other_response);
-            if ticks_completed < samples.len() {
-                self.stop_playback();
-                self.reached_end_of_playback = true;
-            }
-            let ticks_completed = samples.len(); // HACK!
-
-            // This clock is used to tell the app where we are in the song,
-            // so even though it looks like it's not helping here in the
-            // loop, it's necessary. We have it before the second is_playing
-            // test because the tick() that returns false still produced
-            // some samples, so we want the clock to reflect that.
-            self.clock.tick_batch(ticks_completed);
-
-            self.dispatch_samples(&samples, ticks_completed);
-        }
-    }
+    //         self.dispatch_samples(&samples, ticks_completed);
+    //     }
+    // }
 }

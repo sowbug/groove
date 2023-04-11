@@ -29,14 +29,23 @@ impl AudioOutput {
     // typical callback size.
     const RING_BUFFER_CAPACITY: usize = EngineSubscription::ENGINE_BUFFER_SIZE * 48;
 
-    pub(crate) fn new_with(input_sender: Sender<EngineInput>) -> Self {
+    pub(crate) fn new_with(
+        ring_buffer: Arc<ArrayQueue<StereoSample>>,
+        input_sender: Sender<EngineInput>,
+    ) -> Self {
         Self {
             sample_rate: 0,
-            ring_buffer: Arc::new(ArrayQueue::new(Self::RING_BUFFER_CAPACITY)),
+            ring_buffer,
             stream: None,
             sync_pair: Arc::new((Mutex::new(false), Condvar::new())),
             input_sender,
         }
+    }
+
+    // This is a public function because we need to create the queue in a different
+    // threat from the AudioOutput struct
+    pub(crate) fn create_ring_buffer() -> Arc<ArrayQueue<StereoSample>> {
+        Arc::new(ArrayQueue::new(Self::RING_BUFFER_CAPACITY))
     }
 
     pub(crate) fn push(&mut self, sample: StereoSample) -> Result<(), StereoSample> {
@@ -229,12 +238,13 @@ impl AudioOutput {
     pub(crate) fn sample_rate(&self) -> usize {
         self.sample_rate
     }
+
 }
 
 /// This utility function assumes the caller is cool with blocking.
 pub fn send_performance_to_output_device(performance: &Performance) -> anyhow::Result<()> {
     let (input_sender, _) = mpsc::channel::<EngineInput>();
-    let mut audio_output = AudioOutput::new_with(input_sender);
+    let mut audio_output = AudioOutput::new_with(AudioOutput::create_ring_buffer(), input_sender);
     let stealer = performance.worker.stealer();
     audio_output.start();
     while let Steal::Success(sample) = stealer.steal() {

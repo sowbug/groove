@@ -4,10 +4,10 @@ use super::{
     GuiStuff, IconType, Icons, LARGE_FONT, LARGE_FONT_SIZE, NUMBERS_FONT, NUMBERS_FONT_SIZE,
     SMALL_FONT, SMALL_FONT_SIZE,
 };
-use groove::app_version;
+use groove::{app_version, Orchestrator};
 use groove_core::{
     time::{Clock, ClockMessage, ClockNano, TimeSignature},
-    traits::HasUid,
+    traits::{HasUid, MessageBounds},
     BipolarNormal, Normal, ParameterType, StereoSample,
 };
 use groove_entities::{
@@ -42,7 +42,7 @@ use groove_entities::{
     },
     EntityMessage,
 };
-use groove_orchestration::{messages::ControlLink, EntityNano, OtherEntityMessage};
+use groove_orchestration::{messages::ControlLink, Entity, EntityNano, OtherEntityMessage};
 use groove_proc_macros::Views;
 use groove_toys::{
     DebugSynth, DebugSynthMessage, DebugSynthNano, ToyAudioSource, ToyAudioSourceMessage,
@@ -559,7 +559,7 @@ trait Viewable {
     }
 }
 
-impl Viewable for ArpeggiatorNano {
+impl Viewable for Arpeggiator {
     type Message = ArpeggiatorMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -567,7 +567,7 @@ impl Viewable for ArpeggiatorNano {
     }
 }
 
-impl Viewable for BitcrusherNano {
+impl Viewable for Bitcrusher {
     type Message = BitcrusherMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -579,7 +579,7 @@ impl Viewable for BitcrusherNano {
         .into()
     }
 }
-impl Viewable for BiQuadFilterLowPass12dbNano {
+impl Viewable for BiQuadFilterLowPass12db {
     type Message = BiQuadFilterLowPass12dbMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -602,10 +602,11 @@ impl Viewable for BiQuadFilterLowPass12dbNano {
         .into()
     }
 }
-impl Viewable for BiQuadFilterLowPass24dbNano {
+impl Viewable for BiQuadFilterLowPass24db {
     type Message = BiQuadFilterLowPass24dbMessage;
 
     fn view(&self) -> Element<Self::Message> {
+        let cutoff_slider = HSlider::new(
         let cutoff_slider = HSlider::new(
             NormalParam {
                 value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
@@ -622,23 +623,19 @@ impl Viewable for BiQuadFilterLowPass24dbNano {
             },
             |n| BiQuadFilterLowPass24dbMessage::PassbandRipple(Normal::from(n.as_f32()).into()),
         );
-        Row::new()
-            .push(
-                Column::new()
-                    .push(Container::new(cutoff_slider).width(iced::Length::FillPortion(1)))
-                    .push(Container::new(GuiStuff::<EntityMessage>::container_text(
-                        &format!("cutoff: {:.1}Hz", self.cutoff().value(),),
-                    )))
-                    .push(Container::new(passband_slider).width(iced::Length::FillPortion(1)))
-                    .push(Container::new(GuiStuff::<EntityMessage>::container_text(
-                        &format!(" passband_ripple: {:0.3}", self.passband_ripple()),
-                    ))),
-            )
+        row![
+            container(cutoff_slider).width(iced::Length::FillPortion(1)),
+            container(passband_slider).width(iced::Length::FillPortion(1)),
+            container(GuiStuff::<EntityMessage>::container_text(&format!(
+                "cutoff: {:.1}Hz passband_ripple: {:0.3}",
+                self.cutoff().value(),
+                self.passband_ripple()
+            )))
             .width(iced::Length::FillPortion(1))
             .into()
     }
 }
-impl Viewable for BiQuadFilterAllPassNano {
+impl Viewable for BiQuadFilterAllPass {
     type Message = BiQuadFilterAllPassMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -661,7 +658,7 @@ impl Viewable for BiQuadFilterAllPassNano {
         .into()
     }
 }
-impl Viewable for BiQuadFilterHighPassNano {
+impl Viewable for BiQuadFilterHighPass {
     type Message = BiQuadFilterHighPassMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -684,7 +681,7 @@ impl Viewable for BiQuadFilterHighPassNano {
         .into()
     }
 }
-impl Viewable for BiQuadFilterBandPassNano {
+impl Viewable for BiQuadFilterBandPass {
     type Message = BiQuadFilterBandPassMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -707,7 +704,7 @@ impl Viewable for BiQuadFilterBandPassNano {
         .into()
     }
 }
-impl Viewable for BiQuadFilterBandStopNano {
+impl Viewable for BiQuadFilterBandStop {
     type Message = BiQuadFilterBandStopMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -730,7 +727,7 @@ impl Viewable for BiQuadFilterBandStopNano {
         .into()
     }
 }
-impl Viewable for BiQuadFilterHighShelfNano {
+impl Viewable for BiQuadFilterHighShelf {
     type Message = BiQuadFilterHighShelfMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -753,7 +750,7 @@ impl Viewable for BiQuadFilterHighShelfNano {
         .into()
     }
 }
-impl Viewable for BiQuadFilterLowShelfNano {
+impl Viewable for BiQuadFilterLowShelf {
     type Message = BiQuadFilterLowShelfMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -776,7 +773,7 @@ impl Viewable for BiQuadFilterLowShelfNano {
         .into()
     }
 }
-impl Viewable for BiQuadFilterNoneNano {
+impl Viewable for BiQuadFilterNone {
     type Message = BiQuadFilterNoneMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -787,7 +784,7 @@ impl Viewable for BiQuadFilterNoneNano {
         .into()
     }
 }
-impl Viewable for BiQuadFilterPeakingEqNano {
+impl Viewable for BiQuadFilterPeakingEq {
     type Message = BiQuadFilterPeakingEqMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -810,14 +807,14 @@ impl Viewable for BiQuadFilterPeakingEqNano {
         .into()
     }
 }
-impl Viewable for ChorusNano {
+impl Viewable for Chorus {
     type Message = ChorusMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("delay seconds: {}", self.delay_seconds()))).into()
     }
 }
-impl Viewable for ClockNano {
+impl Viewable for Clock {
     type Message = ClockMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -825,7 +822,7 @@ impl Viewable for ClockNano {
         container(text(&format!("BPM: {}", self.bpm()))).into()
     }
 }
-impl Viewable for CompressorNano {
+impl Viewable for Compressor {
     type Message = CompressorMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -841,19 +838,19 @@ impl Viewable for CompressorNano {
             .into()
     }
 }
-impl Viewable for ControlTripNano {
+impl Viewable for ControlTrip {
     type Message = ControlTripMessage;
 }
-impl Viewable for DebugSynthNano {
+impl Viewable for DebugSynth {
     type Message = DebugSynthMessage;
 }
-impl Viewable for DelayNano {
+impl Viewable for Delay {
     type Message = DelayMessage;
 }
-impl Viewable for DrumkitNano {
+impl Viewable for Drumkit {
     type Message = DrumkitMessage;
 }
-impl Viewable for FmSynthNano {
+impl Viewable for FmSynth {
     type Message = FmSynthMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -909,7 +906,7 @@ impl Viewable for FmSynthNano {
             .into()
     }
 }
-impl Viewable for GainNano {
+impl Viewable for Gain {
     type Message = GainMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -925,7 +922,7 @@ impl Viewable for GainNano {
             .into()
     }
 }
-impl Viewable for LfoControllerNano {
+impl Viewable for LfoController {
     type Message = LfoControllerMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -937,20 +934,20 @@ impl Viewable for LfoControllerNano {
         .into()
     }
 }
-impl Viewable for LimiterNano {
+impl Viewable for Limiter {
     type Message = LimiterMessage;
 }
-impl Viewable for MidiTickSequencerNano {
+impl Viewable for MidiTickSequencer {
     type Message = MidiTickSequencerMessage;
 }
-impl Viewable for MixerNano {
+impl Viewable for Mixer {
     type Message = MixerMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("I'm a mixer! {}", 261))).into()
     }
 }
-impl Viewable for PatternManagerNano {
+impl Viewable for PatternManager {
     type Message = PatternManagerMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -958,7 +955,7 @@ impl Viewable for PatternManagerNano {
     }
 }
 
-impl Viewable for ReverbNano {
+impl Viewable for Reverb {
     type Message = ReverbMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -970,45 +967,45 @@ impl Viewable for ReverbNano {
         .into()
     }
 }
-impl Viewable for SamplerNano {
+impl Viewable for Sampler {
     type Message = SamplerMessage;
 }
-impl Viewable for SequencerNano {
+impl Viewable for Sequencer {
     type Message = SequencerMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("BPM: {}", self.bpm()))).into()
     }
 }
-impl Viewable for SignalPassthroughControllerNano {
+impl Viewable for SignalPassthroughController {
     type Message = SignalPassthroughControllerMessage;
 }
-impl Viewable for TimerNano {
+impl Viewable for Timer {
     type Message = TimerMessage;
 }
-impl Viewable for ToyAudioSourceNano {
+impl Viewable for ToyAudioSource {
     type Message = ToyAudioSourceMessage;
 }
-impl Viewable for ToyControllerNano {
+impl<M: MessageBounds> Viewable for ToyController<M> {
     type Message = ToyControllerMessage;
 }
-impl Viewable for ToyEffectNano {
+impl Viewable for ToyEffect {
     type Message = ToyEffectMessage;
 }
-impl Viewable for ToyInstrumentNano {
+impl Viewable for ToyInstrument {
     type Message = ToyInstrumentMessage;
 }
-impl Viewable for ToySynthNano {
+impl Viewable for ToySynth {
     type Message = ToySynthMessage;
 }
-impl Viewable for TriggerNano {
+impl Viewable for Trigger {
     type Message = TriggerMessage;
 
     fn view(&self) -> Element<Self::Message> {
         container(text(&format!("Value: {}", self.value()))).into()
     }
 }
-impl Viewable for WelshSynthNano {
+impl Viewable for WelshSynth {
     type Message = WelshSynthMessage;
 
     fn view(&self) -> Element<Self::Message> {
@@ -1063,17 +1060,14 @@ pub(crate) enum ViewView {
 #[derive(Debug)]
 pub(crate) struct View {
     current_view: ViewView,
-    entity_store: EntityStore,
-
     is_dragging: bool,
     source_uid: usize,
     target_uid: usize,
 
-    controller_uids: Vec<usize>,
-    controllable_uids: Vec<usize>,
-    controllable_uids_to_control_names: FxHashMap<usize, Vec<String>>,
-    connections: FxHashSet<ControlLink>,
-
+    // controller_uids: Vec<usize>,
+    // controllable_uids: Vec<usize>,
+    // controllable_uids_to_control_names: FxHashMap<usize, Vec<String>>,
+    // connections: FxHashSet<ControlLink>,
     lanes: Vec<AudioLane>,
 }
 
@@ -1087,68 +1081,73 @@ impl View {
     pub(crate) fn new() -> Self {
         Self {
             current_view: Default::default(),
-            entity_store: Default::default(),
-
+            //  entity_store: Default::default(),
             is_dragging: false,
             source_uid: 0,
             target_uid: 0,
 
-            controller_uids: Default::default(),
-            controllable_uids: Default::default(),
-            controllable_uids_to_control_names: Default::default(),
-            connections: Default::default(),
-
+            // controller_uids: Default::default(),
+            // controllable_uids: Default::default(),
+            // controllable_uids_to_control_names: Default::default(),
+            // connections: Default::default(),
             lanes: Default::default(),
         }
     }
 
     pub(crate) fn clear(&mut self) {
         eprintln!("Clearing...");
-        self.controller_uids.clear();
-        self.controllable_uids.clear();
-        self.controllable_uids_to_control_names.clear();
-        self.connections.clear();
+        // self.controller_uids.clear();
+        // self.controllable_uids.clear();
+        // self.controllable_uids_to_control_names.clear();
+        // self.connections.clear();
     }
 
-    pub(crate) fn view(&self) -> Element<ViewMessage> {
+    pub(crate) fn view<'a>(&self, orchestrator: &'a Orchestrator) -> Element<'a, ViewMessage> {
         Card::new(
             Text::new(<&str>::from(self.current_view)),
             match self.current_view {
-                ViewView::AudioLanes => self.audio_lane_view(),
-                ViewView::Automation => self.automation_view(),
-                ViewView::Everything => self.everything_view(),
+                // ViewView::AudioLanes => self.audio_lane_view(orchestrator),
+                ViewView::AudioLanes => self.everything_view(orchestrator), // hack hack
+                ViewView::Automation => self.automation_view(orchestrator),
+                ViewView::Everything => self.everything_view(orchestrator),
             },
         )
         .into()
     }
 
-    fn automation_view(&self) -> Element<ViewMessage> {
-        let controller_views =
-            self.controller_uids
+    fn automation_view<'a>(&self, orchestrator: &'a Orchestrator) -> Element<'a, ViewMessage> {
+        let controller_views = orchestrator
+            .entity_iter()
+            .filter(|(entity_uid, e)| e.is_controller())
+            .fold(Vec::default(), |mut v, (controller_uid, controller)| {
+                if let Some(view) = self.automation_controller_view(orchestrator, *controller_uid) {
+                    v.push(view);
+                }
+                v
+            });
+
+        let controllable_views = orchestrator
+            .entity_iter()
+            .filter(|(entity_uid, e)| e.is_controllable())
+            .fold(Vec::default(), |mut v, (controllable_uid, controllable)| {
+                if let Some(view) =
+                    self.automation_controllable_view(orchestrator, *controllable_uid)
+                {
+                    v.push(view);
+                }
+                v
+            });
+
+        let connection_views =
+            orchestrator
+                .connections()
                 .iter()
-                .fold(Vec::default(), |mut v, controller_uid| {
-                    if let Some(view) = self.automation_controller_view(*controller_uid) {
+                .fold(Vec::default(), |mut v, link| {
+                    if let Some(view) = self.automation_connection_view(orchestrator, link) {
                         v.push(view);
                     }
                     v
                 });
-
-        let controllable_views =
-            self.controllable_uids
-                .iter()
-                .fold(Vec::default(), |mut v, controllable_uid| {
-                    if let Some(view) = self.automation_controllable_view(*controllable_uid) {
-                        v.push(view);
-                    }
-                    v
-                });
-
-        let connection_views = self.connections.iter().fold(Vec::default(), |mut v, link| {
-            if let Some(view) = self.automation_connection_view(link) {
-                v.push(view);
-            }
-            v
-        });
 
         Container::new(
             Column::new()
@@ -1180,8 +1179,12 @@ impl View {
         .into()
     }
 
-    fn automation_controller_view(&self, controller_uid: usize) -> Option<Element<ViewMessage>> {
-        if let Some(controller) = self.entity_store.get(&controller_uid) {
+    fn automation_controller_view<'a>(
+        &self,
+        orchestrator: &'a Orchestrator,
+        controller_uid: usize,
+    ) -> Option<Element<'a, ViewMessage>> {
+        if let Some(controller) = orchestrator.get(controller_uid) {
             let style = if self.is_dragging {
                 if controller_uid == self.source_uid {
                     BadgeStyles::Primary
@@ -1239,16 +1242,18 @@ impl View {
         }
     }
 
-    fn automation_controllable_view(
+    fn automation_controllable_view<'a>(
         &self,
+        orchestrator: &'a Orchestrator,
         controllable_uid: usize,
-    ) -> Option<Element<ViewMessage>> {
-        if let Some(entity) = self.entity_store.get(&controllable_uid) {
+    ) -> Option<Element<'a, ViewMessage>> {
+        if let Some(entity) = orchestrator.get(controllable_uid) {
             if let Some(controllable) = entity.as_controllable() {
                 let mut column = Column::new();
                 for index in 0..controllable.control_index_count() {
                     if let Some(name) = controllable.control_name_for_index(index) {
                         column = column.push(self.automation_control_point_view(
+                            orchestrator,
                             controllable_uid,
                             index,
                             name.to_string(),
@@ -1300,12 +1305,14 @@ impl View {
         None
     }
 
-    fn automation_control_point_view(
+    // TODO: orchestrator is here to satisfy borrow checker. Is there a better way?
+    fn automation_control_point_view<'a>(
         &self,
+        _orchestrator: &'a Orchestrator,
         controllable_uid: usize,
         control_index: usize,
         name: String,
-    ) -> ControlTargetWidget<ViewMessage> {
+    ) -> ControlTargetWidget<'a, ViewMessage> {
         let control_app_uid = controllable_uid * 10000 + control_index;
         let badge_style = if self.is_dragging {
             if control_app_uid == self.source_uid {
@@ -1361,9 +1368,13 @@ impl View {
         )
     }
 
-    fn automation_connection_view(&self, link: &ControlLink) -> Option<Element<ViewMessage>> {
-        if let Some(controller) = self.entity_store.get(&link.source_uid) {
-            if let Some(controllable_entity) = self.entity_store.get(&link.target_uid) {
+    fn automation_connection_view<'a>(
+        &self,
+        orchestrator: &'a Orchestrator,
+        link: &ControlLink,
+    ) -> Option<Element<'a, ViewMessage>> {
+        if let Some(controller) = orchestrator.get(link.source_uid) {
+            if let Some(controllable_entity) = orchestrator.get(link.target_uid) {
                 if let Some(controllable) = controllable_entity.as_controllable() {
                     if let Some(name) = controllable.control_name_for_index(link.control_index) {
                         let remove_button = Button::new(Text::new("X"))
@@ -1386,11 +1397,9 @@ impl View {
         None
     }
 
-    fn everything_view(&self) -> Element<ViewMessage> {
-        let boxes: Vec<Element<ViewMessage>> = self
-            .entity_store
-            .entities
-            .iter()
+    fn everything_view<'a>(&self, orchestrator: &'a Orchestrator) -> Element<'a, ViewMessage> {
+        let boxes: Vec<Element<ViewMessage>> = orchestrator
+            .entity_iter()
             .map(|(uid, entity)| {
                 Card::new(Text::new(entity.name()), self.entity_view(*uid, entity)).into()
             })
@@ -1399,51 +1408,58 @@ impl View {
         container(column).into()
     }
 
-    fn audio_lane_view<'a, 'b: 'a>(&'a self) -> Element<'a, ViewMessage> {
-        let lane_views = self
-            .lanes
-            .iter()
-            .enumerate()
-            .fold(Vec::default(), |mut v, (i, lane)| {
-                let lane_row = Card::new(
-                    text(&format!("Lane #{}: {}", i, lane.name)),
-                    lane.items
-                        .iter()
-                        .enumerate()
-                        .fold(Row::new(), |r, (item_index, uid)| {
-                            if let Some(item) = self.entity_store.get(uid) {
-                                let name: &'static str = "no idea 2345983495";
-                                let view = self.entity_view(*uid, item.as_ref());
-                                r.push(
-                                    Card::new(
-                                        text(&format!("#{}: {}", item_index, name)),
-                                        container(view).height(Length::Fill),
-                                    )
-                                    .width(Length::FillPortion(1))
-                                    .height(Length::FillPortion(1)),
-                                )
-                            } else {
-                                r
-                            }
-                        }),
-                );
-                v.push(lane_row);
-                v
-            });
-        let view_column = lane_views
-            .into_iter()
-            .fold(Column::new(), |c, lane_view| {
-                c.push(lane_view.height(Length::FillPortion(1)))
-            })
-            .width(Length::Fill)
-            .height(Length::Fill);
-        let mixer = Card::new(text("Mixer"), text("coming soon").height(Length::Fill))
-            .width(Length::Fixed(96.0));
-        let overall_view = Row::new().height(Length::Fill);
-        container(overall_view.push(view_column).push(mixer)).into()
-    }
+    // fn audio_lane_view<'a, 'b: 'a>(
+    //     &'a self,
+    //     orchestrator: &Orchestrator,
+    // ) -> Element<'a, ViewMessage> {
+    //     let lane_views = self
+    //         .lanes
+    //         .iter()
+    //         .enumerate()
+    //         .fold(Vec::default(), |mut v, (i, lane)| {
+    //             let lane_row = Card::new(
+    //                 text(&format!("Lane #{}: {}", i, lane.name)),
+    //                 lane.items
+    //                     .iter()
+    //                     .enumerate()
+    //                     .fold(Row::new(), |r, (item_index, uid)| {
+    //                         if let Some(item) = self.entity_store.get(uid) {
+    //                             let name: &'static str = "no idea 2345983495";
+    //                             let view = self.entity_view(*uid, item.as_ref());
+    //                             r.push(
+    //                                 Card::new(
+    //                                     text(&format!("#{}: {}", item_index, name)),
+    //                                     container(view).height(Length::Fill),
+    //                                 )
+    //                                 .width(Length::FillPortion(1))
+    //                                 .height(Length::FillPortion(1)),
+    //                             )
+    //                         } else {
+    //                             r
+    //                         }
+    //                     }),
+    //             );
+    //             v.push(lane_row);
+    //             v
+    //         });
+    //     let view_column = lane_views
+    //         .into_iter()
+    //         .fold(Column::new(), |c, lane_view| {
+    //             c.push(lane_view.height(Length::FillPortion(1)))
+    //         })
+    //         .width(Length::Fill)
+    //         .height(Length::Fill);
+    //     let mixer = Card::new(text("Mixer"), text("coming soon").height(Length::Fill))
+    //         .width(Length::Fixed(96.0));
+    //     let overall_view = Row::new().height(Length::Fill);
+    //     container(overall_view.push(view_column).push(mixer)).into()
+    // }
 
-    pub(crate) fn update(&mut self, message: ViewMessage) -> Option<ViewMessage> {
+    pub(crate) fn update(
+        &mut self,
+        orchestrator: &mut Orchestrator,
+        message: ViewMessage,
+    ) -> Option<ViewMessage> {
         match message {
             ViewMessage::NextView => {
                 self.current_view =
@@ -1452,12 +1468,15 @@ impl View {
                 None
             }
             ViewMessage::OtherEntityMessage(uid, message) => {
-                //                    self.entity_update(uid, message)},
-                if let Some(entity) = self.entity_store.get_mut(&uid) {
+                if let Some(entity) = orchestrator.get_mut(uid) {
                     entity.update(message);
-                } else {
-                    self.entity_create(uid, message);
                 }
+                // //                    self.entity_update(uid, message)},
+                // if let Some(entity) = self.entity_store.get_mut(&uid) {
+                //     entity.update(message);
+                // } else {
+                //     self.entity_create(uid, message);
+                // }
                 None
             }
             ViewMessage::MouseDown(id) => {
@@ -1514,39 +1533,39 @@ impl View {
         }
     }
 
-    fn add_entity(&mut self, uid: usize, item: EntityNano) {
-        if item.is_controller() {
-            self.controller_uids.push(uid);
-        }
-        if let Some(controllable) = item.as_controllable() {
-            self.controllable_uids.push(uid);
+    // fn add_entity(&mut self, uid: usize, item: EntityNano) {
+    //     if item.is_controller() {
+    //         self.controller_uids.push(uid);
+    //     }
+    //     if let Some(controllable) = item.as_controllable() {
+    //         self.controllable_uids.push(uid);
 
-            let mut params = Vec::default();
-            for i in 0..controllable.control_index_count() {
-                if let Some(name) = controllable.control_name_for_index(i) {
-                    params.push(name.to_string());
-                }
-            }
-            if params.is_empty() {
-                eprintln!(
-                    "Warning: entity {} claims to be controllable but reports no controls",
-                    uid
-                );
-            }
-            self.controllable_uids_to_control_names.insert(uid, params);
-        }
+    //         let mut params = Vec::default();
+    //         for i in 0..controllable.control_index_count() {
+    //             if let Some(name) = controllable.control_name_for_index(i) {
+    //                 params.push(name.to_string());
+    //             }
+    //         }
+    //         if params.is_empty() {
+    //             eprintln!(
+    //                 "Warning: entity {} claims to be controllable but reports no controls",
+    //                 uid
+    //             );
+    //         }
+    //         self.controllable_uids_to_control_names.insert(uid, params);
+    //     }
 
-        // TODO: do we care about displaced items that had the same key?
-        self.entity_store.entities.insert(uid, Box::new(item));
-    }
+    //     // TODO: do we care about displaced items that had the same key?
+    //     self.entity_store.entities.insert(uid, Box::new(item));
+    // }
 
-    pub(crate) fn add_control_link(&mut self, link: ControlLink) {
-        self.connections.insert(link);
-    }
+    // pub(crate) fn add_control_link(&mut self, link: ControlLink) {
+    //     self.connections.insert(link);
+    // }
 
-    pub(crate) fn remove_control_link(&mut self, link: ControlLink) {
-        self.connections.remove(&link);
-    }
+    // pub(crate) fn remove_control_link(&mut self, link: ControlLink) {
+    //     self.connections.remove(&link);
+    // }
 }
 
 /// The #[derive(Views)] macro uses [ViewableEntities] to generate scaffolding.
