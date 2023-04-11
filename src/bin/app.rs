@@ -25,7 +25,7 @@ use groove_orchestration::messages::{GrooveEvent, GrooveInput};
 use groove_settings::SongSettings;
 use gui::{
     persistence::{LoadError, OpenError, Preferences, SaveError},
-    views::{ControlBarEvent, ControlBarInput, ControlBarView, EntityViewState, View, ViewMessage},
+    views::{ControlBar, ControlBarEvent, View, ViewMessage},
     GuiStuff,
 };
 use iced::{
@@ -80,7 +80,7 @@ struct GrooveApp {
     should_exit: bool,
 
     // View
-    control_bar_view: ControlBarView,
+    control_bar: ControlBar,
     views: View,
     show_settings: bool,
 
@@ -108,6 +108,9 @@ struct GrooveApp {
     // long the song was after listening, and it's nice to be able to glance at
     // the stopped clock and get that answer.
     reached_end_of_playback: bool,
+
+    received_midi_quit: bool,
+    received_audio_quit: bool,
 }
 impl Default for GrooveApp {
     fn default() -> Self {
@@ -125,7 +128,7 @@ impl Default for GrooveApp {
             theme: Default::default(),
             state: Default::default(),
             should_exit: Default::default(),
-            control_bar_view: ControlBarView::new_with(Clock::new_with(clock_params)),
+            control_bar: ControlBar::new_with(Clock::new_with(clock_params)),
             views: View::new(),
             show_settings: Default::default(),
             project_title: None,
@@ -141,6 +144,8 @@ impl Default for GrooveApp {
             // gui_state: GuiState::new(orchestrator),
             reached_end_of_playback: false,
             //             audio_output: AudioOutput::new_with(input_sender.clone());
+            received_midi_quit: false,
+            received_audio_quit: false,
         }
     }
 }
@@ -206,6 +211,13 @@ impl Application for GrooveApp {
             // AppMessage::GrooveEvent(event) => self.handle_groove_event(event),
             AppMessage::PrefsSaved(r) => {
                 if self.should_exit {
+                    eprintln!("about to call window::close");
+                    if !self.received_audio_quit {
+                        eprintln!("haven't gotten audio quit");
+                    }
+                    if !self.received_midi_quit {
+                        eprintln!("haven't gotten midi quit");
+                    }
                     return window::close::<Self::Message>();
                 } else {
                     match r {
@@ -260,7 +272,7 @@ impl Application for GrooveApp {
 
     fn view(&self) -> Element<AppMessage> {
         let control_bar: Element<AppMessage> = self
-            .control_bar_view
+            .control_bar
             .view(matches!(self.state, State::Playing))
             .map(AppMessage::ControlBarEvent);
         let main_content = match self.show_settings {
@@ -311,9 +323,6 @@ impl Application for GrooveApp {
 impl GrooveApp {
     fn handle_groove_event(&mut self, event: GrooveEvent) {
         match event {
-            GrooveEvent::EntityAudioOutput(outputs) => outputs.iter().for_each(|(uid, sample)| {
-                // self.entity_view.update_audio_outputs(uid, sample);
-            }),
             GrooveEvent::PlaybackStarted => {
                 self.state = State::Playing;
             }
@@ -338,7 +347,7 @@ impl GrooveApp {
                     // self.entity_view
                     //     .set_entity_view_state(uid, EntityViewState::Collapsed);
                 }
-                EntityMessage::EnablePressed(enabled) => {
+                EntityMessage::EnablePressed(_enabled) => {
                     // self.entity_view.set_entity_enabled_state(uid, enabled);
                 }
                 _ => {
@@ -428,13 +437,14 @@ impl GrooveApp {
             EngineEvent::Quit => {
                 // Our EngineInput::QuitRequested has been handled. We have
                 // nothing to do at this point.
+                self.received_audio_quit = true;
             }
             EngineEvent::AudioBufferFullness(percentage) => {
-                self.control_bar_view.set_audio_buffer_fullness(percentage);
+                self.control_bar.set_audio_buffer_fullness(percentage);
             }
             EngineEvent::SampleRateChanged(sample_rate) => {
                 self.orchestrator.reset(sample_rate);
-                self.control_bar_view.set_sample_rate(sample_rate);
+                self.control_bar.set_sample_rate(sample_rate);
             }
             EngineEvent::GenerateAudio(buffer_count) => {
                 self.generate_audio(buffer_count);
@@ -461,50 +471,20 @@ impl GrooveApp {
     fn generate_audio(&mut self, buffer_count: u8) {
         let mut samples = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
         for i in 0..buffer_count {
-            // let want_audio_update = i == buffer_count - 1;
-            //let mut other_response = Response::none();
-            // let (response, ticks_completed) = {
-            // if self.clock.was_reset() {
-            //     // This could be an expensive operation, since it might
-            //     // cause a bunch of heap activity. So it's better to do
-            //     // it as soon as it's needed, rather than waiting for
-            //     // the time-sensitive generate_audio() method. TODO
-            //     // move.
-            //     if let Some(sample_rate) = self.orchestrator.sample_rate() {
-            //         self.orchestrator.reset(sample_rate);
-            //     } else {
-            //         panic!("We're in the middle of generate_audio() but don't have a sample rate. This is bad!");
-            //     }
-            // }
-            let r = self.orchestrator.tick(&mut samples);
-            // if want_audio_update {
-            //     let wad = self.orchestrator.last_audio_wad();
-            //     other_response = Response::single(GrooveEvent::EntityAudioOutput(wad));
-            // }
-            //r
-            //        (None, samples.len())
-            //    };
-            let ticks_completed = samples.len();
-            //self.push_response(other_response);
+            let is_last_iteration = i == buffer_count - 1;
+
+            let (response, ticks_completed) = self.orchestrator.tick(&mut samples);
             if ticks_completed < samples.len() {
                 self.stop_playback();
                 self.reached_end_of_playback = true;
             }
-            let ticks_completed = samples.len(); // HACK!
-
-            // This clock is used to tell the app where we are in the song,
-            // so even though it looks like it's not helping here in the
-            // loop, it's necessary. We have it before the second is_playing
-            // test because the tick() that returns false still produced
-            // some samples, so we want the clock to reflect that.
-            //.tick_batch(ticks_completed);
 
             if let Some(ring_buffer) = &self.ring_buffer {
                 for sample in samples {
                     let _ = ring_buffer.push(sample);
                 }
             }
-            match r.0 .0 {
+            match response.0 {
                 groove_orchestration::messages::Internal::None => {}
                 groove_orchestration::messages::Internal::Single(event) => {
                     self.handle_groove_event(event);
@@ -514,6 +494,12 @@ impl GrooveApp {
                         self.handle_groove_event(event)
                     }
                 }
+            }
+            if is_last_iteration {
+                // This clock is used to tell the app where we are in the song, so
+                // even though it looks like it's not helping here in the loop, it's
+                // necessary.
+                self.update_control_bar_clock();
             }
         }
     }
@@ -540,11 +526,12 @@ impl GrooveApp {
         } else {
             self.skip_to_start();
         }
+        self.update_control_bar_clock();
     }
 
     fn skip_to_start(&mut self) {
-        self.control_bar_view.update(ControlBarInput::SetClock(0));
         self.orchestrator.update(GrooveInput::SkipToStart);
+        self.update_control_bar_clock();
     }
 
     fn post_to_midi_handler(&mut self, input: MidiHandlerInput) {
@@ -741,6 +728,7 @@ impl GrooveApp {
                 // TODO: If we were waiting for this to shut down, then
                 // record that we're ready. For now, it's nice to know, but
                 // we won't do anything about it.
+                self.received_midi_quit = true;
             }
             MidiHandlerEvent::InputPorts(ports) => {
                 self.midi_input_ports = ports;
@@ -818,6 +806,11 @@ impl GrooveApp {
         }
         None
     }
+
+    fn update_control_bar_clock(&mut self) {
+        self.control_bar
+            .set_clock(self.orchestrator.clock().frames());
+    }
 }
 
 /// GuiState helps with GUI drawing. It gets called during AppMessage::Tick with
@@ -829,6 +822,7 @@ struct GuiState {
 
     orchestrator: Arc<Mutex<Orchestrator>>,
 }
+#[allow(dead_code)]
 impl GuiState {
     fn new(orchestrator: Arc<Mutex<Orchestrator>>) -> Self {
         Self {

@@ -10,7 +10,7 @@ use core::fmt::Debug;
 use crossbeam::deque::Worker;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
-    time::{ClockNano, TimeSignature},
+    time::{Clock, ClockNano, TimeSignature},
     traits::{Performs, Resets},
     ParameterType, StereoSample,
 };
@@ -59,9 +59,9 @@ pub struct Orchestrator {
     title: Option<String>,
     store: Store,
 
-    sample_rate: Option<usize>,
-    time_signature: TimeSignature,
-    bpm: ParameterType,
+    // This is the master clock.
+    clock: Clock,
+    is_performing: bool,
 
     main_mixer_uid: usize,
     pattern_manager_uid: usize,
@@ -95,9 +95,7 @@ impl Orchestrator {
         #[cfg(feature = "metrics")]
         self.metrics.entity_count.mark();
 
-        if let Some(sample_rate) = self.sample_rate() {
-            entity.as_resets_mut().reset(sample_rate);
-        }
+        entity.as_resets_mut().reset(self.clock.sample_rate());
         let uid = self.store.add(uvid, entity);
 
         #[cfg(feature = "metrics")]
@@ -515,9 +513,8 @@ impl Orchestrator {
         let mut r = Self {
             uid: Default::default(),
             title: Some("Untitled".to_string()),
-            sample_rate: Default::default(),
-            time_signature: clock_params.time_signature().clone(),
-            bpm: clock_params.bpm(),
+            clock: Clock::new_with(clock_params),
+            is_performing: Default::default(),
             store: Default::default(),
             main_mixer_uid: Default::default(),
             pattern_manager_uid: Default::default(),
@@ -540,7 +537,7 @@ impl Orchestrator {
         );
         r.sequencer_uid = r.add_with_uvid(
             Entity::Sequencer(Box::new(Sequencer::new_with(SequencerNano {
-                bpm: clock_params.bpm(),
+                bpm: r.bpm(),
             }))),
             Self::BEAT_SEQUENCER_UVID,
         );
@@ -723,47 +720,44 @@ impl Orchestrator {
         buffer: &mut [StereoSample],
         quiet: bool,
     ) -> anyhow::Result<Performance> {
-        if let Some(sample_rate) = self.sample_rate {
-            let mut tick_count = 0;
-            let performance = Performance::new_with(sample_rate);
-            let progress_indicator_quantum: usize = sample_rate / 2;
-            let mut next_progress_indicator: usize = progress_indicator_quantum;
+        let sample_rate = self.clock.sample_rate();
+        let mut tick_count = 0;
+        let performance = Performance::new_with(sample_rate);
+        let progress_indicator_quantum: usize = sample_rate / 2;
+        let mut next_progress_indicator: usize = progress_indicator_quantum;
 
-            self.skip_to_start();
-            self.play();
-            loop {
-                // If we want external MIDI to work here, then we need to figure out what to do with commands.
-                let (_commands, ticks_completed) = self.tick(buffer);
-                if next_progress_indicator <= tick_count {
-                    if !quiet {
-                        print!(".");
-                        io::stdout().flush().unwrap();
-                    }
-                    next_progress_indicator += progress_indicator_quantum;
+        self.skip_to_start();
+        self.play();
+        loop {
+            // If we want external MIDI to work here, then we need to figure out what to do with commands.
+            let (_commands, ticks_completed) = self.tick(buffer);
+            if next_progress_indicator <= tick_count {
+                if !quiet {
+                    print!(".");
+                    io::stdout().flush().unwrap();
                 }
-                tick_count += ticks_completed;
-                if ticks_completed < buffer.len() {
+                next_progress_indicator += progress_indicator_quantum;
+            }
+            tick_count += ticks_completed;
+            if ticks_completed < buffer.len() {
+                break;
+            }
+            for (i, sample) in buffer.iter().enumerate() {
+                if i < ticks_completed {
+                    performance.worker.push(*sample);
+                } else {
                     break;
                 }
-                for (i, sample) in buffer.iter().enumerate() {
-                    if i < ticks_completed {
-                        performance.worker.push(*sample);
-                    } else {
-                        break;
-                    }
-                }
             }
-            if !quiet {
-                println!();
-            }
-            #[cfg(feature = "metrics")]
-            if self.should_output_perf {
-                self.metrics.report();
-            }
-            Ok(performance)
-        } else {
-            Err(anyhow!("Can't perform without valid sample rate"))
         }
+        if !quiet {
+            println!();
+        }
+        #[cfg(feature = "metrics")]
+        if self.should_output_perf {
+            self.metrics.report();
+        }
+        Ok(performance)
     }
 
     /// Runs the whole world for the given number of frames, returning each
@@ -778,6 +772,13 @@ impl Orchestrator {
         let tick_count = samples.len();
         let (commands, ticks_completed) = self.handle_tick(tick_count);
         self.gather_audio(samples);
+
+        if self.is_performing {
+            self.clock.tick_batch(ticks_completed);
+        }
+        if ticks_completed < tick_count {
+            self.is_performing = false;
+        }
 
         (commands, ticks_completed)
     }
@@ -795,8 +796,8 @@ impl Orchestrator {
         &self.last_track_samples
     }
 
-    pub fn sample_rate(&self) -> Option<usize> {
-        self.sample_rate
+    pub fn sample_rate(&self) -> usize {
+        self.clock.sample_rate()
     }
 
     #[deprecated = "Call reset() instead"]
@@ -805,11 +806,11 @@ impl Orchestrator {
     }
 
     pub fn time_signature(&self) -> &TimeSignature {
-        &self.time_signature
+        &self.clock.time_signature()
     }
 
     pub fn bpm(&self) -> f64 {
-        self.bpm
+        self.clock.bpm()
     }
 
     pub fn title(&self) -> Option<String> {
@@ -834,7 +835,11 @@ impl Orchestrator {
     }
 
     pub fn set_bpm(&mut self, bpm: ParameterType) {
-        self.bpm = bpm;
+        self.clock.set_bpm(bpm);
+    }
+
+    pub fn clock(&self) -> &Clock {
+        &self.clock
     }
 }
 impl Performs for Orchestrator {
@@ -849,6 +854,7 @@ impl Performs for Orchestrator {
     // start doing work, but they won't actually get the time-slice to do the
     // work.
     fn play(&mut self) {
+        self.is_performing = true;
         for entity in self.store.values_mut() {
             if let Some(controller) = entity.as_is_controller_mut() {
                 controller.play();
@@ -865,6 +871,7 @@ impl Performs for Orchestrator {
     // Maybe there should be a relationship with stop() and mute. Or perhaps
     // effects that are susceptible to feedback should treat stop() differently.
     fn stop(&mut self) {
+        self.is_performing = false;
         for entity in self.store.values_mut() {
             if let Some(controller) = entity.as_is_controller_mut() {
                 controller.stop();
@@ -873,6 +880,7 @@ impl Performs for Orchestrator {
     }
 
     fn skip_to_start(&mut self) {
+        self.clock.seek(0);
         for entity in self.store.values_mut() {
             if let Some(controller) = entity.as_is_controller_mut() {
                 controller.skip_to_start();
@@ -882,7 +890,7 @@ impl Performs for Orchestrator {
 }
 impl Resets for Orchestrator {
     fn reset(&mut self, sample_rate: usize) {
-        self.sample_rate = Some(sample_rate);
+        self.clock.reset(sample_rate);
         self.store.reset(sample_rate);
     }
 }

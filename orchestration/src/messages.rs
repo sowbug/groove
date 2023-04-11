@@ -6,7 +6,6 @@ use crate::entities::OtherEntityMessage;
 use groove_core::{
     midi::{MidiChannel, MidiMessage},
     traits::MessageBounds,
-    StereoSample,
 };
 use groove_entities::EntityMessage;
 use std::fmt::Debug;
@@ -45,10 +44,6 @@ impl MessageBounds for GrooveInput {}
 #[derive(Clone, Debug)]
 pub enum GrooveEvent {
     EntityMessage(usize, EntityMessage),
-
-    /// Each device's most recent audio info. (uid, sample). If a device is
-    /// skipped, it means that its output hasn't changed.
-    EntityAudioOutput(Vec<(usize, StereoSample)>),
 
     /// Indicates that an Orchestrator performance has begun. The app should
     /// adjust the GUI state accordingly.

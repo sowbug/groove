@@ -203,11 +203,11 @@ pub(crate) enum ControlBarEvent {
 }
 
 #[derive(Debug)]
-pub(crate) struct ControlBarView {
+pub(crate) struct ControlBar {
     clock: Clock,
     audio_buffer_fullness: Normal,
 }
-impl ControlBarView {
+impl ControlBar {
     pub fn new_with(clock: Clock) -> Self {
         Self {
             clock,
@@ -240,8 +240,12 @@ impl ControlBarView {
         }
     }
 
-    fn set_clock(&mut self, frames: usize) {
+    pub fn set_clock(&mut self, frames: usize) {
         self.clock.seek(frames);
+    }
+
+    pub(crate) fn tick_batch(&mut self, count: usize) {
+        self.clock.tick_batch(count);
     }
 
     fn set_bpm(&mut self, bpm: ParameterType) {
