@@ -83,8 +83,16 @@ impl<V: IsStereoSampleVoice> Synthesizer<V> {
         self.gain
     }
 
+    pub fn set_gain(&mut self, gain: Normal) {
+        self.gain = gain;
+    }
+
     pub fn pan(&self) -> BipolarNormal {
         self.pan
+    }
+
+    pub fn set_pan(&mut self, pan: BipolarNormal) {
+        self.pan = pan;
     }
 
     pub fn sample_rate(&self) -> usize {

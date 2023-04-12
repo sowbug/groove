@@ -377,7 +377,19 @@ impl WelshSynth {
     }
 
     pub fn set_gain(&mut self, gain: Normal) {
+        // This seems like a lot of duplication, but I think it's OK. The outer
+        // synth handles automation. The inner synth needs a single source of
+        // gain/pan, and the inner synth can't propagate to the voices because
+        // (1) it doesn't actually know whether the voice handles those things,
+        // and (2) I'm not sure we want to codify whether gain/pan are per-voice
+        // or per-synth, meaning that the propagation is better placed in the
+        // outer synth.
+        //
+        // All that said, I'm still getting used to composition over
+        // inheritance. It feels weird for the concrete case to be at the top.
+        // Maybe this is all just fine.
         self.gain = gain;
+        self.inner_synth.set_gain(gain);
         self.inner_synth.voices_mut().for_each(|v| v.set_gain(gain));
     }
 
@@ -387,6 +399,7 @@ impl WelshSynth {
 
     pub fn set_pan(&mut self, pan: BipolarNormal) {
         self.pan = pan;
+        self.inner_synth.set_pan(pan);
         self.inner_synth.voices_mut().for_each(|v| v.set_pan(pan));
     }
 
