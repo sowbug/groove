@@ -372,7 +372,7 @@ impl GrooveApp {
             }
             ControlBarEvent::OpenProject => {
                 return Some(Command::perform(
-                    Preferences::open_dialog(),
+                    gui::persistence::open_dialog(),
                     AppMessage::OpenDialogComplete,
                 ))
             }
@@ -387,7 +387,7 @@ impl GrooveApp {
                     let mut sample_buffer = [StereoSample::SILENCE; 64];
                     if let Ok(performance) = o.run_performance(&mut sample_buffer, true) {
                         return Some(Command::perform(
-                            Preferences::export_to_wav(performance),
+                            gui::persistence::export_to_wav(performance),
                             AppMessage::ExportComplete,
                         ));
                     }
@@ -398,7 +398,7 @@ impl GrooveApp {
                     let mut sample_buffer = [StereoSample::SILENCE; 64];
                     if let Ok(performance) = o.run_performance(&mut sample_buffer, true) {
                         return Some(Command::perform(
-                            Preferences::export_to_mp3(performance),
+                            gui::persistence::export_to_mp3(performance),
                             AppMessage::ExportComplete,
                         ));
                     }
