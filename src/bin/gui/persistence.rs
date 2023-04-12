@@ -1,7 +1,11 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove::util::{PathType, Paths};
+use groove::{
+    util::{PathType, Paths},
+    Orchestrator,
+};
 use groove_orchestration::{helpers::IOHelper, Performance};
+use groove_settings::SongSettings;
 use native_dialog::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -88,7 +92,30 @@ impl Preferences {
         Ok(())
     }
 }
+}
 
+pub(crate) async fn open_dialog() -> Result<Option<PathBuf>, OpenError> {
+    match FileDialog::new()
+        .add_filter("YAML", &["yml", "yaml"])
+        .add_filter("Groove Projects", &["nsn"])
+        .show_open_single_file()
+    {
+        Ok(path) => {
+            if let Some(path) = path {
+                // The user selected a file
+                Ok(Some(path))
+            } else {
+                // The user canceled
+                Ok(None)
+            }
+        }
+        Err(e) => {
+            // something went wrong
+            eprintln!("open dialog error: {:?}", e);
+            Err(OpenError::Unknown)
+        }
+    }
+}
 pub(crate) async fn open_dialog() -> Result<Option<PathBuf>, OpenError> {
     match FileDialog::new()
         .add_filter("YAML", &["yml", "yaml"])
@@ -123,22 +150,32 @@ pub(crate) async fn export_to_wav(performance: Performance) -> Result<(), SaveEr
     }
     Err(SaveError::Write)
 }
-
-    pub(crate) async fn export_to_mp3(performance: Performance) -> Result<(), SaveError> {
-        if let Ok(Some(path)) = FileDialog::new()
-            .set_filename("output.mp3")
-            .show_save_single_file()
-        {
-            // TODO: have to find a properly licensed MP3 encoding library
-            if IOHelper::send_performance_to_file(&performance, &path).is_ok() {
-                return Ok(());
-            }
+pub(crate) async fn export_to_wav(performance: Performance) -> Result<(), SaveError> {
+    if let Ok(Some(path)) = FileDialog::new()
+        .set_filename("output.wav")
+        .show_save_single_file()
+    {
+        if IOHelper::send_performance_to_file(&performance, &path).is_ok() {
+            return Ok(());
         }
-        Err(SaveError::Write)
     }
+    Err(SaveError::Write)
 }
 
-pub(crate) async fn load_project(filename: PathBuf) -> Result<(String, String), LoadError> {
+pub(crate) async fn export_to_mp3(performance: Performance) -> Result<(), SaveError> {
+    if let Ok(Some(path)) = FileDialog::new()
+        .set_filename("output.mp3")
+        .show_save_single_file()
+    {
+        // TODO: have to find a properly licensed MP3 encoding library
+        if IOHelper::send_performance_to_file(&performance, &path).is_ok() {
+            return Ok(());
+        }
+    }
+    Err(SaveError::Write)
+}
+
+pub(crate) async fn load_project(filename: PathBuf) -> Result<(Orchestrator, String), LoadError> {
     use async_std::prelude::*;
 
     if let Some(filename) = filename.to_str() {
@@ -152,8 +189,13 @@ pub(crate) async fn load_project(filename: PathBuf) -> Result<(String, String), 
         file.read_to_string(&mut contents)
             .await
             .map_err(|_| LoadError::File)?;
-        Ok((filename.to_string(), contents))
-    } else {
-        Err(LoadError::File)
+
+        if let Ok(settings) = serde_yaml::from_str::<SongSettings>(contents.as_str()) {
+            if let Ok(instance) = settings.instantiate(&Paths::assets_path(PathType::Global), false)
+            {
+                return Ok((instance, filename.to_string()));
+            }
+        }
     }
+    Err(LoadError::File)
 }

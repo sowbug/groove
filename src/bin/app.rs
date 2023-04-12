@@ -12,7 +12,6 @@ use groove::{
         EngineEvent, EngineInput, EngineSubscription, MidiHandlerEvent, MidiHandlerInput,
         MidiPortDescriptor, MidiSubscription,
     },
-    util::{PathType, Paths},
     Orchestrator, {DEFAULT_BPM, DEFAULT_MIDI_TICKS_PER_SECOND},
 };
 use groove_core::{
@@ -22,7 +21,6 @@ use groove_core::{
 };
 use groove_entities::EntityMessage;
 use groove_orchestration::messages::{GrooveEvent, GrooveInput};
-use groove_settings::SongSettings;
 use gui::{
     persistence::{self, LoadError, OpenError, Preferences, SaveError},
     views::{ControlBar, ControlBarEvent, View, ViewMessage},
@@ -52,7 +50,7 @@ enum State {
     Playing,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum AppMessage {
     ViewMessage(ViewMessage),
     ControlBarEvent(ControlBarEvent),
@@ -64,7 +62,7 @@ enum AppMessage {
     OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
     PrefsLoaded(Result<Preferences, LoadError>),
     PrefsSaved(Result<(), SaveError>),
-    ProjectFileLoaded(Result<(String, String), LoadError>),
+    ProjectFileLoaded(Result<(Orchestrator, String), LoadError>),
 }
 
 struct GrooveApp {
@@ -186,18 +184,12 @@ impl Application for GrooveApp {
                 self.preferences = Preferences::default();
                 eprintln!("AppMessage::PrefsLoaded: {:?}", e);
             }
-            AppMessage::ProjectFileLoaded(Ok((filename, project))) => {
-                if let Ok(settings) = serde_yaml::from_str::<SongSettings>(project.as_str()) {
-                    if let Ok(instance) =
-                        settings.instantiate(&Paths::assets_path(PathType::Global), false)
-                    {
-                        self.preferences.last_project_filename = Some(filename);
-                        self.project_title = instance.title();
-                        let sample_rate = self.orchestrator.sample_rate();
-                        self.orchestrator = instance;
-                        self.orchestrator.reset(sample_rate);
-                    }
-                }
+            AppMessage::ProjectFileLoaded(Ok((instance, filename))) => {
+                self.preferences.last_project_filename = Some(filename);
+                self.project_title = instance.title();
+                let sample_rate = self.orchestrator.sample_rate();
+                self.orchestrator = instance;
+                self.orchestrator.reset(sample_rate);
                 self.post_to_engine(EngineInput::StartAudio);
             }
             AppMessage::ProjectFileLoaded(Err(e)) => {
@@ -399,9 +391,11 @@ impl GrooveApp {
                 }
             }
             ControlBarEvent::OpenProject => {
+                self.stop_playback();
+                self.skip_to_start();
                 self.post_to_engine(EngineInput::PauseAudio);
                 return Some(Command::perform(
-                    gui::persistence::open_dialog(),
+                    persistence::open_dialog(),
                     AppMessage::OpenDialogComplete,
                 ));
             }
@@ -415,8 +409,10 @@ impl GrooveApp {
                 let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
                 if let Ok(performance) = self.orchestrator.run_performance(&mut sample_buffer, true)
                 {
+                    self.stop_playback();
+                    self.skip_to_start();
                     return Some(Command::perform(
-                        Preferences::export_to_wav(performance),
+                        persistence::export_to_wav(performance),
                         AppMessage::ExportComplete,
                     ));
                 }
@@ -425,8 +421,10 @@ impl GrooveApp {
                 let mut sample_buffer = [StereoSample::SILENCE; SAMPLE_BUFFER_SIZE];
                 if let Ok(performance) = self.orchestrator.run_performance(&mut sample_buffer, true)
                 {
+                    self.stop_playback();
+                    self.skip_to_start();
                     return Some(Command::perform(
-                        Preferences::export_to_mp3(performance),
+                        persistence::export_to_mp3(performance),
                         AppMessage::ExportComplete,
                     ));
                 }
