@@ -24,7 +24,7 @@ use groove_entities::EntityMessage;
 use groove_orchestration::messages::{GrooveEvent, GrooveInput};
 use groove_settings::SongSettings;
 use gui::{
-    persistence::{LoadError, OpenError, Preferences, SaveError},
+    persistence::{self, LoadError, OpenError, Preferences, SaveError},
     views::{ControlBar, ControlBarEvent, View, ViewMessage},
     GuiStuff,
 };
@@ -59,12 +59,12 @@ enum AppMessage {
     EngineEvent(EngineEvent),
     Event(iced::Event),
     ExportComplete(Result<(), SaveError>),
-    // GrooveEvent(GrooveEvent),
     MidiHandlerInput(MidiHandlerInput),
     MidiHandlerEvent(MidiHandlerEvent),
     OpenDialogComplete(Result<Option<PathBuf>, OpenError>),
     PrefsLoaded(Result<Preferences, LoadError>),
     PrefsSaved(Result<(), SaveError>),
+    ProjectFileLoaded(Result<(String, String), LoadError>),
 }
 
 struct GrooveApp {
@@ -181,9 +181,27 @@ impl Application for GrooveApp {
                 self.is_pref_load_complete = true;
                 eprintln!("prefs have loaded successfully.")
             }
-            AppMessage::PrefsLoaded(Err(_)) => {
+            AppMessage::PrefsLoaded(Err(e)) => {
                 self.is_pref_load_complete = true;
                 self.preferences = Preferences::default();
+                eprintln!("AppMessage::PrefsLoaded: {:?}", e);
+            }
+            AppMessage::ProjectFileLoaded(Ok((filename, project))) => {
+                if let Ok(settings) = serde_yaml::from_str::<SongSettings>(project.as_str()) {
+                    if let Ok(instance) =
+                        settings.instantiate(&Paths::assets_path(PathType::Global), false)
+                    {
+                        self.preferences.last_project_filename = Some(filename);
+                        self.project_title = instance.title();
+                        let sample_rate = self.orchestrator.sample_rate();
+                        self.orchestrator = instance;
+                        self.orchestrator.reset(sample_rate);
+                    }
+                }
+                self.post_to_engine(EngineInput::StartAudio);
+            }
+            AppMessage::ProjectFileLoaded(Err(e)) => {
+                eprintln!("AppMessage::ProjectFileLoaded: {:?}", e);
             }
             // AppMessage::Tick(_now) => {
             //     // if let Ok(o) = self.orchestrator.lock() {
@@ -230,7 +248,10 @@ impl Application for GrooveApp {
                 Ok(path) => {
                     if let Some(path) = path {
                         if let Some(path) = path.to_str() {
-                            self.load_project(path);
+                            return Command::perform(
+                                persistence::load_project(path.into()),
+                                AppMessage::ProjectFileLoaded,
+                            );
                         }
                     }
                 }
@@ -332,11 +353,6 @@ impl GrooveApp {
             GrooveEvent::MidiToExternal(channel, message) => {
                 self.post_to_midi_handler(MidiHandlerInput::Midi(channel, message));
             }
-            GrooveEvent::ProjectLoaded(filename, title) => {
-                self.preferences.last_project_filename = Some(filename);
-                self.project_title = title;
-                // self.entity_view.reset();
-            }
             GrooveEvent::EntityMessage(uid, message) => match message {
                 EntityMessage::ExpandPressed => {
                     // Find whoever else is expanded and maybe collapse them
@@ -430,8 +446,11 @@ impl GrooveApp {
                 // done loading, so this boolean and the corresponding
                 // filename should be set by the time we look at it.
                 if self.preferences.should_reload_last_project {
-                    if let Some(last_project_filename) = &self.preferences.last_project_filename {
-                        self.load_project(last_project_filename.clone().as_str());
+                    if let Some(filename) = &self.preferences.last_project_filename {
+                        return Some(Command::perform(
+                            persistence::load_project(filename.into()),
+                            AppMessage::ProjectFileLoaded,
+                        ));
                     }
                 }
             }
@@ -452,24 +471,6 @@ impl GrooveApp {
             }
         }
         None
-    }
-
-    fn load_project(&mut self, filename: &str) {
-        let mut path = Paths::projects_path(PathType::Global);
-        path.push(filename);
-        if let Ok(settings) = SongSettings::new_from_yaml_file(path.to_str().unwrap()) {
-            if let Ok(instance) = settings.instantiate(&Paths::assets_path(PathType::Global), false)
-            {
-                let title = instance.title();
-
-                // Tell the app we've loaded the project
-                self.handle_groove_event(GrooveEvent::ProjectLoaded(filename.to_string(), title));
-                let sample_rate = self.orchestrator.sample_rate();
-                self.orchestrator = instance;
-                self.orchestrator.reset(sample_rate);
-            }
-        }
-        self.post_to_engine(EngineInput::StartAudio);
     }
 
     fn generate_audio(&mut self, buffer_count: u8) {

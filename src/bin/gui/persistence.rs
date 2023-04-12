@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Mike Tsao. All rights reserved.
 
-use groove::util::Paths;
+use groove::util::{PathType, Paths};
 use groove_orchestration::{helpers::IOHelper, Performance};
 use native_dialog::FileDialog;
 use serde::{Deserialize, Serialize};
@@ -124,15 +124,36 @@ pub(crate) async fn export_to_wav(performance: Performance) -> Result<(), SaveEr
     Err(SaveError::Write)
 }
 
-pub(crate) async fn export_to_mp3(performance: Performance) -> Result<(), SaveError> {
-    if let Ok(Some(path)) = FileDialog::new()
-        .set_filename("output.mp3")
-        .show_save_single_file()
-    {
-        // TODO: have to find a properly licensed MP3 encoding library
-        if IOHelper::send_performance_to_file(&performance, &path).is_ok() {
-            return Ok(());
+    pub(crate) async fn export_to_mp3(performance: Performance) -> Result<(), SaveError> {
+        if let Ok(Some(path)) = FileDialog::new()
+            .set_filename("output.mp3")
+            .show_save_single_file()
+        {
+            // TODO: have to find a properly licensed MP3 encoding library
+            if IOHelper::send_performance_to_file(&performance, &path).is_ok() {
+                return Ok(());
+            }
         }
+        Err(SaveError::Write)
     }
-    Err(SaveError::Write)
+}
+
+pub(crate) async fn load_project(filename: PathBuf) -> Result<(String, String), LoadError> {
+    use async_std::prelude::*;
+
+    if let Some(filename) = filename.to_str() {
+        let mut path = Paths::projects_path(PathType::Global);
+        path.push(filename);
+
+        let mut contents = String::new();
+        let mut file = async_std::fs::File::open(path)
+            .await
+            .map_err(|_| LoadError::File)?;
+        file.read_to_string(&mut contents)
+            .await
+            .map_err(|_| LoadError::File)?;
+        Ok((filename.to_string(), contents))
+    } else {
+        Err(LoadError::File)
+    }
 }
