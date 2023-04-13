@@ -18,7 +18,9 @@ A digital audio workstation (DAW) engine.
 1. Don't get your hopes up.
 2. Download the [release](https://github.com/sowbug/groove/releases) for your OS
    and unzip it somewhere. If you're on an ARM Chromebook or a Raspberry Pi, try
-   the `aarch64` build first, and if that doesn't work, try `armv7`.
+   the `aarch64` build first, and if that doesn't work, try `armv7`. You can
+   also try one of the installers (currently `.deb` for Linux and `.msi` for
+   Windows).
 3. Using the command line, `cd` to the directory you just unzipped.
 4. Render `projects/demos/effects/drums-filtered-24db.yaml` with `groove-cli`,
    passing the `--debug` flag. For Windows, that's `groove-cli --debug
