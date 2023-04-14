@@ -606,23 +606,36 @@ impl Viewable for BiQuadFilterLowPass24dbNano {
     type Message = BiQuadFilterLowPass24dbMessage;
 
     fn view(&self) -> Element<Self::Message> {
-        let slider = HSlider::new(
+        let cutoff_slider = HSlider::new(
             NormalParam {
                 value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
                 default: IcedNormal::from_clipped(1.0),
             },
             |n| BiQuadFilterLowPass24dbMessage::Cutoff(Normal::from(n.as_f32()).into()),
         );
-        row![
-            container(slider).width(iced::Length::FillPortion(1)),
-            container(GuiStuff::<EntityMessage>::container_text(&format!(
-                "cutoff: {:.1}Hz passband_ripple: {:0.3}",
-                self.cutoff().value(),
-                self.passband_ripple()
-            )))
+        let passband_slider = HSlider::new(
+            NormalParam {
+                value: IcedNormal::from_clipped(
+                    Normal::from(self.passband_ripple()).value_as_f32(),
+                ),
+                default: IcedNormal::from_clipped(1.0),
+            },
+            |n| BiQuadFilterLowPass24dbMessage::PassbandRipple(Normal::from(n.as_f32()).into()),
+        );
+        Row::new()
+            .push(
+                Column::new()
+                    .push(Container::new(cutoff_slider).width(iced::Length::FillPortion(1)))
+                    .push(Container::new(GuiStuff::<EntityMessage>::container_text(
+                        &format!("cutoff: {:.1}Hz", self.cutoff().value(),),
+                    )))
+                    .push(Container::new(passband_slider).width(iced::Length::FillPortion(1)))
+                    .push(Container::new(GuiStuff::<EntityMessage>::container_text(
+                        &format!(" passband_ripple: {:0.3}", self.passband_ripple()),
+                    ))),
+            )
             .width(iced::Length::FillPortion(1))
-        ]
-        .into()
+            .into()
     }
 }
 impl Viewable for BiQuadFilterAllPassNano {
