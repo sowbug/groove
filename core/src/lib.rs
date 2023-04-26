@@ -337,9 +337,19 @@ impl<const LOWER: i8, const UPPER: i8> From<f32> for RangedF64<LOWER, UPPER> {
 
 /// A Normal is a [RangedF64] whose range is [0.0, 1.0].
 pub type Normal = RangedF64<0, 1>;
+impl Normal {
+    pub const fn range() -> RangeInclusive<f64> {
+        0.0..=1.0
+    }
+}
 
 /// A BipolarNormal is a [RangedF64] whose range is [-1.0, 1.0].
 pub type BipolarNormal = RangedF64<-1, 1>;
+impl BipolarNormal {
+    pub const fn range() -> RangeInclusive<f64> {
+        -1.0..=1.0
+    }
+}
 
 impl From<Sample> for Normal {
     // Sample -1.0..=1.0
