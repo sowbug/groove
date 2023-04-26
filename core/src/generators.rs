@@ -13,12 +13,25 @@ use nalgebra::{Matrix3, Matrix3x1};
 use std::str::FromStr;
 use std::{f64::consts::PI, fmt::Debug, ops::Range};
 use strum::EnumCount;
-use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
+use strum_macros::{
+    Display, EnumCount as EnumCountMacro, EnumIter, EnumString, FromRepr, IntoStaticStr,
+};
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, EnumCountMacro, FromRepr, PartialEq)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Display,
+    EnumCountMacro,
+    EnumIter,
+    FromRepr,
+    PartialEq,
+    IntoStaticStr,
+)]
 #[cfg_attr(
     feature = "serialization",
     derive(Serialize, Deserialize),

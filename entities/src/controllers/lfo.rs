@@ -6,10 +6,10 @@ use groove_core::{
     generators::{Oscillator, OscillatorNano, Waveform},
     midi::HandlesMidi,
     traits::{Generates, IsController, Performs, Resets, Ticks, TicksWithMessages},
-    FrequencyHz, Normal,
+    FrequencyHz, Normal, ParameterType,
 };
 use groove_proc_macros::{Nano, Uid};
-use std::str::FromStr;
+use std::{ops::RangeInclusive, str::FromStr};
 use strum::EnumCount;
 use strum_macros::{Display, EnumCount as EnumCountMacro, EnumString, FromRepr, IntoStaticStr};
 
@@ -76,6 +76,10 @@ impl LfoController {
             frequency: params.frequency(),
             is_performing: false,
         }
+    }
+
+    pub const fn frequency_range() -> RangeInclusive<ParameterType> {
+        0.0..=100.0
     }
 
     pub fn waveform(&self) -> Waveform {
