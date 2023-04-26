@@ -4,6 +4,7 @@
 
 use control::F32ControlValue;
 use groove_proc_macros::Nano;
+use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::{
     fmt::Display,
@@ -478,6 +479,10 @@ pub struct FrequencyHz(ParameterType);
 impl FrequencyHz {
     pub const FREQUENCY_TO_LINEAR_BASE: ParameterType = 800.0;
     pub const FREQUENCY_TO_LINEAR_COEFFICIENT: ParameterType = 25.0;
+
+    pub const fn range() -> RangeInclusive<ParameterType> {
+        0.0..=20500.0
+    }
 
     // https://docs.google.com/spreadsheets/d/1uQylh2h77-fuJ6OM0vjF7yjRXflLFP0yQEnv5wbaP2c/edit#gid=0
     // =LOGEST(Sheet1!B2:B23, Sheet1!A2:A23,true, false)
