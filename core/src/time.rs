@@ -56,6 +56,14 @@ pub struct Clock {
     /// elapsed frames.
     seconds: ParameterType,
 
+    /// The number of measures that have elapsed according to the time
+    /// signature. This is always an integer number, unlike beats, which can be
+    /// fractional.
+    ///
+    /// TODO: is it actually useful for beats to be a float? Check and see
+    /// whether the fractional use cases were actually using seconds.
+    measures: usize,
+
     /// Beats elapsed since clock creation. Derived from seconds and BPM.
     beats: ParameterType,
 
@@ -80,6 +88,7 @@ impl Clock {
             frames: Default::default(),
             seconds: Default::default(),
             beats: Default::default(),
+            measures: Default::default(),
             midi_ticks: Default::default(),
             was_reset: true,
             uid: Default::default(),
@@ -95,6 +104,9 @@ impl Clock {
     }
     pub fn seconds(&self) -> f64 {
         self.seconds
+    }
+    pub fn measures(&self) -> usize {
+        self.measures
     }
     pub fn beats(&self) -> f64 {
         self.beats
@@ -162,6 +174,7 @@ impl Clock {
     fn update_internals(&mut self) {
         self.seconds = self.seconds_for_frame(self.frames);
         self.beats = self.beats_for_frame(self.frames);
+        self.measures = self.beats as usize / self.time_signature.top;
         self.midi_ticks = self.midi_ticks_for_frame(self.frames);
     }
 

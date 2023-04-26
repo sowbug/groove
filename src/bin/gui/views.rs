@@ -37,8 +37,9 @@ use groove_entities::{
         ReverbNano,
     },
     instruments::{
-        Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Sampler,
-        SamplerMessage, SamplerNano, WelshSynth, WelshSynthMessage, WelshSynthNano,
+        Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Metronome,
+        MetronomeMessage, MetronomeNano, Sampler, SamplerMessage, SamplerNano, WelshSynth,
+        WelshSynthMessage, WelshSynthNano,
     },
     EntityMessage,
 };
@@ -941,6 +942,9 @@ impl Viewable for LfoController {
 impl Viewable for Limiter {
     type Message = LimiterMessage;
 }
+impl Viewable for Metronome {
+    type Message = MetronomeMessage;
+}
 impl Viewable for MidiTickSequencer {
     type Message = MidiTickSequencerMessage;
 }
@@ -1645,6 +1649,9 @@ enum ViewableEntities {
 
     #[views(effect, controllable)]
     Limiter(Limiter),
+
+    #[views(controllable, instrument)]
+    Metronome(Metronome),
 
     #[views(controller, midi)]
     MidiTickSequencer(MidiTickSequencer),

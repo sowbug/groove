@@ -31,8 +31,9 @@ use groove_entities::{
         ReverbNano,
     },
     instruments::{
-        Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Sampler,
-        SamplerMessage, SamplerNano, WelshSynth, WelshSynthMessage, WelshSynthNano,
+        Drumkit, DrumkitMessage, DrumkitNano, FmSynth, FmSynthMessage, FmSynthNano, Metronome,
+        MetronomeMessage, MetronomeNano, Sampler, SamplerMessage, SamplerNano, WelshSynth,
+        WelshSynthMessage, WelshSynthNano,
     },
     EntityMessage,
 };
@@ -125,6 +126,9 @@ enum Everything {
 
     #[everything(effect, controllable)]
     Limiter(Limiter),
+
+    #[everything(controllable, instrument, midi)]
+    Metronome(Metronome),
 
     #[everything(controller, midi)]
     MidiTickSequencer(MidiTickSequencer),

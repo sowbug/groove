@@ -17,6 +17,7 @@ use groove_core::{
 use groove_entities::{
     controllers::{PatternManager, Sequencer, SequencerNano},
     effects::Mixer,
+    instruments::{Metronome, MetronomeNano},
     EntityMessage,
 };
 use groove_proc_macros::Uid;
@@ -66,6 +67,7 @@ pub struct Orchestrator {
     main_mixer_uid: usize,
     pattern_manager_uid: usize,
     sequencer_uid: usize,
+    metronome_uid: usize,
 
     #[cfg(feature = "metrics")]
     metrics: DipstickWrapper,
@@ -82,6 +84,7 @@ impl Orchestrator {
     pub const MAIN_MIXER_UVID: &str = "main-mixer";
     pub const PATTERN_MANAGER_UVID: &str = "pattern-manager";
     pub const BEAT_SEQUENCER_UVID: &str = "beat-sequencer";
+    pub const METRONOME_UVID: &str = "metronome";
 
     #[cfg(feature = "metrics")]
     fn install_entity_metric(&mut self, uvid: Option<&str>, uid: usize) {
@@ -519,6 +522,7 @@ impl Orchestrator {
             main_mixer_uid: Default::default(),
             pattern_manager_uid: Default::default(),
             sequencer_uid: Default::default(),
+            metronome_uid: Default::default(),
             #[cfg(feature = "metrics")]
             metrics: Default::default(),
             should_output_perf: Default::default(),
@@ -541,6 +545,14 @@ impl Orchestrator {
             }))),
             Self::BEAT_SEQUENCER_UVID,
         );
+        // See https://github.com/sowbug/groove/issues/127. This is clunky
+        r.metronome_uid = r.add_with_uvid(
+            Entity::Metronome(Box::new(Metronome::new_with(MetronomeNano {
+                bpm: r.bpm(),
+            }))),
+            Self::METRONOME_UVID,
+        );
+        let _ = r.connect_to_main_mixer(r.metronome_uid);
 
         r
     }
