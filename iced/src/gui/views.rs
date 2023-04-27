@@ -617,7 +617,6 @@ impl Viewable for BiQuadFilterLowPass24db {
 
     fn view(&self) -> Element<Self::Message> {
         let cutoff_slider = HSlider::new(
-        let cutoff_slider = HSlider::new(
             NormalParam {
                 value: IcedNormal::from_clipped(Normal::from(self.cutoff()).value_as_f32()),
                 default: IcedNormal::from_clipped(1.0),
@@ -633,15 +632,17 @@ impl Viewable for BiQuadFilterLowPass24db {
             },
             |n| BiQuadFilterLowPass24dbMessage::PassbandRipple(Normal::from(n.as_f32()).into()),
         );
-        row![
-            container(cutoff_slider).width(iced::Length::FillPortion(1)),
-            container(passband_slider).width(iced::Length::FillPortion(1)),
-            container(GuiStuff::<EntityMessage>::container_text(&format!(
-                "cutoff: {:.1}Hz passband_ripple: {:0.3}",
-                self.cutoff().value(),
-                self.passband_ripple()
-            )))
-            .width(iced::Length::FillPortion(1))
+        Row::new()
+            .push(Container::new(cutoff_slider).width(iced::Length::FillPortion(1)))
+            .push(Container::new(passband_slider).width(iced::Length::FillPortion(1)))
+            .push(
+                Container::new(GuiStuff::<EntityMessage>::container_text(&format!(
+                    "cutoff: {:.1}Hz passband_ripple: {:0.3}",
+                    self.cutoff().value(),
+                    self.passband_ripple()
+                )))
+                .width(iced::Length::FillPortion(1)),
+            )
             .into()
     }
 }
